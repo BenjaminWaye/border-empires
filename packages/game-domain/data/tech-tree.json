@@ -127,7 +127,7 @@
       "branch": "manpower",
       "name": "Kiln Craft",
       "description": "Clay keeps better secrets than wood, especially from rats. The kiln now hums with a burst of new hands.",
-      "requires": "agriculture",
+      "requires": "organized-supply",
       "cost": {
         "gold": 10
       },
@@ -163,9 +163,7 @@
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockCaravanary": true,
-        "townGoldCapMult": 1.05,
-        "connectedTownStepBonusAdd": 0.05
+        "unlockCaravanary": true
       }
     },
     {
@@ -279,10 +277,7 @@
       "branch": "war",
       "name": "Standing Legion",
       "description": "Unlocks Dread Tower upgrades for existing Siege Towers.",
-      "prereqIds": [
-        "siegecraft",
-        "civil-service"
-      ],
+      "requires": "siegecraft",
       "cost": {
         "gold": 10
       },
@@ -303,8 +298,7 @@
       },
       "researchTimeSeconds": 54000,
       "effects": {
-        "unlockThunderBastion": true,
-        "attackVsFortsMult": 1.1
+        "unlockThunderBastion": true
       }
     },
     {
@@ -357,11 +351,11 @@
     },
     {
       "id": "global-trade-networks",
-      "tier": 2,
+      "tier": 3,
       "branch": "manpower",
       "name": "Rail & Wire Networks",
       "description": "Once the rails arrive, distance becomes an accounting problem.",
-      "requires": "organized-supply",
+      "requires": "remade-concordat",
       "cost": {
         "gold": 10
       },
@@ -402,11 +396,11 @@
     },
     {
       "id": "remade-concordat",
-      "tier": 3,
+      "tier": 2,
       "branch": "manpower",
       "name": "The Remade Concordat",
       "description": "A guild that keeps the manpower ledgers even when nobody's marching.",
-      "requires": "field-logistics",
+      "requires": "organized-supply",
       "cost": {
         "gold": 10
       },
@@ -417,7 +411,7 @@
     },
     {
       "id": "demographic-registry",
-      "tier": 3,
+      "tier": 5,
       "branch": "manpower",
       "name": "Demographic Registry",
       "description": "Once the ledgers know exactly who you have, the empire learns to make more of them.",
@@ -432,7 +426,7 @@
     },
     {
       "id": "grand-levy-doctrine",
-      "tier": 3,
+      "tier": 5,
       "branch": "manpower",
       "name": "Grand Levy Doctrine",
       "description": "The whole reserve, called up at once, whether the reserve likes it or not.",
@@ -457,8 +451,7 @@
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockSurveySweep": true,
-        "outpostVisionRadiusBonus": 1
+        "unlockSurveySweep": true
       }
     },
     {
@@ -488,8 +481,7 @@
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockSabotage": true,
-        "settlementSpeedMult": 1.05
+        "unlockSabotage": true
       }
     },
     {
@@ -505,8 +497,7 @@
       "researchTimeSeconds": 7200,
       "effects": {
         "unlockCustomsHouse": true,
-        "unlockAetherWall": true,
-        "dockGoldOutputMult": 1.1
+        "unlockAetherWall": true
       }
     },
     {
@@ -515,7 +506,7 @@
       "branch": "economy",
       "name": "Terrain Shaping",
       "description": "Once enough crystal is involved, even geography becomes negotiable.",
-      "requires": "surveying",
+      "requires": "mining",
       "cost": {
         "gold": 10
       },
@@ -536,8 +527,7 @@
       },
       "researchTimeSeconds": 28800,
       "effects": {
-        "unlockRevealEmpire": true,
-        "observatoryRangeBonus": 5
+        "unlockRevealEmpire": true
       }
     },
     {
@@ -562,8 +552,7 @@
       "name": "Sky Vessel Engineering",
       "prereqIds": [
         "beacon-towers",
-        "cryptography",
-        "steelworking"
+        "cryptography"
       ],
       "description": "Once the harbor learns to levitate, the neighbors stop sleeping soundly.",
       "cost": {
@@ -589,8 +578,7 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockRadarSystem": true,
-        "unlockStormfront": true
+        "unlockRadarSystem": true
       }
     },
     {
@@ -624,9 +612,7 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockExchangeHouse": true,
-        "unlockCityOverclock": true,
-        "settlementSpeedMult": 1.1
+        "unlockExchangeHouse": true
       }
     },
     {
@@ -634,10 +620,7 @@
       "tier": 5,
       "branch": "economy",
       "name": "Grand Bazaars",
-      "prereqIds": [
-        "imperial-roads",
-        "global-trade-networks"
-      ],
+      "requires": "imperial-roads",
       "description": "If every market in the world hates you, the project is functioning correctly.",
       "cost": {
         "gold": 10
@@ -652,10 +635,7 @@
       "tier": 4,
       "branch": "economy",
       "name": "Ambaric Engineering",
-      "prereqIds": [
-        "industrial-extraction",
-        "aeronautics"
-      ],
+      "requires": "industrial-extraction",
       "description": "Build enough of them and the empire starts sounding dangerous at night.",
       "cost": {
         "gold": 10
@@ -670,10 +650,7 @@
       "tier": 5,
       "branch": "war",
       "name": "Worldbreaker Doctrine",
-      "prereqIds": [
-        "steelworking",
-        "plastics"
-      ],
+      "requires": "steelworking",
       "description": "Why capture a district gracefully when you can simply remove it from geology? Fires the moment the cannon is built.",
       "cost": {
         "gold": 10
@@ -689,10 +666,7 @@
       "tier": 5,
       "branch": "war",
       "name": "Aegis Doctrine",
-      "prereqIds": [
-        "radar",
-        "plastics"
-      ],
+      "requires": "standing-army",
       "description": "Nothing says enlightened government like a city under glass.",
       "cost": {
         "gold": 10
@@ -708,10 +682,7 @@
       "tier": 5,
       "branch": "aether",
       "name": "Astral Doctrine",
-      "prereqIds": [
-        "radar",
-        "plastics"
-      ],
+      "requires": "radar",
       "description": "If the heavens will not visit the empire, the empire will launch a drydock at them.",
       "cost": {
         "gold": 10

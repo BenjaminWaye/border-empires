@@ -161,7 +161,7 @@ export const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
 // player-update-economy.ts/player-upkeep-incremental.ts/snapshot-economy-
 // helpers.ts/tile-detail-snapshot.ts naturally go inert).
 export const AIRPORT_CRYSTAL_UPKEEP_PER_MIN = 0;
-export const AIRPORT_BOMBARD_GOLD_COST = 5_000;
+export const AIRPORT_BOMBARD_GOLD_COST = 0;
 export const AIRPORT_BOMBARD_RANGE = 30;
 export const AIRPORT_BOMBARD_COOLDOWN_MS = 20 * 60_000;
 export const AIRPORT_BOMBARD_BASE_MISS_CHANCE = 0.15;
@@ -190,6 +190,7 @@ export const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
 // (see ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY), so this is belt-and-suspenders.
 export const ASTRAL_DOCK_LAUNCH_COOLDOWN_MS = 24 * 60 * 60_000;
 export const ASTRAL_DOCK_LAUNCH_DURATION_MS = 24 * 60 * 60_000;
+export const ASTRAL_DOCK_LAUNCH_GOLD_COST = 1_000;
 // Emperor-endorsement bonus (galaxy meta-layer Phase 1). Manually activated,
 // no cooldown between charges — a player can burn all 3 back-to-back.
 export const IMPERIAL_WARD_DURATION_MS = 10 * 60_000;

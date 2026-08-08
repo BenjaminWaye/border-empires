@@ -11,6 +11,7 @@ import {
   AIRPORT_BOMBARD_RANGE,
   ASTRAL_DOCK_LAUNCH_COOLDOWN_MS,
   ASTRAL_DOCK_LAUNCH_DURATION_MS,
+  ASTRAL_DOCK_LAUNCH_GOLD_COST,
   TERRAIN_SHAPING_COOLDOWN_MS,
   TERRAIN_SHAPING_GOLD_COST,
   WORLD_ENGINE_STRIKE_COOLDOWN_MS,
@@ -460,6 +461,11 @@ export function handleAstralDockLaunchCommand(context: RuntimeMapCommandContext,
     rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "ability on cooldown");
     return;
   }
+  if (actor.points < ASTRAL_DOCK_LAUNCH_GOLD_COST) {
+    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "insufficient gold to launch satellite");
+    return;
+  }
+  actor.points -= ASTRAL_DOCK_LAUNCH_GOLD_COST;
   context.setAbilityCooldownUntil(actor.id, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY, now + ASTRAL_DOCK_LAUNCH_DURATION_MS);
   context.setAbilityCooldownUntil(actor.id, "astral_dock_launch", now + ASTRAL_DOCK_LAUNCH_COOLDOWN_MS);
   context.emitPlayerMessage(command, {

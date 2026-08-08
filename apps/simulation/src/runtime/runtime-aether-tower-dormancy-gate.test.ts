@@ -82,7 +82,7 @@ describe("§5.4 Aether Tower dormancy gate", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 5_000, techIds: new Set(["signal-fires"]), strategicResources: { CRYSTAL: 500 } })],
+        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 5_000, techIds: new Set(["crystal-lattices"]), strategicResources: { CRYSTAL: 500 } })],
         ["player-2", buildPlayer("player-2", { isAi: true, manpower: 100 })]
       ]),
       initialState: {

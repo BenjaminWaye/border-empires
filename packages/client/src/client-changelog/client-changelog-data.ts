@@ -50,27 +50,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // Natural Wonders, fort/outpost upkeep rebalance, town food-slot demand,
   // and town vision-bonus entries pruned: aged out of the 6-day window.
   {
-    createdAt: 1785649123000, // 2026.08.02.1
-    introducedIn: "2026.08.02.1",
-    title: "First 5 Light Outposts no longer cost a FOOD slot",
-    why: "A FOOD slot requirement made early exploration compete with a player's actual economy for the same scarce resource, discouraging the frontier-pushing Light Outposts already exist to encourage.",
-    changes: [
-      "Your first 5 Light Outposts (earliest-built first) now cost 0 FOOD slots; only the 6th onward draws from your FOOD slot pool like other structures.",
-      "Both \"Build Light Outpost\" buttons — the direct build and the frontier expand+settle+build action — now correctly show and enforce this, disabling with \"Need a free FOOD slot\" only once it actually applies."
-    ]
-  },
-  {
-    createdAt: 1785618075910, // 2026.08.01.1
-    introducedIn: "2026.08.01.1",
-    title: "Rail Depot's Garrison Hall bonus quadrupled; stale crystal costs removed",
-    why: "Rail Depot's per-Garrison-Hall cap amplifier was only +75, a small fraction of a single Metropolis's 2,400 cap, undercutting the network investment it was meant to reward. Separately, several structures (Garrison Hall included) still displayed a CRYSTAL build cost left over from before the manpower-economy rewrite moved resource costs onto permanent slot occupation — that CRYSTAL amount was never actually charged, just confusing, stale copy.",
-    changes: [
-      "Rail Depot's network amplifier now grants +300 manpower cap per Garrison Hall (up from +75), on top of its existing +0.1 manpower/min per Garrison Hall.",
-      "Removed the leftover CRYSTAL build-cost line for Garrison Hall, Rail Depot, Customs House, Radar System, Exchange House, Airport, and the four monument parts — none of them have actually charged CRYSTAL since resource costs moved to permanent slot occupation; their real, current cost (manpower + slots) is unchanged and now displays correctly everywhere.",
-      "The structure-info popup's cost card now shows manpower cost for every structure (it previously omitted manpower entirely), and Garrison Hall/Rail Depot's effect descriptions now mention their manpower bonuses instead of only their secondary effects."
-    ]
-  },
-  {
     createdAt: 1785670919000, // 2026.08.02.2
     introducedIn: "2026.08.02.2",
     title: "Build Light Outpost menu no longer shows a FOOD slot cost for your free first 5",
@@ -346,7 +325,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1786174507000,
     introducedIn: "resource-reveal-settle-and-ribbon",
     title: "Fixed: settling near a hidden resource revealed it early, and the toolbar showed hidden resource types",
     why: "Iron, Supply, and Crystal are supposed to stay hidden until you've researched the tech that reveals them. That masking was already fixed for the streaming map view and for what you see on login, but settling next to a hidden resource (or capturing territory near one) still exposed it instantly through a separate reveal path. The toolbar's resource ribbon also always showed all four resource pills regardless of tech.",
@@ -356,7 +335,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now() + 1,
+    createdAt: 1786174507001,
     introducedIn: "resource-reveal-economy-panel",
     title: "Fixed: the detailed economy screen still listed hidden resources",
     why: "The ribbon fix hid Iron/Crystal/Supply from the toolbar, but the detailed economy screen (opened by tapping a resource, or from the panel nav) still showed a card for each one with a \"No access to this resource yet\" label — still revealing that the category exists before you've earned it.",
@@ -365,7 +344,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now() + 2,
+    createdAt: 1786174507002,
     introducedIn: "weapons-workshop",
     title: "New: Weapons Workshop",
     why: "The War branch needed a building that lets a town specialize for combat, and a new tech to reach it early.",
@@ -377,7 +356,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now() + 3,
+    createdAt: 1786174507003,
     introducedIn: "tech-tag-consistency",
     title: "Fixed: tech tags were inconsistent between the tech-tree card and the tech detail screen",
     why: "The tech-tree card and the tech detail screen could show a different set of unlock tags for the same tech, resource-reveal effects (like 'Reveals Crystal') never got a tag at all, and some techs showed only a redundant yellow text summary instead of tags.",
@@ -391,7 +370,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
   {
-    createdAt: Date.now() + 3,
+    createdAt: 1786174507004,
     introducedIn: "next",
     title: "Converters can now be pointed either direction: Refine or Sell off",
     why: "Fur Works, Iron Works, and Aether Condenser (and their Advanced tiers) each had one job: turn gold into a resource slot. Now every one of them can point either way in place. Refine works as before — gold upkeep manufactures 1 slot of its resource. Sell off runs the building in reverse: it consumes that same slot and pays out gold each day instead, with no gold upkeep while selling off. The old 1-per-empire limit on these buildings is gone entirely — build as many as you can afford in whichever direction your economy needs. A captured converter also can't be sold off immediately — it starts mode-locked for the same 60 minutes as a fresh flip, so capturing one isn't an instant payday.",
@@ -401,6 +380,20 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Flipping a converter's mode has a 60-minute cooldown, and a freshly built or freshly captured converter starts locked for the same 60 minutes.",
       "Sell off mode: no gold upkeep; pays 8 gold/day for Iron Works and Fur Works, 10 gold/day for Aether Condenser (Advanced tiers: 12 / 15 gold/day).",
       "The 1-per-empire cap on these buildings is removed — build and run as many as you want, in either mode."
+    ]
+  },
+  {
+    createdAt: 1786174512000, // 2026-08-08
+    introducedIn: "tech-tree-cleanup",
+    title: "Fixed: several structure descriptions in the tech tree showed the wrong numbers or the wrong building",
+    why: "Several structures (Assembly Works, Logistics Guild, Quartermaster's Office, Iron Levy, Population Bureau) fell through to a default and showed 'Siege Outpost' as their description. Rail Depot's description claimed it boosted the wrong building. Several structures also showed made-up upkeep costs that don't exist in the real game economy, and Aetherport's bombard and the Astral Dock's satellite launch had stale gold-cost text.",
+    changes: [
+      "Assembly Works, Logistics Guild, Quartermaster's Office, Iron Levy (and its part), and Population Bureau (and its part) now show their own correct description instead of Siege Outpost's.",
+      "Rail Depot's description now correctly says it amplifies Logistics Guild, not Ancillary Factory.",
+      "Removed fabricated upkeep costs from Aetherport, Astral Dock, Ambaric Tower, Resonance Grid, Aegis Dome, and Aegis Dome Part — none of these actually have per-minute upkeep.",
+      "Aetherport's bombard ability is now free to fire (was 5,000 gold) and requires 3 CRYSTAL slots to build (was 1).",
+      "The Astral Dock's satellite launch now costs 1,000 gold (was free) — text and in-game cost now match.",
+      "Removed the non-functional City Overclock button — it had no effect in-game."
     ]
   }
 ];
