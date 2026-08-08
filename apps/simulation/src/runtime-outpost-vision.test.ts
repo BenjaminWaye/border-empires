@@ -195,17 +195,17 @@ describe("reconcileOutpostVisionBonus dormancy transitions", () => {
     expect(coverage.tracked.get("player-2:5,5")).toBe(5);
   });
 
-  it("applies Survey Corps's tech radius on top of the base, and still zeroes it out while dormant", () => {
+  it("applies the base outpost vision radius, and still zeroes it out while dormant", () => {
     const coverage = fakeCoverage();
     let dormant = false;
     const deps: OutpostVisionCoverageDeps = {
-      players: new Map([["player-1", makePlayer("player-1", ["surveying"])]]),
+      players: new Map([["player-1", makePlayer("player-1")]]),
       isStructureDormant: () => dormant,
       coverage
     };
     const tile = outpostTile();
     seedOutpostVisionBonus(deps, tile);
-    expect(coverage.tracked.get("player-1:5,5")).toBe(6); // base 5 + Survey Corps +1
+    expect(coverage.tracked.get("player-1:5,5")).toBe(5); // base radius, no tech grants a bonus any more
 
     dormant = true;
     reconcileOutpostVisionBonus(deps, tile, tile);
