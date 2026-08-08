@@ -3088,8 +3088,12 @@ body {
 #side-panel.tech-panel-active #tech-detail-card {
   position: sticky;
   top: 0;
-  max-height: calc(100vh - 220px);
+  height: calc(100vh - 220px);
   overflow: hidden;
+}
+
+#side-panel.tech-panel-active .tech-detail-card-shell {
+  height: 100%;
 }
 
 #side-panel.tech-panel-active #tech-owned {
@@ -4322,6 +4326,14 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: rgba(8, 18, 32, 0.94);
+  backdrop-filter: blur(6px);
+  padding: 10px;
+  margin: -10px -10px 0;
+  border-radius: 12px 12px 0 0;
 }
 
 .tech-detail-close-inline {
