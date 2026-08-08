@@ -59,7 +59,7 @@ import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
 import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
-import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js";
+import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js"; import { createBarleyFieldOverlay } from "../client-map-3d-barley-field.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
@@ -172,7 +172,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
-  const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES);
+  const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES); const barleyFieldOverlay = createBarleyFieldOverlay(scene, MAX_VISIBLE_TILES);
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
   const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
   const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES);
@@ -1259,7 +1259,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     barbarianOverlay.clear();
     shardOverlay.clear(); watchtowerOverlay.clear(); naturalWonderOverlays.clear();
     fortOverlay.clear();
-    resourceOverlay.clear();
+    resourceOverlay.clear(); barleyFieldOverlay.clear();
     attackOverlay.clear();
     settleOverlay.clear();
     structureOverlay.clear();
@@ -1518,7 +1518,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             const validResources: ReadonlyArray<ResourceKind> = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR"];
             if ((validResources as ReadonlyArray<string>).includes(resolvedResource)) {
               tileResource = resolvedResource as ResourceKind;
-              resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy);
+              if (tileResource === "FARM") { barleyFieldOverlay.addInstance(x, z, surfaceY, wx, wy); } else { resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy); }
             }
           }
         }
@@ -1715,7 +1715,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     barbarianOverlay.commit();
     shardOverlay.commit(); watchtowerOverlay.commit(); naturalWonderOverlays.commit();
     fortOverlay.commit();
-    resourceOverlay.commit();
+    resourceOverlay.commit(); barleyFieldOverlay.commit();
     attackOverlay.commit();
     settleOverlay.commit();
     structureOverlay.commit();
@@ -1889,7 +1889,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     barbarianOverlay.dispose();
     shardOverlay.dispose(); watchtowerOverlay.dispose(); naturalWonderOverlays.dispose();
     fortOverlay.dispose();
-    resourceOverlay.dispose();
+    resourceOverlay.dispose(); barleyFieldOverlay.dispose();
     attackOverlay.dispose();
     settleOverlay.dispose();
     structureOverlay.dispose();
