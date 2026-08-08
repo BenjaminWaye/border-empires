@@ -136,7 +136,7 @@ export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
 };
 
 export const FORT_VARIANT_LABELS: Record<FortVariant, string> = {
-  WOODEN_FORT: "Wooden Fort",
+  WOODEN_FORT: "Palisade",
   FORT: "Fort",
   IRON_BASTION: "Iron Bastion",
   THUNDER_BASTION: "Thunder Bastion",

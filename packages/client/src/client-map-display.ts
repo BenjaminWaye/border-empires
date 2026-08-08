@@ -125,7 +125,7 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "CLEARING_HOUSE") return "Clearing House";
   if (kind === "AIRPORT") return "Aetherport";
   if (kind === "AETHER_TOWER") return "Ambaric Tower";
-  if (kind === "WOODEN_FORT") return "Wooden Fort";
+  if (kind === "WOODEN_FORT") return "Palisade";
   if (kind === "LIGHT_OUTPOST") return "Light Outpost";
   if (kind === "CARAVANARY") return "Caravanary";
   // converter-mode-flip plan §Phase 6: these buildings now run either
@@ -469,8 +469,8 @@ export const structureInfoForKey = (
   }
   if (type === "WOODEN_FORT") {
     return structure({
-      title: "Wooden Fort",
-      detail: "Wooden forts provide a lighter defensive anchor on border and dock tiles without consuming iron upkeep.",
+      title: "Palisade",
+      detail: "Palisades provide a lighter defensive anchor on border and dock tiles without consuming iron upkeep.",
       glyph: "🪵",
       placement: "Build on an owned border tile or dock with no town, resource, or other structure.",
       costBits: costBitsFor(type),

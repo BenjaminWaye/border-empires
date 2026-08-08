@@ -86,7 +86,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       // THUNDER_BASTION shouldn't expose this action at all; fall through for safety.
     }
     return tile.economicStructure?.type === "WOODEN_FORT"
-      ? `Upgrade this Wooden Fort into a full fortification. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`
+      ? `Upgrade this Palisade into a full fortification. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`
       : `Fortify this tile. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`;
   }
   if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but gold-only.";
