@@ -95,6 +95,8 @@ type ProtoTileDelta = {
   yield_json?: string;
   yield_rate_json?: string;
   yield_cap_json?: string;
+  combat_json?: string;
+  combatJson?: string;
 };
 type ProtoDockRoute = {
   dock_id?: string;
@@ -338,6 +340,7 @@ export type SimulationClientEvent =
         yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<StrategicResourceKey, number>> } | undefined;
         yieldCap?: { gold: number; strategicEach: number } | undefined;
         ownershipClearOnly?: boolean;
+        combatJson?: string | undefined;
       }>;
     }
   | {
@@ -442,6 +445,7 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   const vs = tile.visibility_state || tile.visibilityState;
   if (vs === "VISIBLE" || vs === "FOG" || vs === "UNEXPLORED") normalized.visibilityState = vs;
   if (tile.ownership_clear_only === true || tile.ownershipClearOnly === true) normalized.ownershipClearOnly = true;
+  if ("combat_json" in tile || "combatJson" in tile) normalized.combatJson = tile.combat_json || tile.combatJson || undefined;
   if ("yield" in tile && tile.yield && typeof tile.yield === "object") {
     normalized.yield = tile.yield as NonNullable<typeof normalized.yield>;
   } else if (typeof tile.yield_json === "string" && tile.yield_json.length > 0) {

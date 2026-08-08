@@ -40,8 +40,8 @@ import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client
 import { createObservatoryCooldownBadgeOverlay } from "../client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.js";
 import { createUpgradeReadyBadgeOverlay } from "../client-map-3d-upgrade-ready-badge-overlay/client-map-3d-upgrade-ready-badge-overlay.js";
 import { createMusterOverlay } from "../client-map-3d-muster-overlay.js";
-import { createMusterCombatFx } from "../client-map-3d-muster-combat-fx.js";
-import { syncCaptureOverlays } from "../client-map-3d-capture-overlays.js";
+import { createBattleOverlayFx } from "../client-map-3d-battle-overlay-fx.js";
+import { syncCaptureOverlays, syncBattleOverlayFx } from "../client-map-3d-capture-overlays.js";
 import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js";
 import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js";
 import { createAetherPurgeFxLayer } from "../client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
@@ -153,7 +153,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const upgradeReadyBadgeOverlay = createUpgradeReadyBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene);
-  const musterCombatFx = createMusterCombatFx(scene);
+  const battleOverlayFx = createBattleOverlayFx(scene);
   const supplyLineOverlay = createSupplyLineOverlay(scene);
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
   const aetherLanceFx = createAetherPurgeFxLayer(scene);
@@ -1706,8 +1706,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       deps.keyFor,
       deps.effectiveOverlayColor,
       heightfield,
-      supplyLineOverlay,
-      musterCombatFx
+      supplyLineOverlay
     );
     supplyLineOverlay.commit();
     dockOverlay.commit();
@@ -1804,7 +1803,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     observatoryCooldownBadgeOverlay.tick(nowMs);
     upgradeReadyBadgeOverlay.tick(nowMs);
     musterOverlay.tick(nowMs);
-    musterCombatFx.tick(nowMs, deps.state.capture);
+    syncBattleOverlayFx(deps.state, heightfield, deps.effectiveOverlayColor, battleOverlayFx, nowMs);
     supplyLineOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
@@ -1870,7 +1869,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     observatoryCooldownBadgeOverlay.dispose();
     upgradeReadyBadgeOverlay.dispose();
     musterOverlay.dispose();
-    musterCombatFx.dispose();
+    battleOverlayFx.dispose();
     supplyLineOverlay.dispose();
     aetherBridgePylonOverlay.dispose();
     aetherLanceFx.dispose();

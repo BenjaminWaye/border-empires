@@ -1,5 +1,5 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import type { SimulationEvent } from "@border-empires/sim-protocol";
+import type { CombatBroadcastPayload, SimulationEvent } from "@border-empires/sim-protocol";
 import {
   FRONTIER_CLAIM_COST
 } from "@border-empires/shared";
@@ -84,6 +84,21 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     context.isTileShieldedByAegisLock(lock.playerId, lock.targetX, lock.targetY);
   const attackerWon = blockedByAegisLock ? false : combatResult?.attackerWon ?? false;
   const originLost = Boolean(combatResult?.changes.some((change) => change.x === lock.originX && change.y === lock.originY));
+  // Two opposing forces actually clashed (not an uncontested EXPAND onto
+  // neutral land) — the client's battle overlay FX keys off this payload to
+  // decide whether/how to animate the target tile. See simulation.proto's
+  // combat_json doc comment for the wire shape.
+  const hasDefendingForce = lock.actionType === "ATTACK" && Boolean(previousOwnerId) && previousOwnerId !== lock.playerId;
+  const combatBroadcastJson = hasDefendingForce && previousOwnerId
+    ? JSON.stringify({
+        attackerOwnerId: lock.playerId,
+        defenderOwnerId: previousOwnerId,
+        attackerWon,
+        originX: lock.originX,
+        originY: lock.originY,
+        at: context.now()
+      } satisfies CombatBroadcastPayload)
+    : undefined;
 
   if (attacker && (lock.actionType === "EXPAND" || lock.actionType === "ATTACK")) {
     attacker.points = Math.max(0, attacker.points - FRONTIER_CLAIM_COST);
@@ -191,7 +206,10 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // gateway submit timeouts (SIMULATION_UNAVAILABLE) during rapid-fire
     // expand chains.
     if (isAiControlledActor(lock.playerId, attacker?.isAi) || lock.actionType === "EXPAND" || lock.actionType === "ATTACK") {
-      tileDeltas = [context.tileDeltaFromState(resolvedTarget)];
+      tileDeltas = [{
+        ...context.tileDeltaFromState(resolvedTarget),
+        ...(combatBroadcastJson ? { combatJson: combatBroadcastJson } : {})
+      }];
     } else {
       const measure = Boolean(context.onCaptureRevealBuilt);
       const startedAt = measure ? context.now() : 0;
@@ -225,8 +243,19 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     }
     if (lock.playerId === "barbarian-1") context.applyBarbarianWalkOrMultiply(lock, previousTarget);
     else if (previousTarget?.ownerId === "barbarian-1") context.barbarianTileProgress.delete(lock.targetKey);
-  } else if (originLost && previousOwnerId) {
-    resolveLostOrigin(context, lock, previousOwnerId);
+  } else {
+    if (originLost && previousOwnerId) resolveLostOrigin(context, lock, previousOwnerId);
+    // Attacker lost and nothing about the target tile itself changed, so no
+    // TILE_DELTA_BATCH would otherwise fire for it — emit a combat-only
+    // delta so the defender/bystanders still see the battle overlay FX.
+    if (hasDefendingForce) {
+      context.emitEvent({
+        eventType: "TILE_DELTA_BATCH",
+        commandId: `${lock.commandId}:combat`,
+        playerId: lock.playerId,
+        tileDeltas: [{ x: lock.targetX, y: lock.targetY, combatJson: combatBroadcastJson }]
+      });
+    }
   }
 
   applyCombatEncirclement(context, lock, attackerWon, originLost, previousOwnerId);

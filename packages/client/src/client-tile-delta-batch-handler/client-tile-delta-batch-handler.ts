@@ -3,8 +3,9 @@ import type { Tile } from "../client-types.js";
 import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gateway-sync.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
+import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
 
-export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" };
+export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
 export type TileDeltaBatchHandlerDeps = {
   state: ClientState;
@@ -57,6 +58,10 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     { state, keyFor, mergeIncomingTileDetail: deps.mergeIncomingTileDetail, mergeServerTileWithOptimisticState: deps.mergeServerTileWithOptimisticState, clearRenderCaches: deps.clearRenderCaches, buildMiniMapBase: deps.buildMiniMapBase },
     tileUpdates
   );
+  if (Array.isArray(tileUpdates)) {
+    const nowMs = Date.now();
+    for (const update of tileUpdates) registerActiveBattleFromTileDelta(state, keyFor, update, nowMs);
+  }
   let resolvedQueuedFrontierCapture = false;
   if (Array.isArray(tileUpdates) && tileUpdates.length > 0) {
     for (const update of tileUpdates) {
