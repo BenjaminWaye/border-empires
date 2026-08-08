@@ -1,5 +1,5 @@
 import {
-  ConeGeometry,
+  SphereGeometry,
   OctahedronGeometry,
   InstancedMesh,
   Matrix4,
@@ -30,13 +30,18 @@ const MAX_CONCURRENT_BATTLES = 16;
 const DOTS_PER_SIDE = 10;
 const SHARDS_PER_BATTLE = 6;
 const FORMATION_T = 0.7;
-const DOT_RADIUS = 0.011;
-const DOT_HEIGHT = 0.048;
-const DOT_Y_OFFSET = 0.08;
+// Round dots (not the muster overlay's tall "soldier spike" cone) so the
+// swarm reads as a mass of circular dots from the game's 3/4 strategic
+// camera angle at any zoom, per the "strong silhouette, readable at normal
+// strategic zoom" design goal — verified against a Storybook demo, where
+// the original cone geometry at soldier-icon scale (radius 0.011) rendered
+// as near-invisible slivers.
+const DOT_RADIUS = 0.045;
+const DOT_Y_OFFSET = 0.07;
 const PUSH_THROUGH_FRACTION = 0.4;
 const RETREAT_FRACTION = 0.38;
 const SHARD_Y_OFFSET = 0.14;
-const SHARD_SIZE = 0.028;
+const SHARD_SIZE = 0.055;
 const UP_AXIS = new Vector3(0, 1, 0);
 
 function hash01(a: number, b: number, salt: number): number {
@@ -70,14 +75,18 @@ type ShardKit = { spawnT: number; angle: number; dist: number; life: number; var
 export type BattleOverlayFx = ReturnType<typeof createBattleOverlayFx>;
 
 export function createBattleOverlayFx(scene: Scene) {
-  const dotGeom = new ConeGeometry(DOT_RADIUS, DOT_HEIGHT, 4);
+  const dotGeom = new SphereGeometry(DOT_RADIUS, 8, 6);
   const shardGeom = new OctahedronGeometry(SHARD_SIZE, 0);
 
-  // vertexColors:true is required for InstancedMesh.setColorAt() to actually
-  // tint each instance — without it every instance renders the material's
-  // flat base `color` regardless of what setColorAt wrote.
-  const attackerMat = new MeshBasicMaterial({ color: "#ffffff", vertexColors: true, depthTest: false, depthWrite: false });
-  const defenderMat = new MeshBasicMaterial({ color: "#ffffff", vertexColors: true, depthTest: false, depthWrite: false });
+  // Deliberately NOT setting vertexColors:true here: InstancedMesh.setColorAt()
+  // tints each instance automatically once instanceColor exists (three.js
+  // enables USE_INSTANCING_COLOR on its own) — vertexColors is a *separate*
+  // per-vertex-geometry-attribute mechanism, and turning it on for a geometry
+  // with no `color` attribute (plain SphereGeometry here) makes the vertex
+  // shader multiply in an unbound attribute that reads as black, zeroing out
+  // every instance's color regardless of what setColorAt wrote.
+  const attackerMat = new MeshBasicMaterial({ color: "#ffffff", depthTest: false, depthWrite: false });
+  const defenderMat = new MeshBasicMaterial({ color: "#ffffff", depthTest: false, depthWrite: false });
   const shardMatA = new MeshBasicMaterial({ color: "#ffcf6b", depthTest: false, depthWrite: false, transparent: true });
   const shardMatB = new MeshBasicMaterial({ color: "#b388ff", depthTest: false, depthWrite: false, transparent: true });
 
