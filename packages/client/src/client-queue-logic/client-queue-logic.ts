@@ -688,11 +688,11 @@ export const topUpFromWaypoint = (
   keyFor: (x: number, y: number) => string,
   pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void
 ): boolean => {
-  if (state.waypoint.length === 0) return false;
+  const waypoint = state.waypoint[0];
+  if (!waypoint) return false;
   if (state.actionQueue.length > 0) return false;
   if (state.actionInFlight) return false;
 
-  const waypoint = state.waypoint[0];
   let target = waypoint.target;
   const targetTile = state.tiles.get(keyFor(target.x, target.y));
   if (targetTile && targetTile.ownerId === state.me) {

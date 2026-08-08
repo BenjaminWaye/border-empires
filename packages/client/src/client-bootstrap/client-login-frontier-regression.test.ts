@@ -45,12 +45,13 @@ describe("login and frontier retry regression guard", () => {
     expect(source).toContain('state.actionQueue = state.actionQueue.filter((entry) => keyFor(entry.x, entry.y) !== updateKey);');
   });
 
-  it("hides the current frontier queue badge once the capture timer has elapsed", () => {
+  it("never shows a queue badge on the currently-executing action, only on entries actually waiting behind it", () => {
     const source = clientSource("../client-runtime-loop.ts");
-    expect(source).toContain("const hideCurrentQueuedBadge =");
-    expect(source).toContain("shouldHideQueuedFrontierBadge(");
-    expect(source).toContain("Boolean(state.capture),");
-    expect(source).toContain("if (state.actionInFlight && state.actionTargetKey && !hideCurrentQueuedBadge) {");
+    // The in-flight action must never be inserted into queueIndex — a
+    // badge there reads as "next in line" when it's actually already
+    // running. Only real actionQueue entries get numbered, starting at 1.
+    expect(source).not.toContain("queueIndex.set(state.actionTargetKey, 1)");
+    expect(source).toContain("queueIndex.set(deps.keyFor(q.x, q.y), i + 1);");
   });
 
   it("keeps the earlier optimistic frontier timer when combat start arrives late", () => {

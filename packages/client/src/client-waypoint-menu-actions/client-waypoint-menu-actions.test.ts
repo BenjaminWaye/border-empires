@@ -32,7 +32,7 @@ const stateWith = (tiles: Tile[], overrides: Partial<StateShape> = {}): StateSha
   dockPairs: [],
   allies: [],
   activeTruces: [],
-  waypoint: undefined,
+  waypoint: [],
   ...overrides
 });
 
@@ -118,7 +118,7 @@ describe("injectWaypointActions", () => {
   it("prepends Cancel Waypoint and forces the actions tab when tile is the current waypoint target", () => {
     const tiles = [tile(3, 3, { ownerId: "me" }), tile(8, 3)];
     const state = stateWith(tiles, {
-      waypoint: {
+      waypoint: [{
         target: { x: 8, y: 3 },
         plan: {
           target: { x: 8, y: 3 },
@@ -130,7 +130,7 @@ describe("injectWaypointActions", () => {
           attackCount: 0,
           reachable: true
         }
-      }
+      }]
     });
     const v = view();
     injectWaypointActions(v, tile(8, 3), state, {
@@ -142,10 +142,10 @@ describe("injectWaypointActions", () => {
     expect(v.tabs[0]).toBe("actions");
   });
 
-  it("prepends Clear Waypoint and Expand Here on a different tile when a waypoint is already active", () => {
+  it("prepends Add Waypoint on a different tile when a waypoint is already queued", () => {
     const tiles = [tile(3, 3, { ownerId: "me" }), ...explored([4, 5, 6, 7, 9, 10, 11], 3), tile(8, 3), tile(12, 3)];
     const state = stateWith(tiles, {
-      waypoint: {
+      waypoint: [{
         target: { x: 8, y: 3 },
         plan: {
           target: { x: 8, y: 3 },
@@ -157,17 +157,17 @@ describe("injectWaypointActions", () => {
           attackCount: 0,
           reachable: true
         }
-      }
+      }]
     });
     const v = view();
-    // Open menu on a different distant tile with an active waypoint —
-    // should offer to clear the existing waypoint and expand here instead.
+    // Open menu on a different distant tile with a waypoint already
+    // queued — should offer to append another waypoint to the queue.
     injectWaypointActions(v, tile(12, 3), state, {
       keyFor,
       pickOriginForTarget: noAdjacentOrigin
     });
-    expect(v.actions[0]?.id).toBe("clear_waypoint_and_expand_here");
-    expect(v.actions[0]?.label).toBe("Clear Waypoint and Expand Here");
+    expect(v.actions[0]?.id).toBe("expand_here");
+    expect(v.actions[0]?.label).toBe("Add Waypoint");
     expect(v.tabs[0]).toBe("actions");
   });
 });

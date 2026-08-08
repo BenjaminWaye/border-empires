@@ -19,6 +19,7 @@ type TileActionMenuUiDeps = {
   cancelQueuedSettlement: (tileKey: string) => boolean;
   cancelQueuedBuild: (tileKey: string) => boolean;
   moveQueuedEntryToFront: (tileKey: string) => boolean;
+  cancelOngoingCapture: () => void;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   applyOptimisticStructureCancel: (x: number, y: number) => void;
   clearSettlementProgressByKey: (tileKey: string) => void;
@@ -130,6 +131,12 @@ export const renderTileActionMenu = (
             deps.clearSettlementProgressByKey(deps.keyFor(tile.x, tile.y));
             deps.renderHud();
           }
+          deps.hideTileActionMenu();
+          return;
+        }
+        if (btn.dataset.progressAction === "cancel_capture") {
+          deps.cancelOngoingCapture();
+          deps.renderHud();
           deps.hideTileActionMenu();
           return;
         }

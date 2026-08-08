@@ -2,7 +2,6 @@ import { isForestTile } from "./client-constants.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
-import { shouldHideQueuedFrontierBadge } from "./client-frontier-overlay/client-frontier-overlay.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
@@ -265,17 +264,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     const startingArrowTargets = new Map(
       deps.startingExpansionArrowTargets().map((target) => [deps.keyFor(target.x, target.y), target] as const)
     );
-    let queueOffset = 0;
-    const actionCaptureTargetKey = state.capture ? deps.keyFor(state.capture.target.x, state.capture.target.y) : "";
-    const hideCurrentQueuedBadge =
-      state.actionInFlight &&
-      state.actionTargetKey &&
-      shouldHideQueuedFrontierBadge(
-        state.tiles.get(state.actionTargetKey),
-        state.me,
-        Boolean(state.capture),
-        state.actionTargetKey === actionCaptureTargetKey
-      );
     for (let i = 0; i < state.actionQueue.length; i += 1) {
       const q = state.actionQueue[i];
       if (!q) continue;

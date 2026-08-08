@@ -692,7 +692,7 @@ export type TileMenuProgressView = {
   progress: number;
   note: string;
   cancelLabel?: string;
-  cancelActionId?: "cancel_structure_build" | "cancel_queued_settlement" | "cancel_queued_build" | "cancel_settle";
+  cancelActionId?: "cancel_structure_build" | "cancel_queued_settlement" | "cancel_queued_build" | "cancel_settle" | "cancel_capture";
   secondaryLabel?: string;
   secondaryActionId?: "move_queued_entry_to_front";
   // §6.3 rush-buy: pay gold to finish this in-progress SETTLE/build right
