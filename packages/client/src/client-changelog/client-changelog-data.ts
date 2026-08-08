@@ -329,7 +329,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1786174507000,
     introducedIn: "resource-reveal-settle-and-ribbon",
     title: "Fixed: settling near a hidden resource revealed it early, and the toolbar showed hidden resource types",
     why: "Iron, Supply, and Crystal are supposed to stay hidden until you've researched the tech that reveals them. That masking was already fixed for the streaming map view and for what you see on login, but settling next to a hidden resource (or capturing territory near one) still exposed it instantly through a separate reveal path. The toolbar's resource ribbon also always showed all four resource pills regardless of tech.",
@@ -339,7 +339,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now() + 1,
+    createdAt: 1786174507001,
     introducedIn: "resource-reveal-economy-panel",
     title: "Fixed: the detailed economy screen still listed hidden resources",
     why: "The ribbon fix hid Iron/Crystal/Supply from the toolbar, but the detailed economy screen (opened by tapping a resource, or from the panel nav) still showed a card for each one with a \"No access to this resource yet\" label — still revealing that the category exists before you've earned it.",
@@ -348,7 +348,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now() + 2,
+    createdAt: 1786174507002,
     introducedIn: "weapons-workshop",
     title: "New: Weapons Workshop",
     why: "The War branch needed a building that lets a town specialize for combat, and a new tech to reach it early.",
@@ -360,7 +360,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now() + 3,
+    createdAt: 1786174507003,
     introducedIn: "tech-tag-consistency",
     title: "Fixed: tech tags were inconsistent between the tech-tree card and the tech detail screen",
     why: "The tech-tree card and the tech detail screen could show a different set of unlock tags for the same tech, resource-reveal effects (like 'Reveals Crystal') never got a tag at all, and some techs showed only a redundant yellow text summary instead of tags.",
@@ -374,7 +374,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // window test only keeps entries within the latest 6 days of the newest
   // entry's createdAt -- see git history for the full changelog.
   {
-    createdAt: Date.now() + 3,
+    createdAt: 1786174507004,
     introducedIn: "next",
     title: "Converters can now be pointed either direction: Refine or Sell off",
     why: "Fur Works, Iron Works, and Aether Condenser (and their Advanced tiers) each had one job: turn gold into a resource slot. Now every one of them can point either way in place. Refine works as before — gold upkeep manufactures 1 slot of its resource. Sell off runs the building in reverse: it consumes that same slot and pays out gold each day instead, with no gold upkeep while selling off. The old 1-per-empire limit on these buildings is gone entirely — build as many as you can afford in whichever direction your economy needs. A captured converter also can't be sold off immediately — it starts mode-locked for the same 60 minutes as a fresh flip, so capturing one isn't an instant payday.",
@@ -387,7 +387,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now() + 4,
+    createdAt: 1786174511000, // 2026-08-08
     introducedIn: "expand-ui-multi-waypoint",
     title: "Expand manpower now shows as reserved, queue numbering fixed, and waypoints can be queued",
     why: "Manpower for a queued or in-progress Expand wasn't shown as spent until the server resolved it, so the displayed manpower total looked available when it was already committed. The queue badge on a currently-executing action also showed \"1\", which read as \"next in line\" rather than \"in progress\". And only one waypoint could be set at a time, so a multi-hop trip required babysitting each leg to fire the next one manually.",
@@ -397,6 +397,20 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The big \"Capturing Territory...\" overlay no longer appears for Expand — the tile-paint fill is the only feedback, matching waypoint-driven expands.",
       "Clicking a tile that's actively expanding now opens its tile detail with a Cancel expansion option, instead of only the top-level Cancel button.",
       "You can now queue multiple waypoints — clicking \"Add Waypoint\" on a new distant tile appends it instead of replacing the current one, so a multi-leg trip runs unattended leg by leg."
+    ]
+  },
+  {
+    createdAt: 1786174512000, // 2026-08-08
+    introducedIn: "tech-tree-cleanup",
+    title: "Fixed: several structure descriptions in the tech tree showed the wrong numbers or the wrong building",
+    why: "Several structures (Assembly Works, Logistics Guild, Quartermaster's Office, Iron Levy, Population Bureau) fell through to a default and showed 'Siege Outpost' as their description. Rail Depot's description claimed it boosted the wrong building. Several structures also showed made-up upkeep costs that don't exist in the real game economy, and Aetherport's bombard and the Astral Dock's satellite launch had stale gold-cost text.",
+    changes: [
+      "Assembly Works, Logistics Guild, Quartermaster's Office, Iron Levy (and its part), and Population Bureau (and its part) now show their own correct description instead of Siege Outpost's.",
+      "Rail Depot's description now correctly says it amplifies Logistics Guild, not Ancillary Factory.",
+      "Removed fabricated upkeep costs from Aetherport, Astral Dock, Ambaric Tower, Resonance Grid, Aegis Dome, and Aegis Dome Part — none of these actually have per-minute upkeep.",
+      "Aetherport's bombard ability is now free to fire (was 5,000 gold) and requires 3 CRYSTAL slots to build (was 1).",
+      "The Astral Dock's satellite launch now costs 1,000 gold (was free) — text and in-game cost now match.",
+      "Removed the non-functional City Overclock button — it had no effect in-game."
     ]
   }
 ];

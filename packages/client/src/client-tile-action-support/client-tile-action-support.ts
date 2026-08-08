@@ -17,7 +17,6 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "aether_bridge" ||
   id === "siphon_tile" ||
   id === "aether_emp" ||
-  id === "city_overclock" ||
   id === "astral_dock_launch" ||
   id === "aegis_lock" ||
   id === "create_mountain" ||
@@ -184,8 +183,6 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "crystal-lattices";
     case "aether_emp":
       return "cryptography";
-    case "city_overclock":
-      return "imperial-roads";
     case "aether_wall":
       return "harborcraft";
     case "aether_bridge":

@@ -5683,7 +5683,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["cryptography", "surveying"]), strategicResources: { CRYSTAL: 1_000 } })
+          buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["cryptography", "surveying", "beacon-towers"]), strategicResources: { CRYSTAL: 1_000 } })
         ],
         [
           "player-2",
@@ -7989,7 +7989,7 @@ describe("aether purge", () => {
     return new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: options.points ?? 5_000, manpower: 10_000, techIds: new Set<string>(["signal-fires"]), strategicResources: { CRYSTAL: options.crystal ?? 500 } })],
+        ["player-1", buildPlayer("player-1", { points: options.points ?? 5_000, manpower: 10_000, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { CRYSTAL: options.crystal ?? 500 } })],
         ["player-2", buildPlayer("player-2", { isAi: true, manpower: 100 })]
       ]) as never,
       initialState: { tiles: tiles as never, activeLocks: [] }

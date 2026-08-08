@@ -27,7 +27,7 @@ describe("Watchtower Engine acts as an Observatory", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["signal-fires"]) })],
+        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["crystal-lattices"]) })],
         ["player-2", buildAiOpponent()]
       ]),
       initialState: { tiles: tiles() as never, activeLocks: [] }
@@ -53,7 +53,7 @@ describe("Watchtower Engine acts as an Observatory", () => {
     const runtime = new SimulationRuntime({
       now: () => clock,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["signal-fires"]) })],
+        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["crystal-lattices"]) })],
         ["player-2", buildAiOpponent()]
       ]),
       initialState: { tiles: tiles() as never, activeLocks: [] }
@@ -96,7 +96,7 @@ describe("Watchtower Engine acts as an Observatory", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["signal-fires"]) })],
+        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["crystal-lattices"]) })],
         ["player-2", buildAiOpponent()]
       ]),
       initialState: {
@@ -131,7 +131,7 @@ describe("Watchtower Engine acts as an Observatory", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["signal-fires", "beacon-towers", "grand-cartography"]) })],
+        ["player-1", buildPlayer("player-1", { manpower: 10_000, points: 20_000, techIds: new Set(["crystal-lattices", "beacon-towers", "grand-cartography"]) })],
         ["player-2", buildAiOpponent()]
       ]),
       initialState: {
