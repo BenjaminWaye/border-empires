@@ -74,7 +74,7 @@ const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStruct
       tone: "positive"
     }];
   }
-  if (tile.type === "WOODEN_FORT") return [{ reason: "Wooden Fort", effect: `${multiplierPercentLabel(WOODEN_FORT_DEFENSE_MULT)} defense`, tone: "positive" }];
+  if (tile.type === "WOODEN_FORT") return [{ reason: "Palisade", effect: `${multiplierPercentLabel(WOODEN_FORT_DEFENSE_MULT)} defense`, tone: "positive" }];
   if (tile.type === "LIGHT_OUTPOST") return [{ reason: "Light Outpost", effect: `${multiplierPercentLabel(LIGHT_OUTPOST_ATTACK_MULT)} offense`, tone: "positive" }];
   if (tile.type === "CARAVANARY") return [{ reason: "Caravanary", effect: "+25% connected-town gold production", tone: "positive" }];
   if (tile.type === "CUSTOMS_HOUSE") return [{ reason: "Harbor Exchange", effect: "+1 gold / minute per connected owned dock", tone: "positive" }];

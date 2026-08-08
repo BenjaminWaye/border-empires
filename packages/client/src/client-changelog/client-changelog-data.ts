@@ -21,6 +21,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release. Order doesn't
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1786165552000, // 2026.08.08.1
+    introducedIn: "2026.08.08.1",
+    title: "Wooden Fort renamed to Palisade",
+    why: "\"Wooden Fort\" was a mouthful next to the ladder's other short names (Fort, Iron Bastion, Thunder Bastion); Palisade is shorter and reads as the entry-tier defensive structure it is.",
+    changes: [
+      "The lightweight border/dock fortification is now called \"Palisade\" everywhere in the UI — tile menu, economy panel, and build actions. No change to its cost, defense bonus, or build time."
+    ]
+  },
   // 2026.07.26.1 ("Expand and Settle now cost manpower"), 2026.07.27.1
   // ("Manpower now gates every structure build"), 2026.07.27.2 ("Structures
   // no longer cost gold to build"), 2026.07.27.3 ("Garrison Hall and
@@ -59,17 +68,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Both \"Build Light Outpost\" buttons — the direct build and the frontier expand+settle+build action — now correctly show and enforce this, disabling with \"Need a free FOOD slot\" only once it actually applies."
     ]
   },
-  {
-    createdAt: 1785618075910, // 2026.08.01.1
-    introducedIn: "2026.08.01.1",
-    title: "Rail Depot's Garrison Hall bonus quadrupled; stale crystal costs removed",
-    why: "Rail Depot's per-Garrison-Hall cap amplifier was only +75, a small fraction of a single Metropolis's 2,400 cap, undercutting the network investment it was meant to reward. Separately, several structures (Garrison Hall included) still displayed a CRYSTAL build cost left over from before the manpower-economy rewrite moved resource costs onto permanent slot occupation — that CRYSTAL amount was never actually charged, just confusing, stale copy.",
-    changes: [
-      "Rail Depot's network amplifier now grants +300 manpower cap per Garrison Hall (up from +75), on top of its existing +0.1 manpower/min per Garrison Hall.",
-      "Removed the leftover CRYSTAL build-cost line for Garrison Hall, Rail Depot, Customs House, Radar System, Exchange House, Airport, and the four monument parts — none of them have actually charged CRYSTAL since resource costs moved to permanent slot occupation; their real, current cost (manpower + slots) is unchanged and now displays correctly everywhere.",
-      "The structure-info popup's cost card now shows manpower cost for every structure (it previously omitted manpower entirely), and Garrison Hall/Rail Depot's effect descriptions now mention their manpower bonuses instead of only their secondary effects."
-    ]
-  },
+  // 2026.08.01.1 ("Rail Depot's Garrison Hall bonus quadrupled; stale
+  // crystal costs removed") pruned: aged out of the 6-day window.
   {
     createdAt: 1785670919000, // 2026.08.02.2
     introducedIn: "2026.08.02.2",
