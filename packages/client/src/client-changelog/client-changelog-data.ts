@@ -63,16 +63,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // 2026.08.02.2 ("Build Light Outpost menu no longer shows a FOOD slot
   // cost...") pruned: aged out of the 6-day window.
   {
-    createdAt: 1785697200000, // 2026.08.03.1
-    introducedIn: "2026.08.03.1",
-    title: "Fixed: removing a structure crashed the game",
-    why: "The client's build pipeline already routed structure removals through the development queue and the server fully supported REMOVE_STRUCTURE, but the removal's optimistic preview was never handed to the action flow during client bootstrap — so clicking Remove on a Fort, Observatory, Siege Outpost, or economic structure threw a crash instead of starting the removal.",
-    changes: [
-      "Clicking Remove on a structure you own now starts the removal instead of crashing the client.",
-      "Queued removals dispatch through the same development queue as builds and show the same removing countdown."
-    ]
-  },
-  {
     createdAt: 1785735055000, // 2026-08-03
     introducedIn: "buildings-tab-always-show",
     title: "Buildings tab now shows on any tile you own, and building an unsettled tile settles it first automatically",
@@ -432,6 +422,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Double-Entry Ledgers, Steel Foundries, Survey Sweep, Covert Logistics, Harbor Engineering, Beacon Network, and Provincial Concessions no longer grant a passive stat bonus — each still unlocks the same structure/ability as before.",
       "Muster Discipline and Muster Command still each add +1 mustering flag capacity — unchanged."
+    ]
+  },
+  {
+    createdAt: 1786217054000, // 2026-08-08
+    introducedIn: "consume-monument-parts-on-build",
+    title: "Building a monument now consumes its 3 Parts, and the monument's own CRYSTAL cost went up to cover it",
+    why: "The 3 Parts you build to unlock a monument (Imperial Exchange, Worldbreaker Cannon, Aegis Dome, Astral Dock, Population Bureau, The Iron Levy) used to just sit there forever after the monument was placed, still eating their CRYSTAL slots for nothing. Now completing the monument clears all 3 Parts automatically, and the monument's own CRYSTAL slot requirement went from 1 to 4 to absorb what they used to occupy.",
+    changes: [
+      "Placing any of the 6 monuments now removes all 3 of your Parts for that monument the moment it completes.",
+      "Each monument's own CRYSTAL slot cost is now 4 (was 1) — no net change to your total CRYSTAL commitment once the Parts are gone."
     ]
   }
 ];

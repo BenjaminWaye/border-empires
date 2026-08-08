@@ -277,3 +277,57 @@ describe("§16 monument global uniqueness", () => {
     expect(events.some((e) => e.eventType === "COMMAND_REJECTED" && (e as { code?: string }).code === "MONUMENT_CLAIMED")).toBe(false);
   });
 });
+
+describe("completing a monument consumes its Parts", () => {
+  it("clears all 3 owned Astral Dock Parts once the Astral Dock itself completes", () => {
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 5 } });
+    const { context, tiles } = createContext(
+      [actor],
+      [
+        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "ASTRAL_DOCK_PART", status: "active" } },
+        { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "ASTRAL_DOCK_PART", status: "active" } },
+        { x: 3, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "ASTRAL_DOCK_PART", status: "active" } },
+        {
+          x: 5,
+          y: 5,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          economicStructure: { ownerId: "player-2", type: "ASTRAL_DOCK", status: "under_construction", completesAt: 1_000 }
+        }
+      ]
+    );
+
+    completeStructureBuild(context, simulationTileKey(5, 5), "player-2", "ASTRAL_DOCK", "cmd-complete");
+
+    expect(tiles.get(simulationTileKey(5, 5))?.economicStructure).toMatchObject({ type: "ASTRAL_DOCK", status: "active" });
+    expect(tiles.get(simulationTileKey(1, 1))?.economicStructure).toBeUndefined();
+    expect(tiles.get(simulationTileKey(2, 2))?.economicStructure).toBeUndefined();
+    expect(tiles.get(simulationTileKey(3, 3))?.economicStructure).toBeUndefined();
+  });
+
+  it("does not touch another player's Parts of the same monument type", () => {
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 5 } });
+    const rival = makePlayer("player-1", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
+    const { context, tiles } = createContext(
+      [actor, rival],
+      [
+        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "IRON_LEVY_PART", status: "active" } },
+        { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "IRON_LEVY_PART", status: "active" } },
+        {
+          x: 5,
+          y: 5,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          economicStructure: { ownerId: "player-2", type: "IRON_LEVY", status: "under_construction", completesAt: 1_000 }
+        }
+      ]
+    );
+
+    completeStructureBuild(context, simulationTileKey(5, 5), "player-2", "IRON_LEVY", "cmd-complete");
+
+    expect(tiles.get(simulationTileKey(1, 1))?.economicStructure).toBeUndefined();
+    expect(tiles.get(simulationTileKey(9, 9))?.economicStructure).toMatchObject({ type: "IRON_LEVY_PART" });
+  });
+});
