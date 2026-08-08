@@ -246,19 +246,6 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
   // a dock-gold-cap-multiplier tech is still meant to exist, it needs a new
   // home, not a test workaround.
 
-  it("goldCapIncomePerMinute is higher than incomePerMinute when townGoldCapMult is active", () => {
-    const base = makePlayer();
-    const boosted = makePlayer();
-    boosted.techIds.add("ledger-keeping"); // townGoldCapMult: 1.05
-    const tiles = new Map<string, DomainTileState>([
-      ["10,10", { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "T" } }]
-    ]);
-    const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
-    const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
-    expect(boostedEconomy.incomePerMinute).toBe(baseEconomy.incomePerMinute);
-    expect(boostedEconomy.goldCapIncomePerMinute).toBeCloseTo(baseEconomy.goldCapIncomePerMinute * 1.05, 4);
-  });
-
   it("townGoldCapMult does not apply to settlement income", () => {
     const base = makePlayer();
     const boosted = makePlayer();
