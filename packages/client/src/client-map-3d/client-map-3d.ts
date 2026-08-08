@@ -70,6 +70,7 @@ import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overl
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
 import { revealWholeMapInTrue3DMode } from "../client-renderer-mode.js";
+import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
@@ -1203,6 +1204,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
 
   const rebuildVisibleTerrain = (): void => {
+    const rebuildStartAt = performance.now();
     const size = Math.max(1, deps.state.zoom);
     const halfW = Math.max(1, Math.floor(deps.canvas.width / size / 2));
     const halfH = Math.max(1, Math.floor(deps.canvas.height / size / 2));
@@ -1233,12 +1235,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     fogOwnershipOverlay.clear();
     townOverlay.clear();
     roadOverlay.clear();
+    const roadNetworkStartAt = performance.now();
     const roadNetwork = buildRoadNetwork({
       tiles: deps.state.tiles,
       keyFor: deps.keyFor,
       wrapX: deps.wrapX,
       wrapY: deps.wrapY
     });
+    const roadNetworkMs = performance.now() - roadNetworkStartAt;
     // §21.1: per-tile dormant-structure resource, keyed by plain "x,y" (the
     // dormantStructures wire field's keys are "x,y:field"). A tile with more
     // than one dormant field just shows the first resource found.
@@ -1719,6 +1723,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     settleOverlay.commit();
     structureOverlay.commit();
     defensibilityOverlay.commit();
+
+    recordTerrainRebuildSample({
+      totalMs: performance.now() - rebuildStartAt,
+      roadNetworkMs,
+      knownTileCount: deps.state.tiles.size,
+      // Matches the (dx, dy) loop bounds above: -halfW-1..halfW+1 and -halfH-1..halfH+1 inclusive.
+      visibleTileCount: (2 * halfW + 3) * (2 * halfH + 3)
+    });
   };
 
   const maybeRebuild = (nowMs: number): void => {
