@@ -1171,10 +1171,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const worldEngineBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "WORLD_ENGINE");
       const aegisDomeBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "AEGIS_DOME");
       const astralDockBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "ASTRAL_DOCK");
+      const populationBureauBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "POPULATION_BUREAU");
+      const ironLevyBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "IRON_LEVY");
       const imperialExchangePartCount = [...state.tiles.values()].filter((candidate) => candidate.economicStructure?.ownerId === state.me && candidate.economicStructure?.type === "IMPERIAL_EXCHANGE_PART").length;
       const worldEnginePartCount = [...state.tiles.values()].filter((candidate) => candidate.economicStructure?.ownerId === state.me && candidate.economicStructure?.type === "WORLD_ENGINE_PART").length;
       const aegisDomePartCount = [...state.tiles.values()].filter((candidate) => candidate.economicStructure?.ownerId === state.me && candidate.economicStructure?.type === "AEGIS_DOME_PART").length;
       const astralDockPartCount = [...state.tiles.values()].filter((candidate) => candidate.economicStructure?.ownerId === state.me && candidate.economicStructure?.type === "ASTRAL_DOCK_PART").length;
+      const populationBureauPartCount = [...state.tiles.values()].filter((candidate) => candidate.economicStructure?.ownerId === state.me && candidate.economicStructure?.type === "POPULATION_BUREAU_PART").length;
+      const ironLevyPartCount = [...state.tiles.values()].filter((candidate) => candidate.economicStructure?.ownerId === state.me && candidate.economicStructure?.type === "IRON_LEVY_PART").length;
       if (buildShowsOnTile("AIRPORT", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
           id: "build_airport",
@@ -1367,6 +1371,74 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                         ? "Need 2 SHARD"
                         : missingResourceSlotReason(state, "ASTRAL_DOCK") ?? "Unavailable",
               `${deps.structureCostText("ASTRAL_DOCK")} • ${Math.round(economicStructureBuildMs("ASTRAL_DOCK") / 60000)}m • build 3 parts first`,
+              0
+            ),
+            slots,
+            deps
+          )
+        });
+      }
+      if (buildShowsOnTile("POPULATION_BUREAU", tile, supportedTowns.length, supportedDocks.length)) {
+        out.push({
+          id: "build_population_bureau",
+          label: "Build Population Bureau",
+          detail: deps.buildDetailTextForAction("build_population_bureau", tile) + frontierBuildDetailSuffix(tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            ...chainedBuildAvailability(
+              "POPULATION_BUREAU",
+              state.techIds.includes("demographic-registry") &&
+                populationBureauPartCount >= 3 &&
+                !populationBureauBuilt &&
+                !tile.siegeOutpost &&
+                !tile.observatory &&
+                (state.strategicResources.SHARD ?? 0) >= 2 &&
+                hasFreeResourceSlots(state, "POPULATION_BUREAU"),
+              !state.techIds.includes("demographic-registry")
+                ? "Requires Demographic Registry"
+                : populationBureauBuilt
+                  ? "Population Bureau already built"
+                  : populationBureauPartCount < 3
+                    ? "Build 3 Population Bureau parts first"
+                    : tile.siegeOutpost || tile.observatory
+                      ? "Tile already has structure"
+                      : (state.strategicResources.SHARD ?? 0) < 2
+                        ? "Need 2 SHARD"
+                        : missingResourceSlotReason(state, "POPULATION_BUREAU") ?? "Unavailable",
+              `${deps.structureCostText("POPULATION_BUREAU")} • ${Math.round(economicStructureBuildMs("POPULATION_BUREAU") / 60000)}m • build 3 parts first`,
+              0
+            ),
+            slots,
+            deps
+          )
+        });
+      }
+      if (buildShowsOnTile("IRON_LEVY", tile, supportedTowns.length, supportedDocks.length)) {
+        out.push({
+          id: "build_iron_levy",
+          label: "Build The Iron Levy",
+          detail: deps.buildDetailTextForAction("build_iron_levy", tile) + frontierBuildDetailSuffix(tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            ...chainedBuildAvailability(
+              "IRON_LEVY",
+              state.techIds.includes("grand-levy-doctrine") &&
+                ironLevyPartCount >= 3 &&
+                !ironLevyBuilt &&
+                !tile.siegeOutpost &&
+                !tile.observatory &&
+                (state.strategicResources.SHARD ?? 0) >= 2 &&
+                hasFreeResourceSlots(state, "IRON_LEVY"),
+              !state.techIds.includes("grand-levy-doctrine")
+                ? "Requires Grand Levy Doctrine"
+                : ironLevyBuilt
+                  ? "The Iron Levy already built"
+                  : ironLevyPartCount < 3
+                    ? "Build 3 Iron Levy parts first"
+                    : tile.siegeOutpost || tile.observatory
+                      ? "Tile already has structure"
+                      : (state.strategicResources.SHARD ?? 0) < 2
+                        ? "Need 2 SHARD"
+                        : missingResourceSlotReason(state, "IRON_LEVY") ?? "Unavailable",
+              `${deps.structureCostText("IRON_LEVY")} • ${Math.round(economicStructureBuildMs("IRON_LEVY") / 60000)}m • build 3 parts first`,
               0
             ),
             slots,
