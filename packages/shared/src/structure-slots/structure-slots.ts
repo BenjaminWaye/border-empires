@@ -120,12 +120,17 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   ASTRAL_DOCK_PART: [{ resource: "CRYSTAL", count: 1 }],
   POPULATION_BUREAU_PART: [{ resource: "CRYSTAL", count: 1 }],
   IRON_LEVY_PART: [{ resource: "CRYSTAL", count: 1 }],
-  IMPERIAL_EXCHANGE: [{ resource: "CRYSTAL", count: 1 }],
-  WORLD_ENGINE: [{ resource: "CRYSTAL", count: 1 }],
-  AEGIS_DOME: [{ resource: "CRYSTAL", count: 1 }],
-  ASTRAL_DOCK: [{ resource: "CRYSTAL", count: 1 }],
-  POPULATION_BUREAU: [{ resource: "CRYSTAL", count: 1 }],
-  IRON_LEVY: [{ resource: "CRYSTAL", count: 1 }]
+  // The final monument's own slot cost is 4, not 1: it absorbs the 3
+  // CRYSTAL slots its 3 consumed Parts used to occupy (see
+  // consumeMonumentParts in apps/simulation/src/runtime-structure-build-
+  // completion.ts, which clears the Parts on monument completion) plus 1
+  // for the monument itself.
+  IMPERIAL_EXCHANGE: [{ resource: "CRYSTAL", count: 4 }],
+  WORLD_ENGINE: [{ resource: "CRYSTAL", count: 4 }],
+  AEGIS_DOME: [{ resource: "CRYSTAL", count: 4 }],
+  ASTRAL_DOCK: [{ resource: "CRYSTAL", count: 4 }],
+  POPULATION_BUREAU: [{ resource: "CRYSTAL", count: 4 }],
+  IRON_LEVY: [{ resource: "CRYSTAL", count: 4 }]
 };
 
 export const structureSlotRequirements = (type: SlotStructureType): StructureSlotRequirement[] =>

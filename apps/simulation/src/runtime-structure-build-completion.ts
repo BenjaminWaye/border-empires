@@ -1,8 +1,9 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { CONVERTER_MODE_FLIP_COOLDOWN_MS } from "@border-empires/game-domain";
-import { GRANARY_INSTANT_POPULATION_BURST, SYNTHESIZER_STRUCTURE_TYPES, STRUCTURE_REGISTRY, type BuildableStructureType } from "@border-empires/shared";
+import { GRANARY_INSTANT_POPULATION_BURST, SYNTHESIZER_STRUCTURE_TYPES, STRUCTURE_REGISTRY, type BuildableStructureType, type MonumentalStructureType } from "@border-empires/shared";
+import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
-import { isMonumentBaseType, monumentClaimOwnerId } from "./monument-uniqueness.js";
+import { isMonumentBaseType, monumentClaimOwnerId, monumentPartTypeForBaseType } from "./monument-uniqueness.js";
 import { garrisonCapForVariant, initialGarrisonForVariant } from "./runtime-fort-garrison-tick.js";
 import { announceMonumentClaim, resolveLostMonumentAssemblyRace } from "./runtime-monument-claim.js";
 
@@ -21,6 +22,38 @@ export const converterBuildModeLockFields = (
   if (!SYNTHESIZER_STRUCTURE_TYPES.includes(structureType as BuildableStructureType)) return {};
   return { modeLockedUntil: now() + CONVERTER_MODE_FLIP_COOLDOWN_MS };
 };
+
+// Consumes (removes) every one of the owner's active Parts for the monument
+// that just completed — a completed monument no longer needs the staging
+// structures that assembled it, and its own CRYSTAL slot cost was raised by
+// 3 (the total the Parts occupied) specifically to account for this.
+export function consumeMonumentParts(
+  context: RuntimeStructureCommandContext,
+  ownerId: string,
+  baseType: MonumentalStructureType,
+  commandId: string
+): void {
+  const partType = monumentPartTypeForBaseType(baseType);
+  const matchingKeys: string[] = [];
+  for (const [tileKey, tile] of context.tiles) {
+    if (tile.economicStructure?.ownerId === ownerId && tile.economicStructure.status === "active" && tile.economicStructure.type === partType) {
+      matchingKeys.push(tileKey);
+    }
+  }
+  if (matchingKeys.length === 0) return;
+  const tileDeltas: SimulationTileWireDelta[] = [];
+  for (const tileKey of matchingKeys) {
+    const tile = context.tiles.get(tileKey);
+    if (!tile) continue;
+    const clearedTile = { ...tile, economicStructure: undefined } as DomainTileState;
+    context.replaceTileState(tileKey, clearedTile, commandId);
+    tileDeltas.push(context.tileDeltaFromState(clearedTile));
+  }
+  if (tileDeltas.length > 0) {
+    context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas });
+    context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
+  }
+}
 
 export function grantGranaryPopulationBurst(
   context: RuntimeStructureCommandContext,
@@ -101,7 +134,10 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   // Light Outpost's vision bonus (and, once active, a Siege Outpost's own)
   // is applied by reconcileOutpostVisionBonus via the replaceTileState call
   // above — runtime-outpost-vision.ts.
-  if (isMonumentBaseType(structureType)) announceMonumentClaim(context, structureType, ownerId, commandId);
+  if (isMonumentBaseType(structureType)) {
+    announceMonumentClaim(context, structureType, ownerId, commandId);
+    consumeMonumentParts(context, ownerId, structureType, commandId);
+  }
   // Incubation Engine (Granary, tech-tree redesign): instant one-time
   // +10,000 population burst on build completion, applied to both the
   // town's current population AND its cap (a burst that gets silently

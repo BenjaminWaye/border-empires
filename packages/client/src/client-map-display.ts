@@ -627,9 +627,9 @@ export const structureInfoForKey = (
   if (type === "ASTRAL_DOCK") {
     return structure({
       title: "Astral Dock",
-      detail: "The Astral Dock is a unique world monument. Once assembled and powered, it can launch one satellite for 1,000 gold that reveals the full map for 24 hours.",
+      detail: "The Astral Dock is a unique world monument. Placing it consumes all 3 Astral Dock Parts. Once assembled and powered, it can launch one satellite for 1,000 gold that reveals the full map for 24 hours.",
       glyph: "✶",
-      placement: "Place for free on any settled tile you own after finishing three Astral Dock Parts.",
+      placement: "Place on any settled tile you own after finishing 3 Astral Dock Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -747,20 +747,20 @@ export const structureInfoForKey = (
   if (type === "IMPERIAL_EXCHANGE") {
     return structure({
       title: "Imperial Exchange",
-      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own and, once every 24 hours, levy 100% of a single chosen rival's gold.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Imperial Exchange Parts — and, once every 24 hours, levy 100% of a single chosen rival's gold.",
       glyph: "✶",
-      placement: "Place on any settled tile you own after finishing 3 Imperial Exchange Parts.",
-      costBits: ["Free after 3 parts"],
+      placement: "Place on any settled tile you own after finishing 3 Imperial Exchange Parts. Consumes all 3 parts on completion.",
+      costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
   if (type === "WORLD_ENGINE") {
     return structure({
       title: "Worldbreaker Cannon",
-      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 gold.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Worldbreaker Cannon Parts — and fire one Worldbreaker shot every 10 minutes that destroys an enemy structure and cuts that town's population by 30%, for 1,000 gold.",
       glyph: "✸",
-      placement: "Place on any settled tile you own after finishing 3 Worldbreaker Cannon Parts.",
-      costBits: ["Free after 3 parts"],
+      placement: "Place on any settled tile you own after finishing 3 Worldbreaker Cannon Parts. Consumes all 3 parts on completion.",
+      costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
@@ -777,10 +777,10 @@ export const structureInfoForKey = (
   if (type === "AEGIS_DOME") {
     return structure({
       title: "Aegis Dome",
-      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own to shield a 25-tile core and trigger a free 15-minute Aegis Lock every 60 minutes.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Aegis Dome Parts — to shield a 25-tile core and trigger a free 15-minute Aegis Lock every 60 minutes.",
       glyph: "⬡",
-      placement: "Place on any settled tile you own after finishing 3 Aegis Dome Parts.",
-      costBits: ["Free after 3 parts"],
+      placement: "Place on any settled tile you own after finishing 3 Aegis Dome Parts. Consumes all 3 parts on completion.",
+      costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
@@ -827,10 +827,10 @@ export const structureInfoForKey = (
   if (type === "POPULATION_BUREAU") {
     return structure({
       title: "Population Bureau",
-      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own to add +0.1 manpower/min empire-wide for every Manpower-branch building you own.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Population Bureau Parts — to add +0.1 manpower/min empire-wide for every Manpower-branch building you own.",
       glyph: "◈",
-      placement: "Place on any settled tile you own after finishing 3 Population Bureau Parts.",
-      costBits: ["Free after 3 parts"],
+      placement: "Place on any settled tile you own after finishing 3 Population Bureau Parts. Consumes all 3 parts on completion.",
+      costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
@@ -847,10 +847,10 @@ export const structureInfoForKey = (
   if (type === "IRON_LEVY") {
     return structure({
       title: "The Iron Levy",
-      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own to convert 50% of your currently-banked manpower into an instant one-time army, then freeze empire-wide manpower regen for 2 hours. Requires nearby Ambaric Tower power.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Iron Levy Parts — to convert 50% of your currently-banked manpower into an instant one-time army, then freeze empire-wide manpower regen for 2 hours. Requires nearby Ambaric Tower power.",
       glyph: "⬢",
-      placement: "Place on any settled tile you own after finishing 3 Iron Levy Parts.",
-      costBits: ["Free after 3 parts"],
+      placement: "Place on any settled tile you own after finishing 3 Iron Levy Parts. Consumes all 3 parts on completion.",
+      costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
