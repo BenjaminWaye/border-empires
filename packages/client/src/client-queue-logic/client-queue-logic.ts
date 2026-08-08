@@ -11,6 +11,7 @@ import { createNextFrontierCommandIdentity } from "../client-frontier-command/cl
 import { findClosestMuster } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
+import { persistWaypointQueueForPlayer } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile, TileTimedProgress } from "../client-types.js";
@@ -698,6 +699,7 @@ export const topUpFromWaypoint = (
   if (targetTile && targetTile.ownerId === state.me) {
     pushFeed(`Waypoint reached at (${target.x}, ${target.y}).`, "info", "success");
     state.waypoint.shift();
+    persistWaypointQueueForPlayer(state.me, state.waypoint);
     return state.waypoint.length > 0;
   }
 
@@ -713,7 +715,11 @@ export const topUpFromWaypoint = (
 
   const plan = planWaypoint(target, { state, keyFor });
   waypoint.plan = plan;
-  if (!plan.reachable) return cancelWaypointOnBarrierBlock(state, plan, target, pushFeed);
+  if (!plan.reachable) {
+    const result = cancelWaypointOnBarrierBlock(state, plan, target, pushFeed);
+    if (plan.blockReason === "TARGET_BARRIER") persistWaypointQueueForPlayer(state.me, state.waypoint);
+    return result;
+  }
   const firstStep = plan.steps[0];
   if (!firstStep) return false;
   const stepKey = keyFor(firstStep.target.x, firstStep.target.y);

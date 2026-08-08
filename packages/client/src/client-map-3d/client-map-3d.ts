@@ -76,6 +76,7 @@ import { normalizeColorForThree } from "../client-three-color/client-three-color
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
 import { lightenHex, parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
 import { createWaypointFlag } from "../client-map-3d-waypoint-flag/client-map-3d-waypoint-flag.js";
+import { WAYPOINT_QUEUE_CLIENT_CAP } from "../client-waypoint-planner/client-waypoint-persistence.js";
 
 type TileTimedProgress = {
   readonly startAt: number;
@@ -362,10 +363,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // destination tile and tinted by the player's empire color. Geometry
   // lives in its own factory (client-map-3d-waypoint-flag.ts) so the
   // live renderer and the Storybook design review build the identical
-  // model instead of two copies that can drift apart.
-  const waypointFlag = createWaypointFlag();
-  const waypointFlagGroup = waypointFlag.group;
-  waypointFlagGroup.visible = false;
+  // model instead of two copies that can drift apart. One instance per
+  // queued waypoint (capped at WAYPOINT_QUEUE_CLIENT_CAP) — index 0 is
+  // the active waypoint, the rest render dimmed/grayscale and numbered.
+  const waypointFlags = Array.from({ length: WAYPOINT_QUEUE_CLIENT_CAP }, () => createWaypointFlag());
+  for (const flag of waypointFlags) flag.group.visible = false;
   // Frontier-claim fill: a single empire-color plate that ramps in
   // opacity over the claim duration, used when state.capture.silent is
   // set (waypoint-driven neutral EXPAND). Replaces the big "Capturing
@@ -536,8 +538,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
   for (const { marker } of waypointPathMarkers) marker.frustumCulled = false;
-  waypointFlagGroup.frustumCulled = false;
-  for (const child of waypointFlagGroup.children) child.frustumCulled = false;
+  for (const flag of waypointFlags) {
+    flag.group.frustumCulled = false;
+    for (const child of flag.group.children) child.frustumCulled = false;
+  }
 
   scene.add(
     selectedMarker,
@@ -555,7 +559,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ...queuedSettlementMarkers.map(({ marker }) => marker),
     ...queuedBuildMarkers.map(({ marker }) => marker),
     ...waypointPathMarkers.map(({ marker }) => marker),
-    waypointFlagGroup,
+    ...waypointFlags.map((flag) => flag.group),
     frontierClaimPlate
   );
 
@@ -809,48 +813,71 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     placeLineMarkers(queuedSettlementMarkers, settlementTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
     placeLineMarkers(queuedBuildMarkers, buildTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
   };
+  const WAYPOINT_QUEUE_GRAY = "#8b93a0";
+  const waypointFlagSurfaceY = (x: number, y: number): number => {
+    const wxNext = deps.wrapX(x + 1);
+    const wyNext = deps.wrapY(y + 1);
+    return (
+      heightfield.cornerYAt(x, y) +
+      heightfield.cornerYAt(wxNext, y) +
+      heightfield.cornerYAt(x, wyNext) +
+      heightfield.cornerYAt(wxNext, wyNext)
+    ) / 4;
+  };
   const syncWaypointMarkers = (): void => {
     hideLineMarkerPool(waypointPathMarkers);
-    waypointFlagGroup.visible = false;
-    const waypoint = deps.state.waypoint[0];
-    if (!waypoint) return;
-    const blocked = !waypoint.plan.reachable;
+    for (const flag of waypointFlags) flag.group.visible = false;
+    const waypoints = deps.state.waypoint;
+    const activeWaypoint = waypoints[0];
+    if (!activeWaypoint) return;
+    const blocked = !activeWaypoint.plan.reachable;
     const HALT_COLOR = "#f59e0b";
     const empireColor = deps.state.playerColors.get(deps.state.me) ?? "#d5ecff";
-    // Empire color drives the banner, the hex glow ring, the pedestal
-    // energy ring, the smoke wisps, and the path-tile outlines. The
+    // Empire color drives the active flag's banner, hex glow ring,
+    // pedestal energy ring, smoke wisps, and path-tile outlines. The
     // brass/copper mechanical bits stay metallic so the empire color
     // reads as the "energy" of the assembly rather than a paint job.
-    const bannerColor = blocked ? HALT_COLOR : empireColor;
-    const glowColor = blocked ? HALT_COLOR : lightenHex(empireColor, 0.45);
+    // Queued (non-active) waypoints render desaturated gray instead —
+    // their own plan/reachability isn't kept live (only the active one
+    // gets replanned every tick), so they never show the halted color.
     const pathColor = blocked ? HALT_COLOR : empireColor;
-    waypointFlag.setTint(bannerColor, glowColor);
-    waypointFlag.setHalted(blocked);
     for (const { material } of waypointPathMarkers) {
       material.color.set(pathColor);
       material.opacity = 0.5;
     }
     const pathTiles: Array<{ x: number; y: number }> = [];
-    for (const step of waypoint.plan.steps) {
-      if (step.target.x === waypoint.target.x && step.target.y === waypoint.target.y) continue;
+    for (const step of activeWaypoint.plan.steps) {
+      if (step.target.x === activeWaypoint.target.x && step.target.y === activeWaypoint.target.y) continue;
       pathTiles.push(step.target);
     }
     placeLineMarkers(waypointPathMarkers, pathTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
-    // Anchor the flag group at the destination tile's world-space
-    // center, lifted to sit on the bowed heightfield surface.
-    const dx = toroidDelta(deps.state.camX, waypoint.target.x, WORLD_WIDTH);
-    const dy = toroidDelta(deps.state.camY, waypoint.target.y, WORLD_HEIGHT);
-    const wxNext = deps.wrapX(waypoint.target.x + 1);
-    const wyNext = deps.wrapY(waypoint.target.y + 1);
-    const cornerYAvg =
-      (heightfield.cornerYAt(waypoint.target.x, waypoint.target.y) +
-        heightfield.cornerYAt(wxNext, waypoint.target.y) +
-        heightfield.cornerYAt(waypoint.target.x, wyNext) +
-        heightfield.cornerYAt(wxNext, wyNext)) /
-      4;
-    waypointFlagGroup.position.set(dx + TILE_CENTER_OFFSET, cornerYAvg + MARKER_RISE_ABOVE_HEIGHTFIELD, dy + TILE_CENTER_OFFSET);
-    waypointFlag.tick(performance.now());
-    waypointFlagGroup.visible = true;
+    const capture = deps.state.capture;
+    const nowMs = performance.now();
+    const visibleCount = Math.min(waypoints.length, waypointFlags.length);
+    for (let i = 0; i < visibleCount; i += 1) {
+      const wp = waypoints[i];
+      const flag = waypointFlags[i];
+      if (!wp || !flag) continue;
+      // Hide the flag standing on a tile that's actively capturing right
+      // now — the frontier-claim sweep plate already shows that tile's
+      // progress, so the banner would just be redundant clutter on top.
+      if (capture && capture.target.x === wp.target.x && capture.target.y === wp.target.y) continue;
+      const active = i === 0;
+      const bannerColor = active ? (blocked ? HALT_COLOR : empireColor) : WAYPOINT_QUEUE_GRAY;
+      const glowColor = active ? (blocked ? HALT_COLOR : lightenHex(empireColor, 0.45)) : WAYPOINT_QUEUE_GRAY;
+      flag.setTint(bannerColor, glowColor);
+      flag.setHalted(active && blocked);
+      flag.setOpacityScale(active ? 1 : Math.max(0.3, 0.65 - (i - 1) * 0.12));
+      flag.setQueueNumber(active ? undefined : i + 1);
+      // Anchor the flag group at the destination tile's world-space
+      // center, lifted to sit on the bowed heightfield surface.
+      const dx = toroidDelta(deps.state.camX, wp.target.x, WORLD_WIDTH);
+      const dy = toroidDelta(deps.state.camY, wp.target.y, WORLD_HEIGHT);
+      const surfaceY = waypointFlagSurfaceY(wp.target.x, wp.target.y);
+      flag.group.position.set(dx + TILE_CENTER_OFFSET, surfaceY + MARKER_RISE_ABOVE_HEIGHTFIELD, dy + TILE_CENTER_OFFSET);
+      flag.tick(nowMs);
+      flag.group.visible = true;
+    }
   };
   const syncFrontierClaimPlate = (): void => {
     const capture = deps.state.capture;
@@ -1872,7 +1899,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       marker.geometry.dispose();
       material.dispose();
     }
-    waypointFlag.dispose();
+    for (const flag of waypointFlags) flag.dispose();
     frontierClaimPlateGeometry.dispose();
     frontierClaimPlateMaterial.dispose();
     townOverlay.dispose();
