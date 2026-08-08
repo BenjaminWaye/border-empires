@@ -75,7 +75,7 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   GARRISON_HALL: [{ resource: "FOOD", count: 1 }],
   GOVERNORS_OFFICE: [{ resource: "FOOD", count: 1 }],
   CARAVANARY: [{ resource: "FOOD", count: 1 }],
-  AIRPORT: [{ resource: "CRYSTAL", count: 1 }],
+  AIRPORT: [{ resource: "CRYSTAL", count: 3 }],
   CLEARING_HOUSE: [{ resource: "FOOD", count: 1 }],
 
   // Tier 3 — major economic engines

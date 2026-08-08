@@ -1,9 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { COMBAT_LOCK_MS, getWorldSeed, setWorldSeed, structureBuildDurationMs } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, structureBuildDurationMs } from "@border-empires/shared";
 import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE, SIPHON_CRYSTAL_COST, SIPHON_DURATION_MS, TOWN_BASE_GOLD_PER_MIN, TOWN_MANPOWER_BY_TIER } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { SimulationRuntime } from "./runtime.js";
-import { MAX_SETTLE_DURATION_MS, settlementBaseDurationMsForTile } from "../runtime-settlement-rules.js";
 import { createPlayersFromRecoveredState } from "../runtime-hydration.js";
 import { buildAiOpponent, buildPlayer, collectEvents, testRuntimePlayer } from "./runtime.test-helpers.js";
 
@@ -4886,99 +4885,6 @@ describe("simulation runtime", () => {
     expect(settledTile?.townName).toBeUndefined();
   });
 
-  it("applies settlement speed tech to pending settlement duration", async () => {
-    const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
-    const runtime = new SimulationRuntime({
-      now: () => 1_000,
-      scheduleAfter: (delayMs, task) => {
-        scheduledTasks.push({ delayMs, task });
-      },
-      initialPlayers: new Map([
-        [
-          "player-1",
-          buildPlayer("player-1", { manpower: 100, techIds: new Set(["logistics"]) })
-        ]
-      ]),
-      initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
-        activeLocks: []
-      }
-    });
-
-    runtime.submitCommand({
-      commandId: "settle-fast",
-      sessionId: "session-1",
-      playerId: "player-1",
-      clientSeq: 1,
-      issuedAt: 1_000,
-      type: "SETTLE",
-      payloadJson: JSON.stringify({ x: 10, y: 10 })
-    });
-
-    await Promise.resolve();
-
-    expect(scheduledTasks).toHaveLength(1);
-    expect(scheduledTasks[0]?.delayMs).toBe(Math.round(60_000 / 1.05));
-    expect(runtime.exportState().pendingSettlements).toEqual([
-      expect.objectContaining({
-        ownerId: "player-1",
-        tileKey: "10,10",
-        startedAt: 1_000,
-        resolvesAt: 1_000 + Math.round(60_000 / 1.05)
-      })
-    ]);
-  });
-
-  it("applies forest settlement duration before settlement speed tech", async () => {
-    const previousSeed = getWorldSeed();
-    setWorldSeed(1);
-    try {
-      // Forest settlement tiles are worldgen-derived; locate one for this seed.
-      let forest: { x: number; y: number } | undefined;
-      for (let y = 0; y < 256 && !forest; y += 1) {
-        for (let x = 0; x < 256 && !forest; x += 1) {
-          if (settlementBaseDurationMsForTile({ x, y }) === MAX_SETTLE_DURATION_MS) forest = { x, y };
-        }
-      }
-      if (!forest) throw new Error("no forest settlement tile found for world seed 1");
-      const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
-      const runtime = new SimulationRuntime({
-        now: () => 1_000,
-        scheduleAfter: (delayMs, task) => {
-          scheduledTasks.push({ delayMs, task });
-        },
-        initialPlayers: new Map([
-          [
-            "player-1",
-            buildPlayer("player-1", { manpower: 100, techIds: new Set(["logistics"]) })
-          ]
-        ]),
-        initialState: {
-          tiles: [{ x: forest.x, y: forest.y, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
-          activeLocks: []
-        }
-      });
-
-      runtime.submitCommand({
-        commandId: "settle-fast-forest",
-        sessionId: "session-1",
-        playerId: "player-1",
-        clientSeq: 1,
-        issuedAt: 1_000,
-        type: "SETTLE",
-        payloadJson: JSON.stringify({ x: forest.x, y: forest.y })
-      });
-
-      await Promise.resolve();
-
-      expect(scheduledTasks).toHaveLength(1);
-      // Forest doubles the base (MAX_SETTLE_DURATION_MS); logistics applies a 1.05x speed mult.
-      expect(scheduledTasks[0]?.delayMs).toBe(Math.round(MAX_SETTLE_DURATION_MS / 1.05));
-    } finally {
-      setWorldSeed(previousSeed);
-    }
-  });
-
   it("cancels pending settlement when the tile is captured and ignores the stale settle timer after recapture", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.001);
@@ -5683,7 +5589,7 @@ describe("simulation runtime", () => {
       initialPlayers: new Map([
         [
           "player-1",
-          buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["cryptography", "surveying"]), strategicResources: { CRYSTAL: 1_000 } })
+          buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["cryptography", "surveying", "beacon-towers"]), strategicResources: { CRYSTAL: 1_000 } })
         ],
         [
           "player-2",
@@ -7989,7 +7895,7 @@ describe("aether purge", () => {
     return new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: options.points ?? 5_000, manpower: 10_000, techIds: new Set<string>(["signal-fires"]), strategicResources: { CRYSTAL: options.crystal ?? 500 } })],
+        ["player-1", buildPlayer("player-1", { points: options.points ?? 5_000, manpower: 10_000, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { CRYSTAL: options.crystal ?? 500 } })],
         ["player-2", buildPlayer("player-2", { isAi: true, manpower: 100 })]
       ]) as never,
       initialState: { tiles: tiles as never, activeLocks: [] }

@@ -173,7 +173,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "CENSUS_HALL") return "Grants +20,000 population to the supported town for every connected city with an active Incubation Engine, and cuts that town's tier-upgrade cost by 25%.";
   if (kind === "BANK") return "Nearby town: +50% city income and +1 flat income.";
   if (kind === "CLEARING_HOUSE") return "Strengthens banks and markets for this town and its directly connected towns.";
-  if (kind === "AIRPORT") return "Launches crystal-powered bombardment that strips enemy ownership from a 3×3 area (structures survive). 5,000 gold per shot, 20m cooldown. Blocked by Resonance Grids.";
+  if (kind === "AIRPORT") return "Launches crystal-powered bombardment that strips enemy ownership from a 3×3 area (structures survive). Free to fire, 20m cooldown. Blocked by Resonance Grids.";
   if (kind === "AETHER_TOWER") return "Powers nearby late-game sky and monument structures.";
   if (kind === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
   if (kind === "LIGHT_OUTPOST") return "Provides a lighter attack bonus from this owned border tile.";
@@ -197,7 +197,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "LOGISTICS_GUILD") return "Adds +0.05 manpower/min empire-wide, standalone. A Rail Depot in this town's connected network amplifies it to +0.1/min.";
   if (kind === "ASSEMBLY_WORKS") return "Amplifies every Ancillary Factory in its connected-town network (+300 manpower cap each). One per connected-town network.";
   if (kind === "ASTRAL_DOCK_PART") return "One of three monument parts needed to assemble the Astral Dock.";
-  if (kind === "ASTRAL_DOCK") return "Unique world monument. Launches one satellite for full-map vision for 24 hours.";
+  if (kind === "ASTRAL_DOCK") return "Unique world monument. Launches one satellite for 1,000 gold that reveals full-map vision for 24 hours.";
   if (kind === "RAIL_DEPOT") return "Mustering hub that amplifies every Logistics Guild in its connected-town network (+0.1 manpower/min each) and speeds up nearby outpost muster. Every 10 minutes, settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across this town's linked network.";
   if (kind === "IMPERIAL_EXCHANGE_PART") return "One of three monument parts needed to assemble the Imperial Exchange.";
   if (kind === "WORLD_ENGINE_PART") return "One of three monument parts needed to assemble the Worldbreaker Cannon.";
@@ -307,13 +307,6 @@ export const structureInfoForKey = (
     if (key === "CUSTOMS_HOUSE") return ["0.50 gold / m"];
     if (key === "GARRISON_HALL") return ["2.50 gold / m"];
     if (key === "GOVERNORS_OFFICE") return ["3 gold / m"];
-    if (key === "AIRPORT") return ["0.03 crystal / m"];
-    if (key === "AETHER_TOWER") return ["2 gold / m", "0.05 crystal / m"];
-    if (key === "RADAR_SYSTEM") return ["4.50 gold / m", "0.05 crystal / m"];
-    if (key === "ASTRAL_DOCK_PART") return ["2.50 gold / m"];
-    if (key === "ASTRAL_DOCK") return ["9 gold / m", "0.10 crystal / m"];
-    if (key === "AEGIS_DOME_PART") return ["2.50 gold / m"];
-    if (key === "AEGIS_DOME") return ["8 gold / m", "0.10 crystal / m"];
     if (key === "RAIL_DEPOT") return [];
     return [];
   };
@@ -349,14 +342,14 @@ export const structureInfoForKey = (
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
     if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "Reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles"];
     if (key === "GARRISON_HALL") return ["+150 manpower cap for this town", "+300 manpower cap if an Assembly Works is in this town's connected network"];
-    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "5,000 gold per shot • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids", "Requires nearby Ambaric Tower power"];
+    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "Free • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids", "Requires nearby Ambaric Tower power"];
     if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Ambaric Towers within 30 tiles"];
     if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Ambaric Tower power"];
     if (key === "QUARTERMASTERS_OFFICE") return ["Reduces manpower cost for War-branch structures built within 20 tiles"];
     if (key === "LOGISTICS_GUILD") return ["+0.05 manpower/min empire-wide, standalone", "+0.1/min instead if a Rail Depot is in this town's connected network"];
     if (key === "ASSEMBLY_WORKS") return ["+300 manpower cap for every Ancillary Factory in this connected-town network", "One per connected-town network"];
     if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
-    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision, free — must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Tower power"];
+    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision for 1,000 gold — must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Tower power"];
     if (key === "RAIL_DEPOT") return ["+0.1 manpower/min for every Logistics Guild in this connected-town network", "Boosts outpost muster speed within 50 tiles", "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "+10 connected-town income points across this town's linked network", "One per connected-town network"];
     if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART" || key === "POPULATION_BUREAU_PART" || key === "IRON_LEVY_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
     if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Once every 24 hours, levy 100% of a single chosen rival's gold, free", "Requires nearby Ambaric Tower power"];
@@ -634,7 +627,7 @@ export const structureInfoForKey = (
   if (type === "ASTRAL_DOCK") {
     return structure({
       title: "Astral Dock",
-      detail: "The Astral Dock is a unique world monument. Once assembled and powered, it can launch one satellite that reveals the full map for 24 hours.",
+      detail: "The Astral Dock is a unique world monument. Once assembled and powered, it can launch one satellite for 1,000 gold that reveals the full map for 24 hours.",
       glyph: "✶",
       placement: "Place for free on any settled tile you own after finishing three Astral Dock Parts.",
       costBits: costBitsFor(type),
@@ -644,7 +637,7 @@ export const structureInfoForKey = (
   if (type === "RAIL_DEPOT") {
     return structure({
       title: "Rail Depot",
-      detail: "Rail Depots are mustering hubs that amplify every Ancillary Factory in this connected-town network (+300 manpower cap, +0.1 manpower/min each) and speed up outpost muster within 50 tiles. They also settle the nearest owned frontier tile within 20 tiles every 10 minutes and add +10 connected-town income points across the supported town's directly connected network. Only one Rail Depot is allowed per connected-town network.",
+      detail: "Rail Depots are mustering hubs that amplify every Logistics Guild in this connected-town network (+0.1 manpower/min each) and speed up outpost muster within 50 tiles. They also settle the nearest owned frontier tile within 20 tiles every 10 minutes and add +10 connected-town income points across the supported town's directly connected network. Only one Rail Depot is allowed per connected-town network.",
       glyph: "🚉",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -704,7 +697,7 @@ export const structureInfoForKey = (
   if (type === "AIRPORT") {
     return structure({
       title: "Aetherport",
-      detail: "Aetherports strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Costs 5,000 gold per shot with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Tower power.",
+      detail: "Aetherports strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Free to fire, with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Tower power.",
       glyph: "✈",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -787,6 +780,76 @@ export const structureInfoForKey = (
       detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own to shield a 25-tile core and trigger a free 15-minute Aegis Lock every 60 minutes.",
       glyph: "⬡",
       placement: "Place on any settled tile you own after finishing 3 Aegis Dome Parts.",
+      costBits: ["Free after 3 parts"],
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "QUARTERMASTERS_OFFICE") {
+    return structure({
+      title: "Quartermaster's Office",
+      detail: "Quartermaster's Offices reduce the manpower cost for War-branch structures (Fort/Siege ladders) built within 20 tiles.",
+      glyph: "🎖",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "LOGISTICS_GUILD") {
+    return structure({
+      title: "Logistics Guild",
+      detail: "Logistics Guilds add +0.05 manpower/min empire-wide, standalone. A Rail Depot in this town's connected network amplifies each one to +0.1/min.",
+      glyph: "📦",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "ASSEMBLY_WORKS") {
+    return structure({
+      title: "Assembly Works",
+      detail: "Assembly Works amplify every Ancillary Factory in this connected-town network, adding +300 manpower cap to each. Only one Assembly Works is allowed per connected-town network.",
+      glyph: "🏗",
+      placement: "Build on an open settled support tile for a town you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "POPULATION_BUREAU_PART") {
+    return structure({
+      title: "Population Bureau Part",
+      detail: "One of three monument parts required before you can place the final Population Bureau for free.",
+      glyph: "◈",
+      placement: "Build on an open support tile for a Great City or Monumental City you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "POPULATION_BUREAU") {
+    return structure({
+      title: "Population Bureau",
+      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own to add +0.1 manpower/min empire-wide for every Manpower-branch building you own.",
+      glyph: "◈",
+      placement: "Place on any settled tile you own after finishing 3 Population Bureau Parts.",
+      costBits: ["Free after 3 parts"],
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "IRON_LEVY_PART") {
+    return structure({
+      title: "Iron Levy Part",
+      detail: "One of three monument parts required before you can place the final Iron Levy for free.",
+      glyph: "⬢",
+      placement: "Build on an open support tile for a Great City or Monumental City you own.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "IRON_LEVY") {
+    return structure({
+      title: "The Iron Levy",
+      detail: "Unique world monument. Once the three parts are complete, place it for free on any settled tile you own to convert 50% of your currently-banked manpower into an instant one-time army, then freeze empire-wide manpower regen for 2 hours. Requires nearby Ambaric Tower power.",
+      glyph: "⬢",
+      placement: "Place on any settled tile you own after finishing 3 Iron Levy Parts.",
       costBits: ["Free after 3 parts"],
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));

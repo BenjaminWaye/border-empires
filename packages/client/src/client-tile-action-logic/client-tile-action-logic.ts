@@ -912,15 +912,17 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         id: "astral_dock_launch",
         label: "Launch Satellite",
         ...tileActionAvailability(
-          economicStructure.status === "active" && isPowered && cooldown <= 0,
+          economicStructure.status === "active" && isPowered && cooldown <= 0 && (state.gold ?? 0) >= 1_000,
           economicStructure.status !== "active"
             ? "Monument still offline"
             : !isPowered
               ? "Needs nearby Aether Tower"
               : cooldown > 0
                 ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
-                : "",
-          "Free • full-map vision for 24h • wait for current satellite to come down before relaunching"
+                : (state.gold ?? 0) < 1_000
+                  ? "Need 1,000 gold"
+                  : "",
+          "1,000 gold • full-map vision for 24h • wait for current satellite to come down before relaunching"
         )
       });
     }
@@ -932,37 +934,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         id: "airport_bombard",
         label: "Sky Dock Bombard",
         ...tileActionAvailability(
-          economicStructure.status === "active" && isPowered && !bombardOnCooldown
-            && (state.gold ?? 0) >= 5_000,
+          economicStructure.status === "active" && isPowered && !bombardOnCooldown,
           economicStructure.status !== "active"
             ? "Sky Dock still building"
             : !isPowered
               ? "Needs nearby Aether Tower"
               : bombardOnCooldown
                 ? `Cooldown ${deps.formatCooldownShort(Math.max(0, bombardCooldownUntil - Date.now()))}`
-                : "Need 5,000 gold",
-          "5,000 gold • 20m cooldown • strip ownership from 3×3 (per-tile miss, +25% near forts)"
-        )
-      });
-    }
-    if (
-      tile.ownerId === state.me &&
-      tile.ownershipState === "SETTLED" &&
-      tile.town &&
-      (tile.town.populationTier === "CITY" || tile.town.populationTier === "GREAT_CITY" || tile.town.populationTier === "METROPOLIS")
-    ) {
-      const cooldown = deps.abilityCooldownRemainingMs("city_overclock");
-      out.push({
-        id: "city_overclock",
-        label: "City Overclock",
-        ...tileActionAvailability(
-          state.techIds.includes("imperial-roads") && cooldown <= 0 && (state.strategicResources.CRYSTAL ?? 0) >= 180,
-          !state.techIds.includes("imperial-roads")
-            ? "Requires Monument Cities"
-            : cooldown > 0
-              ? `Cooldown ${deps.formatCooldownShort(cooldown)}`
-              : "Need 180 CRYSTAL",
-          "180 CRYSTAL • 15m city overclock"
+                : "",
+          "Free • 20m cooldown • strip ownership from 3×3 (per-tile miss, +25% near forts)"
         )
       });
     }

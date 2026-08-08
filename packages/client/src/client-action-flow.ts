@@ -1514,7 +1514,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         state.aegisLockFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
       }
     }
-    if (actionId === "city_overclock") sendGameMessage({ type: "CITY_OVERCLOCK", x: selected.x, y: selected.y });
     if (actionId === "astral_dock_launch") {
       if (sendGameMessage({ type: "ASTRAL_DOCK_LAUNCH", fromX: selected.x, fromY: selected.y })) {
         state.astralDockLaunchFxQueue.push({ x: selected.x, y: selected.y, queuedAt: Date.now() });
