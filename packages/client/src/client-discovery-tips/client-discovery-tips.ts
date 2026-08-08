@@ -16,37 +16,37 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   TOWN: {
     id: "TOWN",
     title: "First Town Discovered!",
-    body: "Towns generate Gold and add Manpower cap/regen once captured and settled. Send your army to take this town and grow your empire."
+    body: "Towns generate Gold, increase your Manpower cap and regeneration, and require Food to remain productive. Keep your towns fed to sustain your economy. Capture and settle towns to expand your empire."
   },
   DOCK: {
     id: "DOCK",
     title: "Dock Discovered!",
-    body: "Docks connect to other docks across the sea, letting your army launch attacks and expand onto distant shores. Settle or capture a dock to unlock maritime routes."
+    body: "Docks generate Gold and connect to other docks across the sea, allowing your armies to attack and expand onto distant shores. Capture a dock to unlock maritime routes."
   },
   BARBARIAN: {
     id: "BARBARIAN",
     title: "Barbarian Territory Discovered!",
-    body: "Barbarian camps spawn nearby barbarian patrols that raid your empire. Attack and clear barbarian tiles for gold and to push back their threat. Each cleared tile expands your border."
+    body: "Barbarian patrols raid your empire. Attack and clear barbarian tiles to earn Gold and eliminate the threat. A successful barbarian raid on your territory allows the barbarians to multiply and spread, making them increasingly dangerous."
   },
   FOOD: {
     id: "FOOD",
     title: "Food Resource Discovered",
-    body: "Grain and fishing tiles produce Food, which fuels population growth and keeps your empire's manpower fed. Settle it to start collecting."
+    body: "Grain and fishing tiles produce Food, which keeps your towns productive. Capture food to feed your towns and sustain supporting infrastructure."
   },
   IRON: {
     id: "IRON",
     title: "Iron Resource Discovered",
-    body: "Iron tiles produce Iron, needed for manpower and military upkeep. Settle it to strengthen your war effort."
+    body: "Iron deposits provide Iron, a strategic resource used to build defensive structures. Capture Iron to strengthen your defenses."
   },
   CRYSTAL: {
     id: "CRYSTAL",
     title: "Crystal Resource Discovered",
-    body: "Crystal tiles yield Crystal, a rare strategic resource used for advanced tech and abilities. Settle it to secure this valuable deposit."
+    body: "Crystal deposits provide Crystal, a rare strategic resource used to power Aether abilities. Capture Crystal to secure this valuable resource."
   },
   SUPPLY: {
     id: "SUPPLY",
     title: "Supply Resource Discovered",
-    body: "Wood and fur tiles produce Supply, used for construction and logistics. Settle it to keep your empire's projects moving."
+    body: "Fur deposits provide Supply, a strategic resource used for offensive military structures and coordinating attacks with multiple Mustering Flags."
   }
 };
 
