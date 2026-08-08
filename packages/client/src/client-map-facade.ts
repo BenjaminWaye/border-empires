@@ -80,7 +80,13 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   let miniMapLastDrawZoom = Number.NaN;
   let miniMapLastReplayIndex = Number.NaN;
   let miniMapLastTileCount = -1;
-  let miniMapLastDrawAt = 0;
+  // Offscreen cache for the minimap's camera-independent content (owner tints, fog, docks,
+  // town/shard/watchtower markers) — the expensive part. Recomputed only on tile/replay churn
+  // (throttled), never on a camera/zoom-only change, so panning/zooming stays cheap.
+  const miniMapContentEl = document.createElement("canvas");
+  const miniMapContentCtx = miniMapContentEl.getContext("2d");
+  if (!miniMapContentCtx) throw new Error("missing minimap content context");
+  const miniMapContentCache: { computedAt: number; box?: { x0: number; y0: number; w: number; h: number } } = { computedAt: 0 };
   const TERRAIN_COLOR_CACHE_LIMIT = 120_000;
   const terrainColorCache = new Map<string, string>();
   const terrainColorCacheOrder: string[] = [];
@@ -94,6 +100,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     miniMapLastDrawCamY = Number.NaN;
     miniMapLastDrawZoom = Number.NaN;
     miniMapLastReplayIndex = Number.NaN;
+    miniMapContentCache.computedAt = 0;
   };
 
   const tileVisibilityStateAt = (x: number, y: number, tile?: Tile): TileVisibilityState => {
@@ -350,6 +357,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       canvas,
       miniMapEl,
       miniMapCtx,
+      miniMapContentEl,
+      miniMapContentCtx,
       miniMapBase,
       miniMapBaseReady,
       miniMapLast: {
@@ -357,9 +366,9 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
         camY: miniMapLastDrawCamY,
         zoom: miniMapLastDrawZoom,
         replayIndex: miniMapLastReplayIndex,
-        tileCount: miniMapLastTileCount,
-        drawAt: miniMapLastDrawAt
+        tileCount: miniMapLastTileCount
       },
+      contentCache: miniMapContentCache,
       parseKey,
       keyFor,
       tileVisibilityStateAt,
@@ -374,7 +383,6 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     miniMapLastDrawZoom = state.zoom;
     miniMapLastReplayIndex = state.replayActive ? state.replayIndex : Number.NaN;
     miniMapLastTileCount = state.tiles.size;
-    miniMapLastDrawAt = nowMs;
   };
 
   return {
