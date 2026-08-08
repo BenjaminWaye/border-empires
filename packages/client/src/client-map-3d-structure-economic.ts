@@ -258,8 +258,7 @@ export const registerEconomicStructures = (
   // ─── Layouts ────────────────────────────────────────────────────────
   const addFarmstead: EconomicStructureLayout = (sx, sy, sz) => {
     // Barn + silo + back fence. The crop field comes from the FARM
-    // resource overlay (golden plates + wheat sheaves + orchard trees,
-    // see client-map-3d-resource-overlay.ts addFarm). Both overlays
+    // barley field overlay (client-map-3d-barley-field.ts). Both overlays
     // render together on a farmstead tile so the in-game tile reads as
     // "barn on a farm field" — an upgraded farm, not a replacement.
     builder.addPiece("barnBody", sx, sy, sz, -0.10, 0.11, 0.04);

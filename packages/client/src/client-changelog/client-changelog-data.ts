@@ -412,5 +412,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Astral Dock's satellite launch now costs 1,000 gold (was free) — text and in-game cost now match.",
       "Removed the non-functional City Overclock button — it had no effect in-game."
     ]
+  },
+  {
+    createdAt: 1786180756479, // 2026-08-08
+    introducedIn: "barley-field-overlay",
+    title: "Farm tiles now render as dense golden barley fields",
+    why: "Farm tiles used to read as a few neat plates of golden wheat with trees and paths, which looked sparse and farmed-out rather than like an active agricultural tile. Farms now render as a full, dense crop: a dark fertile soil bed covered in a carpet of mature golden barley with seed heads and pale awns, so a farm tile reads unmistakably as a working field.",
+    changes: [
+      "3D map: farm tiles now show a dense golden barley field with lean and tone variation per tile, instead of the old wheat plates and orchard trees.",
+      "2D map: farm overlays were redrawn as dense barley crops with dark soil showing between clumps.",
+      "Each tile's crop arrangement is deterministic, so it stays stable while panning and doesn't reshuffle on refresh."
+    ]
   }
 ];

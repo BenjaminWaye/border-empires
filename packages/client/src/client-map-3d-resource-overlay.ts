@@ -13,12 +13,13 @@ import {
   Vector3
 } from "three";
 
-// 3D resource overlay — 7 resource kinds × 3 variants each. Each variant
+// 3D resource overlay — 6 resource kinds × 3 variants each. Each variant
 // is composed from a handful of shared primitive "pieces" (small boxes,
 // cones, cylinders) so adjacent same-resource tiles read with visible
 // variety like the forest module's pine/spruce variants. Variant is
 // chosen deterministically per tile via a hash so a refresh paints the
-// same arrangement.
+// same arrangement. FARM is handled by the dedicated barley field overlay
+// (client-map-3d-barley-field.ts) and never routed here.
 
 export type ResourceKind = "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR";
 export type ResourceVariant = 0 | 1 | 2;
@@ -44,13 +45,9 @@ export type ResourceOverlay = {
 
 export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceOverlay => {
   // ─── Materials (shared by piece type) ───────────────────────────────
-  const wheatMaterial = new MeshStandardMaterial({ color: "#d8b94a", roughness: 0.85, metalness: 0, flatShading: true });
-  const orchardCanopyMaterial = new MeshStandardMaterial({ color: "#5e8753", roughness: 0.88, metalness: 0, flatShading: true });
-  const orchardTrunkMaterial = new MeshStandardMaterial({ color: "#8a5d3e", roughness: 0.82, metalness: 0, flatShading: true });
   const veggieGreenMaterial = new MeshStandardMaterial({ color: "#7da94a", roughness: 0.88, metalness: 0, flatShading: true });
   const veggieRedMaterial = new MeshStandardMaterial({ color: "#c25a3a", roughness: 0.82, metalness: 0, flatShading: true });
   const woodLogMaterial = new MeshStandardMaterial({ color: "#8a5d3e", roughness: 0.88, metalness: 0, flatShading: true });
-  const dirtPathMaterial = new MeshStandardMaterial({ color: "#5b4632", roughness: 0.94, metalness: 0, flatShading: true });
   const woodHutMaterial = new MeshStandardMaterial({ color: "#6a4530", roughness: 0.92, metalness: 0, flatShading: true });
   const woodRoofMaterial = new MeshStandardMaterial({ color: "#3a2a1c", roughness: 0.9, metalness: 0, flatShading: true });
   const sawBladeMaterial = new MeshStandardMaterial({ color: "#a8acb0", roughness: 0.4, metalness: 0.42, flatShading: true });
@@ -79,13 +76,7 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
   const oilPoolMaterial = new MeshStandardMaterial({ color: "#1a1612", roughness: 0.2, metalness: 0.65, flatShading: true });
 
   // ─── Geometries (shared) ────────────────────────────────────────────
-  const wheatGeo = new BoxGeometry(0.06, 0.16, 0.06);
-  const orchardCanopyGeo = new ConeGeometry(0.085, 0.18, 5);
-  const orchardTrunkGeo = new CylinderGeometry(0.018, 0.022, 0.08, 5);
   const veggieGeo = new BoxGeometry(0.06, 0.04, 0.06);
-  // Smaller rectangular plate of wheat (was 0.42 — was too dominant).
-  const fieldPlateGeo = new BoxGeometry(0.30, 0.06, 0.30);
-  const fieldPathGeo = new BoxGeometry(0.03, 0.012, 0.66);
   const logGeo = new CylinderGeometry(0.05, 0.05, 0.32, 6);
   const hutBaseGeo = new BoxGeometry(0.24, 0.16, 0.2);
   const hutRoofGeo = new ConeGeometry(0.18, 0.12, 4);
@@ -148,13 +139,8 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
   // a single zoom level. maxTiles*N covers worst-case where every visible
   // tile is one resource type's variant with N pieces.
   const C = maxTiles;
-  make("wheat", wheatGeo, wheatMaterial, C * 6);
-  make("orchardCanopy", orchardCanopyGeo, orchardCanopyMaterial, C * 4);
-  make("orchardTrunk", orchardTrunkGeo, orchardTrunkMaterial, C * 4);
   make("veggieGreen", veggieGeo, veggieGreenMaterial, C * 6);
   make("veggieRed", veggieGeo, veggieRedMaterial, C * 4);
-  make("fieldPlate", fieldPlateGeo, wheatMaterial, C * 4);
-  make("fieldPath", fieldPathGeo, dirtPathMaterial, C * 2);
   make("log", logGeo, woodLogMaterial, C * 6);
   make("hutBase", hutBaseGeo, woodHutMaterial, C * 2);
   make("hutRoof", hutRoofGeo, woodRoofMaterial, C * 2);
@@ -224,62 +210,6 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
   };
 
   // ─── Variants ───────────────────────────────────────────────────────
-
-  const addOrchardTree = (wx: number, sy: number, wz: number, ox: number, oz: number): void => {
-    addPiece("orchardTrunk", wx, sy, wz, ox, 0.04, oz);
-    addPiece("orchardCanopy", wx, sy, wz, ox, 0.16, oz);
-  };
-
-  const addFieldPlate = (wx: number, sy: number, wz: number, ox: number, oz: number, sx = 1, sz = 1): void => {
-    // Solid golden plate of farmland with a few wheat sheaves on top so
-    // it reads as planted rows from above.
-    addPiece("fieldPlate", wx, sy, wz, ox, 0.03, oz, sx, 1, sz);
-    // Sheaves scaled down (smaller box on top of the plate).
-    const sheafCount = 3;
-    for (let i = 0; i < sheafCount; i += 1) {
-      const t = (i + 0.5) / sheafCount - 0.5;
-      addPiece("wheat", wx, sy, wz, ox + t * 0.22 * sx, 0.09, oz - 0.08 * sz, 0.7, 0.7, 0.7);
-      addPiece("wheat", wx, sy, wz, ox + t * 0.22 * sx, 0.09, oz + 0.08 * sz, 0.7, 0.7, 0.7);
-    }
-  };
-
-  const addFarm = (wx: number, sy: number, wz: number, v: ResourceVariant): void => {
-    // Smaller golden farmland plates with paths and perimeter trees.
-    // Each plate is now 0.30 wide; arrangements keep the same spirit
-    // (quadrants / pair / row) but leave breathing room around the tile.
-    if (v === 0) {
-      // 4 quadrant plates with cross paths, trees at all 4 corners.
-      addFieldPlate(wx, sy, wz, -0.16, -0.16);
-      addFieldPlate(wx, sy, wz, 0.16, -0.16);
-      addFieldPlate(wx, sy, wz, -0.16, 0.16);
-      addFieldPlate(wx, sy, wz, 0.16, 0.16);
-      addPiece("fieldPath", wx, sy, wz, 0, 0.005, 0);
-      addPiece("fieldPath", wx, sy, wz, 0, 0.005, 0, 1, 1, 1, Math.PI * 0.5, 0, 0);
-      addOrchardTree(wx, sy, wz, -0.34, -0.34);
-      addOrchardTree(wx, sy, wz, 0.34, -0.34);
-      addOrchardTree(wx, sy, wz, -0.34, 0.34);
-      addOrchardTree(wx, sy, wz, 0.34, 0.34);
-    } else if (v === 1) {
-      // 2 plates side by side with a dirt path between, trees along
-      // the back edge.
-      addFieldPlate(wx, sy, wz, -0.18, 0.04);
-      addFieldPlate(wx, sy, wz, 0.18, 0.04);
-      addPiece("fieldPath", wx, sy, wz, 0, 0.005, 0.04, 1, 1, 0.6);
-      addOrchardTree(wx, sy, wz, -0.24, -0.30);
-      addOrchardTree(wx, sy, wz, 0.0, -0.30);
-      addOrchardTree(wx, sy, wz, 0.24, -0.30);
-    } else {
-      // 1 wide plate up top, 2 narrower plates below split by a path.
-      addFieldPlate(wx, sy, wz, 0, -0.18, 1.4, 0.8);
-      addFieldPlate(wx, sy, wz, -0.18, 0.18);
-      addFieldPlate(wx, sy, wz, 0.18, 0.18);
-      addPiece("fieldPath", wx, sy, wz, 0, 0.005, 0.18, 1, 1, 0.4);
-      addOrchardTree(wx, sy, wz, -0.34, 0.34);
-      addOrchardTree(wx, sy, wz, 0.34, 0.34);
-      addOrchardTree(wx, sy, wz, -0.32, -0.32);
-      addOrchardTree(wx, sy, wz, 0.32, -0.32);
-    }
-  };
 
   const addLogPile = (wx: number, sy: number, wz: number, ox: number, oz: number): void => {
     addPiece("log", wx, sy, wz, ox - 0.06, 0.05, oz, 1, 1, 1, 0, 0, Math.PI * 0.5);
@@ -573,8 +503,7 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
     // doesn't reshuffle a tile's layout. Scene coords are used only for
     // placement.
     const v = variantHash(worldTileX, worldTileY, resource.length * 31);
-    if (resource === "FARM") addFarm(sceneX, surfaceY, sceneZ, v);
-    else if (resource === "WOOD") addWood(sceneX, surfaceY, sceneZ, v);
+    if (resource === "WOOD") addWood(sceneX, surfaceY, sceneZ, v);
     else if (resource === "IRON") addIron(sceneX, surfaceY, sceneZ, v);
     else if (resource === "GEMS") addGems(sceneX, surfaceY, sceneZ, v);
     else if (resource === "FISH") addFish(sceneX, surfaceY, sceneZ, v);
@@ -591,7 +520,7 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
   const dispose = (): void => {
     for (const slot of slots.values()) scene.remove(slot.mesh);
     [
-      wheatGeo, orchardCanopyGeo, orchardTrunkGeo, veggieGeo, fieldPlateGeo, fieldPathGeo, logGeo, hutBaseGeo, hutRoofGeo, sawBladeGeo,
+      veggieGeo, logGeo, hutBaseGeo, hutRoofGeo, sawBladeGeo,
       stoneSmallGeo, stoneLargeGeo, ironOreGeo, mineArchGeo, mineHillGeo, chimneyGeo,
       gemCrystalGeo,
       boatHullGeo, boatMastGeo, boatSailGeo, netRodGeo, fishGeo,
@@ -600,8 +529,8 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
       derrickLegGeo, derrickCapGeo, pumpBaseGeo, pumpArmGeo, pumpHeadGeo, oilPoolGeo
     ].forEach((g) => g.dispose());
     [
-      wheatMaterial, orchardCanopyMaterial, orchardTrunkMaterial, veggieGreenMaterial, veggieRedMaterial,
-      woodLogMaterial, dirtPathMaterial, woodHutMaterial, woodRoofMaterial, sawBladeMaterial,
+      veggieGreenMaterial, veggieRedMaterial,
+      woodLogMaterial, woodHutMaterial, woodRoofMaterial, sawBladeMaterial,
       stoneMaterial, darkStoneMaterial, ironOreMaterial, chimneyMaterial,
       gemBlueMaterial,
       boatHullMaterial, boatMastMaterial, fishingNetMaterial, fishMaterial,
