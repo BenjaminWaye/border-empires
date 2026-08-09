@@ -22,8 +22,9 @@ const KINDS: ReadonlyArray<StructureKind> = [
   "ASTRAL_DOCK",
   "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
   "POPULATION_BUREAU", "IRON_LEVY",
-  "ANCILLARY_FACTORY", "INCUBATION_ENGINE", "AMBARIC_TOWER",
-  "WEAPONS_WORKSHOP"
+  "WEAPONS_WORKSHOP",
+  "WORLD_ENGINE_PART", "WORLD_ENGINE_PART_BARREL",
+  "WORLD_ENGINE_PART_CORE", "WORLD_ENGINE_PART_ARRAY"
 ];
 
 const render = (args: Args): HTMLElement => {
@@ -111,14 +112,19 @@ export const LogisticsGuild: Story = { args: { structures: ["LOGISTICS_GUILD"], 
 export const AssemblyWorks: Story = { args: { structures: ["ASSEMBLY_WORKS"], cameraDistance: 3.5 } };
 export const PopulationBureau: Story = { args: { structures: ["POPULATION_BUREAU"], cameraDistance: 4 } };
 export const IronLevy: Story = { args: { structures: ["IRON_LEVY"], cameraDistance: 3.5 } };
-export const AncillaryFactory: Story = { args: { structures: ["ANCILLARY_FACTORY"], cameraDistance: 3 } };
-export const IncubationEngine: Story = { args: { structures: ["INCUBATION_ENGINE"], cameraDistance: 3.5 } };
-export const AmbaricTower: Story = { args: { structures: ["AMBARIC_TOWER"], cameraDistance: 3.5 } };
+export const AncillaryFactory: Story = { args: { structures: ["GARRISON_HALL"], cameraDistance: 3 } };
+export const IncubationEngine: Story = { args: { structures: ["GRANARY"], cameraDistance: 3.5 } };
+export const AmbaricTower: Story = { args: { structures: ["AETHER_TOWER"], cameraDistance: 3.5 } };
 export const WeaponsWorkshop: Story = { args: { structures: ["WEAPONS_WORKSHOP"], cameraDistance: 3 } };
+export const WorldbreakerPartDefault: Story = { args: { structures: ["WORLD_ENGINE_PART"], cameraDistance: 3 } };
+export const WorldbreakerPartBarrel: Story = { args: { structures: ["WORLD_ENGINE_PART_BARREL"], cameraDistance: 3 } };
+export const WorldbreakerPartCore: Story = { args: { structures: ["WORLD_ENGINE_PART_CORE"], cameraDistance: 3 } };
+export const WorldbreakerPartArray: Story = { args: { structures: ["WORLD_ENGINE_PART_ARRAY"], cameraDistance: 3 } };
 export const FirstBatch: Story = { args: { structures: ["BANK", "AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 8, spacing: 1.5 } };
 export const CivicBatch: Story = { args: { structures: ["BANK", "CLEARING_HOUSE", "EXCHANGE_HOUSE", "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "CENSUS_HALL"], cameraDistance: 8, spacing: 1.5 } };
 export const InfrastructureBatch: Story = { args: { structures: ["AIRPORT", "RAIL_DEPOT", "RADAR_SYSTEM", "CARAVANARY"], cameraDistance: 8, spacing: 1.8 } };
 export const IndustrialBatch: Story = { args: { structures: ["IRONWORKS", "ADVANCED_IRONWORKS", "FOUNDRY"], cameraDistance: 7, spacing: 1.7 } };
 export const SynthesizerBatch: Story = { args: { structures: ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"], cameraDistance: 8, spacing: 1.6 } };
 export const ArcaneBatch: Story = { args: { structures: ["AETHER_TOWER", "AEGIS_DOME", "ASTRAL_DOCK", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 9, spacing: 1.6 } };
-export const ManpowerBatch: Story = { args: { structures: ["QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS", "POPULATION_BUREAU", "IRON_LEVY", "ANCILLARY_FACTORY", "INCUBATION_ENGINE", "AMBARIC_TOWER"], cameraDistance: 9, spacing: 1.7 } };
+export const ManpowerBatch: Story = { args: { structures: ["QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS", "POPULATION_BUREAU", "IRON_LEVY", "GARRISON_HALL", "GRANARY", "AETHER_TOWER"], cameraDistance: 9, spacing: 1.7 } };
+export const WorldbreakerPartsBatch: Story = { args: { structures: ["WORLD_ENGINE_PART", "WORLD_ENGINE_PART_BARREL", "WORLD_ENGINE_PART_CORE", "WORLD_ENGINE_PART_ARRAY"], cameraDistance: 7, spacing: 1.6 } };

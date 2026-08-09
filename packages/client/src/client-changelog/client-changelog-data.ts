@@ -455,5 +455,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Queued waypoints beyond the first now show their own dimmed, numbered flag on the 3D map instead of no marker at all; a waypoint's flag hides once its own tile starts actively expanding.",
       "The waypoint queue now survives a page refresh or reconnect (capped at 20 queued destinations)."
     ]
+  },
+  {
+    createdAt: 1786275426380, // 2026-08-09
+    introducedIn: "worldbreaker-part-models",
+    title: "Worldbreaker Cannon part tiles now render as distinct 3D monument components",
+    why: "Every Worldbreaker Cannon part tile previously drew the same generic placeholder, so the colossal monument-in-progress read as a row of identical boxes instead of a piece-by-piece assembly. Part tiles now render one of three dedicated component models — a Long Barrel, a Fracture Core, or a Sky-Marking Array — chosen deterministically per tile, so the monument takes shape like a real collection of machined parts.",
+    changes: [
+      "3D map: Worldbreaker Cannon part tiles now show a distinct component mesh instead of a generic placeholder.",
+      "Three component models — Long Barrel, Fracture Core, Sky-Marking Array — match the monument set's flat-shaded industrial look and share its dark iron, aged brass, and stone palette.",
+      "Each part tile resolves to a component deterministically from its map position, so the assembly stays stable while panning and doesn't reshuffle."
+    ]
   }
 ];
