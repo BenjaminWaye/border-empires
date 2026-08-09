@@ -184,4 +184,45 @@ describe("InMemoryGatewaySocialStore + createSocialState", () => {
     social.snapshotForPlayer("player-1");
     expect(store.loadSnapshot().completedAllianceBreaks).toEqual([]);
   });
+
+  it("clears all season data when clearSeasonData is called", () => {
+    const store = new InMemoryGatewaySocialStore();
+    const sink = buildSink(store);
+    const social = createSocialState({
+      now: () => 1_000,
+      sink,
+      initial: store.loadSnapshot()
+    });
+
+    social.registerPlayer("player-1", "A");
+    social.registerPlayer("player-2", "B");
+    social.registerPlayer("player-3", "C");
+
+    social.requestAlliance("player-1", "B");
+    const requestId = social.snapshotForPlayer("player-2").incomingAllianceRequests[0]?.id;
+    social.acceptAlliance("player-2", requestId!);
+
+    social.requestTruce("player-2", "C", 24);
+    const truceRequestId = social.snapshotForPlayer("player-3").incomingTruceRequests[0]?.id;
+    social.acceptTruce("player-3", truceRequestId!);
+
+    social.breakAlliance("player-1", "player-2");
+
+    let snapshot = store.loadSnapshot();
+    expect(snapshot.allianceRequests).toHaveLength(0);
+    expect(snapshot.players.find((p) => p.id === "player-1")?.allies).toEqual(["player-2"]);
+    expect(snapshot.activeAllianceBreaks).toHaveLength(1);
+    expect(snapshot.activeTruces).toHaveLength(1);
+
+    store.clearSeasonData();
+
+    snapshot = store.loadSnapshot();
+    expect(snapshot.allianceRequests).toHaveLength(0);
+    expect(snapshot.players.find((p) => p.id === "player-1")?.allies).toEqual([]);
+    expect(snapshot.activeAllianceBreaks).toHaveLength(0);
+    expect(snapshot.completedAllianceBreaks).toHaveLength(0);
+    expect(snapshot.activeTruces).toHaveLength(0);
+    expect(snapshot.truceRequests).toHaveLength(0);
+    expect(snapshot.truceLockouts).toHaveLength(0);
+  });
 });
