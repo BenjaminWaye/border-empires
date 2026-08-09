@@ -59,7 +59,7 @@ import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
 import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
-import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js"; import { createBarleyFieldOverlay } from "../client-map-3d-barley-field.js";
+import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js"; import { createBarleyFieldOverlay, BARLEY_DETAIL_MIN_ZOOM } from "../client-map-3d-barley-field.js"; import { createTitaniumDepositOverlay } from "../client-map-3d-titanium-deposit.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
@@ -70,11 +70,13 @@ import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overl
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
 import { revealWholeMapInTrue3DMode } from "../client-renderer-mode.js";
+import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
 import { lightenHex, parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
 import { createWaypointFlag } from "../client-map-3d-waypoint-flag/client-map-3d-waypoint-flag.js";
+import { WAYPOINT_QUEUE_CLIENT_CAP } from "../client-waypoint-planner/client-waypoint-persistence.js";
 
 type TileTimedProgress = {
   readonly startAt: number;
@@ -172,7 +174,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
-  const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES); const barleyFieldOverlay = createBarleyFieldOverlay(scene, MAX_VISIBLE_TILES);
+  const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES); const barleyFieldOverlay = createBarleyFieldOverlay(scene, MAX_VISIBLE_TILES); const titaniumDepositOverlay = createTitaniumDepositOverlay(scene, MAX_VISIBLE_TILES);
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
   const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
   const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES);
@@ -361,10 +363,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // destination tile and tinted by the player's empire color. Geometry
   // lives in its own factory (client-map-3d-waypoint-flag.ts) so the
   // live renderer and the Storybook design review build the identical
-  // model instead of two copies that can drift apart.
-  const waypointFlag = createWaypointFlag();
-  const waypointFlagGroup = waypointFlag.group;
-  waypointFlagGroup.visible = false;
+  // model instead of two copies that can drift apart. One instance per
+  // queued waypoint (capped at WAYPOINT_QUEUE_CLIENT_CAP) — index 0 is
+  // the active waypoint, the rest render dimmed/grayscale and numbered.
+  const waypointFlags = Array.from({ length: WAYPOINT_QUEUE_CLIENT_CAP }, () => createWaypointFlag());
+  for (const flag of waypointFlags) flag.group.visible = false;
   // Frontier-claim fill: a single empire-color plate that ramps in
   // opacity over the claim duration, used when state.capture.silent is
   // set (waypoint-driven neutral EXPAND). Replaces the big "Capturing
@@ -535,8 +538,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedBuildMarkers) marker.frustumCulled = false;
   for (const { marker } of waypointPathMarkers) marker.frustumCulled = false;
-  waypointFlagGroup.frustumCulled = false;
-  for (const child of waypointFlagGroup.children) child.frustumCulled = false;
+  for (const flag of waypointFlags) {
+    flag.group.frustumCulled = false;
+    for (const child of flag.group.children) child.frustumCulled = false;
+  }
 
   scene.add(
     selectedMarker,
@@ -554,11 +559,19 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     ...queuedSettlementMarkers.map(({ marker }) => marker),
     ...queuedBuildMarkers.map(({ marker }) => marker),
     ...waypointPathMarkers.map(({ marker }) => marker),
-    waypointFlagGroup,
+    ...waypointFlags.map((flag) => flag.group),
     frontierClaimPlate
   );
 
-  const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0, tilesRevision: -1, crystalTargetingActive: false };
+  // Camera transform tracking (resize/applyCamera): applied every frame, unthrottled — these
+  // are cheap (a few float ops), and the camera needs to feel instantly responsive.
+  const lastCameraApplied = { zoom: Number.NaN, width: 0, height: 0 };
+  // rebuildVisibleTerrain() tracking: throttled below (REBUILD_MIN_INTERVAL_MS) — it tears
+  // down and repopulates ~25 overlay systems every call, expensive independent of tile count
+  // (measured: up to 35ms for just 45 visible tiles — see the terrainRebuild diagnostics this
+  // tracking feeds). Deliberately a separate object from lastCameraApplied so throttling the
+  // rebuild never delays the camera transform itself.
+  const lastRebuild = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0, tilesRevision: -1, crystalTargetingActive: false };
   let rafId: number | undefined;
   let lastOwnershipDebugSignature = "";
   const ownershipDebugWindow = (): (Window & { __be3dOwnershipDebug?: unknown }) | undefined =>
@@ -808,48 +821,71 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     placeLineMarkers(queuedSettlementMarkers, settlementTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
     placeLineMarkers(queuedBuildMarkers, buildTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
   };
+  const WAYPOINT_QUEUE_GRAY = "#8b93a0";
+  const waypointFlagSurfaceY = (x: number, y: number): number => {
+    const wxNext = deps.wrapX(x + 1);
+    const wyNext = deps.wrapY(y + 1);
+    return (
+      heightfield.cornerYAt(x, y) +
+      heightfield.cornerYAt(wxNext, y) +
+      heightfield.cornerYAt(x, wyNext) +
+      heightfield.cornerYAt(wxNext, wyNext)
+    ) / 4;
+  };
   const syncWaypointMarkers = (): void => {
     hideLineMarkerPool(waypointPathMarkers);
-    waypointFlagGroup.visible = false;
-    const waypoint = deps.state.waypoint[0];
-    if (!waypoint) return;
-    const blocked = !waypoint.plan.reachable;
+    for (const flag of waypointFlags) flag.group.visible = false;
+    const waypoints = deps.state.waypoint;
+    const activeWaypoint = waypoints[0];
+    if (!activeWaypoint) return;
+    const blocked = !activeWaypoint.plan.reachable;
     const HALT_COLOR = "#f59e0b";
     const empireColor = deps.state.playerColors.get(deps.state.me) ?? "#d5ecff";
-    // Empire color drives the banner, the hex glow ring, the pedestal
-    // energy ring, the smoke wisps, and the path-tile outlines. The
+    // Empire color drives the active flag's banner, hex glow ring,
+    // pedestal energy ring, smoke wisps, and path-tile outlines. The
     // brass/copper mechanical bits stay metallic so the empire color
     // reads as the "energy" of the assembly rather than a paint job.
-    const bannerColor = blocked ? HALT_COLOR : empireColor;
-    const glowColor = blocked ? HALT_COLOR : lightenHex(empireColor, 0.45);
+    // Queued (non-active) waypoints render desaturated gray instead —
+    // their own plan/reachability isn't kept live (only the active one
+    // gets replanned every tick), so they never show the halted color.
     const pathColor = blocked ? HALT_COLOR : empireColor;
-    waypointFlag.setTint(bannerColor, glowColor);
-    waypointFlag.setHalted(blocked);
     for (const { material } of waypointPathMarkers) {
       material.color.set(pathColor);
       material.opacity = 0.5;
     }
     const pathTiles: Array<{ x: number; y: number }> = [];
-    for (const step of waypoint.plan.steps) {
-      if (step.target.x === waypoint.target.x && step.target.y === waypoint.target.y) continue;
+    for (const step of activeWaypoint.plan.steps) {
+      if (step.target.x === activeWaypoint.target.x && step.target.y === activeWaypoint.target.y) continue;
       pathTiles.push(step.target);
     }
     placeLineMarkers(waypointPathMarkers, pathTiles, MARKER_RISE_ABOVE_HEIGHTFIELD);
-    // Anchor the flag group at the destination tile's world-space
-    // center, lifted to sit on the bowed heightfield surface.
-    const dx = toroidDelta(deps.state.camX, waypoint.target.x, WORLD_WIDTH);
-    const dy = toroidDelta(deps.state.camY, waypoint.target.y, WORLD_HEIGHT);
-    const wxNext = deps.wrapX(waypoint.target.x + 1);
-    const wyNext = deps.wrapY(waypoint.target.y + 1);
-    const cornerYAvg =
-      (heightfield.cornerYAt(waypoint.target.x, waypoint.target.y) +
-        heightfield.cornerYAt(wxNext, waypoint.target.y) +
-        heightfield.cornerYAt(waypoint.target.x, wyNext) +
-        heightfield.cornerYAt(wxNext, wyNext)) /
-      4;
-    waypointFlagGroup.position.set(dx + TILE_CENTER_OFFSET, cornerYAvg + MARKER_RISE_ABOVE_HEIGHTFIELD, dy + TILE_CENTER_OFFSET);
-    waypointFlag.tick(performance.now());
-    waypointFlagGroup.visible = true;
+    const capture = deps.state.capture;
+    const nowMs = performance.now();
+    const visibleCount = Math.min(waypoints.length, waypointFlags.length);
+    for (let i = 0; i < visibleCount; i += 1) {
+      const wp = waypoints[i];
+      const flag = waypointFlags[i];
+      if (!wp || !flag) continue;
+      // Hide the flag standing on a tile that's actively capturing right
+      // now — the frontier-claim sweep plate already shows that tile's
+      // progress, so the banner would just be redundant clutter on top.
+      if (capture && capture.target.x === wp.target.x && capture.target.y === wp.target.y) continue;
+      const active = i === 0;
+      const bannerColor = active ? (blocked ? HALT_COLOR : empireColor) : WAYPOINT_QUEUE_GRAY;
+      const glowColor = active ? (blocked ? HALT_COLOR : lightenHex(empireColor, 0.45)) : WAYPOINT_QUEUE_GRAY;
+      flag.setTint(bannerColor, glowColor);
+      flag.setHalted(active && blocked);
+      flag.setOpacityScale(active ? 1 : Math.max(0.3, 0.65 - (i - 1) * 0.12));
+      flag.setQueueNumber(active ? undefined : i + 1);
+      // Anchor the flag group at the destination tile's world-space
+      // center, lifted to sit on the bowed heightfield surface.
+      const dx = toroidDelta(deps.state.camX, wp.target.x, WORLD_WIDTH);
+      const dy = toroidDelta(deps.state.camY, wp.target.y, WORLD_HEIGHT);
+      const surfaceY = waypointFlagSurfaceY(wp.target.x, wp.target.y);
+      flag.group.position.set(dx + TILE_CENTER_OFFSET, surfaceY + MARKER_RISE_ABOVE_HEIGHTFIELD, dy + TILE_CENTER_OFFSET);
+      flag.tick(nowMs);
+      flag.group.visible = true;
+    }
   };
   const syncFrontierClaimPlate = (): void => {
     const capture = deps.state.capture;
@@ -1203,6 +1239,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
 
   const rebuildVisibleTerrain = (): void => {
+    const rebuildStartAt = performance.now();
     const size = Math.max(1, deps.state.zoom);
     const halfW = Math.max(1, Math.floor(deps.canvas.width / size / 2));
     const halfH = Math.max(1, Math.floor(deps.canvas.height / size / 2));
@@ -1222,8 +1259,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
       tileKindAt: heightfieldKindAt, isExploredAt: isExploredForHeightfield
     };
+    const heightfieldStartAt = performance.now();
     heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: isForestTile, isHillsAt: isHillsTile });
     hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile });
+    const heightfieldMs = performance.now() - heightfieldStartAt;
 
     mountainMassifs.clear();
     villageEffects.clear();
@@ -1233,12 +1272,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     fogOwnershipOverlay.clear();
     townOverlay.clear();
     roadOverlay.clear();
+    const roadNetworkStartAt = performance.now();
     const roadNetwork = buildRoadNetwork({
       tiles: deps.state.tiles,
       keyFor: deps.keyFor,
       wrapX: deps.wrapX,
       wrapY: deps.wrapY
     });
+    const roadNetworkMs = performance.now() - roadNetworkStartAt;
     // §21.1: per-tile dormant-structure resource, keyed by plain "x,y" (the
     // dormantStructures wire field's keys are "x,y:field"). A tile with more
     // than one dormant field just shows the first resource found.
@@ -1259,7 +1300,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     barbarianOverlay.clear();
     shardOverlay.clear(); watchtowerOverlay.clear(); naturalWonderOverlays.clear();
     fortOverlay.clear();
-    resourceOverlay.clear(); barleyFieldOverlay.clear();
+    resourceOverlay.clear(); barleyFieldOverlay.clear(); titaniumDepositOverlay.clear();
+    barleyFieldOverlay.setDetailEnabled(deps.state.zoom >= BARLEY_DETAIL_MIN_ZOOM);
     attackOverlay.clear();
     settleOverlay.clear();
     structureOverlay.clear();
@@ -1275,6 +1317,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const selectedCoord = deps.state.selected;
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
 
+    const perTileLoopStartAt = performance.now();
     for (let dy = -halfH - 1; dy <= halfH + 1; dy += 1) {
       for (let dx = -halfW - 1; dx <= halfW + 1; dx += 1) {
         const wx = deps.wrapX(deps.state.camX + dx);
@@ -1518,7 +1561,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             const validResources: ReadonlyArray<ResourceKind> = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR"];
             if ((validResources as ReadonlyArray<string>).includes(resolvedResource)) {
               tileResource = resolvedResource as ResourceKind;
-              if (tileResource === "FARM") { barleyFieldOverlay.addInstance(x, z, surfaceY, wx, wy); } else { resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy); }
+              if (tileResource === "FARM") { barleyFieldOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "IRON") { titaniumDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else { resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy); }
             }
           }
         }
@@ -1686,8 +1729,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       }
     }
 
+    const perTileLoopMs = performance.now() - perTileLoopStartAt;
+
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
+    const commitStartAt = performance.now();
     crystalTargetingOverlay.commit();
     mountainMassifs.commit();
     villageEffects.commit();
@@ -1714,38 +1760,69 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     barbarianOverlay.commit();
     shardOverlay.commit(); watchtowerOverlay.commit(); naturalWonderOverlays.commit();
     fortOverlay.commit();
-    resourceOverlay.commit(); barleyFieldOverlay.commit();
+    resourceOverlay.commit(); barleyFieldOverlay.commit(); titaniumDepositOverlay.commit();
     attackOverlay.commit();
     settleOverlay.commit();
     structureOverlay.commit();
     defensibilityOverlay.commit();
+    const commitMs = performance.now() - commitStartAt;
+
+    recordTerrainRebuildSample({
+      totalMs: performance.now() - rebuildStartAt,
+      roadNetworkMs,
+      heightfieldMs,
+      perTileLoopMs,
+      commitMs,
+      knownTileCount: deps.state.tiles.size,
+      // Matches the (dx, dy) loop bounds above: -halfW-1..halfW+1 and -halfH-1..halfH+1 inclusive.
+      visibleTileCount: (2 * halfW + 3) * (2 * halfH + 3)
+    });
   };
+
+  // A trailing-edge throttle floor for rebuildVisibleTerrain(): a zoom/pan gesture changes
+  // camX/camY/zoom on nearly every animation frame, and without this the main thread had no
+  // room to do anything else — each rebuild ran back-to-back with the next. This is not a
+  // dropped-update risk: rebuildNeeded (via lastRebuild not being updated on a throttled tick)
+  // stays true on every subsequent frame until the floor opens, so the next frame after motion
+  // settles always rebuilds against whatever the current state is, not whatever first triggered
+  // the dirty flag. Worst case the terrain lags the camera by one floor window, then snaps
+  // correct — a large improvement over the previous every-single-frame full rebuild.
+  const REBUILD_MIN_INTERVAL_MS = 48;
 
   const maybeRebuild = (nowMs: number): void => {
     const width = deps.canvas.width;
     const height = deps.canvas.height;
-    const zoomChanged = deps.state.zoom !== lastUpdate.zoom;
-    const ctActiveNow = deps.state.crystalTargeting.active, ctActiveChanged = ctActiveNow !== lastUpdate.crystalTargetingActive;
-    const changed =
-      deps.state.camX !== lastUpdate.camX ||
-      deps.state.camY !== lastUpdate.camY ||
-      zoomChanged ||
-      width !== lastUpdate.width ||
-      height !== lastUpdate.height ||
-      deps.state.tilesRevision !== lastUpdate.tilesRevision ||
-      ctActiveChanged;
-    if (!changed) return;
-    if (width !== lastUpdate.width || height !== lastUpdate.height) resize();
+    const sizeChanged = width !== lastCameraApplied.width || height !== lastCameraApplied.height;
+    const zoomChanged = deps.state.zoom !== lastCameraApplied.zoom;
+    if (sizeChanged) resize();
     else if (zoomChanged) applyCamera();
+    if (sizeChanged || zoomChanged) {
+      lastCameraApplied.zoom = deps.state.zoom;
+      lastCameraApplied.width = width;
+      lastCameraApplied.height = height;
+    }
+
+    const ctActiveNow = deps.state.crystalTargeting.active;
+    const rebuildNeeded =
+      deps.state.camX !== lastRebuild.camX ||
+      deps.state.camY !== lastRebuild.camY ||
+      deps.state.zoom !== lastRebuild.zoom ||
+      width !== lastRebuild.width ||
+      height !== lastRebuild.height ||
+      deps.state.tilesRevision !== lastRebuild.tilesRevision ||
+      ctActiveNow !== lastRebuild.crystalTargetingActive;
+    if (!rebuildNeeded) return;
+    if (lastRebuild.at !== 0 && nowMs - lastRebuild.at < REBUILD_MIN_INTERVAL_MS) return;
+
     rebuildVisibleTerrain();
-    lastUpdate.camX = deps.state.camX;
-    lastUpdate.camY = deps.state.camY;
-    lastUpdate.zoom = deps.state.zoom;
-    lastUpdate.width = width;
-    lastUpdate.height = height;
-    lastUpdate.at = nowMs;
-    lastUpdate.tilesRevision = deps.state.tilesRevision;
-    lastUpdate.crystalTargetingActive = ctActiveNow;
+    lastRebuild.camX = deps.state.camX;
+    lastRebuild.camY = deps.state.camY;
+    lastRebuild.zoom = deps.state.zoom;
+    lastRebuild.width = width;
+    lastRebuild.height = height;
+    lastRebuild.at = nowMs;
+    lastRebuild.tilesRevision = deps.state.tilesRevision;
+    lastRebuild.crystalTargetingActive = ctActiveNow;
   };
 
   const renderLoop = (): void => {
@@ -1860,7 +1937,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       marker.geometry.dispose();
       material.dispose();
     }
-    waypointFlag.dispose();
+    for (const flag of waypointFlags) flag.dispose();
     frontierClaimPlateGeometry.dispose();
     frontierClaimPlateMaterial.dispose();
     townOverlay.dispose();
@@ -1888,7 +1965,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     barbarianOverlay.dispose();
     shardOverlay.dispose(); watchtowerOverlay.dispose(); naturalWonderOverlays.dispose();
     fortOverlay.dispose();
-    resourceOverlay.dispose(); barleyFieldOverlay.dispose();
+    resourceOverlay.dispose(); barleyFieldOverlay.dispose(); titaniumDepositOverlay.dispose();
     attackOverlay.dispose();
     settleOverlay.dispose();
     structureOverlay.dispose();

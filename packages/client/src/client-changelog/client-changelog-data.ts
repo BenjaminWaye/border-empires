@@ -22,6 +22,15 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786165552001, // 2026.08.08.2
+    introducedIn: "2026.08.08.2",
+    title: "Clearer Discovery tips",
+    why: "The first-seen tooltips for towns, docks, barbarians, and strategic resources were vague about what each tile actually does or how to use it.",
+    changes: [
+      "Reworded the Town, Dock, Barbarian, Food, Iron, Crystal, and Supply discovery tips to explain what the tile produces and why capturing/settling it matters."
+    ]
+  },
+  {
     createdAt: 1786165552000, // 2026.08.08.1
     introducedIn: "2026.08.08.1",
     title: "Wooden Fort renamed to Palisade",
@@ -62,6 +71,13 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // 2026.08.02.1 ("First 5 Light Outposts no longer cost a FOOD slot"), and
   // 2026.08.02.2 ("Build Light Outpost menu no longer shows a FOOD slot
   // cost...") pruned: aged out of the 6-day window.
+  // 2026.08.03.1 ("Fixed: removing a structure crashed the game"), the
+  // Buildings-tab-always-show update, 2026.08.03.2 ("Fixed: Build Light
+  // Outpost button disappeared when out of FOOD slots"), the Wooden Fort
+  // no-iron-build fix, the economy-slot-upkeep-no-daily-flow update,
+  // event-log-explicit-sort, "Fixed: buildings tab showed nothing on an
+  // unsettled tile with no resource, town, or dock", and
+  // badge-render-order-above-roads all pruned: aged out of the 6-day window.
   {
     createdAt: 1785788216000, // 2026-08-03
     introducedIn: "town-upgrade-ready-badge",
@@ -380,6 +396,29 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Iron Levy: Muster Klaxon, Iron Standard, Levy Writ.",
       "Opening a monument's structure-info popup now shows a \"Monument Components\" checklist with a live N/3 status for each.",
       "Same rules as before: one component per Great City/Monumental City, and the monument tech gates all 3 of its own components."
+    ]
+  },
+  {
+    createdAt: 1786180758000, // 2026-08-08
+    introducedIn: "expand-tile-detail-and-queue",
+    title: "Frontier expansion now shows its own progress, and waypoint queues survive a refresh",
+    why: "Clicking a tile to expand into it gave no feedback that anything had started, and clicking it again while it was mid-claim did nothing at all. Queuing a second (or third) waypoint also produced no visible marker on the map for it. Separately, a queued expand plan only ever lived in memory, so refreshing or reconnecting silently dropped it.",
+    changes: [
+      "Clicking an adjacent neutral tile to expand into it now opens its tile detail, showing claim progress with Cancel and Rush-buy buttons.",
+      "Clicking a tile that's already mid-expansion reopens the same progress view instead of doing nothing.",
+      "Rush-buying an in-progress frontier claim is now available, priced the same way as settlement/build rush-buys.",
+      "Queued waypoints beyond the first now show their own dimmed, numbered flag on the 3D map instead of no marker at all; a waypoint's flag hides once its own tile starts actively expanding.",
+      "The waypoint queue now survives a page refresh or reconnect (capped at 20 queued destinations)."
+    ]
+  },
+  {
+    createdAt: 1786267157000, // 2026-08-09
+    introducedIn: "iron-titanium-deposit-overlay",
+    title: "Iron tiles now show a richer metallic outcrop in 3D mode",
+    why: "Iron tiles rendered as small grey ore piles, which read as minor details on the 3D map. Iron now uses the titanium-deposit outcrop mesh (bedrock lumps, bright ore chunks, tilted plates, blue-grey veins, and crystals) so mineable metal tiles are visually distinct and easier to spot.",
+    changes: [
+      "3D map: iron resource tiles now display a low irregular metallic outcrop with per-tile variation instead of the small ore stockpile.",
+      "The visual is deterministic per tile, so it stays stable while panning and on refresh."
     ]
   }
 ];

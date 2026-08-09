@@ -1,5 +1,6 @@
 import type { PopulationTier, TownGrowthUpgradeTier } from "../types.js";
 import { TOWN_TIER_UPGRADE_GOLD_COST } from "../structure-slots/structure-slots.js";
+import { SETTLEMENT_TO_TOWN_POPULATION_MIN } from "../config.js";
 
 export type TownGrowthUpgradeView = {
   targetTier: TownGrowthUpgradeTier;
@@ -53,9 +54,9 @@ export const nextTownGrowthUpgrade = (
   if (currentTier === "SETTLEMENT") {
     return {
       targetTier: "TOWN",
-      requiredPopulation: 0,
+      requiredPopulation: SETTLEMENT_TO_TOWN_POPULATION_MIN,
       goldCost: TOWN_TIER_UPGRADE_GOLD_COST.TOWN,
-      available: true
+      available: population >= SETTLEMENT_TO_TOWN_POPULATION_MIN
     };
   }
   if (currentTier === "TOWN") {

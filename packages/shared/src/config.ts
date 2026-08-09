@@ -262,12 +262,11 @@ export const RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD = 0.1;
 // building owned, empire-wide, simple linear count.
 export const POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING = 0.1;
 // Quartermaster's Office: reduces manpower cost of War-branch structures
-// built within this radius. Exact discount left unspecified by the design
-// plan ("first-pass, balancing pass task") — 20% chosen to match the
-// existing radius-effect magnitude used elsewhere (Waterworks, Governor's
-// Office).
+// built within this radius by 33%. Deliberately non-stacking (a boolean
+// "any active Office in range" check, not a per-office count) — user
+// decision, to avoid multiple Offices driving manpower cost toward zero.
 export const QUARTERMASTERS_OFFICE_RADIUS = 20;
-export const QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT = 0.8;
+export const QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT = 0.67;
 // Incubation Engine (Granary): instant one-time population burst on build
 // completion.
 export const GRANARY_INSTANT_POPULATION_BURST = 10_000;
@@ -277,6 +276,7 @@ export const GRANARY_INSTANT_POPULATION_BURST = 10_000;
 export const CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY = 20_000;
 // Census Hall: cheaper town-tier upgrade cost for the Census Hall's own town.
 export const CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT = 0.75;
+export const SETTLEMENT_TO_TOWN_POPULATION_MIN = 10_000;
 // The Iron Levy monument: converts this fraction of currently-banked
 // manpower into an instant one-time army, then freezes empire-wide manpower
 // regen for IRON_LEVY_REGEN_FREEZE_MS.
