@@ -64,11 +64,16 @@ export const stampVisibilityAndMergeFogDeltas = <TDelta extends { x: number; y: 
       // player is seeing the tile for the first time and never received it.
       // Falling through to the plain `else` below would ship that
       // field-dropped delta as this player's first-ever record of the tile.
-      // Use the always-full reveal-only delta instead, same reasoning as
-      // the leftKeys branch above. This is what made a captured natural
-      // wonder vanish client-side immediately after EXPAND.
+      // Merge in the always-full reveal-only delta instead (same reasoning
+      // as the leftKeys branch above), rather than replacing outright: the
+      // reveal builder omits transient/live fields (yield/yieldRate/yieldCap,
+      // combatJson) that the batch's own delta may carry and that a plain
+      // replace would silently drop for this one viewer (e.g. losing the
+      // battle-overlay FX for an ATTACK that also reveals its target). Spread
+      // order matters -- revealDelta's keys (guaranteed present/correct)
+      // must win over delta's for any field both define.
       const revealDelta = deps.wireDeltaForTileKey(tileKey);
-      result.push(revealDelta ? { ...revealDelta, visibilityState: "VISIBLE" as const } : { ...delta, visibilityState: "VISIBLE" as const });
+      result.push(revealDelta ? { ...delta, ...revealDelta, visibilityState: "VISIBLE" as const } : { ...delta, visibilityState: "VISIBLE" as const });
     } else {
       result.push({ ...delta, visibilityState: "VISIBLE" as const });
     }
