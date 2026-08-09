@@ -19,6 +19,10 @@ type TileActionMenuUiDeps = {
   cancelQueuedSettlement: (tileKey: string) => boolean;
   cancelQueuedBuild: (tileKey: string) => boolean;
   moveQueuedEntryToFront: (tileKey: string) => boolean;
+  cancelQueuedWaypointEntry: (x: number, y: number) => boolean;
+  moveWaypointToFront: (x: number, y: number) => boolean;
+  cancelQueuedExpandEntry: (x: number, y: number) => boolean;
+  moveActionQueueEntryToFront: (x: number, y: number) => boolean;
   cancelOngoingCapture: () => void;
   sendGameMessage: (payload: unknown, message?: string) => boolean;
   applyOptimisticStructureCancel: (x: number, y: number) => void;
@@ -119,6 +123,24 @@ export const renderTileActionMenu = (
         }
         if (btn.dataset.progressAction === "move_queued_entry_to_front") {
           deps.moveQueuedEntryToFront(deps.keyFor(tile.x, tile.y));
+          return;
+        }
+        if (btn.dataset.progressAction === "cancel_queued_waypoint") {
+          deps.cancelQueuedWaypointEntry(tile.x, tile.y);
+          deps.hideTileActionMenu();
+          return;
+        }
+        if (btn.dataset.progressAction === "move_waypoint_to_front") {
+          deps.moveWaypointToFront(tile.x, tile.y);
+          return;
+        }
+        if (btn.dataset.progressAction === "cancel_queued_expand") {
+          deps.cancelQueuedExpandEntry(tile.x, tile.y);
+          deps.hideTileActionMenu();
+          return;
+        }
+        if (btn.dataset.progressAction === "move_action_queue_entry_to_front") {
+          deps.moveActionQueueEntryToFront(tile.x, tile.y);
           return;
         }
         if (btn.dataset.progressAction === "rush_buy") {
