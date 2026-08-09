@@ -110,12 +110,11 @@ type CropTextureSpec = {
 // how ragged that boundary is. The field is a disc rather than a square: real farmland worked
 // around a settlement reads as a patch, and a hard square of crop butting against its
 // neighbours looked like tiling. Jitter keeps the rim organic instead of a drawn-compass circle.
-// 0.68 of the half-span, jittering to 0.88, puts the rim at ~0.38-0.49 tiles from centre. That
-// keeps the patch nearly tile-filling (so it reads as full farmland, not a small dot) while
-// still sitting just inside the soil bed's ~0.43 radius, leaving the thin ring of dark earth
-// around the crop that the field is designed to show.
-const PATCH_EDGE_START = 0.68;
-const PATCH_EDGE_JITTER = 0.2;
+// 0.78 of the half-span, jittering to 0.94, puts the rim at ~0.44-0.53 tiles from centre — the
+// crop now fills almost the whole tile, well clear of the soil bed's ~0.31 radius, so the mound
+// only shows as a thin collar of dark earth instead of swallowing the grain.
+const PATCH_EDGE_START = 0.78;
+const PATCH_EDGE_JITTER = 0.16;
 
 // Fraction of full height a plant keeps at distance `nd` (0 at patch centre, 1 at the texture
 // edge). Plants past the rim are dropped entirely; plants approaching it get shorter, so the
@@ -211,7 +210,7 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
   // Stalks: many fine dots in fresh golden-green through warm straw, so the field reads as a
   // real mature crop with tonal depth rather than one flat painted mass.
   const stalkTexture = makeCropTexture({
-    dotCount: 2600,
+    dotCount: 3400,
     radiusPx: 2.1,
     salt: 17,
     palette: [
@@ -223,7 +222,7 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
   });
   // Seed heads: fewer, wider dots in warm gold with pale awn flecks among them.
   const headTexture = makeCropTexture({
-    dotCount: 1500,
+    dotCount: 1950,
     radiusPx: 3.4,
     salt: 71,
     palette: [
@@ -355,8 +354,8 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
     const heightScale = variantHeightScale[variant];
     const tint = variantTint[variant]!;
 
-    soilACount = placeSoil(soilA, soilACount, sceneX, surfaceY, sceneZ, -0.05, 0.022, -0.03, 2.4, 0.16, rng() * Math.PI * 2);
-    soilBCount = placeSoil(soilB, soilBCount, sceneX, surfaceY, sceneZ, 0.09, 0.026, 0.05, 2.1, 0.14, rng() * Math.PI * 2);
+    soilACount = placeSoil(soilA, soilACount, sceneX, surfaceY, sceneZ, -0.04, 0.014, -0.02, 1.7, 0.1, rng() * Math.PI * 2);
+    soilBCount = placeSoil(soilB, soilBCount, sceneX, surfaceY, sceneZ, 0.06, 0.017, 0.04, 1.5, 0.09, rng() * Math.PI * 2);
 
     if (!detailEnabled) {
       placeShell(canopyShell, sceneX, surfaceY, sceneZ, spin, heightScale, tint);
