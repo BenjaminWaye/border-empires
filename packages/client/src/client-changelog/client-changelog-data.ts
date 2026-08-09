@@ -22,6 +22,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786320000000, // 2026.08.09.2
+    introducedIn: "2026.08.09.2",
+    title: "Smaller soil mound on grain tiles",
+    why: "The dirt bed under the barley crop was large enough to cover most of the tile, hiding the grain it was supposed to sit beneath.",
+    changes: [
+      "Shrunk the grain tile's soil mound and widened the crop patch so the golden barley fills the tile, with the dirt only showing as a thin rim.",
+      "Increased stalk and seed-head density for a fuller-looking crop."
+    ]
+  },
+  {
     createdAt: 1786306202000, // 2026.08.09.1
     introducedIn: "2026.08.09.1",
     title: "Muster tile cap tag on Muster Discipline/Command",
