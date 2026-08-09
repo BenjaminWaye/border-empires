@@ -11,6 +11,9 @@ import {
   EXCHANGE_GOLD_PER_SLOT_PER_DAY,
   FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   IRONWORKS_GOLD_UPKEEP_PER_DAY,
+  MARKET_FLAT_GOLD_BONUS_PER_MIN,
+  MARKET_GOLD_PRODUCTION_MULT,
+  MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
@@ -256,12 +259,13 @@ export const townGoldPerMinuteForPlayer = (
     supportRatio *
     townPopulationMultiplier(town.populationTier) *
     (1 + (town.connectedTownBonus ?? 0)) *
-    (hasMarket ? (clearingHouseActive ? 1.75 : 1.5) : 1) *
+    (hasMarket ? (clearingHouseActive ? MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE : MARKET_GOLD_PRODUCTION_MULT) : 1) *
     (hasBank ? (clearingHouseActive ? 1.7 : 1.5) : 1) *
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + (hasBank ? (clearingHouseActive ? BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE : BANK_FLAT_GOLD_BONUS_PER_MIN) : 0);
+  ) + (hasBank ? (clearingHouseActive ? BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE : BANK_FLAT_GOLD_BONUS_PER_MIN) : 0)
+    + (hasMarket ? MARKET_FLAT_GOLD_BONUS_PER_MIN : 0);
 };
 
 // Refresh goldPerMinute/isFed on a town originally from buildTownSummary
