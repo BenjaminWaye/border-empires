@@ -1098,7 +1098,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}),
       ...(slackAlerter ? { alertPlayerBugReport: (report: BugReportInput) => slackAlerter!.alertPlayerBugReport(report) } : {}),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); seasonStartVote.reset(); } } : {}),
-      onSeasonStarted: () => { seasonStartVote.reset(); }
+      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); }
     })
   );
 
@@ -1798,6 +1798,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(),
     startNextSeason: async (force, imperialWard) => {
       const result = await simulationClient.startNextSeason(force, imperialWard);
+      socialStore.clearSeasonData();
       seasonStartVote.reset();
       slackAlerter?.alertSeasonStarted(result.seasonId, force === true);
       return result;
@@ -2540,6 +2541,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             if (!thresholdMet) return;
             try {
               const result = await simulationClient.startNextSeason(false);
+              socialStore.clearSeasonData();
               seasonStartVote.reset();
               slackAlerter?.alertSeasonStarted(result.seasonId, false);
             } catch (error) {
