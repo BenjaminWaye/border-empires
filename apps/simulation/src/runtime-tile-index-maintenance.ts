@@ -291,13 +291,27 @@ export const refreshEconomyCachesForTileChange = (input: {
       populationBureauManpowerBuildingCount: number;
     }
   >;
-  // §5 (resource slots). Supply only depends on SETTLED resource tiles, so it
-  // shares the SETTLED-gated invalidation below with economySnapshotCacheByPlayer.
-  // Demand depends on fort/siegeOutpost/economicStructure on ANY owned tile
-  // (Siege Outposts can be FRONTIER, resource-slot-view.ts), so it's invalidated
-  // unconditionally alongside defensibilityMetricsCacheByPlayer instead. All
-  // three (plus dormancy below) now also participate in AI-coalescing dirty-
-  // tracking — see the dirty-set params below.
+  // §5 (resource slots). Supply's own inputs (BASE_SLOTS_BY_TILE_RESOURCE,
+  // TILE_SLOT_BOOST_STRUCTURES) only read SETTLED resource tiles, so this used
+  // to share the SETTLED-gated invalidation below with economySnapshotCacheByPlayer
+  // — but that gate left a real hole: any owned-tile mutation that never
+  // touches a SETTLED tile of this owner's (e.g. capturing/claiming a FRONTIER
+  // tile) skipped invalidation entirely, so a supply entry that went stale
+  // for any other reason had no self-healing trigger short of the owner's
+  // next SETTLE/build/abandon — reported in the wild as FOOD supply reading 0
+  // despite 40+ settled FARM/FISH tiles, fixed only by abandoning a tile.
+  // resourceSlotDormancyCacheByPlayer already reads supply as one of its own
+  // inputs (see resourceSlotDormancyForPlayer in runtime.ts) while invalidating
+  // unconditionally itself, so gating supply more tightly than its own
+  // dependent cache was already an inconsistency independent of the bug above.
+  // Now invalidated unconditionally alongside defensibilityMetricsCacheByPlayer
+  // (a strict superset of the old SETTLED-only trigger) — the extra rebuilds
+  // this costs are the same bounded O(settled tiles) work the SETTLED-gated
+  // path already paid, just also on the FRONTIER-only mutations. Demand
+  // depends on fort/siegeOutpost/economicStructure on ANY owned tile (Siege
+  // Outposts can be FRONTIER, resource-slot-view.ts), so it always needed the
+  // unconditional trigger anyway. All three (plus dormancy below) also
+  // participate in AI-coalescing dirty-tracking — see the dirty-set params below.
   resourceSlotSupplyCacheByPlayer?: Map<string, ResourceSlotTotals>;
   resourceSlotDemandCacheByPlayer?: Map<string, ResourceSlotTotals>;
   // §5.4: derived from both supply and demand, so it invalidates on the same
@@ -337,11 +351,13 @@ export const refreshEconomyCachesForTileChange = (input: {
     const isAi = players.get(ownerId)?.isAi;
     markDirtyOrDelete(isAi, input.economySnapshotDirtyPlayerIds, input.economySnapshotCacheByPlayer, ownerId);
     input.tileYieldContextCacheByPlayer.delete(ownerId);
-    markDirtyOrDelete(isAi, input.resourceSlotSupplyDirtyPlayerIds, input.resourceSlotSupplyCacheByPlayer, ownerId);
   };
   const invalidateDefensibilityForOwner = (ownerId: string): void => {
     const isAi = players.get(ownerId)?.isAi;
     markDirtyOrDelete(isAi, input.defensibilityMetricsDirtyPlayerIds, input.defensibilityMetricsCacheByPlayer, ownerId);
+    // Unconditional (not gated on this tile's SETTLED state) — see the
+    // resourceSlotSupplyCacheByPlayer field comment above for why.
+    markDirtyOrDelete(isAi, input.resourceSlotSupplyDirtyPlayerIds, input.resourceSlotSupplyCacheByPlayer, ownerId);
     markDirtyOrDelete(isAi, input.resourceSlotDemandDirtyPlayerIds, input.resourceSlotDemandCacheByPlayer, ownerId);
     markDirtyOrDelete(isAi, input.resourceSlotDormancyDirtyPlayerIds, input.resourceSlotDormancyCacheByPlayer, ownerId);
   };
