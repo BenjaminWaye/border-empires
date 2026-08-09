@@ -71,47 +71,11 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // 2026.08.02.1 ("First 5 Light Outposts no longer cost a FOOD slot"), and
   // 2026.08.02.2 ("Build Light Outpost menu no longer shows a FOOD slot
   // cost...") pruned: aged out of the 6-day window.
-  {
-    createdAt: 1785697200000, // 2026.08.03.1
-    introducedIn: "2026.08.03.1",
-    title: "Fixed: removing a structure crashed the game",
-    why: "The client's build pipeline already routed structure removals through the development queue and the server fully supported REMOVE_STRUCTURE, but the removal's optimistic preview was never handed to the action flow during client bootstrap — so clicking Remove on a Fort, Observatory, Siege Outpost, or economic structure threw a crash instead of starting the removal.",
-    changes: [
-      "Clicking Remove on a structure you own now starts the removal instead of crashing the client.",
-      "Queued removals dispatch through the same development queue as builds and show the same removing countdown."
-    ]
-  },
-  {
-    createdAt: 1785735055000, // 2026-08-03
-    introducedIn: "buildings-tab-always-show",
-    title: "Buildings tab now shows on any tile you own, and building an unsettled tile settles it first automatically",
-    why: "The Buildings tab only appeared after you had already settled a tile, so building anything on a freshly claimed tile meant a two-step detour: open the Actions tab, hit Settle Land, wait for it to finish, then reopen the tile and finally press the actual build button. Clicking Build now handles the settle step for you, so a claimed-but-unsettled tile behaves like any other owned tile.",
-    changes: [
-      "The Buildings tab now appears on every tile you own — whether it's still a frontier claim or already settled — so all eligible buildings are visible the moment you take the tile.",
-      "Clicking \"Build X\" on a tile you own but haven't settled automatically settles the tile first, then builds the structure the moment settlement completes (the old settle-then-build flow that only existed for Light Outposts now applies to every building type).",
-      "While a build is settling-then-building on a tile, a second \"Build Y\" click on that same tile is blocked with a warning instead of silently replacing the first build.",
-      "On an unsettled owned tile, each building's cost/time preview now shows the combined settle + build totals (e.g. \"350 gold, 100 m.p. • settle + build • 4m total\") and its description notes that it settles the tile first.",
-      "Build Foundry and Build Waterworks still let you pick the exact placement tile, including when the settle happens automatically first."
-    ]
-  },
-  {
-    createdAt: 1785739605000, // 2026.08.03.2
-    introducedIn: "2026.08.03.2",
-    title: "Fixed: Build Light Outpost button disappeared when out of FOOD slots",
-    why: "The Actions tab hid itself entirely whenever every action on it was disabled, so a player with 5+ Light Outposts and no free FOOD slot lost the button instead of seeing why it was unavailable.",
-    changes: [
-      "Disabled actions are now always shown with their blocker message instead of hiding the whole Actions tab, matching how the Buildings tab already behaves."
-    ]
-  },
-  {
-    createdAt: 1785738838000, // 2026-08-03
-    introducedIn: "wooden-fort-no-iron-build",
-    title: "Wooden Fort no longer charges a lump-sum iron cost to build",
-    why: "Building a Wooden Fort showed a 15-iron requirement left over from before the manpower-economy rewrite moved resource costs onto permanent slot occupation — the same stale-cost class the prior update cleaned off the crystal structures. A Wooden Fort's real cost is manpower plus its permanent IRON slot, so the iron line is gone.",
-    changes: [
-      "Building or upgrading to a Wooden Fort no longer deducts 15 iron up front — its cost is manpower plus the 1 IRON slot it permanently occupies."
-    ]
-  },
+  // 2026.08.03.1 ("Fixed: removing a structure crashed the game"), the
+  // Buildings-tab-always-show update, 2026.08.03.2 ("Fixed: Build Light
+  // Outpost button disappeared when out of FOOD slots"), the Wooden Fort
+  // no-iron-build fix, and the economy-slot-upkeep-no-daily-flow update
+  // pruned: aged out of the 6-day window.
   {
     createdAt: 1785758343576, // event-log-explicit-sort
     introducedIn: "event-log-explicit-sort",
@@ -119,16 +83,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The Recent Events panel built its most-recent-first display by reversing the server's array, which only works if the server always appends oldest-last. That ordering held today, but nothing enforced it, so a future change to how entries are appended or merged could have silently flipped the whole feed to oldest-first with no error.",
     changes: [
       "The Recent Events panel now sorts entries by their timestamp (newest first) instead of blindly reversing the incoming array, so display order stays correct regardless of the order entries arrive in."
-    ]
-  },
-  {
-    createdAt: 1785738839000, // 2026-08-03
-    introducedIn: "economy-slot-upkeep-no-daily-flow",
-    title: "Economy panel no longer shows slot upkeep as a negative daily flow",
-    why: "Since Food/Iron/Crystal/Supply became slots, a structure's upkeep is the slot it permanently occupies — but the detail cards were still also showing those structures as a per-day flow cost (a 4-outpost empire read \"Light Outpost · 4  -576.0/day\" right below the same 4 slots listed under \"Occupied by\"). That was the same cost counted twice, and it read like the game was draining a food stockpile that no longer exists.",
-    changes: [
-      "The Food/Iron/Crystal/Supply cards no longer have a separate Upkeep column — slot upkeep for these resources is fully represented by the slot count already shown in \"Occupied by\". Cross-resource flow costs (e.g. a synthesizer's gold upkeep) still appear, but only once, on the GOLD card.",
-      "The \"Empire upkeep:\" summary line at the top now shows only gold upkeep — the one resource that still works as a daily flow — instead of also quoting per-day food/iron/supply/crystal figures."
     ]
   },
   {
@@ -454,6 +408,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Rush-buying an in-progress frontier claim is now available, priced the same way as settlement/build rush-buys.",
       "Queued waypoints beyond the first now show their own dimmed, numbered flag on the 3D map instead of no marker at all; a waypoint's flag hides once its own tile starts actively expanding.",
       "The waypoint queue now survives a page refresh or reconnect (capped at 20 queued destinations)."
+    ]
+  },
+  {
+    createdAt: 1786267157000, // 2026-08-09
+    introducedIn: "iron-titanium-deposit-overlay",
+    title: "Iron tiles now show a richer metallic outcrop in 3D mode",
+    why: "Iron tiles rendered as small grey ore piles, which read as minor details on the 3D map. Iron now uses the titanium-deposit outcrop mesh (bedrock lumps, bright ore chunks, tilted plates, blue-grey veins, and crystals) so mineable metal tiles are visually distinct and easier to spot.",
+    changes: [
+      "3D map: iron resource tiles now display a low irregular metallic outcrop with per-tile variation instead of the small ore stockpile.",
+      "The visual is deterministic per tile, so it stays stable while panning and on refresh."
     ]
   }
 ];
