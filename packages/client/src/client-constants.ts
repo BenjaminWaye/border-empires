@@ -1,7 +1,9 @@
 import {
   EXPAND_MANPOWER_COST,
+  FOREST_FRONTIER_CLAIM_MULT,
   FRONTIER_CLAIM_COST,
   FRONTIER_CLAIM_MS,
+  HILLS_FRONTIER_CLAIM_PENALTY_MS,
   OBSERVATORY_CAST_RADIUS as SHARED_OBSERVATORY_CAST_RADIUS,
   OBSERVATORY_PROTECTION_RADIUS as SHARED_OBSERVATORY_PROTECTION_RADIUS,
   OBSERVATORY_VISION_BONUS as SHARED_OBSERVATORY_VISION_BONUS,
@@ -87,8 +89,8 @@ export const isForestTile = isForestTileAt;
 export const isHillsTile = isHillsTileAt;
 
 export const frontierClaimDurationMsForTile = (x: number, y: number): number => {
-  if (isForestTile(x, y)) return FRONTIER_CLAIM_MS * 2;
-  if (isHillsTile(x, y)) return FRONTIER_CLAIM_MS * 2;
+  if (isForestTile(x, y)) return FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT;
+  if (isHillsTile(x, y)) return FRONTIER_CLAIM_MS + HILLS_FRONTIER_CLAIM_PENALTY_MS;
   return FRONTIER_CLAIM_MS;
 };
 export const settleDurationMsForTile = (x: number, y: number): number => {

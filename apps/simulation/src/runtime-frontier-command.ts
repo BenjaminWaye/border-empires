@@ -25,8 +25,9 @@ import type { LockedCombatInput } from "./runtime-combat-support.js";
 export type MusterSourceResult = { sourceKey: string; available: number };
 
 /**
- * Total EXPAND claim duration for a target tile — forest doubles it, hills
- * add a flat penalty. Pure function of terrain, so both the lock-creation
+ * Total EXPAND claim duration for a target tile — forest multiplies it by
+ * FOREST_FRONTIER_CLAIM_MULT, hills add a flat penalty (both currently 1.5x
+ * the base). Pure function of terrain, so both the lock-creation
  * path (below) and the rush-buy handler (runtime-rush-buy-command.ts) can
  * independently recompute the exact same value from a tile's coordinates
  * rather than needing to store it on LockRecord.
