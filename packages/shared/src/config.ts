@@ -277,6 +277,7 @@ export const GRANARY_INSTANT_POPULATION_BURST = 10_000;
 export const CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY = 20_000;
 // Census Hall: cheaper town-tier upgrade cost for the Census Hall's own town.
 export const CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT = 0.75;
+export const SETTLEMENT_TO_TOWN_POPULATION_MIN = 10_000;
 // The Iron Levy monument: converts this fraction of currently-banked
 // manpower into an instant one-time army, then freezes empire-wide manpower
 // regen for IRON_LEVY_REGEN_FREEZE_MS.
