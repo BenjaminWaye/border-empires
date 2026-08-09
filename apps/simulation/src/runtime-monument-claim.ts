@@ -1,6 +1,6 @@
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { structureBuildManpowerCost, type BuildableStructureType, type MonumentalStructureType } from "@border-empires/shared";
-import { monumentClaimOwnerId, monumentPartTypeForBaseType, otherPlayersMonumentPartOwners } from "./monument-uniqueness.js";
+import { monumentClaimOwnerId, monumentPartTypesForBaseType, otherPlayersMonumentPartOwners } from "./monument-uniqueness.js";
 import { displayNameForOwnershipChange } from "./runtime/runtime-ownership-change-sample.js";
 import { applyStructureCancelRefund, economicOrObservatoryCancelRefund } from "./runtime-structure-lifecycle-command-handlers.js";
 import { structureLabel, type RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
@@ -19,9 +19,11 @@ export function announceMonumentClaim(
 ): void {
   const winnerName = displayNameForOwnershipChange(winnerId, context.players);
   const label = structureLabel(baseType).replace(/\b\w/g, (c) => c.toUpperCase());
-  const partType = monumentPartTypeForBaseType(baseType);
-  const refundAmount = structureBuildManpowerCost(partType as BuildableStructureType);
-  const loserIds = new Set(otherPlayersMonumentPartOwners(context.tiles, partType, winnerId));
+  const partTypes = monumentPartTypesForBaseType(baseType);
+  // All 3 of a monument's component types cost the same manpower to build,
+  // so any one of them is representative for the flat per-loser refund.
+  const refundAmount = structureBuildManpowerCost(partTypes[0] as BuildableStructureType);
+  const loserIds = new Set(otherPlayersMonumentPartOwners(context.tiles, partTypes, winnerId));
 
   for (const player of context.players.values()) {
     if (player.id === winnerId) {

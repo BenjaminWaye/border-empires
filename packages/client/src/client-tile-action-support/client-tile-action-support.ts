@@ -77,18 +77,42 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "RAIL_DEPOT";
     case "build_exchange_house":
       return "EXCHANGE_HOUSE";
-    case "build_imperial_exchange_part":
-      return "IMPERIAL_EXCHANGE_PART";
-    case "build_world_engine_part":
-      return "WORLD_ENGINE_PART";
-    case "build_aegis_dome_part":
-      return "AEGIS_DOME_PART";
-    case "build_astral_dock_part":
-      return "ASTRAL_DOCK_PART";
-    case "build_population_bureau_part":
-      return "POPULATION_BUREAU_PART";
-    case "build_iron_levy_part":
-      return "IRON_LEVY_PART";
+    case "build_imperial_exchange_part_1":
+      return "IMPERIAL_EXCHANGE_PART_1";
+    case "build_imperial_exchange_part_2":
+      return "IMPERIAL_EXCHANGE_PART_2";
+    case "build_imperial_exchange_part_3":
+      return "IMPERIAL_EXCHANGE_PART_3";
+    case "build_world_engine_part_1":
+      return "WORLD_ENGINE_PART_1";
+    case "build_world_engine_part_2":
+      return "WORLD_ENGINE_PART_2";
+    case "build_world_engine_part_3":
+      return "WORLD_ENGINE_PART_3";
+    case "build_aegis_dome_part_1":
+      return "AEGIS_DOME_PART_1";
+    case "build_aegis_dome_part_2":
+      return "AEGIS_DOME_PART_2";
+    case "build_aegis_dome_part_3":
+      return "AEGIS_DOME_PART_3";
+    case "build_astral_dock_part_1":
+      return "ASTRAL_DOCK_PART_1";
+    case "build_astral_dock_part_2":
+      return "ASTRAL_DOCK_PART_2";
+    case "build_astral_dock_part_3":
+      return "ASTRAL_DOCK_PART_3";
+    case "build_population_bureau_part_1":
+      return "POPULATION_BUREAU_PART_1";
+    case "build_population_bureau_part_2":
+      return "POPULATION_BUREAU_PART_2";
+    case "build_population_bureau_part_3":
+      return "POPULATION_BUREAU_PART_3";
+    case "build_iron_levy_part_1":
+      return "IRON_LEVY_PART_1";
+    case "build_iron_levy_part_2":
+      return "IRON_LEVY_PART_2";
+    case "build_iron_levy_part_3":
+      return "IRON_LEVY_PART_3";
     case "build_imperial_exchange":
       return "IMPERIAL_EXCHANGE";
     case "build_world_engine":
@@ -165,24 +189,36 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "global-trade-networks";
     case "build_exchange_house":
       return "imperial-roads";
-    case "build_imperial_exchange_part":
+    case "build_imperial_exchange_part_1":
+    case "build_imperial_exchange_part_2":
+    case "build_imperial_exchange_part_3":
     case "build_imperial_exchange":
       return "urban-markets";
-    case "build_world_engine_part":
+    case "build_world_engine_part_1":
+    case "build_world_engine_part_2":
+    case "build_world_engine_part_3":
     case "build_world_engine":
       return "world-engine";
-    case "build_aegis_dome_part":
+    case "build_aegis_dome_part_1":
+    case "build_aegis_dome_part_2":
+    case "build_aegis_dome_part_3":
     case "build_aegis_dome":
     case "aegis_lock":
       return "aegis-dome";
-    case "build_astral_dock_part":
+    case "build_astral_dock_part_1":
+    case "build_astral_dock_part_2":
+    case "build_astral_dock_part_3":
     case "build_astral_dock":
     case "astral_dock_launch":
       return "astral-dock";
-    case "build_population_bureau_part":
+    case "build_population_bureau_part_1":
+    case "build_population_bureau_part_2":
+    case "build_population_bureau_part_3":
     case "build_population_bureau":
       return "demographic-registry";
-    case "build_iron_levy_part":
+    case "build_iron_levy_part_1":
+    case "build_iron_levy_part_2":
+    case "build_iron_levy_part_3":
     case "build_iron_levy":
       return "grand-levy-doctrine";
     case "reveal_empire":

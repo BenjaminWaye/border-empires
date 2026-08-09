@@ -2125,6 +2125,29 @@ body {
   gap: 12px;
 }
 
+.structure-info-components-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.structure-info-components-list li {
+  font-size: 14px;
+  color: rgba(232, 241, 253, 0.7);
+}
+
+.structure-info-component-complete {
+  color: #23d45c;
+}
+
+.structure-info-components-summary {
+  margin: 6px 0 0;
+  font-weight: 600;
+  color: #f6fbff;
+}
+
 .guide-progress {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));

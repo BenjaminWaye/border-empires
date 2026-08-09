@@ -114,12 +114,24 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
 
   // Monument parts + assemblies (SHARD build cost stays as a flow/stockpile
   // cost, §5.5 — only the CRYSTAL requirement below is slot-based)
-  IMPERIAL_EXCHANGE_PART: [{ resource: "CRYSTAL", count: 1 }],
-  WORLD_ENGINE_PART: [{ resource: "CRYSTAL", count: 1 }],
-  AEGIS_DOME_PART: [{ resource: "CRYSTAL", count: 1 }],
-  ASTRAL_DOCK_PART: [{ resource: "CRYSTAL", count: 1 }],
-  POPULATION_BUREAU_PART: [{ resource: "CRYSTAL", count: 1 }],
-  IRON_LEVY_PART: [{ resource: "CRYSTAL", count: 1 }],
+  IMPERIAL_EXCHANGE_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  IMPERIAL_EXCHANGE_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  IMPERIAL_EXCHANGE_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  WORLD_ENGINE_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  WORLD_ENGINE_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  WORLD_ENGINE_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  AEGIS_DOME_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  AEGIS_DOME_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  AEGIS_DOME_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  ASTRAL_DOCK_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  ASTRAL_DOCK_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  ASTRAL_DOCK_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  POPULATION_BUREAU_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  POPULATION_BUREAU_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  POPULATION_BUREAU_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  IRON_LEVY_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  IRON_LEVY_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  IRON_LEVY_PART_3: [{ resource: "CRYSTAL", count: 1 }],
   // The final monument's own slot cost is 4, not 1: it absorbs the 3
   // CRYSTAL slots its 3 consumed Parts used to occupy (see
   // consumeMonumentParts in apps/simulation/src/runtime-structure-build-

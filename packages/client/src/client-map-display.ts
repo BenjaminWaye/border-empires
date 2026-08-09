@@ -45,18 +45,30 @@ export type StructureInfoKey =
   | "QUARTERMASTERS_OFFICE"
   | "LOGISTICS_GUILD"
   | "ASSEMBLY_WORKS"
-  | "ASTRAL_DOCK_PART"
+  | "ASTRAL_DOCK_PART_1"
+  | "ASTRAL_DOCK_PART_2"
+  | "ASTRAL_DOCK_PART_3"
   | "ASTRAL_DOCK"
   | "RAIL_DEPOT"
-  | "IMPERIAL_EXCHANGE_PART"
-  | "WORLD_ENGINE_PART"
+  | "IMPERIAL_EXCHANGE_PART_1"
+  | "IMPERIAL_EXCHANGE_PART_2"
+  | "IMPERIAL_EXCHANGE_PART_3"
+  | "WORLD_ENGINE_PART_1"
+  | "WORLD_ENGINE_PART_2"
+  | "WORLD_ENGINE_PART_3"
   | "IMPERIAL_EXCHANGE"
   | "WORLD_ENGINE"
-  | "AEGIS_DOME_PART"
+  | "AEGIS_DOME_PART_1"
+  | "AEGIS_DOME_PART_2"
+  | "AEGIS_DOME_PART_3"
   | "AEGIS_DOME"
-  | "POPULATION_BUREAU_PART"
+  | "POPULATION_BUREAU_PART_1"
+  | "POPULATION_BUREAU_PART_2"
+  | "POPULATION_BUREAU_PART_3"
   | "POPULATION_BUREAU"
-  | "IRON_LEVY_PART"
+  | "IRON_LEVY_PART_1"
+  | "IRON_LEVY_PART_2"
+  | "IRON_LEVY_PART_3"
   | "IRON_LEVY"
   | "SIEGE_OUTPOST"
   | "SIEGE_TOWER"
@@ -81,6 +93,55 @@ export type StructureInfoView = {
   branch?: "War" | "Economy" | "Manpower" | "Aether";
 };
 
+// Every monument's 3 uniquely-named component types, across all 6
+// monuments — used anywhere a check needs to apply identically to all 18
+// (e.g. the shared "must be in an empty-of-monument-parts Great City"
+// effects bullet) instead of hand-listing all 18 names at each call site.
+export const MONUMENT_COMPONENT_KEYS: ReadonlySet<StructureInfoKey> = new Set([
+  "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
+  "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+  "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
+  "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
+  "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3",
+  "IRON_LEVY_PART_1", "IRON_LEVY_PART_2", "IRON_LEVY_PART_3"
+]);
+
+// The 3 uniquely-named components required for each of the 6 monuments, in
+// build order — the source the "Monument Components" checklist in the
+// structure-info popup reads from (see renderStructureInfoOverlay).
+export const MONUMENT_COMPONENTS_BY_BASE: Partial<Record<StructureInfoKey, ReadonlyArray<{ type: StructureInfoKey; name: string }>>> = {
+  IMPERIAL_EXCHANGE: [
+    { type: "IMPERIAL_EXCHANGE_PART_1", name: "Golden Ledger" },
+    { type: "IMPERIAL_EXCHANGE_PART_2", name: "Counting Engine" },
+    { type: "IMPERIAL_EXCHANGE_PART_3", name: "Sovereign Seal" }
+  ],
+  WORLD_ENGINE: [
+    { type: "WORLD_ENGINE_PART_1", name: "The Long Barrel" },
+    { type: "WORLD_ENGINE_PART_2", name: "Fracture Core" },
+    { type: "WORLD_ENGINE_PART_3", name: "Sky-Marking Array" }
+  ],
+  AEGIS_DOME: [
+    { type: "AEGIS_DOME_PART_1", name: "Shield Lattice" },
+    { type: "AEGIS_DOME_PART_2", name: "Ward Anchor" },
+    { type: "AEGIS_DOME_PART_3", name: "Aegis Crown" }
+  ],
+  ASTRAL_DOCK: [
+    { type: "ASTRAL_DOCK_PART_1", name: "Launch Cradle" },
+    { type: "ASTRAL_DOCK_PART_2", name: "Orbital Array" },
+    { type: "ASTRAL_DOCK_PART_3", name: "Aether Sail" }
+  ],
+  POPULATION_BUREAU: [
+    { type: "POPULATION_BUREAU_PART_1", name: "Census Engine" },
+    { type: "POPULATION_BUREAU_PART_2", name: "Registry Vault" },
+    { type: "POPULATION_BUREAU_PART_3", name: "Levy Charter" }
+  ],
+  IRON_LEVY: [
+    { type: "IRON_LEVY_PART_1", name: "Muster Klaxon" },
+    { type: "IRON_LEVY_PART_2", name: "Iron Standard" },
+    { type: "IRON_LEVY_PART_3", name: "Levy Writ" }
+  ]
+};
+
 // Tech-tree redesign: branch tag for the structure build UI. Derived from
 // which branch each structure's own tech gate lives in (see
 // TECH_REQUIREMENTS_BY_STRUCTURE in structure-registry-economic.ts) --
@@ -96,20 +157,20 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   IRONWORKS: "Economy", ADVANCED_IRONWORKS: "Economy",
   FOUNDRY: "Economy", EXCHANGE_HOUSE: "Economy", CUSTOMS_HOUSE: "Economy",
   CARAVANARY: "Economy", GOVERNORS_OFFICE: "Economy",
-  IMPERIAL_EXCHANGE_PART: "Economy", IMPERIAL_EXCHANGE: "Economy",
+  IMPERIAL_EXCHANGE_PART_1: "Economy", IMPERIAL_EXCHANGE_PART_2: "Economy", IMPERIAL_EXCHANGE_PART_3: "Economy", IMPERIAL_EXCHANGE: "Economy",
   CAMP: "War",
   GRANARY: "Manpower", SEED_GRANARY: "Manpower", CENSUS_HALL: "Manpower",
   GARRISON_HALL: "Manpower", RAIL_DEPOT: "Manpower",
   QUARTERMASTERS_OFFICE: "Manpower", LOGISTICS_GUILD: "Manpower",
   ASSEMBLY_WORKS: "Manpower",
-  POPULATION_BUREAU_PART: "Manpower", POPULATION_BUREAU: "Manpower",
-  IRON_LEVY_PART: "Manpower", IRON_LEVY: "Manpower",
+  POPULATION_BUREAU_PART_1: "Manpower", POPULATION_BUREAU_PART_2: "Manpower", POPULATION_BUREAU_PART_3: "Manpower", POPULATION_BUREAU: "Manpower",
+  IRON_LEVY_PART_1: "Manpower", IRON_LEVY_PART_2: "Manpower", IRON_LEVY_PART_3: "Manpower", IRON_LEVY: "Manpower",
   OBSERVATORY: "Aether", CRYSTAL_SYNTHESIZER: "Aether",
   ADVANCED_CRYSTAL_SYNTHESIZER: "Aether", AIRPORT: "Aether",
   AETHER_TOWER: "Aether", RADAR_SYSTEM: "Aether",
-  ASTRAL_DOCK_PART: "Aether", ASTRAL_DOCK: "Aether",
-  AEGIS_DOME_PART: "War", AEGIS_DOME: "War",
-  WORLD_ENGINE_PART: "War", WORLD_ENGINE: "War"
+  ASTRAL_DOCK_PART_1: "Aether", ASTRAL_DOCK_PART_2: "Aether", ASTRAL_DOCK_PART_3: "Aether", ASTRAL_DOCK: "Aether",
+  AEGIS_DOME_PART_1: "War", AEGIS_DOME_PART_2: "War", AEGIS_DOME_PART_3: "War", AEGIS_DOME: "War",
+  WORLD_ENGINE_PART_1: "War", WORLD_ENGINE_PART_2: "War", WORLD_ENGINE_PART_3: "War", WORLD_ENGINE: "War"
 };
 
 export const economicStructureName = (type: EconomicStructureType | StructureInfoKey): string => {
@@ -148,18 +209,30 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "QUARTERMASTERS_OFFICE") return "Quartermaster's Office";
   if (kind === "LOGISTICS_GUILD") return "Logistics Guild";
   if (kind === "ASSEMBLY_WORKS") return "Assembly Works";
-  if (kind === "ASTRAL_DOCK_PART") return "Astral Dock Part";
+  if (kind === "ASTRAL_DOCK_PART_1") return "Launch Cradle";
+  if (kind === "ASTRAL_DOCK_PART_2") return "Orbital Array";
+  if (kind === "ASTRAL_DOCK_PART_3") return "Aether Sail";
   if (kind === "ASTRAL_DOCK") return "Astral Dock";
   if (kind === "RAIL_DEPOT") return "Rail Depot";
-  if (kind === "IMPERIAL_EXCHANGE_PART") return "Imperial Exchange Part";
-  if (kind === "WORLD_ENGINE_PART") return "Worldbreaker Cannon Part";
+  if (kind === "IMPERIAL_EXCHANGE_PART_1") return "Golden Ledger";
+  if (kind === "IMPERIAL_EXCHANGE_PART_2") return "Counting Engine";
+  if (kind === "IMPERIAL_EXCHANGE_PART_3") return "Sovereign Seal";
+  if (kind === "WORLD_ENGINE_PART_1") return "The Long Barrel";
+  if (kind === "WORLD_ENGINE_PART_2") return "Fracture Core";
+  if (kind === "WORLD_ENGINE_PART_3") return "Sky-Marking Array";
   if (kind === "IMPERIAL_EXCHANGE") return "Imperial Exchange";
-  if (kind === "AEGIS_DOME_PART") return "Aegis Dome Part";
+  if (kind === "AEGIS_DOME_PART_1") return "Shield Lattice";
+  if (kind === "AEGIS_DOME_PART_2") return "Ward Anchor";
+  if (kind === "AEGIS_DOME_PART_3") return "Aegis Crown";
   if (kind === "AEGIS_DOME") return "Aegis Dome";
   if (kind === "WORLD_ENGINE") return "Worldbreaker Cannon";
-  if (kind === "POPULATION_BUREAU_PART") return "Population Bureau Part";
+  if (kind === "POPULATION_BUREAU_PART_1") return "Census Engine";
+  if (kind === "POPULATION_BUREAU_PART_2") return "Registry Vault";
+  if (kind === "POPULATION_BUREAU_PART_3") return "Levy Charter";
   if (kind === "POPULATION_BUREAU") return "Population Bureau";
-  if (kind === "IRON_LEVY_PART") return "The Iron Levy Part";
+  if (kind === "IRON_LEVY_PART_1") return "Muster Klaxon";
+  if (kind === "IRON_LEVY_PART_2") return "Iron Standard";
+  if (kind === "IRON_LEVY_PART_3") return "Levy Writ";
   if (kind === "IRON_LEVY") return "The Iron Levy";
   if (kind === "WEAPONS_WORKSHOP") return "Weapons Workshop";
   return "Market";
@@ -196,18 +269,30 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "QUARTERMASTERS_OFFICE") return "Reduces manpower cost for War-branch structures (Fort/Siege ladders) built within 20 tiles.";
   if (kind === "LOGISTICS_GUILD") return "Adds +0.05 manpower/min empire-wide, standalone. A Rail Depot in this town's connected network amplifies it to +0.1/min.";
   if (kind === "ASSEMBLY_WORKS") return "Amplifies every Ancillary Factory in its connected-town network (+300 manpower cap each). One per connected-town network.";
-  if (kind === "ASTRAL_DOCK_PART") return "One of three monument parts needed to assemble the Astral Dock.";
+  if (kind === "ASTRAL_DOCK_PART_1") return "Launch Cradle — one of the Astral Dock's 3 required components.";
+  if (kind === "ASTRAL_DOCK_PART_2") return "Orbital Array — one of the Astral Dock's 3 required components.";
+  if (kind === "ASTRAL_DOCK_PART_3") return "Aether Sail — one of the Astral Dock's 3 required components.";
   if (kind === "ASTRAL_DOCK") return "Unique world monument. Launches one satellite for 1,000 gold that reveals full-map vision for 24 hours.";
   if (kind === "RAIL_DEPOT") return "Mustering hub that amplifies every Logistics Guild in its connected-town network (+0.1 manpower/min each) and speeds up nearby outpost muster. Every 10 minutes, settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across this town's linked network.";
-  if (kind === "IMPERIAL_EXCHANGE_PART") return "One of three monument parts needed to assemble the Imperial Exchange.";
-  if (kind === "WORLD_ENGINE_PART") return "One of three monument parts needed to assemble the Worldbreaker Cannon.";
+  if (kind === "IMPERIAL_EXCHANGE_PART_1") return "Golden Ledger — one of the Imperial Exchange's 3 required components.";
+  if (kind === "IMPERIAL_EXCHANGE_PART_2") return "Counting Engine — one of the Imperial Exchange's 3 required components.";
+  if (kind === "IMPERIAL_EXCHANGE_PART_3") return "Sovereign Seal — one of the Imperial Exchange's 3 required components.";
+  if (kind === "WORLD_ENGINE_PART_1") return "The Long Barrel — one of the Worldbreaker Cannon's 3 required components.";
+  if (kind === "WORLD_ENGINE_PART_2") return "Fracture Core — one of the Worldbreaker Cannon's 3 required components.";
+  if (kind === "WORLD_ENGINE_PART_3") return "Sky-Marking Array — one of the Worldbreaker Cannon's 3 required components.";
   if (kind === "IMPERIAL_EXCHANGE") return "Unique world monument. Free, once every 24 hours, it can levy 100% of a single chosen rival's gold.";
-  if (kind === "AEGIS_DOME_PART") return "One of three monument parts needed to assemble the Aegis Dome.";
+  if (kind === "AEGIS_DOME_PART_1") return "Shield Lattice — one of the Aegis Dome's 3 required components.";
+  if (kind === "AEGIS_DOME_PART_2") return "Ward Anchor — one of the Aegis Dome's 3 required components.";
+  if (kind === "AEGIS_DOME_PART_3") return "Aegis Crown — one of the Aegis Dome's 3 required components.";
   if (kind === "AEGIS_DOME") return "Unique world monument. Projects a 25-tile shield and can trigger a free 15-minute Aegis Lock every 60 minutes.";
   if (kind === "WORLD_ENGINE") return "Unique world monument. Every 10 minutes, it can fire one Worldbreaker shot anywhere on the map that destroys an enemy structure and cuts that town's population by 30%, for 1,000 gold.";
-  if (kind === "POPULATION_BUREAU_PART") return "One of three monument parts needed to assemble the Population Bureau.";
+  if (kind === "POPULATION_BUREAU_PART_1") return "Census Engine — one of the Population Bureau's 3 required components.";
+  if (kind === "POPULATION_BUREAU_PART_2") return "Registry Vault — one of the Population Bureau's 3 required components.";
+  if (kind === "POPULATION_BUREAU_PART_3") return "Levy Charter — one of the Population Bureau's 3 required components.";
   if (kind === "POPULATION_BUREAU") return "Unique world monument. Adds +0.1 manpower/min empire-wide for every Manpower-branch building you own.";
-  if (kind === "IRON_LEVY_PART") return "One of three monument parts needed to assemble The Iron Levy.";
+  if (kind === "IRON_LEVY_PART_1") return "Muster Klaxon — one of the The Iron Levy's 3 required components.";
+  if (kind === "IRON_LEVY_PART_2") return "Iron Standard — one of the The Iron Levy's 3 required components.";
+  if (kind === "IRON_LEVY_PART_3") return "Levy Writ — one of the The Iron Levy's 3 required components.";
   if (kind === "IRON_LEVY") return "Unique world monument. Converts 50% of your currently-banked manpower into an instant one-time army, then freezes empire-wide manpower regen for 2 hours.";
   if (kind === "FARMSTEAD") return "Improves food production on farm tiles by 50% and adds +1 FOOD slot on this tile.";
   if (kind === "WATERWORKS") return "Boosts all farmstead food production by +100% within a 10-tile radius; each boosted Farmstead gains +2 FOOD slots.";
@@ -260,17 +345,29 @@ export const structureInfoForKey = (
     | "QUARTERMASTERS_OFFICE"
     | "LOGISTICS_GUILD"
     | "ASSEMBLY_WORKS"
-    | "ASTRAL_DOCK_PART"
+    | "ASTRAL_DOCK_PART_1"
+    | "ASTRAL_DOCK_PART_2"
+    | "ASTRAL_DOCK_PART_3"
     | "ASTRAL_DOCK"
-    | "IMPERIAL_EXCHANGE_PART"
-    | "WORLD_ENGINE_PART"
-    | "AEGIS_DOME_PART"
+    | "IMPERIAL_EXCHANGE_PART_1"
+    | "IMPERIAL_EXCHANGE_PART_2"
+    | "IMPERIAL_EXCHANGE_PART_3"
+    | "WORLD_ENGINE_PART_1"
+    | "WORLD_ENGINE_PART_2"
+    | "WORLD_ENGINE_PART_3"
+    | "AEGIS_DOME_PART_1"
+    | "AEGIS_DOME_PART_2"
+    | "AEGIS_DOME_PART_3"
     | "AEGIS_DOME"
     | "IMPERIAL_EXCHANGE"
     | "WORLD_ENGINE"
-    | "POPULATION_BUREAU_PART"
+    | "POPULATION_BUREAU_PART_1"
+    | "POPULATION_BUREAU_PART_2"
+    | "POPULATION_BUREAU_PART_3"
     | "POPULATION_BUREAU"
-    | "IRON_LEVY_PART"
+    | "IRON_LEVY_PART_1"
+    | "IRON_LEVY_PART_2"
+    | "IRON_LEVY_PART_3"
     | "IRON_LEVY"
     | "WEAPONS_WORKSHOP" => {
     if (key === "IRON_BASTION") return "FORT";
@@ -348,10 +445,9 @@ export const structureInfoForKey = (
     if (key === "QUARTERMASTERS_OFFICE") return ["Reduces manpower cost for War-branch structures built within 20 tiles"];
     if (key === "LOGISTICS_GUILD") return ["+0.05 manpower/min empire-wide, standalone", "+0.1/min instead if a Rail Depot is in this town's connected network"];
     if (key === "ASSEMBLY_WORKS") return ["+300 manpower cap for every Ancillary Factory in this connected-town network", "One per connected-town network"];
-    if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
+    if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];
     if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision for 1,000 gold — must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Tower power"];
     if (key === "RAIL_DEPOT") return ["+0.1 manpower/min for every Logistics Guild in this connected-town network", "Boosts outpost muster speed within 50 tiles", "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "+10 connected-town income points across this town's linked network", "One per connected-town network"];
-    if (key === "IMPERIAL_EXCHANGE_PART" || key === "WORLD_ENGINE_PART" || key === "AEGIS_DOME_PART" || key === "POPULATION_BUREAU_PART" || key === "IRON_LEVY_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
     if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Once every 24 hours, levy 100% of a single chosen rival's gold, free", "Requires nearby Ambaric Tower power"];
     if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes, free", "Requires nearby Ambaric Tower power"];
     if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 10 minutes, destroying an enemy structure and cutting that town's population by 30%, for 1,000 gold", "Requires nearby Ambaric Tower power"];
@@ -388,20 +484,37 @@ export const structureInfoForKey = (
     if (key === "AIRPORT") return "/overlays/airport-overlay.svg";
     if (key === "RADAR_SYSTEM") return "/overlays/radar-system-overlay.svg";
     if (key === "AETHER_TOWER") return "/overlays/ambaric-tower-overlay.svg";
-    if (key === "ASTRAL_DOCK_PART") return "/overlays/astral-dock-overlay.svg";
     if (key === "AEGIS_DOME") return "/overlays/aegis-dome-overlay.svg";
-    if (key === "AEGIS_DOME_PART") return "/overlays/aegis-dome-overlay.svg";
     if (key === "ASTRAL_DOCK") return "/overlays/astral-dock-overlay.svg";
     if (key === "RAIL_DEPOT") return "/overlays/rail-depot-overlay.svg";
-    if (key === "IMPERIAL_EXCHANGE_PART") return "/overlays/imperial-exchange-overlay.svg";
     if (key === "IMPERIAL_EXCHANGE") return "/overlays/imperial-exchange-overlay.svg";
-    if (key === "WORLD_ENGINE_PART") return "/overlays/world-engine-overlay.svg";
     if (key === "WORLD_ENGINE") return "/overlays/world-engine-overlay.svg";
     if (key === "QUARTERMASTERS_OFFICE") return "/overlays/quartermasters-office-overlay.svg";
     if (key === "LOGISTICS_GUILD") return "/overlays/logistics-guild-overlay.svg";
     if (key === "ASSEMBLY_WORKS") return "/overlays/assembly-works-overlay.svg";
-    if (key === "POPULATION_BUREAU" || key === "POPULATION_BUREAU_PART") return "/overlays/population-bureau-overlay.svg";
-    if (key === "IRON_LEVY" || key === "IRON_LEVY_PART") return "/overlays/iron-levy-overlay.svg";
+    if (key === "POPULATION_BUREAU") return "/overlays/population-bureau-overlay.svg";
+    if (key === "IRON_LEVY") return "/overlays/iron-levy-overlay.svg";
+    // Each of the 18 monument components gets its own distinct overlay,
+    // named after the component (not the monument) since each is a unique
+    // structure now, not 3 identical copies of one "Part" icon.
+    if (key === "IMPERIAL_EXCHANGE_PART_1") return "/overlays/golden-ledger-overlay.svg";
+    if (key === "IMPERIAL_EXCHANGE_PART_2") return "/overlays/counting-engine-overlay.svg";
+    if (key === "IMPERIAL_EXCHANGE_PART_3") return "/overlays/sovereign-seal-overlay.svg";
+    if (key === "WORLD_ENGINE_PART_1") return "/overlays/long-barrel-overlay.svg";
+    if (key === "WORLD_ENGINE_PART_2") return "/overlays/fracture-core-overlay.svg";
+    if (key === "WORLD_ENGINE_PART_3") return "/overlays/sky-marking-array-overlay.svg";
+    if (key === "AEGIS_DOME_PART_1") return "/overlays/shield-lattice-overlay.svg";
+    if (key === "AEGIS_DOME_PART_2") return "/overlays/ward-anchor-overlay.svg";
+    if (key === "AEGIS_DOME_PART_3") return "/overlays/aegis-crown-overlay.svg";
+    if (key === "ASTRAL_DOCK_PART_1") return "/overlays/launch-cradle-overlay.svg";
+    if (key === "ASTRAL_DOCK_PART_2") return "/overlays/orbital-array-overlay.svg";
+    if (key === "ASTRAL_DOCK_PART_3") return "/overlays/aether-sail-overlay.svg";
+    if (key === "POPULATION_BUREAU_PART_1") return "/overlays/census-engine-overlay.svg";
+    if (key === "POPULATION_BUREAU_PART_2") return "/overlays/registry-vault-overlay.svg";
+    if (key === "POPULATION_BUREAU_PART_3") return "/overlays/levy-charter-overlay.svg";
+    if (key === "IRON_LEVY_PART_1") return "/overlays/muster-klaxon-overlay.svg";
+    if (key === "IRON_LEVY_PART_2") return "/overlays/iron-standard-overlay.svg";
+    if (key === "IRON_LEVY_PART_3") return "/overlays/levy-writ-overlay.svg";
     if (key === "WEAPONS_WORKSHOP") return "/overlays/weapons-workshop-overlay.svg";
     return undefined;
   };
@@ -614,12 +727,32 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "ASTRAL_DOCK_PART") {
+  if (type === "ASTRAL_DOCK_PART_1") {
     return structure({
-      title: "Astral Dock Part",
-      detail: "Astral Dock Parts are the three giant monument sections needed before the final Astral Dock can be assembled anywhere on owned settled land.",
-      glyph: "✶",
-      placement: "Build in three different Great Cities or Monumental Cities on support tiles you own.",
+      title: "Launch Cradle",
+      detail: "The Launch Cradle is the first of the Astral Dock's 3 required components — a curved berth structure that will eventually hold the finished satellite before launch.",
+      glyph: "🚀",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "ASTRAL_DOCK_PART_2") {
+    return structure({
+      title: "Orbital Array",
+      detail: "The Orbital Array is one of the Astral Dock's 3 required components — a mast-mounted dish for tracking the satellite once it's aloft.",
+      glyph: "🛰",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "ASTRAL_DOCK_PART_3") {
+    return structure({
+      title: "Aether Sail",
+      detail: "The Aether Sail is one of the Astral Dock's 3 required components — a crystal-threaded sail panel that catches aether currents for the satellite's flight.",
+      glyph: "⛵",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -724,22 +857,62 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "IMPERIAL_EXCHANGE_PART") {
+  if (type === "IMPERIAL_EXCHANGE_PART_1") {
     return structure({
-      title: "Imperial Exchange Part",
-      detail: "One of three monument parts required before you can place the final Imperial Exchange for free.",
-      glyph: "◈",
-      placement: "Build on an open support tile for a Great City or Monumental City you own.",
+      title: "Golden Ledger",
+      detail: "The Golden Ledger is one of the Imperial Exchange's 3 required components — a brass-bound account book that will record every levy the finished Exchange ever collects.",
+      glyph: "📖",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "WORLD_ENGINE_PART") {
+  if (type === "IMPERIAL_EXCHANGE_PART_2") {
     return structure({
-      title: "Worldbreaker Cannon Part",
-      detail: "One of three monument parts required before you can place the final Worldbreaker Cannon for free.",
-      glyph: "⬢",
-      placement: "Build on an open support tile for a Great City or Monumental City you own.",
+      title: "Counting Engine",
+      detail: "The Counting Engine is one of the Imperial Exchange's 3 required components — a mechanical tallying drum for reconciling rival treasuries at a glance.",
+      glyph: "🧮",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "IMPERIAL_EXCHANGE_PART_3") {
+    return structure({
+      title: "Sovereign Seal",
+      detail: "The Sovereign Seal is one of the Imperial Exchange's 3 required components — the stamp of authority the finished Exchange will use to make a levy official.",
+      glyph: "🔏",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "WORLD_ENGINE_PART_1") {
+    return structure({
+      title: "The Long Barrel",
+      detail: "The Long Barrel is one of the Worldbreaker Cannon's 3 required components — the tapered iron barrel the finished cannon will fire through.",
+      glyph: "🎯",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "WORLD_ENGINE_PART_2") {
+    return structure({
+      title: "Fracture Core",
+      detail: "The Fracture Core is one of the Worldbreaker Cannon's 3 required components — the crystalline heart that powers each Worldbreaker shot.",
+      glyph: "💥",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "WORLD_ENGINE_PART_3") {
+    return structure({
+      title: "Sky-Marking Array",
+      detail: "The Sky-Marking Array is one of the Worldbreaker Cannon's 3 required components — the targeting rig the finished cannon will sight its shots through.",
+      glyph: "🔭",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -764,12 +937,32 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "AEGIS_DOME_PART") {
+  if (type === "AEGIS_DOME_PART_1") {
     return structure({
-      title: "Aegis Dome Part",
-      detail: "One of three monument parts required before you can place the final Aegis Dome for free.",
-      glyph: "⬡",
-      placement: "Build on an open support tile for a Great City or Monumental City you own.",
+      title: "Shield Lattice",
+      detail: "The Shield Lattice is one of the Aegis Dome's 3 required components — a hexagonal grid-panel fragment of the dome's eventual shield.",
+      glyph: "🛡",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "AEGIS_DOME_PART_2") {
+    return structure({
+      title: "Ward Anchor",
+      detail: "The Ward Anchor is one of the Aegis Dome's 3 required components — a grounding spike that will anchor the finished dome's protective field.",
+      glyph: "⚓",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "AEGIS_DOME_PART_3") {
+    return structure({
+      title: "Aegis Crown",
+      detail: "The Aegis Crown is one of the Aegis Dome's 3 required components — the crest that will cap the finished dome and trigger its Aegis Lock.",
+      glyph: "👑",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -814,12 +1007,32 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "POPULATION_BUREAU_PART") {
+  if (type === "POPULATION_BUREAU_PART_1") {
     return structure({
-      title: "Population Bureau Part",
-      detail: "One of three monument parts required before you can place the final Population Bureau for free.",
-      glyph: "◈",
-      placement: "Build on an open support tile for a Great City or Monumental City you own.",
+      title: "Census Engine",
+      detail: "The Census Engine is one of the Population Bureau's 3 required components — a rotary card-index drum for tracking every counted citizen.",
+      glyph: "📋",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "POPULATION_BUREAU_PART_2") {
+    return structure({
+      title: "Registry Vault",
+      detail: "The Registry Vault is one of the Population Bureau's 3 required components — a strongbox for the empire's population records.",
+      glyph: "🗄",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "POPULATION_BUREAU_PART_3") {
+    return structure({
+      title: "Levy Charter",
+      detail: "The Levy Charter is one of the Population Bureau's 3 required components — the founding writ that will authorize the finished Bureau's manpower bonus.",
+      glyph: "📜",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -834,12 +1047,32 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "IRON_LEVY_PART") {
+  if (type === "IRON_LEVY_PART_1") {
     return structure({
-      title: "Iron Levy Part",
-      detail: "One of three monument parts required before you can place the final Iron Levy for free.",
-      glyph: "⬢",
-      placement: "Build on an open support tile for a Great City or Monumental City you own.",
+      title: "Muster Klaxon",
+      detail: "The Muster Klaxon is one of The Iron Levy's 3 required components — the steam-horn that will sound the call to arms.",
+      glyph: "📢",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "IRON_LEVY_PART_2") {
+    return structure({
+      title: "Iron Standard",
+      detail: "The Iron Standard is one of The Iron Levy's 3 required components — the battle-standard the finished monument's muster will rally behind.",
+      glyph: "🚩",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "IRON_LEVY_PART_3") {
+    return structure({
+      title: "Levy Writ",
+      detail: "The Levy Writ is one of The Iron Levy's 3 required components — the conscription order that will authorize the finished monument's one-time army.",
+      glyph: "📃",
+      placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));

@@ -63,75 +63,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // 2026.08.02.2 ("Build Light Outpost menu no longer shows a FOOD slot
   // cost...") pruned: aged out of the 6-day window.
   {
-    createdAt: 1785735055000, // 2026-08-03
-    introducedIn: "buildings-tab-always-show",
-    title: "Buildings tab now shows on any tile you own, and building an unsettled tile settles it first automatically",
-    why: "The Buildings tab only appeared after you had already settled a tile, so building anything on a freshly claimed tile meant a two-step detour: open the Actions tab, hit Settle Land, wait for it to finish, then reopen the tile and finally press the actual build button. Clicking Build now handles the settle step for you, so a claimed-but-unsettled tile behaves like any other owned tile.",
-    changes: [
-      "The Buildings tab now appears on every tile you own — whether it's still a frontier claim or already settled — so all eligible buildings are visible the moment you take the tile.",
-      "Clicking \"Build X\" on a tile you own but haven't settled automatically settles the tile first, then builds the structure the moment settlement completes (the old settle-then-build flow that only existed for Light Outposts now applies to every building type).",
-      "While a build is settling-then-building on a tile, a second \"Build Y\" click on that same tile is blocked with a warning instead of silently replacing the first build.",
-      "On an unsettled owned tile, each building's cost/time preview now shows the combined settle + build totals (e.g. \"350 gold, 100 m.p. • settle + build • 4m total\") and its description notes that it settles the tile first.",
-      "Build Foundry and Build Waterworks still let you pick the exact placement tile, including when the settle happens automatically first."
-    ]
-  },
-  {
-    createdAt: 1785739605000, // 2026.08.03.2
-    introducedIn: "2026.08.03.2",
-    title: "Fixed: Build Light Outpost button disappeared when out of FOOD slots",
-    why: "The Actions tab hid itself entirely whenever every action on it was disabled, so a player with 5+ Light Outposts and no free FOOD slot lost the button instead of seeing why it was unavailable.",
-    changes: [
-      "Disabled actions are now always shown with their blocker message instead of hiding the whole Actions tab, matching how the Buildings tab already behaves."
-    ]
-  },
-  {
-    createdAt: 1785738838000, // 2026-08-03
-    introducedIn: "wooden-fort-no-iron-build",
-    title: "Wooden Fort no longer charges a lump-sum iron cost to build",
-    why: "Building a Wooden Fort showed a 15-iron requirement left over from before the manpower-economy rewrite moved resource costs onto permanent slot occupation — the same stale-cost class the prior update cleaned off the crystal structures. A Wooden Fort's real cost is manpower plus its permanent IRON slot, so the iron line is gone.",
-    changes: [
-      "Building or upgrading to a Wooden Fort no longer deducts 15 iron up front — its cost is manpower plus the 1 IRON slot it permanently occupies."
-    ]
-  },
-  {
-    createdAt: 1785758343576, // event-log-explicit-sort
-    introducedIn: "event-log-explicit-sort",
-    title: "Recent Events feed now sorts explicitly instead of assuming server order",
-    why: "The Recent Events panel built its most-recent-first display by reversing the server's array, which only works if the server always appends oldest-last. That ordering held today, but nothing enforced it, so a future change to how entries are appended or merged could have silently flipped the whole feed to oldest-first with no error.",
-    changes: [
-      "The Recent Events panel now sorts entries by their timestamp (newest first) instead of blindly reversing the incoming array, so display order stays correct regardless of the order entries arrive in."
-    ]
-  },
-  {
-    createdAt: 1785738839000, // 2026-08-03
-    introducedIn: "economy-slot-upkeep-no-daily-flow",
-    title: "Economy panel no longer shows slot upkeep as a negative daily flow",
-    why: "Since Food/Iron/Crystal/Supply became slots, a structure's upkeep is the slot it permanently occupies — but the detail cards were still also showing those structures as a per-day flow cost (a 4-outpost empire read \"Light Outpost · 4  -576.0/day\" right below the same 4 slots listed under \"Occupied by\"). That was the same cost counted twice, and it read like the game was draining a food stockpile that no longer exists.",
-    changes: [
-      "The Food/Iron/Crystal/Supply cards no longer have a separate Upkeep column — slot upkeep for these resources is fully represented by the slot count already shown in \"Occupied by\". Cross-resource flow costs (e.g. a synthesizer's gold upkeep) still appear, but only once, on the GOLD card.",
-      "The \"Empire upkeep:\" summary line at the top now shows only gold upkeep — the one resource that still works as a daily flow — instead of also quoting per-day food/iron/supply/crystal figures."
-    ]
-  },
-  {
-    createdAt: 1785758070000, // 2026.08.03.3
-    introducedIn: "2026.08.03.3",
-    title: "Fixed: buildings tab showed nothing on an unsettled tile with no resource, town, or dock",
-    why: "The always-show-Buildings-tab update relaxed every building's settled requirement in the menu logic, but the shared placement-surface check it also runs through still only counted a tile as \"settled\" when it was actually SETTLED. Any building without a resource/town/dock alternative surface (Fort, Observatory, Airport, Aether Tower, Radar System, the four monuments, Governor's Office, Garrison Hall) still had nowhere to attach, so a bare claimed tile showed \"No buildings available on this tile right now\" instead of the settle-then-build list.",
-    changes: [
-      "An owned frontier tile now also counts as the \"settled\" placement surface for menu purposes, so every building type appears and queues its settle-then-build chain the same way resource/town/dock-gated buildings already did."
-    ]
-  },
-  {
-    createdAt: 1785776329000, // 2026-08-03
-    introducedIn: "badge-render-order-above-roads",
-    title: "Fixed: food/resource-shortage badges could render behind roads",
-    why: "The floating badge shown over a dormant/unfed structure (and the observatory cooldown badge) drew earlier than the road overlay even though both are transparent, so wherever a road ran under one of these badges, the road painted over it and hid it — despite the badge floating well above the road visually.",
-    changes: [
-      "The dormant-structure/unfed-town badge and the observatory cooldown badge now always render above roads, so they stay visible on tiles a road passes through.",
-      "This applies to every structure type that can go dormant from a resource-slot shortfall (Light Outpost included), not just towns."
-    ]
-  },
-  {
     createdAt: 1785788216000, // 2026-08-03
     introducedIn: "town-upgrade-ready-badge",
     title: "Towns that can upgrade to their next tier now show a floating badge",
@@ -139,15 +70,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "An owned, settled town whose population has hit its next-tier threshold now shows a small green up-arrow badge floating above it in 3D mode, mirroring the unfed-town badge.",
       "The badge only appears for your own settled towns that are actually ready to upgrade (neutral, foreign, unsettled, SETTLEMENT, and already-max-tier towns stay unmarked), matching what the tile-menu upgrade action offers."
-    ]
-  },
-  {
-    createdAt: 1785786820000, // 2026.08.03.4
-    introducedIn: "2026.08.03.4",
-    title: "Natural wonder tiles now show what they do in the tile detail panel",
-    why: "Worldgen has placed natural wonders (Deepwater Engine, Foundry Heart, Bastion Frame, etc.) on the map for a while, but the tile detail Overview tab never mentioned them at all — a wonder tile you'd claimed just looked like an ordinary frontier or settled tile, with no way to tell it was special or what claiming/settling it would grant.",
-    changes: [
-      "The Overview tab now shows a natural wonder's name and boon on any tile that has one, and notes whether the boon is already active (settled and owned by you), still needs the tile settled first (owned but frontier), or is just informational (not yours yet)."
     ]
   },
   {
@@ -442,6 +364,22 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Placing any of the 6 monuments now removes all 3 of your Parts for that monument the moment it completes.",
       "Each monument's own CRYSTAL slot cost is now 4 (was 1) — no net change to your total CRYSTAL commitment once the Parts are gone."
+    ]
+  },
+  {
+    createdAt: 1786305917000, // 2026-08-09
+    introducedIn: "unique-monument-components",
+    title: "Each monument now has 3 uniquely-named components instead of 3 identical Parts",
+    why: "Building 3 copies of one \"Part\" structure to unlock a monument read as busywork rather than assembling something. Each monument's 3 components are now distinct, individually named structures with their own art and their own build button, and the structure-info popup shows a live checklist of which ones you've completed.",
+    changes: [
+      "Imperial Exchange: Golden Ledger, Counting Engine, Sovereign Seal.",
+      "Worldbreaker Cannon: The Long Barrel, Fracture Core, Sky-Marking Array.",
+      "Aegis Dome: Shield Lattice, Ward Anchor, Aegis Crown.",
+      "Astral Dock: Launch Cradle, Orbital Array, Aether Sail.",
+      "Population Bureau: Census Engine, Registry Vault, Levy Charter.",
+      "The Iron Levy: Muster Klaxon, Iron Standard, Levy Writ.",
+      "Opening a monument's structure-info popup now shows a \"Monument Components\" checklist with a live N/3 status for each.",
+      "Same rules as before: one component per Great City/Monumental City, and the monument tech gates all 3 of its own components."
     ]
   }
 ];
