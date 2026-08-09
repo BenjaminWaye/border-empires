@@ -16,10 +16,16 @@ describe("town growth", () => {
     expect(initialTownGrowthTierCap(150_000, 10_000)).toBe("CITY");
   });
 
-  it("surfaces a low-cost settlement-to-town upgrade regardless of population", () => {
-    expect(nextTownGrowthUpgrade("SETTLEMENT", 500)).toEqual({
+  it("surfaces a low-cost settlement-to-town upgrade gated behind 10k population", () => {
+    expect(nextTownGrowthUpgrade("SETTLEMENT", 5000)).toEqual({
       targetTier: "TOWN",
-      requiredPopulation: 0,
+      requiredPopulation: 10_000,
+      goldCost: 20,
+      available: false
+    });
+    expect(nextTownGrowthUpgrade("SETTLEMENT", 10_000)).toEqual({
+      targetTier: "TOWN",
+      requiredPopulation: 10_000,
       goldCost: 20,
       available: true
     });
