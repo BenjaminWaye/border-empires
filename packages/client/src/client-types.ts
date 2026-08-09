@@ -692,9 +692,16 @@ export type TileMenuProgressView = {
   progress: number;
   note: string;
   cancelLabel?: string;
-  cancelActionId?: "cancel_structure_build" | "cancel_queued_settlement" | "cancel_queued_build" | "cancel_settle" | "cancel_capture";
+  cancelActionId?:
+    | "cancel_structure_build"
+    | "cancel_queued_settlement"
+    | "cancel_queued_build"
+    | "cancel_settle"
+    | "cancel_capture"
+    | "cancel_queued_waypoint"
+    | "cancel_queued_expand";
   secondaryLabel?: string;
-  secondaryActionId?: "move_queued_entry_to_front";
+  secondaryActionId?: "move_queued_entry_to_front" | "move_waypoint_to_front" | "move_action_queue_entry_to_front";
   // §6.3 rush-buy: pay gold to finish this in-progress SETTLE/build right
   // now. Label is a client-side price estimate (rushBuyPriceGold, same
   // formula the server uses) — the server recomputes and enforces the real

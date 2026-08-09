@@ -63,6 +63,10 @@ export const injectWaypointActions = (
     prependWaypointAction(view, { id: "cancel_waypoint", label: `Cancel Waypoint${state.waypoint.length > 1 ? "s" : ""}`, detail: formatWaypointSummary(activeWaypoint.plan) });
     return;
   }
+  // Already the destination of a later (not-yet-active) queued waypoint --
+  // its progress/cancel/jump-to-front controls live on the "progress" tab
+  // (queuedWaypointProgressForTile), so don't also offer "Add Waypoint" here.
+  if (state.waypoint.some((entry) => entry.target.x === tile.x && entry.target.y === tile.y)) return;
   const plan = waypointPlanForTile(tile, state, deps);
   if (!plan) return;
   prependWaypointAction(view, { id: "expand_here", label: "Add Waypoint", detail: formatWaypointSummary(plan) });

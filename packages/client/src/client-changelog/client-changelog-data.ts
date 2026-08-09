@@ -22,13 +22,22 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1786320000000, // 2026.08.09.1
-    introducedIn: "2026.08.09.1",
+    createdAt: 1786320000000, // 2026.08.09.2
+    introducedIn: "2026.08.09.2",
     title: "Smaller soil mound on grain tiles",
     why: "The dirt bed under the barley crop was large enough to cover most of the tile, hiding the grain it was supposed to sit beneath.",
     changes: [
       "Shrunk the grain tile's soil mound and widened the crop patch so the golden barley fills the tile, with the dirt only showing as a thin rim.",
       "Increased stalk and seed-head density for a fuller-looking crop."
+    ]
+  },
+  {
+    createdAt: 1786306202000, // 2026.08.09.1
+    introducedIn: "2026.08.09.1",
+    title: "Muster tile cap tag on Muster Discipline/Command",
+    why: "Muster Discipline, Muster Command, and War Foundries each grant +1 muster flag capacity, but the tech tree card never showed a highlight chip for it — every other tech payoff (unlocks, reveals) got a tag except this one.",
+    changes: [
+      "Muster Discipline, Muster Command, and War Foundries now show a \"Muster Flag +1\" chip on their tech-tree card and detail view."
     ]
   },
   {
@@ -78,88 +87,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // Natural Wonders, fort/outpost upkeep rebalance, town food-slot demand,
   // and town vision-bonus entries pruned: aged out of the 6-day window.
   // 2026.08.01.1 ("Rail Depot's Garrison Hall bonus quadrupled..."),
-  // 2026.08.02.1 ("First 5 Light Outposts no longer cost a FOOD slot"), and
+  // 2026.08.02.1 ("First 5 Light Outposts no longer cost a FOOD slot"),
   // 2026.08.02.2 ("Build Light Outpost menu no longer shows a FOOD slot
-  // cost...") pruned: aged out of the 6-day window.
-  {
-    createdAt: 1785697200000, // 2026.08.03.1
-    introducedIn: "2026.08.03.1",
-    title: "Fixed: removing a structure crashed the game",
-    why: "The client's build pipeline already routed structure removals through the development queue and the server fully supported REMOVE_STRUCTURE, but the removal's optimistic preview was never handed to the action flow during client bootstrap — so clicking Remove on a Fort, Observatory, Siege Outpost, or economic structure threw a crash instead of starting the removal.",
-    changes: [
-      "Clicking Remove on a structure you own now starts the removal instead of crashing the client.",
-      "Queued removals dispatch through the same development queue as builds and show the same removing countdown."
-    ]
-  },
-  {
-    createdAt: 1785735055000, // 2026-08-03
-    introducedIn: "buildings-tab-always-show",
-    title: "Buildings tab now shows on any tile you own, and building an unsettled tile settles it first automatically",
-    why: "The Buildings tab only appeared after you had already settled a tile, so building anything on a freshly claimed tile meant a two-step detour: open the Actions tab, hit Settle Land, wait for it to finish, then reopen the tile and finally press the actual build button. Clicking Build now handles the settle step for you, so a claimed-but-unsettled tile behaves like any other owned tile.",
-    changes: [
-      "The Buildings tab now appears on every tile you own — whether it's still a frontier claim or already settled — so all eligible buildings are visible the moment you take the tile.",
-      "Clicking \"Build X\" on a tile you own but haven't settled automatically settles the tile first, then builds the structure the moment settlement completes (the old settle-then-build flow that only existed for Light Outposts now applies to every building type).",
-      "While a build is settling-then-building on a tile, a second \"Build Y\" click on that same tile is blocked with a warning instead of silently replacing the first build.",
-      "On an unsettled owned tile, each building's cost/time preview now shows the combined settle + build totals (e.g. \"350 gold, 100 m.p. • settle + build • 4m total\") and its description notes that it settles the tile first.",
-      "Build Foundry and Build Waterworks still let you pick the exact placement tile, including when the settle happens automatically first."
-    ]
-  },
-  {
-    createdAt: 1785739605000, // 2026.08.03.2
-    introducedIn: "2026.08.03.2",
-    title: "Fixed: Build Light Outpost button disappeared when out of FOOD slots",
-    why: "The Actions tab hid itself entirely whenever every action on it was disabled, so a player with 5+ Light Outposts and no free FOOD slot lost the button instead of seeing why it was unavailable.",
-    changes: [
-      "Disabled actions are now always shown with their blocker message instead of hiding the whole Actions tab, matching how the Buildings tab already behaves."
-    ]
-  },
-  {
-    createdAt: 1785738838000, // 2026-08-03
-    introducedIn: "wooden-fort-no-iron-build",
-    title: "Wooden Fort no longer charges a lump-sum iron cost to build",
-    why: "Building a Wooden Fort showed a 15-iron requirement left over from before the manpower-economy rewrite moved resource costs onto permanent slot occupation — the same stale-cost class the prior update cleaned off the crystal structures. A Wooden Fort's real cost is manpower plus its permanent IRON slot, so the iron line is gone.",
-    changes: [
-      "Building or upgrading to a Wooden Fort no longer deducts 15 iron up front — its cost is manpower plus the 1 IRON slot it permanently occupies."
-    ]
-  },
-  {
-    createdAt: 1785758343576, // event-log-explicit-sort
-    introducedIn: "event-log-explicit-sort",
-    title: "Recent Events feed now sorts explicitly instead of assuming server order",
-    why: "The Recent Events panel built its most-recent-first display by reversing the server's array, which only works if the server always appends oldest-last. That ordering held today, but nothing enforced it, so a future change to how entries are appended or merged could have silently flipped the whole feed to oldest-first with no error.",
-    changes: [
-      "The Recent Events panel now sorts entries by their timestamp (newest first) instead of blindly reversing the incoming array, so display order stays correct regardless of the order entries arrive in."
-    ]
-  },
-  {
-    createdAt: 1785738839000, // 2026-08-03
-    introducedIn: "economy-slot-upkeep-no-daily-flow",
-    title: "Economy panel no longer shows slot upkeep as a negative daily flow",
-    why: "Since Food/Iron/Crystal/Supply became slots, a structure's upkeep is the slot it permanently occupies — but the detail cards were still also showing those structures as a per-day flow cost (a 4-outpost empire read \"Light Outpost · 4  -576.0/day\" right below the same 4 slots listed under \"Occupied by\"). That was the same cost counted twice, and it read like the game was draining a food stockpile that no longer exists.",
-    changes: [
-      "The Food/Iron/Crystal/Supply cards no longer have a separate Upkeep column — slot upkeep for these resources is fully represented by the slot count already shown in \"Occupied by\". Cross-resource flow costs (e.g. a synthesizer's gold upkeep) still appear, but only once, on the GOLD card.",
-      "The \"Empire upkeep:\" summary line at the top now shows only gold upkeep — the one resource that still works as a daily flow — instead of also quoting per-day food/iron/supply/crystal figures."
-    ]
-  },
-  {
-    createdAt: 1785758070000, // 2026.08.03.3
-    introducedIn: "2026.08.03.3",
-    title: "Fixed: buildings tab showed nothing on an unsettled tile with no resource, town, or dock",
-    why: "The always-show-Buildings-tab update relaxed every building's settled requirement in the menu logic, but the shared placement-surface check it also runs through still only counted a tile as \"settled\" when it was actually SETTLED. Any building without a resource/town/dock alternative surface (Fort, Observatory, Airport, Aether Tower, Radar System, the four monuments, Governor's Office, Garrison Hall) still had nowhere to attach, so a bare claimed tile showed \"No buildings available on this tile right now\" instead of the settle-then-build list.",
-    changes: [
-      "An owned frontier tile now also counts as the \"settled\" placement surface for menu purposes, so every building type appears and queues its settle-then-build chain the same way resource/town/dock-gated buildings already did."
-    ]
-  },
-  {
-    createdAt: 1785776329000, // 2026-08-03
-    introducedIn: "badge-render-order-above-roads",
-    title: "Fixed: food/resource-shortage badges could render behind roads",
-    why: "The floating badge shown over a dormant/unfed structure (and the observatory cooldown badge) drew earlier than the road overlay even though both are transparent, so wherever a road ran under one of these badges, the road painted over it and hid it — despite the badge floating well above the road visually.",
-    changes: [
-      "The dormant-structure/unfed-town badge and the observatory cooldown badge now always render above roads, so they stay visible on tiles a road passes through.",
-      "This applies to every structure type that can go dormant from a resource-slot shortfall (Light Outpost included), not just towns."
-    ]
-  },
+  // cost..."), and 2026.08.03.1 ("Fixed: removing a structure crashed the
+  // game") pruned: aged out of the 6-day window.
+  // buildings-tab-always-show, 2026.08.03.2, wooden-fort-no-iron-build,
+  // event-log-explicit-sort, economy-slot-upkeep-no-daily-flow, and
+  // 2026.08.03.3 pruned: aged out of the 6-day window.
+  // badge-render-order-above-roads and 2026.08.03.4 ("Natural wonder tiles
+  // now show what they do...") pruned: aged out of the 6-day window.
   {
     createdAt: 1785788216000, // 2026-08-03
     introducedIn: "town-upgrade-ready-badge",
@@ -168,15 +104,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "An owned, settled town whose population has hit its next-tier threshold now shows a small green up-arrow badge floating above it in 3D mode, mirroring the unfed-town badge.",
       "The badge only appears for your own settled towns that are actually ready to upgrade (neutral, foreign, unsettled, SETTLEMENT, and already-max-tier towns stay unmarked), matching what the tile-menu upgrade action offers."
-    ]
-  },
-  {
-    createdAt: 1785786820000, // 2026.08.03.4
-    introducedIn: "2026.08.03.4",
-    title: "Natural wonder tiles now show what they do in the tile detail panel",
-    why: "Worldgen has placed natural wonders (Deepwater Engine, Foundry Heart, Bastion Frame, etc.) on the map for a while, but the tile detail Overview tab never mentioned them at all — a wonder tile you'd claimed just looked like an ordinary frontier or settled tile, with no way to tell it was special or what claiming/settling it would grant.",
-    changes: [
-      "The Overview tab now shows a natural wonder's name and boon on any tile that has one, and notes whether the boon is already active (settled and owned by you), still needs the tile settled first (owned but frontier), or is just informational (not yours yet)."
     ]
   },
   {
