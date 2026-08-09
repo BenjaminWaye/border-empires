@@ -27,10 +27,6 @@ import {
   DEVELOPMENT_PROCESS_LIMIT,
   FRONTIER_ATTACK_MUSTER_COST, FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST,
   SETTLE_COST,
-  SETTLE_MANPOWER_COST,
-  STRUCTURE_REGISTRY,
-  structureBuildManpowerCost,
-  rushBuyPriceGold,
   structureSlotRequirements,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -91,7 +87,6 @@ import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-stor
 import {
   additiveEffectForPlayer,
   effectiveVisionRadiusForPlayer,
-  multiplicativeEffectForPlayer,
   domainGrantedResourceSlots
 } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
@@ -368,15 +363,12 @@ import {
 import {
   cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
   completeStructureRemoval as completeStructureRemovalImpl,
-  economicOrObservatoryCancelRefund,
-  fortCancelRefund,
   handleCancelFortBuildCommand as handleCancelFortBuildCommandImpl,
   handleCancelSiegeOutpostBuildCommand as handleCancelSiegeOutpostBuildCommandImpl,
   handleCancelStructureBuildCommand as handleCancelStructureBuildCommandImpl,
   handleClearMusterCommand as handleClearMusterCommandImpl,
   handleRemoveStructureCommand as handleRemoveStructureCommandImpl,
-  handleSetMusterCommand as handleSetMusterCommandImpl,
-  siegeOutpostCancelRefund
+  handleSetMusterCommand as handleSetMusterCommandImpl
 } from "../runtime-structure-lifecycle-command-handlers.js";
 import {
   activeAetherBridgeNeighborKeysForPlayer as activeAetherBridgeNeighborKeysForPlayerImpl,
@@ -394,6 +386,10 @@ import {
   handleFrontierCommandImpl,
   type RuntimeFrontierCommandContext
 } from "../runtime-frontier-command.js";
+import {
+  handleRushBuyCommandImpl,
+  type RuntimeRushBuyCommandContext
+} from "../runtime-rush-buy-command.js";
 import {
   seedLiveBarbarians as seedLiveBarbariansImpl,
   type SeedLiveBarbariansResult
@@ -3644,110 +3640,26 @@ export class SimulationRuntime {
     this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: input.commandId, playerId: input.ownerId });
   }
 
-  // §6.3: which under_construction field (if any) owned by `playerId` sits on
-  // `target`, and what structureType/completesAt to price/complete it with.
-  // Checked in the same fort -> observatory -> siegeOutpost -> economicStructure
-  // order cancelStructureActionTile (runtime-structure-lifecycle-command-handlers.ts)
-  // already uses, so the two "what's in progress on this tile" checks can't disagree.
-  private rushBuyableFieldForPlayer(
-    target: DomainTileState,
-    playerId: string
-  ): { tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure"; structureType: string; completesAt: number } | undefined {
-    if (target.fort?.ownerId === playerId && target.fort.status === "under_construction" && typeof target.fort.completesAt === "number") {
-      return { tileField: "fort", structureType: target.fort.variant ?? "FORT", completesAt: target.fort.completesAt };
-    }
-    if (target.observatory?.ownerId === playerId && target.observatory.status === "under_construction" && typeof target.observatory.completesAt === "number") {
-      return { tileField: "observatory", structureType: "OBSERVATORY", completesAt: target.observatory.completesAt };
-    }
-    if (target.siegeOutpost?.ownerId === playerId && target.siegeOutpost.status === "under_construction" && typeof target.siegeOutpost.completesAt === "number") {
-      return { tileField: "siegeOutpost", structureType: target.siegeOutpost.variant ?? "SIEGE_OUTPOST", completesAt: target.siegeOutpost.completesAt };
-    }
-    if (
-      target.economicStructure?.ownerId === playerId &&
-      target.economicStructure.status === "under_construction" &&
-      typeof target.economicStructure.completesAt === "number"
-    ) {
-      return { tileField: "economicStructure", structureType: target.economicStructure.type, completesAt: target.economicStructure.completesAt };
-    }
-    return undefined;
+  private rushBuyCommandContext(): RuntimeRushBuyCommandContext {
+    return {
+      players: this.players,
+      pendingSettlementsByTile: this.pendingSettlementsByTile,
+      locksByTile: this.locksByTile,
+      tiles: this.tiles,
+      wonderCacheByPlayer: this.wonderCacheByPlayer,
+      now: () => this.now(),
+      rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
+      resolvePendingSettlement: (input) => this.resolvePendingSettlement(input),
+      resolveLock: (lock) => this.resolveLock(lock),
+      completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
+      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      emitEvent: (event) => this.emitEvent(event),
+      structureCommandContext: () => this.structureCommandContext()
+    };
   }
 
-  // §6.3 rush-buy: pay gold to instantly finish an in-progress SETTLE or
-  // structure build. Price is time-proportional (rushBuyPriceGold, §6.3's
-  // anchor table extended per user direction to the in-progress case) —
-  // priced off the SAME manpower cost/refund figures cancel already uses
-  // (fortCancelRefund/siegeOutpostCancelRefund/economicOrObservatoryCancelRefund),
-  // so a rush can never price a tier differently than cancelling it would
-  // refund. Completion reuses resolvePendingSettlement/completeStructureBuild —
-  // the exact functions the original timer would have called — so there is no
-  // second copy of "what happens when this finishes" to keep in sync.
   private handleRushBuyCommand(command: CommandEnvelope): void {
-    const actor = this.players.get(command.playerId);
-    const payload = parseTilePayload(command.payloadJson);
-    if (!actor || !payload) {
-      this.rejectCommand(command, "BAD_COMMAND", "invalid command payload");
-      return;
-    }
-    const targetKey = simulationTileKey(payload.x, payload.y);
-
-    const pendingSettlement = this.pendingSettlementsByTile.get(targetKey);
-    if (pendingSettlement && pendingSettlement.ownerId === command.playerId) {
-      const totalMs = Math.max(1, pendingSettlement.resolvesAt - pendingSettlement.startedAt);
-      const remainingMs = pendingSettlement.resolvesAt - this.now();
-      // §6.3's rush price is anchored on the action's *manpower* cost — SETTLE_COST
-      // is settle's small nominal gold price (unrelated), SETTLE_MANPOWER_COST is
-      // the real anchor (20 manpower -> 10 gold full rush per §6.3's table).
-      const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST), this.now());
-      if (actor.points < price) {
-        this.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
-        return;
-      }
-      actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, this.now());
-      this.resolvePendingSettlement({
-        ownerId: pendingSettlement.ownerId,
-        tileKey: pendingSettlement.tileKey,
-        startedAt: pendingSettlement.startedAt,
-        resolvesAt: pendingSettlement.resolvesAt,
-        commandId: pendingSettlement.commandId
-      });
-      this.emitPlayerStateUpdate(command);
-      this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
-      return;
-    }
-
-    const target = this.tiles.get(targetKey);
-    const inProgress = target && this.rushBuyableFieldForPlayer(target, command.playerId);
-    if (!target || !inProgress) {
-      this.rejectCommand(command, "RUSH_BUY_INVALID", "nothing in progress to rush here");
-      return;
-    }
-    const { tileField, structureType, completesAt } = inProgress;
-    const refund =
-      tileField === "fort" ? fortCancelRefund(actor, target.fort?.variant) :
-      tileField === "siegeOutpost" ? siegeOutpostCancelRefund(target.siegeOutpost?.variant) :
-      economicOrObservatoryCancelRefund(this.structureCommandContext(), command.playerId, structureType as BuildableStructureType);
-    const spec = STRUCTURE_REGISTRY[structureType];
-    if (!spec) {
-      this.rejectCommand(command, "RUSH_BUY_INVALID", "unknown structure");
-      return;
-    }
-    const speedMultKey =
-      tileField === "fort" ? "fortBuildSpeedMult" :
-      tileField === "siegeOutpost" && structureType !== "LIGHT_OUTPOST" ? "outpostDeploymentSpeedMult" :
-      spec.kind === "ECONOMIC" ? "economicStructureBuildSpeedMult" :
-      undefined;
-    const totalMs = speedMultKey
-      ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, speedMultKey)))
-      : spec.buildMs;
-    const remainingMs = completesAt - this.now();
-    const price = wonderEffects.quickforgeAdjustedRushPrice(actor, wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, command.playerId, "QUICKFORGE"), rushBuyPriceGold(remainingMs, totalMs, refund.manpower || structureBuildManpowerCost(structureType as BuildableStructureType)), this.now());
-    if (actor.points < price) {
-      this.rejectCommand(command, "INSUFFICIENT_GOLD", `rush-buy needs ${price} gold`);
-      return;
-    }
-    actor.points -= price; wonderEffects.stampQuickforgeRushUse(actor, this.now());
-    this.completeStructureBuild(targetKey, command.playerId, structureType, command.commandId);
-    this.emitPlayerStateUpdate(command);
+    handleRushBuyCommandImpl(this.rushBuyCommandContext(), command);
   }
 
   private handleSettleCommand(command: CommandEnvelope): void {

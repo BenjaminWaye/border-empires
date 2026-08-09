@@ -1,5 +1,6 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { POPULATION_TOWN_MIN } from "@border-empires/game-domain";
 import { isChosenTrickleResource, TOWN_TIER_UPGRADE_GOLD_COST, CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT } from "@border-empires/shared";
 import {
   buildDomainUpdatePayload,
@@ -76,7 +77,8 @@ function nextTownTier(currentTier: TownPopulationTier): UpgradeTownTier | null {
     : null;
 }
 
-function populationThresholdForTier(tier: "CITY" | "GREAT_CITY" | "METROPOLIS"): number {
+function populationThresholdForTier(tier: "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS"): number {
+  if (tier === "TOWN") return POPULATION_TOWN_MIN;
   if (tier === "CITY") return 100_000;
   if (tier === "GREAT_CITY") return 1_000_000;
   return 5_000_000;
@@ -101,7 +103,7 @@ export function handleUpgradeTownTierCommand(context: RuntimeProgressionCommandC
     rejectCommand(context, command, "UPGRADE_TOWN_TIER_INVALID", "already at max tier");
     return;
   }
-  if (nextTier !== "TOWN" && (town.population ?? 0) < populationThresholdForTier(nextTier)) {
+  if ((town.population ?? 0) < populationThresholdForTier(nextTier)) {
     rejectCommand(context, command, "UPGRADE_TOWN_TIER_INVALID", "population too low to upgrade");
     return;
   }

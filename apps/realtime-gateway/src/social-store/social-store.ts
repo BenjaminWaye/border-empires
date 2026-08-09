@@ -29,6 +29,7 @@ export type GatewaySocialStore = {
   removeActiveTruce(playerAId: string, playerBId: string): void;
   saveTruceLockout(playerId: string, lockoutUntil: number): void;
   pruneExpired(now: number): void;
+  clearSeasonData(): void;
 };
 
 const orderedPair = (a: string, b: string): [string, string] => (a < b ? [a, b] : [b, a]);
@@ -143,6 +144,16 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     for (const [playerId, lockoutUntil] of this.truceLockouts) {
       if (lockoutUntil <= now) this.truceLockouts.delete(playerId);
     }
+  }
+
+  clearSeasonData(): void {
+    this.alliances.clear();
+    this.allianceRequests.clear();
+    this.activeAllianceBreaks.clear();
+    this.completedAllianceBreaks.clear();
+    this.truceRequests.clear();
+    this.activeTruces.clear();
+    this.truceLockouts.clear();
   }
 }
 
@@ -544,5 +555,15 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
     this.db.prepare(`DELETE FROM social_active_truces WHERE ends_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_completed_alliance_breaks WHERE notification_expires_at <= ?`).run(now);
     this.db.prepare(`DELETE FROM social_truce_lockouts WHERE lockout_until <= ?`).run(now);
+  }
+
+  clearSeasonData(): void {
+    this.db.exec(`DELETE FROM social_alliances`);
+    this.db.exec(`DELETE FROM social_alliance_requests`);
+    this.db.exec(`DELETE FROM social_alliance_breaks`);
+    this.db.exec(`DELETE FROM social_completed_alliance_breaks`);
+    this.db.exec(`DELETE FROM social_truce_requests`);
+    this.db.exec(`DELETE FROM social_active_truces`);
+    this.db.exec(`DELETE FROM social_truce_lockouts`);
   }
 }

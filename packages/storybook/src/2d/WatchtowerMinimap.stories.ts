@@ -61,10 +61,19 @@ const render = (args: Args): HTMLElement => {
   baseCtx.fillStyle = "#264d2e";
   baseCtx.fillRect(0, 0, WORLD, WORLD);
 
+  const miniMapContentEl = document.createElement("canvas");
+  miniMapContentEl.width = 300;
+  miniMapContentEl.height = 300;
+  const miniMapContentCtx = miniMapContentEl.getContext("2d")!;
+
   const tiles = buildTiles(args);
   const canvas = { width: 800, height: 800 } as HTMLCanvasElement;
-  const miniMapLast = { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1, drawAt: 0 };
+  const miniMapLast = { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1 };
 
+  // A fresh contentCache each frame forces a full recompute every tick, so the watchtower's
+  // pulse-ring animation (driven by nowMs inside the content layer) keeps animating smoothly in
+  // this always-animating storybook preview, instead of throttling to the ~140ms floor the real
+  // game loop uses.
   const draw = (nowMs: number): void => {
     drawMiniMap({
       nowMs,
@@ -83,9 +92,12 @@ const render = (args: Args): HTMLElement => {
       canvas,
       miniMapEl,
       miniMapCtx,
+      miniMapContentEl,
+      miniMapContentCtx,
       miniMapBase,
       miniMapBaseReady: true,
-      miniMapLast: { ...miniMapLast, drawAt: -1 },
+      miniMapLast: { ...miniMapLast, tileCount: -1 },
+      contentCache: { computedAt: 0 },
       parseKey: (key) => {
         const [x, y] = key.split(",").map(Number);
         return { x: x ?? 0, y: y ?? 0 };

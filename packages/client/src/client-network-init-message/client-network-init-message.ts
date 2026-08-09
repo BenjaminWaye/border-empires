@@ -3,6 +3,7 @@ import { applyGatewayRecoveryNextClientSeq } from "../client-frontier-command/cl
 import { clearServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { applyGatewayInitialState, refreshAllGatewayDerivedTownSummaries } from "../client-gateway-sync/client-gateway-sync.js";
 import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "../client-development-queue/client-development-queue.js";
+import { restorePersistedWaypointQueueForPlayer } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import {
   notifyActiveAllianceBreaksOnInit,
   notifyIncomingDiplomacyRequestsOnInit,
@@ -223,6 +224,9 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
       state.tiles,
       new Set(state.settleProgressByTile.keys())
     );
+  }
+  if (state.waypoint.length === 0) {
+    state.waypoint = restorePersistedWaypointQueueForPlayer(state.me, { state, keyFor });
   }
   applyAutoSettlementQueueFromServer(
     state,

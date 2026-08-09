@@ -24,6 +24,21 @@ import type { LockedCombatInput } from "./runtime-combat-support.js";
 
 export type MusterSourceResult = { sourceKey: string; available: number };
 
+/**
+ * Total EXPAND claim duration for a target tile — forest doubles it, hills
+ * add a flat penalty. Pure function of terrain, so both the lock-creation
+ * path (below) and the rush-buy handler (runtime-rush-buy-command.ts) can
+ * independently recompute the exact same value from a tile's coordinates
+ * rather than needing to store it on LockRecord.
+ */
+export const frontierClaimDurationMsForCoords = (x: number, y: number): number => {
+  const isForestTarget = terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
+  return (
+    (isForestTarget ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT : FRONTIER_CLAIM_MS) +
+    (isHillsTileAt(x, y) ? HILLS_FRONTIER_CLAIM_PENALTY_MS : 0)
+  );
+};
+
 export type RuntimeFrontierCommandContext = {
   now: () => number;
   players: Map<string, RuntimePlayer>;
@@ -103,15 +118,7 @@ export const handleFrontierCommandImpl = (
   }
 
   const isDockCrossing = ctx.isDockCrossingTarget(from, to.x, to.y, actionType !== "EXPAND");
-  const isForestTarget =
-    terrainAt(to.x, to.y) === "LAND" &&
-    landBiomeAt(to.x, to.y) === "GRASS" &&
-    grassShadeAt(to.x, to.y) === "DARK";
-  const expandClaimDurationMs =
-    actionType === "EXPAND"
-      ? (isForestTarget ? FRONTIER_CLAIM_MS * FOREST_FRONTIER_CLAIM_MULT : FRONTIER_CLAIM_MS) +
-        (isHillsTileAt(to.x, to.y) ? HILLS_FRONTIER_CLAIM_PENALTY_MS : 0)
-      : undefined;
+  const expandClaimDurationMs = actionType === "EXPAND" ? frontierClaimDurationMsForCoords(to.x, to.y) : undefined;
   const requiredMuster = actionType === "ATTACK"
     ? ctx.requiredMusterForTarget(to)
     : undefined;
