@@ -1,6 +1,6 @@
 import { ACESFilmicToneMapping, CanvasTexture, DirectionalLight, Mesh, MeshBasicMaterial, PlaneGeometry } from "three";
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createBarleyFieldOverlay, barleyFieldVariantAt, type BarleyFieldVariant } from "@client/client-map-3d-barley-field.js";
+import { createBarleyFieldOverlay, barleyFieldVariantAt, BARLEY_DETAIL_MIN_ZOOM, type BarleyFieldVariant } from "@client/client-map-3d-barley-field.js";
 import { createStructureOverlay, type StructureKind } from "@client/client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
@@ -163,6 +163,109 @@ export const Variants: Story = {
 export const FarmCluster: Story = {
   args: { cameraDistance: 9, spacing: 1.1, count: 7 },
   render: (args) => render(args, 6)
+};
+
+// Counts what a scene actually asks the GPU to draw, so the shell technique's cost can be
+// read off the screen instead of taken on faith.
+const drawStats = (stage: Stage): { instances: number; triangles: number; meshes: number } => {
+  let instances = 0;
+  let triangles = 0;
+  let meshes = 0;
+  stage.scene.traverse((object) => {
+    const mesh = object as Mesh & { isInstancedMesh?: boolean; count?: number };
+    if (!mesh.isInstancedMesh || !mesh.geometry) return;
+    const count = mesh.count ?? 0;
+    if (count === 0) return;
+    meshes += 1;
+    instances += count;
+    const index = mesh.geometry.getIndex();
+    const position = mesh.geometry.getAttribute("position");
+    const perInstance = index ? index.count / 3 : (position ? position.count / 3 : 0);
+    triangles += perInstance * count;
+  });
+  return { instances, triangles, meshes };
+};
+
+const captionedRow = (panels: ReadonlyArray<{ label: string; note: string; element: HTMLElement }>): HTMLElement => {
+  const row = document.createElement("div");
+  row.style.display = "flex";
+  row.style.flexWrap = "wrap";
+  row.style.gap = "16px";
+  row.style.background = "#0a0e14";
+  row.style.padding = "16px";
+  row.style.fontFamily = "system-ui, sans-serif";
+  for (const panel of panels) {
+    const cell = document.createElement("div");
+    cell.style.flex = "1 1 380px";
+    cell.style.minWidth = "320px";
+    const title = document.createElement("div");
+    title.style.cssText = "color:#e8eef7;font-size:13px;font-weight:600;margin-bottom:2px;";
+    title.textContent = panel.label;
+    const note = document.createElement("div");
+    note.style.cssText = "color:#8fa0b6;font-size:12px;margin-bottom:8px;line-height:1.4;";
+    note.textContent = panel.note;
+    cell.append(title, note, panel.element);
+    row.appendChild(cell);
+  }
+  return row;
+};
+
+// Near detail vs the zoomed-out fallback, side by side. The far LOD collapses the whole shell
+// stack into one near-solid golden canopy over the soil bed: a field seen from altitude should
+// read as standing grain, not as the bare dark earth underneath it.
+export const DetailVsFarLod: Story = {
+  render: () => {
+    const build = (detail: boolean): { element: HTMLElement; stats: ReturnType<typeof drawStats> } => {
+      const stage = fieldStage({ cameraDistance: 6 });
+      const ground = createGrassGround(3, 0);
+      stage.scene.add(ground.group);
+      const overlay = createBarleyFieldOverlay(stage.scene, 9);
+      overlay.setDetailEnabled(detail);
+      for (let gz = -1; gz <= 1; gz += 1) {
+        for (let gx = -1; gx <= 1; gx += 1) overlay.addInstance(gx, gz, 0, gx + 40, gz + 40);
+      }
+      overlay.commit();
+      return { element: wrapWithCleanup(stage, [overlay.dispose, ground.dispose]), stats: drawStats(stage) };
+    };
+
+    const near = build(true);
+    const far = build(false);
+    const describe = (s: ReturnType<typeof drawStats>): string =>
+      `${s.instances} instances · ${s.triangles.toLocaleString()} triangles · ${s.meshes} draw calls (9 tiles)`;
+
+    return captionedRow([
+      { label: `Near — full shell stack (zoom ≥ ${BARLEY_DETAIL_MIN_ZOOM})`, note: describe(near.stats), element: near.element },
+      { label: `Far — golden canopy fallback (zoom < ${BARLEY_DETAIL_MIN_ZOOM})`, note: describe(far.stats), element: far.element }
+    ]);
+  }
+};
+
+// A wide block of farmland at the in-game camera angle. This is the honest test of the shell
+// technique: whether a mass of tiles still reads as a dense, organic crop, and whether the
+// per-tile rotation is enough to hide the fact that every tile samples the same texture.
+export const DenseFarmland: Story = {
+  render: () => {
+    const stage = fieldStage({ cameraDistance: 13 });
+    const radius = 5;
+    const ground = createGrassGround(radius + 2, 0);
+    stage.scene.add(ground.group);
+    const side = radius * 2 + 1;
+    const overlay = createBarleyFieldOverlay(stage.scene, side * side);
+    for (let gz = -radius; gz <= radius; gz += 1) {
+      for (let gx = -radius; gx <= radius; gx += 1) overlay.addInstance(gx, gz, 0, gx + 60, gz + 60);
+    }
+    overlay.commit();
+    const stats = drawStats(stage);
+    return captionedRow([
+      {
+        label: `${side * side} farm tiles at the game camera`,
+        note:
+          `${stats.instances} instances · ${stats.triangles.toLocaleString()} triangles · ${stats.meshes} draw calls. ` +
+          `The per-plant build this replaced drew ~${(side * side * 1400).toLocaleString()} instances and ~${(side * side * 19600).toLocaleString()} triangles for the same view.`,
+        element: wrapWithCleanup(stage, [overlay.dispose, ground.dispose])
+      }
+    ]);
+  }
 };
 
 // A farmstead built on top of the barley field — the in-game combination

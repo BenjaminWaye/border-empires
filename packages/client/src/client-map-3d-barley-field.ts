@@ -1,29 +1,49 @@
 import {
   BufferGeometry,
-  CylinderGeometry,
-  Euler,
+  CanvasTexture,
+  Color,
   IcosahedronGeometry,
   InstancedMesh,
   Matrix4,
   MeshStandardMaterial,
+  PlaneGeometry,
   Quaternion,
+  RepeatWrapping,
+  SRGBColorSpace,
   Scene,
   Vector3
 } from "three";
 
-// 3D barley field overlay — a dense, mature standing-grain crop that
-// replaces the old FARM resource overlay (which rendered neat field
-// plates, cross paths and orchard trees). The whole tile is the crop:
-// no buildings, no equipment, no fences. A low irregular soil bed in
-// dark fertile earth supports a carpet of slender golden-green stalks
-// topped with elongated barley seed heads, with sparse pale awns among
-// them that catch the key light. Plant positions, heights,
-// leans and tones are deterministically seeded from the tile's world
-// coordinates (same hash approach as the titanium deposit), so every
-// farm tile is stable across frames but reads differently from its
-// neighbour, and the patch silhouette stays organic rather than a
-// geometric square. Three density/tone variants keep adjacent tiles
-// from looking identical.
+// 3D barley field overlay — a dense, mature standing-grain crop that replaces the old FARM
+// resource overlay. The whole tile is the crop: no buildings, no equipment, no fences. A low
+// irregular soil bed in dark fertile earth supports a carpet of slender golden-green stalks
+// topped with elongated barley seed heads, with pale awns among them catching the key light.
+//
+// RENDERING TECHNIQUE — shell texturing.
+// The crop is NOT modelled as individual stalk meshes. A previous implementation built ~1,400
+// tiny cylinders per tile (a stalk + seed head + awn per plant, ~600-800 plants), which meant
+// ~2M sub-pixel triangles on screen for a modest number of farm tiles. Sub-pixel triangles are
+// pathological for a GPU: each still shades a full 2x2 pixel quad, so almost all of that
+// shading work was paid for geometry too small to see.
+//
+// Instead each tile draws a short stack of horizontal alpha-cut planes ("shells") through a
+// procedurally generated crop texture. The texture's alpha encodes stalk HEIGHT, so shell N
+// discards every texel shorter than its own height — the surviving texels shrink as the stack
+// rises, which reads as thousands of individually tapering stalks. The camera sits ~34 degrees
+// off vertical (PERSPECTIVE_TILT_RADIANS), so parallax between shells gives the stack real
+// volume rather than looking like stacked decals. Seed heads are a second, wider-dotted texture
+// on the upper shells. Per-shell darkening toward the base fakes the ambient occlusion a real
+// crop canopy has.
+//
+// Cost per tile: 2 soil mounds + 8 shells, versus ~1,400 cylinders — with the visual density
+// coming from texture resolution, which is nearly free, instead of from geometry.
+//
+// Plant positions, heights, leans and tones remain deterministically seeded (from the texture
+// hash and per-tile rotation/tint), so every farm tile is stable across frames but reads
+// differently from its neighbour, and the patch silhouette stays organic rather than a
+// geometric square. Three density/tone variants keep adjacent tiles from looking identical.
+
+const UP = new Vector3(0, 1, 0);
 
 export type BarleyFieldVariant = 0 | 1 | 2;
 
@@ -32,8 +52,8 @@ export const barleyFieldVariantAt = (worldX: number, worldZ: number): BarleyFiel
   return (h % 3) as BarleyFieldVariant;
 };
 
-// Deterministic per-tile PRNG so a tile paints the same field every
-// frame. Seeded from the world coords + variant; mulberry32 core.
+// Deterministic per-tile PRNG so a tile paints the same field every frame. Seeded from the
+// world coords + variant; mulberry32 core.
 const hashSeed = (worldX: number, worldZ: number, salt: number): number => {
   let h = (worldX * 374761393) ^ (worldZ * 668265263) ^ (salt * 1442695041);
   h = (h ^ (h >>> 13)) >>> 0;
@@ -60,351 +80,326 @@ export type BarleyFieldOverlay = {
   readonly dispose: () => void;
 };
 
-// Extreme zoom-out floor. At this zoom a tile covers ~10 CSS px (zoom is device px per tile,
-// dpr 3 on the reference mobile device), where a ~1,400-piece crop carpet is physically
-// unresolvable and renders as a flat colour block — which the soil bed already provides. Real
-// play sits at zoom ~64-160, far above this, so the full crop is what actually gets drawn in
-// every normal view; this only prevents building millions of sub-pixel instances when the
-// player zooms all the way out.
+// Extreme zoom-out floor. Below this a tile covers only a few CSS pixels (zoom is device px
+// per tile; dpr 3 on the reference mobile device), where the shell stack's parallax cannot
+// resolve at all. Rather than dropping to bare soil — a field seen from altitude reads as
+// golden crop, not brown dirt — the far LOD draws a single golden canopy plane over the bed.
+// Real play sits at zoom ~64-160, well above this, so the full stack is what normally renders.
 export const BARLEY_DETAIL_MIN_ZOOM = 32;
 
+// Shell stack. STALK_SHELLS spans the green stalk body, HEAD_SHELLS the golden seed heads
+// above it. Eight total is enough for the parallax to read as a continuous canopy at the zooms
+// this is drawn at; more shells cost overdraw for detail the tile size cannot show.
+const STALK_SHELLS = 5;
+const HEAD_SHELLS = 3;
+const STALK_H = 0.17;
+const HEAD_H = 0.1;
+// Slightly wider than a tile so the alpha-cut silhouette can spill past the nominal edge,
+// matching the ragged, non-square footprint the per-plant scatter used to produce.
+const CROP_SPAN = 1.12;
+const TEXTURE_SIZE = 256;
+
+type CropTextureSpec = {
+  readonly dotCount: number;
+  readonly radiusPx: number;
+  readonly palette: ReadonlyArray<readonly [number, number, number]>;
+  readonly salt: number;
+};
+
+// Where the round crop patch starts thinning, as a fraction of the texture's half-width, and
+// how ragged that boundary is. The field is a disc rather than a square: real farmland worked
+// around a settlement reads as a patch, and a hard square of crop butting against its
+// neighbours looked like tiling. Jitter keeps the rim organic instead of a drawn-compass circle.
+// 0.68 of the half-span, jittering to 0.88, puts the rim at ~0.38-0.49 tiles from centre. That
+// keeps the patch nearly tile-filling (so it reads as full farmland, not a small dot) while
+// still sitting just inside the soil bed's ~0.43 radius, leaving the thin ring of dark earth
+// around the crop that the field is designed to show.
+const PATCH_EDGE_START = 0.68;
+const PATCH_EDGE_JITTER = 0.2;
+
+// Fraction of full height a plant keeps at distance `nd` (0 at patch centre, 1 at the texture
+// edge). Plants past the rim are dropped entirely; plants approaching it get shorter, so the
+// patch domes down at its edge instead of ending on a flat cliff — and because the shells cut
+// on height, the whole stack narrows toward the rim on its own.
+const patchHeightFalloff = (nd: number, rimJitter: number): number => {
+  const rim = PATCH_EDGE_START + rimJitter * PATCH_EDGE_JITTER;
+  if (nd >= rim) return 0;
+  const t = 1 - nd / rim;
+  // Smoothstep so the crop thins gradually rather than stepping down.
+  return t * t * (3 - 2 * t);
+};
+
+// Builds an RGBA texture whose ALPHA is a height field and whose RGB is per-dot colour. Each
+// dot is one plant cross-section: alpha falls off linearly to its edge, so raising a shell's
+// alphaTest shrinks every dot at once and the stack tapers like real stalks. The dot field is
+// masked to a jittered disc (see patchHeightFalloff) so the tile's crop reads as a round patch.
+export const buildCropTextureData = (spec: CropTextureSpec): Uint8ClampedArray => {
+  const size = TEXTURE_SIZE;
+  const half = size / 2;
+  const data = new Uint8ClampedArray(size * size * 4);
+  const rng = mulberry(hashSeed(spec.salt, spec.dotCount, 7919));
+
+  const stamp = (cx: number, cy: number, radius: number, peak: number, r: number, g: number, b: number): void => {
+    const minX = Math.max(0, Math.floor(cx - radius));
+    const maxX = Math.min(size - 1, Math.ceil(cx + radius));
+    const minY = Math.max(0, Math.floor(cy - radius));
+    const maxY = Math.min(size - 1, Math.ceil(cy + radius));
+    for (let y = minY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d > radius) continue;
+        const height = peak * (1 - d / radius);
+        const idx = (y * size + x) * 4;
+        // Tallest plant wins the texel, so overlapping dots occlude rather than blend.
+        if (height * 255 <= data[idx + 3]!) continue;
+        data[idx] = r;
+        data[idx + 1] = g;
+        data[idx + 2] = b;
+        data[idx + 3] = height * 255;
+      }
+    }
+  };
+
+  for (let i = 0; i < spec.dotCount; i += 1) {
+    const cx = rng() * size;
+    const cy = rng() * size;
+    const radius = spec.radiusPx * (0.75 + rng() * 0.5);
+    // Height spread keeps the canopy from terminating on one flat plane.
+    const peak = 0.72 + rng() * 0.28;
+    const tone = spec.palette[Math.floor(rng() * spec.palette.length)]!;
+    const nd = Math.hypot(cx - half, cy - half) / half;
+    const falloff = patchHeightFalloff(nd, rng());
+    if (falloff <= 0) continue;
+    stamp(cx, cy, radius, peak * falloff, tone[0], tone[1], tone[2]);
+  }
+
+  return data;
+};
+
+const makeCropTexture = (spec: CropTextureSpec): CanvasTexture | null => {
+  // Tests and any non-DOM consumer construct the overlay without a document; the geometry and
+  // instancing all still work, the shells just render untextured. Mirrors the guard in
+  // client-map-3d-terrain-textures.ts.
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = TEXTURE_SIZE;
+  canvas.height = TEXTURE_SIZE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const image = ctx.createImageData(TEXTURE_SIZE, TEXTURE_SIZE);
+  image.data.set(buildCropTextureData(spec));
+  ctx.putImageData(image, 0, 0);
+  const texture = new CanvasTexture(canvas);
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  texture.colorSpace = SRGBColorSpace;
+  return texture;
+};
+
 export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): BarleyFieldOverlay => {
-  // ─── Materials (shared by piece type) ───────────────────────────────
-  // Dark fertile soil bed — low metalness, high roughness so it stays
-  // matte and recessive under the bright crop.
+  // ─── Soil bed ───────────────────────────────────────────────────────
+  // Dark fertile soil, low metalness and high roughness so it stays matte and recessive under
+  // the bright crop. Two overlapping flattened mounds give the field an organic, non-square
+  // footprint. 0-subdivision icosahedron = 20 flat facets, flattened into a low mound.
   const soilAMaterial = new MeshStandardMaterial({ color: "#4d3a26", roughness: 0.95, metalness: 0, flatShading: true });
   const soilBMaterial = new MeshStandardMaterial({ color: "#5c4630", roughness: 0.92, metalness: 0, flatShading: true });
-  // Stalk tones run from fresh golden-green to warm straw so the field
-  // reads as a real mature crop with depth, not one flat painted mass.
-  const stalkGreenMaterial = new MeshStandardMaterial({ color: "#7d8f3f", roughness: 0.9, metalness: 0, flatShading: true });
-  const stalkStrawMaterial = new MeshStandardMaterial({ color: "#9c9448", roughness: 0.88, metalness: 0, flatShading: true });
-  // Seed heads: warm golden-yellow with a faint warm emissive so heads
-  // stay bright even where the key light dips, and each flat facet picks
-  // up the light naturally.
-  const headGoldMaterial = new MeshStandardMaterial({
-    color: "#d9ae3c",
-    roughness: 0.55,
-    metalness: 0,
-    flatShading: true,
-    emissive: "#7a5c10",
-    emissiveIntensity: 0.18
-  });
-  const headPaleMaterial = new MeshStandardMaterial({
-    color: "#e9c552",
-    roughness: 0.5,
-    metalness: 0,
-    flatShading: true,
-    emissive: "#8a6c18",
-    emissiveIntensity: 0.22
-  });
-  // Long awns — the barley's signature bristles. Pale and low-roughness
-  // so they glint across the field.
-  const awnMaterial = new MeshStandardMaterial({
-    color: "#f1df8a",
-    roughness: 0.45,
-    metalness: 0,
-    flatShading: true,
-    emissive: "#a78a2a",
-    emissiveIntensity: 0.25
-  });
-
-  // ─── Geometries (shared) ────────────────────────────────────────────
-  // 0-subdivision icosahedron = 20 flat triangular facets; flattened it
-  // makes an organic low soil mound with a ragged, non-square footprint.
   const soilGeo = new IcosahedronGeometry(0.18, 0);
-  // Slender tapered stalk (5-sided low-poly cylinder), 0.17 tall — half
-  // the original plant size so the dense carpet reads as fine grain.
-  const stalkGeo = new CylinderGeometry(0.006, 0.008, 0.17, 5);
-  // Elongated barley seed head — slightly tapered (narrower at the top
-  // like a ripening spike), 0.10 tall.
-  const headGeo = new CylinderGeometry(0.007, 0.011, 0.1, 5);
-  // Very thin long awn bristle, 0.12 tall.
-  const awnGeo = new CylinderGeometry(0.002, 0.002, 0.12, 3);
 
-  // ─── InstancedMesh registry ────────────────────────────────────────
-  type Slot = { mesh: InstancedMesh; count: number; cap: number };
-  const slots = new Map<string, Slot>();
+  // ─── Crop textures ──────────────────────────────────────────────────
+  // Stalks: many fine dots in fresh golden-green through warm straw, so the field reads as a
+  // real mature crop with tonal depth rather than one flat painted mass.
+  const stalkTexture = makeCropTexture({
+    dotCount: 2600,
+    radiusPx: 2.1,
+    salt: 17,
+    palette: [
+      [125, 143, 63],
+      [143, 152, 70],
+      [156, 148, 72],
+      [110, 132, 58]
+    ]
+  });
+  // Seed heads: fewer, wider dots in warm gold with pale awn flecks among them.
+  const headTexture = makeCropTexture({
+    dotCount: 1500,
+    radiusPx: 3.4,
+    salt: 71,
+    palette: [
+      [217, 174, 60],
+      [233, 197, 82],
+      [241, 223, 138],
+      [200, 158, 52]
+    ]
+  });
 
-  const make = (key: string, geo: BufferGeometry, mat: MeshStandardMaterial, cap: number): Slot => {
-    const mesh = new InstancedMesh(geo, mat, cap);
+  // ─── Shell meshes ───────────────────────────────────────────────────
+  // One horizontal plane, reused by every shell level; the per-level height, alpha cutoff and
+  // shading live in the instance matrix and the level's own material.
+  const shellGeo = new PlaneGeometry(CROP_SPAN, CROP_SPAN);
+  shellGeo.rotateX(-Math.PI / 2);
+
+  type Shell = { mesh: InstancedMesh; y: number; count: number };
+  const shells: Shell[] = [];
+  const shellMaterials: MeshStandardMaterial[] = [];
+
+  const addShellLevel = (y: number, alphaTest: number, shade: number, texture: CanvasTexture | null): Shell => {
+    const material = new MeshStandardMaterial({
+      // Shade darkens lower shells so the canopy has depth instead of reading as flat layers —
+      // the cheap stand-in for the ambient occlusion a real crop has near the ground.
+      color: new Color(shade, shade, shade),
+      roughness: 0.85,
+      metalness: 0,
+      // alphaTest (not transparency) keeps these fully opaque draws: no depth sorting, no
+      // blend-order artifacts between a tile's own shells or against neighbouring tiles.
+      alphaTest,
+      ...(texture ? { map: texture } : {})
+    });
+    shellMaterials.push(material);
+    const mesh = new InstancedMesh(shellGeo, material, maxTiles);
     mesh.frustumCulled = false;
     mesh.count = 0;
     scene.add(mesh);
-    const slot: Slot = { mesh, count: 0, cap };
-    slots.set(key, slot);
-    return slot;
+    const shell: Shell = { mesh, y, count: 0 };
+    shells.push(shell);
+    return shell;
   };
 
-  // Cap sizing. An InstancedMesh eagerly allocates cap * 16 float32s (64 bytes/instance) for
-  // its matrix buffer, on the CPU heap AND mirrored in VRAM — and commit() re-uploads that
-  // whole buffer (see commit()). Sizing caps as maxTiles (14,000) * ~300 pieces, i.e. assuming
-  // every visible tile could simultaneously be a max-density farm tile, allocated ~1.33 GB and
-  // re-uploaded it to the GPU on every terrain rebuild. Every other 3D overlay in this codebase
-  // uses a per-tile multiplier of 2-12; a dense crop needs a per-tile budget instead.
-  //
-  // So: crop capacity is budgeted per farm tile actually drawn at detail, not per visible tile.
-  // 512 is deliberately generous — at the zoom range real play sits in, the whole visible
-  // window is only ~600-1,300 tiles, so this only binds if the great majority of the screen is
-  // farmland at once. In every ordinary view the full crop draws exactly as before; the budget
-  // exists so the worst case degrades (to soil bed, still a tilled field) instead of
-  // reserving a gigabyte for a situation that never happens.
-  const MAX_DETAIL_TILES = 512;
-  // Per-detail-tile reservations, set comfortably above the densest variant's expected usage
-  // (560 plants + 200 dwarf heads, split across tone buckets by the layout RNG) so ordinary
-  // variance never silently drops pieces. The pool is shared across detail tiles, so per-tile
-  // over/under-use averages out well before the cap binds.
-  make("soilA", soilGeo, soilAMaterial, maxTiles);
-  make("soilB", soilGeo, soilBMaterial, maxTiles);
-  make("stalkGreen", stalkGeo, stalkGreenMaterial, MAX_DETAIL_TILES * 400);
-  make("stalkStraw", stalkGeo, stalkStrawMaterial, MAX_DETAIL_TILES * 360);
-  make("headGold", headGeo, headGoldMaterial, MAX_DETAIL_TILES * 460);
-  make("headPale", headGeo, headPaleMaterial, MAX_DETAIL_TILES * 420);
-  make("awn", awnGeo, awnMaterial, MAX_DETAIL_TILES * 260);
+  // Stalk shells: rise through the stalk body, cutting away shorter plants as they go.
+  for (let i = 0; i < STALK_SHELLS; i += 1) {
+    const t = i / STALK_SHELLS;
+    addShellLevel(STALK_H * ((i + 0.5) / STALK_SHELLS), 0.06 + t * 0.62, 0.62 + t * 0.38, stalkTexture);
+  }
+  // Head shells: sit above the stalks on the wider seed-head texture.
+  for (let i = 0; i < HEAD_SHELLS; i += 1) {
+    const t = i / HEAD_SHELLS;
+    addShellLevel(STALK_H + HEAD_H * ((i + 0.5) / HEAD_SHELLS), 0.1 + t * 0.5, 0.9 + t * 0.1, headTexture);
+  }
+  const detailShellCount = shells.length;
+
+  // Far LOD: one golden canopy plane at mid-crop height, standing in for the whole stack once
+  // the tile is too small for parallax to resolve. A low alpha cutoff keeps it nearly solid so
+  // it covers the dark soil bed — a distant field should read as golden grain, not bare dirt —
+  // while the texture's alpha still gives it an organic, non-square edge.
+  const canopyShell = addShellLevel(STALK_H * 0.9, 0.04, 1, headTexture);
+
+  const soilA = new InstancedMesh(soilGeo, soilAMaterial, maxTiles);
+  const soilB = new InstancedMesh(soilGeo, soilBMaterial, maxTiles);
+  for (const mesh of [soilA, soilB]) {
+    mesh.frustumCulled = false;
+    mesh.count = 0;
+    scene.add(mesh);
+  }
+  let soilACount = 0;
+  let soilBCount = 0;
 
   // ─── Helpers ────────────────────────────────────────────────────────
   const matrix = new Matrix4();
   const position = new Vector3();
-  const scale = new Vector3();
-  const tmpEuler = new Euler();
-  const tmpQuat = new Quaternion();
+  const scaleVec = new Vector3();
+  const quat = new Quaternion();
+  const tintColor = new Color();
 
-  // Places a piece using an already-computed quaternion (qx,qy,qz,qw) rather than raw Euler
-  // angles — see BarleyPiece below. Quaternion.setFromEuler does real trig work per axis, and
-  // almost every stalk/head has a non-zero tilt, so doing that conversion here (on every
-  // rebuild, for every piece) rather than once per tile (cached) would undo most of the point
-  // of caching the layout in the first place.
-  const placePiece = (
-    key: string,
-    wx: number,
-    sy: number,
-    wz: number,
-    ox: number,
-    oy: number,
-    oz: number,
-    sx: number,
-    sy2: number,
-    sz: number,
-    qx: number,
-    qy: number,
-    qz: number,
-    qw: number
-  ): void => {
-    const slot = slots.get(key);
-    if (!slot || slot.count >= slot.cap) return;
-    position.set(wx + ox, sy + oy, wz + oz);
-    scale.set(sx, sy2, sz);
-    tmpQuat.set(qx, qy, qz, qw);
-    matrix.compose(position, tmpQuat, scale);
-    slot.mesh.setMatrixAt(slot.count, matrix);
-    slot.count += 1;
+  // Per-variant tone and vigour: higher variants read slightly taller and warmer, so adjacent
+  // farm tiles never look stamped from the same die.
+  const variantTint: ReadonlyArray<readonly [number, number, number]> = [
+    [0.94, 0.97, 0.9],
+    [1, 1, 1],
+    [1.06, 1.02, 0.94]
+  ];
+  const variantHeightScale = [0.94, 1, 1.07] as const;
+
+  const placeShell = (shell: Shell, sceneX: number, surfaceY: number, sceneZ: number, spin: number, heightScale: number, tint: readonly [number, number, number]): void => {
+    if (shell.count >= maxTiles) return;
+    position.set(sceneX, surfaceY + shell.y * heightScale, sceneZ);
+    // Spinning the plane rotates its texture sample with it, which is what keeps neighbouring
+    // tiles from showing the same crop pattern in the same orientation.
+    quat.setFromAxisAngle(UP, spin);
+    scaleVec.set(1, 1, 1);
+    matrix.compose(position, quat, scaleVec);
+    shell.mesh.setMatrixAt(shell.count, matrix);
+    shell.mesh.setColorAt(shell.count, tintColor.setRGB(tint[0], tint[1], tint[2]));
+    shell.count += 1;
   };
 
-  // ─── Field layout ───────────────────────────────────────────────────
-  // Each tile gets one low soil bed (two overlapping mounds, slightly
-  // offset so the dark fertile earth peeks out around the crop edge and
-  // in the thinnest patches) plus a scatter of barley plants. Plant
-  // radii bias toward the tile centre but a few plants push past the
-  // nominal edge so the silhouette stays irregular.
-  const STALK_H = 0.17;
-  const HEAD_H = 0.1;
-
-  // A tile's ~600-800 plants are fully determined by its world coordinates (the RNG is seeded
-  // from worldTileX/worldTileY, not the camera-relative scene position addInstance is called
-  // with — the same world tile always paints the same crop). rebuildVisibleTerrain() calls
-  // addInstance again for every visible farm tile on every terrain rebuild — which, before the
-  // rebuild throttle, could be dozens of times a second during a zoom/pan gesture — so
-  // regenerating ~600-800 RNG-driven pieces (each with several rng()/Math.cos/sin/sqrt calls)
-  // from scratch every single time was pure waste: the layout came out identical regardless.
-  // This caches the deterministic relative-offset layout per world tile, computed once, and
-  // replays it (via addPiece) against the current camera-relative origin on every subsequent
-  // call — skipping the RNG/trig regeneration while still writing fresh instance matrices
-  // (unavoidable: those must reflect the current camera-relative frame).
-  // Quaternion, not raw Euler angles: Quaternion.setFromEuler does real trig per axis, and
-  // almost every piece has a non-zero tilt, so it's computed once here (cache build) rather
-  // than by placePiece on every rebuild (see placePiece's comment above).
-  type BarleyPiece = {
-    key: string;
-    ox: number; oy: number; oz: number;
-    sx: number; sy2: number; sz: number;
-    qx: number; qy: number; qz: number; qw: number;
-  };
-  // Soil bed and crop are stored separately so the soil-only LOD path (see addInstance) can
-  // draw the field's ground without walking the ~1,400-piece crop list.
-  type BarleyLayout = { soil: BarleyPiece[]; crop: BarleyPiece[] };
-  // Bounded like client-map-facade.ts's terrainColorCache: a long session that pans across many
-  // distinct farm tiles shouldn't grow this indefinitely (each entry is ~600-800 small objects).
-  const LAYOUT_CACHE_LIMIT = 500;
-  const layoutCache = new Map<string, BarleyLayout>();
-  const layoutCacheOrder: string[] = [];
-
-  const buildBarleyFieldLayout = (worldTileX: number, worldTileY: number, v: BarleyFieldVariant): BarleyLayout => {
-    const rng = mulberry(hashSeed(worldTileX, worldTileY, 7919 + v * 131));
-    const soil: BarleyPiece[] = [];
-    const crop: BarleyPiece[] = [];
-    let target = soil;
-    const push = (key: string, ox: number, oy: number, oz: number, sx = 1, sy2 = 1, sz = 1, rotY = 0, rotX = 0, rotZ = 0): void => {
-      let qx = 0, qy = 0, qz = 0, qw = 1; // identity
-      if (rotX !== 0 || rotY !== 0 || rotZ !== 0) {
-        tmpEuler.set(rotX, rotY, rotZ, "XYZ");
-        tmpQuat.setFromEuler(tmpEuler);
-        qx = tmpQuat.x;
-        qy = tmpQuat.y;
-        qz = tmpQuat.z;
-        qw = tmpQuat.w;
-      }
-      target.push({ key, ox, oy, oz, sx, sy2, sz, qx, qy, qz, qw });
-    };
-
-    // Soil bed — two overlapping flattened mounds form the field mass.
-    push("soilA", -0.05, 0.022, -0.03, 2.4, 0.16, 2.4, rng() * Math.PI * 2);
-    push("soilB", 0.09, 0.026, 0.05, 2.1, 0.14, 2.1, rng() * Math.PI * 2);
-    // Everything from here on is crop. The RNG draw order below is unchanged, so a tile's
-    // layout is byte-for-byte what it was before the soil/crop split.
-    target = crop;
-
-    // Dense crop: base plant count per variant, biased taller/warmer as
-    // the variant index rises so adjacent tiles read differently. Counts
-    // are ~10x the original sparse field — the tile now reads as a solid
-    // carpet of standing grain rather than scattered stalks.
-    const plantCount = 480 + v * 40;
-    for (let i = 0; i < plantCount; i += 1) {
-      const r = 0.46 * Math.sqrt(rng());
-      const a = rng() * Math.PI * 2;
-      let ox = Math.cos(a) * r;
-      let oz = Math.sin(a) * r;
-      // Let a few plants stray past the nominal radius for a ragged edge.
-      if (rng() < 0.1) {
-        ox *= 1.2;
-        oz *= 1.2;
-      }
-      const h = 0.85 + rng() * 0.4;
-      const tiltAmt = (rng() - 0.5) * 0.24;
-      const tiltDir = rng() * Math.PI * 2;
-      const tx = Math.sin(tiltDir) * tiltAmt;
-      const tz = Math.cos(tiltDir) * tiltAmt;
-
-      // Stalk — mix of fresh green and straw tones.
-      const stalkKey = rng() < 0.55 ? "stalkGreen" : "stalkStraw";
-      push(stalkKey, ox, (STALK_H / 2) * h, oz, 1, h, 1, 0, tx, tz);
-
-      // Seed head on most plants, slightly leaning with the stalk so the
-      // crop reads as bending grain rather than rigid pickets.
-      if (rng() < 0.82) {
-        const headKey = rng() < 0.55 ? "headGold" : "headPale";
-        const headTilt = tiltAmt * 0.7 + (rng() - 0.5) * 0.1;
-        push(headKey, ox, STALK_H * h + (HEAD_H / 2) * h, oz, 1, h * 0.9, 1, 0, headTilt, 0);
-
-        // Awns: a sparse bristle on ~40% of heads. At this density the
-        // awn mesh was the single biggest allocation (~1/3 of the total),
-        // so keep only a scattering to break up the carpet silhouette
-        // without paying for a full set of bristles per plant.
-        if (rng() < 0.4) {
-          const awnDir = rng() * Math.PI * 2;
-          const awnLean = 0.35 + rng() * 0.5;
-          const awnX = Math.cos(awnDir);
-          const awnZ = Math.sin(awnDir);
-          push(
-            "awn",
-            ox + awnX * 0.01,
-            STALK_H * h + HEAD_H * h * 0.9 + 0.06,
-            oz + awnZ * 0.01,
-            1, 1, 1,
-            awnDir, awnLean, 0
-          );
-        }
-      }
-    }
-
-    // A few short heads tucked low into the crop (no visible tall stalk)
-    // thicken the golden carpet without adding silhouette clutter.
-    const dwarfCount = 120 + v * 40;
-    for (let i = 0; i < dwarfCount; i += 1) {
-      const r = 0.3 * Math.sqrt(rng());
-      const a = rng() * Math.PI * 2;
-      const headKey = rng() < 0.5 ? "headGold" : "headPale";
-      push(headKey, Math.cos(a) * r, (HEAD_H / 2) * 0.8, Math.sin(a) * r, 1, 0.8, 1, 0, (rng() - 0.5) * 0.12, 0);
-    }
-
-    return { soil, crop };
-  };
-
-  const layoutForTile = (worldTileX: number, worldTileY: number, v: BarleyFieldVariant): BarleyLayout => {
-    const cacheKey = `${worldTileX},${worldTileY}`;
-    const cached = layoutCache.get(cacheKey);
-    if (cached) return cached;
-    const layout = buildBarleyFieldLayout(worldTileX, worldTileY, v);
-    layoutCache.set(cacheKey, layout);
-    layoutCacheOrder.push(cacheKey);
-    if (layoutCacheOrder.length > LAYOUT_CACHE_LIMIT) {
-      const oldestKey = layoutCacheOrder.shift();
-      if (oldestKey !== undefined) layoutCache.delete(oldestKey);
-    }
-    return layout;
-  };
-
-  const placeAll = (pieces: BarleyPiece[], wx: number, sy: number, wz: number): void => {
-    for (const piece of pieces) {
-      placePiece(piece.key, wx, sy, wz, piece.ox, piece.oy, piece.oz, piece.sx, piece.sy2, piece.sz, piece.qx, piece.qy, piece.qz, piece.qw);
-    }
+  const placeSoil = (mesh: InstancedMesh, count: number, sceneX: number, surfaceY: number, sceneZ: number, ox: number, oy: number, oz: number, s: number, sy: number, spin: number): number => {
+    if (count >= maxTiles) return count;
+    position.set(sceneX + ox, surfaceY + oy, sceneZ + oz);
+    quat.setFromAxisAngle(UP, spin);
+    scaleVec.set(s, sy, s);
+    matrix.compose(position, quat, scaleVec);
+    mesh.setMatrixAt(count, matrix);
+    return count + 1;
   };
 
   // ─── Public API ─────────────────────────────────────────────────────
-  // Detail budget for the current frame. Reset by clear() (called once per terrain rebuild),
-  // consumed by addInstance; see MAX_DETAIL_TILES above for why the crop is budgeted at all.
-  let detailTilesUsed = 0;
   let detailEnabled = true;
 
   const clear = (): void => {
-    for (const slot of slots.values()) slot.count = 0;
-    detailTilesUsed = 0;
+    for (const shell of shells) shell.count = 0;
+    soilACount = 0;
+    soilBCount = 0;
   };
 
-  // Called once per terrain rebuild with whether the current zoom resolves individual crop
-  // detail at all. Defaults to true so storybook/tests that never call it are unaffected.
+  // Called once per terrain rebuild with whether the current zoom resolves crop detail at all.
+  // Defaults to true so storybook and tests that never call it get the full stack.
   const setDetailEnabled = (enabled: boolean): void => {
     detailEnabled = enabled;
   };
 
   const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number): void => {
-    const v = barleyFieldVariantAt(worldTileX, worldTileY);
-    const layout = layoutForTile(worldTileX, worldTileY, v);
-    // Soil bed always draws, so a farm tile never blinks out of existence — it just loses its
-    // individual stalks past the budget / below the detail zoom.
-    placeAll(layout.soil, sceneX, surfaceY, sceneZ);
-    if (!detailEnabled || detailTilesUsed >= MAX_DETAIL_TILES) return;
-    detailTilesUsed += 1;
-    placeAll(layout.crop, sceneX, surfaceY, sceneZ);
-  };
+    const variant = barleyFieldVariantAt(worldTileX, worldTileY);
+    const rng = mulberry(hashSeed(worldTileX, worldTileY, 7919 + variant * 131));
+    const spin = rng() * Math.PI * 2;
+    const heightScale = variantHeightScale[variant];
+    const tint = variantTint[variant]!;
 
-  const commit = (): void => {
-    for (const slot of slots.values()) {
-      slot.mesh.count = slot.count;
-      // Upload only the instances actually used this frame. Without an update range three.js
-      // does gl.bufferSubData(target, 0, array) — the ENTIRE capacity, regardless of how few
-      // instances are drawn — so a large cap turns every commit into a full-buffer GPU upload.
-      // That upload happens inside renderer.render(), not here, which is why it never showed
-      // up in this module's own timings.
-      slot.mesh.instanceMatrix.clearUpdateRanges();
-      if (slot.count === 0) continue;
-      slot.mesh.instanceMatrix.addUpdateRange(0, slot.count * 16);
-      slot.mesh.instanceMatrix.needsUpdate = true;
+    soilACount = placeSoil(soilA, soilACount, sceneX, surfaceY, sceneZ, -0.05, 0.022, -0.03, 2.4, 0.16, rng() * Math.PI * 2);
+    soilBCount = placeSoil(soilB, soilBCount, sceneX, surfaceY, sceneZ, 0.09, 0.026, 0.05, 2.1, 0.14, rng() * Math.PI * 2);
+
+    if (!detailEnabled) {
+      placeShell(canopyShell, sceneX, surfaceY, sceneZ, spin, heightScale, tint);
+      return;
+    }
+    for (let i = 0; i < detailShellCount; i += 1) {
+      placeShell(shells[i]!, sceneX, surfaceY, sceneZ, spin, heightScale, tint);
     }
   };
 
+  const commit = (): void => {
+    const flush = (mesh: InstancedMesh, count: number): void => {
+      mesh.count = count;
+      // Upload only the instances actually used. Without an update range three.js does
+      // gl.bufferSubData(target, 0, array) — the entire allocated capacity, however few
+      // instances are drawn — and that upload happens inside renderer.render(), where this
+      // module's own timings never see it.
+      mesh.instanceMatrix.clearUpdateRanges();
+      if (mesh.instanceColor) mesh.instanceColor.clearUpdateRanges();
+      if (count === 0) return;
+      mesh.instanceMatrix.addUpdateRange(0, count * 16);
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) {
+        mesh.instanceColor.addUpdateRange(0, count * 3);
+        mesh.instanceColor.needsUpdate = true;
+      }
+    };
+    for (const shell of shells) flush(shell.mesh, shell.count);
+    flush(soilA, soilACount);
+    flush(soilB, soilBCount);
+  };
+
   const dispose = (): void => {
-    layoutCache.clear();
-    layoutCacheOrder.length = 0;
-    for (const slot of slots.values()) scene.remove(slot.mesh);
-    [soilGeo, stalkGeo, headGeo, awnGeo].forEach((g) => g.dispose());
-    [
-      soilAMaterial,
-      soilBMaterial,
-      stalkGreenMaterial,
-      stalkStrawMaterial,
-      headGoldMaterial,
-      headPaleMaterial,
-      awnMaterial
-    ].forEach((m) => m.dispose());
+    for (const shell of shells) scene.remove(shell.mesh);
+    scene.remove(soilA);
+    scene.remove(soilB);
+    shellGeo.dispose();
+    soilGeo.dispose();
+    for (const material of shellMaterials) material.dispose();
+    soilAMaterial.dispose();
+    soilBMaterial.dispose();
+    stalkTexture?.dispose();
+    headTexture?.dispose();
   };
 
   return { clear, addInstance, setDetailEnabled, commit, dispose };
