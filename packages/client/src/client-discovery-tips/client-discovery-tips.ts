@@ -1,16 +1,33 @@
 // "Discovery" tooltips: shown the first time the player sees (not necessarily
-// owns) a town, dock, barbarian tile, or strategic-resource tile, explaining
-// what it is and why they should capture/settle/clear it. Each tip id is
-// dismissed for 30 days/a season at a time (see client-discovery-tips-storage.ts),
-// and the player can mute all discovery tips for the same window via the
-// toast's checkbox.
+// owns) a town, dock, barbarian tile, strategic-resource tile, or natural
+// wonder, explaining what it is and why they should capture/settle/clear it.
+// Each tip id is dismissed for 30 days/a season at a time (see
+// client-discovery-tips-storage.ts), and the player can mute all discovery
+// tips for the same window via the toast's checkbox.
 
+import { NATURAL_WONDER_LABELS, type NaturalWonderType } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 import { isDiscoveryTipSeen, isDiscoveryTipsMuted, markDiscoveryTipSeen, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
-export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY";
+export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | NaturalWonderType;
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
+
+const capitalizeFirst = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+
+// One discovery tip per natural wonder, generated from the shared label data
+// (name/flavor/boon) so the copy stays in sync with NATURAL_WONDER_LABELS
+// instead of being duplicated here.
+const NATURAL_WONDER_DISCOVERY_TIPS: Record<NaturalWonderType, DiscoveryTipDef> = Object.fromEntries(
+  (Object.entries(NATURAL_WONDER_LABELS) as [NaturalWonderType, { name: string; flavor: string; boon: string }][]).map(([type, { name, flavor, boon }]) => [
+    type,
+    {
+      id: type,
+      title: `Natural Wonder Discovered: ${capitalizeFirst(name)}!`,
+      body: `${capitalizeFirst(flavor)}. Claim ${name} for: ${boon}.`
+    }
+  ])
+) as Record<NaturalWonderType, DiscoveryTipDef>;
 
 export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
   TOWN: {
@@ -47,7 +64,8 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
     id: "SUPPLY",
     title: "Supply Resource Discovered",
     body: "Fur deposits provide Supply, a strategic resource used for offensive military structures and coordinating attacks with multiple Mustering Flags."
-  }
+  },
+  ...NATURAL_WONDER_DISCOVERY_TIPS
 };
 
 // Maps a raw map tile resource deposit (what's drawn on the tile) to the
@@ -69,7 +87,10 @@ const discoveryTipIdForTileResource = (resource: string | undefined): DiscoveryT
  * Does not itself check/update "seen" storage — callers own the queue and
  * should skip ids already returned by `isDiscoveryTipSeen`/already queued.
  */
-export const discoveryTipIdForNewlySeenTile = (tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId">): DiscoveryTipId | undefined => {
+export const discoveryTipIdForNewlySeenTile = (
+  tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId" | "naturalWonder">
+): DiscoveryTipId | undefined => {
+  if (tile.naturalWonder) return tile.naturalWonder.type;
   if (tile.town) return "TOWN";
   if (tile.dockId) return "DOCK";
   if (tile.ownerId?.startsWith("barbarian")) return "BARBARIAN";
@@ -84,7 +105,7 @@ export const discoveryTipIdForNewlySeenTile = (tile: Pick<Tile, "town" | "resour
  */
 export const enqueueDiscoveryTipForNewlySeenTile = (
   queue: DiscoveryTipId[],
-  tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId"> | undefined,
+  tile: Pick<Tile, "town" | "resource" | "dockId" | "ownerId" | "naturalWonder"> | undefined,
   authEmail?: string | null
 ): boolean => {
   const id = tile && discoveryTipIdForNewlySeenTile(tile);
