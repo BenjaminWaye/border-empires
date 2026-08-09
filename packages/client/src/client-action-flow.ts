@@ -26,6 +26,12 @@ import {
   cancelQueuedSettlement as cancelQueuedSettlementFromModule,
   cancelQueuedBuild as cancelQueuedBuildFromModule,
   moveQueuedEntryToFront as moveQueuedEntryToFrontFromModule,
+  waypointIndexForTile as waypointIndexForTileFromModule,
+  cancelQueuedWaypointEntry as cancelQueuedWaypointEntryFromModule,
+  moveWaypointToFront as moveWaypointToFrontFromModule,
+  actionQueueIndexForTile as actionQueueIndexForTileFromModule,
+  cancelQueuedExpandEntry as cancelQueuedExpandEntryFromModule,
+  moveActionQueueEntryToFront as moveActionQueueEntryToFrontFromModule,
   cleanupExpiredSettlementProgress as cleanupExpiredSettlementProgressFromModule,
   clearSettlementProgressByKey as clearSettlementProgressByKeyFromModule,
   clearSettlementProgressForTile as clearSettlementProgressForTileFromModule,
@@ -114,7 +120,12 @@ import {
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view/client-tile-menu-view.js";
-import { queuedBuildProgressForTile as queuedBuildProgressForTileFromModule, queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule } from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
+import {
+  queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
+  queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
+  queuedWaypointProgressForTile as queuedWaypointProgressForTileFromModule,
+  queuedExpandProgressForTile as queuedExpandProgressForTileFromModule
+} from "./client-tile-menu-queue-progress/client-tile-menu-queue-progress.js";
 import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
@@ -884,6 +895,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const moveQueuedEntryToFront = (tileKey: string): boolean => moveQueuedEntryToFrontFromModule(state, tileKey, { pushFeed, renderHud });
 
+  const cancelQueuedWaypointEntry = (x: number, y: number): boolean => cancelQueuedWaypointEntryFromModule(state, x, y, { pushFeed, renderHud });
+
+  const moveWaypointToFront = (x: number, y: number): boolean => moveWaypointToFrontFromModule(state, x, y, { pushFeed, renderHud });
+
+  const cancelQueuedExpandEntry = (x: number, y: number): boolean => cancelQueuedExpandEntryFromModule(state, x, y, { keyFor, pushFeed, renderHud });
+
+  const moveActionQueueEntryToFront = (x: number, y: number): boolean => moveActionQueueEntryToFrontFromModule(state, x, y, { pushFeed, renderHud });
+
   const cleanupExpiredSettlementProgress = (): boolean =>
     cleanupExpiredSettlementProgressFromModule(state, { syncOptimisticSettlementTile, clearSettlementProgressByKey, requestViewRefresh });
 
@@ -933,6 +952,18 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       queuedDevelopmentEntryForTile,
       queuedEntryIndexForTile,
       devQueueStateForTile
+    });
+
+  const queuedWaypointProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
+    queuedWaypointProgressForTileFromModule(tile, {
+      waypointIndexForTile: (x, y) => waypointIndexForTileFromModule(state, x, y),
+      waypointCount: () => state.waypoint.length
+    });
+
+  const queuedExpandProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
+    queuedExpandProgressForTileFromModule(tile, {
+      actionQueueIndexForTile: (x, y) => actionQueueIndexForTileFromModule(state, x, y),
+      actionQueueLength: () => state.actionQueue.length
     });
 
   // Pure getter used during render; the seed/clear lifecycle below decides
@@ -1087,6 +1118,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       captureProgressForTile,
       queuedSettlementProgressForTile,
       queuedBuildProgressForTile,
+      queuedExpandProgressForTile,
+      queuedWaypointProgressForTile,
       constructionProgressForTile,
       menuOverviewForTile,
       prettyToken,
@@ -1233,6 +1266,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     cancelQueuedSettlement,
     cancelQueuedBuild,
     moveQueuedEntryToFront,
+    cancelQueuedWaypointEntry,
+    moveWaypointToFront,
+    cancelQueuedExpandEntry,
+    moveActionQueueEntryToFront,
     cancelOngoingCapture,
     sendGameMessage,
     applyOptimisticStructureCancel,
