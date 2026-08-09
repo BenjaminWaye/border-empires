@@ -96,76 +96,10 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // 2026.08.03.3 pruned: aged out of the 6-day window.
   // badge-render-order-above-roads and 2026.08.03.4 ("Natural wonder tiles
   // now show what they do...") pruned: aged out of the 6-day window.
-  {
-    createdAt: 1785788216000, // 2026-08-03
-    introducedIn: "town-upgrade-ready-badge",
-    title: "Towns that can upgrade to their next tier now show a floating badge",
-    why: "A town that has grown enough population to reach its next tier (Town→City→Great City→Metropolis) had no at-a-glance signal on the map — you only found out by clicking the town and reading its \"Next size\" line or the upgrade action in the tile-menu. The map already floats a badge over towns missing food, so the same style of badge now flags towns with an upgrade waiting.",
-    changes: [
-      "An owned, settled town whose population has hit its next-tier threshold now shows a small green up-arrow badge floating above it in 3D mode, mirroring the unfed-town badge.",
-      "The badge only appears for your own settled towns that are actually ready to upgrade (neutral, foreign, unsettled, SETTLEMENT, and already-max-tier towns stay unmarked), matching what the tile-menu upgrade action offers."
-    ]
-  },
-  {
-    createdAt: 1785790524109, // 2026.08.03.6
-    introducedIn: "2026.08.03.6",
-    title: "Removed Fort/Siege/Light Outpost's per-minute FOOD/IRON/SUPPLY drain, a stray attack-range overlay, and an Economy tab overcount",
-    why: "Forts, Siege Outposts, and Light Outposts each drained a separate per-minute FOOD/IRON/SUPPLY cost from your stockpile on top of already occupying a resource slot for the same structure — the tile detail panel showed a Light Outpost costing '144.0/day' food in addition to its 1 FOOD slot, meaning a single outpost billed you twice for the same resource. Separately, selecting an outpost drew a red attack-range ring left over from a shelved mechanic, and the Economy tab's 'Occupied by' breakdown ignored the waiver that makes a player's first 5 Light Outposts free, so a 4-outpost empire was shown as using 4 FOOD slots instead of 0.",
-    changes: [
-      "Fort, Iron Bastion, Thunder Bastion, Wooden Fort, Siege Outpost, Siege Tower, Dread Tower, and Light Outpost no longer drain FOOD/IRON/SUPPLY per minute — their only ongoing cost is the resource slot they occupy.",
-      "The tile detail Upkeep section now shows the resource-slot cost (e.g. 'Fort: 1 IRON slot') for any active fort/siege/economic structure instead of the removed per-day drain.",
-      "Disabled the red attack-sweep-range overlay that appeared when selecting a Light Outpost or Siege Outpost — it wasn't tied to any real attack mechanic.",
-      "The Economy tab's FOOD slot breakdown now correctly applies the free-slot waiver, so Light Outposts under the waiver count no longer inflate the 'Occupied by' total."
-    ]
-  },
-  {
-    createdAt: 1785790524108, // 2026.08.03.5
-    introducedIn: "2026.08.03.5",
-    title: "Fixed: the off-screen alert arrows (unfed town / active muster) were the biggest source of frame lag",
-    why: "The pulsing arrow that points toward an off-screen unfed town or active muster flag re-scanned every tile you had ever discovered this session, every single frame, to find its target — on a long-lived session with a lot of explored map, that scan alone was averaging ~5.8ms/frame and spiking past 20ms, chewing through most of the mobile frame budget.",
-    changes: [
-      "That scan now only re-runs a few times a second instead of every frame; the arrow itself still redraws and tracks the camera every frame, so it stays smooth with no flicker, it just detects new/cleared alerts within about a fifth of a second instead of instantly."
-    ]
-  },
-  {
-    createdAt: 1785828860656, // 2026-08-04
-    introducedIn: "natural-wonder-3d-fidelity",
-    title: "Natural wonders now look like their concept art in 3D mode",
-    why: "Every natural wonder's Storybook reference (packages/storybook/src/wonders/*) was built as a detailed model with custom shaders, particle effects, and multiple structural pieces, but the in-game 3D overlay for each one shipped as a rough placeholder — a couple of plain colored shapes with none of the pipes, gears, ground glow, or particles the design called for. A claimed Deepwater Engine, for example, rendered as a single dark cylinder with one teal ring instead of the gear-driven pump facility with copper piping and rising bubbles it's supposed to be.",
-    changes: [
-      "All 9 natural wonders (Deepwater Engine, Foundry Heart, Conscription Engine, Warpress, Bastion Frame, Calculating Engine, Quickforge, Watchtower Engine, Cartographer's Lens) now render in 3D mode with the full geometry, shader materials, ground-glow effects, and particle systems from their Storybook reference instead of a simplified placeholder."
-    ]
-  },
-  {
-    createdAt: 1785832166768, // 2026-08-04
-    introducedIn: "natural-wonder-3d-fidelity",
-    title: "Fixed: natural wonder ground glow drifted as you panned the map",
-    why: "The new natural-wonder ground-glow shaders (fissures, scorched earth, water ripples, etc.) computed their radial pattern from each vertex's raw world position. That's centered on the wonder in Storybook, where the model always sits at the scene origin, but the live map recenters the whole 3D scene around the camera every frame, so a wonder's mesh is actually translated to a camera-relative offset that shifts as you pan. The glow pattern followed that drift instead of staying anchored to the wonder, visibly sliding out from under the model as the camera moved.",
-    changes: [
-      "Natural wonder ground-glow, water, and metal-rim shaders now compute their pattern from the vertex's position relative to the wonder's own mesh (rotation/scale only, no translation) instead of raw world position, so the effect stays locked to the wonder regardless of camera pan."
-    ]
-  },
-  {
-    createdAt: 1785836373986, // 2026-08-04
-    introducedIn: "natural-wonder-3d-fidelity",
-    title: "Fixed: natural wonder ground glow got cut off near coastlines and hills",
-    why: "The natural wonder ground-glow effect (fissures, scorched earth, water ripples) spans a wonder's own tile plus its 8 neighbors, but it was rendered as one flat plane at the wonder's own tile height. Real terrain elevation varies a lot across that span (grass, sand, coastal sea, deep sea, and hills are all different heights), so on any wonder near a coastline or a hill, the flat effect either floated above/sank under the real terrain, got hidden behind the actual water surface, or was clipped by rising land poking through it.",
-    changes: [
-      "The ground-glow effect now follows the real terrain's contour across its full 3x3 span, sampling the same corner heights the terrain mesh itself renders from (matching the technique the territory-ownership tint already uses to drape over hills) — it clips correctly against hills and anything built on a neighboring tile, and now renders visibly above the water surface on any neighboring sea tile instead of being hidden underneath it."
-    ]
-  },
-  {
-    createdAt: 1785875930619, // dirt road
-    introducedIn: "next",
-    title: "Roads are now worn dirt paths instead of cobblestone",
-    why: "3D roads switch from hard cobblestone to packed dirt, matching how a low-tech empire actually travels while reading cleanly on any terrain.",
-    changes: [
-      "Roads are now dirt paths: packed brown earth with mottled soil tones, two subtle wheel ruts, and a faint worn center.",
-      "Small pebbles are scattered sparsely along the surface, each with soft directional shading so they read as stones set in the dirt.",
-      "Road edges wear down to a ragged, slightly darker rim with no grass or green tint, so roads sit naturally on any terrain - including deserts and sand.",
-      "The same gentle lift over hills and junction hubs are unchanged."
-    ]
-  },
+  // town-upgrade-ready-badge, 2026.08.03.6, 2026.08.03.5, the three
+  // natural-wonder-3d-fidelity entries, and the dirt-road entry pruned:
+  // aged out of the 6-day window (the fix-dev-slot-busy-queue-sync entry
+  // moved the window anchor forward during this merge).
   {
     createdAt: 1785910000000, // manpower overlays
     introducedIn: "next",
@@ -400,6 +334,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The server has only ever sent the plain message \"development slots are busy\", but the client was matching against \"all N development slots are busy\" (a format the server never sends) to learn its slot count was out of date. Since that match never fired, a stale local slot count kept letting the client try to build/expand directly instead of routing the action into the development queue, so players occasionally saw a hard rejection where the action should have queued.",
     changes: [
       "Any \"development slots are busy\" rejection now immediately marks all development slots as busy locally, so the next build/settle attempt queues instead of repeating the same failed request."
+    ]
+  },
+  {
+    createdAt: 1786267157000, // 2026-08-09
+    introducedIn: "iron-titanium-deposit-overlay",
+    title: "Iron tiles now show a richer metallic outcrop in 3D mode",
+    why: "Iron tiles rendered as small grey ore piles, which read as minor details on the 3D map. Iron now uses the titanium-deposit outcrop mesh (bedrock lumps, bright ore chunks, tilted plates, blue-grey veins, and crystals) so mineable metal tiles are visually distinct and easier to spot.",
+    changes: [
+      "3D map: iron resource tiles now display a low irregular metallic outcrop with per-tile variation instead of the small ore stockpile.",
+      "The visual is deterministic per tile, so it stays stable while panning and on refresh."
     ]
   }
 ];
