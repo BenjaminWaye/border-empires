@@ -34,7 +34,8 @@ export const SETTLE_DURATION_MS = 60_000;
 export const FOREST_SETTLEMENT_MULT = 2;
 // Hills are mutually exclusive with forest (see isHillsTileAt), so this never
 // stacks with FOREST_SETTLEMENT_MULT — both terrains independently double
-// settle time, matching the EXPAND-side forest/hills treatment.
+// settle time. (EXPAND-side forest/hills treatment is 1.5x, not 2x — the two
+// mechanics are tuned independently.)
 export const HILLS_SETTLEMENT_MULT = 2;
 export const MAX_SETTLE_DURATION_MS = SETTLE_DURATION_MS * Math.max(FOREST_SETTLEMENT_MULT, HILLS_SETTLEMENT_MULT);
 
