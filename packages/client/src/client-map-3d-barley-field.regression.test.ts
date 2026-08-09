@@ -57,8 +57,11 @@ describe("barley field overlay", () => {
     const overlay = createBarleyFieldOverlay(scene, 2);
     const meshes = scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
 
+    // Captures both relative position and rotation (quaternion) — rotation is now cached and
+    // reapplied via a stored quaternion rather than recomputed from Euler angles on every call
+    // (see placePiece), so this also guards that refactor produced the identical rotations.
     const captureRelativePositions = (originX: number, originZ: number): number[] => {
-      const positions: number[] = [];
+      const values: number[] = [];
       const matrix = new Matrix4();
       const position = new Vector3();
       const quaternion = new Quaternion();
@@ -67,10 +70,10 @@ describe("barley field overlay", () => {
         for (let i = 0; i < mesh.count; i += 1) {
           mesh.getMatrixAt(i, matrix);
           matrix.decompose(position, quaternion, scale);
-          positions.push(position.x - originX, position.y, position.z - originZ);
+          values.push(position.x - originX, position.y, position.z - originZ, quaternion.x, quaternion.y, quaternion.z, quaternion.w);
         }
       }
-      return positions;
+      return values;
     };
 
     // Origins stay small (like real camera-relative scene coordinates, typically a few dozen

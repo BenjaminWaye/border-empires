@@ -146,11 +146,15 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
   const matrix = new Matrix4();
   const position = new Vector3();
   const scale = new Vector3();
-  const identityQuat = new Quaternion();
   const tmpEuler = new Euler();
   const tmpQuat = new Quaternion();
 
-  const addPiece = (
+  // Places a piece using an already-computed quaternion (qx,qy,qz,qw) rather than raw Euler
+  // angles — see BarleyPiece below. Quaternion.setFromEuler does real trig work per axis, and
+  // almost every stalk/head has a non-zero tilt, so doing that conversion here (on every
+  // rebuild, for every piece) rather than once per tile (cached) would undo most of the point
+  // of caching the layout in the first place.
+  const placePiece = (
     key: string,
     wx: number,
     sy: number,
@@ -158,24 +162,20 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
     ox: number,
     oy: number,
     oz: number,
-    sx = 1,
-    sy2 = 1,
-    sz = 1,
-    rotY = 0,
-    rotX = 0,
-    rotZ = 0
+    sx: number,
+    sy2: number,
+    sz: number,
+    qx: number,
+    qy: number,
+    qz: number,
+    qw: number
   ): void => {
     const slot = slots.get(key);
     if (!slot || slot.count >= slot.cap) return;
     position.set(wx + ox, sy + oy, wz + oz);
     scale.set(sx, sy2, sz);
-    if (rotX === 0 && rotY === 0 && rotZ === 0) {
-      matrix.compose(position, identityQuat, scale);
-    } else {
-      tmpEuler.set(rotX, rotY, rotZ, "XYZ");
-      tmpQuat.setFromEuler(tmpEuler);
-      matrix.compose(position, tmpQuat, scale);
-    }
+    tmpQuat.set(qx, qy, qz, qw);
+    matrix.compose(position, tmpQuat, scale);
     slot.mesh.setMatrixAt(slot.count, matrix);
     slot.count += 1;
   };
@@ -200,11 +200,14 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
   // replays it (via addPiece) against the current camera-relative origin on every subsequent
   // call — skipping the RNG/trig regeneration while still writing fresh instance matrices
   // (unavoidable: those must reflect the current camera-relative frame).
+  // Quaternion, not raw Euler angles: Quaternion.setFromEuler does real trig per axis, and
+  // almost every piece has a non-zero tilt, so it's computed once here (cache build) rather
+  // than by placePiece on every rebuild (see placePiece's comment above).
   type BarleyPiece = {
     key: string;
     ox: number; oy: number; oz: number;
     sx: number; sy2: number; sz: number;
-    rotY: number; rotX: number; rotZ: number;
+    qx: number; qy: number; qz: number; qw: number;
   };
   // Bounded like client-map-facade.ts's terrainColorCache: a long session that pans across many
   // distinct farm tiles shouldn't grow this indefinitely (each entry is ~600-800 small objects).
@@ -216,7 +219,16 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
     const rng = mulberry(hashSeed(worldTileX, worldTileY, 7919 + v * 131));
     const pieces: BarleyPiece[] = [];
     const push = (key: string, ox: number, oy: number, oz: number, sx = 1, sy2 = 1, sz = 1, rotY = 0, rotX = 0, rotZ = 0): void => {
-      pieces.push({ key, ox, oy, oz, sx, sy2, sz, rotY, rotX, rotZ });
+      let qx = 0, qy = 0, qz = 0, qw = 1; // identity
+      if (rotX !== 0 || rotY !== 0 || rotZ !== 0) {
+        tmpEuler.set(rotX, rotY, rotZ, "XYZ");
+        tmpQuat.setFromEuler(tmpEuler);
+        qx = tmpQuat.x;
+        qy = tmpQuat.y;
+        qz = tmpQuat.z;
+        qw = tmpQuat.w;
+      }
+      pieces.push({ key, ox, oy, oz, sx, sy2, sz, qx, qy, qz, qw });
     };
 
     // Soil bed — two overlapping flattened mounds form the field mass.
@@ -306,7 +318,7 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
   const addBarleyField = (wx: number, sy: number, wz: number, v: BarleyFieldVariant, worldTileX: number, worldTileY: number): void => {
     const layout = layoutForTile(worldTileX, worldTileY, v);
     for (const piece of layout) {
-      addPiece(piece.key, wx, sy, wz, piece.ox, piece.oy, piece.oz, piece.sx, piece.sy2, piece.sz, piece.rotY, piece.rotX, piece.rotZ);
+      placePiece(piece.key, wx, sy, wz, piece.ox, piece.oy, piece.oz, piece.sx, piece.sy2, piece.sz, piece.qx, piece.qy, piece.qz, piece.qw);
     }
   };
 
