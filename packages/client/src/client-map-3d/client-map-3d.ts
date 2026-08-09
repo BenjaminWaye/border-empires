@@ -59,7 +59,7 @@ import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
 import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
-import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js"; import { createBarleyFieldOverlay } from "../client-map-3d-barley-field.js";
+import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js"; import { createBarleyFieldOverlay, BARLEY_DETAIL_MIN_ZOOM } from "../client-map-3d-barley-field.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
@@ -1301,6 +1301,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     shardOverlay.clear(); watchtowerOverlay.clear(); naturalWonderOverlays.clear();
     fortOverlay.clear();
     resourceOverlay.clear(); barleyFieldOverlay.clear();
+    barleyFieldOverlay.setDetailEnabled(deps.state.zoom >= BARLEY_DETAIL_MIN_ZOOM);
     attackOverlay.clear();
     settleOverlay.clear();
     structureOverlay.clear();

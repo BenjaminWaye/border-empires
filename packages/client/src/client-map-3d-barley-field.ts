@@ -55,9 +55,18 @@ const mulberry = (seed: number): (() => number) => {
 export type BarleyFieldOverlay = {
   readonly clear: () => void;
   readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number) => void;
+  readonly setDetailEnabled: (enabled: boolean) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
+
+// Extreme zoom-out floor. At this zoom a tile covers ~10 CSS px (zoom is device px per tile,
+// dpr 3 on the reference mobile device), where a ~1,400-piece crop carpet is physically
+// unresolvable and renders as a flat colour block — which the soil bed already provides. Real
+// play sits at zoom ~64-160, far above this, so the full crop is what actually gets drawn in
+// every normal view; this only prevents building millions of sub-pixel instances when the
+// player zooms all the way out.
+export const BARLEY_DETAIL_MIN_ZOOM = 32;
 
 export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): BarleyFieldOverlay => {
   // ─── Materials (shared by piece type) ───────────────────────────────
@@ -126,21 +135,31 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
     return slot;
   };
 
-  // Caps cover the worst case (every visible tile a farm tile). Plant
-  // counts are ~10x the original sparse crop so the field reads as a
-  // dense golden carpet; caps are sized above the expected per-tile
-  // usage of the densest variant (560 plants) so no piece is silently
-  // dropped. Awns are sparse (~40% of heads) — they were the single
-  // biggest allocation and a full bristle set per head isn't visible
-  // at this density.
-  const C = maxTiles;
-  make("soilA", soilGeo, soilAMaterial, C * 2);
-  make("soilB", soilGeo, soilBMaterial, C * 2);
-  make("stalkGreen", stalkGeo, stalkGreenMaterial, C * 330);
-  make("stalkStraw", stalkGeo, stalkStrawMaterial, C * 280);
-  make("headGold", headGeo, headGoldMaterial, C * 380);
-  make("headPale", headGeo, headPaleMaterial, C * 340);
-  make("awn", awnGeo, awnMaterial, C * 220);
+  // Cap sizing. An InstancedMesh eagerly allocates cap * 16 float32s (64 bytes/instance) for
+  // its matrix buffer, on the CPU heap AND mirrored in VRAM — and commit() re-uploads that
+  // whole buffer (see commit()). Sizing caps as maxTiles (14,000) * ~300 pieces, i.e. assuming
+  // every visible tile could simultaneously be a max-density farm tile, allocated ~1.33 GB and
+  // re-uploaded it to the GPU on every terrain rebuild. Every other 3D overlay in this codebase
+  // uses a per-tile multiplier of 2-12; a dense crop needs a per-tile budget instead.
+  //
+  // So: crop capacity is budgeted per farm tile actually drawn at detail, not per visible tile.
+  // 512 is deliberately generous — at the zoom range real play sits in, the whole visible
+  // window is only ~600-1,300 tiles, so this only binds if the great majority of the screen is
+  // farmland at once. In every ordinary view the full crop draws exactly as before; the budget
+  // exists so the worst case degrades (to soil bed, still a tilled field) instead of
+  // reserving a gigabyte for a situation that never happens.
+  const MAX_DETAIL_TILES = 512;
+  // Per-detail-tile reservations, set comfortably above the densest variant's expected usage
+  // (560 plants + 200 dwarf heads, split across tone buckets by the layout RNG) so ordinary
+  // variance never silently drops pieces. The pool is shared across detail tiles, so per-tile
+  // over/under-use averages out well before the cap binds.
+  make("soilA", soilGeo, soilAMaterial, maxTiles);
+  make("soilB", soilGeo, soilBMaterial, maxTiles);
+  make("stalkGreen", stalkGeo, stalkGreenMaterial, MAX_DETAIL_TILES * 400);
+  make("stalkStraw", stalkGeo, stalkStrawMaterial, MAX_DETAIL_TILES * 360);
+  make("headGold", headGeo, headGoldMaterial, MAX_DETAIL_TILES * 460);
+  make("headPale", headGeo, headPaleMaterial, MAX_DETAIL_TILES * 420);
+  make("awn", awnGeo, awnMaterial, MAX_DETAIL_TILES * 260);
 
   // ─── Helpers ────────────────────────────────────────────────────────
   const matrix = new Matrix4();
@@ -209,15 +228,20 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
     sx: number; sy2: number; sz: number;
     qx: number; qy: number; qz: number; qw: number;
   };
+  // Soil bed and crop are stored separately so the soil-only LOD path (see addInstance) can
+  // draw the field's ground without walking the ~1,400-piece crop list.
+  type BarleyLayout = { soil: BarleyPiece[]; crop: BarleyPiece[] };
   // Bounded like client-map-facade.ts's terrainColorCache: a long session that pans across many
   // distinct farm tiles shouldn't grow this indefinitely (each entry is ~600-800 small objects).
   const LAYOUT_CACHE_LIMIT = 500;
-  const layoutCache = new Map<string, BarleyPiece[]>();
+  const layoutCache = new Map<string, BarleyLayout>();
   const layoutCacheOrder: string[] = [];
 
-  const buildBarleyFieldLayout = (worldTileX: number, worldTileY: number, v: BarleyFieldVariant): BarleyPiece[] => {
+  const buildBarleyFieldLayout = (worldTileX: number, worldTileY: number, v: BarleyFieldVariant): BarleyLayout => {
     const rng = mulberry(hashSeed(worldTileX, worldTileY, 7919 + v * 131));
-    const pieces: BarleyPiece[] = [];
+    const soil: BarleyPiece[] = [];
+    const crop: BarleyPiece[] = [];
+    let target = soil;
     const push = (key: string, ox: number, oy: number, oz: number, sx = 1, sy2 = 1, sz = 1, rotY = 0, rotX = 0, rotZ = 0): void => {
       let qx = 0, qy = 0, qz = 0, qw = 1; // identity
       if (rotX !== 0 || rotY !== 0 || rotZ !== 0) {
@@ -228,12 +252,15 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
         qz = tmpQuat.z;
         qw = tmpQuat.w;
       }
-      pieces.push({ key, ox, oy, oz, sx, sy2, sz, qx, qy, qz, qw });
+      target.push({ key, ox, oy, oz, sx, sy2, sz, qx, qy, qz, qw });
     };
 
     // Soil bed — two overlapping flattened mounds form the field mass.
     push("soilA", -0.05, 0.022, -0.03, 2.4, 0.16, 2.4, rng() * Math.PI * 2);
     push("soilB", 0.09, 0.026, 0.05, 2.1, 0.14, 2.1, rng() * Math.PI * 2);
+    // Everything from here on is crop. The RNG draw order below is unchanged, so a tile's
+    // layout is byte-for-byte what it was before the soil/crop split.
+    target = crop;
 
     // Dense crop: base plant count per variant, biased taller/warmer as
     // the variant index rises so adjacent tiles read differently. Counts
@@ -298,10 +325,10 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
       push(headKey, Math.cos(a) * r, (HEAD_H / 2) * 0.8, Math.sin(a) * r, 1, 0.8, 1, 0, (rng() - 0.5) * 0.12, 0);
     }
 
-    return pieces;
+    return { soil, crop };
   };
 
-  const layoutForTile = (worldTileX: number, worldTileY: number, v: BarleyFieldVariant): BarleyPiece[] => {
+  const layoutForTile = (worldTileX: number, worldTileY: number, v: BarleyFieldVariant): BarleyLayout => {
     const cacheKey = `${worldTileX},${worldTileY}`;
     const cached = layoutCache.get(cacheKey);
     if (cached) return cached;
@@ -315,26 +342,51 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
     return layout;
   };
 
-  const addBarleyField = (wx: number, sy: number, wz: number, v: BarleyFieldVariant, worldTileX: number, worldTileY: number): void => {
-    const layout = layoutForTile(worldTileX, worldTileY, v);
-    for (const piece of layout) {
+  const placeAll = (pieces: BarleyPiece[], wx: number, sy: number, wz: number): void => {
+    for (const piece of pieces) {
       placePiece(piece.key, wx, sy, wz, piece.ox, piece.oy, piece.oz, piece.sx, piece.sy2, piece.sz, piece.qx, piece.qy, piece.qz, piece.qw);
     }
   };
 
   // ─── Public API ─────────────────────────────────────────────────────
+  // Detail budget for the current frame. Reset by clear() (called once per terrain rebuild),
+  // consumed by addInstance; see MAX_DETAIL_TILES above for why the crop is budgeted at all.
+  let detailTilesUsed = 0;
+  let detailEnabled = true;
+
   const clear = (): void => {
     for (const slot of slots.values()) slot.count = 0;
+    detailTilesUsed = 0;
+  };
+
+  // Called once per terrain rebuild with whether the current zoom resolves individual crop
+  // detail at all. Defaults to true so storybook/tests that never call it are unaffected.
+  const setDetailEnabled = (enabled: boolean): void => {
+    detailEnabled = enabled;
   };
 
   const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number): void => {
     const v = barleyFieldVariantAt(worldTileX, worldTileY);
-    addBarleyField(sceneX, surfaceY, sceneZ, v, worldTileX, worldTileY);
+    const layout = layoutForTile(worldTileX, worldTileY, v);
+    // Soil bed always draws, so a farm tile never blinks out of existence — it just loses its
+    // individual stalks past the budget / below the detail zoom.
+    placeAll(layout.soil, sceneX, surfaceY, sceneZ);
+    if (!detailEnabled || detailTilesUsed >= MAX_DETAIL_TILES) return;
+    detailTilesUsed += 1;
+    placeAll(layout.crop, sceneX, surfaceY, sceneZ);
   };
 
   const commit = (): void => {
     for (const slot of slots.values()) {
       slot.mesh.count = slot.count;
+      // Upload only the instances actually used this frame. Without an update range three.js
+      // does gl.bufferSubData(target, 0, array) — the ENTIRE capacity, regardless of how few
+      // instances are drawn — so a large cap turns every commit into a full-buffer GPU upload.
+      // That upload happens inside renderer.render(), not here, which is why it never showed
+      // up in this module's own timings.
+      slot.mesh.instanceMatrix.clearUpdateRanges();
+      if (slot.count === 0) continue;
+      slot.mesh.instanceMatrix.addUpdateRange(0, slot.count * 16);
       slot.mesh.instanceMatrix.needsUpdate = true;
     }
   };
@@ -355,5 +407,5 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
     ].forEach((m) => m.dispose());
   };
 
-  return { clear, addInstance, commit, dispose };
+  return { clear, addInstance, setDetailEnabled, commit, dispose };
 };
