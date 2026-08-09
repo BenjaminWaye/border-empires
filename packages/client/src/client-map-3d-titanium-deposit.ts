@@ -85,7 +85,6 @@ export const createTitaniumDepositOverlay = (scene: Scene, maxTiles: number): Ti
   // reads as chunky low-poly rock with broad specular faces.
   const bedrockGeo = new IcosahedronGeometry(0.16, 0);
   const oreGeo = new IcosahedronGeometry(0.1, 0);
-  const plateGeo = new IcosahedronGeometry(0.18, 0);
   const crystalGeo = new OctahedronGeometry(0.08, 0);
   const veinGeo = new BoxGeometry(0.025, 0.02, 0.16);
   const chunkGeo = new IcosahedronGeometry(0.05, 0);
@@ -104,17 +103,23 @@ export const createTitaniumDepositOverlay = (scene: Scene, maxTiles: number): Ti
     return slot;
   };
 
+  // Caps are sized per-slot to the worst-case pieces any single tile can
+  // emit (see addDeposit): bedrockDark 3 / bedrockLight 2, oreBright 3
+  // (1 chunk + 2 plates) / oreMid 4 (2 chunks + 2 plates) / oreDark 2,
+  // crystal 3, vein 5, chunkBright 3 / chunkDark 2. An InstancedMesh
+  // eagerly allocates cap * 16 float32s on the CPU heap and mirrors it in
+  // VRAM, so over-reserving multiplies GPU memory with no visual payoff —
+  // keep the caps to what a fully-iron viewport can use.
   const C = maxTiles;
-  make("bedrockDark", bedrockGeo, bedrockDarkMaterial, C * 6);
-  make("bedrockLight", bedrockGeo, bedrockLightMaterial, C * 4);
-  make("oreBright", oreGeo, titaniumBrightMaterial, C * 5);
-  make("oreMid", oreGeo, titaniumMidMaterial, C * 5);
-  make("oreDark", oreGeo, titaniumDarkMaterial, C * 4);
-  make("plate", plateGeo, titaniumBrightMaterial, C * 4);
-  make("crystal", crystalGeo, veinMaterial, C * 4);
-  make("vein", veinGeo, veinMaterial, C * 6);
-  make("chunkBright", chunkGeo, titaniumBrightMaterial, C * 6);
-  make("chunkDark", chunkGeo, bedrockLightMaterial, C * 5);
+  make("bedrockDark", bedrockGeo, bedrockDarkMaterial, C * 3);
+  make("bedrockLight", bedrockGeo, bedrockLightMaterial, C * 3);
+  make("oreBright", oreGeo, titaniumBrightMaterial, C * 4);
+  make("oreMid", oreGeo, titaniumMidMaterial, C * 4);
+  make("oreDark", oreGeo, titaniumDarkMaterial, C * 3);
+  make("crystal", crystalGeo, veinMaterial, C * 3);
+  make("vein", veinGeo, veinMaterial, C * 5);
+  make("chunkBright", chunkGeo, titaniumBrightMaterial, C * 3);
+  make("chunkDark", chunkGeo, bedrockLightMaterial, C * 3);
 
   // ─── Helpers ────────────────────────────────────────────────────────
   const matrix = new Matrix4();
@@ -350,14 +355,24 @@ export const createTitaniumDepositOverlay = (scene: Scene, maxTiles: number): Ti
 
   const commit = (): void => {
     for (const slot of slots.values()) {
-      slot.mesh.count = slot.count;
-      slot.mesh.instanceMatrix.needsUpdate = true;
+      const { mesh, count } = slot;
+      mesh.count = count;
+      // Upload only the instances actually used. Without an update range three.js does
+      // gl.bufferSubData(target, 0, array) — the entire allocated capacity, however few
+      // instances are drawn — and that upload happens inside renderer.render(), where
+      // this module's own timings never see it. Iron is a sparse resource, so most of
+      // the capacity is idle most of the time; scoping keeps the per-frame upload to the
+      // tiles actually on screen.
+      mesh.instanceMatrix.clearUpdateRanges();
+      if (count === 0) continue;
+      mesh.instanceMatrix.addUpdateRange(0, count * 16);
+      mesh.instanceMatrix.needsUpdate = true;
     }
   };
 
   const dispose = (): void => {
     for (const slot of slots.values()) scene.remove(slot.mesh);
-    [bedrockGeo, oreGeo, plateGeo, crystalGeo, veinGeo, chunkGeo].forEach((g) => g.dispose());
+    [bedrockGeo, oreGeo, crystalGeo, veinGeo, chunkGeo].forEach((g) => g.dispose());
     [
       bedrockDarkMaterial,
       bedrockLightMaterial,
