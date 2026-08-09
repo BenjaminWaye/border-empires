@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { CONVERTER_MODE_FLIP_COOLDOWN_MS } from "@border-empires/game-domain";
+import { CONVERTER_MODE_FLIP_COOLDOWN_MS, MARKET_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
 import { GRANARY_INSTANT_POPULATION_BURST, SYNTHESIZER_STRUCTURE_TYPES, STRUCTURE_REGISTRY, type BuildableStructureType } from "@border-empires/shared";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { isMonumentBaseType, monumentClaimOwnerId } from "./monument-uniqueness.js";
@@ -48,6 +48,17 @@ export function grantGranaryPopulationBurst(
     playerId: ownerId,
     tileDeltas: [context.tileDeltaFromState(updatedTownTile)]
   });
+}
+
+export function grantMarketInstantGoldBonus(
+  context: RuntimeStructureCommandContext,
+  ownerId: string,
+  commandId: string
+): void {
+  const owner = context.players.get(ownerId);
+  if (!owner) return;
+  owner.points += MARKET_INSTANT_GOLD_BONUS;
+  context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
 }
 
 export function completeStructureBuild(context: RuntimeStructureCommandContext, targetKey: string, ownerId: string, structureType: string, commandId: string): void {
@@ -108,5 +119,10 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   // absorbed into existing headroom wouldn't read as a "burst" at all).
   if (structureType === "GRANARY") {
     grantGranaryPopulationBurst(context, ownerId, completedTile.x, completedTile.y, commandId);
+  }
+  // Market rebalance (structure-detail-screen task): instant one-time gold
+  // grant on completion, on top of its ongoing flat/percentage gold bonuses.
+  if (structureType === "MARKET") {
+    grantMarketInstantGoldBonus(context, ownerId, commandId);
   }
 }
