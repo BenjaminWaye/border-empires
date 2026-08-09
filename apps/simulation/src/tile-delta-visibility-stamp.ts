@@ -52,6 +52,23 @@ export const stampVisibilityAndMergeFogDeltas = <TDelta extends { x: number; y: 
       // FOG-stamped version but keep the full field set").
       const fogDelta = deps.wireDeltaForTileKey(tileKey);
       result.push(fogDelta ? { ...fogDelta, visibilityState: "FOG" as const } : { ...delta, visibilityState: "FOG" as const });
+    } else if (enteredKeys?.has(tileKey)) {
+      // Symmetric case: the tile is ALSO already present in this batch's own
+      // event deltas -- e.g. it's the tile an EXPAND/ATTACK just captured,
+      // which is included in event.tileDeltas regardless of vision. That
+      // event delta comes from the sparse-diffed tileDeltaFromState path,
+      // whose overlay JSON fields (naturalWonderJson, fortJson, ...) are
+      // diffed against a GLOBAL cross-player "last emitted" baseline -- if
+      // some other player's earlier reveal already touched this tile, the
+      // field reads as "unchanged" and gets dropped, even though THIS
+      // player is seeing the tile for the first time and never received it.
+      // Falling through to the plain `else` below would ship that
+      // field-dropped delta as this player's first-ever record of the tile.
+      // Use the always-full reveal-only delta instead, same reasoning as
+      // the leftKeys branch above. This is what made a captured natural
+      // wonder vanish client-side immediately after EXPAND.
+      const revealDelta = deps.wireDeltaForTileKey(tileKey);
+      result.push(revealDelta ? { ...revealDelta, visibilityState: "VISIBLE" as const } : { ...delta, visibilityState: "VISIBLE" as const });
     } else {
       result.push({ ...delta, visibilityState: "VISIBLE" as const });
     }
