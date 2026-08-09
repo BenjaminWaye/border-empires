@@ -178,9 +178,9 @@
     "sortGroup": "general"
   },
   "QUARTERMASTERS_OFFICE": {
-    "showOn": ["town", "support"],
-    "placementMode": "town_support",
-    "sortGroup": "support"
+    "showOn": ["settled", "resource", "town", "support", "dock"],
+    "placementMode": "same_tile",
+    "sortGroup": "general"
   },
   "LOGISTICS_GUILD": {
     "showOn": ["town", "support"],

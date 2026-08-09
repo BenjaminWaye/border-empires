@@ -1,10 +1,15 @@
 import {
   OBSERVATORY_UPKEEP_PER_MIN, SYNTHESIZER_STRUCTURE_TYPES,
   economicStructureBuildDurationMs, structureBuildDurationMs, structureBuildManpowerCost,
-  structureCostDefinition, structureSlotRequirements, type BuildableStructureType
+  structureCostDefinition, structureSlotRequirements, type BuildableStructureType, type SlotStructureType
 } from "@border-empires/shared";
 import { OBSERVATORY_VISION_BONUS } from "./client-constants.js";
 import { OBSERVATORY_RANGE } from "@border-empires/shared";
+import {
+  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY, CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, IRONWORKS_GOLD_UPKEEP_PER_DAY
+} from "@border-empires/game-domain";
 import type { Tile } from "./client-types.js";
 import { converterStructureInfoView } from "./client-converter-structure-info.js";
 
@@ -167,7 +172,7 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
 
 export const economicStructureBenefitText = (type: EconomicStructureType | StructureInfoKey): string => {
   const kind = type as string;
-  if (kind === "MARKET") return "Nearby town: +50% gold production; higher production raises gold cap.";
+  if (kind === "MARKET") return "+10 gold instantly on completion, +1 gold/day, and +10% nearby town gold production (+35% with an active Clearing House).";
   if (kind === "GRANARY") return "Grants an instant one-time +10,000 population burst to the supported town on completion.";
   if (kind === "SEED_GRANARY") return "Upgrades a granary into a seed granary with +30% local town population growth and lower local town food upkeep.";
   if (kind === "CENSUS_HALL") return "Grants +20,000 population to the supported town for every connected city with an active Incubation Engine, and cuts that town's tier-upgrade cost by 25%.";
@@ -193,7 +198,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "CUSTOMS_HOUSE") return "Adds +1 gold / m for each connected owned dock.";
   if (kind === "GOVERNORS_OFFICE") return "Reduces local town food upkeep and reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles.";
   if (kind === "RADAR_SYSTEM") return "Blocks enemy sky bombardment in a 30-tile radius.";
-  if (kind === "QUARTERMASTERS_OFFICE") return "Reduces manpower cost for War-branch structures (Fort/Siege ladders) built within 20 tiles.";
+  if (kind === "QUARTERMASTERS_OFFICE") return "Reduces manpower cost by 33% for War-branch structures (Fort/Siege ladders) built within 20 tiles. Does not stack with other Quartermaster's Offices.";
   if (kind === "LOGISTICS_GUILD") return "Adds +0.05 manpower/min empire-wide, standalone. A Rail Depot in this town's connected network amplifies it to +0.1/min.";
   if (kind === "ASSEMBLY_WORKS") return "Amplifies every Ancillary Factory in its connected-town network (+300 manpower cap each). One per connected-town network.";
   if (kind === "ASTRAL_DOCK_PART") return "One of three monument parts needed to assemble the Astral Dock.";
@@ -284,31 +289,35 @@ export const structureInfoForKey = (
   };
   const buildTimeLabelFor = (key: StructureInfoKey): string =>
     deps.formatCooldownShort(structureBuildDurationMs(structureBaseKey(key)));
+  // Only the six synthesizer types have any real, ongoing gold upkeep in the
+  // simulation (apps/simulation/src/player-update-economy/player-update-economy.ts
+  // structureUpkeepPerMinute). Every other structure's real per-minute upkeep
+  // was retired to 0 by the manpower-economy rewrite — its permanent resource
+  // slot occupation (below) IS its upkeep now, so no gold/food/iron/etc drain
+  // line applies to it.
+  const SYNTHESIZER_GOLD_UPKEEP_PER_DAY: Partial<Record<StructureInfoKey, number>> = {
+    FUR_SYNTHESIZER: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+    ADVANCED_FUR_SYNTHESIZER: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+    IRONWORKS: IRONWORKS_GOLD_UPKEEP_PER_DAY,
+    ADVANCED_IRONWORKS: ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
+    CRYSTAL_SYNTHESIZER: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+    ADVANCED_CRYSTAL_SYNTHESIZER: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY
+  };
   const upkeepBitsFor = (key: StructureInfoKey): string[] => {
-    if (key === "IRON_BASTION") return ["0.03 gold / m", "0.03 iron / m"];
-    if (key === "THUNDER_BASTION") return ["0.05 gold / m", "0.05 iron / m"];
-    if (key === "OBSERVATORY") return [`${OBSERVATORY_UPKEEP_PER_MIN.toFixed(2)} crystal / m`];
-    if (key === "WOODEN_FORT") return ["0.50 gold / m"];
-    if (key === "LIGHT_OUTPOST") return ["0.50 gold / m"];
-    if (key === "FORT") return ["0.03 gold / m", "0.03 iron / m"];
-    if (key === "SIEGE_OUTPOST" || key === "SIEGE_TOWER") return ["0.10 gold / m", "0.03 supply / m"];
-    if (key === "DREAD_TOWER") return ["0.14 gold / m", "0.05 supply / m"];
-    if (key === "MARKET" || key === "BANK") return [key === "BANK" ? "0.10 food / m" : "0.05 food / m"];
-    if (key === "GRANARY" || key === "SEED_GRANARY" || key === "FARMSTEAD") return ["0.10 gold / m"];
-    if (key === "CENSUS_HALL") return ["0.60 gold / m"];
-    if (key === "CLEARING_HOUSE") return ["3.00 gold / m"];
-    if (key === "WATERWORKS" || key === "CAMP" || key === "MINE") return ["0.12 gold / m"];
-    if (key === "CARAVANARY") return ["1.50 gold / m"];
-    if (key === "FUR_SYNTHESIZER" || key === "ADVANCED_FUR_SYNTHESIZER") return ["12 gold / m"];
-    if (key === "IRONWORKS" || key === "ADVANCED_IRONWORKS") return ["12 gold / m"];
-    if (key === "CRYSTAL_SYNTHESIZER" || key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["16 gold / m"];
-    if (key === "FOUNDRY") return ["5 gold / m"];
-    if (key === "EXCHANGE_HOUSE") return ["6 gold / m", "0.10 crystal / m"];
-    if (key === "CUSTOMS_HOUSE") return ["0.50 gold / m"];
-    if (key === "GARRISON_HALL") return ["2.50 gold / m"];
-    if (key === "GOVERNORS_OFFICE") return ["3 gold / m"];
-    if (key === "RAIL_DEPOT") return [];
-    return [];
+    const bits: string[] = [];
+    const goldUpkeepPerDay = SYNTHESIZER_GOLD_UPKEEP_PER_DAY[key];
+    if (goldUpkeepPerDay !== undefined) bits.push(`${goldUpkeepPerDay} gold / day`);
+    const baseKey = structureBaseKey(key);
+    if (!SYNTHESIZER_STRUCTURE_TYPES.includes(baseKey as BuildableStructureType)) {
+      const slotKey: SlotStructureType =
+        key === "IRON_BASTION" || key === "THUNDER_BASTION" || key === "SIEGE_TOWER" || key === "DREAD_TOWER"
+          ? key
+          : (baseKey as SlotStructureType);
+      for (const requirement of structureSlotRequirements(slotKey)) {
+        bits.push(`${requirement.count} ${requirement.resource} slot${requirement.count === 1 ? "" : "s"}`);
+      }
+    }
+    return bits;
   };
   const effectsFor = (key: StructureInfoKey): string[] => {
     if (key === "FORT") return ["2.5x local defense", "Prevents failed attacks from immediately flipping the fortified origin tile"];
@@ -324,7 +333,7 @@ export const structureInfoForKey = (
     if (key === "WATERWORKS") return ["+100% farmstead food within 10 tiles", "Boosted food production raises food cap"];
     if (key === "CAMP") return ["+50% supply production on WOOD and FUR tiles", "+15 supply cap"];
     if (key === "MINE") return ["+50% iron or crystal production on mineral tiles", "+15 iron cap or +9 crystal cap"];
-    if (key === "MARKET") return ["+50% town gold production", "Higher production raises gold cap"];
+    if (key === "MARKET") return ["+10 gold instantly on completion", "+1 gold/day", "+10% town gold production (+35% with an active Clearing House)"];
     if (key === "GRANARY") return ["Instant one-time +10,000 population burst on completion"];
     if (key === "SEED_GRANARY") return ["+30% local town population growth", "-10% local town food upkeep"];
     if (key === "CENSUS_HALL") return ["+20,000 population per connected city with an active Incubation Engine", "-25% town-tier upgrade cost for this town"];
@@ -345,7 +354,7 @@ export const structureInfoForKey = (
     if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "Free • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids", "Requires nearby Ambaric Tower power"];
     if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Ambaric Towers within 30 tiles"];
     if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Ambaric Tower power"];
-    if (key === "QUARTERMASTERS_OFFICE") return ["Reduces manpower cost for War-branch structures built within 20 tiles"];
+    if (key === "QUARTERMASTERS_OFFICE") return ["-33% manpower cost for War-branch structures built within 20 tiles", "Does not stack with other Quartermaster's Offices"];
     if (key === "LOGISTICS_GUILD") return ["+0.05 manpower/min empire-wide, standalone", "+0.1/min instead if a Rail Depot is in this town's connected network"];
     if (key === "ASSEMBLY_WORKS") return ["+300 manpower cap for every Ancillary Factory in this connected-town network", "One per connected-town network"];
     if (key === "ASTRAL_DOCK_PART") return ["One of three required monument parts", "Must be built in different Great Cities or Monumental Cities"];
@@ -406,18 +415,15 @@ export const structureInfoForKey = (
     return undefined;
   };
   const costBitsFor = (key: StructureInfoKey): string[] => {
-    if (key === "IRON_BASTION") return ["1,800 gold", "300 manpower", "2 IRON slots"];
-    if (key === "THUNDER_BASTION") return ["4,200 gold", "300 manpower", "4 IRON slots"];
-    if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower", "2 SUPPLY slots", "1 IRON slot"];
-    if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower", "3 SUPPLY slots", "2 IRON slots"];
+    if (key === "IRON_BASTION") return ["1,800 gold", "300 manpower"];
+    if (key === "THUNDER_BASTION") return ["4,200 gold", "300 manpower"];
+    if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower"];
+    if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower"];
     const baseKey = structureBaseKey(key);
     const goldCost = structureCostDefinition(baseKey).baseGoldCost;
     const bits = goldCost > 0 ? [`${goldCost.toLocaleString()} gold`] : [];
     const manpowerCost = structureBuildManpowerCost(baseKey as BuildableStructureType);
     if (manpowerCost > 0) bits.push(`${manpowerCost.toLocaleString()} manpower`);
-    if (!SYNTHESIZER_STRUCTURE_TYPES.includes(baseKey as BuildableStructureType)) {
-      for (const requirement of structureSlotRequirements(baseKey)) bits.push(`${requirement.count} ${requirement.resource} slot${requirement.count === 1 ? "" : "s"}`);
-    }
     return bits;
   };
   if (type === "FORT") {
@@ -503,7 +509,7 @@ export const structureInfoForKey = (
   if (type === "MARKET") {
     return structure({
       title: "Market",
-      detail: "Markets are built on a town support tile. They increase that town's gold production by 50%; higher gold production raises your gold cap.",
+      detail: "Markets are built on a town support tile. They grant +10 gold instantly on completion, +1 gold/day, and increase that town's gold production by 10% (+35% with an active Clearing House).",
       glyph: "◌",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -787,9 +793,9 @@ export const structureInfoForKey = (
   if (type === "QUARTERMASTERS_OFFICE") {
     return structure({
       title: "Quartermaster's Office",
-      detail: "Quartermaster's Offices reduce the manpower cost for War-branch structures (Fort/Siege ladders) built within 20 tiles.",
+      detail: "Quartermaster's Offices reduce the manpower cost by 33% for War-branch structures (Fort/Siege ladders) built within 20 tiles. Does not stack with other Quartermaster's Offices.",
       glyph: "🎖",
-      placement: "Build on an open settled support tile for a town you own.",
+      placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
