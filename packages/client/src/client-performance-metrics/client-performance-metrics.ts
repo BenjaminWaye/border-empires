@@ -53,12 +53,17 @@ const drawFpsSamples: number[] = [];
 // the 2D overlay loop that records framePhaseSamples above, so it gets its own sample stream
 // rather than forcing every 2D frame to carry meaningless zeros for fields it doesn't own.
 // rebuildVisibleTerrain() rebuilds every tile-derived overlay in the visible window PLUS the
-// road network (which is not bounded to the visible window — see roadNetworkMs), and — unlike
-// the 2D minimap — currently runs unthrottled on every camera/zoom/tile-revision change, so
-// this instrumentation exists to find out which part actually dominates before touching it.
+// road network (which is not bounded to the visible window — see roadNetworkMs), throttled to
+// a 48ms floor in maybeRebuild rather than firing on every camera/zoom/tile-revision change.
+// Sub-phases split out the three broad stages of the rebuild (roadNetworkMs was measured first
+// and ruled out as the dominant cost; heightfieldMs/perTileLoopMs/commitMs exist to find out
+// which of the rest actually is, rather than guessing).
 export type TerrainRebuildSample = {
   totalMs: number;
   roadNetworkMs: number;
+  heightfieldMs: number;
+  perTileLoopMs: number;
+  commitMs: number;
   knownTileCount: number;
   visibleTileCount: number;
 };
@@ -245,6 +250,9 @@ export const snapshotTerrainRebuild = (): Record<string, unknown> | undefined =>
   return {
     totalMs: numericStats(terrainRebuildSamples.map((s) => s.totalMs)),
     roadNetworkMs: numericStats(terrainRebuildSamples.map((s) => s.roadNetworkMs)),
+    heightfieldMs: numericStats(terrainRebuildSamples.map((s) => s.heightfieldMs)),
+    perTileLoopMs: numericStats(terrainRebuildSamples.map((s) => s.perTileLoopMs)),
+    commitMs: numericStats(terrainRebuildSamples.map((s) => s.commitMs)),
     knownTileCount: latest.knownTileCount,
     visibleTileCount: latest.visibleTileCount
   };
@@ -278,7 +286,7 @@ export const snapshotPerformanceMetrics = (): Record<string, unknown> => {
     framePhases: snapshotFramePhases(),
     terrainRebuild: snapshotTerrainRebuild(),
     terrainRebuildNote:
-      "3D terrain renderer's rebuildVisibleTerrain(), a separate rAF loop from framePhases above. Runs unthrottled on every camera/zoom/tile-revision change. roadNetworkMs is the buildRoadNetwork() sub-cost, which scans knownTileCount (every tile ever seen) rather than visibleTileCount (the camera's current window) — compare the two to see which one actually dominates totalMs.",
+      "3D terrain renderer's rebuildVisibleTerrain(), a separate rAF loop from framePhases above. Throttled to a 48ms floor in maybeRebuild. Sub-phases (should roughly sum to totalMs): roadNetworkMs is buildRoadNetwork(), which scans knownTileCount (every tile ever seen) rather than visibleTileCount; heightfieldMs is the terrain mesh rebuild for the visible window; perTileLoopMs is the per-visible-tile overlay population loop (ownership, structures, crops, etc.); commitMs is the ~25 sequential overlay .commit() calls. Compare them to see which actually dominates.",
     navigationTiming: navTiming,
     connection: connectionInfo,
     window: windowInfo,

@@ -16,8 +16,8 @@ describe("terrain rebuild instrumentation", () => {
   });
 
   it("reports percentile stats for totalMs and roadNetworkMs, and the latest tile counts", () => {
-    recordTerrainRebuildSample({ totalMs: 2, roadNetworkMs: 1, knownTileCount: 500, visibleTileCount: 80 });
-    recordTerrainRebuildSample({ totalMs: 40, roadNetworkMs: 35, knownTileCount: 12_000, visibleTileCount: 84 });
+    recordTerrainRebuildSample({ totalMs: 2, roadNetworkMs: 1, heightfieldMs: 0.5, perTileLoopMs: 0.3, commitMs: 0.2, knownTileCount: 500, visibleTileCount: 80 });
+    recordTerrainRebuildSample({ totalMs: 40, roadNetworkMs: 35, heightfieldMs: 2, perTileLoopMs: 2, commitMs: 1, knownTileCount: 12_000, visibleTileCount: 84 });
 
     const snapshot = snapshotPerformanceMetrics();
     const terrainRebuild = snapshot.terrainRebuild as {
@@ -41,7 +41,7 @@ describe("terrain rebuild instrumentation", () => {
 
   it("caps the sample buffer so a long session doesn't grow it unbounded", () => {
     for (let i = 0; i < 2_000; i += 1) {
-      recordTerrainRebuildSample({ totalMs: 1, roadNetworkMs: 0, knownTileCount: 10, visibleTileCount: 10 });
+      recordTerrainRebuildSample({ totalMs: 1, roadNetworkMs: 0, heightfieldMs: 0, perTileLoopMs: 0, commitMs: 0, knownTileCount: 10, visibleTileCount: 10 });
     }
     const snapshot = snapshotPerformanceMetrics();
     const terrainRebuild = snapshot.terrainRebuild as { totalMs: { count: number } };

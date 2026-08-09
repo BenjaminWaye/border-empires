@@ -1259,8 +1259,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
       tileKindAt: heightfieldKindAt, isExploredAt: isExploredForHeightfield
     };
+    const heightfieldStartAt = performance.now();
     heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: isForestTile, isHillsAt: isHillsTile });
     hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile });
+    const heightfieldMs = performance.now() - heightfieldStartAt;
 
     mountainMassifs.clear();
     villageEffects.clear();
@@ -1314,6 +1316,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const selectedCoord = deps.state.selected;
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
 
+    const perTileLoopStartAt = performance.now();
     for (let dy = -halfH - 1; dy <= halfH + 1; dy += 1) {
       for (let dx = -halfW - 1; dx <= halfW + 1; dx += 1) {
         const wx = deps.wrapX(deps.state.camX + dx);
@@ -1725,8 +1728,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       }
     }
 
+    const perTileLoopMs = performance.now() - perTileLoopStartAt;
+
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
+    const commitStartAt = performance.now();
     crystalTargetingOverlay.commit();
     mountainMassifs.commit();
     villageEffects.commit();
@@ -1758,10 +1764,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     settleOverlay.commit();
     structureOverlay.commit();
     defensibilityOverlay.commit();
+    const commitMs = performance.now() - commitStartAt;
 
     recordTerrainRebuildSample({
       totalMs: performance.now() - rebuildStartAt,
       roadNetworkMs,
+      heightfieldMs,
+      perTileLoopMs,
+      commitMs,
       knownTileCount: deps.state.tiles.size,
       // Matches the (dx, dy) loop bounds above: -halfW-1..halfW+1 and -halfH-1..halfH+1 inclusive.
       visibleTileCount: (2 * halfW + 3) * (2 * halfH + 3)
