@@ -117,6 +117,17 @@ export const ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY = 45;
 export const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 40;
 export const ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 60;
 
+// Market rebalance (structure-detail-screen task): an instant one-time gold
+// grant on completion, plus a small flat gold/min bonus expressed so it sums
+// to exactly its stated gold/day amount. Its main effect is now a flat +10%
+// town gold production multiplier (+35% with an active Clearing House,
+// preserving the existing +25pp Clearing House synergy gap) rather than the
+// old 50%/75% multiplier — see townGoldPerMinuteForPlayer.
+export const MARKET_INSTANT_GOLD_BONUS = 10;
+export const MARKET_FLAT_GOLD_BONUS_PER_MIN = 1 / UPKEEP_MINUTES_PER_DAY;
+export const MARKET_GOLD_PRODUCTION_MULT = 1.1;
+export const MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE = 1.35;
+
 // Converter mode flip (docs/plans/2026-08-06-converter-mode-flip.md)
 export const CONVERTER_MODE_FLIP_COOLDOWN_MS = 60 * 60_000;
 // converter-mode-flip plan §Phase 4 (locked rates): flat gold/day per slot

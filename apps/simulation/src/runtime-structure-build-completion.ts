@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { CONVERTER_MODE_FLIP_COOLDOWN_MS } from "@border-empires/game-domain";
+import { CONVERTER_MODE_FLIP_COOLDOWN_MS, MARKET_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
 import { GRANARY_INSTANT_POPULATION_BURST, SYNTHESIZER_STRUCTURE_TYPES, STRUCTURE_REGISTRY, type BuildableStructureType } from "@border-empires/shared";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { isMonumentBaseType, monumentClaimOwnerId } from "./monument-uniqueness.js";
@@ -50,6 +50,15 @@ export function grantGranaryPopulationBurst(
   });
 }
 
+export function grantMarketInstantGoldBonus(
+  context: RuntimeStructureCommandContext,
+  ownerId: string
+): void {
+  const owner = context.players.get(ownerId);
+  if (!owner) return;
+  owner.points += MARKET_INSTANT_GOLD_BONUS;
+}
+
 export function completeStructureBuild(context: RuntimeStructureCommandContext, targetKey: string, ownerId: string, structureType: string, commandId: string): void {
   const spec = STRUCTURE_REGISTRY[structureType];
   if (!spec) return;
@@ -96,6 +105,14 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
 
   context.replaceTileState(targetKey, completedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
+  // Market rebalance (structure-detail-screen task): instant one-time gold
+  // grant on completion, on top of its ongoing flat/percentage gold bonuses.
+  // Credited before the single emitPlayerStateUpdate call below so that
+  // broadcast carries the post-bonus gold total rather than a stale value
+  // followed by a second, redundant PLAYER_UPDATE.
+  if (structureType === "MARKET") {
+    grantMarketInstantGoldBonus(context, ownerId);
+  }
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId, playerId: ownerId });
   // Light Outpost's vision bonus (and, once active, a Siege Outpost's own)
