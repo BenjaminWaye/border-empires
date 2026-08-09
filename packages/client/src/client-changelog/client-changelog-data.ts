@@ -392,5 +392,14 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Queued waypoints beyond the first now show their own dimmed, numbered flag on the 3D map instead of no marker at all; a waypoint's flag hides once its own tile starts actively expanding.",
       "The waypoint queue now survives a page refresh or reconnect (capped at 20 queued destinations)."
     ]
+  },
+  {
+    createdAt: 1786399200000, // 2026-08-09
+    introducedIn: "fix-dev-slot-busy-queue-sync",
+    title: "Fixed a build getting rejected with \"development slots are busy\" instead of auto-queuing",
+    why: "The server has only ever sent the plain message \"development slots are busy\", but the client was matching against \"all N development slots are busy\" (a format the server never sends) to learn its slot count was out of date. Since that match never fired, a stale local slot count kept letting the client try to build/expand directly instead of routing the action into the development queue, so players occasionally saw a hard rejection where the action should have queued.",
+    changes: [
+      "Any \"development slots are busy\" rejection now immediately marks all development slots as busy locally, so the next build/settle attempt queues instead of repeating the same failed request."
+    ]
   }
 ];
