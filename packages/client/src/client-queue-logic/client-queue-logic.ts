@@ -399,6 +399,20 @@ export const moveWaypointToFront = (
   if (index <= 0) return false;
   const [entry] = state.waypoint.splice(index, 1);
   if (!entry) return false;
+  // The entry being promoted may have been active before (and accumulated
+  // lastEnqueuedKey/consecutiveRetries anti-thrash bookkeeping) and the
+  // previously-active entry is about to go dormant. Reset both, mirroring
+  // restorePersistedWaypointQueueForPlayer's rationale: losing a tick of
+  // anti-thrash tolerance across an activity gap is harmless, but carrying
+  // a stale retry count forward can cause a premature "Waypoint halted"
+  // once this entry (or the demoted one) becomes active again.
+  const demoted = state.waypoint[0];
+  if (demoted) {
+    delete demoted.lastEnqueuedKey;
+    demoted.consecutiveRetries = 0;
+  }
+  delete entry.lastEnqueuedKey;
+  entry.consecutiveRetries = 0;
   state.waypoint.unshift(entry);
   persistWaypointQueueForPlayer(state.me, state.waypoint);
   deps.pushFeed(`Waypoint to (${x}, ${y}) moved to the front of the queue.`, "info", "info");
