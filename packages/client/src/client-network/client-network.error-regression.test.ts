@@ -1206,7 +1206,7 @@ describe("client network regression guards", () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     ws.emit("message", {
-      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "all 4 development slots are busy", x: 12, y: 18 })
+      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "development slots are busy", x: 12, y: 18 })
     });
 
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("12,18", true);
@@ -1223,6 +1223,7 @@ describe("client network regression guards", () => {
     state.lastDevelopmentAttempt = undefined;
     state.latestSettleTargetKey = "12,18";
     state.activeDevelopmentProcessCount = 0;
+    state.developmentProcessLimit = 3;
     state.tiles.set("12,18", {
       x: 12,
       y: 18,
@@ -1237,7 +1238,7 @@ describe("client network regression guards", () => {
     bindWithDeps(state, ws, { showCaptureAlert, pushFeed });
 
     ws.emit("message", {
-      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "all 3 development slots are busy", x: 12, y: 18 })
+      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "development slots are busy", x: 12, y: 18 })
     });
 
     expect(state.activeDevelopmentProcessCount).toBe(3);
@@ -1255,6 +1256,7 @@ describe("client network regression guards", () => {
     state.settleProgressByTile.clear();
     state.queuedDevelopmentDispatchPending = false;
     state.activeDevelopmentProcessCount = 0;
+    state.developmentProcessLimit = 3;
     state.tiles.set("12,18", {
       x: 12,
       y: 18,
@@ -1269,12 +1271,12 @@ describe("client network regression guards", () => {
     bindWithDeps(state, ws, { showCaptureAlert, pushFeed });
 
     ws.emit("message", {
-      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "all 3 development slots are busy", x: 12, y: 18 })
+      data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "development slots are busy", x: 12, y: 18 })
     });
 
     expect(state.activeDevelopmentProcessCount).toBe(3);
     expect(state.developmentQueue).toEqual([]);
-    expect(showCaptureAlert).toHaveBeenCalledWith("Action failed", "all 3 development slots are busy", "warn", undefined);
+    expect(showCaptureAlert).toHaveBeenCalledWith("Action failed", "development slots are busy", "warn", undefined);
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
@@ -1302,7 +1304,7 @@ describe("client network regression guards", () => {
 
     expect(() =>
       ws.emit("message", {
-        data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "all 4 development slots are busy", x: 12, y: 18 })
+        data: JSON.stringify({ type: "ERROR", code: "SETTLE_INVALID", message: "development slots are busy", x: 12, y: 18 })
       })
     ).not.toThrow();
 
@@ -1435,7 +1437,7 @@ describe("client network regression guards", () => {
     const deps = bindWithDeps(state, ws, { showCaptureAlert, pushFeed });
 
     ws.emit("message", {
-      data: JSON.stringify({ type: "ERROR", code: "FORT_BUILD_INVALID", message: "all 4 development slots are busy", x: 33, y: 44 })
+      data: JSON.stringify({ type: "ERROR", code: "FORT_BUILD_INVALID", message: "development slots are busy", x: 33, y: 44 })
     });
 
     expect(deps.clearOptimisticTileState).toHaveBeenCalledWith("33,44", true);
