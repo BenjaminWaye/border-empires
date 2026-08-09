@@ -23,6 +23,26 @@ export type PendingSettlementRecord = {
   commandId: string;
 };
 
+/** Server-durable dev-queue entry -- see runtime-dev-queue.ts. Mirrors the
+ *  shared DevQueueEntry shape but is tracked per-player here, in-memory only
+ *  (not restart-durable, see the plan doc's scope-boundary note). */
+export type ServerDevQueueEntry = {
+  tileKey: string;
+  x: number;
+  y: number;
+  kind: "SETTLE" | "BUILD";
+  /** Only present for kind === "BUILD" -- e.g. "FORT", "MARKET", "REMOVE_STRUCTURE". */
+  structureType?: string;
+  queuedAt: number;
+};
+
+/** Server-durable waypoint/expand-queue entry -- see runtime-waypoint-queue.ts. */
+export type ServerWaypointQueueEntry = {
+  target: { x: number; y: number };
+  trackBarbarian?: boolean;
+  queuedAt: number;
+};
+
 export type PlayerRuntimeSummary = {
   territoryTileKeys: Set<string>;
   frontierTileKeys: Set<string>;
@@ -38,6 +58,8 @@ export type PlayerRuntimeSummary = {
   pendingSettlementsByTile: Map<string, PendingSettlementRecord>;
   fishFoodPerMinute: number;
   lastActiveAtMs: number;
+  devQueue: ServerDevQueueEntry[];
+  waypointQueue: ServerWaypointQueueEntry[];
 };
 
 const emptyStrategicProduction = (): Record<StrategicResourceKey, number> => ({
@@ -128,7 +150,9 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   activeDevelopmentProcessCount: 0,
   pendingSettlementsByTile: new Map<string, PendingSettlementRecord>(),
   fishFoodPerMinute: 0,
-  lastActiveAtMs: 0
+  lastActiveAtMs: 0,
+  devQueue: [],
+  waypointQueue: []
 });
 
 export const cloneStrategicProduction = (
