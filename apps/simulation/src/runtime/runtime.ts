@@ -165,6 +165,19 @@ import {
   parseTilePayload
 } from "../runtime-command-parsers.js";
 import {
+  handleDevQueueCancelCommand as handleDevQueueCancelCommandImpl,
+  handleDevQueueEnqueueCommand as handleDevQueueEnqueueCommandImpl,
+  handleDevQueueMoveToFrontCommand as handleDevQueueMoveToFrontCommandImpl,
+  tryDrainDevQueue as tryDrainDevQueueImpl,
+  type RuntimeDevQueueCommandContext
+} from "../runtime-dev-queue-command-handlers.js";
+import {
+  handleWaypointCancelAllCommand as handleWaypointCancelAllCommandImpl,
+  handleWaypointCancelCommand as handleWaypointCancelCommandImpl,
+  handleWaypointEnqueueCommand as handleWaypointEnqueueCommandImpl,
+  type RuntimeWaypointQueueCommandContext
+} from "../runtime-waypoint-queue-command-handlers.js";
+import {
   createDocksFromInitialState,
   createLocksFromInitialState,
   createPlayersFromRecoveredState,
@@ -1153,9 +1166,7 @@ export class SimulationRuntime {
     await applyPassiveIncomeAsyncImpl(this.passiveIncomeContext(), nowMs, inactivityCapMs, yieldToEventLoop);
   }
 
-  private applyPassiveIncomeForPlayer(player: RuntimePlayer, nowMs: number, inactivityCapMs: number): void {
-    applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), player, nowMs, inactivityCapMs);
-  }
+  private applyPassiveIncomeForPlayer(player: RuntimePlayer, nowMs: number, inactivityCapMs: number): void { applyPassiveIncomeForPlayerImpl(this.passiveIncomeContext(), player, nowMs, inactivityCapMs); }
 
   /**
    * `goldPerMinuteOverride` lets callers that already computed the player's
@@ -1307,9 +1318,7 @@ export class SimulationRuntime {
     };
   }
 
-  private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void {
-    activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId);
-  }
+  private activateWatchtowerAt(targetKey: string, x: number, y: number, playerId: string, commandId: string): void { activateWatchtowerAtImpl(this.watchtowerRevealContext(), targetKey, x, y, playerId, commandId); }
 
   tickWatchtowerReveals(nowMs: number = this.now()): void {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
@@ -1609,9 +1618,7 @@ export class SimulationRuntime {
     return notice;
   }
 
-  private finalizeRespawnNotice(playerId: string, spawnTileKey: string): void {
-    finalizeRespawnNoticeImpl(this.respawnContext(), playerId, spawnTileKey);
-  }
+  private finalizeRespawnNotice(playerId: string, spawnTileKey: string): void { finalizeRespawnNoticeImpl(this.respawnContext(), playerId, spawnTileKey); }
 
   private runtimeLogInfo(payload: Record<string, unknown>, message: string): void {
     try {
@@ -2274,9 +2281,7 @@ export class SimulationRuntime {
     });
   }
 
-  private removeFrontierTileFromOwnerIndex(tileKey: string, ownerId: string): void {
-    removeFrontierTileFromOwnerIndexImpl(this.frontierTilesByOwner, tileKey, ownerId);
-  }
+  private removeFrontierTileFromOwnerIndex(tileKey: string, ownerId: string): void { removeFrontierTileFromOwnerIndexImpl(this.frontierTilesByOwner, tileKey, ownerId); }
 
   private refreshFortAnchorIndexForTile(
     tileKey: string,
@@ -3524,17 +3529,11 @@ export class SimulationRuntime {
     enqueueJobImpl(this.jobQueueContext(), this.jobQueueMutableState(), lane, run, commandType, scheduling, commandId);
   }
 
-  private scheduleDrain(scheduling: "immediate" | "background" = "immediate"): void {
-    scheduleDrainImpl(this.jobQueueContext(), this.jobQueueMutableState(), scheduling);
-  }
+  private scheduleDrain(scheduling: "immediate" | "background" = "immediate"): void { scheduleDrainImpl(this.jobQueueContext(), this.jobQueueMutableState(), scheduling); }
 
-  private drainQueues(): void {
-    drainQueuesImpl(this.jobQueueContext(), this.jobQueueMutableState());
-  }
+  private drainQueues(): void { drainQueuesImpl(this.jobQueueContext(), this.jobQueueMutableState()); }
 
-  private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): boolean {
-    return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType);
-  }
+  private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): boolean { return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType); }
 
   private nextTerritoryAutomationCommandId(label: string, playerId: string, tileKey: string, nowMs: number): string {
     this.territoryAutomationCounter += 1;
@@ -3610,6 +3609,7 @@ export class SimulationRuntime {
     const currentSettlement = this.pendingSettlementsByTile.get(input.tileKey);
     if (!this.pendingSettlementMatches(currentSettlement, expectedSettlement)) return;
     this.removePendingSettlement(input.tileKey);
+    tryDrainDevQueueImpl(this.devQueueCommandContext(), input.ownerId); // slot freed -- see tryDrainDevQueueImpl doc comment
     const latest = this.tiles.get(input.tileKey);
     if (
       !latest ||
@@ -3658,9 +3658,7 @@ export class SimulationRuntime {
     };
   }
 
-  private handleRushBuyCommand(command: CommandEnvelope): void {
-    handleRushBuyCommandImpl(this.rushBuyCommandContext(), command);
-  }
+  private handleRushBuyCommand(command: CommandEnvelope): void { handleRushBuyCommandImpl(this.rushBuyCommandContext(), command); }
 
   private handleSettleCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
@@ -3705,6 +3703,33 @@ export class SimulationRuntime {
     refundSettleCost(actor, pendingSettlement.goldCost, this.playerManpowerCap(actor));
     this.emitPlayerStateUpdate(command);
     this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    tryDrainDevQueueImpl(this.devQueueCommandContext(), command.playerId); // slot freed -- see tryDrainDevQueueImpl doc comment
+  }
+
+  // Dev/waypoint queue command handling + drain logic lives in
+  // runtime-dev-queue-command-handlers.ts / runtime-waypoint-queue-command-handlers.ts
+  // (this file is already oversized) -- these just build their context.
+  private devQueueCommandContext(): RuntimeDevQueueCommandContext {
+    return {
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      now: () => this.now(),
+      emitEvent: (event) => this.emitEvent(event),
+      rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
+      hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId),
+      nextDrainCommandId: (playerId, tileKey) => this.nextTerritoryAutomationCommandId("dev-queue-drain", playerId, tileKey, this.now()),
+      dispatchSettle: (command) => this.handleSettleCommand(command),
+      dispatchBuild: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
+      dispatchRemoveStructure: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command)
+    };
+  }
+
+  private waypointQueueCommandContext(): RuntimeWaypointQueueCommandContext {
+    return {
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      now: () => this.now(),
+      emitEvent: (event) => this.emitEvent(event),
+      rejectCommand: (command, code, message) => this.rejectCommand(command, code, message)
+    };
   }
 
   /**
@@ -3839,9 +3864,7 @@ export class SimulationRuntime {
     };
   }
 
-  private handleUncaptureTileCommand(command: CommandEnvelope): void {
-    handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command);
-  }
+  private handleUncaptureTileCommand(command: CommandEnvelope): void { handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command); }
 
   private abilityCommandContext(): RuntimeAbilityCommandContext {
     return {
@@ -3878,37 +3901,21 @@ export class SimulationRuntime {
     };
   }
 
-  private handleRevealEmpireCommand(command: CommandEnvelope): void {
-    handleRevealEmpireCommandImpl(this.abilityCommandContext(), command);
-  }
+  private handleRevealEmpireCommand(command: CommandEnvelope): void { handleRevealEmpireCommandImpl(this.abilityCommandContext(), command); }
 
-  private handleRevealEmpireStatsCommand(command: CommandEnvelope): void {
-    handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command);
-  }
+  private handleRevealEmpireStatsCommand(command: CommandEnvelope): void { handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command); }
 
-  private handleSurveySweepCommand(command: CommandEnvelope): void {
-    handleSurveySweepCommandImpl(this.abilityCommandContext(), command);
-  }
+  private handleSurveySweepCommand(command: CommandEnvelope): void { handleSurveySweepCommandImpl(this.abilityCommandContext(), command); }
 
-  private handleAetherLanceCommand(command: CommandEnvelope): void {
-    handleAetherLanceCommandImpl(this.abilityCommandContext(), command);
-  }
+  private handleAetherLanceCommand(command: CommandEnvelope): void { handleAetherLanceCommandImpl(this.abilityCommandContext(), command); }
 
-  private handleCastAetherBridgeCommand(command: CommandEnvelope): void {
-    handleCastAetherBridgeCommandImpl(this.abilityCommandContext(), command);
-  }
+  private handleCastAetherBridgeCommand(command: CommandEnvelope): void { handleCastAetherBridgeCommandImpl(this.abilityCommandContext(), command); }
 
-  private handleCastAetherWallCommand(command: CommandEnvelope): void {
-    handleCastAetherWallCommandImpl(this.abilityCommandContext(), command);
-  }
+  private handleCastAetherWallCommand(command: CommandEnvelope): void { handleCastAetherWallCommandImpl(this.abilityCommandContext(), command); }
 
-  private handleSiphonTileCommand(command: CommandEnvelope): void {
-    handleSiphonTileCommandImpl(this.abilityCommandContext(), command);
-  }
+  private handleSiphonTileCommand(command: CommandEnvelope): void { handleSiphonTileCommandImpl(this.abilityCommandContext(), command); }
 
-  private handlePurgeSiphonCommand(command: CommandEnvelope): void {
-    handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command);
-  }
+  private handlePurgeSiphonCommand(command: CommandEnvelope): void { handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command); }
 
   private mapCommandContext(): RuntimeMapCommandContext {
     return {
@@ -3948,17 +3955,11 @@ export class SimulationRuntime {
     };
   }
 
-  private getAbilityCooldownUntil(playerId: string, abilityKey: string): number {
-    return getAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey);
-  }
+  private getAbilityCooldownUntil(playerId: string, abilityKey: string): number { return getAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey); }
 
-  private setAbilityCooldownUntil(playerId: string, abilityKey: string, untilMs: number): void {
-    setAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey, untilMs);
-  }
+  private setAbilityCooldownUntil(playerId: string, abilityKey: string, untilMs: number): void { setAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey, untilMs); }
 
-  private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean {
-    return isTileShieldedByAegisLockImpl(this.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY);
-  }
+  private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean { return isTileShieldedByAegisLockImpl(this.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY); }
 
   private progressionCommandContext(): RuntimeProgressionCommandContext {
     return {
@@ -4032,21 +4033,13 @@ export class SimulationRuntime {
     };
   }
 
-  private handleUpgradeTownTierCommand(command: CommandEnvelope): void {
-    handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command);
-  }
+  private handleUpgradeTownTierCommand(command: CommandEnvelope): void { handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command); }
 
-  private handleCollectShardCommand(command: CommandEnvelope): void {
-    handleCollectShardCommandImpl(this.progressionCommandContext(), command);
-  }
+  private handleCollectShardCommand(command: CommandEnvelope): void { handleCollectShardCommandImpl(this.progressionCommandContext(), command); }
 
-  private handleChooseTechCommand(command: CommandEnvelope): void {
-    handleChooseTechCommandImpl(this.progressionCommandContext(), command);
-  }
+  private handleChooseTechCommand(command: CommandEnvelope): void { handleChooseTechCommandImpl(this.progressionCommandContext(), command); }
 
-  private handleChooseDomainCommand(command: CommandEnvelope): void {
-    handleChooseDomainCommandImpl(this.progressionCommandContext(), command);
-  }
+  private handleChooseDomainCommand(command: CommandEnvelope): void { handleChooseDomainCommandImpl(this.progressionCommandContext(), command); }
 
   private emitPlayerMessage(command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>): void {
     const messageType = typeof payload.type === "string" ? payload.type : "UNKNOWN";
@@ -4068,13 +4061,9 @@ export class SimulationRuntime {
     return targets;
   }
 
-  private revealCapacityForPlayer(player: DomainPlayer): number {
-    return revealCapacityForPlayerImpl(player, this.revealTargetsForPlayer(player.id).size);
-  }
+  private revealCapacityForPlayer(player: DomainPlayer): number { return revealCapacityForPlayerImpl(player, this.revealTargetsForPlayer(player.id).size); }
 
-  private ownedLandWithinRange(playerId: string, x: number, y: number, range: number): boolean {
-    return ownedLandWithinRangeImpl(this.tiles, playerId, x, y, range);
-  }
+  private ownedLandWithinRange(playerId: string, x: number, y: number, range: number): boolean { return ownedLandWithinRangeImpl(this.tiles, playerId, x, y, range); }
 
   isStructurePowered(ownerId: string, tileKey: string, structureType: EconomicStructureType): boolean {
     return isStructurePoweredImpl(
@@ -4106,9 +4095,7 @@ export class SimulationRuntime {
    * the client's `ownObservatoryCastRadius` so menu enablement and sim authority
    * agree on which observatories can reach a target.
    */
-  private observatoryCastRadiusFor(playerId: string): number {
-    return observatoryCastRadiusForImpl(this.players.get(playerId));
-  }
+  private observatoryCastRadiusFor(playerId: string): number { return observatoryCastRadiusForImpl(this.players.get(playerId)); }
 
   /**
    * Crystal-ability cooldowns are stored per-observatory. To cast, the player must
@@ -4179,9 +4166,7 @@ export class SimulationRuntime {
     });
   }
 
-  private isCoastalLand(x: number, y: number): boolean {
-    return isCoastalLandImpl(this.tiles, x, y);
-  }
+  private isCoastalLand(x: number, y: number): boolean { return isCoastalLandImpl(this.tiles, x, y); }
 
   private closestAetherBridgeOrigin(playerId: string, targetX: number, targetY: number): { x: number; y: number } | undefined {
     return closestAetherBridgeOriginImpl(this.tiles, playerId, targetX, targetY);
@@ -4199,9 +4184,7 @@ export class SimulationRuntime {
     return activeAetherWallsForPlayerImpl(this.activeAetherWallsByPlayer, playerId, this.now());
   }
 
-  private crossingBlockedByAetherWall(fromX: number, fromY: number, toX: number, toY: number): boolean {
-    return crossingBlockedByAetherWallImpl(this.activeAetherWallsByPlayer, this.now(), fromX, fromY, toX, toY);
-  }
+  private crossingBlockedByAetherWall(fromX: number, fromY: number, toX: number, toY: number): boolean { return crossingBlockedByAetherWallImpl(this.activeAetherWallsByPlayer, this.now(), fromX, fromY, toX, toY); }
 
   private buildRevealEmpireStats(target: DomainPlayer): Record<string, unknown> {
     const summary = this.summaryForPlayer(target.id);
@@ -4313,9 +4296,7 @@ export class SimulationRuntime {
     return { gold, strategic };
   }
 
-  private strategicResourceAmount(player: DomainPlayer, resource: StrategicResourceKey): number {
-    return player.strategicResources?.[resource] ?? 0;
-  }
+  private strategicResourceAmount(player: DomainPlayer, resource: StrategicResourceKey): number { return player.strategicResources?.[resource] ?? 0; }
 
   private spendStrategicResource(player: DomainPlayer, resource: StrategicResourceKey, amount: number): boolean {
     const current = this.strategicResourceAmount(player, resource);
@@ -4335,9 +4316,7 @@ export class SimulationRuntime {
     };
   }
 
-  private ownedTileCountForPlayer(playerId: string): number {
-    return this.summaryForPlayer(playerId).territoryTileKeys.size;
-  }
+  private ownedTileCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).territoryTileKeys.size; }
 
   private adjacentTileStates(x: number, y: number): DomainTileState[] {
     const result: DomainTileState[] = [];
@@ -4348,13 +4327,9 @@ export class SimulationRuntime {
     return result;
   }
 
-  private extendFortPatrolGrace(tileKey: string, graceUntil: number): void {
-    this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil));
-  }
+  private extendFortPatrolGrace(tileKey: string, graceUntil: number): void { this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil)); }
 
-  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number, allowAdjacent: boolean): boolean {
-    return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey, allowAdjacent);
-  }
+  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number, allowAdjacent: boolean): boolean { return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey, allowAdjacent); }
 
   private isAetherBridgeCrossingTarget(
     playerId: string,
@@ -4398,9 +4373,7 @@ export class SimulationRuntime {
     return supportedTownKeysForTileImpl(this.tiles, playerId, x, y);
   }
 
-  private assignedTownKeyForSupportTile(playerId: string, x: number, y: number): string | undefined {
-    return assignedTownKeyForSupportTileImpl(this.tiles, playerId, x, y);
-  }
+  private assignedTownKeyForSupportTile(playerId: string, x: number, y: number): string | undefined { return assignedTownKeyForSupportTileImpl(this.tiles, playerId, x, y); }
 
   private supportedDockKeysForTile(playerId: string, x: number, y: number): string[] {
     return supportedDockKeysForTileImpl(this.tiles, playerId, x, y);
@@ -4414,14 +4387,10 @@ export class SimulationRuntime {
     return firstAvailableTownSupportTileImpl(this.tiles, playerId, townKey, structureType);
   }
 
-  private ownedStructureCountForPlayer(playerId: string, structureType: BuildableStructureType): number {
-    return ownedStructureCountForPlayerImpl(this.ownedStructureCountByPlayerByType, playerId, structureType);
-  }
+  private ownedStructureCountForPlayer(playerId: string, structureType: BuildableStructureType): number { return ownedStructureCountForPlayerImpl(this.ownedStructureCountByPlayerByType, playerId, structureType); }
   private ownedStructureCountsForPlayer(playerId: string) { return ownedStructureCountsForPlayerImpl(this.ownedStructureCountByPlayerByType, playerId); }
 
-  private adjustOwnedStructureCount(ownerId: string, structureType: BuildableStructureType, delta: number): void {
-    adjustOwnedStructureCountImpl(this.ownedStructureCountByPlayerByType, ownerId, structureType, delta);
-  }
+  private adjustOwnedStructureCount(ownerId: string, structureType: BuildableStructureType, delta: number): void { adjustOwnedStructureCountImpl(this.ownedStructureCountByPlayerByType, ownerId, structureType, delta); }
 
   private refreshOwnedStructureCountIndexForTile(
     previous: DomainTileState | undefined,
@@ -4488,25 +4457,20 @@ export class SimulationRuntime {
     };
   }
 
-  private handleBuildStructureCommand(command: CommandEnvelope): void {
-    handleBuildStructureCommandImpl(this.structureCommandContext(), command);
-  }
+  private handleBuildStructureCommand(command: CommandEnvelope): void { handleBuildStructureCommandImpl(this.structureCommandContext(), command); }
 
   private completeStructureBuild(targetKey: string, ownerId: string, structureType: string, commandId: string): void {
     completeStructureBuildImpl(this.structureCommandContext(), targetKey, ownerId, structureType, commandId);
+    tryDrainDevQueueImpl(this.devQueueCommandContext(), ownerId); // slot freed -- see tryDrainDevQueueImpl doc comment
   }
 
   private cancelActiveOutpostAttackLocks(playerId: string, originKey: string): string[] {
     return cancelActiveOutpostAttackLocksImpl(this.structureCommandContext(), playerId, originKey);
   }
 
-  private handleSetMusterCommand(command: CommandEnvelope): void {
-    handleSetMusterCommandImpl(this.structureCommandContext(), command);
-  }
+  private handleSetMusterCommand(command: CommandEnvelope): void { handleSetMusterCommandImpl(this.structureCommandContext(), command); }
 
-  private handleClearMusterCommand(command: CommandEnvelope): void {
-    handleClearMusterCommandImpl(this.structureCommandContext(), command);
-  }
+  private handleClearMusterCommand(command: CommandEnvelope): void { handleClearMusterCommandImpl(this.structureCommandContext(), command); }
 
   private handleWatchMusterCommand(command: CommandEnvelope): void {
     const payload = JSON.parse(command.payloadJson) as { x: number; y: number };
@@ -4519,25 +4483,15 @@ export class SimulationRuntime {
     this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
-  private handleCancelFortBuildCommand(command: CommandEnvelope): void {
-    handleCancelFortBuildCommandImpl(this.structureCommandContext(), command);
-  }
+  private handleCancelFortBuildCommand(command: CommandEnvelope): void { handleCancelFortBuildCommandImpl(this.structureCommandContext(), command); }
 
-  private handleCancelStructureBuildCommand(command: CommandEnvelope): void {
-    handleCancelStructureBuildCommandImpl(this.structureCommandContext(), command);
-  }
+  private handleCancelStructureBuildCommand(command: CommandEnvelope): void { handleCancelStructureBuildCommandImpl(this.structureCommandContext(), command); }
 
-  private handleRemoveStructureCommand(command: CommandEnvelope): void {
-    handleRemoveStructureCommandImpl(this.structureCommandContext(), command);
-  }
+  private handleRemoveStructureCommand(command: CommandEnvelope): void { handleRemoveStructureCommandImpl(this.structureCommandContext(), command); }
 
-  private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void {
-    completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId);
-  }
+  private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void { completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId); }
 
-  private handleCancelSiegeOutpostBuildCommand(command: CommandEnvelope): void {
-    handleCancelSiegeOutpostBuildCommandImpl(this.structureCommandContext(), command);
-  }
+  private handleCancelSiegeOutpostBuildCommand(command: CommandEnvelope): void { handleCancelSiegeOutpostBuildCommandImpl(this.structureCommandContext(), command); }
 
   // Player-ids with at least one *player-issued* frontier lock - i.e. locks
   // that should gate the AI strategic planner. Automation combat locks are
@@ -4546,9 +4500,7 @@ export class SimulationRuntime {
     return plannerGatingLockPlayerIdsImpl(this.locksByTile);
   }
 
-  private handleCancelCaptureCommand(command: CommandEnvelope): void {
-    handleCancelCaptureCommandImpl(this.combatSupportContext(), command);
-  }
+  private handleCancelCaptureCommand(command: CommandEnvelope): void { handleCancelCaptureCommandImpl(this.combatSupportContext(), command); }
 
   private buildCaptureRevealTileDeltas(
     playerId: string,
@@ -4562,9 +4514,7 @@ export class SimulationRuntime {
     return buildLockedCombatResolutionImpl(this.combatSupportContext(), lock);
   }
 
-  private releaseMusterReservation(lock: LockRecord): void {
-    releaseMusterReservationImpl(this.lockResolutionContext(), lock);
-  }
+  private releaseMusterReservation(lock: LockRecord): void { releaseMusterReservationImpl(this.lockResolutionContext(), lock); }
 
   private resolveLock(lock: LockRecord): void {
     this.deltaBuffer.begin();
@@ -4572,9 +4522,7 @@ export class SimulationRuntime {
     finally { this.deltaBuffer.flush(lock.commandId, lock.playerId, (e: SimulationEvent) => this.emitEvent(e)); }
   }
 
-  private applyEncirclementForExpand(targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }): void {
-    applyEncirclementForExpandImpl(this.encirclementApplicationContext(), targetKey, playerId, commandId, options);
-  }
+  private applyEncirclementForExpand(targetKey: string, playerId: string, commandId: string, options?: { bfsCap?: number }): void { applyEncirclementForExpandImpl(this.encirclementApplicationContext(), targetKey, playerId, commandId, options); }
 
   private applyEncirclement(
     changedKeys: string[],
@@ -4640,13 +4588,9 @@ export class SimulationRuntime {
     return true;
   }
 
-  private respawnPlayerOnUnownedLand(playerId: string, commandId: string): boolean {
-    return respawnPlayerOnUnownedLandImpl(this.respawnContext(), playerId, commandId);
-  }
+  private respawnPlayerOnUnownedLand(playerId: string, commandId: string): boolean { return respawnPlayerOnUnownedLandImpl(this.respawnContext(), playerId, commandId); }
 
-  private applyBarbarianWalkOrMultiply(lock: LockRecord, previousTarget: DomainTileState | undefined): void {
-    applyBarbarianWalkOrMultiplyImpl(this.combatSupportContext(), lock, previousTarget);
-  }
+  private applyBarbarianWalkOrMultiply(lock: LockRecord, previousTarget: DomainTileState | undefined): void { applyBarbarianWalkOrMultiplyImpl(this.combatSupportContext(), lock, previousTarget); }
 
   private applyResourceTileSteal(
     attacker: DomainPlayer,
@@ -4666,13 +4610,9 @@ export class SimulationRuntime {
     applySettledCapturePlunderImpl(input);
   }
 
-  private attackManpowerLoss(committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number {
-    return attackManpowerLossImpl(committedManpower, attackerWon, atkEff, defEff);
-  }
+  private attackManpowerLoss(committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number { return attackManpowerLossImpl(committedManpower, attackerWon, atkEff, defEff); }
 
-  private applyLockedManpowerDelta(player: DomainPlayer, manpowerDelta: number): number {
-    return applyLockedManpowerDeltaImpl(player, manpowerDelta);
-  }
+  private applyLockedManpowerDelta(player: DomainPlayer, manpowerDelta: number): number { return applyLockedManpowerDeltaImpl(player, manpowerDelta); }
 
   private settleAttackManpower(
     player: DomainPlayer,
@@ -4768,9 +4708,7 @@ export class SimulationRuntime {
     });
   }
 
-  private respawnIfEliminated(playerId: string, commandId: string): void {
-    respawnIfEliminatedImpl(this.respawnContext(), playerId, commandId);
-  }
+  private respawnIfEliminated(playerId: string, commandId: string): void { respawnIfEliminatedImpl(this.respawnContext(), playerId, commandId); }
 
   private commandDispatchHandlers(): RuntimeCommandDispatchHandlers {
     return {
@@ -4818,7 +4756,13 @@ export class SimulationRuntime {
       handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
       handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command), handleSyncTruceCommand: (command) => handleSyncTruceCommandImpl(this.mapCommandContext(), command),
-      handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType)
+      handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
+      handleDevQueueEnqueueCommand: (command) => handleDevQueueEnqueueCommandImpl(this.devQueueCommandContext(), command),
+      handleDevQueueCancelCommand: (command) => handleDevQueueCancelCommandImpl(this.devQueueCommandContext(), command),
+      handleDevQueueMoveToFrontCommand: (command) => handleDevQueueMoveToFrontCommandImpl(this.devQueueCommandContext(), command),
+      handleWaypointEnqueueCommand: (command) => handleWaypointEnqueueCommandImpl(this.waypointQueueCommandContext(), command),
+      handleWaypointCancelCommand: (command) => handleWaypointCancelCommandImpl(this.waypointQueueCommandContext(), command),
+      handleWaypointCancelAllCommand: (command) => handleWaypointCancelAllCommandImpl(this.waypointQueueCommandContext(), command)
     };
   }
 
