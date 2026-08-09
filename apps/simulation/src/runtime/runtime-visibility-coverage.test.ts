@@ -360,4 +360,33 @@ describe("stampVisibilityAndMergeFogDeltas", () => {
       { x: 4, y: 4, ownerId: "player-2", ownershipState: "FRONTIER", naturalWonderJson: "{\"type\":\"FOUNDRY_HEART\"}", visibilityState: "VISIBLE" }
     ]);
   });
+
+  // The reveal-only builder (wireDeltaForTileKey) never carries transient/
+  // live fields like combatJson or yield -- it's a static "current state"
+  // snapshot. Merging the reveal delta in must not clobber those fields when
+  // the batch's own delta legitimately has them (e.g. an ATTACK that also
+  // reveals its target carries battle-overlay FX for it).
+  it("preserves transient batch-only fields (e.g. combatJson) when merging in the full reveal delta", () => {
+    const wireByKey = new Map([["5,5", { x: 5, y: 5, ownerId: "player-2", ownershipState: "FRONTIER" as const, naturalWonderJson: "{\"type\":\"FOUNDRY_HEART\"}" }]]);
+    const result = stampVisibilityAndMergeFogDeltas(
+      [{ x: 5, y: 5, ownerId: "player-2", ownershipState: "FRONTIER" as const, combatJson: "{\"attackerWon\":true}" }],
+      {
+        leftVisionTileKeys: undefined,
+        enteredVisionTileKeys: new Set(["5,5"]),
+        wireDeltaForTileKey: (key) => wireByKey.get(key),
+        tileKeyFor: (x, y) => `${x},${y}`
+      }
+    );
+    expect(result).toEqual([
+      {
+        x: 5,
+        y: 5,
+        ownerId: "player-2",
+        ownershipState: "FRONTIER",
+        naturalWonderJson: "{\"type\":\"FOUNDRY_HEART\"}",
+        combatJson: "{\"attackerWon\":true}",
+        visibilityState: "VISIBLE"
+      }
+    ]);
+  });
 });
