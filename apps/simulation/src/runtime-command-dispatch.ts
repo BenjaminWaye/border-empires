@@ -47,6 +47,12 @@ export type RuntimeCommandDispatchHandlers = {
   handleSyncAllianceCommand: (command: CommandEnvelope) => void;
   handleSyncTruceCommand: (command: CommandEnvelope) => void;
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => void;
+  handleDevQueueEnqueueCommand: (command: CommandEnvelope) => void;
+  handleDevQueueCancelCommand: (command: CommandEnvelope) => void;
+  handleDevQueueMoveToFrontCommand: (command: CommandEnvelope) => void;
+  handleWaypointEnqueueCommand: (command: CommandEnvelope) => void;
+  handleWaypointCancelCommand: (command: CommandEnvelope) => void;
+  handleWaypointCancelAllCommand: (command: CommandEnvelope) => void;
 };
 
 export const commandScheduling = (command: CommandEnvelope): "immediate" | "background" =>
@@ -105,7 +111,14 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "SYNC_TRUCE") return handlers.handleSyncTruceCommand(command);
   if (command.type === "ATTACK" || command.type === "EXPAND") {
     handlers.handleFrontierCommand(command, command.type);
+    return;
   }
+  if ((command.type as string) === "DEV_QUEUE_ENQUEUE") return handlers.handleDevQueueEnqueueCommand(command);
+  if ((command.type as string) === "DEV_QUEUE_CANCEL") return handlers.handleDevQueueCancelCommand(command);
+  if ((command.type as string) === "DEV_QUEUE_MOVE_TO_FRONT") return handlers.handleDevQueueMoveToFrontCommand(command);
+  if ((command.type as string) === "WAYPOINT_ENQUEUE") return handlers.handleWaypointEnqueueCommand(command);
+  if ((command.type as string) === "WAYPOINT_CANCEL") return handlers.handleWaypointCancelCommand(command);
+  if ((command.type as string) === "WAYPOINT_CANCEL_ALL") return handlers.handleWaypointCancelAllCommand(command);
 };
 
 const isLegacyBuildCommand = (command: CommandEnvelope): boolean =>
@@ -158,7 +171,13 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "UPGRADE_TOWN_TIER" ||
   command.type === "COLLECT_SHARD" ||
   command.type === "SYNC_ALLIANCE" ||
-  command.type === "SYNC_TRUCE";
+  command.type === "SYNC_TRUCE" ||
+  (command.type as string) === "DEV_QUEUE_ENQUEUE" ||
+  (command.type as string) === "DEV_QUEUE_CANCEL" ||
+  (command.type as string) === "DEV_QUEUE_MOVE_TO_FRONT" ||
+  (command.type as string) === "WAYPOINT_ENQUEUE" ||
+  (command.type as string) === "WAYPOINT_CANCEL" ||
+  (command.type as string) === "WAYPOINT_CANCEL_ALL";
 
 export type RuntimeCommandEnqueue = (
   lane: QueueLane,
