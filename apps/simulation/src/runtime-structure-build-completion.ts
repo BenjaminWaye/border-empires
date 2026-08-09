@@ -52,13 +52,11 @@ export function grantGranaryPopulationBurst(
 
 export function grantMarketInstantGoldBonus(
   context: RuntimeStructureCommandContext,
-  ownerId: string,
-  commandId: string
+  ownerId: string
 ): void {
   const owner = context.players.get(ownerId);
   if (!owner) return;
   owner.points += MARKET_INSTANT_GOLD_BONUS;
-  context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
 }
 
 export function completeStructureBuild(context: RuntimeStructureCommandContext, targetKey: string, ownerId: string, structureType: string, commandId: string): void {
@@ -107,6 +105,14 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
 
   context.replaceTileState(targetKey, completedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
+  // Market rebalance (structure-detail-screen task): instant one-time gold
+  // grant on completion, on top of its ongoing flat/percentage gold bonuses.
+  // Credited before the single emitPlayerStateUpdate call below so that
+  // broadcast carries the post-bonus gold total rather than a stale value
+  // followed by a second, redundant PLAYER_UPDATE.
+  if (structureType === "MARKET") {
+    grantMarketInstantGoldBonus(context, ownerId);
+  }
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId, playerId: ownerId });
   // Light Outpost's vision bonus (and, once active, a Siege Outpost's own)
@@ -119,10 +125,5 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   // absorbed into existing headroom wouldn't read as a "burst" at all).
   if (structureType === "GRANARY") {
     grantGranaryPopulationBurst(context, ownerId, completedTile.x, completedTile.y, commandId);
-  }
-  // Market rebalance (structure-detail-screen task): instant one-time gold
-  // grant on completion, on top of its ongoing flat/percentage gold bonuses.
-  if (structureType === "MARKET") {
-    grantMarketInstantGoldBonus(context, ownerId, commandId);
   }
 }
