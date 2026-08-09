@@ -61,9 +61,62 @@ describe("discoveryTipIdForNewlySeenTile", () => {
     expect(discoveryTipIdForNewlySeenTile({})).toBeUndefined();
   });
 
-  it("has a def for every DiscoveryTipId", () => {
-    const ids: DiscoveryTipId[] = ["TOWN", "DOCK", "BARBARIAN", "FOOD", "IRON", "CRYSTAL", "SUPPLY"];
+  it("returns the wonder type for a tile with a natural wonder", () => {
+    expect(discoveryTipIdForNewlySeenTile({ naturalWonder: { type: "WARPRESS" } as never })).toBe("WARPRESS");
+  });
+
+  it("returns the wonder over town, dock, barbarian, and resource", () => {
+    expect(
+      discoveryTipIdForNewlySeenTile({
+        naturalWonder: { type: "WARPRESS" } as never,
+        town: { name: "X" } as never,
+        dockId: "dock-1",
+        ownerId: "barbarian",
+        resource: "IRON"
+      })
+    ).toBe("WARPRESS");
+  });
+
+  it("has a def for every DiscoveryTipId, including all 9 natural wonders", () => {
+    const ids: DiscoveryTipId[] = [
+      "TOWN",
+      "DOCK",
+      "BARBARIAN",
+      "FOOD",
+      "IRON",
+      "CRYSTAL",
+      "SUPPLY",
+      "FOUNDRY_HEART",
+      "DEEPWATER_ENGINE",
+      "CONSCRIPTION_ENGINE",
+      "WARPRESS",
+      "BASTION_FRAME",
+      "CALCULATING_ENGINE",
+      "QUICKFORGE",
+      "WATCHTOWER_ENGINE",
+      "CARTOGRAPHERS_LENS"
+    ];
     for (const id of ids) expect(DISCOVERY_TIPS[id].id).toBe(id);
+  });
+
+  it("gives each natural wonder tip unique, non-empty title and body text", () => {
+    const wonderIds: DiscoveryTipId[] = [
+      "FOUNDRY_HEART",
+      "DEEPWATER_ENGINE",
+      "CONSCRIPTION_ENGINE",
+      "WARPRESS",
+      "BASTION_FRAME",
+      "CALCULATING_ENGINE",
+      "QUICKFORGE",
+      "WATCHTOWER_ENGINE",
+      "CARTOGRAPHERS_LENS"
+    ];
+    const titles = wonderIds.map((id) => DISCOVERY_TIPS[id].title);
+    const bodies = wonderIds.map((id) => DISCOVERY_TIPS[id].body);
+    for (const title of titles) expect(title.length).toBeGreaterThan(0);
+    for (const body of bodies) expect(body.length).toBeGreaterThan(0);
+    expect(new Set(titles).size).toBe(wonderIds.length);
+    expect(new Set(bodies).size).toBe(wonderIds.length);
   });
 });
 
@@ -85,6 +138,13 @@ describe("enqueueDiscoveryTipForNewlySeenTile / dismissActiveDiscoveryTip", () =
     const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { dockId: "dock-1" }, "a@example.com");
     expect(enqueued).toBe(true);
     expect(queue).toEqual(["DOCK"]);
+  });
+
+  it("enqueues a tip for a newly-seen natural wonder tile", () => {
+    const queue: DiscoveryTipId[] = [];
+    const enqueued = enqueueDiscoveryTipForNewlySeenTile(queue, { naturalWonder: { type: "QUICKFORGE" } as never }, "a@example.com");
+    expect(enqueued).toBe(true);
+    expect(queue).toEqual(["QUICKFORGE"]);
   });
 
   it("enqueues a tip for a newly-seen barbarian tile", () => {
