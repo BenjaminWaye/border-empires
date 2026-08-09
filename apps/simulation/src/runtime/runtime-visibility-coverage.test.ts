@@ -332,4 +332,61 @@ describe("stampVisibilityAndMergeFogDeltas", () => {
     });
     expect(result).toEqual([{ x: 3, y: 3, ownerId: "player-2", ownershipState: "FRONTIER", visibilityState: "VISIBLE" }]);
   });
+
+  // Regression: a player capturing a natural-wonder tile they'd never had
+  // revealed to them before (e.g. a distant dock-crossing EXPAND) got a
+  // delta missing naturalWonderJson and the wonder vanished client-side.
+  // The captured tile is both present in the batch's own event delta (built
+  // via the sparse-diffed tileDeltaFromState path, which had already been
+  // marked "unchanged" against the GLOBAL cross-player cache baseline by
+  // some earlier, unrelated reveal to a *different* player) AND newly
+  // entering *this* player's vision this same tick. Before the fix, the
+  // "already in batch" short-circuit meant the entered-vision branch never
+  // ran, so the field-dropped batch delta shipped as-is. It must instead
+  // prefer the always-full reveal-only delta, same as the leftKeys/FOG case.
+  it("prefers the full reveal delta over a field-dropped batch delta for a tile that is both captured and newly entering vision", () => {
+    const wireByKey = new Map([
+      ["4,4", { x: 4, y: 4, ownerId: "player-2", ownershipState: "FRONTIER" as const, naturalWonderJson: "{\"type\":\"FOUNDRY_HEART\"}" }]
+    ]);
+    // The batch's own delta omits naturalWonderJson -- the sparse-diff path
+    // considered it "unchanged" against a baseline this player never saw.
+    const result = stampVisibilityAndMergeFogDeltas([{ x: 4, y: 4, ownerId: "player-2", ownershipState: "FRONTIER" as const }], {
+      leftVisionTileKeys: undefined,
+      enteredVisionTileKeys: new Set(["4,4"]),
+      wireDeltaForTileKey: (key) => wireByKey.get(key),
+      tileKeyFor: (x, y) => `${x},${y}`
+    });
+    expect(result).toEqual([
+      { x: 4, y: 4, ownerId: "player-2", ownershipState: "FRONTIER", naturalWonderJson: "{\"type\":\"FOUNDRY_HEART\"}", visibilityState: "VISIBLE" }
+    ]);
+  });
+
+  // The reveal-only builder (wireDeltaForTileKey) never carries transient/
+  // live fields like combatJson or yield -- it's a static "current state"
+  // snapshot. Merging the reveal delta in must not clobber those fields when
+  // the batch's own delta legitimately has them (e.g. an ATTACK that also
+  // reveals its target carries battle-overlay FX for it).
+  it("preserves transient batch-only fields (e.g. combatJson) when merging in the full reveal delta", () => {
+    const wireByKey = new Map([["5,5", { x: 5, y: 5, ownerId: "player-2", ownershipState: "FRONTIER" as const, naturalWonderJson: "{\"type\":\"FOUNDRY_HEART\"}" }]]);
+    const result = stampVisibilityAndMergeFogDeltas(
+      [{ x: 5, y: 5, ownerId: "player-2", ownershipState: "FRONTIER" as const, combatJson: "{\"attackerWon\":true}" }],
+      {
+        leftVisionTileKeys: undefined,
+        enteredVisionTileKeys: new Set(["5,5"]),
+        wireDeltaForTileKey: (key) => wireByKey.get(key),
+        tileKeyFor: (x, y) => `${x},${y}`
+      }
+    );
+    expect(result).toEqual([
+      {
+        x: 5,
+        y: 5,
+        ownerId: "player-2",
+        ownershipState: "FRONTIER",
+        naturalWonderJson: "{\"type\":\"FOUNDRY_HEART\"}",
+        combatJson: "{\"attackerWon\":true}",
+        visibilityState: "VISIBLE"
+      }
+    ]);
+  });
 });
