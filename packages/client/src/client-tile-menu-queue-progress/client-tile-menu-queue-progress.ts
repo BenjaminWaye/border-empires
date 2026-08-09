@@ -82,3 +82,65 @@ export const queuedBuildProgressForTile = (
     ...(isFirstInQueue ? {} : { secondaryLabel: "Jump to front of queue", secondaryActionId: "move_queued_entry_to_front" as const })
   };
 };
+
+// Progress-card builders for the two client-local (non-development) queues:
+//
+// - waypoint queue (state.waypoint) -- each entry is a destination the
+//   empire auto-expands toward; only index 0 is actively being pursued.
+// - frontier action queue (state.actionQueue) -- raw FIFO of individual
+//   claim/attack targets waiting for their turn to dispatch.
+//
+// Neither queue is server-durable (unlike developmentQueue), so there is no
+// "planned vs queued" split here -- just queue position.
+export const queuedWaypointProgressForTile = (
+  tile: Tile,
+  deps: {
+    waypointIndexForTile: (x: number, y: number) => number;
+    waypointCount: () => number;
+  }
+): TileMenuProgressView | undefined => {
+  const index = deps.waypointIndexForTile(tile.x, tile.y);
+  if (index < 0) return undefined;
+  const isFirstInQueue = index === 0;
+  const count = deps.waypointCount();
+  return {
+    title: isFirstInQueue ? "Waypoint active" : "Waypoint queued",
+    detail: isFirstInQueue
+      ? "This is the active waypoint destination -- the empire auto-claims frontier tiles toward it."
+      : "This waypoint destination will be pursued once earlier waypoints are reached or cancelled.",
+    remainingLabel: `Queue #${index + 1} of ${count}`,
+    progress: 0,
+    note: isFirstInQueue
+      ? "Waypoints auto-claim frontier tiles toward this destination until it's reached or cancelled."
+      : "Jumping the queue moves this waypoint ahead of the others.",
+    cancelLabel: "Cancel waypoint",
+    cancelActionId: "cancel_queued_waypoint",
+    ...(isFirstInQueue ? {} : { secondaryLabel: "Jump to front of queue", secondaryActionId: "move_waypoint_to_front" as const })
+  };
+};
+
+export const queuedExpandProgressForTile = (
+  tile: Tile,
+  deps: {
+    actionQueueIndexForTile: (x: number, y: number) => number;
+    actionQueueLength: () => number;
+  }
+): TileMenuProgressView | undefined => {
+  const index = deps.actionQueueIndexForTile(tile.x, tile.y);
+  if (index < 0) return undefined;
+  const isFirstInQueue = index === 0;
+  const isAttack = Boolean(tile.ownerId);
+  const kindLabel = isAttack ? "attack" : "expansion";
+  return {
+    title: isFirstInQueue ? `Queued ${kindLabel} -- next up` : `Queued ${kindLabel}`,
+    detail: isFirstInQueue
+      ? `This ${kindLabel} will be dispatched as soon as the current action finishes.`
+      : `Waiting behind ${index} other queued frontier action${index === 1 ? "" : "s"}.`,
+    remainingLabel: `Queue #${index + 1} of ${deps.actionQueueLength()}`,
+    progress: 0,
+    note: `Queued frontier ${kindLabel}s can be cancelled or reprioritized before they start.`,
+    cancelLabel: `Cancel queued ${kindLabel}`,
+    cancelActionId: "cancel_queued_expand",
+    ...(isFirstInQueue ? {} : { secondaryLabel: "Jump to front of queue", secondaryActionId: "move_action_queue_entry_to_front" as const })
+  };
+};

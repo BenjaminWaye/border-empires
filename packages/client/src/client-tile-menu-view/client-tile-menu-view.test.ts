@@ -1062,6 +1062,8 @@ describe("menuOverviewForTile", () => {
         captureProgressForTile: () => undefined,
         queuedSettlementProgressForTile: () => undefined,
         queuedBuildProgressForTile: () => undefined,
+        queuedExpandProgressForTile: () => undefined,
+        queuedWaypointProgressForTile: () => undefined,
         constructionProgressForTile: () => undefined,
         menuOverviewForTile: () => []
       }
@@ -1114,6 +1116,8 @@ describe("menuOverviewForTile", () => {
         captureProgressForTile: () => undefined,
         queuedSettlementProgressForTile: () => undefined,
         queuedBuildProgressForTile: () => undefined,
+        queuedExpandProgressForTile: () => undefined,
+        queuedWaypointProgressForTile: () => undefined,
         constructionProgressForTile: () => undefined,
         menuOverviewForTile: () => []
       }
@@ -1161,6 +1165,8 @@ describe("menuOverviewForTile", () => {
         captureProgressForTile: () => undefined,
         queuedSettlementProgressForTile: () => undefined,
         queuedBuildProgressForTile: () => undefined,
+        queuedExpandProgressForTile: () => undefined,
+        queuedWaypointProgressForTile: () => undefined,
         constructionProgressForTile: () => undefined,
         menuOverviewForTile: () => []
       }
@@ -1189,6 +1195,8 @@ describe("menuOverviewForTile", () => {
         captureProgressForTile: () => undefined,
         queuedSettlementProgressForTile: () => undefined,
         queuedBuildProgressForTile: () => undefined,
+        queuedExpandProgressForTile: () => undefined,
+        queuedWaypointProgressForTile: () => undefined,
         constructionProgressForTile: () => undefined,
         menuOverviewForTile: () => []
       }
@@ -1291,6 +1299,8 @@ describe("menuOverviewForTile", () => {
         captureProgressForTile: () => undefined,
         queuedSettlementProgressForTile: () => undefined,
         queuedBuildProgressForTile: () => undefined,
+        queuedExpandProgressForTile: () => undefined,
+        queuedWaypointProgressForTile: () => undefined,
         constructionProgressForTile: () => undefined,
         menuOverviewForTile: () => []
       }
