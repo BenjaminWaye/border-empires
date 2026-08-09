@@ -563,7 +563,15 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     frontierClaimPlate
   );
 
-  const lastUpdate = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0, tilesRevision: -1, crystalTargetingActive: false };
+  // Camera transform tracking (resize/applyCamera): applied every frame, unthrottled — these
+  // are cheap (a few float ops), and the camera needs to feel instantly responsive.
+  const lastCameraApplied = { zoom: Number.NaN, width: 0, height: 0 };
+  // rebuildVisibleTerrain() tracking: throttled below (REBUILD_MIN_INTERVAL_MS) — it tears
+  // down and repopulates ~25 overlay systems every call, expensive independent of tile count
+  // (measured: up to 35ms for just 45 visible tiles — see the terrainRebuild diagnostics this
+  // tracking feeds). Deliberately a separate object from lastCameraApplied so throttling the
+  // rebuild never delays the camera transform itself.
+  const lastRebuild = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0, tilesRevision: -1, crystalTargetingActive: false };
   let rafId: number | undefined;
   let lastOwnershipDebugSignature = "";
   const ownershipDebugWindow = (): (Window & { __be3dOwnershipDebug?: unknown }) | undefined =>
@@ -1760,31 +1768,50 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     });
   };
 
+  // A trailing-edge throttle floor for rebuildVisibleTerrain(): a zoom/pan gesture changes
+  // camX/camY/zoom on nearly every animation frame, and without this the main thread had no
+  // room to do anything else — each rebuild ran back-to-back with the next. This is not a
+  // dropped-update risk: rebuildNeeded (via lastRebuild not being updated on a throttled tick)
+  // stays true on every subsequent frame until the floor opens, so the next frame after motion
+  // settles always rebuilds against whatever the current state is, not whatever first triggered
+  // the dirty flag. Worst case the terrain lags the camera by one floor window, then snaps
+  // correct — a large improvement over the previous every-single-frame full rebuild.
+  const REBUILD_MIN_INTERVAL_MS = 48;
+
   const maybeRebuild = (nowMs: number): void => {
     const width = deps.canvas.width;
     const height = deps.canvas.height;
-    const zoomChanged = deps.state.zoom !== lastUpdate.zoom;
-    const ctActiveNow = deps.state.crystalTargeting.active, ctActiveChanged = ctActiveNow !== lastUpdate.crystalTargetingActive;
-    const changed =
-      deps.state.camX !== lastUpdate.camX ||
-      deps.state.camY !== lastUpdate.camY ||
-      zoomChanged ||
-      width !== lastUpdate.width ||
-      height !== lastUpdate.height ||
-      deps.state.tilesRevision !== lastUpdate.tilesRevision ||
-      ctActiveChanged;
-    if (!changed) return;
-    if (width !== lastUpdate.width || height !== lastUpdate.height) resize();
+    const sizeChanged = width !== lastCameraApplied.width || height !== lastCameraApplied.height;
+    const zoomChanged = deps.state.zoom !== lastCameraApplied.zoom;
+    if (sizeChanged) resize();
     else if (zoomChanged) applyCamera();
+    if (sizeChanged || zoomChanged) {
+      lastCameraApplied.zoom = deps.state.zoom;
+      lastCameraApplied.width = width;
+      lastCameraApplied.height = height;
+    }
+
+    const ctActiveNow = deps.state.crystalTargeting.active;
+    const rebuildNeeded =
+      deps.state.camX !== lastRebuild.camX ||
+      deps.state.camY !== lastRebuild.camY ||
+      deps.state.zoom !== lastRebuild.zoom ||
+      width !== lastRebuild.width ||
+      height !== lastRebuild.height ||
+      deps.state.tilesRevision !== lastRebuild.tilesRevision ||
+      ctActiveNow !== lastRebuild.crystalTargetingActive;
+    if (!rebuildNeeded) return;
+    if (lastRebuild.at !== 0 && nowMs - lastRebuild.at < REBUILD_MIN_INTERVAL_MS) return;
+
     rebuildVisibleTerrain();
-    lastUpdate.camX = deps.state.camX;
-    lastUpdate.camY = deps.state.camY;
-    lastUpdate.zoom = deps.state.zoom;
-    lastUpdate.width = width;
-    lastUpdate.height = height;
-    lastUpdate.at = nowMs;
-    lastUpdate.tilesRevision = deps.state.tilesRevision;
-    lastUpdate.crystalTargetingActive = ctActiveNow;
+    lastRebuild.camX = deps.state.camX;
+    lastRebuild.camY = deps.state.camY;
+    lastRebuild.zoom = deps.state.zoom;
+    lastRebuild.width = width;
+    lastRebuild.height = height;
+    lastRebuild.at = nowMs;
+    lastRebuild.tilesRevision = deps.state.tilesRevision;
+    lastRebuild.crystalTargetingActive = ctActiveNow;
   };
 
   const renderLoop = (): void => {

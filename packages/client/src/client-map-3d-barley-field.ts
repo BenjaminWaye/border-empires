@@ -189,12 +189,39 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
   const STALK_H = 0.17;
   const HEAD_H = 0.1;
 
-  const addBarleyField = (wx: number, sy: number, wz: number, v: BarleyFieldVariant): void => {
-    const rng = mulberry(hashSeed(wx, wz, 7919 + v * 131));
+  // A tile's ~600-800 plants are fully determined by its world coordinates (the RNG is seeded
+  // from worldTileX/worldTileY, not the camera-relative scene position addInstance is called
+  // with — the same world tile always paints the same crop). rebuildVisibleTerrain() calls
+  // addInstance again for every visible farm tile on every terrain rebuild — which, before the
+  // rebuild throttle, could be dozens of times a second during a zoom/pan gesture — so
+  // regenerating ~600-800 RNG-driven pieces (each with several rng()/Math.cos/sin/sqrt calls)
+  // from scratch every single time was pure waste: the layout came out identical regardless.
+  // This caches the deterministic relative-offset layout per world tile, computed once, and
+  // replays it (via addPiece) against the current camera-relative origin on every subsequent
+  // call — skipping the RNG/trig regeneration while still writing fresh instance matrices
+  // (unavoidable: those must reflect the current camera-relative frame).
+  type BarleyPiece = {
+    key: string;
+    ox: number; oy: number; oz: number;
+    sx: number; sy2: number; sz: number;
+    rotY: number; rotX: number; rotZ: number;
+  };
+  // Bounded like client-map-facade.ts's terrainColorCache: a long session that pans across many
+  // distinct farm tiles shouldn't grow this indefinitely (each entry is ~600-800 small objects).
+  const LAYOUT_CACHE_LIMIT = 500;
+  const layoutCache = new Map<string, BarleyPiece[]>();
+  const layoutCacheOrder: string[] = [];
+
+  const buildBarleyFieldLayout = (worldTileX: number, worldTileY: number, v: BarleyFieldVariant): BarleyPiece[] => {
+    const rng = mulberry(hashSeed(worldTileX, worldTileY, 7919 + v * 131));
+    const pieces: BarleyPiece[] = [];
+    const push = (key: string, ox: number, oy: number, oz: number, sx = 1, sy2 = 1, sz = 1, rotY = 0, rotX = 0, rotZ = 0): void => {
+      pieces.push({ key, ox, oy, oz, sx, sy2, sz, rotY, rotX, rotZ });
+    };
 
     // Soil bed — two overlapping flattened mounds form the field mass.
-    addPiece("soilA", wx, sy, wz, -0.05, 0.022, -0.03, 2.4, 0.16, 2.4, rng() * Math.PI * 2);
-    addPiece("soilB", wx, sy, wz, 0.09, 0.026, 0.05, 2.1, 0.14, 2.1, rng() * Math.PI * 2);
+    push("soilA", -0.05, 0.022, -0.03, 2.4, 0.16, 2.4, rng() * Math.PI * 2);
+    push("soilB", 0.09, 0.026, 0.05, 2.1, 0.14, 2.1, rng() * Math.PI * 2);
 
     // Dense crop: base plant count per variant, biased taller/warmer as
     // the variant index rises so adjacent tiles read differently. Counts
@@ -219,14 +246,14 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
 
       // Stalk — mix of fresh green and straw tones.
       const stalkKey = rng() < 0.55 ? "stalkGreen" : "stalkStraw";
-      addPiece(stalkKey, wx, sy, wz, ox, (STALK_H / 2) * h, oz, 1, h, 1, 0, tx, tz);
+      push(stalkKey, ox, (STALK_H / 2) * h, oz, 1, h, 1, 0, tx, tz);
 
       // Seed head on most plants, slightly leaning with the stalk so the
       // crop reads as bending grain rather than rigid pickets.
       if (rng() < 0.82) {
         const headKey = rng() < 0.55 ? "headGold" : "headPale";
         const headTilt = tiltAmt * 0.7 + (rng() - 0.5) * 0.1;
-        addPiece(headKey, wx, sy, wz, ox, STALK_H * h + (HEAD_H / 2) * h, oz, 1, h * 0.9, 1, 0, headTilt, 0);
+        push(headKey, ox, STALK_H * h + (HEAD_H / 2) * h, oz, 1, h * 0.9, 1, 0, headTilt, 0);
 
         // Awns: a sparse bristle on ~40% of heads. At this density the
         // awn mesh was the single biggest allocation (~1/3 of the total),
@@ -237,9 +264,8 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
           const awnLean = 0.35 + rng() * 0.5;
           const awnX = Math.cos(awnDir);
           const awnZ = Math.sin(awnDir);
-          addPiece(
+          push(
             "awn",
-            wx, sy, wz,
             ox + awnX * 0.01,
             STALK_H * h + HEAD_H * h * 0.9 + 0.06,
             oz + awnZ * 0.01,
@@ -257,7 +283,30 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
       const r = 0.3 * Math.sqrt(rng());
       const a = rng() * Math.PI * 2;
       const headKey = rng() < 0.5 ? "headGold" : "headPale";
-      addPiece(headKey, wx, sy, wz, Math.cos(a) * r, (HEAD_H / 2) * 0.8, Math.sin(a) * r, 1, 0.8, 1, 0, (rng() - 0.5) * 0.12, 0);
+      push(headKey, Math.cos(a) * r, (HEAD_H / 2) * 0.8, Math.sin(a) * r, 1, 0.8, 1, 0, (rng() - 0.5) * 0.12, 0);
+    }
+
+    return pieces;
+  };
+
+  const layoutForTile = (worldTileX: number, worldTileY: number, v: BarleyFieldVariant): BarleyPiece[] => {
+    const cacheKey = `${worldTileX},${worldTileY}`;
+    const cached = layoutCache.get(cacheKey);
+    if (cached) return cached;
+    const layout = buildBarleyFieldLayout(worldTileX, worldTileY, v);
+    layoutCache.set(cacheKey, layout);
+    layoutCacheOrder.push(cacheKey);
+    if (layoutCacheOrder.length > LAYOUT_CACHE_LIMIT) {
+      const oldestKey = layoutCacheOrder.shift();
+      if (oldestKey !== undefined) layoutCache.delete(oldestKey);
+    }
+    return layout;
+  };
+
+  const addBarleyField = (wx: number, sy: number, wz: number, v: BarleyFieldVariant, worldTileX: number, worldTileY: number): void => {
+    const layout = layoutForTile(worldTileX, worldTileY, v);
+    for (const piece of layout) {
+      addPiece(piece.key, wx, sy, wz, piece.ox, piece.oy, piece.oz, piece.sx, piece.sy2, piece.sz, piece.rotY, piece.rotX, piece.rotZ);
     }
   };
 
@@ -268,7 +317,7 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
 
   const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number): void => {
     const v = barleyFieldVariantAt(worldTileX, worldTileY);
-    addBarleyField(sceneX, surfaceY, sceneZ, v);
+    addBarleyField(sceneX, surfaceY, sceneZ, v, worldTileX, worldTileY);
   };
 
   const commit = (): void => {
@@ -279,6 +328,8 @@ export const createBarleyFieldOverlay = (scene: Scene, maxTiles: number): Barley
   };
 
   const dispose = (): void => {
+    layoutCache.clear();
+    layoutCacheOrder.length = 0;
     for (const slot of slots.values()) scene.remove(slot.mesh);
     [soilGeo, stalkGeo, headGeo, awnGeo].forEach((g) => g.dispose());
     [
