@@ -12,7 +12,13 @@ const SimulationCommandTypeSchema = z.union([
   z.literal("SYNC_ALLIANCE"),
   z.literal("SYNC_TRUCE"),
   z.literal("WATCH_MUSTER"),
-  z.literal("UNWATCH_MUSTER")
+  z.literal("UNWATCH_MUSTER"),
+  z.literal("DEV_QUEUE_ENQUEUE"),
+  z.literal("DEV_QUEUE_CANCEL"),
+  z.literal("DEV_QUEUE_MOVE_TO_FRONT"),
+  z.literal("WAYPOINT_ENQUEUE"),
+  z.literal("WAYPOINT_CANCEL"),
+  z.literal("WAYPOINT_CANCEL_ALL")
 ]);
 
 export const CommandEnvelopeSchema = z.object({
@@ -315,6 +321,13 @@ export type PlayerSubscriptionSnapshot = {
     activeDevelopmentProcessCount: number;
     pendingSettlements: Array<{ x: number; y: number; startedAt: number; resolvesAt: number }>;
     autoSettlementQueue?: Array<{ x: number; y: number }>;
+    // Server-durable dev/expand queue tail (see runtime-dev-queue.ts /
+    // runtime-waypoint-queue.ts): drains on its own while the player is
+    // disconnected, capped at DEV_QUEUE_SERVER_CAP each. Not restart-durable
+    // (in-memory only, see PlayerRuntimeSummary) -- only survives the running
+    // process's lifetime, not a process restart.
+    devQueue?: Array<{ tileKey: string; kind: "SETTLE" | "BUILD"; queuedAt: number }>;
+    waypointQueue?: Array<{ x: number; y: number; trackBarbarian?: boolean; queuedAt: number }>;
     techIds: string[];
     domainIds: string[];
     // Locked sub-choice for domains that ask the player to pick a resource

@@ -52,6 +52,12 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "UPGRADE_TOWN_TIER":
     case "WATCH_MUSTER":
     case "UNWATCH_MUSTER":
+    case "DEV_QUEUE_ENQUEUE":
+    case "DEV_QUEUE_CANCEL":
+    case "DEV_QUEUE_MOVE_TO_FRONT":
+    case "WAYPOINT_ENQUEUE":
+    case "WAYPOINT_CANCEL":
+    case "WAYPOINT_CANCEL_ALL":
       return "human_noninteractive";
     default:
       return "system";
