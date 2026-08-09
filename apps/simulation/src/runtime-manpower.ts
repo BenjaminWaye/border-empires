@@ -130,7 +130,7 @@ export const playerManpowerBreakdownFromSummary = (
   });
   const capLinesWithGarrisonHall =
     garrisonHallCount > 0
-      ? [...capLines, { label: "Garrison Hall", amount: garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS }]
+      ? [...capLines, { label: "Ancillary Factory", amount: garrisonHallCount * GARRISON_HALL_MANPOWER_CAP_BONUS }]
       : capLines;
   if (logisticsGuildCount > 0) {
     regenLines.push({ label: "Logistics Guild", amount: logisticsGuildCount * LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE });
