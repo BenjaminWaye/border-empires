@@ -36,6 +36,11 @@ import {
   registerWorldbreakerPartStructures,
   type WorldbreakerPartStructureKind
 } from "../client-map-3d-structure-worldbreaker-part.js";
+import {
+  IMPERIAL_EXCHANGE_PART_STRUCTURE_KINDS,
+  registerImperialExchangePartStructures,
+  type ImperialExchangePartStructureKind
+} from "../client-map-3d-structure-imperial-exchange-part.js";
 
 // 3D economic-structure overlay. The per-family files (economic,
 // late-game, civic, infrastructure, industrial) each own their
@@ -59,7 +64,8 @@ export type StructureKind =
   | InfrastructureStructureKind
   | IndustrialStructureKind
   | ManpowerStructureKind
-  | WorldbreakerPartStructureKind;
+  | WorldbreakerPartStructureKind
+  | ImperialExchangePartStructureKind;
 
 export type { StructureResourceHint } from "../client-map-3d-structure-economic.js";
 
@@ -70,7 +76,8 @@ export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set
   ...INFRASTRUCTURE_STRUCTURE_KINDS,
   ...INDUSTRIAL_STRUCTURE_KINDS,
   ...MANPOWER_STRUCTURE_KINDS,
-  ...WORLDBREAKER_PART_STRUCTURE_KINDS
+  ...WORLDBREAKER_PART_STRUCTURE_KINDS,
+  ...IMPERIAL_EXCHANGE_PART_STRUCTURE_KINDS
 ]);
 
 export type StructureOverlay = {
@@ -107,6 +114,7 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   const industrial = registerIndustrialStructures(builder, economic.shared);
   const manpower = registerManpowerStructures(builder);
   const worldbreakerPart = registerWorldbreakerPartStructures(builder);
+  const imperialExchangePart = registerImperialExchangePartStructures(builder);
 
   // Build a uniform dispatch table. Only the economic family uses
   // `resource`; we ignore it for the others by wrapping their layouts.
@@ -134,6 +142,9 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   }
   for (const [k, fn] of Object.entries(worldbreakerPart.layouts)) {
     layouts[k as WorldbreakerPartStructureKind] = ignoreResource(fn);
+  }
+  for (const [k, fn] of Object.entries(imperialExchangePart.layouts)) {
+    layouts[k as ImperialExchangePartStructureKind] = ignoreResource(fn);
   }
 
   const addInstance = (

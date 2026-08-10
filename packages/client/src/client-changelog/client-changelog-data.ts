@@ -430,5 +430,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "3D map: each of the Worldbreaker Cannon's 3 components now renders its own dedicated model — a tapered barrel in a brass cradle, a faceted crystal core in an iron containment ring, and a tripod targeting array.",
       "All three share the monument set's flat-shaded industrial look and its dark iron, aged brass, and stone palette."
     ]
+  },
+  {
+    createdAt: 1786224715236,
+    introducedIn: "imperial-exchange-part-models",
+    title: "Imperial Exchange components now render as distinct 3D models",
+    why: "Imperial Exchange component tiles had no dedicated 3D model, so on the 3D map they fell back to a flat 2D overlay and read as a placeholder rather than a monument under construction. Each of the three components you build now renders its own distinct low-poly monument component.",
+    changes: [
+      "3D map: each of the Imperial Exchange's 3 components now renders its own dedicated model — the Golden Ledger (an upright iron ledger with brass binding and a dull-gold seal), the Counting Engine (a brass calculating drum with tally wheels and a glowing cyan ring), and the Sovereign Seal (a ceremonial iron-and-brass seal stamp with a gold crest center).",
+      "The 2D fallback overlay for component tiles is no longer drawn in 3D mode, matching other structures."
+    ]
   }
 ];
