@@ -19,10 +19,13 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 49 structure types", () => {
+test("STRUCTURE_REGISTRY covers exactly 50 structure types", () => {
   // 51 minus BANK and EXCHANGE_HOUSE (both removed; Clearing House now
-  // covers Bank's former unlock slot on the coinage tech).
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(49);
+  // covers Bank's former unlock slot on the coinage tech), minus
+  // WEAPONS_WORKSHOP (retired, no longer in ECONOMIC_SPECS — see
+  // structure-registry-economic.ts), plus IRON_WEAPONS_FACTORY and
+  // FUR_WEAPONS_FACTORY (its replacements): 49 - 1 + 2 = 50.
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(50);
 });
 
 test("all registered types are unique", () => {
@@ -339,7 +342,11 @@ describe("upkeep parity", () => {
     "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
     "POPULATION_BUREAU_PART", "POPULATION_BUREAU",
     "IRON_LEVY_PART", "IRON_LEVY",
+    // WEAPONS_WORKSHOP is retired (no longer in STRUCTURE_REGISTRY, so this
+    // entry is inert) — kept here rather than removed since it's harmless
+    // and documents the type's prior no-upkeep status.
     "WEAPONS_WORKSHOP",
+    "IRON_WEAPONS_FACTORY", "FUR_WEAPONS_FACTORY",
   ]);
 
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {

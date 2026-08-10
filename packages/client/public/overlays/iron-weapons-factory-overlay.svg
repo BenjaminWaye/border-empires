@@ -1,0 +1,29 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Iron Weapons Factory: armor doctrine — same forging-bay silhouette as
+       the retired Weapons Workshop, recolored toward heavy steel plate, with
+       a small shield leaning against the rack instead of a blade cluster,
+       to read as "defense-leaning" at a glance. -->
+
+  <!-- Platform -->
+  <path d="M18 96L38 84H100L80 96H18Z" fill="#2A2E33"/>
+  <path d="M38 84V74H100V84H38Z" fill="#5C6670"/>
+
+  <!-- Alloy press: base block + tapered forming horn pointing right -->
+  <path d="M52 76V66H68V76H52Z" fill="#8A97A4"/>
+  <path d="M68 70L82 68L80 74L68 76V70Z" fill="#8A97A4"/>
+  <path d="M52 66H68L64 62H56L52 66Z" fill="#B7C2CC"/>
+
+  <!-- Glowing forge core, steel-orange instead of plasma-cyan -->
+  <path d="M56 84L60 78L64 84L68 80L72 86H56Z" fill="#FF9A3D"/>
+  <path d="M60 84L63 80L66 84H60Z" fill="#FFD9AD"/>
+
+  <!-- Rack with one propped shield instead of a blade cluster -->
+  <path d="M26 84V68" stroke="#3A424A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M40 84V68" stroke="#3A424A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M22 68L44 68" stroke="#3A424A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M33 84C24 82 22 70 24 58C28 55 38 55 42 58C44 70 42 82 33 84Z" fill="#9FB1C2"/>
+  <path d="M33 82C26 80 25 71 26 61C29 59 37 59 40 61C41 71 40 80 33 82Z" fill="#D9E3EC"/>
+  <circle cx="33" cy="66" r="3" fill="#5C6670"/>
+
+</svg>
