@@ -359,5 +359,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "3D map: iron resource tiles now display a low irregular metallic outcrop with per-tile variation instead of the small ore stockpile.",
       "The visual is deterministic per tile, so it stays stable while panning and on refresh."
     ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "aegis-dome-components",
+    title: "Aegis Dome monuments now render a full defensive assembly in 3D mode",
+    why: "Aegis Dome tiles drew only a bare base, core block, and translucent dome — the monument's defensive story (lattice shielding, grounding anchors, ceremonial crown) was missing from the map.",
+    changes: [
+      "3D map: Aegis Dome now rings its dome with three curved shield-lattice fragments (dark-iron frames, brass hex cells, one pale-cyan active cell each).",
+      "Four heavy Ward Anchors (tapered iron spikes, reinforcement bands, brass cages with glowing energy orbs) pin the field at the structure's corners.",
+      "A ceremonial Aegis Crown — iron base, grey ring, eight brass spikes, and a pale-cyan emissive dome cap — now crowns the apex."
+    ]
   }
 ];
