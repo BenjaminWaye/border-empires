@@ -359,5 +359,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "3D map: iron resource tiles now display a low irregular metallic outcrop with per-tile variation instead of the small ore stockpile.",
       "The visual is deterministic per tile, so it stays stable while panning and on refresh."
     ]
+  },
+  {
+    createdAt: 1786413600000, // 2026.08.10.2
+    introducedIn: "umbrite-deposit-overlay",
+    title: "New Umbrite deposit overlay for the 3D map",
+    why: "Umbrite is a new strategic resource planned around ancient forest deposits, and needed its own 3D tile visual so it reads distinctly from titanium, glass steel and ordinary rock when it reaches the map.",
+    changes: [
+      "3D map: added an Umbrite deposit overlay — an unnaturally dark near-black mineral vein breaking through an ancient forest floor, intertwined with thick fossilized roots, with subtle violet-blue sheen and sparse glowing orange fissures.",
+      "The visual is deterministic per tile and ships with three layout variants, so adjacent deposits stay varied but stable while panning and on refresh."
+    ]
   }
 ];
