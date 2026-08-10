@@ -107,6 +107,13 @@ export function emitPlayerStateUpdate(
       integrityPct: Math.round(Math.max(0, Math.min(1, empireIntegrity(metrics.Ts, metrics.Es))) * 100),
       pendingSettlements: context.pendingSettlementsSnapshotForPlayer(playerId),
       autoSettlementQueue: context.autoSettlementQueueForPlayer(playerId),
+      devQueue: summary.devQueue.map((entry) => ({ tileKey: entry.tileKey, kind: entry.kind, queuedAt: entry.queuedAt })),
+      waypointQueue: summary.waypointQueue.map((entry) => ({
+        x: entry.target.x,
+        y: entry.target.y,
+        queuedAt: entry.queuedAt,
+        ...(entry.trackBarbarian ? { trackBarbarian: true } : {})
+      })),
       developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),
       activeDevelopmentProcessCount: context.activeDevelopmentProcessCountForPlayer(playerId),
       ...(capChanged ? { storageCap } : {})

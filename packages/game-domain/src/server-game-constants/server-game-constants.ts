@@ -64,7 +64,7 @@ export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
 // occupation IS its upkeep now — there is nothing left to meter per-minute
 // on top of it. These GOLD_UPKEEP constants are pre-rewrite values that
 // were never retired to 0 when their build cost moved to manpower + slots
-// (unlike MARKET_FOOD_UPKEEP/BANK_FOOD_UPKEEP/CARAVANARY_FOOD_UPKEEP below,
+// (unlike MARKET_FOOD_UPKEEP/CARAVANARY_FOOD_UPKEEP below,
 // which already got this treatment). Retired to 0 rather than deleted, same
 // "leave plumbing, starve input" pattern.
 export const FARMSTEAD_GOLD_UPKEEP = 0;
@@ -94,10 +94,6 @@ export const IRON_LEVY_REGEN_FREEZE_MS = SHARED_IRON_LEVY_REGEN_FREEZE_MS;
 export const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = SHARED_TOWN_MANPOWER_BY_TIER;
 export const manpowerRegenWeightForSettlementIndex = sharedManpowerRegenWeightForSettlementIndex;
 export const SETTLEMENT_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR; // §24.6: 2x divisor (matches TOWN_BASE_GOLD_PER_MIN) — deliberate ~10 gold/day, not the old emergent ~5
-// Bank's flat additive gold/min bonus (§22.1): old +1/min (+1.5/min w/ Clearing House)
-// rescales to ~+5/day (~+7.5/day) — meaningful against the new ~10 gold/day/town base.
-export const BANK_FLAT_GOLD_BONUS_PER_MIN = 1 / GOLD_RESCALE_DIVISOR;
-export const BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE = 1.5 / GOLD_RESCALE_DIVISOR;
 // §6.4 (docs/manpower-economy-rewrite-plan.md): synthesizers are the ONE
 // structure family gold still gates on an ongoing basis — everything else
 // is upkeep-free (slot occupation only, see the GOLD_UPKEEP retirement
@@ -152,7 +148,6 @@ export const EXCHANGE_GOLD_PER_SLOT_PER_DAY = {
 // treatment IRON/CRYSTAL/SUPPLY got when their production was retired).
 export const MARKET_FOOD_UPKEEP = 0;
 export const LIGHT_OUTPOST_GOLD_UPKEEP = 0;
-export const BANK_FOOD_UPKEEP = 0;
 export const CARAVANARY_FOOD_UPKEEP = 0;
 export const CUSTOMS_HOUSE_GOLD_UPKEEP = 0;
 export const GARRISON_HALL_GOLD_UPKEEP = 0;

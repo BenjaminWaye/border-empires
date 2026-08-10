@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { planWaypoint } from "./client-waypoint-planner.js";
 import type { WaypointPlannerDeps } from "./client-waypoint-planner.js";
-import type { Tile } from "../client-types.js";
+import type { ActiveTruceView, DockPair, Tile } from "../client-types.js";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -14,7 +14,17 @@ const tile = (x: number, y: number, overrides: Partial<Tile> = {}): Tile => ({
   ...overrides
 });
 
-type StateShape = WaypointPlannerDeps["state"];
+// Uses the real client domain types (not the narrower, portable
+// WaypointPlannerDeps["state"] shape) since these tests exercise
+// full ActiveTruceView/DockPair/Tile fixtures -- still structurally
+// assignable wherever WaypointPlannerDeps["state"] is expected.
+type StateShape = {
+  me: string | undefined;
+  tiles: Map<string, Tile>;
+  dockPairs: DockPair[];
+  allies: string[];
+  activeTruces: ActiveTruceView[];
+};
 
 const stateWith = (tiles: Tile[], me = "me", overrides: Partial<StateShape> = {}): StateShape => ({
   me,

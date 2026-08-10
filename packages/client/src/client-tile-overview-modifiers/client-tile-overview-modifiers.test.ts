@@ -30,8 +30,6 @@ describe("tileOverviewModifiersForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false,
           growthModifiers: [{ label: "Nearby war", deltaPerMinute: -12 }]
         }
       } satisfies Tile)
@@ -137,8 +135,6 @@ describe("tileOverviewModifiersForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false,
           captureShockUntil: Date.now() + 60_000
         }
       } satisfies Tile)
@@ -179,8 +175,6 @@ describe("tileOverviewModifiersForTile", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false,
         captureShockUntil: Date.now() + 60_000,
         growthModifiers: [
           { label: "Recently captured", deltaPerMinute: 0 },
@@ -227,8 +221,6 @@ describe("tileOverviewModifiersForTile", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false,
         captureShockUntil: Date.now() + 60_000,
         growthModifiers: [{ label: "Long time peace", deltaPerMinute: 12 }]
       }
@@ -272,8 +264,6 @@ describe("tileOverviewModifiersForTile", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false,
         captureShockUntil: Date.now() + 60_000,
         growthModifiers: [{ label: "Nearby war", deltaPerMinute: -12 }]
       }

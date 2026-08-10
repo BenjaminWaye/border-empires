@@ -74,9 +74,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockCensusHall":
         out.add("CENSUS_HALL");
         break;
-      case "unlockBank":
-        out.add("BANK");
-        break;
       case "unlockClearingHouse":
         out.add("CLEARING_HOUSE");
         break;
@@ -102,9 +99,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
         break;
       case "unlockAetherTower":
         out.add("AETHER_TOWER");
-        break;
-      case "unlockExchangeHouse":
-        out.add("EXCHANGE_HOUSE");
         break;
       case "unlockCustomsHouse":
         out.add("CUSTOMS_HOUSE");
@@ -350,9 +344,9 @@ export const renderStructureInfoOverlay = (
   const costHtml = info.costBits.length
     ? `<div class="structure-info-meta-card"><span>Cost</span><strong>${info.costBits.join(" · ")}</strong></div>`
     : "";
-  const upkeepHtml = (info.upkeepBits ?? [])
-    .map((bit) => `<div class="structure-info-meta-card"><span>Upkeep</span><strong>${bit}</strong></div>`)
-    .join("");
+  const upkeepHtml = (info.upkeepBits ?? []).length
+    ? `<div class="structure-info-meta-card"><span>Upkeep</span><strong>${(info.upkeepBits ?? []).join(" · ")}</strong></div>`
+    : "";
   const effectsHtml = info.effects.length
     ? `<section class="structure-info-section">
         <span class="structure-info-section-label">Effects</span>

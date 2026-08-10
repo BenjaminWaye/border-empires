@@ -57,7 +57,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   GRANARY: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 40 } },
   SEED_GRANARY: { baseGoldCost: 0, manpowerCost: 100, resourceCost: { resource: "FOOD", amount: 80 } },
   CENSUS_HALL: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 30 } },
-  BANK: { baseGoldCost: 0, manpowerCost: 300 },
   CLEARING_HOUSE: { baseGoldCost: 0, manpowerCost: 150, resourceCost: { resource: "CRYSTAL", amount: 80 } },
   AIRPORT: {
     baseGoldCost: 0,
@@ -88,7 +87,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   ADVANCED_CRYSTAL_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "CRYSTAL", amount: 40 } },
   CARAVANARY: { baseGoldCost: 0, manpowerCost: 150 },
   FOUNDRY: { baseGoldCost: 0, manpowerCost: 300 },
-  EXCHANGE_HOUSE: { baseGoldCost: 0, manpowerCost: 400 },
   GARRISON_HALL: { baseGoldCost: 0, manpowerCost: 150 },
   CUSTOMS_HOUSE: { baseGoldCost: 0, manpowerCost: 100 },
   RAIL_DEPOT: { baseGoldCost: 0, manpowerCost: 300 },

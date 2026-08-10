@@ -327,7 +327,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         ? {
             hasMarket: tile.town.hasMarket,
             hasGranary: tile.town.hasGranary,
-            hasBank: tile.town.hasBank,
             populationTier: tile.town.populationTier
           }
         : undefined,
@@ -588,18 +587,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }, boundedDelayMs);
   };
 
-  const busyDevelopmentSlotCountFromError = (errorMessage: string): number | undefined => {
-    const match = /all (\d+) development slots are busy/.exec(errorMessage);
-    if (!match) return undefined;
-    const count = Number(match[1]);
-    return Number.isFinite(count) && count > 0 ? count : undefined;
-  };
-
+  // The server only ever sends the bare "development slots are busy" (see
+  // apps/simulation/src/runtime-structure-command-handlers.ts,
+  // runtime-structure-lifecycle-command-handlers.ts, runtime/runtime.ts) —
+  // it never includes a count, so there is nothing to parse out of the
+  // message. Getting this rejection at all means the client's own busy
+  // count was stale (it thought a slot was free), so clamp the local
+  // tracker up to the limit rather than trying to extract a number that
+  // was never there.
   const syncBusyDevelopmentSlotStateFromError = (errorMessage: string): void => {
-    const busyCount = busyDevelopmentSlotCountFromError(errorMessage);
-    if (typeof busyCount !== "number") return;
-    state.developmentProcessLimit = Math.max(state.developmentProcessLimit, busyCount);
-    state.activeDevelopmentProcessCount = Math.max(state.activeDevelopmentProcessCount ?? 0, busyCount);
+    if (!errorMessage.includes("development slots are busy")) return;
+    state.activeDevelopmentProcessCount = Math.max(state.activeDevelopmentProcessCount ?? 0, state.developmentProcessLimit);
   };
 
   const alreadyQueuedBusyDevelopmentAction = (errorCode: string, errorTileKey: string): boolean => {

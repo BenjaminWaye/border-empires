@@ -15,7 +15,6 @@ export type OptimisticStructureKind =
   | "MARKET"
   | "GRANARY"
   | "CENSUS_HALL"
-  | "BANK"
   | "CLEARING_HOUSE"
   | "AIRPORT"
   | "AETHER_TOWER"
@@ -29,7 +28,6 @@ export type OptimisticStructureKind =
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "CARAVANARY"
   | "FOUNDRY"
-  | "EXCHANGE_HOUSE"
   | "GARRISON_HALL"
   | "CUSTOMS_HOUSE"
   | "RAIL_DEPOT"
@@ -128,8 +126,6 @@ export type Tile = {
     hasGranary: boolean;
     granaryActive: boolean;
     hasSeedGranary?: boolean; seedGranaryActive?: boolean; seedGranaryBuffed?: boolean;
-    hasBank: boolean;
-    bankActive: boolean;
     hasClearingHouse?: boolean; clearingHouseActive?: boolean; clearingHouseTownNames?: string[];
     foodUpkeepPerMinute?: number;
     captureShockUntil?: number;
@@ -168,7 +164,6 @@ export type Tile = {
       | "MARKET"
       | "GRANARY"
       | "CENSUS_HALL"
-      | "BANK"
       | "CLEARING_HOUSE"
       | "AIRPORT"
       | "AETHER_TOWER"
@@ -182,7 +177,6 @@ export type Tile = {
       | "ADVANCED_CRYSTAL_SYNTHESIZER"
       | "CARAVANARY"
       | "FOUNDRY"
-      | "EXCHANGE_HOUSE"
       | "GARRISON_HALL"
       | "CUSTOMS_HOUSE"
       | "RAIL_DEPOT"
@@ -240,7 +234,6 @@ export type Tile = {
       | "MARKET"
       | "GRANARY"
       | "CENSUS_HALL"
-      | "BANK"
       | "CLEARING_HOUSE"
       | "AIRPORT"
       | "WOODEN_FORT"
@@ -274,7 +267,6 @@ export type Tile = {
       | "MARKET"
       | "GRANARY"
       | "CENSUS_HALL"
-      | "BANK"
       | "CLEARING_HOUSE"
       | "AIRPORT"
       | "WOODEN_FORT"
@@ -476,7 +468,6 @@ export type StrategicReplayEvent = {
     | "MINE"
     | "MARKET"
     | "GRANARY"
-    | "BANK"
     | "AIRPORT"
     | "FUR_SYNTHESIZER"
     | "IRONWORKS"
@@ -732,9 +723,16 @@ export type TileMenuProgressView = {
   progress: number;
   note: string;
   cancelLabel?: string;
-  cancelActionId?: "cancel_structure_build" | "cancel_queued_settlement" | "cancel_queued_build" | "cancel_settle" | "cancel_capture";
+  cancelActionId?:
+    | "cancel_structure_build"
+    | "cancel_queued_settlement"
+    | "cancel_queued_build"
+    | "cancel_settle"
+    | "cancel_capture"
+    | "cancel_queued_waypoint"
+    | "cancel_queued_expand";
   secondaryLabel?: string;
-  secondaryActionId?: "move_queued_entry_to_front";
+  secondaryActionId?: "move_queued_entry_to_front" | "move_waypoint_to_front" | "move_action_queue_entry_to_front";
   // §6.3 rush-buy: pay gold to finish this in-progress SETTLE/build right
   // now. Label is a client-side price estimate (rushBuyPriceGold, same
   // formula the server uses) — the server recomputes and enforces the real

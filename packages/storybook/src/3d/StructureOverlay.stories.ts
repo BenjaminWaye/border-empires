@@ -13,8 +13,8 @@ type Args = {
 const KINDS: ReadonlyArray<StructureKind> = [
   "FARMSTEAD", "WATERWORKS", "CAMP", "MINE", "IRONWORKS",
   "MARKET", "OBSERVATORY", "GRANARY", "SEED_GRANARY", "CENSUS_HALL",
-  "BANK", "CLEARING_HOUSE", "AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE",
-  "AIRPORT", "CARAVANARY", "CUSTOMS_HOUSE", "EXCHANGE_HOUSE",
+  "CLEARING_HOUSE", "AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE",
+  "AIRPORT", "CARAVANARY", "CUSTOMS_HOUSE",
   "GARRISON_HALL", "GOVERNORS_OFFICE", "RAIL_DEPOT", "RADAR_SYSTEM",
   "FOUNDRY", "ADVANCED_IRONWORKS",
   "FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER",
@@ -86,7 +86,6 @@ export const Observatory: Story = { args: { structures: ["OBSERVATORY"], cameraD
 export const Market: Story = { args: { structures: ["MARKET"], cameraDistance: 3 } };
 export const Granary: Story = { args: { structures: ["GRANARY"], cameraDistance: 3 } };
 export const CensusHall: Story = { args: { structures: ["CENSUS_HALL"], cameraDistance: 3 } };
-export const Bank: Story = { args: { structures: ["BANK"], cameraDistance: 3 } };
 export const ClearingHouse: Story = { args: { structures: ["CLEARING_HOUSE"], cameraDistance: 3 } };
 export const AetherTower: Story = { args: { structures: ["AETHER_TOWER"], cameraDistance: 3.5 } };
 export const AegisDome: Story = { args: { structures: ["AEGIS_DOME"], cameraDistance: 3.5 } };
@@ -95,7 +94,6 @@ export const ImperialExchange: Story = { args: { structures: ["IMPERIAL_EXCHANGE
 export const Airport: Story = { args: { structures: ["AIRPORT"], cameraDistance: 4 } };
 export const Caravanary: Story = { args: { structures: ["CARAVANARY"], cameraDistance: 3.5 } };
 export const CustomsHouse: Story = { args: { structures: ["CUSTOMS_HOUSE"], cameraDistance: 3 } };
-export const ExchangeHouse: Story = { args: { structures: ["EXCHANGE_HOUSE"], cameraDistance: 3 } };
 export const GarrisonHall: Story = { args: { structures: ["GARRISON_HALL"], cameraDistance: 3.5 } };
 export const GovernorsOffice: Story = { args: { structures: ["GOVERNORS_OFFICE"], cameraDistance: 3.5 } };
 export const RailDepot: Story = { args: { structures: ["RAIL_DEPOT"], cameraDistance: 3.5 } };
@@ -119,8 +117,8 @@ export const WeaponsWorkshop: Story = { args: { structures: ["WEAPONS_WORKSHOP"]
 export const WorldbreakerPartBarrel: Story = { args: { structures: ["WORLD_ENGINE_PART_1"], cameraDistance: 3 } };
 export const WorldbreakerPartCore: Story = { args: { structures: ["WORLD_ENGINE_PART_2"], cameraDistance: 3 } };
 export const WorldbreakerPartArray: Story = { args: { structures: ["WORLD_ENGINE_PART_3"], cameraDistance: 3 } };
-export const FirstBatch: Story = { args: { structures: ["BANK", "AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 8, spacing: 1.5 } };
-export const CivicBatch: Story = { args: { structures: ["BANK", "CLEARING_HOUSE", "EXCHANGE_HOUSE", "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "CENSUS_HALL"], cameraDistance: 8, spacing: 1.5 } };
+export const FirstBatch: Story = { args: { structures: ["AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 8, spacing: 1.5 } };
+export const CivicBatch: Story = { args: { structures: ["CLEARING_HOUSE", "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "CENSUS_HALL"], cameraDistance: 8, spacing: 1.5 } };
 export const InfrastructureBatch: Story = { args: { structures: ["AIRPORT", "RAIL_DEPOT", "RADAR_SYSTEM", "CARAVANARY"], cameraDistance: 8, spacing: 1.8 } };
 export const IndustrialBatch: Story = { args: { structures: ["IRONWORKS", "ADVANCED_IRONWORKS", "FOUNDRY"], cameraDistance: 7, spacing: 1.7 } };
 export const SynthesizerBatch: Story = { args: { structures: ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"], cameraDistance: 8, spacing: 1.6 } };
