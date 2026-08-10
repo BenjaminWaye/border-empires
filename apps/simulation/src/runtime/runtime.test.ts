@@ -6591,6 +6591,26 @@ describe("simulation runtime", () => {
               ownershipState: "SETTLED",
               town: { name: "Target", type: "FARMING", populationTier: "SETTLEMENT" }
             },
+            // Gives the defender at least one Titanium and one Umbrite Weapons
+            // Factory so the "unarmed" vulnerability multiplier
+            // (NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT) stays neutral —
+            // this test is about outpost aura, not that mechanic.
+            {
+              x: 9,
+              y: 11,
+              terrain: "LAND" as const,
+              ownerId: "player-2",
+              ownershipState: "SETTLED" as const,
+              economicStructure: { ownerId: "player-2", type: "TITANIUM_WEAPONS_FACTORY" as const, status: "active" as const }
+            },
+            {
+              x: 8,
+              y: 11,
+              terrain: "LAND" as const,
+              ownerId: "player-2",
+              ownershipState: "SETTLED" as const,
+              economicStructure: { ownerId: "player-2", type: "UMBRITE_WEAPONS_FACTORY" as const, status: "active" as const }
+            },
             ...(withOutpost
               ? [
                   {
@@ -6678,6 +6698,27 @@ describe("simulation runtime", () => {
           ownerId: "player-2",
           ownershipState: "SETTLED" as const,
           town: { name: "Target", type: "FARMING" as const, populationTier: "SETTLEMENT" as const }
+        },
+        // Gives the defender at least one Titanium and one Umbrite Weapons Factory
+        // so the "unarmed" vulnerability multiplier
+        // (NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT) stays neutral — this
+        // test is about the (legacy) Weapons Workshop mult, not that
+        // mechanic.
+        {
+          x: 9,
+          y: 11,
+          terrain: "LAND" as const,
+          ownerId: "player-2",
+          ownershipState: "SETTLED" as const,
+          economicStructure: { ownerId: "player-2", type: "TITANIUM_WEAPONS_FACTORY" as const, status: "active" as const }
+        },
+        {
+          x: 8,
+          y: 11,
+          terrain: "LAND" as const,
+          ownerId: "player-2",
+          ownershipState: "SETTLED" as const,
+          economicStructure: { ownerId: "player-2", type: "UMBRITE_WEAPONS_FACTORY" as const, status: "active" as const }
         }
       ];
       for (let i = 0; i < attackerWorkshops; i += 1) tiles.push(workshopTile(20 + i, 10, "player-1"));
@@ -6721,6 +6762,169 @@ describe("simulation runtime", () => {
     expect(attackerBoosted?.atkEff).toBeCloseTo(10 * 1.06, 6);
     // Target is SETTLED (1.35x) with a town (1.2x), 3 owned Weapons Workshops -> +9%
     expect(defenderBoosted?.defEff).toBeCloseTo(10 * 1.35 * 1.2 * 1.09, 6);
+  });
+
+  it("threads Titanium/Umbrite Weapons Factory counts into resolved combat atkEff and defEff, scoped to each side's own connected-town network", async () => {
+    // End-to-end smoke test: confirms the runtime resolves each side's
+    // nearest owned town, reads that town's ConnectedTownNetworkEntry from
+    // the (cached) town network, and threads the resulting counts into
+    // resolveAttackCombat's combatModifiers. The mult math itself is covered
+    // exhaustively in frontier-combat.test.ts; the network-scoping/isolation
+    // itself is covered in economy-network.test.ts. This test is purely
+    // about the wiring between the two.
+    const factoryTile = (x: number, y: number, ownerId: string, type: "TITANIUM_WEAPONS_FACTORY" | "UMBRITE_WEAPONS_FACTORY") => ({
+      x,
+      y,
+      terrain: "LAND" as const,
+      ownerId,
+      ownershipState: "SETTLED" as const,
+      economicStructure: { ownerId, type, status: "active" as const }
+    });
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", buildPlayer("player-1", { manpower: 5_000 })],
+        ["player-2", buildPlayer("player-2", { manpower: 5_000 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "FRONTIER",
+            muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+          },
+          {
+            x: 10,
+            y: 11,
+            terrain: "LAND",
+            ownerId: "player-2",
+            ownershipState: "SETTLED",
+            town: { name: "Target", type: "FARMING", populationTier: "TOWN" }
+          },
+          // Player-1's only town, far from the attack origin — deliberately
+          // distant, to prove the attacker's network mult is resolved via
+          // "nearest owned town" (trivially this one, being the only one
+          // player-1 owns) rather than requiring geometric adjacency to the
+          // attack itself. 2 Titanium + 1 Umbrite Weapons Factory on its support tiles.
+          { x: 50, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Capital", type: "FARMING", populationTier: "TOWN" } },
+          factoryTile(50, 49, "player-1", "TITANIUM_WEAPONS_FACTORY"),
+          factoryTile(49, 50, "player-1", "TITANIUM_WEAPONS_FACTORY"),
+          factoryTile(51, 50, "player-1", "UMBRITE_WEAPONS_FACTORY"),
+          // Resource-slot backing (§5.4) so the three factories above aren't
+          // dormant: 2 TITANIUM slots for the 2 Titanium Weapons Factories, 1 UMBRITE
+          // slot for the 1 Umbrite Weapons Factory.
+          { x: 52, y: 50, terrain: "LAND", resource: "TITANIUM" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
+          { x: 53, y: 50, terrain: "LAND", resource: "TITANIUM" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
+          { x: 54, y: 50, terrain: "LAND", resource: "UMBRITE" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
+          // Defender's own network: 1 Titanium + 1 Umbrite Weapons Factory adjacent
+          // to the target town itself, which also neutralizes the "unarmed"
+          // vulnerability multiplier (both types present).
+          factoryTile(9, 11, "player-2", "TITANIUM_WEAPONS_FACTORY"),
+          factoryTile(9, 12, "player-2", "UMBRITE_WEAPONS_FACTORY"),
+          { x: 8, y: 11, terrain: "LAND" as const, resource: "TITANIUM" as const, ownerId: "player-2", ownershipState: "SETTLED" as const },
+          { x: 7, y: 11, terrain: "LAND" as const, resource: "UMBRITE" as const, ownerId: "player-2", ownershipState: "SETTLED" as const }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const seen = collectEvents(runtime);
+    runtime.submitCommand({
+      commandId: "atk-factories-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "ATTACK",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+    });
+    await Promise.resolve();
+    const accepted = seen.find(
+      (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
+        event.eventType === "COMMAND_ACCEPTED"
+    );
+
+    // Attacker: 2 Titanium (+1.5% each) * 1 Umbrite (+3%) = 1.03 * 1.03. No
+    // vulnerability penalty (defender owns both types).
+    expect(accepted?.combatResult?.atkEff).toBeCloseTo(10 * 1.03 * 1.03, 6);
+    // Defender: SETTLED (1.35x) + town (1.2x), 1 Titanium (+3%) * 1 Umbrite (+1.5%).
+    expect(accepted?.combatResult?.defEff).toBeCloseTo(10 * 1.35 * 1.2 * 1.03 * 1.015, 6);
+  });
+
+  it("doubles attacker effectiveness when the defender has no war industry, and clears once both factory types exist", async () => {
+    const factoryTile = (x: number, y: number, ownerId: string, type: "TITANIUM_WEAPONS_FACTORY" | "UMBRITE_WEAPONS_FACTORY") => ({
+      x,
+      y,
+      terrain: "LAND" as const,
+      ownerId,
+      ownershipState: "SETTLED" as const,
+      economicStructure: { ownerId, type, status: "active" as const }
+    });
+    const buildRuntime = (defenderFactories: Array<"TITANIUM_WEAPONS_FACTORY" | "UMBRITE_WEAPONS_FACTORY">): SimulationRuntime =>
+      new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", buildPlayer("player-1", { manpower: 5_000 })],
+          ["player-2", buildPlayer("player-2", { manpower: 5_000 })]
+        ]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
+            },
+            {
+              x: 10,
+              y: 11,
+              terrain: "LAND",
+              ownerId: "player-2",
+              ownershipState: "SETTLED",
+              town: { name: "Target", type: "FARMING", populationTier: "SETTLEMENT" }
+            },
+            ...defenderFactories.map((type, i) => factoryTile(9 - i, 11, "player-2", type))
+          ],
+          activeLocks: []
+        }
+      });
+
+    const captureAtkEff = async (runtime: SimulationRuntime): Promise<number | undefined> => {
+      const seen = collectEvents(runtime);
+      runtime.submitCommand({
+        commandId: "atk-unarmed-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+      await Promise.resolve();
+      const accepted = seen.find(
+        (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
+          event.eventType === "COMMAND_ACCEPTED"
+      );
+      return accepted?.combatResult?.atkEff;
+    };
+
+    const neitherFactory = await captureAtkEff(buildRuntime([]));
+    const titaniumOnly = await captureAtkEff(buildRuntime(["TITANIUM_WEAPONS_FACTORY"]));
+    const both = await captureAtkEff(buildRuntime(["TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"]));
+
+    // Missing both -> flat 2x, same as missing just one (confirmed design:
+    // does not stack to 4x).
+    expect(neitherFactory).toBeCloseTo(20, 6);
+    expect(titaniumOnly).toBeCloseTo(20, 6);
+    // Both present -> no vulnerability penalty.
+    expect(both).toBeCloseTo(10, 6);
   });
 
   describe("barbarian walk vs multiply", () => {
@@ -7885,9 +8089,13 @@ describe("aether purge", () => {
           ownershipState: "SETTLED",
           economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
         },
-        // §5.4: CRYSTAL supply so AEGIS_DOME/AETHER_TOWER aren't dormant.
+        // §5.4: CRYSTAL supply so AEGIS_DOME (4 slots, post-part-consumption
+        // rebalance)/AETHER_TOWER aren't dormant.
         { x: 8, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
         { x: 9, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
+        { x: 11, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
+        { x: 12, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
+        { x: 13, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
         // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
         { x: 10, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" }
       );
@@ -7996,9 +8204,13 @@ describe("worldbreaker shot", () => {
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-1", type: "WORLD_ENGINE", status: "active" }
       },
-      // §5.4: CRYSTAL supply so WORLD_ENGINE/AETHER_TOWER aren't dormant.
+      // §5.4: CRYSTAL supply so WORLD_ENGINE (4 slots, post-part-consumption
+      // rebalance)/AETHER_TOWER aren't dormant.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
       { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
     ];
@@ -8044,9 +8256,13 @@ describe("worldbreaker shot", () => {
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
       });
-      // §5.4: CRYSTAL supply so AEGIS_DOME/AETHER_TOWER aren't dormant.
+      // CRYSTAL supply so AEGIS_DOME (4 slots, post-part-consumption
+      // rebalance)/AETHER_TOWER aren't dormant.
       tiles.push({ x: 53, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
       tiles.push({ x: 54, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
+      tiles.push({ x: 56, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
+      tiles.push({ x: 57, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
+      tiles.push({ x: 58, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
       // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
       tiles.push({ x: 55, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" });
     }

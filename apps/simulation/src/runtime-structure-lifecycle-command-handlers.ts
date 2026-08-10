@@ -7,7 +7,7 @@ import {
   STRUCTURE_REGISTRY,
   structureBuildDurationMs,
   structureBuildGoldCost,
-  structureBuildManpowerCost,
+  structureBuildManpowerCostScaled,
   structureCostDefinition,
   type BuildableStructureType,
   type FortVariant,
@@ -121,7 +121,11 @@ export function economicOrObservatoryCancelRefund(
 ): StructureCancelRefund {
   const existingCount = Math.max(0, context.ownedStructureCountForPlayer(playerId, structureType) - 1);
   const gold = structureBuildGoldCost(structureType, existingCount);
-  const manpower = structureBuildManpowerCost(structureType);
+  // structureBuildManpowerCostScaled mirrors handleBuildStructureCommand's
+  // charge (structureBuildManpowerCostScaled with the same pre-build
+  // existingCount) so a cancelled Iron/Fur Weapons Factory refunds exactly
+  // what was charged, not the flat base cost.
+  const manpower = structureBuildManpowerCostScaled(structureType, existingCount);
   // Mirrors handleBuildStructureCommand's strategicCostForStructure precedence exactly
   // (registry cost.strategic wins, falling back to the cost-definitions resourceCost) so
   // this can't drift from what was actually charged if the two tables ever disagree.

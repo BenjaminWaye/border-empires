@@ -242,16 +242,36 @@ export const RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL = 300;
 export const RAIL_DEPOT_MUSTER_RADIUS = 50;
 // Multiplier to muster inflow when the tile's outpost is backed by a nearby Rail Depot.
 export const RAIL_DEPOT_BOOSTED_MUSTER_MULT = 2.0;
-// Weapons Workshop: unlike most economic structures, a player may build
-// unlimited copies of this one per town (placementMode "same_tile", one per
-// tile, no per-town cap) so a player can build a dedicated "military town."
-// Each owned Weapons Workshop grants a small empire-wide attack AND defense
-// combat multiplier, applied additively per copy (first-pass balance figure,
-// not derived from anything — expect tuning). A future "network" building is
-// planned to instead scale off how many of these a single town has, but this
-// building's own bonus stays simple and per-copy for now.
+// Weapons Workshop (retired — see structure-registry-economic.ts — replaced
+// by Titanium/Umbrite Weapons Factory below). Constants kept so any copy a
+// player already owns from before the retirement keeps granting its bonus.
 export const WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING = 0.03;
 export const WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING = 0.03;
+
+// Titanium/Umbrite Weapons Factory: the "future 'network' building" the
+// comment above used to describe is this pair. Like Weapons Workshop, a
+// player may build unlimited copies of either per town (placementMode
+// "same_tile", no per-town cap) — each is a genuine, uncapped sink for its
+// resource (1 TITANIUM or 1 UMBRITE slot per copy, structure-slots.ts). Both
+// grant attack AND defense per copy (never zero on either axis), just
+// weighted differently: Titanium leans defense, Umbrite leans attack —
+// "armor doctrine" vs. "raiding doctrine." Unlike Weapons Workshop, the
+// count that actually feeds a given fight's multiplier is scoped to the
+// connected-town network relevant to that side of the fight
+// (runtime-combat-support.ts), not a flat empire-wide sum — concentrating
+// factories in one connected industrial region pays off more than
+// scattering the same count across disconnected pockets. First-pass balance
+// figures, not derived from anything — expect tuning.
+export const TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING = 0.015;
+export const TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING = 0.03;
+export const UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING = 0.03;
+export const UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING = 0.015;
+// "Unarmed" vulnerability: a player who owns zero of a given factory type
+// ANYWHERE in their empire (not network-scoped — this is an empire-wide
+// existence check, not a clustering bonus) is markedly easier to attack.
+// Missing one type or both types applies the same flat multiplier (does not
+// stack to a larger number if both are missing — confirmed design decision).
+export const NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT = 2.0;
 
 // --- Tech-tree redesign: new Manpower-branch buildings ---
 // Rail Depot's job narrows to Logistics Guild amplification only (Ancillary

@@ -34,13 +34,14 @@
       "tier": 1,
       "branch": "war",
       "name": "Titanium-Clad Masonry",
-      "description": "Stone is the first polite way of saying no. Reveals Titanium.",
+      "description": "Stone is the first polite way of saying no. Reveals Titanium and unlocks the Titanium Weapons Factory: an uncapped Titanium sink that arms your empire with heavier defense and titanium-forged siege strength, clustered strongest where you build many in one connected industrial region.",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 3600,
       "effects": {
         "unlockForts": true,
+        "unlockTitaniumWeaponsFactory": true,
         "revealResource": "titanium"
       }
     },
@@ -49,7 +50,7 @@
       "tier": 1,
       "branch": "war",
       "name": "Rigging Works",
-      "description": "Straps, harnesses, and portable frames turn baggage into warfare. Reveals Umbrite.",
+      "description": "Straps, harnesses, and portable frames turn baggage into warfare. Reveals Umbrite and unlocks the Umbrite Weapons Factory: an uncapped Umbrite sink that arms your empire for the offensive, clustered strongest where you build many in one connected industrial region.",
       "cost": {
         "gold": 10
       },
@@ -57,6 +58,7 @@
       "effects": {
         "unlockUmbriteRig": true,
         "unlockSiegeOutposts": true,
+        "unlockUmbriteWeaponsFactory": true,
         "revealResource": "umbrite"
       }
     },
@@ -299,24 +301,6 @@
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockThunderBastion": true
-      }
-    },
-    {
-      "id": "weapons-forging",
-      "tier": 2,
-      "branch": "war",
-      "name": "Weapons Forging",
-      "description": "Unlocks the Weapons Workshop: forges Titanium and Umbrite into hardened alloy plating and charged energy blades, granting an empire-wide attack and defense boost. Build as many as you like in one town to raise a dedicated military city.",
-      "prereqIds": [
-        "masonry",
-        "leatherworking"
-      ],
-      "cost": {
-        "gold": 10
-      },
-      "researchTimeSeconds": 14400,
-      "effects": {
-        "unlockWeaponsWorkshop": true
       }
     },
     {

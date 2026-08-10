@@ -191,7 +191,12 @@ describe("connected town network", () => {
       tiles.values()
     );
 
-    expect(network.get("0,0")).toEqual({ connectedTownCount: 0, connectedTownBonus: 0 });
+    expect(network.get("0,0")).toEqual({
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      connectedTitaniumWeaponsFactoryCount: 0,
+      connectedUmbriteWeaponsFactoryCount: 0
+    });
     expect(network.size).toBe(1);
   });
 
@@ -313,6 +318,67 @@ describe("connected town network", () => {
       expect(network.get(key)!.connectedGarrisonHallKeys).toEqual([garrisonHallTownKey]);
       expect(network.get(key)!.connectedRailDepotKeys).toEqual([railDepotTownKey]);
     }
+  });
+
+  // Design doc "network-clustered combat bonus": unlike every *Keys field
+  // above, connectedTitaniumWeaponsFactoryCount/connectedUmbriteWeaponsFactoryCount
+  // are plain, self-inclusive COUNTS (both factories are uncapped per town,
+  // structure-placement-metadata.json "same_tile", so a boolean "has one"
+  // check would undercount a town with several).
+  it("sums Iron/Fur Weapons Factory counts across a connected network, self-inclusive, and stays isolated from a disconnected town", () => {
+    const landTile = (x: number, y: number): DomainTileState => ({
+      x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED"
+    });
+    const ironFactoryTile = (x: number, y: number): DomainTileState => ({
+      x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+      economicStructure: { ownerId: "player-1", type: "TITANIUM_WEAPONS_FACTORY" as const, status: "active" as const }
+    });
+    const furFactoryTile = (x: number, y: number): DomainTileState => ({
+      x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+      economicStructure: { ownerId: "player-1", type: "UMBRITE_WEAPONS_FACTORY" as const, status: "active" as const }
+    });
+
+    const ironTownKey = "0,0";
+    const furTownKey = "2,0";
+    const tiles = new Map<string, DomainTileState>([
+      // Same star layout as the Garrison Hall/Rail Depot test above: four
+      // towns sharing one corridor tile at (1,1).
+      [ironTownKey, townTile(0, 0, "Iron-Town")],
+      ["0,2", townTile(0, 2, "North")],
+      ["2,2", townTile(2, 2, "East")],
+      [furTownKey, townTile(2, 0, "Fur-Town")],
+      ["1,1", landTile(1, 1)],
+      // Two Iron Weapons Factories on Iron-Town's own tile-adjacent support
+      // tiles — proves the count sums instances, not "has at least one".
+      ["0,-1", ironFactoryTile(0, -1)],
+      ["-1,0", ironFactoryTile(-1, 0)],
+      // One Fur Weapons Factory on Fur-Town's support tile.
+      ["2,-1", furFactoryTile(2, -1)],
+      // A fully isolated fifth town, far away and disconnected from the
+      // star group above, with its own Iron Weapons Factory — must NOT leak
+      // into the connected group's count, and must still count itself (a
+      // "network of one" is still self-inclusive).
+      ["50,50", townTile(50, 50, "Isolated")],
+      ["50,49", ironFactoryTile(50, 49)]
+    ]);
+
+    const network = buildConnectedTownNetworkForPlayer(
+      { id: "player-1", techIds: [], domainIds: [] },
+      tiles,
+      tiles.values()
+    );
+
+    // Every town in the connected star group reports the SAME totals — the
+    // whole network's sum, self-inclusive of whichever town owns the copies.
+    for (const key of [ironTownKey, "0,2", "2,2", furTownKey]) {
+      expect(network.get(key)!.connectedTitaniumWeaponsFactoryCount).toBe(2);
+      expect(network.get(key)!.connectedUmbriteWeaponsFactoryCount).toBe(1);
+    }
+
+    // The disconnected town only ever sees its own copy, never the star
+    // group's — and the star group never sees the isolated town's copy.
+    expect(network.get("50,50")!.connectedTitaniumWeaponsFactoryCount).toBe(1);
+    expect(network.get("50,50")!.connectedUmbriteWeaponsFactoryCount).toBe(0);
   });
 
   it("computes connectivity in O(N) for large empires (regression: O(K^2) pairwise loop removed)", () => {
@@ -558,7 +624,12 @@ describe("connected town network — incremental state fast path", () => {
 
     const state = createTownConnectivityState();
     const before = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
-    expect(before.get("0,0")).toEqual({ connectedTownCount: 0, connectedTownBonus: 0 });
+    expect(before.get("0,0")).toEqual({
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      connectedTitaniumWeaponsFactoryCount: 0,
+      connectedUmbriteWeaponsFactoryCount: 0
+    });
     expect(state.dirty).toBe(false);
 
     // A corridor tile settles between them. This is pure growth, so the
@@ -613,8 +684,18 @@ describe("connected town network — incremental state fast path", () => {
     markTownConnectivityDirty(state);
 
     const rebuilt = buildConnectedTownNetworkForPlayer(player, tiles, tiles.values(), { incrementalState: state });
-    expect(rebuilt.get("0,0")).toEqual({ connectedTownCount: 0, connectedTownBonus: 0 });
-    expect(rebuilt.get("2,0")).toEqual({ connectedTownCount: 0, connectedTownBonus: 0 });
+    expect(rebuilt.get("0,0")).toEqual({
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      connectedTitaniumWeaponsFactoryCount: 0,
+      connectedUmbriteWeaponsFactoryCount: 0
+    });
+    expect(rebuilt.get("2,0")).toEqual({
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      connectedTitaniumWeaponsFactoryCount: 0,
+      connectedUmbriteWeaponsFactoryCount: 0
+    });
     expect(state.parent.has("1,0")).toBe(false);
   });
 });

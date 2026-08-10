@@ -271,10 +271,16 @@ describe("§5.4 ability dormancy gate", () => {
       economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
     },
     { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
+    // AEGIS_DOME now demands 4 CRYSTAL slots (bumped from 1: it consumes
+    // its 3 Parts on completion, so its own slot cost absorbs what they
+    // used to occupy) plus 1 for the Aether Tower — 5 total when supplied.
     ...(options.includeCrystalSupply
       ? [
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+          { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ]
       : [{ x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }])
   ];
@@ -419,10 +425,16 @@ describe("§5.4 ability dormancy gate", () => {
       economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
     },
     { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
+    // ASTRAL_DOCK now demands 4 CRYSTAL slots (bumped from 1: it consumes
+    // its 3 Parts on completion, so its own slot cost absorbs what they
+    // used to occupy) plus 1 for the Aether Tower — 5 total when supplied.
     ...(options.includeCrystalSupply
       ? [
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+          { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ]
       : [{ x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }])
   ];

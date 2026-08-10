@@ -19,10 +19,15 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 49 structure types", () => {
+test("STRUCTURE_REGISTRY covers exactly 62 structure types", () => {
   // 51 minus BANK and EXCHANGE_HOUSE (both removed; Clearing House now
-  // covers Bank's former unlock slot on the coinage tech).
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(49);
+  // covers Bank's former unlock slot on the coinage tech), minus
+  // WEAPONS_WORKSHOP (retired, no longer in ECONOMIC_SPECS — see
+  // structure-registry-economic.ts), plus TITANIUM_WEAPONS_FACTORY and
+  // UMBRITE_WEAPONS_FACTORY (its replacements): 49 - 1 + 2 = 50, plus 12 for
+  // each of the 6 monuments' single Part becoming 3 uniquely-named
+  // components = 62.
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(62);
 });
 
 test("all registered types are unique", () => {
@@ -274,28 +279,40 @@ describe("prerequisiteStructureTypes parity", () => {
     ).toEqual(["GRANARY"]);
   });
 
-  test("IMPERIAL_EXCHANGE requires IMPERIAL_EXCHANGE_PART", () => {
+  test("IMPERIAL_EXCHANGE requires its 3 components", () => {
     expect(
       STRUCTURE_REGISTRY["IMPERIAL_EXCHANGE"].prerequisiteStructureTypes,
-    ).toEqual(["IMPERIAL_EXCHANGE_PART"]);
+    ).toEqual(["IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"]);
   });
 
-  test("WORLD_ENGINE requires WORLD_ENGINE_PART", () => {
+  test("WORLD_ENGINE requires its 3 components", () => {
     expect(
       STRUCTURE_REGISTRY["WORLD_ENGINE"].prerequisiteStructureTypes,
-    ).toEqual(["WORLD_ENGINE_PART"]);
+    ).toEqual(["WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3"]);
   });
 
-  test("AEGIS_DOME requires AEGIS_DOME_PART", () => {
+  test("AEGIS_DOME requires its 3 components", () => {
     expect(
       STRUCTURE_REGISTRY["AEGIS_DOME"].prerequisiteStructureTypes,
-    ).toEqual(["AEGIS_DOME_PART"]);
+    ).toEqual(["AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3"]);
   });
 
-  test("ASTRAL_DOCK requires ASTRAL_DOCK_PART", () => {
+  test("ASTRAL_DOCK requires its 3 components", () => {
     expect(
       STRUCTURE_REGISTRY["ASTRAL_DOCK"].prerequisiteStructureTypes,
-    ).toEqual(["ASTRAL_DOCK_PART"]);
+    ).toEqual(["ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3"]);
+  });
+
+  test("POPULATION_BUREAU requires its 3 components", () => {
+    expect(
+      STRUCTURE_REGISTRY["POPULATION_BUREAU"].prerequisiteStructureTypes,
+    ).toEqual(["POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3"]);
+  });
+
+  test("TITANIUM_LEVY requires its 3 components", () => {
+    expect(
+      STRUCTURE_REGISTRY["TITANIUM_LEVY"].prerequisiteStructureTypes,
+    ).toEqual(["TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"]);
   });
 });
 
@@ -327,8 +344,10 @@ describe("upkeep parity", () => {
   const noUpkeepTypes = new Set([
     "WATERWORKS", "SEED_GRANARY", "CENSUS_HALL", "CLEARING_HOUSE",
     "AETHER_TOWER", "RAIL_DEPOT",
-    "IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART",
-    "AEGIS_DOME_PART", "ASTRAL_DOCK_PART",
+    "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
+    "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+    "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
+    "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
     "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
     "FARMSTEAD", "UMBRITE_RIG", "MINE", "MARKET", "GRANARY",
     "CARAVANARY", "FOUNDRY",
@@ -337,9 +356,13 @@ describe("upkeep parity", () => {
     "WOODEN_FORT", "LIGHT_OUTPOST", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION",
     "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER",
     "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
-    "POPULATION_BUREAU_PART", "POPULATION_BUREAU",
-    "TITANIUM_LEVY_PART", "TITANIUM_LEVY",
+    "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3", "POPULATION_BUREAU",
+    "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3", "TITANIUM_LEVY",
+    // WEAPONS_WORKSHOP is retired (no longer in STRUCTURE_REGISTRY, so this
+    // entry is inert) — kept here rather than removed since it's harmless
+    // and documents the type's prior no-upkeep status.
     "WEAPONS_WORKSHOP",
+    "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY",
   ]);
 
   for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {

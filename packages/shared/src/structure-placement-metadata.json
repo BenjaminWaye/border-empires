@@ -187,22 +187,72 @@
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
-  "IMPERIAL_EXCHANGE_PART": {
+  "TITANIUM_WEAPONS_FACTORY": {
+    "showOn": ["town", "support"],
+    "placementMode": "same_tile",
+    "sortGroup": "support"
+  },
+  "UMBRITE_WEAPONS_FACTORY": {
+    "showOn": ["town", "support"],
+    "placementMode": "same_tile",
+    "sortGroup": "support"
+  },
+  "IMPERIAL_EXCHANGE_PART_1": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "WORLD_ENGINE_PART": {
+  "IMPERIAL_EXCHANGE_PART_2": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "AEGIS_DOME_PART": {
+  "IMPERIAL_EXCHANGE_PART_3": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "ASTRAL_DOCK_PART": {
+  "WORLD_ENGINE_PART_1": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "WORLD_ENGINE_PART_2": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "WORLD_ENGINE_PART_3": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "AEGIS_DOME_PART_1": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "AEGIS_DOME_PART_2": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "AEGIS_DOME_PART_3": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "ASTRAL_DOCK_PART_1": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "ASTRAL_DOCK_PART_2": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "ASTRAL_DOCK_PART_3": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
@@ -227,12 +277,32 @@
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
-  "POPULATION_BUREAU_PART": {
+  "POPULATION_BUREAU_PART_1": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "TITANIUM_LEVY_PART": {
+  "POPULATION_BUREAU_PART_2": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "POPULATION_BUREAU_PART_3": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "TITANIUM_LEVY_PART_1": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "TITANIUM_LEVY_PART_2": {
+    "showOn": ["town", "support"],
+    "placementMode": "town_support",
+    "sortGroup": "support"
+  },
+  "TITANIUM_LEVY_PART_3": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"

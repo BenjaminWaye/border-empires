@@ -48,7 +48,8 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   QUARTERMASTERS_OFFICE: "field-logistics",
   LOGISTICS_GUILD: "remade-concordat",
   ASSEMBLY_WORKS: "conveyor-networks",
-  WEAPONS_WORKSHOP: "weapons-forging",
+  TITANIUM_WEAPONS_FACTORY: "masonry",
+  UMBRITE_WEAPONS_FACTORY: "leatherworking",
 };
 
 // ── Upgrade prerequisites ─────────────────────────────────────────
@@ -59,12 +60,12 @@ function upgradePrereq(type: EconomicStructureType): readonly string[] | undefin
     case "ADVANCED_TITANIUM_WORKS": return ["TITANIUM_WORKS"];
     case "ADVANCED_CRYSTAL_SYNTHESIZER": return ["CRYSTAL_SYNTHESIZER"];
     case "SEED_GRANARY": return ["GRANARY"];
-    case "IMPERIAL_EXCHANGE": return ["IMPERIAL_EXCHANGE_PART"];
-    case "WORLD_ENGINE": return ["WORLD_ENGINE_PART"];
-    case "AEGIS_DOME": return ["AEGIS_DOME_PART"];
-    case "ASTRAL_DOCK": return ["ASTRAL_DOCK_PART"];
-    case "POPULATION_BUREAU": return ["POPULATION_BUREAU_PART"];
-    case "TITANIUM_LEVY": return ["TITANIUM_LEVY_PART"];
+    case "IMPERIAL_EXCHANGE": return ["IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"];
+    case "WORLD_ENGINE": return ["WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3"];
+    case "AEGIS_DOME": return ["AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3"];
+    case "ASTRAL_DOCK": return ["ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3"];
+    case "POPULATION_BUREAU": return ["POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3"];
+    case "TITANIUM_LEVY": return ["TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"];
     default: return undefined;
   }
 }
@@ -183,16 +184,33 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   LOGISTICS_GUILD: econSpec("LOGISTICS_GUILD"),
   ASSEMBLY_WORKS: econSpec("ASSEMBLY_WORKS"),
 
-  // War branch
-  WEAPONS_WORKSHOP: econSpec("WEAPONS_WORKSHOP"),
+  // War branch — WEAPONS_WORKSHOP retired (replaced by the two structures
+  // below); intentionally left out of this registry so it can never be
+  // newly built again, while types.ts/structure-slots.ts/config.ts/
+  // frontier-combat.ts keep supporting any copies a player already owns
+  // from before the retirement (no data migration for a live game).
+  TITANIUM_WEAPONS_FACTORY: econSpec("TITANIUM_WEAPONS_FACTORY"),
+  UMBRITE_WEAPONS_FACTORY: econSpec("UMBRITE_WEAPONS_FACTORY"),
 
   // Wonder parts
-  IMPERIAL_EXCHANGE_PART: econSpec("IMPERIAL_EXCHANGE_PART"),
-  WORLD_ENGINE_PART: econSpec("WORLD_ENGINE_PART"),
-  AEGIS_DOME_PART: econSpec("AEGIS_DOME_PART"),
-  ASTRAL_DOCK_PART: econSpec("ASTRAL_DOCK_PART"),
-  POPULATION_BUREAU_PART: econSpec("POPULATION_BUREAU_PART"),
-  TITANIUM_LEVY_PART: econSpec("TITANIUM_LEVY_PART"),
+  IMPERIAL_EXCHANGE_PART_1: econSpec("IMPERIAL_EXCHANGE_PART_1"),
+  IMPERIAL_EXCHANGE_PART_2: econSpec("IMPERIAL_EXCHANGE_PART_2"),
+  IMPERIAL_EXCHANGE_PART_3: econSpec("IMPERIAL_EXCHANGE_PART_3"),
+  WORLD_ENGINE_PART_1: econSpec("WORLD_ENGINE_PART_1"),
+  WORLD_ENGINE_PART_2: econSpec("WORLD_ENGINE_PART_2"),
+  WORLD_ENGINE_PART_3: econSpec("WORLD_ENGINE_PART_3"),
+  AEGIS_DOME_PART_1: econSpec("AEGIS_DOME_PART_1"),
+  AEGIS_DOME_PART_2: econSpec("AEGIS_DOME_PART_2"),
+  AEGIS_DOME_PART_3: econSpec("AEGIS_DOME_PART_3"),
+  ASTRAL_DOCK_PART_1: econSpec("ASTRAL_DOCK_PART_1"),
+  ASTRAL_DOCK_PART_2: econSpec("ASTRAL_DOCK_PART_2"),
+  ASTRAL_DOCK_PART_3: econSpec("ASTRAL_DOCK_PART_3"),
+  POPULATION_BUREAU_PART_1: econSpec("POPULATION_BUREAU_PART_1"),
+  POPULATION_BUREAU_PART_2: econSpec("POPULATION_BUREAU_PART_2"),
+  POPULATION_BUREAU_PART_3: econSpec("POPULATION_BUREAU_PART_3"),
+  TITANIUM_LEVY_PART_1: econSpec("TITANIUM_LEVY_PART_1"),
+  TITANIUM_LEVY_PART_2: econSpec("TITANIUM_LEVY_PART_2"),
+  TITANIUM_LEVY_PART_3: econSpec("TITANIUM_LEVY_PART_3"),
 
   // Completed wonders (require their part as prerequisite)
   IMPERIAL_EXCHANGE: econSpec("IMPERIAL_EXCHANGE"),

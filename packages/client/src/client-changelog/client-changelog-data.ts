@@ -33,6 +33,30 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1786417200000, // 2026.08.10.4
+    introducedIn: "2026.08.10.4",
+    title: "Weapons Workshop split into Titanium and Umbrite Weapons Factories",
+    why: "Weapons Workshop forged both Titanium and Umbrite into the same flat empire-wide attack/defense boost, giving the two resources no distinct identity in the War branch. It's retired and replaced with two resource-specific factories that reward a real strategic choice: mass-produce anywhere, or cluster into one connected industrial network for a bigger payoff — and skipping both leaves your empire exposed.",
+    changes: [
+      "Titanium Weapons Factory (unlocked by Titanium-Clad Masonry): an uncapped Titanium sink granting +1.5% attack / +3% defense per copy — armor doctrine.",
+      "Umbrite Weapons Factory (unlocked by Rigging Works): an uncapped Umbrite sink granting +3% attack / +1.5% defense per copy — raiding doctrine.",
+      "Both buildings' bonus is scoped to the connected-town network relevant to each fight, not a flat empire-wide sum — clustering many together in one connected region pays off more than scattering them.",
+      "Each additional copy of either factory costs more manpower than the last.",
+      "Owning zero Titanium Weapons Factories or zero Umbrite Weapons Factories anywhere in your empire leaves you markedly easier to attack.",
+      "Weapons Workshop can no longer be newly built; any copies you already own keep working as before."
+    ]
+  },
+  {
+    createdAt: 1786413600000, // 2026.08.10.3
+    introducedIn: "2026.08.10.3",
+    title: "Queue expansions ahead of your frontier",
+    why: "You could only queue an expansion onto a tile that already touched your territory, so planning a route deep into neutral land meant clicking one tile at a time and waiting for each to finish before the next could even be queued.",
+    changes: [
+      "You can now queue an expansion onto a neutral tile that only borders another tile you've already queued or are currently claiming — the new claim waits for the earlier one to finish, then launches from it automatically.",
+      "Chains can go several tiles deep, so a whole planned route can be queued up in one pass instead of one click at a time."
+    ]
+  },
+  {
     createdAt: 1786410000000, // 2026.08.10.2
     introducedIn: "2026.08.10.2",
     title: "The 2D map now takes over when 3D can't run on your device",
@@ -353,6 +377,42 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1786214940000, // 2026-08-08
+    introducedIn: "monument-parts-population-bureau-iron-levy",
+    title: "Fixed: Population Bureau and Iron Levy monument parts couldn't be built at all",
+    why: "Every other monument (Imperial Exchange, Worldbreaker Cannon, Aegis Dome, Astral Dock) has a working \"build 3 parts in different Great/Monumental Cities, then place the monument for free\" flow. Population Bureau and Iron Levy's part-building buttons existed in the menu but were wired to nothing — clicking them sent no command — and the final monument itself had no build action at all, so the 3 parts you could never even place had nowhere to go.",
+    changes: [
+      "\"Build Population Bureau Part\" and \"Build The Iron Levy Part\" now actually build, with the same Great City/Monumental City and one-monument-part-per-city rules as the other four monuments.",
+      "Added the missing \"Build Population Bureau\" and \"Build The Iron Levy\" actions — each unlocks once you own 3 of that monument's parts and have researched its tech."
+    ]
+  },
+  {
+    createdAt: 1786217054000, // 2026-08-08
+    introducedIn: "consume-monument-parts-on-build",
+    title: "Building a monument now consumes its 3 Parts, and the monument's own CRYSTAL cost went up to cover it",
+    why: "The 3 Parts you build to unlock a monument (Imperial Exchange, Worldbreaker Cannon, Aegis Dome, Astral Dock, Population Bureau, The Iron Levy) used to just sit there forever after the monument was placed, still eating their CRYSTAL slots for nothing. Now completing the monument clears all 3 Parts automatically, and the monument's own CRYSTAL slot requirement went from 1 to 4 to absorb what they used to occupy.",
+    changes: [
+      "Placing any of the 6 monuments now removes all 3 of your Parts for that monument the moment it completes.",
+      "Each monument's own CRYSTAL slot cost is now 4 (was 1) — no net change to your total CRYSTAL commitment once the Parts are gone."
+    ]
+  },
+  {
+    createdAt: 1786305917000, // 2026-08-09
+    introducedIn: "unique-monument-components",
+    title: "Each monument now has 3 uniquely-named components instead of 3 identical Parts",
+    why: "Building 3 copies of one \"Part\" structure to unlock a monument read as busywork rather than assembling something. Each monument's 3 components are now distinct, individually named structures with their own art and their own build button, and the structure-info popup shows a live checklist of which ones you've completed.",
+    changes: [
+      "Imperial Exchange: Golden Ledger, Counting Engine, Sovereign Seal.",
+      "Worldbreaker Cannon: The Long Barrel, Fracture Core, Sky-Marking Array.",
+      "Aegis Dome: Shield Lattice, Ward Anchor, Aegis Crown.",
+      "Astral Dock: Launch Cradle, Orbital Array, Aether Sail.",
+      "Population Bureau: Census Engine, Registry Vault, Levy Charter.",
+      "The Iron Levy: Muster Klaxon, Iron Standard, Levy Writ.",
+      "Opening a monument's structure-info popup now shows a \"Monument Components\" checklist with a live N/3 status for each.",
+      "Same rules as before: one component per Great City/Monumental City, and the monument tech gates all 3 of its own components."
+    ]
+  },
+  {
     createdAt: 1786180758000, // 2026-08-08
     introducedIn: "expand-tile-detail-and-queue",
     title: "Frontier expansion now shows its own progress, and waypoint queues survive a refresh",
@@ -392,6 +452,48 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "3D map: added an Umbrite deposit overlay — an unnaturally dark near-black mineral vein breaking through an ancient forest floor, intertwined with thick fossilized roots, with subtle violet-blue sheen and sparse glowing orange fissures.",
       "The visual is deterministic per tile and ships with three layout variants, so adjacent deposits stay varied but stable while panning and on refresh."
+    ]
+  },
+  {
+    createdAt: 1786275426380, // 2026-08-09
+    introducedIn: "worldbreaker-part-models",
+    title: "Worldbreaker Cannon components now render as distinct 3D models",
+    why: "The Worldbreaker Cannon's 3 unique components — The Long Barrel, Fracture Core, and Sky-Marking Array — previously all drew the same generic placeholder in 3D mode, so the monument-in-progress read as a row of identical boxes instead of a piece-by-piece assembly.",
+    changes: [
+      "3D map: each of the Worldbreaker Cannon's 3 components now renders its own dedicated model — a tapered barrel in a brass cradle, a faceted crystal core in an iron containment ring, and a tripod targeting array.",
+      "All three share the monument set's flat-shaded industrial look and its dark iron, aged brass, and stone palette."
+    ]
+  },
+  {
+    createdAt: 1786224715236,
+    introducedIn: "imperial-exchange-part-models",
+    title: "Imperial Exchange components now render as distinct 3D models",
+    why: "Imperial Exchange component tiles had no dedicated 3D model, so on the 3D map they fell back to a flat 2D overlay and read as a placeholder rather than a monument under construction. Each of the three components you build now renders its own distinct low-poly monument component.",
+    changes: [
+      "3D map: each of the Imperial Exchange's 3 components now renders its own dedicated model — the Golden Ledger (an upright iron ledger with brass binding and a dull-gold seal), the Counting Engine (a brass calculating drum with tally wheels and a glowing cyan ring), and the Sovereign Seal (a ceremonial iron-and-brass seal stamp with a gold crest center).",
+      "The 2D fallback overlay for component tiles is no longer drawn in 3D mode, matching other structures."
+    ]
+  },
+  {
+    createdAt: 1786410000000, // 2026-08-10
+    introducedIn: "aegis-dome-components",
+    title: "Aegis Dome monuments now render a full defensive assembly in 3D mode",
+    why: "Aegis Dome tiles drew only a bare base, core block, and translucent dome — the monument's defensive story (lattice shielding, grounding anchors, ceremonial crown) was missing from the map.",
+    changes: [
+      "3D map: Aegis Dome now rings its dome with three curved shield-lattice fragments (dark-iron frames, brass hex cells, one pale-cyan active cell each).",
+      "Four heavy Ward Anchors (tapered iron spikes, reinforcement bands, brass cages with glowing energy orbs) pin the field at the structure's corners.",
+      "A ceremonial Aegis Crown — iron base, grey ring, eight brass spikes, and a pale-cyan emissive dome cap — now crowns the apex."
+    ]
+  },
+  {
+    createdAt: 1786417200000, // 2026.08.10.4
+    introducedIn: "2026.08.10.4",
+    title: "New 3D Umbrite Weapons Factory",
+    why: "The Umbrite Weapons Factory — a heavy military-industrial complex that forges Umbrite-tempered ordnance — now has a full 3D model, ready to be placed on the map as part of the Umbrite gameplay.",
+    changes: [
+      "Added a low-poly 3D Umbrite Weapons Factory: a dark-iron riveted hall with an overhanging roof and angled buttresses, twin brass-banded smokestacks, and a tall central Umbrite reactor whose ember inspection window shows the violet-black core inside.",
+      "Chunky industrial pipes with coupling joints run from the reactor to a mechanical forging press and a production platform carrying standing artillery shells, plus missile-like ordnance waiting at the hall front.",
+      "A brass-banded storage tank, vertical magazines and ammunition crates flank the production line, with raw Umbrite lumps and ember bits at the reactor's foot reusing the deposit palette."
     ]
   }
 ];

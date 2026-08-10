@@ -38,12 +38,29 @@ export type FrontierCombatModifiers = {
   fortGarrisonCap?: number | undefined;
   // Breakthrough momentum: current timestamp for breach-window check.
   nowMs?: number | undefined;
-  // Weapons Workshop: an empire-wide attack/defense multiplier derived from
-  // how many the attacker/defender owns (WEAPONS_WORKSHOP_*_MULT_PER_BUILDING
-  // in config.ts). Attacker's mult feeds atkMult, defender's feeds defMult —
-  // each side only ever supplies its own side's field.
+  // Weapons Workshop (retired — see structure-registry-economic.ts, replaced
+  // by Titanium/Umbrite Weapons Factory below): an empire-wide attack/defense
+  // multiplier derived from how many the attacker/defender owns
+  // (WEAPONS_WORKSHOP_*_MULT_PER_BUILDING in config.ts), kept wired for any
+  // copy a player already owns. Attacker's mult feeds atkMult, defender's
+  // feeds defMult — each side only ever supplies its own side's field.
   weaponsWorkshopAttackMult?: number | undefined;
   weaponsWorkshopDefenseMult?: number | undefined;
+  // Titanium/Umbrite Weapons Factory: like Weapons Workshop above, but the count
+  // behind each multiplier is scoped to the connected-town network relevant
+  // to that side of the fight (runtime-combat-support.ts), not a flat
+  // empire-wide sum — see TITANIUM_WEAPONS_FACTORY_*_MULT_PER_BUILDING /
+  // UMBRITE_WEAPONS_FACTORY_*_MULT_PER_BUILDING in config.ts.
+  titaniumWeaponsFactoryAttackMult?: number | undefined;
+  titaniumWeaponsFactoryDefenseMult?: number | undefined;
+  umbriteWeaponsFactoryAttackMult?: number | undefined;
+  umbriteWeaponsFactoryDefenseMult?: number | undefined;
+  // "Unarmed" vulnerability: doubles the attacker's effective attack when the
+  // defender owns zero Titanium or zero Umbrite Weapons Factories anywhere in their
+  // empire (NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT in config.ts) — an
+  // attack-side-only field (the attacker's own war-industry investment,
+  // or lack of it, never affects their own defense).
+  noWarIndustryVulnerabilityMult?: number | undefined;
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
@@ -81,6 +98,8 @@ const defenseMultiplierForTile = (
     defMult *= BREAKTHROUGH_DEBUFF_MULT;
   }
   if (modifiers.weaponsWorkshopDefenseMult != null) defMult *= modifiers.weaponsWorkshopDefenseMult;
+  if (modifiers.titaniumWeaponsFactoryDefenseMult != null) defMult *= modifiers.titaniumWeaponsFactoryDefenseMult;
+  if (modifiers.umbriteWeaponsFactoryDefenseMult != null) defMult *= modifiers.umbriteWeaponsFactoryDefenseMult;
   return defMult;
 };
 
@@ -90,6 +109,9 @@ const buildFrontierCombatPreviewImpl = (
 ): FrontierCombatPreview => {
   let atkMult = modifiers.attackerOutpostMult ?? 1;
   if (modifiers.weaponsWorkshopAttackMult != null) atkMult *= modifiers.weaponsWorkshopAttackMult;
+  if (modifiers.titaniumWeaponsFactoryAttackMult != null) atkMult *= modifiers.titaniumWeaponsFactoryAttackMult;
+  if (modifiers.umbriteWeaponsFactoryAttackMult != null) atkMult *= modifiers.umbriteWeaponsFactoryAttackMult;
+  if (modifiers.noWarIndustryVulnerabilityMult != null) atkMult *= modifiers.noWarIndustryVulnerabilityMult;
   if (modifiers.dockAttackMult != null) atkMult *= modifiers.dockAttackMult;
   if (target.ownershipState === "SETTLED") atkMult *= modifiers.attackVsSettledMult ?? 1;
   if (target.fortVariant) atkMult *= modifiers.attackVsFortsMult ?? 1;
