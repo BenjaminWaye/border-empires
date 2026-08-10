@@ -103,6 +103,74 @@ describe("frontier combat", () => {
     expect(preview.defMult).toBe(0);
   });
 
+  it("applies ironWeaponsFactoryAttackMult and ironWeaponsFactoryDefenseMult when present", () => {
+    const baseline = buildFrontierCombatPreview({ terrain: "LAND", ownershipState: "SETTLED" });
+    const boosted = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { ironWeaponsFactoryAttackMult: 1.03, ironWeaponsFactoryDefenseMult: 1.06 }
+    );
+
+    expect(baseline.atkMult).toBe(1);
+    expect(boosted.atkMult).toBeCloseTo(1.03, 6);
+    expect(boosted.defMult).toBeCloseTo(1.35 * 1.06, 6);
+  });
+
+  it("applies furWeaponsFactoryAttackMult and furWeaponsFactoryDefenseMult when present", () => {
+    const baseline = buildFrontierCombatPreview({ terrain: "LAND", ownershipState: "SETTLED" });
+    const boosted = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { furWeaponsFactoryAttackMult: 1.06, furWeaponsFactoryDefenseMult: 1.03 }
+    );
+
+    expect(baseline.atkMult).toBe(1);
+    expect(boosted.atkMult).toBeCloseTo(1.06, 6);
+    expect(boosted.defMult).toBeCloseTo(1.35 * 1.03, 6);
+  });
+
+  it("stacks Iron and Fur Weapons Factory mults multiplicatively", () => {
+    const preview = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      {
+        ironWeaponsFactoryAttackMult: 1.03,
+        furWeaponsFactoryAttackMult: 1.06,
+        ironWeaponsFactoryDefenseMult: 1.06,
+        furWeaponsFactoryDefenseMult: 1.03
+      }
+    );
+
+    expect(preview.atkMult).toBeCloseTo(1.03 * 1.06, 6);
+    expect(preview.defMult).toBeCloseTo(1.35 * 1.06 * 1.03, 6);
+  });
+
+  it("does not apply an Iron/Fur Weapons Factory defense bonus to a FRONTIER target (zero defense regardless)", () => {
+    const preview = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "FRONTIER" },
+      { ironWeaponsFactoryDefenseMult: 1.5, furWeaponsFactoryDefenseMult: 1.5 }
+    );
+    expect(preview.defMult).toBe(0);
+  });
+
+  it("doubles attack effectiveness via noWarIndustryVulnerabilityMult when the defender has no war industry", () => {
+    const baseline = buildFrontierCombatPreview({ terrain: "LAND", ownershipState: "SETTLED" });
+    const boosted = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { noWarIndustryVulnerabilityMult: 2.0 }
+    );
+
+    expect(baseline.atkMult).toBe(1);
+    expect(boosted.atkMult).toBeCloseTo(2.0, 6);
+    expect(boosted.atkEff).toBeCloseTo(20, 6);
+    expect(boosted.winChance).toBeGreaterThan(baseline.winChance);
+  });
+
+  it("combines noWarIndustryVulnerabilityMult multiplicatively with other attack mults", () => {
+    const preview = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { ironWeaponsFactoryAttackMult: 1.03, noWarIndustryVulnerabilityMult: 2.0 }
+    );
+    expect(preview.atkMult).toBeCloseTo(1.03 * 2.0, 6);
+  });
+
   it("leaves atkMult unchanged when dockAttackMult is undefined", () => {
     const preview = buildFrontierCombatPreview(
       { terrain: "LAND", ownershipState: "SETTLED" },

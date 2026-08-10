@@ -22,6 +22,43 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786417200000, // 2026.08.10.4
+    introducedIn: "2026.08.10.4",
+    title: "Weapons Workshop split into Iron and Fur Weapons Factories",
+    why: "Weapons Workshop forged both Iron and Supply into the same flat empire-wide attack/defense boost, giving the two resources no distinct identity in the War branch. It's retired and replaced with two resource-specific factories that reward a real strategic choice: mass-produce anywhere, or cluster into one connected industrial network for a bigger payoff — and skipping both leaves your empire exposed.",
+    changes: [
+      "Iron Weapons Factory (unlocked by Ironclad Masonry): an uncapped Iron sink granting +1.5% attack / +3% defense per copy — armor doctrine.",
+      "Fur Weapons Factory (unlocked by Tanner's Craft): an uncapped Supply sink granting +3% attack / +1.5% defense per copy — raiding doctrine.",
+      "Both buildings' bonus is scoped to the connected-town network relevant to each fight, not a flat empire-wide sum — clustering many together in one connected region pays off more than scattering them.",
+      "Each additional copy of either factory costs more manpower than the last.",
+      "Owning zero Iron Weapons Factories or zero Fur Weapons Factories anywhere in your empire leaves you markedly easier to attack.",
+      "Weapons Workshop can no longer be newly built; any copies you already own keep working as before."
+    ]
+  },
+  {
+    createdAt: 1786413600000, // 2026.08.10.3
+    introducedIn: "2026.08.10.3",
+    title: "Queue expansions ahead of your frontier",
+    why: "You could only queue an expansion onto a tile that already touched your territory, so planning a route deep into neutral land meant clicking one tile at a time and waiting for each to finish before the next could even be queued.",
+    changes: [
+      "You can now queue an expansion onto a neutral tile that only borders another tile you've already queued or are currently claiming — the new claim waits for the earlier one to finish, then launches from it automatically.",
+      "Chains can go several tiles deep, so a whole planned route can be queued up in one pass instead of one click at a time."
+    ]
+  },
+  {
+    createdAt: 1786410000000, // 2026.08.10.2
+    introducedIn: "2026.08.10.2",
+    title: "The 2D map now takes over when 3D can't run on your device",
+    why: "On some phones — Safari on iPhone in particular — the 3D map could fail to start or have its graphics context taken away by the system, leaving a blank map with no explanation and no way to report what happened.",
+    changes: [
+      "If the 3D map can't start, or its graphics context is lost mid-session, the game now switches to the 2D map instead of showing a blank screen.",
+      "A short banner explains why the 2D map is being used, with the specific reason.",
+      "If loading the 3D map crashes the browser outright, the game now notices on the next visit and comes up in 2D instead of crashing again. Add ?renderer=3d to the URL to try 3D again.",
+      "Downloaded diagnostics now include your device's graphics capabilities, the reason 3D was unavailable, and how far the previous 3D attempt got before the browser died — so map crashes can be diagnosed from a phone.",
+      "The 3D map now sizes its memory buffers to your screen instead of always reserving for a large desktop display, which cuts its memory use substantially on phones."
+    ]
+  },
+  {
     createdAt: 1786406400000, // 2026.08.10.1
     introducedIn: "2026.08.10.1",
     title: "Removed Bank and Exchange House; Clearing House now boosts Market",

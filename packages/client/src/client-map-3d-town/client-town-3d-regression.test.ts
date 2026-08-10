@@ -15,9 +15,13 @@ describe("3d town rendering regression guard", () => {
     expect(map3dSource).not.toContain("createClientThreeTownLayer");
     // The 3D town overlay drives town visuals through this entry point.
     expect(map3dSource).toContain("townOverlay.addInstance");
-    // Bootstrap suppresses the SVG town icon when the true-3D renderer is mounted.
+    // Bootstrap suppresses the SVG town icon when the true-3D renderer is
+    // mounted — this is the drawTownOverlay wrapper's own 3D branch, not just
+    // any mention of the renderer handle.
     const bootstrapSource = clientSource("../client-bootstrap/client-bootstrap.ts");
-    expect(bootstrapSource).toContain("if (threeTerrainRenderer) return;");
+    expect(bootstrapSource).toContain(
+      "    drawTownOverlay: (tile, px, py, size) => {\n      if (threeRendererHost.current()) {"
+    );
     // The 2D drawing path still calls drawTownOverlay through the dep
     // wrapper, so non-3D renderers keep their SVG town icons.
     const runtimeSource = clientSource("../client-runtime-loop.ts");

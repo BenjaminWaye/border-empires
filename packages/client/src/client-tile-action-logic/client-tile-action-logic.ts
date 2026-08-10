@@ -1574,21 +1574,46 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           )
         });
       }
-      if (buildShowsOnTile("WEAPONS_WORKSHOP", tile, supportedTowns.length, supportedDocks.length)) {
+      // WEAPONS_WORKSHOP is retired (replaced by the two structures below) —
+      // no build clause for it, so it stops appearing in any build menu.
+      // Legacy copies a player already owns keep functioning; see
+      // structure-registry-economic.ts.
+      if (buildShowsOnTile("IRON_WEAPONS_FACTORY", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
-          id: "build_weapons_workshop",
-          label: "Build Weapons Workshop",
-          detail: deps.buildDetailTextForAction("build_weapons_workshop", tile) + frontierBuildDetailSuffix(tile),
+          id: "build_iron_weapons_factory",
+          label: "Build Iron Weapons Factory",
+          detail: deps.buildDetailTextForAction("build_iron_weapons_factory", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(
-              "WEAPONS_WORKSHOP",
-              state.techIds.includes("weapons-forging") && hasFreeResourceSlots(state, "WEAPONS_WORKSHOP") && !tile.siegeOutpost && !tile.observatory,
-              !state.techIds.includes("weapons-forging")
-                ? "Requires Weapons Forging"
+              "IRON_WEAPONS_FACTORY",
+              state.techIds.includes("masonry") && hasFreeResourceSlots(state, "IRON_WEAPONS_FACTORY") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("masonry")
+                ? "Requires Ironclad Masonry"
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
-                  : missingResourceSlotReason(state, "WEAPONS_WORKSHOP") ?? "Unavailable",
-              `${deps.structureCostText("WEAPONS_WORKSHOP")} • ${Math.round(economicStructureBuildMs("WEAPONS_WORKSHOP") / 60000)}m • +3% empire-wide attack and defense per copy • no per-town limit`
+                  : missingResourceSlotReason(state, "IRON_WEAPONS_FACTORY") ?? "Unavailable",
+              `${deps.structureCostText("IRON_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("IRON_WEAPONS_FACTORY") / 60000)}m • +1.5% attack / +3% defense per copy, scoped to this town's connected network • no per-town limit`
+            ),
+            slots,
+            deps
+          )
+        });
+      }
+      if (buildShowsOnTile("FUR_WEAPONS_FACTORY", tile, supportedTowns.length, supportedDocks.length)) {
+        out.push({
+          id: "build_fur_weapons_factory",
+          label: "Build Fur Weapons Factory",
+          detail: deps.buildDetailTextForAction("build_fur_weapons_factory", tile) + frontierBuildDetailSuffix(tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            ...chainedBuildAvailability(
+              "FUR_WEAPONS_FACTORY",
+              state.techIds.includes("leatherworking") && hasFreeResourceSlots(state, "FUR_WEAPONS_FACTORY") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("leatherworking")
+                ? "Requires Tanner's Craft"
+                : tile.siegeOutpost || tile.observatory
+                  ? "Tile already has structure"
+                  : missingResourceSlotReason(state, "FUR_WEAPONS_FACTORY") ?? "Unavailable",
+              `${deps.structureCostText("FUR_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("FUR_WEAPONS_FACTORY") / 60000)}m • +3% attack / +1.5% defense per copy, scoped to this town's connected network • no per-town limit`
             ),
             slots,
             deps

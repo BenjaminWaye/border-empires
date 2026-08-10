@@ -34,13 +34,14 @@
       "tier": 1,
       "branch": "war",
       "name": "Ironclad Masonry",
-      "description": "Stone is the first polite way of saying no. Reveals Iron.",
+      "description": "Stone is the first polite way of saying no. Reveals Iron and unlocks the Iron Weapons Factory: an uncapped Iron sink that arms your empire with heavier defense and iron-forged siege strength, clustered strongest where you build many in one connected industrial region.",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 3600,
       "effects": {
         "unlockForts": true,
+        "unlockIronWeaponsFactory": true,
         "revealResource": "iron"
       }
     },
@@ -49,7 +50,7 @@
       "tier": 1,
       "branch": "war",
       "name": "Tanner's Craft",
-      "description": "Straps, harnesses, and portable frames turn baggage into warfare. Reveals Supply.",
+      "description": "Straps, harnesses, and portable frames turn baggage into warfare. Reveals Supply and unlocks the Fur Weapons Factory: an uncapped Supply sink that arms your empire for the offensive, clustered strongest where you build many in one connected industrial region.",
       "cost": {
         "gold": 10
       },
@@ -57,6 +58,7 @@
       "effects": {
         "unlockCamp": true,
         "unlockSiegeOutposts": true,
+        "unlockFurWeaponsFactory": true,
         "revealResource": "supply"
       }
     },
@@ -299,24 +301,6 @@
       "researchTimeSeconds": 54000,
       "effects": {
         "unlockThunderBastion": true
-      }
-    },
-    {
-      "id": "weapons-forging",
-      "tier": 2,
-      "branch": "war",
-      "name": "Weapons Forging",
-      "description": "Unlocks the Weapons Workshop: forges Iron and Supply into titanium-alloy plating and charged energy blades, granting an empire-wide attack and defense boost. Build as many as you like in one town to raise a dedicated military city.",
-      "prereqIds": [
-        "masonry",
-        "leatherworking"
-      ],
-      "cost": {
-        "gold": 10
-      },
-      "researchTimeSeconds": 14400,
-      "effects": {
-        "unlockWeaponsWorkshop": true
       }
     },
     {

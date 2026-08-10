@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, structureBuildGoldCost, structureCostDefinition } from "./structure-costs.js";
+import { FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
 
 // Build gold costs are zeroed across the board (docs/manpower-economy-rewrite-plan.md
 // §12: manpower is the sole build cost now; gold only gates a few structures
@@ -26,6 +26,39 @@ describe("structureBuildGoldCost", () => {
     expect(structureBuildGoldCost("MARKET", 4)).toBe(0);
     expect(structureBuildGoldCost("CARAVANARY", 3)).toBe(0);
     expect(structureBuildGoldCost("FOUNDRY", 2)).toBe(0);
+  });
+});
+
+// Design doc "escalating build cost": Iron/Fur Weapons Factory are the one
+// place `scaling` multiplies the real (manpower) cost instead of the
+// (globally zeroed) gold cost every other structure's `scaling` describes.
+describe("structureBuildManpowerCostScaled", () => {
+  test("escalates Iron Weapons Factory manpower cost with existing empire-wide count", () => {
+    const base = structureBuildManpowerCost("IRON_WEAPONS_FACTORY");
+    expect(structureBuildManpowerCostScaled("IRON_WEAPONS_FACTORY", 0)).toBe(base);
+    expect(structureBuildManpowerCostScaled("IRON_WEAPONS_FACTORY", 1)).toBe(Math.ceil(base * 1.15));
+    expect(structureBuildManpowerCostScaled("IRON_WEAPONS_FACTORY", 2)).toBe(Math.ceil(base * 1.15 ** 2));
+    expect(structureBuildManpowerCostScaled("IRON_WEAPONS_FACTORY", 5)).toBeGreaterThan(
+      structureBuildManpowerCostScaled("IRON_WEAPONS_FACTORY", 1)
+    );
+  });
+
+  test("escalates Fur Weapons Factory manpower cost with existing empire-wide count", () => {
+    const base = structureBuildManpowerCost("FUR_WEAPONS_FACTORY");
+    expect(structureBuildManpowerCostScaled("FUR_WEAPONS_FACTORY", 0)).toBe(base);
+    expect(structureBuildManpowerCostScaled("FUR_WEAPONS_FACTORY", 1)).toBe(Math.ceil(base * 1.15));
+    expect(structureBuildManpowerCostScaled("FUR_WEAPONS_FACTORY", 3)).toBeGreaterThan(
+      structureBuildManpowerCostScaled("FUR_WEAPONS_FACTORY", 0)
+    );
+  });
+
+  test("leaves every other structure's manpower cost flat regardless of existing count", () => {
+    expect(structureBuildManpowerCostScaled("MARKET", 0)).toBe(structureBuildManpowerCost("MARKET"));
+    expect(structureBuildManpowerCostScaled("MARKET", 10)).toBe(structureBuildManpowerCost("MARKET"));
+    expect(structureBuildManpowerCostScaled("WEAPONS_WORKSHOP", 10)).toBe(structureBuildManpowerCost("WEAPONS_WORKSHOP"));
+    // FORT has its own `scaling` entry (intended for gold, currently inert),
+    // but manpower stays flat since FORT isn't in the manpower-scaling set.
+    expect(structureBuildManpowerCostScaled("FORT", 5)).toBe(structureBuildManpowerCost("FORT"));
   });
 });
 
