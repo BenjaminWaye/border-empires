@@ -22,6 +22,19 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786410000000, // 2026.08.10.2
+    introducedIn: "2026.08.10.2",
+    title: "The 2D map now takes over when 3D can't run on your device",
+    why: "On some phones — Safari on iPhone in particular — the 3D map could fail to start or have its graphics context taken away by the system, leaving a blank map with no explanation and no way to report what happened.",
+    changes: [
+      "If the 3D map can't start, or its graphics context is lost mid-session, the game now switches to the 2D map instead of showing a blank screen.",
+      "A short banner explains why the 2D map is being used, with the specific reason.",
+      "If loading the 3D map crashes the browser outright, the game now notices on the next visit and comes up in 2D instead of crashing again. Add ?renderer=3d to the URL to try 3D again.",
+      "Downloaded diagnostics now include your device's graphics capabilities, the reason 3D was unavailable, and how far the previous 3D attempt got before the browser died — so map crashes can be diagnosed from a phone.",
+      "The 3D map now sizes its memory buffers to your screen instead of always reserving for a large desktop display, which cuts its memory use substantially on phones."
+    ]
+  },
+  {
     createdAt: 1786406400000, // 2026.08.10.1
     introducedIn: "2026.08.10.1",
     title: "Removed Bank and Exchange House; Clearing House now boosts Market",
