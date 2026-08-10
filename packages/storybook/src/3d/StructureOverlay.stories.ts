@@ -23,7 +23,8 @@ const KINDS: ReadonlyArray<StructureKind> = [
   "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
   "POPULATION_BUREAU", "IRON_LEVY",
   "WEAPONS_WORKSHOP",
-  "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3"
+  "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+  "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"
 ];
 
 const render = (args: Args): HTMLElement => {
@@ -126,3 +127,7 @@ export const SynthesizerBatch: Story = { args: { structures: ["FUR_SYNTHESIZER",
 export const ArcaneBatch: Story = { args: { structures: ["AETHER_TOWER", "AEGIS_DOME", "ASTRAL_DOCK", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 9, spacing: 1.6 } };
 export const ManpowerBatch: Story = { args: { structures: ["QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS", "POPULATION_BUREAU", "IRON_LEVY", "GARRISON_HALL", "GRANARY", "AETHER_TOWER"], cameraDistance: 9, spacing: 1.7 } };
 export const WorldbreakerPartsBatch: Story = { args: { structures: ["WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3"], cameraDistance: 7, spacing: 1.6 } };
+export const ImperialExchangePartLedger: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_1"], cameraDistance: 3 } };
+export const ImperialExchangePartEngine: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_2"], cameraDistance: 3 } };
+export const ImperialExchangePartSeal: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_3"], cameraDistance: 3 } };
+export const ImperialExchangePartsBatch: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"], cameraDistance: 7, spacing: 1.6 } };

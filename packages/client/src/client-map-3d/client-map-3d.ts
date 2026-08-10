@@ -248,27 +248,19 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
   // Visual-only demo: ?structuredemo=1 fakes a row of structures two
   // tiles north of the camera so you can eyeball each mesh side-by-side
-  // without building them in-game. The MINE appears twice (IRON + GEMS)
-  // and the three Worldbreaker part meshes are shown too.
+  // without building them in-game. The MINE appears twice (IRON + GEMS),
+  // and the Worldbreaker/Imperial Exchange part meshes are shown too.
   const structureDemoEnabled =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("structuredemo") === "1";
   type StructureDemoEntry = { kind: StructureKind; resource?: "IRON" | "GEMS" };
   const STRUCTURE_DEMO_ENTRIES: ReadonlyArray<StructureDemoEntry> = [
-    { kind: "FARMSTEAD" },
-    { kind: "WATERWORKS" },
-    { kind: "CAMP" },
-    { kind: "MINE", resource: "IRON" },
-    { kind: "MINE", resource: "GEMS" },
-    { kind: "IRONWORKS" },
-    { kind: "MARKET" },
-    { kind: "OBSERVATORY" },
-    { kind: "GRANARY" },
-    { kind: "SEED_GRANARY" },
-    { kind: "CENSUS_HALL" },
-    { kind: "WORLD_ENGINE_PART_1" },
-    { kind: "WORLD_ENGINE_PART_2" },
-    { kind: "WORLD_ENGINE_PART_3" }
+    { kind: "FARMSTEAD" }, { kind: "WATERWORKS" }, { kind: "CAMP" },
+    { kind: "MINE", resource: "IRON" }, { kind: "MINE", resource: "GEMS" },
+    { kind: "IRONWORKS" }, { kind: "MARKET" }, { kind: "OBSERVATORY" },
+    { kind: "GRANARY" }, { kind: "SEED_GRANARY" }, { kind: "CENSUS_HALL" },
+    { kind: "WORLD_ENGINE_PART_1" }, { kind: "WORLD_ENGINE_PART_2" }, { kind: "WORLD_ENGINE_PART_3" },
+    { kind: "IMPERIAL_EXCHANGE_PART_1" }, { kind: "IMPERIAL_EXCHANGE_PART_2" }, { kind: "IMPERIAL_EXCHANGE_PART_3" }
   ];
   const structureDemoEntryFor = (wx: number, wy: number): StructureDemoEntry | undefined => {
     if (!structureDemoEnabled) return undefined;
