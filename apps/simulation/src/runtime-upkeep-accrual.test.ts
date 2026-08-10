@@ -16,7 +16,7 @@ const testPlayer = (id: string, overrides: Partial<RuntimePlayer> = {}): Runtime
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
-  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
   ...overrides
 });
 
@@ -38,7 +38,7 @@ const farmResourceTile = (x: number, y: number, ownerId: string): DomainTileStat
   resource: "FARM"
 });
 
-const emptyNeed = (): UpkeepNeed => ({ gold: 0, FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+const emptyNeed = (): UpkeepNeed => ({ gold: 0, FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
 
 const emptyEconomyContext = (player: RuntimePlayer): RuntimeTileYieldEconomyContext => ({
   player,
@@ -51,7 +51,7 @@ const emptyEconomyContext = (player: RuntimePlayer): RuntimeTileYieldEconomyCont
 
 type HarnessOptions = {
   tiles?: DomainTileState[];
-  upkeep?: { gold?: number; food?: number; iron?: number; crystal?: number; supply?: number };
+  upkeep?: { gold?: number; food?: number; titanium?: number; crystal?: number; umbrite?: number };
   hasSummary?: boolean;
 };
 
@@ -85,9 +85,9 @@ const createHarness = (options: HarnessOptions = {}) => {
     cachedUpkeepAccrual: () => ({
       gold: options.upkeep?.gold ?? 0,
       food: options.upkeep?.food ?? 0,
-      iron: options.upkeep?.iron ?? 0,
+      titanium: options.upkeep?.titanium ?? 0,
       crystal: options.upkeep?.crystal ?? 0,
-      supply: options.upkeep?.supply ?? 0
+      umbrite: options.upkeep?.umbrite ?? 0
     }),
     summaryForPlayer: (playerId) => playerSummaries.get(playerId) ?? createEmptyPlayerRuntimeSummary(),
     tileYieldEconomyContextForPlayer: (player) => emptyEconomyContext(player),
@@ -342,8 +342,8 @@ describe("applyEconomyAccrual", () => {
   });
 
   it("drains gold and strategic upkeep from points/stockpile once 15s have elapsed with no covering tile yield", () => {
-    const player = testPlayer("player-1", { points: 100, strategicResources: { FOOD: 10, IRON: 10, CRYSTAL: 10, SUPPLY: 10, SHARD: 0 } });
-    const { ctx, playerSummaries } = createHarness({ upkeep: { gold: 2, food: 1, iron: 1, crystal: 1, supply: 1 } });
+    const player = testPlayer("player-1", { points: 100, strategicResources: { FOOD: 10, TITANIUM: 10, CRYSTAL: 10, UMBRITE: 10, SHARD: 0 } });
+    const { ctx, playerSummaries } = createHarness({ upkeep: { gold: 2, food: 1, titanium: 1, crystal: 1, umbrite: 1 } });
     playerSummaries.set("player-1", createEmptyPlayerRuntimeSummary());
     applyEconomyAccrual(ctx, player, 1_000);
 
@@ -352,13 +352,13 @@ describe("applyEconomyAccrual", () => {
     // 15s = 0.25 minutes of upkeep at the configured per-minute rates.
     expect(player.points).toBeCloseTo(100 - 0.5, 6);
     expect(player.strategicResources?.FOOD).toBeCloseTo(10 - 0.25, 6);
-    expect(player.strategicResources?.IRON).toBeCloseTo(10 - 0.25, 6);
+    expect(player.strategicResources?.TITANIUM).toBeCloseTo(10 - 0.25, 6);
     expect(player.strategicResources?.CRYSTAL).toBeCloseTo(10 - 0.25, 6);
-    expect(player.strategicResources?.SUPPLY).toBeCloseTo(10 - 0.25, 6);
+    expect(player.strategicResources?.UMBRITE).toBeCloseTo(10 - 0.25, 6);
   });
 
   it("never drops points/stockpiles below zero", () => {
-    const player = testPlayer("player-1", { points: 0.1, strategicResources: { FOOD: 0.1, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } });
+    const player = testPlayer("player-1", { points: 0.1, strategicResources: { FOOD: 0.1, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } });
     const { ctx, playerSummaries } = createHarness({ upkeep: { gold: 100, food: 100 } });
     playerSummaries.set("player-1", createEmptyPlayerRuntimeSummary());
     applyEconomyAccrual(ctx, player, 1_000);

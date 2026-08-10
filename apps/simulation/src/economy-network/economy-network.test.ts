@@ -194,8 +194,8 @@ describe("connected town network", () => {
     expect(network.get("0,0")).toEqual({
       connectedTownCount: 0,
       connectedTownBonus: 0,
-      connectedIronWeaponsFactoryCount: 0,
-      connectedFurWeaponsFactoryCount: 0
+      connectedTitaniumWeaponsFactoryCount: 0,
+      connectedUmbriteWeaponsFactoryCount: 0
     });
     expect(network.size).toBe(1);
   });
@@ -321,7 +321,7 @@ describe("connected town network", () => {
   });
 
   // Design doc "network-clustered combat bonus": unlike every *Keys field
-  // above, connectedIronWeaponsFactoryCount/connectedFurWeaponsFactoryCount
+  // above, connectedTitaniumWeaponsFactoryCount/connectedUmbriteWeaponsFactoryCount
   // are plain, self-inclusive COUNTS (both factories are uncapped per town,
   // structure-placement-metadata.json "same_tile", so a boolean "has one"
   // check would undercount a town with several).
@@ -331,11 +331,11 @@ describe("connected town network", () => {
     });
     const ironFactoryTile = (x: number, y: number): DomainTileState => ({
       x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "IRON_WEAPONS_FACTORY" as const, status: "active" as const }
+      economicStructure: { ownerId: "player-1", type: "TITANIUM_WEAPONS_FACTORY" as const, status: "active" as const }
     });
     const furFactoryTile = (x: number, y: number): DomainTileState => ({
       x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "FUR_WEAPONS_FACTORY" as const, status: "active" as const }
+      economicStructure: { ownerId: "player-1", type: "UMBRITE_WEAPONS_FACTORY" as const, status: "active" as const }
     });
 
     const ironTownKey = "0,0";
@@ -371,14 +371,14 @@ describe("connected town network", () => {
     // Every town in the connected star group reports the SAME totals — the
     // whole network's sum, self-inclusive of whichever town owns the copies.
     for (const key of [ironTownKey, "0,2", "2,2", furTownKey]) {
-      expect(network.get(key)!.connectedIronWeaponsFactoryCount).toBe(2);
-      expect(network.get(key)!.connectedFurWeaponsFactoryCount).toBe(1);
+      expect(network.get(key)!.connectedTitaniumWeaponsFactoryCount).toBe(2);
+      expect(network.get(key)!.connectedUmbriteWeaponsFactoryCount).toBe(1);
     }
 
     // The disconnected town only ever sees its own copy, never the star
     // group's — and the star group never sees the isolated town's copy.
-    expect(network.get("50,50")!.connectedIronWeaponsFactoryCount).toBe(1);
-    expect(network.get("50,50")!.connectedFurWeaponsFactoryCount).toBe(0);
+    expect(network.get("50,50")!.connectedTitaniumWeaponsFactoryCount).toBe(1);
+    expect(network.get("50,50")!.connectedUmbriteWeaponsFactoryCount).toBe(0);
   });
 
   it("computes connectivity in O(N) for large empires (regression: O(K^2) pairwise loop removed)", () => {
@@ -627,8 +627,8 @@ describe("connected town network — incremental state fast path", () => {
     expect(before.get("0,0")).toEqual({
       connectedTownCount: 0,
       connectedTownBonus: 0,
-      connectedIronWeaponsFactoryCount: 0,
-      connectedFurWeaponsFactoryCount: 0
+      connectedTitaniumWeaponsFactoryCount: 0,
+      connectedUmbriteWeaponsFactoryCount: 0
     });
     expect(state.dirty).toBe(false);
 
@@ -687,14 +687,14 @@ describe("connected town network — incremental state fast path", () => {
     expect(rebuilt.get("0,0")).toEqual({
       connectedTownCount: 0,
       connectedTownBonus: 0,
-      connectedIronWeaponsFactoryCount: 0,
-      connectedFurWeaponsFactoryCount: 0
+      connectedTitaniumWeaponsFactoryCount: 0,
+      connectedUmbriteWeaponsFactoryCount: 0
     });
     expect(rebuilt.get("2,0")).toEqual({
       connectedTownCount: 0,
       connectedTownBonus: 0,
-      connectedIronWeaponsFactoryCount: 0,
-      connectedFurWeaponsFactoryCount: 0
+      connectedTitaniumWeaponsFactoryCount: 0,
+      connectedUmbriteWeaponsFactoryCount: 0
     });
     expect(state.parent.has("1,0")).toBe(false);
   });

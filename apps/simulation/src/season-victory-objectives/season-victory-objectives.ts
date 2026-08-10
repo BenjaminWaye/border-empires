@@ -121,7 +121,7 @@ const objectiveSelfProgressLabel = (
   if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
   if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} gold/day`;
   if (objectiveId === "RESOURCE_MONOPOLY") {
-    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0 };
+    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
     let bestResource: ResourceType | undefined;
     let bestOwned = 0;
     let bestTotal = 0;
@@ -242,7 +242,7 @@ const buildSeasonVictoryContext = (
   const controlledCountByPlayerId = new Map<string, number>();
   const dockCountByPlayerId = new Map<string, number>();
   const metricsByPlayerId = new Map<string, VictoryMetrics>();
-  const totalResourceCounts: Record<ResourceType, number> = { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0 };
+  const totalResourceCounts: Record<ResourceType, number> = { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
   const ownedResourceCountsByPlayerId = new Map<string, Record<ResourceType, number>>();
 
   for (const tile of worldTiles) {
@@ -264,7 +264,7 @@ const buildSeasonVictoryContext = (
       const resource = tile.resource as ResourceType;
       totalResourceCounts[resource] += 1;
       if (tile.ownerId && competitivePlayerIds.has(tile.ownerId)) {
-        const owned = ownedResourceCountsByPlayerId.get(tile.ownerId) ?? { FARM: 0, WOOD: 0, IRON: 0, GEMS: 0, FISH: 0, FUR: 0 };
+        const owned = ownedResourceCountsByPlayerId.get(tile.ownerId) ?? { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
         owned[resource] = (owned[resource] ?? 0) + 1;
         ownedResourceCountsByPlayerId.set(tile.ownerId, owned);
       }

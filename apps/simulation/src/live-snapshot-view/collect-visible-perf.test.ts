@@ -26,7 +26,7 @@ const makePlayer = (id: string) => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local" as const,
   allies: new Set<string>(),
-  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
 });
 
 const settledLand = (x: number, y: number, extra: Partial<DomainTileState> = {}): DomainTileState => ({
@@ -86,13 +86,13 @@ describe("yield-bearing tile index: perf gate (250k tiles)", () => {
         town: { type: "FARMING", populationTier: "SETTLEMENT", name: `Town${i}` }
       });
     }
-    const STRATEGIC_RESOURCES = ["FARM", "IRON", "GEMS", "FUR"] as const;
+    const STRATEGIC_RESOURCES = ["FARM", "TITANIUM", "GEMS", "UMBRITE"] as const;
     for (let i = 0; i < RESOURCE_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + i, {
         resource: STRATEGIC_RESOURCES[i % STRATEGIC_RESOURCES.length]
       });
     }
-    const CONVERTER_TYPES = ["FUR_SYNTHESIZER", "IRONWORKS", "CRYSTAL_SYNTHESIZER"] as const;
+    const CONVERTER_TYPES = ["UMBRITE_SYNTHESIZER", "TITANIUM_WORKS", "CRYSTAL_SYNTHESIZER"] as const;
     for (let i = 0; i < CONVERTER_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + RESOURCE_COUNT + i, {
         economicStructure: {
@@ -185,11 +185,11 @@ describe("yield-bearing tile index: cold-cache perf gate", () => {
     for (let i = 0; i < TOWN_COUNT; i++) {
       addTile(PLAIN_COUNT + i, { town: { type: "FARMING", populationTier: "SETTLEMENT", name: `Town${i}` } });
     }
-    const STRATEGIC_RESOURCES = ["FARM", "IRON", "GEMS", "FUR"] as const;
+    const STRATEGIC_RESOURCES = ["FARM", "TITANIUM", "GEMS", "UMBRITE"] as const;
     for (let i = 0; i < RESOURCE_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + i, { resource: STRATEGIC_RESOURCES[i % STRATEGIC_RESOURCES.length] });
     }
-    const CONVERTER_TYPES = ["FUR_SYNTHESIZER", "IRONWORKS", "CRYSTAL_SYNTHESIZER"] as const;
+    const CONVERTER_TYPES = ["UMBRITE_SYNTHESIZER", "TITANIUM_WORKS", "CRYSTAL_SYNTHESIZER"] as const;
     for (let i = 0; i < CONVERTER_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + RESOURCE_COUNT + i, {
         economicStructure: { ownerId: PLAYER_ID, type: CONVERTER_TYPES[i % CONVERTER_TYPES.length], status: "active", level: 1 }
@@ -241,11 +241,11 @@ describe("yield-bearing tile index: cold-cache perf gate", () => {
     for (let i = 0; i < TOWN_COUNT; i++) {
       addTile(PLAIN_COUNT + i, { town: { type: "FARMING", populationTier: "SETTLEMENT", name: `Town${i}` } });
     }
-    const STRATEGIC_RESOURCES = ["FARM", "IRON", "GEMS", "FUR"] as const;
+    const STRATEGIC_RESOURCES = ["FARM", "TITANIUM", "GEMS", "UMBRITE"] as const;
     for (let i = 0; i < RESOURCE_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + i, { resource: STRATEGIC_RESOURCES[i % STRATEGIC_RESOURCES.length] });
     }
-    const CONVERTER_TYPES = ["FUR_SYNTHESIZER", "IRONWORKS", "CRYSTAL_SYNTHESIZER"] as const;
+    const CONVERTER_TYPES = ["UMBRITE_SYNTHESIZER", "TITANIUM_WORKS", "CRYSTAL_SYNTHESIZER"] as const;
     for (let i = 0; i < CONVERTER_COUNT; i++) {
       addTile(PLAIN_COUNT + TOWN_COUNT + RESOURCE_COUNT + i, {
         economicStructure: { ownerId: PLAYER_ID, type: CONVERTER_TYPES[i % CONVERTER_TYPES.length], status: "active", level: 1 }
@@ -287,7 +287,7 @@ describe("yield-bearing tile index: correctness", () => {
     // 80 plain settled tiles (no yield)
     // 10 with town (SETTLEMENT tier)
     // 5 with FARM resource
-    // 5 with active IRONWORKS
+    // 5 with active TITANIUM_WORKS
 
     const seedTiles = new Map<string, DomainTileState>();
     for (let i = 0; i < 80; i++) {
@@ -307,7 +307,7 @@ describe("yield-bearing tile index: correctness", () => {
       seedTiles.set(`${300 + i},0`, settledLand(300 + i, 0, {
         economicStructure: {
           ownerId: PLAYER_ID,
-          type: "IRONWORKS" as const,
+          type: "TITANIUM_WORKS" as const,
           status: "active" as const,
           level: 1
         }
@@ -336,16 +336,16 @@ describe("yield-bearing tile index: correctness", () => {
     );
     expect(result).toBeDefined();
 
-    // The result must have collected from TOWN tiles and FARM/IRONWORKS tiles.
+    // The result must have collected from TOWN tiles and FARM/TITANIUM_WORKS tiles.
     // We cannot compute exact gold values here without replicating the full economy
     // engine, but we can assert:
     //   1. gold > 0  (towns produce gold)
     //   2. strategic.FOOD > 0  (FARM tiles produce FOOD)
-    //   3. strategic.IRON > 0  (IRONWORKS produces IRON)
+    //   3. strategic.TITANIUM > 0  (TITANIUM_WORKS produces TITANIUM)
     //   4. tiles > 0 (at least some tiles yielded)
     expect(result!.gold, "expected positive gold from SETTLEMENT towns").toBeGreaterThan(0);
     expect(result!.strategic?.FOOD, "expected FOOD from FARM tiles").toBeGreaterThan(0);
-    expect(result!.strategic?.IRON, "expected IRON from IRONWORKS").toBeGreaterThan(0);
+    expect(result!.strategic?.TITANIUM, "expected TITANIUM from TITANIUM_WORKS").toBeGreaterThan(0);
     expect(result!.tiles, "expected touched tiles > 0").toBeGreaterThan(0);
 
     // Verify index contains exactly the yield-bearing tiles (10 towns + 5 farm + 5 ironworks = 20)
@@ -407,11 +407,11 @@ describe("yield-bearing tile index: correctness", () => {
     expect(yieldIndex.get(PLAYER_ID)?.has("5,5")).toBeFalsy();
 
     // Add resource → yield-bearing
-    rts.call(runtime, "5,5", settledLand(5, 5, { resource: "IRON" as const }), "add-resource");
+    rts.call(runtime, "5,5", settledLand(5, 5, { resource: "TITANIUM" as const }), "add-resource");
     expect(yieldIndex.get(PLAYER_ID)?.has("5,5")).toBe(true);
 
     // Tile loses ownership → removed from index
-    rts.call(runtime, "5,5", { x: 5, y: 5, terrain: "LAND" as const, resource: "IRON" as const }, "lose-owner");
+    rts.call(runtime, "5,5", { x: 5, y: 5, terrain: "LAND" as const, resource: "TITANIUM" as const }, "lose-owner");
     expect(yieldIndex.get(PLAYER_ID)?.has("5,5")).toBeFalsy();
   });
 });

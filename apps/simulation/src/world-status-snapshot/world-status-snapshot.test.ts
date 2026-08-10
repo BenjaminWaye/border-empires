@@ -9,8 +9,8 @@ describe("buildWorldStatusSnapshot", () => {
       tiles: [
         { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "FARMING", townName: "Nauticus" },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
-        { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
-        { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+        { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+        { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
         { x: 30, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", townType: "MARKET", townName: "BlackFang" },
         { x: 50, y: 50, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED", townType: "MARKET", townName: "Raid Camp" }
       ],
@@ -106,7 +106,7 @@ describe("buildWorldStatusSnapshot", () => {
       x,
       y: 0,
       terrain: "LAND",
-      resource: "IRON",
+      resource: "TITANIUM",
       ...(x < 5 ? { dockId: `dock-${x}` } : {}),
       ...(x < 8 ? { ownerId: "player-1", ownershipState: "SETTLED" } : {})
     }));
@@ -138,7 +138,7 @@ describe("buildWorldStatusSnapshot", () => {
 
     expect(resourceMonopoly).toEqual(
       expect.objectContaining({
-        progressLabel: "8/10 IRON",
+        progressLabel: "8/10 TITANIUM",
         thresholdLabel: "Need 80% control of one resource type",
         conditionMet: true
       })

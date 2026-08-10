@@ -65,10 +65,10 @@ type HudDeps = {
     strategicAnim: ClientState["strategicAnim"],
     rateToneClass: (value: number) => string,
     resourceSlots?: ClientState["resourceSlots"],
-    isRevealed?: (key: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY") => boolean
+    isRevealed?: (key: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE") => boolean
   ) => string;
   hasRevealedResourceCategory: (
-    category: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY",
+    category: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
     techIds: readonly string[],
     techCatalog: readonly ClientState["techCatalog"][number][]
   ) => boolean;

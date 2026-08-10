@@ -46,8 +46,8 @@ const supportTile = (x: number, y: number, type: NonNullable<Tile["economicStruc
 describe("townHasSupportStructureType", () => {
   it("treats under-construction support buildings as occupying the town slot", () => {
     const town = townTile(10, 10);
-    const tiles = [town, supportTile(11, 10, "FUR_SYNTHESIZER", "under_construction")];
-    expect(townHasSupportStructureType(tiles, town, "me", "FUR_SYNTHESIZER")).toBe(true);
+    const tiles = [town, supportTile(11, 10, "UMBRITE_SYNTHESIZER", "under_construction")];
+    expect(townHasSupportStructureType(tiles, town, "me", "UMBRITE_SYNTHESIZER")).toBe(true);
   });
 
   it("treats advanced variants as occupying the same base support-building slot", () => {
@@ -59,7 +59,7 @@ describe("townHasSupportStructureType", () => {
   it("ignores unrelated support structures", () => {
     const town = townTile(10, 10);
     const tiles = [town, supportTile(11, 11, "MARKET", "active")];
-    expect(townHasSupportStructureType(tiles, town, "me", "FUR_SYNTHESIZER")).toBe(false);
+    expect(townHasSupportStructureType(tiles, town, "me", "UMBRITE_SYNTHESIZER")).toBe(false);
   });
 
   it("assigns a shared support structure to only the lowest-coordinate town", () => {

@@ -28,7 +28,7 @@ import {
 export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort" | "economicStructure">): number => {
   if (tile.fort?.status === "active") {
     if (tile.fort.variant === "THUNDER_BASTION") return 20;
-    if (tile.fort.variant === "IRON_BASTION") return 10;
+    if (tile.fort.variant === "TITANIUM_BASTION") return 10;
     return 5;
   }
   if (tile.economicStructure?.type === "WOODEN_FORT" && tile.economicStructure.status === "active") return 1.5;
@@ -36,7 +36,7 @@ export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort" 
 };
 
 export type FrontierCommandType = "ATTACK" | "EXPAND";
-export type DomainStrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+export type DomainStrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 
 export type DomainPlayer = {
   id: string;
@@ -74,7 +74,7 @@ export type DomainPlayer = {
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;
   // Persistent sub-choice for domains that ask the player to pick a resource
   // (Clockwork Stipend). Locked on pick; null/undefined means no choice yet.
-  // Narrowed to the trickle subset (IRON / SUPPLY / CRYSTAL) — FOOD and SHARD
+  // Narrowed to the trickle subset (TITANIUM / UMBRITE / CRYSTAL) — FOOD and SHARD
   // are intentionally excluded because no trickle domain offers them.
   chosenTrickleResource?: ChosenTrickleResource | undefined;
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1): remaining Imperial

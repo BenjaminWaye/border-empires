@@ -5,8 +5,8 @@ import type { Tile } from "../client-types.js";
 type EconomyResource = Exclude<EconomyFocusKey, "ALL">;
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 
-// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/IRON/CRYSTAL/
-// SUPPLY stopped being stockpiled flows once Step 5 shipped — they're now
+// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/CRYSTAL/
+// UMBRITE stopped being stockpiled flows once Step 5 shipped — they're now
 // discrete slot capacity, so this panel renders them with a slots-used mode
 // instead of the stock/cap/income/upkeep flow mode. GOLD is the only resource
 // left on the flow mode (§14.1 item 2 / §5.5) — SHARD is event-gated and isn't
@@ -18,17 +18,17 @@ type EconomyPanelArgs = {
   gold: number;
   me: string;
   incomePerMinute: number;
-  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
   storageCap: EmpireStorageCap;
-  strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
-  upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; gold: number };
+  strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+  upkeepPerMinute: { food: number; titanium: number; umbrite: number; crystal: number; gold: number };
   upkeepLastTick: {
     foodCoverage?: number;
     gold?: { contributors?: EconomyBucket[] };
     food?: { contributors?: EconomyBucket[] };
-    iron?: { contributors?: EconomyBucket[] };
+    titanium?: { contributors?: EconomyBucket[] };
     crystal?: { contributors?: EconomyBucket[] };
-    supply?: { contributors?: EconomyBucket[] };
+    umbrite?: { contributors?: EconomyBucket[] };
   };
   activeRevealTargetsCount: number;
   tiles: Iterable<Tile>;
@@ -42,18 +42,18 @@ type EconomyPanelArgs = {
   resourceSlots: { supply: Record<SlotResource, number>; demand: Record<SlotResource, number> };
   dormantStructures: Array<{ key: string; resources: SlotResource[] }>;
   // Same reveal gate as the toolbar ribbon (client-panel-html.ts's
-  // strategicRibbonHtml): IRON/CRYSTAL/SUPPLY must stay hidden here too
+  // strategicRibbonHtml): TITANIUM/CRYSTAL/UMBRITE must stay hidden here too
   // until the viewing player has researched the tech that reveals them.
   // GOLD/FOOD are never gated by this.
-  isRevealed?: (key: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY") => boolean;
+  isRevealed?: (key: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE") => boolean;
 };
 
-const resources: EconomyResource[] = ["GOLD", "FOOD", "IRON", "CRYSTAL", "SUPPLY"];
+const resources: EconomyResource[] = ["GOLD", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
 
 const FORT_VARIANT_LABEL: Record<NonNullable<Tile["fort"]>["variant"] & string, string> = {
   WOODEN_FORT: "Palisade",
   FORT: "Fort",
-  IRON_BASTION: "Iron Bastion",
+  TITANIUM_BASTION: "Titanium Bastion",
   THUNDER_BASTION: "Thunder Bastion"
 };
 
@@ -138,7 +138,7 @@ const formatUpkeepSummary = (
   upkeep: EconomyPanelArgs["upkeepPerMinute"],
   resourceIconForKey: EconomyPanelArgs["resourceIconForKey"]
 ): string => {
-  // §5/§12.1: FOOD/IRON/CRYSTAL/SUPPLY stopped being stockpiled flows — their
+  // §5/§12.1: FOOD/TITANIUM/CRYSTAL/UMBRITE stopped being stockpiled flows — their
   // upkeep is the slot occupancy shown in the per-resource cards, so only the
   // GOLD flow upkeep belongs in this summary line.
   const parts: string[] = [];
@@ -183,9 +183,9 @@ const setEconomyBucketNote = (map: Map<string, EconomyBucket>, label: string, no
 const resourceUpkeepPerMinute = (resource: EconomyResource, upkeepPerMinute: EconomyPanelArgs["upkeepPerMinute"]): number => {
   if (resource === "GOLD") return upkeepPerMinute.gold;
   if (resource === "FOOD") return upkeepPerMinute.food;
-  if (resource === "IRON") return upkeepPerMinute.iron;
+  if (resource === "TITANIUM") return upkeepPerMinute.titanium;
   if (resource === "CRYSTAL") return upkeepPerMinute.crystal;
-  if (resource === "SUPPLY") return upkeepPerMinute.supply;
+  if (resource === "UMBRITE") return upkeepPerMinute.umbrite;
   return 0;
 };
 
@@ -205,9 +205,9 @@ const upkeepBreakdownForResource = (
 ): { contributors?: EconomyBucket[] } | undefined => {
   if (resource === "GOLD") return args.upkeepLastTick.gold;
   if (resource === "FOOD") return args.upkeepLastTick.food;
-  if (resource === "IRON") return args.upkeepLastTick.iron;
+  if (resource === "TITANIUM") return args.upkeepLastTick.titanium;
   if (resource === "CRYSTAL") return args.upkeepLastTick.crystal;
-  if (resource === "SUPPLY") return args.upkeepLastTick.supply;
+  if (resource === "UMBRITE") return args.upkeepLastTick.umbrite;
   return undefined;
 };
 

@@ -155,7 +155,7 @@ const canAffordStructure = (
 ): boolean => {
   const requiredTech: Partial<Record<EconomicStructureType, string>> = {
     FARMSTEAD: "agriculture",
-    CAMP: "leatherworking",
+    UMBRITE_RIG: "leatherworking",
     MINE: "mining",
     MARKET: "trade",
     GRANARY: "pottery"
@@ -202,9 +202,9 @@ export const chooseBestEconomicBuild = (
     const townKey = tileKeyOf(tile.x, tile.y);
     if (tile.resource === "FARM" || tile.resource === "FISH") {
       candidates.push({ type: "FARMSTEAD", score: foodLow ? 190 : 70 });
-    } else if (tile.resource === "WOOD" || tile.resource === "FUR") {
-      candidates.push({ type: "CAMP", score: econWeak ? 58 : 42 });
-    } else if (tile.resource === "IRON" || tile.resource === "GEMS") {
+    } else if (tile.resource === "UMBRITE") {
+      candidates.push({ type: "UMBRITE_RIG", score: econWeak ? 58 : 42 });
+    } else if (tile.resource === "TITANIUM" || tile.resource === "GEMS") {
       candidates.push({ type: "MINE", score: econWeak ? 62 : 46 });
     } else if (tile.town && tile.town.populationTier !== "SETTLEMENT" &&
         (typeof tile.town.supportCurrent !== "number" || typeof tile.town.supportMax !== "number" || tile.town.supportCurrent < tile.town.supportMax)) {
@@ -257,16 +257,16 @@ export const chooseBestFortBuild = (
   candidateTiles: readonly StructurePlannerTile[] = ownedTiles
 ): StructurePlannerTile | undefined => {
   if (!playerTechSet(player).has("masonry")) return undefined;
-  // Iron/gold requirements must match the tier the runtime will actually
+  // Titanium/gold requirements must match the tier the runtime will actually
   // build (runtime-structure-command-handlers.ts always resolves a fresh
   // fort via bestFortTierForTech, never the flat base-FORT cost) — a player
-  // with fortified-walls/steelworking tech gets IRON_BASTION/THUNDER_BASTION
-  // (90/180 iron, 1800/4200 gold) instead of the base 45 iron / 900 gold.
+  // with fortified-walls/steelworking tech gets TITANIUM_BASTION/THUNDER_BASTION
+  // (90/180 titanium, 1800/4200 gold) instead of the base 45 titanium / 900 gold.
   // Using the flat base cost here let the AI repeatedly propose a fort it
-  // could never afford, rejected every tick with "insufficient IRON for
+  // could never afford, rejected every tick with "insufficient TITANIUM for
   // fort" — confirmed in production (74/74 BUILD_FORT commands rejected).
   const fortTier = bestFortTierForTech((id) => playerTechSet(player).has(id));
-  if (resourceStock(player, "IRON") < fortTier.iron) return undefined;
+  if (resourceStock(player, "TITANIUM") < fortTier.titanium) return undefined;
   if (!canAffordGold(player, fortTier.gold)) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
@@ -305,10 +305,10 @@ export const chooseBestSiegeOutpostBuild = (
   if (!playerTechSet(player).has("leatherworking")) return undefined;
   // Same tier-awareness fix as chooseBestFortBuild above: siegecraft/
   // standing-army tech means the runtime builds SIEGE_TOWER/DREAD_TOWER
-  // (90/140 supply, 60/120 iron, 1800/4200 gold), not the flat base cost.
+  // (90/140 umbrite, 60/120 titanium, 1800/4200 gold), not the flat base cost.
   const siegeTier = bestSiegeTierForTech((id) => playerTechSet(player).has(id));
-  if (resourceStock(player, "SUPPLY") < siegeTier.supply) return undefined;
-  if (siegeTier.iron > 0 && resourceStock(player, "IRON") < siegeTier.iron) return undefined;
+  if (resourceStock(player, "UMBRITE") < siegeTier.umbrite) return undefined;
+  if (siegeTier.titanium > 0 && resourceStock(player, "TITANIUM") < siegeTier.titanium) return undefined;
   if (!canAffordGold(player, siegeTier.gold)) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;

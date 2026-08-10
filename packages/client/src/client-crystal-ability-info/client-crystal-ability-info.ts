@@ -143,7 +143,7 @@ export const crystalAbilityInfoForKey = (
   if (key === "retort_recasting") {
     return {
       title: "Retort Transmutation",
-      detail: "Rewrites one exposed resource vein into a different industrial class, turning food, supply, iron, or crystal ground into whatever your empire needs next.",
+      detail: "Rewrites one exposed resource vein into a different industrial class, turning food, umbrite, titanium, or crystal ground into whatever your empire needs next.",
       glyph: "⚗",
       target: "Any land resource tile within observatory range that has no town, dock, fort, observatory, siege line, or economic structure on it.",
       costBits: ["6,000 gold", "120 CRYSTAL"],

@@ -308,7 +308,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             territoryTileKeys: ["10,10"],
             points: 5,
             manpower: 3,
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
             techIds: [],
             domainIds: []
           }
@@ -486,7 +486,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townName: "BlackFang",
           townPopulationTier: "TOWN"
         },
-        { x: 31, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", resource: "IRON" }
+        { x: 31, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", resource: "TITANIUM" }
       ],
       players: [
         {
@@ -608,7 +608,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
       tiles: [
         ...visibleRuntimeState.tiles,
         { x: 30, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", townType: "MARKET", townName: "BlackFang" },
-        { x: 31, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", resource: "IRON" },
+        { x: 31, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", resource: "TITANIUM" },
         { x: 32, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
         { x: 40, y: 40, terrain: "LAND", townType: "MARKET", townName: "Neutral Port" }
       ]

@@ -44,7 +44,7 @@ export type WorkerResponse = {
   region: Uint8Array;       // 0=FERTILE_PLAINS 1=DEEP_FOREST 2=BROKEN_HIGHLANDS 3=ANCIENT_HEARTLAND 4=CRYSTAL_WASTES 255=N/A
   shade: Uint8Array;        // 0=DARK 1=LIGHT 255=N/A
   hills: Uint8Array;        // 0=no 1=yes — real isHillsTileAt() (mutually exclusive with forest)
-  resourceLayer: Uint8Array;// 0=none 1=FUR 2=FARM 3=GEMS 4=IRON 5=FISH — actual placed cluster tiles (real generateClusters output, not a biome-eligibility heatmap)
+  resourceLayer: Uint8Array;// 0=none 1=UMBRITE 2=FARM 3=GEMS 4=TITANIUM 5=FISH — actual placed cluster tiles (real generateClusters output, not a biome-eligibility heatmap)
   townIndices: Uint32Array; // flat tile indices of estimated town positions
   dockSiteIndices: Uint32Array; // one flat index per significant island (for dock markers)
   wonders: Array<{ index: number; type: NaturalWonderType }>; // up to 9, one per type — real server placement logic
@@ -61,8 +61,8 @@ export type WorkerResponse = {
   farmSites: number;        // placed FARM resource tiles
   fishSites: number;        // placed FISH resource tiles
   gemsSites: number;        // placed GEMS resource tiles
-  ironSites: number;        // placed IRON resource tiles
-  furSites: number;         // placed FUR resource tiles
+  titaniumSites: number;    // placed TITANIUM resource tiles
+  umbriteSites: number;     // placed UMBRITE resource tiles
   durationMs: number;
 };
 
@@ -136,12 +136,12 @@ const isIslandsWorldValid = (significant: number, largestShare: number): boolean
   significant <= ISLANDS_MAX &&
   largestShare <= ISLANDS_MAX_LARGEST_SHARE;
 
-type ResourceCounts = { fish: number; iron: number; gems: number; farm: number; fur: number; layer: Uint8Array };
+type ResourceCounts = { fish: number; titanium: number; gems: number; farm: number; umbrite: number; layer: Uint8Array };
 
 // Runs the real production cluster placement (server-worldgen-clusters.ts /
 // server-worldgen-terrain.ts) against the world state setWorldSeed() just
 // established, rather than re-deriving a biome-eligibility heatmap here —
-// so cluster sizes, counts, and the hills-sparse FUR/GEMS pass all show up
+// so cluster sizes, counts, and the hills-sparse UMBRITE/GEMS pass all show up
 // exactly as they would in a real game. Most of ServerWorldgenTerrainDeps
 // is unrelated to cluster placement (frontier claims, dock/fort/observatory
 // economy) and is stubbed out the same way apps/simulation's
@@ -204,22 +204,22 @@ const placeResourceClusters = (seed: number): ResourceCounts => {
   });
   clustersRuntime.generateClusters(seed);
 
-  let fish = 0, iron = 0, gems = 0, farm = 0, fur = 0;
+  let fish = 0, titanium = 0, gems = 0, farm = 0, umbrite = 0;
   const layer = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
   for (const [tileKey, clusterId] of clusterByTile) {
     const resourceType = clustersById.get(clusterId)?.resourceType;
     if (!resourceType) continue;
     const [x, y] = parseKey(tileKey);
-    // Display priority: FISH > IRON > GEMS > FARM > FUR
-    const code = resourceType === "FISH" ? 5 : resourceType === "IRON" ? 4 : resourceType === "GEMS" ? 3 : resourceType === "FARM" ? 2 : resourceType === "FUR" ? 1 : 0;
+    // Display priority: FISH > TITANIUM > GEMS > FARM > UMBRITE
+    const code = resourceType === "FISH" ? 5 : resourceType === "TITANIUM" ? 4 : resourceType === "GEMS" ? 3 : resourceType === "FARM" ? 2 : resourceType === "UMBRITE" ? 1 : 0;
     layer[y * WORLD_WIDTH + x] = code;
     if (resourceType === "FISH") fish++;
-    else if (resourceType === "IRON") iron++;
+    else if (resourceType === "TITANIUM") titanium++;
     else if (resourceType === "GEMS") gems++;
     else if (resourceType === "FARM") farm++;
-    else if (resourceType === "FUR") fur++;
+    else if (resourceType === "UMBRITE") umbrite++;
   }
-  return { fish, iron, gems, farm, fur, layer };
+  return { fish, titanium, gems, farm, umbrite, layer };
 };
 
 // Replicates all three town-placement passes from game-domain.
@@ -462,8 +462,8 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     farmSites: resources.farm,
     fishSites: resources.fish,
     gemsSites: resources.gems,
-    ironSites: resources.iron,
-    furSites: resources.fur,
+    titaniumSites: resources.titanium,
+    umbriteSites: resources.umbrite,
     durationMs: performance.now() - t0
   };
 

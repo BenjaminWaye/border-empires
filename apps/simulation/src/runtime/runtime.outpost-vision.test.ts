@@ -77,8 +77,8 @@ describe("SimulationRuntime outpost vision bonus", () => {
               ownershipState: "SETTLED" as const,
               economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST" as const, status: "active" as const }
             },
-            // A free SUPPLY slot — SIEGE_OUTPOST's resource-slot requirement.
-            { x: 0, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "FUR" as const }
+            // A free UMBRITE slot — SIEGE_OUTPOST's resource-slot requirement.
+            { x: 0, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "UMBRITE" as const }
           ],
           activeLocks: []
         }

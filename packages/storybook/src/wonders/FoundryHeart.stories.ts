@@ -277,7 +277,7 @@ const meta: Meta<Args> = {
           "The Foundry Heart — a pulsing crystal geode with glowing aether core, cracked " +
           "fissure ground spanning its tile and 8 neighbors, and floating particle shards, " +
           "surrounded by ordinary grass. Passive effect: owner gains +1 slot of each " +
-          "resource type (FOOD, IRON, CRYSTAL, SUPPLY).",
+          "resource type (FOOD, TITANIUM, CRYSTAL, UMBRITE).",
       },
     },
   },

@@ -53,11 +53,11 @@ describe("ClientMessageSchema", () => {
     // the sim rejected with `resource choice required` even when the
     // client had picked a valid resource.
     expect(
-      ClientMessageSchema.parse({ type: "CHOOSE_DOMAIN", domainId: "clockwork-stipend", chosenTrickleResource: "SUPPLY" })
+      ClientMessageSchema.parse({ type: "CHOOSE_DOMAIN", domainId: "clockwork-stipend", chosenTrickleResource: "UMBRITE" })
     ).toEqual({
       type: "CHOOSE_DOMAIN",
       domainId: "clockwork-stipend",
-      chosenTrickleResource: "SUPPLY"
+      chosenTrickleResource: "UMBRITE"
     });
   });
 

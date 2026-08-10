@@ -2,12 +2,12 @@ import { isHillsTileAt, type ResourceType } from "@border-empires/shared";
 
 import type { ServerWorldgenClustersDeps, ServerWorldgenClustersRuntime } from "./server-world-runtime-types.js";
 
-// Hills placement for FUR/GEMS is decided purely by isHillsTileAt (which
+// Hills placement for UMBRITE/GEMS is decided purely by isHillsTileAt (which
 // already implies LAND — see hills-terrain.ts), so it's kept local to this
 // module instead of threading a clusterRuleMatchHills predicate through
 // ServerWorldgenTerrainDeps/Runtime and both season-seed-world builders.
 const isHillsSparseResource = (x: number, y: number, resource: ResourceType): boolean =>
-  (resource === "FUR" || resource === "GEMS") && isHillsTileAt(x, y);
+  (resource === "UMBRITE" || resource === "GEMS") && isHillsTileAt(x, y);
 
 export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): ServerWorldgenClustersRuntime => {
   const {
@@ -32,9 +32,9 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
     clustersById.clear();
     const clusterPlan: ResourceType[] = [
       ...Array.from({ length: 52 }, (): ResourceType => "FARM"),
-      ...Array.from({ length: 52 }, (): ResourceType => "FUR"),
+      ...Array.from({ length: 52 }, (): ResourceType => "UMBRITE"),
       ...Array.from({ length: 30 }, (): ResourceType => "GEMS"),
-      ...Array.from({ length: 52 }, (): ResourceType => "IRON"),
+      ...Array.from({ length: 52 }, (): ResourceType => "TITANIUM"),
       ...Array.from({ length: 52 }, (): ResourceType => "FISH")
     ];
     const defByResource = new Map<ResourceType, (typeof clusterTypeDefs)[number]>();
@@ -99,11 +99,11 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
       }
     }
 
-    // A handful of hilltop deposits for FUR and GEMS — 1 or 2 of each,
+    // A handful of hilltop deposits for UMBRITE and GEMS — 1 or 2 of each,
     // map-wide, never a full cluster. Kept as its own pass (rather than
     // folding hills into clusterRuleMatch above) so it can't accidentally
     // scale up with the main clusterPlan draw counts.
-    for (const resource of ["FUR", "GEMS"] as const) {
+    for (const resource of ["UMBRITE", "GEMS"] as const) {
       const def = defByResource.get(resource);
       if (!def) continue;
       const hillsCount = seeded01(attemptSeed + 41, attemptSeed + 43, seed + 9701) < 0.5 ? 1 : 2;

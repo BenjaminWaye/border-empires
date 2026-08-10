@@ -11,7 +11,7 @@ import type {
   SnapshotPlayersSection,
   SnapshotTerritorySection,
   TownDefinition,
-  StrategicResource,
+  DomainStrategicResourceKey,
   TileYieldBuffer,
   VictoryPressureTracker
 } from "@border-empires/game-domain";
@@ -41,8 +41,8 @@ export type LegacySnapshotPlayerProfile = {
   points: number;
   manpower: number;
   incomePerMinute: number;
-  strategicResources: Record<StrategicResource, number>;
-  strategicProductionPerMinute: Record<StrategicResource, number>;
+  strategicResources: Record<DomainStrategicResourceKey, number>;
+  strategicProductionPerMinute: Record<DomainStrategicResourceKey, number>;
   upkeepPerMinute: LegacySnapshotPlayerEconomy["upkeepPerMinute"];
   upkeepLastTick: LegacySnapshotPlayerEconomy["upkeepLastTick"];
   economyBreakdown: LegacySnapshotPlayerEconomy["economyBreakdown"];
@@ -98,7 +98,7 @@ const inferResource = (tileYieldEntry: unknown): DomainTileState["resource"] | u
   const strategic = (tileYieldEntry as { strategic?: Record<string, number> }).strategic;
   if (!strategic || typeof strategic !== "object") return undefined;
   if ((strategic.FOOD ?? 0) > 0) return "FARM";
-  if ((strategic.IRON ?? 0) > 0) return "IRON";
+  if ((strategic.TITANIUM ?? 0) > 0) return "TITANIUM";
   if ((strategic.CRYSTAL ?? 0) > 0) return "GEMS";
   return undefined;
 };
@@ -114,19 +114,19 @@ const readSnapshotJson = <T>(snapshotDir: string, filename: string): T => {
   return JSON.parse(fs.readFileSync(file, "utf8")) as T;
 };
 
-const emptyStrategic = (): Record<StrategicResource, number> => ({
+const emptyStrategic = (): Record<DomainStrategicResourceKey, number> => ({
   FOOD: 0,
-  IRON: 0,
+  TITANIUM: 0,
   CRYSTAL: 0,
-  SUPPLY: 0,
+  UMBRITE: 0,
   SHARD: 0
 });
 
-const cloneStrategic = (value?: Partial<Record<StrategicResource, number>>): Record<StrategicResource, number> => ({
+const cloneStrategic = (value?: Partial<Record<DomainStrategicResourceKey, number>>): Record<DomainStrategicResourceKey, number> => ({
   FOOD: value?.FOOD ?? 0,
-  IRON: value?.IRON ?? 0,
+  TITANIUM: value?.TITANIUM ?? 0,
   CRYSTAL: value?.CRYSTAL ?? 0,
-  SUPPLY: value?.SUPPLY ?? 0,
+  UMBRITE: value?.UMBRITE ?? 0,
   SHARD: value?.SHARD ?? 0
 });
 
@@ -479,21 +479,21 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       incomePerMinute: playerEconomy?.incomePerMinute ?? 0,
       strategicResources: playerEconomy?.strategicResources ?? emptyStrategic(),
       strategicProductionPerMinute: playerEconomy?.strategicProductionPerMinute ?? emptyStrategic(),
-      upkeepPerMinute: playerEconomy?.upkeepPerMinute ?? { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      upkeepPerMinute: playerEconomy?.upkeepPerMinute ?? { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       upkeepLastTick: playerEconomy?.upkeepLastTick ?? {
         foodCoverage: 1,
         gold: { contributors: [] },
         food: { contributors: [] },
-        iron: { contributors: [] },
+        titanium: { contributors: [] },
         crystal: { contributors: [] },
-        supply: { contributors: [] }
+        umbrite: { contributors: [] }
       },
       economyBreakdown: playerEconomy?.economyBreakdown ?? {
         GOLD: { sources: [], sinks: [] },
         FOOD: { sources: [], sinks: [] },
-        IRON: { sources: [], sinks: [] },
+        TITANIUM: { sources: [], sinks: [] },
         CRYSTAL: { sources: [], sinks: [] },
-        SUPPLY: { sources: [], sinks: [] },
+        UMBRITE: { sources: [], sinks: [] },
         SHARD: { sources: [], sinks: [] }
       },
       techIds,

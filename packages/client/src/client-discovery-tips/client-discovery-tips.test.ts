@@ -21,7 +21,7 @@ const stubWindowStorage = (): Map<string, string> => {
 
 describe("discoveryTipIdForNewlySeenTile", () => {
   it("returns TOWN for any tile with a town, regardless of resource or dock", () => {
-    expect(discoveryTipIdForNewlySeenTile({ town: { name: "X" } as never, resource: "IRON", dockId: "dock-1" })).toBe("TOWN");
+    expect(discoveryTipIdForNewlySeenTile({ town: { name: "X" } as never, resource: "TITANIUM", dockId: "dock-1" })).toBe("TOWN");
   });
 
   it("returns DOCK for a tile with a dockId but no town", () => {
@@ -29,7 +29,7 @@ describe("discoveryTipIdForNewlySeenTile", () => {
   });
 
   it("returns DOCK over resource", () => {
-    expect(discoveryTipIdForNewlySeenTile({ dockId: "dock-1", resource: "IRON" })).toBe("DOCK");
+    expect(discoveryTipIdForNewlySeenTile({ dockId: "dock-1", resource: "TITANIUM" })).toBe("DOCK");
   });
 
   it("returns BARBARIAN for a tile with barbarian owner", () => {
@@ -41,7 +41,7 @@ describe("discoveryTipIdForNewlySeenTile", () => {
   });
 
   it("returns BARBARIAN over resource but under town", () => {
-    expect(discoveryTipIdForNewlySeenTile({ ownerId: "barbarian", resource: "IRON" })).toBe("BARBARIAN");
+    expect(discoveryTipIdForNewlySeenTile({ ownerId: "barbarian", resource: "TITANIUM" })).toBe("BARBARIAN");
     expect(discoveryTipIdForNewlySeenTile({ town: { name: "X" } as never, ownerId: "barbarian" })).toBe("TOWN");
   });
 
@@ -50,11 +50,10 @@ describe("discoveryTipIdForNewlySeenTile", () => {
     expect(discoveryTipIdForNewlySeenTile({ resource: "FISH" })).toBe("FOOD");
   });
 
-  it("maps IRON to IRON, GEMS to CRYSTAL, WOOD/FUR to SUPPLY", () => {
-    expect(discoveryTipIdForNewlySeenTile({ resource: "IRON" })).toBe("IRON");
+  it("maps TITANIUM to TITANIUM, GEMS to CRYSTAL, UMBRITE to UMBRITE", () => {
+    expect(discoveryTipIdForNewlySeenTile({ resource: "TITANIUM" })).toBe("TITANIUM");
     expect(discoveryTipIdForNewlySeenTile({ resource: "GEMS" })).toBe("CRYSTAL");
-    expect(discoveryTipIdForNewlySeenTile({ resource: "WOOD" })).toBe("SUPPLY");
-    expect(discoveryTipIdForNewlySeenTile({ resource: "FUR" })).toBe("SUPPLY");
+    expect(discoveryTipIdForNewlySeenTile({ resource: "UMBRITE" })).toBe("UMBRITE");
   });
 
   it("returns undefined for a plain tile with no town or resource", () => {
@@ -72,7 +71,7 @@ describe("discoveryTipIdForNewlySeenTile", () => {
         town: { name: "X" } as never,
         dockId: "dock-1",
         ownerId: "barbarian",
-        resource: "IRON"
+        resource: "TITANIUM"
       })
     ).toBe("WARPRESS");
   });
@@ -83,9 +82,9 @@ describe("discoveryTipIdForNewlySeenTile", () => {
       "DOCK",
       "BARBARIAN",
       "FOOD",
-      "IRON",
+      "TITANIUM",
       "CRYSTAL",
-      "SUPPLY",
+      "UMBRITE",
       "FOUNDRY_HEART",
       "DEEPWATER_ENGINE",
       "CONSCRIPTION_ENGINE",

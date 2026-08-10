@@ -40,7 +40,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleWorldEngineStrikeCommand: (command: CommandEnvelope) => void;
   handleAegisLockCommand: (command: CommandEnvelope) => void;
   handleAstralDockLaunchCommand: (command: CommandEnvelope) => void;
-  handleIronLevyMusterCommand: (command: CommandEnvelope) => void;
+  handleTitaniumLevyMusterCommand: (command: CommandEnvelope) => void;
   handleActivateImperialWardCommand: (command: CommandEnvelope) => void;
   handleUpgradeTownTierCommand: (command: CommandEnvelope) => void;
   handleCollectShardCommand: (command: CommandEnvelope) => void;
@@ -103,7 +103,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if (command.type === "WORLD_ENGINE_STRIKE") return handlers.handleWorldEngineStrikeCommand(command);
   if (command.type === "AEGIS_LOCK") return handlers.handleAegisLockCommand(command);
   if (command.type === "ASTRAL_DOCK_LAUNCH") return handlers.handleAstralDockLaunchCommand(command);
-  if (command.type === "IRON_LEVY_MUSTER") return handlers.handleIronLevyMusterCommand(command);
+  if (command.type === "TITANIUM_LEVY_MUSTER") return handlers.handleTitaniumLevyMusterCommand(command);
   if (command.type === "ACTIVATE_IMPERIAL_WARD") return handlers.handleActivateImperialWardCommand(command);
   if (command.type === "UPGRADE_TOWN_TIER") return handlers.handleUpgradeTownTierCommand(command);
   if (command.type === "COLLECT_SHARD") return handlers.handleCollectShardCommand(command);
@@ -166,7 +166,7 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   command.type === "WORLD_ENGINE_STRIKE" ||
   command.type === "AEGIS_LOCK" ||
   command.type === "ASTRAL_DOCK_LAUNCH" ||
-  command.type === "IRON_LEVY_MUSTER" ||
+  command.type === "TITANIUM_LEVY_MUSTER" ||
   command.type === "ACTIVATE_IMPERIAL_WARD" ||
   command.type === "UPGRADE_TOWN_TIER" ||
   command.type === "COLLECT_SHARD" ||

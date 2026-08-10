@@ -69,7 +69,7 @@ export const createStructurePieceBuilder = (
 ): StructurePieceBuilderInternals => {
   const slots = new Map<string, Slot>();
   // Sets so a geo/material shared across multiple slots (e.g. a forge
-  // material reused by IRONWORKS + FOUNDRY + ADVANCED_IRONWORKS, or the
+  // material reused by TITANIUM_WORKS + FOUNDRY + ADVANCED_TITANIUM_WORKS, or the
   // blue crystal shared between OBSERVATORY + MINE + CRYSTAL_SYNTHESIZER)
   // is only disposed once.
   const ownedGeos = new Set<BufferGeometry>();

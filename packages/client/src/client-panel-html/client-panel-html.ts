@@ -279,26 +279,26 @@ export const activeTrucesHtml = (
 };
 
 export const strategicRibbonHtml = (
-  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
-  strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
-  upkeepPerMinute: { food: number; iron: number; supply: number; crystal: number; gold: number },
-  strategicAnim: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", { until: number; dir: -1 | 0 | 1 }>,
+  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
+  strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
+  upkeepPerMinute: { food: number; titanium: number; umbrite: number; crystal: number; gold: number },
+  strategicAnim: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", { until: number; dir: -1 | 0 | 1 }>,
   rateToneClass: (rate: number) => string,
   resourceSlots?: { supply: Record<string, number>; demand: Record<string, number> },
-  isRevealed?: (key: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY") => boolean
+  isRevealed?: (key: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE") => boolean
 ): string => {
   const nowMs = Date.now();
   const allEntries: Array<{
-    key: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY";
+    key: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
     icon: string;
     label: string;
     source: string;
     className: string;
   }> = [
     { key: "FOOD", icon: "🍞", label: "Food", source: "From Farms + Fish", className: "res-food" },
-    { key: "IRON", icon: "⛏", label: "Iron", source: "From Iron nodes", className: "res-iron" },
+    { key: "TITANIUM", icon: "⛏", label: "Titanium", source: "From Titanium nodes", className: "res-titanium" },
     { key: "CRYSTAL", icon: "💎", label: "Crystal", source: "From Gem nodes", className: "res-crystal" },
-    { key: "SUPPLY", icon: "🦊", label: "Supply", source: "From Fur + Wood", className: "res-stone" }
+    { key: "UMBRITE", icon: "🟣", label: "Umbrite", source: "From Umbrite deposits", className: "res-umbrite" }
   ];
   const entries = allEntries.filter((entry) => (isRevealed ? isRevealed(entry.key) : true));
   return `<div class="resource-ribbon">${entries

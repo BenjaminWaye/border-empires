@@ -20,10 +20,9 @@ const resourceScore = (resource: DomainTileState["resource"] | undefined): numbe
     case "FARM":
     case "FISH":
       return 200;
-    case "IRON":
+    case "TITANIUM":
       return 130;
-    case "WOOD":
-    case "FUR":
+    case "UMBRITE":
       return 120;
     case "GEMS":
       return 140;

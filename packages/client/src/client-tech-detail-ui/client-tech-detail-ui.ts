@@ -18,13 +18,13 @@ import { MONUMENT_COMPONENTS_BY_BASE, type StructureInfoKey } from "../client-ma
 
 export const formatTechCost = (tech: TechInfo): string => {
   const checklist = tech.requirements.checklist ?? [];
-  const costBits = checklist.filter((item) => /gold|food|iron|crystal|supply|shard/i.test(item.label)).map((item) => item.label);
+  const costBits = checklist.filter((item) => /gold|food|titanium|crystal|umbrite|shard/i.test(item.label)).map((item) => item.label);
   if (costBits.length > 0) return costBits.join(" · ");
   const fallbackCostBits: string[] = [];
   if ((tech.requirements.gold ?? 0) > 0) {
     fallbackCostBits.push(`${tech.requirements.gold.toLocaleString()} gold`);
   }
-  for (const resourceKey of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
     const amount = tech.requirements.resources?.[resourceKey] ?? 0;
     if (amount > 0) fallbackCostBits.push(`${amount.toLocaleString()} ${resourceKey.toLowerCase()}`);
   }
@@ -41,8 +41,8 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockForts":
         out.add("FORT");
         break;
-      case "unlockIronBastion":
-        out.add("IRON_BASTION");
+      case "unlockTitaniumBastion":
+        out.add("TITANIUM_BASTION");
         break;
       case "unlockThunderBastion":
         out.add("THUNDER_BASTION");
@@ -57,7 +57,7 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
         out.add("WATERWORKS");
         break;
       case "unlockCamp":
-        out.add("CAMP");
+        out.add("UMBRITE_RIG");
         break;
       case "unlockMine":
         out.add("MINE");
@@ -80,18 +80,18 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockCaravanary":
         out.add("CARAVANARY");
         break;
-      case "unlockFurSynthesizer":
-        out.add("FUR_SYNTHESIZER");
+      case "unlockUmbriteSynthesizer":
+        out.add("UMBRITE_SYNTHESIZER");
         break;
-      case "unlockIronworks":
-        out.add("IRONWORKS");
+      case "unlockTitaniumWorks":
+        out.add("TITANIUM_WORKS");
         break;
       case "unlockCrystalSynthesizer":
         out.add("CRYSTAL_SYNTHESIZER");
         break;
       case "unlockAdvancedSynthesizers":
-        out.add("ADVANCED_FUR_SYNTHESIZER");
-        out.add("ADVANCED_IRONWORKS");
+        out.add("ADVANCED_UMBRITE_SYNTHESIZER");
+        out.add("ADVANCED_TITANIUM_WORKS");
         out.add("ADVANCED_CRYSTAL_SYNTHESIZER");
         break;
       case "unlockFoundry":
@@ -152,11 +152,11 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
         out.add("ASSEMBLY_WORKS");
         break;
       // unlockWeaponsWorkshop retired — replaced by the two cases below.
-      case "unlockIronWeaponsFactory":
-        out.add("IRON_WEAPONS_FACTORY");
+      case "unlockTitaniumWeaponsFactory":
+        out.add("TITANIUM_WEAPONS_FACTORY");
         break;
-      case "unlockFurWeaponsFactory":
-        out.add("FUR_WEAPONS_FACTORY");
+      case "unlockUmbriteWeaponsFactory":
+        out.add("UMBRITE_WEAPONS_FACTORY");
         break;
       case "unlockPopulationBureau":
         out.add("POPULATION_BUREAU_PART_1");
@@ -164,11 +164,11 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
         out.add("POPULATION_BUREAU_PART_3");
         out.add("POPULATION_BUREAU");
         break;
-      case "unlockIronLevy":
-        out.add("IRON_LEVY_PART_1");
-        out.add("IRON_LEVY_PART_2");
-        out.add("IRON_LEVY_PART_3");
-        out.add("IRON_LEVY");
+      case "unlockTitaniumLevy":
+        out.add("TITANIUM_LEVY_PART_1");
+        out.add("TITANIUM_LEVY_PART_2");
+        out.add("TITANIUM_LEVY_PART_3");
+        out.add("TITANIUM_LEVY");
         break;
       case "unlockSiegeOutposts":
         out.add("SIEGE_OUTPOST");

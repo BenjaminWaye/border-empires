@@ -32,9 +32,9 @@ export const computeSeasonWinnerStats = (
   }
 
   return {
-    ironPerMinute: production?.IRON ?? 0,
+    ironPerMinute: production?.TITANIUM ?? 0,
     goldPerMinute: winnerPlayer?.incomePerMinute ?? 0,
-    supplyPerMinute: production?.SUPPLY ?? 0,
+    supplyPerMinute: production?.UMBRITE ?? 0,
     foodPerMinute: production?.FOOD ?? 0,
     crystalPerMinute: production?.CRYSTAL ?? 0,
     totalPopulation,

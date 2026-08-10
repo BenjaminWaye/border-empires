@@ -23,11 +23,11 @@ describe("tile menu copy ownership", () => {
       tileMenuOverviewIntroLines({
         terrain: "LAND",
         ownerKind: "unclaimed",
-        productionLabel: "iron",
-        resourceLabel: "Iron"
+        productionLabel: "titanium",
+        resourceLabel: "Titanium"
       })
     ).toEqual([
-      "Resource node: Iron. Claim and settle this tile to start producing iron."
+      "Resource node: Titanium. Claim and settle this tile to start producing titanium."
     ]);
   });
 

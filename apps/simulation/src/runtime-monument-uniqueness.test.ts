@@ -49,8 +49,8 @@ function createContext(players: DomainPlayer[], tiles: DomainTileState[]) {
       return true;
     },
     ownedStructureCountForPlayer: () => 0,
-    resourceSlotSupplyForPlayer: () => ({ FOOD: 99, IRON: 99, CRYSTAL: 99, SUPPLY: 99 }),
-    resourceSlotDemandForPlayer: () => ({ FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }),
+    resourceSlotSupplyForPlayer: () => ({ FOOD: 99, TITANIUM: 99, CRYSTAL: 99, UMBRITE: 99 }),
+    resourceSlotDemandForPlayer: () => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }),
     supportedTownKeysForTile: () => [],
     supportedDockKeysForTile: () => [],
     economicStructureForSupportedTown: () => undefined,
@@ -208,7 +208,7 @@ describe("§16 monument global uniqueness", () => {
     expect(eventLogAppends).toContainEqual(expect.objectContaining({ playerId: "loser", type: "MONUMENT_LOST_TO_RIVAL" }));
   });
 
-  // Tech-tree redesign: Population Bureau and Iron Levy hook into the exact
+  // Tech-tree redesign: Population Bureau and Titanium Levy hook into the exact
   // same PART_TYPE_FOR_BASE/MONUMENTAL_STRUCTURE_TYPES generic mechanism as
   // the 4 pre-existing monuments -- no new uniqueness-enforcement code was
   // written for them, so this confirms the hookup actually works rather
@@ -237,13 +237,13 @@ describe("§16 monument global uniqueness", () => {
     expect(rejection).toMatchObject({ code: "MONUMENT_CLAIMED" });
   });
 
-  it("rejects a further IRON_LEVY_PART_1 build once another player's Iron Levy is already active", () => {
+  it("rejects a further TITANIUM_LEVY_PART_1 build once another player's Titanium Levy is already active", () => {
     const rival = makePlayer("player-1");
     const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, events } = createContext(
       [rival, actor],
       [
-        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "IRON_LEVY", status: "active" } },
+        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "TITANIUM_LEVY", status: "active" } },
         {
           x: 5,
           y: 5,
@@ -255,19 +255,19 @@ describe("§16 monument global uniqueness", () => {
       ]
     );
 
-    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "IRON_LEVY_PART_1" }) }));
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "TITANIUM_LEVY_PART_1" }) }));
 
     const rejection = events.find((e) => e.eventType === "COMMAND_REJECTED");
     expect(rejection).toMatchObject({ code: "MONUMENT_CLAIMED" });
   });
 
-  it("does not block Population Bureau once Iron Levy is claimed (different monument types)", () => {
+  it("does not block Population Bureau once Titanium Levy is claimed (different monument types)", () => {
     const rival = makePlayer("player-1");
     const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, events } = createContext(
       [rival, actor],
       [
-        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "IRON_LEVY", status: "active" } },
+        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "TITANIUM_LEVY", status: "active" } },
         { x: 5, y: 5, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } as DomainTileState["town"] }
       ]
     );
@@ -312,22 +312,22 @@ describe("completing a monument consumes its Parts", () => {
     const { context, tiles } = createContext(
       [actor, rival],
       [
-        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "IRON_LEVY_PART_1", status: "active" } },
-        { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "IRON_LEVY_PART_1", status: "active" } },
+        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "TITANIUM_LEVY_PART_1", status: "active" } },
+        { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "TITANIUM_LEVY_PART_1", status: "active" } },
         {
           x: 5,
           y: 5,
           terrain: "LAND",
           ownerId: "player-2",
           ownershipState: "SETTLED",
-          economicStructure: { ownerId: "player-2", type: "IRON_LEVY", status: "under_construction", completesAt: 1_000 }
+          economicStructure: { ownerId: "player-2", type: "TITANIUM_LEVY", status: "under_construction", completesAt: 1_000 }
         }
       ]
     );
 
-    completeStructureBuild(context, simulationTileKey(5, 5), "player-2", "IRON_LEVY", "cmd-complete");
+    completeStructureBuild(context, simulationTileKey(5, 5), "player-2", "TITANIUM_LEVY", "cmd-complete");
 
     expect(tiles.get(simulationTileKey(1, 1))?.economicStructure).toBeUndefined();
-    expect(tiles.get(simulationTileKey(9, 9))?.economicStructure).toMatchObject({ type: "IRON_LEVY_PART_1" });
+    expect(tiles.get(simulationTileKey(9, 9))?.economicStructure).toMatchObject({ type: "TITANIUM_LEVY_PART_1" });
   });
 });

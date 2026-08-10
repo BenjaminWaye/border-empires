@@ -133,7 +133,7 @@ describe("client optimistic state", () => {
       detailLevel: "full",
       upkeepEntries: [
         { label: "Settled land", perMinute: { GOLD: 0.04 } },
-        { label: "Fort", perMinute: { GOLD: 1, IRON: 0.025 } }
+        { label: "Fort", perMinute: { GOLD: 1, TITANIUM: 0.025 } }
       ]
     });
     const state = {

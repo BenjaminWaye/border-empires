@@ -1055,7 +1055,7 @@ describe("client gateway sync regression", () => {
           manpowerDelta: -42,
           pillagedGold: 12.5,
           pillagedShare: 0.25,
-          pillagedStrategic: { IRON: 3 },
+          pillagedStrategic: { TITANIUM: 3 },
           atkEff: 17,
           defEff: 11,
           winChance: 0.72,
@@ -1069,7 +1069,7 @@ describe("client gateway sync regression", () => {
         pointsDelta: 18,
         manpowerDelta: -42,
         pillagedGold: 12.5,
-        pillagedStrategic: { IRON: 3 },
+        pillagedStrategic: { TITANIUM: 3 },
         atkEff: 17,
         defEff: 11,
         winChance: 0.72
@@ -1085,7 +1085,7 @@ describe("client gateway sync regression", () => {
           pointsDelta: 18,
           manpowerDelta: -42,
           pillagedGold: 12.5,
-          pillagedStrategic: { IRON: 3 }
+          pillagedStrategic: { TITANIUM: 3 }
         })
       })
     );

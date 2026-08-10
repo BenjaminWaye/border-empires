@@ -35,13 +35,13 @@ const REGION_TINTS: Record<number, [number, number, number]> = {
   4: [155, 110, 205]  // CRYSTAL_WASTES
 };
 
-// resourceLayer values: 1=FUR 2=FARM 3=GEMS 4=IRON 5=FISH
+// resourceLayer values: 1=UMBRITE 2=FARM 3=GEMS 4=TITANIUM 5=FISH
 const RESOURCE_TINT: Array<[number, number, number]> = [
   [0, 0, 0],        // 0 none
-  [160, 90, 30],    // 1 FUR  – warm brown
+  [77, 42, 134],    // 1 UMBRITE – black-purple
   [80, 210, 80],    // 2 FARM – bright green
   [170, 90, 210],   // 3 GEMS – purple
-  [220, 110, 50],   // 4 IRON – orange
+  [201, 201, 201],  // 4 TITANIUM – neutral gray
   [60, 190, 230],   // 5 FISH – cyan
 ];
 

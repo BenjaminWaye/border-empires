@@ -37,15 +37,15 @@ describe("§14.2 dormant structures wire field", () => {
             ownershipState: "SETTLED",
             fort: { ownerId: "player-1", status: "active", activatedAt: 200 }
           },
-          // Exactly 1 IRON slot: two Forts demand 2, supply is 1 — the newer
+          // Exactly 1 TITANIUM slot: two Forts demand 2, supply is 1 — the newer
           // one (activatedAt 200, per §5.4's tie-break) goes dormant, sparing
           // the older one.
-          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+          { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
         ],
         activeLocks: []
       }
     });
-    expect(runtime.dormantStructuresForPlayer("player-1")).toEqual([{ key: "1,0:fort", resources: ["IRON"] }]);
+    expect(runtime.dormantStructuresForPlayer("player-1")).toEqual([{ key: "1,0:fort", resources: ["TITANIUM"] }]);
     expect(runtime.dormantStructuresForPlayer("player-2")).toEqual([]);
   });
 
@@ -66,7 +66,7 @@ describe("§14.2 dormant structures wire field", () => {
             ownershipState: "SETTLED",
             fort: { ownerId: "player-1", status: "active", activatedAt: 100 }
           },
-          // No IRON supply tile: the Fort's own 1 IRON slot demand is unmet.
+          // No TITANIUM supply tile: the Fort's own 1 TITANIUM slot demand is unmet.
           // A separate town tile with an explicit goldPerMinute so
           // COLLECT_TILE (elsewhere on the empire) always has real yield to
           // collect and therefore always reaches emitPlayerStateUpdate.
@@ -101,6 +101,6 @@ describe("§14.2 dormant structures wire field", () => {
     const payload = JSON.parse(playerUpdateEvent!.payloadJson) as {
       dormantStructures: Array<{ key: string; resources: string[] }>;
     };
-    expect(payload.dormantStructures).toEqual([{ key: "0,0:fort", resources: ["IRON"] }]);
+    expect(payload.dormantStructures).toEqual([{ key: "0,0:fort", resources: ["TITANIUM"] }]);
   });
 });

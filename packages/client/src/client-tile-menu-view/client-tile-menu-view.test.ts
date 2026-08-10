@@ -16,7 +16,7 @@ const settledSupportTile = (
   ownershipState: "SETTLED",
   economicStructure: {
     ownerId: "me",
-    type: "FUR_SYNTHESIZER",
+    type: "UMBRITE_SYNTHESIZER",
     status,
     ...(disabledUntil !== undefined ? { disabledUntil } : {}),
     ...(inactiveReason !== undefined ? { inactiveReason } : {})
@@ -681,7 +681,7 @@ describe("menuOverviewForTile", () => {
         upkeepEntries: [
           { label: "Settled land", perMinute: { GOLD: 0.04 } },
           { label: "Town", perMinute: { FOOD: 1 } },
-          { label: "Fort", perMinute: { GOLD: 1, IRON: 0.025 } }
+          { label: "Fort", perMinute: { GOLD: 1, TITANIUM: 0.025 } }
         ],
         yieldRate: {
           goldPerMinute: 2.5
@@ -715,7 +715,7 @@ describe("menuOverviewForTile", () => {
         terrain: "LAND",
         ownerId: "me",
         ownershipState: "SETTLED",
-        resource: "IRON",
+        resource: "TITANIUM",
         economicStructure: {
           ownerId: "me",
           type: "MINE",
@@ -724,15 +724,15 @@ describe("menuOverviewForTile", () => {
       },
       {
         ...deps,
-        areaEffectModifiersForTile: () => [{ reason: "Foundry", effect: "+100% iron production", tone: "positive" }]
+        areaEffectModifiersForTile: () => [{ reason: "Foundry", effect: "+100% titanium production", tone: "positive" }]
       }
     );
 
     expect(lines.some((line) => line.kind === "section" && line.html === "Modifiers")).toBe(true);
     expect(lines.some((line) => line.html.includes("Mine:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+50% iron production"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("+50% titanium production"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Foundry:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+100% iron production"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("+100% titanium production"))).toBe(true);
   });
 
   it("shows town and dock modifiers in a dedicated modifiers section", () => {
@@ -1280,7 +1280,7 @@ describe("menuOverviewForTile", () => {
 describe("buildDetailTextForAction fort tier text", () => {
   const emptyTile: Tile = { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
   const fortTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active" } };
-  const ironTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "IRON_BASTION" } };
+  const ironTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "TITANIUM_BASTION" } };
   const thunderTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "THUNDER_BASTION" } };
   const woodenFortTile: Tile = { ...emptyTile, economicStructure: { ownerId: "me", type: "WOODEN_FORT", status: "active" } };
 
@@ -1295,15 +1295,15 @@ describe("buildDetailTextForAction fort tier text", () => {
     expect(detail).toContain("Upgrade this Palisade");
   });
 
-  it("shows Iron Bastion upgrade text for an active fort with undefined variant", () => {
+  it("shows Titanium Bastion upgrade text for an active fort with undefined variant", () => {
     const detail = buildDetailTextForAction("build_fortification", fortTile);
-    expect(detail).toContain("Upgrade this Fort into an Iron Bastion");
+    expect(detail).toContain("Upgrade this Fort into an Titanium Bastion");
     expect(detail).toContain("4x");
   });
 
-  it("shows Thunder Bastion upgrade text for an Iron Bastion", () => {
+  it("shows Thunder Bastion upgrade text for an Titanium Bastion", () => {
     const detail = buildDetailTextForAction("build_fortification", ironTile);
-    expect(detail).toContain("Upgrade this Iron Bastion into a Thunder Bastion");
+    expect(detail).toContain("Upgrade this Titanium Bastion into a Thunder Bastion");
     expect(detail).toContain("8x");
   });
 

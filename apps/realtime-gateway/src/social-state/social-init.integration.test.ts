@@ -153,7 +153,7 @@ describe("rewrite social integration", () => {
               vision: [{ label: "Base", mult: 1 }]
             },
             incomePerMinute: 0,
-            upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 0 },
+            upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0,  gold: 0 },
             upkeepLastTick: {
               food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
               iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
@@ -162,8 +162,8 @@ describe("rewrite social integration", () => {
               gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
               foodCoverage: 1
             },
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+            strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
             stamina: 0,
             manpower: 0,
             manpowerCap: 0,

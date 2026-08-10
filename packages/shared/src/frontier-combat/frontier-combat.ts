@@ -39,24 +39,24 @@ export type FrontierCombatModifiers = {
   // Breakthrough momentum: current timestamp for breach-window check.
   nowMs?: number | undefined;
   // Weapons Workshop (retired — see structure-registry-economic.ts, replaced
-  // by Iron/Fur Weapons Factory below): an empire-wide attack/defense
+  // by Titanium/Umbrite Weapons Factory below): an empire-wide attack/defense
   // multiplier derived from how many the attacker/defender owns
   // (WEAPONS_WORKSHOP_*_MULT_PER_BUILDING in config.ts), kept wired for any
   // copy a player already owns. Attacker's mult feeds atkMult, defender's
   // feeds defMult — each side only ever supplies its own side's field.
   weaponsWorkshopAttackMult?: number | undefined;
   weaponsWorkshopDefenseMult?: number | undefined;
-  // Iron/Fur Weapons Factory: like Weapons Workshop above, but the count
+  // Titanium/Umbrite Weapons Factory: like Weapons Workshop above, but the count
   // behind each multiplier is scoped to the connected-town network relevant
   // to that side of the fight (runtime-combat-support.ts), not a flat
-  // empire-wide sum — see IRON_WEAPONS_FACTORY_*_MULT_PER_BUILDING /
-  // FUR_WEAPONS_FACTORY_*_MULT_PER_BUILDING in config.ts.
-  ironWeaponsFactoryAttackMult?: number | undefined;
-  ironWeaponsFactoryDefenseMult?: number | undefined;
-  furWeaponsFactoryAttackMult?: number | undefined;
-  furWeaponsFactoryDefenseMult?: number | undefined;
+  // empire-wide sum — see TITANIUM_WEAPONS_FACTORY_*_MULT_PER_BUILDING /
+  // UMBRITE_WEAPONS_FACTORY_*_MULT_PER_BUILDING in config.ts.
+  titaniumWeaponsFactoryAttackMult?: number | undefined;
+  titaniumWeaponsFactoryDefenseMult?: number | undefined;
+  umbriteWeaponsFactoryAttackMult?: number | undefined;
+  umbriteWeaponsFactoryDefenseMult?: number | undefined;
   // "Unarmed" vulnerability: doubles the attacker's effective attack when the
-  // defender owns zero Iron or zero Fur Weapons Factories anywhere in their
+  // defender owns zero Titanium or zero Umbrite Weapons Factories anywhere in their
   // empire (NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT in config.ts) — an
   // attack-side-only field (the attacker's own war-industry investment,
   // or lack of it, never affects their own defense).
@@ -66,7 +66,7 @@ export type FrontierCombatModifiers = {
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
 
 const baseFortDefenseMult = (variant: FortVariant | undefined): number => {
-  if (variant === "IRON_BASTION") return 4;
+  if (variant === "TITANIUM_BASTION") return 4;
   if (variant === "THUNDER_BASTION") return 8;
   if (variant === "WOODEN_FORT") return 1.35;
   if (variant === "FORT") return 2.5;
@@ -98,8 +98,8 @@ const defenseMultiplierForTile = (
     defMult *= BREAKTHROUGH_DEBUFF_MULT;
   }
   if (modifiers.weaponsWorkshopDefenseMult != null) defMult *= modifiers.weaponsWorkshopDefenseMult;
-  if (modifiers.ironWeaponsFactoryDefenseMult != null) defMult *= modifiers.ironWeaponsFactoryDefenseMult;
-  if (modifiers.furWeaponsFactoryDefenseMult != null) defMult *= modifiers.furWeaponsFactoryDefenseMult;
+  if (modifiers.titaniumWeaponsFactoryDefenseMult != null) defMult *= modifiers.titaniumWeaponsFactoryDefenseMult;
+  if (modifiers.umbriteWeaponsFactoryDefenseMult != null) defMult *= modifiers.umbriteWeaponsFactoryDefenseMult;
   return defMult;
 };
 
@@ -109,8 +109,8 @@ const buildFrontierCombatPreviewImpl = (
 ): FrontierCombatPreview => {
   let atkMult = modifiers.attackerOutpostMult ?? 1;
   if (modifiers.weaponsWorkshopAttackMult != null) atkMult *= modifiers.weaponsWorkshopAttackMult;
-  if (modifiers.ironWeaponsFactoryAttackMult != null) atkMult *= modifiers.ironWeaponsFactoryAttackMult;
-  if (modifiers.furWeaponsFactoryAttackMult != null) atkMult *= modifiers.furWeaponsFactoryAttackMult;
+  if (modifiers.titaniumWeaponsFactoryAttackMult != null) atkMult *= modifiers.titaniumWeaponsFactoryAttackMult;
+  if (modifiers.umbriteWeaponsFactoryAttackMult != null) atkMult *= modifiers.umbriteWeaponsFactoryAttackMult;
   if (modifiers.noWarIndustryVulnerabilityMult != null) atkMult *= modifiers.noWarIndustryVulnerabilityMult;
   if (modifiers.dockAttackMult != null) atkMult *= modifiers.dockAttackMult;
   if (target.ownershipState === "SETTLED") atkMult *= modifiers.attackVsSettledMult ?? 1;
