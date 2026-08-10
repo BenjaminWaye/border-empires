@@ -82,8 +82,6 @@ describe("buildSnapshotTileDetail", () => {
             marketActive: true,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false,
             foodUpkeepPerMinute: 0.1,
             baseGoldPerMinute: 2
           }),
@@ -141,8 +139,6 @@ describe("buildSnapshotTileDetail", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false,
             // foodUpkeepPerMinute intentionally omitted - the regression shape.
             baseGoldPerMinute: 2
           }),
@@ -264,8 +260,6 @@ describe("buildSnapshotTileDetail", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false,
             foodUpkeepPerMinute: 0,
             baseGoldPerMinute: 1
           }),
@@ -516,8 +510,6 @@ describe("buildSnapshotTileDetail", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           }),
           townType: "FARMING",
           townPopulationTier: "TOWN"
@@ -583,8 +575,6 @@ describe("buildSnapshotTileDetail", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           }),
           townType: "FARMING",
           townPopulationTier: "TOWN"

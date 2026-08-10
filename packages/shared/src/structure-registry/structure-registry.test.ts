@@ -19,13 +19,12 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 63 structure types", () => {
-  // 3 forts + 1 observatory + 4 outposts + 55 economic (incl. WOODEN_FORT) = 63
-  // (tech-tree redesign added 7: QUARTERMASTERS_OFFICE, LOGISTICS_GUILD,
-  // ASSEMBLY_WORKS, POPULATION_BUREAU_PART, POPULATION_BUREAU,
-  // IRON_LEVY_PART, IRON_LEVY; +1 for WEAPONS_WORKSHOP; +12 for each of the
-  // 6 monuments' single Part becoming 3 uniquely-named components)
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(63);
+test("STRUCTURE_REGISTRY covers exactly 61 structure types", () => {
+  // 51 minus BANK and EXCHANGE_HOUSE (both removed; Clearing House now
+  // covers Bank's former unlock slot on the coinage tech) = 49, plus 12
+  // for each of the 6 monuments' single Part becoming 3 uniquely-named
+  // components = 61.
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(61);
 });
 
 test("all registered types are unique", () => {
@@ -341,13 +340,13 @@ describe("upkeep parity", () => {
 
   const noUpkeepTypes = new Set([
     "WATERWORKS", "SEED_GRANARY", "CENSUS_HALL", "CLEARING_HOUSE",
-    "AETHER_TOWER", "EXCHANGE_HOUSE", "RAIL_DEPOT",
+    "AETHER_TOWER", "RAIL_DEPOT",
     "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
     "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
     "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
     "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
     "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
-    "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY", "BANK",
+    "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY",
     "CARAVANARY", "FOUNDRY",
     "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "RADAR_SYSTEM",
     "AIRPORT", "OBSERVATORY",

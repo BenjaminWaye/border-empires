@@ -27,8 +27,6 @@ const townTile = (x: number, y: number): Tile => ({
     marketActive: false,
     hasGranary: false,
     granaryActive: false,
-    hasBank: false,
-    bankActive: false
   }
 });
 

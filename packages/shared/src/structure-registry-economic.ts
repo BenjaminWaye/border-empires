@@ -30,7 +30,7 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   MARKET: "trade",
   GRANARY: "pottery",
   SEED_GRANARY: "pottery",
-  BANK: "coinage",
+  CLEARING_HOUSE: "coinage",
   AIRPORT: "aeronautics",
   AETHER_TOWER: "plastics",
   FUR_SYNTHESIZER: "workshops",
@@ -142,7 +142,6 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   GRANARY: econSpec("GRANARY"),
   SEED_GRANARY: econSpec("SEED_GRANARY"),
   CENSUS_HALL: econSpec("CENSUS_HALL"),
-  BANK: econSpec("BANK"),
   CLEARING_HOUSE: econSpec("CLEARING_HOUSE"),
 
   // Special-scaling structures
@@ -173,7 +172,6 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   // Military-support structures
   CARAVANARY: econSpec("CARAVANARY"),
   FOUNDRY: econSpec("FOUNDRY"),
-  EXCHANGE_HOUSE: econSpec("EXCHANGE_HOUSE"),
   GARRISON_HALL: econSpec("GARRISON_HALL"),
   CUSTOMS_HOUSE: econSpec("CUSTOMS_HOUSE"),
   RAIL_DEPOT: econSpec("RAIL_DEPOT"),

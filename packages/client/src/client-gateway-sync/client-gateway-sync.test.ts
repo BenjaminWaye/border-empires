@@ -279,8 +279,6 @@ describe("client gateway sync", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           })
         }
       ]
@@ -349,8 +347,6 @@ describe("client gateway sync", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           })
         }
       ]
@@ -442,8 +438,6 @@ describe("client gateway sync", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           })
         }
       ]
@@ -508,8 +502,6 @@ describe("client gateway sync", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false,
             nextPopulationTierUpgrade: {
               targetTier: "CITY",
               requiredPopulation: 100000,
@@ -546,8 +538,6 @@ describe("client gateway sync", () => {
           marketActive: true,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         })
       }
     ]);
@@ -600,8 +590,6 @@ describe("client gateway sync", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           })
         }
       ]
@@ -650,8 +638,6 @@ describe("client gateway sync", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           })
         }
       ]
@@ -708,8 +694,6 @@ describe("client gateway sync", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           })
         }
       ]

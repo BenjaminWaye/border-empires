@@ -137,8 +137,6 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
             marketActive: true,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           }),
           townType: "MARKET",
           townName: "BlackFang",
@@ -168,8 +166,6 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           }),
           townType: "FARMING",
           townName: "BrightFang",

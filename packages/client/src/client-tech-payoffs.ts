@@ -17,7 +17,6 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockSiegeOutposts: "Siege Outpost",
   unlockGranary: "Granary",
   unlockCensusHall: "Census Hall",
-  unlockBank: "Bank",
   unlockClearingHouse: "Clearing House",
   unlockCaravanary: "Caravanary",
   unlockFurSynthesizer: "Fur Synth",
@@ -25,7 +24,6 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockCrystalSynthesizer: "Aether Condenser",
   unlockFoundry: "Sky Foundry",
   unlockAetherTower: "Ambaric Tower",
-  unlockExchangeHouse: "Exchange House",
   unlockCustomsHouse: "Harbor Exchange",
   unlockGovernorsOffice: "Ministry Hall",
   unlockGarrisonHall: "Ancillary Factory",
@@ -88,7 +86,12 @@ const addTag = (tags: TechHighlightTag[], label: string, tone: TechHighlightTone
 };
 
 export const isTechHighlightEffectKey = (key: string): boolean =>
-  key in STRUCTURE_UNLOCK_LABELS || key in ACTION_UNLOCK_LABELS || key in UPGRADE_UNLOCK_LABELS || key === "unlockAdvancedSynthesizers" || key === "revealResource";
+  key in STRUCTURE_UNLOCK_LABELS ||
+  key in ACTION_UNLOCK_LABELS ||
+  key in UPGRADE_UNLOCK_LABELS ||
+  key === "unlockAdvancedSynthesizers" ||
+  key === "revealResource" ||
+  key === "musterMaxTilesAdd";
 
 export const techHighlightTags = (tech: Pick<TechInfo, "effects">): TechHighlightTag[] => {
   const tags: TechHighlightTag[] = [];
@@ -107,6 +110,9 @@ export const techHighlightTags = (tech: Pick<TechInfo, "effects">): TechHighligh
   if (typeof effects.revealResource === "string") {
     const label = REVEAL_RESOURCE_LABELS[effects.revealResource.toLowerCase()];
     if (label) addTag(tags, label, "resource");
+  }
+  if (typeof effects.musterMaxTilesAdd === "number" && effects.musterMaxTilesAdd > 0) {
+    addTag(tags, `Muster Flag +${effects.musterMaxTilesAdd}`, "upgrade");
   }
 
   return tags;

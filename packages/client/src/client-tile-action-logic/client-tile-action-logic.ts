@@ -1731,13 +1731,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       // below that still cap at one per town.
       const townHasGranary = Boolean(townBuildSource.town?.hasGranary) || deps.townHasSupportStructure(townBuildSource, "GRANARY");
       const townHasCensusHall = deps.townHasSupportStructure(townBuildSource, "CENSUS_HALL");
-      const townHasBank = Boolean(townBuildSource.town?.hasBank) || deps.townHasSupportStructure(townBuildSource, "BANK");
       const townHasClearingHouse = deps.townHasSupportStructure(townBuildSource, "CLEARING_HOUSE");
       const townHasCaravanary = deps.townHasSupportStructure(townBuildSource, "CARAVANARY");
       const townHasFurSynth = deps.townHasSupportStructure(townBuildSource, "FUR_SYNTHESIZER");
       const townHasIronworks = deps.townHasSupportStructure(townBuildSource, "IRONWORKS");
       const townHasCrystalSynth = deps.townHasSupportStructure(townBuildSource, "CRYSTAL_SYNTHESIZER");
-      const townHasExchangeHouse = deps.townHasSupportStructure(townBuildSource, "EXCHANGE_HOUSE");
       const townHasRailDepot = deps.townHasSupportStructure(townBuildSource, "RAIL_DEPOT");
       // One monument component (of any of the 18 unique types, from any of
       // the 6 monuments) per Great City/Monumental City — unified into one
@@ -1809,40 +1807,21 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
       out.push({
-        id: "build_bank",
-        label: "Build Bank",
-        detail: deps.buildDetailTextForAction("build_bank", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
-          ...chainedBuildAvailability(
-            "BANK",
-            !supportPlacementBlocked && !townHasBank && state.techIds.includes("coinage") && hasFreeResourceSlots(state, "BANK"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
-              : townHasBank
-                ? "Nearby town already has Bank"
-                : !state.techIds.includes("coinage")
-                  ? "Requires Minting Works"
-                  : missingResourceSlotReason(state, "BANK") ?? "Unavailable",
-            `${deps.structureCostText("BANK")} • ${Math.round(economicStructureBuildMs("BANK") / 60000)}m • +50% city income • +1 flat income`
-          ),
-          slots,
-          deps
-        )
-      });
-      out.push({
         id: "build_clearing_house",
         label: "Build Clearing House",
         detail: deps.buildDetailTextForAction("build_clearing_house", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
             "CLEARING_HOUSE",
-            !supportPlacementBlocked && !townHasClearingHouse && hasFreeResourceSlots(state, "CLEARING_HOUSE"),
+            !supportPlacementBlocked && !townHasClearingHouse && state.techIds.includes("coinage") && hasFreeResourceSlots(state, "CLEARING_HOUSE"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasClearingHouse
                 ? "Nearby town already has Clearing House"
-                : missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable",
-            `${deps.structureCostText("CLEARING_HOUSE")} • ${Math.round(economicStructureBuildMs("CLEARING_HOUSE") / 60000)}m • boosts connected Markets and Banks`
+                : !state.techIds.includes("coinage")
+                  ? "Requires Minting Works"
+                  : missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable",
+            `${deps.structureCostText("CLEARING_HOUSE")} • ${Math.round(economicStructureBuildMs("CLEARING_HOUSE") / 60000)}m • boosts connected Markets (+25% Market effect)`
           ),
           slots,
           deps
@@ -1927,30 +1906,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Requires Aetheric Resonance"
                   : "Unavailable",
             `${deps.structureCostText("CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 40 gold/day`
-          ),
-          slots,
-          deps
-        )
-      });
-      out.push({
-        id: "build_exchange_house",
-        label: "Build Exchange House",
-        detail: deps.buildDetailTextForAction("build_exchange_house", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
-          ...chainedBuildAvailability(
-            "EXCHANGE_HOUSE",
-            !supportPlacementBlocked &&
-              !townHasExchangeHouse &&
-              state.techIds.includes("imperial-roads") &&
-              hasFreeResourceSlots(state, "EXCHANGE_HOUSE"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
-              : townHasExchangeHouse
-                ? "Nearby town already has Exchange House"
-                : !state.techIds.includes("imperial-roads")
-                  ? "Requires Monument Cities"
-                  : (missingResourceSlotReason(state, "EXCHANGE_HOUSE") ?? "Unavailable"),
-            `${deps.structureCostText("EXCHANGE_HOUSE")} • ${Math.round(economicStructureBuildMs("EXCHANGE_HOUSE") / 60000)}m • scales with nearby support buildings`
           ),
           slots,
           deps

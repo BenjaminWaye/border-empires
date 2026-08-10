@@ -33,12 +33,10 @@ describe("converter toggle regression guard", () => {
     const overlayImages = clientSource("../client-map-render/client-map-overlay-images.ts");
     const loop = clientSource("../client-runtime-loop.ts");
     const dedicatedStructureOverlays = [
-      ["BANK", "bank-overlay.svg"],
       ["CLEARING_HOUSE", "clearing-house-overlay.svg"],
       ["AIRPORT", "airport-overlay.svg"],
       ["CARAVANARY", "caravanary-overlay.svg"],
       ["FOUNDRY", "foundry-overlay.svg"],
-      ["EXCHANGE_HOUSE", "exchange-house-overlay.svg"],
       ["GARRISON_HALL", "ancillary-factory-overlay.svg"],
       ["CUSTOMS_HOUSE", "customs-house-overlay.svg"],
       ["RAIL_DEPOT", "rail-depot-overlay.svg"],

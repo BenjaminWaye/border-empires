@@ -1403,8 +1403,6 @@ describe("rewrite stack integration", () => {
       marketActive: false,
       hasGranary: false,
       granaryActive: false,
-      hasBank: false,
-      bankActive: false
     });
     const simulationTile = {
       x: 10,

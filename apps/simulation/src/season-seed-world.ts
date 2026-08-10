@@ -126,9 +126,7 @@ const tileTownViewFromDefinition = (town: TownDefinition): NonNullable<Tile["tow
   hasMarket: false,
   marketActive: false,
   hasGranary: false,
-  granaryActive: false,
-  hasBank: false,
-  bankActive: false
+  granaryActive: false
 });
 
 export const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number => {

@@ -13,7 +13,6 @@ import type { DomainInfo, Tile } from "../client-types.js";
 export const FOUNDRY_RADIUS = 5;
 export const WATERWORKS_RADIUS = 10;
 const GOVERNORS_OFFICE_RADIUS = 10;
-const GARRISON_HALL_RADIUS = 10;
 const AIRPORT_BOMBARD_RADIUS = 30;
 const RADAR_SYSTEM_RADIUS = 30;
 
@@ -169,14 +168,6 @@ export const structureAreaPreviewForTile = (tile: Tile): StructureAreaPreview | 
       lineDash: [10, 8]
     };
   }
-  if (structure.type === "GARRISON_HALL") {
-    return {
-      radius: GARRISON_HALL_RADIUS,
-      strokeStyle: structure.status === "active" ? "rgba(255, 214, 102, 0.56)" : "rgba(255, 214, 102, 0.28)",
-      fillStyle: structure.status === "active" ? "rgba(255, 214, 102, 0.07)" : "rgba(255, 214, 102, 0.03)",
-      lineDash: [10, 8]
-    };
-  }
   if (structure.type === "GOVERNORS_OFFICE") {
     return {
       radius: GOVERNORS_OFFICE_RADIUS,
@@ -321,16 +312,6 @@ export const tileAreaEffectModifiersForTile = (
     });
   }
 
-  if (
-    tile.ownershipState === "SETTLED" &&
-    isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "GARRISON_HALL", GARRISON_HALL_RADIUS)
-  ) {
-    modifiers.push({
-      reason: "Ancillary Factory",
-      effect: "+20% defense",
-      tone: "positive"
-    });
-  }
 
   if (
     tile.ownershipState === "SETTLED" &&

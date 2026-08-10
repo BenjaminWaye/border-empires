@@ -144,10 +144,10 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.crystal).toBe(0);
   });
 
-  it("charges no BANK upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
+  it("charges no CLEARING_HOUSE upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
-      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "BANK" }
+      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "CLEARING_HOUSE" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.food).toBe(0);
@@ -234,7 +234,7 @@ describe("buildUpkeepAccrualSnapshot vs full snapshot", () => {
     const tiles = new Map<string, DomainTileState>();
     for (let i = 0; i < 50; i++) {
       const x = i;
-      const hasBank = i % 7 === 0;
+      const hasClearingHouse = i % 7 === 0;
       const hasFort = i % 5 === 0;
       const hasSiege = i % 11 === 0;
       const isOwned = i % 13 !== 0; // some tiles owned by other player
@@ -242,7 +242,7 @@ describe("buildUpkeepAccrualSnapshot vs full snapshot", () => {
         x, y: 0, terrain: "LAND",
         ownerId: isOwned ? PLAYER_ID : "other",
         ownershipState: "SETTLED",
-        ...(hasBank ? { economicStructure: { ownerId: PLAYER_ID, status: "active", type: "BANK" } } : {}),
+        ...(hasClearingHouse ? { economicStructure: { ownerId: PLAYER_ID, status: "active", type: "CLEARING_HOUSE" } } : {}),
         ...(hasFort && isOwned ? { fort: { ownerId: PLAYER_ID, status: "active", variant: "IRON_BASTION" } } : {}),
         ...(hasSiege && isOwned ? { siegeOutpost: { ownerId: PLAYER_ID, status: "active", variant: "SIEGE_TOWER" } } : {})
       });
@@ -277,7 +277,7 @@ const makeRng = (seed: number) => {
 type SimpleTile = DomainTileState;
 
 const STRUCTURE_TYPES = [
-  "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY", "BANK",
+  "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY", "CLEARING_HOUSE",
   "WOODEN_FORT", "LIGHT_OUTPOST", "CARAVANARY",
   "FUR_SYNTHESIZER", "IRONWORKS", "CRYSTAL_SYNTHESIZER",
   "FOUNDRY", "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE",

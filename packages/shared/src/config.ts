@@ -31,12 +31,12 @@ export const FOREST_VISION_RANGE = 1;
 export const HILLS_VISION_BONUS = 1;
 export const COMBAT_LOCK_MS = 30_000;
 export const FRONTIER_CLAIM_COST = 0;
-export const FRONTIER_CLAIM_MS = 30_000;
-export const FOREST_FRONTIER_CLAIM_MULT = 2;
-// Changed to additive penalty that results in 2x multiplier (same as forest).
-// 30_000 ms additive + 30_000 ms base = 60_000 ms total (2x).
+export const FRONTIER_CLAIM_MS = 15_000;
+export const FOREST_FRONTIER_CLAIM_MULT = 1.5;
+// Changed to additive penalty that results in a 1.5x multiplier (same as forest).
+// 7_500 ms additive + 15_000 ms base = 22_500 ms total (1.5x).
 // See isHillsTileAt usage in runtime-frontier-command.ts.
-export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 30_000;
+export const HILLS_FRONTIER_CLAIM_PENALTY_MS = 7_500;
 export const SETTLE_COST = 0;
 export const SETTLE_MS = 60_000;
 /**

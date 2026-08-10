@@ -28,3 +28,4 @@ export * from "./structure-registry/structure-registry.js";
 export * from "./structure-registry-index.js";
 export { TECH_REQUIREMENTS_BY_STRUCTURE } from "./structure-registry-economic.js";
 export * from "./empire-integrity.js";
+export * from "./waypoint-planner/waypoint-planner.js";

@@ -188,7 +188,6 @@ export const buildTownSummary = (
   // the redesign and has been removed. Seed Granary's own buffed-radius
   // multiplier is a separate, still-live mechanic.
   const granaryGrowthMult = hasAnyGranary && seedGranaryBuffed ? SEED_GRANARY_GROWTH_MULT : 1;
-  const hasBank = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "BANK", tilesByKey, dormantEconomicStructureKeys));
   const clearingHouseTownNames = tile.ownerId ? clearingHouseSourceTownNames(tileKey, tile.ownerId, tilesByKey, townNetwork, dormantEconomicStructureKeys) : [], clearingHouseActive = clearingHouseTownNames.length > 0;
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);
@@ -214,11 +213,10 @@ export const buildTownSummary = (
               townPopulationMultiplier(populationTier) *
               (1 + (townPartial.connectedTownBonus ?? 0)) *
               (hasMarket ? (clearingHouseActive ? 1.75 : 1.5) : 1) *
-              (hasBank ? (clearingHouseActive ? 1.7 : 1.5) : 1) *
               firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
-            ) + (hasBank ? (clearingHouseActive ? 1.5 : 1) : 0);
+            );
   const populationView = resolvedTownPopulation(townPartial, tile.x, tile.y, populationTier);
   if (!populationView && !hasCompleteAuthoritativeTown) return undefined;
   const population = populationView?.population ?? townPartial.population!;
@@ -283,7 +281,7 @@ export const buildTownSummary = (
     granaryActive: hasGranary,
     ...(hasSeedGranary ? { hasSeedGranary: true, seedGranaryActive: true } : {}),
     ...(seedGranaryBuffed ? { seedGranaryBuffed: true } : {}),
-    hasBank, bankActive: hasBank, ...(clearingHouseActive ? { hasClearingHouse: true, clearingHouseActive: true, clearingHouseTownNames } : {}),
+    ...(clearingHouseActive ? { hasClearingHouse: true, clearingHouseActive: true, clearingHouseTownNames } : {}),
     foodUpkeepPerMinute: townFoodUpkeepPerMinute(populationTier),
     ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),
     ...(typeof townPartial.populationBeforeCapture === "number" ? { populationBeforeCapture: townPartial.populationBeforeCapture } : {}),
