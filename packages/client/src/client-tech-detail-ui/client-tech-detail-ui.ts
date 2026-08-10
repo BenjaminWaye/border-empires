@@ -41,7 +41,7 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockForts":
         out.add("FORT");
         break;
-      case "unlockIronBastion":
+      case "unlockTitaniumBastion":
         out.add("TITANIUM_BASTION");
         break;
       case "unlockThunderBastion":
@@ -80,10 +80,10 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockCaravanary":
         out.add("CARAVANARY");
         break;
-      case "unlockFurSynthesizer":
+      case "unlockUmbriteSynthesizer":
         out.add("UMBRITE_SYNTHESIZER");
         break;
-      case "unlockIronworks":
+      case "unlockTitaniumWorks":
         out.add("TITANIUM_WORKS");
         break;
       case "unlockCrystalSynthesizer":
@@ -150,7 +150,7 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
         out.add("POPULATION_BUREAU_PART");
         out.add("POPULATION_BUREAU");
         break;
-      case "unlockIronLevy":
+      case "unlockTitaniumLevy":
         out.add("TITANIUM_LEVY_PART");
         out.add("TITANIUM_LEVY");
         break;

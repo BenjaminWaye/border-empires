@@ -13,7 +13,7 @@ import { buildPlayer } from "./runtime.test-helpers.js";
 // type immediately on login, even though the streaming path correctly hid
 // them.
 describe("simulation runtime — resource-reveal gating on the full-export (login) path", () => {
-  it("masks IRON/SUPPLY/CRYSTAL for a player with no reveal techs, reveals them with the right tech", () => {
+  it("masks TITANIUM/UMBRITE/CRYSTAL for a player with no reveal techs, reveals them with the right tech", () => {
     const buildRuntime = (techIds: string[]) =>
       new SimulationRuntime({
         now: () => 1_000,
@@ -24,8 +24,8 @@ describe("simulation runtime — resource-reveal gating on the full-export (logi
               x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
               town: { name: "Capital", type: "FARMING", populationTier: "TOWN" }
             },
-            { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
-            { x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
+            { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
+            { x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
             { x: 1, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
           ],
           activeLocks: []
@@ -44,7 +44,7 @@ describe("simulation runtime — resource-reveal gating on the full-export (logi
 
     const withTech = buildRuntime(["masonry", "leatherworking"]);
     const withTechTiles = withTech.exportVisibleStateForPlayer("player-1").tiles;
-    expect(findTile(withTechTiles, 1, 0)?.resource).toBe("IRON");
-    expect(findTile(withTechTiles, 0, 1)?.resource).toBe("FUR");
+    expect(findTile(withTechTiles, 1, 0)?.resource).toBe("TITANIUM");
+    expect(findTile(withTechTiles, 0, 1)?.resource).toBe("UMBRITE");
   });
 });

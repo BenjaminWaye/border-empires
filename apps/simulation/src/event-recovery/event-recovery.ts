@@ -70,7 +70,7 @@ export type RecoveredSimulationState = {
     manpowerCapSnapshot?: number;
     techIds?: string[];
     domainIds?: string[];
-    strategicResources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
     chosenTrickleResource?: ChosenTrickleResource;
     imperialWardCharges?: number;
     eventLog?: PlayerEventLogEntry[];

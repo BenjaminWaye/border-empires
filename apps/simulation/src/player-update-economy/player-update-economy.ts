@@ -47,14 +47,14 @@ type EconomyBucket = {
 };
 
 type EconomyBreakdown = Record<EconomyResourceKey, { sources: EconomyBucket[]; sinks: EconomyBucket[] }>;
-type UpkeepPerMinute = { food: number; iron: number; supply: number; crystal: number; gold: number };
+type UpkeepPerMinute = { food: number; titanium: number; umbrite: number; crystal: number; gold: number };
 type UpkeepLastTick = {
   foodCoverage: number;
   gold: { contributors: EconomyBucket[] };
   food: { contributors: EconomyBucket[] };
-  iron: { contributors: EconomyBucket[] };
+  titanium: { contributors: EconomyBucket[] };
   crystal: { contributors: EconomyBucket[] };
-  supply: { contributors: EconomyBucket[] };
+  umbrite: { contributors: EconomyBucket[] };
 };
 
 export type PlayerUpdateEconomySnapshot = {
@@ -107,7 +107,7 @@ const addBucket = (
 const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucket[] =>
   [...buckets.values()].sort((left, right) => (right.amountPerMinute - left.amountPerMinute) || left.label.localeCompare(right.label));
 
-// FOOD joined IRON/CRYSTAL/SUPPLY as slot-based, not produced (docs/manpower-
+// FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced (docs/manpower-
 // economy-rewrite-plan.md §5.4) — there's only one food mechanic now (slot
 // dormancy). FARM/FISH still grant FOOD *slot supply* (structure-slots.ts),
 // a separate, untouched mechanism.
@@ -123,7 +123,7 @@ const strategicResourceForTile = (resource: DomainTileState["resource"] | undefi
   }
 };
 
-// IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a stockpiled
+// TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a stockpiled
 // resource (§5.6); EXCHANGE-mode converters produce gold from a slot instead.
 const converterOutputPerMinute = (structureType: string, mode?: string): Partial<Record<EconomyResourceKey, number>> => {
   if (SYNTHESIZER_TYPE_SET.has(structureType as BuildableStructureType) && mode === "EXCHANGE") {
@@ -343,19 +343,19 @@ export const buildPlayerUpdateEconomySnapshot = (
   const goldSinks = new Map<string, EconomyBucket>();
   const foodSources = new Map<string, EconomyBucket>();
   const foodSinks = new Map<string, EconomyBucket>();
-  const ironSources = new Map<string, EconomyBucket>();
-  const ironSinks = new Map<string, EconomyBucket>();
+  const titaniumSources = new Map<string, EconomyBucket>();
+  const titaniumSinks = new Map<string, EconomyBucket>();
   const crystalSources = new Map<string, EconomyBucket>();
   const crystalSinks = new Map<string, EconomyBucket>();
-  const supplySources = new Map<string, EconomyBucket>();
-  const supplySinks = new Map<string, EconomyBucket>();
+  const umbriteSources = new Map<string, EconomyBucket>();
+  const umbriteSinks = new Map<string, EconomyBucket>();
   const shardSources = new Map<string, EconomyBucket>();
   const addUpkeepSinks = (label: string, upkeep: Partial<Record<EconomyResourceKey, number>>): void => {
     if (upkeep.GOLD) addBucket(goldSinks, label, upkeep.GOLD, { count: 1 });
     if (upkeep.FOOD) addBucket(foodSinks, label, upkeep.FOOD, { count: 1 });
     if (upkeep.CRYSTAL) addBucket(crystalSinks, label, upkeep.CRYSTAL, { count: 1 });
-    if (upkeep.TITANIUM) addBucket(ironSinks, label, upkeep.TITANIUM, { count: 1 });
-    if (upkeep.UMBRITE) addBucket(supplySinks, label, upkeep.UMBRITE, { count: 1 });
+    if (upkeep.TITANIUM) addBucket(titaniumSinks, label, upkeep.TITANIUM, { count: 1 });
+    if (upkeep.UMBRITE) addBucket(umbriteSinks, label, upkeep.UMBRITE, { count: 1 });
   };
   const dockEconomyContext = dockContext
     ? { tiles, dockLinksByDockTileKey: dockContext.dockLinksByDockTileKey, dormantEconomicStructureKeys }
@@ -374,9 +374,9 @@ export const buildPlayerUpdateEconomySnapshot = (
     if (resourceKey && resourceRate > 0) {
       const target =
         resourceKey === "FOOD" ? foodSources :
-        resourceKey === "TITANIUM" ? ironSources :
+        resourceKey === "TITANIUM" ? titaniumSources :
         resourceKey === "CRYSTAL" ? crystalSources :
-        supplySources;
+        umbriteSources;
       addBucket(
         target,
         tile.resource === "FARM" ? "Grain" :
@@ -418,9 +418,9 @@ export const buildPlayerUpdateEconomySnapshot = (
       const mode = converterModeOf(structure);
       addUpkeepSinks(structure.type, structureUpkeepPerMinute(structure.type, mode));
       const output = converterOutputPerMinute(structure.type, mode);
-      if (output.TITANIUM) addBucket(ironSources, structure.type, output.TITANIUM, { count: 1 });
+      if (output.TITANIUM) addBucket(titaniumSources, structure.type, output.TITANIUM, { count: 1 });
       if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
-      if (output.UMBRITE) addBucket(supplySources, structure.type, output.UMBRITE, { count: 1 });
+      if (output.UMBRITE) addBucket(umbriteSources, structure.type, output.UMBRITE, { count: 1 });
       // §5.4: a dormant converter (slot supply can't cover its demand) is
       // still "active" in construction terms but pays out nothing — reuse the
       // same dormantEconomicStructureKeys the rest of the economy honors.
@@ -441,8 +441,8 @@ export const buildPlayerUpdateEconomySnapshot = (
 
   const upkeepPerMinute = {
     food: Number([...foodSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6)),
-    iron: Number([...ironSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6)),
-    supply: Number([...supplySinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6)),
+    titanium: Number([...titaniumSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6)),
+    umbrite: Number([...umbriteSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6)),
     crystal: Number([...crystalSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6)),
     gold: Number([...goldSinks.values()].reduce((sum, bucket) => sum + bucket.amountPerMinute, 0).toFixed(6))
   };
@@ -470,16 +470,16 @@ export const buildPlayerUpdateEconomySnapshot = (
       foodCoverage: Number(foodCoverage.toFixed(6)),
       gold: { contributors: sortedBuckets(goldSinks) },
       food: { contributors: sortedBuckets(foodSinks) },
-      iron: { contributors: sortedBuckets(ironSinks) },
+      titanium: { contributors: sortedBuckets(titaniumSinks) },
       crystal: { contributors: sortedBuckets(crystalSinks) },
-      supply: { contributors: sortedBuckets(supplySinks) }
+      umbrite: { contributors: sortedBuckets(umbriteSinks) }
     },
     economyBreakdown: {
       GOLD: { sources: sortedBuckets(goldSources), sinks: sortedBuckets(goldSinks) },
       FOOD: { sources: sortedBuckets(foodSources), sinks: sortedBuckets(foodSinks) },
-      TITANIUM: { sources: sortedBuckets(ironSources), sinks: sortedBuckets(ironSinks) },
+      TITANIUM: { sources: sortedBuckets(titaniumSources), sinks: sortedBuckets(titaniumSinks) },
       CRYSTAL: { sources: sortedBuckets(crystalSources), sinks: sortedBuckets(crystalSinks) },
-      UMBRITE: { sources: sortedBuckets(supplySources), sinks: sortedBuckets(supplySinks) },
+      UMBRITE: { sources: sortedBuckets(umbriteSources), sinks: sortedBuckets(umbriteSinks) },
       SHARD: { sources: sortedBuckets(shardSources), sinks: [] }
     }
   };

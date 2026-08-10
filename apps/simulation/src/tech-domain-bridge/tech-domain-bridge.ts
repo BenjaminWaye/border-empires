@@ -285,13 +285,13 @@ export const additiveEffectForPlayer = (
  * baked into the tile itself, since the same tile's resource type is
  * revealed/hidden independently for every player based on their own tech.
  */
-// tile.resource (FARM/FISH/IRON/GEMS/WOOD/FUR) is a raw terrain-resource
+// tile.resource (FARM/FISH/TITANIUM/GEMS/UMBRITE) is a raw terrain-resource
 // type, not the strategic category tech-tree.json's revealResource values
 // use (food/iron/crystal/supply) — mirrors client-map-display.ts's
-// strategicResourceKeyForTile. WOOD/FUR both feed SUPPLY; GEMS feeds
+// strategicResourceKeyForTile. UMBRITE feeds UMBRITE; GEMS feeds
 // CRYSTAL. Without this mapping, comparing the raw tile type directly
-// against revealResource only ever happened to match for IRON (whose raw
-// type and category name are spelled the same) — SUPPLY and CRYSTAL tiles
+// against revealResource only ever happened to match for TITANIUM (whose raw
+// type and category name are spelled the same) — UMBRITE and CRYSTAL tiles
 // stayed masked forever, tech or no tech.
 const REVEAL_CATEGORY_BY_TILE_RESOURCE: Record<string, string> = {
   farm: "food",
@@ -454,7 +454,7 @@ export const chooseAiDomainChoiceForPlayer = (
       if (domain.id === "mercantile-charter" && flags.has("active_town")) score += 65;
       if (domain.id === "mercantile-charter" && flags.has("active_dock")) score += 35;
       if (domain.id === "clockwork-stipend") score += 30;
-      if (domain.id === "iron-bastions" && flags.has("active_town")) score += 20;
+      if (domain.id === "titanium-bastions" && flags.has("active_town")) score += 20;
       if (domain.id === "supply-raiding" && (counts.UMBRITE ?? 0) > 0) score += 18;
       const resourceCost = toResources(domain.cost);
       return {
@@ -653,7 +653,7 @@ export const buildTechUpdatePayload = (
     revealCapacity: 0,
     activeRevealTargets: [],
     // Echo the player's locked sub-choice (Clockwork Stipend) so the client
-    // can render "Clockwork Stipend (IRON)" after a reconnect and skip the
+    // can render "Clockwork Stipend (TITANIUM)" after a reconnect and skip the
     // pick modal when the player tries to re-confirm an already-locked
     // domain. Field is omitted when the player has never picked.
     ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {})

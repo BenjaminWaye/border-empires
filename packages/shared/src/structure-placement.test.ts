@@ -3,14 +3,14 @@ import { structureShowsOnTile, type StructurePlacementType } from "./structure-p
 
 const RESOURCE_TILE = {
   ownershipState: "SETTLED" as const,
-  resource: "IRON" as const,
+  resource: "TITANIUM" as const,
 };
 
 describe("structure placement metadata", () => {
   test("allows fort and siege variants on resource tiles", () => {
     for (const structureType of [
       "FORT",
-      "IRON_BASTION",
+      "TITANIUM_BASTION",
       "THUNDER_BASTION",
       "SIEGE_OUTPOST",
       "SIEGE_TOWER",

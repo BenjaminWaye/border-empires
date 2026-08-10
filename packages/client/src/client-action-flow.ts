@@ -1440,7 +1440,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       handleBuildAction(actionId, genericStructureType, selected);
       return;
     }
-    if (actionId === "upgrade_fur_synthesizer" || actionId === "upgrade_ironworks" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode") {
+    if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }
     if (actionId === "build_light_outpost_frontier") {
@@ -1551,13 +1551,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     const retortTargetResource =
       actionId === "retort_recast_food"
         ? "FARM"
-        : actionId === "retort_recast_supply"
-          ? "UMBRITE"
-          : actionId === "retort_recast_titanium"
-            ? "TITANIUM"
-            : actionId === "retort_recast_crystal"
-              ? "GEMS"
-              : undefined;
+        : actionId === "retort_recast_titanium"
+          ? "TITANIUM"
+          : actionId === "retort_recast_crystal"
+            ? "GEMS"
+            : undefined;
     if (retortTargetResource) {
       if (sendGameMessage({ type: "RETORT_RECAST", x: selected.x, y: selected.y, targetResource: retortTargetResource })) {
         state.retortRecastFxQueue.push({ x: selected.x, y: selected.y, targetResource: retortTargetResource, queuedAt: Date.now() });

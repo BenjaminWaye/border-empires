@@ -50,7 +50,7 @@ describe("converter toggle regression guard", () => {
       ["LOGISTICS_GUILD", "logistics-guild-overlay.svg"],
       ["ASSEMBLY_WORKS", "assembly-works-overlay.svg"],
       ["POPULATION_BUREAU", "population-bureau-overlay.svg"],
-      ["IRON_LEVY", "iron-levy-overlay.svg"],
+      ["TITANIUM_LEVY", "titanium-levy-overlay.svg"],
       // GRANARY/AETHER_TOWER are the real wire-protocol structure types for
       // Incubation Engine/Ambaric Tower (display names only) — using the
       // display names here previously let this test pass while the real

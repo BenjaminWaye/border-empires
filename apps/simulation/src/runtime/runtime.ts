@@ -1712,7 +1712,7 @@ export class SimulationRuntime {
   // from resourceSlotDormancyForPlayer, which refreshEconomyCachesForTileChange
   // already deletes (for human players) on *every* settled-tile mutation of an
   // owner, regardless of whether that mutation could plausibly touch a
-  // FOOD/IRON/CRYSTAL/SUPPLY total — including tickFortGarrison/tickMuster,
+  // FOOD/TITANIUM/CRYSTAL/UMBRITE total — including tickFortGarrison/tickMuster,
   // which call replaceTileState in tight per-tile loops with no
   // emitPlayerStateUpdate in between (the one place that would otherwise
   // naturally coalesce a rebuild). Eagerly resyncing on every replaceTileState
@@ -2163,7 +2163,7 @@ export class SimulationRuntime {
     if (!sameOwner && tile.naturalWonder) { wonderEffects.syncWatchtowerObservatory(tile); if (previous?.ownerId) wonderEffects.refreshPlayerWonders(previous.ownerId, this.settledTilesForPlayer(previous.ownerId), this.wonderCacheByPlayer, this.players); if (tile.ownerId) wonderEffects.refreshPlayerWonders(tile.ownerId, this.settledTilesForPlayer(tile.ownerId), this.wonderCacheByPlayer, this.players); wonderEffects.applyConscriptionEngineFirstClaim(tile, this.players, this.now()); wonderEffects.announceNaturalWonderClaim(tile, this.players, this.now()); } flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
     reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
     reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
-    // §5.4: this tile's own mutation can change either owner's FOOD/SUPPLY
+    // §5.4: this tile's own mutation can change either owner's FOOD/UMBRITE
     // slot totals (a resource tile gained/lost, a new demand consumer built)
     // without touching any of their outposts directly — mark them dirty for
     // a lazy resync (flushOutpostVisionDormancyResync's doc comment above

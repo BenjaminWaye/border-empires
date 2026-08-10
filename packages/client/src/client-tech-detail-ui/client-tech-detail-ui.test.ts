@@ -120,12 +120,12 @@ describe("tech detail crystal ability previews", () => {
       mods: {},
       effects: {
         unlockGarrisonHall: true,
-        outpostSupplySlotWaiverCount: 3
+        outpostUmbriteSlotWaiverCount: 3
       },
       requirements: {
         gold: 9500,
         resources: {
-          SUPPLY: 140
+          UMBRITE: 140
         },
         checklist: [],
         canResearch: true
@@ -144,7 +144,7 @@ describe("tech detail crystal ability previews", () => {
       effects: {
         unlockRailDepot: true
       },
-      requirements: { gold: 15000, resources: { SUPPLY: 160, CRYSTAL: 220, SHARD: 1 }, checklist: [], canResearch: true }
+      requirements: { gold: 15000, resources: { UMBRITE: 160, CRYSTAL: 220, SHARD: 1 }, checklist: [], canResearch: true }
     };
     const civilService: TechInfo = {
       id: "civil-service",
@@ -168,7 +168,7 @@ describe("tech detail crystal ability previews", () => {
       effects: {
         unlockCrystalSynthesizer: true
       },
-      requirements: { gold: 6500, resources: { IRON: 60 }, checklist: [], canResearch: true }
+      requirements: { gold: 6500, resources: { TITANIUM: 60 }, checklist: [], canResearch: true }
     };
     const aegisDome: TechInfo = {
       id: "aegis-dome",
@@ -202,7 +202,7 @@ describe("tech detail crystal ability previews", () => {
       effects: {
         unlockWorldEngine: true
       },
-      requirements: { gold: 26000, resources: { IRON: 260, CRYSTAL: 280, SHARD: 3 }, checklist: [], canResearch: true }
+      requirements: { gold: 26000, resources: { TITANIUM: 260, CRYSTAL: 280, SHARD: 3 }, checklist: [], canResearch: true }
     };
 
     expect(relatedStructureTypesForTech(globalTradeNetworks)).toEqual(["RAIL_DEPOT"]);
@@ -254,10 +254,10 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["4,200 gold", "60 manpower"]);
     // Resource slot requirements live in the upkeep box, not the one-time
     // cost box — a slot is a permanent ongoing occupation, not a build cost.
-    expect(structureInfoForKey("TITANIUM_BASTION", deps).upkeepBits).toEqual(["2 IRON slots"]);
-    expect(structureInfoForKey("THUNDER_BASTION", deps).upkeepBits).toEqual(["4 IRON slots"]);
-    expect(structureInfoForKey("SIEGE_TOWER", deps).upkeepBits).toEqual(["2 SUPPLY slots", "1 IRON slot"]);
-    expect(structureInfoForKey("DREAD_TOWER", deps).upkeepBits).toEqual(["3 SUPPLY slots", "2 IRON slots"]);
+    expect(structureInfoForKey("TITANIUM_BASTION", deps).upkeepBits).toEqual(["2 TITANIUM slots"]);
+    expect(structureInfoForKey("THUNDER_BASTION", deps).upkeepBits).toEqual(["4 TITANIUM slots"]);
+    expect(structureInfoForKey("SIEGE_TOWER", deps).upkeepBits).toEqual(["2 UMBRITE slots", "1 TITANIUM slot"]);
+    expect(structureInfoForKey("DREAD_TOWER", deps).upkeepBits).toEqual(["3 UMBRITE slots", "2 TITANIUM slots"]);
   });
 
   it("provides structure art for dedicated economic overlays", () => {

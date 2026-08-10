@@ -32,7 +32,7 @@ describe("expanded tech tree rendering", () => {
         name: "Crystal Lattices",
         tier: 3,
         requires: "alchemy",
-        requirements: { gold: 6500, resources: { IRON: 60 }, canResearch: false, checklist: [{ label: "Requires Alchemy", met: false }] }
+        requirements: { gold: 6500, resources: { TITANIUM: 60 }, canResearch: false, checklist: [{ label: "Requires Alchemy", met: false }] }
       })
     ];
     const byId = new Map(techCatalog.map((tech) => [tech.id, tech]));

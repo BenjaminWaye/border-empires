@@ -110,7 +110,7 @@ describe("tech-domain bridge progression sources", () => {
       techIds: new Set<string>(["toolmaking"]),
       domainIds: new Set<string>(["frontier-doctrine"]),
       allies: new Set<string>(),
-      strategicResources: { FOOD: 10_000, IRON: 10_000, CRYSTAL: 10_000, SUPPLY: 10_000, SHARD: 10_000 }
+      strategicResources: { FOOD: 10_000, TITANIUM: 10_000, CRYSTAL: 10_000, UMBRITE: 10_000, SHARD: 10_000 }
     };
 
     const payload = buildDomainUpdatePayload(player, []);
@@ -129,7 +129,7 @@ describe("tech-domain bridge progression sources", () => {
       techIds: new Set<string>(["toolmaking"]),
       domainIds: new Set<string>(["frontier-doctrine"]),
       allies: new Set<string>(),
-      strategicResources: { FOOD: 10_000, IRON: 10_000, CRYSTAL: 10_000, SUPPLY: 10_000, SHARD: 10_000 }
+      strategicResources: { FOOD: 10_000, TITANIUM: 10_000, CRYSTAL: 10_000, UMBRITE: 10_000, SHARD: 10_000 }
     };
 
     const outcome = chooseDomainForPlayer(player, "cogwork-foundries", []);
@@ -141,14 +141,14 @@ describe("tech-domain bridge progression sources", () => {
 });
 
 describe("tier-1 domain effects are wired", () => {
-  it("Iron Bastions (Dwarf Kingdom) exposes fortBuildSpeedMult and the §23.2 fortIronSlotWaiverCount waiver", () => {
+  it("Iron Bastions (Dwarf Kingdom) exposes fortBuildSpeedMult and the §23.2 fortTitaniumSlotWaiverCount waiver", () => {
     const player = {
       techIds: new Set<string>(["masonry"]),
-      domainIds: new Set<string>(["iron-bastions"])
+      domainIds: new Set<string>(["titanium-bastions"])
     };
     expect(multiplicativeEffectForPlayer(player, "fortBuildSpeedMult")).toBeCloseTo(1.5, 6);
-    expect(maxEffectForPlayer(player, "fortIronSlotWaiverCount")).toBe(3);
-    expect(slotWaiversForPlayer(player).fortIronSlotWaiverCount).toBe(3);
+    expect(maxEffectForPlayer(player, "fortTitaniumSlotWaiverCount")).toBe(3);
+    expect(slotWaiversForPlayer(player).fortTitaniumSlotWaiverCount).toBe(3);
   });
 
   it("Supply Raiding exposes attackVsBarbariansMult at 1.5", () => {
@@ -206,7 +206,7 @@ describe("Clockwork Stipend resource slot grant", () => {
   it("publishes domainHasResourceSubChoice as true for clockwork-stipend", () => {
     expect(domainHasResourceSubChoice("clockwork-stipend")).toBe(true);
     // Sanity: a domain without the slot grant returns false.
-    expect(domainHasResourceSubChoice("iron-bastions")).toBe(false);
+    expect(domainHasResourceSubChoice("titanium-bastions")).toBe(false);
   });
 
   it("data file's clockwork-stipend carries chosenResourceSlotGrant: 1", () => {
@@ -219,8 +219,8 @@ describe("Clockwork Stipend resource slot grant", () => {
   });
 
   it("isChosenTrickleResource rejects unrelated resource keys and non-strings", () => {
-    expect(isChosenTrickleResource("IRON")).toBe(true);
-    expect(isChosenTrickleResource("SUPPLY")).toBe(true);
+    expect(isChosenTrickleResource("TITANIUM")).toBe(true);
+    expect(isChosenTrickleResource("UMBRITE")).toBe(true);
     expect(isChosenTrickleResource("CRYSTAL")).toBe(true);
     expect(isChosenTrickleResource("FOOD")).toBe(false);
     expect(isChosenTrickleResource("SHARD")).toBe(false);
@@ -242,7 +242,7 @@ describe("Clockwork Stipend resource slot grant", () => {
   it("rejects unsupported sub-choices (e.g. SHARD)", () => {
     const player = baseClockworkPlayer();
     const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], {
-      chosenTrickleResource: "SHARD" as unknown as "IRON"
+      chosenTrickleResource: "SHARD" as unknown as "TITANIUM"
     });
     expect(outcome.ok).toBe(false);
   });
@@ -258,9 +258,9 @@ describe("Clockwork Stipend resource slot grant", () => {
   it("domainGrantedResourceSlots returns the slot grant for the locked pick", () => {
     const player = {
       domainIds: new Set<string>(["clockwork-stipend"]),
-      chosenTrickleResource: "IRON" as const
+      chosenTrickleResource: "TITANIUM" as const
     };
-    expect(domainGrantedResourceSlots(player)).toEqual({ IRON: 1 });
+    expect(domainGrantedResourceSlots(player)).toEqual({ TITANIUM: 1 });
   });
 
   it("domainGrantedResourceSlots returns undefined when no resource is locked", () => {
@@ -270,17 +270,17 @@ describe("Clockwork Stipend resource slot grant", () => {
 
   it("does not overwrite a previously-locked trickle resource even when a new pick is offered", () => {
     const player = baseClockworkPlayer();
-    player.chosenTrickleResource = "IRON";
-    const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], { chosenTrickleResource: "SUPPLY" });
+    player.chosenTrickleResource = "TITANIUM";
+    const outcome = chooseDomainForPlayer(player, "clockwork-stipend", [], { chosenTrickleResource: "UMBRITE" });
     expect(outcome.ok).toBe(true);
     expect(player.domainIds.has("clockwork-stipend")).toBe(true);
-    expect(player.chosenTrickleResource).toBe("IRON");
+    expect(player.chosenTrickleResource).toBe("TITANIUM");
   });
 });
 
 describe("AI progression choice prefers affordable options over higher-scored unaffordable ones", () => {
   // Originally reproduced a prod state (Freja Sund, ai-4) where an AI sitting
-  // on gold but zero IRON/CRYSTAL/SUPPLY got stuck wanting a higher-scored
+  // on gold but zero TITANIUM/CRYSTAL/UMBRITE got stuck wanting a higher-scored
   // tech it couldn't pay the strategic-resource cost for. Under the gold
   // rescope (docs/manpower-economy-rewrite-plan.md §6.2, §13) every tech
   // below tier 5 costs gold only now — that specific starvation scenario is
@@ -357,7 +357,7 @@ describe("AI progression choice prefers affordable options over higher-scored un
     expect(choice!.score).toBeGreaterThan(0);
   });
 
-  it("picks the higher-scored tier-1 domain by gold alone now that domains no longer gate on FOOD/IRON/CRYSTAL/SUPPLY quantities", () => {
+  it("picks the higher-scored tier-1 domain by gold alone now that domains no longer gate on FOOD/TITANIUM/CRYSTAL/UMBRITE quantities", () => {
     // Pre-§19, mercantile-charter's crystal cost made it unaffordable without
     // crystal, so the AI fell back to clockwork-stipend despite its lower
     // score. §19 dropped every domain's cost to gold + SHARD only — mercantile-charter
@@ -370,7 +370,7 @@ describe("AI progression choice prefers affordable options over higher-scored un
         points: 74_000,
         techIds: ["toolmaking", "agriculture", "trade"],
         domainIds: [],
-        strategicResources: { FOOD: 5_000, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
+        strategicResources: { FOOD: 5_000, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
         settledTileCount: 315
       },
       [ownedSettledTown, ownedSettledDock]

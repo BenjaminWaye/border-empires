@@ -74,14 +74,14 @@ export type EconomyBucket = {
   note?: string;
 };
 export type EconomyBreakdown = Record<EconomyResourceKey, { sources: EconomyBucket[]; sinks: EconomyBucket[] }>;
-export type UpkeepPerMinute = { food: number; iron: number; supply: number; crystal: number; gold: number };
+export type UpkeepPerMinute = { food: number; titanium: number; umbrite: number; crystal: number; gold: number };
 export type UpkeepLastTick = {
   foodCoverage: number;
   gold: { contributors: EconomyBucket[] };
   food: { contributors: EconomyBucket[] };
-  iron: { contributors: EconomyBucket[] };
+  titanium: { contributors: EconomyBucket[] };
   crystal: { contributors: EconomyBucket[] };
-  supply: { contributors: EconomyBucket[] };
+  umbrite: { contributors: EconomyBucket[] };
 };
 export type LivePlayerEconomySnapshot = {
   incomePerMinute: number;

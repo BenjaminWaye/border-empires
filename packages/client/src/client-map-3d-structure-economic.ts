@@ -12,7 +12,6 @@ import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js
 export type EconomicStructureKind =
   | "FARMSTEAD"
   | "WATERWORKS"
-  | "UMBRITE_RIG"
   | "MINE"
   | "TITANIUM_WORKS"
   | "MARKET"
@@ -20,7 +19,7 @@ export type EconomicStructureKind =
   | "SEED_GRANARY";
 
 export const ECONOMIC_STRUCTURE_KINDS: ReadonlySet<EconomicStructureKind> = new Set([
-  "FARMSTEAD", "WATERWORKS", "UMBRITE_RIG", "MINE", "TITANIUM_WORKS",
+  "FARMSTEAD", "WATERWORKS", "MINE", "TITANIUM_WORKS",
   "MARKET", "OBSERVATORY", "SEED_GRANARY"
 ]);
 
@@ -70,15 +69,6 @@ export const registerEconomicStructures = (
   const stoneRoofMaterial = new MeshStandardMaterial({ color: "#5d574e", roughness: 0.88, metalness: 0, flatShading: true });
   const waterWheelMaterial = new MeshStandardMaterial({ color: "#6a4a32", roughness: 0.88, metalness: 0, flatShading: true });
   const waterMaterial = new MeshStandardMaterial({ color: "#3a8eb8", roughness: 0.32, metalness: 0.18, flatShading: true });
-  // Umbrite Rig — steampunk drilling rig on an Umbrite tile: dark
-  // gunmetal/violet frame, a warm brass drill/gauge accent (matching the
-  // Umbrite Synthesizer's industrial brass fittings elsewhere), and
-  // violet-glow ore chunks pulled from the ground pulled straight from
-  // the umbrite deposit's own palette (client-map-3d-umbrite-deposit.ts).
-  const rigFrameMaterial = new MeshStandardMaterial({ color: "#2a2333", roughness: 0.6, metalness: 0.55, flatShading: true });
-  const rigBrassMaterial = new MeshStandardMaterial({ color: "#c98a3a", roughness: 0.45, metalness: 0.6, flatShading: true });
-  const rigGlowMaterial = new MeshStandardMaterial({ color: "#171125", roughness: 0.2, metalness: 0.75, flatShading: true, emissive: "#ff7720", emissiveIntensity: 0.7 });
-  const umbriteRigOreMaterial = new MeshStandardMaterial({ color: "#1a1128", roughness: 0.4, metalness: 0.5, flatShading: true, emissive: "#472a96", emissiveIntensity: 0.4 });
   const mineHillMaterial = new MeshStandardMaterial({ color: "#7a7268", roughness: 0.95, metalness: 0, flatShading: true });
   const mineDarkMaterial = new MeshStandardMaterial({ color: "#1c1c20", roughness: 0.95, metalness: 0, flatShading: true });
   const mineBeamMaterial = new MeshStandardMaterial({ color: "#5a4530", roughness: 0.9, metalness: 0, flatShading: true });
@@ -127,15 +117,6 @@ export const registerEconomicStructures = (
   const wwRoofGeo = new ConeGeometry(0.18, 0.12, 4);
   const wwWheelGeo = new CylinderGeometry(0.13, 0.13, 0.05, 12);
   const wwTroughGeo = new BoxGeometry(0.42, 0.04, 0.06);
-  // Umbrite Rig: a small drilling-rig mast (base + vertical mast +
-  // crossbeam + downward drill bit), a brass gauge/glow accent, and a
-  // couple of loose umbrite ore chunks pulled up beside it.
-  const rigBaseGeo = new BoxGeometry(0.16, 0.05, 0.16);
-  const rigMastGeo = new BoxGeometry(0.05, 0.32, 0.05);
-  const rigCrossbeamGeo = new BoxGeometry(0.20, 0.03, 0.03);
-  const rigDrillGeo = new ConeGeometry(0.035, 0.12, 6);
-  const rigGlowGeo = new OctahedronGeometry(0.03, 0);
-  const umbriteRigOreGeo = new IcosahedronGeometry(0.045, 0);
   const mineHillGeo = new ConeGeometry(0.30, 0.22, 6);
   const mineEntranceGeo = new BoxGeometry(0.18, 0.16, 0.05);
   const mineBeamGeo = new BoxGeometry(0.20, 0.022, 0.022);
@@ -195,13 +176,6 @@ export const registerEconomicStructures = (
   builder.makeSlot("wwRoof", wwRoofGeo, stoneRoofMaterial, C);
   builder.makeSlot("wwWheel", wwWheelGeo, waterWheelMaterial, C);
   builder.makeSlot("wwTrough", wwTroughGeo, waterMaterial, C);
-  // Umbrite Rig
-  builder.makeSlot("rigBase", rigBaseGeo, rigFrameMaterial, C);
-  builder.makeSlot("rigMast", rigMastGeo, rigFrameMaterial, C);
-  builder.makeSlot("rigCrossbeam", rigCrossbeamGeo, rigBrassMaterial, C);
-  builder.makeSlot("rigDrill", rigDrillGeo, rigBrassMaterial, C);
-  builder.makeSlot("rigGlow", rigGlowGeo, rigGlowMaterial, C);
-  builder.makeSlot("umbriteRigOre", umbriteRigOreGeo, umbriteRigOreMaterial, C * 2);
   // Mine
   builder.makeSlot("mineHill", mineHillGeo, mineHillMaterial, C);
   builder.makeSlot("mineEntrance", mineEntranceGeo, mineDarkMaterial, C);
@@ -270,20 +244,6 @@ export const registerEconomicStructures = (
     builder.addPiece("wwRoof", sx, sy, sz, -0.06, 0.38, 0, 1, 1, 1, Math.PI * 0.25);
     builder.addPiece("wwWheel", sx, sy, sz, 0.16, 0.14, 0, 1, 1, 1, 0, 0, Math.PI * 0.5);
     builder.addPiece("wwTrough", sx, sy, sz, 0, 0.04, 0.18);
-  };
-
-  const addUmbriteRig: EconomicStructureLayout = (sx, sy, sz) => {
-    // A small steampunk drilling rig: base platform, vertical mast with
-    // a brass crossbeam, a downward-pointing drill bit at ground level,
-    // a violet-glow accent (echoes the umbrite deposit's own emissive
-    // fissures), and a couple of loose ore chunks pulled up beside it.
-    builder.addPiece("rigBase", sx, sy, sz, 0, 0.03, -0.02);
-    builder.addPiece("rigMast", sx, sy, sz, 0, 0.21, -0.02);
-    builder.addPiece("rigCrossbeam", sx, sy, sz, 0, 0.32, -0.02);
-    builder.addPiece("rigDrill", sx, sy, sz, 0, 0.03, -0.02, 1, 1, 1, 0, Math.PI, 0);
-    builder.addPiece("rigGlow", sx, sy, sz, 0, 0.14, -0.02);
-    builder.addPiece("umbriteRigOre", sx, sy, sz, 0.13, 0.045, 0.14, 0.9, 0.9, 0.9, 0.4, 0, 0);
-    builder.addPiece("umbriteRigOre", sx, sy, sz, -0.14, 0.04, 0.13, 0.75, 0.75, 0.75, 1.6, 0, 0);
   };
 
   const addMine: EconomicStructureLayout = (sx, sy, sz, resource) => {
@@ -359,7 +319,6 @@ export const registerEconomicStructures = (
     layouts: {
       FARMSTEAD: addFarmstead,
       WATERWORKS: addWaterworks,
-      UMBRITE_RIG: addUmbriteRig,
       MINE: addMine,
       TITANIUM_WORKS: addTitaniumWorks,
       MARKET: addMarket,

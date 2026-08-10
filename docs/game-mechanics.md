@@ -10,7 +10,7 @@ When something here drifts from code, fix the code reference and update this doc
 
 - **Coordinate system**: square grid, integer `(x, y)`. World wraps on both axes at `WORLD_WIDTH` × `WORLD_HEIGHT`. `packages/shared/src/exposure/exposure.ts:5-10`
 - **Neighbors**: 4 cardinal directions (N, E, S, W) only. No diagonals for gameplay. `packages/shared/src/exposure/exposure.ts:5-10, 65-66`
-- **No chunk/region grid exists.** The world operates per-tile. Tile metadata can carry cluster tags (`FERTILE_PLAINS`, `IRON_HILLS`) but those are not aggregation structures. `packages/shared/src/types.ts:7, 439-444`
+- **No chunk/region grid exists.** The world operates per-tile. Tile metadata can carry cluster tags (`FERTILE_PLAINS`, `TITANIUM_HILLS`) but those are not aggregation structures. `packages/shared/src/types.ts:7, 439-444`
 - **Terrain types**: `LAND` (claimable, passable), `SEA` / `COASTAL_SEA` (barrier, not claimable; combat blocked except via dock links/aether bridges), `MOUNTAIN` (barrier, mutable via aether abilities). Only `LAND` is claimable. `packages/shared/src/types.ts:1, 15, 200`
 - **Fog of war**: per-player visibility. Tiles carry an optional `fogged` flag. Observatory structures extend vision radius and provide a 10-tile passive protection bubble against some aether abilities. `packages/shared/src/types.ts:203`, `packages/game-domain/src/server-game-constants/server-game-constants.ts:49-51`
 - **Docks**: Maritime Supremacy counts settled dock tiles. Docks are also used for cross-island movement and linked-dock vision.
@@ -27,7 +27,7 @@ When something here drifts from code, fix the code reference and update this doc
 
 ## 3. Resources and economy
 
-- **Strategic resources (numeric currencies)**: `FOOD`, `IRON`, `CRYSTAL`, `SUPPLY`, `SHARD`, `OIL`. Distinct from tile resource *kinds* (a `FARM` tile produces `FOOD`, etc.). `packages/game-domain/src/index.ts:21`, `packages/shared/src/types.ts:1`
+- **Strategic resources (numeric currencies)**: `FOOD`, `TITANIUM`, `CRYSTAL`, `UMBRITE`, `SHARD`, `OIL`. Distinct from tile resource *kinds* (a `FARM` tile produces `FOOD`, etc.). `packages/game-domain/src/index.ts:21`, `packages/shared/src/types.ts:1`
 - **Gold**: passive income from settled tiles, scaling with town population tier and structure modifiers. Docks add ~0.5 gold/min per dock. Per-tile gold yield is capped at `TILE_YIELD_CAP_GOLD = 24`. `packages/game-domain/src/server-game-constants/server-game-constants.ts:39-40, 23`
 - **Town economics**:
   - Base gold: `TOWN_BASE_GOLD_PER_MIN = 2`, plus tier and connected-network bonuses, plus market/bank modifiers.

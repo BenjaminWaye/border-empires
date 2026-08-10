@@ -9,7 +9,7 @@ import { NATURAL_WONDER_LABELS, type NaturalWonderType } from "@border-empires/s
 import type { Tile } from "../client-types.js";
 import { isDiscoveryTipSeen, isDiscoveryTipsMuted, markDiscoveryTipSeen, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
-export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | NaturalWonderType;
+export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | NaturalWonderType;
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
 
@@ -50,20 +50,20 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
     title: "Food Resource Discovered",
     body: "Grain and fishing tiles produce Food, which keeps your towns productive. Capture food to feed your towns and sustain supporting infrastructure."
   },
-  IRON: {
-    id: "IRON",
-    title: "Iron Resource Discovered",
-    body: "Iron deposits provide Iron, a strategic resource used to build defensive structures. Capture Iron to strengthen your defenses."
+  TITANIUM: {
+    id: "TITANIUM",
+    title: "Titanium Resource Discovered",
+    body: "Titanium deposits provide Titanium, a strategic resource used to build defensive structures. Capture Titanium to strengthen your defenses."
   },
   CRYSTAL: {
     id: "CRYSTAL",
     title: "Crystal Resource Discovered",
     body: "Crystal deposits provide Crystal, a rare strategic resource used to power Aether abilities. Capture Crystal to secure this valuable resource."
   },
-  SUPPLY: {
-    id: "SUPPLY",
-    title: "Supply Resource Discovered",
-    body: "Fur deposits provide Supply, a strategic resource used for offensive military structures and coordinating attacks with multiple Mustering Flags."
+  UMBRITE: {
+    id: "UMBRITE",
+    title: "Umbrite Resource Discovered",
+    body: "Umbrite deposits provide Umbrite, a strategic resource used for offensive military structures and coordinating attacks with multiple Mustering Flags."
   },
   ...NATURAL_WONDER_DISCOVERY_TIPS
 };
@@ -74,9 +74,9 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
 // mirrors `strategicResourceKeyForTile` in client-map-display.ts.
 const discoveryTipIdForTileResource = (resource: string | undefined): DiscoveryTipId | undefined => {
   if (resource === "FARM" || resource === "FISH") return "FOOD";
-  if (resource === "IRON") return "IRON";
+  if (resource === "TITANIUM") return "TITANIUM";
   if (resource === "GEMS") return "CRYSTAL";
-  if (resource === "WOOD" || resource === "FUR") return "SUPPLY";
+  if (resource === "UMBRITE") return "UMBRITE";
   return undefined;
 };
 

@@ -50,9 +50,9 @@ const slotStructureTypeForField = (tile: Tile, field: DormancyField): SlotStruct
 
 const SLOT_RESOURCE_TILE_HINT: Record<SlotResource, string> = {
   FOOD: "a Farm or Fish tile",
-  IRON: "an Iron tile",
+  TITANIUM: "a Titanium tile",
   CRYSTAL: "a Crystal tile",
-  SUPPLY: "a Fur or Wood tile"
+  UMBRITE: "an Umbrite tile"
 };
 
 const dormantStructureLineHtml = (
@@ -66,7 +66,7 @@ const dormantStructureLineHtml = (
   const needed = structureSlotRequirements(slotType).filter((req) => dormantResources.includes(req.resource));
   if (needed.length === 0) return undefined;
   const parts = needed.map(
-    (req) => `${req.count} ${req.resource === "FOOD" ? "Food" : req.resource === "IRON" ? "Iron" : req.resource === "CRYSTAL" ? "Crystal" : "Supply"} slot${req.count === 1 ? "" : "s"} (settle or capture ${SLOT_RESOURCE_TILE_HINT[req.resource]})`
+    (req) => `${req.count} ${req.resource === "FOOD" ? "Food" : req.resource === "TITANIUM" ? "Titanium" : req.resource === "CRYSTAL" ? "Crystal" : "Umbrite"} slot${req.count === 1 ? "" : "s"} (settle or capture ${SLOT_RESOURCE_TILE_HINT[req.resource]})`
   );
   return `<span class="tile-overview-dormant">⚠ Dormant — no free resource slot. Needs ${parts.join(" and ")}.</span>`;
 };
@@ -105,8 +105,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   }
   if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. First 5 Light Outposts are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
   if (actionId === "build_farmstead") return tile.resource === "FARM" ? "Improves food production on this tile by 50% and adds +18 food cap." : "Farmsteads do not boost fish output.";
-  if (actionId === "build_camp") return "Improves supply production on this tile by 50% and adds +15 supply cap.";
-  if (actionId === "build_mine") return `Improves ${tile.resource === "IRON" ? "iron" : "crystal"} production on this tile by 50% and adds +${tile.resource === "IRON" ? "15 iron" : "9 crystal"} cap.`;
+  if (actionId === "build_umbrite_rig") return "Improves umbrite production on this tile by 50% and adds +15 umbrite cap.";
+  if (actionId === "build_mine") return `Improves ${tile.resource === "TITANIUM" ? "titanium" : "crystal"} production on this tile by 50% and adds +${tile.resource === "TITANIUM" ? "15 titanium" : "9 crystal"} cap.`;
   if (actionId === "build_market") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +50% town gold production and +${Math.round((supportedTown?.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap.`;
   }
@@ -122,12 +122,12 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Caravanary built.`;
   }
   // §Cap removal: build as many of these as affordable; each occupies 1 slot and can be flipped between Refine/Sell off later.
-  if (actionId === "build_fur_synthesizer") return "Occupies 1 Supply slot on this support tile. Refine (default): 30 gold/day upkeep for 18 supply/day. Can be flipped to Sell off later: 8 gold/day from the slot instead.";
-  if (actionId === "build_ironworks") return "Occupies 1 Iron slot on this support tile. Refine (default): 30 gold/day upkeep for 18 iron/day. Can be flipped to Sell off later: 8 gold/day from the slot instead.";
+  if (actionId === "build_umbrite_synthesizer") return "Occupies 1 Umbrite slot on this support tile. Refine (default): 30 gold/day upkeep for 18 umbrite/day. Can be flipped to Sell off later: 8 gold/day from the slot instead.";
+  if (actionId === "build_titanium_works") return "Occupies 1 Titanium slot on this support tile. Refine (default): 30 gold/day upkeep for 18 titanium/day. Can be flipped to Sell off later: 8 gold/day from the slot instead.";
   if (actionId === "build_crystal_synthesizer") return "Occupies 1 Crystal slot on this support tile. Refine (default): 40 gold/day upkeep for 12 crystal/day. Can be flipped to Sell off later: 10 gold/day from the slot instead.";
-  if (actionId === "upgrade_fur_synthesizer" || actionId === "upgrade_ironworks" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode")
+  if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode")
     return converterStructureDetailText(actionId, tile);
-  if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises iron and crystal caps.";
+  if (actionId === "build_foundry") return "Industrial hub. Doubles active mine production within 5 tiles; boosted production raises titanium and crystal caps.";
   if (actionId === "build_garrison_hall") return "Manpower hub. Adds +150 manpower cap to this town, plus +300 more if an Assembly Works is in this town's connected network.";
   if (actionId === "build_customs_house") return "Build on a settled dock tile. Adds +5 gold / day per connected owned dock.";
   if (actionId === "build_lockworks_port") return "Upgrade a Harbor Exchange into a Lockworks Port with stronger dock-route income and storage.";
@@ -145,8 +145,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "world_engine_strike") return "Arm the Worldbreaker Cannon and choose an enemy land tile to shatter into mountain.";
   if (actionId === "airport_bombard") return "Arm the Sky Dock and choose an enemy land tile within 30 tiles to bombard.";
   if (actionId === "retort_recast_food") return "Recast this exposed resource tile into a food vein.";
-  if (actionId === "retort_recast_supply") return "Recast this exposed resource tile into a supply vein.";
-  if (actionId === "retort_recast_iron") return "Recast this exposed resource tile into an iron vein.";
+  if (actionId === "retort_recast_titanium") return "Recast this exposed resource tile into a titanium vein.";
   if (actionId === "retort_recast_crystal") return "Recast this exposed resource tile into a crystal vein.";
   if (actionId === "aether_emp") return "Fire an Aether EMP to disable one hostile powered structure for 20 minutes.";
   if (actionId === "city_overclock") return "Overclock this city for 15 minutes to boost local growth, income, and manpower output.";

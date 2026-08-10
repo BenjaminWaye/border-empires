@@ -19,7 +19,7 @@ const makePlayer = (id: string, techIds: string[] = []) => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
-  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0 }
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0, SHARD: 0 }
 });
 
 describe("survey sweep", () => {
@@ -41,13 +41,12 @@ describe("survey sweep", () => {
             ownershipState: "SETTLED",
             observatory: { ownerId: "player-1", status: "active" }
           },
-          { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
+          { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
           // §5.4: CRYSTAL supply so the Observatory isn't dormant.
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 25, y: 0, terrain: "LAND", resource: "IRON" },
+          { x: 25, y: 0, terrain: "LAND", resource: "TITANIUM" },
           { x: 20, y: 20, terrain: "LAND", resource: "GEMS" },
-          { x: 21, y: 20, terrain: "LAND", resource: "WOOD" },
-          { x: 0, y: 25, terrain: "LAND", resource: "IRON" },
+          { x: 0, y: 25, terrain: "LAND", resource: "TITANIUM" },
           {
             x: 22,
             y: 20,
@@ -85,13 +84,12 @@ describe("survey sweep", () => {
     expect(payload.pings).toEqual([
       { x: 25, y: 0, kind: "resource" },
       { x: 20, y: 20, kind: "resource" },
-      { x: 21, y: 20, kind: "resource" },
       { x: 0, y: 25, kind: "resource" },
       { x: 22, y: 20, kind: "town" }
     ]);
     expect(payload.pings).not.toContainEqual({ x: 2, y: 0, kind: "resource" });
     expect(JSON.stringify(payload)).not.toContain("GEMS");
-    expect(JSON.stringify(payload)).not.toContain("WOOD");
+    expect(JSON.stringify(payload)).not.toContain("UMBRITE");
 
     const state = runtime.exportState();
     const player = state.players.find((entry) => entry.id === "player-1");

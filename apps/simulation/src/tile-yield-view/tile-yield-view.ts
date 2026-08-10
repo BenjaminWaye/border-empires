@@ -38,13 +38,13 @@ export type TileYieldView = {
 
 const FARMSTEAD_FOOD_BONUS_PER_DAY = 48 * 0.5;
 
-// FOOD joined IRON/CRYSTAL/SUPPLY as slot-based, not produced (docs/manpower-
+// FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced (docs/manpower-
 // economy-rewrite-plan.md §5.4) — there's only one food mechanic now (slot
 // dormancy). A FARM/FISH tile's meaningful "food" contribution is its slot
 // supply (structure-slots.ts), not a daily yield rate.
 const strategicDailyFromResource = (_resource: DomainTileState["resource"] | undefined): Partial<Record<StrategicYieldKey, number>> => ({});
 
-// IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
+// TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
 // stockpiled resource (§5.6), and Farmstead's old FOOD-yield bonus retired
 // alongside FOOD's own production (§5.4: FOOD is slot-based now, not
 // yield-based) — nothing is left to convert into a strategicPerDay entry.

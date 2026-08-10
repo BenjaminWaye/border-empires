@@ -29,7 +29,7 @@
  *   - upkeepLastTick.foodCoverage — ratio depends on player stock + production
  *     at time of read; not a pure tile sum.
  *   - strategicProductionPerMinute — base tile production is already maintained
- *     in PlayerRuntimeSummary; converter output (IRONWORKS, etc.) is additive
+ *     in PlayerRuntimeSummary; converter output (TITANIUM_WORKS, etc.) is additive
  *     over settled tiles and IS incrementalizable, but it is only needed for
  *     display; left on full-rebuild for simplicity.
  */
@@ -93,7 +93,7 @@ export const tileUpkeepContribution = (
     food += townFoodUpkeepPerMinute(tile.town.populationTier);
   }
 
-  // §12.1/§5.1: Fort (IRON slot), Siege Outpost (SUPPLY slot), and
+  // §12.1/§5.1: Fort (TITANIUM slot), Siege Outpost (UMBRITE slot), and
   // Observatory (CRYSTAL slot) no longer carry a separate per-minute flow
   // drain — the slot occupation itself is the upkeep. Settled-land gold
   // upkeep (was a flat 0.04/min per tile) is retired too — §6 states

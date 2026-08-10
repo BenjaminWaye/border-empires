@@ -219,7 +219,7 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
 
   it("skips optimistic town-square builds for town-support structures", () => {
     expect(shouldOptimisticallyBuildOnSelectedTile("build_granary", townTile)).toBe(false);
-    expect(shouldOptimisticallyBuildOnSelectedTile("build_ironworks", townTile)).toBe(false);
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_titanium_works", townTile)).toBe(false);
   });
 
   it("still allows optimistic builds on real support tiles", () => {

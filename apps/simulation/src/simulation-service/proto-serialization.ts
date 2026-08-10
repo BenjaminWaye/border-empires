@@ -82,11 +82,11 @@ export type ProtoSimulationEvent = {
     breachShockUntil?: number | null | undefined;
     yield?: {
       gold?: number;
-      strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+      strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
     } | undefined;
     yieldRate?: {
       goldPerMinute?: number;
-      strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+      strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
     } | undefined;
     yieldCap?: { gold: number; strategicEach: number } | undefined;
     visibilityState?: string | undefined;

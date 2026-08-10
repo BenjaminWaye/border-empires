@@ -237,13 +237,13 @@ describe("§16 monument global uniqueness", () => {
     expect(rejection).toMatchObject({ code: "MONUMENT_CLAIMED" });
   });
 
-  it("rejects a further IRON_LEVY_PART build once another player's Iron Levy is already active", () => {
+  it("rejects a further TITANIUM_LEVY_PART build once another player's Iron Levy is already active", () => {
     const rival = makePlayer("player-1");
     const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, events } = createContext(
       [rival, actor],
       [
-        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "IRON_LEVY", status: "active" } },
+        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "TITANIUM_LEVY", status: "active" } },
         {
           x: 5,
           y: 5,
@@ -255,7 +255,7 @@ describe("§16 monument global uniqueness", () => {
       ]
     );
 
-    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "IRON_LEVY_PART" }) }));
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "TITANIUM_LEVY_PART" }) }));
 
     const rejection = events.find((e) => e.eventType === "COMMAND_REJECTED");
     expect(rejection).toMatchObject({ code: "MONUMENT_CLAIMED" });
@@ -267,7 +267,7 @@ describe("§16 monument global uniqueness", () => {
     const { context, events } = createContext(
       [rival, actor],
       [
-        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "IRON_LEVY", status: "active" } },
+        { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "TITANIUM_LEVY", status: "active" } },
         { x: 5, y: 5, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } as DomainTileState["town"] }
       ]
     );

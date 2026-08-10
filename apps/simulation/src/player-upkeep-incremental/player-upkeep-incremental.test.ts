@@ -57,9 +57,9 @@ const round6 = (n: number): number => Number(n.toFixed(6));
 const roundSnapshot = (s: UpkeepAccrualSnapshot): UpkeepAccrualSnapshot => ({
   gold: round6(s.gold),
   food: round6(s.food),
-  iron: round6(s.iron),
+  titanium: round6(s.titanium),
   crystal: round6(s.crystal),
-  supply: round6(s.supply)
+  umbrite: round6(s.umbrite)
 });
 
 // ---------------------------------------------------------------------------
@@ -85,9 +85,9 @@ describe("tileUpkeepContribution", () => {
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.gold).toBe(0);
     expect(contrib.food).toBe(0);
-    expect(contrib.iron).toBe(0);
+    expect(contrib.titanium).toBe(0);
     expect(contrib.crystal).toBe(0);
-    expect(contrib.supply).toBe(0);
+    expect(contrib.umbrite).toBe(0);
   });
 
   it("charges no WOODEN_FORT upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
@@ -100,20 +100,20 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.food).toBe(0);
   });
 
-  it("charges no fort-ladder upkeep (§12.1: IRON slot occupation is the upkeep)", () => {
+  it("charges no fort-ladder upkeep (§12.1: TITANIUM slot occupation is the upkeep)", () => {
     const player = makePlayer();
-    for (const variant of ["FORT", "IRON_BASTION", "THUNDER_BASTION"]) {
+    for (const variant of ["FORT", "TITANIUM_BASTION", "THUNDER_BASTION"]) {
       const tile = settledTile(0, 0, {
         fort: { ownerId: PLAYER_ID, status: "active", variant }
       });
       const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
       expect(contrib.gold).toBe(0);
-      expect(contrib.iron).toBe(0);
+      expect(contrib.titanium).toBe(0);
       expect(contrib.food).toBe(0);
     }
   });
 
-  it("charges no siege-ladder upkeep (§12.1: SUPPLY slot occupation is the upkeep)", () => {
+  it("charges no siege-ladder upkeep (§12.1: UMBRITE slot occupation is the upkeep)", () => {
     const player = makePlayer();
     for (const variant of ["SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]) {
       const tile = settledTile(0, 0, {
@@ -121,7 +121,7 @@ describe("tileUpkeepContribution", () => {
       });
       const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
       expect(contrib.gold).toBe(0);
-      expect(contrib.supply).toBe(0);
+      expect(contrib.umbrite).toBe(0);
       expect(contrib.food).toBe(0);
     }
   });
@@ -153,10 +153,10 @@ describe("tileUpkeepContribution", () => {
     expect(contrib.food).toBe(0);
   });
 
-  it("charges no CAMP gold upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
+  it("charges no UMBRITE_RIG gold upkeep (§12.1: FOOD slot occupation is the upkeep)", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
-      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "CAMP" }
+      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "UMBRITE_RIG" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.gold).toBe(0);
@@ -165,7 +165,7 @@ describe("tileUpkeepContribution", () => {
   it("ignores structure owned by someone else", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
-      economicStructure: { ownerId: "other", status: "active", type: "CAMP" }
+      economicStructure: { ownerId: "other", status: "active", type: "UMBRITE_RIG" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.gold).toBe(0);
@@ -174,7 +174,7 @@ describe("tileUpkeepContribution", () => {
   it("ignores inactive structure", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
-      economicStructure: { ownerId: PLAYER_ID, status: "building", type: "CAMP" }
+      economicStructure: { ownerId: PLAYER_ID, status: "building", type: "UMBRITE_RIG" }
     });
     const contrib = tileUpkeepContribution(tile, PLAYER_ID, player);
     expect(contrib.gold).toBe(0);
@@ -199,7 +199,7 @@ describe("addTileUpkeepToCache / removeTileUpkeepFromCache", () => {
     const player = makePlayer();
     const tile = settledTile(0, 0, {
       fort: { ownerId: PLAYER_ID, status: "active" },
-      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "CAMP" }
+      economicStructure: { ownerId: PLAYER_ID, status: "active", type: "UMBRITE_RIG" }
     });
     const cache = emptyUpkeepAccrualSnapshot();
     addTileUpkeepToCache(cache, tile, PLAYER_ID, player);
@@ -223,9 +223,9 @@ describe("buildUpkeepAccrualSnapshot vs full snapshot", () => {
     expect(roundSnapshot(incremental)).toEqual({
       gold: round6(full.gold),
       food: round6(full.food),
-      iron: round6(full.iron),
+      titanium: round6(full.titanium),
       crystal: round6(full.crystal),
-      supply: round6(full.supply),
+      umbrite: round6(full.umbrite),
     });
   });
 
@@ -243,7 +243,7 @@ describe("buildUpkeepAccrualSnapshot vs full snapshot", () => {
         ownerId: isOwned ? PLAYER_ID : "other",
         ownershipState: "SETTLED",
         ...(hasClearingHouse ? { economicStructure: { ownerId: PLAYER_ID, status: "active", type: "CLEARING_HOUSE" } } : {}),
-        ...(hasFort && isOwned ? { fort: { ownerId: PLAYER_ID, status: "active", variant: "IRON_BASTION" } } : {}),
+        ...(hasFort && isOwned ? { fort: { ownerId: PLAYER_ID, status: "active", variant: "TITANIUM_BASTION" } } : {}),
         ...(hasSiege && isOwned ? { siegeOutpost: { ownerId: PLAYER_ID, status: "active", variant: "SIEGE_TOWER" } } : {})
       });
     }
@@ -252,9 +252,9 @@ describe("buildUpkeepAccrualSnapshot vs full snapshot", () => {
     expect(roundSnapshot(incremental)).toEqual({
       gold: round6(full.gold),
       food: round6(full.food),
-      iron: round6(full.iron),
+      titanium: round6(full.titanium),
       crystal: round6(full.crystal),
-      supply: round6(full.supply),
+      umbrite: round6(full.umbrite),
     });
   });
 });
@@ -277,15 +277,15 @@ const makeRng = (seed: number) => {
 type SimpleTile = DomainTileState;
 
 const STRUCTURE_TYPES = [
-  "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY", "CLEARING_HOUSE",
+  "FARMSTEAD", "UMBRITE_RIG", "MINE", "MARKET", "GRANARY", "CLEARING_HOUSE",
   "WOODEN_FORT", "LIGHT_OUTPOST", "CARAVANARY",
-  "FUR_SYNTHESIZER", "IRONWORKS", "CRYSTAL_SYNTHESIZER",
+  "UMBRITE_SYNTHESIZER", "TITANIUM_WORKS", "CRYSTAL_SYNTHESIZER",
   "FOUNDRY", "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE",
   "RADAR_SYSTEM", "AIRPORT"
 ] as const;
 
 const POPULATION_TIERS = ["SETTLEMENT", "TOWN", "CITY", "GREAT_CITY", "METROPOLIS"] as const;
-const FORT_VARIANTS = ["FORT", "IRON_BASTION", "THUNDER_BASTION"] as const;
+const FORT_VARIANTS = ["FORT", "TITANIUM_BASTION", "THUNDER_BASTION"] as const;
 const SIEGE_VARIANTS = ["SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"] as const;
 
 const randomTile = (rng: () => number, x: number, y: number): SimpleTile => {

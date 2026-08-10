@@ -49,7 +49,7 @@ export type RuntimeProgressionCommandContext = {
   resourceSlotSupplyForPlayer: (playerId: string) => Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
   resourceSlotDemandForPlayer: (playerId: string) => Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE", number>;
   // §23.2: a successful tech/domain choice can change a player's slot
-  // waivers (fortIronSlotWaiverCount etc), so the demand/dormancy caches
+  // waivers (fortTitaniumSlotWaiverCount etc), so the demand/dormancy caches
   // need dropping the same way a tile mutation would drop them.
   invalidateResourceSlotDemand: (playerId: string) => void;
 };

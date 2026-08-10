@@ -8,7 +8,7 @@ import { ECONOMIC_SPECS } from "./structure-registry-economic.js";
  * Combined structure registry covering every buildable structure type.
  *
  * Sources:
- * - 3 fort variants (FORT, IRON_BASTION, THUNDER_BASTION)
+ * - 3 fort variants (FORT, TITANIUM_BASTION, THUNDER_BASTION)
  * - 1 observatory (OBSERVATORY)
  * - 4 outpost variants (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER, LIGHT_OUTPOST)
  * - 34 economic structures (all EconomicStructureType values except WOODEN_FORT

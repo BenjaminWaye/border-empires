@@ -89,8 +89,8 @@ type ProtoTileDelta = {
   visibilityState?: string;
   ownership_clear_only?: boolean;
   ownershipClearOnly?: boolean;
-  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
+  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
+  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
   yieldCap?: { gold: number; strategicEach: number };
   yield_json?: string;
   yield_rate_json?: string;

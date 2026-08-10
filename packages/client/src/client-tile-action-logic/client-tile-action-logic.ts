@@ -63,7 +63,7 @@ type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
 type AetherWallLength = 1 | 2 | 3;
 
 // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): the real
-// build-time affordability gate for FOOD/IRON/CRYSTAL/SUPPLY now that Step 5
+// build-time affordability gate for FOOD/TITANIUM/CRYSTAL/UMBRITE now that Step 5
 // item 4 Slice A retired their build-time stockpile spend server-side
 // (hasFreeResourceSlots, runtime-structure-command-handlers.ts). Mirrors
 // that gate exactly, including the in-place-upgrade netting
@@ -475,10 +475,9 @@ const chainedBuildAvailabilityFromModule = (
 const frontierBuildDetailSuffix = (tile: Tile): string =>
   tile.ownershipState === "FRONTIER" ? " • settles this tile first" : "";
 
-const resourceClassForTile = (resource: Tile["resource"]): "food" | "supply" | "iron" | "crystal" | undefined => {
+const resourceClassForTile = (resource: Tile["resource"]): "food" | "titanium" | "crystal" | undefined => {
   if (resource === "FARM" || resource === "FISH") return "food";
-  if (resource === "WOOD" || resource === "FUR") return "supply";
-  if (resource === "IRON") return "iron";
+  if (resource === "TITANIUM") return "titanium";
   if (resource === "GEMS") return "crystal";
   return undefined;
 };
@@ -579,10 +578,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             : state.gold < 6000
               ? "Need 6000 gold"
               : "Need 120 CRYSTAL";
-    const targets: Array<{ id: TileActionDef["id"]; label: string; className: "food" | "supply" | "iron" | "crystal"; summary: string }> = [
+    const targets: Array<{ id: TileActionDef["id"]; label: string; className: "food" | "titanium" | "crystal"; summary: string }> = [
       { id: "retort_recast_food", label: "Recast to Food", className: "food", summary: "6000 gold + 120 CRYSTAL • retune this tile into food" },
-      { id: "retort_recast_supply", label: "Recast to Supply", className: "supply", summary: "6000 gold + 120 CRYSTAL • retune this tile into supply" },
-      { id: "retort_recast_iron", label: "Recast to Iron", className: "iron", summary: "6000 gold + 120 CRYSTAL • retune this tile into iron" },
+      { id: "retort_recast_titanium", label: "Recast to Titanium", className: "titanium", summary: "6000 gold + 120 CRYSTAL • retune this tile into titanium" },
       { id: "retort_recast_crystal", label: "Recast to Crystal", className: "crystal", summary: "6000 gold + 120 CRYSTAL • retune this tile into crystal" }
     ];
     return targets
@@ -955,41 +953,41 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         })
       );
     }
-    if (tile.economicStructure?.type === "FUR_SYNTHESIZER") {
+    if (tile.economicStructure?.type === "UMBRITE_SYNTHESIZER") {
       out.push({
-        id: "upgrade_fur_synthesizer" as TileActionDef["id"],
-        label: "Upgrade Fur Works",
-        detail: deps.buildDetailTextForAction("upgrade_fur_synthesizer", tile),
+        id: "upgrade_umbrite_synthesizer" as TileActionDef["id"],
+        label: "Upgrade Umbrite Works",
+        detail: deps.buildDetailTextForAction("upgrade_umbrite_synthesizer", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("advanced-synthetication") &&
-            state.gold >= deps.structureGoldCost("ADVANCED_FUR_SYNTHESIZER") &&
-            state.manpower >= structureBuildManpowerCost("ADVANCED_FUR_SYNTHESIZER"),
+            state.gold >= deps.structureGoldCost("ADVANCED_UMBRITE_SYNTHESIZER") &&
+            state.manpower >= structureBuildManpowerCost("ADVANCED_UMBRITE_SYNTHESIZER"),
           !state.techIds.includes("advanced-synthetication")
             ? "Requires Advanced Synthetication"
-            : state.gold < deps.structureGoldCost("ADVANCED_FUR_SYNTHESIZER")
-              ? `Need ${deps.structureGoldCost("ADVANCED_FUR_SYNTHESIZER")} gold`
-              : `Need ${structureBuildManpowerCost("ADVANCED_FUR_SYNTHESIZER")} manpower`,
-          `${deps.structureCostText("ADVANCED_FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_FUR_SYNTHESIZER") / 60000)}m • 21.6 SUPPLY/day • 45 gold/day`,
+            : state.gold < deps.structureGoldCost("ADVANCED_UMBRITE_SYNTHESIZER")
+              ? `Need ${deps.structureGoldCost("ADVANCED_UMBRITE_SYNTHESIZER")} gold`
+              : `Need ${structureBuildManpowerCost("ADVANCED_UMBRITE_SYNTHESIZER")} manpower`,
+          `${deps.structureCostText("ADVANCED_UMBRITE_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("ADVANCED_UMBRITE_SYNTHESIZER") / 60000)}m • 21.6 UMBRITE/day • 45 gold/day`,
           slots,
           deps
         )
       });
     }
-    if (tile.economicStructure?.type === "IRONWORKS") {
+    if (tile.economicStructure?.type === "TITANIUM_WORKS") {
       out.push({
-        id: "upgrade_ironworks" as TileActionDef["id"],
-        label: "Upgrade Iron Works",
-        detail: deps.buildDetailTextForAction("upgrade_ironworks", tile),
+        id: "upgrade_titanium_works" as TileActionDef["id"],
+        label: "Upgrade Titanium Works",
+        detail: deps.buildDetailTextForAction("upgrade_titanium_works", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           state.techIds.includes("advanced-synthetication") &&
-            state.gold >= deps.structureGoldCost("ADVANCED_IRONWORKS") &&
-            state.manpower >= structureBuildManpowerCost("ADVANCED_IRONWORKS"),
+            state.gold >= deps.structureGoldCost("ADVANCED_TITANIUM_WORKS") &&
+            state.manpower >= structureBuildManpowerCost("ADVANCED_TITANIUM_WORKS"),
           !state.techIds.includes("advanced-synthetication")
             ? "Requires Advanced Synthetication"
-            : state.gold < deps.structureGoldCost("ADVANCED_IRONWORKS")
-              ? `Need ${deps.structureGoldCost("ADVANCED_IRONWORKS")} gold`
-              : `Need ${structureBuildManpowerCost("ADVANCED_IRONWORKS")} manpower`,
-          `${deps.structureCostText("ADVANCED_IRONWORKS")} • ${Math.round(economicStructureBuildMs("ADVANCED_IRONWORKS") / 60000)}m • 21.6 IRON/day • 45 gold/day`,
+            : state.gold < deps.structureGoldCost("ADVANCED_TITANIUM_WORKS")
+              ? `Need ${deps.structureGoldCost("ADVANCED_TITANIUM_WORKS")} gold`
+              : `Need ${structureBuildManpowerCost("ADVANCED_TITANIUM_WORKS")} manpower`,
+          `${deps.structureCostText("ADVANCED_TITANIUM_WORKS")} • ${Math.round(economicStructureBuildMs("ADVANCED_TITANIUM_WORKS") / 60000)}m • 21.6 TITANIUM/day • 45 gold/day`,
           slots,
           deps
         )
@@ -1090,7 +1088,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       !tile.economicStructure &&
       // Normally masonry supersedes the Wooden Fort with the full Fort
       // upgrade below, but if a fresh Fort can't actually be built right now
-      // (no free IRON slot) keep Wooden Fort visible as the fallback rather
+      // (no free TITANIUM slot) keep Wooden Fort visible as the fallback rather
       // than hiding both options.
       (!state.techIds.includes("masonry") || !hasFreeResourceSlots(state, "FORT"))
     ) {
@@ -1512,8 +1510,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       !tile.observatory &&
       !tile.economicStructure &&
       // Normally leatherworking supersedes the Light Outpost with the full
-      // Siege Outpost upgrade below, but Siege Outpost needs a free SUPPLY
-      // slot (Fur/Wood) while Light Outpost only needs FOOD — if no SUPPLY
+      // Siege Outpost upgrade below, but Siege Outpost needs a free UMBRITE
+      // slot while Light Outpost only needs FOOD — if no UMBRITE
       // is available, keep Light Outpost visible as the fallback rather than
       // hiding both options.
       (!state.techIds.includes("leatherworking") || !hasFreeResourceSlots(state, "SIEGE_OUTPOST"))
@@ -1590,29 +1588,29 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
     }
-    if (tile.resource === "WOOD" || tile.resource === "FUR") {
+    if (tile.resource === "UMBRITE") {
       out.push({
-        id: "build_camp",
-        label: "Build Camp",
-        detail: deps.buildDetailTextForAction("build_camp", tile) + frontierBuildDetailSuffix(tile),
+        id: "build_umbrite_rig",
+        label: "Build Umbrite Rig",
+        detail: deps.buildDetailTextForAction("build_umbrite_rig", tile) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
-            "CAMP",
-            !hasBlockingStructure && state.techIds.includes("leatherworking") && hasFreeResourceSlots(state, "CAMP"),
+            "UMBRITE_RIG",
+            !hasBlockingStructure && state.techIds.includes("leatherworking") && hasFreeResourceSlots(state, "UMBRITE_RIG"),
             hasBlockingStructure
               ? "Tile already has structure"
               : !state.techIds.includes("leatherworking")
-                ? "Requires Tanner's Craft"
-                : missingResourceSlotReason(state, "CAMP") ?? "Unavailable",
-            `${deps.structureCostText("CAMP")} • ${Math.round(economicStructureBuildMs("CAMP") / 60000)}m • +50% supply • +15 supply cap`
+                ? "Requires Rigging Works"
+                : missingResourceSlotReason(state, "UMBRITE_RIG") ?? "Unavailable",
+            `${deps.structureCostText("UMBRITE_RIG")} • ${Math.round(economicStructureBuildMs("UMBRITE_RIG") / 60000)}m • +50% umbrite • +15 umbrite cap`
           ),
           slots,
           deps
         )
       });
     }
-    if (tile.resource === "IRON" || tile.resource === "GEMS") {
-      const matchingNeed = tile.resource === "IRON" ? "IRON" : "CRYSTAL";
+    if (tile.resource === "TITANIUM" || tile.resource === "GEMS") {
+      const matchingNeed = tile.resource === "TITANIUM" ? "TITANIUM" : "CRYSTAL";
       out.push({
         id: "build_mine",
         label: "Build Mine",
@@ -1626,7 +1624,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : !state.techIds.includes("mining")
                 ? "Requires Deep Shaft Mining"
                 : missingResourceSlotReason(state, "MINE") ?? "Unavailable",
-            `${deps.structureCostText("MINE")} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "IRON" ? "iron" : "crystal"} • +${matchingNeed === "IRON" ? "15 iron" : "9 crystal"} cap`
+            `${deps.structureCostText("MINE")} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "TITANIUM" ? "titanium" : "crystal"} • +${matchingNeed === "TITANIUM" ? "15 titanium" : "9 crystal"} cap`
           ),
           slots,
           deps
@@ -1642,8 +1640,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const townHasCensusHall = deps.townHasSupportStructure(townBuildSource, "CENSUS_HALL");
       const townHasClearingHouse = deps.townHasSupportStructure(townBuildSource, "CLEARING_HOUSE");
       const townHasCaravanary = deps.townHasSupportStructure(townBuildSource, "CARAVANARY");
-      const townHasFurSynth = deps.townHasSupportStructure(townBuildSource, "FUR_SYNTHESIZER");
-      const townHasIronworks = deps.townHasSupportStructure(townBuildSource, "IRONWORKS");
+      const townHasUmbriteSynth = deps.townHasSupportStructure(townBuildSource, "UMBRITE_SYNTHESIZER");
+      const townHasTitaniumWorks = deps.townHasSupportStructure(townBuildSource, "TITANIUM_WORKS");
       const townHasCrystalSynth = deps.townHasSupportStructure(townBuildSource, "CRYSTAL_SYNTHESIZER");
       const townHasRailDepot = deps.townHasSupportStructure(townBuildSource, "RAIL_DEPOT");
       const townHasImperialExchangePart = deps.townHasSupportStructure(townBuildSource, "IMPERIAL_EXCHANGE_PART");
@@ -1651,14 +1649,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const townHasAegisDomePart = deps.townHasSupportStructure(townBuildSource, "AEGIS_DOME_PART");
       const townHasAstralDockPart = deps.townHasSupportStructure(townBuildSource, "ASTRAL_DOCK_PART");
       const townHasPopulationBureauPart = deps.townHasSupportStructure(townBuildSource, "POPULATION_BUREAU_PART");
-      const townHasIronLevyPart = deps.townHasSupportStructure(townBuildSource, "IRON_LEVY_PART");
+      const townHasTitaniumLevyPart = deps.townHasSupportStructure(townBuildSource, "TITANIUM_LEVY_PART");
       const townHasAnyMonumentPart =
         townHasImperialExchangePart ||
         townHasWorldEnginePart ||
         townHasAegisDomePart ||
         townHasAstralDockPart ||
         townHasPopulationBureauPart ||
-        townHasIronLevyPart;
+        townHasTitaniumLevyPart;
       const townHasAssemblyWorks = deps.townHasSupportStructure(townBuildSource, "ASSEMBLY_WORKS");
       const townHasLogisticsGuild = deps.townHasSupportStructure(townBuildSource, "LOGISTICS_GUILD");
       const isGreatCity = townBuildSource.town?.populationTier === "GREAT_CITY" || townBuildSource.town?.populationTier === "METROPOLIS";
@@ -1766,42 +1764,42 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
       out.push({
-        id: "build_fur_synthesizer",
-        label: "Build Fur Works",
-        detail: deps.buildDetailTextForAction("build_fur_synthesizer", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        id: "build_umbrite_synthesizer",
+        label: "Build Umbrite Works",
+        detail: deps.buildDetailTextForAction("build_umbrite_synthesizer", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
-            "FUR_SYNTHESIZER",
-            !supportPlacementBlocked && !townHasFurSynth && state.techIds.includes("workshops"),
+            "UMBRITE_SYNTHESIZER",
+            !supportPlacementBlocked && !townHasUmbriteSynth && state.techIds.includes("workshops"),
             supportPlacementBlocked
               ? "Tile already has structure"
-              : townHasFurSynth
-                ? "Nearby town already has Fur Works"
+              : townHasUmbriteSynth
+                ? "Nearby town already has Umbrite Works"
                 : !state.techIds.includes("workshops")
                   ? "Requires Artisan Workshops"
                   : "Unavailable",
-            `${deps.structureCostText("FUR_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("FUR_SYNTHESIZER") / 60000)}m • 18 SUPPLY/day • 30 gold/day`
+            `${deps.structureCostText("UMBRITE_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("UMBRITE_SYNTHESIZER") / 60000)}m • 18 UMBRITE/day • 30 gold/day`
           ),
           slots,
           deps
         )
       });
       out.push({
-        id: "build_ironworks",
-        label: "Build Iron Works",
-        detail: deps.buildDetailTextForAction("build_ironworks", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        id: "build_titanium_works",
+        label: "Build Titanium Works",
+        detail: deps.buildDetailTextForAction("build_titanium_works", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
-            "IRONWORKS",
-            !supportPlacementBlocked && !townHasIronworks && state.techIds.includes("alchemy"),
+            "TITANIUM_WORKS",
+            !supportPlacementBlocked && !townHasTitaniumWorks && state.techIds.includes("alchemy"),
             supportPlacementBlocked
               ? "Tile already has structure"
-              : townHasIronworks
-                ? "Nearby town already has Iron Works"
+              : townHasTitaniumWorks
+                ? "Nearby town already has Titanium Works"
                 : !state.techIds.includes("alchemy")
                   ? "Requires Alchemical Forges"
                   : "Unavailable",
-            `${deps.structureCostText("IRONWORKS")} • ${Math.round(economicStructureBuildMs("IRONWORKS") / 60000)}m • 18 IRON/day • 30 gold/day`
+            `${deps.structureCostText("TITANIUM_WORKS")} • ${Math.round(economicStructureBuildMs("TITANIUM_WORKS") / 60000)}m • 18 TITANIUM/day • 30 gold/day`
           ),
           slots,
           deps
@@ -2000,17 +1998,17 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
       out.push({
-        id: "build_iron_levy_part",
-        label: "Build The Iron Levy Part",
-        detail: deps.buildDetailTextForAction("build_iron_levy_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        id: "build_titanium_levy_part",
+        label: "Build The Titanium Levy Part",
+        detail: deps.buildDetailTextForAction("build_titanium_levy_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
-            "IRON_LEVY_PART",
+            "TITANIUM_LEVY_PART",
             !supportPlacementBlocked &&
               !townHasAnyMonumentPart &&
               isGreatCity &&
               state.techIds.includes("grand-levy-doctrine") &&
-              hasFreeResourceSlots(state, "IRON_LEVY_PART"),
+              hasFreeResourceSlots(state, "TITANIUM_LEVY_PART"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasAnyMonumentPart
@@ -2019,8 +2017,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   ? "Requires Great City or Monumental City"
                   : !state.techIds.includes("grand-levy-doctrine")
                     ? "Requires Grand Levy Doctrine"
-                    : (missingResourceSlotReason(state, "IRON_LEVY_PART") ?? "Unavailable"),
-            `${deps.structureCostText("IRON_LEVY_PART")} • ${Math.round(economicStructureBuildMs("IRON_LEVY_PART") / 60000)}m • build 3 to unlock the monument`
+                    : (missingResourceSlotReason(state, "TITANIUM_LEVY_PART") ?? "Unavailable"),
+            `${deps.structureCostText("TITANIUM_LEVY_PART")} • ${Math.round(economicStructureBuildMs("TITANIUM_LEVY_PART") / 60000)}m • build 3 to unlock the monument`
           ),
           slots,
           deps
