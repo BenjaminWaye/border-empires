@@ -99,6 +99,32 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     return state.tiles.get(keyFor(state.hover.x, state.hover.y));
   };
 
+  // A neutral neighbor still counts as a usable (optimistic) origin when we
+  // already have an EXPAND claim of ours heading toward it -- queued locally
+  // and not yet dispatched, dispatched and awaiting server accept, or
+  // accepted and running its claim timer. This lets targets be queued behind
+  // (chained off) each other before the chain actually resolves. It only
+  // ever feeds the `allowOptimisticExpandOrigin` branch below, never the
+  // strict origin used for real dispatch, so a command can still only be
+  // sent from a tile the player actually holds.
+  const hasPendingExpandClaim = (t: Tile): boolean => {
+    if (t.ownerId) return false; // only ever true for a neutral tile being claimed via EXPAND
+    if (t.optimisticPending === "expand") return true;
+    if (
+      state.actionInFlight &&
+      state.actionCurrent?.actionType === "EXPAND" &&
+      state.actionCurrent.x === t.x &&
+      state.actionCurrent.y === t.y
+    ) {
+      return true;
+    }
+    // actionQueue entries carry no actionType: a still-neutral queued entry
+    // can only resolve to EXPAND when it's dispatched (an owned/enemy target
+    // there would resolve to ATTACK, already excluded by the ownerId guard
+    // above).
+    return state.actionQueue.some((entry) => entry.x === t.x && entry.y === t.y);
+  };
+
   const isAdjacent = (ax: number, ay: number, bx: number, by: number): boolean => {
     const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
     const dy = Math.min(Math.abs(ay - by), WORLD_HEIGHT - Math.abs(ay - by));
@@ -213,7 +239,11 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
       state.tiles.get(keyFor(wrapX(tx - 1), wrapY(ty + 1)))
     ].filter((t): t is Tile => Boolean(t));
     const adjacent = pickBestOrigin(
-      candidates.filter((t) => t.ownerId === state.me && (allowOptimisticExpandOrigin || t.optimisticPending !== "expand") && !isFrontierOriginCutOff(t))
+      candidates.filter((t) =>
+        t.ownerId === state.me
+          ? (allowOptimisticExpandOrigin || t.optimisticPending !== "expand") && !isFrontierOriginCutOff(t)
+          : allowOptimisticExpandOrigin && hasPendingExpandClaim(t)
+      )
     );
     if (adjacent) return adjacent;
     const dockOrigin = pickDockOriginForTarget(tx, ty, allowAdjacentToDock, allowOptimisticExpandOrigin);
