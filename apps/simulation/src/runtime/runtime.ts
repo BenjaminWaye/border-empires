@@ -30,6 +30,7 @@ import {
   structureSlotRequirements,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  wrappedChebyshevDistance,
   type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
@@ -847,6 +848,24 @@ export class SimulationRuntime {
       options.mergeSeedTilesWithInitialState ?? true
     );
     for (const [key, tile] of this.tiles) this.snapshotTileCache.set(key, mapTile(tile));
+    // The applyManpowerRegen loop above runs BEFORE this.tiles is populated
+    // (it needs manpower regen numbers to exist for other constructor steps
+    // that follow), and it can read/cache a per-player connected-town
+    // network as a side effect (cachedTownNetworkForPlayer, called from
+    // upkeep-accrual/manpower-cap code deeper in that call). Any such cache
+    // entry was built against an empty pre-tile-load world and never gets
+    // invalidated afterward — normal tile mutations invalidate it through
+    // replaceTileState -> refreshEconomyCachesForTileChange, but tiles
+    // seeded directly from initialState here bypass that path entirely. A
+    // stale empty network is invisible to Weapons Workshop's old flat
+    // ownedStructureCountForPlayer count, but silently zeroes the Iron/Fur
+    // Weapons Factory network-clustered combat bonus for every runtime
+    // reconstructed from persisted state (i.e. after every server restart)
+    // until the player's next tile mutation happens to invalidate it. Clear
+    // both caches now that the real tiles exist, so the first real read
+    // rebuilds fresh instead of reusing the premature empty snapshot.
+    this.townNetworkCacheByPlayer.clear();
+    this.townConnectivityStateByPlayer.clear();
     this.docks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? []);
     this.dockLinksByDockTileKey = buildDockLinksByDockTileKey(this.docks);
     this.locksByTile = createLocksFromInitialState(options.initialState);
@@ -1482,7 +1501,8 @@ export class SimulationRuntime {
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       manpowerLossByTileKey: this.manpowerLossByTileKey,
-      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType)
+      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
+      networkWeaponsFactoryCountsForOrigin: (playerId, tileKey) => this.networkWeaponsFactoryCountsForOrigin(playerId, tileKey)
     };
   }
 
@@ -3164,6 +3184,47 @@ export class SimulationRuntime {
     });
     this.townNetworkCacheByPlayer.set(player.id, network);
     return network;
+  }
+
+  // Iron/Fur Weapons Factory (design doc "network-clustered combat bonus"):
+  // resolves an arbitrary combat tile (an attack's origin, or a defended
+  // target) to "the player's own town nearest that tile," then reads that
+  // town's already-computed connected-network factory totals
+  // (ConnectedTownNetworkEntry.connectedIronWeaponsFactoryCount /
+  // connectedFurWeaponsFactoryCount — both self-inclusive of the whole
+  // network, see that type's doc comment) — no fresh BFS beyond what
+  // cachedTownNetworkForPlayer already does on a cache miss, same shape as
+  // railDepotAlreadyInNetworkForPlayer below. A player with zero towns (very
+  // early game, before any TOWN-tier settlement exists) contributes nothing.
+  private nearestOwnedTownKeyForPlayer(playerId: string, tileKey: string): string | undefined {
+    const [rawX, rawY] = tileKey.split(",");
+    const x = Number(rawX);
+    const y = Number(rawY);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+    let best: string | undefined;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const townKey of this.summaryForPlayer(playerId).ownedTownTierByTile.keys()) {
+      const [townRawX, townRawY] = townKey.split(",");
+      const dist = wrappedChebyshevDistance(x, y, Number(townRawX), Number(townRawY), WORLD_WIDTH, WORLD_HEIGHT);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = townKey;
+      }
+    }
+    return best;
+  }
+
+  private networkWeaponsFactoryCountsForOrigin(playerId: string, tileKey: string): { iron: number; fur: number } {
+    const player = this.players.get(playerId);
+    const nearestTownKey = player ? this.nearestOwnedTownKeyForPlayer(playerId, tileKey) : undefined;
+    if (!player || !nearestTownKey) return { iron: 0, fur: 0 };
+    const settledTiles = this.settledTilesForPlayer(playerId);
+    const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
+    const entry = townNetwork.get(nearestTownKey);
+    return {
+      iron: entry?.connectedIronWeaponsFactoryCount ?? 0,
+      fur: entry?.connectedFurWeaponsFactoryCount ?? 0
+    };
   }
 
   // §4.4: "only one Rail Depot may be built per connected-town network" —

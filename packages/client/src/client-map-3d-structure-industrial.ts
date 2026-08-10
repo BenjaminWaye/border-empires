@@ -16,7 +16,13 @@ export type IndustrialStructureKind =
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "ASTRAL_DOCK"
-  | "WEAPONS_WORKSHOP";
+  | "WEAPONS_WORKSHOP"
+  // Iron Weapons Factory reuses Weapons Workshop's model as-is (see
+  // addWeaponsWorkshop below) rather than getting bespoke geometry — Fur
+  // Weapons Factory deliberately has no 3D model at all and falls back to
+  // the 2D overlay icon (fur-weapons-factory-overlay.svg) via the normal
+  // "not in STRUCTURE_KINDS_HANDLED_BY_3D" path.
+  | "IRON_WEAPONS_FACTORY";
 
 export const INDUSTRIAL_STRUCTURE_KINDS: ReadonlySet<IndustrialStructureKind> = new Set([
   "FOUNDRY",
@@ -26,7 +32,8 @@ export const INDUSTRIAL_STRUCTURE_KINDS: ReadonlySet<IndustrialStructureKind> = 
   "CRYSTAL_SYNTHESIZER",
   "ADVANCED_CRYSTAL_SYNTHESIZER",
   "ASTRAL_DOCK",
-  "WEAPONS_WORKSHOP"
+  "WEAPONS_WORKSHOP",
+  "IRON_WEAPONS_FACTORY"
 ]);
 
 export type IndustrialStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -286,7 +293,10 @@ export const registerIndustrialStructures = (
       CRYSTAL_SYNTHESIZER: addCrystalSynthesizer,
       ADVANCED_CRYSTAL_SYNTHESIZER: addAdvancedCrystalSynthesizer,
       ASTRAL_DOCK: addAstralDock,
-      WEAPONS_WORKSHOP: addWeaponsWorkshop
+      WEAPONS_WORKSHOP: addWeaponsWorkshop,
+      // Reuses the exact same model as WEAPONS_WORKSHOP (see comment on
+      // IndustrialStructureKind above) rather than bespoke geometry.
+      IRON_WEAPONS_FACTORY: addWeaponsWorkshop
     }
   };
 };

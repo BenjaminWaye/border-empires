@@ -22,6 +22,20 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786413600000, // 2026.08.10.3
+    introducedIn: "2026.08.10.3",
+    title: "Weapons Workshop split into Iron and Fur Weapons Factories",
+    why: "Weapons Workshop forged both Iron and Supply into the same flat empire-wide attack/defense boost, giving the two resources no distinct identity in the War branch. It's retired and replaced with two resource-specific factories that reward a real strategic choice: mass-produce anywhere, or cluster into one connected industrial network for a bigger payoff — and skipping both leaves your empire exposed.",
+    changes: [
+      "Iron Weapons Factory (unlocked by Ironclad Masonry): an uncapped Iron sink granting +1.5% attack / +3% defense per copy — armor doctrine.",
+      "Fur Weapons Factory (unlocked by Tanner's Craft): an uncapped Supply sink granting +3% attack / +1.5% defense per copy — raiding doctrine.",
+      "Both buildings' bonus is scoped to the connected-town network relevant to each fight, not a flat empire-wide sum — clustering many together in one connected region pays off more than scattering them.",
+      "Each additional copy of either factory costs more manpower than the last.",
+      "Owning zero Iron Weapons Factories or zero Fur Weapons Factories anywhere in your empire leaves you markedly easier to attack.",
+      "Weapons Workshop can no longer be newly built; any copies you already own keep working as before."
+    ]
+  },
+  {
     createdAt: 1786410000000, // 2026.08.10.2
     introducedIn: "2026.08.10.2",
     title: "The 2D map now takes over when 3D can't run on your device",
