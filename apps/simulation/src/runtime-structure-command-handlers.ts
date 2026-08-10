@@ -6,7 +6,7 @@ import {
   nextFortTierForUpgrade,
   nextSiegeTierForUpgrade,
   structureBuildGoldCost,
-  structureBuildManpowerCost,
+  structureBuildManpowerCostScaled,
   structureCostDefinition,
   structurePlacementMetadata,
   structureShowsOnTile,
@@ -380,7 +380,11 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     slotStructureType = siegeTier.variant;
   } else {
     goldCost = structureBuildGoldCost(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
-    manpowerCost = structureBuildManpowerCost(structureType);
+    // structureBuildManpowerCostScaled is a flat pass-through to
+    // structureBuildManpowerCost for every type except TITANIUM_WEAPONS_FACTORY/
+    // UMBRITE_WEAPONS_FACTORY, which escalate with the player's existing
+    // empire-wide count (design doc "escalating build cost").
+    manpowerCost = structureBuildManpowerCostScaled(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));
   }
   // Quartermaster's Office (tech-tree redesign): reduces manpower cost for
   // War-branch structures (Fort ladder, Siege ladder) built within its

@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { EXPAND_MANPOWER_COST, SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 
+import { createClientOriginSelection } from "../client-origin-selection/client-origin-selection.js";
 import { createInitialState } from "../client-state/client-state.js";
-import { developmentSlotReason, processActionQueue, requestSettlement } from "./client-queue-logic.js";
+import { developmentSlotReason, processActionQueue, reconcileActionQueue, requestSettlement } from "./client-queue-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { Tile } from "../client-types.js";
+
+const wrap = (value: number, size: number): number => ((value % size) + size) % size;
 
 const makeTile = (overrides: Partial<Tile>): Tile => ({
   x: 0,
@@ -263,6 +266,149 @@ describe("frontier queue regressions", () => {
     expect(state.actionQueue).toEqual([{ x: 12, y: 18, retries: 0 }]);
     expect(state.queuedTargetKeys.has("12,18")).toBe(true);
     expect(state.frontierSyncWaitUntilByTarget.get("12,18")).toBeGreaterThan(Date.now());
+  });
+
+  it("keeps a queued target chained off another target that is only locally queued (not yet dispatched)", () => {
+    // Regression for chained EXPAND queuing: clicking a neutral tile C whose
+    // only neighbor is B — itself neutral and merely sitting in the local
+    // action queue, not yet dispatched or accepted — must not be dropped by
+    // reconciliation just because B isn't a real (or even optimistic-pending)
+    // origin yet. Uses the real origin selector (not a mock) so this
+    // exercises the actual pickOriginForTarget chaining logic end to end.
+    const state = createInitialState();
+    state.me = "me";
+    const keyFor = (x: number, y: number): string => `${x},${y}`;
+    const selector = createClientOriginSelection({
+      state,
+      keyFor,
+      wrapX: (x) => wrap(x, 450),
+      wrapY: (y) => wrap(y, 450)
+    });
+
+    // A: owned. B: neutral, adjacent to A, queued but not yet dispatched.
+    // C: neutral, adjacent only to B (not to A).
+    state.tiles.set("11,18", makeTile({ x: 11, y: 18, ownerId: "me", ownershipState: "SETTLED" }));
+    state.tiles.set("12,18", makeTile({ x: 12, y: 18 }));
+    state.tiles.set("13,19", makeTile({ x: 13, y: 19 }));
+    state.actionQueue = [
+      { x: 12, y: 18, retries: 0 },
+      { x: 13, y: 19, retries: 0 }
+    ];
+    state.queuedTargetKeys = new Set<string>(["12,18", "13,19"]);
+
+    const clearOptimisticTileState = vi.fn();
+    reconcileActionQueue(state, {
+      keyFor,
+      pickOriginForTarget: selector.pickOriginForTarget,
+      clearOptimisticTileState
+    });
+
+    expect(state.actionQueue).toEqual([
+      { x: 12, y: 18, retries: 0 },
+      { x: 13, y: 19, retries: 0 }
+    ]);
+    expect(state.queuedTargetKeys.has("13,19")).toBe(true);
+    expect(clearOptimisticTileState).not.toHaveBeenCalled();
+  });
+
+  it("drops a queued target once its only chained-off neighbor is no longer pending", () => {
+    // Mirror of the test above, but B was never actually queued/pending —
+    // C has no confirmed or optimistic origin at all, so reconciliation must
+    // still drop it (no regression in the pre-existing drop path).
+    const state = createInitialState();
+    state.me = "me";
+    const keyFor = (x: number, y: number): string => `${x},${y}`;
+    const selector = createClientOriginSelection({
+      state,
+      keyFor,
+      wrapX: (x) => wrap(x, 450),
+      wrapY: (y) => wrap(y, 450)
+    });
+
+    state.tiles.set("11,18", makeTile({ x: 11, y: 18, ownerId: "me", ownershipState: "SETTLED" }));
+    state.tiles.set("12,18", makeTile({ x: 12, y: 18 })); // B: neutral, not queued
+    state.tiles.set("13,19", makeTile({ x: 13, y: 19 })); // C: only adjacent to B
+    state.actionQueue = [{ x: 13, y: 19, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["13,19"]);
+
+    const clearOptimisticTileState = vi.fn();
+    reconcileActionQueue(state, {
+      keyFor,
+      pickOriginForTarget: selector.pickOriginForTarget,
+      clearOptimisticTileState
+    });
+
+    expect(state.actionQueue).toEqual([]);
+    expect(state.queuedTargetKeys.has("13,19")).toBe(false);
+    expect(clearOptimisticTileState).toHaveBeenCalledWith("13,19", true);
+  });
+
+  it("dispatches a chained EXPAND once its predecessor actually resolves to ownership", () => {
+    // End-to-end version of the chaining tests above: drives processActionQueue
+    // with the real origin selector (not a mock) through a full B-then-C
+    // cycle. B (adjacent to owned A) dispatches first; C (adjacent only to
+    // B) must not dispatch while B is still in flight, and must dispatch
+    // from B only after B's tile reflects real (non-optimistic) ownership.
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+    state.manpower = 999;
+    const keyFor = (x: number, y: number): string => `${x},${y}`;
+    const selector = createClientOriginSelection({
+      state,
+      keyFor,
+      wrapX: (x) => wrap(x, 450),
+      wrapY: (y) => wrap(y, 450)
+    });
+
+    state.tiles.set("11,18", makeTile({ x: 11, y: 18, ownerId: "me", ownershipState: "SETTLED" })); // A
+    state.tiles.set("12,18", makeTile({ x: 12, y: 18 })); // B: neutral, adjacent to A
+    state.tiles.set("13,19", makeTile({ x: 13, y: 19 })); // C: neutral, adjacent only to B
+    state.actionQueue = [
+      { x: 12, y: 18, retries: 0 },
+      { x: 13, y: 19, retries: 0 }
+    ];
+    state.queuedTargetKeys = new Set<string>(["12,18", "13,19"]);
+
+    const send = vi.fn();
+    const deps = {
+      ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
+      authSessionReady: true,
+      keyFor,
+      isAdjacent: selector.isAdjacent,
+      isTileOwnedByAlly: () => false,
+      pickOriginForTarget: selector.pickOriginForTarget,
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      sendSetMuster: vi.fn(),
+      sendAttack: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      pushFeed: vi.fn(),
+      renderHud: vi.fn()
+    };
+
+    // 1) B is the only viable dispatch: adjacent to owned A.
+    expect(processActionQueue(state, deps)).toBe(true);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(send.mock.calls[0]?.[0] as string)).toMatchObject({ type: "EXPAND", fromX: 11, fromY: 18, toX: 12, toY: 18 });
+    expect(state.actionInFlight).toBe(true);
+    expect(state.actionQueue).toEqual([{ x: 13, y: 19, retries: 0 }]);
+
+    // 2) While B is in flight, processActionQueue must not touch C at all.
+    expect(processActionQueue(state, deps)).toBe(false);
+    expect(send).toHaveBeenCalledTimes(1);
+
+    // 3) B resolves: server confirms real (non-optimistic) ownership and the
+    // in-flight bookkeeping clears, mirroring what resolveFrontierCapture
+    // does on FRONTIER_RESULT/TILE_DELTA.
+    state.tiles.set("12,18", makeTile({ x: 12, y: 18, ownerId: "me", ownershipState: "FRONTIER" }));
+    state.actionInFlight = false;
+    state.actionCurrent = undefined;
+
+    // 4) C can now dispatch, from B.
+    expect(processActionQueue(state, deps)).toBe(true);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(send.mock.calls[1]?.[0] as string)).toMatchObject({ type: "EXPAND", fromX: 12, fromY: 18, toX: 13, toY: 19 });
   });
 
   it("drops waypoint targets owned by allies instead of dispatching attacks", () => {

@@ -27,9 +27,13 @@ describe("imperial exchange levy", () => {
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-1", type: "IMPERIAL_EXCHANGE", status: "active" }
       },
-      // §5.4: CRYSTAL supply so IMPERIAL_EXCHANGE/AETHER_TOWER aren't dormant.
+      // §5.4: CRYSTAL supply so IMPERIAL_EXCHANGE (4 slots, post-part-
+      // consumption rebalance)/AETHER_TOWER aren't dormant.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
       { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
     ];

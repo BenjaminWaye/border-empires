@@ -14,7 +14,7 @@ import {
 import { renderCompactTechChoiceGridHtml, renderExpandedTechChoiceTreeHtml } from "../client-tech-tree-html/client-tech-tree-html.js";
 import type { ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainInfo, TechInfo } from "../client-types.js";
-import type { StructureInfoKey } from "../client-map-display.js";
+import { MONUMENT_COMPONENTS_BY_BASE, type StructureInfoKey } from "../client-map-display.js";
 
 export const formatTechCost = (tech: TechInfo): string => {
   const checklist = tech.requirements.checklist ?? [];
@@ -113,22 +113,30 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
         out.add("AIRPORT");
         break;
       case "unlockAstralDock":
-        out.add("ASTRAL_DOCK_PART");
+        out.add("ASTRAL_DOCK_PART_1");
+        out.add("ASTRAL_DOCK_PART_2");
+        out.add("ASTRAL_DOCK_PART_3");
         out.add("ASTRAL_DOCK");
         break;
       case "unlockRadarSystem":
         out.add("RADAR_SYSTEM");
         break;
       case "unlockImperialExchange":
-        out.add("IMPERIAL_EXCHANGE_PART");
+        out.add("IMPERIAL_EXCHANGE_PART_1");
+        out.add("IMPERIAL_EXCHANGE_PART_2");
+        out.add("IMPERIAL_EXCHANGE_PART_3");
         out.add("IMPERIAL_EXCHANGE");
         break;
       case "unlockWorldEngine":
-        out.add("WORLD_ENGINE_PART");
+        out.add("WORLD_ENGINE_PART_1");
+        out.add("WORLD_ENGINE_PART_2");
+        out.add("WORLD_ENGINE_PART_3");
         out.add("WORLD_ENGINE");
         break;
       case "unlockAegisDome":
-        out.add("AEGIS_DOME_PART");
+        out.add("AEGIS_DOME_PART_1");
+        out.add("AEGIS_DOME_PART_2");
+        out.add("AEGIS_DOME_PART_3");
         out.add("AEGIS_DOME");
         break;
       case "unlockRailDepot":
@@ -143,15 +151,23 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockAssemblyWorks":
         out.add("ASSEMBLY_WORKS");
         break;
-      case "unlockWeaponsWorkshop":
-        out.add("WEAPONS_WORKSHOP");
+      // unlockWeaponsWorkshop retired — replaced by the two cases below.
+      case "unlockTitaniumWeaponsFactory":
+        out.add("TITANIUM_WEAPONS_FACTORY");
+        break;
+      case "unlockUmbriteWeaponsFactory":
+        out.add("UMBRITE_WEAPONS_FACTORY");
         break;
       case "unlockPopulationBureau":
-        out.add("POPULATION_BUREAU_PART");
+        out.add("POPULATION_BUREAU_PART_1");
+        out.add("POPULATION_BUREAU_PART_2");
+        out.add("POPULATION_BUREAU_PART_3");
         out.add("POPULATION_BUREAU");
         break;
       case "unlockTitaniumLevy":
-        out.add("TITANIUM_LEVY_PART");
+        out.add("TITANIUM_LEVY_PART_1");
+        out.add("TITANIUM_LEVY_PART_2");
+        out.add("TITANIUM_LEVY_PART_3");
         out.add("TITANIUM_LEVY");
         break;
       case "unlockSiegeOutposts":
@@ -323,7 +339,8 @@ export const renderStructureInfoOverlay = (
     buildTimeLabel: string;
     upkeepBits?: string[];
     branch?: "War" | "Economy" | "Manpower" | "Aether";
-  }
+  },
+  ownedComponentTypes?: ReadonlySet<string>
 ): string => {
   const type = structureInfoKey as StructureInfoKey | "";
   if (!type) return "";
@@ -345,6 +362,24 @@ export const renderStructureInfoOverlay = (
   const artHtml = info.image
     ? `<div class="structure-info-art has-image"><img class="structure-info-image" src="${info.image}" alt="${info.title}" /></div>`
     : `<div class="structure-info-art"><div class="structure-info-glyph" aria-hidden="true">${info.glyph}</div></div>`;
+  const components = MONUMENT_COMPONENTS_BY_BASE[type];
+  const componentsHtml = components
+    ? (() => {
+        const ownedCount = components.filter((c) => ownedComponentTypes?.has(c.type)).length;
+        return `<section class="structure-info-section structure-info-components">
+        <span class="structure-info-section-label">Monument Components</span>
+        <ul class="structure-info-components-list">
+          ${components
+            .map((c) => {
+              const complete = ownedComponentTypes?.has(c.type) ?? false;
+              return `<li class="${complete ? "structure-info-component-complete" : "structure-info-component-pending"}">⚙️ ${c.name} — ${complete ? "Complete" : "Not built"}</li>`;
+            })
+            .join("")}
+        </ul>
+        <p class="structure-info-components-summary">${ownedCount}/${components.length} — ${ownedCount === components.length ? "Monument Ready" : "Monument not ready"}</p>
+      </section>`;
+      })()
+    : "";
   return `<div class="structure-info-backdrop" data-structure-info-close="backdrop"></div>
     <div class="structure-info-modal" role="dialog" aria-modal="true" aria-labelledby="structure-info-title">
       <button class="structure-info-close" type="button" aria-label="Close structure details" data-structure-info-close="button">×</button>
@@ -357,6 +392,7 @@ export const renderStructureInfoOverlay = (
             <p>${info.detail}</p>
           </div>
         </div>
+        ${componentsHtml}
         ${effectsHtml}
         <div class="structure-info-meta">
           ${costHtml}

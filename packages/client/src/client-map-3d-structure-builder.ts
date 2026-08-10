@@ -12,6 +12,7 @@ import {
   Quaternion,
   Scene,
   SphereGeometry,
+  TorusGeometry,
   Vector3
 } from "three";
 
@@ -21,7 +22,8 @@ export type StructurePieceGeometry =
   | CylinderGeometry
   | IcosahedronGeometry
   | OctahedronGeometry
-  | SphereGeometry;
+  | SphereGeometry
+  | TorusGeometry;
 
 type Slot = { mesh: InstancedMesh; count: number; cap: number };
 

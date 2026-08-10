@@ -17,8 +17,13 @@ describe("The Titanium Levy muster ability", () => {
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-1", type: "TITANIUM_LEVY", status: "active" }
       },
+      // CRYSTAL supply so TITANIUM_LEVY (4 slots, post-part-consumption
+      // rebalance)/AETHER_TOWER aren't dormant.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+      { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
     ];
     if (!options.omitTower) {
       tiles.push({

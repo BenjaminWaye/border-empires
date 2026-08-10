@@ -38,7 +38,7 @@ import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, fronti
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
-import { economicStructureBuildMs, economicStructureName } from "../client-map-display.js";
+import { economicStructureBuildMs, economicStructureName, MONUMENT_COMPONENT_KEYS } from "../client-map-display.js";
 import type { SupportTownStructureKey } from "../client-support-structures/client-support-structures.js";
 import { settleDurationMsForState, type DevelopmentSlotSummary } from "../client-queue-logic/client-queue-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
@@ -69,6 +69,18 @@ type AetherWallLength = 1 | 2 | 3;
 // that gate exactly, including the in-place-upgrade netting
 // (currentTileFieldSlotRequirements) and the synthesizer skip (a
 // synthesizer PROVIDES a slot, never consumes one, §6.4).
+// All 18 monument component types, across all 6 monuments — used to check
+// "does this town already host a monument component of any kind" without
+// hand-listing 6 or 18 types at each call site.
+const MONUMENT_COMPONENT_TYPES: readonly SupportTownStructureKey[] = [
+  "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
+  "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+  "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
+  "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
+  "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3",
+  "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"
+];
+
 const freeResourceSlotCount = (state: ClientState, resource: SlotResource): number =>
   (state.resourceSlots?.supply[resource] ?? 0) - (state.resourceSlots?.demand[resource] ?? 0);
 
@@ -610,11 +622,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       economicStructureType === "WORLD_ENGINE" ||
       economicStructureType === "AEGIS_DOME" ||
       economicStructureType === "ASTRAL_DOCK";
-    const isMonumentPartType =
-      economicStructureType === "IMPERIAL_EXCHANGE_PART" ||
-      economicStructureType === "WORLD_ENGINE_PART" ||
-      economicStructureType === "AEGIS_DOME_PART" ||
-      economicStructureType === "ASTRAL_DOCK_PART";
+    const isMonumentPartType = Boolean(economicStructureType && MONUMENT_COMPONENT_KEYS.has(economicStructureType));
 
     // Aether Purge (wire command remains AETHER_LANCE for compatibility).
     if (state.techIds.includes("crystal-lattices")) {
@@ -1169,10 +1177,25 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const worldEngineBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "WORLD_ENGINE");
       const aegisDomeBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "AEGIS_DOME");
       const astralDockBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "ASTRAL_DOCK");
-      const imperialExchangePartCount = [...state.tiles.values()].filter((candidate) => candidate.economicStructure?.ownerId === state.me && candidate.economicStructure?.type === "IMPERIAL_EXCHANGE_PART").length;
-      const worldEnginePartCount = [...state.tiles.values()].filter((candidate) => candidate.economicStructure?.ownerId === state.me && candidate.economicStructure?.type === "WORLD_ENGINE_PART").length;
-      const aegisDomePartCount = [...state.tiles.values()].filter((candidate) => candidate.economicStructure?.ownerId === state.me && candidate.economicStructure?.type === "AEGIS_DOME_PART").length;
-      const astralDockPartCount = [...state.tiles.values()].filter((candidate) => candidate.economicStructure?.ownerId === state.me && candidate.economicStructure?.type === "ASTRAL_DOCK_PART").length;
+      const populationBureauBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "POPULATION_BUREAU");
+      const titaniumLevyBuilt = [...state.tiles.values()].some((candidate) => candidate.economicStructure?.type === "TITANIUM_LEVY");
+      // Each monument's 3 components are uniquely named now (not 3 copies of
+      // one Part type) — "owned" is a per-component boolean, and a
+      // monument's total is however many of its 3 are true.
+      const ownsComponent = (type: string): boolean =>
+        [...state.tiles.values()].some((candidate) => candidate.economicStructure?.ownerId === state.me && candidate.economicStructure?.status === "active" && candidate.economicStructure?.type === type);
+      const imperialExchangeComponentsOwned = ["IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"].map(ownsComponent);
+      const worldEngineComponentsOwned = ["WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3"].map(ownsComponent);
+      const aegisDomeComponentsOwned = ["AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3"].map(ownsComponent);
+      const astralDockComponentsOwned = ["ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3"].map(ownsComponent);
+      const populationBureauComponentsOwned = ["POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3"].map(ownsComponent);
+      const titaniumLevyComponentsOwned = ["TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"].map(ownsComponent);
+      const imperialExchangePartCount = imperialExchangeComponentsOwned.filter(Boolean).length;
+      const worldEnginePartCount = worldEngineComponentsOwned.filter(Boolean).length;
+      const aegisDomePartCount = aegisDomeComponentsOwned.filter(Boolean).length;
+      const astralDockPartCount = astralDockComponentsOwned.filter(Boolean).length;
+      const populationBureauPartCount = populationBureauComponentsOwned.filter(Boolean).length;
+      const titaniumLevyPartCount = titaniumLevyComponentsOwned.filter(Boolean).length;
       if (buildShowsOnTile("AIRPORT", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
           id: "build_airport",
@@ -1372,6 +1395,74 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           )
         });
       }
+      if (buildShowsOnTile("POPULATION_BUREAU", tile, supportedTowns.length, supportedDocks.length)) {
+        out.push({
+          id: "build_population_bureau",
+          label: "Build Population Bureau",
+          detail: deps.buildDetailTextForAction("build_population_bureau", tile) + frontierBuildDetailSuffix(tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            ...chainedBuildAvailability(
+              "POPULATION_BUREAU",
+              state.techIds.includes("demographic-registry") &&
+                populationBureauPartCount >= 3 &&
+                !populationBureauBuilt &&
+                !tile.siegeOutpost &&
+                !tile.observatory &&
+                (state.strategicResources.SHARD ?? 0) >= 2 &&
+                hasFreeResourceSlots(state, "POPULATION_BUREAU"),
+              !state.techIds.includes("demographic-registry")
+                ? "Requires Demographic Registry"
+                : populationBureauBuilt
+                  ? "Population Bureau already built"
+                  : populationBureauPartCount < 3
+                    ? "Build 3 Population Bureau parts first"
+                    : tile.siegeOutpost || tile.observatory
+                      ? "Tile already has structure"
+                      : (state.strategicResources.SHARD ?? 0) < 2
+                        ? "Need 2 SHARD"
+                        : missingResourceSlotReason(state, "POPULATION_BUREAU") ?? "Unavailable",
+              `${deps.structureCostText("POPULATION_BUREAU")} • ${Math.round(economicStructureBuildMs("POPULATION_BUREAU") / 60000)}m • build 3 parts first`,
+              0
+            ),
+            slots,
+            deps
+          )
+        });
+      }
+      if (buildShowsOnTile("TITANIUM_LEVY", tile, supportedTowns.length, supportedDocks.length)) {
+        out.push({
+          id: "build_titanium_levy",
+          label: "Build The Titanium Levy",
+          detail: deps.buildDetailTextForAction("build_titanium_levy", tile) + frontierBuildDetailSuffix(tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            ...chainedBuildAvailability(
+              "TITANIUM_LEVY",
+              state.techIds.includes("grand-levy-doctrine") &&
+                titaniumLevyPartCount >= 3 &&
+                !titaniumLevyBuilt &&
+                !tile.siegeOutpost &&
+                !tile.observatory &&
+                (state.strategicResources.SHARD ?? 0) >= 2 &&
+                hasFreeResourceSlots(state, "TITANIUM_LEVY"),
+              !state.techIds.includes("grand-levy-doctrine")
+                ? "Requires Grand Levy Doctrine"
+                : titaniumLevyBuilt
+                  ? "The Titanium Levy already built"
+                  : titaniumLevyPartCount < 3
+                    ? "Build 3 Titanium Levy parts first"
+                    : tile.siegeOutpost || tile.observatory
+                      ? "Tile already has structure"
+                      : (state.strategicResources.SHARD ?? 0) < 2
+                        ? "Need 2 SHARD"
+                        : missingResourceSlotReason(state, "TITANIUM_LEVY") ?? "Unavailable",
+              `${deps.structureCostText("TITANIUM_LEVY")} • ${Math.round(economicStructureBuildMs("TITANIUM_LEVY") / 60000)}m • build 3 parts first`,
+              0
+            ),
+            slots,
+            deps
+          )
+        });
+      }
       if (buildShowsOnTile("GOVERNORS_OFFICE", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
           id: "build_governors_office",
@@ -1481,21 +1572,46 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           )
         });
       }
-      if (buildShowsOnTile("WEAPONS_WORKSHOP", tile, supportedTowns.length, supportedDocks.length)) {
+      // WEAPONS_WORKSHOP is retired (replaced by the two structures below) —
+      // no build clause for it, so it stops appearing in any build menu.
+      // Legacy copies a player already owns keep functioning; see
+      // structure-registry-economic.ts.
+      if (buildShowsOnTile("TITANIUM_WEAPONS_FACTORY", tile, supportedTowns.length, supportedDocks.length)) {
         out.push({
-          id: "build_weapons_workshop",
-          label: "Build Weapons Workshop",
-          detail: deps.buildDetailTextForAction("build_weapons_workshop", tile) + frontierBuildDetailSuffix(tile),
+          id: "build_titanium_weapons_factory",
+          label: "Build Titanium Weapons Factory",
+          detail: deps.buildDetailTextForAction("build_titanium_weapons_factory", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(
-              "WEAPONS_WORKSHOP",
-              state.techIds.includes("weapons-forging") && hasFreeResourceSlots(state, "WEAPONS_WORKSHOP") && !tile.siegeOutpost && !tile.observatory,
-              !state.techIds.includes("weapons-forging")
-                ? "Requires Weapons Forging"
+              "TITANIUM_WEAPONS_FACTORY",
+              state.techIds.includes("masonry") && hasFreeResourceSlots(state, "TITANIUM_WEAPONS_FACTORY") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("masonry")
+                ? "Requires Titanium-Clad Masonry"
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
-                  : missingResourceSlotReason(state, "WEAPONS_WORKSHOP") ?? "Unavailable",
-              `${deps.structureCostText("WEAPONS_WORKSHOP")} • ${Math.round(economicStructureBuildMs("WEAPONS_WORKSHOP") / 60000)}m • +3% empire-wide attack and defense per copy • no per-town limit`
+                  : missingResourceSlotReason(state, "TITANIUM_WEAPONS_FACTORY") ?? "Unavailable",
+              `${deps.structureCostText("TITANIUM_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("TITANIUM_WEAPONS_FACTORY") / 60000)}m • +1.5% attack / +3% defense per copy, scoped to this town's connected network • no per-town limit`
+            ),
+            slots,
+            deps
+          )
+        });
+      }
+      if (buildShowsOnTile("UMBRITE_WEAPONS_FACTORY", tile, supportedTowns.length, supportedDocks.length)) {
+        out.push({
+          id: "build_umbrite_weapons_factory",
+          label: "Build Umbrite Weapons Factory",
+          detail: deps.buildDetailTextForAction("build_umbrite_weapons_factory", tile) + frontierBuildDetailSuffix(tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            ...chainedBuildAvailability(
+              "UMBRITE_WEAPONS_FACTORY",
+              state.techIds.includes("leatherworking") && hasFreeResourceSlots(state, "UMBRITE_WEAPONS_FACTORY") && !tile.siegeOutpost && !tile.observatory,
+              !state.techIds.includes("leatherworking")
+                ? "Requires Rigging Works"
+                : tile.siegeOutpost || tile.observatory
+                  ? "Tile already has structure"
+                  : missingResourceSlotReason(state, "UMBRITE_WEAPONS_FACTORY") ?? "Unavailable",
+              `${deps.structureCostText("UMBRITE_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("UMBRITE_WEAPONS_FACTORY") / 60000)}m • +3% attack / +1.5% defense per copy, scoped to this town's connected network • no per-town limit`
             ),
             slots,
             deps
@@ -1644,19 +1760,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const townHasTitaniumWorks = deps.townHasSupportStructure(townBuildSource, "TITANIUM_WORKS");
       const townHasCrystalSynth = deps.townHasSupportStructure(townBuildSource, "CRYSTAL_SYNTHESIZER");
       const townHasRailDepot = deps.townHasSupportStructure(townBuildSource, "RAIL_DEPOT");
-      const townHasImperialExchangePart = deps.townHasSupportStructure(townBuildSource, "IMPERIAL_EXCHANGE_PART");
-      const townHasWorldEnginePart = deps.townHasSupportStructure(townBuildSource, "WORLD_ENGINE_PART");
-      const townHasAegisDomePart = deps.townHasSupportStructure(townBuildSource, "AEGIS_DOME_PART");
-      const townHasAstralDockPart = deps.townHasSupportStructure(townBuildSource, "ASTRAL_DOCK_PART");
-      const townHasPopulationBureauPart = deps.townHasSupportStructure(townBuildSource, "POPULATION_BUREAU_PART");
-      const townHasTitaniumLevyPart = deps.townHasSupportStructure(townBuildSource, "TITANIUM_LEVY_PART");
-      const townHasAnyMonumentPart =
-        townHasImperialExchangePart ||
-        townHasWorldEnginePart ||
-        townHasAegisDomePart ||
-        townHasAstralDockPart ||
-        townHasPopulationBureauPart ||
-        townHasTitaniumLevyPart;
+      // One monument component (of any of the 18 unique types, from any of
+      // the 6 monuments) per Great City/Monumental City — unified into one
+      // check now that each is its own distinct structure type rather than
+      // 6 hand-listed "identical Part" types.
+      const townHasAnyMonumentPart = MONUMENT_COMPONENT_TYPES.some((type) => deps.townHasSupportStructure(townBuildSource, type));
       const townHasAssemblyWorks = deps.townHasSupportStructure(townBuildSource, "ASSEMBLY_WORKS");
       const townHasLogisticsGuild = deps.townHasSupportStructure(townBuildSource, "LOGISTICS_GUILD");
       const isGreatCity = townBuildSource.town?.populationTier === "GREAT_CITY" || townBuildSource.town?.populationTier === "METROPOLIS";
@@ -1850,180 +1958,67 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           deps
         )
       });
-      out.push({
-        id: "build_imperial_exchange_part",
-        label: "Build Imperial Exchange Part",
-        detail: deps.buildDetailTextForAction("build_imperial_exchange_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
-          ...chainedBuildAvailability(
-            "IMPERIAL_EXCHANGE_PART",
-            !supportPlacementBlocked &&
-              !townHasImperialExchangePart &&
-              !townHasWorldEnginePart &&
-              !townHasAegisDomePart &&
-              !townHasAstralDockPart &&
-              isGreatCity &&
-              state.techIds.includes("urban-markets") &&
-              hasFreeResourceSlots(state, "IMPERIAL_EXCHANGE_PART"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
-              : townHasImperialExchangePart || townHasWorldEnginePart || townHasAegisDomePart || townHasAstralDockPart
-                ? "Nearby great city already hosts a monument part"
-                : !isGreatCity
-                  ? "Requires Great City or Monumental City"
-                  : !state.techIds.includes("urban-markets")
-                    ? "Requires Imperial Exchange"
-                    : (missingResourceSlotReason(state, "IMPERIAL_EXCHANGE_PART") ?? "Unavailable"),
-            `${deps.structureCostText("IMPERIAL_EXCHANGE_PART")} • ${Math.round(economicStructureBuildMs("IMPERIAL_EXCHANGE_PART") / 60000)}m • build 3 to unlock the monument`
-          ),
-          slots,
-          deps
-        )
-      });
-      out.push({
-        id: "build_world_engine_part",
-        label: "Build Worldbreaker Cannon Part",
-        detail: deps.buildDetailTextForAction("build_world_engine_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
-          ...chainedBuildAvailability(
-            "WORLD_ENGINE_PART",
-            !supportPlacementBlocked &&
-              !townHasImperialExchangePart &&
-              !townHasWorldEnginePart &&
-              !townHasAegisDomePart &&
-              !townHasAstralDockPart &&
-              isGreatCity &&
-              state.techIds.includes("world-engine") &&
-              hasFreeResourceSlots(state, "WORLD_ENGINE_PART"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
-              : townHasImperialExchangePart || townHasWorldEnginePart || townHasAegisDomePart || townHasAstralDockPart
-                ? "Nearby great city already hosts a monument part"
-                : !isGreatCity
-                  ? "Requires Great City or Monumental City"
-                  : !state.techIds.includes("world-engine")
-                    ? "Requires Worldbreaker Cannon"
-                    : (missingResourceSlotReason(state, "WORLD_ENGINE_PART") ?? "Unavailable"),
-            `${deps.structureCostText("WORLD_ENGINE_PART")} • ${Math.round(economicStructureBuildMs("WORLD_ENGINE_PART") / 60000)}m • build 3 to unlock the monument`
-          ),
-          slots,
-          deps
-        )
-      });
-      out.push({
-        id: "build_aegis_dome_part",
-        label: "Build Aegis Dome Part",
-        detail: deps.buildDetailTextForAction("build_aegis_dome_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
-          ...chainedBuildAvailability(
-            "AEGIS_DOME_PART",
-            !supportPlacementBlocked &&
-              !townHasImperialExchangePart &&
-              !townHasWorldEnginePart &&
-              !townHasAegisDomePart &&
-              !townHasAstralDockPart &&
-              isGreatCity &&
-              state.techIds.includes("aegis-dome") &&
-              hasFreeResourceSlots(state, "AEGIS_DOME_PART"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
-              : townHasImperialExchangePart || townHasWorldEnginePart || townHasAegisDomePart || townHasAstralDockPart
-                ? "Nearby great city already hosts a monument part"
-                : !isGreatCity
-                  ? "Requires Great City or Monumental City"
-                  : !state.techIds.includes("aegis-dome")
-                    ? "Requires Aegis Dome"
-                    : (missingResourceSlotReason(state, "AEGIS_DOME_PART") ?? "Unavailable"),
-            `${deps.structureCostText("AEGIS_DOME_PART")} • ${Math.round(economicStructureBuildMs("AEGIS_DOME_PART") / 60000)}m • build 3 to unlock the monument`
-          ),
-          slots,
-          deps
-        )
-      });
-      out.push({
-        id: "build_astral_dock_part",
-        label: "Build Astral Dock Part",
-        detail: deps.buildDetailTextForAction("build_astral_dock_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
-          ...chainedBuildAvailability(
-            "ASTRAL_DOCK_PART",
-            !supportPlacementBlocked &&
-              !townHasImperialExchangePart &&
-              !townHasWorldEnginePart &&
-              !townHasAegisDomePart &&
-              !townHasAstralDockPart &&
-              isGreatCity &&
-              state.techIds.includes("astral-dock") &&
-              hasFreeResourceSlots(state, "ASTRAL_DOCK_PART"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
-              : townHasImperialExchangePart || townHasWorldEnginePart || townHasAegisDomePart || townHasAstralDockPart
-                ? "Nearby great city already hosts a monument part"
-                : !isGreatCity
-                  ? "Requires Great City or Monumental City"
-                  : !state.techIds.includes("astral-dock")
-                    ? "Requires Astral Dock"
-                    : (missingResourceSlotReason(state, "ASTRAL_DOCK_PART") ?? "Unavailable"),
-            `${deps.structureCostText("ASTRAL_DOCK_PART")} • ${Math.round(economicStructureBuildMs("ASTRAL_DOCK_PART") / 60000)}m • build 3 to unlock the monument`
-          ),
-          slots,
-          deps
-        )
-      });
-      out.push({
-        id: "build_population_bureau_part",
-        label: "Build Population Bureau Part",
-        detail: deps.buildDetailTextForAction("build_population_bureau_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
-          ...chainedBuildAvailability(
-            "POPULATION_BUREAU_PART",
-            !supportPlacementBlocked &&
-              !townHasAnyMonumentPart &&
-              isGreatCity &&
-              state.techIds.includes("demographic-registry") &&
-              hasFreeResourceSlots(state, "POPULATION_BUREAU_PART"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
-              : townHasAnyMonumentPart
-                ? "Nearby great city already hosts a monument part"
-                : !isGreatCity
-                  ? "Requires Great City or Monumental City"
-                  : !state.techIds.includes("demographic-registry")
-                    ? "Requires Demographic Registry"
-                    : (missingResourceSlotReason(state, "POPULATION_BUREAU_PART") ?? "Unavailable"),
-            `${deps.structureCostText("POPULATION_BUREAU_PART")} • ${Math.round(economicStructureBuildMs("POPULATION_BUREAU_PART") / 60000)}m • build 3 to unlock the monument`
-          ),
-          slots,
-          deps
-        )
-      });
-      out.push({
-        id: "build_titanium_levy_part",
-        label: "Build The Titanium Levy Part",
-        detail: deps.buildDetailTextForAction("build_titanium_levy_part", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
-          ...chainedBuildAvailability(
-            "TITANIUM_LEVY_PART",
-            !supportPlacementBlocked &&
-              !townHasAnyMonumentPart &&
-              isGreatCity &&
-              state.techIds.includes("grand-levy-doctrine") &&
-              hasFreeResourceSlots(state, "TITANIUM_LEVY_PART"),
-            supportPlacementBlocked
-              ? "Tile already has structure"
-              : townHasAnyMonumentPart
-                ? "Nearby great city already hosts a monument part"
-                : !isGreatCity
-                  ? "Requires Great City or Monumental City"
-                  : !state.techIds.includes("grand-levy-doctrine")
-                    ? "Requires Grand Levy Doctrine"
-                    : (missingResourceSlotReason(state, "TITANIUM_LEVY_PART") ?? "Unavailable"),
-            `${deps.structureCostText("TITANIUM_LEVY_PART")} • ${Math.round(economicStructureBuildMs("TITANIUM_LEVY_PART") / 60000)}m • build 3 to unlock the monument`
-          ),
-          slots,
-          deps
-        )
-      });
+      // Every monument's 3 uniquely-named components share the exact same
+      // gating shape (Great City/Monumental City, no other monument
+      // component already in that city, the monument's own tech
+      // researched) — generated from one table instead of 18 hand-copied
+      // blocks.
+      const MONUMENT_COMPONENT_BUILD_DEFS: ReadonlyArray<{
+        actionId: TileActionDef["id"];
+        structureType: NonNullable<Tile["economicStructure"]>["type"];
+        actionLabel: string;
+        techId: string;
+        techLabel: string;
+        monumentLabel: string;
+      }> = [
+        { actionId: "build_imperial_exchange_part_1", structureType: "IMPERIAL_EXCHANGE_PART_1", actionLabel: "Build Golden Ledger", techId: "urban-markets", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
+        { actionId: "build_imperial_exchange_part_2", structureType: "IMPERIAL_EXCHANGE_PART_2", actionLabel: "Build Counting Engine", techId: "urban-markets", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
+        { actionId: "build_imperial_exchange_part_3", structureType: "IMPERIAL_EXCHANGE_PART_3", actionLabel: "Build Sovereign Seal", techId: "urban-markets", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
+        { actionId: "build_world_engine_part_1", structureType: "WORLD_ENGINE_PART_1", actionLabel: "Build The Long Barrel", techId: "world-engine", techLabel: "Worldbreaker Cannon", monumentLabel: "Worldbreaker Cannon" },
+        { actionId: "build_world_engine_part_2", structureType: "WORLD_ENGINE_PART_2", actionLabel: "Build Fracture Core", techId: "world-engine", techLabel: "Worldbreaker Cannon", monumentLabel: "Worldbreaker Cannon" },
+        { actionId: "build_world_engine_part_3", structureType: "WORLD_ENGINE_PART_3", actionLabel: "Build Sky-Marking Array", techId: "world-engine", techLabel: "Worldbreaker Cannon", monumentLabel: "Worldbreaker Cannon" },
+        { actionId: "build_aegis_dome_part_1", structureType: "AEGIS_DOME_PART_1", actionLabel: "Build Shield Lattice", techId: "aegis-dome", techLabel: "Aegis Dome", monumentLabel: "Aegis Dome" },
+        { actionId: "build_aegis_dome_part_2", structureType: "AEGIS_DOME_PART_2", actionLabel: "Build Ward Anchor", techId: "aegis-dome", techLabel: "Aegis Dome", monumentLabel: "Aegis Dome" },
+        { actionId: "build_aegis_dome_part_3", structureType: "AEGIS_DOME_PART_3", actionLabel: "Build Aegis Crown", techId: "aegis-dome", techLabel: "Aegis Dome", monumentLabel: "Aegis Dome" },
+        { actionId: "build_astral_dock_part_1", structureType: "ASTRAL_DOCK_PART_1", actionLabel: "Build Launch Cradle", techId: "astral-dock", techLabel: "Astral Dock", monumentLabel: "Astral Dock" },
+        { actionId: "build_astral_dock_part_2", structureType: "ASTRAL_DOCK_PART_2", actionLabel: "Build Orbital Array", techId: "astral-dock", techLabel: "Astral Dock", monumentLabel: "Astral Dock" },
+        { actionId: "build_astral_dock_part_3", structureType: "ASTRAL_DOCK_PART_3", actionLabel: "Build Aether Sail", techId: "astral-dock", techLabel: "Astral Dock", monumentLabel: "Astral Dock" },
+        { actionId: "build_population_bureau_part_1", structureType: "POPULATION_BUREAU_PART_1", actionLabel: "Build Census Engine", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Population Bureau" },
+        { actionId: "build_population_bureau_part_2", structureType: "POPULATION_BUREAU_PART_2", actionLabel: "Build Registry Vault", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Population Bureau" },
+        { actionId: "build_population_bureau_part_3", structureType: "POPULATION_BUREAU_PART_3", actionLabel: "Build Levy Charter", techId: "demographic-registry", techLabel: "Demographic Registry", monumentLabel: "Population Bureau" },
+        { actionId: "build_titanium_levy_part_1", structureType: "TITANIUM_LEVY_PART_1", actionLabel: "Build Muster Klaxon", techId: "grand-levy-doctrine", techLabel: "Grand Levy Doctrine", monumentLabel: "The Titanium Levy" },
+        { actionId: "build_titanium_levy_part_2", structureType: "TITANIUM_LEVY_PART_2", actionLabel: "Build Titanium Standard", techId: "grand-levy-doctrine", techLabel: "Grand Levy Doctrine", monumentLabel: "The Titanium Levy" },
+        { actionId: "build_titanium_levy_part_3", structureType: "TITANIUM_LEVY_PART_3", actionLabel: "Build Levy Writ", techId: "grand-levy-doctrine", techLabel: "Grand Levy Doctrine", monumentLabel: "The Titanium Levy" }
+      ];
+      for (const def of MONUMENT_COMPONENT_BUILD_DEFS) {
+        out.push({
+          id: def.actionId,
+          label: def.actionLabel,
+          detail: deps.buildDetailTextForAction(def.actionId, tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+          ...tileActionAvailabilityWithDevelopmentSlot(
+            ...chainedBuildAvailability(
+              def.structureType,
+              !supportPlacementBlocked &&
+                !townHasAnyMonumentPart &&
+                isGreatCity &&
+                state.techIds.includes(def.techId) &&
+                hasFreeResourceSlots(state, def.structureType),
+              supportPlacementBlocked
+                ? "Tile already has structure"
+                : townHasAnyMonumentPart
+                  ? "Nearby great city already hosts a monument component"
+                  : !isGreatCity
+                    ? "Requires Great City or Monumental City"
+                    : !state.techIds.includes(def.techId)
+                      ? `Requires ${def.techLabel}`
+                      : (missingResourceSlotReason(state, def.structureType) ?? "Unavailable"),
+              `${deps.structureCostText(def.structureType)} • ${Math.round(economicStructureBuildMs(def.structureType) / 60000)}m • 1 of 3 unique components for the ${def.monumentLabel}`
+            ),
+            slots,
+            deps
+          )
+        });
+      }
       out.push({
         id: "build_assembly_works",
         label: "Build Assembly Works",

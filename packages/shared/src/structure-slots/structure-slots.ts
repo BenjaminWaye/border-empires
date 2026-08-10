@@ -89,11 +89,15 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   // Tier 4 — elite structures
   AETHER_TOWER: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
 
-  // War branch — Weapons Workshop consumes both TITANIUM and UMBRITE (per user
-  // decision) since it converts both into a combat-strength boost. Uncapped
-  // per town (placementMode "same_tile") so each copy's slot cost is real
-  // and scales with how many a player builds.
+  // War branch — WEAPONS_WORKSHOP retired (structure-registry-economic.ts),
+  // replaced by the two resource-specific factories below. Entry kept so any
+  // copy a player already owns from before retirement keeps its slot cost.
   WEAPONS_WORKSHOP: [{ resource: "TITANIUM", count: 1 }, { resource: "UMBRITE", count: 1 }],
+  // Each a dedicated single-resource sink (design doc), uncapped per town
+  // (placementMode "same_tile") so each copy's slot cost is real and scales
+  // with how many a player builds.
+  TITANIUM_WEAPONS_FACTORY: [{ resource: "TITANIUM", count: 1 }],
+  UMBRITE_WEAPONS_FACTORY: [{ resource: "UMBRITE", count: 1 }],
 
   // Manpower branch — new buildings
   QUARTERMASTERS_OFFICE: [{ resource: "FOOD", count: 1 }],
@@ -112,18 +116,35 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
 
   // Monument parts + assemblies (SHARD build cost stays as a flow/stockpile
   // cost, §5.5 — only the CRYSTAL requirement below is slot-based)
-  IMPERIAL_EXCHANGE_PART: [{ resource: "CRYSTAL", count: 1 }],
-  WORLD_ENGINE_PART: [{ resource: "CRYSTAL", count: 1 }],
-  AEGIS_DOME_PART: [{ resource: "CRYSTAL", count: 1 }],
-  ASTRAL_DOCK_PART: [{ resource: "CRYSTAL", count: 1 }],
-  POPULATION_BUREAU_PART: [{ resource: "CRYSTAL", count: 1 }],
-  TITANIUM_LEVY_PART: [{ resource: "CRYSTAL", count: 1 }],
-  IMPERIAL_EXCHANGE: [{ resource: "CRYSTAL", count: 1 }],
-  WORLD_ENGINE: [{ resource: "CRYSTAL", count: 1 }],
-  AEGIS_DOME: [{ resource: "CRYSTAL", count: 1 }],
-  ASTRAL_DOCK: [{ resource: "CRYSTAL", count: 1 }],
-  POPULATION_BUREAU: [{ resource: "CRYSTAL", count: 1 }],
-  TITANIUM_LEVY: [{ resource: "CRYSTAL", count: 1 }]
+  IMPERIAL_EXCHANGE_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  IMPERIAL_EXCHANGE_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  IMPERIAL_EXCHANGE_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  WORLD_ENGINE_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  WORLD_ENGINE_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  WORLD_ENGINE_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  AEGIS_DOME_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  AEGIS_DOME_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  AEGIS_DOME_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  ASTRAL_DOCK_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  ASTRAL_DOCK_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  ASTRAL_DOCK_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  POPULATION_BUREAU_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  POPULATION_BUREAU_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  POPULATION_BUREAU_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  TITANIUM_LEVY_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  TITANIUM_LEVY_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  TITANIUM_LEVY_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  // The final monument's own slot cost is 4, not 1: it absorbs the 3
+  // CRYSTAL slots its 3 consumed Parts used to occupy (see
+  // consumeMonumentParts in apps/simulation/src/runtime-structure-build-
+  // completion.ts, which clears the Parts on monument completion) plus 1
+  // for the monument itself.
+  IMPERIAL_EXCHANGE: [{ resource: "CRYSTAL", count: 4 }],
+  WORLD_ENGINE: [{ resource: "CRYSTAL", count: 4 }],
+  AEGIS_DOME: [{ resource: "CRYSTAL", count: 4 }],
+  ASTRAL_DOCK: [{ resource: "CRYSTAL", count: 4 }],
+  POPULATION_BUREAU: [{ resource: "CRYSTAL", count: 4 }],
+  TITANIUM_LEVY: [{ resource: "CRYSTAL", count: 4 }]
 };
 
 export const structureSlotRequirements = (type: SlotStructureType): StructureSlotRequirement[] =>

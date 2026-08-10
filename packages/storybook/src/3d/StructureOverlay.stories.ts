@@ -26,7 +26,9 @@ const KINDS: ReadonlyArray<StructureKind> = [
   "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
   "POPULATION_BUREAU", "TITANIUM_LEVY",
   "ANCILLARY_FACTORY", "INCUBATION_ENGINE", "AMBARIC_TOWER",
-  "WEAPONS_WORKSHOP"
+  "WEAPONS_WORKSHOP", "TITANIUM_WEAPONS_FACTORY",
+  "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+  "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"
 ];
 
 const render = (args: Args): HTMLElement => {
@@ -115,6 +117,14 @@ export const AncillaryFactory: Story = { args: { structures: ["ANCILLARY_FACTORY
 export const IncubationEngine: Story = { args: { structures: ["INCUBATION_ENGINE"], cameraDistance: 3.5 } };
 export const AmbaricTower: Story = { args: { structures: ["AMBARIC_TOWER"], cameraDistance: 3.5 } };
 export const WeaponsWorkshop: Story = { args: { structures: ["WEAPONS_WORKSHOP"], cameraDistance: 3 } };
+export const WorldbreakerPartBarrel: Story = { args: { structures: ["WORLD_ENGINE_PART_1"], cameraDistance: 3 } };
+export const WorldbreakerPartCore: Story = { args: { structures: ["WORLD_ENGINE_PART_2"], cameraDistance: 3 } };
+export const WorldbreakerPartArray: Story = { args: { structures: ["WORLD_ENGINE_PART_3"], cameraDistance: 3 } };
+// Titanium Weapons Factory reuses the Weapons Workshop model as-is (see
+// client-map-3d-structure-industrial.ts) — Umbrite Weapons Factory has its
+// own bespoke 3D model with its own story file
+// (UmbriteWeaponsFactory.stories.ts), so it has no story here.
+export const TitaniumWeaponsFactory: Story = { args: { structures: ["TITANIUM_WEAPONS_FACTORY"], cameraDistance: 3 } };
 export const FirstBatch: Story = { args: { structures: ["AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 8, spacing: 1.5 } };
 export const CivicBatch: Story = { args: { structures: ["CLEARING_HOUSE", "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "CENSUS_HALL"], cameraDistance: 8, spacing: 1.5 } };
 export const InfrastructureBatch: Story = { args: { structures: ["AIRPORT", "RAIL_DEPOT", "RADAR_SYSTEM", "CARAVANARY"], cameraDistance: 8, spacing: 1.8 } };
@@ -122,3 +132,8 @@ export const IndustrialBatch: Story = { args: { structures: ["TITANIUM_WORKS", "
 export const SynthesizerBatch: Story = { args: { structures: ["UMBRITE_SYNTHESIZER", "ADVANCED_UMBRITE_SYNTHESIZER", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"], cameraDistance: 8, spacing: 1.6 } };
 export const ArcaneBatch: Story = { args: { structures: ["AETHER_TOWER", "AEGIS_DOME", "ASTRAL_DOCK", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 9, spacing: 1.6 } };
 export const ManpowerBatch: Story = { args: { structures: ["QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS", "POPULATION_BUREAU", "TITANIUM_LEVY", "ANCILLARY_FACTORY", "INCUBATION_ENGINE", "AMBARIC_TOWER"], cameraDistance: 9, spacing: 1.7 } };
+export const WorldbreakerPartsBatch: Story = { args: { structures: ["WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3"], cameraDistance: 7, spacing: 1.6 } };
+export const ImperialExchangePartLedger: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_1"], cameraDistance: 3 } };
+export const ImperialExchangePartEngine: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_2"], cameraDistance: 3 } };
+export const ImperialExchangePartSeal: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_3"], cameraDistance: 3 } };
+export const ImperialExchangePartsBatch: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"], cameraDistance: 7, spacing: 1.6 } };

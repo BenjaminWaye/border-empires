@@ -16,7 +16,13 @@ export type IndustrialStructureKind =
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "ASTRAL_DOCK"
-  | "WEAPONS_WORKSHOP";
+  | "WEAPONS_WORKSHOP"
+  // Titanium Weapons Factory reuses Weapons Workshop's model as-is (see
+  // addWeaponsWorkshop below) rather than getting bespoke geometry —
+  // Umbrite Weapons Factory has its own bespoke 3D model instead (see
+  // client-map-3d-umbrite-weapons-factory.ts / client-map-3d.ts), wired in
+  // outside this module the same way UMBRITE_RIG is.
+  | "TITANIUM_WEAPONS_FACTORY";
 
 export const INDUSTRIAL_STRUCTURE_KINDS: ReadonlySet<IndustrialStructureKind> = new Set([
   "FOUNDRY",
@@ -26,7 +32,8 @@ export const INDUSTRIAL_STRUCTURE_KINDS: ReadonlySet<IndustrialStructureKind> = 
   "CRYSTAL_SYNTHESIZER",
   "ADVANCED_CRYSTAL_SYNTHESIZER",
   "ASTRAL_DOCK",
-  "WEAPONS_WORKSHOP"
+  "WEAPONS_WORKSHOP",
+  "TITANIUM_WEAPONS_FACTORY"
 ]);
 
 export type IndustrialStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -289,7 +296,10 @@ export const registerIndustrialStructures = (
       CRYSTAL_SYNTHESIZER: addCrystalSynthesizer,
       ADVANCED_CRYSTAL_SYNTHESIZER: addAdvancedCrystalSynthesizer,
       ASTRAL_DOCK: addAstralDock,
-      WEAPONS_WORKSHOP: addWeaponsWorkshop
+      WEAPONS_WORKSHOP: addWeaponsWorkshop,
+      // Reuses the exact same model as WEAPONS_WORKSHOP (see comment on
+      // IndustrialStructureKind above) rather than bespoke geometry.
+      TITANIUM_WEAPONS_FACTORY: addWeaponsWorkshop
     }
   };
 };
