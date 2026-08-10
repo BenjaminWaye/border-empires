@@ -1744,6 +1744,17 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         renderHud();
         return;
       }
+      // Re-clicking a tile that's already queued (but not yet the active
+      // capture) must also open its progress/cancel/jump-to-front detail
+      // instead of falling into the afford/enqueue gate below, where
+      // enqueueTarget silently no-ops on an already-queued target and the
+      // click produces no menu and no feedback at all.
+      if (actionQueueIndexForTileFromModule(state, to.x, to.y) >= 0) {
+        openSingleTileActionMenu(to, clientX, clientY);
+        requestAttackPreviewForHover();
+        renderHud();
+        return;
+      }
       if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
         notifyInsufficientGoldForFrontierAction("claim");
         requestAttackPreviewForHover();
