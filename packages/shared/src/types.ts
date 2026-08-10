@@ -30,7 +30,6 @@ export type EconomicStructureType =
   | "GRANARY"
   | "SEED_GRANARY"
   | "CENSUS_HALL"
-  | "BANK"
   | "CLEARING_HOUSE"
   | "AIRPORT"
   | "AETHER_TOWER"
@@ -44,7 +43,6 @@ export type EconomicStructureType =
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "CARAVANARY"
   | "FOUNDRY"
-  | "EXCHANGE_HOUSE"
   | "GARRISON_HALL"
   | "CUSTOMS_HOUSE"
   | "RAIL_DEPOT"
@@ -256,8 +254,6 @@ export interface Tile {
     hasSeedGranary?: boolean;
     seedGranaryActive?: boolean;
     seedGranaryBuffed?: boolean;
-    hasBank: boolean;
-    bankActive: boolean;
     foodUpkeepPerMinute?: number;
     captureShockUntil?: number;
     populationBeforeCapture?: number;

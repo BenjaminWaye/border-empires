@@ -9,13 +9,12 @@ import {
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
 
 export type LateGameStructureKind =
-  | "BANK"
   | "AEGIS_DOME"
   | "WORLD_ENGINE"
   | "IMPERIAL_EXCHANGE";
 
 export const LATE_GAME_STRUCTURE_KINDS: ReadonlySet<LateGameStructureKind> = new Set([
-  "BANK", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"
+  "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"
 ]);
 
 export type LateGameStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -100,15 +99,6 @@ export const registerLateGameStructures = (
   builder.makeSlot("exchangeFinial", exchangeFinialGeo, exchangeDomeMaterial, C);
 
   // ─── Layouts ────────────────────────────────────────────────────────
-  const addBank: LateGameStructureLayout = (sx, sy, sz) => {
-    builder.addPiece("bankStep", sx, sy, sz, 0, 0.025, 0.14);
-    builder.addPiece("bankBody", sx, sy, sz, 0, 0.13, 0);
-    builder.addPiece("bankRoof", sx, sy, sz, 0, 0.27, 0, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("bankColumn", sx, sy, sz, -0.10, 0.12, 0.13);
-    builder.addPiece("bankColumn", sx, sy, sz, 0.10, 0.12, 0.13);
-    builder.addPiece("bankCoin", sx, sy, sz, -0.16, 0.06, 0.22);
-  };
-
   const addAegisDome: LateGameStructureLayout = (sx, sy, sz) => {
     builder.addPiece("aegisBase", sx, sy, sz, 0, 0.02, 0);
     builder.addPiece("aegisCore", sx, sy, sz, 0, 0.08, 0);
@@ -151,7 +141,6 @@ export const registerLateGameStructures = (
 
   return {
     layouts: {
-      BANK: addBank,
       AEGIS_DOME: addAegisDome,
       WORLD_ENGINE: addWorldEngine,
       IMPERIAL_EXCHANGE: addImperialExchange

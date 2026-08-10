@@ -77,11 +77,6 @@
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "BANK": {
-    "showOn": ["town", "support"],
-    "placementMode": "town_support",
-    "sortGroup": "support"
-  },
   "CLEARING_HOUSE": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
@@ -146,11 +141,6 @@
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"
-  },
-  "EXCHANGE_HOUSE": {
-    "showOn": ["town", "support"],
-    "placementMode": "town_support",
-    "sortGroup": "support"
   },
   "GARRISON_HALL": {
     "showOn": ["town", "support"],

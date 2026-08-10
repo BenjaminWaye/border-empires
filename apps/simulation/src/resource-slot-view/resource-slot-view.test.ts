@@ -352,9 +352,9 @@ describe("resourceSlotDormantContributorsForPlayer", () => {
 
   it("a structure needing multiple resources is only dormant for the resource that's actually short", () => {
     const tiles = [
-      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "BANK", status: "active", activatedAt: 100 } })
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "FOUNDRY", status: "active", activatedAt: 100 } })
     ];
-    // BANK needs 1 FOOD + 1 CRYSTAL. Supply covers CRYSTAL but not FOOD.
+    // FOUNDRY needs 1 FOOD + 1 CRYSTAL. Supply covers CRYSTAL but not FOOD.
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 1, SUPPLY: 0 });
     expect([...dormancy.FOOD]).toEqual(["0,0:economicStructure"]);
     expect(dormancy.CRYSTAL.size).toBe(0);
@@ -413,9 +413,9 @@ describe("dormantStructureDetailsFromDormancy", () => {
 
   it("groups a multi-resource structure's dormancy into one entry with both resources", () => {
     const tiles = [
-      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "BANK", status: "active", activatedAt: 100 } })
+      tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "FOUNDRY", status: "active", activatedAt: 100 } })
     ];
-    // BANK needs 1 FOOD + 1 CRYSTAL; neither is supplied.
+    // FOUNDRY needs 1 FOOD + 1 CRYSTAL; neither is supplied.
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
     const details = dormantStructureDetailsFromDormancy(dormancy);
     expect(details).toHaveLength(1);

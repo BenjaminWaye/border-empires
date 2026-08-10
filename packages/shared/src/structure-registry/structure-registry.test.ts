@@ -19,12 +19,10 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 51 structure types", () => {
-  // 3 forts + 1 observatory + 4 outposts + 43 economic (incl. WOODEN_FORT) = 51
-  // (tech-tree redesign added 7: QUARTERMASTERS_OFFICE, LOGISTICS_GUILD,
-  // ASSEMBLY_WORKS, POPULATION_BUREAU_PART, POPULATION_BUREAU,
-  // IRON_LEVY_PART, IRON_LEVY; +1 for WEAPONS_WORKSHOP)
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(51);
+test("STRUCTURE_REGISTRY covers exactly 49 structure types", () => {
+  // 51 minus BANK and EXCHANGE_HOUSE (both removed; Clearing House now
+  // covers Bank's former unlock slot on the coinage tech).
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(49);
 });
 
 test("all registered types are unique", () => {
@@ -328,11 +326,11 @@ describe("upkeep parity", () => {
 
   const noUpkeepTypes = new Set([
     "WATERWORKS", "SEED_GRANARY", "CENSUS_HALL", "CLEARING_HOUSE",
-    "AETHER_TOWER", "EXCHANGE_HOUSE", "RAIL_DEPOT",
+    "AETHER_TOWER", "RAIL_DEPOT",
     "IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART",
     "AEGIS_DOME_PART", "ASTRAL_DOCK_PART",
     "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
-    "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY", "BANK",
+    "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY",
     "CARAVANARY", "FOUNDRY",
     "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "RADAR_SYSTEM",
     "AIRPORT", "OBSERVATORY",

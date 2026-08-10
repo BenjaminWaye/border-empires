@@ -89,8 +89,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         },
         yieldRate: {
           goldPerMinute: 2
@@ -110,7 +108,7 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true); expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
   });
   it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Settle this tile to activate: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); });
-  it("shows active support building contribution for a clicked Clearing House", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMarket: true, marketActive: true, hasGranary: true, granaryActive: true, hasBank: true, bankActive: true } }] }); expect(lines.map((line) => line.html)).toContain("Clearing House contributes to Qadarstrand and directly connected towns: +25% Market effect, +20% Bank effect, boosts Bank's flat income from +5 to +7.5 gold/day."); });
+  it("shows active support building contribution for a clicked Clearing House", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMarket: true, marketActive: true, hasGranary: true, granaryActive: true, } }] }); expect(lines.map((line) => line.html)).toContain("Clearing House contributes to Qadarstrand and directly connected towns: +25% Market effect."); });
   it("uses Monumental City in the overview label for the final tier", () => {
     const lines = menuOverviewForTile(
       {
@@ -138,8 +136,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         }
       },
       {
@@ -178,8 +174,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         },
         yieldRate: {
           goldPerMinute: 0
@@ -271,8 +265,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         }
       },
       {
@@ -320,8 +312,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         }
       },
       {
@@ -375,8 +365,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         },
         yieldRate: {
           goldPerMinute: 2
@@ -423,8 +411,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         },
         yieldRate: {
           goldPerMinute: 0
@@ -468,8 +454,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         },
         yieldRate: {
           goldPerMinute: 0.8
@@ -516,8 +500,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false,
           growthModifiers: [{ label: "Long time peace", deltaPerMinute: 10 }]
         },
         yieldRate: {
@@ -568,8 +550,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         },
         yieldRate: {
           goldPerMinute: 0
@@ -697,8 +677,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         },
         upkeepEntries: [
           { label: "Settled land", perMinute: { GOLD: 0.04 } },
@@ -784,8 +762,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false,
           growthModifiers: [{ label: "Long time peace", deltaPerMinute: 10 }]
         },
         dockId: "dock-1",
@@ -899,8 +875,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false,
           foodUpkeepPerMinute: 0.1
         },
         yieldRate: {
@@ -944,8 +918,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false,
           foodUpkeepPerMinute: 0.1
         },
         yieldRate: {
@@ -1103,8 +1075,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false,
           captureShockUntil: now + 119_000
         }
       },
@@ -1153,8 +1123,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         }
       },
       {
@@ -1284,8 +1252,6 @@ describe("menuOverviewForTile", () => {
           marketActive: false,
           hasGranary: false,
           granaryActive: false,
-          hasBank: false,
-          bankActive: false
         },
         regionType: "ANCIENT_HEARTLAND"
       },

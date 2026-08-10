@@ -13,7 +13,6 @@ export type OptimisticStructureKind =
   | "MARKET"
   | "GRANARY"
   | "CENSUS_HALL"
-  | "BANK"
   | "CLEARING_HOUSE"
   | "AIRPORT"
   | "AETHER_TOWER"
@@ -27,7 +26,6 @@ export type OptimisticStructureKind =
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "CARAVANARY"
   | "FOUNDRY"
-  | "EXCHANGE_HOUSE"
   | "GARRISON_HALL"
   | "CUSTOMS_HOUSE"
   | "RAIL_DEPOT"
@@ -116,8 +114,6 @@ export type Tile = {
     hasGranary: boolean;
     granaryActive: boolean;
     hasSeedGranary?: boolean; seedGranaryActive?: boolean; seedGranaryBuffed?: boolean;
-    hasBank: boolean;
-    bankActive: boolean;
     hasClearingHouse?: boolean; clearingHouseActive?: boolean; clearingHouseTownNames?: string[];
     foodUpkeepPerMinute?: number;
     captureShockUntil?: number;
@@ -156,7 +152,6 @@ export type Tile = {
       | "MARKET"
       | "GRANARY"
       | "CENSUS_HALL"
-      | "BANK"
       | "CLEARING_HOUSE"
       | "AIRPORT"
       | "AETHER_TOWER"
@@ -170,7 +165,6 @@ export type Tile = {
       | "ADVANCED_CRYSTAL_SYNTHESIZER"
       | "CARAVANARY"
       | "FOUNDRY"
-      | "EXCHANGE_HOUSE"
       | "GARRISON_HALL"
       | "CUSTOMS_HOUSE"
       | "RAIL_DEPOT"
@@ -216,7 +210,6 @@ export type Tile = {
       | "MARKET"
       | "GRANARY"
       | "CENSUS_HALL"
-      | "BANK"
       | "CLEARING_HOUSE"
       | "AIRPORT"
       | "WOODEN_FORT"
@@ -248,7 +241,6 @@ export type Tile = {
       | "MARKET"
       | "GRANARY"
       | "CENSUS_HALL"
-      | "BANK"
       | "CLEARING_HOUSE"
       | "AIRPORT"
       | "WOODEN_FORT"
@@ -448,7 +440,6 @@ export type StrategicReplayEvent = {
     | "MINE"
     | "MARKET"
     | "GRANARY"
-    | "BANK"
     | "AIRPORT"
     | "FUR_SYNTHESIZER"
     | "IRONWORKS"
