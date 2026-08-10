@@ -73,9 +73,9 @@ export function emitPlayerStateUpdate(
       incomePerMinute: economy.incomePerMinute,
       strategicResources: {
         FOOD: player.strategicResources?.FOOD ?? 0,
-        IRON: player.strategicResources?.TITANIUM ?? 0,
+        TITANIUM: player.strategicResources?.TITANIUM ?? 0,
         CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-        SUPPLY: player.strategicResources?.UMBRITE ?? 0,
+        UMBRITE: player.strategicResources?.UMBRITE ?? 0,
         SHARD: player.strategicResources?.SHARD ?? 0
       },
       strategicProductionPerMinute: economy.strategicProductionPerMinute,

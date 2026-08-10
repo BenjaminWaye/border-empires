@@ -64,10 +64,10 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
 };
 
 const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
-  if (tile.type === "FARMSTEAD" || tile.type === "WATERWORKS" || tile.type === "CAMP") {
+  if (tile.type === "FARMSTEAD" || tile.type === "WATERWORKS" || tile.type === "UMBRITE_RIG") {
     return [{
-      reason: tile.type === "FARMSTEAD" ? "Farmstead (farm food only)" : tile.type === "WATERWORKS" ? "Waterworks (radius support)" : "Camp",
-      effect: tile.type === "WATERWORKS" ? "+100% farmstead food; raises food cap" : tile.type === "CAMP" ? "+50% supply, +15 supply cap" : "+50% farm food, +18 food cap",
+      reason: tile.type === "FARMSTEAD" ? "Farmstead (farm food only)" : tile.type === "WATERWORKS" ? "Waterworks (radius support)" : "Umbrite Rig",
+      effect: tile.type === "WATERWORKS" ? "+100% farmstead food; raises food cap" : tile.type === "UMBRITE_RIG" ? "+50% umbrite, +15 umbrite cap" : "+50% farm food, +18 food cap",
       tone: "positive"
     }];
   }
@@ -125,7 +125,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
     modifiers.push({
       reason: "Mine",
-      effect: tile.resource === "IRON" ? "+50% iron production" : tile.resource === "GEMS" ? "+50% crystal production" : "+50% strategic resource production",
+      effect: tile.resource === "TITANIUM" ? "+50% titanium production" : tile.resource === "GEMS" ? "+50% crystal production" : "+50% strategic resource production",
       tone: "positive"
     });
   }

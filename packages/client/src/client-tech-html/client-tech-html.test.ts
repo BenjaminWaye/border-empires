@@ -63,7 +63,7 @@ describe("tech benefit summaries", () => {
         gold: 9000,
         resources: {
           CRYSTAL: 100,
-          SUPPLY: 120
+          UMBRITE: 120
         },
         canResearch: true,
         checklist: []
@@ -131,7 +131,7 @@ describe("tech benefit summaries", () => {
       requirements: {
         gold: 7000,
         resources: {
-          SUPPLY: 60,
+          UMBRITE: 60,
           CRYSTAL: 60
         },
         canResearch: true,
@@ -151,7 +151,7 @@ describe("tech benefit summaries", () => {
       requirements: {
         gold: 7000,
         resources: {
-          SUPPLY: 80
+          UMBRITE: 80
         },
         canResearch: true,
         checklist: []
@@ -170,12 +170,12 @@ describe("tech benefit summaries", () => {
       mods: {},
       effects: {
         unlockGarrisonHall: true,
-        outpostSupplySlotWaiverCount: 3
+        outpostUmbriteSlotWaiverCount: 3
       },
       requirements: {
         gold: 9500,
         resources: {
-          SUPPLY: 140
+          UMBRITE: 140
         },
         canResearch: true,
         checklist: []
@@ -194,7 +194,7 @@ describe("tech benefit summaries", () => {
       requirements: {
         gold: 7000,
         resources: {
-          SUPPLY: 80
+          UMBRITE: 80
         },
         canResearch: true,
         checklist: []
@@ -202,7 +202,7 @@ describe("tech benefit summaries", () => {
     };
 
     expect(formatTechBenefitSummary(organizedSupply)).toContain("Unlocks garrison halls");
-    expect(formatTechBenefitSummary(organizedSupply)).toContain("First 3 Siege Outposts need no SUPPLY slot");
+    expect(formatTechBenefitSummary(organizedSupply)).toContain("First 3 Siege Outposts need no UMBRITE slot");
     expect(formatTechBenefitSummary(organizedSupply)).not.toContain("tempo");
     expect(formatTechBenefitSummary(logistics)).toContain("Unlocks Siphon");
     expect(formatTechBenefitSummary(logistics)).toContain("Settlement speed +5%");

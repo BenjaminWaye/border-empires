@@ -51,13 +51,13 @@ describe("tileDeltaRevealOnly", () => {
   // regardless of tech.
   it("masks resource for a viewer with no reveal tech, reveals it once the viewer has the tech", () => {
     const cache = new TileDeltaStringifyCache();
-    const tile = makeTile({ resource: "IRON" });
+    const tile = makeTile({ resource: "TITANIUM" });
 
     const hidden = tileDeltaRevealOnly(tile, cache, { techIds: new Set() });
     expect(hidden.resource).toBeUndefined();
 
     const revealed = tileDeltaRevealOnly(tile, cache, { techIds: new Set(["masonry"]) });
-    expect(revealed.resource).toBe("IRON");
+    expect(revealed.resource).toBe("TITANIUM");
   });
 
   it("masks resource when no viewer is passed at all", () => {

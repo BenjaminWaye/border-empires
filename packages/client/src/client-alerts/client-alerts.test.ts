@@ -70,7 +70,7 @@ describe("combatResolutionAlert", () => {
         pillagedGold: 132.5,
         pillagedStrategic: {
           FOOD: 4,
-          IRON: 1.5
+          TITANIUM: 1.5
         }
       },
       {
@@ -113,7 +113,7 @@ describe("combatResolutionAlert", () => {
       }
     );
 
-    expect(result.detail).toBe("Aetherwick was conquered from Enemy Empire. Plundered ◉ 132.50, 🍞 4 FOOD, ⛏ 1.50 IRON.");
+    expect(result.detail).toBe("Aetherwick was conquered from Enemy Empire. Plundered ◉ 132.50, 🍞 4 FOOD, ⛏ 1.50 TITANIUM.");
   });
 
   it("labels a captured dock tile as 'Dock' rather than the terrain name", () => {

@@ -10,8 +10,7 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "survey_sweep" ||
   id === "aether_lance" ||
   id === "retort_recast_food" ||
-  id === "retort_recast_supply" ||
-  id === "retort_recast_iron" ||
+  id === "retort_recast_titanium" ||
   id === "retort_recast_crystal" ||
   id === "aether_wall" ||
   id === "aether_bridge" ||
@@ -37,8 +36,8 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "FARMSTEAD";
     case "build_waterworks":
       return "WATERWORKS";
-    case "build_camp":
-      return "CAMP";
+    case "build_umbrite_rig":
+      return "UMBRITE_RIG";
     case "build_mine":
       return "MINE";
     case "build_market":
@@ -57,10 +56,10 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "WOODEN_FORT";
     case "build_light_outpost":
       return "LIGHT_OUTPOST";
-    case "build_fur_synthesizer":
-      return "FUR_SYNTHESIZER";
-    case "build_ironworks":
-      return "IRONWORKS";
+    case "build_umbrite_synthesizer":
+      return "UMBRITE_SYNTHESIZER";
+    case "build_titanium_works":
+      return "TITANIUM_WORKS";
     case "build_crystal_synthesizer":
       return "CRYSTAL_SYNTHESIZER";
     case "build_caravanary":
@@ -123,7 +122,7 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_garrison_hall":
       return "organized-supply";
     case "build_siege_camp":
-    case "build_camp":
+    case "build_umbrite_rig":
       return "leatherworking";
     case "build_farmstead":
       return "agriculture";
@@ -139,9 +138,9 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "coinage";
     case "build_caravanary":
       return "ledger-keeping";
-    case "build_fur_synthesizer":
+    case "build_umbrite_synthesizer":
       return "workshops";
-    case "build_ironworks":
+    case "build_titanium_works":
       return "alchemy";
     case "build_crystal_synthesizer":
       return "crystal-lattices";
@@ -244,7 +243,7 @@ export const buildShowsOnTile = (
 ): boolean =>
   structureShowsOnTile(structureType, {
     ownershipState: buildSurfaceOwnershipState(tile),
-    resource: tile.resource as "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR" | undefined,
+    resource: tile.resource as "FARM" | "TITANIUM" | "GEMS" | "FISH" | "UMBRITE" | undefined,
     dockId: tile.dockId,
     townPopulationTier: tile.town?.populationTier,
     supportedTownCount,

@@ -36,15 +36,15 @@ const fortTile: Tile = {
 };
 
 describe("menuOverviewForTile — §14.2 dormant structure indicator", () => {
-  it("renders a dormant line naming the resource and count when the fort is IRON-short", () => {
+  it("renders a dormant line naming the resource and count when the fort is TITANIUM-short", () => {
     const lines = menuOverviewForTile(fortTile, {
       ...baseDeps,
-      dormantResourcesForTile: () => ["IRON"]
+      dormantResourcesForTile: () => ["TITANIUM"]
     });
     const dormantLine = lines.find((line) => line.html.includes("tile-overview-dormant"));
     expect(dormantLine?.html).toContain("Dormant");
-    expect(dormantLine?.html).toContain("1 Iron slot");
-    expect(dormantLine?.html).toContain("an Iron tile");
+    expect(dormantLine?.html).toContain("1 Titanium slot");
+    expect(dormantLine?.html).toContain("a Titanium tile");
   });
 
   it("renders nothing extra when the structure is powered", () => {

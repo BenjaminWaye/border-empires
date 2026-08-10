@@ -496,7 +496,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // (economic + late-game + civic + infrastructure + industrial).
         const handled3DStructure =
           isTrue3DRendererActive() &&
-          STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind);
+          (t.economicStructure.type === "UMBRITE_RIG" ||
+            STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind));
         if (fortificationKind || handled3DStructure) {
           // 3D-rendered (fortifications + any economic structure in the
           // 3D overlay set); do not draw 2D fallbacks.
@@ -1051,7 +1052,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const overlay = deps.structureOverlayImages[t.economicStructure.type];
           const handled3DStructure2 =
             isTrue3DRendererActive() &&
-            STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind);
+            (t.economicStructure.type === "UMBRITE_RIG" ||
+              STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind));
           if (handled3DStructure2) {
             // 3D-rendered structure; skip the 2D fallbacks.
           } else if (overlay && overlay.complete && overlay.naturalWidth) {

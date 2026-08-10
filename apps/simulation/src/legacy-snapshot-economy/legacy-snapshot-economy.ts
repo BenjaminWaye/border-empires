@@ -399,7 +399,7 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
   const strategicResourcesByPlayer = new Map<string, Record<DomainStrategicResourceKey, number>>(
     (args.economy.strategicResources ?? []).map(([playerId, resources]) => [
       playerId,
-      { FOOD: resources.FOOD ?? 0, TITANIUM: resources.IRON ?? 0, CRYSTAL: resources.CRYSTAL ?? 0, UMBRITE: resources.SUPPLY ?? 0, SHARD: resources.SHARD ?? 0 }
+      { FOOD: resources.FOOD ?? 0, TITANIUM: resources.TITANIUM ?? 0, CRYSTAL: resources.CRYSTAL ?? 0, UMBRITE: resources.UMBRITE ?? 0, SHARD: resources.SHARD ?? 0 }
     ])
   );
 
@@ -630,8 +630,8 @@ const inferTileResource = (
   const match = tileYieldEntries.find(([entryTileKey]) => entryTileKey === tileKey)?.[1];
   if (!match || !match.strategic) return undefined;
   if ((match.strategic.FOOD ?? 0) > 0) return "FARM";
-  if ((match.strategic.IRON ?? 0) > 0) return "TITANIUM";
+  if ((match.strategic.TITANIUM ?? 0) > 0) return "TITANIUM";
   if ((match.strategic.CRYSTAL ?? 0) > 0) return "GEMS";
-  if ((match.strategic.SUPPLY ?? 0) > 0) return "UMBRITE";
+  if ((match.strategic.UMBRITE ?? 0) > 0) return "UMBRITE";
   return undefined;
 };

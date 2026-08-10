@@ -16,7 +16,7 @@ const settledSupportTile = (
   ownershipState: "SETTLED",
   economicStructure: {
     ownerId: "me",
-    type: "FUR_SYNTHESIZER",
+    type: "UMBRITE_SYNTHESIZER",
     status,
     ...(disabledUntil !== undefined ? { disabledUntil } : {}),
     ...(inactiveReason !== undefined ? { inactiveReason } : {})
@@ -681,7 +681,7 @@ describe("menuOverviewForTile", () => {
         upkeepEntries: [
           { label: "Settled land", perMinute: { GOLD: 0.04 } },
           { label: "Town", perMinute: { FOOD: 1 } },
-          { label: "Fort", perMinute: { GOLD: 1, IRON: 0.025 } }
+          { label: "Fort", perMinute: { GOLD: 1, TITANIUM: 0.025 } }
         ],
         yieldRate: {
           goldPerMinute: 2.5
@@ -715,7 +715,7 @@ describe("menuOverviewForTile", () => {
         terrain: "LAND",
         ownerId: "me",
         ownershipState: "SETTLED",
-        resource: "IRON",
+        resource: "TITANIUM",
         economicStructure: {
           ownerId: "me",
           type: "MINE",
@@ -724,15 +724,15 @@ describe("menuOverviewForTile", () => {
       },
       {
         ...deps,
-        areaEffectModifiersForTile: () => [{ reason: "Foundry", effect: "+100% iron production", tone: "positive" }]
+        areaEffectModifiersForTile: () => [{ reason: "Foundry", effect: "+100% titanium production", tone: "positive" }]
       }
     );
 
     expect(lines.some((line) => line.kind === "section" && line.html === "Modifiers")).toBe(true);
     expect(lines.some((line) => line.html.includes("Mine:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+50% iron production"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("+50% titanium production"))).toBe(true);
     expect(lines.some((line) => line.html.includes("Foundry:"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("+100% iron production"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("+100% titanium production"))).toBe(true);
   });
 
   it("shows town and dock modifiers in a dedicated modifiers section", () => {

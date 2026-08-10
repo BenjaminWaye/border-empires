@@ -168,11 +168,11 @@ describe("frontier combat", () => {
       expect(preview.defEff).toBeCloseTo(10 * 1.35 * 2.5, 6);
     });
 
-    it("applies 4x defense for IRON_BASTION", () => {
+    it("applies 4x defense for TITANIUM_BASTION", () => {
       const preview = buildFrontierCombatPreview({
         terrain: "LAND",
         ownershipState: "SETTLED",
-        fortVariant: "IRON_BASTION"
+        fortVariant: "TITANIUM_BASTION"
       });
 
       expect(preview.defMult).toBeCloseTo(1.35 * 4, 6);
@@ -194,13 +194,13 @@ describe("frontier combat", () => {
       const baseline = buildFrontierCombatPreview({
         terrain: "LAND",
         ownershipState: "SETTLED",
-        fortVariant: "IRON_BASTION"
+        fortVariant: "TITANIUM_BASTION"
       });
       const boosted = buildFrontierCombatPreview(
         {
           terrain: "LAND",
           ownershipState: "SETTLED",
-          fortVariant: "IRON_BASTION"
+          fortVariant: "TITANIUM_BASTION"
         },
         { fortDefenseMult: 1.25 }
       );

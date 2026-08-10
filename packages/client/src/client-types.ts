@@ -645,7 +645,6 @@ export type TileActionDef = {
     | "break_truce"
     | "aether_lance"
     | "retort_recast_food"
-    | "retort_recast_supply"
     | "retort_recast_titanium"
     | "retort_recast_crystal"
     | "aether_wall"

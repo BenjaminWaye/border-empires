@@ -400,7 +400,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   }
   if (!hasFreeResourceSlots(context, command, structureType, slotStructureType, target, spec.tileField)) return;
   // Step 5 item 3 (Slice A): hasFreeResourceSlots above is now the ONLY gate
-  // for FOOD/IRON/CRYSTAL/SUPPLY at build time -- stripRetiredStockpileCost
+  // for FOOD/TITANIUM/CRYSTAL/UMBRITE at build time -- stripRetiredStockpileCost
   // strips those keys out before spendStrategicCost ever sees them, so the
   // build-time stockpile check/spend is fully retired for them. SHARD still
   // spends normally (monument assembly). The stockpile *fields themselves*

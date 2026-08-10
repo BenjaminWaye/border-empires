@@ -155,10 +155,10 @@ describe("muster accumulation tick", () => {
           { x: 201, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeOutpost: { ownerId: "player-1", status: "active" } },
           { x: 205, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", siegeOutpost: { ownerId: "player-1", status: "active" } },
           { x: 255, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { type: "RAIL_DEPOT", status: "active", ownerId: "player-1" } },
-          // §5.4: 2 SIEGE_OUTPOSTs need 2 SUPPLY slots; RAIL_DEPOT needs
+          // §5.4: 2 SIEGE_OUTPOSTs need 2 UMBRITE slots; RAIL_DEPOT needs
           // 1 FOOD + 1 CRYSTAL slot — none of them dormant.
-          { x: 210, y: 210, terrain: "LAND", resource: "WOOD", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 211, y: 210, terrain: "LAND", resource: "WOOD", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 210, y: 210, terrain: "LAND", resource: "UMBRITE", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 211, y: 210, terrain: "LAND", resource: "UMBRITE", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 212, y: 210, terrain: "LAND", resource: "FARM", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 213, y: 210, terrain: "LAND", resource: "GEMS", ownerId: "player-1", ownershipState: "SETTLED" }
         ],

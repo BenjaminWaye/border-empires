@@ -13,14 +13,14 @@ export type ManpowerStructureKind =
   | "LOGISTICS_GUILD"
   | "ASSEMBLY_WORKS"
   | "POPULATION_BUREAU"
-  | "IRON_LEVY"
+  | "TITANIUM_LEVY"
   | "GARRISON_HALL"
   | "GRANARY"
   | "AETHER_TOWER";
 
 export const MANPOWER_STRUCTURE_KINDS: ReadonlySet<ManpowerStructureKind> = new Set([
   "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS", "POPULATION_BUREAU",
-  "IRON_LEVY", "GARRISON_HALL", "GRANARY", "AETHER_TOWER"
+  "TITANIUM_LEVY", "GARRISON_HALL", "GRANARY", "AETHER_TOWER"
 ]);
 
 export type ManpowerStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -333,7 +333,7 @@ export const registerManpowerStructures = (
     builder.addPiece("pbTickLamp", sx, sy, sz, 0.035, 0.67, 0);
   };
 
-  const addIronLevy: ManpowerStructureLayout = (sx, sy, sz) => {
+  const addTitaniumLevy: ManpowerStructureLayout = (sx, sy, sz) => {
     // Monument: austere and menacing. A squat hexagonal stone drum with
     // riveted iron bands, wrapped by a tilted conscription ledger-ring
     // holding tiny iron-rod prongs. Signature: a standing-army silhouette
@@ -440,7 +440,7 @@ export const registerManpowerStructures = (
       LOGISTICS_GUILD: addLogisticsGuild,
       ASSEMBLY_WORKS: addAssemblyWorks,
       POPULATION_BUREAU: addPopulationBureau,
-      IRON_LEVY: addIronLevy,
+      TITANIUM_LEVY: addTitaniumLevy,
       GARRISON_HALL: addAncillaryFactory,
       GRANARY: addIncubationEngine,
       AETHER_TOWER: addAmbaricTower

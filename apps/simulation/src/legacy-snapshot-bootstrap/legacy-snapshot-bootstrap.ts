@@ -98,7 +98,7 @@ const inferResource = (tileYieldEntry: unknown): DomainTileState["resource"] | u
   const strategic = (tileYieldEntry as { strategic?: Record<string, number> }).strategic;
   if (!strategic || typeof strategic !== "object") return undefined;
   if ((strategic.FOOD ?? 0) > 0) return "FARM";
-  if ((strategic.IRON ?? 0) > 0) return "TITANIUM";
+  if ((strategic.TITANIUM ?? 0) > 0) return "TITANIUM";
   if ((strategic.CRYSTAL ?? 0) > 0) return "GEMS";
   return undefined;
 };

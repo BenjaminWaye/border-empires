@@ -1505,7 +1505,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 10, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1574,14 +1574,14 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { type: "CAMP", status: "active" }
+            economicStructure: { type: "UMBRITE_RIG", status: "active" }
           }
         ],
         activeLocks: []
       }
     });
     // 60 minutes elapse offline. Town produces 4 gold/min (~240 gold of
-    // yield accumulates); CAMP draws 1.2 gold/min in upkeep (~72 gold owed).
+    // yield accumulates); UMBRITE_RIG draws 1.2 gold/min in upkeep (~72 gold owed).
     // Yield easily covers the upkeep, so the stockpile must stay at 8000.
     currentNow += 60 * 60_000;
     runtime.exportPlannerPlayerViews(["player-1"]);
@@ -1614,13 +1614,13 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-1" }
+            economicStructure: { type: "UMBRITE_SYNTHESIZER", status: "active", ownerId: "player-1" }
           }
         ],
         activeLocks: []
       }
     });
-    // 60 min elapse: FUR_SYNTHESIZER draws the §6.4-decided 30 gold/day
+    // 60 min elapse: UMBRITE_SYNTHESIZER draws the §6.4-decided 30 gold/day
     // (= 30/1440 gold/min) upkeep, partially offset by the SETTLEMENT town's
     // own SETTLEMENT_BASE_GOLD_PER_MIN yield (§24.6); the remaining deficit
     // hits the stockpile.
@@ -1657,7 +1657,7 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-1" }
+            economicStructure: { type: "UMBRITE_SYNTHESIZER", status: "active", ownerId: "player-1" }
           },
           {
             x: 40,
@@ -1665,13 +1665,13 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
-            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-2" }
+            economicStructure: { type: "UMBRITE_SYNTHESIZER", status: "active", ownerId: "player-2" }
           }
         ],
         activeLocks: []
       }
     });
-    // Both players accrue the same FUR_SYNTHESIZER gold upkeep (§6.4 — the
+    // Both players accrue the same UMBRITE_SYNTHESIZER gold upkeep (§6.4 — the
     // one structure family still gated on ongoing gold) with no offsetting
     // yield, so absent any export at all both would drain identically.
     currentNow += 60 * 60_000;
@@ -1696,7 +1696,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => currentNow,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { points: 0, strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["player-1", buildPlayer("player-1", { points: 0, strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1762,14 +1762,14 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { type: "FUR_SYNTHESIZER", status: "active", ownerId: "player-1" }
+            economicStructure: { type: "UMBRITE_SYNTHESIZER", status: "active", ownerId: "player-1" }
           }
         ],
         activeLocks: []
       }
     });
     // 60 min elapse: tile (5,5) produces 10 gold/min (~610 gold yield
-    // before any drain); FUR_SYNTHESIZER draws the §6.4-decided 30
+    // before any drain); UMBRITE_SYNTHESIZER draws the §6.4-decided 30
     // gold/day (~1.25 gold over 60 min) — the only structure family that
     // still carries an ongoing gold upkeep post-§12.1. Accrual consumes
     // that from the buffer and advances the tile's anchor. A subsequent
@@ -1847,7 +1847,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 0, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 0, strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1870,7 +1870,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, points: 0, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -1892,7 +1892,7 @@ describe("simulation runtime", () => {
       now: () => 1_000,
       seedTiles: new Map(),
       initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, manpower: 10_000, strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
       ]),
       initialState: {
         tiles: [
@@ -2636,8 +2636,8 @@ describe("simulation runtime", () => {
               muster: { ownerId: "player-1", amount: 999, mode: "HOLD", updatedAt: 0 }
             },
             { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
-            // §5.4: FORT needs 1 IRON slot to not go dormant.
-            { x: 9, y: 10, terrain: "LAND", resource: "IRON", ownerId: "player-1", ownershipState: "SETTLED" }
+            // §5.4: FORT needs 1 TITANIUM slot to not go dormant.
+            { x: 9, y: 10, terrain: "LAND", resource: "TITANIUM", ownerId: "player-1", ownershipState: "SETTLED" }
           ],
           activeLocks: []
         }
@@ -2753,7 +2753,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { IRON: 100 } })
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { TITANIUM: 100 } })
           ]
         ]),
         initialState: {
@@ -2766,7 +2766,7 @@ describe("simulation runtime", () => {
               ownershipState: "SETTLED",
               town: { name: "Fort Town", type: "FARMING", populationTier: "TOWN" }
             },
-            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
           ],
           activeLocks: []
         }
@@ -2816,14 +2816,14 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls"]), strategicResources: { IRON: 500 } })
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls"]), strategicResources: { TITANIUM: 500 } })
           ]
         ]),
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
-            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
-            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
           ],
           activeLocks: []
         }
@@ -2848,13 +2848,13 @@ describe("simulation runtime", () => {
       expect(events).toContain("TILE_DELTA_BATCH");
       const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
       expect(tile?.fortJson).toBeDefined();
-      expect(tile?.fortJson).toContain("\"variant\":\"IRON_BASTION\"");
+      expect(tile?.fortJson).toContain("\"variant\":\"TITANIUM_BASTION\"");
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("upgrades FORT → IRON_BASTION when fortified-walls is researched", async () => {
+  it("upgrades FORT → TITANIUM_BASTION when fortified-walls is researched", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -2862,14 +2862,14 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls"]), strategicResources: { IRON: 500 } })
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls"]), strategicResources: { TITANIUM: 500 } })
           ]
         ]),
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
-            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
-            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
           ],
           activeLocks: []
         }
@@ -2894,7 +2894,7 @@ describe("simulation runtime", () => {
       expect(events).toContain("TILE_DELTA_BATCH");
       const tile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
       expect(tile?.fortJson).toBeDefined();
-      expect(tile?.fortJson).toContain("\"variant\":\"IRON_BASTION\"");
+      expect(tile?.fortJson).toContain("\"variant\":\"TITANIUM_BASTION\"");
       // Structure build gold costs are zeroed (docs/manpower-economy-rewrite-plan.md
       // §12) — the fort tier ladder no longer charges gold at all, just the
       // manpower/iron already asserted above via the fort variant.
@@ -2913,7 +2913,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls", "steelworking"]), strategicResources: { IRON: 500 } })
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls", "steelworking"]), strategicResources: { TITANIUM: 500 } })
           ]
         ]),
         initialState: {
@@ -2956,7 +2956,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { IRON: 500 } })
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { TITANIUM: 500 } })
           ]
         ]),
         initialState: {
@@ -2999,16 +2999,16 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls", "steelworking"]), strategicResources: { IRON: 500 } })
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["masonry", "fortified-walls", "steelworking"]), strategicResources: { TITANIUM: 500 } })
           ]
         ]),
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
-            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
-            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
-            { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
-            { x: 14, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
+            { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
+            { x: 14, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
           ],
           activeLocks: []
         }
@@ -3049,7 +3049,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 300, techIds: new Set<string>(["masonry"]), strategicResources: { IRON: 100 } })
+            buildPlayer("player-1", { points: 10_000, manpower: 300, techIds: new Set<string>(["masonry"]), strategicResources: { TITANIUM: 100 } })
           ]
         ]),
         initialState: {
@@ -3063,8 +3063,8 @@ describe("simulation runtime", () => {
               town: { name: "Fort Upgrade Town", type: "FARMING", populationTier: "TOWN" },
               economicStructure: { ownerId: "player-1", type: "WOODEN_FORT", status: "active" }
             },
-            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
-            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
+            { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
           ],
           activeLocks: []
         }
@@ -3107,7 +3107,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { IRON: 100 } })
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { TITANIUM: 100 } })
           ]
         ]),
         initialState: {
@@ -3230,7 +3230,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["leatherworking"]), strategicResources: { SUPPLY: 100 } })
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["leatherworking"]), strategicResources: { UMBRITE: 100 } })
           ]
         ]),
         initialState: {
@@ -3242,7 +3242,7 @@ describe("simulation runtime", () => {
               ownerId: "player-1",
               ownershipState: "SETTLED"
             },
-            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" }
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" }
           ],
           activeLocks: []
         }
@@ -3285,15 +3285,15 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { SUPPLY: 500, IRON: 200 } })
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { UMBRITE: 500, TITANIUM: 200 } })
           ]
         ]),
         initialState: {
           tiles: [
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
-            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
-            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
-            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
           ],
           activeLocks: []
         }
@@ -3326,15 +3326,15 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { SUPPLY: 500, IRON: 200 } })
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { UMBRITE: 500, TITANIUM: 200 } })
           ]
         ]),
         initialState: {
           tiles: [
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
-            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
-            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
-            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
           ],
           activeLocks: []
         }
@@ -3372,7 +3372,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft", "standing-army"]), strategicResources: { SUPPLY: 500, IRON: 200 } })
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft", "standing-army"]), strategicResources: { UMBRITE: 500, TITANIUM: 200 } })
           ]
         ]),
         initialState: {
@@ -3415,7 +3415,7 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking"]), strategicResources: { SUPPLY: 500, IRON: 200 } })
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking"]), strategicResources: { UMBRITE: 500, TITANIUM: 200 } })
           ]
         ]),
         initialState: {
@@ -3458,17 +3458,17 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft", "standing-army"]), strategicResources: { SUPPLY: 500, IRON: 200 } })
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft", "standing-army"]), strategicResources: { UMBRITE: 500, TITANIUM: 200 } })
           ]
         ]),
         initialState: {
           tiles: [
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" } },
-            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
-            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
-            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
-            { x: 18, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
-            { x: 19, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+            { x: 18, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
+            { x: 19, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
           ],
           activeLocks: []
         }
@@ -3499,13 +3499,13 @@ describe("simulation runtime", () => {
     }
   });
 
-  // Step 5 item 3 (Slice A): FOOD/IRON/CRYSTAL/SUPPLY stockpile amounts no
+  // Step 5 item 3 (Slice A): FOOD/TITANIUM/CRYSTAL/UMBRITE stockpile amounts no
   // longer gate a build (stripRetiredStockpileCost strips them before
   // spendStrategicCost ever sees them) -- hasFreeResourceSlots is the real
-  // gate now. This test used to prove a low IRON stockpile blocked the build
-  // and left SUPPLY untouched; rewritten to prove the build now succeeds on
+  // gate now. This test used to prove a low TITANIUM stockpile blocked the build
+  // and left UMBRITE untouched; rewritten to prove the build now succeeds on
   // slot supply alone, and both legacy stockpile balances stay untouched.
-  it("SIEGE_TOWER upgrade succeeds on slot supply alone, leaving legacy SUPPLY/IRON stockpile balances untouched", async () => {
+  it("SIEGE_TOWER upgrade succeeds on slot supply alone, leaving legacy UMBRITE/TITANIUM stockpile balances untouched", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -3513,18 +3513,18 @@ describe("simulation runtime", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            // Both far below the old SIEGE_TOWER stockpile cost (SUPPLY 90, IRON 60).
-            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { SUPPLY: 5, IRON: 10 } })
+            // Both far below the old SIEGE_TOWER stockpile cost (UMBRITE 90, TITANIUM 60).
+            buildPlayer("player-1", { points: 10_000, manpower: 10_000, techIds: new Set<string>(["leatherworking", "siegecraft"]), strategicResources: { UMBRITE: 5, TITANIUM: 10 } })
           ]
         ]),
         initialState: {
           tiles: [
             { x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Test Town", type: "FARMING", populationTier: "TOWN" }, siegeOutpost: { ownerId: "player-1", status: "active", variant: "SIEGE_OUTPOST" as const } },
-            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
-            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FUR" },
-            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" },
-            { x: 18, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" },
-            { x: 19, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+            { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+            { x: 16, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+            { x: 17, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" },
+            { x: 18, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" },
+            { x: 19, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
           ],
           activeLocks: []
         }
@@ -3552,8 +3552,8 @@ describe("simulation runtime", () => {
       // Legacy stockpile balances must be completely untouched -- nothing is
       // spent from them for this build any more.
       const player = runtime.exportState().players.find((p) => p.id === "player-1")!;
-      expect(player.strategicResources.SUPPLY).toBe(5);
-      expect(player.strategicResources.IRON).toBe(10);
+      expect(player.strategicResources.UMBRITE).toBe(5);
+      expect(player.strategicResources.TITANIUM).toBe(10);
     } finally {
       vi.useRealTimers();
     }
@@ -3810,7 +3810,7 @@ describe("simulation runtime", () => {
             ownershipState: "SETTLED",
             economicStructure: {
               ownerId: "player-1",
-              type: "FUR_SYNTHESIZER",
+              type: "UMBRITE_SYNTHESIZER",
               status: "active"
             }
           },
@@ -3969,7 +3969,7 @@ describe("simulation runtime", () => {
             ownershipState: "SETTLED",
             economicStructure: {
               ownerId: "player-1",
-              type: "IRONWORKS",
+              type: "TITANIUM_WORKS",
               status: "inactive",
               inactiveReason: "manual"
             }
@@ -5185,7 +5185,7 @@ describe("simulation runtime", () => {
             domainIds: [],
             allies: [],
             incomePerMinute: 0,
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
           }
         ]
       }
@@ -5557,7 +5557,7 @@ describe("simulation runtime", () => {
   it("preserves AI identity from initial players when recovered player rows omit isAi", () => {
     const runtime = new SimulationRuntime({
       initialPlayers: new Map([
-        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, name: "ai-1", strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["ai-1", testRuntimePlayer("ai-1", { isAi: true, name: "ai-1", strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
       ]),
       initialState: {
         tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" }],
@@ -5593,7 +5593,7 @@ describe("simulation runtime", () => {
         ],
         [
           "player-2",
-          buildPlayer("player-2", { isAi: true, points: 900, manpower: 700, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { FOOD: 4, IRON: 3, CRYSTAL: 2, SUPPLY: 1, SHARD: 0 } })
+          buildPlayer("player-2", { isAi: true, points: 900, manpower: 700, techIds: new Set<string>(["crystal-lattices"]), strategicResources: { FOOD: 4, TITANIUM: 3, CRYSTAL: 2, UMBRITE: 1, SHARD: 0 } })
         ]
       ]),
       seedTiles: new Map(),
@@ -5654,7 +5654,7 @@ describe("simulation runtime", () => {
           testRuntimePlayer("player-1", {
             points: 20_000,
             techIds: new Set<string>(["logistics"]),
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 100, SUPPLY: 0, SHARD: 0 }
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 100, UMBRITE: 0, SHARD: 0 }
           })
         ],
         ["player-2", testRuntimePlayer("player-2", { isAi: true })]
@@ -5670,8 +5670,8 @@ describe("simulation runtime", () => {
             observatory: { ownerId: "player-1", status: "active" }
           },
           { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 0, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "IRON" },
-          { x: 2, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER", resource: "WOOD" },
+          { x: 0, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "TITANIUM" },
+          { x: 2, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER", resource: "UMBRITE" },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
@@ -6403,7 +6403,7 @@ describe("simulation runtime", () => {
   });
 
   describe("§5.4 dormancy on resource-slot shortfall", () => {
-    it("marks only the newest of two Forts dormant when there's just one IRON slot", () => {
+    it("marks only the newest of two Forts dormant when there's just one TITANIUM slot", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         initialPlayers: new Map([["player-1", buildPlayer("player-1")]]),
@@ -6411,7 +6411,7 @@ describe("simulation runtime", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
-            { x: 0, y: 0, terrain: "LAND", resource: "IRON", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 0, y: 0, terrain: "LAND", resource: "TITANIUM", ownerId: "player-1", ownershipState: "SETTLED" },
             { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT", activatedAt: 100 } },
             { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", fort: { ownerId: "player-1", status: "active", variant: "FORT", activatedAt: 200 } }
           ],
@@ -7058,7 +7058,7 @@ describe("simulation runtime", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", testRuntimePlayer("player-1", { domainIds: new Set(["clockwork-stipend"]), chosenTrickleResource: "IRON" as const })]
+        ["player-1", testRuntimePlayer("player-1", { domainIds: new Set(["clockwork-stipend"]), chosenTrickleResource: "TITANIUM" as const })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -7075,12 +7075,12 @@ describe("simulation runtime", () => {
     // Export the snapshot sections and verify chosenTrickleResource is present.
     const sections = runtime.exportSnapshotSections();
     const exportedPlayer = sections.initialState.players?.find((p) => p.id === "player-1");
-    expect(exportedPlayer?.chosenTrickleResource).toBe("IRON");
+    expect(exportedPlayer?.chosenTrickleResource).toBe("TITANIUM");
 
     // Recover from those sections (simulates restart hydration).
     const recovered = createPlayersFromRecoveredState(sections.initialState);
     const recoveredPlayer = recovered?.get("player-1");
-    expect(recoveredPlayer?.chosenTrickleResource).toBe("IRON");
+    expect(recoveredPlayer?.chosenTrickleResource).toBe("TITANIUM");
   });
 });
 
@@ -8227,7 +8227,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
             techRootId: "rewrite-local",
             allies: new Set<string>(),
             // Enough food to keep the TOWN-tier town fed for the refresh path.
-            strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
+            strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
           }
         ]
       ]),
@@ -8302,7 +8302,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     const runtime = new SimulationRuntime({
       now: () => nowMs,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 100, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 100, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -8376,7 +8376,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
-        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 1000, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } })]
+        ["player-1", buildPlayer("player-1", { strategicResources: { FOOD: 1000, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } })]
       ]),
       seedTiles: new Map(),
       initialState: {
@@ -8489,7 +8489,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
         initialPlayers: new Map([
           [
             "player-1",
-            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { IRON: 500 } })
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["masonry"]), strategicResources: { TITANIUM: 500 } })
           ]
         ]),
         initialState: {
@@ -8502,7 +8502,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               ownershipState: "SETTLED",
               town: { name: "Regression Town", type: "MARKET", populationTier: "TOWN" }
             },
-            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+            { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
           ],
           activeLocks: []
         }

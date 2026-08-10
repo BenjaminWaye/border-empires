@@ -21,8 +21,8 @@ const escapeHtml = (input: string): string =>
     .replace(/'/g, "&#39;");
 
 const resourceFlavor: Record<string, string> = {
-  IRON: "Forge & fort upkeep",
-  SUPPLY: "Outpost upkeep & army logistics",
+  TITANIUM: "Forge & fort upkeep",
+  UMBRITE: "Outpost upkeep & army logistics",
   CRYSTAL: "Research, observatories, shards"
 };
 
@@ -95,7 +95,7 @@ export const promptForTrickleResource = (
 
     // Validate the default-resource key against a strict regex before letting
     // it back into a CSS selector below. Resource keys are always uppercase
-    // ASCII (IRON / SUPPLY / CRYSTAL), so the regex doubles as documentation.
+    // ASCII (TITANIUM / UMBRITE / CRYSTAL), so the regex doubles as documentation.
     const isValidResourceKey = (input: string | undefined): input is string =>
       typeof input === "string" && /^[A-Z_]+$/.test(input);
     const safeDefaultResource = isValidResourceKey(options.defaultResource) ? options.defaultResource : undefined;

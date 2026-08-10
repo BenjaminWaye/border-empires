@@ -33,7 +33,7 @@ test("all registered types are unique", () => {
 // ── Kind coverage ──────────────────────────────────────────────────
 
 test("covers all FortVariant values", () => {
-  const fortTypes = ["FORT", "IRON_BASTION", "THUNDER_BASTION"];
+  const fortTypes = ["FORT", "TITANIUM_BASTION", "THUNDER_BASTION"];
   for (const t of fortTypes) {
     const spec = STRUCTURE_REGISTRY[t];
     expect(spec, `missing ${t}`).toBeDefined();
@@ -87,7 +87,7 @@ describe("fort cost parity against FORT_TIER_LADDER", () => {
       expect(spec).toBeDefined();
       expect(spec.cost.gold).toBe(tier.gold);
       expect(spec.cost.manpower).toBe(tier.manpower);
-      expect(spec.cost.strategic).toEqual({ IRON: tier.iron });
+      expect(spec.cost.strategic).toEqual({ TITANIUM: tier.titanium });
     });
   }
 });
@@ -101,8 +101,8 @@ describe("siege outpost cost parity against SIEGE_TIER_LADDER", () => {
       expect(spec).toBeDefined();
       expect(spec.cost.gold).toBe(tier.gold);
       expect(spec.cost.manpower).toBe(tier.manpower);
-      const expectedStrategic: Record<string, number> = { SUPPLY: tier.supply };
-      if (tier.iron > 0) expectedStrategic.IRON = tier.iron;
+      const expectedStrategic: Record<string, number> = { UMBRITE: tier.umbrite };
+      if (tier.titanium > 0) expectedStrategic.TITANIUM = tier.titanium;
       expect(spec.cost.strategic).toEqual(expectedStrategic);
     });
   }
@@ -193,8 +193,8 @@ describe("techIds parity with existing handlers (non-economic)", () => {
     expect(STRUCTURE_REGISTRY["FORT"].techIds).toContain("masonry");
   });
 
-  test("IRON_BASTION requires masonry + fortified-walls", () => {
-    const ids = STRUCTURE_REGISTRY["IRON_BASTION"].techIds;
+  test("TITANIUM_BASTION requires masonry + fortified-walls", () => {
+    const ids = STRUCTURE_REGISTRY["TITANIUM_BASTION"].techIds;
     expect(ids).toContain("masonry");
     expect(ids).toContain("fortified-walls");
   });
@@ -250,16 +250,16 @@ describe("tech requirement regression", () => {
 // ── Upgrade prerequisite parity ────────────────────────────────────
 
 describe("prerequisiteStructureTypes parity", () => {
-  test("ADVANCED_FUR_SYNTHESIZER requires FUR_SYNTHESIZER", () => {
+  test("ADVANCED_UMBRITE_SYNTHESIZER requires UMBRITE_SYNTHESIZER", () => {
     expect(
-      STRUCTURE_REGISTRY["ADVANCED_FUR_SYNTHESIZER"].prerequisiteStructureTypes,
-    ).toEqual(["FUR_SYNTHESIZER"]);
+      STRUCTURE_REGISTRY["ADVANCED_UMBRITE_SYNTHESIZER"].prerequisiteStructureTypes,
+    ).toEqual(["UMBRITE_SYNTHESIZER"]);
   });
 
-  test("ADVANCED_IRONWORKS requires IRONWORKS", () => {
+  test("ADVANCED_TITANIUM_WORKS requires TITANIUM_WORKS", () => {
     expect(
-      STRUCTURE_REGISTRY["ADVANCED_IRONWORKS"].prerequisiteStructureTypes,
-    ).toEqual(["IRONWORKS"]);
+      STRUCTURE_REGISTRY["ADVANCED_TITANIUM_WORKS"].prerequisiteStructureTypes,
+    ).toEqual(["TITANIUM_WORKS"]);
   });
 
   test("ADVANCED_CRYSTAL_SYNTHESIZER requires CRYSTAL_SYNTHESIZER", () => {
@@ -308,18 +308,18 @@ describe("upkeep parity", () => {
   // gold/day figures (30/30/40, Advanced at 1.5x = 45/45/60) expressed
   // per-minute (÷1440).
   //
-  // Fort ladder (FORT, IRON_BASTION, THUNDER_BASTION), Siege ladder
+  // Fort ladder (FORT, TITANIUM_BASTION, THUNDER_BASTION), Siege ladder
   // (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER), WOODEN_FORT and LIGHT_OUTPOST
-  // used to carry a fake FOOD/IRON/SUPPLY per-minute upkeep that double-billed
+  // used to carry a fake FOOD/TITANIUM/UMBRITE per-minute upkeep that double-billed
   // the same cost already charged via their resource-slot occupation
   // (structure-slots.ts) — removed, same as AIRPORT's CRYSTAL upkeep before
   // it (§12.1). Their slot occupation is the upkeep now.
 
-  const expected: Record<string, Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "IRON" | "SUPPLY", number>>> = {
-    FUR_SYNTHESIZER: { GOLD: 30 / 1440 },
-    ADVANCED_FUR_SYNTHESIZER: { GOLD: 45 / 1440 },
-    IRONWORKS: { GOLD: 30 / 1440 },
-    ADVANCED_IRONWORKS: { GOLD: 45 / 1440 },
+  const expected: Record<string, Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "TITANIUM" | "UMBRITE", number>>> = {
+    UMBRITE_SYNTHESIZER: { GOLD: 30 / 1440 },
+    ADVANCED_UMBRITE_SYNTHESIZER: { GOLD: 45 / 1440 },
+    TITANIUM_WORKS: { GOLD: 30 / 1440 },
+    ADVANCED_TITANIUM_WORKS: { GOLD: 45 / 1440 },
     CRYSTAL_SYNTHESIZER: { GOLD: 40 / 1440 },
     ADVANCED_CRYSTAL_SYNTHESIZER: { GOLD: 60 / 1440 },
   };
@@ -330,15 +330,15 @@ describe("upkeep parity", () => {
     "IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART",
     "AEGIS_DOME_PART", "ASTRAL_DOCK_PART",
     "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK",
-    "FARMSTEAD", "CAMP", "MINE", "MARKET", "GRANARY",
+    "FARMSTEAD", "UMBRITE_RIG", "MINE", "MARKET", "GRANARY",
     "CARAVANARY", "FOUNDRY",
     "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "RADAR_SYSTEM",
     "AIRPORT", "OBSERVATORY",
-    "WOODEN_FORT", "LIGHT_OUTPOST", "FORT", "IRON_BASTION", "THUNDER_BASTION",
+    "WOODEN_FORT", "LIGHT_OUTPOST", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION",
     "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER",
     "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
     "POPULATION_BUREAU_PART", "POPULATION_BUREAU",
-    "IRON_LEVY_PART", "IRON_LEVY",
+    "TITANIUM_LEVY_PART", "TITANIUM_LEVY",
     "WEAPONS_WORKSHOP",
   ]);
 

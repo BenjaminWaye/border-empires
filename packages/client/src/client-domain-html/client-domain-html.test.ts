@@ -125,7 +125,7 @@ describe("domain card previews", () => {
       }
     };
     const ironBastions: DomainInfo = {
-      id: "iron-bastions",
+      id: "titanium-bastions",
       tier: 2,
       name: "Dwarf Kingdom",
       description: "Fortifies later defenses.",
@@ -148,14 +148,14 @@ describe("domain card previews", () => {
       requiresTechNames: {
         "farmers-compact": "Coinage",
         "frontier-doctrine": "Coinage",
-        "iron-bastions": "Ironworking"
+        "titanium-bastions": "Ironworking"
       }
     });
 
     expect(html).toContain('data-domain-card="frontier-doctrine"');
     expect(html).toContain('data-domain-card="farmers-compact"');
     expect(html).toContain("Tier 1 already committed to Frontier Doctrine");
-    expect(html).toContain('data-domain-card="iron-bastions"');
+    expect(html).toContain('data-domain-card="titanium-bastions"');
   });
 
   it("omits the duplicate inline close control in the mobile detail overlay variant", () => {
@@ -259,7 +259,7 @@ describe("domainOwnedHtml — resource slot suffix", () => {
   };
 
   const ironBastions: DomainInfo = {
-    id: "iron-bastions",
+    id: "titanium-bastions",
     tier: 1,
     name: "Dwarf Kingdom",
     description: "Forts pop up overnight.",
@@ -272,7 +272,7 @@ describe("domainOwnedHtml — resource slot suffix", () => {
   it("appends the locked slot suffix only to the domain that offered the pick", () => {
     const html = domainOwnedHtml(
       [clockworkStipend, ironBastions],
-      ["clockwork-stipend", "iron-bastions"],
+      ["clockwork-stipend", "titanium-bastions"],
       "TITANIUM"
     );
     expect(html).toContain("Clockwork Stipend <em>(TITANIUM slot)</em>");
@@ -316,7 +316,7 @@ describe("domainOwnedHtml — resource slot suffix", () => {
     // chosenResourceSlotGrant > 0, so this test verifies the per-domain gate:
     // if the domain doesn't carry the effect at all, no suffix appears.
     const noGrantDomain: DomainInfo = {
-      id: "iron-bastions",
+      id: "titanium-bastions",
       tier: 1,
       name: "Dwarf Kingdom",
       description: "Forts pop up overnight.",
@@ -324,7 +324,7 @@ describe("domainOwnedHtml — resource slot suffix", () => {
       mods: {},
       requirements: { gold: 6000, resources: { TITANIUM: 120 }, canResearch: false }
     };
-    const html = domainOwnedHtml([noGrantDomain], ["iron-bastions"], "UMBRITE");
+    const html = domainOwnedHtml([noGrantDomain], ["titanium-bastions"], "UMBRITE");
     expect(html).toContain("<strong>Dwarf Kingdom</strong>");
     expect(html).not.toContain("slot)</em>");
   });

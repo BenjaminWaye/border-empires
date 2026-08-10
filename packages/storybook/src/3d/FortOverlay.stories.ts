@@ -11,7 +11,7 @@ type Args = {
 
 const KINDS: ReadonlyArray<FortificationOverlayKind> = [
   "FORT",
-  "IRON_BASTION",
+  "TITANIUM_BASTION",
   "THUNDER_BASTION",
   "WOODEN_FORT",
   "LIGHT_OUTPOST",
@@ -42,11 +42,11 @@ export default meta;
 type Story = StoryObj<Args>;
 export const FortClosed: Story = {};
 export const FortGateNorth: Story = { args: { kind: "FORT", opening: "NORTH" } };
-export const IronBastionClosed: Story = { args: { kind: "IRON_BASTION", opening: "CLOSED" } };
-export const IronBastionGateNorth: Story = { args: { kind: "IRON_BASTION", opening: "NORTH" } };
-export const IronBastionGateEast: Story = { args: { kind: "IRON_BASTION", opening: "EAST" } };
-export const IronBastionGateSouth: Story = { args: { kind: "IRON_BASTION", opening: "SOUTH" } };
-export const IronBastionGateWest: Story = { args: { kind: "IRON_BASTION", opening: "WEST" } };
+export const TitaniumBastionClosed: Story = { args: { kind: "TITANIUM_BASTION", opening: "CLOSED" } };
+export const TitaniumBastionGateNorth: Story = { args: { kind: "TITANIUM_BASTION", opening: "NORTH" } };
+export const TitaniumBastionGateEast: Story = { args: { kind: "TITANIUM_BASTION", opening: "EAST" } };
+export const TitaniumBastionGateSouth: Story = { args: { kind: "TITANIUM_BASTION", opening: "SOUTH" } };
+export const TitaniumBastionGateWest: Story = { args: { kind: "TITANIUM_BASTION", opening: "WEST" } };
 export const ThunderBastionClosed: Story = { args: { kind: "THUNDER_BASTION", opening: "CLOSED" } };
 export const ThunderBastionGateNorth: Story = { args: { kind: "THUNDER_BASTION", opening: "NORTH" } };
 export const ThunderBastionGateEast: Story = { args: { kind: "THUNDER_BASTION", opening: "EAST" } };

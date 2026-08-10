@@ -193,15 +193,15 @@ describe("RUSH_BUY", () => {
       const runtime = new SimulationRuntime({
         now: () => 1_000,
         // masonry alone (no fortified-walls/steelworking) keeps bestFortTierForTech
-        // at base FORT (1 IRON slot), not a higher tier.
+        // at base FORT (1 TITANIUM slot), not a higher tier.
         initialPlayers: new Map([
           ["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000, techIds: new Set(["masonry"]) })]
         ]),
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-            // Fort draws 1 IRON slot (§5, structure-slots.ts) — supply it.
-            { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "IRON" }
+            // Fort draws 1 TITANIUM slot (§5, structure-slots.ts) — supply it.
+            { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "TITANIUM" }
           ],
           activeLocks: []
         }

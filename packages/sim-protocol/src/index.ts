@@ -39,7 +39,7 @@ export const RESTART_PARITY_COMMAND_TYPES = RESTART_PARITY_COMMAND_TYPES_UNTYPED
 export const ACCEPTANCE_RESOLUTION_COMMAND_TYPES = ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
 export const RECONNECT_COMMAND_TYPES = RECONNECT_COMMAND_TYPES_UNTYPED as readonly DurableCommandType[];
 
-export type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+export type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 export type FrontierCombatActionType = "ATTACK" | "EXPAND";
 export type ManpowerBreakdownLine = {
   label: string;
@@ -298,12 +298,12 @@ export type PlayerSubscriptionSnapshot = {
     logisticsThroughputPerMinute?: number;
     manpowerBreakdown?: ManpowerBreakdown;
     incomePerMinute: number;
-    strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
-    strategicProductionPerMinute: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+    strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
+    strategicProductionPerMinute: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
     // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): global
     // per-resource supply/demand pool (§5.6 v1 scope) — the same numbers
     // hasFreeResourceSlots gates BUILD_STRUCTURE on server-side. Lets the
-    // client check real slot availability for FOOD/IRON/CRYSTAL/SUPPLY
+    // client check real slot availability for FOOD/TITANIUM/CRYSTAL/UMBRITE
     // instead of the retired stockpile amounts (§14.3).
     resourceSlots?: {
       supply: Record<SlotResource, number>;
@@ -315,7 +315,7 @@ export type PlayerSubscriptionSnapshot = {
     // Feeds the client's greyed-out/"unpowered" structure indicator.
     dormantStructures?: Array<{ key: string; resources: SlotResource[] }>;
     economyBreakdown?: Record<string, unknown>;
-    upkeepPerMinute?: { food: number; iron: number; supply: number; crystal: number; gold: number };
+    upkeepPerMinute?: { food: number; titanium: number; umbrite: number; crystal: number; gold: number };
     upkeepLastTick?: Record<string, unknown>;
     developmentProcessLimit: number;
     activeDevelopmentProcessCount: number;
@@ -381,8 +381,8 @@ export type PlayerSubscriptionSnapshot = {
     musterJson?: string | undefined;
     /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
     visibilityState?: VisibilityState | undefined;
-    yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> } | undefined;
-    yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> } | undefined;
+    yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> } | undefined;
+    yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> } | undefined;
     yieldCap?: { gold: number; strategicEach: number } | undefined;
     // Broadcast-only ghost-ownership cleanup marker (see
     // tile-delta-visibility-filter.ts). Rides on a delta only; never a

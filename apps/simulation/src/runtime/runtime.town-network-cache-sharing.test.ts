@@ -42,11 +42,11 @@ describe("simulation runtime — shared town network cache", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          // FUR_SYNTHESIZER generates gold upkeep (drives hasOutstandingUpkeepNeed)
-          // — post-§12.1, Fort's IRON slot occupation is its upkeep and no
+          // UMBRITE_SYNTHESIZER generates gold upkeep (drives hasOutstandingUpkeepNeed)
+          // — post-§12.1, Fort's TITANIUM slot occupation is its upkeep and no
           // longer drives this; synthesizers are the one family still gated
           // on ongoing gold (§6.4).
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "FUR_SYNTHESIZER" as const } },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "UMBRITE_SYNTHESIZER" as const } },
           // Resource tile is yield-bearing so consumeUpkeepFromTileYield's
           // loop actually iterates and lazily builds the tile-yield context.
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" as const }
@@ -112,7 +112,7 @@ describe("simulation runtime — shared town network cache", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "FUR_SYNTHESIZER" as const } },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", status: "active" as const, type: "UMBRITE_SYNTHESIZER" as const } },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" as const }
         ],
         activeLocks: []
@@ -125,7 +125,7 @@ describe("simulation runtime — shared town network cache", () => {
     runtime.applyPassiveIncome(60_000, 999_999_999);
 
     const state = runtime.exportState();
-    // Upkeep drained gold below the starting 10_000 (FUR_SYNTHESIZER's §6.4
+    // Upkeep drained gold below the starting 10_000 (UMBRITE_SYNTHESIZER's §6.4
     // gold upkeep, no income offset — post-§12.1 this is the one structure
     // family still gated on ongoing gold).
     const player = state.players.find((p) => p.id === "player-1");
@@ -156,7 +156,7 @@ describe("simulation runtime — shared town network cache", () => {
             mods: { attack: 1, defense: 1, income: 1, vision: 1 },
             techRootId: "rewrite-local",
             allies: new Set<string>(),
-            strategicResources: { FOOD: 1_000_000, WOOD: 0, STONE: 0, IRON: 0, CRYSTAL: 0 }
+            strategicResources: { FOOD: 1_000_000, UMBRITE: 0, TITANIUM: 0, CRYSTAL: 0 }
           }
         ]
       ]),
@@ -243,7 +243,7 @@ describe("simulation runtime — shared town network cache", () => {
             mods: { attack: 1, defense: 1, income: 1, vision: 1 },
             techRootId: "rewrite-local",
             allies: new Set<string>(),
-            strategicResources: { FOOD: 1_000_000, WOOD: 0, STONE: 0, IRON: 0, CRYSTAL: 0 }
+            strategicResources: { FOOD: 1_000_000, UMBRITE: 0, TITANIUM: 0, CRYSTAL: 0 }
           }
         ]
       ]),

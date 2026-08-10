@@ -37,7 +37,7 @@ describe("event log — natural wonder claimed", () => {
       type: "NATURAL_WONDER_CLAIMED",
       text: expect.stringContaining("Foundry Heart")
     });
-    expect(player?.eventLog?.[0]?.text).toContain("+1 slot for FOOD, IRON, CRYSTAL, and SUPPLY");
+    expect(player?.eventLog?.[0]?.text).toContain("+1 slot for FOOD, TITANIUM, CRYSTAL, and UMBRITE");
   });
 
   it("does not append an event-log entry when the claimer is AI", async () => {

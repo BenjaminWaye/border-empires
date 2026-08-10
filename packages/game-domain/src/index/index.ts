@@ -74,7 +74,7 @@ export type DomainPlayer = {
   strategicProductionPerMinute?: Partial<Record<DomainStrategicResourceKey, number>>;
   // Persistent sub-choice for domains that ask the player to pick a resource
   // (Clockwork Stipend). Locked on pick; null/undefined means no choice yet.
-  // Narrowed to the trickle subset (IRON / SUPPLY / CRYSTAL) — FOOD and SHARD
+  // Narrowed to the trickle subset (TITANIUM / UMBRITE / CRYSTAL) — FOOD and SHARD
   // are intentionally excluded because no trickle domain offers them.
   chosenTrickleResource?: ChosenTrickleResource | undefined;
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1): remaining Imperial

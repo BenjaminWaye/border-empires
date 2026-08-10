@@ -31,9 +31,9 @@ const statsForArgs = (args: Args): RevealEmpireStatsView => ({
   manpowerCap: args.manpowerCap,
   strategicResources: {
     FOOD: 920,
-    IRON: 310,
+    TITANIUM: 310,
     CRYSTAL: 184,
-    SUPPLY: 540,
+    UMBRITE: 540,
     SHARD: 3
   }
 });

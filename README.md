@@ -151,7 +151,7 @@ Opens at **http://localhost:5174**. The shared package is built first automatica
 | Biome colors | Shows sand / coastal-sand biomes distinct from grass |
 | Region tint | Tints land by region (Fertile Plains, Deep Forest, Broken Highlands, Ancient Heartland, Crystal Wastes) |
 | Grass shade | Light/dark grass variation |
-| Resources | 55% colour tint on each eligible resource tile: cyan = Fish, orange = Iron, purple = Gems, bright green = Farm, brown = Fur |
+| Resources | 55% colour tint on each eligible resource tile: cyan = Fish, gray = Titanium, purple = Gems, bright green = Farm, dark violet = Umbrite |
 | Towns | Yellow marker at each estimated town position |
 | Docks | Cyan marker at one tile per significant island |
 
