@@ -331,9 +331,9 @@ export const renderStructureInfoOverlay = (
   const costHtml = info.costBits.length
     ? `<div class="structure-info-meta-card"><span>Cost</span><strong>${info.costBits.join(" · ")}</strong></div>`
     : "";
-  const upkeepHtml = (info.upkeepBits ?? [])
-    .map((bit) => `<div class="structure-info-meta-card"><span>Upkeep</span><strong>${bit}</strong></div>`)
-    .join("");
+  const upkeepHtml = (info.upkeepBits ?? []).length
+    ? `<div class="structure-info-meta-card"><span>Upkeep</span><strong>${(info.upkeepBits ?? []).join(" · ")}</strong></div>`
+    : "";
   const effectsHtml = info.effects.length
     ? `<section class="structure-info-section">
         <span class="structure-info-section-label">Effects</span>

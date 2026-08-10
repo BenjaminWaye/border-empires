@@ -503,10 +503,10 @@
     {
       "id": "terrain-engineering",
       "tier": 3,
-      "branch": "economy",
+      "branch": "aether",
       "name": "Terrain Shaping",
       "description": "Once enough crystal is involved, even geography becomes negotiable.",
-      "requires": "mining",
+      "requires": "logistics",
       "cost": {
         "gold": 10
       },
@@ -552,7 +552,8 @@
       "name": "Sky Vessel Engineering",
       "prereqIds": [
         "beacon-towers",
-        "cryptography"
+        "cryptography",
+        "terrain-engineering"
       ],
       "description": "Once the harbor learns to levitate, the neighbors stop sleeping soundly.",
       "cost": {
