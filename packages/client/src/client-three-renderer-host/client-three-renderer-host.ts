@@ -60,15 +60,17 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
   // left alone here: they are renderer-agnostic and stay valid across the swap,
   // and clearing them would drop the minimap base with nothing scheduled to
   // rebuild it until the next world-seed message.
-  const retire = (reason: string): void => {
+  const retire = (reason: string, options?: { readonly preserveCrashStreak?: boolean }): void => {
     failed = true;
     const dead = renderer;
     renderer = undefined;
     setTrue3DRendererActive(false);
     recordRendererFailure(reason);
     // A failure we caught and handled is not a crash, and must not count
-    // toward the crash-loop brake.
-    markRendererAttemptHandled();
+    // toward the crash-loop brake. The brake's *own* path is the exception:
+    // clearing the streak there would re-arm 3D on the next load and resume
+    // the crash loop, so the brake would only hold every other time.
+    if (!options?.preserveCrashStreak) markRendererAttemptHandled();
     try {
       dead?.stop();
     } catch (stopError) {
@@ -89,7 +91,9 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
     // without another try. Nothing here can catch that death, so refusing to
     // repeat it is the only available handling — see the breadcrumb module.
     if (shouldSkipThreeDAfterCrashes()) {
-      retire("3D crashed this browser on the last attempts — using the 2D map. Add ?renderer=3d to try again.");
+      retire("3D crashed this browser on the last attempts — using the 2D map. Add ?renderer=3d to try again.", {
+        preserveCrashStreak: true
+      });
       return;
     }
     const tileBudget = resolveTileBudget(MIN_ZOOM);
