@@ -48,7 +48,8 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   QUARTERMASTERS_OFFICE: "field-logistics",
   LOGISTICS_GUILD: "remade-concordat",
   ASSEMBLY_WORKS: "conveyor-networks",
-  WEAPONS_WORKSHOP: "weapons-forging",
+  IRON_WEAPONS_FACTORY: "masonry",
+  FUR_WEAPONS_FACTORY: "leatherworking",
 };
 
 // ── Upgrade prerequisites ─────────────────────────────────────────
@@ -183,8 +184,13 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   LOGISTICS_GUILD: econSpec("LOGISTICS_GUILD"),
   ASSEMBLY_WORKS: econSpec("ASSEMBLY_WORKS"),
 
-  // War branch
-  WEAPONS_WORKSHOP: econSpec("WEAPONS_WORKSHOP"),
+  // War branch — WEAPONS_WORKSHOP retired (replaced by the two structures
+  // below); intentionally left out of this registry so it can never be
+  // newly built again, while types.ts/structure-slots.ts/config.ts/
+  // frontier-combat.ts keep supporting any copies a player already owns
+  // from before the retirement (no data migration for a live game).
+  IRON_WEAPONS_FACTORY: econSpec("IRON_WEAPONS_FACTORY"),
+  FUR_WEAPONS_FACTORY: econSpec("FUR_WEAPONS_FACTORY"),
 
   // Wonder parts
   IMPERIAL_EXCHANGE_PART_1: econSpec("IMPERIAL_EXCHANGE_PART_1"),

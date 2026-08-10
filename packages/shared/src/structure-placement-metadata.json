@@ -187,6 +187,16 @@
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
+  "IRON_WEAPONS_FACTORY": {
+    "showOn": ["town", "support"],
+    "placementMode": "same_tile",
+    "sortGroup": "support"
+  },
+  "FUR_WEAPONS_FACTORY": {
+    "showOn": ["town", "support"],
+    "placementMode": "same_tile",
+    "sortGroup": "support"
+  },
   "IMPERIAL_EXCHANGE_PART_1": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",

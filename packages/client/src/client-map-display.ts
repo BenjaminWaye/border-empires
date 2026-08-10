@@ -76,7 +76,9 @@ export type StructureInfoKey =
   | "SIEGE_OUTPOST"
   | "SIEGE_TOWER"
   | "DREAD_TOWER"
-  | "WEAPONS_WORKSHOP";
+  | "WEAPONS_WORKSHOP"
+  | "IRON_WEAPONS_FACTORY"
+  | "FUR_WEAPONS_FACTORY";
 
 export type StructureInfoView = {
   title: string;
@@ -154,6 +156,7 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   FORT: "War", IRON_BASTION: "War", THUNDER_BASTION: "War",
   SIEGE_OUTPOST: "War", SIEGE_TOWER: "War", DREAD_TOWER: "War",
   WEAPONS_WORKSHOP: "War",
+  IRON_WEAPONS_FACTORY: "War", FUR_WEAPONS_FACTORY: "War",
   FARMSTEAD: "Economy", WATERWORKS: "Economy", MINE: "Economy",
   MARKET: "Economy", CLEARING_HOUSE: "Economy",
   FUR_SYNTHESIZER: "Economy", ADVANCED_FUR_SYNTHESIZER: "Economy",
@@ -236,6 +239,8 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "IRON_LEVY_PART_3") return "Levy Writ";
   if (kind === "IRON_LEVY") return "The Iron Levy";
   if (kind === "WEAPONS_WORKSHOP") return "Weapons Workshop";
+  if (kind === "IRON_WEAPONS_FACTORY") return "Iron Weapons Factory";
+  if (kind === "FUR_WEAPONS_FACTORY") return "Fur Weapons Factory";
   return "Market";
 };
 
@@ -298,6 +303,8 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "CAMP") return "Improves supply production on this tile by 50% and adds +1 SUPPLY slot on this tile.";
   if (kind === "MINE") return "Improves iron or crystal production on this tile and adds +1 slot of that resource.";
   if (kind === "WEAPONS_WORKSHOP") return "Forges Iron and Supply into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Uncapped per town — build many to raise a dedicated military city.";
+  if (kind === "IRON_WEAPONS_FACTORY") return "Occupies 1 IRON slot. Forges armor plating for +1.5% attack / +3% defense per copy — armor doctrine. The bonus is scoped to this town's connected network: clustering many together in one connected region pays off more than scattering them. Uncapped — no per-town limit.";
+  if (kind === "FUR_WEAPONS_FACTORY") return "Occupies 1 SUPPLY slot. Outfits raiders for +3% attack / +1.5% defense per copy — raiding doctrine. The bonus is scoped to this town's connected network: clustering many together in one connected region pays off more than scattering them. Uncapped — no per-town limit.";
   return "Strengthens this tile's economy.";
 };
 
@@ -366,7 +373,9 @@ export const structureInfoForKey = (
     | "IRON_LEVY_PART_2"
     | "IRON_LEVY_PART_3"
     | "IRON_LEVY"
-    | "WEAPONS_WORKSHOP" => {
+    | "WEAPONS_WORKSHOP"
+    | "IRON_WEAPONS_FACTORY"
+    | "FUR_WEAPONS_FACTORY" => {
     if (key === "IRON_BASTION") return "FORT";
     if (key === "THUNDER_BASTION") return "FORT";
     if (key === "SIEGE_TOWER") return "SIEGE_OUTPOST";
@@ -453,6 +462,8 @@ export const structureInfoForKey = (
     if (key === "POPULATION_BUREAU") return ["Unique world monument", "+0.1 manpower/min empire-wide per Manpower-branch building you own"];
     if (key === "IRON_LEVY") return ["Unique world monument", "Converts 50% of currently-banked manpower into an instant one-time army", "Freezes empire-wide manpower regen for 2 hours afterward", "Requires nearby Ambaric Tower power"];
     if (key === "WEAPONS_WORKSHOP") return ["+3% empire-wide attack per Weapons Workshop you own", "+3% empire-wide defense per Weapons Workshop you own", "No per-town limit — build as many as you like to specialize a town for war"];
+    if (key === "IRON_WEAPONS_FACTORY") return ["+1.5% attack / +3% defense per copy, scoped to this town's connected network", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — armor doctrine: clustering many in one connected region pays off most"];
+    if (key === "FUR_WEAPONS_FACTORY") return ["+3% attack / +1.5% defense per copy, scoped to this town's connected network", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — raiding doctrine: clustering many in one connected region pays off most"];
     return [];
   };
   const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits" | "branch">, image?: string): StructureInfoView => {
@@ -513,6 +524,8 @@ export const structureInfoForKey = (
     if (key === "IRON_LEVY_PART_2") return "/overlays/iron-standard-overlay.svg";
     if (key === "IRON_LEVY_PART_3") return "/overlays/levy-writ-overlay.svg";
     if (key === "WEAPONS_WORKSHOP") return "/overlays/weapons-workshop-overlay.svg";
+    if (key === "IRON_WEAPONS_FACTORY") return "/overlays/iron-weapons-factory-overlay.svg";
+    if (key === "FUR_WEAPONS_FACTORY") return "/overlays/fur-weapons-factory-overlay.svg";
     return undefined;
   };
   const costBitsFor = (key: StructureInfoKey): string[] => {
@@ -795,6 +808,26 @@ export const structureInfoForKey = (
     return structure({
       title: "Weapons Workshop",
       detail: "Weapons Workshops forge Iron and Supply into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Unlike most buildings, there's no per-town limit — build many in one town to raise a dedicated military city.",
+      glyph: "🗡",
+      placement: "Build on an open settled support tile for a town you own. No per-town limit.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "IRON_WEAPONS_FACTORY") {
+    return structure({
+      title: "Iron Weapons Factory",
+      detail: "Iron Weapons Factories forge armor plating from Iron — armor doctrine: +1.5% attack / +3% defense per copy. The bonus is scoped to this town's connected network, not your whole empire — clustering many together in one connected region pays off more than scattering them. No per-town limit, but each additional copy costs more manpower than the last. Owning zero Iron or zero Fur Weapons Factories anywhere leaves your whole empire far easier to attack.",
+      glyph: "🛡",
+      placement: "Build on an open settled support tile for a town you own. No per-town limit.",
+      costBits: costBitsFor(type),
+      buildTimeLabel: buildTimeLabelFor(type)
+    }, imageFor(type));
+  }
+  if (type === "FUR_WEAPONS_FACTORY") {
+    return structure({
+      title: "Fur Weapons Factory",
+      detail: "Fur Weapons Factories outfit raiders from Supply — raiding doctrine: +3% attack / +1.5% defense per copy. The bonus is scoped to this town's connected network, not your whole empire — clustering many together in one connected region pays off more than scattering them. No per-town limit, but each additional copy costs more manpower than the last. Owning zero Fur or zero Iron Weapons Factories anywhere leaves your whole empire far easier to attack.",
       glyph: "🗡",
       placement: "Build on an open settled support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),

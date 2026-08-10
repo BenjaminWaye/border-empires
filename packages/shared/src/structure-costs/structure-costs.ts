@@ -95,10 +95,20 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   QUARTERMASTERS_OFFICE: { baseGoldCost: 0, manpowerCost: 150 },
   LOGISTICS_GUILD: { baseGoldCost: 0, manpowerCost: 150 },
   ASSEMBLY_WORKS: { baseGoldCost: 0, manpowerCost: 300 },
-  // Deliberately cheap and uncapped (placement-metadata.json: "same_tile",
-  // no per-town limit) — a player is meant to be able to build many of these
-  // in one town to specialize it for war, so the per-copy cost stays low.
+  // Retired (see structure-registry-economic.ts) — not in ECONOMIC_SPECS so
+  // it can no longer be built, but the cost definition stays here since
+  // STRUCTURE_COST_DEFINITIONS is a Record over the full BuildableStructureType
+  // union, and any legacy copy a player still owns may read from it.
   WEAPONS_WORKSHOP: { baseGoldCost: 0, manpowerCost: 100 },
+  // anywhere to specialize their war economy, so the per-copy BASE cost
+  // stays low. Unlike Weapons Workshop, each additional copy (anywhere in
+  // the empire — confirmed scope, not per-town) costs more manpower than the
+  // last: `scaling` here is consumed by structureBuildManpowerCost (below),
+  // not structureBuildGoldCost — a deliberate departure from every other use
+  // of `scaling` in this table, which only ever multiplies the (globally
+  // zeroed) gold cost. First-pass rate, expect tuning.
+  IRON_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100, scaling: { kind: "incremental", rate: 0.15 } },
+  FUR_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100, scaling: { kind: "incremental", rate: 0.15 } },
   IMPERIAL_EXCHANGE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
   IMPERIAL_EXCHANGE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
   IMPERIAL_EXCHANGE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
@@ -222,6 +232,26 @@ export const structureBuildGoldCost = (type: BuildableStructureType, existingCou
   if (!definition.scaling) return definition.baseGoldCost;
   if (definition.scaling.kind === "doubling") return definition.baseGoldCost * 2 ** existingCount;
   return Math.ceil(definition.baseGoldCost * (1 + definition.scaling.rate) ** existingCount);
+};
+
+// Iron/Fur Weapons Factory only (§ design doc "escalating build cost"):
+// every other structure's `scaling` field multiplies baseGoldCost, which is
+// globally zeroed above, so it's inert. These two are the one place
+// `scaling` is meant to multiply the real (manpower) cost instead — kept as
+// a separate function rather than changing structureBuildManpowerCost's
+// signature for every caller, since every other structure's manpower cost is
+// still a flat, non-scaling constant.
+const MANPOWER_SCALING_STRUCTURE_TYPES: ReadonlySet<BuildableStructureType> = new Set([
+  "IRON_WEAPONS_FACTORY",
+  "FUR_WEAPONS_FACTORY"
+]);
+
+export const structureBuildManpowerCostScaled = (type: BuildableStructureType, existingCount: number): number => {
+  const definition = STRUCTURE_COST_DEFINITIONS[type];
+  const base = definition.manpowerCost ?? 0;
+  if (!definition.scaling || !MANPOWER_SCALING_STRUCTURE_TYPES.has(type)) return base;
+  if (definition.scaling.kind === "doubling") return base * 2 ** existingCount;
+  return Math.ceil(base * (1 + definition.scaling.rate) ** existingCount);
 };
 
 export const economicStructureBuildDurationMs = (type: EconomicStructureType): number => {

@@ -151,8 +151,12 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockAssemblyWorks":
         out.add("ASSEMBLY_WORKS");
         break;
-      case "unlockWeaponsWorkshop":
-        out.add("WEAPONS_WORKSHOP");
+      // unlockWeaponsWorkshop retired — replaced by the two cases below.
+      case "unlockIronWeaponsFactory":
+        out.add("IRON_WEAPONS_FACTORY");
+        break;
+      case "unlockFurWeaponsFactory":
+        out.add("FUR_WEAPONS_FACTORY");
         break;
       case "unlockPopulationBureau":
         out.add("POPULATION_BUREAU_PART_1");

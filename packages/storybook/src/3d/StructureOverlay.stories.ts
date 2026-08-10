@@ -22,7 +22,8 @@ const KINDS: ReadonlyArray<StructureKind> = [
   "ASTRAL_DOCK",
   "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
   "POPULATION_BUREAU", "IRON_LEVY",
-  "WEAPONS_WORKSHOP",
+  "ANCILLARY_FACTORY", "INCUBATION_ENGINE", "AMBARIC_TOWER",
+  "WEAPONS_WORKSHOP", "IRON_WEAPONS_FACTORY",
   "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
   "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"
 ];
@@ -117,6 +118,10 @@ export const WeaponsWorkshop: Story = { args: { structures: ["WEAPONS_WORKSHOP"]
 export const WorldbreakerPartBarrel: Story = { args: { structures: ["WORLD_ENGINE_PART_1"], cameraDistance: 3 } };
 export const WorldbreakerPartCore: Story = { args: { structures: ["WORLD_ENGINE_PART_2"], cameraDistance: 3 } };
 export const WorldbreakerPartArray: Story = { args: { structures: ["WORLD_ENGINE_PART_3"], cameraDistance: 3 } };
+// Iron Weapons Factory reuses the Weapons Workshop model as-is (see
+// client-map-3d-structure-industrial.ts) — Fur Weapons Factory has no 3D
+// model yet and falls back to its 2D overlay icon, so it has no story here.
+export const IronWeaponsFactory: Story = { args: { structures: ["IRON_WEAPONS_FACTORY"], cameraDistance: 3 } };
 export const FirstBatch: Story = { args: { structures: ["AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 8, spacing: 1.5 } };
 export const CivicBatch: Story = { args: { structures: ["CLEARING_HOUSE", "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "CENSUS_HALL"], cameraDistance: 8, spacing: 1.5 } };
 export const InfrastructureBatch: Story = { args: { structures: ["AIRPORT", "RAIL_DEPOT", "RADAR_SYSTEM", "CARAVANARY"], cameraDistance: 8, spacing: 1.8 } };
