@@ -10,13 +10,13 @@ import {
   Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
-  Scene,
-  WebGLRenderer
+  Scene
 } from "three";
 import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
-import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS } from "../client-constants.js";
+import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS, MIN_ZOOM } from "../client-constants.js";
+import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 
@@ -73,6 +73,7 @@ import { revealWholeMapInTrue3DMode } from "../client-renderer-mode.js";
 import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
+import { createThreeRenderTarget } from "../client-map-3d-render-target/client-map-3d-render-target.js";
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
 import { lightenHex, parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
 import { createWaypointFlag } from "../client-map-3d-waypoint-flag/client-map-3d-waypoint-flag.js";
@@ -94,9 +95,13 @@ type ClientThreeTerrainRendererDeps = {
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
   settlementProgressForTile: (x: number, y: number) => TileTimedProgress | undefined;
   isPlacementValidForTile: (tile: Tile | undefined) => boolean;
+  // Fires when the GPU drops the WebGL context; the host tears this instance
+  // down and falls back to 2D (client-map-3d-render-target.ts).
+  onContextLost?: (reason: string) => void;
 };
 
-const MAX_VISIBLE_TILES = 14000;
+// Device-sized rather than fixed at the desktop worst case; see client-map-3d-tile-budget.ts.
+const MAX_VISIBLE_TILES = resolveTileBudget(MIN_ZOOM);
 const MAX_BRIDGE_PYLONS = 16;
 const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
@@ -104,15 +109,7 @@ const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
 const OVERLAY_RISE_ABOVE_HEIGHTFIELD = 0.012;
 
 export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendererDeps) => {
-  const glCanvas = document.createElement("canvas");
-  glCanvas.id = "game-3d";
-  deps.canvas.dataset.renderer = "3d";
-  const parent = deps.canvas.parentElement;
-  if (!parent) throw new Error("missing game canvas parent for 3d renderer");
-  parent.insertBefore(glCanvas, deps.canvas);
-
-  const renderer = new WebGLRenderer({ canvas: glCanvas, antialias: true, alpha: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(1);
+  const { glCanvas, renderer, contextGuard } = createThreeRenderTarget(deps.canvas, deps.onContextLost);
 
   const scene = new Scene();
   const atmosphere = createAtmosphere(scene);
@@ -1826,6 +1823,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   };
 
   const renderLoop = (): void => {
+    // GL calls on a lost context are no-ops that still cost a frame of scene syncing.
+    if (contextGuard.isContextLost()) return;
     const nowMs = performance.now();
     maybeRebuild(nowMs);
     syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_RISE_ABOVE_HEIGHTFIELD);
@@ -1896,6 +1895,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
   const stop = (): void => {
     if (rafId !== undefined) cancelAnimationFrame(rafId);
+    contextGuard.dispose();
     renderer.dispose();
     ownershipOverlay.dispose();
     fogDarkenOverlay.dispose();

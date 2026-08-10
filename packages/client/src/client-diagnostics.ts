@@ -1,7 +1,10 @@
 import { snapshotClientDebugEvents } from "./client-debug/client-debug.js";
 import { summarizeDisconnectHistory } from "./client-connection-diagnostics/client-connection-diagnostics.js";
 import { snapshotPerformanceMetrics, initPerformanceMetrics } from "./client-performance-metrics/client-performance-metrics.js";
-import { isTrue3DRendererActive } from "./client-renderer-mode.js";
+import { isTrue3DRendererActive, prefers2DRendererMode, rendererModeExplicitlySet } from "./client-renderer-mode.js";
+import { rendererFailureSnapshot, webGLProbe } from "./client-webgl-probe/client-webgl-probe.js";
+import { resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
+import { MIN_ZOOM } from "./client-constants.js";
 import type { ClientState } from "./client-state/client-state.js";
 
 // Snapshot of state useful for triaging a stuck-login report: identity bits
@@ -88,6 +91,18 @@ export const buildDiagnosticsBundle = (
       chunkFullCount: state.chunkFullCount,
       authSessionReadyElapsedMs: state.authSessionReady && state.firstChunkAt > 0 ? state.firstChunkAt - navStart : null,
       hasEverInitialized: state.hasEverInitialized
+    },
+    // Everything needed to tell why 3D did or didn't start on a device we
+    // can't reproduce on. This bundle is reachable from Settings on a phone,
+    // which makes it the one realistic channel for getting GPU/context facts
+    // off an iPhone without a Mac and a cable.
+    rendererDiagnostics: {
+      requested: prefers2DRendererMode ? "2d" : "true-3d",
+      active: isTrue3DRendererActive() ? "true-3d" : "2d-canvas",
+      explicitlySet: rendererModeExplicitlySet,
+      webgl: webGLProbe(),
+      tileBudget: resolveTileBudget(MIN_ZOOM),
+      failure: rendererFailureSnapshot()
     },
     performanceMetrics: snapshotPerformanceMetrics(),
     recentDebugEvents: snapshotClientDebugEvents(),
