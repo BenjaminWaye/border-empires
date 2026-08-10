@@ -22,6 +22,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786413600000, // 2026.08.10.3
+    introducedIn: "2026.08.10.3",
+    title: "Queue expansions ahead of your frontier",
+    why: "You could only queue an expansion onto a tile that already touched your territory, so planning a route deep into neutral land meant clicking one tile at a time and waiting for each to finish before the next could even be queued.",
+    changes: [
+      "You can now queue an expansion onto a neutral tile that only borders another tile you've already queued or are currently claiming — the new claim waits for the earlier one to finish, then launches from it automatically.",
+      "Chains can go several tiles deep, so a whole planned route can be queued up in one pass instead of one click at a time."
+    ]
+  },
+  {
     createdAt: 1786410000000, // 2026.08.10.2
     introducedIn: "2026.08.10.2",
     title: "The 2D map now takes over when 3D can't run on your device",
