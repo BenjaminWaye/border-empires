@@ -44,7 +44,6 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockSiegeOutposts" && value === true) return "Unlocks siege outposts";
   if (key === "unlockGranary" && value === true) return "Unlocks granaries";
   if (key === "unlockCensusHall" && value === true) return "Unlocks census halls";
-  if (key === "unlockBank" && value === true) return "Unlocks banks";
   if (key === "unlockClearingHouse" && value === true) return "Unlocks clearing houses";
   if (key === "unlockCaravanary" && value === true) return "Unlocks caravanaries";
   if (key === "unlockFurSynthesizer" && value === true) return "Unlocks fur synthesizers";
@@ -54,7 +53,6 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockAdvancedSynthesizers" && value === true) return "Unlocks grand synthesis upgrades";
   if (key === "unlockFoundry" && value === true) return "Unlocks sky foundries";
   if (key === "unlockAetherTower" && value === true) return "Unlocks Aether Towers";
-  if (key === "unlockExchangeHouse" && value === true) return "Unlocks Exchange Houses";
   if (key === "unlockCustomsHouse" && value === true) return "Unlocks harbor exchanges";
   if (key === "unlockGovernorsOffice" && value === true) return "Unlocks ministry halls";
   if (key === "unlockGarrisonHall" && value === true) return "Unlocks garrison halls";
