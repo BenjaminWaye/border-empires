@@ -7,6 +7,8 @@ import { resetRendererFallbackNotice } from "../client-renderer-fallback-notice/
 
 type FakeRenderer = { stop: () => void };
 
+const BREADCRUMB_KEY = "border-empires-renderer-breadcrumb-v1";
+
 const noticeText = (): string => document.body.textContent ?? "";
 
 describe("3d renderer host", () => {
@@ -16,6 +18,7 @@ describe("3d renderer host", () => {
     resetRendererFallbackNotice();
     setTrue3DRendererActive(false);
     document.body.innerHTML = "";
+    window.localStorage.clear();
   });
 
   afterEach(() => {
@@ -23,6 +26,7 @@ describe("3d renderer host", () => {
     resetRendererFailure();
     resetRendererFallbackNotice();
     setTrue3DRendererActive(false);
+    window.localStorage.clear();
   });
 
   const hostWith = (overrides: Partial<Parameters<typeof createThreeRendererHost<FakeRenderer>>[0]>) =>
@@ -144,34 +148,49 @@ describe("3d renderer host", () => {
     expect(resize).toHaveBeenCalledTimes(1);
   });
 
-  it("refuses to attempt 3d again after it crashed the browser twice", () => {
+  // The brake reads a snapshot taken when the breadcrumb module loads, so it
+  // can only be exercised through a freshly imported host.
+  const brakedHost = async (create: () => FakeRenderer) => {
+    window.localStorage.setItem(
+      BREADCRUMB_KEY,
+      JSON.stringify({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 2 })
+    );
+    vi.resetModules();
+    const { createThreeRendererHost: freshHost } = await import("./client-three-renderer-host.js");
+    return freshHost<FakeRenderer>({
+      enabled: true,
+      isReady: () => true,
+      create,
+      resizeTwoDimensionalCanvas: () => undefined
+    });
+  };
+
+  it("refuses to attempt 3d again after it crashed the browser twice", async () => {
     // A killed tab runs no JS, so nothing can catch it — declining to repeat
     // the attempt is the only handling available, and it's what turns a
     // crash loop into a playable 2D game.
-    window.localStorage.setItem(
-      "border-empires-renderer-breadcrumb-v1",
-      JSON.stringify({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 2 })
-    );
-    return import("./client-three-renderer-host.js").then(() => {
-      // The brake reads a module-load snapshot, so exercise it through a
-      // freshly imported host.
-      vi.resetModules();
-      return import("./client-three-renderer-host.js").then(({ createThreeRendererHost: freshHost }) => {
-        const create = vi.fn(() => ({ stop: () => undefined }));
-        const host = freshHost<FakeRenderer>({
-          enabled: true,
-          isReady: () => true,
-          create,
-          resizeTwoDimensionalCanvas: () => undefined
-        });
+    const create = vi.fn(() => ({ stop: () => undefined }));
 
-        host.ensure();
+    const host = await brakedHost(create);
+    host.ensure();
 
-        expect(create).not.toHaveBeenCalled();
-        expect(host.current()).toBeUndefined();
-        expect(noticeText()).toContain("crashed this browser");
-      });
-    });
+    expect(create).not.toHaveBeenCalled();
+    expect(host.current()).toBeUndefined();
+    expect(noticeText()).toContain("crashed this browser");
+  });
+
+  it("keeps the crash streak when the brake fires, so it holds on every later load", async () => {
+    // Regression: the brake used to route through the same "handled failure"
+    // bookkeeping as a caught error, which zeroed the streak — so 3D re-armed
+    // on the next load and the crash loop resumed, with the brake holding only
+    // every other time.
+    const host = await brakedHost(() => ({ stop: () => undefined }));
+
+    host.ensure();
+
+    const breadcrumb = JSON.parse(window.localStorage.getItem(BREADCRUMB_KEY) ?? "{}");
+    expect(breadcrumb.failedAttempts).toBeGreaterThanOrEqual(2);
+    expect(breadcrumb.phase).not.toBe("survived");
   });
 
   it("does not resurrect 3d when the context is lost during construction", () => {

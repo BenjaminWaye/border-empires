@@ -32,7 +32,7 @@ const SURVIVAL_MS = 8000;
 
 // One bad attempt can be a fluke (a backgrounded tab, an unrelated OS kill).
 // Two in a row is a device that cannot run this renderer.
-export const CRASH_ATTEMPTS_BEFORE_2D = 2;
+const CRASH_ATTEMPTS_BEFORE_2D = 2;
 
 export type RendererAttemptPhase = "init-started" | "init-completed" | "survived";
 
@@ -139,11 +139,4 @@ export const markRendererAttemptHandled = (): void => {
   // A caught failure is not a crash — it must not push the device toward the
   // crash-loop brake, which exists for deaths nothing can catch.
   writeBreadcrumb({ ...current, phase: "survived", failedAttempts: 0 });
-};
-
-/** Test-only: drops the persisted breadcrumb and any pending survival timer. */
-export const resetRendererBreadcrumbForTest = (): void => {
-  if (attemptTimer !== undefined) clearTimeout(attemptTimer);
-  attemptTimer = undefined;
-  storageSet(BREADCRUMB_STORAGE_KEY, "");
 };
