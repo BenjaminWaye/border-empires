@@ -49,7 +49,6 @@ const fallbackTownGoldPerMinute = (input: {
   populationTier: string;
   connectedTownBonus: number;
   hasMarket: boolean;
-  hasBank: boolean;
 }): number => {
   if (input.isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * PASSIVE_INCOME_MULT;
   if (!input.isFed) return 0;
@@ -60,9 +59,8 @@ const fallbackTownGoldPerMinute = (input: {
     townPopulationMultiplierLocal(input.populationTier) *
     (1 + input.connectedTownBonus) *
     (input.hasMarket ? 1.5 : 1) *
-    (input.hasBank ? 1.5 : 1) *
     PASSIVE_INCOME_MULT
-  ) + (input.hasBank ? 1 : 0);
+  );
 };
 
 const fallbackTownCap = (goldPerMinute: number, isSettlement: boolean, hasMarket: boolean): number =>
@@ -111,10 +109,9 @@ const derivedTownSupportStructures = (
   ownerId: string,
   x: number,
   y: number
-): { hasMarket: boolean; hasGranary: boolean; hasBank: boolean } => {
+): { hasMarket: boolean; hasGranary: boolean } => {
   let hasMarket = false;
   let hasGranary = false;
-  let hasBank = false;
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;
@@ -124,10 +121,9 @@ const derivedTownSupportStructures = (
       if (!structure || structure.status !== "active") continue;
       if (structure.type === "MARKET") hasMarket = true;
       if (structure.type === "GRANARY") hasGranary = true;
-      if (structure.type === "BANK") hasBank = true;
     }
   }
-  return { hasMarket, hasGranary, hasBank };
+  return { hasMarket, hasGranary };
 };
 
 const derivedTownIsFed = (
@@ -250,8 +246,7 @@ export const buildSnapshotTileDetail = (
           populationTier,
           connectedTownBonus:
             typeof parsedTown?.connectedTownBonus === "number" ? parsedTown.connectedTownBonus : 0,
-          hasMarket: supportStructures.hasMarket,
-          hasBank: supportStructures.hasBank
+          hasMarket: supportStructures.hasMarket
         });
   // Only backfill cap when goldPerMinute is positive. For unfed TOWN-tier
   // tiles the live-snapshot formula multiplies through 0, which on the wire
@@ -291,8 +286,6 @@ export const buildSnapshotTileDetail = (
         marketActive: supportStructures.hasMarket && isFed,
         hasGranary: supportStructures.hasGranary,
         granaryActive: supportStructures.hasGranary,
-        hasBank: supportStructures.hasBank,
-        bankActive: supportStructures.hasBank,
         baseGoldPerMinute,
         foodUpkeepPerMinute: townFoodUpkeep,
         ...(typeof goldPerMinute === "number" ? { goldPerMinute } : {}),

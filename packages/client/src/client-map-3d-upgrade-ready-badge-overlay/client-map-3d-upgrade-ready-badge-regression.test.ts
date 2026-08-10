@@ -35,8 +35,6 @@ const ownedReadyTownTile = (overrides: TileOverrides = {}): Tile => {
     marketActive: false,
     hasGranary: false,
     granaryActive: false,
-    hasBank: false,
-    bankActive: false,
     nextPopulationTierUpgrade: {
       targetTier: "CITY",
       requiredPopulation: 100_000,

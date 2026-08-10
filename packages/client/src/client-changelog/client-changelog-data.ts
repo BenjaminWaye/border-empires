@@ -22,6 +22,20 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786406400000, // 2026.08.10.1
+    introducedIn: "2026.08.10.1",
+    title: "Removed Bank and Exchange House; Clearing House now boosts Market",
+    why: "Bank and Market did nearly the same thing, and Exchange House's bonus was never actually implemented — both were confusing dead weight in the tech tree and build menu.",
+    changes: [
+      "Removed the Bank and Exchange House structures.",
+      "The Minting Works tech now unlocks Clearing House (instead of Bank).",
+      "Clearing House now boosts Market gold production (+25%) for its town and directly connected towns, instead of boosting Bank.",
+      "Removed the Provincial Concessions tech; Grand Bazaars now requires Minting Works directly.",
+      "Fixed the tech tree structure card showing two separate 'Upkeep' boxes for structures with more than one resource-slot requirement (Bank, Foundry, Rail Depot, Radar System, Exchange House, Ambaric Tower, Weapons Workshop, Assembly Works, Siege Tower, Dread Tower) — now shown as one combined box.",
+      "Moved Terrain Shaping into the Aether tech branch (was miscategorized under Economy); it now requires Covert Logistics and unlocks Sky Vessel Engineering alongside its other prerequisites."
+    ]
+  },
+  {
     createdAt: 1786320000000, // 2026.08.09.2
     introducedIn: "2026.08.09.2",
     title: "Smaller soil mound on grain tiles",

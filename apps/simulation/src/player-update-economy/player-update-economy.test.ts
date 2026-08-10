@@ -284,8 +284,6 @@ describe("refreshTownEconomyFields", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false
       }
     };
     const tiles = new Map<string, DomainTileState>([["10,10", tile]]);
@@ -320,8 +318,6 @@ describe("refreshTownEconomyFields", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false
       }
     };
     const tiles = new Map<string, DomainTileState>([["10,10", tile]]);
@@ -356,8 +352,6 @@ describe("refreshTownEconomyFields", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false
       }
     };
     const tiles = new Map<string, DomainTileState>([["10,10", tile]]);

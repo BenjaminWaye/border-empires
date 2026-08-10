@@ -37,8 +37,6 @@ const ownedSettledUnfedTownTile = (overrides: TileOverrides = {}): Tile => {
       marketActive: false,
       hasGranary: false,
       granaryActive: false,
-      hasBank: false,
-      bankActive: false,
       ...townOverrides
     }
   };

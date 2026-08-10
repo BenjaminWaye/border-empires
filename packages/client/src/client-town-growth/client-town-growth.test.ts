@@ -22,8 +22,6 @@ const makeTown = (populationTier: NonNullable<NonNullable<Tile["town"]>["populat
   marketActive: false,
   hasGranary: false,
   granaryActive: false,
-  hasBank: false,
-  bankActive: false
 });
 
 describe("client town growth labels", () => {

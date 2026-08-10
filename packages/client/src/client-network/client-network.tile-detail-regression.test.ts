@@ -503,8 +503,6 @@ describe("client network tile detail regression", () => {
               marketActive: false,
               hasGranary: false,
               granaryActive: false,
-              hasBank: false,
-              bankActive: false
             })
           }
         ]

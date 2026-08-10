@@ -6,7 +6,6 @@ import {
   ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
   ADVANCED_IRONWORKS_IRON_PER_DAY,
   AIRPORT_CRYSTAL_UPKEEP_PER_MIN,
-  BANK_FOOD_UPKEEP,
   CAMP_GOLD_UPKEEP,
   CARAVANARY_FOOD_UPKEEP,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
@@ -209,7 +208,6 @@ const economicStructureOutputMultAt = (
   if (
     structure.type === "GRANARY" ||
     structure.type === "MARKET" ||
-    structure.type === "BANK" ||
     structure.type === "AIRPORT" ||
     structure.type === "WOODEN_FORT" ||
     structure.type === "LIGHT_OUTPOST" ||
@@ -291,7 +289,6 @@ const MILITARY_FOOD_UPKEEP_TYPES = new Set(["WOODEN_FORT", "LIGHT_OUTPOST", "FOR
 
 const foodUpkeepPerMinuteForStructure = (structureType: string): number => {
   if (structureType === "MARKET") return MARKET_FOOD_UPKEEP / 10;
-  if (structureType === "BANK") return BANK_FOOD_UPKEEP / 10;
   if (structureType === "CARAVANARY") return CARAVANARY_FOOD_UPKEEP / 10;
   if (MILITARY_FOOD_UPKEEP_TYPES.has(structureType)) return 0.1;
   return 0;
@@ -462,7 +459,6 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
     let goldIncome = 0;
     let townIncome = 0;
     let dockIncome = 0;
-    let bankFlatIncome = 0;
 
     for (const tileKey of activeSettledTileKeys) {
       const resource = inferTileResource(tileKey, args.economy.tileYield ?? [], []);
@@ -512,23 +508,17 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
       const supportRatio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
       if (!fedTownKeys.has(town.tileKey)) continue;
       const hasMarket = supportedStructureAtTown(town.tileKey, playerId, "MARKET", ownershipByTile, ownershipStateByTile, structuresByTile, args.world);
-      const hasBank = supportedStructureAtTown(town.tileKey, playerId, "BANK", ownershipByTile, ownershipStateByTile, structuresByTile, args.world);
       const marketMult = hasMarket ? 1.5 : 1;
-      const bankMult = hasBank ? 1.5 : 1;
-      const bankFlat = hasBank ? 1 : 0;
       const currentTownIncome =
         TOWN_BASE_GOLD_PER_MIN *
         supportRatio *
         townPopulationMultiplier(town) *
         (1 + town.connectedTownBonus) *
         marketMult *
-        bankMult *
         (player.mods?.income ?? 1) *
         PASSIVE_INCOME_MULT;
       townIncome += currentTownIncome;
-      bankFlatIncome += bankFlat;
       if (hasMarket) addBucket(sourceBuckets.GOLD, "Market bonus", currentTownIncome - currentTownIncome / marketMult, { count: 1 });
-      if (hasBank) addBucket(sourceBuckets.GOLD, "Bank bonus", currentTownIncome - currentTownIncome / bankMult + bankFlat, { count: 1 });
     }
 
     for (const dock of ownedDocks) {
@@ -542,9 +532,8 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
       dockIncome += DOCK_INCOME_PER_MIN * (1 + 0.5 * connectedCount) * customsMult * (player.mods?.income ?? 1) * PASSIVE_INCOME_MULT;
     }
 
-    goldIncome = townIncome + bankFlatIncome + dockIncome;
+    goldIncome = townIncome + dockIncome;
     if (townIncome > 0) addBucket(sourceBuckets.GOLD, "Towns", townIncome, { count: ownedTowns.length, note: `${ownedTowns.length} settled towns` });
-    if (bankFlatIncome > 0) addBucket(sourceBuckets.GOLD, "Banks", bankFlatIncome, { count: activePlayerStructures.filter((structure) => structure.type === "BANK").length });
     if (dockIncome > 0) addBucket(sourceBuckets.GOLD, "Docks", dockIncome, { count: ownedDocks.length, note: `${ownedDocks.length} settled docks` });
 
     // §6 (docs/manpower-economy-rewrite-plan.md): gold's only remaining

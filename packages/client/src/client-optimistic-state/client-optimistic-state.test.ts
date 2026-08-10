@@ -97,8 +97,6 @@ describe("client optimistic state", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false
       }
     });
     const state = {

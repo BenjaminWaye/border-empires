@@ -4,8 +4,6 @@ import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
-  BANK_FLAT_GOLD_BONUS_PER_MIN,
-  BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   DOCK_INCOME_PER_MIN,
   EXCHANGE_GOLD_PER_SLOT_PER_DAY,
@@ -226,7 +224,7 @@ export const townGoldPerMinuteForPlayer = (
   firstThreeTownKeys: ReadonlySet<string> = new Set<string>(),
   connectedClearingHouseKeys?: readonly string[],
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Market/Bank/Caravanary/Clearing House stops granting its gold
+  // dormant Market/Caravanary/Clearing House stops granting its gold
   // bonus, same as hasSupportedStructure's matching param.
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): number => {
@@ -238,7 +236,6 @@ export const townGoldPerMinuteForPlayer = (
   const support = supportSummaryForTown(player.id, tile, tiles);
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   const hasMarket = hasSupportedStructure(player.id, tile, "MARKET", tiles, false, dormantEconomicStructureKeys);
-  const hasBank = hasSupportedStructure(player.id, tile, "BANK", tiles, false, dormantEconomicStructureKeys);
   // connectedClearingHouseKeys is pre-filtered to ONLY towns with a CH at
   // network-build time. Re-verify defensively — a progression command may
   // have destroyed a CH between build and read — but the candidate set is
@@ -260,12 +257,10 @@ export const townGoldPerMinuteForPlayer = (
     townPopulationMultiplier(town.populationTier) *
     (1 + (town.connectedTownBonus ?? 0)) *
     (hasMarket ? (clearingHouseActive ? MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE : MARKET_GOLD_PRODUCTION_MULT) : 1) *
-    (hasBank ? (clearingHouseActive ? 1.7 : 1.5) : 1) *
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + (hasBank ? (clearingHouseActive ? BANK_FLAT_GOLD_BONUS_PER_MIN_CLEARING_HOUSE : BANK_FLAT_GOLD_BONUS_PER_MIN) : 0)
-    + (hasMarket ? MARKET_FLAT_GOLD_BONUS_PER_MIN : 0);
+  ) + (hasMarket ? MARKET_FLAT_GOLD_BONUS_PER_MIN : 0);
 };
 
 // Refresh goldPerMinute/isFed on a town originally from buildTownSummary

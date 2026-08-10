@@ -50,7 +50,7 @@ describe("computeSeasonWinnerStats", () => {
           x: 4,
           y: 0,
           ownerId: "player-1",
-          economicStructureJson: JSON.stringify({ type: "BANK", status: "active", ownerId: "player-1" })
+          economicStructureJson: JSON.stringify({ type: "GRANARY", status: "active", ownerId: "player-1" })
         },
         {
           // Belongs to the other player — must be excluded entirely.

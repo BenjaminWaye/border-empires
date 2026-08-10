@@ -30,7 +30,7 @@ describe("structureSlotRequirements", () => {
   });
 
   it("gives every Tier 3 'crystal fix' structure both a FOOD and a CRYSTAL slot", () => {
-    for (const type of ["BANK", "FOUNDRY", "RAIL_DEPOT", "RADAR_SYSTEM", "EXCHANGE_HOUSE", "AETHER_TOWER"] as const) {
+    for (const type of ["FOUNDRY", "RAIL_DEPOT", "RADAR_SYSTEM", "AETHER_TOWER"] as const) {
       expect(structureSlotRequirements(type)).toEqual(
         expect.arrayContaining([{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }])
       );

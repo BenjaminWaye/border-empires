@@ -86,9 +86,7 @@ export const isCompleteTownSummary = (town: Partial<NonNullable<Tile["town"]>> |
       typeof town.hasMarket === "boolean" &&
       typeof town.marketActive === "boolean" &&
       typeof town.hasGranary === "boolean" &&
-      typeof town.granaryActive === "boolean" &&
-      typeof town.hasBank === "boolean" &&
-      typeof town.bankActive === "boolean"
+      typeof town.granaryActive === "boolean"
   );
 
 export const emptyStrategic = (): Record<StrategicResourceKey, number> => ({

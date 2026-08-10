@@ -327,7 +327,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         ? {
             hasMarket: tile.town.hasMarket,
             hasGranary: tile.town.hasGranary,
-            hasBank: tile.town.hasBank,
             populationTier: tile.town.populationTier
           }
         : undefined,

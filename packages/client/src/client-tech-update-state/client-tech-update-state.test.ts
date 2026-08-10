@@ -12,7 +12,7 @@ describe("applyTechUpdateToState", () => {
       techDetailOpen: true,
       activePanel: null,
       mobilePanel: "core",
-      structureInfoKey: "BANK",
+      structureInfoKey: "CLEARING_HOUSE",
       crystalAbilityInfoKey: "reveal_empire",
       techChoices: ["coinage"],
       techIds: ["trade"],
@@ -48,7 +48,7 @@ describe("applyTechUpdateToState", () => {
         activeDevelopmentProcessCount: 3,
         techCatalog: [
           { id: "trade", tier: 2, name: "Trade", description: "", mods: {}, effects: {}, requirements: { gold: 0, resources: {}, checklist: [], canResearch: false } },
-          { id: "coinage", tier: 3, name: "Coinage", description: "", mods: {}, effects: { unlockBank: true }, requirements: { gold: 6500, resources: { CRYSTAL: 90 }, checklist: [], canResearch: false } },
+          { id: "coinage", tier: 3, name: "Coinage", description: "", mods: {}, effects: { unlockClearingHouse: true }, requirements: { gold: 6500, resources: { CRYSTAL: 90 }, checklist: [], canResearch: false } },
           { id: "ledger-keeping", tier: 3, name: "Ledger Keeping", description: "", mods: {}, effects: {}, requirements: { gold: 7000, resources: {}, checklist: [], canResearch: true } }
         ] as any
       },
