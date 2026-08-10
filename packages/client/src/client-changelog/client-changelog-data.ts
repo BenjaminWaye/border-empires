@@ -22,6 +22,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786413600000, // 2026.08.10.3
+    introducedIn: "2026.08.10.3",
+    title: "New 3D Umbrite Extraction Rig",
+    why: "The Umbrite Extraction Rig — a heavy industrial machine that drills into exposed Umbrite veins and contains their volatile stored energy — now has a full 3D model, ready to be placed on the map as part of the Umbrite gameplay.",
+    changes: [
+      "Added a low-poly 3D Umbrite Extraction Rig: squat iron base, reinforced drilling column with brass bands, a rotating drill descending into the ground, angled brass support struts, and anchor feet.",
+      "The drill visibly penetrates an exposed violet-black Umbrite vein, with a containment collar leaking a small, restrained amount of orange containment energy.",
+      "A brass-banded pressure vessel with an ember inspection window receives the extracted Umbrite through chunky industrial pipes with coupling joints and valves."
+    ]
+  },
+  {
     createdAt: 1786410000000, // 2026.08.10.2
     introducedIn: "2026.08.10.2",
     title: "The 2D map now takes over when 3D can't run on your device",
