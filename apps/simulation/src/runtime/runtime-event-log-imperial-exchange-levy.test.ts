@@ -57,11 +57,15 @@ describe("§20 event log — Imperial Exchange Levy", () => {
             ownershipState: "SETTLED",
             economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
           },
-          // Two GEMS tiles: 1 CRYSTAL slot for the Aether Tower, 1 for the
-          // Imperial Exchange's own permanent upkeep (§12) — one would leave
-          // the Exchange dormant and the levy rejected.
+          // Five GEMS tiles: 1 CRYSTAL slot for the Aether Tower, 4 for the
+          // Imperial Exchange's own permanent upkeep (§12, bumped from 1 to
+          // 4 when it started consuming its 3 Parts on completion) — any
+          // fewer would leave the Exchange dormant and the levy rejected.
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
           { x: 10, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
         ],

@@ -52,18 +52,30 @@ describe("structureSlotRequirements", () => {
     expect(structureSlotRequirements("ADVANCED_CRYSTAL_SYNTHESIZER")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
   });
 
-  it("gives every monument part and assembly exactly 1 CRYSTAL slot (SHARD stays a separate flow cost, not modeled here)", () => {
+  it("gives every monument component exactly 1 CRYSTAL slot (SHARD stays a separate flow cost, not modeled here)", () => {
     for (const type of [
-      "IMPERIAL_EXCHANGE_PART", "WORLD_ENGINE_PART", "AEGIS_DOME_PART", "ASTRAL_DOCK_PART",
-      "IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK"
+      "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3",
+      "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+      "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
+      "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
+      "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3",
+      "IRON_LEVY_PART_1", "IRON_LEVY_PART_2", "IRON_LEVY_PART_3"
     ] as const) {
       expect(structureSlotRequirements(type)).toEqual([{ resource: "CRYSTAL", count: 1 }]);
     }
   });
 
+  it("gives every finished monument assembly 4 CRYSTAL slots (1 for itself + 3 absorbing its consumed components' slots)", () => {
+    for (const type of ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "IRON_LEVY"] as const) {
+      expect(structureSlotRequirements(type)).toEqual([{ resource: "CRYSTAL", count: 4 }]);
+    }
+  });
+
   it("gives structures with an existing 'other' slot requirement no FOOD slot (Observatory, Airport)", () => {
     expect(structureSlotRequirements("OBSERVATORY")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
-    expect(structureSlotRequirements("AIRPORT")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
+    // AIRPORT's CRYSTAL slot requirement is 3, not 1 (bumped alongside its
+    // bombard ability going free-to-fire — see server-game-constants.ts).
+    expect(structureSlotRequirements("AIRPORT")).toEqual([{ resource: "CRYSTAL", count: 3 }]);
   });
 
   it("returns an empty array for a structure with no entry, rather than throwing", () => {
