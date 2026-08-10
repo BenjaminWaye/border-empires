@@ -20,8 +20,8 @@ const createDeps = (overrides?: { me?: string; mods?: { income?: number }; realM
     me: overrides?.me ?? "me",
     upkeepLastTick: {
       food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-      iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-      supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+      titanium: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+      umbrite: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
       crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
       gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
       foodCoverage: 1

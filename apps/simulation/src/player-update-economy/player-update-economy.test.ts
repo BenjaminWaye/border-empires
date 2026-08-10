@@ -177,7 +177,7 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
   });
 
   it("an active Farmstead on a FARM tile adds no strategicProductionPerMinute.FOOD (slot-based, not yield-based)", () => {
-    // FOOD joined IRON/CRYSTAL/SUPPLY as slot-based (§5.4) — a Farmstead's
+    // FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based (§5.4) — a Farmstead's
     // real effect now is boosting FOOD *slot supply* (structure-slots.ts),
     // a separate mechanism this snapshot doesn't compute.
     const player = makePlayer();
@@ -393,7 +393,7 @@ describe("buildPlayerUpdateEconomySnapshot — integrityEconMult", () => {
   });
 
   it("mult has nothing left to scale in strategicProductionPerMinute.FOOD (slot-based, not yield-based)", () => {
-    // FOOD joined IRON/CRYSTAL/SUPPLY as slot-based (§5.4) — a bare FARM tile
+    // FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based (§5.4) — a bare FARM tile
     // no longer produces a mult-scalable FOOD rate at all.
     const farmTile: DomainTileState = {
       x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM"

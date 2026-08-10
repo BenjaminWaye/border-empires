@@ -74,9 +74,9 @@ const createState = () =>
     strategicProductionPerMinute: {},
     strategicAnim: {
       FOOD: { until: 0, dir: 0 },
-      IRON: { until: 0, dir: 0 },
+      TITANIUM: { until: 0, dir: 0 },
       CRYSTAL: { until: 0, dir: 0 },
-      SUPPLY: { until: 0, dir: 0 },
+      UMBRITE: { until: 0, dir: 0 },
       SHARD: { until: 0, dir: 0 }
     },
     economyBreakdown: {},

@@ -102,7 +102,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "firstTownsFoodSlotWaiverCount" && typeof value === "number") return `First ${value} towns need 1 fewer FOOD slot`;
   if (key === "resourceOutputMult" && value && typeof value === "object") {
     const ro = value as Record<string, unknown>;
-    const entries: Array<[string, string]> = [["farm", "Farm"], ["fish", "Fish"], ["iron", "Iron"], ["crystal", "Crystal"], ["supply", "Supply"], ["shard", "Shard"]];
+    const entries: Array<[string, string]> = [["farm", "Farm"], ["fish", "Fish"], ["titanium", "Titanium"], ["crystal", "Crystal"], ["umbrite", "Umbrite"], ["shard", "Shard"]];
     const labels = entries.filter(([k]) => typeof ro[k] === "number" && (ro[k] as number) !== 1).map(([k, name]) => `${name} output +${(((ro[k] as number) - 1) * 100).toFixed(0)}%`);
     return labels.length > 0 ? labels.join(" | ") : null;
   }

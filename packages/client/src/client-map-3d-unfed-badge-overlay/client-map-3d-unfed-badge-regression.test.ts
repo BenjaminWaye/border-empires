@@ -51,7 +51,7 @@ describe("3d resource-dormancy badge regression guard", () => {
   it("wires the resource badge overlays into the 3D renderer lifecycle", () => {
     const source = clientSource("../client-map-3d/client-map-3d.ts");
     // §21.1: generalized from a single food-only overlay to one overlay per
-    // resource icon (FOOD/IRON/CRYSTAL/SUPPLY), driven off the shared
+    // resource icon (FOOD/TITANIUM/CRYSTAL/UMBRITE), driven off the shared
     // dormantStructures wire field as well as the unfed-town predicate.
     expect(source).toContain("createResourceBadgeOverlay");
     expect(source).toContain("resourceBadgeOverlays");

@@ -89,9 +89,9 @@ const createState = () =>
     strategicProductionPerMinute: {},
     strategicAnim: {
       FOOD: { until: 0, dir: 0 },
-      IRON: { until: 0, dir: 0 },
+      TITANIUM: { until: 0, dir: 0 },
       CRYSTAL: { until: 0, dir: 0 },
-      SUPPLY: { until: 0, dir: 0 },
+      UMBRITE: { until: 0, dir: 0 },
       SHARD: { until: 0, dir: 0 }
     },
     economyBreakdown: {},
@@ -350,12 +350,12 @@ describe("client network regression guards", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       ws.emit("message", {
-        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_SLOT", message: "no free IRON slot for fort" })
+        data: JSON.stringify({ type: "ERROR", code: "INSUFFICIENT_SLOT", message: "no free TITANIUM slot for fort" })
       });
       expect(showCaptureAlert).toHaveBeenCalledTimes(1);
       const captureArgs = showCaptureAlert.mock.calls[0] ?? [];
       expect(captureArgs[0]).toBe("Construction failed");
-      expect(captureArgs[1]).toBe("no free IRON slot for fort");
+      expect(captureArgs[1]).toBe("no free TITANIUM slot for fort");
       expect(captureArgs[2]).toBe("warn");
       // Without this rollback the optimistic under-construction ghost drawn by
       // this build's own optimistic() call would stick around forever, since

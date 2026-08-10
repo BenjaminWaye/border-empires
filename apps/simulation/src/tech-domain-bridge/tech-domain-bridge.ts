@@ -296,10 +296,9 @@ export const additiveEffectForPlayer = (
 const REVEAL_CATEGORY_BY_TILE_RESOURCE: Record<string, string> = {
   farm: "food",
   fish: "food",
-  iron: "iron",
+  titanium: "titanium",
   gems: "crystal",
-  wood: "supply",
-  fur: "supply"
+  umbrite: "umbrite"
 };
 
 export const hasRevealedResourceForPlayer = (
