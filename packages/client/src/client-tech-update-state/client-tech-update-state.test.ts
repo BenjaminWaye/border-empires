@@ -12,7 +12,7 @@ describe("applyTechUpdateToState", () => {
       techDetailOpen: true,
       activePanel: null,
       mobilePanel: "core",
-      structureInfoKey: "BANK",
+      structureInfoKey: "CLEARING_HOUSE",
       crystalAbilityInfoKey: "reveal_empire",
       techChoices: ["coinage"],
       techIds: ["trade"],

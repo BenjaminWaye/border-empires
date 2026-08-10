@@ -8261,8 +8261,6 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               marketActive: false,
               hasGranary: false,
               granaryActive: false,
-              hasBank: false,
-              bankActive: false
             }
           },
           // Eight surrounding settled-land tiles so support stays at 8/8.
@@ -8333,8 +8331,6 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               marketActive: false,
               hasGranary: false,
               granaryActive: false,
-              hasBank: false,
-              bankActive: false
             }
           },
           ...[
@@ -8409,8 +8405,6 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               marketActive: false,
               hasGranary: false,
               granaryActive: false,
-              hasBank: false,
-              bankActive: false
             }
           },
           // Three more owned towns 8-adjacent to (5,5) so the BFS finds them.

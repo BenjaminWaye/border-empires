@@ -385,17 +385,6 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
         structuresByTile,
         meta.world
       );
-    const hasBank =
-      Boolean(ownerId) &&
-      supportedStructureAtTown(
-        town.tileKey,
-        ownerId!,
-        "BANK",
-        ownershipByTile,
-        ownershipStateByTile,
-        structuresByTile,
-        meta.world
-      );
     const incomeMod = ownerId ? incomeModsByPlayer.get(ownerId) ?? 1 : 1;
     const baseGoldPerMinute = tier === "SETTLEMENT" ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN;
     const goldPerMinute =
@@ -411,10 +400,9 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
                   townPopulationMultiplier(town) *
                   (1 + town.connectedTownBonus) *
                   (hasMarket ? 1.5 : 1) *
-                  (hasBank ? 1.5 : 1) *
                   incomeMod *
                   PASSIVE_INCOME_MULT
-              ) + (hasBank ? 1 : 0);
+              );
     const populationGrowthPerMinute =
       !ownerId || !isSettled || !isFed
         ? 0
@@ -457,8 +445,6 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       marketActive: hasMarket && isFed,
       hasGranary,
       granaryActive: hasGranary,
-      hasBank,
-      bankActive: hasBank,
       foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),
       ...(growthModifiers.length > 0 ? { growthModifiers } : {})
     };

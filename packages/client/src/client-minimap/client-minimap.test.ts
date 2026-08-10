@@ -39,8 +39,6 @@ const townTile = (isFed: boolean): Tile => ({
     marketActive: false,
     hasGranary: false,
     granaryActive: false,
-    hasBank: false,
-    bankActive: false
   }
 });
 

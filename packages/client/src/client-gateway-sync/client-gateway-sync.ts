@@ -181,7 +181,6 @@ const isRenderableTownSummary = (town: PartialTownSummary | undefined): town is 
       isOptionalBoolean(town.hasSeedGranary) &&
       isOptionalBoolean(town.seedGranaryActive) &&
       isOptionalBoolean(town.seedGranaryBuffed) &&
-      isOptionalBoolean(town.hasBank) && isOptionalBoolean(town.bankActive) &&
       isOptionalBoolean(town.hasClearingHouse) && isOptionalBoolean(town.clearingHouseActive) && (town.clearingHouseTownNames === undefined || hasStringArray(town.clearingHouseTownNames)) &&
       isFiniteOptionalNumber(town.foodUpkeepPerMinute) &&
       (town.growthModifiers === undefined || isGrowthModifierArray(town.growthModifiers)) &&

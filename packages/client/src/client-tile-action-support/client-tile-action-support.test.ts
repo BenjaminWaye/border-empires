@@ -114,15 +114,15 @@ describe("splitTileActionsIntoTabs", () => {
         disabled: false
       },
       {
-        id: "build_bank",
-        label: "Build Bank",
+        id: "build_clearing_house",
+        label: "Build Clearing House",
         disabled: false
       }
     ];
 
     expect(splitTileActionsIntoTabs(rows, state).buildings.map((row) => row.id)).toEqual([
       "build_market",
-      "build_bank",
+      "build_clearing_house",
       "build_foundry"
     ]);
   });
@@ -206,8 +206,6 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
       marketActive: false,
       hasGranary: false,
       granaryActive: false,
-      hasBank: false,
-      bankActive: false
     }
   };
 
@@ -270,8 +268,6 @@ describe("town support tile actions", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false
       }
     });
 

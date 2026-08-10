@@ -47,8 +47,6 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "GRANARY";
     case "build_census_hall":
       return "CENSUS_HALL";
-    case "build_bank":
-      return "BANK";
     case "build_clearing_house":
       return "CLEARING_HOUSE";
     case "build_airport":
@@ -75,8 +73,6 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "CUSTOMS_HOUSE";
     case "build_rail_depot":
       return "RAIL_DEPOT";
-    case "build_exchange_house":
-      return "EXCHANGE_HOUSE";
     case "build_imperial_exchange_part":
       return "IMPERIAL_EXCHANGE_PART";
     case "build_world_engine_part":
@@ -139,7 +135,7 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "trade";
     case "build_granary":
       return "pottery";
-    case "build_bank":
+    case "build_clearing_house":
       return "coinage";
     case "build_caravanary":
       return "ledger-keeping";
@@ -155,8 +151,6 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "port-infrastructure";
     case "build_rail_depot":
       return "global-trade-networks";
-    case "build_exchange_house":
-      return "imperial-roads";
     case "build_imperial_exchange_part":
     case "build_imperial_exchange":
       return "urban-markets";

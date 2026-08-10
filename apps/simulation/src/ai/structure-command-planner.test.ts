@@ -220,7 +220,7 @@ describe("structure command planner", () => {
 
 describe("chooseBestEconomicBuild — town support tile availability", () => {
   // Regression: production staging showed BUILD_ECONOMIC_STRUCTURE rejected
-  // 1108/1109 attempts (99.9%). chooseBestEconomicBuild proposed MARKET/BANK/
+  // 1108/1109 attempts (99.9%). chooseBestEconomicBuild proposed MARKET/
   // GRANARY whenever a town's supportCurrent < supportMax, without checking
   // whether a physical open SETTLED neighbor tile actually existed to host
   // the structure. The runtime places these on an adjacent support tile
@@ -260,7 +260,7 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
     const result = chooseBestEconomicBuild(ECONOMIC_BUILD_PLAYER, [town, openSupportTile], tilesByKey);
     expect(result).toBeDefined();
     expect(result?.tile).toBe(town);
-    expect(["MARKET", "BANK", "GRANARY"]).toContain(result?.structureType);
+    expect(["MARKET", "GRANARY"]).toContain(result?.structureType);
   });
 
   it("does not re-propose a structure type the town already has, even when it outscores the genuinely missing type", () => {
@@ -271,12 +271,8 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
     // THIS specific type. The runtime's economicStructureForSupportedTown
     // check catches the duplicate; chooseBestEconomicBuild must too.
     //
-    // The town already has BANK (score 66, the highest-scoring candidate
-    // here) and GRANARY (score 20) — only MARKET (score 54) is genuinely
-    // missing. Without the fix, BANK's higher score would win even though
-    // the town already has one; asserting "not GRANARY" alone wouldn't
-    // catch that, since BANK naturally outscores GRANARY regardless of the
-    // fix — the assertion must pin the winner to MARKET specifically.
+    // The town already has GRANARY (score 20) — only MARKET (score 54) is
+    // genuinely missing, so the fix must not re-propose GRANARY.
     //
     // Coordinates kept positive and away from 0 — negative offsets wrap
     // around WORLD_WIDTH/WORLD_HEIGHT (450x450), which would silently look
@@ -286,11 +282,6 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
       ownershipState: "SETTLED",
       town: { populationTier: "TOWN", supportCurrent: 0, supportMax: 3 }
     });
-    const existingBank = tile(11, 10, {
-      ownerId: "ai-1",
-      ownershipState: "SETTLED",
-      economicStructure: { ownerId: "ai-1", type: "BANK", status: "active" }
-    });
     const existingGranary = tile(11, 9, {
       ownerId: "ai-1",
       ownershipState: "SETTLED",
@@ -298,11 +289,10 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
     });
     const openSupportTile = tile(9, 10, { ownerId: "ai-1", ownershipState: "SETTLED" });
     const frontierNeighbors = [
-      [10, 9], [9, 9], [9, 11], [10, 11], [11, 11]
+      [10, 9], [9, 9], [9, 11], [10, 11], [11, 11], [11, 10]
     ].map(([x, y]) => tile(x, y, { ownerId: "ai-1", ownershipState: "FRONTIER" }));
     const tilesByKey = new Map<string, StructurePlannerTile>([
       ["10,10", town2],
-      ["11,10", existingBank],
       ["11,9", existingGranary],
       ["9,10", openSupportTile],
       ...frontierNeighbors.map((n) => [`${n.x},${n.y}`, n] as const)
@@ -310,7 +300,7 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
 
     const result = chooseBestEconomicBuild(
       ECONOMIC_BUILD_PLAYER,
-      [town2, existingBank, existingGranary, openSupportTile, ...frontierNeighbors],
+      [town2, existingGranary, openSupportTile, ...frontierNeighbors],
       tilesByKey
     );
     expect(result?.structureType).toBe("MARKET");

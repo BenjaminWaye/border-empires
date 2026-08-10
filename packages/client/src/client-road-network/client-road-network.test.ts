@@ -24,8 +24,6 @@ const makeTown = (populationTier: NonNullable<NonNullable<Tile["town"]>["populat
   marketActive: false,
   hasGranary: false,
   granaryActive: false,
-  hasBank: false,
-  bankActive: false
 });
 
 const makeTile = (x: number, y: number, overrides: Partial<Tile> = {}): Tile => ({

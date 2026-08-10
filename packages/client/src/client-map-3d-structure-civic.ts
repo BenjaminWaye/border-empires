@@ -11,12 +11,11 @@ export type CivicStructureKind =
   | "CARAVANARY"
   | "CLEARING_HOUSE"
   | "CUSTOMS_HOUSE"
-  | "EXCHANGE_HOUSE"
   | "GOVERNORS_OFFICE"
   | "CENSUS_HALL";
 
 export const CIVIC_STRUCTURE_KINDS: ReadonlySet<CivicStructureKind> = new Set([
-  "CARAVANARY", "CLEARING_HOUSE", "CUSTOMS_HOUSE", "EXCHANGE_HOUSE", "GOVERNORS_OFFICE",
+  "CARAVANARY", "CLEARING_HOUSE", "CUSTOMS_HOUSE", "GOVERNORS_OFFICE",
   "CENSUS_HALL"
 ]);
 
@@ -216,15 +215,6 @@ export const registerCivicStructures = (
     builder.addPiece("customsBollard", sx, sy, sz, 0.16, 0.025, 0.20);
   };
 
-  const addExchangeHouse: CivicStructureLayout = (sx, sy, sz) => {
-    builder.addPiece("exchangeHouseStep", sx, sy, sz, 0, 0.025, 0.12);
-    builder.addPiece("exchangeHouseBody", sx, sy, sz, 0, 0.105, 0);
-    builder.addPiece("exchangeHouseRoof", sx, sy, sz, 0, 0.21, 0, 1, 1, 1, Math.PI * 0.25);
-    builder.addPiece("exchangeHouseColumn", sx, sy, sz, -0.08, 0.105, 0.10);
-    builder.addPiece("exchangeHouseColumn", sx, sy, sz, 0.08, 0.105, 0.10);
-    builder.addPiece("exchangeHouseSign", sx, sy, sz, 0, 0.17, 0.085, 1, 1.4, 1);
-  };
-
   const addClearingHouse: CivicStructureLayout = (sx, sy, sz) => {
     builder.addPiece("clearingHouseBase", sx, sy, sz, 0, 0.025, 0.03);
     builder.addPiece("clearingHouseBody", sx, sy, sz, 0, 0.132, -0.005);
@@ -269,7 +259,6 @@ export const registerCivicStructures = (
       CARAVANARY: addCaravanary,
       CLEARING_HOUSE: addClearingHouse,
       CUSTOMS_HOUSE: addCustomsHouse,
-      EXCHANGE_HOUSE: addExchangeHouse,
       GOVERNORS_OFFICE: addGovernorsOffice,
       CENSUS_HALL: addCensusHall
     }

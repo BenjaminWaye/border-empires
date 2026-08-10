@@ -73,8 +73,6 @@ describe("town growth tile actions", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false
       }
     };
 
@@ -118,8 +116,6 @@ describe("town growth tile actions", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false,
         nextPopulationTierUpgrade: {
           targetTier: "CITY",
           requiredPopulation: 100_000,
@@ -170,8 +166,6 @@ describe("town growth tile actions", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false,
         nextPopulationTierUpgrade: {
           targetTier: "CITY",
           requiredPopulation: 100_000,
@@ -221,8 +215,6 @@ describe("town growth tile actions", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false,
         nextPopulationTierUpgrade: {
           targetTier: "CITY",
           requiredPopulation: 100_000,
@@ -272,8 +264,6 @@ describe("town growth tile actions", () => {
         marketActive: false,
         hasGranary: false,
         granaryActive: false,
-        hasBank: false,
-        bankActive: false,
         nextPopulationTierUpgrade: {
           targetTier: "METROPOLIS",
           requiredPopulation: 5_000_000,
