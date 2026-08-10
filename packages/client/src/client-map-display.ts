@@ -289,9 +289,9 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "POPULATION_BUREAU_PART_2") return "Registry Vault — one of the Population Bureau's 3 required components.";
   if (kind === "POPULATION_BUREAU_PART_3") return "Levy Charter — one of the Population Bureau's 3 required components.";
   if (kind === "POPULATION_BUREAU") return "Unique world monument. Adds +0.1 manpower/min empire-wide for every Manpower-branch building you own.";
-  if (kind === "IRON_LEVY_PART_1") return "Muster Klaxon — one of the The Iron Levy's 3 required components.";
-  if (kind === "IRON_LEVY_PART_2") return "Iron Standard — one of the The Iron Levy's 3 required components.";
-  if (kind === "IRON_LEVY_PART_3") return "Levy Writ — one of the The Iron Levy's 3 required components.";
+  if (kind === "IRON_LEVY_PART_1") return "Muster Klaxon — one of The Iron Levy's 3 required components.";
+  if (kind === "IRON_LEVY_PART_2") return "Iron Standard — one of The Iron Levy's 3 required components.";
+  if (kind === "IRON_LEVY_PART_3") return "Levy Writ — one of The Iron Levy's 3 required components.";
   if (kind === "IRON_LEVY") return "Unique world monument. Converts 50% of your currently-banked manpower into an instant one-time army, then freezes empire-wide manpower regen for 2 hours.";
   if (kind === "FARMSTEAD") return "Improves food production on farm tiles by 50% and adds +1 FOOD slot on this tile.";
   if (kind === "WATERWORKS") return "Boosts all farmstead food production by +100% within a 10-tile radius; each boosted Farmstead gains +2 FOOD slots.";
