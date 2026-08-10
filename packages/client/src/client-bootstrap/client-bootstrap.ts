@@ -13,10 +13,8 @@ import { renderClientHud, resizeClientViewport } from "../client-hud/client-hud.
 import { bindClientUiControls } from "../client-ui-controls/client-ui-controls.js";
 import { createClientThreeTerrainRenderer } from "../client-map-3d/client-map-3d.js";
 import { createBootstrapDownloadHelpers } from "../client-bootstrap-download-helpers/client-bootstrap-download-helpers.js";
-import {
-  prefersTrue3DRendererMode,
-  setTrue3DRendererActive
-} from "../client-renderer-mode.js";
+import { prefersTrue3DRendererMode } from "../client-renderer-mode.js";
+import { createThreeRendererHost } from "../client-three-renderer-host/client-three-renderer-host.js";
 import { startClientRuntimeLoop } from "../client-runtime-loop.js";
 import { mountRallyInvitePanel, mountRallyNewPanel } from "../client-rally-links/client-rally-links.js";
 import { mountGalaxyView } from "../client-galaxy-view/client-galaxy-view.js";
@@ -208,43 +206,27 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   };
   requireAuthedSessionImpl = requireAuthedSession;
 
-  let threeTerrainRenderer:
-    | ReturnType<typeof createClientThreeTerrainRenderer>
-    | undefined;
-  // The true-3D renderer is the default. Pass `?renderer=2d` to fall back
-  // to the flat canvas renderer (e.g. for low-end devices or debugging).
-  const shouldUseThreeTerrainRenderer = prefersTrue3DRendererMode;
-  const ensureThreeTerrainRenderer = (): void => {
-    if (!shouldUseThreeTerrainRenderer) return;
-    if (!state.authSessionReady) return;
-    if (threeTerrainRenderer) return;
-    try {
-      threeTerrainRenderer = createClientThreeTerrainRenderer({
-        state,
-        canvas,
-        keyFor,
-        wrapX,
-        wrapY,
-        terrainAt,
-        effectiveOverlayColor,
-        tileVisibilityStateAt,
+  // The true-3D renderer is the default. Pass `?renderer=2d` to fall back to
+  // the flat canvas renderer (e.g. for low-end devices or debugging); the host
+  // also falls back on its own if 3D can't run on this device.
+  const threeRendererHost = createThreeRendererHost({
+    enabled: prefersTrue3DRendererMode,
+    isReady: () => state.authSessionReady,
+    resizeTwoDimensionalCanvas: () => resizeClientViewport({ dom: { canvas }, viewportSize }),
+    create: (onContextLost) =>
+      createClientThreeTerrainRenderer({
+        state, canvas, keyFor, wrapX, wrapY, terrainAt, effectiveOverlayColor, tileVisibilityStateAt,
         settlementProgressForTile: actionFlow.settlementProgressForTile,
-        isPlacementValidForTile: actionFlow.isPlacementValidForTile
-      });
-      setTrue3DRendererActive(true);
-    } catch (error) {
-      console.error("[renderer-3d-init-failed]", error);
-      setTrue3DRendererActive(false);
-    }
-  };
-  if (!shouldUseThreeTerrainRenderer) {
-    setTrue3DRendererActive(false);
-  }
+        isPlacementValidForTile: actionFlow.isPlacementValidForTile,
+        onContextLost
+      })
+  });
+  const ensureThreeTerrainRenderer = threeRendererHost.ensure;
 
   const worldTileRawFromPointer = (offsetX: number, offsetY: number): { gx: number; gy: number } =>
-    threeTerrainRenderer?.worldTileRawFromPointer(offsetX, offsetY) ?? deps.worldTileRawFromPointerFromModule(state, canvas, offsetX, offsetY);
+    threeRendererHost.current()?.worldTileRawFromPointer(offsetX, offsetY) ?? deps.worldTileRawFromPointerFromModule(state, canvas, offsetX, offsetY);
   const projectedWorldToScreen = (wx: number, wy: number, size: number, halfW: number, halfH: number): { sx: number; sy: number } =>
-    threeTerrainRenderer?.worldToScreen(wx, wy) ?? worldToScreen(wx, wy, size, halfW, halfH);
+    threeRendererHost.current()?.worldToScreen(wx, wy) ?? worldToScreen(wx, wy, size, halfW, halfH);
 
   const computeDragPreview = (): void =>
     deps.computeDragPreviewFromModule({ state, canvas, wrapX, wrapY, keyFor, hasCollectableYield });
@@ -430,7 +412,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
   const resize = (): void => {
     ensureThreeTerrainRenderer();
     resizeClientViewport({ dom: { canvas }, viewportSize });
-    threeTerrainRenderer?.resize();
+    threeRendererHost.current()?.resize();
   };
   window.addEventListener("resize", resize);
   window.visualViewport?.addEventListener("resize", resize);
@@ -569,7 +551,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     // The 3D dock overlay supersedes the SVG dock icons when the true-3D
     // renderer is mounted, so route to an empty variant array to skip
     // the 2D draws (the runtime loop guards on element presence).
-    dockOverlayVariants: shouldUseThreeTerrainRenderer ? [] : dockOverlayVariants,
+    dockOverlayVariants: prefersTrue3DRendererMode ? [] : dockOverlayVariants,
     drawCenteredOverlay,
     builtResourceOverlayForTile,
     resourceOverlayForTile,
@@ -586,7 +568,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     // building itself is rendered by the 3D town overlay. In 2D mode,
     // draw the full SVG building + corner badge as before.
     drawTownOverlay: (tile, px, py, size) => {
-      if (threeTerrainRenderer) {
+      if (threeRendererHost.current()) {
         if (tile.town) drawTownMarker(px, py, size);
         return;
       }

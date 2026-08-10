@@ -1,5 +1,8 @@
 import type { ClientState } from "../client-state/client-state.js";
 import { snapshotClientDebugEvents } from "../client-debug/client-debug.js";
+import { rendererFailureSnapshot, webGLProbe } from "../client-webgl-probe/client-webgl-probe.js";
+import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js";
+import { MIN_ZOOM } from "../client-constants.js";
 
 type DebugBundleState = Pick<
   ClientState,
@@ -145,6 +148,14 @@ export const buildClientDebugBundle = async (args: {
     wsUrl: args.wsUrl,
     serverOrigin,
     clientState: stateSnapshot(args.state),
+    // The whole point of the probe on a device we can't reproduce on: this is
+    // what tells us whether 3D failed for lack of webgl2, a refused context, a
+    // lost context, or something else entirely.
+    renderer: {
+      webgl: webGLProbe(),
+      tileBudget: resolveTileBudget(MIN_ZOOM),
+      failure: rendererFailureSnapshot()
+    },
     clientEvents,
     attackDebug: {
       client: attackDebugClientEvents(clientEvents),
