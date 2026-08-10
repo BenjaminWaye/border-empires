@@ -39,7 +39,11 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockAssemblyWorks: "Assembly Works",
   unlockPopulationBureau: "Population Bureau",
   unlockIronLevy: "The Iron Levy",
-  unlockWeaponsWorkshop: "Weapons Workshop"
+  // unlockWeaponsWorkshop retired — Weapons Workshop is no longer
+  // unlockable (structure-registry-economic.ts), replaced by the two
+  // labels below.
+  unlockIronWeaponsFactory: "Iron Weapons Factory",
+  unlockFurWeaponsFactory: "Fur Weapons Factory"
 };
 
 const ACTION_UNLOCK_LABELS: Record<string, string> = {

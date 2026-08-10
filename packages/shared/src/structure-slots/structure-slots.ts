@@ -89,11 +89,15 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   // Tier 4 — elite structures
   AETHER_TOWER: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
 
-  // War branch — Weapons Workshop consumes both IRON and SUPPLY (per user
-  // decision) since it converts both into a combat-strength boost. Uncapped
-  // per town (placementMode "same_tile") so each copy's slot cost is real
-  // and scales with how many a player builds.
+  // War branch — WEAPONS_WORKSHOP retired (structure-registry-economic.ts),
+  // replaced by the two resource-specific factories below. Entry kept so any
+  // copy a player already owns from before retirement keeps its slot cost.
   WEAPONS_WORKSHOP: [{ resource: "IRON", count: 1 }, { resource: "SUPPLY", count: 1 }],
+  // Each a dedicated single-resource sink (design doc), uncapped per town
+  // (placementMode "same_tile") so each copy's slot cost is real and scales
+  // with how many a player builds.
+  IRON_WEAPONS_FACTORY: [{ resource: "IRON", count: 1 }],
+  FUR_WEAPONS_FACTORY: [{ resource: "SUPPLY", count: 1 }],
 
   // Manpower branch — new buildings
   QUARTERMASTERS_OFFICE: [{ resource: "FOOD", count: 1 }],
