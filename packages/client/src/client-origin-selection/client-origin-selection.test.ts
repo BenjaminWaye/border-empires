@@ -155,6 +155,53 @@ describe("createClientOriginSelection", () => {
     expect(selector.pickOriginForTarget(10, 10)).toBeUndefined();
   });
 
+  it("chains off a neutral neighbor that is only queued locally (not yet dispatched)", () => {
+    const { state, selector } = createSelector();
+    // B: neutral, adjacent to owned A, and sitting in the local action queue.
+    addTile(state, { x: 10, y: 10, terrain: "LAND" });
+    addTile(state, { x: 10, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
+    state.actionQueue.push({ x: 10, y: 10, retries: 0 });
+    // C: neutral, adjacent only to B (not to any owned tile).
+    addTile(state, { x: 11, y: 11, terrain: "LAND" });
+
+    expect(selector.pickOriginForTarget(11, 11)).toMatchObject({ x: 10, y: 10 });
+    // Strict origin selection (real dispatch) must not treat a merely-queued
+    // neutral tile as usable — it isn't owned yet.
+    expect(selector.pickOriginForTarget(11, 11, true, false)).toBeUndefined();
+  });
+
+  it("chains off a neutral neighbor that is the in-flight EXPAND target", () => {
+    const { state, selector } = createSelector();
+    addTile(state, { x: 10, y: 10, terrain: "LAND" });
+    addTile(state, { x: 10, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" });
+    state.actionInFlight = true;
+    state.actionCurrent = { x: 10, y: 10, retries: 0, actionType: "EXPAND" };
+    addTile(state, { x: 11, y: 11, terrain: "LAND" });
+
+    expect(selector.pickOriginForTarget(11, 11)).toMatchObject({ x: 10, y: 10 });
+  });
+
+  it("does not chain through an enemy-owned neighbor that merely has a queued ATTACK", () => {
+    // actionQueue entries carry no actionType, so a queued attack on enemy
+    // territory must not be mistaken for a pending EXPAND claim -- B here is
+    // enemy-owned, not neutral land being claimed.
+    const { state, selector } = createSelector();
+    addTile(state, { x: 10, y: 10, terrain: "LAND", ownerId: "enemy", ownershipState: "SETTLED" }); // B
+    addTile(state, { x: 10, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" }); // A, owned, adjacent to B
+    state.actionQueue.push({ x: 10, y: 10, retries: 0 }); // queued ATTACK on B
+    addTile(state, { x: 11, y: 11, terrain: "LAND" }); // C, neutral, adjacent only to B
+
+    expect(selector.pickOriginForTarget(11, 11)).toBeUndefined();
+  });
+
+  it("does not treat a plain unqueued neutral neighbor as a usable origin", () => {
+    const { state, selector } = createSelector();
+    addTile(state, { x: 10, y: 10, terrain: "LAND" });
+    addTile(state, { x: 11, y: 11, terrain: "LAND" });
+
+    expect(selector.pickOriginForTarget(11, 11)).toBeUndefined();
+  });
+
   it("skips cut-off dock origins", () => {
     const { state, selector } = createSelector();
     const now = Date.now();
