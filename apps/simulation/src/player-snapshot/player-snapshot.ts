@@ -266,12 +266,18 @@ export const buildPlayerSubscriptionSnapshot = (
             eventLog: livePlayer.eventLog ?? [],
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,
-              IRON: livePlayer.strategicResources.IRON ?? 0,
+              IRON: livePlayer.strategicResources.TITANIUM ?? 0,
               CRYSTAL: livePlayer.strategicResources.CRYSTAL ?? 0,
-              SUPPLY: livePlayer.strategicResources.SUPPLY ?? 0,
+              SUPPLY: livePlayer.strategicResources.UMBRITE ?? 0,
               SHARD: livePlayer.strategicResources.SHARD ?? 0
             },
-            strategicProductionPerMinute,
+            strategicProductionPerMinute: {
+              FOOD: strategicProductionPerMinute.FOOD,
+              IRON: strategicProductionPerMinute.TITANIUM,
+              CRYSTAL: strategicProductionPerMinute.CRYSTAL,
+              SUPPLY: strategicProductionPerMinute.UMBRITE,
+              SHARD: strategicProductionPerMinute.SHARD
+            },
             resourceSlots: liveEconomy.resourceSlots,
             dormantStructures: liveEconomy.dormantStructures,
             economyBreakdown: liveEconomy.economyBreakdown,

@@ -18,15 +18,15 @@ describe("renderEconomyPanelHtml", () => {
       gold: 24.5,
       me: "me",
       incomePerMinute: 32.6,
-      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
-        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 1.4 },
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0,  gold: 1.4 },
       upkeepLastTick: { foodCoverage: 1, gold: { contributors: economyBreakdown.GOLD.sinks } },
       activeRevealTargetsCount: 0,
       tiles: [],
@@ -48,23 +48,23 @@ describe("renderEconomyPanelHtml", () => {
 
   it("does not show synthesizer gold upkeep on the output resource slot tab", () => {
     const economyBreakdown = emptyEconomyBreakdown();
-    economyBreakdown.SUPPLY.sources = [{ label: "Fur Synthesizer", amountPerMinute: 0.9, count: 1 }];
-    economyBreakdown.SUPPLY.sinks = [{ label: "Fur Synthesizer upkeep", amountPerMinute: 12, count: 1, resourceKey: "GOLD" }];
+    economyBreakdown.UMBRITE.sources = [{ label: "Fur Synthesizer", amountPerMinute: 0.9, count: 1 }];
+    economyBreakdown.UMBRITE.sinks = [{ label: "Fur Synthesizer upkeep", amountPerMinute: 12, count: 1, resourceKey: "GOLD" }];
 
     const html = renderEconomyPanelHtml({
-      focus: "SUPPLY",
+      focus: "UMBRITE",
       gold: 100,
       me: "me",
       incomePerMinute: 0,
-      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 50, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 50, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
-        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0.9, SHARD: 0 },
-      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 12 },
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0.9, SHARD: 0 },
+      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0,  gold: 12 },
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [],
@@ -92,15 +92,15 @@ describe("renderEconomyPanelHtml", () => {
       gold: 100,
       me: "me",
       incomePerMinute: 0,
-      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
-        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 0 },
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0,  gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [],
@@ -124,15 +124,15 @@ describe("renderEconomyPanelHtml", () => {
       gold: 63.6,
       me: "me",
       incomePerMinute: 10.8,
-      strategicResources: { FOOD: 8, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 2 },
+      strategicResources: { FOOD: 8, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 2 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
-        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 8, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0,  gold: 0 },
+      strategicProductionPerMinute: { FOOD: 8, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0,  gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [],
@@ -151,21 +151,21 @@ describe("renderEconomyPanelHtml", () => {
     expect(html).not.toContain("No current income");
   });
 
-  it("renders IRON as slots-used, not a stock/cap flow, and lists the Fort occupying one", () => {
+  it("renders TITANIUM as slots-used, not a stock/cap flow, and lists the Fort occupying one", () => {
     const html = renderEconomyPanelHtml({
-      focus: "IRON",
+      focus: "TITANIUM",
       gold: 0,
       me: "me",
       incomePerMinute: 0,
-      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
-        supply: { FOOD: 0, IRON: 2, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 0, IRON: 1, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 0, TITANIUM: 2, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 0, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [
@@ -200,15 +200,15 @@ describe("renderEconomyPanelHtml", () => {
       gold: 0,
       me: "me",
       incomePerMinute: 0,
-      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
-        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [],
@@ -228,15 +228,15 @@ describe("renderEconomyPanelHtml", () => {
       gold: 0,
       me: "me",
       incomePerMinute: 0,
-      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
-        supply: { FOOD: 0, IRON: 0, CRYSTAL: 1, SUPPLY: 0 },
-        demand: { FOOD: 0, IRON: 0, CRYSTAL: 1, SUPPLY: 0 }
+        supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 1, UMBRITE: 0 },
+        demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 1, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [],
@@ -254,19 +254,19 @@ describe("renderEconomyPanelHtml", () => {
 
   it("flags a dormant occupant in the 'Occupied by' column, matching the tile detail view's indicator", () => {
     const html = renderEconomyPanelHtml({
-      focus: "IRON",
+      focus: "TITANIUM",
       gold: 0,
       me: "me",
       incomePerMinute: 0,
-      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
-        supply: { FOOD: 0, IRON: 1, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 0, IRON: 1, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 0, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 0, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 }
       },
-      dormantStructures: [{ key: "0,0:fort", resources: ["IRON"] }],
-      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      dormantStructures: [{ key: "0,0:fort", resources: ["TITANIUM"] }],
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [
@@ -302,17 +302,17 @@ describe("renderEconomyPanelHtml", () => {
       gold: 0,
       me: "me",
       incomePerMinute: 0,
-      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
         // Only 1 of the 6 owned outposts bills a FOOD slot — the first
         // LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT (5) are waived (§23.2).
-        supply: { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 1, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 4, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 1, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0.4, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0.4, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [
@@ -347,15 +347,15 @@ describe("renderEconomyPanelHtml", () => {
       gold: 0,
       me: "me",
       incomePerMinute: 0,
-      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
-        supply: { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 4, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [
@@ -390,15 +390,15 @@ describe("renderEconomyPanelHtml", () => {
       gold: 0,
       me: "me",
       incomePerMinute: 0,
-      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
-        supply: { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 4, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 4, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 4, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0.4, iron: 0, supply: 0, crystal: 0, gold: 12 },
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0.4, titanium: 0, umbrite: 0, crystal: 0, gold: 12 },
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [],
@@ -417,26 +417,26 @@ describe("renderEconomyPanelHtml", () => {
     expect(html).not.toContain("-576.0/day");
   });
 
-  // Regression coverage for a real bug: the economy panel showed the IRON/
-  // CRYSTAL/SUPPLY summary cards and detail breakdowns unconditionally,
+  // Regression coverage for a real bug: the economy panel showed the TITANIUM/
+  // CRYSTAL/UMBRITE summary cards and detail breakdowns unconditionally,
   // revealing those resource categories exist before the player has
   // researched the tech that reveals them server-side (same bug already
   // fixed for the toolbar ribbon in client-panel-html.ts).
-  it("hides IRON/CRYSTAL/SUPPLY summary cards and detail sections when not revealed", () => {
+  it("hides TITANIUM/CRYSTAL/UMBRITE summary cards and detail sections when not revealed", () => {
     const html = renderEconomyPanelHtml({
       focus: "ALL",
       gold: 0,
       me: "me",
       incomePerMinute: 0,
-      strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
-        supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
       },
       dormantStructures: [],
-      strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-      upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [],
@@ -452,8 +452,8 @@ describe("renderEconomyPanelHtml", () => {
 
     expect(html).toContain("data-economy-focus=\"GOLD\"");
     expect(html).toContain("data-economy-focus=\"FOOD\"");
-    expect(html).not.toContain("data-economy-focus=\"IRON\"");
+    expect(html).not.toContain("data-economy-focus=\"TITANIUM\"");
     expect(html).not.toContain("data-economy-focus=\"CRYSTAL\"");
-    expect(html).not.toContain("data-economy-focus=\"SUPPLY\"");
+    expect(html).not.toContain("data-economy-focus=\"UMBRITE\"");
   });
 });

@@ -59,9 +59,9 @@ export const announceNaturalWonderClaim = (tile: DomainTileState, players: Map<s
 export const applyFoundryHeartSlotBonus = (hasFoundryHeart: boolean, totals: ResourceSlotTotals): void => {
   if (!hasFoundryHeart) return;
   totals.FOOD += 1;
-  totals.IRON += 1;
+  totals.TITANIUM += 1;
   totals.CRYSTAL += 1;
-  totals.SUPPLY += 1;
+  totals.UMBRITE += 1;
 };
 
 // Quickforge: waive one rush-buy's gold cost per UTC day for the player. The

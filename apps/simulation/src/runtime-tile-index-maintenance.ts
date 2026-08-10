@@ -34,9 +34,8 @@ export const isYieldBearingTile = (tile: DomainTileState): boolean => {
     switch (tile.resource) {
       case "FARM":
       case "FISH":
-      case "IRON":
-      case "WOOD":
-      case "FUR":
+      case "TITANIUM":
+      case "UMBRITE":
       case "GEMS":
         return true;
       default:
@@ -45,10 +44,10 @@ export const isYieldBearingTile = (tile: DomainTileState): boolean => {
   }
   if (tile.economicStructure?.status === "active") {
     switch (tile.economicStructure.type) {
-      case "FUR_SYNTHESIZER":
-      case "ADVANCED_FUR_SYNTHESIZER":
-      case "IRONWORKS":
-      case "ADVANCED_IRONWORKS":
+      case "UMBRITE_SYNTHESIZER":
+      case "ADVANCED_UMBRITE_SYNTHESIZER":
+      case "TITANIUM_WORKS":
+      case "ADVANCED_TITANIUM_WORKS":
       case "CRYSTAL_SYNTHESIZER":
       case "ADVANCED_CRYSTAL_SYNTHESIZER":
         return true;

@@ -48,7 +48,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 
 - **One structure per tile** (mutex). Must be placed on a `SETTLED` tile owned by the builder.
 - **Categories**:
-  - Economic: Farmstead, Camp, Mine, Granary, Market, Bank, Synthesizers (Fur/Ironworks/Crystal), Fuel Plant, Caravanary, Foundry, Governance (Governor's Office, Garrison Hall, Customs House, Radar System).
+  - Economic: Farmstead, Umbrite Rig, Mine, Granary, Market, Bank, Synthesizers (Umbrite/Titanium Works/Crystal), Fuel Plant, Caravanary, Foundry, Governance (Governor's Office, Garrison Hall, Customs House, Radar System).
   - Military: Fort, Siege Outpost, Observatory.
   - Monuments (late-game, ultra-high cost, built in 4 stages with shard cost): Imperial Exchange, World Engine, Aegis Dome, Astral Dock.
 - **Unlocks**: tech-gated. Costs scale incrementally or exponentially with existing count, in gold + strategic resources.

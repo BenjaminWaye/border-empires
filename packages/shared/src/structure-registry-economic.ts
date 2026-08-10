@@ -25,7 +25,7 @@ const economicPlacement: StructureSpec["placement"] = [
 export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureType, string>> = {
   FARMSTEAD: "agriculture",
   WATERWORKS: "irrigation",
-  CAMP: "leatherworking",
+  UMBRITE_RIG: "leatherworking",
   MINE: "mining",
   MARKET: "trade",
   GRANARY: "pottery",
@@ -33,10 +33,10 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   CLEARING_HOUSE: "coinage",
   AIRPORT: "aeronautics",
   AETHER_TOWER: "plastics",
-  FUR_SYNTHESIZER: "workshops",
-  ADVANCED_FUR_SYNTHESIZER: "advanced-synthetication",
-  IRONWORKS: "alchemy",
-  ADVANCED_IRONWORKS: "advanced-synthetication",
+  UMBRITE_SYNTHESIZER: "workshops",
+  ADVANCED_UMBRITE_SYNTHESIZER: "advanced-synthetication",
+  TITANIUM_WORKS: "alchemy",
+  ADVANCED_TITANIUM_WORKS: "advanced-synthetication",
   CRYSTAL_SYNTHESIZER: "crystal-lattices",
   ADVANCED_CRYSTAL_SYNTHESIZER: "advanced-synthetication",
   CARAVANARY: "ledger-keeping",
@@ -55,8 +55,8 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
 
 function upgradePrereq(type: EconomicStructureType): readonly string[] | undefined {
   switch (type) {
-    case "ADVANCED_FUR_SYNTHESIZER": return ["FUR_SYNTHESIZER"];
-    case "ADVANCED_IRONWORKS": return ["IRONWORKS"];
+    case "ADVANCED_UMBRITE_SYNTHESIZER": return ["UMBRITE_SYNTHESIZER"];
+    case "ADVANCED_TITANIUM_WORKS": return ["TITANIUM_WORKS"];
     case "ADVANCED_CRYSTAL_SYNTHESIZER": return ["CRYSTAL_SYNTHESIZER"];
     case "SEED_GRANARY": return ["GRANARY"];
     case "IMPERIAL_EXCHANGE": return ["IMPERIAL_EXCHANGE_PART"];
@@ -64,7 +64,7 @@ function upgradePrereq(type: EconomicStructureType): readonly string[] | undefin
     case "AEGIS_DOME": return ["AEGIS_DOME_PART"];
     case "ASTRAL_DOCK": return ["ASTRAL_DOCK_PART"];
     case "POPULATION_BUREAU": return ["POPULATION_BUREAU_PART"];
-    case "IRON_LEVY": return ["IRON_LEVY_PART"];
+    case "TITANIUM_LEVY": return ["TITANIUM_LEVY_PART"];
     default: return undefined;
   }
 }
@@ -78,13 +78,13 @@ function upgradePrereq(type: EconomicStructureType): readonly string[] | undefin
 // actually read from THIS registry at runtime, spec.upkeep has zero
 // consumers in apps/simulation/src). Non-synthesizer structures are zero
 // here because their named upkeep constants (FARMSTEAD_GOLD_UPKEEP,
-// CAMP_GOLD_UPKEEP, etc., packages/game-domain/src/server-game-constants/
+// UMBRITE_RIG_GOLD_UPKEEP, etc., packages/game-domain/src/server-game-constants/
 // server-game-constants.ts) are hardcoded to 0 — NOT because "slot
 // occupation replaced upkeep." Slot occupation (structure-slots.ts) is a
 // separate mechanism gating whether a structure can be built/exist at all;
 // it is not a per-minute drain and was never the reason these are zero.
 // Synthesizers are the one family with real, nonzero per-minute GOLD
-// upkeep (§6.4): 30 gold/day (Fur/Iron), 40 gold/day (Crystal), Advanced
+// upkeep (§6.4): 30 gold/day (Umbrite/Titanium), 40 gold/day (Crystal), Advanced
 // tiers at 1.5x (45/45/60), expressed per-minute (÷1440). ─────────────
 
 const GOLD_UPKEEP = (rate: number): TileUpkeepEntry => ({
@@ -134,7 +134,7 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   // Resource-tile structures
   FARMSTEAD: econSpec("FARMSTEAD"),
   WATERWORKS: econSpec("WATERWORKS"),
-  CAMP: econSpec("CAMP"),
+  UMBRITE_RIG: econSpec("UMBRITE_RIG"),
   MINE: econSpec("MINE"),
 
   // Town-support structures
@@ -148,18 +148,18 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   AIRPORT: econSpec("AIRPORT"),
   AETHER_TOWER: econSpec("AETHER_TOWER"),
 
-  // Converters — 30 gold/day (Fur/Iron) or 40 gold/day (Crystal), Advanced
+  // Converters — 30 gold/day (Umbrite/Titanium) or 40 gold/day (Crystal), Advanced
   // tiers at 1.5x (45/45/60), §6.4.
-  FUR_SYNTHESIZER: econSpec("FUR_SYNTHESIZER", {
+  UMBRITE_SYNTHESIZER: econSpec("UMBRITE_SYNTHESIZER", {
     upkeep: [GOLD_UPKEEP(30 / 1440)],
   }),
-  ADVANCED_FUR_SYNTHESIZER: econSpec("ADVANCED_FUR_SYNTHESIZER", {
+  ADVANCED_UMBRITE_SYNTHESIZER: econSpec("ADVANCED_UMBRITE_SYNTHESIZER", {
     upkeep: [GOLD_UPKEEP(45 / 1440)],
   }),
-  IRONWORKS: econSpec("IRONWORKS", {
+  TITANIUM_WORKS: econSpec("TITANIUM_WORKS", {
     upkeep: [GOLD_UPKEEP(30 / 1440)],
   }),
-  ADVANCED_IRONWORKS: econSpec("ADVANCED_IRONWORKS", {
+  ADVANCED_TITANIUM_WORKS: econSpec("ADVANCED_TITANIUM_WORKS", {
     upkeep: [GOLD_UPKEEP(45 / 1440)],
   }),
   CRYSTAL_SYNTHESIZER: econSpec("CRYSTAL_SYNTHESIZER", {
@@ -192,7 +192,7 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   AEGIS_DOME_PART: econSpec("AEGIS_DOME_PART"),
   ASTRAL_DOCK_PART: econSpec("ASTRAL_DOCK_PART"),
   POPULATION_BUREAU_PART: econSpec("POPULATION_BUREAU_PART"),
-  IRON_LEVY_PART: econSpec("IRON_LEVY_PART"),
+  TITANIUM_LEVY_PART: econSpec("TITANIUM_LEVY_PART"),
 
   // Completed wonders (require their part as prerequisite)
   IMPERIAL_EXCHANGE: econSpec("IMPERIAL_EXCHANGE"),
@@ -200,7 +200,7 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   AEGIS_DOME: econSpec("AEGIS_DOME"),
   ASTRAL_DOCK: econSpec("ASTRAL_DOCK"),
   POPULATION_BUREAU: econSpec("POPULATION_BUREAU"),
-  IRON_LEVY: econSpec("IRON_LEVY"),
+  TITANIUM_LEVY: econSpec("TITANIUM_LEVY"),
 
   // WOODEN_FORT — uses its own WOODEN_FORT_BUILD_MS constant (10 min).
   // §12.1: FOOD cost is already charged as a resource-slot occupation

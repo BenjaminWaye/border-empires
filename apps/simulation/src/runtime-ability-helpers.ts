@@ -379,9 +379,9 @@ export function buildRevealEmpireStatsFromSummary(
     manpowerCap: Math.max(target.manpower, 100),
     strategicResources: {
       FOOD: target.strategicResources?.FOOD ?? 0,
-      IRON: target.strategicResources?.IRON ?? 0,
+      TITANIUM: target.strategicResources?.TITANIUM ?? 0,
       CRYSTAL: target.strategicResources?.CRYSTAL ?? 0,
-      SUPPLY: target.strategicResources?.SUPPLY ?? 0,
+      UMBRITE: target.strategicResources?.UMBRITE ?? 0,
       SHARD: target.strategicResources?.SHARD ?? 0
     } satisfies Record<StrategicResourceKey, number>
   };
@@ -416,9 +416,9 @@ export function buildRevealEmpireStats(
     manpowerCap: Math.max(target.manpower, 100),
     strategicResources: {
       FOOD: target.strategicResources?.FOOD ?? 0,
-      IRON: target.strategicResources?.IRON ?? 0,
+      TITANIUM: target.strategicResources?.TITANIUM ?? 0,
       CRYSTAL: target.strategicResources?.CRYSTAL ?? 0,
-      SUPPLY: target.strategicResources?.SUPPLY ?? 0,
+      UMBRITE: target.strategicResources?.UMBRITE ?? 0,
       SHARD: target.strategicResources?.SHARD ?? 0
     } satisfies Record<StrategicResourceKey, number>
   };

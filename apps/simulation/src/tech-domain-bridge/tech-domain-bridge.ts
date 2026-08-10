@@ -42,7 +42,7 @@ type DomainCatalogEntry = {
   cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>;
 };
 
-type StrategicCounts = Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+type StrategicCounts = Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
 type TileResource = NonNullable<DomainTileState["resource"]>;
 type RawResourceCounts = Partial<Record<TileResource, number>>;
 
@@ -107,9 +107,9 @@ const toResources = (
   cost?: Partial<Record<"gold" | "food" | "iron" | "crystal" | "supply" | "shard", number>>
 ): StrategicCounts => ({
   ...(typeof cost?.food === "number" && cost.food > 0 ? { FOOD: cost.food } : {}),
-  ...(typeof cost?.iron === "number" && cost.iron > 0 ? { IRON: cost.iron } : {}),
+  ...(typeof cost?.iron === "number" && cost.iron > 0 ? { TITANIUM: cost.iron } : {}),
   ...(typeof cost?.crystal === "number" && cost.crystal > 0 ? { CRYSTAL: cost.crystal } : {}),
-  ...(typeof cost?.supply === "number" && cost.supply > 0 ? { SUPPLY: cost.supply } : {}),
+  ...(typeof cost?.supply === "number" && cost.supply > 0 ? { UMBRITE: cost.supply } : {}),
   ...(typeof cost?.shard === "number" && cost.shard > 0 ? { SHARD: cost.shard } : {})
 });
 
@@ -178,7 +178,7 @@ const playerWorldFlags = (playerId: string, tiles: Iterable<AiProgressionPlanner
   const flags = new Set<string>();
   for (const tile of tiles) {
     if (tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
-    if (tile.resource === "IRON") flags.add("active_iron_site");
+    if (tile.resource === "TITANIUM") flags.add("active_titanium_site");
     if (tile.resource === "GEMS") flags.add("active_crystal_site");
     if (tile.town) flags.add("active_town");
     if (tile.dockId) flags.add("active_dock");
@@ -397,13 +397,13 @@ export const chooseAiTechChoiceForPlayer = (
       if (tech.id === "agriculture" && (flags.has("active_town") || (counts.FARM ?? 0) > 0 || (counts.FISH ?? 0) > 0)) score += 55;
       if (tech.id === "trade" && flags.has("active_town")) score += 50;
       if (tech.id === "trade" && flags.has("active_dock")) score += 40;
-      if (tech.id === "tribal-warfare" && (counts.IRON ?? 0) > 0) score += 40;
+      if (tech.id === "tribal-warfare" && (counts.TITANIUM ?? 0) > 0) score += 40;
       if (tech.id === "tribal-warfare" && (flags.has("active_town") || flags.has("active_dock"))) score += 28;
       if (tech.id === "cartography" && (counts.GEMS ?? 0) > 0) score += 30;
-      if (tech.id === "mining" && (flags.has("active_iron_site") || flags.has("active_crystal_site"))) score += 55;
+      if (tech.id === "mining" && (flags.has("active_titanium_site") || flags.has("active_crystal_site"))) score += 55;
       if (tech.id === "masonry" && flags.has("active_town")) score += 45;
       if (tech.id === "masonry" && flags.has("active_dock")) score += 25;
-      if (tech.id === "leatherworking" && ((counts.WOOD ?? 0) > 0 || (counts.FUR ?? 0) > 0)) score += 35;
+      if (tech.id === "leatherworking" && (counts.UMBRITE ?? 0) > 0) score += 35;
       if (tech.id === "harborcraft" && flags.has("active_dock")) score += 65;
       if (tech.id === "maritime-trade" && flags.has("active_dock")) score += 55;
       if (tech.id === "port-infrastructure" && flags.has("active_dock")) score += 45;
@@ -455,7 +455,7 @@ export const chooseAiDomainChoiceForPlayer = (
       if (domain.id === "mercantile-charter" && flags.has("active_dock")) score += 35;
       if (domain.id === "clockwork-stipend") score += 30;
       if (domain.id === "iron-bastions" && flags.has("active_town")) score += 20;
-      if (domain.id === "supply-raiding" && ((counts.WOOD ?? 0) > 0 || (counts.FUR ?? 0) > 0)) score += 18;
+      if (domain.id === "supply-raiding" && (counts.UMBRITE ?? 0) > 0) score += 18;
       const resourceCost = toResources(domain.cost);
       return {
         id: domain.id,
@@ -532,7 +532,7 @@ export const domainGrantedResourceSlots = (
   player: Pick<DomainPlayer, "domainIds" | "chosenTrickleResource">
 ): Partial<Record<SlotResource, number>> | undefined => {
   const chosen = player.chosenTrickleResource;
-  if (chosen !== "IRON" && chosen !== "SUPPLY" && chosen !== "CRYSTAL") return undefined;
+  if (chosen !== "TITANIUM" && chosen !== "UMBRITE" && chosen !== "CRYSTAL") return undefined;
   for (const domainId of player.domainIds ?? []) {
     const domain = domainEntryById.get(domainId);
     const grant = domain?.effects?.chosenResourceSlotGrant;
@@ -597,9 +597,9 @@ export const buildTechUpdatePayload = (
   const goldCost = techGoldCostForResearchedCount(player.techIds.size);
   const strategicResources = {
     FOOD: available.FOOD ?? 0,
-    IRON: available.IRON ?? 0,
+    TITANIUM: available.TITANIUM ?? 0,
     CRYSTAL: available.CRYSTAL ?? 0,
-    SUPPLY: available.SUPPLY ?? 0,
+    UMBRITE: available.UMBRITE ?? 0,
     SHARD: available.SHARD ?? 0
   };
   return {

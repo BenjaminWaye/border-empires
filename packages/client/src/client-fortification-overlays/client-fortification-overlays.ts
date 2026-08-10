@@ -1,6 +1,6 @@
 import type { Tile } from "../client-types.js";
 
-export type FortificationOverlayKind = "FORT" | "IRON_BASTION" | "THUNDER_BASTION" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "LIGHT_OUTPOST";
+export type FortificationOverlayKind = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "LIGHT_OUTPOST";
 export type FortificationOpening = "CLOSED" | "NORTH" | "EAST" | "SOUTH" | "WEST";
 
 type FortificationOverlayDeps = {
@@ -21,7 +21,7 @@ export const fortificationOverlayKindForTile = (tile: Tile | undefined): Fortifi
   if (!tile) return undefined;
   if (tile.fort) {
     const variant = tile.fort.variant;
-    if (variant === "IRON_BASTION") return "IRON_BASTION";
+    if (variant === "TITANIUM_BASTION") return "TITANIUM_BASTION";
     if (variant === "THUNDER_BASTION") return "THUNDER_BASTION";
     return "FORT";
   }

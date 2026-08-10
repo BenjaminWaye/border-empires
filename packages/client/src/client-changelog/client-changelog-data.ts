@@ -80,7 +80,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1786165552000, // 2026.08.08.1
     introducedIn: "2026.08.08.1",
     title: "Wooden Fort renamed to Palisade",
-    why: "\"Wooden Fort\" was a mouthful next to the ladder's other short names (Fort, Iron Bastion, Thunder Bastion); Palisade is shorter and reads as the entry-tier defensive structure it is.",
+    why: "\"Wooden Fort\" was a mouthful next to the ladder's other short names (Fort, Titanium Bastion, Thunder Bastion); Palisade is shorter and reads as the entry-tier defensive structure it is.",
     changes: [
       "The lightweight border/dock fortification is now called \"Palisade\" everywhere in the UI — tile menu, economy panel, and build actions. No change to its cost, defense bonus, or build time."
     ]

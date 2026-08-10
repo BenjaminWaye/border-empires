@@ -1,7 +1,7 @@
 import { ECONOMIC_STRUCTURE_BUILD_MS, FORT_BUILD_MS, LIGHT_OUTPOST_BUILD_MS, OBSERVATORY_BUILD_MS, SIEGE_OUTPOST_BUILD_MS, WOODEN_FORT_BUILD_MS } from "../config.js";
 import type { EconomicStructureType, FortVariant, SiegeOutpostVariant } from "../types.js";
 
-export type StrategicResourceCostType = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+export type StrategicResourceCostType = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 export type BuildableStructureType = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | EconomicStructureType;
 
 type StructureScaling =
@@ -28,7 +28,7 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   FORT: {
     baseGoldCost: 0,
     manpowerCost: 300,
-    resourceCost: { resource: "IRON", amount: 45 },
+    resourceCost: { resource: "TITANIUM", amount: 45 },
     scaling: { kind: "incremental", rate: 0.1 }
   },
   OBSERVATORY: {
@@ -40,7 +40,7 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   SIEGE_OUTPOST: {
     baseGoldCost: 0,
     manpowerCost: 60,
-    resourceCost: { resource: "SUPPLY", amount: 45 },
+    resourceCost: { resource: "UMBRITE", amount: 45 },
     scaling: { kind: "incremental", rate: 0.1 }
   },
   // Manpower costs below implement docs/manpower-economy-rewrite-plan.md §4.1/§4.4
@@ -51,8 +51,8 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // model is §5 (Step 5), out of scope for this pass.
   FARMSTEAD: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
   WATERWORKS: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
-  CAMP: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "SUPPLY", amount: 30 } },
-  MINE: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "IRON", amount: 30 }, resourceOptions: ["IRON", "CRYSTAL"] },
+  UMBRITE_RIG: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "UMBRITE", amount: 30 } },
+  MINE: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "TITANIUM", amount: 30 }, resourceOptions: ["TITANIUM", "CRYSTAL"] },
   MARKET: { baseGoldCost: 0, manpowerCost: 150 },
   GRANARY: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 40 } },
   SEED_GRANARY: { baseGoldCost: 0, manpowerCost: 100, resourceCost: { resource: "FOOD", amount: 80 } },
@@ -79,10 +79,10 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
     manpowerCost: 30,
     scaling: { kind: "incremental", rate: 0.1 }
   },
-  FUR_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 150 },
-  ADVANCED_FUR_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "SUPPLY", amount: 40 } },
-  IRONWORKS: { baseGoldCost: 0, manpowerCost: 150 },
-  ADVANCED_IRONWORKS: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "IRON", amount: 40 } },
+  UMBRITE_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 150 },
+  ADVANCED_UMBRITE_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "UMBRITE", amount: 40 } },
+  TITANIUM_WORKS: { baseGoldCost: 0, manpowerCost: 150 },
+  ADVANCED_TITANIUM_WORKS: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "TITANIUM", amount: 40 } },
   CRYSTAL_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 150 },
   ADVANCED_CRYSTAL_SYNTHESIZER: { baseGoldCost: 0, manpowerCost: 300, resourceCost: { resource: "CRYSTAL", amount: 40 } },
   CARAVANARY: { baseGoldCost: 0, manpowerCost: 150 },
@@ -104,13 +104,13 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   AEGIS_DOME_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
   ASTRAL_DOCK_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
   POPULATION_BUREAU_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
-  IRON_LEVY_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
+  TITANIUM_LEVY_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
   IMPERIAL_EXCHANGE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
   WORLD_ENGINE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
   AEGIS_DOME: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
   ASTRAL_DOCK: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
   POPULATION_BUREAU: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
-  IRON_LEVY: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } }
+  TITANIUM_LEVY: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } }
 };
 
 // ── Fort tier ladder ───────────────────────────────────────────────
@@ -121,28 +121,28 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
 export type FortTierInfo = {
   variant: FortVariant;
   gold: number;
-  iron: number;
+  titanium: number;
   manpower: number;
   defenseMult: number;
 };
 
 export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
-  WOODEN_FORT:      { variant: "WOODEN_FORT",      gold: 0,  iron: 0,   manpower: 150, defenseMult: 1.35 },
-  FORT:             { variant: "FORT",             gold: 0,  iron: 45,  manpower: 300, defenseMult: 2.5 },
-  IRON_BASTION:     { variant: "IRON_BASTION",     gold: 0,  iron: 90,  manpower: 300, defenseMult: 4 },
-  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  iron: 180, manpower: 300, defenseMult: 8 },
+  WOODEN_FORT:      { variant: "WOODEN_FORT",      gold: 0,  titanium: 0,   manpower: 150, defenseMult: 1.35 },
+  FORT:             { variant: "FORT",             gold: 0,  titanium: 45,  manpower: 300, defenseMult: 2.5 },
+  TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 90,  manpower: 300, defenseMult: 4 },
+  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 180, manpower: 300, defenseMult: 8 },
 };
 
 export const FORT_VARIANT_LABELS: Record<FortVariant, string> = {
   WOODEN_FORT: "Palisade",
   FORT: "Fort",
-  IRON_BASTION: "Iron Bastion",
+  TITANIUM_BASTION: "Titanium Bastion",
   THUNDER_BASTION: "Thunder Bastion",
 };
 
 export const bestFortTierForTech = (has: (id: string) => boolean): FortTierInfo => {
   if (has("steelworking")) return FORT_TIER_LADDER.THUNDER_BASTION;
-  if (has("fortified-walls")) return FORT_TIER_LADDER.IRON_BASTION;
+  if (has("fortified-walls")) return FORT_TIER_LADDER.TITANIUM_BASTION;
   return FORT_TIER_LADDER.FORT;
 };
 
@@ -152,8 +152,8 @@ export const nextFortTierForUpgrade = (
 ): FortTierInfo | null => {
   const resolved = current ?? "FORT";
   if (resolved === "WOODEN_FORT") return FORT_TIER_LADDER.FORT;
-  if (resolved === "FORT" && has("fortified-walls")) return FORT_TIER_LADDER.IRON_BASTION;
-  if (resolved === "IRON_BASTION" && has("steelworking")) return FORT_TIER_LADDER.THUNDER_BASTION;
+  if (resolved === "FORT" && has("fortified-walls")) return FORT_TIER_LADDER.TITANIUM_BASTION;
+  if (resolved === "TITANIUM_BASTION" && has("steelworking")) return FORT_TIER_LADDER.THUNDER_BASTION;
   return null;
 };
 
@@ -164,16 +164,16 @@ export const nextFortTierForUpgrade = (
 export type SiegeTierInfo = {
   variant: SiegeOutpostVariant;
   gold: number;
-  supply: number;
-  iron: number;
+  umbrite: number;
+  titanium: number;
   manpower: number;
   attackMult: number;
 };
 
 export const SIEGE_TIER_LADDER: Record<SiegeOutpostVariant, SiegeTierInfo> = {
-  SIEGE_OUTPOST: { variant: "SIEGE_OUTPOST", gold: 0, supply: 45,  iron: 0,   manpower: 60, attackMult: 1.6 },
-  SIEGE_TOWER:   { variant: "SIEGE_TOWER",   gold: 0, supply: 90,  iron: 60,  manpower: 60, attackMult: 1.8 },
-  DREAD_TOWER:   { variant: "DREAD_TOWER",   gold: 0, supply: 140, iron: 120, manpower: 60, attackMult: 2.0 },
+  SIEGE_OUTPOST: { variant: "SIEGE_OUTPOST", gold: 0, umbrite: 45,  titanium: 0,   manpower: 60, attackMult: 1.6 },
+  SIEGE_TOWER:   { variant: "SIEGE_TOWER",   gold: 0, umbrite: 90,  titanium: 60,  manpower: 60, attackMult: 1.8 },
+  DREAD_TOWER:   { variant: "DREAD_TOWER",   gold: 0, umbrite: 140, titanium: 120, manpower: 60, attackMult: 2.0 },
 };
 
 export const SIEGE_VARIANT_LABELS: Record<SiegeOutpostVariant, string> = {

@@ -38,11 +38,11 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 
 import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  IRONWORKS_GOLD_UPKEEP_PER_DAY,
+  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import { townFoodUpkeepPerMinute } from "../player-update-economy/player-update-economy.js";
@@ -51,17 +51,17 @@ import { townFoodUpkeepPerMinute } from "../player-update-economy/player-update-
 export type UpkeepAccrualSnapshot = {
   gold: number;
   food: number;
-  iron: number;
+  titanium: number;
   crystal: number;
-  supply: number;
+  umbrite: number;
 };
 
 export const emptyUpkeepAccrualSnapshot = (): UpkeepAccrualSnapshot => ({
   gold: 0,
   food: 0,
-  iron: 0,
+  titanium: 0,
   crystal: 0,
-  supply: 0
+  umbrite: 0
 });
 
 /**
@@ -85,9 +85,9 @@ export const tileUpkeepContribution = (
 
   let gold = 0;
   let food = 0;
-  let iron = 0;
+  let titanium = 0;
   let crystal = 0;
-  let supply = 0;
+  let umbrite = 0;
   // Town food upkeep.
   if (tile.town) {
     food += townFoodUpkeepPerMinute(tile.town.populationTier);
@@ -102,26 +102,26 @@ export const tileUpkeepContribution = (
 
   // Economic structure upkeep. Every structure except the synthesizer
   // family (Fur/Iron/Crystal + Advanced tiers, §6.4) has zero ongoing
-  // upkeep: FOOD/IRON/CRYSTAL/SUPPLY are slot-based (structure-slots.ts),
+  // upkeep: FOOD/TITANIUM/CRYSTAL/UMBRITE are slot-based (structure-slots.ts),
   // not a per-minute drain, and only the synthesizers still have a real
   // GOLD cost for their conversion. Fort and Siege Outpost families (below)
   // are the same — no per-minute drain, only their slot occupation.
   const structure = tile.economicStructure;
   if (structure?.ownerId === ownerId && structure.status === "active") {
     switch (structure.type) {
-      case "FUR_SYNTHESIZER":   gold    += FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
-      case "ADVANCED_FUR_SYNTHESIZER":
-                                gold    += ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
-      case "IRONWORKS":         gold    += IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
-      case "ADVANCED_IRONWORKS":
-                                gold    += ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "UMBRITE_SYNTHESIZER":   gold  += UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "ADVANCED_UMBRITE_SYNTHESIZER":
+                                gold    += ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "TITANIUM_WORKS":    gold    += TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
+      case "ADVANCED_TITANIUM_WORKS":
+                                gold    += ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "CRYSTAL_SYNTHESIZER": gold  += CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
       case "ADVANCED_CRYSTAL_SYNTHESIZER":
                                 gold    += ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY; break;
     }
   }
 
-  return { gold, food, iron, crystal, supply };
+  return { gold, food, titanium, crystal, umbrite };
 };
 
 /**
@@ -135,11 +135,11 @@ export const addTileUpkeepToCache = (
   player: DomainPlayer
 ): void => {
   const contrib = tileUpkeepContribution(tile, ownerId, player);
-  cache.gold    += contrib.gold;
-  cache.food    += contrib.food;
-  cache.iron    += contrib.iron;
-  cache.crystal += contrib.crystal;
-  cache.supply  += contrib.supply;
+  cache.gold     += contrib.gold;
+  cache.food     += contrib.food;
+  cache.titanium += contrib.titanium;
+  cache.crystal  += contrib.crystal;
+  cache.umbrite  += contrib.umbrite;
 };
 
 /**
@@ -153,11 +153,11 @@ export const removeTileUpkeepFromCache = (
   player: DomainPlayer
 ): void => {
   const contrib = tileUpkeepContribution(tile, ownerId, player);
-  cache.gold    -= contrib.gold;
-  cache.food    -= contrib.food;
-  cache.iron    -= contrib.iron;
-  cache.crystal -= contrib.crystal;
-  cache.supply  -= contrib.supply;
+  cache.gold     -= contrib.gold;
+  cache.food     -= contrib.food;
+  cache.titanium -= contrib.titanium;
+  cache.crystal  -= contrib.crystal;
+  cache.umbrite  -= contrib.umbrite;
 };
 
 /**

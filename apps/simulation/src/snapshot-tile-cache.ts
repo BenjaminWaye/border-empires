@@ -34,7 +34,7 @@ export type RuntimeState = {
     manpowerCapSnapshot?: number;
     techIds: string[];
     domainIds: string[];
-    chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
+    chosenTrickleResource?: "TITANIUM" | "UMBRITE" | "CRYSTAL";
     imperialWardCharges?: number;
     eventLog?: PlayerEventLogEntry[];
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
@@ -64,7 +64,7 @@ export type RuntimeState = {
   terrainEpoch?: number;
 };
 
-export type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+export type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 export type EconomyResourceKey = StrategicResourceKey | "GOLD";
 export type EconomyBucket = {
   label: string;

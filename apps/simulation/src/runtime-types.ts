@@ -26,7 +26,7 @@ export type RuntimeTileYieldEconomyContext = {
   dormantEconomicStructureKeys: ReadonlySet<string>;
 };
 
-export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const;
+export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const;
 export type UpkeepStrategicKey = (typeof UPKEEP_STRATEGIC_KEYS)[number];
 export type UpkeepNeed = { gold: number } & Record<UpkeepStrategicKey, number>;
 

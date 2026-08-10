@@ -38,7 +38,7 @@ const farmResourceTile = (x: number, y: number, ownerId: string): DomainTileStat
   resource: "FARM"
 });
 
-const emptyNeed = (): UpkeepNeed => ({ gold: 0, FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+const emptyNeed = (): UpkeepNeed => ({ gold: 0, FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
 
 const emptyEconomyContext = (player: RuntimePlayer): RuntimeTileYieldEconomyContext => ({
   player,

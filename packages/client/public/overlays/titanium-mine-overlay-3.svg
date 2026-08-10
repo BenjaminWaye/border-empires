@@ -14,14 +14,14 @@
   <circle cx="72" cy="98" r="2" fill="#B8C1CD"/>
 
 
-  <path d="M88 70L98 75L100 84L92 92L82 90L80 80L88 70Z" fill="#7B828B"/>
-  <path d="M88 70L92 78L92 92L82 90L80 80L88 70Z" fill="#B8C0C8"/>
+  <path d="M88 70L98 75L100 84L92 92L82 90L80 80L88 70Z" fill="#808080"/>
+  <path d="M88 70L92 78L92 92L82 90L80 80L88 70Z" fill="#BCBCBC"/>
   <path d="M86 76L89 84" stroke="#D8B56A" stroke-width="2" stroke-linecap="round"/>
   <path d="M91 78L88 88" stroke="#D8B56A" stroke-width="2" stroke-linecap="round"/>
 
 
-  <path d="M102 82L112 87L114 96L106 104L96 102L94 92L102 82Z" fill="#6F767F"/>
-  <path d="M102 82L106 90L106 104L96 102L94 92L102 82Z" fill="#AAB3BC"/>
+  <path d="M102 82L112 87L114 96L106 104L96 102L94 92L102 82Z" fill="#737373"/>
+  <path d="M102 82L106 90L106 104L96 102L94 92L102 82Z" fill="#ADADAD"/>
   <path d="M100 88L103 96" stroke="#D8B56A" stroke-width="2" stroke-linecap="round"/>
   <path d="M105 90L102 100" stroke="#D8B56A" stroke-width="2" stroke-linecap="round"/>
 

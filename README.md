@@ -18,16 +18,16 @@ Each player controls a civilization that starts from a single land tile, expands
 - The world is a toroidal grid (wrap-around edges) seeded fresh each season with a unique world seed.
 - **Terrain types**: `LAND` (claimable), `SEA` / `COASTAL_SEA` (barrier, crossable only via docks or aether bridges), `MOUNTAIN` (barrier, mutable via aether abilities).
 - The map style in production is island-heavy, making docks and maritime control strategically critical.
-- Tiles can carry resource tags (farms, iron hills, crystal deposits, etc.) that drive economic specialization.
+- Tiles can carry resource tags (farms, titanium hills, crystal deposits, etc.) that drive economic specialization.
 
 ### Economy
 
 - **Manpower** is the empire's primary resource, funding every physical action: expanding, settling, building structures, and attacking. It regenerates over time from an empire-wide pool sized by town population tier; a depleted empire cannot afford sustained expansion or warfare.
 - **Gold** is narrow and tech-focused: it funds research, a handful of abilities that still carry a gold cost (Aether Purge, Terrain Shaping, Airport Bombard, World Engine Strike), and *rush-buys* — paying gold to instantly finish an in-progress manpower-gated build or settle. Passive gold income comes from settled tiles, scaled by town tier and structure modifiers.
-- **Strategic resources** — Food, Iron, Crystal, Supply — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
+- **Strategic resources** — Food, Titanium, Crystal, Umbrite — are permanent slot allocations, not stockpiles: a structure or town either has a free slot backed by an owned resource tile (or a synthesizer) or it goes **dormant** (loses its effect, but isn't destroyed) until a slot frees up. A floating badge and detail-panel line flag dormant tiles and which resource they're missing.
 - **Shard** remains flow-collected (including from scheduled shard-rain events) and funds monument construction.
 - **Crystal-costing player abilities** (Reveal Empire, Survey Sweep, Aether Purge/Bridge/Wall, Siphon, Aegis Lock, Astral Dock Launch, World Engine Strike, Airport Bombard, Create/Remove Mountain) are free of any Crystal cost — gated on cooldown only; a few still carry a gold cost.
-- **Synthesizers** (Fur/Ironworks/Crystal) are the one exception that keeps a gold upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
+- **Synthesizers** (Umbrite/Titanium Works/Crystal) are the one exception that keeps a gold upkeep and a hard 1-slot cap with no upgrade path — the deliberate trade-off that keeps "tall" play (few tiles, deep development) viable against "wide" (raw tile count).
 - **Towns** are the economic backbone. Each town has a population tier (Settlement → Metropolis) and a support system: if a town goes unfed, gold income pauses until support recovers.
 
 ### Territory and Combat
@@ -41,11 +41,11 @@ Each player controls a civilization that starts from a single land tile, expands
 ### Structures
 
 - One structure per tile, placed only on settled owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile).
-- **Economic**: Farmstead, Camp, Mine, Granary, Market, Bank, Synthesizers, Fuel Plant, Caravanary, Foundry, Governance structures.
+- **Economic**: Farmstead, Umbrite Rig, Mine, Granary, Market, Bank, Synthesizers, Fuel Plant, Caravanary, Foundry, Governance structures.
 - **Military**: Fort, Siege Outpost, Observatory (extends vision and provides protection against aether abilities).
 - **Monuments** (late-game, four-stage builds costing Shards): Imperial Exchange, World Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.
 - Structure unlocks are tech-gated. Costs scale with how many of that type you already own.
-- A structure that loses its resource-slot backing (e.g. a captured Fort with no Iron access) goes dormant rather than being destroyed, and resumes automatically once a slot frees up.
+- A structure that loses its resource-slot backing (e.g. a captured Fort with no Titanium access) goes dormant rather than being destroyed, and resumes automatically once a slot frees up.
 
 ### Tech and Research
 

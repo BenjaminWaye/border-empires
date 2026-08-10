@@ -1280,7 +1280,7 @@ describe("menuOverviewForTile", () => {
 describe("buildDetailTextForAction fort tier text", () => {
   const emptyTile: Tile = { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
   const fortTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active" } };
-  const ironTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "IRON_BASTION" } };
+  const ironTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "TITANIUM_BASTION" } };
   const thunderTile: Tile = { ...emptyTile, fort: { ownerId: "me", status: "active", variant: "THUNDER_BASTION" } };
   const woodenFortTile: Tile = { ...emptyTile, economicStructure: { ownerId: "me", type: "WOODEN_FORT", status: "active" } };
 
@@ -1295,15 +1295,15 @@ describe("buildDetailTextForAction fort tier text", () => {
     expect(detail).toContain("Upgrade this Palisade");
   });
 
-  it("shows Iron Bastion upgrade text for an active fort with undefined variant", () => {
+  it("shows Titanium Bastion upgrade text for an active fort with undefined variant", () => {
     const detail = buildDetailTextForAction("build_fortification", fortTile);
-    expect(detail).toContain("Upgrade this Fort into an Iron Bastion");
+    expect(detail).toContain("Upgrade this Fort into an Titanium Bastion");
     expect(detail).toContain("4x");
   });
 
-  it("shows Thunder Bastion upgrade text for an Iron Bastion", () => {
+  it("shows Thunder Bastion upgrade text for an Titanium Bastion", () => {
     const detail = buildDetailTextForAction("build_fortification", ironTile);
-    expect(detail).toContain("Upgrade this Iron Bastion into a Thunder Bastion");
+    expect(detail).toContain("Upgrade this Titanium Bastion into a Thunder Bastion");
     expect(detail).toContain("8x");
   });
 

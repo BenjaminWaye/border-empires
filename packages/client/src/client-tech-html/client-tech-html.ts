@@ -25,7 +25,7 @@ const formatSignedPercent = (mult: number): string => {
 // is always visible, no tech required; the rest are revealed by whichever
 // tech in techCatalog has effects.revealResource matching the category.
 export const hasRevealedResourceCategory = (
-  category: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY",
+  category: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
   techIds: readonly string[],
   techCatalog: readonly TechInfo[]
 ): boolean => {
@@ -78,7 +78,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockWorldEngineStrike" && value === true) return "Unlocks Worldbreaker Shot";
   if (key === "unlockStormfront" && value === true) return "Unlocks Stormfront";
   if (key === "unlockAegisLock" && value === true) return "Unlocks Aegis Lock";
-  if (key === "unlockIronBastion" && value === true) return "Unlocks Iron Bastion";
+  if (key === "unlockIronBastion" && value === true) return "Unlocks Titanium Bastion";
   if (key === "unlockSiegeTower" && value === true) return "Unlocks Siege Tower";
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
@@ -463,13 +463,13 @@ const effectiveRequirementChecklist = (requirements: {
 
 export const formatDomainCost = (domain: DomainInfo): string => {
   const checklist = domain.requirements.checklist ?? [];
-  const costBits = checklist.filter((item) => /gold|food|iron|crystal|supply|shard/i.test(item.label)).map((item) => item.label);
+  const costBits = checklist.filter((item) => /gold|food|titanium|crystal|umbrite|shard/i.test(item.label)).map((item) => item.label);
   if (costBits.length > 0) return costBits.join(" · ");
   const fallbackCostBits: string[] = [];
   if ((domain.requirements.gold ?? 0) > 0) {
     fallbackCostBits.push(`${domain.requirements.gold.toLocaleString()} gold`);
   }
-  for (const resourceKey of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
     const amount = domain.requirements.resources?.[resourceKey] ?? 0;
     if (amount > 0) fallbackCostBits.push(`${amount.toLocaleString()} ${resourceKey.toLowerCase()}`);
   }

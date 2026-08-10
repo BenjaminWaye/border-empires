@@ -49,7 +49,7 @@ export type FrontierCombatModifiers = {
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
 
 const baseFortDefenseMult = (variant: FortVariant | undefined): number => {
-  if (variant === "IRON_BASTION") return 4;
+  if (variant === "TITANIUM_BASTION") return 4;
   if (variant === "THUNDER_BASTION") return 8;
   if (variant === "WOODEN_FORT") return 1.35;
   if (variant === "FORT") return 2.5;

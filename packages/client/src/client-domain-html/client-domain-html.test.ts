@@ -266,16 +266,16 @@ describe("domainOwnedHtml — resource slot suffix", () => {
     requiresTechId: "masonry",
     mods: {},
     effects: { fortBuildSpeedMult: 1.5 },
-    requirements: { gold: 6000, resources: { IRON: 120 }, canResearch: false }
+    requirements: { gold: 6000, resources: { TITANIUM: 120 }, canResearch: false }
   };
 
   it("appends the locked slot suffix only to the domain that offered the pick", () => {
     const html = domainOwnedHtml(
       [clockworkStipend, ironBastions],
       ["clockwork-stipend", "iron-bastions"],
-      "IRON"
+      "TITANIUM"
     );
-    expect(html).toContain("Clockwork Stipend <em>(IRON slot)</em>");
+    expect(html).toContain("Clockwork Stipend <em>(TITANIUM slot)</em>");
     // Dwarf Kingdom never offered a slot grant — must not get the suffix.
     expect(html).toContain("<strong>Dwarf Kingdom</strong>");
     expect(html).not.toContain("Dwarf Kingdom <em>(");
@@ -292,7 +292,7 @@ describe("domainOwnedHtml — resource slot suffix", () => {
       ...clockworkStipend,
       effects: {}
     };
-    const html = domainOwnedHtml([stipendWithoutGrant], ["clockwork-stipend"], "IRON");
+    const html = domainOwnedHtml([stipendWithoutGrant], ["clockwork-stipend"], "TITANIUM");
     expect(html).not.toContain("slot)</em>");
   });
 
@@ -322,9 +322,9 @@ describe("domainOwnedHtml — resource slot suffix", () => {
       description: "Forts pop up overnight.",
       requiresTechId: "masonry",
       mods: {},
-      requirements: { gold: 6000, resources: { IRON: 120 }, canResearch: false }
+      requirements: { gold: 6000, resources: { TITANIUM: 120 }, canResearch: false }
     };
-    const html = domainOwnedHtml([noGrantDomain], ["iron-bastions"], "SUPPLY");
+    const html = domainOwnedHtml([noGrantDomain], ["iron-bastions"], "UMBRITE");
     expect(html).toContain("<strong>Dwarf Kingdom</strong>");
     expect(html).not.toContain("slot)</em>");
   });
@@ -354,11 +354,11 @@ describe("renderDomainDetailCardHtml — locked resource slot", () => {
       chosenInTier: clockworkStipend,
       currentTier: 1,
       requiresTechName: "Agriculture",
-      chosenTrickleResource: "SUPPLY"
+      chosenTrickleResource: "UMBRITE"
     });
 
     expect(html).toContain("Your pick");
-    expect(html).toContain("SUPPLY (+1 slot, locked)");
+    expect(html).toContain("UMBRITE (+1 slot, locked)");
   });
 
   it("omits the locked-pick section when the player has not picked yet", () => {
@@ -380,7 +380,7 @@ describe("renderDomainDetailCardHtml — locked resource slot", () => {
       chosenInTier: undefined,
       currentTier: 1,
       requiresTechName: "Agriculture",
-      chosenTrickleResource: "SUPPLY"
+      chosenTrickleResource: "UMBRITE"
     });
 
     expect(html).not.toContain("Your pick");

@@ -16,7 +16,7 @@
 // Any addition or removal must touch this file. The parity test in
 // tech-domain-bridge.test.ts compares the raw domain-tree.json keys to
 // TRICKLE_RESOURCE_KEYS and fails loud on either-direction drift.
-export const TRICKLE_RESOURCE_KEYS = ["IRON", "SUPPLY", "CRYSTAL"] as const;
+export const TRICKLE_RESOURCE_KEYS = ["TITANIUM", "UMBRITE", "CRYSTAL"] as const;
 export type ChosenTrickleResource = (typeof TRICKLE_RESOURCE_KEYS)[number];
 
 export const isChosenTrickleResource = (value: unknown): value is ChosenTrickleResource =>

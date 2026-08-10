@@ -508,10 +508,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
           );
           deps.ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
-        } else if (t.economicStructure.type === "CAMP" && !hasBuiltResourceOverlay) {
+        } else if (t.economicStructure.type === "UMBRITE_RIG" && !hasBuiltResourceOverlay) {
           deps.ctx.fillStyle = deps.structureAccentColor(
             t.ownerId ?? "",
-            active ? "rgba(222, 174, 108, 0.95)" : "rgba(171, 134, 86, 0.74)"
+            active ? "rgba(147, 92, 201, 0.95)" : "rgba(114, 71, 156, 0.74)"
           );
           deps.ctx.beginPath();
           deps.ctx.moveTo(px + size / 2, py + 3);
@@ -1062,10 +1062,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
               active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
             );
             deps.ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
-          } else if (t.economicStructure.type === "CAMP" && !hasBuiltResourceOverlay) {
+          } else if (t.economicStructure.type === "UMBRITE_RIG" && !hasBuiltResourceOverlay) {
             deps.ctx.fillStyle = deps.structureAccentColor(
               t.ownerId ?? "",
-              active ? "rgba(222, 174, 108, 0.95)" : "rgba(171, 134, 86, 0.74)"
+              active ? "rgba(147, 92, 201, 0.95)" : "rgba(114, 71, 156, 0.74)"
             );
             deps.ctx.beginPath();
             deps.ctx.moveTo(px + size / 2, py + 3);

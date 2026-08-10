@@ -17,7 +17,7 @@ export type RuntimePassiveIncomeContext = {
   trackSyncMainThreadTask?: TrackSync;
 };
 
-const STRATEGIC_INCOME_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const;
+const STRATEGIC_INCOME_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const;
 
 /**
  * Credits passive gold + strategic resource income for a single player since

@@ -33,31 +33,31 @@
       "id": "masonry",
       "tier": 1,
       "branch": "war",
-      "name": "Ironclad Masonry",
-      "description": "Stone is the first polite way of saying no. Reveals Iron.",
+      "name": "Titanium-Clad Masonry",
+      "description": "Stone is the first polite way of saying no. Reveals Titanium.",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 3600,
       "effects": {
         "unlockForts": true,
-        "revealResource": "iron"
+        "revealResource": "titanium"
       }
     },
     {
       "id": "leatherworking",
       "tier": 1,
       "branch": "war",
-      "name": "Tanner's Craft",
-      "description": "Straps, harnesses, and portable frames turn baggage into warfare. Reveals Supply.",
+      "name": "Rigging Works",
+      "description": "Straps, harnesses, and portable frames turn baggage into warfare. Reveals Umbrite.",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 3600,
       "effects": {
-        "unlockCamp": true,
+        "unlockUmbriteRig": true,
         "unlockSiegeOutposts": true,
-        "revealResource": "supply"
+        "revealResource": "umbrite"
       }
     },
     {
@@ -141,14 +141,14 @@
       "tier": 2,
       "branch": "economy",
       "name": "Artisan Workshops",
-      "description": "Once every craft has a foreman, even pelts become industry.",
+      "description": "Once every craft has a foreman, even raw ore becomes industry.",
       "requires": "trade",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockFurSynthesizer": true
+        "unlockUmbriteSynthesizer": true
       }
     },
     {
@@ -186,14 +186,14 @@
       "tier": 2,
       "branch": "war",
       "name": "Reinforced Plating",
-      "description": "Unlocks Iron Bastion upgrades for existing Forts and keeps +10% settled defense.",
+      "description": "Unlocks Titanium Bastion upgrades for existing Forts and keeps +10% settled defense.",
       "requires": "masonry",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockIronBastion": true
+        "unlockTitaniumBastion": true
       }
     },
     {
@@ -238,7 +238,7 @@
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockIronworks": true
+        "unlockTitaniumWorks": true
       }
     },
     {
@@ -291,7 +291,7 @@
       "tier": 3,
       "branch": "war",
       "name": "Steel Foundries",
-      "description": "Unlocks Thunder Bastion upgrades for existing Iron Bastions.",
+      "description": "Unlocks Thunder Bastion upgrades for existing Titanium Bastions.",
       "requires": "fortified-walls",
       "cost": {
         "gold": 10
@@ -306,7 +306,7 @@
       "tier": 2,
       "branch": "war",
       "name": "Weapons Forging",
-      "description": "Unlocks the Weapons Workshop: forges Iron and Supply into titanium-alloy plating and charged energy blades, granting an empire-wide attack and defense boost. Build as many as you like in one town to raise a dedicated military city.",
+      "description": "Unlocks the Weapons Workshop: forges Titanium and Umbrite into hardened alloy plating and charged energy blades, granting an empire-wide attack and defense boost. Build as many as you like in one town to raise a dedicated military city.",
       "prereqIds": [
         "masonry",
         "leatherworking"
@@ -436,7 +436,7 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockIronLevy": true
+        "unlockTitaniumLevy": true
       }
     },
     {

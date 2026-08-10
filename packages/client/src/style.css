@@ -906,14 +906,14 @@ body {
 .resource-pill.res-food {
   border-color: rgba(233, 188, 115, 0.45);
 }
-.resource-pill.res-iron {
-  border-color: rgba(170, 190, 212, 0.45);
+.resource-pill.res-titanium {
+  border-color: rgba(180, 180, 180, 0.45);
 }
 .resource-pill.res-crystal {
   border-color: rgba(176, 132, 255, 0.5);
 }
-.resource-pill.res-stone {
-  border-color: rgba(186, 194, 205, 0.4);
+.resource-pill.res-umbrite {
+  border-color: rgba(77, 42, 134, 0.5);
 }
 .resource-pill.res-shard {
   border-color: rgba(126, 188, 255, 0.5);

@@ -8,7 +8,7 @@ export type OptimisticStructureKind =
   | "ASTRAL_DOCK"
   | "FARMSTEAD"
   | "WATERWORKS"
-  | "CAMP"
+  | "UMBRITE_RIG"
   | "MINE"
   | "MARKET"
   | "GRANARY"
@@ -18,10 +18,10 @@ export type OptimisticStructureKind =
   | "AETHER_TOWER"
   | "WOODEN_FORT"
   | "LIGHT_OUTPOST"
-  | "FUR_SYNTHESIZER"
-  | "ADVANCED_FUR_SYNTHESIZER"
-  | "IRONWORKS"
-  | "ADVANCED_IRONWORKS"
+  | "UMBRITE_SYNTHESIZER"
+  | "ADVANCED_UMBRITE_SYNTHESIZER"
+  | "TITANIUM_WORKS"
+  | "ADVANCED_TITANIUM_WORKS"
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "CARAVANARY"
@@ -38,16 +38,16 @@ export type OptimisticStructureKind =
   | "WORLD_ENGINE_PART"
   | "AEGIS_DOME_PART"
   | "POPULATION_BUREAU_PART"
-  | "IRON_LEVY_PART"
+  | "TITANIUM_LEVY_PART"
   | "IMPERIAL_EXCHANGE"
   | "WORLD_ENGINE" | "AEGIS_DOME"
   | "POPULATION_BUREAU"
-  | "IRON_LEVY"
+  | "TITANIUM_LEVY"
   | "WEAPONS_WORKSHOP";
 
 export type TileUpkeepEntry = {
   label: string;
-  perMinute: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "GOLD", number>>;
+  perMinute: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "GOLD", number>>;
 };
 
 export type Tile = {
@@ -129,7 +129,7 @@ export type Tile = {
   fort?: {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
-    variant?: "FORT" | "IRON_BASTION" | "THUNDER_BASTION" | "WOODEN_FORT";
+    variant?: "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "WOODEN_FORT";
     completesAt?: number;
     disabledUntil?: number;
     garrison?: number;
@@ -147,7 +147,7 @@ export type Tile = {
     type:
       | "FARMSTEAD"
       | "WATERWORKS"
-      | "CAMP"
+      | "UMBRITE_RIG"
       | "MINE"
       | "MARKET"
       | "GRANARY"
@@ -157,10 +157,10 @@ export type Tile = {
       | "AETHER_TOWER"
       | "WOODEN_FORT"
       | "LIGHT_OUTPOST"
-      | "FUR_SYNTHESIZER"
-      | "ADVANCED_FUR_SYNTHESIZER"
-      | "IRONWORKS"
-      | "ADVANCED_IRONWORKS"
+      | "UMBRITE_SYNTHESIZER"
+      | "ADVANCED_UMBRITE_SYNTHESIZER"
+      | "TITANIUM_WORKS"
+      | "ADVANCED_TITANIUM_WORKS"
       | "CRYSTAL_SYNTHESIZER"
       | "ADVANCED_CRYSTAL_SYNTHESIZER"
       | "CARAVANARY"
@@ -179,12 +179,12 @@ export type Tile = {
       | "WORLD_ENGINE_PART"
       | "AEGIS_DOME_PART"
       | "POPULATION_BUREAU_PART"
-      | "IRON_LEVY_PART"
+      | "TITANIUM_LEVY_PART"
       | "IMPERIAL_EXCHANGE"
       | "WORLD_ENGINE"
       | "AEGIS_DOME"
       | "POPULATION_BUREAU"
-      | "IRON_LEVY"
+      | "TITANIUM_LEVY"
       | "WEAPONS_WORKSHOP";
     status: "under_construction" | "active" | "inactive" | "removing";
     completesAt?: number;
@@ -205,7 +205,7 @@ export type Tile = {
       | "OBSERVATORY"
       | "FARMSTEAD"
       | "WATERWORKS"
-      | "CAMP"
+      | "UMBRITE_RIG"
       | "MINE"
       | "MARKET"
       | "GRANARY"
@@ -214,10 +214,10 @@ export type Tile = {
       | "AIRPORT"
       | "WOODEN_FORT"
       | "LIGHT_OUTPOST"
-      | "FUR_SYNTHESIZER"
-      | "ADVANCED_FUR_SYNTHESIZER"
-      | "IRONWORKS"
-      | "ADVANCED_IRONWORKS"
+      | "UMBRITE_SYNTHESIZER"
+      | "ADVANCED_UMBRITE_SYNTHESIZER"
+      | "TITANIUM_WORKS"
+      | "ADVANCED_TITANIUM_WORKS"
       | "CRYSTAL_SYNTHESIZER"
       | "ADVANCED_CRYSTAL_SYNTHESIZER"
       | "CARAVANARY"
@@ -236,7 +236,7 @@ export type Tile = {
       | "OBSERVATORY"
       | "FARMSTEAD"
       | "WATERWORKS"
-      | "CAMP"
+      | "UMBRITE_RIG"
       | "MINE"
       | "MARKET"
       | "GRANARY"
@@ -245,10 +245,10 @@ export type Tile = {
       | "AIRPORT"
       | "WOODEN_FORT"
       | "LIGHT_OUTPOST"
-      | "FUR_SYNTHESIZER"
-      | "ADVANCED_FUR_SYNTHESIZER"
-      | "IRONWORKS"
-      | "ADVANCED_IRONWORKS"
+      | "UMBRITE_SYNTHESIZER"
+      | "ADVANCED_UMBRITE_SYNTHESIZER"
+      | "TITANIUM_WORKS"
+      | "ADVANCED_TITANIUM_WORKS"
       | "CRYSTAL_SYNTHESIZER"
       | "ADVANCED_CRYSTAL_SYNTHESIZER"
       | "CARAVANARY"
@@ -304,9 +304,9 @@ export type TileTimedProgress = {
 
 export type EmpireVisualStyle = {
   primaryOverlay: string;
-  secondaryTint: "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
+  secondaryTint: "TITANIUM" | "UMBRITE" | "FOOD" | "CRYSTAL" | "BALANCED";
   borderStyle: "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
-  structureAccent: "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
+  structureAccent: "TITANIUM" | "UMBRITE" | "FOOD" | "CRYSTAL" | "NEUTRAL";
 };
 
 export type AllianceRequest = {
@@ -403,7 +403,7 @@ export type RevealEmpireStatsView = {
   gold: number;
   manpower: number;
   manpowerCap: number;
-  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
 };
 
 export type StrategicReplayEventType =
@@ -436,13 +436,13 @@ export type StrategicReplayEvent = {
     | "SIEGE_OUTPOST"
     | "OBSERVATORY"
     | "FARMSTEAD"
-    | "CAMP"
+    | "UMBRITE_RIG"
     | "MINE"
     | "MARKET"
     | "GRANARY"
     | "AIRPORT"
-    | "FUR_SYNTHESIZER"
-    | "IRONWORKS"
+    | "UMBRITE_SYNTHESIZER"
+    | "TITANIUM_WORKS"
     | "CRYSTAL_SYNTHESIZER"
     | "CARAVANARY"
     | "FOUNDRY"
@@ -471,7 +471,7 @@ export type TechInfo = {
   effects?: Record<string, unknown>;
   requirements: {
     gold: number;
-    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    resources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
     checklist?: Array<{ label: string; met: boolean }>;
     canResearch?: boolean;
   };
@@ -488,7 +488,7 @@ export type DomainInfo = {
   effects?: Record<string, unknown>;
   requirements: {
     gold: number;
-    resources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    resources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
     checklist?: Array<{ label: string; met: boolean }>;
     canResearch?: boolean;
   };
@@ -585,7 +585,7 @@ export type TileActionDef = {
     | "build_observatory"
     | "build_farmstead"
     | "build_waterworks"
-    | "build_camp"
+    | "build_umbrite_rig"
     | "build_mine"
     | "build_market"
     | "build_granary"
@@ -594,10 +594,10 @@ export type TileActionDef = {
     | "build_clearing_house"
     | "build_airport"
     | "build_aether_tower"
-    | "build_fur_synthesizer"
-    | "upgrade_fur_synthesizer"
-    | "build_ironworks"
-    | "upgrade_ironworks"
+    | "build_umbrite_synthesizer"
+    | "upgrade_umbrite_synthesizer"
+    | "build_titanium_works"
+    | "upgrade_titanium_works"
     | "build_crystal_synthesizer"
     | "upgrade_crystal_synthesizer"
     | "build_fuel_plant"
@@ -613,13 +613,13 @@ export type TileActionDef = {
     | "build_aegis_dome_part"
     | "build_astral_dock_part"
     | "build_population_bureau_part"
-    | "build_iron_levy_part"
+    | "build_titanium_levy_part"
     | "build_imperial_exchange"
     | "build_world_engine"
     | "build_aegis_dome"
     | "build_astral_dock"
     | "build_population_bureau"
-    | "build_iron_levy"
+    | "build_titanium_levy"
     | "build_governors_office"
     | "build_radar_system"
     | "build_quartermasters_office"
@@ -646,7 +646,7 @@ export type TileActionDef = {
     | "aether_lance"
     | "retort_recast_food"
     | "retort_recast_supply"
-    | "retort_recast_iron"
+    | "retort_recast_titanium"
     | "retort_recast_crystal"
     | "aether_wall"
     | "aether_bridge"

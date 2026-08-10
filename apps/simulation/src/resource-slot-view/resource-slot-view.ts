@@ -33,7 +33,7 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
 
 export type ResourceSlotTotals = Record<SlotResource, number>;
 
-export const emptyResourceSlotTotals = (): ResourceSlotTotals => ({ FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+export const emptyResourceSlotTotals = (): ResourceSlotTotals => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
 
 export const totalsFromSlotRequirements = (requirements: readonly StructureSlotRequirement[]): ResourceSlotTotals => {
   const totals = emptyResourceSlotTotals();
@@ -331,8 +331,8 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
   );
 
   return contributors.map((c) => {
-    if (c.key.endsWith(":fort") && c.resource === "IRON" && waivedForts.has(c.key)) return { ...c, count: 0 };
-    if (c.key.endsWith(":siegeOutpost") && c.resource === "SUPPLY" && waivedOutposts.has(c.key)) return { ...c, count: 0 };
+    if (c.key.endsWith(":fort") && c.resource === "TITANIUM" && waivedForts.has(c.key)) return { ...c, count: 0 };
+    if (c.key.endsWith(":siegeOutpost") && c.resource === "UMBRITE" && waivedOutposts.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":economicStructure") && lightOutpostKeys[c.key] && c.resource === "FOOD" && waivedLightOutposts.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":town")) {
       const waiver = Math.max(waivers.allTownsFoodSlotWaiverPerTown, firstWaivedTownKeys.has(c.key) ? 1 : 0);
@@ -406,9 +406,9 @@ type DormancyContributor = {
 
 export const emptyResourceSlotDormancy = (): ResourceSlotDormancy => ({
   FOOD: new Set(),
-  IRON: new Set(),
+  TITANIUM: new Set(),
   CRYSTAL: new Set(),
-  SUPPLY: new Set()
+  UMBRITE: new Set()
 });
 
 export const resourceSlotDormantContributorsForPlayer = (

@@ -1313,7 +1313,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       } else {
         state.goldAnimDir = 0;
       }
-      for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+      for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
         const prev = prevStrategic[resource] ?? 0;
         const next = state.strategicResources[resource] ?? 0;
         if (next > prev) {
