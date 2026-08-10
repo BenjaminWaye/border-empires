@@ -1734,11 +1734,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       isNeutral: !to.ownerId
     });
     if (clickOutcome === "queue-adjacent-neutral") {
-      // Re-clicking a tile that's ALREADY the active capture must open its
-      // progress/cancel/rush-buy detail, not re-run the afford/enqueue gate
-      // below — gold for this claim was already spent when it started, so
-      // a since-drained wallet must never block re-viewing it.
-      if (state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y) {
+      // Re-clicking a tile that's ALREADY the active capture, or already
+      // sitting in the action queue behind it, must open its
+      // progress/cancel/jump-to-front detail, not re-run the afford/enqueue
+      // gate below — gold for an active claim was already spent (a
+      // since-drained wallet must never block re-viewing it), and
+      // enqueueTarget silently no-ops on an already-queued target, which
+      // would otherwise leave the click with no menu and no feedback.
+      const isActiveCapture = Boolean(state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y);
+      const isAlreadyQueued = actionQueueIndexForTileFromModule(state, to.x, to.y) >= 0;
+      if (isActiveCapture || isAlreadyQueued) {
         openSingleTileActionMenu(to, clientX, clientY);
         requestAttackPreviewForHover();
         renderHud();
