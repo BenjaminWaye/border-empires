@@ -14,7 +14,7 @@ import {
 } from "./client-tech-detail-ui/client-tech-detail-ui.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DomainInfo, TechInfo } from "./client-types.js";
-import type { StructureInfoKey } from "./client-map-display.js";
+import { MONUMENT_COMPONENT_KEYS, type StructureInfoKey } from "./client-map-display.js";
 
 type TechPanelDeps = {
   state: ClientState;
@@ -214,8 +214,16 @@ export const createClientTechPanelFlow = (deps: TechPanelDeps) => {
       techTier
     });
 
-  const renderStructureInfoOverlay = (): string =>
-    renderStructureInfoOverlayFromModule(state.structureInfoKey, deps.structureInfoForKey);
+  const renderStructureInfoOverlay = (): string => {
+    const ownedComponentTypes = new Set<string>();
+    for (const candidate of state.tiles.values()) {
+      const owned = candidate.economicStructure;
+      if (owned && owned.ownerId === state.me && owned.status === "active" && MONUMENT_COMPONENT_KEYS.has(owned.type as StructureInfoKey)) {
+        ownedComponentTypes.add(owned.type);
+      }
+    }
+    return renderStructureInfoOverlayFromModule(state.structureInfoKey, deps.structureInfoForKey, ownedComponentTypes);
+  };
 
   const renderTechDetailModal = (): string => {
     const tech = selectedTechInfo();

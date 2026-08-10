@@ -23,7 +23,9 @@ const KINDS: ReadonlyArray<StructureKind> = [
   "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
   "POPULATION_BUREAU", "IRON_LEVY",
   "ANCILLARY_FACTORY", "INCUBATION_ENGINE", "AMBARIC_TOWER",
-  "WEAPONS_WORKSHOP", "IRON_WEAPONS_FACTORY"
+  "WEAPONS_WORKSHOP", "IRON_WEAPONS_FACTORY",
+  "WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3",
+  "IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"
 ];
 
 const render = (args: Args): HTMLElement => {
@@ -109,10 +111,13 @@ export const LogisticsGuild: Story = { args: { structures: ["LOGISTICS_GUILD"], 
 export const AssemblyWorks: Story = { args: { structures: ["ASSEMBLY_WORKS"], cameraDistance: 3.5 } };
 export const PopulationBureau: Story = { args: { structures: ["POPULATION_BUREAU"], cameraDistance: 4 } };
 export const IronLevy: Story = { args: { structures: ["IRON_LEVY"], cameraDistance: 3.5 } };
-export const AncillaryFactory: Story = { args: { structures: ["ANCILLARY_FACTORY"], cameraDistance: 3 } };
-export const IncubationEngine: Story = { args: { structures: ["INCUBATION_ENGINE"], cameraDistance: 3.5 } };
-export const AmbaricTower: Story = { args: { structures: ["AMBARIC_TOWER"], cameraDistance: 3.5 } };
+export const AncillaryFactory: Story = { args: { structures: ["GARRISON_HALL"], cameraDistance: 3 } };
+export const IncubationEngine: Story = { args: { structures: ["GRANARY"], cameraDistance: 3.5 } };
+export const AmbaricTower: Story = { args: { structures: ["AETHER_TOWER"], cameraDistance: 3.5 } };
 export const WeaponsWorkshop: Story = { args: { structures: ["WEAPONS_WORKSHOP"], cameraDistance: 3 } };
+export const WorldbreakerPartBarrel: Story = { args: { structures: ["WORLD_ENGINE_PART_1"], cameraDistance: 3 } };
+export const WorldbreakerPartCore: Story = { args: { structures: ["WORLD_ENGINE_PART_2"], cameraDistance: 3 } };
+export const WorldbreakerPartArray: Story = { args: { structures: ["WORLD_ENGINE_PART_3"], cameraDistance: 3 } };
 // Iron Weapons Factory reuses the Weapons Workshop model as-is (see
 // client-map-3d-structure-industrial.ts) — Fur Weapons Factory has no 3D
 // model yet and falls back to its 2D overlay icon, so it has no story here.
@@ -123,4 +128,9 @@ export const InfrastructureBatch: Story = { args: { structures: ["AIRPORT", "RAI
 export const IndustrialBatch: Story = { args: { structures: ["IRONWORKS", "ADVANCED_IRONWORKS", "FOUNDRY"], cameraDistance: 7, spacing: 1.7 } };
 export const SynthesizerBatch: Story = { args: { structures: ["FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER", "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"], cameraDistance: 8, spacing: 1.6 } };
 export const ArcaneBatch: Story = { args: { structures: ["AETHER_TOWER", "AEGIS_DOME", "ASTRAL_DOCK", "WORLD_ENGINE", "IMPERIAL_EXCHANGE"], cameraDistance: 9, spacing: 1.6 } };
-export const ManpowerBatch: Story = { args: { structures: ["QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS", "POPULATION_BUREAU", "IRON_LEVY", "ANCILLARY_FACTORY", "INCUBATION_ENGINE", "AMBARIC_TOWER"], cameraDistance: 9, spacing: 1.7 } };
+export const ManpowerBatch: Story = { args: { structures: ["QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS", "POPULATION_BUREAU", "IRON_LEVY", "GARRISON_HALL", "GRANARY", "AETHER_TOWER"], cameraDistance: 9, spacing: 1.7 } };
+export const WorldbreakerPartsBatch: Story = { args: { structures: ["WORLD_ENGINE_PART_1", "WORLD_ENGINE_PART_2", "WORLD_ENGINE_PART_3"], cameraDistance: 7, spacing: 1.6 } };
+export const ImperialExchangePartLedger: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_1"], cameraDistance: 3 } };
+export const ImperialExchangePartEngine: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_2"], cameraDistance: 3 } };
+export const ImperialExchangePartSeal: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_3"], cameraDistance: 3 } };
+export const ImperialExchangePartsBatch: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"], cameraDistance: 7, spacing: 1.6 } };

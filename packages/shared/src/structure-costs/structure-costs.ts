@@ -100,8 +100,6 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // STRUCTURE_COST_DEFINITIONS is a Record over the full BuildableStructureType
   // union, and any legacy copy a player still owns may read from it.
   WEAPONS_WORKSHOP: { baseGoldCost: 0, manpowerCost: 100 },
-  // Deliberately cheap and uncapped (placement-metadata.json: "same_tile",
-  // no per-town limit) — a player is meant to be able to build many of these
   // anywhere to specialize their war economy, so the per-copy BASE cost
   // stays low. Unlike Weapons Workshop, each additional copy (anywhere in
   // the empire — confirmed scope, not per-town) costs more manpower than the
@@ -111,12 +109,24 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   // zeroed) gold cost. First-pass rate, expect tuning.
   IRON_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100, scaling: { kind: "incremental", rate: 0.15 } },
   FUR_WEAPONS_FACTORY: { baseGoldCost: 0, manpowerCost: 100, scaling: { kind: "incremental", rate: 0.15 } },
-  IMPERIAL_EXCHANGE_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
-  WORLD_ENGINE_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
-  AEGIS_DOME_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
-  ASTRAL_DOCK_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
-  POPULATION_BUREAU_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
-  IRON_LEVY_PART: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IMPERIAL_EXCHANGE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IMPERIAL_EXCHANGE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IMPERIAL_EXCHANGE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  WORLD_ENGINE_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  WORLD_ENGINE_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  WORLD_ENGINE_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  AEGIS_DOME_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  AEGIS_DOME_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  AEGIS_DOME_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  ASTRAL_DOCK_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  ASTRAL_DOCK_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  ASTRAL_DOCK_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  POPULATION_BUREAU_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  POPULATION_BUREAU_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  POPULATION_BUREAU_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IRON_LEVY_PART_1: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IRON_LEVY_PART_2: { baseGoldCost: 0, manpowerCost: 1_000 },
+  IRON_LEVY_PART_3: { baseGoldCost: 0, manpowerCost: 1_000 },
   IMPERIAL_EXCHANGE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
   WORLD_ENGINE: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },
   AEGIS_DOME: { baseGoldCost: 0, manpowerCost: 1_600, resourceCost: { resource: "SHARD", amount: 2 } },

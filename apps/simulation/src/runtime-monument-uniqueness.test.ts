@@ -77,7 +77,7 @@ function makeCommand(overrides: Partial<CommandEnvelope> = {}): CommandEnvelope 
     commandId: "cmd-1",
     playerId: "player-2",
     type: "BUILD_STRUCTURE",
-    payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "IMPERIAL_EXCHANGE_PART" }),
+    payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "IMPERIAL_EXCHANGE_PART_1" }),
     ...overrides
   } as CommandEnvelope;
 }
@@ -87,7 +87,7 @@ function makeCommand(overrides: Partial<CommandEnvelope> = {}): CommandEnvelope 
 // active, nobody else may build another part or assembly of that type, and
 // a losing racer's sunk manpower is refunded rather than destroyed.
 describe("§16 monument global uniqueness", () => {
-  it("rejects a further IMPERIAL_EXCHANGE_PART build once another player's Imperial Exchange is already active", () => {
+  it("rejects a further IMPERIAL_EXCHANGE_PART_1 build once another player's Imperial Exchange is already active", () => {
     const rival = makePlayer("player-1");
     const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, events } = createContext(
@@ -122,7 +122,7 @@ describe("§16 monument global uniqueness", () => {
       ]
     );
 
-    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "WORLD_ENGINE_PART" }) }));
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "WORLD_ENGINE_PART_1" }) }));
 
     expect(events.some((e) => e.eventType === "COMMAND_REJECTED" && (e as { code?: string }).code === "MONUMENT_CLAIMED")).toBe(false);
   });
@@ -150,7 +150,7 @@ describe("§16 monument global uniqueness", () => {
           terrain: "LAND",
           ownerId: "loser",
           ownershipState: "SETTLED",
-          economicStructure: { ownerId: "loser", type: "IMPERIAL_EXCHANGE_PART", status: "active" }
+          economicStructure: { ownerId: "loser", type: "IMPERIAL_EXCHANGE_PART_1", status: "active" }
         }
       ]
     );
@@ -158,7 +158,7 @@ describe("§16 monument global uniqueness", () => {
     completeStructureBuild(context, simulationTileKey(1, 1), "winner", "IMPERIAL_EXCHANGE", "cmd-complete");
 
     expect(tiles.get(simulationTileKey(1, 1))?.economicStructure?.status).toBe("active");
-    // 1,000 manpower — the IMPERIAL_EXCHANGE_PART build cost (§16).
+    // 1,000 manpower — the IMPERIAL_EXCHANGE_PART_1 build cost (§16).
     expect(loser.manpower).toBe(1_200);
     expect(bystander.manpower).toBe(50);
 
@@ -213,7 +213,7 @@ describe("§16 monument global uniqueness", () => {
   // the 4 pre-existing monuments -- no new uniqueness-enforcement code was
   // written for them, so this confirms the hookup actually works rather
   // than just compiling.
-  it("rejects a further POPULATION_BUREAU_PART build once another player's Population Bureau is already active", () => {
+  it("rejects a further POPULATION_BUREAU_PART_1 build once another player's Population Bureau is already active", () => {
     const rival = makePlayer("player-1");
     const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, events } = createContext(
@@ -231,13 +231,13 @@ describe("§16 monument global uniqueness", () => {
       ]
     );
 
-    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "POPULATION_BUREAU_PART" }) }));
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "POPULATION_BUREAU_PART_1" }) }));
 
     const rejection = events.find((e) => e.eventType === "COMMAND_REJECTED");
     expect(rejection).toMatchObject({ code: "MONUMENT_CLAIMED" });
   });
 
-  it("rejects a further IRON_LEVY_PART build once another player's Iron Levy is already active", () => {
+  it("rejects a further IRON_LEVY_PART_1 build once another player's Iron Levy is already active", () => {
     const rival = makePlayer("player-1");
     const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
     const { context, events } = createContext(
@@ -255,7 +255,7 @@ describe("§16 monument global uniqueness", () => {
       ]
     );
 
-    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "IRON_LEVY_PART" }) }));
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "IRON_LEVY_PART_1" }) }));
 
     const rejection = events.find((e) => e.eventType === "COMMAND_REJECTED");
     expect(rejection).toMatchObject({ code: "MONUMENT_CLAIMED" });
@@ -272,8 +272,62 @@ describe("§16 monument global uniqueness", () => {
       ]
     );
 
-    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "POPULATION_BUREAU_PART" }) }));
+    handleBuildStructureCommand(context, makeCommand({ payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "POPULATION_BUREAU_PART_1" }) }));
 
     expect(events.some((e) => e.eventType === "COMMAND_REJECTED" && (e as { code?: string }).code === "MONUMENT_CLAIMED")).toBe(false);
+  });
+});
+
+describe("completing a monument consumes its Parts", () => {
+  it("clears all 3 owned Astral Dock Parts once the Astral Dock itself completes", () => {
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 5 } });
+    const { context, tiles } = createContext(
+      [actor],
+      [
+        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "ASTRAL_DOCK_PART_1", status: "active" } },
+        { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "ASTRAL_DOCK_PART_2", status: "active" } },
+        { x: 3, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "ASTRAL_DOCK_PART_3", status: "active" } },
+        {
+          x: 5,
+          y: 5,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          economicStructure: { ownerId: "player-2", type: "ASTRAL_DOCK", status: "under_construction", completesAt: 1_000 }
+        }
+      ]
+    );
+
+    completeStructureBuild(context, simulationTileKey(5, 5), "player-2", "ASTRAL_DOCK", "cmd-complete");
+
+    expect(tiles.get(simulationTileKey(5, 5))?.economicStructure).toMatchObject({ type: "ASTRAL_DOCK", status: "active" });
+    expect(tiles.get(simulationTileKey(1, 1))?.economicStructure).toBeUndefined();
+    expect(tiles.get(simulationTileKey(2, 2))?.economicStructure).toBeUndefined();
+    expect(tiles.get(simulationTileKey(3, 3))?.economicStructure).toBeUndefined();
+  });
+
+  it("does not touch another player's Parts of the same monument type", () => {
+    const actor = makePlayer("player-2", { manpower: 5_000, strategicResources: { CRYSTAL: 500, SHARD: 5 } });
+    const rival = makePlayer("player-1", { manpower: 5_000, strategicResources: { CRYSTAL: 500 } });
+    const { context, tiles } = createContext(
+      [actor, rival],
+      [
+        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", economicStructure: { ownerId: "player-2", type: "IRON_LEVY_PART_1", status: "active" } },
+        { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructure: { ownerId: "player-1", type: "IRON_LEVY_PART_1", status: "active" } },
+        {
+          x: 5,
+          y: 5,
+          terrain: "LAND",
+          ownerId: "player-2",
+          ownershipState: "SETTLED",
+          economicStructure: { ownerId: "player-2", type: "IRON_LEVY", status: "under_construction", completesAt: 1_000 }
+        }
+      ]
+    );
+
+    completeStructureBuild(context, simulationTileKey(5, 5), "player-2", "IRON_LEVY", "cmd-complete");
+
+    expect(tiles.get(simulationTileKey(1, 1))?.economicStructure).toBeUndefined();
+    expect(tiles.get(simulationTileKey(9, 9))?.economicStructure).toMatchObject({ type: "IRON_LEVY_PART_1" });
   });
 });

@@ -8089,9 +8089,13 @@ describe("aether purge", () => {
           ownershipState: "SETTLED",
           economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
         },
-        // §5.4: CRYSTAL supply so AEGIS_DOME/AETHER_TOWER aren't dormant.
+        // §5.4: CRYSTAL supply so AEGIS_DOME (4 slots, post-part-consumption
+        // rebalance)/AETHER_TOWER aren't dormant.
         { x: 8, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
         { x: 9, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
+        { x: 11, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
+        { x: 12, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
+        { x: 13, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" },
         // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
         { x: 10, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" }
       );
@@ -8200,9 +8204,13 @@ describe("worldbreaker shot", () => {
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-1", type: "WORLD_ENGINE", status: "active" }
       },
-      // §5.4: CRYSTAL supply so WORLD_ENGINE/AETHER_TOWER aren't dormant.
+      // §5.4: CRYSTAL supply so WORLD_ENGINE (4 slots, post-part-consumption
+      // rebalance)/AETHER_TOWER aren't dormant.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
       { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }
     ];
@@ -8248,9 +8256,13 @@ describe("worldbreaker shot", () => {
         ownershipState: "SETTLED",
         economicStructure: { ownerId: "player-2", type: "AETHER_TOWER", status: "active" }
       });
-      // §5.4: CRYSTAL supply so AEGIS_DOME/AETHER_TOWER aren't dormant.
+      // CRYSTAL supply so AEGIS_DOME (4 slots, post-part-consumption
+      // rebalance)/AETHER_TOWER aren't dormant.
       tiles.push({ x: 53, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
       tiles.push({ x: 54, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
+      tiles.push({ x: 56, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
+      tiles.push({ x: 57, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
+      tiles.push({ x: 58, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "GEMS" });
       // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant.
       tiles.push({ x: 55, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "FARM" });
     }
