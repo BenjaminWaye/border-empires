@@ -144,6 +144,36 @@ describe("3d renderer host", () => {
     expect(resize).toHaveBeenCalledTimes(1);
   });
 
+  it("refuses to attempt 3d again after it crashed the browser twice", () => {
+    // A killed tab runs no JS, so nothing can catch it — declining to repeat
+    // the attempt is the only handling available, and it's what turns a
+    // crash loop into a playable 2D game.
+    window.localStorage.setItem(
+      "border-empires-renderer-breadcrumb-v1",
+      JSON.stringify({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 2 })
+    );
+    return import("./client-three-renderer-host.js").then(() => {
+      // The brake reads a module-load snapshot, so exercise it through a
+      // freshly imported host.
+      vi.resetModules();
+      return import("./client-three-renderer-host.js").then(({ createThreeRendererHost: freshHost }) => {
+        const create = vi.fn(() => ({ stop: () => undefined }));
+        const host = freshHost<FakeRenderer>({
+          enabled: true,
+          isReady: () => true,
+          create,
+          resizeTwoDimensionalCanvas: () => undefined
+        });
+
+        host.ensure();
+
+        expect(create).not.toHaveBeenCalled();
+        expect(host.current()).toBeUndefined();
+        expect(noticeText()).toContain("crashed this browser");
+      });
+    });
+  });
+
   it("does not resurrect 3d when the context is lost during construction", () => {
     // The over-subscribed-GPU case: the context goes away before `create`
     // has even returned, so the host has no renderer handle when it retires.

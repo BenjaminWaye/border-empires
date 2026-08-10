@@ -51,8 +51,26 @@ export const MAX_TILE_BUDGET = 14000;
 // be the thing that clips overlays on a device we can't test on.
 export const MIN_TILE_BUDGET = 6000;
 
+// `?tilebudget=N` overrides the computed budget. This is the on-device
+// bisection knob: when a phone dies during renderer construction there is no
+// error to read, so the way to prove it's the allocation is to walk the
+// budget down until the tab survives. Bounded well below the floor so a low
+// value can actually be tried, and above the cap so it can be raised too.
+const TILE_BUDGET_OVERRIDE_MIN = 200;
+const TILE_BUDGET_OVERRIDE_MAX = 60000;
+
+export const tileBudgetOverride = (search: string): number | undefined => {
+  const raw = new URLSearchParams(search).get("tilebudget");
+  if (raw === null) return undefined;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.min(TILE_BUDGET_OVERRIDE_MAX, Math.max(TILE_BUDGET_OVERRIDE_MIN, parsed));
+};
+
 export const resolveTileBudget = (minZoom: number): number => {
   if (typeof window === "undefined" || !window.screen) return MAX_TILE_BUDGET;
+  const override = tileBudgetOverride(window.location?.search ?? "");
+  if (override !== undefined) return override;
   return tileBudgetForScreen({
     screenWidth: window.screen.width,
     screenHeight: window.screen.height,
