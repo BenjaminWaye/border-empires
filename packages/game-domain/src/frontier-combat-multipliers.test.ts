@@ -26,7 +26,7 @@ describe("resolveFrontierCombatMultipliers", () => {
   it("resolves attackVsSettledMult from known domains", () => {
     const result = resolveFrontierCombatMultipliers(
       [],
-      ["iron-vanguard"],
+      ["titanium-vanguard"],
       [],
       [],
     );
@@ -37,7 +37,7 @@ describe("resolveFrontierCombatMultipliers", () => {
   it("stacks multiplicative effects from multiple domains", () => {
     const result = resolveFrontierCombatMultipliers(
       [],
-      ["iron-vanguard", "siege-state"],
+      ["titanium-vanguard", "siege-state"],
       [],
       [],
     );
@@ -67,7 +67,7 @@ describe("resolveFrontierCombatMultipliers", () => {
 
   it("produces correct win chance when techs affect combat", () => {
     // SETTLED tile, no town, no fort: base defMult = 1.35 → defEff = 13.5
-    // With iron-vanguard (attackVsSettledMult = 1.20): atkEff = 10 * 1.20 = 12.0
+    // With titanium-vanguard (attackVsSettledMult = 1.20): atkEff = 10 * 1.20 = 12.0
     // Win chance = 12.0 / (12.0 + 13.5) = 12.0 / 25.5 ≈ 0.4706
     const target = { terrain: "LAND" as const, ownershipState: "SETTLED" as const };
     const noTechPreview = buildFrontierCombatPreview(target);
@@ -77,7 +77,7 @@ describe("resolveFrontierCombatMultipliers", () => {
 
     const multipliers = resolveFrontierCombatMultipliers(
       [],
-      ["iron-vanguard"],
+      ["titanium-vanguard"],
       [],
       [],
     );

@@ -325,7 +325,7 @@ describe("loadSimulationStartupRecovery", () => {
             x: 10,
             y: 12,
             terrain: "LAND",
-            resource: "IRON",
+            resource: "TITANIUM",
             ownerId: playerId,
             ownershipState: "SETTLED",
             townJson: JSON.stringify({

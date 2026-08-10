@@ -34,8 +34,8 @@ export const maxEffectForPlayer = (
 // functions. lightOutpostFoodSlotWaiverCount is built-in (always
 // LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT), not tech/domain-gated.
 export const slotWaiversForPlayer = (player: Pick<DomainPlayer, "techIds" | "domainIds">): SlotWaivers => ({
-  fortIronSlotWaiverCount: maxEffectForPlayer(player, "fortIronSlotWaiverCount"),
-  outpostSupplySlotWaiverCount: maxEffectForPlayer(player, "outpostSupplySlotWaiverCount"),
+  fortTitaniumSlotWaiverCount: maxEffectForPlayer(player, "fortTitaniumSlotWaiverCount"),
+  outpostUmbriteSlotWaiverCount: maxEffectForPlayer(player, "outpostUmbriteSlotWaiverCount"),
   lightOutpostFoodSlotWaiverCount: LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT,
   firstTownsFoodSlotWaiverCount: maxEffectForPlayer(player, "firstTownsFoodSlotWaiverCount"),
   allTownsFoodSlotWaiverPerTown: maxEffectForPlayer(player, "allTownsFoodSlotWaiverPerTown")

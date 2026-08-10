@@ -174,7 +174,7 @@ describe("territory automation", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "IRON" },
+          { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" },
           { x: 45, y: 45, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } },
           { x: 60, y: 60, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-1" },
           { x: 75, y: 75, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
@@ -214,7 +214,7 @@ describe("territory automation", () => {
           { x: 79, y: 80, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 80, y: 79, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 81, y: 80, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-          { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "IRON" },
+          { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" },
           { x: 45, y: 45, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } },
           { x: 60, y: 60, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-1" }
         ],
@@ -305,7 +305,7 @@ describe("territory automation", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
-          { x: 52, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "IRON" },
+          { x: 52, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" },
           { x: 53, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
         ],
         activeLocks: [],

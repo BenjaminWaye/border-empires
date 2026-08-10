@@ -41,12 +41,12 @@ describe("client structure effects", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      resource: "IRON",
+      resource: "TITANIUM",
       economicStructure: { ownerId: "me", type: "MINE", status: "active" }
     };
 
     expect(tileAreaEffectModifiersForTile(mine, [foundry, garrisonHall, mine])).toEqual([
-      { reason: "Foundry", effect: "+100% iron production", tone: "positive" }
+      { reason: "Foundry", effect: "+100% titanium production", tone: "positive" }
     ]);
   });
 
@@ -65,7 +65,7 @@ describe("client structure effects", () => {
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      resource: "IRON",
+      resource: "TITANIUM",
       economicStructure: { ownerId: "me", type: "MINE", status: "active" }
     };
 

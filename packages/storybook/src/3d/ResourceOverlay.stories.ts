@@ -8,7 +8,11 @@ type Args = {
   spacing: number;
 };
 
-const KINDS: ReadonlyArray<ResourceKind> = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR"];
+// FARM/TITANIUM/UMBRITE route through their own dedicated overlays
+// (client-map-3d-barley-field.ts, client-map-3d-titanium-deposit.ts,
+// client-map-3d-umbrite-deposit.ts) — this generic resource overlay only
+// still handles GEMS and FISH.
+const KINDS: ReadonlyArray<ResourceKind> = ["GEMS", "FISH"];
 
 // The resource overlay picks a 0/1/2 variant from the (worldTileX,
 // worldTileY) hash internally; there's no direct variant override on
@@ -70,24 +74,16 @@ type Story = StoryObj<Args>;
 
 // Single-variant overview stories.
 export const AllKinds: Story = {};
-export const Farm: Story = { args: { resources: ["FARM"], cameraDistance: 3 } };
-export const Wood: Story = { args: { resources: ["WOOD"], cameraDistance: 3 } };
-export const Iron: Story = { args: { resources: ["IRON"], cameraDistance: 3 } };
 export const Gems: Story = { args: { resources: ["GEMS"], cameraDistance: 3 } };
 export const Fish: Story = { args: { resources: ["FISH"], cameraDistance: 3 } };
-export const Fur: Story = { args: { resources: ["FUR"], cameraDistance: 3 } };
 
 // Per-resource Variants stories: shows all 3 layout variants
 // side-by-side. The variant comes from a (worldX, 0) hash internally,
 // so we search for a worldX that produces each target variant.
-export const FarmVariants: Story = { render: () => renderVariants("FARM", 6) };
-export const WoodVariants: Story = { render: () => renderVariants("WOOD", 6) };
-export const IronVariants: Story = { render: () => renderVariants("IRON", 6) };
 export const GemsVariants: Story = { render: () => renderVariants("GEMS", 6) };
 export const FishVariants: Story = { render: () => renderVariants("FISH", 6) };
-export const FurVariants: Story = { render: () => renderVariants("FUR", 6) };
 
-// 6 resources × 3 variants in a single 6-column grid.
+// 2 resources × 3 variants in a single grid.
 export const AllVariants: Story = {
   render: () => {
     const stage = createStage({ cameraDistance: 18, background: "#1a2014" });

@@ -18,7 +18,7 @@ const makeTile = (
       name?: string;
       populationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
     } | null;
-    strategicResources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    strategicResources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
     techIds: string[];
     settledTileCount: number;
     townCount: number;
@@ -86,7 +86,7 @@ describe("automation command planner — spatial focus regression", () => {
     // frontier targets (economic neutral), the signal should be true.
     const f1 = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const f2 = makeTile(1, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
-    const economicNeutral = makeTile(0, 1, { resource: "IRON" }); // economic opportunity
+    const economicNeutral = makeTile(0, 1, { resource: "TITANIUM" }); // economic opportunity
     const ownedTiles = [f1, f2];
     const tilesByKey = new Map([
       ["0,0", f1],

@@ -57,8 +57,8 @@ describe("Phase 7: fort garrison containers", () => {
               garrisonUpdatedAt: 1_000
             }
           },
-          // §5.4: FORT needs 1 IRON slot to not go dormant.
-          { x: 9, y: 10, terrain: "LAND", resource: "IRON", ownerId: "player-1", ownershipState: "SETTLED" }
+          // §5.4: FORT needs 1 TITANIUM slot to not go dormant.
+          { x: 9, y: 10, terrain: "LAND", resource: "TITANIUM", ownerId: "player-1", ownershipState: "SETTLED" }
         ],
         activeLocks: []
       }
@@ -86,9 +86,9 @@ describe("Phase 7: fort garrison containers", () => {
               x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
               fort: { ownerId: "player-1", status: "active", variant: "FORT" as const, garrison: 0, garrisonCap: CAP, garrisonUpdatedAt: 1_000 }
             }] : []),
-            // §5.4: each FORT needs 1 IRON slot to not go dormant.
-            { x: 9, y: 10, terrain: "LAND" as const, resource: "IRON" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
-            { x: 9, y: 11, terrain: "LAND" as const, resource: "IRON" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }
+            // §5.4: each FORT needs 1 TITANIUM slot to not go dormant.
+            { x: 9, y: 10, terrain: "LAND" as const, resource: "TITANIUM" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
+            { x: 9, y: 11, terrain: "LAND" as const, resource: "TITANIUM" as const, ownerId: "player-1", ownershipState: "SETTLED" as const }
           ],
           activeLocks: []
         }

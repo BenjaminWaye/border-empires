@@ -3,11 +3,11 @@ import { buildTileYieldView } from "../../../simulation/src/tile-yield-view/tile
 
 import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  IRONWORKS_GOLD_UPKEEP_PER_DAY,
+  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
   SETTLEMENT_BASE_GOLD_PER_MIN,
@@ -170,16 +170,16 @@ const townPopulationGrowthPerMinute = (input: {
   return Number(growth.toFixed(4));
 };
 
-const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "IRON" | "SUPPLY", number>> => {
+const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "TITANIUM" | "UMBRITE", number>> => {
   switch (structureType) {
-    // Every structure except the synthesizer family (Fur/Iron/Crystal +
-    // Advanced tiers, §6.4) has zero ongoing upkeep: FOOD/IRON/CRYSTAL/SUPPLY
+    // Every structure except the synthesizer family (Umbrite/Titanium/Crystal +
+    // Advanced tiers, §6.4) has zero ongoing upkeep: FOOD/TITANIUM/CRYSTAL/UMBRITE
     // are slot-based (structure-slots.ts), not a per-minute drain, and only
     // the synthesizers still have a real GOLD cost for their conversion.
-    case "FUR_SYNTHESIZER": return { GOLD: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "ADVANCED_FUR_SYNTHESIZER": return { GOLD: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "IRONWORKS": return { GOLD: IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
-    case "ADVANCED_IRONWORKS": return { GOLD: ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "UMBRITE_SYNTHESIZER": return { GOLD: UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "ADVANCED_UMBRITE_SYNTHESIZER": return { GOLD: ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "TITANIUM_WORKS": return { GOLD: TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
+    case "ADVANCED_TITANIUM_WORKS": return { GOLD: ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "CRYSTAL_SYNTHESIZER": return { GOLD: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_CRYSTAL_SYNTHESIZER": return { GOLD: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     default: return {};
@@ -316,8 +316,8 @@ export const buildSnapshotTileDetail = (
       ...(upkeep.FOOD ? { FOOD: Number(upkeep.FOOD.toFixed(4)) } : {}),
       ...(upkeep.GOLD ? { GOLD: Number(upkeep.GOLD.toFixed(4)) } : {}),
       ...(upkeep.CRYSTAL ? { CRYSTAL: Number(upkeep.CRYSTAL.toFixed(4)) } : {}),
-      ...(upkeep.IRON ? { IRON: Number(upkeep.IRON.toFixed(4)) } : {}),
-      ...(upkeep.SUPPLY ? { SUPPLY: Number(upkeep.SUPPLY.toFixed(4)) } : {})
+      ...(upkeep.TITANIUM ? { TITANIUM: Number(upkeep.TITANIUM.toFixed(4)) } : {}),
+      ...(upkeep.UMBRITE ? { UMBRITE: Number(upkeep.UMBRITE.toFixed(4)) } : {})
     };
     if (Object.keys(perMinute).length > 0) upkeepEntries.push({ label: type, perMinute });
   }

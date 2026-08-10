@@ -351,7 +351,7 @@ describe("automation strategic snapshot", () => {
   it("selects RESOURCE_MONOPOLY when AI has stacked the same resource type", () => {
     const ironTiles = Array.from({ length: 7 }, (_, index) =>
       makeTile(index, 0, { ownerId: "ai-1", ownershipState: "SETTLED" })
-    ).map((tile) => ({ ...tile, resource: "IRON" as const }));
+    ).map((tile) => ({ ...tile, resource: "TITANIUM" as const }));
     const tilesByKey = new Map(ironTiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
     const snapshot = buildAutomationStrategicSnapshot({
       playerId: "ai-1",

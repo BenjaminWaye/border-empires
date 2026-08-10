@@ -1,3 +1,3 @@
-export type EmpireVisualTint = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "BALANCED";
+export type EmpireVisualTint = "TITANIUM" | "UMBRITE" | "FOOD" | "CRYSTAL" | "BALANCED";
 export type EmpireBorderStyle = "SHARP" | "HEAVY" | "GLOW" | "DASHED" | "SOFT";
-export type EmpireStructureAccent = "IRON" | "SUPPLY" | "FOOD" | "CRYSTAL" | "NEUTRAL";
+export type EmpireStructureAccent = "TITANIUM" | "UMBRITE" | "FOOD" | "CRYSTAL" | "NEUTRAL";

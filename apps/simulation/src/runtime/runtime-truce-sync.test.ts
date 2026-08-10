@@ -126,7 +126,7 @@ describe("simulation runtime — truce sync", () => {
         ],
         [
           "player-2",
-          buildPlayer("player-2", { isAi: true, points: 900, manpower: 700, techIds: new Set<string>(["cartography"]), strategicResources: { FOOD: 4, IRON: 3, CRYSTAL: 2, SUPPLY: 1, SHARD: 0 } })
+          buildPlayer("player-2", { isAi: true, points: 900, manpower: 700, techIds: new Set<string>(["cartography"]), strategicResources: { FOOD: 4, TITANIUM: 3, CRYSTAL: 2, UMBRITE: 1, SHARD: 0 } })
         ]
       ]),
       seedTiles: new Map(),

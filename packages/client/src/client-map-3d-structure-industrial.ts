@@ -10,30 +10,30 @@ import type { EconomicSharedAssets } from "./client-map-3d-structure-economic.js
 
 export type IndustrialStructureKind =
   | "FOUNDRY"
-  | "ADVANCED_IRONWORKS"
-  | "FUR_SYNTHESIZER"
-  | "ADVANCED_FUR_SYNTHESIZER"
+  | "ADVANCED_TITANIUM_WORKS"
+  | "UMBRITE_SYNTHESIZER"
+  | "ADVANCED_UMBRITE_SYNTHESIZER"
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "ASTRAL_DOCK"
   | "WEAPONS_WORKSHOP"
-  // Iron Weapons Factory reuses Weapons Workshop's model as-is (see
-  // addWeaponsWorkshop below) rather than getting bespoke geometry — Fur
-  // Weapons Factory deliberately has no 3D model at all and falls back to
-  // the 2D overlay icon (fur-weapons-factory-overlay.svg) via the normal
-  // "not in STRUCTURE_KINDS_HANDLED_BY_3D" path.
-  | "IRON_WEAPONS_FACTORY";
+  // Titanium Weapons Factory reuses Weapons Workshop's model as-is (see
+  // addWeaponsWorkshop below) rather than getting bespoke geometry —
+  // Umbrite Weapons Factory has its own bespoke 3D model instead (see
+  // client-map-3d-umbrite-weapons-factory.ts / client-map-3d.ts), wired in
+  // outside this module the same way UMBRITE_RIG is.
+  | "TITANIUM_WEAPONS_FACTORY";
 
 export const INDUSTRIAL_STRUCTURE_KINDS: ReadonlySet<IndustrialStructureKind> = new Set([
   "FOUNDRY",
-  "ADVANCED_IRONWORKS",
-  "FUR_SYNTHESIZER",
-  "ADVANCED_FUR_SYNTHESIZER",
+  "ADVANCED_TITANIUM_WORKS",
+  "UMBRITE_SYNTHESIZER",
+  "ADVANCED_UMBRITE_SYNTHESIZER",
   "CRYSTAL_SYNTHESIZER",
   "ADVANCED_CRYSTAL_SYNTHESIZER",
   "ASTRAL_DOCK",
   "WEAPONS_WORKSHOP",
-  "IRON_WEAPONS_FACTORY"
+  "TITANIUM_WEAPONS_FACTORY"
 ]);
 
 export type IndustrialStructureLayout = (sceneX: number, surfaceY: number, sceneZ: number) => void;
@@ -43,8 +43,8 @@ export type IndustrialHandle = {
 };
 
 // `shared` carries the forge palette + blueCrystal assets from the
-// economic family so FOUNDRY/ADVANCED_IRONWORKS render with the same
-// forge palette as IRONWORKS, and the crystal synthesizers reuse the
+// economic family so FOUNDRY/ADVANCED_TITANIUM_WORKS render with the same
+// forge palette as TITANIUM_WORKS, and the crystal synthesizers reuse the
 // OBSERVATORY/MINE crystal material.
 export const registerIndustrialStructures = (
   builder: StructurePieceBuilder,
@@ -64,7 +64,10 @@ export const registerIndustrialStructures = (
   const synthBaseMaterial = new MeshStandardMaterial({ color: "#3e4248", roughness: 0.7, metalness: 0.35, flatShading: true });
   const synthChamberMaterial = new MeshStandardMaterial({ color: "#b6bcc0", roughness: 0.5, metalness: 0.55, flatShading: true });
   const synthTubeMaterial = new MeshStandardMaterial({ color: "#5a5e62", roughness: 0.6, metalness: 0.5, flatShading: true });
-  const furGlowMaterial = new MeshStandardMaterial({ color: "#f0a662", roughness: 0.35, metalness: 0.1, flatShading: true, emissive: "#c95a18", emissiveIntensity: 0.85 });
+  // Umbrite Synthesizer glow — a cold violet glow (echoing the umbrite
+  // deposit's own sheen material) rather than the old warm amber-iron glow,
+  // so the synthesizer visually reads as processing umbrite, not metal.
+  const umbriteGlowMaterial = new MeshStandardMaterial({ color: "#8a5cc9", roughness: 0.35, metalness: 0.1, flatShading: true, emissive: "#3a1a5c", emissiveIntensity: 0.85 });
   const crystalChamberMaterial = new MeshStandardMaterial({ color: "#9cd6e8", roughness: 0.4, metalness: 0.1, flatShading: true, transparent: true, opacity: 0.55, emissive: "#2a8eb8", emissiveIntensity: 0.55, depthWrite: false });
   const astralPadMaterial = new MeshStandardMaterial({ color: "#221a2e", roughness: 0.84, metalness: 0.18, flatShading: true });
   const astralRingMaterial = new MeshStandardMaterial({ color: "#88d8f0", roughness: 0.4, metalness: 0.15, flatShading: true, emissive: "#2a8ec0", emissiveIntensity: 0.95 });
@@ -73,19 +76,19 @@ export const registerIndustrialStructures = (
   const astralCoreMaterial = new MeshStandardMaterial({ color: "#c08aff", roughness: 0.3, metalness: 0.25, flatShading: true, emissive: "#7a3acc", emissiveIntensity: 1.0 });
 
   // ─── Geometries ─────────────────────────────────────────────────────
-  // ADV_IRONWORKS uses the synthesizer-chamber idiom (same as IRONWORKS
-  // in economic.ts and FUR/CRYSTAL synthesizers here) so the
-  // ironworks family stays visually coherent.
-  const ironSynthAdvBaseGeo = new BoxGeometry(0.32, 0.10, 0.18);
-  const ironSynthChamberGeo = new CylinderGeometry(0.07, 0.07, 0.18, 12);
-  const ironSynthChamberCapGeo = new ConeGeometry(0.075, 0.04, 12);
-  const ironSynthWindowGeo = new BoxGeometry(0.022, 0.10, 0.04);
-  const ironSynthTubeGeo = new CylinderGeometry(0.010, 0.010, 0.10, 6);
-  const ironSynthTubeCapGeo = new ConeGeometry(0.012, 0.022, 6);
+  // ADVANCED_TITANIUM_WORKS uses the synthesizer-chamber idiom (same as
+  // TITANIUM_WORKS in economic.ts and UMBRITE/CRYSTAL synthesizers here) so
+  // the titanium-works family stays visually coherent.
+  const titaniumSynthAdvBaseGeo = new BoxGeometry(0.32, 0.10, 0.18);
+  const titaniumSynthChamberGeo = new CylinderGeometry(0.07, 0.07, 0.18, 12);
+  const titaniumSynthChamberCapGeo = new ConeGeometry(0.075, 0.04, 12);
+  const titaniumSynthWindowGeo = new BoxGeometry(0.022, 0.10, 0.04);
+  const titaniumSynthTubeGeo = new CylinderGeometry(0.010, 0.010, 0.10, 6);
+  const titaniumSynthTubeCapGeo = new ConeGeometry(0.012, 0.022, 6);
   // FOUNDRY keeps the original forge silhouette — wider stone base,
   // pyramidal roof, tall stone furnace, twin chimneys, and a glowing
-  // slag pile. Foundry and ironworks are *not* the same thing: a
-  // foundry casts metal; ironworks (synthesizer) extracts/refines it.
+  // slag pile. Foundry and titanium works are *not* the same thing: a
+  // foundry casts metal; titanium works (synthesizer) extracts/refines it.
   const foundryBaseGeo = new BoxGeometry(0.40, 0.20, 0.30);
   const foundryRoofGeo = new ConeGeometry(0.28, 0.10, 4);
   const foundryFurnaceGeo = new BoxGeometry(0.20, 0.24, 0.18);
@@ -120,14 +123,14 @@ export const registerIndustrialStructures = (
   const astralCoreGeo = new OctahedronGeometry(0.05, 0);
 
   // ─── Slots ─────────────────────────────────────────────────────────
-  // ADV_IRONWORKS twin-chamber synthesizer slots.
-  builder.makeSlot("ironSynthAdvBase", ironSynthAdvBaseGeo, shared.forgeBaseMaterial, C);
-  builder.makeSlot("ironSynthChamber", ironSynthChamberGeo, shared.forgeStoneMaterial, C * 2);
-  builder.makeSlot("ironSynthChamberCap", ironSynthChamberCapGeo, shared.forgeStoneMaterial, C * 2);
-  builder.makeSlot("ironSynthWindow", ironSynthWindowGeo, shared.forgeGlowMaterial, C * 2);
-  builder.makeSlot("ironSynthTube", ironSynthTubeGeo, shared.forgeChimneyMaterial, C * 3);
-  builder.makeSlot("ironSynthTubeCap", ironSynthTubeCapGeo, shared.forgeChimneyMaterial, C * 3);
-  // FOUNDRY forge-style slots — distinct silhouette from the iron-synth
+  // ADVANCED_TITANIUM_WORKS twin-chamber synthesizer slots.
+  builder.makeSlot("titaniumSynthAdvBase", titaniumSynthAdvBaseGeo, shared.forgeBaseMaterial, C);
+  builder.makeSlot("titaniumSynthChamber", titaniumSynthChamberGeo, shared.forgeStoneMaterial, C * 2);
+  builder.makeSlot("titaniumSynthChamberCap", titaniumSynthChamberCapGeo, shared.forgeStoneMaterial, C * 2);
+  builder.makeSlot("titaniumSynthWindow", titaniumSynthWindowGeo, shared.forgeGlowMaterial, C * 2);
+  builder.makeSlot("titaniumSynthTube", titaniumSynthTubeGeo, shared.forgeChimneyMaterial, C * 3);
+  builder.makeSlot("titaniumSynthTubeCap", titaniumSynthTubeCapGeo, shared.forgeChimneyMaterial, C * 3);
+  // FOUNDRY forge-style slots — distinct silhouette from the titanium-synth
   // family. Uses shared forge palette but renders as a forge building.
   builder.makeSlot("foundryBase", foundryBaseGeo, shared.forgeBaseMaterial, C);
   builder.makeSlot("foundryRoof", foundryRoofGeo, shared.barnRoofMaterial, C);
@@ -141,7 +144,7 @@ export const registerIndustrialStructures = (
   builder.makeSlot("synthAdvBase", synthAdvBaseGeo, synthBaseMaterial, C);
   builder.makeSlot("synthChamber", synthChamberGeo, synthChamberMaterial, C * 2);
   builder.makeSlot("synthChamberCap", synthChamberCapGeo, synthChamberMaterial, C * 2);
-  builder.makeSlot("furWindow", synthWindowGeo, furGlowMaterial, C * 2);
+  builder.makeSlot("umbriteWindow", synthWindowGeo, umbriteGlowMaterial, C * 2);
   builder.makeSlot("synthTube", synthTubeGeo, synthTubeMaterial, C * 3);
   builder.makeSlot("synthTubeCap", synthTubeCapGeo, synthTubeMaterial, C * 3);
   builder.makeSlot("crystalChamber", crystalChamberGeo, crystalChamberMaterial, C * 2);
@@ -163,27 +166,27 @@ export const registerIndustrialStructures = (
   builder.makeSlot("weaponsBlade", weaponsBladeGeo, laserBladeMaterial, C * 3);
 
   // ─── Layouts ────────────────────────────────────────────────────────
-  const addIronSynthDual = (sx: number, sy: number, sz: number): void => {
+  const addTitaniumSynthDual = (sx: number, sy: number, sz: number): void => {
     // Twin synthesizer chambers on a wide dark-steel base. Two main
     // exhaust tubes vent upward and a third smaller tube sits between
     // them as a central control vent — same pattern as
-    // ADVANCED_FUR_SYNTHESIZER but with hot-iron glow windows.
-    builder.addPiece("ironSynthAdvBase", sx, sy, sz, 0, 0.05, 0);
-    builder.addPiece("ironSynthChamber", sx, sy, sz, -0.08, 0.19, 0);
-    builder.addPiece("ironSynthChamberCap", sx, sy, sz, -0.08, 0.30, 0);
-    builder.addPiece("ironSynthWindow", sx, sy, sz, -0.03, 0.19, 0.05);
-    builder.addPiece("ironSynthChamber", sx, sy, sz, 0.08, 0.19, 0);
-    builder.addPiece("ironSynthChamberCap", sx, sy, sz, 0.08, 0.30, 0);
-    builder.addPiece("ironSynthWindow", sx, sy, sz, 0.13, 0.19, 0.05);
-    builder.addPiece("ironSynthTube", sx, sy, sz, -0.08, 0.37, 0);
-    builder.addPiece("ironSynthTubeCap", sx, sy, sz, -0.08, 0.43, 0);
-    builder.addPiece("ironSynthTube", sx, sy, sz, 0.08, 0.37, 0);
-    builder.addPiece("ironSynthTubeCap", sx, sy, sz, 0.08, 0.43, 0);
-    builder.addPiece("ironSynthTube", sx, sy, sz, 0, 0.32, 0.06, 0.8, 0.6, 0.8);
+    // ADVANCED_UMBRITE_SYNTHESIZER but with hot-metal glow windows.
+    builder.addPiece("titaniumSynthAdvBase", sx, sy, sz, 0, 0.05, 0);
+    builder.addPiece("titaniumSynthChamber", sx, sy, sz, -0.08, 0.19, 0);
+    builder.addPiece("titaniumSynthChamberCap", sx, sy, sz, -0.08, 0.30, 0);
+    builder.addPiece("titaniumSynthWindow", sx, sy, sz, -0.03, 0.19, 0.05);
+    builder.addPiece("titaniumSynthChamber", sx, sy, sz, 0.08, 0.19, 0);
+    builder.addPiece("titaniumSynthChamberCap", sx, sy, sz, 0.08, 0.30, 0);
+    builder.addPiece("titaniumSynthWindow", sx, sy, sz, 0.13, 0.19, 0.05);
+    builder.addPiece("titaniumSynthTube", sx, sy, sz, -0.08, 0.37, 0);
+    builder.addPiece("titaniumSynthTubeCap", sx, sy, sz, -0.08, 0.43, 0);
+    builder.addPiece("titaniumSynthTube", sx, sy, sz, 0.08, 0.37, 0);
+    builder.addPiece("titaniumSynthTubeCap", sx, sy, sz, 0.08, 0.43, 0);
+    builder.addPiece("titaniumSynthTube", sx, sy, sz, 0, 0.32, 0.06, 0.8, 0.6, 0.8);
   };
 
-  const addAdvancedIronworks: IndustrialStructureLayout = (sx, sy, sz) => {
-    addIronSynthDual(sx, sy, sz);
+  const addAdvancedTitaniumWorks: IndustrialStructureLayout = (sx, sy, sz) => {
+    addTitaniumSynthDual(sx, sy, sz);
   };
 
   const addFoundry: IndustrialStructureLayout = (sx, sy, sz) => {
@@ -200,23 +203,23 @@ export const registerIndustrialStructures = (
     builder.addPiece("slagPile", sx, sy, sz, -0.20, 0.025, 0.18);
   };
 
-  const addFurSynthesizer: IndustrialStructureLayout = (sx, sy, sz) => {
+  const addUmbriteSynthesizer: IndustrialStructureLayout = (sx, sy, sz) => {
     builder.addPiece("synthBase", sx, sy, sz, 0, 0.04, 0);
     builder.addPiece("synthChamber", sx, sy, sz, 0, 0.17, 0);
     builder.addPiece("synthChamberCap", sx, sy, sz, 0, 0.28, 0);
-    builder.addPiece("furWindow", sx, sy, sz, 0.05, 0.17, 0.05);
+    builder.addPiece("umbriteWindow", sx, sy, sz, 0.05, 0.17, 0.05);
     builder.addPiece("synthTube", sx, sy, sz, 0, 0.35, 0);
     builder.addPiece("synthTubeCap", sx, sy, sz, 0, 0.41, 0);
   };
 
-  const addAdvancedFurSynthesizer: IndustrialStructureLayout = (sx, sy, sz) => {
+  const addAdvancedUmbriteSynthesizer: IndustrialStructureLayout = (sx, sy, sz) => {
     builder.addPiece("synthAdvBase", sx, sy, sz, 0, 0.05, 0);
     builder.addPiece("synthChamber", sx, sy, sz, -0.08, 0.19, 0);
     builder.addPiece("synthChamberCap", sx, sy, sz, -0.08, 0.30, 0);
-    builder.addPiece("furWindow", sx, sy, sz, -0.03, 0.19, 0.05);
+    builder.addPiece("umbriteWindow", sx, sy, sz, -0.03, 0.19, 0.05);
     builder.addPiece("synthChamber", sx, sy, sz, 0.08, 0.19, 0);
     builder.addPiece("synthChamberCap", sx, sy, sz, 0.08, 0.30, 0);
-    builder.addPiece("furWindow", sx, sy, sz, 0.13, 0.19, 0.05);
+    builder.addPiece("umbriteWindow", sx, sy, sz, 0.13, 0.19, 0.05);
     builder.addPiece("synthTube", sx, sy, sz, -0.08, 0.37, 0);
     builder.addPiece("synthTubeCap", sx, sy, sz, -0.08, 0.43, 0);
     builder.addPiece("synthTube", sx, sy, sz, 0.08, 0.37, 0);
@@ -287,16 +290,16 @@ export const registerIndustrialStructures = (
   return {
     layouts: {
       FOUNDRY: addFoundry,
-      ADVANCED_IRONWORKS: addAdvancedIronworks,
-      FUR_SYNTHESIZER: addFurSynthesizer,
-      ADVANCED_FUR_SYNTHESIZER: addAdvancedFurSynthesizer,
+      ADVANCED_TITANIUM_WORKS: addAdvancedTitaniumWorks,
+      UMBRITE_SYNTHESIZER: addUmbriteSynthesizer,
+      ADVANCED_UMBRITE_SYNTHESIZER: addAdvancedUmbriteSynthesizer,
       CRYSTAL_SYNTHESIZER: addCrystalSynthesizer,
       ADVANCED_CRYSTAL_SYNTHESIZER: addAdvancedCrystalSynthesizer,
       ASTRAL_DOCK: addAstralDock,
       WEAPONS_WORKSHOP: addWeaponsWorkshop,
       // Reuses the exact same model as WEAPONS_WORKSHOP (see comment on
       // IndustrialStructureKind above) rather than bespoke geometry.
-      IRON_WEAPONS_FACTORY: addWeaponsWorkshop
+      TITANIUM_WEAPONS_FACTORY: addWeaponsWorkshop
     }
   };
 };

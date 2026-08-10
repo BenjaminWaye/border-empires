@@ -105,20 +105,20 @@ export const resourceFor3DPopulation = (
   const resourceCluster = inCluster(wx, wy, 9, 1.75, 71);
   if (!resourceCluster.active) {
     if (biome === "COASTAL_SAND") return roll < 0.03 ? "FISH" : undefined;
-    if (forestTile) return roll < 0.03 ? "FUR" : undefined;
+    if (forestTile) return roll < 0.03 ? "UMBRITE" : undefined;
     if (biome === "SAND") return roll < 0.025 ? "GEMS" : undefined;
     return roll < 0.02 ? "FARM" : undefined;
   }
   if (biome === "COASTAL_SAND") {
-    return chooseClusterResource(resourceCluster.clusterId, ["FISH", "FARM"], ["FISH", "FARM", "IRON"]);
+    return chooseClusterResource(resourceCluster.clusterId, ["FISH", "FARM"], ["FISH", "FARM", "TITANIUM"]);
   }
   if (biome === "SAND") {
-    return chooseClusterResource(resourceCluster.clusterId, ["GEMS", "IRON", "FUR"], ["GEMS", "IRON"]);
+    return chooseClusterResource(resourceCluster.clusterId, ["GEMS", "TITANIUM", "UMBRITE"], ["GEMS", "TITANIUM"]);
   }
   if (forestTile) {
-    return chooseClusterResource(resourceCluster.clusterId, ["FUR", "FARM"], ["FUR", "FARM", "IRON"]);
+    return chooseClusterResource(resourceCluster.clusterId, ["UMBRITE", "FARM"], ["UMBRITE", "FARM", "TITANIUM"]);
   }
-  const inlandType = chooseClusterResource(resourceCluster.clusterId, ["FARM", "IRON"], ["FARM", "IRON", "FUR"]);
-  if (inlandType === "FUR" && !forestTile) return "FARM";
+  const inlandType = chooseClusterResource(resourceCluster.clusterId, ["FARM", "TITANIUM"], ["FARM", "TITANIUM", "UMBRITE"]);
+  if (inlandType === "UMBRITE" && !forestTile) return "FARM";
   return inlandType;
 };

@@ -160,12 +160,12 @@ describe("settle + build — Light Outpost on an owned FRONTIER tile", () => {
 });
 
 describe("settle + build — placement-overlay building (FOUNDRY)", () => {
-  it("shows build_foundry on a FRONTIER owned IRON tile with a settle + build total", () => {
+  it("shows build_foundry on a FRONTIER owned TITANIUM tile with a settle + build total", () => {
     const state = richState();
     state.techIds = ["industrial-extraction"];
     state.resourceSlots.supply.FOOD = 1;
     state.resourceSlots.supply.CRYSTAL = 1;
-    const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "IRON" } as Tile;
+    const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "TITANIUM" } as Tile;
     state.tiles.set(keyFor(3, 3), frontier);
 
     const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
@@ -181,7 +181,7 @@ describe("settle + build — settled-only building with no resource/town/dock su
   const bareFrontierState = (techIds: string[]): ReturnType<typeof createInitialState> => {
     const state = richState();
     state.techIds = techIds;
-    for (const resource of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
+    for (const resource of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const) {
       state.resourceSlots.supply[resource] = 5;
     }
     return state;
@@ -215,10 +215,10 @@ describe("settle + build — settled-only building with no resource/town/dock su
 describe("Wooden Fort / Light Outpost stay visible as a fallback when their upgrade's resource slot is unavailable", () => {
   const settledTile = (): Tile => ({ x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile);
 
-  it("hides build_wooden_fort once Stoneworks is known and a free IRON slot exists (upgrade path is buildable)", () => {
+  it("hides build_wooden_fort once Stoneworks is known and a free TITANIUM slot exists (upgrade path is buildable)", () => {
     const state = richState();
     state.techIds = ["masonry"];
-    state.resourceSlots.supply.IRON = 1;
+    state.resourceSlots.supply.TITANIUM = 1;
     const tile = settledTile();
     state.tiles.set(keyFor(3, 3), tile);
 
@@ -229,10 +229,10 @@ describe("Wooden Fort / Light Outpost stay visible as a fallback when their upgr
     expect(upgrade?.disabled).not.toBe(true);
   });
 
-  it("keeps build_wooden_fort visible when Stoneworks is known but no free IRON slot is available", () => {
+  it("keeps build_wooden_fort visible when Stoneworks is known but no free TITANIUM slot is available", () => {
     const state = richState();
     state.techIds = ["masonry"];
-    state.resourceSlots.supply.IRON = 0;
+    state.resourceSlots.supply.TITANIUM = 0;
     const tile = settledTile();
     state.tiles.set(keyFor(3, 3), tile);
 
@@ -241,13 +241,13 @@ describe("Wooden Fort / Light Outpost stay visible as a fallback when their upgr
     expect(woodenFort).toBeDefined();
     const upgrade = findAction(actions, "build_fortification");
     expect(upgrade?.disabled).toBe(true);
-    expect(upgrade?.disabledReason).toBe("Need a free IRON slot");
+    expect(upgrade?.disabledReason).toBe("Need a free TITANIUM slot");
   });
 
-  it("hides build_light_outpost once Leatherworking is known and a free SUPPLY slot exists (upgrade path is buildable)", () => {
+  it("hides build_light_outpost once Leatherworking is known and a free UMBRITE slot exists (upgrade path is buildable)", () => {
     const state = richState();
     state.techIds = ["leatherworking"];
-    state.resourceSlots.supply.SUPPLY = 1;
+    state.resourceSlots.supply.UMBRITE = 1;
     state.resourceSlots.supply.FOOD = 1;
     const tile = settledTile();
     state.tiles.set(keyFor(3, 3), tile);
@@ -259,10 +259,10 @@ describe("Wooden Fort / Light Outpost stay visible as a fallback when their upgr
     expect(upgrade?.disabled).not.toBe(true);
   });
 
-  it("keeps build_light_outpost visible when Leatherworking is known but no free SUPPLY (Fur/Wood) slot is available", () => {
+  it("keeps build_light_outpost visible when Leatherworking is known but no free UMBRITE slot is available", () => {
     const state = richState();
     state.techIds = ["leatherworking"];
-    state.resourceSlots.supply.SUPPLY = 0;
+    state.resourceSlots.supply.UMBRITE = 0;
     state.resourceSlots.supply.FOOD = 1;
     const tile = settledTile();
     state.tiles.set(keyFor(3, 3), tile);
@@ -273,6 +273,6 @@ describe("Wooden Fort / Light Outpost stay visible as a fallback when their upgr
     expect(lightOutpost?.disabled).not.toBe(true);
     const upgrade = findAction(actions, "build_siege_camp");
     expect(upgrade?.disabled).toBe(true);
-    expect(upgrade?.disabledReason).toBe("Need a free SUPPLY slot");
+    expect(upgrade?.disabledReason).toBe("Need a free UMBRITE slot");
   });
 });

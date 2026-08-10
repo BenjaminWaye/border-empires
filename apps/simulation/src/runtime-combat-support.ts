@@ -8,10 +8,10 @@ import {
   targetOutpostMult,
   WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
   WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
-  IRON_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
-  IRON_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
-  FUR_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
-  FUR_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
+  TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
+  TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
+  UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
+  UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
   NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -53,7 +53,7 @@ export type RuntimeCombatSupportContext = {
   // factory totals (see ConnectedTownNetworkEntry's doc comment — both
   // already self-inclusive of the whole network, no further "+ own tile"
   // adjustment needed by callers).
-  networkWeaponsFactoryCountsForOrigin: (playerId: string, tileKey: string) => { iron: number; fur: number };
+  networkWeaponsFactoryCountsForOrigin: (playerId: string, tileKey: string) => { titanium: number; umbrite: number };
 };
 
 export type LockedCombatInput = Pick<
@@ -274,25 +274,25 @@ const weaponsWorkshopAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, pl
 const weaponsWorkshopDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
   playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "WEAPONS_WORKSHOP") * WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING : 1;
 
-// Iron/Fur Weapons Factory (design doc "network-clustered combat bonus"):
+// Titanium/Umbrite Weapons Factory (design doc "network-clustered combat bonus"):
 // both grant attack AND defense per copy (never zero on either axis), just
-// weighted differently — Iron leans defense, Fur leans attack. Unlike
+// weighted differently — Titanium leans defense, Umbrite leans attack. Unlike
 // Weapons Workshop's flat empire-wide count, the count that feeds a given
 // fight is scoped to the connected-town network relevant to that side of
 // the fight (attacker's origin network for the attack-side mults, defender's
 // target network for the defense-side mults) — see
 // networkWeaponsFactoryCountsForOrigin's doc comment.
-const ironWeaponsFactoryAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined, tileKey: string): number =>
-  playerId ? 1 + ctx.networkWeaponsFactoryCountsForOrigin(playerId, tileKey).iron * IRON_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
+const titaniumWeaponsFactoryAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined, tileKey: string): number =>
+  playerId ? 1 + ctx.networkWeaponsFactoryCountsForOrigin(playerId, tileKey).titanium * TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
 
-const ironWeaponsFactoryDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined, tileKey: string): number =>
-  playerId ? 1 + ctx.networkWeaponsFactoryCountsForOrigin(playerId, tileKey).iron * IRON_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
+const titaniumWeaponsFactoryDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined, tileKey: string): number =>
+  playerId ? 1 + ctx.networkWeaponsFactoryCountsForOrigin(playerId, tileKey).titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
 
-const furWeaponsFactoryAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined, tileKey: string): number =>
-  playerId ? 1 + ctx.networkWeaponsFactoryCountsForOrigin(playerId, tileKey).fur * FUR_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
+const umbriteWeaponsFactoryAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined, tileKey: string): number =>
+  playerId ? 1 + ctx.networkWeaponsFactoryCountsForOrigin(playerId, tileKey).umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
 
-const furWeaponsFactoryDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined, tileKey: string): number =>
-  playerId ? 1 + ctx.networkWeaponsFactoryCountsForOrigin(playerId, tileKey).fur * FUR_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
+const umbriteWeaponsFactoryDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined, tileKey: string): number =>
+  playerId ? 1 + ctx.networkWeaponsFactoryCountsForOrigin(playerId, tileKey).umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
 
 // "Unarmed" vulnerability (design doc, confirmed scope): a defender who owns
 // zero of a given factory type ANYWHERE in their empire (an existence check,
@@ -302,9 +302,9 @@ const furWeaponsFactoryDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext,
 // if both are missing.
 const noWarIndustryVulnerabilityMultForDefender = (ctx: RuntimeCombatSupportContext, defenderOwnerId: string | undefined): number => {
   if (!defenderOwnerId) return 1;
-  const hasIron = ctx.ownedStructureCountForPlayer(defenderOwnerId, "IRON_WEAPONS_FACTORY") > 0;
-  const hasFur = ctx.ownedStructureCountForPlayer(defenderOwnerId, "FUR_WEAPONS_FACTORY") > 0;
-  return hasIron && hasFur ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT;
+  const hasTitanium = ctx.ownedStructureCountForPlayer(defenderOwnerId, "TITANIUM_WEAPONS_FACTORY") > 0;
+  const hasUmbrite = ctx.ownedStructureCountForPlayer(defenderOwnerId, "UMBRITE_WEAPONS_FACTORY") > 0;
+  return hasTitanium && hasUmbrite ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT;
 };
 
 const resolveAttackCombat = (
@@ -338,14 +338,15 @@ const resolveAttackCombat = (
     // kept wired for any copy a player already owns.
     weaponsWorkshopAttackMult: weaponsWorkshopAttackMultForPlayer(ctx, lock.playerId),
     weaponsWorkshopDefenseMult: weaponsWorkshopDefenseMultForPlayer(ctx, defenderOwnerId),
-    // Iron/Fur Weapons Factory — attack-side mults read from the attacker's
-    // ORIGIN tile's network, defense-side mults from the defender's TARGET
-    // tile's network (each side only ever supplies its own side's field,
-    // same convention as weaponsWorkshopAttackMult/DefenseMult above).
-    ironWeaponsFactoryAttackMult: ironWeaponsFactoryAttackMultForPlayer(ctx, lock.playerId, lock.originKey),
-    ironWeaponsFactoryDefenseMult: ironWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId, lock.targetKey),
-    furWeaponsFactoryAttackMult: furWeaponsFactoryAttackMultForPlayer(ctx, lock.playerId, lock.originKey),
-    furWeaponsFactoryDefenseMult: furWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId, lock.targetKey),
+    // Titanium/Umbrite Weapons Factory — attack-side mults read from the
+    // attacker's ORIGIN tile's network, defense-side mults from the
+    // defender's TARGET tile's network (each side only ever supplies its
+    // own side's field, same convention as weaponsWorkshopAttackMult/
+    // DefenseMult above).
+    titaniumWeaponsFactoryAttackMult: titaniumWeaponsFactoryAttackMultForPlayer(ctx, lock.playerId, lock.originKey),
+    titaniumWeaponsFactoryDefenseMult: titaniumWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId, lock.targetKey),
+    umbriteWeaponsFactoryAttackMult: umbriteWeaponsFactoryAttackMultForPlayer(ctx, lock.playerId, lock.originKey),
+    umbriteWeaponsFactoryDefenseMult: umbriteWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId, lock.targetKey),
     noWarIndustryVulnerabilityMult: noWarIndustryVulnerabilityMultForDefender(ctx, defenderOwnerId)
   };
   const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget

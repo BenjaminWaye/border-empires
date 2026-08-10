@@ -1,15 +1,15 @@
 export type Terrain = "LAND" | "SEA" | "COASTAL_SEA" | "MOUNTAIN";
 export const isSeaTerrain = (terrain: Terrain): terrain is "SEA" | "COASTAL_SEA" => terrain === "SEA" || terrain === "COASTAL_SEA";
-export type ResourceType = "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR";
+export type ResourceType = "FARM" | "TITANIUM" | "GEMS" | "FISH" | "UMBRITE";
 export type TileKey = `${number},${number}`;
 export type PlayerId = string;
 export type LandBiome = "GRASS" | "SAND" | "COASTAL_SAND";
-export type ClusterType = "FERTILE_PLAINS" | "IRON_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS" | "COASTAL_SHOALS";
+export type ClusterType = "FERTILE_PLAINS" | "TITANIUM_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS" | "COASTAL_SHOALS";
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
 export type FrontierDecayKind = "NATURAL" | "ENCIRCLEMENT";
 export type FortStatus = "under_construction" | "active" | "removing";
 export type SiegeOutpostStatus = "under_construction" | "active" | "removing";
-export type FortVariant = "FORT" | "IRON_BASTION" | "THUNDER_BASTION" | "WOODEN_FORT";
+export type FortVariant = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "WOODEN_FORT";
 export type SiegeOutpostVariant = "SIEGE_OUTPOST" | "SIEGE_TOWER" | "DREAD_TOWER";
 export type ObservatoryStatus = "under_construction" | "active" | "inactive" | "removing";
 export type SeasonStatus = "active" | "archived";
@@ -24,7 +24,7 @@ export type { ConverterMode, EconomicStructure };
 export type EconomicStructureType =
   | "FARMSTEAD"
   | "WATERWORKS"
-  | "CAMP"
+  | "UMBRITE_RIG"
   | "MINE"
   | "MARKET"
   | "GRANARY"
@@ -35,10 +35,10 @@ export type EconomicStructureType =
   | "AETHER_TOWER"
   | "WOODEN_FORT"
   | "LIGHT_OUTPOST"
-  | "FUR_SYNTHESIZER"
-  | "ADVANCED_FUR_SYNTHESIZER"
-  | "IRONWORKS"
-  | "ADVANCED_IRONWORKS"
+  | "UMBRITE_SYNTHESIZER"
+  | "ADVANCED_UMBRITE_SYNTHESIZER"
+  | "TITANIUM_WORKS"
+  | "ADVANCED_TITANIUM_WORKS"
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "CARAVANARY"
@@ -66,23 +66,23 @@ export type EconomicStructureType =
   | "POPULATION_BUREAU_PART_1"
   | "POPULATION_BUREAU_PART_2"
   | "POPULATION_BUREAU_PART_3"
-  | "IRON_LEVY_PART_1"
-  | "IRON_LEVY_PART_2"
-  | "IRON_LEVY_PART_3"
+  | "TITANIUM_LEVY_PART_1"
+  | "TITANIUM_LEVY_PART_2"
+  | "TITANIUM_LEVY_PART_3"
   | "IMPERIAL_EXCHANGE"
   | "WORLD_ENGINE"
   | "AEGIS_DOME"
   | "ASTRAL_DOCK"
   | "POPULATION_BUREAU"
-  | "IRON_LEVY"
+  | "TITANIUM_LEVY"
   | "WEAPONS_WORKSHOP"
-  | "IRON_WEAPONS_FACTORY"
-  | "FUR_WEAPONS_FACTORY";
+  | "TITANIUM_WEAPONS_FACTORY"
+  | "UMBRITE_WEAPONS_FACTORY";
 // The late-game monument family: each is built in stages (a "*_PART"
 // intermediate, then the finished structure below). Single source of truth
 // for anything that needs to identify "is this a monument" (e.g. season
 // winner stats).
-export const MONUMENTAL_STRUCTURE_TYPES = ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "IRON_LEVY"] as const;
+export const MONUMENTAL_STRUCTURE_TYPES = ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "TITANIUM_LEVY"] as const;
 export type MonumentalStructureType = (typeof MONUMENTAL_STRUCTURE_TYPES)[number];
 export type PopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
 export type TownGrowthUpgradeTier = "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
@@ -114,7 +114,7 @@ export interface TileHistory {
 
 export interface TileUpkeepEntry {
   label: string;
-  perMinute: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "GOLD", number>>;
+  perMinute: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "GOLD", number>>;
 }
 
 export interface SeasonVictoryObjectiveView {
@@ -289,11 +289,11 @@ export interface Tile {
   };
   yield?: {
     gold?: number;
-    strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
   };
   yieldRate?: {
     goldPerMinute?: number;
-    strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
   };
   yieldCap?: {
     gold: number;
@@ -558,7 +558,7 @@ export interface RevealEmpireStatsView {
   gold: number;
   manpower: number;
   manpowerCap: number;
-  strategicResources: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+  strategicResources: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
 }
 
 export interface ActiveSabotage {

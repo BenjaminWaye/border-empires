@@ -61,7 +61,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     structureType: z.enum([
       "FARMSTEAD",
       "WATERWORKS",
-      "CAMP",
+      "UMBRITE_RIG",
       "MINE",
       "MARKET",
       "GRANARY",
@@ -72,10 +72,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "AETHER_TOWER",
       "WOODEN_FORT",
       "LIGHT_OUTPOST",
-      "FUR_SYNTHESIZER",
-      "ADVANCED_FUR_SYNTHESIZER",
-      "IRONWORKS",
-      "ADVANCED_IRONWORKS",
+      "UMBRITE_SYNTHESIZER",
+      "ADVANCED_UMBRITE_SYNTHESIZER",
+      "TITANIUM_WORKS",
+      "ADVANCED_TITANIUM_WORKS",
       "CRYSTAL_SYNTHESIZER",
       "ADVANCED_CRYSTAL_SYNTHESIZER",
       "CARAVANARY",
@@ -103,15 +103,15 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "POPULATION_BUREAU_PART_1",
       "POPULATION_BUREAU_PART_2",
       "POPULATION_BUREAU_PART_3",
-      "IRON_LEVY_PART_1",
-      "IRON_LEVY_PART_2",
-      "IRON_LEVY_PART_3",
+      "TITANIUM_LEVY_PART_1",
+      "TITANIUM_LEVY_PART_2",
+      "TITANIUM_LEVY_PART_3",
       "IMPERIAL_EXCHANGE",
       "WORLD_ENGINE",
       "AEGIS_DOME",
       "ASTRAL_DOCK",
       "POPULATION_BUREAU",
-      "IRON_LEVY"
+      "TITANIUM_LEVY"
     ])
   }),
   z.object({ type: z.literal("CANCEL_FORT_BUILD"), x: z.number().int(), y: z.number().int() }),
@@ -177,7 +177,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("RETORT_RECAST"),
     x: z.number().int(),
     y: z.number().int(),
-    targetResource: z.enum(["FARM", "WOOD", "IRON", "GEMS"]),
+    targetResource: z.enum(["FARM", "TITANIUM", "GEMS"]),
     ...FrontierCommandMetadataSchema
   }),
   z.object({ type: z.literal("CREATE_MOUNTAIN"), x: z.number().int(), y: z.number().int(), ...FrontierCommandMetadataSchema }),
@@ -194,10 +194,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("WORLD_ENGINE_STRIKE"), fromX: z.number().int(), fromY: z.number().int(), toX: z.number().int(), toY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("AEGIS_LOCK"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
   z.object({ type: z.literal("ASTRAL_DOCK_LAUNCH"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
-  // The Iron Levy monument: converts 50% of currently-banked manpower into
+  // The Titanium Levy monument: converts 50% of currently-banked manpower into
   // an instant one-time army at the anchor tile, then freezes empire-wide
   // manpower regen for 2 hours.
-  z.object({ type: z.literal("IRON_LEVY_MUSTER"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
+  z.object({ type: z.literal("TITANIUM_LEVY_MUSTER"), fromX: z.number().int(), fromY: z.number().int(), ...FrontierCommandMetadataSchema }),
   // Emperor-endorsement bonus: burns one Imperial Ward charge, granting the
   // player 10 minutes of total invulnerability on all owned tiles. No anchor
   // tile — a pure per-player toggle, unlike AEGIS_LOCK.

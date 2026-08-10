@@ -9,12 +9,12 @@ describe("computeSeasonWinnerStats", () => {
         {
           id: "player-1",
           incomePerMinute: 42,
-          strategicProductionPerMinute: { FOOD: 10, IRON: 20, CRYSTAL: 3, SUPPLY: 7, SHARD: 0 }
+          strategicProductionPerMinute: { FOOD: 10, TITANIUM: 20, CRYSTAL: 3, UMBRITE: 7, SHARD: 0 }
         },
         {
           id: "player-2",
           incomePerMinute: 999,
-          strategicProductionPerMinute: { FOOD: 999, IRON: 999, CRYSTAL: 999, SUPPLY: 999, SHARD: 0 }
+          strategicProductionPerMinute: { FOOD: 999, TITANIUM: 999, CRYSTAL: 999, UMBRITE: 999, SHARD: 0 }
         }
       ],
       tiles: [
@@ -90,7 +90,7 @@ describe("computeSeasonWinnerStats", () => {
 
   it("skips tiles with malformed townJson/economicStructureJson instead of throwing", () => {
     const runtimeState = {
-      players: [{ id: "player-1", incomePerMinute: 5, strategicProductionPerMinute: { FOOD: 1, IRON: 1, CRYSTAL: 1, SUPPLY: 1, SHARD: 0 } }],
+      players: [{ id: "player-1", incomePerMinute: 5, strategicProductionPerMinute: { FOOD: 1, TITANIUM: 1, CRYSTAL: 1, UMBRITE: 1, SHARD: 0 } }],
       tiles: [
         { x: 0, y: 0, ownerId: "player-1", townJson: "{not valid json", economicStructureJson: "also not valid json" },
         { x: 1, y: 0, ownerId: "player-1", townJson: JSON.stringify({ population: 40 }) }

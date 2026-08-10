@@ -181,7 +181,7 @@ describe("rewrite stack integration", () => {
           id: "player-1",
           points: 5_000,
           manpower: 10_000,
-          strategicResources: { IRON: 25 }
+          strategicResources: { TITANIUM: 25 }
         }
       ]
     });
@@ -1431,9 +1431,9 @@ describe("rewrite stack integration", () => {
             manpower: 1950,
             manpowerCap: 1950,
             incomePerMinute: 14.5,
-            strategicResources: { FOOD: 321.5, IRON: 81.5, CRYSTAL: 189.4, SUPPLY: 0, SHARD: 0 },
-            strategicProductionPerMinute: { FOOD: 0.12, IRON: 0.17, CRYSTAL: 0.4, SUPPLY: 0, SHARD: 0 },
-            upkeepPerMinute: { food: 0.1, iron: 0, supply: 0, crystal: 0,  gold: 0.04 },
+            strategicResources: { FOOD: 321.5, TITANIUM: 81.5, CRYSTAL: 189.4, UMBRITE: 0, SHARD: 0 },
+            strategicProductionPerMinute: { FOOD: 0.12, TITANIUM: 0.17, CRYSTAL: 0.4, UMBRITE: 0, SHARD: 0 },
+            upkeepPerMinute: { food: 0.1, titanium: 0, umbrite: 0, crystal: 0,  gold: 0.04 },
             upkeepLastTick: { foodCoverage: 1 },
             developmentProcessLimit: 3,
             activeDevelopmentProcessCount: 0,
@@ -1497,8 +1497,8 @@ describe("rewrite stack integration", () => {
     const scheduledBuilds: Array<{ delayMs: number; task: () => void }> = [];
     const gatewayCommandStore = new InMemoryGatewayCommandStore();
     const snapshotStore = await createStartupSnapshotStore({
-      // §5: the WOOD tile backs the SUPPLY *slot* a Siege Outpost needs; the stockpile below is retired and no longer gates the build.
-      tiles: [{ x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "WOOD" }],
+      // §5: the UMBRITE tile backs the UMBRITE *slot* a Siege Outpost needs; the stockpile below is retired and no longer gates the build.
+      tiles: [{ x: 14, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }, { x: 15, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "UMBRITE" }],
       activeLocks: [],
       players: [
         {
@@ -1506,7 +1506,7 @@ describe("rewrite stack integration", () => {
           points: 5_000,
           manpower: 10_000,
           techIds: ["leatherworking"],
-          strategicResources: { SUPPLY: 100 }
+          strategicResources: { UMBRITE: 100 }
         }
       ]
     });

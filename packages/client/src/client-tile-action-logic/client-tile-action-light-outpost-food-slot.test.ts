@@ -70,7 +70,7 @@ const richState = (): ReturnType<typeof createInitialState> => {
   state.manpower = 10_000;
   // No FOOD supply at all — isolates the assertions to the Light Outpost
   // count-based waiver rather than a coincidentally-sufficient FOOD slot.
-  state.resourceSlots = { supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }, demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 } };
+  state.resourceSlots = { supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } };
   return state;
 };
 

@@ -14,7 +14,7 @@
  * lost elsewhere in the player's territory doesn't touch the outpost's own
  * tile, so it can't rely on that tile's own reconcile call), so an in-flight
  * Light Outpost -> Siege Outpost upgrade, a fresh Survey Corps unlock, or a
- * FOOD/SUPPLY slot going from free to short (or back) all recompute the bonus
+ * FOOD/UMBRITE slot going from free to short (or back) all recompute the bonus
  * from current tile + tech + dormancy state rather than relying on matched
  * add/remove call sites.
  */
@@ -137,7 +137,7 @@ export const reconcileOutpostVisionBonus = (
  * tile + tech + dormancy state. Used both for a tech unlock that moves every
  * owned outpost's ring (e.g. Survey Corps) and for a dormancy shift caused by
  * some other tile in the player's territory (a resource tile gained or lost
- * elsewhere changes their FOOD/SUPPLY slot totals without touching any
+ * elsewhere changes their FOOD/UMBRITE slot totals without touching any
  * outpost tile directly). `ownedOutpostTiles` is sourced from the runtime's
  * activeLightOutpostsByOwner/activeSiegeOutpostsByOwner indexes — cheap, but
  * "active"-only, so a mid-removal outpost won't resync until some other event

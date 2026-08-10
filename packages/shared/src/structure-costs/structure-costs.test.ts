@@ -29,26 +29,26 @@ describe("structureBuildGoldCost", () => {
   });
 });
 
-// Design doc "escalating build cost": Iron/Fur Weapons Factory are the one
+// Design doc "escalating build cost": Titanium/Umbrite Weapons Factory are the one
 // place `scaling` multiplies the real (manpower) cost instead of the
 // (globally zeroed) gold cost every other structure's `scaling` describes.
 describe("structureBuildManpowerCostScaled", () => {
-  test("escalates Iron Weapons Factory manpower cost with existing empire-wide count", () => {
-    const base = structureBuildManpowerCost("IRON_WEAPONS_FACTORY");
-    expect(structureBuildManpowerCostScaled("IRON_WEAPONS_FACTORY", 0)).toBe(base);
-    expect(structureBuildManpowerCostScaled("IRON_WEAPONS_FACTORY", 1)).toBe(Math.ceil(base * 1.15));
-    expect(structureBuildManpowerCostScaled("IRON_WEAPONS_FACTORY", 2)).toBe(Math.ceil(base * 1.15 ** 2));
-    expect(structureBuildManpowerCostScaled("IRON_WEAPONS_FACTORY", 5)).toBeGreaterThan(
-      structureBuildManpowerCostScaled("IRON_WEAPONS_FACTORY", 1)
+  test("escalates Titanium Weapons Factory manpower cost with existing empire-wide count", () => {
+    const base = structureBuildManpowerCost("TITANIUM_WEAPONS_FACTORY");
+    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 0)).toBe(base);
+    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 1)).toBe(Math.ceil(base * 1.15));
+    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 2)).toBe(Math.ceil(base * 1.15 ** 2));
+    expect(structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 5)).toBeGreaterThan(
+      structureBuildManpowerCostScaled("TITANIUM_WEAPONS_FACTORY", 1)
     );
   });
 
-  test("escalates Fur Weapons Factory manpower cost with existing empire-wide count", () => {
-    const base = structureBuildManpowerCost("FUR_WEAPONS_FACTORY");
-    expect(structureBuildManpowerCostScaled("FUR_WEAPONS_FACTORY", 0)).toBe(base);
-    expect(structureBuildManpowerCostScaled("FUR_WEAPONS_FACTORY", 1)).toBe(Math.ceil(base * 1.15));
-    expect(structureBuildManpowerCostScaled("FUR_WEAPONS_FACTORY", 3)).toBeGreaterThan(
-      structureBuildManpowerCostScaled("FUR_WEAPONS_FACTORY", 0)
+  test("escalates Umbrite Weapons Factory manpower cost with existing empire-wide count", () => {
+    const base = structureBuildManpowerCost("UMBRITE_WEAPONS_FACTORY");
+    expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 0)).toBe(base);
+    expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 1)).toBe(Math.ceil(base * 1.15));
+    expect(structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 3)).toBeGreaterThan(
+      structureBuildManpowerCostScaled("UMBRITE_WEAPONS_FACTORY", 0)
     );
   });
 
@@ -67,7 +67,7 @@ describe("structureCostDefinition", () => {
     expect(structureCostDefinition("MARKET").resourceCost).toBeUndefined();
     expect(structureCostDefinition("CARAVANARY").resourceCost).toBeUndefined();
     // #1134 removed these as stale build-time crystal costs — the slot
-    // system (structure-slots.ts) is the real FOOD/IRON/CRYSTAL/SUPPLY gate
+    // system (structure-slots.ts) is the real FOOD/TITANIUM/CRYSTAL/UMBRITE gate
     // now, not a spent build cost (RETIRED_STOCKPILE_RESOURCE_KEYS strips
     // these before spend regardless of what's declared here).
     expect(structureCostDefinition("CUSTOMS_HOUSE").resourceCost).toBeUndefined();
@@ -76,34 +76,34 @@ describe("structureCostDefinition", () => {
 });
 
 describe("FORT_TIER_LADDER", () => {
-  test("WOODEN_FORT costs 0 gold, 0 iron, 150 manpower, 1.35x defense", () => {
+  test("WOODEN_FORT costs 0 gold, 0 titanium, 150 manpower, 1.35x defense", () => {
     const tier = FORT_TIER_LADDER.WOODEN_FORT;
     expect(tier.gold).toBe(0);
-    expect(tier.iron).toBe(0);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(150);
     expect(tier.defenseMult).toBe(1.35);
   });
 
-  test("FORT is the base tier with 0 gold, 45 iron, 300 manpower, 2.5x defense", () => {
+  test("FORT is the base tier with 0 gold, 45 titanium, 300 manpower, 2.5x defense", () => {
     const tier = FORT_TIER_LADDER.FORT;
     expect(tier.gold).toBe(0);
-    expect(tier.iron).toBe(45);
+    expect(tier.titanium).toBe(45);
     expect(tier.manpower).toBe(300);
     expect(tier.defenseMult).toBe(2.5);
   });
 
-  test("IRON_BASTION costs 0 gold, 90 iron, 300 manpower, 4x defense", () => {
-    const tier = FORT_TIER_LADDER.IRON_BASTION;
+  test("TITANIUM_BASTION costs 0 gold, 90 titanium, 300 manpower, 4x defense", () => {
+    const tier = FORT_TIER_LADDER.TITANIUM_BASTION;
     expect(tier.gold).toBe(0);
-    expect(tier.iron).toBe(90);
+    expect(tier.titanium).toBe(90);
     expect(tier.manpower).toBe(300);
     expect(tier.defenseMult).toBe(4);
   });
 
-  test("THUNDER_BASTION costs 0 gold, 180 iron, 300 manpower, 8x defense", () => {
+  test("THUNDER_BASTION costs 0 gold, 180 titanium, 300 manpower, 8x defense", () => {
     const tier = FORT_TIER_LADDER.THUNDER_BASTION;
     expect(tier.gold).toBe(0);
-    expect(tier.iron).toBe(180);
+    expect(tier.titanium).toBe(180);
     expect(tier.manpower).toBe(300);
     expect(tier.defenseMult).toBe(8);
   });
@@ -113,9 +113,9 @@ describe("FORT_TIER_LADDER", () => {
     expect(bestFortTierForTech(hasTech).variant).toBe("FORT");
   });
 
-  test("bestFortTierForTech returns IRON_BASTION with fortified-walls but no steelworking", () => {
+  test("bestFortTierForTech returns TITANIUM_BASTION with fortified-walls but no steelworking", () => {
     const hasTech = (id: string) => id === "fortified-walls";
-    expect(bestFortTierForTech(hasTech).variant).toBe("IRON_BASTION");
+    expect(bestFortTierForTech(hasTech).variant).toBe("TITANIUM_BASTION");
   });
 
   test("bestFortTierForTech returns THUNDER_BASTION when steelworking is researched", () => {
@@ -129,28 +129,28 @@ describe("nextFortTierForUpgrade", () => {
   const hasAllTech = (id: string) => id === "fortified-walls" || id === "steelworking";
   const hasNoTech = (id: string) => false;
 
-  test("FORT → IRON_BASTION when fortified-walls is researched", () => {
-    expect(nextFortTierForUpgrade("FORT", hasBasicTech)?.variant).toBe("IRON_BASTION");
+  test("FORT → TITANIUM_BASTION when fortified-walls is researched", () => {
+    expect(nextFortTierForUpgrade("FORT", hasBasicTech)?.variant).toBe("TITANIUM_BASTION");
   });
 
   test("FORT → null when no fort tech is researched", () => {
     expect(nextFortTierForUpgrade("FORT", hasNoTech)).toBeNull();
   });
 
-  test("IRON_BASTION → THUNDER_BASTION when steelworking is researched", () => {
-    expect(nextFortTierForUpgrade("IRON_BASTION", hasAllTech)?.variant).toBe("THUNDER_BASTION");
+  test("TITANIUM_BASTION → THUNDER_BASTION when steelworking is researched", () => {
+    expect(nextFortTierForUpgrade("TITANIUM_BASTION", hasAllTech)?.variant).toBe("THUNDER_BASTION");
   });
 
-  test("IRON_BASTION → null when steelworking is not researched", () => {
-    expect(nextFortTierForUpgrade("IRON_BASTION", hasBasicTech)).toBeNull();
+  test("TITANIUM_BASTION → null when steelworking is not researched", () => {
+    expect(nextFortTierForUpgrade("TITANIUM_BASTION", hasBasicTech)).toBeNull();
   });
 
   test("THUNDER_BASTION → null (already max tier)", () => {
     expect(nextFortTierForUpgrade("THUNDER_BASTION", hasAllTech)).toBeNull();
   });
 
-  test("undefined variant treated as FORT → IRON_BASTION with fortified-walls", () => {
-    expect(nextFortTierForUpgrade(undefined, hasBasicTech)?.variant).toBe("IRON_BASTION");
+  test("undefined variant treated as FORT → TITANIUM_BASTION with fortified-walls", () => {
+    expect(nextFortTierForUpgrade(undefined, hasBasicTech)?.variant).toBe("TITANIUM_BASTION");
   });
 
   test("undefined variant treated as FORT → null with no tech", () => {
@@ -159,29 +159,29 @@ describe("nextFortTierForUpgrade", () => {
 });
 
 describe("SIEGE_TIER_LADDER", () => {
-  test("SIEGE_OUTPOST costs 0 gold, 45 supply, 0 iron, 60 manpower, 1.6x attack", () => {
+  test("SIEGE_OUTPOST costs 0 gold, 45 umbrite, 0 titanium, 60 manpower, 1.6x attack", () => {
     const tier = SIEGE_TIER_LADDER.SIEGE_OUTPOST;
     expect(tier.gold).toBe(0);
-    expect(tier.supply).toBe(45);
-    expect(tier.iron).toBe(0);
+    expect(tier.umbrite).toBe(45);
+    expect(tier.titanium).toBe(0);
     expect(tier.manpower).toBe(60);
     expect(tier.attackMult).toBe(1.6);
   });
 
-  test("SIEGE_TOWER costs 0 gold, 90 supply, 60 iron, 60 manpower, 1.8x attack", () => {
+  test("SIEGE_TOWER costs 0 gold, 90 umbrite, 60 titanium, 60 manpower, 1.8x attack", () => {
     const tier = SIEGE_TIER_LADDER.SIEGE_TOWER;
     expect(tier.gold).toBe(0);
-    expect(tier.supply).toBe(90);
-    expect(tier.iron).toBe(60);
+    expect(tier.umbrite).toBe(90);
+    expect(tier.titanium).toBe(60);
     expect(tier.manpower).toBe(60);
     expect(tier.attackMult).toBe(1.8);
   });
 
-  test("DREAD_TOWER costs 0 gold, 140 supply, 120 iron, 60 manpower, 2.0x attack", () => {
+  test("DREAD_TOWER costs 0 gold, 140 umbrite, 120 titanium, 60 manpower, 2.0x attack", () => {
     const tier = SIEGE_TIER_LADDER.DREAD_TOWER;
     expect(tier.gold).toBe(0);
-    expect(tier.supply).toBe(140);
-    expect(tier.iron).toBe(120);
+    expect(tier.umbrite).toBe(140);
+    expect(tier.titanium).toBe(120);
     expect(tier.manpower).toBe(60);
     expect(tier.attackMult).toBe(2.0);
   });

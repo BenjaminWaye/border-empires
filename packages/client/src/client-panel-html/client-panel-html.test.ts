@@ -2,43 +2,43 @@ import { describe, expect, it } from "vitest";
 
 import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
 
-const emptyStrategic = { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 };
+const emptyStrategic = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 };
 const emptyAnim = {
   FOOD: { until: 0, dir: 0 as const },
-  IRON: { until: 0, dir: 0 as const },
+  TITANIUM: { until: 0, dir: 0 as const },
   CRYSTAL: { until: 0, dir: 0 as const },
-  SUPPLY: { until: 0, dir: 0 as const },
+  UMBRITE: { until: 0, dir: 0 as const },
   SHARD: { until: 0, dir: 0 as const }
 };
 
 describe("strategicRibbonHtml", () => {
-  // Regression coverage for a real bug: the resource ribbon showed IRON/
-  // CRYSTAL/SUPPLY pills unconditionally, revealing that those resource
+  // Regression coverage for a real bug: the resource ribbon showed TITANIUM/
+  // CRYSTAL/UMBRITE pills unconditionally, revealing that those resource
   // categories exist before the player has researched the tech that reveals
   // them server-side. The ribbon now takes an isRevealed callback and omits
   // pills for categories that aren't revealed yet.
-  it("hides IRON/CRYSTAL/SUPPLY pills when not revealed, always shows FOOD", () => {
+  it("hides TITANIUM/CRYSTAL/UMBRITE pills when not revealed, always shows FOOD", () => {
     const html = strategicRibbonHtml(
       emptyStrategic,
       emptyStrategic,
-      { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       emptyAnim,
       () => "",
       undefined,
       (key) => key === "FOOD"
     );
     expect(html).toContain("data-economy-open=\"FOOD\"");
-    expect(html).not.toContain("data-economy-open=\"IRON\"");
+    expect(html).not.toContain("data-economy-open=\"TITANIUM\"");
     expect(html).not.toContain("data-economy-open=\"CRYSTAL\"");
-    expect(html).not.toContain("data-economy-open=\"SUPPLY\"");
+    expect(html).not.toContain("data-economy-open=\"UMBRITE\"");
   });
 
   it("shows all pills when isRevealed is omitted (backward compatible)", () => {
-    const html = strategicRibbonHtml(emptyStrategic, emptyStrategic, { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 }, emptyAnim, () => "");
+    const html = strategicRibbonHtml(emptyStrategic, emptyStrategic, { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 }, emptyAnim, () => "");
     expect(html).toContain("data-economy-open=\"FOOD\"");
-    expect(html).toContain("data-economy-open=\"IRON\"");
+    expect(html).toContain("data-economy-open=\"TITANIUM\"");
     expect(html).toContain("data-economy-open=\"CRYSTAL\"");
-    expect(html).toContain("data-economy-open=\"SUPPLY\"");
+    expect(html).toContain("data-economy-open=\"UMBRITE\"");
   });
 });
 

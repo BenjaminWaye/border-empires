@@ -47,7 +47,7 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "AIRPORT_BOMBARD",
   "IMPERIAL_EXCHANGE_LEVY",
   "WORLD_ENGINE_STRIKE",
-  "IRON_LEVY_MUSTER",
+  "TITANIUM_LEVY_MUSTER",
   "AEGIS_LOCK",
   "ASTRAL_DOCK_LAUNCH",
   "ACTIVATE_IMPERIAL_WARD",

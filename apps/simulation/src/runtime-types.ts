@@ -26,7 +26,7 @@ export type RuntimeTileYieldEconomyContext = {
   dormantEconomicStructureKeys: ReadonlySet<string>;
 };
 
-export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const;
+export const UPKEEP_STRATEGIC_KEYS = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const;
 export type UpkeepStrategicKey = (typeof UPKEEP_STRATEGIC_KEYS)[number];
 export type UpkeepNeed = { gold: number } & Record<UpkeepStrategicKey, number>;
 
@@ -259,8 +259,8 @@ export type SimulationTileWireDelta = {
   townPopulationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
   naturalWonderJson?: string | undefined;
   shardSiteJson?: string | undefined;
-  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
-  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> };
+  yield?: { gold?: number; strategic?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
+  yieldRate?: { goldPerMinute?: number; strategicPerDay?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> };
   yieldCap?: { gold: number; strategicEach: number };
   /** Fog-of-war authority tag — see VisibilityState in @border-empires/shared. */
   visibilityState?: VisibilityState;

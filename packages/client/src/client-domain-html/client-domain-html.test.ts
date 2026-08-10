@@ -125,7 +125,7 @@ describe("domain card previews", () => {
       }
     };
     const ironBastions: DomainInfo = {
-      id: "iron-bastions",
+      id: "titanium-bastions",
       tier: 2,
       name: "Dwarf Kingdom",
       description: "Fortifies later defenses.",
@@ -148,14 +148,14 @@ describe("domain card previews", () => {
       requiresTechNames: {
         "farmers-compact": "Coinage",
         "frontier-doctrine": "Coinage",
-        "iron-bastions": "Ironworking"
+        "titanium-bastions": "Ironworking"
       }
     });
 
     expect(html).toContain('data-domain-card="frontier-doctrine"');
     expect(html).toContain('data-domain-card="farmers-compact"');
     expect(html).toContain("Tier 1 already committed to Frontier Doctrine");
-    expect(html).toContain('data-domain-card="iron-bastions"');
+    expect(html).toContain('data-domain-card="titanium-bastions"');
   });
 
   it("omits the duplicate inline close control in the mobile detail overlay variant", () => {
@@ -259,23 +259,23 @@ describe("domainOwnedHtml — resource slot suffix", () => {
   };
 
   const ironBastions: DomainInfo = {
-    id: "iron-bastions",
+    id: "titanium-bastions",
     tier: 1,
     name: "Dwarf Kingdom",
     description: "Forts pop up overnight.",
     requiresTechId: "masonry",
     mods: {},
     effects: { fortBuildSpeedMult: 1.5 },
-    requirements: { gold: 6000, resources: { IRON: 120 }, canResearch: false }
+    requirements: { gold: 6000, resources: { TITANIUM: 120 }, canResearch: false }
   };
 
   it("appends the locked slot suffix only to the domain that offered the pick", () => {
     const html = domainOwnedHtml(
       [clockworkStipend, ironBastions],
-      ["clockwork-stipend", "iron-bastions"],
-      "IRON"
+      ["clockwork-stipend", "titanium-bastions"],
+      "TITANIUM"
     );
-    expect(html).toContain("Clockwork Stipend <em>(IRON slot)</em>");
+    expect(html).toContain("Clockwork Stipend <em>(TITANIUM slot)</em>");
     // Dwarf Kingdom never offered a slot grant — must not get the suffix.
     expect(html).toContain("<strong>Dwarf Kingdom</strong>");
     expect(html).not.toContain("Dwarf Kingdom <em>(");
@@ -292,7 +292,7 @@ describe("domainOwnedHtml — resource slot suffix", () => {
       ...clockworkStipend,
       effects: {}
     };
-    const html = domainOwnedHtml([stipendWithoutGrant], ["clockwork-stipend"], "IRON");
+    const html = domainOwnedHtml([stipendWithoutGrant], ["clockwork-stipend"], "TITANIUM");
     expect(html).not.toContain("slot)</em>");
   });
 
@@ -316,15 +316,15 @@ describe("domainOwnedHtml — resource slot suffix", () => {
     // chosenResourceSlotGrant > 0, so this test verifies the per-domain gate:
     // if the domain doesn't carry the effect at all, no suffix appears.
     const noGrantDomain: DomainInfo = {
-      id: "iron-bastions",
+      id: "titanium-bastions",
       tier: 1,
       name: "Dwarf Kingdom",
       description: "Forts pop up overnight.",
       requiresTechId: "masonry",
       mods: {},
-      requirements: { gold: 6000, resources: { IRON: 120 }, canResearch: false }
+      requirements: { gold: 6000, resources: { TITANIUM: 120 }, canResearch: false }
     };
-    const html = domainOwnedHtml([noGrantDomain], ["iron-bastions"], "SUPPLY");
+    const html = domainOwnedHtml([noGrantDomain], ["titanium-bastions"], "UMBRITE");
     expect(html).toContain("<strong>Dwarf Kingdom</strong>");
     expect(html).not.toContain("slot)</em>");
   });
@@ -354,11 +354,11 @@ describe("renderDomainDetailCardHtml — locked resource slot", () => {
       chosenInTier: clockworkStipend,
       currentTier: 1,
       requiresTechName: "Agriculture",
-      chosenTrickleResource: "SUPPLY"
+      chosenTrickleResource: "UMBRITE"
     });
 
     expect(html).toContain("Your pick");
-    expect(html).toContain("SUPPLY (+1 slot, locked)");
+    expect(html).toContain("UMBRITE (+1 slot, locked)");
   });
 
   it("omits the locked-pick section when the player has not picked yet", () => {
@@ -380,7 +380,7 @@ describe("renderDomainDetailCardHtml — locked resource slot", () => {
       chosenInTier: undefined,
       currentTier: 1,
       requiresTechName: "Agriculture",
-      chosenTrickleResource: "SUPPLY"
+      chosenTrickleResource: "UMBRITE"
     });
 
     expect(html).not.toContain("Your pick");

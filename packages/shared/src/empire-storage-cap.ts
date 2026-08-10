@@ -1,4 +1,4 @@
-// IRON/CRYSTAL/SUPPLY are slot-based, not stockpiled (docs/manpower-economy-
+// TITANIUM/CRYSTAL/UMBRITE are slot-based, not stockpiled (docs/manpower-economy-
 // rewrite-plan.md §5, §5.6) — they never carried a storage cap to begin with
 // once Slice B retired their production. GOLD/FOOD/SHARD are the only
 // resources still gated by a real stockpile cap.

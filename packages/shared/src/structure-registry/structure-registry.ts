@@ -24,7 +24,7 @@ export interface PlacementContext {
     playerId: string;
   };
   /** True when the handler is upgrading an existing structure of the same family
-   *  (e.g. FORT → IRON_BASTION). Placement checks that would reject because a
+   *  (e.g. FORT → TITANIUM_BASTION). Placement checks that would reject because a
    *  structure already exists should return null when this is true. */
   isUpgrade: boolean;
   /** Tile field that the new structure will write to. */
@@ -69,23 +69,23 @@ export interface StructureSpec {
     gold: number;
     manpower: number;
     strategic?: Partial<
-      Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>
+      Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>
     >;
   };
   /** Build duration in milliseconds (pre-tech-mults). */
   buildMs: number;
   /** Tech prerequisites (all must be present). */
   techIds: ReadonlyArray<string>;
-  /** Other structures that must exist on the tile (e.g. ADVANCED_IRONWORKS
-   *  requires IRONWORKS). */
+  /** Other structures that must exist on the tile (e.g. ADVANCED_TITANIUM_WORKS
+   *  requires TITANIUM_WORKS). */
   prerequisiteStructureTypes?: ReadonlyArray<string>;
   /** Whether this structure consumes a development slot on its tile. */
   consumesDevelopmentSlot: boolean;
   /** Placement validators. Each returns null if placement is OK or a reason
    *  string otherwise. Composable so families share generic checks. */
   placement: ReadonlyArray<PlacementCheck>;
-  /** Upkeep per minute. Each entry models one resource cost (food, iron,
-   *  crystal, supply, gold, oil). Empty array for no upkeep.
+  /** Upkeep per minute. Each entry models one resource cost (food, titanium,
+   *  crystal, umbrite, gold, oil). Empty array for no upkeep.
    *
    *  Populated in Phase 1 for the 21 structures with active upkeep in the
    *  live sim (per `structureUpkeepPerMinute` in player-update-economy.ts).

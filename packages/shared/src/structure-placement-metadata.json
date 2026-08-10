@@ -4,7 +4,7 @@
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
-  "IRON_BASTION": {
+  "TITANIUM_BASTION": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"
@@ -45,17 +45,17 @@
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
-  "CAMP": {
+  "UMBRITE_RIG": {
     "showOn": ["resource"],
     "placementMode": "same_tile",
     "sortGroup": "resource",
-    "resourceTypes": ["WOOD", "FUR"]
+    "resourceTypes": ["UMBRITE"]
   },
   "MINE": {
     "showOn": ["resource"],
     "placementMode": "same_tile",
     "sortGroup": "resource",
-    "resourceTypes": ["IRON", "GEMS"]
+    "resourceTypes": ["TITANIUM", "GEMS"]
   },
   "MARKET": {
     "showOn": ["town", "support"],
@@ -102,22 +102,22 @@
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
-  "FUR_SYNTHESIZER": {
+  "UMBRITE_SYNTHESIZER": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "ADVANCED_FUR_SYNTHESIZER": {
+  "ADVANCED_UMBRITE_SYNTHESIZER": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "IRONWORKS": {
+  "TITANIUM_WORKS": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "ADVANCED_IRONWORKS": {
+  "ADVANCED_TITANIUM_WORKS": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
@@ -187,12 +187,12 @@
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
-  "IRON_WEAPONS_FACTORY": {
+  "TITANIUM_WEAPONS_FACTORY": {
     "showOn": ["town", "support"],
     "placementMode": "same_tile",
     "sortGroup": "support"
   },
-  "FUR_WEAPONS_FACTORY": {
+  "UMBRITE_WEAPONS_FACTORY": {
     "showOn": ["town", "support"],
     "placementMode": "same_tile",
     "sortGroup": "support"
@@ -292,17 +292,17 @@
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "IRON_LEVY_PART_1": {
+  "TITANIUM_LEVY_PART_1": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "IRON_LEVY_PART_2": {
+  "TITANIUM_LEVY_PART_2": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
   },
-  "IRON_LEVY_PART_3": {
+  "TITANIUM_LEVY_PART_3": {
     "showOn": ["town", "support"],
     "placementMode": "town_support",
     "sortGroup": "support"
@@ -312,7 +312,7 @@
     "placementMode": "same_tile",
     "sortGroup": "general"
   },
-  "IRON_LEVY": {
+  "TITANIUM_LEVY": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "general"

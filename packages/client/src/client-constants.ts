@@ -57,15 +57,15 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Resource Slots, Not Stockpiles",
-    body: "Food, Iron, Crystal, and Supply aren't stockpiled anymore — each resource tile grants a fixed number of slots, and every structure that needs that resource permanently occupies one. Run out of free slots and the newest structure of that type goes dormant (no bonus, but it stays standing) until you free up or claim more slots of that type."
+    body: "Food, Titanium, Crystal, and Umbrite aren't stockpiled anymore — each resource tile grants a fixed number of slots, and every structure that needs that resource permanently occupies one. Run out of free slots and the newest structure of that type goes dormant (no bonus, but it stays standing) until you free up or claim more slots of that type."
   },
   {
     title: "Build Structures & Fight",
-    body: "Open the Actions menu on your land. Forts boost defense on settled tiles. Siege Outposts near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, camps, markets, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
+    body: "Open the Actions menu on your land. Forts boost defense on settled tiles. Siege Outposts near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, rigs, markets, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
   },
   {
     title: "Research & Abilities",
-    body: "Research technologies in the Tech panel for permanent bonuses — techs and domains cost gold (plus Shard at higher tiers), not Food/Iron/Crystal/Supply. Every combat ability (Reveal Empire, Aether Bridge, Aether Lance, Siphon, Survey Sweep, and more) is free to cast, gated only by its own cooldown. After key techs, choose a domain for passive bonuses."
+    body: "Research technologies in the Tech panel for permanent bonuses — techs and domains cost gold (plus Shard at higher tiers), not Food/Titanium/Crystal/Umbrite. Every combat ability (Reveal Empire, Aether Bridge, Aether Lance, Siphon, Survey Sweep, and more) is free to cast, gated only by its own cooldown. After key techs, choose a domain for passive bonuses."
   },
   {
     title: "Towns & Expansion",

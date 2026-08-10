@@ -13,15 +13,16 @@ import {
   Vector3
 } from "three";
 
-// 3D resource overlay — 6 resource kinds × 3 variants each. Each variant
-// is composed from a handful of shared primitive "pieces" (small boxes,
-// cones, cylinders) so adjacent same-resource tiles read with visible
-// variety like the forest module's pine/spruce variants. Variant is
-// chosen deterministically per tile via a hash so a refresh paints the
-// same arrangement. FARM is handled by the dedicated barley field overlay
-// (client-map-3d-barley-field.ts) and never routed here.
-
-export type ResourceKind = "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR";
+// 3D resource overlay — remaining resource kinds × 3 variants each. Each
+// variant is composed from a handful of shared primitive "pieces" (small
+// boxes, cones, cylinders) so adjacent same-resource tiles read with
+// visible variety like the forest module's pine/spruce variants. Variant
+// is chosen deterministically per tile via a hash so a refresh paints the
+// same arrangement. FARM, TITANIUM, and UMBRITE each have their own
+// dedicated overlay (client-map-3d-barley-field.ts,
+// client-map-3d-titanium-deposit.ts, client-map-3d-umbrite-deposit.ts) and
+// are never routed here — only GEMS and FISH remain generic.
+export type ResourceKind = "GEMS" | "FISH";
 export type ResourceVariant = 0 | 1 | 2;
 
 const variantHash = (worldX: number, worldZ: number, salt: number): ResourceVariant => {
@@ -503,11 +504,8 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
     // doesn't reshuffle a tile's layout. Scene coords are used only for
     // placement.
     const v = variantHash(worldTileX, worldTileY, resource.length * 31);
-    if (resource === "WOOD") addWood(sceneX, surfaceY, sceneZ, v);
-    else if (resource === "IRON") addIron(sceneX, surfaceY, sceneZ, v);
-    else if (resource === "GEMS") addGems(sceneX, surfaceY, sceneZ, v);
+    if (resource === "GEMS") addGems(sceneX, surfaceY, sceneZ, v);
     else if (resource === "FISH") addFish(sceneX, surfaceY, sceneZ, v);
-    else if (resource === "FUR") addFur(sceneX, surfaceY, sceneZ, v);
   };
 
   const commit = (): void => {

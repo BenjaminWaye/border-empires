@@ -6,9 +6,9 @@ import {
 import { OBSERVATORY_VISION_BONUS } from "./client-constants.js";
 import { OBSERVATORY_RANGE } from "@border-empires/shared";
 import {
-  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY, CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, IRONWORKS_GOLD_UPKEEP_PER_DAY
+  ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY, CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY
 } from "@border-empires/game-domain";
 import type { Tile } from "./client-types.js";
 import { converterStructureInfoView } from "./client-converter-structure-info.js";
@@ -17,12 +17,12 @@ type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 
 export type StructureInfoKey =
   | "FORT"
-  | "IRON_BASTION"
+  | "TITANIUM_BASTION"
   | "THUNDER_BASTION"
   | "OBSERVATORY"
   | "FARMSTEAD"
   | "WATERWORKS"
-  | "CAMP"
+  | "UMBRITE_RIG"
   | "MINE"
   | "MARKET"
   | "GRANARY"
@@ -32,10 +32,10 @@ export type StructureInfoKey =
   | "CARAVANARY"
   | "WOODEN_FORT"
   | "LIGHT_OUTPOST"
-  | "FUR_SYNTHESIZER"
-  | "ADVANCED_FUR_SYNTHESIZER"
-  | "IRONWORKS"
-  | "ADVANCED_IRONWORKS"
+  | "UMBRITE_SYNTHESIZER"
+  | "ADVANCED_UMBRITE_SYNTHESIZER"
+  | "TITANIUM_WORKS"
+  | "ADVANCED_TITANIUM_WORKS"
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "FOUNDRY"
@@ -69,16 +69,16 @@ export type StructureInfoKey =
   | "POPULATION_BUREAU_PART_2"
   | "POPULATION_BUREAU_PART_3"
   | "POPULATION_BUREAU"
-  | "IRON_LEVY_PART_1"
-  | "IRON_LEVY_PART_2"
-  | "IRON_LEVY_PART_3"
-  | "IRON_LEVY"
+  | "TITANIUM_LEVY_PART_1"
+  | "TITANIUM_LEVY_PART_2"
+  | "TITANIUM_LEVY_PART_3"
+  | "TITANIUM_LEVY"
   | "SIEGE_OUTPOST"
   | "SIEGE_TOWER"
   | "DREAD_TOWER"
   | "WEAPONS_WORKSHOP"
-  | "IRON_WEAPONS_FACTORY"
-  | "FUR_WEAPONS_FACTORY";
+  | "TITANIUM_WEAPONS_FACTORY"
+  | "UMBRITE_WEAPONS_FACTORY";
 
 export type StructureInfoView = {
   title: string;
@@ -108,7 +108,7 @@ export const MONUMENT_COMPONENT_KEYS: ReadonlySet<StructureInfoKey> = new Set([
   "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
   "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
   "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3",
-  "IRON_LEVY_PART_1", "IRON_LEVY_PART_2", "IRON_LEVY_PART_3"
+  "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"
 ]);
 
 // The 3 uniquely-named components required for each of the 6 monuments, in
@@ -140,10 +140,10 @@ export const MONUMENT_COMPONENTS_BY_BASE: Partial<Record<StructureInfoKey, Reado
     { type: "POPULATION_BUREAU_PART_2", name: "Registry Vault" },
     { type: "POPULATION_BUREAU_PART_3", name: "Levy Charter" }
   ],
-  IRON_LEVY: [
-    { type: "IRON_LEVY_PART_1", name: "Muster Klaxon" },
-    { type: "IRON_LEVY_PART_2", name: "Iron Standard" },
-    { type: "IRON_LEVY_PART_3", name: "Levy Writ" }
+  TITANIUM_LEVY: [
+    { type: "TITANIUM_LEVY_PART_1", name: "Muster Klaxon" },
+    { type: "TITANIUM_LEVY_PART_2", name: "Titanium Standard" },
+    { type: "TITANIUM_LEVY_PART_3", name: "Levy Writ" }
   ]
 };
 
@@ -153,24 +153,24 @@ export const MONUMENT_COMPONENTS_BY_BASE: Partial<Record<StructureInfoKey, Reado
 // listed explicitly here rather than computed from the tech catalog since
 // this module has no tech-tree.json access.
 const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy" | "Manpower" | "Aether">> = {
-  FORT: "War", IRON_BASTION: "War", THUNDER_BASTION: "War",
+  FORT: "War", TITANIUM_BASTION: "War", THUNDER_BASTION: "War",
   SIEGE_OUTPOST: "War", SIEGE_TOWER: "War", DREAD_TOWER: "War",
   WEAPONS_WORKSHOP: "War",
-  IRON_WEAPONS_FACTORY: "War", FUR_WEAPONS_FACTORY: "War",
+  TITANIUM_WEAPONS_FACTORY: "War", UMBRITE_WEAPONS_FACTORY: "War",
   FARMSTEAD: "Economy", WATERWORKS: "Economy", MINE: "Economy",
   MARKET: "Economy", CLEARING_HOUSE: "Economy",
-  FUR_SYNTHESIZER: "Economy", ADVANCED_FUR_SYNTHESIZER: "Economy",
-  IRONWORKS: "Economy", ADVANCED_IRONWORKS: "Economy",
+  UMBRITE_SYNTHESIZER: "Economy", ADVANCED_UMBRITE_SYNTHESIZER: "Economy",
+  TITANIUM_WORKS: "Economy", ADVANCED_TITANIUM_WORKS: "Economy",
   FOUNDRY: "Economy", CUSTOMS_HOUSE: "Economy",
   CARAVANARY: "Economy", GOVERNORS_OFFICE: "Economy",
   IMPERIAL_EXCHANGE_PART_1: "Economy", IMPERIAL_EXCHANGE_PART_2: "Economy", IMPERIAL_EXCHANGE_PART_3: "Economy", IMPERIAL_EXCHANGE: "Economy",
-  CAMP: "War",
+  UMBRITE_RIG: "War",
   GRANARY: "Manpower", SEED_GRANARY: "Manpower", CENSUS_HALL: "Manpower",
   GARRISON_HALL: "Manpower", RAIL_DEPOT: "Manpower",
   QUARTERMASTERS_OFFICE: "Manpower", LOGISTICS_GUILD: "Manpower",
   ASSEMBLY_WORKS: "Manpower",
   POPULATION_BUREAU_PART_1: "Manpower", POPULATION_BUREAU_PART_2: "Manpower", POPULATION_BUREAU_PART_3: "Manpower", POPULATION_BUREAU: "Manpower",
-  IRON_LEVY_PART_1: "Manpower", IRON_LEVY_PART_2: "Manpower", IRON_LEVY_PART_3: "Manpower", IRON_LEVY: "Manpower",
+  TITANIUM_LEVY_PART_1: "Manpower", TITANIUM_LEVY_PART_2: "Manpower", TITANIUM_LEVY_PART_3: "Manpower", TITANIUM_LEVY: "Manpower",
   OBSERVATORY: "Aether", CRYSTAL_SYNTHESIZER: "Aether",
   ADVANCED_CRYSTAL_SYNTHESIZER: "Aether", AIRPORT: "Aether",
   AETHER_TOWER: "Aether", RADAR_SYSTEM: "Aether",
@@ -183,7 +183,7 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   const kind = type as string;
   if (kind === "FARMSTEAD") return "Farmstead";
   if (kind === "WATERWORKS") return "Waterworks";
-  if (kind === "CAMP") return "Camp";
+  if (kind === "UMBRITE_RIG") return "Umbrite Rig";
   if (kind === "MINE") return "Mine";
   if (kind === "GRANARY") return "Incubation Engine";
   if (kind === "SEED_GRANARY") return "Seed Granary";
@@ -197,12 +197,12 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   // converter-mode-flip plan §Phase 6: these buildings now run either
   // direction (Refine gold->resource, or Sell off resource->gold), so the
   // display name is direction-neutral. The underlying type constants
-  // (FUR_SYNTHESIZER/IRONWORKS/ADVANCED_*) are unchanged — they're
+  // (UMBRITE_SYNTHESIZER/TITANIUM_WORKS/ADVANCED_*) are unchanged — they're
   // persisted identifiers, this is a copy-only change.
-  if (kind === "FUR_SYNTHESIZER") return "Fur Works";
-  if (kind === "ADVANCED_FUR_SYNTHESIZER") return "Advanced Fur Works";
-  if (kind === "IRONWORKS") return "Iron Works";
-  if (kind === "ADVANCED_IRONWORKS") return "Advanced Iron Works";
+  if (kind === "UMBRITE_SYNTHESIZER") return "Umbrite Works";
+  if (kind === "ADVANCED_UMBRITE_SYNTHESIZER") return "Advanced Umbrite Works";
+  if (kind === "TITANIUM_WORKS") return "Titanium Works";
+  if (kind === "ADVANCED_TITANIUM_WORKS") return "Advanced Titanium Works";
   if (kind === "CRYSTAL_SYNTHESIZER") return "Aether Condenser";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Aether Condenser";
   if (kind === "FOUNDRY") return "Foundry";
@@ -234,13 +234,13 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "POPULATION_BUREAU_PART_2") return "Registry Vault";
   if (kind === "POPULATION_BUREAU_PART_3") return "Levy Charter";
   if (kind === "POPULATION_BUREAU") return "Population Bureau";
-  if (kind === "IRON_LEVY_PART_1") return "Muster Klaxon";
-  if (kind === "IRON_LEVY_PART_2") return "Iron Standard";
-  if (kind === "IRON_LEVY_PART_3") return "Levy Writ";
-  if (kind === "IRON_LEVY") return "The Iron Levy";
+  if (kind === "TITANIUM_LEVY_PART_1") return "Muster Klaxon";
+  if (kind === "TITANIUM_LEVY_PART_2") return "Titanium Standard";
+  if (kind === "TITANIUM_LEVY_PART_3") return "Levy Writ";
+  if (kind === "TITANIUM_LEVY") return "The Titanium Levy";
   if (kind === "WEAPONS_WORKSHOP") return "Weapons Workshop";
-  if (kind === "IRON_WEAPONS_FACTORY") return "Iron Weapons Factory";
-  if (kind === "FUR_WEAPONS_FACTORY") return "Fur Weapons Factory";
+  if (kind === "TITANIUM_WEAPONS_FACTORY") return "Titanium Weapons Factory";
+  if (kind === "UMBRITE_WEAPONS_FACTORY") return "Umbrite Weapons Factory";
   return "Market";
 };
 
@@ -259,10 +259,10 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   // converter-mode-flip plan §Phase 6: this building can run either
   // direction now — mode-neutral summary with both figures, since a
   // one-directional description is simply false half the time.
-  if (kind === "FUR_SYNTHESIZER") return "Occupies 1 SUPPLY slot. Refine: gold → supply (18/day, 30 gold/day). Sell off: supply → gold (8 gold/day).";
-  if (kind === "ADVANCED_FUR_SYNTHESIZER") return "Occupies 1 SUPPLY slot. Refine: gold → supply (21.6/day, 45 gold/day). Sell off: supply → gold (12 gold/day).";
-  if (kind === "IRONWORKS") return "Occupies 1 IRON slot. Refine: gold → iron (18/day, 30 gold/day). Sell off: iron → gold (8 gold/day).";
-  if (kind === "ADVANCED_IRONWORKS") return "Occupies 1 IRON slot. Refine: gold → iron (21.6/day, 45 gold/day). Sell off: iron → gold (12 gold/day).";
+  if (kind === "UMBRITE_SYNTHESIZER") return "Occupies 1 UMBRITE slot. Refine: gold → umbrite (18/day, 30 gold/day). Sell off: umbrite → gold (8 gold/day).";
+  if (kind === "ADVANCED_UMBRITE_SYNTHESIZER") return "Occupies 1 UMBRITE slot. Refine: gold → umbrite (21.6/day, 45 gold/day). Sell off: umbrite → gold (12 gold/day).";
+  if (kind === "TITANIUM_WORKS") return "Occupies 1 TITANIUM slot. Refine: gold → titanium (18/day, 30 gold/day). Sell off: titanium → gold (8 gold/day).";
+  if (kind === "ADVANCED_TITANIUM_WORKS") return "Occupies 1 TITANIUM slot. Refine: gold → titanium (21.6/day, 45 gold/day). Sell off: titanium → gold (12 gold/day).";
   if (kind === "CRYSTAL_SYNTHESIZER") return "Occupies 1 CRYSTAL slot. Refine: gold → crystal (12/day, 40 gold/day). Sell off: crystal → gold (10 gold/day).";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Occupies 1 CRYSTAL slot. Refine: gold → crystal (14.4/day, 60 gold/day). Sell off: crystal → gold (15 gold/day).";
   if (kind === "FOUNDRY") return "Doubles active Mine slot output within a 5-tile radius.";
@@ -294,17 +294,17 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "POPULATION_BUREAU_PART_2") return "Registry Vault — one of the Population Bureau's 3 required components.";
   if (kind === "POPULATION_BUREAU_PART_3") return "Levy Charter — one of the Population Bureau's 3 required components.";
   if (kind === "POPULATION_BUREAU") return "Unique world monument. Adds +0.1 manpower/min empire-wide for every Manpower-branch building you own.";
-  if (kind === "IRON_LEVY_PART_1") return "Muster Klaxon — one of The Iron Levy's 3 required components.";
-  if (kind === "IRON_LEVY_PART_2") return "Iron Standard — one of The Iron Levy's 3 required components.";
-  if (kind === "IRON_LEVY_PART_3") return "Levy Writ — one of The Iron Levy's 3 required components.";
-  if (kind === "IRON_LEVY") return "Unique world monument. Converts 50% of your currently-banked manpower into an instant one-time army, then freezes empire-wide manpower regen for 2 hours.";
+  if (kind === "TITANIUM_LEVY_PART_1") return "Muster Klaxon — one of The Titanium Levy's 3 required components.";
+  if (kind === "TITANIUM_LEVY_PART_2") return "Titanium Standard — one of The Titanium Levy's 3 required components.";
+  if (kind === "TITANIUM_LEVY_PART_3") return "Levy Writ — one of The Titanium Levy's 3 required components.";
+  if (kind === "TITANIUM_LEVY") return "Unique world monument. Converts 50% of your currently-banked manpower into an instant one-time army, then freezes empire-wide manpower regen for 2 hours.";
   if (kind === "FARMSTEAD") return "Improves food production on farm tiles by 50% and adds +1 FOOD slot on this tile.";
   if (kind === "WATERWORKS") return "Boosts all farmstead food production by +100% within a 10-tile radius; each boosted Farmstead gains +2 FOOD slots.";
-  if (kind === "CAMP") return "Improves supply production on this tile by 50% and adds +1 SUPPLY slot on this tile.";
-  if (kind === "MINE") return "Improves iron or crystal production on this tile and adds +1 slot of that resource.";
-  if (kind === "WEAPONS_WORKSHOP") return "Forges Iron and Supply into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Uncapped per town — build many to raise a dedicated military city.";
-  if (kind === "IRON_WEAPONS_FACTORY") return "Occupies 1 IRON slot. Forges armor plating for +1.5% attack / +3% defense per copy — armor doctrine. The bonus is scoped to this town's connected network: clustering many together in one connected region pays off more than scattering them. Uncapped — no per-town limit.";
-  if (kind === "FUR_WEAPONS_FACTORY") return "Occupies 1 SUPPLY slot. Outfits raiders for +3% attack / +1.5% defense per copy — raiding doctrine. The bonus is scoped to this town's connected network: clustering many together in one connected region pays off more than scattering them. Uncapped — no per-town limit.";
+  if (kind === "UMBRITE_RIG") return "Improves umbrite production on this tile by 50% and adds +1 UMBRITE slot on this tile.";
+  if (kind === "MINE") return "Improves titanium or crystal production on this tile and adds +1 slot of that resource.";
+  if (kind === "WEAPONS_WORKSHOP") return "Forges Titanium and Umbrite into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Uncapped per town — build many to raise a dedicated military city.";
+  if (kind === "TITANIUM_WEAPONS_FACTORY") return "Occupies 1 TITANIUM slot. Forges armor plating for +1.5% attack / +3% defense per copy — armor doctrine. The bonus is scoped to this town's connected network: clustering many together in one connected region pays off more than scattering them. Uncapped — no per-town limit.";
+  if (kind === "UMBRITE_WEAPONS_FACTORY") return "Occupies 1 UMBRITE slot. Outfits raiders for +3% attack / +1.5% defense per copy — raiding doctrine. The bonus is scoped to this town's connected network: clustering many together in one connected region pays off more than scattering them. Uncapped — no per-town limit.";
   return "Strengthens this tile's economy.";
 };
 
@@ -323,7 +323,7 @@ export const structureInfoForKey = (
     | "OBSERVATORY"
     | "SIEGE_OUTPOST"
     | "FARMSTEAD"
-    | "CAMP"
+    | "UMBRITE_RIG"
     | "MINE"
     | "MARKET"
     | "GRANARY"
@@ -334,10 +334,10 @@ export const structureInfoForKey = (
     | "AETHER_TOWER"
     | "WOODEN_FORT"
     | "LIGHT_OUTPOST"
-    | "FUR_SYNTHESIZER"
-    | "ADVANCED_FUR_SYNTHESIZER"
-    | "IRONWORKS"
-    | "ADVANCED_IRONWORKS"
+    | "UMBRITE_SYNTHESIZER"
+    | "ADVANCED_UMBRITE_SYNTHESIZER"
+    | "TITANIUM_WORKS"
+    | "ADVANCED_TITANIUM_WORKS"
     | "CRYSTAL_SYNTHESIZER"
     | "ADVANCED_CRYSTAL_SYNTHESIZER"
     | "FOUNDRY"
@@ -369,14 +369,14 @@ export const structureInfoForKey = (
     | "POPULATION_BUREAU_PART_2"
     | "POPULATION_BUREAU_PART_3"
     | "POPULATION_BUREAU"
-    | "IRON_LEVY_PART_1"
-    | "IRON_LEVY_PART_2"
-    | "IRON_LEVY_PART_3"
-    | "IRON_LEVY"
+    | "TITANIUM_LEVY_PART_1"
+    | "TITANIUM_LEVY_PART_2"
+    | "TITANIUM_LEVY_PART_3"
+    | "TITANIUM_LEVY"
     | "WEAPONS_WORKSHOP"
-    | "IRON_WEAPONS_FACTORY"
-    | "FUR_WEAPONS_FACTORY" => {
-    if (key === "IRON_BASTION") return "FORT";
+    | "TITANIUM_WEAPONS_FACTORY"
+    | "UMBRITE_WEAPONS_FACTORY" => {
+    if (key === "TITANIUM_BASTION") return "FORT";
     if (key === "THUNDER_BASTION") return "FORT";
     if (key === "SIEGE_TOWER") return "SIEGE_OUTPOST";
     if (key === "DREAD_TOWER") return "SIEGE_OUTPOST";
@@ -394,10 +394,10 @@ export const structureInfoForKey = (
   // slot occupation (below) IS its upkeep now, so no gold/food/iron/etc drain
   // line applies to it.
   const SYNTHESIZER_GOLD_UPKEEP_PER_DAY: Partial<Record<StructureInfoKey, number>> = {
-    FUR_SYNTHESIZER: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-    ADVANCED_FUR_SYNTHESIZER: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-    IRONWORKS: IRONWORKS_GOLD_UPKEEP_PER_DAY,
-    ADVANCED_IRONWORKS: ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
+    UMBRITE_SYNTHESIZER: UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+    ADVANCED_UMBRITE_SYNTHESIZER: ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+    TITANIUM_WORKS: TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
+    ADVANCED_TITANIUM_WORKS: ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
     CRYSTAL_SYNTHESIZER: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
     ADVANCED_CRYSTAL_SYNTHESIZER: ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY
   };
@@ -408,7 +408,7 @@ export const structureInfoForKey = (
     const baseKey = structureBaseKey(key);
     if (!SYNTHESIZER_STRUCTURE_TYPES.includes(baseKey as BuildableStructureType)) {
       const slotKey: SlotStructureType =
-        key === "IRON_BASTION" || key === "THUNDER_BASTION" || key === "SIEGE_TOWER" || key === "DREAD_TOWER"
+        key === "TITANIUM_BASTION" || key === "THUNDER_BASTION" || key === "SIEGE_TOWER" || key === "DREAD_TOWER"
           ? key
           : (baseKey as SlotStructureType);
       for (const requirement of structureSlotRequirements(slotKey)) {
@@ -419,8 +419,8 @@ export const structureInfoForKey = (
   };
   const effectsFor = (key: StructureInfoKey): string[] => {
     if (key === "FORT") return ["2.5x local defense", "Prevents failed attacks from immediately flipping the fortified origin tile"];
-    if (key === "IRON_BASTION") return ["Upgrades Forts into Iron Bastions", "Raises Fort defense from 2.5x to 4x and keeps the +10% settled defense from Bastion Walls"];
-    if (key === "THUNDER_BASTION") return ["Upgrades Iron Bastions into Thunder Bastions", "Raises Fort defense from 4x to 8x and improves resistance to siege and lance pressure"];
+    if (key === "TITANIUM_BASTION") return ["Upgrades Forts into Titanium Bastions", "Raises Fort defense from 2.5x to 4x and keeps the +10% settled defense from Bastion Walls"];
+    if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Raises Fort defense from 4x to 8x and improves resistance to siege and lance pressure"];
     if (key === "OBSERVATORY") return [`+${OBSERVATORY_VISION_BONUS} local vision`, `${OBSERVATORY_RANGE}-tile crystal range (protection + casting, grows with tech)`];
     if (key === "WOODEN_FORT") return ["Light defensive fortification", "No iron upkeep"];
     if (key === "LIGHT_OUTPOST") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Outpost"];
@@ -429,7 +429,7 @@ export const structureInfoForKey = (
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers", "Raises Siege attack from 1.8x to 2.0x against heavy fortified targets"];
     if (key === "FARMSTEAD") return ["+50% food production on FARM tiles only", "+18 food cap"];
     if (key === "WATERWORKS") return ["+100% farmstead food within 10 tiles", "Boosted food production raises food cap"];
-    if (key === "CAMP") return ["+50% supply production on WOOD and FUR tiles", "+15 supply cap"];
+    if (key === "UMBRITE_RIG") return ["+50% umbrite production on UMBRITE tiles", "+15 umbrite cap"];
     if (key === "MINE") return ["+50% iron or crystal production on mineral tiles", "+15 iron cap or +9 crystal cap"];
     if (key === "MARKET") return ["+10 gold instantly on completion", "+1 gold/day", "+10% town gold production (+35% with an active Clearing House)"];
     if (key === "GRANARY") return ["Instant one-time +10,000 population burst on completion"];
@@ -437,10 +437,10 @@ export const structureInfoForKey = (
     if (key === "CENSUS_HALL") return ["+20,000 population per connected city with an active Incubation Engine", "-25% town-tier upgrade cost for this town"];
     if (key === "CLEARING_HOUSE") return ["+25% Market effect across connected towns", "+20% Bank effect across connected towns", "+0.5 flat Bank income across connected towns"];
     if (key === "CARAVANARY") return ["Enables the connected-town income bonus for this road network"];
-    if (key === "FUR_SYNTHESIZER") return ["Refine: gold → 18 supply/day", "Sell off: 1 supply slot → 8 gold/day"];
-    if (key === "ADVANCED_FUR_SYNTHESIZER") return ["Refine: gold → 21.6 supply/day", "Sell off: 1 supply slot → 12 gold/day"];
-    if (key === "IRONWORKS") return ["Refine: gold → 18 iron/day", "Sell off: 1 iron slot → 8 gold/day"];
-    if (key === "ADVANCED_IRONWORKS") return ["Refine: gold → 21.6 iron/day", "Sell off: 1 iron slot → 12 gold/day"];
+    if (key === "UMBRITE_SYNTHESIZER") return ["Refine: gold → 18 umbrite/day", "Sell off: 1 umbrite slot → 8 gold/day"];
+    if (key === "ADVANCED_UMBRITE_SYNTHESIZER") return ["Refine: gold → 21.6 umbrite/day", "Sell off: 1 umbrite slot → 12 gold/day"];
+    if (key === "TITANIUM_WORKS") return ["Refine: gold → 18 titanium/day", "Sell off: 1 titanium slot → 8 gold/day"];
+    if (key === "ADVANCED_TITANIUM_WORKS") return ["Refine: gold → 21.6 titanium/day", "Sell off: 1 titanium slot → 12 gold/day"];
     if (key === "CRYSTAL_SYNTHESIZER") return ["Refine: gold → 12 crystal/day", "Sell off: 1 crystal slot → 10 gold/day"];
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Refine: gold → 14.4 crystal/day", "Sell off: 1 crystal slot → 15 gold/day"];
     if (key === "FOUNDRY") return ["Doubles active Mine slot output within 5 tiles"];
@@ -460,10 +460,10 @@ export const structureInfoForKey = (
     if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes, free", "Requires nearby Ambaric Tower power"];
     if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 10 minutes, destroying an enemy structure and cutting that town's population by 30%, for 1,000 gold", "Requires nearby Ambaric Tower power"];
     if (key === "POPULATION_BUREAU") return ["Unique world monument", "+0.1 manpower/min empire-wide per Manpower-branch building you own"];
-    if (key === "IRON_LEVY") return ["Unique world monument", "Converts 50% of currently-banked manpower into an instant one-time army", "Freezes empire-wide manpower regen for 2 hours afterward", "Requires nearby Ambaric Tower power"];
+    if (key === "TITANIUM_LEVY") return ["Unique world monument", "Converts 50% of currently-banked manpower into an instant one-time army", "Freezes empire-wide manpower regen for 2 hours afterward", "Requires nearby Ambaric Tower power"];
     if (key === "WEAPONS_WORKSHOP") return ["+3% empire-wide attack per Weapons Workshop you own", "+3% empire-wide defense per Weapons Workshop you own", "No per-town limit — build as many as you like to specialize a town for war"];
-    if (key === "IRON_WEAPONS_FACTORY") return ["+1.5% attack / +3% defense per copy, scoped to this town's connected network", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — armor doctrine: clustering many in one connected region pays off most"];
-    if (key === "FUR_WEAPONS_FACTORY") return ["+3% attack / +1.5% defense per copy, scoped to this town's connected network", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — raiding doctrine: clustering many in one connected region pays off most"];
+    if (key === "TITANIUM_WEAPONS_FACTORY") return ["+1.5% attack / +3% defense per copy, scoped to this town's connected network", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — armor doctrine: clustering many in one connected region pays off most"];
+    if (key === "UMBRITE_WEAPONS_FACTORY") return ["+3% attack / +1.5% defense per copy, scoped to this town's connected network", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — raiding doctrine: clustering many in one connected region pays off most"];
     return [];
   };
   const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits" | "branch">, image?: string): StructureInfoView => {
@@ -478,10 +478,10 @@ export const structureInfoForKey = (
     if (key === "CENSUS_HALL") return "/overlays/census-hall-overlay.svg";
     if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
     if (key === "CARAVANARY") return "/overlays/caravanary-overlay.svg";
-    if (key === "FUR_SYNTHESIZER") return "/overlays/fur-synthesizer-overlay.svg";
-    if (key === "ADVANCED_FUR_SYNTHESIZER") return "/overlays/advanced-fur-synthesizer-overlay.svg";
-    if (key === "IRONWORKS") return "/overlays/ironworks-overlay.svg";
-    if (key === "ADVANCED_IRONWORKS") return "/overlays/advanced-ironworks-overlay.svg";
+    if (key === "UMBRITE_SYNTHESIZER") return "/overlays/umbrite-synthesizer-overlay.svg";
+    if (key === "ADVANCED_UMBRITE_SYNTHESIZER") return "/overlays/advanced-umbrite-synthesizer-overlay.svg";
+    if (key === "TITANIUM_WORKS") return "/overlays/titanium-works-overlay.svg";
+    if (key === "ADVANCED_TITANIUM_WORKS") return "/overlays/advanced-titanium-works-overlay.svg";
     if (key === "CRYSTAL_SYNTHESIZER") return "/overlays/crystal-synthesizer-overlay.svg";
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return "/overlays/advanced-crystal-synthesizer-overlay.svg";
     if (key === "FOUNDRY") return "/overlays/foundry-overlay.svg";
@@ -501,7 +501,7 @@ export const structureInfoForKey = (
     if (key === "LOGISTICS_GUILD") return "/overlays/logistics-guild-overlay.svg";
     if (key === "ASSEMBLY_WORKS") return "/overlays/assembly-works-overlay.svg";
     if (key === "POPULATION_BUREAU") return "/overlays/population-bureau-overlay.svg";
-    if (key === "IRON_LEVY") return "/overlays/iron-levy-overlay.svg";
+    if (key === "TITANIUM_LEVY") return "/overlays/titanium-levy-overlay.svg";
     // Each of the 18 monument components gets its own distinct overlay,
     // named after the component (not the monument) since each is a unique
     // structure now, not 3 identical copies of one "Part" icon.
@@ -520,16 +520,16 @@ export const structureInfoForKey = (
     if (key === "POPULATION_BUREAU_PART_1") return "/overlays/census-engine-overlay.svg";
     if (key === "POPULATION_BUREAU_PART_2") return "/overlays/registry-vault-overlay.svg";
     if (key === "POPULATION_BUREAU_PART_3") return "/overlays/levy-charter-overlay.svg";
-    if (key === "IRON_LEVY_PART_1") return "/overlays/muster-klaxon-overlay.svg";
-    if (key === "IRON_LEVY_PART_2") return "/overlays/iron-standard-overlay.svg";
-    if (key === "IRON_LEVY_PART_3") return "/overlays/levy-writ-overlay.svg";
+    if (key === "TITANIUM_LEVY_PART_1") return "/overlays/muster-klaxon-overlay.svg";
+    if (key === "TITANIUM_LEVY_PART_2") return "/overlays/titanium-standard-overlay.svg";
+    if (key === "TITANIUM_LEVY_PART_3") return "/overlays/levy-writ-overlay.svg";
     if (key === "WEAPONS_WORKSHOP") return "/overlays/weapons-workshop-overlay.svg";
-    if (key === "IRON_WEAPONS_FACTORY") return "/overlays/iron-weapons-factory-overlay.svg";
-    if (key === "FUR_WEAPONS_FACTORY") return "/overlays/fur-weapons-factory-overlay.svg";
+    if (key === "TITANIUM_WEAPONS_FACTORY") return "/overlays/titanium-weapons-factory-overlay.svg";
+    if (key === "UMBRITE_WEAPONS_FACTORY") return "/overlays/umbrite-weapons-factory-overlay.svg";
     return undefined;
   };
   const costBitsFor = (key: StructureInfoKey): string[] => {
-    if (key === "IRON_BASTION") return ["1,800 gold", "300 manpower"];
+    if (key === "TITANIUM_BASTION") return ["1,800 gold", "300 manpower"];
     if (key === "THUNDER_BASTION") return ["4,200 gold", "300 manpower"];
     if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower"];
     if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower"];
@@ -550,10 +550,10 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     });
   }
-  if (type === "IRON_BASTION") {
+  if (type === "TITANIUM_BASTION") {
     return structure({
-      title: "Iron Bastion",
-      detail: "Iron Bastions upgrade standard Forts and raise their defense from 2.5x to 4x while Bastion Walls also adds +10% settled defense.",
+      title: "Titanium Bastion",
+      detail: "Titanium Bastions upgrade standard Forts and raise their defense from 2.5x to 4x while Bastion Walls also adds +10% settled defense.",
       glyph: "🛡",
       placement: "Upgrade an existing Fort on its current tile.",
       costBits: costBitsFor(type),
@@ -563,9 +563,9 @@ export const structureInfoForKey = (
   if (type === "THUNDER_BASTION") {
     return structure({
       title: "Thunder Bastion",
-      detail: "Thunder Bastions upgrade Iron Bastions and raise fort defense from 4x to 8x, turning fortified cores into genuine siege problems.",
+      detail: "Thunder Bastions upgrade Titanium Bastions and raise fort defense from 4x to 8x, turning fortified cores into genuine siege problems.",
       glyph: "🛡",
-      placement: "Upgrade an existing Iron Bastion on its current tile.",
+      placement: "Upgrade an existing Titanium Bastion on its current tile.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
@@ -600,12 +600,12 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     });
   }
-  if (type === "CAMP") {
+  if (type === "UMBRITE_RIG") {
     return structure({
-      title: "Camp",
-      detail: "Camps increase supply production on wood and fur tiles by 50% and add +1 SUPPLY slot on the tile.",
+      title: "Umbrite Rig",
+      detail: "Umbrite Rigs increase umbrite production on the tile by 50% and add +1 UMBRITE slot on the tile.",
       glyph: "🦊",
-      placement: "Build on a settled wood or fur resource tile you own.",
+      placement: "Build on a settled umbrite resource tile you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
@@ -814,20 +814,20 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "IRON_WEAPONS_FACTORY") {
+  if (type === "TITANIUM_WEAPONS_FACTORY") {
     return structure({
-      title: "Iron Weapons Factory",
-      detail: "Iron Weapons Factories forge armor plating from Iron — armor doctrine: +1.5% attack / +3% defense per copy. The bonus is scoped to this town's connected network, not your whole empire — clustering many together in one connected region pays off more than scattering them. No per-town limit, but each additional copy costs more manpower than the last. Owning zero Iron or zero Fur Weapons Factories anywhere leaves your whole empire far easier to attack.",
+      title: "Titanium Weapons Factory",
+      detail: "Titanium Weapons Factories forge armor plating from Titanium — armor doctrine: +1.5% attack / +3% defense per copy. The bonus is scoped to this town's connected network, not your whole empire — clustering many together in one connected region pays off more than scattering them. No per-town limit, but each additional copy costs more manpower than the last. Owning zero Titanium or zero Umbrite Weapons Factories anywhere leaves your whole empire far easier to attack.",
       glyph: "🛡",
       placement: "Build on an open settled support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "FUR_WEAPONS_FACTORY") {
+  if (type === "UMBRITE_WEAPONS_FACTORY") {
     return structure({
-      title: "Fur Weapons Factory",
-      detail: "Fur Weapons Factories outfit raiders from Supply — raiding doctrine: +3% attack / +1.5% defense per copy. The bonus is scoped to this town's connected network, not your whole empire — clustering many together in one connected region pays off more than scattering them. No per-town limit, but each additional copy costs more manpower than the last. Owning zero Fur or zero Iron Weapons Factories anywhere leaves your whole empire far easier to attack.",
+      title: "Umbrite Weapons Factory",
+      detail: "Umbrite Weapons Factories outfit raiders from Umbrite — raiding doctrine: +3% attack / +1.5% defense per copy. The bonus is scoped to this town's connected network, not your whole empire — clustering many together in one connected region pays off more than scattering them. No per-town limit, but each additional copy costs more manpower than the last. Owning zero Umbrite or zero Titanium Weapons Factories anywhere leaves your whole empire far easier to attack.",
       glyph: "🗡",
       placement: "Build on an open settled support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),
@@ -1054,42 +1054,42 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "IRON_LEVY_PART_1") {
+  if (type === "TITANIUM_LEVY_PART_1") {
     return structure({
       title: "Muster Klaxon",
-      detail: "The Muster Klaxon is one of The Iron Levy's 3 required components — the steam-horn that will sound the call to arms.",
+      detail: "The Muster Klaxon is one of The Titanium Levy's 3 required components — the steam-horn that will sound the call to arms.",
       glyph: "📢",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "IRON_LEVY_PART_2") {
+  if (type === "TITANIUM_LEVY_PART_2") {
     return structure({
-      title: "Iron Standard",
-      detail: "The Iron Standard is one of The Iron Levy's 3 required components — the battle-standard the finished monument's muster will rally behind.",
+      title: "Titanium Standard",
+      detail: "The Titanium Standard is one of The Titanium Levy's 3 required components — the battle-standard the finished monument's muster will rally behind.",
       glyph: "🚩",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "IRON_LEVY_PART_3") {
+  if (type === "TITANIUM_LEVY_PART_3") {
     return structure({
       title: "Levy Writ",
-      detail: "The Levy Writ is one of The Iron Levy's 3 required components — the conscription order that will authorize the finished monument's one-time army.",
+      detail: "The Levy Writ is one of The Titanium Levy's 3 required components — the conscription order that will authorize the finished monument's one-time army.",
       glyph: "📃",
       placement: "Build on an open support tile for a Great City or Monumental City you own that has no other monument component.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "IRON_LEVY") {
+  if (type === "TITANIUM_LEVY") {
     return structure({
-      title: "The Iron Levy",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Iron Levy Parts — to convert 50% of your currently-banked manpower into an instant one-time army, then freeze empire-wide manpower regen for 2 hours. Requires nearby Ambaric Tower power.",
+      title: "The Titanium Levy",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Titanium Levy Parts — to convert 50% of your currently-banked manpower into an instant one-time army, then freeze empire-wide manpower regen for 2 hours. Requires nearby Ambaric Tower power.",
       glyph: "⬢",
-      placement: "Place on any settled tile you own after finishing 3 Iron Levy Parts. Consumes all 3 parts on completion.",
+      placement: "Place on any settled tile you own after finishing 3 Titanium Levy Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
@@ -1113,38 +1113,36 @@ export const structureInfoButtonHtml = (
 export const resourceColor = (resource: string | undefined): string | undefined => {
   if (resource === "FARM") return "#e9f27b";
   if (resource === "FISH") return "#6ec9ff";
-  if (resource === "FUR") return "#d6b48a";
-  if (resource === "WOOD") return "#7b4f2c";
-  if (resource === "IRON") return "#c7ced8";
+  if (resource === "UMBRITE") return "#4d2a86";
+  if (resource === "TITANIUM") return "#c9c9c9";
   if (resource === "GEMS") return "#b175ff";
   return undefined;
 };
 
 export const resourceLabel = (resource: string | undefined): string => {
   if (resource === "FARM") return "GRAIN";
-  if (resource === "FUR") return "FUR";
+  if (resource === "UMBRITE") return "UMBRITE";
   if (resource === "FISH") return "FISH";
-  if (resource === "IRON") return "IRON";
+  if (resource === "TITANIUM") return "TITANIUM";
   if (resource === "GEMS") return "GEMS";
-  if (resource === "WOOD") return "WOOD";
   return resource ?? "";
 };
 
 export const resourceIconForKey = (resource: string): string => {
   if (resource === "GOLD") return "◉";
   if (resource === "FOOD") return "🍞";
-  if (resource === "IRON") return "⛏";
+  if (resource === "TITANIUM") return "⛏";
   if (resource === "CRYSTAL") return "💎";
-  if (resource === "SUPPLY") return "🦊";
+  if (resource === "UMBRITE") return "🟣";
   if (resource === "SHARD") return "✦";
   return "•";
 };
 
-export const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | undefined => {
+export const strategicResourceKeyForTile = (tile: Tile): "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | undefined => {
   if (tile.resource === "FARM" || tile.resource === "FISH") return "FOOD";
-  if (tile.resource === "IRON") return "IRON";
+  if (tile.resource === "TITANIUM") return "TITANIUM";
   if (tile.resource === "GEMS") return "CRYSTAL";
-  if (tile.resource === "WOOD" || tile.resource === "FUR") return "SUPPLY";
+  if (tile.resource === "UMBRITE") return "UMBRITE";
   return undefined;
 };
 
@@ -1160,18 +1158,18 @@ export const tileProductionHtml = (tile: Tile): string => {
 };
 
 export const tileUpkeepHtml = (tile: Tile): string => {
-  const upkeepFromEntries = { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 };
+  const upkeepFromEntries = { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 };
   for (const entry of tile.upkeepEntries ?? []) {
     upkeepFromEntries.food += Number(entry.perMinute.FOOD ?? 0);
-    upkeepFromEntries.iron += Number(entry.perMinute.IRON ?? 0);
-    upkeepFromEntries.supply += Number(entry.perMinute.SUPPLY ?? 0);
+    upkeepFromEntries.titanium += Number(entry.perMinute.TITANIUM ?? 0);
+    upkeepFromEntries.umbrite += Number(entry.perMinute.UMBRITE ?? 0);
     upkeepFromEntries.crystal += Number(entry.perMinute.CRYSTAL ?? 0);
     upkeepFromEntries.gold += Number(entry.perMinute.GOLD ?? 0);
   }
   const parts: string[] = [];
   if (upkeepFromEntries.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeepFromEntries.food * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${(upkeepFromEntries.iron * 1440).toFixed(1)}/day`);
-  if (upkeepFromEntries.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${(upkeepFromEntries.supply * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.titanium > 0.001) parts.push(`${resourceIconForKey("TITANIUM")} ${(upkeepFromEntries.titanium * 1440).toFixed(1)}/day`);
+  if (upkeepFromEntries.umbrite > 0.001) parts.push(`${resourceIconForKey("UMBRITE")} ${(upkeepFromEntries.umbrite * 1440).toFixed(1)}/day`);
   if (upkeepFromEntries.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeepFromEntries.crystal * 1440).toFixed(1)}/day`);
   if (upkeepFromEntries.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeepFromEntries.gold * 1440).toFixed(1)}/day`);
   if (parts.length > 0) return parts.join(" · ");
@@ -1205,7 +1203,7 @@ export const storedYieldSummary = (tile: Tile, options?: { alwaysShowOwnedTownGo
 const yieldCapForResource = (tile: Tile, resource: string): number | undefined => {
   if (!tile.yieldCap) return undefined;
   if (resource === "GOLD") return tile.yieldCap.gold;
-  if (resource === "FOOD" || resource === "IRON" || resource === "CRYSTAL" || resource === "SUPPLY" || resource === "SHARD") {
+  if (resource === "FOOD" || resource === "TITANIUM" || resource === "CRYSTAL" || resource === "UMBRITE" || resource === "SHARD") {
     return tile.yieldCap.strategicEach;
   }
   return undefined;
@@ -1218,7 +1216,7 @@ export const formatYieldSummary = (tile: Tile): string => {
   if (gold > 0.01 || (goldCap ?? 0) > 0) {
     parts.push(`${resourceIconForKey("GOLD")} ${gold.toFixed(1)} / ${(goldCap ?? 0).toFixed(1)}`);
   }
-  for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const key of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
     const amount = Number(tile.yield?.strategic?.[key] ?? 0);
     const cap = yieldCapForResource(tile, key);
     if (amount <= 0.01 && (cap ?? 0) <= 0) continue;
@@ -1227,11 +1225,11 @@ export const formatYieldSummary = (tile: Tile): string => {
   return parts.length > 0 ? `Yield: ${parts.join("  ")}` : "";
 };
 
-export const formatUpkeepSummary = (upkeep: { food: number; iron: number; supply: number; crystal: number; gold: number }): string => {
+export const formatUpkeepSummary = (upkeep: { food: number; titanium: number; umbrite: number; crystal: number; gold: number }): string => {
   const parts: string[] = [];
   if (upkeep.food > 0.001) parts.push(`${resourceIconForKey("FOOD")} ${(upkeep.food * 1440).toFixed(1)}/day`);
-  if (upkeep.iron > 0.001) parts.push(`${resourceIconForKey("IRON")} ${(upkeep.iron * 1440).toFixed(1)}/day`);
-  if (upkeep.supply > 0.001) parts.push(`${resourceIconForKey("SUPPLY")} ${(upkeep.supply * 1440).toFixed(1)}/day`);
+  if (upkeep.titanium > 0.001) parts.push(`${resourceIconForKey("TITANIUM")} ${(upkeep.titanium * 1440).toFixed(1)}/day`);
+  if (upkeep.umbrite > 0.001) parts.push(`${resourceIconForKey("UMBRITE")} ${(upkeep.umbrite * 1440).toFixed(1)}/day`);
   if (upkeep.crystal > 0.001) parts.push(`${resourceIconForKey("CRYSTAL")} ${(upkeep.crystal * 1440).toFixed(1)}/day`);
   if (upkeep.gold > 0.001) parts.push(`${resourceIconForKey("GOLD")} ${(upkeep.gold * 1440).toFixed(1)}/day`);
   return parts.length > 0 ? `Empire upkeep: ${parts.join("  ")}` : "";

@@ -16,8 +16,8 @@ type Args = {
 
 const resourceColor = (resource: RetortRecastFxResource): string => {
   if (resource === "FARM") return "#4c8f52";
-  if (resource === "WOOD") return "#8b6232";
-  if (resource === "IRON") return "#8b99a5";
+  if (resource === "UMBRITE") return "#4d2a86";
+  if (resource === "TITANIUM") return "#c9c9c9";
   return "#39bfe0";
 };
 
@@ -89,7 +89,7 @@ const meta: Meta<Args> = {
   title: "Aether Abilities/Retort Recast FX (3D)",
   argTypes: {
     cameraDistance: { control: { type: "range", min: 2, max: 12, step: 0.5 } },
-    targetResource: { control: "select", options: ["FARM", "WOOD", "IRON", "GEMS"] },
+    targetResource: { control: "select", options: ["FARM", "TITANIUM", "GEMS"] },
     autoReplay: { control: "boolean" }
   },
   args: { cameraDistance: 5, targetResource: "GEMS", autoReplay: true },
@@ -100,6 +100,5 @@ export default meta;
 type Story = StoryObj<Args>;
 export const Default: Story = {};
 export const Food: Story = { args: { targetResource: "FARM" } };
-export const Supply: Story = { args: { targetResource: "WOOD" } };
-export const Iron: Story = { args: { targetResource: "IRON" } };
+export const Titanium: Story = { args: { targetResource: "TITANIUM" } };
 export const Crystal: Story = { args: { targetResource: "GEMS" } };

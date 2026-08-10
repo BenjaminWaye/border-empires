@@ -17,10 +17,10 @@ import {
 // manpower-economy-rewrite plan: originally hardcoded to `tile.town &&
 // !tile.town.isFed` with a fixed food emoji, now parameterized by icon so
 // the same machinery renders a badge for any of the 4 resource icons
-// (client-panel-html.ts: 🍞 Food, ⛏ Iron, 💎 Crystal, 🦊 Supply) — driven by
+// (client-panel-html.ts: 🍞 Food, ⛏ Titanium, 💎 Crystal, 🟣 Umbrite) — driven by
 // whichever resource a dormant structure (§5.4) is short on, not only
 // town-unfed. Callers create one overlay instance per resource type they
-// need simultaneously (a dormant Fort missing IRON and an unfed town both
+// need simultaneously (a dormant Fort missing TITANIUM and an unfed town both
 // showing at once need different icons on different tiles).
 //
 // One canvas texture is shared across every badge of a given overlay —

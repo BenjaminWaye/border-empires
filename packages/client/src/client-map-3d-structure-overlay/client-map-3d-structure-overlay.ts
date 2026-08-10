@@ -104,7 +104,7 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   const { builder, clear, commit, dispose } = createStructurePieceBuilder(scene, maxTiles);
 
   // Economic registers first so its `shared` assets (forge palette +
-  // blue crystal) are available to industrial (FOUNDRY/ADV_IRONWORKS
+  // blue crystal) are available to industrial (FOUNDRY/ADV_TITANIUM_WORKS
   // reuse the forge palette; the crystal synthesizers reuse the blue
   // crystal material).
   const economic = registerEconomicStructures(builder);
