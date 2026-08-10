@@ -1,0 +1,103 @@
+// Owns the 3D renderer's lifecycle for a session: lazily constructing it once
+// auth is ready, and — the reason this module exists — retiring it for good
+// when it can't run on this device.
+//
+// The 3D renderer has two ways to fail on hardware we can't reproduce on: its
+// init throws (no webgl2, or a context the browser refuses), or the GPU takes
+// the context away later, which Safari on iOS does under memory pressure.
+// Before this, both paths ended the same way — a `console.error` and a blank
+// canvas — which is exactly the reported "3D doesn't work on my iPhone but 2D
+// does" experience, with nothing on screen or in any bundle to act on.
+//
+// Either failure now retires 3D for the session: the renderer is torn down,
+// the frame goes back to the 2D renderer (which the runtime loop already falls
+// back to whenever no 3D renderer is present and true-3D is inactive), the
+// reason is recorded for the diagnostics bundle, and the player is told.
+
+import { setTrue3DRendererActive } from "../client-renderer-mode.js";
+import { recordRendererFailure } from "../client-webgl-probe/client-webgl-probe.js";
+import { showRendererFallbackNotice } from "../client-renderer-fallback-notice/client-renderer-fallback-notice.js";
+
+/** The slice of the 3D renderer this host needs; keeps three.js out of here. */
+export type StoppableRenderer = { readonly stop: () => void };
+
+export type ThreeRendererHostDeps<TRenderer extends StoppableRenderer> = {
+  /** False when the session asked for `?renderer=2d`; 3D is never attempted. */
+  readonly enabled: boolean;
+  /** Construction is deferred until this returns true (auth session ready). */
+  readonly isReady: () => boolean;
+  readonly create: (onContextLost: (reason: string) => void) => TRenderer;
+  /** Resizes the 2D canvas once the WebGL canvas is gone. */
+  readonly resizeTwoDimensionalCanvas: () => void;
+};
+
+export type ThreeRendererHost<TRenderer extends StoppableRenderer> = {
+  /** Constructs the renderer if it is wanted, ready, and hasn't already failed. */
+  readonly ensure: () => void;
+  /** The live 3D renderer, or undefined when the 2D renderer owns the frame. */
+  readonly current: () => TRenderer | undefined;
+};
+
+export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
+  deps: ThreeRendererHostDeps<TRenderer>
+): ThreeRendererHost<TRenderer> => {
+  let renderer: TRenderer | undefined;
+  // Latched once 3D has failed, so a per-frame `ensure()` doesn't retry a
+  // doomed init — and re-probe, and re-log — on every HUD render.
+  let failed = false;
+
+  if (!deps.enabled) setTrue3DRendererActive(false);
+
+  // Render caches (terrain colors, minimap base, dock routes) are deliberately
+  // left alone here: they are renderer-agnostic and stay valid across the swap,
+  // and clearing them would drop the minimap base with nothing scheduled to
+  // rebuild it until the next world-seed message.
+  const retire = (reason: string): void => {
+    failed = true;
+    const dead = renderer;
+    renderer = undefined;
+    setTrue3DRendererActive(false);
+    recordRendererFailure(reason);
+    try {
+      dead?.stop();
+    } catch (stopError) {
+      console.error("[renderer-3d-teardown-failed]", stopError);
+    }
+    showRendererFallbackNotice(reason);
+    try {
+      deps.resizeTwoDimensionalCanvas();
+    } catch (resizeError) {
+      console.error("[renderer-2d-fallback-resize-failed]", resizeError);
+    }
+  };
+
+  const ensure = (): void => {
+    if (!deps.enabled || failed || renderer) return;
+    if (!deps.isReady()) return;
+    try {
+      const created = deps.create((reason) => {
+        console.error("[renderer-3d-context-lost]", reason);
+        retire(`WebGL context lost: ${reason}`);
+      });
+      // A context can be lost *during* construction — the over-subscribed-GPU
+      // case this whole path exists for. `retire` already ran, with no handle
+      // to the half-built renderer, so stopping it is on us; assigning it here
+      // would silently resurrect a renderer with a dead context.
+      if (failed) {
+        try {
+          created.stop();
+        } catch (stopError) {
+          console.error("[renderer-3d-teardown-failed]", stopError);
+        }
+        return;
+      }
+      renderer = created;
+      setTrue3DRendererActive(true);
+    } catch (error) {
+      console.error("[renderer-3d-init-failed]", error);
+      retire(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  return { ensure, current: () => renderer };
+};
