@@ -37,8 +37,8 @@ export type StructureSlotRequirement = {
 // One known documentation quirk, preserved intentionally rather than
 // "corrected" by guessing: CUSTOMS_HOUSE lists a 60-CRYSTAL build cost in
 // structure-costs.ts but §12's own slot-requirement column for it says only
-// "1 FOOD slot" (no CRYSTAL slot), unlike BANK/FOUNDRY/RAIL_DEPOT/
-// RADAR_SYSTEM/EXCHANGE_HOUSE/AETHER_TOWER, which the plan's "Tier 3 crystal
+// "1 FOOD slot" (no CRYSTAL slot), unlike FOUNDRY/RAIL_DEPOT/
+// RADAR_SYSTEM/AETHER_TOWER, which the plan's "Tier 3 crystal
 // fix" explicitly gives a CRYSTAL slot on top of FOOD. Taken at face value
 // (the plan's table is the source of truth for slot requirements), not
 // inferred. GARRISON_HALL (Ancillary Factory) originally had this same
@@ -79,7 +79,6 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   CLEARING_HOUSE: [{ resource: "FOOD", count: 1 }],
 
   // Tier 3 — major economic engines
-  BANK: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
   FOUNDRY: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
   RAIL_DEPOT: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
   RADAR_SYSTEM: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
@@ -88,7 +87,6 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   ADVANCED_CRYSTAL_SYNTHESIZER: [{ resource: "CRYSTAL", count: 1 }],
 
   // Tier 4 — elite structures
-  EXCHANGE_HOUSE: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
   AETHER_TOWER: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
 
   // War branch — Weapons Workshop consumes both IRON and SUPPLY (per user

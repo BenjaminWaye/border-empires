@@ -24,7 +24,6 @@ describe("structureBuildGoldCost", () => {
   test("keeps non-scaling structures at zero gold too", () => {
     expect(structureBuildGoldCost("MARKET", 0)).toBe(0);
     expect(structureBuildGoldCost("MARKET", 4)).toBe(0);
-    expect(structureBuildGoldCost("BANK", 1)).toBe(0);
     expect(structureBuildGoldCost("CARAVANARY", 3)).toBe(0);
     expect(structureBuildGoldCost("FOUNDRY", 2)).toBe(0);
   });
@@ -33,7 +32,6 @@ describe("structureBuildGoldCost", () => {
 describe("structureCostDefinition", () => {
   test("keeps income-support structures gold-only and preserves strategic-resource costs elsewhere", () => {
     expect(structureCostDefinition("MARKET").resourceCost).toBeUndefined();
-    expect(structureCostDefinition("BANK").resourceCost).toBeUndefined();
     expect(structureCostDefinition("CARAVANARY").resourceCost).toBeUndefined();
     // #1134 removed these as stale build-time crystal costs — the slot
     // system (structure-slots.ts) is the real FOOD/IRON/CRYSTAL/SUPPLY gate

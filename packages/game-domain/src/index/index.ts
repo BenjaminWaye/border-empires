@@ -172,8 +172,6 @@ export type DomainTileState = {
             | "marketActive"
             | "hasGranary"
             | "granaryActive"
-            | "hasBank"
-            | "bankActive"
             | "foodUpkeepPerMinute"
             | "captureShockUntil"
             | "populationBeforeCapture"

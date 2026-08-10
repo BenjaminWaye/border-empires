@@ -28,7 +28,6 @@ export type StructureInfoKey =
   | "GRANARY"
   | "SEED_GRANARY"
   | "CENSUS_HALL"
-  | "BANK"
   | "CLEARING_HOUSE"
   | "CARAVANARY"
   | "WOODEN_FORT"
@@ -40,7 +39,6 @@ export type StructureInfoKey =
   | "CRYSTAL_SYNTHESIZER"
   | "ADVANCED_CRYSTAL_SYNTHESIZER"
   | "FOUNDRY"
-  | "EXCHANGE_HOUSE"
   | "CUSTOMS_HOUSE"
   | "GOVERNORS_OFFICE"
   | "GARRISON_HALL"
@@ -96,10 +94,10 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   SIEGE_OUTPOST: "War", SIEGE_TOWER: "War", DREAD_TOWER: "War",
   WEAPONS_WORKSHOP: "War",
   FARMSTEAD: "Economy", WATERWORKS: "Economy", MINE: "Economy",
-  MARKET: "Economy", BANK: "Economy", CLEARING_HOUSE: "Economy",
+  MARKET: "Economy", CLEARING_HOUSE: "Economy",
   FUR_SYNTHESIZER: "Economy", ADVANCED_FUR_SYNTHESIZER: "Economy",
   IRONWORKS: "Economy", ADVANCED_IRONWORKS: "Economy",
-  FOUNDRY: "Economy", EXCHANGE_HOUSE: "Economy", CUSTOMS_HOUSE: "Economy",
+  FOUNDRY: "Economy", CUSTOMS_HOUSE: "Economy",
   CARAVANARY: "Economy", GOVERNORS_OFFICE: "Economy",
   IMPERIAL_EXCHANGE_PART: "Economy", IMPERIAL_EXCHANGE: "Economy",
   CAMP: "War",
@@ -126,7 +124,6 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "GRANARY") return "Incubation Engine";
   if (kind === "SEED_GRANARY") return "Seed Granary";
   if (kind === "CENSUS_HALL") return "Census Hall";
-  if (kind === "BANK") return "Bank";
   if (kind === "CLEARING_HOUSE") return "Clearing House";
   if (kind === "AIRPORT") return "Aetherport";
   if (kind === "AETHER_TOWER") return "Ambaric Tower";
@@ -145,7 +142,6 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "CRYSTAL_SYNTHESIZER") return "Aether Condenser";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Aether Condenser";
   if (kind === "FOUNDRY") return "Foundry";
-  if (kind === "EXCHANGE_HOUSE") return "Exchange House";
   if (kind === "GARRISON_HALL") return "Ancillary Factory";
   if (kind === "CUSTOMS_HOUSE") return "Harbor Exchange";
   if (kind === "GOVERNORS_OFFICE") return "Ministry Hall";
@@ -176,8 +172,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "GRANARY") return "Grants an instant one-time +10,000 population burst to the supported town on completion.";
   if (kind === "SEED_GRANARY") return "Upgrades a granary into a seed granary with +30% local town population growth and lower local town food upkeep.";
   if (kind === "CENSUS_HALL") return "Grants +20,000 population to the supported town for every connected city with an active Incubation Engine, and cuts that town's tier-upgrade cost by 25%.";
-  if (kind === "BANK") return "Nearby town: +50% city income and +1 flat income.";
-  if (kind === "CLEARING_HOUSE") return "Strengthens banks and markets for this town and its directly connected towns.";
+  if (kind === "CLEARING_HOUSE") return "Strengthens the Market for this town and its directly connected towns.";
   if (kind === "AIRPORT") return "Launches crystal-powered bombardment that strips enemy ownership from a 3×3 area (structures survive). Free to fire, 20m cooldown. Blocked by Resonance Grids.";
   if (kind === "AETHER_TOWER") return "Powers nearby late-game sky and monument structures.";
   if (kind === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
@@ -193,7 +188,6 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "CRYSTAL_SYNTHESIZER") return "Occupies 1 CRYSTAL slot. Refine: gold → crystal (12/day, 40 gold/day). Sell off: crystal → gold (10 gold/day).";
   if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Occupies 1 CRYSTAL slot. Refine: gold → crystal (14.4/day, 60 gold/day). Sell off: crystal → gold (15 gold/day).";
   if (kind === "FOUNDRY") return "Doubles active Mine slot output within a 5-tile radius.";
-  if (kind === "EXCHANGE_HOUSE") return "Turns a great city's support network into +10% gold and +5% growth per adjacent active support structure, capped at +80% gold and +40% growth.";
   if (kind === "GARRISON_HALL") return "Adds +150 manpower cap to this town (+300 more if an Assembly Works is in this town's connected network).";
   if (kind === "CUSTOMS_HOUSE") return "Adds +1 gold / m for each connected owned dock.";
   if (kind === "GOVERNORS_OFFICE") return "Reduces local town food upkeep and reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles.";
@@ -242,7 +236,6 @@ export const structureInfoForKey = (
     | "MARKET"
     | "GRANARY"
     | "CENSUS_HALL"
-    | "BANK"
     | "CLEARING_HOUSE"
     | "CARAVANARY"
     | "AIRPORT"
@@ -256,7 +249,6 @@ export const structureInfoForKey = (
     | "CRYSTAL_SYNTHESIZER"
     | "ADVANCED_CRYSTAL_SYNTHESIZER"
     | "FOUNDRY"
-    | "EXCHANGE_HOUSE"
     | "GARRISON_HALL"
     | "CUSTOMS_HOUSE"
     | "RAIL_DEPOT"
@@ -337,7 +329,6 @@ export const structureInfoForKey = (
     if (key === "GRANARY") return ["Instant one-time +10,000 population burst on completion"];
     if (key === "SEED_GRANARY") return ["+30% local town population growth", "-10% local town food upkeep"];
     if (key === "CENSUS_HALL") return ["+20,000 population per connected city with an active Incubation Engine", "-25% town-tier upgrade cost for this town"];
-    if (key === "BANK") return ["+50% city income", "+1 flat city income"];
     if (key === "CLEARING_HOUSE") return ["+25% Market effect across connected towns", "+20% Bank effect across connected towns", "+0.5 flat Bank income across connected towns"];
     if (key === "CARAVANARY") return ["Enables the connected-town income bonus for this road network"];
     if (key === "FUR_SYNTHESIZER") return ["Refine: gold → 18 supply/day", "Sell off: 1 supply slot → 8 gold/day"];
@@ -347,7 +338,6 @@ export const structureInfoForKey = (
     if (key === "CRYSTAL_SYNTHESIZER") return ["Refine: gold → 12 crystal/day", "Sell off: 1 crystal slot → 10 gold/day"];
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Refine: gold → 14.4 crystal/day", "Sell off: 1 crystal slot → 15 gold/day"];
     if (key === "FOUNDRY") return ["Doubles active Mine slot output within 5 tiles"];
-    if (key === "EXCHANGE_HOUSE") return ["+10% gold and +5% growth per adjacent active support structure", "Caps at +80% gold and +40% growth and requires a Great City or Monumental City support tile"];
     if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
     if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "Reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles"];
     if (key === "GARRISON_HALL") return ["+150 manpower cap for this town", "+300 manpower cap if an Assembly Works is in this town's connected network"];
@@ -380,7 +370,6 @@ export const structureInfoForKey = (
     if (key === "GRANARY") return "/overlays/incubation-engine-overlay.svg";
     if (key === "CENSUS_HALL") return "/overlays/census-hall-overlay.svg";
     if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
-    if (key === "BANK") return "/overlays/bank-overlay.svg";
     if (key === "CARAVANARY") return "/overlays/caravanary-overlay.svg";
     if (key === "FUR_SYNTHESIZER") return "/overlays/fur-synthesizer-overlay.svg";
     if (key === "ADVANCED_FUR_SYNTHESIZER") return "/overlays/advanced-fur-synthesizer-overlay.svg";
@@ -389,7 +378,6 @@ export const structureInfoForKey = (
     if (key === "CRYSTAL_SYNTHESIZER") return "/overlays/crystal-synthesizer-overlay.svg";
     if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return "/overlays/advanced-crystal-synthesizer-overlay.svg";
     if (key === "FOUNDRY") return "/overlays/foundry-overlay.svg";
-    if (key === "EXCHANGE_HOUSE") return "/overlays/exchange-house-overlay.svg";
     if (key === "CUSTOMS_HOUSE") return "/overlays/customs-house-overlay.svg";
     if (key === "CLEARING_HOUSE") return "/overlays/clearing-house-overlay.svg";
     if (key === "GOVERNORS_OFFICE") return "/overlays/governors-office-overlay.svg";
@@ -536,20 +524,10 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "BANK") {
-    return structure({
-      title: "Bank",
-      detail: "Banks are built on a town support tile. They increase city income by 50% and add +1 flat income.",
-      glyph: "🏦",
-      placement: "Build on an open settled support tile for a city or larger town you own.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
   if (type === "CLEARING_HOUSE") {
     return structure({
       title: "Clearing House",
-      detail: "Clearing Houses are built on a town support tile. One active clearing house gives this town and its directly connected towns +25% Market effect, +20% Bank effect, and +0.5 flat Bank income.",
+      detail: "Clearing Houses are built on a town support tile. One active clearing house gives this town and its directly connected towns +25% Market effect.",
       glyph: "⌂",
       placement: "Build on an open settled support tile for a town with a connected city network.",
       costBits: costBitsFor(type),
@@ -656,16 +634,6 @@ export const structureInfoForKey = (
       detail: "A network of irrigation canals that boosts all Farmstead food production by +100% within a 10-tile radius. Each boosted Farmstead gains +2 FOOD slots.",
       glyph: "💧",
       placement: "Build on any settled land tile. Does not need a resource tile.",
-      costBits: costBitsFor(type),
-      buildTimeLabel: buildTimeLabelFor(type)
-    }, imageFor(type));
-  }
-  if (type === "EXCHANGE_HOUSE") {
-    return structure({
-      title: "Exchange House",
-      detail: "Exchange Houses are built on great-city support tiles. Each adjacent active support structure adds +10% gold and +5% growth, capped at +80% gold and +40% growth.",
-      glyph: "¤",
-      placement: "Build on an open settled support tile for a Great City or Monumental City you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));

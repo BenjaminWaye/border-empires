@@ -39,8 +39,6 @@ describe("combatResolutionAlert", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           }
         } as Tile,
         originTileBefore: undefined
@@ -100,8 +98,6 @@ describe("combatResolutionAlert", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           }
         } as Tile,
         originTileBefore: undefined

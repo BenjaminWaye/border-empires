@@ -74,9 +74,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockCensusHall":
         out.add("CENSUS_HALL");
         break;
-      case "unlockBank":
-        out.add("BANK");
-        break;
       case "unlockClearingHouse":
         out.add("CLEARING_HOUSE");
         break;
@@ -102,9 +99,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
         break;
       case "unlockAetherTower":
         out.add("AETHER_TOWER");
-        break;
-      case "unlockExchangeHouse":
-        out.add("EXCHANGE_HOUSE");
         break;
       case "unlockCustomsHouse":
         out.add("CUSTOMS_HOUSE");

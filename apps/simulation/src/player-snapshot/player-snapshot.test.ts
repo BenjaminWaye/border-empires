@@ -64,8 +64,6 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false
           }),
           townType: "MARKET",
           townName: "Old Growth",
@@ -695,8 +693,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "CLEARING_HOUSE", status: "active" }) },
         { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MARKET", status: "active" }) },
         { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "GRANARY", status: "active" }) },
-        { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "BANK", status: "active" }) },
-        // §5.4: FOOD slot supply — town(2) + MARKET/BANK/GRANARY/CLEARING_HOUSE
+        { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "CARAVANARY", status: "active" }) },
+        // §5.4: FOOD slot supply — town(2) + MARKET/CARAVANARY/GRANARY/CLEARING_HOUSE
         // (1 each) = 6 demand; the FARM tile above only gives 1, so these
         // support structures need real supply to not go dormant.
         { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
@@ -732,8 +730,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         supportCurrent: 5,
         supportMax: 5,
         isFed: true,
-        hasMarket: true, hasGranary: true, hasBank: true,
-        marketActive: true, granaryActive: true, bankActive: true,
+        hasMarket: true, hasGranary: true,
+        marketActive: true, granaryActive: true,
         hasClearingHouse: true, clearingHouseActive: true,
         goldPerMinute: expect.any(Number),
         // §5.4: FOOD is slot-based — town food upkeep is retired to 0.
@@ -889,8 +887,6 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             marketActive: false,
             hasGranary: false,
             granaryActive: false,
-            hasBank: false,
-            bankActive: false,
             foodUpkeepPerMinute: 0.1
           }),
           townType: "MARKET",
