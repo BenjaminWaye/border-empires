@@ -22,8 +22,8 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1786413600000, // 2026.08.10.3
-    introducedIn: "2026.08.10.3",
+    createdAt: 1786417200000, // 2026.08.10.4
+    introducedIn: "2026.08.10.4",
     title: "Weapons Workshop split into Iron and Fur Weapons Factories",
     why: "Weapons Workshop forged both Iron and Supply into the same flat empire-wide attack/defense boost, giving the two resources no distinct identity in the War branch. It's retired and replaced with two resource-specific factories that reward a real strategic choice: mass-produce anywhere, or cluster into one connected industrial network for a bigger payoff — and skipping both leaves your empire exposed.",
     changes: [
@@ -33,6 +33,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Each additional copy of either factory costs more manpower than the last.",
       "Owning zero Iron Weapons Factories or zero Fur Weapons Factories anywhere in your empire leaves you markedly easier to attack.",
       "Weapons Workshop can no longer be newly built; any copies you already own keep working as before."
+    ]
+  },
+  {
+    createdAt: 1786413600000, // 2026.08.10.3
+    introducedIn: "2026.08.10.3",
+    title: "Queue expansions ahead of your frontier",
+    why: "You could only queue an expansion onto a tile that already touched your territory, so planning a route deep into neutral land meant clicking one tile at a time and waiting for each to finish before the next could even be queued.",
+    changes: [
+      "You can now queue an expansion onto a neutral tile that only borders another tile you've already queued or are currently claiming — the new claim waits for the earlier one to finish, then launches from it automatically.",
+      "Chains can go several tiles deep, so a whole planned route can be queued up in one pass instead of one click at a time."
     ]
   },
   {
