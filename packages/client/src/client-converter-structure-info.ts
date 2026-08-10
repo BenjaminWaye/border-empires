@@ -2,7 +2,7 @@ import type { StructureInfoKey, StructureInfoView } from "./client-map-display.j
 
 // Extracted out of client-map-display.ts's structureInfoForKey (500-line
 // budget, AGENTS.md) — the six converter build-menu info-panel blocks
-// (Fur Works / Iron Works / Aether Condenser and their Advanced tiers).
+// (Umbrite Works / Titanium Works / Aether Condenser and their Advanced tiers).
 // converter-mode-flip plan §Phase 6 item 3: same both-directions treatment
 // as the one-line description, plus a mention of the flip cooldown.
 //
@@ -17,42 +17,42 @@ export const converterStructureInfoView = (
   costBitsFor: (key: StructureInfoKey) => string[],
   buildTimeLabelFor: (key: StructureInfoKey) => string
 ): StructureInfoView | undefined => {
-  if (type === "FUR_SYNTHESIZER") {
+  if (type === "UMBRITE_SYNTHESIZER") {
     return structure({
-      title: "Fur Works",
-      detail: "Fur Works occupy 1 supply slot and can point either way: Refine turns gold upkeep into 18 supply per day; Sell off consumes the slot for 8 gold per day instead. A 60-minute cooldown gates flipping direction.",
+      title: "Umbrite Works",
+      detail: "Umbrite Works occupy 1 umbrite slot and can point either way: Refine turns gold upkeep into 18 umbrite per day; Sell off consumes the slot for 8 gold per day instead. A 60-minute cooldown gates flipping direction.",
       glyph: "📦",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "ADVANCED_FUR_SYNTHESIZER") {
+  if (type === "ADVANCED_UMBRITE_SYNTHESIZER") {
     return structure({
-      title: "Advanced Fur Works",
-      detail: "Advanced Fur Works upgrade an existing Fur Works: Refine rises from 18 to 21.6 supply per day (45 gold upkeep); Sell off pays 12 gold per day instead. Same 60-minute flip cooldown.",
+      title: "Advanced Umbrite Works",
+      detail: "Advanced Umbrite Works upgrade an existing Umbrite Works: Refine rises from 18 to 21.6 umbrite per day (45 gold upkeep); Sell off pays 12 gold per day instead. Same 60-minute flip cooldown.",
       glyph: "🧵",
-      placement: "Upgrade an existing Fur Works on its current support tile.",
+      placement: "Upgrade an existing Umbrite Works on its current support tile.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "IRONWORKS") {
+  if (type === "TITANIUM_WORKS") {
     return structure({
-      title: "Iron Works",
-      detail: "Iron Works occupy 1 iron slot and can point either way: Refine turns gold upkeep into 18 iron per day; Sell off consumes the slot for 8 gold per day instead. A 60-minute cooldown gates flipping direction.",
+      title: "Titanium Works",
+      detail: "Titanium Works occupy 1 titanium slot and can point either way: Refine turns gold upkeep into 18 titanium per day; Sell off consumes the slot for 8 gold per day instead. A 60-minute cooldown gates flipping direction.",
       glyph: "⚙",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));
   }
-  if (type === "ADVANCED_IRONWORKS") {
+  if (type === "ADVANCED_TITANIUM_WORKS") {
     return structure({
-      title: "Advanced Iron Works",
-      detail: "Advanced Iron Works upgrade an existing Iron Works: Refine rises from 18 to 21.6 iron per day (45 gold upkeep); Sell off pays 12 gold per day instead. Same 60-minute flip cooldown.",
+      title: "Advanced Titanium Works",
+      detail: "Advanced Titanium Works upgrade an existing Titanium Works: Refine rises from 18 to 21.6 titanium per day (45 gold upkeep); Sell off pays 12 gold per day instead. Same 60-minute flip cooldown.",
       glyph: "⚙",
-      placement: "Upgrade an existing Iron Works on its current support tile.",
+      placement: "Upgrade an existing Titanium Works on its current support tile.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     }, imageFor(type));

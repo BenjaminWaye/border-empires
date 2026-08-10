@@ -223,7 +223,7 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("RAIL_DEPOT", deps).title).toBe("Rail Depot");
     expect(structureInfoForKey("GOVERNORS_OFFICE", deps).title).toBe("Ministry Hall");
     expect(structureInfoForKey("CRYSTAL_SYNTHESIZER", deps).title).toBe("Aether Condenser");
-    expect(structureInfoForKey("IRON_BASTION", deps).title).toBe("Iron Bastion");
+    expect(structureInfoForKey("TITANIUM_BASTION", deps).title).toBe("Titanium Bastion");
     expect(structureInfoForKey("THUNDER_BASTION", deps).title).toBe("Thunder Bastion");
     expect(structureInfoForKey("SIEGE_TOWER", deps).title).toBe("Siege Tower");
     expect(structureInfoForKey("DREAD_TOWER", deps).title).toBe("Dread Tower");
@@ -244,17 +244,17 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("WORLD_ENGINE", deps).title).toBe("Worldbreaker Cannon");
     expect(structureInfoForKey("WORLD_ENGINE", deps).detail).toContain("10 minutes");
     expect(structureInfoForKey("AEGIS_DOME", deps).detail).toContain("15-minute");
-    expect(structureInfoForKey("IRON_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 2.5x to 4x");
+    expect(structureInfoForKey("TITANIUM_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 2.5x to 4x");
     expect(structureInfoForKey("THUNDER_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 4x to 8x");
     expect(structureInfoForKey("SIEGE_TOWER", deps).effects.join(" ")).toContain("Raises Siege Outpost attack from 1.6x to 1.8x");
     expect(structureInfoForKey("DREAD_TOWER", deps).effects.join(" ")).toContain("Raises Siege attack from 1.8x to 2.0x");
-    expect(structureInfoForKey("IRON_BASTION", deps).costBits).toEqual(["1,800 gold", "300 manpower"]);
+    expect(structureInfoForKey("TITANIUM_BASTION", deps).costBits).toEqual(["1,800 gold", "300 manpower"]);
     expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 gold", "300 manpower"]);
     expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 gold", "60 manpower"]);
     expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["4,200 gold", "60 manpower"]);
     // Resource slot requirements live in the upkeep box, not the one-time
     // cost box — a slot is a permanent ongoing occupation, not a build cost.
-    expect(structureInfoForKey("IRON_BASTION", deps).upkeepBits).toEqual(["2 IRON slots"]);
+    expect(structureInfoForKey("TITANIUM_BASTION", deps).upkeepBits).toEqual(["2 IRON slots"]);
     expect(structureInfoForKey("THUNDER_BASTION", deps).upkeepBits).toEqual(["4 IRON slots"]);
     expect(structureInfoForKey("SIEGE_TOWER", deps).upkeepBits).toEqual(["2 SUPPLY slots", "1 IRON slot"]);
     expect(structureInfoForKey("DREAD_TOWER", deps).upkeepBits).toEqual(["3 SUPPLY slots", "2 IRON slots"]);

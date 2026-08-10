@@ -497,7 +497,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return state.techIds.includes("steelworking")
         ? "Thunder Bastion"
         : state.techIds.includes("fortified-walls")
-          ? "Iron Bastion"
+          ? "Titanium Bastion"
           : "Fort";
     }
     if (structureType === "SIEGE_OUTPOST") {
@@ -1552,9 +1552,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       actionId === "retort_recast_food"
         ? "FARM"
         : actionId === "retort_recast_supply"
-          ? "WOOD"
-          : actionId === "retort_recast_iron"
-            ? "IRON"
+          ? "UMBRITE"
+          : actionId === "retort_recast_titanium"
+            ? "TITANIUM"
             : actionId === "retort_recast_crystal"
               ? "GEMS"
               : undefined;

@@ -277,11 +277,11 @@ export const CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY = 20_000;
 // Census Hall: cheaper town-tier upgrade cost for the Census Hall's own town.
 export const CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT = 0.75;
 export const SETTLEMENT_TO_TOWN_POPULATION_MIN = 10_000;
-// The Iron Levy monument: converts this fraction of currently-banked
+// The Titanium Levy monument: converts this fraction of currently-banked
 // manpower into an instant one-time army, then freezes empire-wide manpower
-// regen for IRON_LEVY_REGEN_FREEZE_MS.
-export const IRON_LEVY_MANPOWER_CONVERSION_RATIO = 0.5;
-export const IRON_LEVY_REGEN_FREEZE_MS = 2 * 60 * 60 * 1000;
+// regen for TITANIUM_LEVY_REGEN_FREEZE_MS.
+export const TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO = 0.5;
+export const TITANIUM_LEVY_REGEN_FREEZE_MS = 2 * 60 * 60 * 1000;
 
 // --- Barbarian raids ---
 export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
@@ -290,7 +290,7 @@ export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
 export const FORT_GARRISON_CAP_BY_VARIANT: Record<string, number> = {
   WOODEN_FORT: 120,
   FORT: 120,
-  IRON_BASTION: 240,
+  TITANIUM_BASTION: 240,
   THUNDER_BASTION: 360,
 };
 // Fraction of the attacking force the garrison loses on a REPULSED assault.

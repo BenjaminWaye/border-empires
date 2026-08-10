@@ -108,16 +108,16 @@ export const createInitialState = () => ({
   } as Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>,
   expandedModKey: null as "attack" | "defense" | "income" | "vision" | null,
   incomePerMinute: 0,
-  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
   storageCap: { ...EMPIRE_STORAGE_FLOOR },
-  strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>,
+  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>,
   // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): global
   // per-resource supply/demand pool, mirroring what hasFreeResourceSlots
   // gates BUILD_STRUCTURE on server-side (§14.3) -- the real affordability
-  // signal for FOOD/IRON/CRYSTAL/SUPPLY now that stockpiles are retired at
+  // signal for FOOD/TITANIUM/CRYSTAL/UMBRITE now that stockpiles are retired at
   // build time (Step 5 item 4 Slice A).
   resourceSlots: {
-    supply: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 } as Record<SlotResource, number>, demand: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 } as Record<SlotResource, number>
+    supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<SlotResource, number>, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<SlotResource, number>
   },
   // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which
   // structures are dormant right now, and which resource(s) they're short
@@ -125,11 +125,11 @@ export const createInitialState = () => ({
   dormantStructures: [] as Array<{ key: string; resources: SlotResource[] }>,
   eventLog: [] as Array<{ id: string; type: string; text: string; occurredAt: number }>, // §20: durable event log, most-recent-last
   economyBreakdown: undefined as EconomyBreakdown | undefined,
-  upkeepPerMinute: { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+  upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
   upkeepLastTick: {
     food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-    iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-    supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+    titanium: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+    umbrite: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
     crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
     gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
     foodCoverage: 1
@@ -140,9 +140,9 @@ export const createInitialState = () => ({
   defensibilityAnimDir: 0 as -1 | 0 | 1,
   strategicAnim: {
     FOOD: { until: 0, dir: 0 as -1 | 0 | 1 },
-    IRON: { until: 0, dir: 0 as -1 | 0 | 1 },
+    TITANIUM: { until: 0, dir: 0 as -1 | 0 | 1 },
     CRYSTAL: { until: 0, dir: 0 as -1 | 0 | 1 },
-    SUPPLY: { until: 0, dir: 0 as -1 | 0 | 1 },
+    UMBRITE: { until: 0, dir: 0 as -1 | 0 | 1 },
     SHARD: { until: 0, dir: 0 as -1 | 0 | 1 }
   },
   stamina: 0,
@@ -242,7 +242,7 @@ export const createInitialState = () => ({
   surveySweepFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   surveySweepPings: [] as SurveySweepPing[],
   siphonFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "WOOD" | "IRON" | "GEMS"; queuedAt: number }>,
+  retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "UMBRITE" | "TITANIUM" | "GEMS"; queuedAt: number }>,
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   bombardFxQueue: [] as Array<{
@@ -308,12 +308,12 @@ export const createInitialState = () => ({
   settlementRepairDiagnosticKey: "" as string,
   collectVisibleCooldownUntil: 0,
   pendingCollectVisibleKeys: new Set<string>(),
-  pendingCollectVisibleDelta: { gold: 0, strategic: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } as Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number> },
+  pendingCollectVisibleDelta: { gold: 0, strategic: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number> },
   pendingCollectTileDelta: new Map<
     string,
     {
       gold: number;
-      strategic: Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>;
+      strategic: Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>;
       previousYield?: { gold: number; strategic: Record<string, number> };
     }
   >(),
@@ -350,7 +350,7 @@ export const createInitialState = () => ({
   dismissedShardAlertKeys: new Set<string>(),
   structureInfoKey: "" as string,
   crystalAbilityInfoKey: "" as string,
-  economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY",
+  economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
   unreadAttackAlerts: 0,
   techSection: "research" as "research" | "domains",
   techTreeExpanded: false,

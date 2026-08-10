@@ -85,10 +85,10 @@ describe("tileOverviewModifiersForTile", () => {
         fort: {
           ownerId: "me",
           status: "active",
-          variant: "IRON_BASTION"
+          variant: "TITANIUM_BASTION"
         }
       } satisfies Tile)
-    ).toContainEqual({ reason: "Iron Bastion", effect: "4x defense", tone: "positive" });
+    ).toContainEqual({ reason: "Titanium Bastion", effect: "4x defense", tone: "positive" });
 
     expect(
       tileOverviewModifiersForTile({

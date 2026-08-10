@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { SimulationRuntime } from "./runtime.js";
 import { buildPlayer } from "./runtime.test-helpers.js";
 
-// The Iron Levy monument: converts 50% of banked manpower into an instant
+// The Titanium Levy monument: converts 50% of banked manpower into an instant
 // muster at the anchor tile, then freezes empire-wide manpower regen for 2
 // hours. Same test-harness shape as runtime-imperial-exchange-levy.test.ts
 // (split out for the same 500-line soft-cap reason).
-describe("The Iron Levy muster ability", () => {
+describe("The Titanium Levy muster ability", () => {
   const buildLevyRuntime = (options: { omitTower?: boolean; manpower?: number } = {}): SimulationRuntime => {
     const tiles: Array<Record<string, unknown>> = [
       {
@@ -15,7 +15,7 @@ describe("The Iron Levy muster ability", () => {
         terrain: "LAND",
         ownerId: "player-1",
         ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-1", type: "IRON_LEVY", status: "active" }
+        economicStructure: { ownerId: "player-1", type: "TITANIUM_LEVY", status: "active" }
       },
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
@@ -58,7 +58,7 @@ describe("The Iron Levy muster ability", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "IRON_LEVY_MUSTER",
+      type: "TITANIUM_LEVY_MUSTER",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0 })
     });
     await Promise.resolve();
@@ -77,7 +77,7 @@ describe("The Iron Levy muster ability", () => {
       playerId: "player-1",
       clientSeq: 2,
       issuedAt: 1_000,
-      type: "IRON_LEVY_MUSTER",
+      type: "TITANIUM_LEVY_MUSTER",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0 })
     });
     await Promise.resolve();
@@ -94,15 +94,15 @@ describe("The Iron Levy muster ability", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "IRON_LEVY_MUSTER",
+      type: "TITANIUM_LEVY_MUSTER",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       commandId: "levy-1",
-      code: "IRON_LEVY_MUSTER_INVALID",
-      message: "Iron Levy requires a nearby Aether Tower"
+      code: "TITANIUM_LEVY_MUSTER_INVALID",
+      message: "Titanium Levy requires a nearby Aether Tower"
     }));
   });
 
@@ -116,14 +116,14 @@ describe("The Iron Levy muster ability", () => {
       playerId: "player-1",
       clientSeq: 1,
       issuedAt: 1_000,
-      type: "IRON_LEVY_MUSTER",
+      type: "TITANIUM_LEVY_MUSTER",
       payloadJson: JSON.stringify({ fromX: 0, fromY: 0 })
     });
     await Promise.resolve();
     expect(events).toContainEqual(expect.objectContaining({
       eventType: "COMMAND_REJECTED",
       commandId: "levy-1",
-      code: "IRON_LEVY_MUSTER_INVALID",
+      code: "TITANIUM_LEVY_MUSTER_INVALID",
       message: "not enough banked manpower to levy"
     }));
   });

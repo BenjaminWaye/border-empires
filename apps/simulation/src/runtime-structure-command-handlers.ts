@@ -155,8 +155,8 @@ function resolveTownSupportTarget(
 }
 
 function upgradeBaseType(structureType: BuildableStructureType): string | undefined {
-  if (structureType === "ADVANCED_FUR_SYNTHESIZER") return "FUR_SYNTHESIZER";
-  if (structureType === "ADVANCED_IRONWORKS") return "IRONWORKS";
+  if (structureType === "ADVANCED_UMBRITE_SYNTHESIZER") return "UMBRITE_SYNTHESIZER";
+  if (structureType === "ADVANCED_TITANIUM_WORKS") return "TITANIUM_WORKS";
   if (structureType === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
   if (structureType === "SEED_GRANARY") return "GRANARY";
   return undefined;
@@ -179,14 +179,14 @@ function strategicCostForStructure(
   return { [strategicDef.resourceCost.resource]: strategicDef.resourceCost.amount };
 }
 
-// Step 5 item 3 (Slice A): FOOD/IRON/CRYSTAL/SUPPLY are retired as a
+// Step 5 item 3 (Slice A): FOOD/TITANIUM/CRYSTAL/UMBRITE are retired as a
 // spendable build-time stockpile -- hasFreeResourceSlots (§5.1) is the real
 // gate for those four keys now. SHARD stays a real spend (monument
 // assembly, §5.5 -- event-gated, not slot-shaped, never a stockpile in the
 // first place). Exported so applyStructureCancelRefund's refund builders
 // (runtime-structure-lifecycle-command-handlers.ts) apply the identical
 // filter and can never refund a key that build time never actually spent.
-const RETIRED_STOCKPILE_RESOURCE_KEYS: ReadonlySet<StrategicResourceKey> = new Set(["FOOD", "IRON", "CRYSTAL", "SUPPLY"]);
+const RETIRED_STOCKPILE_RESOURCE_KEYS: ReadonlySet<StrategicResourceKey> = new Set(["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"]);
 
 export function stripRetiredStockpileCost(cost: StrategicCost | undefined): StrategicCost {
   const filtered: StrategicCost = {};
@@ -370,13 +370,13 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     const fortTier = target.fort ? nextFortTierForUpgrade(target.fort.variant, hasTech)! : bestFortTierForTech(hasTech);
     goldCost = Math.max(0, Math.round(fortTier.gold * multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult")));
     manpowerCost = fortTier.manpower;
-    strategicCost = { IRON: fortTier.iron };
+    strategicCost = { TITANIUM: fortTier.titanium };
     slotStructureType = fortTier.variant;
   } else if (spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST") {
     const siegeTier = target.siegeOutpost ? nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)! : bestSiegeTierForTech(hasTech);
     goldCost = siegeTier.gold;
     manpowerCost = siegeTier.manpower;
-    strategicCost = { SUPPLY: siegeTier.supply, ...(siegeTier.iron > 0 ? { IRON: siegeTier.iron } : {}) };
+    strategicCost = { UMBRITE: siegeTier.umbrite, ...(siegeTier.titanium > 0 ? { TITANIUM: siegeTier.titanium } : {}) };
     slotStructureType = siegeTier.variant;
   } else {
     goldCost = structureBuildGoldCost(structureType, context.ownedStructureCountForPlayer(command.playerId, structureType));

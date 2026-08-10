@@ -11,7 +11,7 @@ const PART_TYPE_FOR_BASE: Record<MonumentalStructureType, string> = {
   AEGIS_DOME: "AEGIS_DOME_PART",
   ASTRAL_DOCK: "ASTRAL_DOCK_PART",
   POPULATION_BUREAU: "POPULATION_BUREAU_PART",
-  IRON_LEVY: "IRON_LEVY_PART"
+  TITANIUM_LEVY: "TITANIUM_LEVY_PART"
 };
 
 const BASE_TYPE_FOR_PART: ReadonlyMap<string, MonumentalStructureType> = new Map(

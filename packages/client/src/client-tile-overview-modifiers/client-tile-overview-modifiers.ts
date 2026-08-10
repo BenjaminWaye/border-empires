@@ -35,7 +35,7 @@ const siegeOutpostModifier = (variant?: string): TileOverviewModifier => {
 
 const fortModifierForTile = (tile: NonNullable<Tile["fort"]>): TileOverviewModifier => {
   if (tile.variant === "THUNDER_BASTION") return { reason: "Thunder Bastion", effect: "8x defense", tone: "positive" };
-  if (tile.variant === "IRON_BASTION") return { reason: "Iron Bastion", effect: "4x defense", tone: "positive" };
+  if (tile.variant === "TITANIUM_BASTION") return { reason: "Titanium Bastion", effect: "4x defense", tone: "positive" };
   return { reason: "Fort", effect: "2.5x defense", tone: "positive" };
 };
 

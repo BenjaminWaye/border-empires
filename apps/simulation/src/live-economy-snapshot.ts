@@ -95,10 +95,10 @@ export const buildLivePlayerEconomySnapshot = (
     if (resourceKey && resourceRate > 0) {
       const target =
         resourceKey === "FOOD" ? foodSources :
-        resourceKey === "IRON" ? ironSources :
+        resourceKey === "TITANIUM" ? ironSources :
         resourceKey === "CRYSTAL" ? crystalSources :
         supplySources;
-      addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "IRON" ? "Iron" : tile.resource === "GEMS" ? "Crystal" : "Supply", resourceRate, { count: 1, resourceKey });
+      addBucket(target, tile.resource === "FARM" ? "Grain" : tile.resource === "FISH" ? "Fish" : tile.resource === "TITANIUM" ? "Titanium" : tile.resource === "GEMS" ? "Crystal" : "Umbrite", resourceRate, { count: 1, resourceKey });
     }
     const town = buildTownSummary(
       tile,
@@ -138,22 +138,22 @@ export const buildLivePlayerEconomySnapshot = (
       if (upkeep.FOOD) addBucket(foodSinks, structure.type, upkeep.FOOD, { count: 1 });
       if (upkeep.CRYSTAL) addBucket(crystalSinks, structure.type, upkeep.CRYSTAL, { count: 1 });
       const output = converterOutputPerMinute(structure.type, structure.converterMode);
-      if (output.IRON) addBucket(ironSources, structure.type, output.IRON, { count: 1 });
+      if (output.TITANIUM) addBucket(ironSources, structure.type, output.TITANIUM, { count: 1 });
       if (output.CRYSTAL) addBucket(crystalSources, structure.type, output.CRYSTAL, { count: 1 });
-      if (output.SUPPLY) addBucket(supplySources, structure.type, output.SUPPLY, { count: 1 });
+      if (output.UMBRITE) addBucket(supplySources, structure.type, output.UMBRITE, { count: 1 });
       if (output.GOLD) addBucket(goldSources, structure.type, output.GOLD, { count: 1 });
     }
     const fort = parseStructure<{ variant?: string; status?: string }>(tile.fortJson);
     if (fort?.status === "active" && fort.variant) {
       const upkeep = structureUpkeepPerMinute(fort.variant);
       if (upkeep.FOOD) addBucket(foodSinks, fort.variant, upkeep.FOOD, { count: 1 });
-      if (upkeep.IRON) addBucket(ironSinks, fort.variant, upkeep.IRON, { count: 1 });
+      if (upkeep.TITANIUM) addBucket(ironSinks, fort.variant, upkeep.TITANIUM, { count: 1 });
     }
     const siegeOutpost = parseStructure<{ variant?: string; status?: string }>(tile.siegeOutpostJson);
     if (siegeOutpost?.status === "active" && siegeOutpost.variant) {
       const upkeep = structureUpkeepPerMinute(siegeOutpost.variant);
       if (upkeep.FOOD) addBucket(foodSinks, siegeOutpost.variant, upkeep.FOOD, { count: 1 });
-      if (upkeep.SUPPLY) addBucket(supplySinks, siegeOutpost.variant, upkeep.SUPPLY, { count: 1 });
+      if (upkeep.UMBRITE) addBucket(supplySinks, siegeOutpost.variant, upkeep.UMBRITE, { count: 1 });
     }
   }
 
@@ -227,7 +227,7 @@ const resourceSlotsForPlayer = (
 
 type EconomyResultArgs = {
   player: RuntimeState["players"][number] | undefined;
-  strategicProductionPerMinute: { FOOD: number; IRON: number; CRYSTAL: number; SUPPLY: number; SHARD: number };
+  strategicProductionPerMinute: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number; SHARD: number };
   resourceSlots: LivePlayerEconomySnapshot["resourceSlots"];
   dormantStructures: DormantStructureDetail[];
   goldSources: Map<string, EconomyBucket>;
@@ -269,9 +269,9 @@ const buildEconomyResult = (args: EconomyResultArgs): LivePlayerEconomySnapshot 
     incomePerMinute,
     strategicProductionPerMinute: {
       FOOD: Number(strategicProductionPerMinute.FOOD.toFixed(4)),
-      IRON: Number(strategicProductionPerMinute.IRON.toFixed(4)),
+      TITANIUM: Number(strategicProductionPerMinute.TITANIUM.toFixed(4)),
       CRYSTAL: Number(strategicProductionPerMinute.CRYSTAL.toFixed(4)),
-      SUPPLY: Number(strategicProductionPerMinute.SUPPLY.toFixed(4)),
+      UMBRITE: Number(strategicProductionPerMinute.UMBRITE.toFixed(4)),
       SHARD: Number(strategicProductionPerMinute.SHARD.toFixed(4))
     },
     resourceSlots: args.resourceSlots,
@@ -288,9 +288,9 @@ const buildEconomyResult = (args: EconomyResultArgs): LivePlayerEconomySnapshot 
     economyBreakdown: {
       GOLD: { sources: sortedBuckets(args.goldSources), sinks: sortedBuckets(args.goldSinks) },
       FOOD: { sources: sortedBuckets(args.foodSources), sinks: sortedBuckets(args.foodSinks) },
-      IRON: { sources: sortedBuckets(args.ironSources), sinks: sortedBuckets(args.ironSinks) },
+      TITANIUM: { sources: sortedBuckets(args.ironSources), sinks: sortedBuckets(args.ironSinks) },
       CRYSTAL: { sources: sortedBuckets(args.crystalSources), sinks: sortedBuckets(args.crystalSinks) },
-      SUPPLY: { sources: sortedBuckets(args.supplySources), sinks: sortedBuckets(args.supplySinks) },
+      UMBRITE: { sources: sortedBuckets(args.supplySources), sinks: sortedBuckets(args.supplySinks) },
       SHARD: { sources: sortedBuckets(args.shardSources), sinks: [] }
     },
     fedTownKeys: args.fedTownKeys,

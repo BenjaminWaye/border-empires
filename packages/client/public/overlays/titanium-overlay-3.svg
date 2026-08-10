@@ -2,40 +2,40 @@
 
   <ellipse cx="64" cy="101" rx="46" ry="8" fill="rgba(8,10,14,0.28)"/>
 
-  <path d="M22 103 C24 92 42 85 64 85 C86 85 104 92 106 103 C100 109 85 112 64 112 C43 112 28 109 22 103 Z" fill="#2B2C30"/>
-  <path d="M36 102 C38 94 51 90 64 90 C79 90 90 94 93 102 C87 106 76 108 64 108 C54 108 42 106 36 102 Z" fill="#41434A"/>
+  <path d="M22 103 C24 92 42 85 64 85 C86 85 104 92 106 103 C100 109 85 112 64 112 C43 112 28 109 22 103 Z" fill="#2C2C2C"/>
+  <path d="M36 102 C38 94 51 90 64 90 C79 90 90 94 93 102 C87 106 76 108 64 108 C54 108 42 106 36 102 Z" fill="#464646"/>
 
-  <path d="M64 98 L52 62 L62 40 L74 60 L72 98 L64 98 Z" fill="#C2CCD8"/>
-  <path d="M62 40 L68 52 L80 58 L68 34 L62 40 Z" fill="#EEF2F8"/>
-  <path d="M74 60 L80 58 L80 78 L72 98 L74 60 Z" fill="#8B95A3"/>
+  <path d="M64 98 L52 62 L62 40 L74 60 L72 98 L64 98 Z" fill="#C6C6C6"/>
+  <path d="M62 40 L68 52 L80 58 L68 34 L62 40 Z" fill="#F2F2F2"/>
+  <path d="M74 60 L80 58 L80 78 L72 98 L74 60 Z" fill="#8F8F8F"/>
 
-  <path d="M40 99 L26 66 L34 52 L46 64 L48 99 L40 99 Z" fill="#C2CCD8"/>
-  <path d="M34 52 L40 62 L52 62 L40 46 L34 52 Z" fill="#EEF2F8"/>
-  <path d="M46 64 L52 62 L52 78 L48 99 L46 64 Z" fill="#8B95A3"/>
+  <path d="M40 99 L26 66 L34 52 L46 64 L48 99 L40 99 Z" fill="#C6C6C6"/>
+  <path d="M34 52 L40 62 L52 62 L40 46 L34 52 Z" fill="#F2F2F2"/>
+  <path d="M46 64 L52 62 L52 78 L48 99 L46 64 Z" fill="#8F8F8F"/>
 
-  <path d="M92 99 L82 66 L94 50 L104 64 L102 99 L92 99 Z" fill="#C2CCD8"/>
-  <path d="M94 50 L98 62 L110 64 L98 44 L94 50 Z" fill="#EEF2F8"/>
-  <path d="M104 64 L110 64 L110 80 L102 99 L104 64 Z" fill="#8B95A3"/>
+  <path d="M92 99 L82 66 L94 50 L104 64 L102 99 L92 99 Z" fill="#C6C6C6"/>
+  <path d="M94 50 L98 62 L110 64 L98 44 L94 50 Z" fill="#F2F2F2"/>
+  <path d="M104 64 L110 64 L110 80 L102 99 L104 64 Z" fill="#8F8F8F"/>
 
-  <path d="M24 101 L14 76 L20 66 L30 76 L32 101 L24 101 Z" fill="#C2CCD8"/>
-  <path d="M20 66 L24 74 L34 72 L24 60 L20 66 Z" fill="#EEF2F8"/>
-  <path d="M30 76 L34 72 L34 84 L32 101 L30 76 Z" fill="#8B95A3"/>
+  <path d="M24 101 L14 76 L20 66 L30 76 L32 101 L24 101 Z" fill="#C6C6C6"/>
+  <path d="M20 66 L24 74 L34 72 L24 60 L20 66 Z" fill="#F2F2F2"/>
+  <path d="M30 76 L34 72 L34 84 L32 101 L30 76 Z" fill="#8F8F8F"/>
 
-  <path d="M106 101 L98 78 L108 68 L118 80 L116 101 L106 101 Z" fill="#C2CCD8"/>
-  <path d="M108 68 L112 76 L122 74 L112 62 L108 68 Z" fill="#EEF2F8"/>
-  <path d="M118 80 L122 74 L122 88 L116 101 L118 80 Z" fill="#8B95A3"/>
+  <path d="M106 101 L98 78 L108 68 L118 80 L116 101 L106 101 Z" fill="#C6C6C6"/>
+  <path d="M108 68 L112 76 L122 74 L112 62 L108 68 Z" fill="#F2F2F2"/>
+  <path d="M118 80 L122 74 L122 88 L116 101 L118 80 Z" fill="#8F8F8F"/>
 
-  <path d="M28 106 L22 98 L30 96 L36 102 L32 106 L28 106 Z" fill="#C2CCD8"/>
-  <path d="M30 96 L34 100 L40 100 L34 92 L30 96 Z" fill="#EEF2F8"/>
-  <path d="M36 102 L40 100 L40 106 L32 106 L36 102 Z" fill="#8B95A3"/>
+  <path d="M28 106 L22 98 L30 96 L36 102 L32 106 L28 106 Z" fill="#C6C6C6"/>
+  <path d="M30 96 L34 100 L40 100 L34 92 L30 96 Z" fill="#F2F2F2"/>
+  <path d="M36 102 L40 100 L40 106 L32 106 L36 102 Z" fill="#8F8F8F"/>
 
-  <path d="M98 105 L92 97 L100 95 L106 101 L102 105 L98 105 Z" fill="#C2CCD8"/>
-  <path d="M100 95 L104 99 L110 99 L104 91 L100 95 Z" fill="#EEF2F8"/>
-  <path d="M106 101 L110 99 L110 105 L102 105 L106 101 Z" fill="#8B95A3"/>
+  <path d="M98 105 L92 97 L100 95 L106 101 L102 105 L98 105 Z" fill="#C6C6C6"/>
+  <path d="M100 95 L104 99 L110 99 L104 91 L100 95 Z" fill="#F2F2F2"/>
+  <path d="M106 101 L110 99 L110 105 L102 105 L106 101 Z" fill="#8F8F8F"/>
 
-  <path d="M64 104 L58 98 L66 96 L72 102 L68 104 L64 104 Z" fill="#C2CCD8"/>
-  <path d="M66 96 L70 100 L76 100 L70 92 L66 96 Z" fill="#EEF2F8"/>
-  <path d="M72 102 L76 100 L76 106 L68 104 L72 102 Z" fill="#8B95A3"/>
+  <path d="M64 104 L58 98 L66 96 L72 102 L68 104 L64 104 Z" fill="#C6C6C6"/>
+  <path d="M66 96 L70 100 L76 100 L70 92 L66 96 Z" fill="#F2F2F2"/>
+  <path d="M72 102 L76 100 L76 106 L68 104 L72 102 Z" fill="#8F8F8F"/>
 
   <path d="M44 92 L54 90" stroke="#DFE9F3" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
   <path d="M72 90 L84 92" stroke="#DFE9F3" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>

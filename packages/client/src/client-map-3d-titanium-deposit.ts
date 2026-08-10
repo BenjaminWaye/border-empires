@@ -13,17 +13,19 @@ import {
 } from "three";
 
 // 3D titanium deposit overlay — a low, irregular outcrop of dark
-// gunmetal/charcoal bedrock with bright silvery-metallic titanium ore
+// charcoal bedrock with bright silvery-metallic titanium ore
 // breaking through it. Reads as a natural mineral outcropping, not loose
 // ore blocks or manufactured works: angular metallic chunks and flat
 // fractured ore plates protrude upward (tallest near the centre), thin
-// cool-grey veins cross the rock, a few small crystals and loose
+// pale-grey veins cross the rock, a few small crystals and loose
 // fragments scatter around the base, and the whole layout is deliberately
 // asymmetric so the deposit stays readable from every side. The matte
 // dark bedrock is contrasted against near-white, highly reflective
 // titanium (low roughness, full metalness) so the asset pops at gameplay
-// distance. Three variants are picked deterministically per tile (same
-// hash approach as the resource overlay).
+// distance. The palette is deliberately neutral gray (no blue/cool
+// tint) to read distinctly from umbrite's black-purple deposit. Three
+// variants are picked deterministically per tile (same hash approach as
+// the resource overlay).
 
 export type TitaniumDepositVariant = 0 | 1 | 2;
 
@@ -41,42 +43,42 @@ export type TitaniumDepositOverlay = {
 
 export const createTitaniumDepositOverlay = (scene: Scene, maxTiles: number): TitaniumDepositOverlay => {
   // ─── Materials (shared by piece type) ───────────────────────────────
-  // Matte dark gunmetal/charcoal bedrock — the surrounding rock the ore
+  // Matte dark charcoal bedrock — the surrounding rock the ore
   // breaks out of. Low metalness, high roughness, flat-shaded facets.
-  const bedrockDarkMaterial = new MeshStandardMaterial({ color: "#2b2c30", roughness: 0.92, metalness: 0.1, flatShading: true });
-  const bedrockLightMaterial = new MeshStandardMaterial({ color: "#41434a", roughness: 0.88, metalness: 0.15, flatShading: true });
+  const bedrockDarkMaterial = new MeshStandardMaterial({ color: "#2c2c2c", roughness: 0.92, metalness: 0.1, flatShading: true });
+  const bedrockLightMaterial = new MeshStandardMaterial({ color: "#464646", roughness: 0.88, metalness: 0.15, flatShading: true });
   // Bright polished titanium. Near-white with full metalness and almost no
   // roughness so each flat facet reflects the key light as a hard glint;
-  // a faint cool emissive keeps shadowed facets from going black.
+  // a faint neutral emissive keeps shadowed facets from going black.
   const titaniumBrightMaterial = new MeshStandardMaterial({
-    color: "#eef2f6",
+    color: "#f2f2f2",
     roughness: 0.12,
     metalness: 1.0,
     flatShading: true,
-    emissive: "#0d1620",
+    emissive: "#181818",
     emissiveIntensity: 0.18
   });
   const titaniumMidMaterial = new MeshStandardMaterial({
-    color: "#c2ccd8",
+    color: "#c6c6c6",
     roughness: 0.2,
     metalness: 0.95,
     flatShading: true,
-    emissive: "#0d1620",
+    emissive: "#181818",
     emissiveIntensity: 0.12
   });
   const titaniumDarkMaterial = new MeshStandardMaterial({
-    color: "#8b95a3",
+    color: "#8f8f8f",
     roughness: 0.3,
     metalness: 0.9,
     flatShading: true
   });
-  // Cool blue-grey highlight for mineral veins and crystal edges.
+  // Neutral grey highlight for mineral veins and crystal edges.
   const veinMaterial = new MeshStandardMaterial({
-    color: "#dfe9f3",
+    color: "#e8e8e8",
     roughness: 0.08,
     metalness: 1.0,
     flatShading: true,
-    emissive: "#10202c",
+    emissive: "#1c1c1c",
     emissiveIntensity: 0.25
   });
 
@@ -360,7 +362,7 @@ export const createTitaniumDepositOverlay = (scene: Scene, maxTiles: number): Ti
       // Upload only the instances actually used. Without an update range three.js does
       // gl.bufferSubData(target, 0, array) — the entire allocated capacity, however few
       // instances are drawn — and that upload happens inside renderer.render(), where
-      // this module's own timings never see it. Iron is a sparse resource, so most of
+      // this module's own timings never see it. Titanium is a sparse resource, so most of
       // the capacity is idle most of the time; scoping keeps the per-frame upload to the
       // tiles actually on screen.
       mesh.instanceMatrix.clearUpdateRanges();

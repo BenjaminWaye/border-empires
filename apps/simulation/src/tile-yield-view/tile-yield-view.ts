@@ -13,7 +13,7 @@ import {
 import { dockBaseGoldPerMinuteForPlayer, type DockEconomyContext, type EconomyPlayer } from "../economy-network/economy-network.js";
 import { townGoldPerMinuteForPlayer } from "../player-update-economy/player-update-economy.js";
 
-type StrategicYieldKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+type StrategicYieldKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 
 export type TileYieldBufferView = {
   gold: number;

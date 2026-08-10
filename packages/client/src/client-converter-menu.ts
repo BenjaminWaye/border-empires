@@ -8,10 +8,10 @@ import type { Tile, TileActionDef } from "./client-types.js";
 // text, and mode status lines live here.
 
 export const isConverterStructureType = (type: NonNullable<Tile["economicStructure"]>["type"]): boolean =>
-  type === "FUR_SYNTHESIZER" ||
-  type === "ADVANCED_FUR_SYNTHESIZER" ||
-  type === "IRONWORKS" ||
-  type === "ADVANCED_IRONWORKS" ||
+  type === "UMBRITE_SYNTHESIZER" ||
+  type === "ADVANCED_UMBRITE_SYNTHESIZER" ||
+  type === "TITANIUM_WORKS" ||
+  type === "ADVANCED_TITANIUM_WORKS" ||
   type === "CRYSTAL_SYNTHESIZER" ||
   type === "ADVANCED_CRYSTAL_SYNTHESIZER";
 
@@ -69,10 +69,10 @@ export const converterStructureMenuEntries = (tile: Tile, deps: ConverterMenuDep
 };
 
 export const converterStructureDetailText = (actionId: string, tile: Tile): string | undefined => {
-  if (actionId === "upgrade_fur_synthesizer")
-    return "Upgrade this Fur Works into an Advanced Fur Works with 20% higher Refine output (45 gold/day upkeep) and 20% higher Sell off payout (12 gold/day). Still occupies exactly 1 Supply slot.";
-  if (actionId === "upgrade_ironworks")
-    return "Upgrade this Iron Works into an Advanced Iron Works with 20% higher Refine output (45 gold/day upkeep) and 20% higher Sell off payout (12 gold/day). Still occupies exactly 1 Iron slot.";
+  if (actionId === "upgrade_umbrite_synthesizer")
+    return "Upgrade this Umbrite Works into an Advanced Umbrite Works with 20% higher Refine output (45 gold/day upkeep) and 20% higher Sell off payout (12 gold/day). Still occupies exactly 1 Umbrite slot.";
+  if (actionId === "upgrade_titanium_works")
+    return "Upgrade this Titanium Works into an Advanced Titanium Works with 20% higher Refine output (45 gold/day upkeep) and 20% higher Sell off payout (12 gold/day). Still occupies exactly 1 Titanium slot.";
   if (actionId === "upgrade_crystal_synthesizer")
     return "Upgrade this Aether Condenser into an Advanced Aether Condenser with 20% higher output (60 gold/day upkeep). Still provides exactly 1 Crystal slot.";
   if (actionId === "enable_converter_structure")

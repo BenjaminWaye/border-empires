@@ -28,7 +28,7 @@ import {
 export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort" | "economicStructure">): number => {
   if (tile.fort?.status === "active") {
     if (tile.fort.variant === "THUNDER_BASTION") return 20;
-    if (tile.fort.variant === "IRON_BASTION") return 10;
+    if (tile.fort.variant === "TITANIUM_BASTION") return 10;
     return 5;
   }
   if (tile.economicStructure?.type === "WOODEN_FORT" && tile.economicStructure.status === "active") return 1.5;
@@ -36,7 +36,7 @@ export const fortAttackManpowerMultiplier = (tile: Pick<DomainTileState, "fort" 
 };
 
 export type FrontierCommandType = "ATTACK" | "EXPAND";
-export type DomainStrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+export type DomainStrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 
 export type DomainPlayer = {
   id: string;

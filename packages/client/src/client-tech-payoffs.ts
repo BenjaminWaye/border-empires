@@ -72,7 +72,7 @@ const REVEAL_RESOURCE_LABELS: Record<string, string> = {
 };
 
 const UPGRADE_UNLOCK_LABELS: Record<string, string> = {
-  unlockIronBastion: "Iron Bastion",
+  unlockIronBastion: "Titanium Bastion",
   unlockSiegeTower: "Siege Tower",
   unlockThunderBastion: "Thunder Bastion",
   unlockDreadTower: "Dread Tower",

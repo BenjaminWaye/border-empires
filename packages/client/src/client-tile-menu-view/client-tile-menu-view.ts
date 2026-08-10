@@ -27,7 +27,7 @@ import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView
 const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% town gold production; higher production raises gold cap.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect.` : undefined; };
 
 const structureNameForTile = (tile: Tile): string | undefined => {
-  if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "IRON_BASTION" ? "Iron Bastion" : "Fort";
+  if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "TITANIUM_BASTION" ? "Titanium Bastion" : "Fort";
   if (tile.observatory) return "Observatory";
   if (tile.siegeOutpost) return tile.siegeOutpost.variant === "DREAD_TOWER" ? "Dread Tower" : tile.siegeOutpost.variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Outpost";
   if (tile.economicStructure) return economicStructureName(tile.economicStructure.type);
@@ -81,8 +81,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     // ?? "FORT" default and shows "Upgrade this Fort" for fresh builds.
     if (tile.fort) {
       const currentVariant = tile.fort.variant ?? "FORT";
-      if (currentVariant === "FORT") return `Upgrade this Fort into an Iron Bastion. Iron Bastions defend at ${FORT_TIER_LADDER.IRON_BASTION.defenseMult}x.`;
-      if (currentVariant === "IRON_BASTION") return `Upgrade this Iron Bastion into a Thunder Bastion. Thunder Bastions defend at ${FORT_TIER_LADDER.THUNDER_BASTION.defenseMult}x.`;
+      if (currentVariant === "FORT") return `Upgrade this Fort into an Titanium Bastion. Titanium Bastions defend at ${FORT_TIER_LADDER.TITANIUM_BASTION.defenseMult}x.`;
+      if (currentVariant === "TITANIUM_BASTION") return `Upgrade this Titanium Bastion into a Thunder Bastion. Thunder Bastions defend at ${FORT_TIER_LADDER.THUNDER_BASTION.defenseMult}x.`;
       // THUNDER_BASTION shouldn't expose this action at all; fall through for safety.
     }
     return tile.economicStructure?.type === "WOODEN_FORT"

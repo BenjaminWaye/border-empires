@@ -1,6 +1,6 @@
 import type { ResourceType } from "@border-empires/shared";
 
-export const VICTORY_RESOURCE_TYPES: ResourceType[] = ["FARM", "WOOD", "IRON", "GEMS", "FISH", "FUR"];
+export const VICTORY_RESOURCE_TYPES: ResourceType[] = ["FARM", "TITANIUM", "GEMS", "FISH", "UMBRITE"];
 
 export type ResourceMonopolyLeader = {
   leaderPlayerId?: string;

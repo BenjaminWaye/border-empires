@@ -49,8 +49,8 @@ function createContext(players: DomainPlayer[], tiles: DomainTileState[]) {
       return true;
     },
     ownedStructureCountForPlayer: () => 0,
-    resourceSlotSupplyForPlayer: () => ({ FOOD: 99, IRON: 99, CRYSTAL: 99, SUPPLY: 99 }),
-    resourceSlotDemandForPlayer: () => ({ FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }),
+    resourceSlotSupplyForPlayer: () => ({ FOOD: 99, TITANIUM: 99, CRYSTAL: 99, UMBRITE: 99 }),
+    resourceSlotDemandForPlayer: () => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }),
     supportedTownKeysForTile: () => [],
     supportedDockKeysForTile: () => [],
     economicStructureForSupportedTown: () => undefined,
