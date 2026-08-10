@@ -63,7 +63,7 @@ describe("town growth tile actions", () => {
         goldPerMinute: 3,
         cap: 100,
         isFed: true,
-        population: 500,
+        population: 10_000,
         maxPopulation: 10_000_000,
         populationGrowthPerMinute: 12,
         populationTier: "SETTLEMENT",
