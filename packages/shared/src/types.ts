@@ -63,7 +63,9 @@ export type EconomicStructureType =
   | "ASTRAL_DOCK"
   | "POPULATION_BUREAU"
   | "IRON_LEVY"
-  | "WEAPONS_WORKSHOP";
+  | "WEAPONS_WORKSHOP"
+  | "IRON_WEAPONS_FACTORY"
+  | "FUR_WEAPONS_FACTORY";
 // The late-game monument family: each is built in stages (a "*_PART"
 // intermediate, then the finished structure below). Single source of truth
 // for anything that needs to identify "is this a monument" (e.g. season
