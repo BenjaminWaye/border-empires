@@ -16,6 +16,7 @@ import type {
   VictoryPressureTracker
 } from "@border-empires/game-domain";
 import {
+  marketGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
   SETTLEMENT_BASE_GOLD_PER_MIN,
@@ -231,6 +232,38 @@ const supportedStructureAtTown = (
   return false;
 };
 
+// market-stacking task: counting sibling of supportedStructureAtTown above,
+// same support-ring loop, for Market's now-additive-per-instance gold bonus
+// (marketGoldProductionMultiplier). Boolean uniqueness/gate checks elsewhere
+// in this file keep using supportedStructureAtTown unchanged.
+const countedStructuresAtTown = (
+  townTileKey: string,
+  ownerId: string,
+  structureType: string,
+  ownershipByTile: Map<string, string>,
+  ownershipStateByTile: Map<string, string>,
+  structuresByTile: Map<string, { ownerId: string; type: string; status: string }>,
+  world: { width: number; height: number }
+): number => {
+  const coords = parseTileKey(townTileKey);
+  if (!coords) return 0;
+  let count = 0;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const x = wrap(coords.x + dx, world.width);
+      const y = wrap(coords.y + dy, world.height);
+      if (terrainAt(x, y) !== "LAND") continue;
+      const tileKey = `${x},${y}`;
+      if (ownershipByTile.get(tileKey) !== ownerId || ownershipStateByTile.get(tileKey) !== "SETTLED") continue;
+      const structure = structuresByTile.get(tileKey);
+      if (!structure || structure.ownerId !== ownerId || structure.status !== "active") continue;
+      if (structure.type === structureType) count += 1;
+    }
+  }
+  return count;
+};
+
 const activeEconomicStructuresByTile = (
   systems: SnapshotSystemsSection
 ): Map<string, { ownerId: string; type: string; status: string }> => {
@@ -363,12 +396,29 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
     const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
     const fedTownKeys = ownerId ? fedTownKeysByPlayer.get(ownerId) : undefined;
     const isFed = Boolean(ownerId && fedTownKeys?.has(town.tileKey));
-    const hasMarket =
+    const marketCount = ownerId
+      ? countedStructuresAtTown(
+          town.tileKey,
+          ownerId,
+          "MARKET",
+          ownershipByTile,
+          ownershipStateByTile,
+          structuresByTile,
+          meta.world
+        )
+      : 0;
+    const hasMarket = marketCount > 0;
+    // No town-level Clearing House signal exists on this legacy reconnect
+    // path (pre-existing gap — Clearing House was never wired into this
+    // formula even before market-stacking). Detected here the same way
+    // Market itself is, via the local support-ring scan, rather than
+    // leaving it permanently false.
+    const clearingHouseActive =
       Boolean(ownerId) &&
       supportedStructureAtTown(
         town.tileKey,
         ownerId!,
-        "MARKET",
+        "CLEARING_HOUSE",
         ownershipByTile,
         ownershipStateByTile,
         structuresByTile,
@@ -399,7 +449,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
                   supportRatio *
                   townPopulationMultiplier(town) *
                   (1 + town.connectedTownBonus) *
-                  (hasMarket ? 1.5 : 1) *
+                  marketGoldProductionMultiplier(marketCount, clearingHouseActive) *
                   incomeMod *
                   PASSIVE_INCOME_MULT
               );
@@ -425,7 +475,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
     const cap =
       tier === "SETTLEMENT"
         ? goldPerMinute * 60 * 8
-        : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
+        : goldPerMinute * 60 * 8 * marketGoldProductionMultiplier(marketCount, clearingHouseActive);
     tile.town = {
       ...(town.name ? { name: town.name } : {}),
       type: town.type,
@@ -443,6 +493,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       connectedTownBonus: town.connectedTownBonus,
       hasMarket,
       marketActive: hasMarket && isFed,
+      marketCount,
       hasGranary,
       granaryActive: hasGranary,
       foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),

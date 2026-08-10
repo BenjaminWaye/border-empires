@@ -124,6 +124,60 @@ export const hasSupportedStructure = (
   return false;
 };
 
+/**
+ * Counting sibling of hasSupportedStructure, for structures whose bonus
+ * STACKS with the number of active instances rather than gating on "any one
+ * exists" (market-stacking task: Market's town gold production bonus is now
+ * additive per-market). Active-only (no includeUnderConstruction param —
+ * uniqueness checks that need under_construction stay on the boolean
+ * hasSupportedStructure above; nothing needs an under-construction count).
+ *
+ * Market's structure-placement-metadata.json placementMode is "same_tile"
+ * (verified — NOT "town_support"; it shares that placement mode with
+ * GARRISON_HALL/IRON_WEAPONS_FACTORY/FUR_WEAPONS_FACTORY), meaning a copy can
+ * sit directly ON the town tile itself as well as on any support tile in its
+ * ring — so this mirrors countWeaponsFactoriesAt's dual on-tile +
+ * support-ring loop below, not hasSupportedStructure's support-ring-only
+ * loop (which would silently miss a same-tile-placed instance).
+ */
+export const countSupportedStructures = (
+  playerId: string,
+  tile: DomainTileState,
+  structureType: string,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+): number => {
+  let count = 0;
+  const tileKey = `${tile.x},${tile.y}`;
+  if (
+    tile.economicStructure?.ownerId === playerId &&
+    tile.economicStructure.type === structureType &&
+    tile.economicStructure.status === "active" &&
+    !dormantEconomicStructureKeys.has(tileKey)
+  ) {
+    count += 1;
+  }
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const neighborKey = `${tile.x + dx},${tile.y + dy}`;
+      const neighbor = tiles.get(neighborKey);
+      if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
+      if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
+      const structure = neighbor.economicStructure;
+      if (
+        structure?.ownerId === playerId &&
+        structure.type === structureType &&
+        structure.status === "active" &&
+        !dormantEconomicStructureKeys.has(neighborKey)
+      ) {
+        count += 1;
+      }
+    }
+  }
+  return count;
+};
+
 export { supportTileBelongsToTown };
 
 type TownConnectivityGroup = {

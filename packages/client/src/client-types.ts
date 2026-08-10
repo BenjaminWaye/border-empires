@@ -125,6 +125,7 @@ export type Tile = {
     manpowerCap?: number;
     hasMarket: boolean;
     marketActive: boolean;
+    marketCount?: number;
     hasGranary: boolean;
     granaryActive: boolean;
     hasSeedGranary?: boolean; seedGranaryActive?: boolean; seedGranaryBuffed?: boolean;
