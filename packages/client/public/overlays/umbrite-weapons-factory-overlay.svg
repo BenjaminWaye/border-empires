@@ -1,0 +1,54 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Umbrite Weapons Factory: a heavy dark-iron arsenal hall on a riveted
+       platform, with a tall central Umbrite reactor (deep violet-black
+       chamber, brass band, ember fissures) as the dominant focal point,
+       flanked by smokestacks, with a mechanical production arm and a rack
+       of large artillery shells reading as weapons production at a glance. -->
+
+  <!-- Platform -->
+  <path d="M18 116L40 100H104L82 116H18Z" fill="#2B2E34"/>
+  <path d="M40 100H104L98 92H46L40 100Z" fill="#46413A"/>
+
+  <!-- Factory hall roof -->
+  <path d="M26 62L102 62L95 54H33L26 62Z" fill="#2B2E34"/>
+
+  <!-- Smokestacks -->
+  <path d="M30 54H38L38 28L30 28L30 54Z" fill="#2B2E34"/>
+  <path d="M27 28L41 28L34 20L27 28Z" fill="#46413A"/>
+  <path d="M90 54H98L98 24L90 24L90 54Z" fill="#2B2E34"/>
+  <path d="M87 24L101 24L94 16L87 24Z" fill="#46413A"/>
+
+  <!-- Factory hall -->
+  <path d="M26 92H102L102 62L26 62L26 92Z" fill="#191A1E"/>
+  <path d="M64 92V62" stroke="#0B0C0F" stroke-width="2"/>
+  <path d="M26 82H102" stroke="#0B0C0F" stroke-width="1.5"/>
+
+  <!-- Umbrite reactor: dominant violet-black chamber, brass band, ember core -->
+  <path d="M57 54H79L79 24L68 12L57 24L57 54Z" fill="#1A0F2E"/>
+  <path d="M61 52H75L75 28L68 20L61 28L61 52Z" fill="#0B0911"/>
+  <path d="M55 30H81L81 35H55L55 30Z" fill="#7D6A41"/>
+  <path d="M61 24L68 12L75 24L61 24Z" fill="#191A1E"/>
+  <circle cx="68" cy="26" r="3.5" fill="#FF9434"/>
+  <path d="M60 46L66 40" stroke="#FF7720" stroke-width="3" stroke-linecap="round"/>
+  <path d="M72 40L76 45" stroke="#FF7720" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Pipes to production lines -->
+  <path d="M44 70L56 74" stroke="#7D6A41" stroke-width="4" stroke-linecap="round"/>
+  <path d="M80 74H100" stroke="#7D6A41" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="50" cy="71" r="2.5" fill="#191A1E"/>
+
+  <!-- Mechanical production arm -->
+  <path d="M92 92H104L104 74L92 74L92 92Z" fill="#46413A"/>
+  <path d="M76 78H104L104 84H76L76 78Z" fill="#5C6670"/>
+  <path d="M80 84H92L92 92H80L80 84Z" fill="#2B2E34"/>
+  <circle cx="100" cy="78" r="3" fill="#7D6A41"/>
+
+  <!-- Ammunition rack with large artillery shells -->
+  <path d="M38 92V78" stroke="#3A424A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M50 92V78" stroke="#3A424A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M36 78H52" stroke="#3A424A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M38 92H46L46 78L42 70L38 78L38 92Z" fill="#5C6670"/>
+  <path d="M48 92H56L56 80L52 72L48 80L48 92Z" fill="#8A97A4"/>
+
+</svg>
