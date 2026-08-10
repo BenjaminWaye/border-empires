@@ -106,9 +106,9 @@ export type AdminPlayerRow = {
   techs: number;
   manpower: number;
   food: number;
-  iron: number;
+  titanium: number;
   crystal: number;
-  supply: number;
+  umbrite: number;
 };
 
 export type RecentCommand = {

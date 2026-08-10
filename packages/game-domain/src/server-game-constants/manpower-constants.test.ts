@@ -7,13 +7,13 @@ import {
 } from "@border-empires/shared";
 import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   CONVERTER_MODE_FLIP_COOLDOWN_MS,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   EXCHANGE_GOLD_PER_SLOT_PER_DAY,
-  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  IRONWORKS_GOLD_UPKEEP_PER_DAY,
+  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   MANPOWER_BASE_CAP,
   MANPOWER_BASE_REGEN_PER_MINUTE,
   manpowerRegenWeightForSettlementIndex,
@@ -36,18 +36,18 @@ describe("manpower constants", () => {
   it("keeps EXCHANGE gold per slot below each family's SYNTHESIZE gold upkeep per day (basic and Advanced tiers)", () => {
     const families = [
       {
-        resource: "SUPPLY",
-        exchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.FUR_SYNTHESIZER,
-        upkeep: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-        advancedExchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.ADVANCED_FUR_SYNTHESIZER,
-        advancedUpkeep: ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY
+        resource: "UMBRITE",
+        exchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.UMBRITE_SYNTHESIZER,
+        upkeep: UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+        advancedExchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.ADVANCED_UMBRITE_SYNTHESIZER,
+        advancedUpkeep: ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY
       },
       {
-        resource: "IRON",
-        exchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.IRONWORKS,
-        upkeep: IRONWORKS_GOLD_UPKEEP_PER_DAY,
-        advancedExchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.ADVANCED_IRONWORKS,
-        advancedUpkeep: ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY
+        resource: "TITANIUM",
+        exchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.TITANIUM_WORKS,
+        upkeep: TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
+        advancedExchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.ADVANCED_TITANIUM_WORKS,
+        advancedUpkeep: ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY
       },
       {
         resource: "CRYSTAL",
@@ -76,13 +76,13 @@ describe("manpower constants", () => {
   // fails loudly here instead of silently opening the gold->slot->gold loop
   // in production. 3.5x is comfortably above today's real ceiling (1x) and
   // comfortably below the loop-opening thresholds implied by the locked
-  // rates (~3.75x for IRON/SUPPLY, ~4.0x for CRYSTAL).
+  // rates (~3.75x for TITANIUM/UMBRITE, ~4.0x for CRYSTAL).
   const ASSUMED_MAX_INCOME_MULT_HEADROOM = 3.5;
 
   it("holds the balance invariant even against a future income multiplier up to the assumed headroom ceiling", () => {
     const families = [
-      { resource: "SUPPLY", exchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.FUR_SYNTHESIZER, upkeep: FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY },
-      { resource: "IRON", exchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.IRONWORKS, upkeep: IRONWORKS_GOLD_UPKEEP_PER_DAY },
+      { resource: "UMBRITE", exchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.UMBRITE_SYNTHESIZER, upkeep: UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY },
+      { resource: "TITANIUM", exchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.TITANIUM_WORKS, upkeep: TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY },
       { resource: "CRYSTAL", exchange: EXCHANGE_GOLD_PER_SLOT_PER_DAY.CRYSTAL_SYNTHESIZER, upkeep: CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY }
     ] as const;
     for (const family of families) {

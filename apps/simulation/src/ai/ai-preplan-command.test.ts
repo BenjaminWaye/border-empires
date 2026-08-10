@@ -236,7 +236,7 @@ describe("automation preplan command", () => {
       points: 10_000,
       techIds: techCatalog.techs.map((tech) => tech.id),
       domainIds: domainCatalog.domains.map((domain) => domain.id),
-      strategicResources: { FOOD: 500, IRON: 500, CRYSTAL: 500, SUPPLY: 500 },
+      strategicResources: { FOOD: 500, TITANIUM: 500, CRYSTAL: 500, UMBRITE: 500 },
       settledTileCount: 20,
       townCount: 5,
       incomePerMinute: 200,

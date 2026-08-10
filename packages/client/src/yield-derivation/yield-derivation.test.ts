@@ -4,7 +4,7 @@
  * 1. Advanced converter yields now use their own (higher) constants —
  *    matching the server-side fix in tile-yield-view.ts — instead of the
  *    basic constants the sim previously fell back to.
- * 2. MINE/CAMP apply STRUCTURE_OUTPUT_MULT (x1.5) locally too.
+ * 2. MINE/UMBRITE_RIG apply STRUCTURE_OUTPUT_MULT (x1.5) locally too.
  * 3. Income multiplier is not applied to enemy tiles (unit-level: multiplier=1 path)
  */
 

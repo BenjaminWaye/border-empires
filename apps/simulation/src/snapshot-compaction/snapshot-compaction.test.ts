@@ -16,7 +16,7 @@ const baseTile = (overrides: Partial<RecoveredSimulationState["tiles"][number]>)
 const baselineWorld = (): ReadonlyArray<RecoveredSimulationState["tiles"][number]> => [
   baseTile({ x: 0, y: 0, terrain: "LAND" }),
   baseTile({ x: 1, y: 0, terrain: "WATER" }),
-  baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON" }),
+  baseTile({ x: 2, y: 0, terrain: "LAND", resource: "TITANIUM" }),
   // Seed-assigned ownership — a "starting tile" that AI begins with.
   baseTile({ x: 3, y: 0, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED" })
 ];
@@ -42,7 +42,7 @@ describe("compactSnapshotForStorage", () => {
       sections([
         baseTile({ x: 0, y: 0, terrain: "LAND" }), // unchanged
         baseTile({ x: 1, y: 0, terrain: "WATER" }), // unchanged
-        baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON", ownerId: "ai-2", ownershipState: "FRONTIER" }), // gained ownership
+        baseTile({ x: 2, y: 0, terrain: "LAND", resource: "TITANIUM", ownerId: "ai-2", ownershipState: "FRONTIER" }), // gained ownership
         baseTile({ x: 3, y: 0, terrain: "LAND" }) // cleared ownership (was ai-1 in baseline)
       ]),
       baseline
@@ -58,7 +58,7 @@ describe("compactSnapshotForStorage", () => {
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);
     const compact = await compactSnapshotForStorage(
-      sections([baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON", ownerId: "ai-7", ownershipState: "SETTLED" })]),
+      sections([baseTile({ x: 2, y: 0, terrain: "LAND", resource: "TITANIUM", ownerId: "ai-7", ownershipState: "SETTLED" })]),
       baseline
     );
     const overlay = compact.tileOverlay.find((tile) => tile.x === 2 && tile.y === 0);
@@ -79,7 +79,7 @@ describe("compactSnapshotForStorage", () => {
       sections([
         baseTile({ x: 0, y: 0, terrain: "LAND" }),
         baseTile({ x: 1, y: 0, terrain: "WATER" }),
-        baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON" })
+        baseTile({ x: 2, y: 0, terrain: "LAND", resource: "TITANIUM" })
         // x=3 (ai-1/SETTLED in baseline) omitted entirely from the runtime.
       ]),
       baseline
@@ -95,7 +95,7 @@ describe("compactSnapshotForStorage — tileOverlayMemo (incremental compaction)
     const baseline = buildWorldgenBaselineIndex(baselineTiles);
     const tiles = [
       baseTile({ x: 0, y: 0, terrain: "LAND" }),
-      baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON", ownerId: "ai-2", ownershipState: "FRONTIER" })
+      baseTile({ x: 2, y: 0, terrain: "LAND", resource: "TITANIUM", ownerId: "ai-2", ownershipState: "FRONTIER" })
     ];
     const withoutMemo = await compactSnapshotForStorage(sections(tiles), baseline);
     const memo: TileOverlayMemo = new WeakMap();
@@ -116,7 +116,7 @@ describe("compactSnapshotForStorage — tileOverlayMemo (incremental compaction)
       x: 2,
       y: 0,
       terrain: "LAND",
-      resource: "IRON",
+      resource: "TITANIUM",
       ownerId: "ai-3",
       ownershipState: "SETTLED"
     });
@@ -147,8 +147,8 @@ describe("compactSnapshotForStorage — tileOverlayMemo (incremental compaction)
     const memo: TileOverlayMemo = new WeakMap();
     const restOfWorld = [...baselineTiles.filter((t) => !(t.x === 2 && t.y === 0))];
 
-    const beforeCapture = baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON", ownerId: "ai-1", ownershipState: "SETTLED" });
-    const afterCapture = baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON", ownerId: "ai-9", ownershipState: "SETTLED" });
+    const beforeCapture = baseTile({ x: 2, y: 0, terrain: "LAND", resource: "TITANIUM", ownerId: "ai-1", ownershipState: "SETTLED" });
+    const afterCapture = baseTile({ x: 2, y: 0, terrain: "LAND", resource: "TITANIUM", ownerId: "ai-9", ownershipState: "SETTLED" });
 
     const before = await compactSnapshotForStorage(sections([beforeCapture, ...restOfWorld]), baseline, undefined, memo);
     const after = await compactSnapshotForStorage(sections([afterCapture, ...restOfWorld]), baseline, undefined, memo);
@@ -201,7 +201,7 @@ describe("expandSnapshotFromStorage", () => {
     const baselineTiles = baselineWorld();
     const baseline = buildWorldgenBaselineIndex(baselineTiles);
     const compact = await compactSnapshotForStorage(
-      sections([baseTile({ x: 2, y: 0, terrain: "LAND", resource: "IRON", ownerId: "ai-7", ownershipState: "SETTLED" })]),
+      sections([baseTile({ x: 2, y: 0, terrain: "LAND", resource: "TITANIUM", ownerId: "ai-7", ownershipState: "SETTLED" })]),
       baseline
     );
     const expanded = expandSnapshotFromStorage(compact, baselineTiles);
@@ -211,7 +211,7 @@ describe("expandSnapshotFromStorage", () => {
       x: 2,
       y: 0,
       terrain: "LAND",
-      resource: "IRON",
+      resource: "TITANIUM",
       ownerId: "ai-7",
       ownershipState: "SETTLED"
     });
@@ -243,7 +243,7 @@ describe("expandSnapshotFromStorage", () => {
           x: 2,
           y: 0,
           terrain: "LAND",
-          resource: "IRON",
+          resource: "TITANIUM",
           ownerId: "ai-7",
           ownershipState: "SETTLED",
           town,

@@ -374,12 +374,12 @@ describe("ownedActiveObservatoryWithinRange", () => {
                 x: 35,
                 y: 10,
                 terrain: "LAND",
-                resource: "IRON"
+                resource: "TITANIUM"
               }
             ]
           ])
         },
-        { x: 35, y: 10, terrain: "LAND", resource: "IRON" }
+        { x: 35, y: 10, terrain: "LAND", resource: "TITANIUM" }
       )
     ).toBe(true);
   });

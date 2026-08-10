@@ -57,7 +57,7 @@ const converterDailyOutput = (
 /**
  * Strategic-affecting economic structure types whose yield cannot be
  * correctly re-derived on the client (radius/neighbor bonuses, ADVANCED
- * synth constants, MINE/CAMP output multiplier). Tiles carrying one of
+ * synth constants, MINE/UMBRITE_RIG output multiplier). Tiles carrying one of
  * these (active) or a dockId must receive server-authoritative
  * `yieldRate`/`yieldCap` on the wire — see docs/plans/2026-07-06-radius-yield-delivery.md.
  */
