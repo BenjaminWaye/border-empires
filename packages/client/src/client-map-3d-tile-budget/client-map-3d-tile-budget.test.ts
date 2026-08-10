@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_TILE_BUDGET, MIN_TILE_BUDGET, tileBudgetForScreen } from "./client-map-3d-tile-budget.js";
+import { MAX_TILE_BUDGET, MIN_TILE_BUDGET, tileBudgetForScreen, tileBudgetOverride } from "./client-map-3d-tile-budget.js";
 
 const MIN_ZOOM = 10;
 
@@ -46,5 +46,26 @@ describe("3d tile budget", () => {
   it("falls back to the cap on nonsense screen metrics rather than starving buffers", () => {
     expect(budgetFor(0, 0)).toBe(MAX_TILE_BUDGET);
     expect(budgetFor(Number.NaN, 800)).toBe(MAX_TILE_BUDGET);
+  });
+});
+
+describe("tile budget override", () => {
+  it("is absent unless asked for, so normal sessions use the computed budget", () => {
+    expect(tileBudgetOverride("")).toBeUndefined();
+    expect(tileBudgetOverride("?renderer=2d")).toBeUndefined();
+  });
+
+  it("lets a crashing device be walked down to a survivable budget", () => {
+    expect(tileBudgetOverride("?tilebudget=2000")).toBe(2000);
+    expect(tileBudgetOverride("?renderer=3d&tilebudget=500")).toBe(500);
+  });
+
+  it("clamps to a range that can still be tried, in both directions", () => {
+    expect(tileBudgetOverride("?tilebudget=1")).toBe(200);
+    expect(tileBudgetOverride("?tilebudget=999999")).toBe(60000);
+  });
+
+  it("ignores junk rather than allocating something nonsensical", () => {
+    expect(tileBudgetOverride("?tilebudget=abc")).toBeUndefined();
   });
 });

@@ -4,6 +4,7 @@ import { snapshotPerformanceMetrics, initPerformanceMetrics } from "./client-per
 import { isTrue3DRendererActive, prefers2DRendererMode, rendererModeExplicitlySet } from "./client-renderer-mode.js";
 import { rendererFailureSnapshot, webGLProbe } from "./client-webgl-probe/client-webgl-probe.js";
 import { resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
+import { previousRendererAttempt } from "./client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { MIN_ZOOM } from "./client-constants.js";
 import type { ClientState } from "./client-state/client-state.js";
 
@@ -102,7 +103,11 @@ export const buildDiagnosticsBundle = (
       explicitlySet: rendererModeExplicitlySet,
       webgl: webGLProbe(),
       tileBudget: resolveTileBudget(MIN_ZOOM),
-      failure: rendererFailureSnapshot()
+      failure: rendererFailureSnapshot(),
+      // How far the *previous* session's 3D attempt got. This is the only
+      // evidence a hard browser crash leaves behind — a killed tab runs no
+      // JavaScript, so `failure` above stays empty for one.
+      previousAttempt: previousRendererAttempt()
     },
     performanceMetrics: snapshotPerformanceMetrics(),
     recentDebugEvents: snapshotClientDebugEvents(),

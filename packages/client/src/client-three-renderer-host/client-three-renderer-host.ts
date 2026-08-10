@@ -14,9 +14,17 @@
 // back to whenever no 3D renderer is present and true-3D is inactive), the
 // reason is recorded for the diagnostics bundle, and the player is told.
 
+import { MIN_ZOOM } from "../client-constants.js";
 import { setTrue3DRendererActive } from "../client-renderer-mode.js";
+import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { recordRendererFailure } from "../client-webgl-probe/client-webgl-probe.js";
 import { showRendererFallbackNotice } from "../client-renderer-fallback-notice/client-renderer-fallback-notice.js";
+import {
+  beginRendererAttempt,
+  markRendererAttemptHandled,
+  markRendererInitCompleted,
+  shouldSkipThreeDAfterCrashes
+} from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 
 /** The slice of the 3D renderer this host needs; keeps three.js out of here. */
 export type StoppableRenderer = { readonly stop: () => void };
@@ -58,6 +66,9 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
     renderer = undefined;
     setTrue3DRendererActive(false);
     recordRendererFailure(reason);
+    // A failure we caught and handled is not a crash, and must not count
+    // toward the crash-loop brake.
+    markRendererAttemptHandled();
     try {
       dead?.stop();
     } catch (stopError) {
@@ -74,7 +85,18 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
   const ensure = (): void => {
     if (!deps.enabled || failed || renderer) return;
     if (!deps.isReady()) return;
+    // A device whose tab died mid-construction on the last attempts gets 2D
+    // without another try. Nothing here can catch that death, so refusing to
+    // repeat it is the only available handling — see the breadcrumb module.
+    if (shouldSkipThreeDAfterCrashes()) {
+      retire("3D crashed this browser on the last attempts — using the 2D map. Add ?renderer=3d to try again.");
+      return;
+    }
+    const tileBudget = resolveTileBudget(MIN_ZOOM);
     try {
+      // On disk before a byte is allocated: if the tab is killed during
+      // construction, the next load reads this and knows where it died.
+      beginRendererAttempt(tileBudget);
       const created = deps.create((reason) => {
         console.error("[renderer-3d-context-lost]", reason);
         retire(`WebGL context lost: ${reason}`);
@@ -92,6 +114,7 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
         return;
       }
       renderer = created;
+      markRendererInitCompleted(tileBudget);
       setTrue3DRendererActive(true);
     } catch (error) {
       console.error("[renderer-3d-init-failed]", error);
