@@ -103,7 +103,8 @@ import {
   splitTileActionsIntoTabs as splitTileActionsIntoTabsFromModule,
   structureTypeForTileAction as structureTypeForTileActionFromModule,
   tileActionIsBuilding as tileActionIsBuildingFromModule,
-  tileActionIsCrystal as tileActionIsCrystalFromModule
+  tileActionIsCrystal as tileActionIsCrystalFromModule,
+  unmappedBuildActionWarning as unmappedBuildActionWarningFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
 import { economicStructureName } from "./client-map-display.js";
 import {
@@ -1436,10 +1437,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "collect_shard") collectSelectedShard();
     if (actionId === "grow_settlement_to_town" || actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
     const genericStructureType = structureTypeForTileActionFromModule(actionId as TileActionDef["id"]);
-    if (genericStructureType) {
-      handleBuildAction(actionId, genericStructureType, selected);
-      return;
-    }
+    if (genericStructureType) { handleBuildAction(actionId, genericStructureType, selected); return; }
+    const unmappedBuildWarning = unmappedBuildActionWarningFromModule(actionId as TileActionDef["id"]);
+    if (unmappedBuildWarning) { pushFeed(unmappedBuildWarning, "info", "error"); hideTileActionMenu(); return; }
     if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }
