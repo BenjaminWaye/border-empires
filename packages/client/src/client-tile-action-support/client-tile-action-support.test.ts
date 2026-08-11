@@ -293,6 +293,7 @@ describe("town support tile actions", () => {
       ws: { readyState: 1, send: () => undefined },
       attackPreviewDetailForTarget: () => undefined,
       attackPreviewPendingForTarget: () => false,
+  attackPreviewManpowerCostForTarget: () => undefined,
       pickOriginForTarget: () => undefined,
       buildDetailTextForAction: () => undefined,
       developmentSlotSummary: () => ({ busy: 0, limit: 3, available: 3 }),

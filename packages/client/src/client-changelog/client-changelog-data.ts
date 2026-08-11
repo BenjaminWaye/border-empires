@@ -242,30 +242,6 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // manpower-branch-map-overlays entry pruned: aged out of the 6-day window
   // (the domain-tier-rework entry moved the window anchor forward).
   {
-    createdAt: 1786003565156, // 2026-08-06
-    introducedIn: "next",
-    title: "Fixed: changes made to the world while you were offline could stay missing after you logged back in",
-    why: "The server keeps a cached copy of each player's world snapshot to make logging back in fast, but it only kept that copy up to date while you were connected. Anything that changed while you were offline never reached it, and logging in served the cached copy as-is with no catch-up — so those tiles stayed wrong on your map indefinitely, because nothing later would necessarily touch them again. The most visible case was an outpost built while you were disconnected: the tiles its vision should have revealed stayed dark forever.",
-    changes: [
-      "Logging in now rebuilds your world snapshot whenever the world changed while you were away, instead of serving a stale cached copy.",
-      "Fixes outpost vision discs that never revealed their tiles after a reconnect, and the same staleness for territory ownership, towns and structures that changed while you were offline.",
-      "Fast reconnects where nothing has changed still use the cached snapshot, so logging back in is no slower than before."
-    ]
-  },
-  {
-    createdAt: 1786035996000, // 2026-08-06
-    introducedIn: "next",
-    title: "Fixed leftover bugs from the tech-tree redesign: stale bonus text, wrong gold pricing, missing branch tags",
-    why: "The tech-tree redesign (branch structure, no-flat-bonus techs, steampunk renaming) shipped with three regressions: some tech cards still printed old attack/defense/vision bonus text even though the redesign removed all flat-bonus techs, every tech's gold cost was a different leftover per-tier price instead of the intended flat +50-per-researched-tech curve, and the tree UI had no visible tag showing which of the four branches (War/Economy/Manpower/Aether) a tech belonged to.",
-    changes: [
-      "Tech cards and detail views no longer print stale attack/defense/vision multiplier text — only real building/ability unlocks are shown.",
-      "Every tech now costs 10 gold plus 50 gold per tech you've already researched, applied uniformly instead of the old scattered per-tier prices.",
-      "Tech cards now show a colored branch tag (War/Economy/Manpower/Aether) so it's clear which branch a tech belongs to.",
-      "The Iron Levy monument's ability can now actually be triggered — it was fully implemented on the server but was never wired into the game's network layer.",
-      "Caravanary now enables the connected-town road network itself (towns need at least one built to share the gold bonus) instead of just adding +25% on top of an already-existing bonus."
-    ]
-  },
-  {
     createdAt: 1786036800000, // 2026-08-06
     introducedIn: "next",
     title: "Fixed a build-menu crash and several dead/mismatched tech gates left over from the tech-tree redesign",
@@ -593,6 +569,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The Titanium Weapons Factory and Umbrite Weapons Factory build options were missing their detail-text case, so the build menu literally showed the word \"undefined\" instead of a description.",
     changes: [
       "Build menu: Titanium Weapons Factory and Umbrite Weapons Factory now show a real description instead of \"undefined\"."
+    ]
+  },
+  {
+    createdAt: 1786463900000, // 2026.08.11.6 — frozen from a live Date.now() call
+    introducedIn: "population-bureau-part-models",
+    title: "Population Bureau components now render as distinct 3D models with their own map icons",
+    why: "The Population Bureau's 3 unique components — the Census Engine, Registry Vault, and Levy Charter — previously had no dedicated art, so on the map they fell back to a generic placeholder instead of reading as a monument under construction.",
+    changes: [
+      "3D map: each of the Population Bureau's 3 components now renders its own dedicated model — the Census Engine (a compact horizontal brass drum in a dark iron frame with fanned parchment record cards, one separated card carrying a muted green processing glow), the Registry Vault (a squat dark-iron strongbox with reinforced brass corners, heavy hinges, a thick brass lid tilted ajar, and a restrained warm amber glow in the gap), and the Levy Charter (an upright rolled imperial decree with thick brass caps and a small unrolled section bearing a subtle gold sigil).",
+      "2D map: each component now has its own flat overlay icon matching the monument set's muted iron/brass/parchment look with a single restrained emissive accent.",
+      "The 2D fallback overlay for component tiles is no longer drawn in 3D mode, matching other structures."
     ]
   },
   {

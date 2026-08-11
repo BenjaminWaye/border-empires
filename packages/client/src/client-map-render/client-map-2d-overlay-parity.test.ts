@@ -19,7 +19,10 @@ describe("2D overlay parity with the 3D renderer", () => {
     ["WORLD_ENGINE_PART_3", "sky-marking-array-overlay.svg"],
     ["IMPERIAL_EXCHANGE_PART_1", "golden-ledger-overlay.svg"],
     ["IMPERIAL_EXCHANGE_PART_2", "counting-engine-overlay.svg"],
-    ["IMPERIAL_EXCHANGE_PART_3", "sovereign-seal-overlay.svg"]
+    ["IMPERIAL_EXCHANGE_PART_3", "sovereign-seal-overlay.svg"],
+    ["POPULATION_BUREAU_PART_1", "census-engine-overlay.svg"],
+    ["POPULATION_BUREAU_PART_2", "registry-vault-overlay.svg"],
+    ["POPULATION_BUREAU_PART_3", "levy-charter-overlay.svg"]
   ] as const;
 
   const naturalWonderEntries = [

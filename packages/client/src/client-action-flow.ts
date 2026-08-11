@@ -20,6 +20,7 @@ import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
   applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
   attackPreviewDetailForTarget as attackPreviewDetailForTargetFromModule,
+  attackPreviewManpowerCostForTarget as attackPreviewManpowerCostForTargetFromModule,
   attackPreviewPendingForTarget as attackPreviewPendingForTargetFromModule,
   attackQueueFailureReason as attackQueueFailureReasonFromModule,
   buildFrontierQueue as buildFrontierQueueFromModule,
@@ -768,6 +769,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const attackPreviewPendingForTarget = (to: Tile): boolean =>
     attackPreviewPendingForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
 
+  const attackPreviewManpowerCostForTarget = (to: Tile): string | undefined =>
+    attackPreviewManpowerCostForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
+
   const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement });
   const buildSiegeOutpostOnSelected = (): void => buildSiegeOutpostOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
@@ -1178,6 +1182,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     ws,
     attackPreviewDetailForTarget,
     attackPreviewPendingForTarget,
+    attackPreviewManpowerCostForTarget,
     pickOriginForTarget,
     buildDetailTextForAction,
     developmentSlotSummary,
@@ -1809,6 +1814,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     requestAttackPreviewForTarget,
     attackPreviewDetailForTarget,
     attackPreviewPendingForTarget,
+    attackPreviewManpowerCostForTarget,
     buildFortOnSelected,
     settleSelected,
     buildSiegeOutpostOnSelected,
