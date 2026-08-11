@@ -34,7 +34,7 @@ export type RuntimeState = {
     manpowerCapSnapshot?: number;
     techIds: string[];
     domainIds: string[];
-    chosenTrickleResource?: "IRON" | "SUPPLY" | "CRYSTAL";
+    chosenTrickleResource?: "TITANIUM" | "UMBRITE" | "CRYSTAL";
     imperialWardCharges?: number;
     eventLog?: PlayerEventLogEntry[];
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
@@ -64,7 +64,7 @@ export type RuntimeState = {
   terrainEpoch?: number;
 };
 
-export type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+export type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 export type EconomyResourceKey = StrategicResourceKey | "GOLD";
 export type EconomyBucket = {
   label: string;
@@ -74,14 +74,14 @@ export type EconomyBucket = {
   note?: string;
 };
 export type EconomyBreakdown = Record<EconomyResourceKey, { sources: EconomyBucket[]; sinks: EconomyBucket[] }>;
-export type UpkeepPerMinute = { food: number; iron: number; supply: number; crystal: number; gold: number };
+export type UpkeepPerMinute = { food: number; titanium: number; umbrite: number; crystal: number; gold: number };
 export type UpkeepLastTick = {
   foodCoverage: number;
   gold: { contributors: EconomyBucket[] };
   food: { contributors: EconomyBucket[] };
-  iron: { contributors: EconomyBucket[] };
+  titanium: { contributors: EconomyBucket[] };
   crystal: { contributors: EconomyBucket[] };
-  supply: { contributors: EconomyBucket[] };
+  umbrite: { contributors: EconomyBucket[] };
 };
 export type LivePlayerEconomySnapshot = {
   incomePerMinute: number;

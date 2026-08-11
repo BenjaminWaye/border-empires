@@ -234,8 +234,8 @@ export const placementRadius = (structureType: PlacementStructureType): number =
 
 export type PlacementAvailability = { available: true } | { available: false; reason: string };
 
-// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/IRON/
-// CRYSTAL/SUPPLY build-time stockpile spend was retired server-side (Step 5
+// §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD/TITANIUM/
+// CRYSTAL/UMBRITE build-time stockpile spend was retired server-side (Step 5
 // item 4 Slice A) -- structureCostDefinition's resourceCost field for these
 // four keys is stale. structureSlotRequirements is the real gate now,
 // matching hasFreeResourceSlots (runtime-structure-command-handlers.ts).
@@ -293,10 +293,10 @@ export const tileAreaEffectModifiersForTile = (
     tile.economicStructure.status === "active" &&
     isActiveOwnedStructureWithinRange(tilesForScan, tile.ownerId, tile, "FOUNDRY", FOUNDRY_RADIUS)
   ) {
-    const resource = tile.resource === "IRON" ? "IRON" : tile.resource === "GEMS" ? "CRYSTAL" : undefined;
+    const resource = tile.resource === "TITANIUM" ? "TITANIUM" : tile.resource === "GEMS" ? "CRYSTAL" : undefined;
     modifiers.push({
       reason: "Foundry",
-      effect: resource === "IRON" ? "+100% iron production" : resource === "CRYSTAL" ? "+100% crystal production" : "+100% mine production",
+      effect: resource === "TITANIUM" ? "+100% titanium production" : resource === "CRYSTAL" ? "+100% crystal production" : "+100% mine production",
       tone: "positive"
     });
   }

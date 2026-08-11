@@ -1,12 +1,12 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS,
-  FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  IRONWORKS_GOLD_UPKEEP_PER_DAY,
+  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
+  TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import type { EconomicStructureType } from "@border-empires/shared";
@@ -19,30 +19,30 @@ export const strategicResourceForTile = (resource: DomainTileState["resource"] |
     case "FARM":
     case "FISH":
       return "FOOD";
-    case "IRON":
-      return "IRON";
+    case "TITANIUM":
+      return "TITANIUM";
     case "GEMS":
       return "CRYSTAL";
-    case "FUR":
-      return "SUPPLY";
+    case "UMBRITE":
+      return "UMBRITE";
     default:
       return undefined;
   }
 };
 
 export const upgradeBaseTypeForEconomicStructure = (type: EconomicStructureType): EconomicStructureType | undefined => {
-  if (type === "ADVANCED_FUR_SYNTHESIZER") return "FUR_SYNTHESIZER";
-  if (type === "ADVANCED_IRONWORKS") return "IRONWORKS";
+  if (type === "ADVANCED_UMBRITE_SYNTHESIZER") return "UMBRITE_SYNTHESIZER";
+  if (type === "ADVANCED_TITANIUM_WORKS") return "TITANIUM_WORKS";
   if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") return "CRYSTAL_SYNTHESIZER";
   if (type === "SEED_GRANARY") return "GRANARY";
   return undefined;
 };
 
 export const isConverterStructureType = (structureType: EconomicStructureType): boolean =>
-  structureType === "FUR_SYNTHESIZER" ||
-  structureType === "ADVANCED_FUR_SYNTHESIZER" ||
-  structureType === "IRONWORKS" ||
-  structureType === "ADVANCED_IRONWORKS" ||
+  structureType === "UMBRITE_SYNTHESIZER" ||
+  structureType === "ADVANCED_UMBRITE_SYNTHESIZER" ||
+  structureType === "TITANIUM_WORKS" ||
+  structureType === "ADVANCED_TITANIUM_WORKS" ||
   structureType === "CRYSTAL_SYNTHESIZER" ||
   structureType === "ADVANCED_CRYSTAL_SYNTHESIZER";
 
@@ -55,10 +55,10 @@ export const economicStructureGoldUpkeepPerInterval = (
   // for an upkeep they don't owe.
   if (mode === "EXCHANGE" && isConverterStructureType(structureType)) return 0;
   const perMinute =
-    structureType === "FUR_SYNTHESIZER" ? FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
-      : structureType === "ADVANCED_FUR_SYNTHESIZER" ? ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
-      : structureType === "IRONWORKS" ? IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
-      : structureType === "ADVANCED_IRONWORKS" ? ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
+    structureType === "UMBRITE_SYNTHESIZER" ? UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
+      : structureType === "ADVANCED_UMBRITE_SYNTHESIZER" ? ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
+      : structureType === "TITANIUM_WORKS" ? TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
+      : structureType === "ADVANCED_TITANIUM_WORKS" ? ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
       : structureType === "CRYSTAL_SYNTHESIZER" ? CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
       : structureType === "ADVANCED_CRYSTAL_SYNTHESIZER" ? ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY
       : 0;

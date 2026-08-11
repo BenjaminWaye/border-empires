@@ -1,6 +1,6 @@
 // Resource slots — docs/manpower-economy-rewrite-plan.md §5 (Pillar 2, Step 5).
 //
-// IRON/CRYSTAL/SUPPLY/FOOD stop being stockpiled quantities. Each settled
+// TITANIUM/CRYSTAL/UMBRITE/FOOD stop being stockpiled quantities. Each settled
 // resource tile provides a small number of discrete SLOTS; a structure that
 // needs one of these resources permanently occupies a slot for as long as it
 // exists (no stockpile spend, no timer — §5.1). GOLD and SHARD are
@@ -13,14 +13,14 @@
 import type { BuildableStructureType } from "../structure-costs/structure-costs.js";
 import type { ConverterMode, FortVariant, PopulationTier, ResourceType, SiegeOutpostVariant } from "../types.js";
 
-// Fort/Siege tier-ladder variants (IRON_BASTION, THUNDER_BASTION, SIEGE_TOWER,
+// Fort/Siege tier-ladder variants (TITANIUM_BASTION, THUNDER_BASTION, SIEGE_TOWER,
 // DREAD_TOWER) aren't part of BuildableStructureType — they're FortVariant/
 // SiegeOutpostVariant — but each has its own distinct slot requirement
 // (§12's Fort/Siege ladder tables), so the slot-requirement map needs to key
 // on the union of all three.
 export type SlotStructureType = BuildableStructureType | FortVariant | SiegeOutpostVariant;
 
-export type SlotResource = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY";
+export type SlotResource = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE";
 
 export type StructureSlotRequirement = {
   resource: SlotResource;
@@ -30,7 +30,7 @@ export type StructureSlotRequirement = {
 // §12: every structure's exact "New slot requirement" column, transcribed
 // verbatim. Where a structure has both a build-time resourceCost (in
 // structure-costs.ts) and a listed slot requirement, the slot requirement is
-// authoritative — build-time resourceCost fields for FOOD/IRON/CRYSTAL/SUPPLY
+// authoritative — build-time resourceCost fields for FOOD/TITANIUM/CRYSTAL/UMBRITE
 // are retired by this module (§5 supersedes them; only SHARD build costs
 // still apply, since SHARD stays a real stockpile, §5.5).
 //
@@ -55,7 +55,7 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   // Waterworks-radius +2 via WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS below), so
   // charging them their own boosted resource would be circular — dormancy
   // could silently zero out the very supply they exist to add.
-  CAMP: [{ resource: "FOOD", count: 1 }],
+  UMBRITE_RIG: [{ resource: "FOOD", count: 1 }],
   MINE: [{ resource: "FOOD", count: 1 }],
   GRANARY: [{ resource: "FOOD", count: 1 }],
   OBSERVATORY: [{ resource: "CRYSTAL", count: 1 }],
@@ -67,8 +67,8 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
 
   // Tier 2 — trade & production infrastructure
   MARKET: [{ resource: "FOOD", count: 1 }],
-  FUR_SYNTHESIZER: [{ resource: "SUPPLY", count: 1 }],
-  IRONWORKS: [{ resource: "IRON", count: 1 }],
+  UMBRITE_SYNTHESIZER: [{ resource: "UMBRITE", count: 1 }],
+  TITANIUM_WORKS: [{ resource: "TITANIUM", count: 1 }],
   CRYSTAL_SYNTHESIZER: [{ resource: "CRYSTAL", count: 1 }],
   // CRYSTAL slot removed per user decision (tech-tree redesign) — Ancillary
   // Factory is a Manpower-branch building, CRYSTAL doesn't fit its theme.
@@ -82,8 +82,8 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   FOUNDRY: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
   RAIL_DEPOT: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
   RADAR_SYSTEM: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
-  ADVANCED_FUR_SYNTHESIZER: [{ resource: "SUPPLY", count: 1 }],
-  ADVANCED_IRONWORKS: [{ resource: "IRON", count: 1 }],
+  ADVANCED_UMBRITE_SYNTHESIZER: [{ resource: "UMBRITE", count: 1 }],
+  ADVANCED_TITANIUM_WORKS: [{ resource: "TITANIUM", count: 1 }],
   ADVANCED_CRYSTAL_SYNTHESIZER: [{ resource: "CRYSTAL", count: 1 }],
 
   // Tier 4 — elite structures
@@ -92,12 +92,12 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   // War branch — WEAPONS_WORKSHOP retired (structure-registry-economic.ts),
   // replaced by the two resource-specific factories below. Entry kept so any
   // copy a player already owns from before retirement keeps its slot cost.
-  WEAPONS_WORKSHOP: [{ resource: "IRON", count: 1 }, { resource: "SUPPLY", count: 1 }],
+  WEAPONS_WORKSHOP: [{ resource: "TITANIUM", count: 1 }, { resource: "UMBRITE", count: 1 }],
   // Each a dedicated single-resource sink (design doc), uncapped per town
   // (placementMode "same_tile") so each copy's slot cost is real and scales
   // with how many a player builds.
-  IRON_WEAPONS_FACTORY: [{ resource: "IRON", count: 1 }],
-  FUR_WEAPONS_FACTORY: [{ resource: "SUPPLY", count: 1 }],
+  TITANIUM_WEAPONS_FACTORY: [{ resource: "TITANIUM", count: 1 }],
+  UMBRITE_WEAPONS_FACTORY: [{ resource: "UMBRITE", count: 1 }],
 
   // Manpower branch — new buildings
   QUARTERMASTERS_OFFICE: [{ resource: "FOOD", count: 1 }],
@@ -105,14 +105,14 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   ASSEMBLY_WORKS: [{ resource: "FOOD", count: 1 }, { resource: "CRYSTAL", count: 1 }],
 
   // Fort ladder
-  FORT: [{ resource: "IRON", count: 1 }],
-  IRON_BASTION: [{ resource: "IRON", count: 2 }],
-  THUNDER_BASTION: [{ resource: "IRON", count: 4 }],
+  FORT: [{ resource: "TITANIUM", count: 1 }],
+  TITANIUM_BASTION: [{ resource: "TITANIUM", count: 2 }],
+  THUNDER_BASTION: [{ resource: "TITANIUM", count: 4 }],
 
   // Siege ladder
-  SIEGE_OUTPOST: [{ resource: "SUPPLY", count: 1 }],
-  SIEGE_TOWER: [{ resource: "SUPPLY", count: 2 }, { resource: "IRON", count: 1 }],
-  DREAD_TOWER: [{ resource: "SUPPLY", count: 3 }, { resource: "IRON", count: 2 }],
+  SIEGE_OUTPOST: [{ resource: "UMBRITE", count: 1 }],
+  SIEGE_TOWER: [{ resource: "UMBRITE", count: 2 }, { resource: "TITANIUM", count: 1 }],
+  DREAD_TOWER: [{ resource: "UMBRITE", count: 3 }, { resource: "TITANIUM", count: 2 }],
 
   // Monument parts + assemblies (SHARD build cost stays as a flow/stockpile
   // cost, §5.5 — only the CRYSTAL requirement below is slot-based)
@@ -131,9 +131,9 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   POPULATION_BUREAU_PART_1: [{ resource: "CRYSTAL", count: 1 }],
   POPULATION_BUREAU_PART_2: [{ resource: "CRYSTAL", count: 1 }],
   POPULATION_BUREAU_PART_3: [{ resource: "CRYSTAL", count: 1 }],
-  IRON_LEVY_PART_1: [{ resource: "CRYSTAL", count: 1 }],
-  IRON_LEVY_PART_2: [{ resource: "CRYSTAL", count: 1 }],
-  IRON_LEVY_PART_3: [{ resource: "CRYSTAL", count: 1 }],
+  TITANIUM_LEVY_PART_1: [{ resource: "CRYSTAL", count: 1 }],
+  TITANIUM_LEVY_PART_2: [{ resource: "CRYSTAL", count: 1 }],
+  TITANIUM_LEVY_PART_3: [{ resource: "CRYSTAL", count: 1 }],
   // The final monument's own slot cost is 4, not 1: it absorbs the 3
   // CRYSTAL slots its 3 consumed Parts used to occupy (see
   // consumeMonumentParts in apps/simulation/src/runtime-structure-build-
@@ -144,7 +144,7 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   AEGIS_DOME: [{ resource: "CRYSTAL", count: 4 }],
   ASTRAL_DOCK: [{ resource: "CRYSTAL", count: 4 }],
   POPULATION_BUREAU: [{ resource: "CRYSTAL", count: 4 }],
-  IRON_LEVY: [{ resource: "CRYSTAL", count: 4 }]
+  TITANIUM_LEVY: [{ resource: "CRYSTAL", count: 4 }]
 };
 
 export const structureSlotRequirements = (type: SlotStructureType): StructureSlotRequirement[] =>
@@ -156,10 +156,10 @@ export const structureSlotRequirements = (type: SlotStructureType): StructureSlo
 // (never build a 2nd), not by shrinking their own slot contribution, since
 // a synthesizer doesn't sit on a real resource tile at all.
 export const SYNTHESIZER_STRUCTURE_TYPES: readonly BuildableStructureType[] = [
-  "FUR_SYNTHESIZER",
-  "ADVANCED_FUR_SYNTHESIZER",
-  "IRONWORKS",
-  "ADVANCED_IRONWORKS",
+  "UMBRITE_SYNTHESIZER",
+  "ADVANCED_UMBRITE_SYNTHESIZER",
+  "TITANIUM_WORKS",
+  "ADVANCED_TITANIUM_WORKS",
   "CRYSTAL_SYNTHESIZER",
   "ADVANCED_CRYSTAL_SYNTHESIZER"
 ];
@@ -167,10 +167,10 @@ export const SYNTHESIZER_STRUCTURE_TYPES: readonly BuildableStructureType[] = [
 export const SYNTHESIZER_TYPE_SET = new Set(SYNTHESIZER_STRUCTURE_TYPES);
 
 export const SYNTHESIZER_FAMILY_RESOURCE: Partial<Record<BuildableStructureType, SlotResource>> = {
-  FUR_SYNTHESIZER: "SUPPLY",
-  ADVANCED_FUR_SYNTHESIZER: "SUPPLY",
-  IRONWORKS: "IRON",
-  ADVANCED_IRONWORKS: "IRON",
+  UMBRITE_SYNTHESIZER: "UMBRITE",
+  ADVANCED_UMBRITE_SYNTHESIZER: "UMBRITE",
+  TITANIUM_WORKS: "TITANIUM",
+  ADVANCED_TITANIUM_WORKS: "TITANIUM",
   CRYSTAL_SYNTHESIZER: "CRYSTAL",
   ADVANCED_CRYSTAL_SYNTHESIZER: "CRYSTAL"
 } as const;
@@ -190,10 +190,9 @@ export const isSlotSinkConverter = (type: string, mode: ConverterMode): boolean 
 export const BASE_SLOTS_BY_TILE_RESOURCE: Partial<Record<ResourceType, { slotResource: SlotResource; baseSlots: number }>> = {
   FARM: { slotResource: "FOOD", baseSlots: 1 },
   FISH: { slotResource: "FOOD", baseSlots: 2 },
-  IRON: { slotResource: "IRON", baseSlots: 1 },
+  TITANIUM: { slotResource: "TITANIUM", baseSlots: 1 },
   GEMS: { slotResource: "CRYSTAL", baseSlots: 1 },
-  WOOD: { slotResource: "SUPPLY", baseSlots: 1 },
-  FUR: { slotResource: "SUPPLY", baseSlots: 1 }
+  UMBRITE: { slotResource: "UMBRITE", baseSlots: 1 }
 };
 
 // Farmstead/Mine/Camp all add +1 slot to the tile they sit on (§5.2: "one
@@ -203,7 +202,7 @@ export const BASE_SLOTS_BY_TILE_RESOURCE: Partial<Record<ResourceType, { slotRes
 export const TILE_SLOT_BOOST_STRUCTURES: Partial<Record<BuildableStructureType, number>> = {
   FARMSTEAD: 1,
   MINE: 1,
-  CAMP: 1
+  UMBRITE_RIG: 1
 };
 
 export const WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS = 2;

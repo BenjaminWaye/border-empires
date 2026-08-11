@@ -28,7 +28,7 @@ describe("buildLegacySnapshotPlayerEconomies", () => {
         docks: []
       },
       economy: {
-        tileYield: [["1,1", { gold: 0, strategic: { IRON: 6 } }]]
+        tileYield: [["1,1", { gold: 0, strategic: { TITANIUM: 6 } }]]
       },
       systems: {
         economicStructures: [],
@@ -38,7 +38,7 @@ describe("buildLegacySnapshotPlayerEconomies", () => {
 
     const playerEconomy = economies.get("player-1");
     expect(playerEconomy).toBeDefined();
-    expect(playerEconomy?.strategicProductionPerMinute.IRON).toBeCloseTo(60 / 1440, 4);
-    expect(playerEconomy?.economyBreakdown.IRON.sources[0]?.amountPerMinute).toBeCloseTo(60 / 1440, 4);
+    expect(playerEconomy?.strategicProductionPerMinute.TITANIUM).toBeCloseTo(60 / 1440, 4);
+    expect(playerEconomy?.economyBreakdown.TITANIUM.sources[0]?.amountPerMinute).toBeCloseTo(60 / 1440, 4);
   });
 });

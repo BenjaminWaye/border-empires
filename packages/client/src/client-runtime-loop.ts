@@ -496,7 +496,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // (economic + late-game + civic + infrastructure + industrial).
         const handled3DStructure =
           isTrue3DRendererActive() &&
-          STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind);
+          (t.economicStructure.type === "UMBRITE_RIG" ||
+            STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind));
         if (fortificationKind || handled3DStructure) {
           // 3D-rendered (fortifications + any economic structure in the
           // 3D overlay set); do not draw 2D fallbacks.
@@ -508,10 +509,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
           );
           deps.ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
-        } else if (t.economicStructure.type === "CAMP" && !hasBuiltResourceOverlay) {
+        } else if (t.economicStructure.type === "UMBRITE_RIG" && !hasBuiltResourceOverlay) {
           deps.ctx.fillStyle = deps.structureAccentColor(
             t.ownerId ?? "",
-            active ? "rgba(222, 174, 108, 0.95)" : "rgba(171, 134, 86, 0.74)"
+            active ? "rgba(147, 92, 201, 0.95)" : "rgba(114, 71, 156, 0.74)"
           );
           deps.ctx.beginPath();
           deps.ctx.moveTo(px + size / 2, py + 3);
@@ -1051,7 +1052,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const overlay = deps.structureOverlayImages[t.economicStructure.type];
           const handled3DStructure2 =
             isTrue3DRendererActive() &&
-            STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind);
+            (t.economicStructure.type === "UMBRITE_RIG" ||
+              STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind));
           if (handled3DStructure2) {
             // 3D-rendered structure; skip the 2D fallbacks.
           } else if (overlay && overlay.complete && overlay.naturalWidth) {
@@ -1062,10 +1064,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
               active ? "rgba(192, 229, 117, 0.95)" : "rgba(148, 176, 104, 0.72)"
             );
             deps.ctx.fillRect(px + 2, py + size - markerSize - 2, markerSize + 1, markerSize);
-          } else if (t.economicStructure.type === "CAMP" && !hasBuiltResourceOverlay) {
+          } else if (t.economicStructure.type === "UMBRITE_RIG" && !hasBuiltResourceOverlay) {
             deps.ctx.fillStyle = deps.structureAccentColor(
               t.ownerId ?? "",
-              active ? "rgba(222, 174, 108, 0.95)" : "rgba(171, 134, 86, 0.74)"
+              active ? "rgba(147, 92, 201, 0.95)" : "rgba(114, 71, 156, 0.74)"
             );
             deps.ctx.beginPath();
             deps.ctx.moveTo(px + size / 2, py + 3);

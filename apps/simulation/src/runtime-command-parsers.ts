@@ -269,7 +269,7 @@ export const parseAstralDockLaunchPayload = (payloadJson: string): { fromX: numb
   }
 };
 
-export const parseIronLevyMusterPayload = (payloadJson: string): { fromX: number; fromY: number } | null => {
+export const parseTitaniumLevyMusterPayload = (payloadJson: string): { fromX: number; fromY: number } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (typeof parsed.fromX !== "number" || typeof parsed.fromY !== "number") return null;

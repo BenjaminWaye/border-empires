@@ -1,34 +1,33 @@
 import type { DomainPlayer } from "@border-empires/game-domain";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
-type StealableResource = "IRON" | "CRYSTAL" | "SUPPLY" | "FOOD";
+type StealableResource = "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FOOD";
 
 export type RuntimeResourceStealContext = {
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
 };
 
 const TILE_RESOURCE_TO_STRATEGIC: Record<string, StealableResource> = {
-  IRON: "IRON",
+  TITANIUM: "TITANIUM",
   GEMS: "CRYSTAL",
-  FUR: "SUPPLY",
-  WOOD: "SUPPLY",
+  UMBRITE: "UMBRITE",
   FARM: "FOOD",
   FISH: "FOOD"
 };
 
 const SYNTH_STRUCTURE_TO_STRATEGIC: Record<string, StealableResource> = {
-  IRONWORKS: "IRON",
-  ADVANCED_IRONWORKS: "IRON",
+  TITANIUM_WORKS: "TITANIUM",
+  ADVANCED_TITANIUM_WORKS: "TITANIUM",
   CRYSTAL_SYNTHESIZER: "CRYSTAL",
   ADVANCED_CRYSTAL_SYNTHESIZER: "CRYSTAL",
-  FUR_SYNTHESIZER: "SUPPLY",
-  ADVANCED_FUR_SYNTHESIZER: "SUPPLY"
+  UMBRITE_SYNTHESIZER: "UMBRITE",
+  ADVANCED_UMBRITE_SYNTHESIZER: "UMBRITE"
 };
 
 const PER_TILE_RATE_BY_RESOURCE: Record<StealableResource, number> = {
-  IRON: 60 / 1440,
+  TITANIUM: 60 / 1440,
   CRYSTAL: 36 / 1440,
-  SUPPLY: 60 / 1440,
+  UMBRITE: 60 / 1440,
   FOOD: 60 / 1440
 };
 

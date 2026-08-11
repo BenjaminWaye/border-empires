@@ -13,7 +13,7 @@ import {
 import { dockBaseGoldPerMinuteForPlayer, type DockEconomyContext, type EconomyPlayer } from "../economy-network/economy-network.js";
 import { townGoldPerMinuteForPlayer } from "../player-update-economy/player-update-economy.js";
 
-type StrategicYieldKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+type StrategicYieldKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 
 export type TileYieldBufferView = {
   gold: number;
@@ -38,13 +38,13 @@ export type TileYieldView = {
 
 const FARMSTEAD_FOOD_BONUS_PER_DAY = 48 * 0.5;
 
-// FOOD joined IRON/CRYSTAL/SUPPLY as slot-based, not produced (docs/manpower-
+// FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced (docs/manpower-
 // economy-rewrite-plan.md §5.4) — there's only one food mechanic now (slot
 // dormancy). A FARM/FISH tile's meaningful "food" contribution is its slot
 // supply (structure-slots.ts), not a daily yield rate.
 const strategicDailyFromResource = (_resource: DomainTileState["resource"] | undefined): Partial<Record<StrategicYieldKey, number>> => ({});
 
-// IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
+// TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer produce a
 // stockpiled resource (§5.6), and Farmstead's old FOOD-yield bonus retired
 // alongside FOOD's own production (§5.4: FOOD is slot-based now, not
 // yield-based) — nothing is left to convert into a strategicPerDay entry.
@@ -57,7 +57,7 @@ const converterDailyOutput = (
 /**
  * Strategic-affecting economic structure types whose yield cannot be
  * correctly re-derived on the client (radius/neighbor bonuses, ADVANCED
- * synth constants, MINE/CAMP output multiplier). Tiles carrying one of
+ * synth constants, MINE/UMBRITE_RIG output multiplier). Tiles carrying one of
  * these (active) or a dockId must receive server-authoritative
  * `yieldRate`/`yieldCap` on the wire — see docs/plans/2026-07-06-radius-yield-delivery.md.
  */

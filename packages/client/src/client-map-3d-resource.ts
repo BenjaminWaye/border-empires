@@ -52,7 +52,7 @@ export const createClientThreeResourceLayer = (scene: Scene, maxVisibleTiles: nu
       fishCount += 1;
       return;
     }
-    if (resource === "FUR" || resource === "WOOD") {
+    if (resource === "UMBRITE") {
       tempMatrix.makeTranslation(x - 0.12, 0.34, z + 0.05);
       furMesh.setMatrixAt(furCount, tempMatrix);
       furCount += 1;
@@ -61,7 +61,7 @@ export const createClientThreeResourceLayer = (scene: Scene, maxVisibleTiles: nu
       furCount += 1;
       return;
     }
-    if (resource === "IRON") {
+    if (resource === "TITANIUM") {
       tempMatrix.makeTranslation(x, 0.35, z);
       ironMesh.setMatrixAt(ironCount, tempMatrix);
       ironCount += 1;

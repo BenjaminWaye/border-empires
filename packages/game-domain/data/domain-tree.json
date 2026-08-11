@@ -14,7 +14,7 @@
       }
     },
     {
-      "id": "iron-bastions",
+      "id": "titanium-bastions",
       "tier": 1,
       "name": "Dwarf Kingdom",
       "description": "Forts pop up overnight and cost a pittance to keep.",
@@ -22,7 +22,7 @@
       "cost": { "gold": 40 },
       "effects": {
         "fortBuildSpeedMult": 1.5,
-        "fortIronSlotWaiverCount": 3
+        "fortTitaniumSlotWaiverCount": 3
       }
     },
     {
@@ -52,7 +52,7 @@
       "id": "clockwork-stipend",
       "tier": 1,
       "name": "Clockwork Stipend",
-      "description": "Imperial machinery allocates dedicated logistics slots for one chosen resource (iron, supply, or crystal), regardless of the map.",
+      "description": "Imperial machinery allocates dedicated logistics slots for one chosen resource (titanium, umbrite, or crystal), regardless of the map.",
       "requiresTechId": "agriculture",
       "cost": { "gold": 40 },
       "effects": {
@@ -82,9 +82,9 @@
       }
     },
     {
-      "id": "iron-vanguard",
+      "id": "titanium-vanguard",
       "tier": 2,
-      "name": "Iron Vanguard",
+      "name": "Titanium Vanguard",
       "description": "Aggression is sharpened specifically against real territory.",
       "requiresTechId": "fortified-walls",
       "cost": { "gold": 200, "shard": 1 },
@@ -154,7 +154,7 @@
       "effects": {
         "settlementSpeedMult": 1.1,
         "developmentProcessCapacityAdd": 1,
-        "outpostSupplySlotWaiverCount": 3
+        "outpostUmbriteSlotWaiverCount": 3
       }
     },
     {
@@ -205,7 +205,7 @@
       "effects": {
         "fortDefenseMult": 1.25,
         "settledDefenseNearFortMult": 1.15,
-        "fortIronSlotWaiverCount": 5
+        "fortTitaniumSlotWaiverCount": 5
       }
     },
     {
@@ -258,9 +258,9 @@
       }
     },
     {
-      "id": "iron-dominion",
+      "id": "titanium-dominion",
       "tier": 5,
-      "name": "Iron Dominion",
+      "name": "Titanium Dominion",
       "description": "Military force becomes your primary language in attack and defense alike.",
       "requiresTechId": "steelworking",
       "cost": { "gold": 1800, "shard": 5 },

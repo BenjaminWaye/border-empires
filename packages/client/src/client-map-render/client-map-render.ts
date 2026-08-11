@@ -59,15 +59,15 @@ const grassTownOverlayByTier = createTownOverlaySet({
 const builtResourceOverlayVariants = {
   FARM_FARMSTEAD: createOverlayVariantSet(["farm-farmstead-overlay-1.svg", "farm-farmstead-overlay-2.svg", "farm-farmstead-overlay-3.svg"]),
   FISH_FARMSTEAD: createOverlayVariantSet(["fish-farmstead-overlay-1.svg", "fish-farmstead-overlay-2.svg", "fish-farmstead-overlay-3.svg"]),
-  FUR_CAMP: createOverlayVariantSet(["fur-camp-overlay-1.svg", "fur-camp-overlay-2.svg", "fur-camp-overlay-3.svg"]),
-  IRON_MINE: createOverlayVariantSet(["iron-mine-overlay-1.svg", "iron-mine-overlay-2.svg", "iron-mine-overlay-3.svg"]),
+  UMBRITE_RIG: createOverlayVariantSet(["umbrite-rig-overlay-1.svg", "umbrite-rig-overlay-2.svg", "umbrite-rig-overlay-3.svg"]),
+  TITANIUM_MINE: createOverlayVariantSet(["titanium-mine-overlay-1.svg", "titanium-mine-overlay-2.svg", "titanium-mine-overlay-3.svg"]),
   GEMS_MINE: createOverlayVariantSet(["gems-mine-overlay-1.svg", "gems-mine-overlay-2.svg", "gems-mine-overlay-3.svg", "gems-mine-overlay-4.svg"])
 } as const;
 const resourceOverlayVariants = {
   FARM: createOverlayVariantSet(["farm-overlay-1.svg", "farm-overlay-2.svg", "farm-overlay-3.svg"]),
   FISH: createOverlayVariantSet(["fish-overlay-1.svg", "fish-overlay-2.svg", "fish-overlay-3.svg"]),
-  FUR: createOverlayVariantSet(["fur-overlay-1.svg", "fur-overlay-2.svg", "fur-overlay-3.svg"]),
-  IRON: createOverlayVariantSet(["iron-overlay-1.svg", "iron-overlay-2.svg", "iron-overlay-3.svg"]),
+  UMBRITE: createOverlayVariantSet(["umbrite-overlay-1.svg", "umbrite-overlay-2.svg", "umbrite-overlay-3.svg"]),
+  TITANIUM: createOverlayVariantSet(["titanium-overlay-1.svg", "titanium-overlay-2.svg", "titanium-overlay-3.svg"]),
   GEMS: createOverlayVariantSet(["gems-overlay-1.svg", "gems-overlay-2.svg", "gems-overlay-3.svg", "gems-overlay-4.svg"])
 } as const;
 const shardOverlayVariants = {
@@ -364,8 +364,8 @@ export const borderLineWidthForOwner = (
 export const structureAccentColor = (ownerId: string, fallback: string, visualStyleForOwner: VisualStyleLookup): string => {
   const style = visualStyleForOwner(ownerId);
   if (!style) return fallback;
-  if (style.structureAccent === "IRON") return "rgba(160, 176, 196, 0.96)";
-  if (style.structureAccent === "SUPPLY") return "rgba(232, 176, 94, 0.95)";
+  if (style.structureAccent === "TITANIUM") return "rgba(178, 178, 178, 0.96)";
+  if (style.structureAccent === "UMBRITE") return "rgba(158, 107, 227, 0.95)";
   if (style.structureAccent === "FOOD") return "rgba(176, 233, 122, 0.95)";
   if (style.structureAccent === "CRYSTAL") return "rgba(131, 221, 255, 0.95)";
   return fallback;
@@ -374,8 +374,8 @@ export const structureAccentColor = (ownerId: string, fallback: string, visualSt
 const ownershipPatternTone = (ownerId: string, visualStyleForOwner: VisualStyleLookup): string => {
   const style = visualStyleForOwner(ownerId);
   if (!style) return "rgba(255,255,255,0.14)";
-  if (style.secondaryTint === "IRON") return "rgba(214, 225, 239, 0.16)";
-  if (style.secondaryTint === "SUPPLY") return "rgba(238, 198, 126, 0.16)";
+  if (style.secondaryTint === "TITANIUM") return "rgba(200, 200, 200, 0.16)";
+  if (style.secondaryTint === "UMBRITE") return "rgba(190, 160, 230, 0.16)";
   if (style.secondaryTint === "FOOD") return "rgba(186, 238, 144, 0.16)";
   if (style.secondaryTint === "CRYSTAL") return "rgba(159, 220, 255, 0.16)";
   return "rgba(255,255,255,0.14)";
@@ -782,10 +782,9 @@ export const drawCenteredOverlayWithAlpha = (
 const drawResourceMarkerIcon = (ctx: CanvasRenderingContext2D, resource: string | undefined, x: number, y: number, badge: number): void => {
   const icon =
     resource === "FARM" || resource === "FISH" ? "🍞"
-    : resource === "IRON" ? "⛏"
+    : resource === "TITANIUM" ? "⛏"
     : resource === "GEMS" ? "💎"
-    : resource === "FUR" ? "🦊"
-    : resource === "WOOD" ? "🪵"
+    : resource === "UMBRITE" ? "🟣"
     : "";
   if (!icon) return;
   ctx.font = `${Math.max(8, badge * 0.8)}px system-ui`;
@@ -1160,8 +1159,8 @@ export const builtResourceOverlayForTile = (tile: Tile): HTMLImageElement | unde
   const key =
     tile.resource === "FARM" && (tile.economicStructure.type === "FARMSTEAD" || tile.economicStructure.type === "WATERWORKS") ? "FARM_FARMSTEAD"
     : tile.resource === "FISH" && (tile.economicStructure.type === "FARMSTEAD" || tile.economicStructure.type === "WATERWORKS") ? "FISH_FARMSTEAD"
-    : tile.resource === "FUR" && tile.economicStructure.type === "CAMP" ? "FUR_CAMP"
-    : tile.resource === "IRON" && tile.economicStructure.type === "MINE" ? "IRON_MINE"
+    : tile.resource === "UMBRITE" && tile.economicStructure.type === "UMBRITE_RIG" ? "UMBRITE_RIG"
+    : tile.resource === "TITANIUM" && tile.economicStructure.type === "MINE" ? "TITANIUM_MINE"
     : tile.resource === "GEMS" && tile.economicStructure.type === "MINE" ? "GEMS_MINE"
     : undefined;
   if (!key) return undefined;
@@ -1209,7 +1208,7 @@ export const drawShardFallback = (ctx: CanvasRenderingContext2D, px: number, py:
 
 export const resourceOverlayScaleForTile = (tile: Tile): number => {
   if (tile.resource === "FISH") return 1.3;
-  if (tile.resource === "IRON") return 1.2;
+  if (tile.resource === "TITANIUM") return 1.2;
   return 1.08;
 };
 

@@ -45,9 +45,9 @@ describe("revealResource highlight tag", () => {
   it("renders a resource-tone tag for each reveal category", () => {
     const categories: Array<[string, string]> = [
       ["food", "Reveals Food"],
-      ["iron", "Reveals Iron"],
+      ["titanium", "Reveals Titanium"],
       ["crystal", "Reveals Crystal"],
-      ["supply", "Reveals Supply"]
+      ["umbrite", "Reveals Umbrite"]
     ];
     for (const [category, label] of categories) {
       const tags = techHighlightTags({ effects: { revealResource: category } });

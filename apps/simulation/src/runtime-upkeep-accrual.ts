@@ -187,7 +187,7 @@ export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: Ru
       // rounding noise below the gameplay-significant precision.
       const round4 = (n: number): number => Number(n.toFixed(4));
       const mismatches: string[] = [];
-      for (const key of ["gold", "food", "iron", "crystal", "supply"] as const) {
+      for (const key of ["gold", "food", "titanium", "crystal", "umbrite"] as const) {
         const inc = round4(upkeep[key]);
         const fullV = round4((full.upkeepPerMinute as Record<string, number | undefined>)[key] ?? 0);
         if (inc !== fullV) mismatches.push(`${key}: incremental=${inc} full=${fullV}`);
@@ -202,9 +202,9 @@ export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: Ru
     const need: UpkeepNeed = {
       gold: Math.max(0, upkeep.gold) * elapsedMinutes,
       FOOD: Math.max(0, upkeep.food) * elapsedMinutes,
-      IRON: Math.max(0, upkeep.iron) * elapsedMinutes,
+      TITANIUM: Math.max(0, upkeep.titanium) * elapsedMinutes,
       CRYSTAL: Math.max(0, upkeep.crystal) * elapsedMinutes,
-      SUPPLY: Math.max(0, upkeep.supply) * elapsedMinutes
+      UMBRITE: Math.max(0, upkeep.umbrite) * elapsedMinutes
     };
     // Towns pay their own upkeep from accumulated yield before raiding the
     // treasury — mirrors the legacy server's `consumeYieldForPlayer` order
@@ -216,13 +216,13 @@ export const applyEconomyAccrual = (ctx: RuntimeUpkeepAccrualContext, player: Ru
     }
     const stock = {
       FOOD: player.strategicResources?.FOOD ?? 0,
-      IRON: player.strategicResources?.IRON ?? 0,
+      TITANIUM: player.strategicResources?.TITANIUM ?? 0,
       CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-      SUPPLY: player.strategicResources?.SUPPLY ?? 0,
+      UMBRITE: player.strategicResources?.UMBRITE ?? 0,
       SHARD: player.strategicResources?.SHARD ?? 0
     };
     let mutated = false;
-    for (const res of ["FOOD", "IRON", "CRYSTAL", "SUPPLY"] as const) {
+    for (const res of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"] as const) {
       if (need[res] > 0) {
         stock[res] = Math.max(0, stock[res] - need[res]);
         mutated = true;

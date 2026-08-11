@@ -1,4 +1,5 @@
 import { DREAD_TOWER_ATTACK_MULT, LIGHT_OUTPOST_ATTACK_MULT, NATURAL_WONDER_LABELS, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
+import { marketGoldProductionMultiplier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
@@ -35,7 +36,7 @@ const siegeOutpostModifier = (variant?: string): TileOverviewModifier => {
 
 const fortModifierForTile = (tile: NonNullable<Tile["fort"]>): TileOverviewModifier => {
   if (tile.variant === "THUNDER_BASTION") return { reason: "Thunder Bastion", effect: "8x defense", tone: "positive" };
-  if (tile.variant === "IRON_BASTION") return { reason: "Iron Bastion", effect: "4x defense", tone: "positive" };
+  if (tile.variant === "TITANIUM_BASTION") return { reason: "Titanium Bastion", effect: "4x defense", tone: "positive" };
   return { reason: "Fort", effect: "2.5x defense", tone: "positive" };
 };
 
@@ -44,8 +45,13 @@ const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
-  if (tile.hasMarket && tile.marketActive) {
-    modifiers.push({ reason: "Market", effect: "+50% town gold production", tone: "positive" });
+  const marketCount = tile.marketCount ?? 0;
+  if (marketCount > 0 && tile.marketActive) {
+    // market-stacking task: derive the real stacked percentage from the
+    // shared marketGoldProductionMultiplier() instead of a hardcoded "+50%"
+    // — each active Market contributes its own +10%/+35% additively.
+    const mult = marketGoldProductionMultiplier(marketCount, Boolean(tile.clearingHouseActive));
+    modifiers.push({ reason: "Market", effect: `+${Math.round((mult - 1) * 100)}% town gold production`, tone: "positive" });
     modifiers.push({ reason: "Market", effect: "higher production raises gold cap", tone: "positive" });
   }
   if (tile.hasSeedGranary && tile.seedGranaryActive) {
@@ -64,10 +70,10 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
 };
 
 const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
-  if (tile.type === "FARMSTEAD" || tile.type === "WATERWORKS" || tile.type === "CAMP") {
+  if (tile.type === "FARMSTEAD" || tile.type === "WATERWORKS" || tile.type === "UMBRITE_RIG") {
     return [{
-      reason: tile.type === "FARMSTEAD" ? "Farmstead (farm food only)" : tile.type === "WATERWORKS" ? "Waterworks (radius support)" : "Camp",
-      effect: tile.type === "WATERWORKS" ? "+100% farmstead food; raises food cap" : tile.type === "CAMP" ? "+50% supply, +15 supply cap" : "+50% farm food, +18 food cap",
+      reason: tile.type === "FARMSTEAD" ? "Farmstead (farm food only)" : tile.type === "WATERWORKS" ? "Waterworks (radius support)" : "Umbrite Rig",
+      effect: tile.type === "WATERWORKS" ? "+100% farmstead food; raises food cap" : tile.type === "UMBRITE_RIG" ? "+50% umbrite, +15 umbrite cap" : "+50% farm food, +18 food cap",
       tone: "positive"
     }];
   }
@@ -125,7 +131,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
     modifiers.push({
       reason: "Mine",
-      effect: tile.resource === "IRON" ? "+50% iron production" : tile.resource === "GEMS" ? "+50% crystal production" : "+50% strategic resource production",
+      effect: tile.resource === "TITANIUM" ? "+50% titanium production" : tile.resource === "GEMS" ? "+50% crystal production" : "+50% strategic resource production",
       tone: "positive"
     });
   }

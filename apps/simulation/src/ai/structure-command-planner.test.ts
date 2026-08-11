@@ -50,7 +50,7 @@ describe("structure command planner", () => {
       id: "ai-1",
       points: 1_000,
       techIds: ["leatherworking"],
-      strategicResources: { SUPPLY: 45 }
+      strategicResources: { UMBRITE: 45 }
     }, [candidate], tilesByKey, [candidate])).toBe(candidate);
     // 3 existing outposts must not affect affordability — matches
     // runtime-structure-command-handlers.ts, which always charges the flat
@@ -60,7 +60,7 @@ describe("structure command planner", () => {
       id: "ai-1",
       points: 1_000,
       techIds: ["leatherworking"],
-      strategicResources: { SUPPLY: 45 },
+      strategicResources: { UMBRITE: 45 },
       ownedStructureCounts: { SIEGE_OUTPOST: 3 }
     }, [candidate], tilesByKey, [candidate])).toBe(candidate);
   });
@@ -81,23 +81,23 @@ describe("structure command planner", () => {
       id: "ai-1",
       points: 1_000,
       techIds: ["masonry"],
-      strategicResources: { IRON: 45 }
+      strategicResources: { TITANIUM: 45 }
     }, [candidate], tilesByKey, [candidate])).toBe(candidate);
     expect(chooseBestFortBuild({
       id: "ai-1",
       points: 1_000,
       techIds: ["masonry"],
-      strategicResources: { IRON: 45 },
+      strategicResources: { TITANIUM: 45 },
       ownedStructureCounts: { FORT: 2 }
     }, [candidate], tilesByKey, [candidate])).toBe(candidate);
   });
 
   // Regression: production staging (ai-5) had 74/74 BUILD_FORT commands
-  // rejected with "insufficient IRON for fort", forever, burning its action
+  // rejected with "insufficient TITANIUM for fort", forever, burning its action
   // budget every tick. chooseBestFortBuild's affordability precheck hardcoded
   // the base-tier FORT cost (45 iron, 900 gold) regardless of tech, but
   // runtime-structure-command-handlers.ts always resolves the player's BEST
-  // available tier via bestFortTierForTech — fortified-walls -> IRON_BASTION
+  // available tier via bestFortTierForTech — fortified-walls -> TITANIUM_BASTION
   // (90 iron, 1800 gold), steelworking -> THUNDER_BASTION (180 iron, 4200
   // gold). A player with fortified-walls and 45-89 iron passed the AI's
   // stale check but was always rejected by the runtime's real (higher) cost.
@@ -118,18 +118,18 @@ describe("structure command planner", () => {
       techIds: ["masonry", "fortified-walls"]
     };
 
-    // 50 iron passes the old hardcoded "< 45" check, but IRON_BASTION (the
+    // 50 iron passes the old hardcoded "< 45" check, but TITANIUM_BASTION (the
     // tier fortified-walls unlocks) actually needs 90 — must not propose.
     expect(chooseBestFortBuild(
-      { ...basePlayer, strategicResources: { IRON: 50 } },
+      { ...basePlayer, strategicResources: { TITANIUM: 50 } },
       [candidate],
       tilesByKey,
       [candidate]
     )).toBeUndefined();
 
-    // 90 iron and 1800 gold (IRON_BASTION's real cost) — now affordable.
+    // 90 iron and 1800 gold (TITANIUM_BASTION's real cost) — now affordable.
     expect(chooseBestFortBuild(
-      { ...basePlayer, points: 1_800, strategicResources: { IRON: 90 } },
+      { ...basePlayer, points: 1_800, strategicResources: { TITANIUM: 90 } },
       [candidate],
       tilesByKey,
       [candidate]
@@ -152,7 +152,7 @@ describe("structure command planner", () => {
     // 50 supply passes the old hardcoded "< 45" check, but SIEGE_TOWER (the
     // tier siegecraft unlocks) needs 90 supply AND 60 iron — must not propose.
     expect(chooseBestSiegeOutpostBuild(
-      { ...basePlayer, strategicResources: { SUPPLY: 50 } },
+      { ...basePlayer, strategicResources: { UMBRITE: 50 } },
       [candidate],
       tilesByKey,
       [candidate]
@@ -160,7 +160,7 @@ describe("structure command planner", () => {
 
     // SIEGE_TOWER's real cost: 90 supply, 60 iron, 1800 gold.
     expect(chooseBestSiegeOutpostBuild(
-      { ...basePlayer, points: 1_800, strategicResources: { SUPPLY: 90, IRON: 60 } },
+      { ...basePlayer, points: 1_800, strategicResources: { UMBRITE: 90, TITANIUM: 60 } },
       [candidate],
       tilesByKey,
       [candidate]
@@ -198,7 +198,7 @@ describe("structure command planner", () => {
       // the tier-awareness tests above; SIEGE_OUTPOST's flat cost is 45
       // supply and this player has 0) — the AI must fall through to
       // something else, not repeatedly propose an unaffordable build.
-      strategicResources: { SUPPLY: 0 },
+      strategicResources: { UMBRITE: 0 },
       settledTileCount: 5,
       townCount: 1,
       incomePerMinute: 12,

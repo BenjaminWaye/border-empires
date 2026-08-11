@@ -11,11 +11,12 @@ import type {
   SnapshotPlayersSection,
   SnapshotTerritorySection,
   TownDefinition,
-  StrategicResource,
+  DomainStrategicResourceKey,
   TileYieldBuffer,
   VictoryPressureTracker
 } from "@border-empires/game-domain";
 import {
+  marketGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
   SETTLEMENT_BASE_GOLD_PER_MIN,
@@ -41,8 +42,8 @@ export type LegacySnapshotPlayerProfile = {
   points: number;
   manpower: number;
   incomePerMinute: number;
-  strategicResources: Record<StrategicResource, number>;
-  strategicProductionPerMinute: Record<StrategicResource, number>;
+  strategicResources: Record<DomainStrategicResourceKey, number>;
+  strategicProductionPerMinute: Record<DomainStrategicResourceKey, number>;
   upkeepPerMinute: LegacySnapshotPlayerEconomy["upkeepPerMinute"];
   upkeepLastTick: LegacySnapshotPlayerEconomy["upkeepLastTick"];
   economyBreakdown: LegacySnapshotPlayerEconomy["economyBreakdown"];
@@ -98,7 +99,7 @@ const inferResource = (tileYieldEntry: unknown): DomainTileState["resource"] | u
   const strategic = (tileYieldEntry as { strategic?: Record<string, number> }).strategic;
   if (!strategic || typeof strategic !== "object") return undefined;
   if ((strategic.FOOD ?? 0) > 0) return "FARM";
-  if ((strategic.IRON ?? 0) > 0) return "IRON";
+  if ((strategic.TITANIUM ?? 0) > 0) return "TITANIUM";
   if ((strategic.CRYSTAL ?? 0) > 0) return "GEMS";
   return undefined;
 };
@@ -114,19 +115,19 @@ const readSnapshotJson = <T>(snapshotDir: string, filename: string): T => {
   return JSON.parse(fs.readFileSync(file, "utf8")) as T;
 };
 
-const emptyStrategic = (): Record<StrategicResource, number> => ({
+const emptyStrategic = (): Record<DomainStrategicResourceKey, number> => ({
   FOOD: 0,
-  IRON: 0,
+  TITANIUM: 0,
   CRYSTAL: 0,
-  SUPPLY: 0,
+  UMBRITE: 0,
   SHARD: 0
 });
 
-const cloneStrategic = (value?: Partial<Record<StrategicResource, number>>): Record<StrategicResource, number> => ({
+const cloneStrategic = (value?: Partial<Record<DomainStrategicResourceKey, number>>): Record<DomainStrategicResourceKey, number> => ({
   FOOD: value?.FOOD ?? 0,
-  IRON: value?.IRON ?? 0,
+  TITANIUM: value?.TITANIUM ?? 0,
   CRYSTAL: value?.CRYSTAL ?? 0,
-  SUPPLY: value?.SUPPLY ?? 0,
+  UMBRITE: value?.UMBRITE ?? 0,
   SHARD: value?.SHARD ?? 0
 });
 
@@ -229,6 +230,38 @@ const supportedStructureAtTown = (
     }
   }
   return false;
+};
+
+// market-stacking task: counting sibling of supportedStructureAtTown above,
+// same support-ring loop, for Market's now-additive-per-instance gold bonus
+// (marketGoldProductionMultiplier). Boolean uniqueness/gate checks elsewhere
+// in this file keep using supportedStructureAtTown unchanged.
+const countedStructuresAtTown = (
+  townTileKey: string,
+  ownerId: string,
+  structureType: string,
+  ownershipByTile: Map<string, string>,
+  ownershipStateByTile: Map<string, string>,
+  structuresByTile: Map<string, { ownerId: string; type: string; status: string }>,
+  world: { width: number; height: number }
+): number => {
+  const coords = parseTileKey(townTileKey);
+  if (!coords) return 0;
+  let count = 0;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const x = wrap(coords.x + dx, world.width);
+      const y = wrap(coords.y + dy, world.height);
+      if (terrainAt(x, y) !== "LAND") continue;
+      const tileKey = `${x},${y}`;
+      if (ownershipByTile.get(tileKey) !== ownerId || ownershipStateByTile.get(tileKey) !== "SETTLED") continue;
+      const structure = structuresByTile.get(tileKey);
+      if (!structure || structure.ownerId !== ownerId || structure.status !== "active") continue;
+      if (structure.type === structureType) count += 1;
+    }
+  }
+  return count;
 };
 
 const activeEconomicStructuresByTile = (
@@ -363,12 +396,29 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
     const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
     const fedTownKeys = ownerId ? fedTownKeysByPlayer.get(ownerId) : undefined;
     const isFed = Boolean(ownerId && fedTownKeys?.has(town.tileKey));
-    const hasMarket =
+    const marketCount = ownerId
+      ? countedStructuresAtTown(
+          town.tileKey,
+          ownerId,
+          "MARKET",
+          ownershipByTile,
+          ownershipStateByTile,
+          structuresByTile,
+          meta.world
+        )
+      : 0;
+    const hasMarket = marketCount > 0;
+    // No town-level Clearing House signal exists on this legacy reconnect
+    // path (pre-existing gap — Clearing House was never wired into this
+    // formula even before market-stacking). Detected here the same way
+    // Market itself is, via the local support-ring scan, rather than
+    // leaving it permanently false.
+    const clearingHouseActive =
       Boolean(ownerId) &&
       supportedStructureAtTown(
         town.tileKey,
         ownerId!,
-        "MARKET",
+        "CLEARING_HOUSE",
         ownershipByTile,
         ownershipStateByTile,
         structuresByTile,
@@ -399,7 +449,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
                   supportRatio *
                   townPopulationMultiplier(town) *
                   (1 + town.connectedTownBonus) *
-                  (hasMarket ? 1.5 : 1) *
+                  marketGoldProductionMultiplier(marketCount, clearingHouseActive) *
                   incomeMod *
                   PASSIVE_INCOME_MULT
               );
@@ -425,7 +475,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
     const cap =
       tier === "SETTLEMENT"
         ? goldPerMinute * 60 * 8
-        : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
+        : goldPerMinute * 60 * 8 * marketGoldProductionMultiplier(marketCount, clearingHouseActive);
     tile.town = {
       ...(town.name ? { name: town.name } : {}),
       type: town.type,
@@ -443,6 +493,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       connectedTownBonus: town.connectedTownBonus,
       hasMarket,
       marketActive: hasMarket && isFed,
+      marketCount,
       hasGranary,
       granaryActive: hasGranary,
       foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),
@@ -479,21 +530,21 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       incomePerMinute: playerEconomy?.incomePerMinute ?? 0,
       strategicResources: playerEconomy?.strategicResources ?? emptyStrategic(),
       strategicProductionPerMinute: playerEconomy?.strategicProductionPerMinute ?? emptyStrategic(),
-      upkeepPerMinute: playerEconomy?.upkeepPerMinute ?? { food: 0, iron: 0, supply: 0, crystal: 0, gold: 0 },
+      upkeepPerMinute: playerEconomy?.upkeepPerMinute ?? { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
       upkeepLastTick: playerEconomy?.upkeepLastTick ?? {
         foodCoverage: 1,
         gold: { contributors: [] },
         food: { contributors: [] },
-        iron: { contributors: [] },
+        titanium: { contributors: [] },
         crystal: { contributors: [] },
-        supply: { contributors: [] }
+        umbrite: { contributors: [] }
       },
       economyBreakdown: playerEconomy?.economyBreakdown ?? {
         GOLD: { sources: [], sinks: [] },
         FOOD: { sources: [], sinks: [] },
-        IRON: { sources: [], sinks: [] },
+        TITANIUM: { sources: [], sinks: [] },
         CRYSTAL: { sources: [], sinks: [] },
-        SUPPLY: { sources: [], sinks: [] },
+        UMBRITE: { sources: [], sinks: [] },
         SHARD: { sources: [], sinks: [] }
       },
       techIds,

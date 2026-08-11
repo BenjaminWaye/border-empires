@@ -10,8 +10,7 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "survey_sweep" ||
   id === "aether_lance" ||
   id === "retort_recast_food" ||
-  id === "retort_recast_supply" ||
-  id === "retort_recast_iron" ||
+  id === "retort_recast_titanium" ||
   id === "retort_recast_crystal" ||
   id === "aether_wall" ||
   id === "aether_bridge" ||
@@ -37,8 +36,8 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "FARMSTEAD";
     case "build_waterworks":
       return "WATERWORKS";
-    case "build_camp":
-      return "CAMP";
+    case "build_umbrite_rig":
+      return "UMBRITE_RIG";
     case "build_mine":
       return "MINE";
     case "build_market":
@@ -57,10 +56,10 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "WOODEN_FORT";
     case "build_light_outpost":
       return "LIGHT_OUTPOST";
-    case "build_fur_synthesizer":
-      return "FUR_SYNTHESIZER";
-    case "build_ironworks":
-      return "IRONWORKS";
+    case "build_umbrite_synthesizer":
+      return "UMBRITE_SYNTHESIZER";
+    case "build_titanium_works":
+      return "TITANIUM_WORKS";
     case "build_crystal_synthesizer":
       return "CRYSTAL_SYNTHESIZER";
     case "build_caravanary":
@@ -103,12 +102,12 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "POPULATION_BUREAU_PART_2";
     case "build_population_bureau_part_3":
       return "POPULATION_BUREAU_PART_3";
-    case "build_iron_levy_part_1":
-      return "IRON_LEVY_PART_1";
-    case "build_iron_levy_part_2":
-      return "IRON_LEVY_PART_2";
-    case "build_iron_levy_part_3":
-      return "IRON_LEVY_PART_3";
+    case "build_titanium_levy_part_1":
+      return "TITANIUM_LEVY_PART_1";
+    case "build_titanium_levy_part_2":
+      return "TITANIUM_LEVY_PART_2";
+    case "build_titanium_levy_part_3":
+      return "TITANIUM_LEVY_PART_3";
     case "build_imperial_exchange":
       return "IMPERIAL_EXCHANGE";
     case "build_world_engine":
@@ -119,8 +118,8 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "ASTRAL_DOCK";
     case "build_population_bureau":
       return "POPULATION_BUREAU";
-    case "build_iron_levy":
-      return "IRON_LEVY";
+    case "build_titanium_levy":
+      return "TITANIUM_LEVY";
     case "build_governors_office":
       return "GOVERNORS_OFFICE";
     case "build_radar_system":
@@ -155,7 +154,7 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_garrison_hall":
       return "organized-supply";
     case "build_siege_camp":
-    case "build_camp":
+    case "build_umbrite_rig":
       return "leatherworking";
     case "build_farmstead":
       return "agriculture";
@@ -171,9 +170,9 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "coinage";
     case "build_caravanary":
       return "ledger-keeping";
-    case "build_fur_synthesizer":
+    case "build_umbrite_synthesizer":
       return "workshops";
-    case "build_ironworks":
+    case "build_titanium_works":
       return "alchemy";
     case "build_crystal_synthesizer":
       return "crystal-lattices";
@@ -210,10 +209,10 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_population_bureau_part_3":
     case "build_population_bureau":
       return "demographic-registry";
-    case "build_iron_levy_part_1":
-    case "build_iron_levy_part_2":
-    case "build_iron_levy_part_3":
-    case "build_iron_levy":
+    case "build_titanium_levy_part_1":
+    case "build_titanium_levy_part_2":
+    case "build_titanium_levy_part_3":
+    case "build_titanium_levy":
       return "grand-levy-doctrine";
     case "reveal_empire":
       return "beacon-towers";
@@ -294,7 +293,7 @@ export const buildShowsOnTile = (
 ): boolean =>
   structureShowsOnTile(structureType, {
     ownershipState: buildSurfaceOwnershipState(tile),
-    resource: tile.resource as "FARM" | "WOOD" | "IRON" | "GEMS" | "FISH" | "FUR" | undefined,
+    resource: tile.resource as "FARM" | "TITANIUM" | "GEMS" | "FISH" | "UMBRITE" | undefined,
     dockId: tile.dockId,
     townPopulationTier: tile.town?.populationTier,
     supportedTownCount,

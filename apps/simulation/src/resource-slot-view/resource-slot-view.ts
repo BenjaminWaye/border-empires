@@ -33,7 +33,7 @@ import { simulationTileKey } from "../seed-state/seed-state.js";
 
 export type ResourceSlotTotals = Record<SlotResource, number>;
 
-export const emptyResourceSlotTotals = (): ResourceSlotTotals => ({ FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 });
+export const emptyResourceSlotTotals = (): ResourceSlotTotals => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
 
 export const totalsFromSlotRequirements = (requirements: readonly StructureSlotRequirement[]): ResourceSlotTotals => {
   const totals = emptyResourceSlotTotals();
@@ -51,14 +51,14 @@ export const totalsFromSlotRequirements = (requirements: readonly StructureSlotR
 // module stays free of any tech/domain-catalog dependency.
 export type SlotWaivers = {
   // Dwarf Kingdom (3) / Fortress Realm (5) — the player's first N Forts (any
-  // Fort-ladder tier, earliest build-order first) need zero IRON slots.
+  // Fort-ladder tier, earliest build-order first) need zero TITANIUM slots.
   // Fortress Realm "extends" Dwarf Kingdom's exemption rather than stacking
   // with it (§23.2), so combine multiple sources via max, not sum.
-  fortIronSlotWaiverCount: number;
+  fortTitaniumSlotWaiverCount: number;
   // Supply State — the player's first N Siege Outposts (any tier, earliest
-  // build-order first) need zero SUPPLY slots. A Siege Tower/Dread Tower's
-  // separate IRON requirement is untouched by this waiver.
-  outpostSupplySlotWaiverCount: number;
+  // build-order first) need zero UMBRITE slots. A Siege Tower/Dread Tower's
+  // separate TITANIUM requirement is untouched by this waiver.
+  outpostUmbriteSlotWaiverCount: number;
   // Light Outpost FOOD slot waiver — the player's first N Light Outposts
   // (earliest build-order first) need zero FOOD slots. Always 5 (built-in).
   lightOutpostFoodSlotWaiverCount: number;
@@ -76,16 +76,16 @@ export type SlotWaivers = {
 };
 
 export const emptySlotWaivers = (): SlotWaivers => ({
-  fortIronSlotWaiverCount: 0,
-  outpostSupplySlotWaiverCount: 0,
+  fortTitaniumSlotWaiverCount: 0,
+  outpostUmbriteSlotWaiverCount: 0,
   lightOutpostFoodSlotWaiverCount: 0,
   firstTownsFoodSlotWaiverCount: 0,
   allTownsFoodSlotWaiverPerTown: 0
 });
 
 const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
-  waivers.fortIronSlotWaiverCount <= 0 &&
-  waivers.outpostSupplySlotWaiverCount <= 0 &&
+  waivers.fortTitaniumSlotWaiverCount <= 0 &&
+  waivers.outpostUmbriteSlotWaiverCount <= 0 &&
   waivers.lightOutpostFoodSlotWaiverCount <= 0 &&
   waivers.firstTownsFoodSlotWaiverCount <= 0 &&
   waivers.allTownsFoodSlotWaiverPerTown <= 0;
@@ -128,8 +128,8 @@ export const resourceSlotSupplyForPlayer = (
   //    out the very supply they exist to add). None of these three can ever
   //    be dormant, so this is correct as-is.
   //  - Mine/Camp DO consume a FOOD slot (a different resource than what
-  //    they boost — IRON/SUPPLY — so no circularity) and so, in principle,
-  //    a FOOD-dormant Mine/Camp shouldn't still grant its IRON/SUPPLY boost.
+  //    they boost — TITANIUM/UMBRITE — so no circularity) and so, in principle,
+  //    a FOOD-dormant Mine/Umbrite Rig shouldn't still grant its TITANIUM/UMBRITE boost.
   //    Not implemented: doing so needs FOOD dormancy resolved BEFORE this
   //    function's supply output (a two-pass computation), a real
   //    architecture change touching every caller of
@@ -154,8 +154,8 @@ export const resourceSlotSupplyForPlayer = (
     // FARMSTEAD is placement-legal on both FARM and FISH tiles (structure-
     // placement-metadata.json's FARMSTEAD.resourceTypes), but §5.3 is explicit
     // that FISH is a fixed 2 slots forever, "no Farmstead or Waterworks bonus
-    // available" — unlike MINE (legally on IRON or GEMS) and CAMP (WOOD or
-    // FUR), which stay resource-agnostic on purpose since both of their valid
+    // available" — unlike MINE (legally on TITANIUM or GEMS) and UMBRITE_RIG
+    // (UMBRITE only), which stay resource-agnostic on purpose since both of their valid
     // tile types scale normally, FARMSTEAD's own boost must NOT apply on FISH.
     const boostBlockedOnFish = structureType === "FARMSTEAD" && tile.resource !== "FARM";
     const boost = structureType && !boostBlockedOnFish ? TILE_SLOT_BOOST_STRUCTURES[structureType] : undefined;
@@ -302,8 +302,8 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
     );
     return new Set(keys.slice(0, waiveCount));
   };
-  const waivedForts = waiveEarliestStructures(":fort", waivers.fortIronSlotWaiverCount);
-  const waivedOutposts = waiveEarliestStructures(":siegeOutpost", waivers.outpostSupplySlotWaiverCount);
+  const waivedForts = waiveEarliestStructures(":fort", waivers.fortTitaniumSlotWaiverCount);
+  const waivedOutposts = waiveEarliestStructures(":siegeOutpost", waivers.outpostUmbriteSlotWaiverCount);
 
   // LIGHT_OUTPOST waiver: find economicStructure keys that contain LIGHT_OUTPOST
   // and waive the earliest ones. Track by tile key (deduplicate per-tile) with
@@ -331,8 +331,8 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
   );
 
   return contributors.map((c) => {
-    if (c.key.endsWith(":fort") && c.resource === "IRON" && waivedForts.has(c.key)) return { ...c, count: 0 };
-    if (c.key.endsWith(":siegeOutpost") && c.resource === "SUPPLY" && waivedOutposts.has(c.key)) return { ...c, count: 0 };
+    if (c.key.endsWith(":fort") && c.resource === "TITANIUM" && waivedForts.has(c.key)) return { ...c, count: 0 };
+    if (c.key.endsWith(":siegeOutpost") && c.resource === "UMBRITE" && waivedOutposts.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":economicStructure") && lightOutpostKeys[c.key] && c.resource === "FOOD" && waivedLightOutposts.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":town")) {
       const waiver = Math.max(waivers.allTownsFoodSlotWaiverPerTown, firstWaivedTownKeys.has(c.key) ? 1 : 0);
@@ -364,7 +364,7 @@ export const resourceSlotDemandForPlayer = (
  * demand would otherwise double-count against the new tier's full
  * requirement for the length of the build. Netting this out against the
  * new requirement means an upgrade only needs *additional* slot capacity
- * for the delta (e.g. FORT->IRON_BASTION needs 1 more IRON slot, not a
+ * for the delta (e.g. FORT->TITANIUM_BASTION needs 1 more TITANIUM slot, not a
  * fresh 2), matching how the game already treats every other build-cost
  * dimension as "pay the new tier's absolute cost, no partial refund of the
  * old tier's sunk cost" — this only prevents slots from being charged
@@ -406,9 +406,9 @@ type DormancyContributor = {
 
 export const emptyResourceSlotDormancy = (): ResourceSlotDormancy => ({
   FOOD: new Set(),
-  IRON: new Set(),
+  TITANIUM: new Set(),
   CRYSTAL: new Set(),
-  SUPPLY: new Set()
+  UMBRITE: new Set()
 });
 
 export const resourceSlotDormantContributorsForPlayer = (

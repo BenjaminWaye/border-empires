@@ -10,17 +10,17 @@
 
 import {
   ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
-  ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY,
-  ADVANCED_IRONWORKS_IRON_PER_DAY,
+  ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY,
+  ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY,
   CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   DOCK_INCOME_PER_MIN,
-  FUR_SYNTHESIZER_SUPPLY_PER_DAY,
-  IRONWORKS_IRON_PER_DAY,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   STRUCTURE_OUTPUT_MULT,
   TILE_YIELD_CAP_GOLD,
-  TILE_YIELD_CAP_RESOURCE
+  TILE_YIELD_CAP_RESOURCE,
+  TITANIUM_WORKS_TITANIUM_PER_DAY,
+  UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY
 } from "@border-empires/game-domain";
 
 // Matches apps/simulation/src/tile-yield-view.ts:strategicDailyFromResource
@@ -30,11 +30,10 @@ const strategicDailyFromResource = (resource: string | undefined): Record<string
       return { FOOD: 48 };
     case "FISH":
       return { FOOD: 72 };
-    case "IRON":
-      return { IRON: 60 };
-    case "WOOD":
-    case "FUR":
-      return { SUPPLY: 60 };
+    case "TITANIUM":
+      return { TITANIUM: 60 };
+    case "UMBRITE":
+      return { UMBRITE: 60 };
     case "GEMS":
       return { CRYSTAL: 36 };
     default:
@@ -43,21 +42,21 @@ const strategicDailyFromResource = (resource: string | undefined): Record<string
 };
 
 // Matches apps/simulation/src/tile-yield-view.ts:converterDailyOutput. These
-// structure types (ADVANCED synths, MINE/CAMP, FOUNDRY-boosted MINE) require
+// structure types (ADVANCED synths, MINE/UMBRITE_RIG, FOUNDRY-boosted MINE) require
 // server-authoritative yieldRate/yieldCap (see tileYieldNeedsServerAuthority
 // on the sim side) — this fallback only runs before the server value arrives
 // or as a last resort, so it now matches the corrected server constants
 // rather than intentionally under-reporting.
 const converterDailyOutput = (structureType: string | undefined): Record<string, number> => {
   switch (structureType) {
-    case "FUR_SYNTHESIZER":
-      return { SUPPLY: FUR_SYNTHESIZER_SUPPLY_PER_DAY };
-    case "ADVANCED_FUR_SYNTHESIZER":
-      return { SUPPLY: ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY };
-    case "IRONWORKS":
-      return { IRON: IRONWORKS_IRON_PER_DAY };
-    case "ADVANCED_IRONWORKS":
-      return { IRON: ADVANCED_IRONWORKS_IRON_PER_DAY };
+    case "UMBRITE_SYNTHESIZER":
+      return { UMBRITE: UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY };
+    case "ADVANCED_UMBRITE_SYNTHESIZER":
+      return { UMBRITE: ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY };
+    case "TITANIUM_WORKS":
+      return { TITANIUM: TITANIUM_WORKS_TITANIUM_PER_DAY };
+    case "ADVANCED_TITANIUM_WORKS":
+      return { TITANIUM: ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY };
     case "CRYSTAL_SYNTHESIZER":
       return { CRYSTAL: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY };
     case "ADVANCED_CRYSTAL_SYNTHESIZER":
@@ -127,11 +126,11 @@ export const deriveTileYieldRate = (
     for (const [key, value] of Object.entries(converterOutput)) {
       strategicPerDay[key] = (strategicPerDay[key] ?? 0) + value;
     }
-    // MINE/CAMP: active structure multiplies the tile's base resource output
+    // MINE/UMBRITE_RIG: active structure multiplies the tile's base resource output
     // by STRUCTURE_OUTPUT_MULT (matches server tile-yield-view.ts). Foundry's
     // additional radius boost on MINE cannot be derived locally (no topology
     // data) and stays server-authoritative.
-    if (tile.economicStructure.type === "MINE" || tile.economicStructure.type === "CAMP") {
+    if (tile.economicStructure.type === "MINE" || tile.economicStructure.type === "UMBRITE_RIG") {
       for (const key of Object.keys(strategicPerDay)) {
         strategicPerDay[key] = (strategicPerDay[key] ?? 0) * STRUCTURE_OUTPUT_MULT;
       }

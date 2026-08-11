@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { DISCOVERY_TIPS, type DiscoveryTipId } from "@client/client-discovery-tips/client-discovery-tips.js";
 
-const ALL_IDS: DiscoveryTipId[] = ["TOWN", "DOCK", "BARBARIAN", "FOOD", "IRON", "CRYSTAL", "SUPPLY"];
+const ALL_IDS: DiscoveryTipId[] = ["TOWN", "DOCK", "BARBARIAN", "FOOD", "TITANIUM", "CRYSTAL", "UMBRITE"];
 
 const TOAST_STYLES = `
 .sb-discovery-tip {

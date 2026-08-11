@@ -20,7 +20,7 @@ const makeTile = (
       name?: string;
       populationTier?: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
     } | null;
-    strategicResources: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    strategicResources: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
     techIds: string[];
     settledTileCount: number;
     townCount: number;
@@ -272,7 +272,7 @@ describe("automation command planner", () => {
       points: 5_000,
       manpower: 10,
       techIds: ["masonry"],
-      strategicResources: { IRON: 60 },
+      strategicResources: { TITANIUM: 60 },
       settledTileCount: 3,
       townCount: 1,
       incomePerMinute: 6,
@@ -598,7 +598,7 @@ describe("automation command planner", () => {
     // economic neutral next to it - only reachable via the broad fallback's
     // ownedFrontierTiles() sweep, since it's not in the narrow frontierTiles.
     const f2 = makeTile(20, 20, { ownerId: "ai-1", ownershipState: "FRONTIER" });
-    const economicNeutral = makeTile(21, 20, { resource: "IRON" });
+    const economicNeutral = makeTile(21, 20, { resource: "TITANIUM" });
 
     const ownedTiles = [f1, f2];
     const tilesByKey = new Map(

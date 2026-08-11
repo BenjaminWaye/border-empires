@@ -103,11 +103,11 @@ describe("frontier combat", () => {
     expect(preview.defMult).toBe(0);
   });
 
-  it("applies ironWeaponsFactoryAttackMult and ironWeaponsFactoryDefenseMult when present", () => {
+  it("applies titaniumWeaponsFactoryAttackMult and titaniumWeaponsFactoryDefenseMult when present", () => {
     const baseline = buildFrontierCombatPreview({ terrain: "LAND", ownershipState: "SETTLED" });
     const boosted = buildFrontierCombatPreview(
       { terrain: "LAND", ownershipState: "SETTLED" },
-      { ironWeaponsFactoryAttackMult: 1.03, ironWeaponsFactoryDefenseMult: 1.06 }
+      { titaniumWeaponsFactoryAttackMult: 1.03, titaniumWeaponsFactoryDefenseMult: 1.06 }
     );
 
     expect(baseline.atkMult).toBe(1);
@@ -115,11 +115,11 @@ describe("frontier combat", () => {
     expect(boosted.defMult).toBeCloseTo(1.35 * 1.06, 6);
   });
 
-  it("applies furWeaponsFactoryAttackMult and furWeaponsFactoryDefenseMult when present", () => {
+  it("applies umbriteWeaponsFactoryAttackMult and umbriteWeaponsFactoryDefenseMult when present", () => {
     const baseline = buildFrontierCombatPreview({ terrain: "LAND", ownershipState: "SETTLED" });
     const boosted = buildFrontierCombatPreview(
       { terrain: "LAND", ownershipState: "SETTLED" },
-      { furWeaponsFactoryAttackMult: 1.06, furWeaponsFactoryDefenseMult: 1.03 }
+      { umbriteWeaponsFactoryAttackMult: 1.06, umbriteWeaponsFactoryDefenseMult: 1.03 }
     );
 
     expect(baseline.atkMult).toBe(1);
@@ -131,10 +131,10 @@ describe("frontier combat", () => {
     const preview = buildFrontierCombatPreview(
       { terrain: "LAND", ownershipState: "SETTLED" },
       {
-        ironWeaponsFactoryAttackMult: 1.03,
-        furWeaponsFactoryAttackMult: 1.06,
-        ironWeaponsFactoryDefenseMult: 1.06,
-        furWeaponsFactoryDefenseMult: 1.03
+        titaniumWeaponsFactoryAttackMult: 1.03,
+        umbriteWeaponsFactoryAttackMult: 1.06,
+        titaniumWeaponsFactoryDefenseMult: 1.06,
+        umbriteWeaponsFactoryDefenseMult: 1.03
       }
     );
 
@@ -145,7 +145,7 @@ describe("frontier combat", () => {
   it("does not apply an Iron/Fur Weapons Factory defense bonus to a FRONTIER target (zero defense regardless)", () => {
     const preview = buildFrontierCombatPreview(
       { terrain: "LAND", ownershipState: "FRONTIER" },
-      { ironWeaponsFactoryDefenseMult: 1.5, furWeaponsFactoryDefenseMult: 1.5 }
+      { titaniumWeaponsFactoryDefenseMult: 1.5, umbriteWeaponsFactoryDefenseMult: 1.5 }
     );
     expect(preview.defMult).toBe(0);
   });
@@ -166,7 +166,7 @@ describe("frontier combat", () => {
   it("combines noWarIndustryVulnerabilityMult multiplicatively with other attack mults", () => {
     const preview = buildFrontierCombatPreview(
       { terrain: "LAND", ownershipState: "SETTLED" },
-      { ironWeaponsFactoryAttackMult: 1.03, noWarIndustryVulnerabilityMult: 2.0 }
+      { titaniumWeaponsFactoryAttackMult: 1.03, noWarIndustryVulnerabilityMult: 2.0 }
     );
     expect(preview.atkMult).toBeCloseTo(1.03 * 2.0, 6);
   });
@@ -236,11 +236,11 @@ describe("frontier combat", () => {
       expect(preview.defEff).toBeCloseTo(10 * 1.35 * 2.5, 6);
     });
 
-    it("applies 4x defense for IRON_BASTION", () => {
+    it("applies 4x defense for TITANIUM_BASTION", () => {
       const preview = buildFrontierCombatPreview({
         terrain: "LAND",
         ownershipState: "SETTLED",
-        fortVariant: "IRON_BASTION"
+        fortVariant: "TITANIUM_BASTION"
       });
 
       expect(preview.defMult).toBeCloseTo(1.35 * 4, 6);
@@ -262,13 +262,13 @@ describe("frontier combat", () => {
       const baseline = buildFrontierCombatPreview({
         terrain: "LAND",
         ownershipState: "SETTLED",
-        fortVariant: "IRON_BASTION"
+        fortVariant: "TITANIUM_BASTION"
       });
       const boosted = buildFrontierCombatPreview(
         {
           terrain: "LAND",
           ownershipState: "SETTLED",
-          fortVariant: "IRON_BASTION"
+          fortVariant: "TITANIUM_BASTION"
         },
         { fortDefenseMult: 1.25 }
       );

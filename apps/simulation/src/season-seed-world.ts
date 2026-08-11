@@ -72,9 +72,8 @@ export type GeneratedDockState = DockRouteDefinition & { tileKey: TileKey };
 const emptyResourceCounts = (): Record<ResourceType, number> => ({
   FARM: 0,
   FISH: 0,
-  FUR: 0,
-  WOOD: 0,
-  IRON: 0,
+  UMBRITE: 0,
+  TITANIUM: 0,
   GEMS: 0
 });
 
@@ -125,6 +124,7 @@ const tileTownViewFromDefinition = (town: TownDefinition): NonNullable<Tile["tow
   connectedTownBonus: town.connectedTownBonus,
   hasMarket: false,
   marketActive: false,
+  marketCount: 0,
   hasGranary: false,
   granaryActive: false
 });

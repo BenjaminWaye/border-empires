@@ -6,7 +6,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "../client-f
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20260805a";
+const overlayAssetVersion = "20260810a";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -44,10 +44,10 @@ export const structureOverlayImages = {
   GRANARY: loadOverlayImage("incubation-engine-overlay.svg"),
   CLEARING_HOUSE: loadOverlayImage("clearing-house-overlay.svg"),
   AIRPORT: loadOverlayImage("airport-overlay.svg"),
-  FUR_SYNTHESIZER: loadOverlayImage("fur-synthesizer-overlay.svg"),
-  ADVANCED_FUR_SYNTHESIZER: loadOverlayImage("advanced-fur-synthesizer-overlay.svg"),
-  IRONWORKS: loadOverlayImage("ironworks-overlay.svg"),
-  ADVANCED_IRONWORKS: loadOverlayImage("advanced-ironworks-overlay.svg"),
+  UMBRITE_SYNTHESIZER: loadOverlayImage("umbrite-synthesizer-overlay.svg"),
+  ADVANCED_UMBRITE_SYNTHESIZER: loadOverlayImage("advanced-umbrite-synthesizer-overlay.svg"),
+  TITANIUM_WORKS: loadOverlayImage("titanium-works-overlay.svg"),
+  ADVANCED_TITANIUM_WORKS: loadOverlayImage("advanced-titanium-works-overlay.svg"),
   CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg"),
   ADVANCED_CRYSTAL_SYNTHESIZER: loadOverlayImage("advanced-crystal-synthesizer-overlay.svg"),
   CARAVANARY: loadOverlayImage("caravanary-overlay.svg"),
@@ -69,11 +69,11 @@ export const structureOverlayImages = {
   LOGISTICS_GUILD: loadOverlayImage("logistics-guild-overlay.svg"),
   ASSEMBLY_WORKS: loadOverlayImage("assembly-works-overlay.svg"),
   POPULATION_BUREAU: loadOverlayImage("population-bureau-overlay.svg"),
-  IRON_LEVY: loadOverlayImage("iron-levy-overlay.svg")
+  TITANIUM_LEVY: loadOverlayImage("titanium-levy-overlay.svg")
 } as const;
-const fortRingOverlaySet = createDirectionalOverlaySet("fort-ring-overlay"); // also stands in for IRON_BASTION/THUNDER_BASTION (3D-only art)
+const fortRingOverlaySet = createDirectionalOverlaySet("fort-ring-overlay"); // also stands in for TITANIUM_BASTION/THUNDER_BASTION (3D-only art)
 export const fortificationOverlayImages: Record<FortificationOverlayKind, Record<FortificationOpening, HTMLImageElement>> = {
-  FORT: fortRingOverlaySet, IRON_BASTION: fortRingOverlaySet, THUNDER_BASTION: fortRingOverlaySet,
+  FORT: fortRingOverlaySet, TITANIUM_BASTION: fortRingOverlaySet, THUNDER_BASTION: fortRingOverlaySet,
   SIEGE_OUTPOST: createDirectionalOverlaySet("siege-outpost-overlay", "static"),
   WOODEN_FORT: createDirectionalOverlaySet("wooden-fort-ring-overlay"),
   LIGHT_OUTPOST: createDirectionalOverlaySet("light-outpost-overlay", "static")

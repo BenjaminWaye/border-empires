@@ -116,7 +116,7 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
 }
 
 describe("handleCancelFortBuildCommand refunds", () => {
-  it("refunds the exact FORT tier gold and manpower on cancel (IRON is a retired stockpile key -- never spent, so never refunded, per Step 5 item 3)", () => {
+  it("refunds the exact FORT tier gold and manpower on cancel (TITANIUM is a retired stockpile key -- never spent, so never refunded, per Step 5 item 3)", () => {
     const player = makePlayer({ points: 100, manpower: 50 });
     const tile = makeTile({ fort: { ownerId: PLAYER_ID, status: "under_construction", variant: "FORT", completesAt: 5_000 } });
     const { context, tiles, playerStateUpdateCount } = createContext(player, tile);
@@ -126,22 +126,22 @@ describe("handleCancelFortBuildCommand refunds", () => {
     const tier = FORT_TIER_LADDER.FORT;
     expect(player.points).toBe(100 + tier.gold);
     expect(player.manpower).toBe(50 + tier.manpower);
-    expect(player.strategicResources?.IRON).toBeUndefined();
+    expect(player.strategicResources?.TITANIUM).toBeUndefined();
     expect(tiles.get(simulationTileKey(5, 5))?.fort).toBeUndefined();
     expect(playerStateUpdateCount()).toBe(1);
   });
 
-  it("refunds the upgraded tier's gold/manpower (not the base tier) when cancelling an IRON_BASTION build, still no IRON refund", () => {
+  it("refunds the upgraded tier's gold/manpower (not the base tier) when cancelling an TITANIUM_BASTION build, still no TITANIUM refund", () => {
     const player = makePlayer({ points: 0, manpower: 0 });
-    const tile = makeTile({ fort: { ownerId: PLAYER_ID, status: "under_construction", variant: "IRON_BASTION", completesAt: 5_000 } });
+    const tile = makeTile({ fort: { ownerId: PLAYER_ID, status: "under_construction", variant: "TITANIUM_BASTION", completesAt: 5_000 } });
     const { context } = createContext(player, tile);
 
     handleCancelFortBuildCommand(context, makeCommand({ type: "CANCEL_FORT_BUILD" }));
 
-    const tier = FORT_TIER_LADDER.IRON_BASTION;
+    const tier = FORT_TIER_LADDER.TITANIUM_BASTION;
     expect(player.points).toBe(tier.gold);
     expect(player.manpower).toBe(tier.manpower);
-    expect(player.strategicResources?.IRON).toBeUndefined();
+    expect(player.strategicResources?.TITANIUM).toBeUndefined();
   });
 
   it("does not refund when there is no fort under construction", () => {
@@ -158,7 +158,7 @@ describe("handleCancelFortBuildCommand refunds", () => {
 });
 
 describe("handleCancelSiegeOutpostBuildCommand refunds", () => {
-  it("refunds gold and manpower for the stored siege tier (SUPPLY/IRON are retired stockpile keys -- never spent, per Step 5 item 3)", () => {
+  it("refunds gold and manpower for the stored siege tier (UMBRITE/TITANIUM are retired stockpile keys -- never spent, per Step 5 item 3)", () => {
     const player = makePlayer({ points: 20, manpower: 5 });
     const tile = makeTile({
       siegeOutpost: { ownerId: PLAYER_ID, status: "under_construction", variant: "SIEGE_TOWER", completesAt: 5_000 }
@@ -170,8 +170,8 @@ describe("handleCancelSiegeOutpostBuildCommand refunds", () => {
     const tier = SIEGE_TIER_LADDER.SIEGE_TOWER;
     expect(player.points).toBe(20 + tier.gold);
     expect(player.manpower).toBe(5 + tier.manpower);
-    expect(player.strategicResources?.SUPPLY).toBeUndefined();
-    expect(player.strategicResources?.IRON).toBeUndefined();
+    expect(player.strategicResources?.UMBRITE).toBeUndefined();
+    expect(player.strategicResources?.TITANIUM).toBeUndefined();
     expect(tiles.get(simulationTileKey(5, 5))?.siegeOutpost).toBeUndefined();
   });
 });

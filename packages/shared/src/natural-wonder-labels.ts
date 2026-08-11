@@ -7,7 +7,7 @@ export const NATURAL_WONDER_LABELS: Record<NaturalWonderType, { name: string; fl
   FOUNDRY_HEART: {
     name: "the Foundry Heart",
     flavor: "a pulsing crystal geode cracks the earth open, aether light bleeding through fresh fissures",
-    boon: "+1 slot for FOOD, IRON, CRYSTAL, and SUPPLY"
+    boon: "+1 slot for FOOD, TITANIUM, CRYSTAL, and UMBRITE"
   },
   DEEPWATER_ENGINE: {
     name: "the Deepwater Engine",

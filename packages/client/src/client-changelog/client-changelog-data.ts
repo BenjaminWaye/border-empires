@@ -22,16 +22,27 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786413600000, // 2026.08.10.3
+    introducedIn: "2026.08.10.3",
+    title: "New 3D Umbrite Extraction Rig",
+    why: "The Umbrite Extraction Rig — a heavy industrial machine that drills into exposed Umbrite veins and contains their volatile stored energy — now has a full 3D model, ready to be placed on the map as part of the Umbrite gameplay.",
+    changes: [
+      "Added a low-poly 3D Umbrite Extraction Rig: squat iron base, reinforced drilling column with brass bands, a rotating drill descending into the ground, angled brass support struts, and anchor feet.",
+      "The drill visibly penetrates an exposed violet-black Umbrite vein, with a containment collar leaking a small, restrained amount of orange containment energy.",
+      "A brass-banded pressure vessel with an ember inspection window receives the extracted Umbrite through chunky industrial pipes with coupling joints and valves."
+    ]
+  },
+  {
     createdAt: 1786417200000, // 2026.08.10.4
     introducedIn: "2026.08.10.4",
-    title: "Weapons Workshop split into Iron and Fur Weapons Factories",
-    why: "Weapons Workshop forged both Iron and Supply into the same flat empire-wide attack/defense boost, giving the two resources no distinct identity in the War branch. It's retired and replaced with two resource-specific factories that reward a real strategic choice: mass-produce anywhere, or cluster into one connected industrial network for a bigger payoff — and skipping both leaves your empire exposed.",
+    title: "Weapons Workshop split into Titanium and Umbrite Weapons Factories",
+    why: "Weapons Workshop forged both Titanium and Umbrite into the same flat empire-wide attack/defense boost, giving the two resources no distinct identity in the War branch. It's retired and replaced with two resource-specific factories that reward a real strategic choice: mass-produce anywhere, or cluster into one connected industrial network for a bigger payoff — and skipping both leaves your empire exposed.",
     changes: [
-      "Iron Weapons Factory (unlocked by Ironclad Masonry): an uncapped Iron sink granting +1.5% attack / +3% defense per copy — armor doctrine.",
-      "Fur Weapons Factory (unlocked by Tanner's Craft): an uncapped Supply sink granting +3% attack / +1.5% defense per copy — raiding doctrine.",
+      "Titanium Weapons Factory (unlocked by Titanium-Clad Masonry): an uncapped Titanium sink granting +1.5% attack / +3% defense per copy — armor doctrine.",
+      "Umbrite Weapons Factory (unlocked by Rigging Works): an uncapped Umbrite sink granting +3% attack / +1.5% defense per copy — raiding doctrine.",
       "Both buildings' bonus is scoped to the connected-town network relevant to each fight, not a flat empire-wide sum — clustering many together in one connected region pays off more than scattering them.",
       "Each additional copy of either factory costs more manpower than the last.",
-      "Owning zero Iron Weapons Factories or zero Fur Weapons Factories anywhere in your empire leaves you markedly easier to attack.",
+      "Owning zero Titanium Weapons Factories or zero Umbrite Weapons Factories anywhere in your empire leaves you markedly easier to attack.",
       "Weapons Workshop can no longer be newly built; any copies you already own keep working as before."
     ]
   },
@@ -104,7 +115,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1786165552000, // 2026.08.08.1
     introducedIn: "2026.08.08.1",
     title: "Wooden Fort renamed to Palisade",
-    why: "\"Wooden Fort\" was a mouthful next to the ladder's other short names (Fort, Iron Bastion, Thunder Bastion); Palisade is shorter and reads as the entry-tier defensive structure it is.",
+    why: "\"Wooden Fort\" was a mouthful next to the ladder's other short names (Fort, Titanium Bastion, Thunder Bastion); Palisade is shorter and reads as the entry-tier defensive structure it is.",
     changes: [
       "The lightweight border/dock fortification is now called \"Palisade\" everywhere in the UI — tile menu, economy panel, and build actions. No change to its cost, defense bonus, or build time."
     ]
@@ -434,6 +445,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1786413600000, // 2026.08.10.2
+    introducedIn: "umbrite-deposit-overlay",
+    title: "New Umbrite deposit overlay for the 3D map",
+    why: "Umbrite is a new strategic resource planned around ancient forest deposits, and needed its own 3D tile visual so it reads distinctly from titanium, glass steel and ordinary rock when it reaches the map.",
+    changes: [
+      "3D map: added an Umbrite deposit overlay — an unnaturally dark near-black mineral vein breaking through an ancient forest floor, intertwined with thick fossilized roots, with subtle violet-blue sheen and sparse glowing orange fissures.",
+      "The visual is deterministic per tile and ships with three layout variants, so adjacent deposits stay varied but stable while panning and on refresh."
+    ]
+  },
+  {
     createdAt: 1786275426380, // 2026-08-09
     introducedIn: "worldbreaker-part-models",
     title: "Worldbreaker Cannon components now render as distinct 3D models",
@@ -462,6 +483,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "3D map: Aegis Dome now rings its dome with three curved shield-lattice fragments (dark-iron frames, brass hex cells, one pale-cyan active cell each).",
       "Four heavy Ward Anchors (tapered iron spikes, reinforcement bands, brass cages with glowing energy orbs) pin the field at the structure's corners.",
       "A ceremonial Aegis Crown — iron base, grey ring, eight brass spikes, and a pale-cyan emissive dome cap — now crowns the apex."
+    ]
+  },
+  {
+    createdAt: 1786417200000, // 2026.08.10.4
+    introducedIn: "2026.08.10.4",
+    title: "New 3D Umbrite Weapons Factory",
+    why: "The Umbrite Weapons Factory — a heavy military-industrial complex that forges Umbrite-tempered ordnance — now has a full 3D model, ready to be placed on the map as part of the Umbrite gameplay.",
+    changes: [
+      "Added a low-poly 3D Umbrite Weapons Factory: a dark-iron riveted hall with an overhanging roof and angled buttresses, twin brass-banded smokestacks, and a tall central Umbrite reactor whose ember inspection window shows the violet-black core inside.",
+      "Chunky industrial pipes with coupling joints run from the reactor to a mechanical forging press and a production platform carrying standing artillery shells, plus missile-like ordnance waiting at the hall front.",
+      "A brass-banded storage tank, vertical magazines and ammunition crates flank the production line, with raw Umbrite lumps and ember bits at the reactor's foot reusing the deposit palette."
     ]
   },
   {

@@ -52,9 +52,8 @@ const resourceScore = (resource: string | undefined, needsFood: boolean = false)
     case "FARM":
     case "FISH":
       return needsFood ? 360 : 180;
-    case "IRON":
-    case "WOOD":
-    case "FUR":
+    case "TITANIUM":
+    case "UMBRITE":
       return 120;
     case "GEMS":
       return 90;

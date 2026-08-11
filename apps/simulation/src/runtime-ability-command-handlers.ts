@@ -90,7 +90,7 @@ function rejectCommand(
 
 function surveySweepPingKind(tile: DomainTileState): SurveySweepPingKind | undefined {
   if (tile.town) return "town";
-  if (tile.resource === "GEMS" || tile.resource === "IRON" || tile.resource === "WOOD") return "resource";
+  if (tile.resource === "GEMS" || tile.resource === "TITANIUM") return "resource";
   return undefined;
 }
 

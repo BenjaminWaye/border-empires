@@ -218,15 +218,15 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
 
   if (progressionChoice?.type === "CHOOSE_DOMAIN") {
     // Clockwork Stipend asks for a per-resource sub-choice. The AI picks
-    // whichever offered resource it expects to use most. Priority: IRON (forts,
-    // most structures) > SUPPLY (outposts) > CRYSTAL (research, narrow use).
+    // whichever offered resource it expects to use most. Priority: TITANIUM (forts,
+    // most structures) > UMBRITE (outposts) > CRYSTAL (research, narrow use).
     const aiDomainPayload: { domainId: string; chosenTrickleResource?: ChosenTrickleResource } = {
       domainId: progressionChoice.id
     };
     if (progressionChoice.id === "clockwork-stipend") {
       const candidates: Array<{ resource: ChosenTrickleResource; priority: number }> = [
-        { resource: "IRON", priority: 0 },
-        { resource: "SUPPLY", priority: 1 },
+        { resource: "TITANIUM", priority: 0 },
+        { resource: "UMBRITE", priority: 1 },
         { resource: "CRYSTAL", priority: 2 }
       ];
       let best = candidates[0]!;

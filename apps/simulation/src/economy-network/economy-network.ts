@@ -43,7 +43,7 @@ export type ConnectedTownNetworkEntry = {
   // Guild's own standalone +0.05/min).
   connectedLogisticsGuildKeys?: string[];
   connectedTownNames?: string[];
-  // Iron/Fur Weapons Factory (design doc "network-clustered combat bonus"):
+  // Titanium/Umbrite Weapons Factory (design doc "network-clustered combat bonus"):
   // unlike every field above, this is a plain COUNT, not a town-key list, and
   // it is SELF-INCLUSIVE of this town's own copies — every other
   // connected-* field above deliberately excludes the town being queried
@@ -56,8 +56,8 @@ export type ConnectedTownNetworkEntry = {
   // hand-built test fixtures elsewhere that construct a partial
   // ConnectedTownNetworkEntry don't all need updating — real callers should
   // treat a missing value as 0.
-  connectedIronWeaponsFactoryCount?: number;
-  connectedFurWeaponsFactoryCount?: number;
+  connectedTitaniumWeaponsFactoryCount?: number;
+  connectedUmbriteWeaponsFactoryCount?: number;
 };
 
 // Moved from player-update-economy.ts so buildConnectedTownNetworkForPlayer can
@@ -124,6 +124,60 @@ export const hasSupportedStructure = (
   return false;
 };
 
+/**
+ * Counting sibling of hasSupportedStructure, for structures whose bonus
+ * STACKS with the number of active instances rather than gating on "any one
+ * exists" (market-stacking task: Market's town gold production bonus is now
+ * additive per-market). Active-only (no includeUnderConstruction param —
+ * uniqueness checks that need under_construction stay on the boolean
+ * hasSupportedStructure above; nothing needs an under-construction count).
+ *
+ * Market's structure-placement-metadata.json placementMode is "same_tile"
+ * (verified — NOT "town_support"; it shares that placement mode with
+ * GARRISON_HALL/IRON_WEAPONS_FACTORY/FUR_WEAPONS_FACTORY), meaning a copy can
+ * sit directly ON the town tile itself as well as on any support tile in its
+ * ring — so this mirrors countWeaponsFactoriesAt's dual on-tile +
+ * support-ring loop below, not hasSupportedStructure's support-ring-only
+ * loop (which would silently miss a same-tile-placed instance).
+ */
+export const countSupportedStructures = (
+  playerId: string,
+  tile: DomainTileState,
+  structureType: string,
+  tiles: ReadonlyMap<string, DomainTileState>,
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+): number => {
+  let count = 0;
+  const tileKey = `${tile.x},${tile.y}`;
+  if (
+    tile.economicStructure?.ownerId === playerId &&
+    tile.economicStructure.type === structureType &&
+    tile.economicStructure.status === "active" &&
+    !dormantEconomicStructureKeys.has(tileKey)
+  ) {
+    count += 1;
+  }
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const neighborKey = `${tile.x + dx},${tile.y + dy}`;
+      const neighbor = tiles.get(neighborKey);
+      if (!neighbor || neighbor.ownerId !== playerId || neighbor.ownershipState !== "SETTLED") continue;
+      if (!supportTileBelongsToTown(playerId, neighbor, tile, tiles)) continue;
+      const structure = neighbor.economicStructure;
+      if (
+        structure?.ownerId === playerId &&
+        structure.type === structureType &&
+        structure.status === "active" &&
+        !dormantEconomicStructureKeys.has(neighborKey)
+      ) {
+        count += 1;
+      }
+    }
+  }
+  return count;
+};
+
 export { supportTileBelongsToTown };
 
 type TownConnectivityGroup = {
@@ -137,11 +191,11 @@ type TownConnectivityGroup = {
   granaryKeys: string[];
   assemblyWorksKeys: string[];
   logisticsGuildKeys: string[];
-  // Iron/Fur Weapons Factory counts — unlike the *Keys fields above, these
+  // Titanium/Umbrite Weapons Factory counts — unlike the *Keys fields above, these
   // are already-summed totals across every member town (self-inclusive), see
   // ConnectedTownNetworkEntry's matching fields for why.
-  ironWeaponsFactoryCount: number;
-  furWeaponsFactoryCount: number;
+  titaniumWeaponsFactoryCount: number;
+  umbriteWeaponsFactoryCount: number;
   // Caravanary (tech-tree redesign, Economy branch): the connected-town road
   // network itself only exists where at least one member town has a built
   // Caravanary — see the connectedTownCount gate below. Only affects
@@ -237,7 +291,7 @@ export const buildConnectedTownNetworkForPlayer = (
   // the BFS + group-construction work this skips.
   const dormantEconomicStructureKeys = options.dormantEconomicStructureKeys ?? new Set<string>();
 
-  // Iron/Fur Weapons Factory — unlike hasXAt above, this SUMS instances
+  // Titanium/Umbrite Weapons Factory — unlike hasXAt above, this SUMS instances
   // rather than early-exiting on the first match: both factories are
   // uncapped per town (placementMode "same_tile", structure-placement-metadata.json),
   // so a single town can host many, and the network combat bonus (design
@@ -248,7 +302,7 @@ export const buildConnectedTownNetworkForPlayer = (
   // ownedTownKeys.size <= 1 fast-return below since that trivial
   // one-town-network case still needs its own count (a "network of one" is
   // still self-inclusive of that lone town's copies).
-  const countWeaponsFactoriesAt = (townKey: string, structureType: "IRON_WEAPONS_FACTORY" | "FUR_WEAPONS_FACTORY"): number => {
+  const countWeaponsFactoriesAt = (townKey: string, structureType: "TITANIUM_WEAPONS_FACTORY" | "UMBRITE_WEAPONS_FACTORY"): number => {
     const tile = tiles.get(townKey);
     if (!tile) return 0;
     let count = 0;
@@ -283,8 +337,8 @@ export const buildConnectedTownNetworkForPlayer = (
     }
     return count;
   };
-  const countIronWeaponsFactoriesAt = (townKey: string): number => countWeaponsFactoriesAt(townKey, "IRON_WEAPONS_FACTORY");
-  const countFurWeaponsFactoriesAt = (townKey: string): number => countWeaponsFactoriesAt(townKey, "FUR_WEAPONS_FACTORY");
+  const countTitaniumWeaponsFactoriesAt = (townKey: string): number => countWeaponsFactoriesAt(townKey, "TITANIUM_WEAPONS_FACTORY");
+  const countUmbriteWeaponsFactoriesAt = (townKey: string): number => countWeaponsFactoriesAt(townKey, "UMBRITE_WEAPONS_FACTORY");
 
   if (ownedTownKeys.size <= 1) {
     const out = new Map<string, ConnectedTownNetworkEntry>();
@@ -292,8 +346,8 @@ export const buildConnectedTownNetworkForPlayer = (
       out.set(townKey, {
         connectedTownCount: 0,
         connectedTownBonus: connectedTownBonusForPlayer(0, player),
-        connectedIronWeaponsFactoryCount: countIronWeaponsFactoriesAt(townKey),
-        connectedFurWeaponsFactoryCount: countFurWeaponsFactoriesAt(townKey)
+        connectedTitaniumWeaponsFactoryCount: countTitaniumWeaponsFactoriesAt(townKey),
+        connectedUmbriteWeaponsFactoryCount: countUmbriteWeaponsFactoriesAt(townKey)
       });
     }
     return out;
@@ -407,8 +461,8 @@ export const buildConnectedTownNetworkForPlayer = (
       granaryKeys: members.filter(hasGranaryAt),
       assemblyWorksKeys: members.filter(hasAssemblyWorksAt),
       logisticsGuildKeys: members.filter(hasLogisticsGuildAt),
-      ironWeaponsFactoryCount: members.reduce((sum, key) => sum + countIronWeaponsFactoriesAt(key), 0),
-      furWeaponsFactoryCount: members.reduce((sum, key) => sum + countFurWeaponsFactoriesAt(key), 0),
+      titaniumWeaponsFactoryCount: members.reduce((sum, key) => sum + countTitaniumWeaponsFactoriesAt(key), 0),
+      umbriteWeaponsFactoryCount: members.reduce((sum, key) => sum + countUmbriteWeaponsFactoriesAt(key), 0),
       caravanaryKeys: members.filter(hasCaravanaryAt)
     };
     for (const townKey of members) {
@@ -549,8 +603,8 @@ export const buildConnectedTownNetworkForPlayer = (
     let assemblyWorksKeys: string[];
     let logisticsGuildKeys: string[];
     let memberKeysForNames: string[] | undefined;
-    let ironWeaponsFactoryCount: number;
-    let furWeaponsFactoryCount: number;
+    let titaniumWeaponsFactoryCount: number;
+    let umbriteWeaponsFactoryCount: number;
 
     let networkHasCaravanary: boolean;
 
@@ -559,11 +613,11 @@ export const buildConnectedTownNetworkForPlayer = (
       connectedTownCount = group.members.length - 1;
       networkHasCaravanary = group.caravanaryKeys.length > 0;
       // Self-inclusive total (unlike the *Keys fields below) — group.members
-      // already includes townKey, so group.ironWeaponsFactoryCount/
-      // furWeaponsFactoryCount already count its own copies. No filtering
+      // already includes townKey, so group.titaniumWeaponsFactoryCount/
+      // umbriteWeaponsFactoryCount already count its own copies. No filtering
       // needed.
-      ironWeaponsFactoryCount = group.ironWeaponsFactoryCount;
-      furWeaponsFactoryCount = group.furWeaponsFactoryCount;
+      titaniumWeaponsFactoryCount = group.titaniumWeaponsFactoryCount;
+      umbriteWeaponsFactoryCount = group.umbriteWeaponsFactoryCount;
       clearingHouseKeys = group.clearingHouseKeys.includes(townKey)
         ? group.clearingHouseKeys.filter((k) => k !== townKey)
         : group.clearingHouseKeys;
@@ -598,8 +652,8 @@ export const buildConnectedTownNetworkForPlayer = (
       memberKeysForNames = undefined;
       // Isolated town, no connections at all — still a "network of one," so
       // its own copies still count (self-inclusive, not zero).
-      ironWeaponsFactoryCount = countIronWeaponsFactoriesAt(townKey);
-      furWeaponsFactoryCount = countFurWeaponsFactoriesAt(townKey);
+      titaniumWeaponsFactoryCount = countTitaniumWeaponsFactoriesAt(townKey);
+      umbriteWeaponsFactoryCount = countUmbriteWeaponsFactoriesAt(townKey);
     } else {
       const unionSet = new Set<string>(direct);
       for (const group of groups ?? []) {
@@ -662,12 +716,12 @@ export const buildConnectedTownNetworkForPlayer = (
       // Self-inclusive total: townKey's own copies plus every OTHER member
       // of unionSet (already deduped, so no double-counting a town that's
       // reachable through more than one corridor group).
-      ironWeaponsFactoryCount =
-        countIronWeaponsFactoriesAt(townKey) +
-        [...unionSet].reduce((sum, key) => sum + countIronWeaponsFactoriesAt(key), 0);
-      furWeaponsFactoryCount =
-        countFurWeaponsFactoriesAt(townKey) +
-        [...unionSet].reduce((sum, key) => sum + countFurWeaponsFactoriesAt(key), 0);
+      titaniumWeaponsFactoryCount =
+        countTitaniumWeaponsFactoriesAt(townKey) +
+        [...unionSet].reduce((sum, key) => sum + countTitaniumWeaponsFactoriesAt(key), 0);
+      umbriteWeaponsFactoryCount =
+        countUmbriteWeaponsFactoriesAt(townKey) +
+        [...unionSet].reduce((sum, key) => sum + countUmbriteWeaponsFactoriesAt(key), 0);
     }
 
     const connectedTownNames = memberKeysForNames
@@ -691,8 +745,8 @@ export const buildConnectedTownNetworkForPlayer = (
       ...(assemblyWorksKeys.length ? { connectedAssemblyWorksKeys: assemblyWorksKeys } : {}),
       ...(logisticsGuildKeys.length ? { connectedLogisticsGuildKeys: logisticsGuildKeys } : {}),
       ...(connectedTownNames.length ? { connectedTownNames } : {}),
-      connectedIronWeaponsFactoryCount: ironWeaponsFactoryCount,
-      connectedFurWeaponsFactoryCount: furWeaponsFactoryCount
+      connectedTitaniumWeaponsFactoryCount: titaniumWeaponsFactoryCount,
+      connectedUmbriteWeaponsFactoryCount: umbriteWeaponsFactoryCount
     });
   }
   return out;

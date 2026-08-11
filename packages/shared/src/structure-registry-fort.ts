@@ -25,7 +25,7 @@ const fortPlacement: StructureSpec["placement"] = [
   // The per-handler predicate varies (settled/resource/town/support/dock).
 ];
 
-// §12.1: the fort ladder's IRON (and WOODEN_FORT's FOOD) cost is already
+// §12.1: the fort ladder's TITANIUM (and WOODEN_FORT's FOOD) cost is already
 // charged as a resource-slot occupation (structure-slots.ts) — no
 // separate per-minute drain on top of that, same as Observatory/Airport.
 
@@ -34,7 +34,7 @@ function fortSpec(variant: FortVariant): StructureSpec {
   // Wooden Fort has no tech requirement — always available from the start.
   const techIds: string[] = [];
   if (variant === "FORT") techIds.push("masonry");
-  if (variant === "IRON_BASTION") techIds.push("masonry", "fortified-walls");
+  if (variant === "TITANIUM_BASTION") techIds.push("masonry", "fortified-walls");
   if (variant === "THUNDER_BASTION") techIds.push("masonry", "steelworking", "fortified-walls");
 
   return {
@@ -44,7 +44,7 @@ function fortSpec(variant: FortVariant): StructureSpec {
     cost: {
       gold: tier.gold,
       manpower: tier.manpower,
-      strategic: { IRON: tier.iron },
+      strategic: { TITANIUM: tier.titanium },
     },
     buildMs: FORT_BUILD_MS,
     techIds,
@@ -58,6 +58,6 @@ function fortSpec(variant: FortVariant): StructureSpec {
 export const FORT_SPECS: Record<FortVariant, StructureSpec> = {
   WOODEN_FORT: fortSpec("WOODEN_FORT"),
   FORT: fortSpec("FORT"),
-  IRON_BASTION: fortSpec("IRON_BASTION"),
+  TITANIUM_BASTION: fortSpec("TITANIUM_BASTION"),
   THUNDER_BASTION: fortSpec("THUNDER_BASTION"),
 };

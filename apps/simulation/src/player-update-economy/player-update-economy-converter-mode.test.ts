@@ -31,7 +31,7 @@ describe("converter mode economy", () => {
     const player = makePlayer();
     const tile: DomainTileState = {
       x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "IRONWORKS", status: "active", ...(mode ? { converterMode: mode } : {}) }
+      economicStructure: { ownerId: "player-1", type: "TITANIUM_WORKS", status: "active", ...(mode ? { converterMode: mode } : {}) }
     };
     const tiles = new Map([["10,10", tile]]);
     return buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles, undefined, 1, undefined, undefined, dormant ? new Set(["10,10"]) : undefined);
@@ -39,30 +39,30 @@ describe("converter mode economy", () => {
 
   it("an EXCHANGE-mode converter pays out gold for its slot; no upkeep sink", () => {
     const economy = economyForMode("EXCHANGE");
-    expect(economy.economyBreakdown.GOLD.sources).toContainEqual(expect.objectContaining({ label: "IRONWORKS", count: 1 }));
-    expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "IRONWORKS")?.amountPerMinute).toBeCloseTo(8 / 1440, 5);
-    expect(economy.economyBreakdown.GOLD.sinks).not.toContainEqual(expect.objectContaining({ label: "IRONWORKS" }));
+    expect(economy.economyBreakdown.GOLD.sources).toContainEqual(expect.objectContaining({ label: "TITANIUM_WORKS", count: 1 }));
+    expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "TITANIUM_WORKS")?.amountPerMinute).toBeCloseTo(8 / 1440, 5);
+    expect(economy.economyBreakdown.GOLD.sinks).not.toContainEqual(expect.objectContaining({ label: "TITANIUM_WORKS" }));
   });
 
   it("a dormant EXCHANGE-mode converter pays out no gold", () => {
-    expect(economyForMode("EXCHANGE", true).economyBreakdown.GOLD.sources).not.toContainEqual(expect.objectContaining({ label: "IRONWORKS" }));
+    expect(economyForMode("EXCHANGE", true).economyBreakdown.GOLD.sources).not.toContainEqual(expect.objectContaining({ label: "TITANIUM_WORKS" }));
   });
 
   it("absent converterMode behaves as SYNTHESIZE: upkeep sink, no gold payout", () => {
     const economy = economyForMode();
-    expect(economy.economyBreakdown.GOLD.sinks).toContainEqual(expect.objectContaining({ label: "IRONWORKS" }));
-    expect(economy.economyBreakdown.GOLD.sources).not.toContainEqual(expect.objectContaining({ label: "IRONWORKS" }));
+    expect(economy.economyBreakdown.GOLD.sinks).toContainEqual(expect.objectContaining({ label: "TITANIUM_WORKS" }));
+    expect(economy.economyBreakdown.GOLD.sources).not.toContainEqual(expect.objectContaining({ label: "TITANIUM_WORKS" }));
   });
 
   it("an Advanced EXCHANGE-mode converter credits 1.5x the basic-tier payout", () => {
     const player = makePlayer();
     const tile: DomainTileState = {
       x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "ADVANCED_IRONWORKS", status: "active", converterMode: "EXCHANGE" }
+      economicStructure: { ownerId: "player-1", type: "ADVANCED_TITANIUM_WORKS", status: "active", converterMode: "EXCHANGE" }
     };
     const tiles = new Map([["10,10", tile]]);
     const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles, undefined, 1, undefined, undefined, undefined);
-    expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "ADVANCED_IRONWORKS")?.amountPerMinute).toBeCloseTo(12 / 1440, 5);
+    expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "ADVANCED_TITANIUM_WORKS")?.amountPerMinute).toBeCloseTo(12 / 1440, 5);
   });
 
   it("EXCHANGE-mode gold payout routes through the player's income multiplier", () => {
@@ -70,11 +70,11 @@ describe("converter mode economy", () => {
     player.mods = { attack: 1, defense: 1, vision: 1, ...(player.mods ?? {}), income: 2 };
     const tile: DomainTileState = {
       x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "IRONWORKS", status: "active", converterMode: "EXCHANGE" }
+      economicStructure: { ownerId: "player-1", type: "TITANIUM_WORKS", status: "active", converterMode: "EXCHANGE" }
     };
     const tiles = new Map([["10,10", tile]]);
     const economy = buildPlayerUpdateEconomySnapshot(player, summaryForTiles(tiles), tiles, undefined, 1, undefined, undefined, undefined);
-    expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "IRONWORKS")?.amountPerMinute).toBeCloseTo((8 * 2) / 1440, 5);
+    expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "TITANIUM_WORKS")?.amountPerMinute).toBeCloseTo((8 * 2) / 1440, 5);
   });
 
   it("a freshly-captured EXCHANGE-mode converter pays no gold while modeLockedUntil is in the future (capture shock)", () => {
@@ -82,7 +82,7 @@ describe("converter mode economy", () => {
     const tile: DomainTileState = {
       x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
       economicStructure: {
-        ownerId: "player-1", type: "IRONWORKS", status: "active", converterMode: "EXCHANGE",
+        ownerId: "player-1", type: "TITANIUM_WORKS", status: "active", converterMode: "EXCHANGE",
         modeLockedUntil: 5_000
       }
     };
@@ -90,7 +90,7 @@ describe("converter mode economy", () => {
     const economy = buildPlayerUpdateEconomySnapshot(
       player, summaryForTiles(tiles), tiles, undefined, 1, undefined, undefined, undefined, 1_000
     );
-    expect(economy.economyBreakdown.GOLD.sources).not.toContainEqual(expect.objectContaining({ label: "IRONWORKS" }));
+    expect(economy.economyBreakdown.GOLD.sources).not.toContainEqual(expect.objectContaining({ label: "TITANIUM_WORKS" }));
   });
 
   it("resumes EXCHANGE-mode payout once modeLockedUntil (capture shock or otherwise) has passed", () => {
@@ -98,7 +98,7 @@ describe("converter mode economy", () => {
     const tile: DomainTileState = {
       x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
       economicStructure: {
-        ownerId: "player-1", type: "IRONWORKS", status: "active", converterMode: "EXCHANGE",
+        ownerId: "player-1", type: "TITANIUM_WORKS", status: "active", converterMode: "EXCHANGE",
         modeLockedUntil: 5_000
       }
     };
@@ -106,6 +106,6 @@ describe("converter mode economy", () => {
     const economy = buildPlayerUpdateEconomySnapshot(
       player, summaryForTiles(tiles), tiles, undefined, 1, undefined, undefined, undefined, 5_001
     );
-    expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "IRONWORKS")?.amountPerMinute).toBeCloseTo(8 / 1440, 5);
+    expect(economy.economyBreakdown.GOLD.sources.find((s) => s.label === "TITANIUM_WORKS")?.amountPerMinute).toBeCloseTo(8 / 1440, 5);
   });
 });
