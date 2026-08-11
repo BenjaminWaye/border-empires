@@ -32,6 +32,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: Date.now(),
+    introducedIn: "2026.08.11.7",
+    title: "Fixed severe stutter while zooming/panning the 3D map",
+    why: "Zooming or panning had become nearly unplayable. The terrain's coastal-skirt geometry buffers are pre-allocated at worst-case size (~11MB per attribute) but only a small fraction is ever written on a given rebuild — every rebuild was re-uploading the entire allocation to the GPU regardless, and rebuilds fire on almost every frame during a zoom/pan gesture. A CPU profile of a live zoom showed over 60% of all main-thread time going into that single upload call.",
+    changes: [
+      "Terrain and coastal-skirt buffer uploads are now scoped to only the vertices/indices actually written each rebuild, instead of re-uploading the full worst-case-sized buffer every time."
+    ]
+  },
+  {
     createdAt: 1786463807000, // 2026.08.11.5
     introducedIn: "2026.08.11.5",
     title: "Town-tile builds, Observatory upkeep, and a Jump to tile button",
