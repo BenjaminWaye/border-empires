@@ -115,14 +115,42 @@ export const ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 60;
 
 // Market rebalance (structure-detail-screen task): an instant one-time gold
 // grant on completion, plus a small flat gold/min bonus expressed so it sums
-// to exactly its stated gold/day amount. Its main effect is now a flat +10%
-// town gold production multiplier (+35% with an active Clearing House,
-// preserving the existing +25pp Clearing House synergy gap) rather than the
-// old 50%/75% multiplier — see townGoldPerMinuteForPlayer.
+// to exactly its stated gold/day amount. Its main ongoing effect is a PER-
+// MARKET +10% town gold production bonus (+35% with an active Clearing
+// House, preserving the existing +25pp Clearing House synergy gap), and
+// STACKS ADDITIVELY across every active Market in a town's support ring —
+// e.g. 5 plain Markets = +50% (1.5x), not a flat capped 10%/35%.
+//
+// market-stacking task: this used to be two independently-driftable
+// MULTIPLIER constants (MARKET_GOLD_PRODUCTION_MULT = 1.1 /
+// MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE = 1.35) paired with a boolean
+// hasMarket gate — every call site multiplied by one of those two constants
+// directly, and several other call sites (live-town-summary.ts,
+// tile-detail-snapshot.ts, legacy-snapshot-bootstrap.ts,
+// legacy-snapshot-economy.ts) had independently hardcoded 1.5/1.75 instead of
+// even referencing the constants, so the four formulas silently disagreed.
+// Replaced with a single BONUS-per-market source of truth plus the
+// marketGoldProductionMultiplier() pure function below — every call site now
+// computes a real market COUNT (economy-network.ts's countSupportedStructures)
+// and calls this one function, so the four formulas can no longer drift.
 export const MARKET_INSTANT_GOLD_BONUS = 10;
 export const MARKET_FLAT_GOLD_BONUS_PER_MIN = 1 / UPKEEP_MINUTES_PER_DAY;
-export const MARKET_GOLD_PRODUCTION_MULT = 1.1;
-export const MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE = 1.35;
+export const MARKET_GOLD_PRODUCTION_BONUS = 0.10;
+export const MARKET_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE = 0.35;
+
+/**
+ * Pure per-market gold production multiplier — the single shared source of
+ * truth for both server (apps/simulation, apps/realtime-gateway) and client
+ * (packages/client) call sites. Returns 1 (no bonus) when marketCount <= 0;
+ * otherwise 1 + marketCount * (per-market bonus, higher with an active
+ * Clearing House). Deliberately takes a real count, not a boolean — each
+ * Market contributes its own bonus, stacking additively, not just "any
+ * Market present."
+ */
+export const marketGoldProductionMultiplier = (marketCount: number, clearingHouseActive: boolean): number => {
+  if (marketCount <= 0) return 1;
+  return 1 + marketCount * (clearingHouseActive ? MARKET_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE : MARKET_GOLD_PRODUCTION_BONUS);
+};
 
 // Converter mode flip (docs/plans/2026-08-06-converter-mode-flip.md)
 export const CONVERTER_MODE_FLIP_COOLDOWN_MS = 60 * 60_000;

@@ -85,6 +85,7 @@ export const isCompleteTownSummary = (town: Partial<NonNullable<Tile["town"]>> |
       isFiniteNumber(town.connectedTownBonus) &&
       typeof town.hasMarket === "boolean" &&
       typeof town.marketActive === "boolean" &&
+      isFiniteNumber(town.marketCount) &&
       typeof town.hasGranary === "boolean" &&
       typeof town.granaryActive === "boolean"
   );

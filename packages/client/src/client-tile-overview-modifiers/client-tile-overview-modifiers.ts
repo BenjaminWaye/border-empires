@@ -1,4 +1,5 @@
 import { DREAD_TOWER_ATTACK_MULT, LIGHT_OUTPOST_ATTACK_MULT, NATURAL_WONDER_LABELS, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
+import { marketGoldProductionMultiplier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
@@ -44,8 +45,13 @@ const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
-  if (tile.hasMarket && tile.marketActive) {
-    modifiers.push({ reason: "Market", effect: "+50% town gold production", tone: "positive" });
+  const marketCount = tile.marketCount ?? 0;
+  if (marketCount > 0 && tile.marketActive) {
+    // market-stacking task: derive the real stacked percentage from the
+    // shared marketGoldProductionMultiplier() instead of a hardcoded "+50%"
+    // — each active Market contributes its own +10%/+35% additively.
+    const mult = marketGoldProductionMultiplier(marketCount, Boolean(tile.clearingHouseActive));
+    modifiers.push({ reason: "Market", effect: `+${Math.round((mult - 1) * 100)}% town gold production`, tone: "positive" });
     modifiers.push({ reason: "Market", effect: "higher production raises gold cap", tone: "positive" });
   }
   if (tile.hasSeedGranary && tile.seedGranaryActive) {
