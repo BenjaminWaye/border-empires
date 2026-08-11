@@ -749,7 +749,6 @@ export const processDevelopmentQueue = (
       if (next.kind === "SETTLE") state.autoSettlementQueueVisibleUntilByTile.delete(next.tileKey);
       state.developmentQueue.shift();
       persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
-      deps.pushFeed(`${next.label} started.`, "combat", "info");
       started = true;
     } else {
       if (next.kind === "SETTLE") state.autoSettlementQueueVisibleUntilByTile.delete(next.tileKey);
@@ -803,7 +802,6 @@ export const topUpFromWaypoint = (
   let target = waypoint.target;
   const targetTile = state.tiles.get(keyFor(target.x, target.y));
   if (targetTile && targetTile.ownerId === state.me) {
-    pushFeed(`Waypoint reached at (${target.x}, ${target.y}).`, "info", "success");
     state.waypoint.shift();
     persistWaypointQueueForPlayer(state.me, state.waypoint);
     return state.waypoint.length > 0;
@@ -1440,7 +1438,6 @@ export const processActionQueue = (
         toOwnerId: to.ownerId,
         toOwnershipState: to.ownershipState
       });
-      deps.pushFeed(`Queued expand (${to.x}, ${to.y}) from (${from.x}, ${from.y})`, "combat", "info");
     } else {
       if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
         deps.notifyInsufficientGoldForFrontierAction("attack");

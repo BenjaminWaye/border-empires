@@ -3,6 +3,7 @@ import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
+import { EVENT_LOG_TYPES_MOVED_TO_FEED } from "../client-event-log-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -1269,7 +1270,24 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         (msg.strategicProductionPerMinute as typeof state.strategicProductionPerMinute | undefined) ?? state.strategicProductionPerMinute;
       state.resourceSlots = (msg.resourceSlots as typeof state.resourceSlots | undefined) ?? state.resourceSlots;
       state.dormantStructures = (msg.dormantStructures as typeof state.dormantStructures | undefined) ?? state.dormantStructures;
-      state.eventLog = (msg.eventLog as typeof state.eventLog | undefined) ?? state.eventLog; state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
+      if (msg.eventLog) {
+        const incomingEventLog = msg.eventLog as typeof state.eventLog;
+        if (!state.eventLogFeedSeenIds) {
+          // First sync: seed with everything already present so we don't
+          // backfill pre-existing history into the Activity Feed.
+          state.eventLogFeedSeenIds = new Set(incomingEventLog.map((entry) => entry.id));
+        } else {
+          for (const entry of incomingEventLog) {
+            if (state.eventLogFeedSeenIds.has(entry.id)) continue;
+            state.eventLogFeedSeenIds.add(entry.id);
+            if (EVENT_LOG_TYPES_MOVED_TO_FEED.has(entry.type)) {
+              appendFeedEntry({ text: entry.text, type: "tech", severity: "success", at: entry.occurredAt });
+            }
+          }
+        }
+        state.eventLog = incomingEventLog;
+      }
+      state.economyBreakdown = (msg.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
       state.manpower = (msg.manpower as number | undefined) ?? state.manpower;
       state.manpowerCap = (msg.manpowerCap as number | undefined) ?? state.manpowerCap;
       state.manpowerRegenPerMinute = (msg.manpowerRegenPerMinute as number | undefined) ?? state.manpowerRegenPerMinute;
@@ -2214,11 +2232,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       if (request && !state.outgoingAllianceRequests.some((existing: any) => existing.id === request.id)) {
         state.outgoingAllianceRequests.push(request);
       }
-      const targetName =
-        (msg.targetName as string | undefined) ??
-        request?.toName ??
-        (request ? playerNameForOwner(request.toPlayerId) : undefined);
-      pushFeed(`Alliance request sent${targetName ? ` to ${targetName}` : ""}`, "alliance", "success");
       renderHud();
       return;
     }
@@ -2236,7 +2249,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         pushFeed(announcement, "alliance", fullyBroken ? "warn" : "info");
         showCaptureAlertSafely(fullyBroken ? "Alliance broken" : "Alliance break notice", announcement, fullyBroken ? "warn" : "info");
       }
-      pushFeed(`Alliances updated (${state.allies.length})`, "alliance", "info");
       renderHud();
       return;
     }

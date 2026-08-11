@@ -42,7 +42,7 @@ describe("renderEventLogPanelHtml", () => {
       [
         { id: "1", type: "TOWN_LOST", text: "Middle event.", occurredAt: 2_000 },
         { id: "2", type: "IMPERIAL_EXCHANGE_LEVY_HIT", text: "Newest event.", occurredAt: 3_000 },
-        { id: "3", type: "MONUMENT_CLAIMED", text: "Oldest event.", occurredAt: 1_000 }
+        { id: "3", type: "MONUMENT_LOST_TO_RIVAL", text: "Oldest event.", occurredAt: 1_000 }
       ],
       3_000
     );
@@ -52,6 +52,20 @@ describe("renderEventLogPanelHtml", () => {
     expect(newestIndex).toBeGreaterThan(-1);
     expect(newestIndex).toBeLessThan(middleIndex);
     expect(middleIndex).toBeLessThan(oldestIndex);
+  });
+
+  it("omits entries whose type has moved to the Activity Feed (e.g. wonder claims)", () => {
+    const html = renderEventLogPanelHtml(
+      [
+        { id: "1", type: "TOWN_LOST", text: "Old Town was captured by Rival.", occurredAt: 1_000 },
+        { id: "2", type: "NATURAL_WONDER_CLAIMED", text: "You claimed the Deepwater Engine.", occurredAt: 2_000 },
+        { id: "3", type: "MONUMENT_CLAIMED", text: "You claimed the Golden Ledger.", occurredAt: 3_000 }
+      ],
+      3_000
+    );
+    expect(html).toContain("Old Town was captured by Rival.");
+    expect(html).not.toContain("Deepwater Engine");
+    expect(html).not.toContain("Golden Ledger");
   });
 
   it("escapes text content to avoid HTML injection from town/player names", () => {
