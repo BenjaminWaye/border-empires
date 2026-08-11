@@ -331,17 +331,25 @@ export const restorePersistedDevelopmentQueueForPlayer = (
       removeSessionStorage(DEVELOPMENT_QUEUE_SESSION_KEY);
       return [];
     }
-    const restoredQueue = parsed.queue
+    const parsedQueue = parsed.queue
       .map(parsePersistedDevelopmentAction)
-      .filter((entry): entry is PersistedDevelopmentAction => Boolean(entry))
-      .filter((entry) => {
-        const tile = tiles.get(entry.tileKey);
-        if (!tile || tile.ownerId !== playerId) return false;
-        if (entry.kind === "SETTLE") {
-          return tile.ownershipState === "FRONTIER" && !pendingSettlementTileKeys.has(entry.tileKey);
-        }
-        return tile.ownershipState === "SETTLED";
-      });
+      .filter((entry): entry is PersistedDevelopmentAction => Boolean(entry));
+    // On a fresh page load this restore runs before the first tile snapshot
+    // arrives, so `tiles` is still empty here — filtering against it would
+    // treat every entry as stale and immediately re-persist an empty queue,
+    // permanently wiping it (the actual bug: queued settles vanishing on
+    // refresh). Trust the persisted entries as-is until real tile data is in
+    // hand; only prune (and only then re-persist the pruned result) once we
+    // have something to validate against.
+    if (tiles.size === 0) return parsedQueue;
+    const restoredQueue = parsedQueue.filter((entry) => {
+      const tile = tiles.get(entry.tileKey);
+      if (!tile || tile.ownerId !== playerId) return false;
+      if (entry.kind === "SETTLE") {
+        return tile.ownershipState === "FRONTIER" && !pendingSettlementTileKeys.has(entry.tileKey);
+      }
+      return tile.ownershipState === "SETTLED";
+    });
     persistDevelopmentQueueForPlayer(playerId, restoredQueue);
     return restoredQueue;
   } catch {
