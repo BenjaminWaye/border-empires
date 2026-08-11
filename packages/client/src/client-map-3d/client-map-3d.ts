@@ -270,7 +270,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     { kind: "TITANIUM_WEAPONS_FACTORY" },
     { kind: "UMBRITE_WEAPONS_FACTORY" },
     { kind: "WORLD_ENGINE_PART_1" }, { kind: "WORLD_ENGINE_PART_2" }, { kind: "WORLD_ENGINE_PART_3" },
-    { kind: "IMPERIAL_EXCHANGE_PART_1" }, { kind: "IMPERIAL_EXCHANGE_PART_2" }, { kind: "IMPERIAL_EXCHANGE_PART_3" }
+    { kind: "IMPERIAL_EXCHANGE_PART_1" }, { kind: "IMPERIAL_EXCHANGE_PART_2" }, { kind: "IMPERIAL_EXCHANGE_PART_3" }, { kind: "POPULATION_BUREAU_PART_1" }, { kind: "POPULATION_BUREAU_PART_2" }, { kind: "POPULATION_BUREAU_PART_3" }
   ];
   const structureDemoEntryFor = (wx: number, wy: number): StructureDemoEntry | undefined => {
     if (!structureDemoEnabled) return undefined;

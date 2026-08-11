@@ -28,6 +28,7 @@ const baseDeps = {
   ws: { readyState: 1, send: () => undefined },
   attackPreviewDetailForTarget: () => undefined,
   attackPreviewPendingForTarget: () => false,
+  attackPreviewManpowerCostForTarget: () => undefined,
   pickOriginForTarget: () => undefined,
   buildDetailTextForAction: () => undefined,
   developmentSlotSummary: () => ({ used: 0, limit: 3, available: 3, busy: 0 }),

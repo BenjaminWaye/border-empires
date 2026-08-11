@@ -1,0 +1,36 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Registry Vault: squat dark-iron strongbox, reinforced corners, brass lid ajar, amber glow in the gap -->
+
+  <!-- Wide stone plinth -->
+  <path d="M18 110L34 100H96L80 110H18Z" fill="#6E6459"/>
+  <path d="M34 100V98H96V100H34Z" fill="#8A8078"/>
+
+  <!-- Dark iron vault body -->
+  <path d="M30 98L40 92H88L78 98H30Z" fill="#2A241E"/>
+  <path d="M40 92V78H78V92H40Z" fill="#1F1B16"/>
+  <path d="M30 98L40 92V78L30 84V98Z" fill="#3E3428"/>
+
+  <!-- Reinforced brass corners -->
+  <path d="M40 92H46V78H40V92Z" fill="#B3833A"/>
+  <path d="M72 92H78V78H72V92Z" fill="#7A5A26"/>
+  <path d="M30 92L40 92H38L30 84Z" fill="#7A5A26"/>
+
+  <!-- Heavy brass hinges on the back edge -->
+  <path d="M46 92H50V84H46V92Z" fill="#7A5A26"/>
+  <path d="M68 92H72V84H68V92Z" fill="#7A5A26"/>
+
+  <!-- Amber glow escaping from the gap beneath the lid -->
+  <path d="M38 78H80L70 74H48L38 78Z" fill="#FFB347"/>
+  <circle cx="59" cy="76" r="3" fill="#FFD98A"/>
+
+  <!-- Thick brass lid, tilted slightly ajar -->
+  <path d="M36 76L44 68H84L76 76H36Z" fill="#C99550"/>
+  <path d="M36 76V80H76V76H36Z" fill="#8A6A3E"/>
+  <path d="M44 68L52 62H84L76 68H44Z" fill="#E2C28A"/>
+
+  <!-- Grey metal lock fitting on the front face -->
+  <path d="M55 86H63V92H55V86Z" fill="#3E4248"/>
+  <circle cx="59" cy="89" r="1.5" fill="#6E7276"/>
+
+</svg>

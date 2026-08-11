@@ -8230,7 +8230,7 @@ describe("aether purge", () => {
     expect(target?.ownershipState).toBeUndefined();
     expect(target?.economicStructureJson).toContain("\"GRANARY\"");
     expect(observatory?.cooldownUntil).toBe(601_000);
-    expect(actor?.points).toBe(2_000);
+    expect(actor?.points).toBe(5_000); // §17: no longer costs gold
     expect(actor?.strategicResources?.CRYSTAL).toBe(500); // §17: no longer costs CRYSTAL
   });
 
