@@ -18,6 +18,12 @@ const DEFAULT_EVENT_ICON = "•";
 
 export const eventLogIconForType = (type: string): string => ICON_BY_EVENT_TYPE[type] ?? DEFAULT_EVENT_ICON;
 
+// Event types that get moved to the Activity Feed instead of appearing here
+// (see appendFeedEntry usage in client-network.ts) — interesting enough to
+// surface immediately in the feed, so they'd be redundant duplicated in this
+// panel too.
+export const EVENT_LOG_TYPES_MOVED_TO_FEED = new Set(["NATURAL_WONDER_CLAIMED", "MONUMENT_CLAIMED"]);
+
 const escapeHtml = (value: string): string =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -37,7 +43,9 @@ export const renderEventLogPanelHtml = (entries: readonly ClientEventLogEntry[],
   // array order (Array.prototype.sort is stable, so same-timestamp entries
   // keep their relative order). A blind .reverse() would silently corrupt
   // the display if the server's append order ever changed.
-  const mostRecentFirst = [...entries].sort((a, b) => b.occurredAt - a.occurredAt);
+  const mostRecentFirst = entries
+    .filter((entry) => !EVENT_LOG_TYPES_MOVED_TO_FEED.has(entry.type))
+    .sort((a, b) => b.occurredAt - a.occurredAt);
   const rows = mostRecentFirst
     .map(
       (entry) => `<li class="event-log-row" data-event-type="${escapeHtml(entry.type)}">

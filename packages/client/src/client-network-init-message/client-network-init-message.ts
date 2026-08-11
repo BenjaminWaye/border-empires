@@ -157,6 +157,9 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.resourceSlots = (player.resourceSlots as typeof state.resourceSlots | undefined) ?? state.resourceSlots;
   state.dormantStructures = (player.dormantStructures as typeof state.dormantStructures | undefined) ?? state.dormantStructures;
   state.eventLog = (player.eventLog as typeof state.eventLog | undefined) ?? state.eventLog;
+  // Seed the "already surfaced in Activity Feed" set so init-time history
+  // isn't treated as new when the first live snapshot arrives.
+  state.eventLogFeedSeenIds = new Set(state.eventLog.map((entry) => entry.id));
   state.economyBreakdown = (player.economyBreakdown as typeof state.economyBreakdown | undefined) ?? state.economyBreakdown;
   state.upkeepPerMinute = (player.upkeepPerMinute as typeof state.upkeepPerMinute | undefined) ?? state.upkeepPerMinute;
   state.upkeepLastTick = (player.upkeepLastTick as typeof state.upkeepLastTick | undefined) ?? state.upkeepLastTick;
