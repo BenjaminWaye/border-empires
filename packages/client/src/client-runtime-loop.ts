@@ -27,6 +27,7 @@ import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-t
 import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
+import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
 import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFallbackSource } from "./client-muster-transit/client-muster-transit.js";
 import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
 import type { ClientState } from "./client-state/client-state.js";
@@ -427,6 +428,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
       if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
 
+      if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
       if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
         const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
         const marker = Math.max(4, Math.floor(size * 0.22));
@@ -454,8 +456,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         }
       }
       if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
-        // 2D-only: 3D renderer paints the observatory mesh (stone drum +
-        // dome + telescope + blue crystal) via structureOverlay.
+        // 2D-only: 3D renderer paints the observatory mesh via structureOverlay.
         const overlay = deps.structureOverlayImages.OBSERVATORY;
         if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
         else {
@@ -499,8 +500,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           (t.economicStructure.type === "UMBRITE_RIG" ||
             STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind));
         if (fortificationKind || handled3DStructure) {
-          // 3D-rendered (fortifications + any economic structure in the
-          // 3D overlay set); do not draw 2D fallbacks.
+          // 3D-rendered (forts + 3D-overlay structures); no 2D fallback.
         } else if (overlay && overlay.complete && overlay.naturalWidth) {
           deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
         } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
@@ -1003,6 +1003,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
 
         if (t && vis === "visible" && t.terrain === "LAND" && t.watchtower && !isTrue3DRendererActive()) drawWatchtower2D(deps.ctx, t, px, py, size, nowMs);
 
+        if (t && vis === "visible" && t.naturalWonder && !isTrue3DRendererActive()) drawNaturalWonderOverlay2D(deps.ctx, naturalWonderOverlayForTile(t), t.ownerId ?? "", px, py, size, deps.structureAccentColor);
         if (t && vis === "visible" && t.ownerId === state.me && t.ownershipState === "SETTLED" && deps.hasCollectableYield(t)) {
           const pulse = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(nowMs / 230));
           const marker = Math.max(4, Math.floor(size * 0.22));
@@ -1031,8 +1032,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.fillRect(px + size - dot - 2, py + size - dot - 2, dot, dot);
         }
         if (t && vis === "visible" && t.observatory && !isTrue3DRendererActive()) {
-          // 2D-only: 3D renderer paints the observatory mesh via
-          // structureOverlay; see client-map-3d-structure-overlay.ts.
+          // 2D-only: 3D renderer paints the observatory mesh via structureOverlay.
           const overlay = deps.structureOverlayImages.OBSERVATORY;
           if (overlay && overlay.complete && overlay.naturalWidth) deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
           else {
@@ -1055,7 +1055,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
             (t.economicStructure.type === "UMBRITE_RIG" ||
               STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind));
           if (handled3DStructure2) {
-            // 3D-rendered structure; skip the 2D fallbacks.
           } else if (overlay && overlay.complete && overlay.naturalWidth) {
             deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
           } else if (t.economicStructure.type === "FARMSTEAD" && !hasBuiltResourceOverlay) {
