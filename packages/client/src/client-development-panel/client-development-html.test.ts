@@ -76,8 +76,8 @@ describe("deriveDevelopmentPanelData", () => {
     ], 3, 3);
 
     expect(data.queue).toEqual([
-      { label: "Settlement at (9, 9)", tileKey: "9,9", position: 1 },
-      { label: "Fort at (3, 3)", tileKey: "3,3", position: 2 }
+      { label: "Settlement at (9, 9)", tileKey: "9,9", position: 1, x: 9, y: 9 },
+      { label: "Fort at (3, 3)", tileKey: "3,3", position: 2, x: 3, y: 3 }
     ]);
   });
 });
@@ -109,10 +109,36 @@ describe("renderDevelopmentPanelHtml", () => {
       busy: 3,
       limit: 3,
       activeSlots: [],
-      queue: [{ label: "Fort at (3, 3)", tileKey: "3,3", position: 1 }]
+      queue: [{ label: "Fort at (3, 3)", tileKey: "3,3", position: 1, x: 3, y: 3 }]
     });
 
     expect(html).toContain("#1 Fort at (3, 3)");
     expect(html).toContain("Waiting");
+  });
+
+  it("renders a Jump to tile button with the tile's coordinates for each active slot", () => {
+    const html = renderDevelopmentPanelHtml({
+      busy: 1,
+      limit: 3,
+      activeSlots: [{ tileKey: "5,5", x: 5, y: 5, label: "Settlement", remainingMs: 30_000, totalMs: 60_000 }],
+      queue: []
+    });
+
+    expect(html).toContain('data-feed-focus-x="5"');
+    expect(html).toContain('data-feed-focus-y="5"');
+    expect(html).toContain("Jump to tile");
+  });
+
+  it("renders a Jump to tile button with the tile's coordinates for each queued item", () => {
+    const html = renderDevelopmentPanelHtml({
+      busy: 3,
+      limit: 3,
+      activeSlots: [],
+      queue: [{ label: "Fort at (3, 3)", tileKey: "3,3", position: 1, x: 3, y: 3 }]
+    });
+
+    expect(html).toContain('data-feed-focus-x="3"');
+    expect(html).toContain('data-feed-focus-y="3"');
+    expect(html).toContain("Jump to tile");
   });
 });
