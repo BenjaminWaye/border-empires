@@ -2126,7 +2126,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const previewDetail = deps.attackPreviewDetailForTarget(tile);
     const previewPending = deps.attackPreviewPendingForTarget(tile);
     const previewManpowerCost = deps.attackPreviewManpowerCostForTarget(tile);
-    const barbOrigin = deps.pickOriginForTarget(tile.x, tile.y, true);
+    const barbOrigin = deps.pickOriginForTarget(tile.x, tile.y, false);
     const reachable = Boolean(barbOrigin);
     const actions: TileActionDef[] = [
       {
@@ -2141,7 +2141,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     actions.push(createMountainAction());
     return actions;
   }
-  const originForDock = deps.pickOriginForTarget(tile.x, tile.y, true);
+  const originForDock = deps.pickOriginForTarget(tile.x, tile.y, false);
   const reachable = Boolean(originForDock);
   const targetShielded = Boolean(tile.ownerId && tile.ownerId !== state.me && deps.ownerSpawnShieldActive(tile.ownerId));
   const targetShieldedReason = "Empire is under spawn protection";

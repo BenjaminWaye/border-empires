@@ -358,7 +358,7 @@ import {
   type RuntimePassiveIncomeContext
 } from "../runtime-passive-income.js";
 import { tickTerritoryAutomation as tickTerritoryAutomationImpl } from "../runtime-territory-automation-tick/runtime-territory-automation-tick.js";
-import { tickMuster as tickMusterImpl } from "../runtime-muster-tick/runtime-muster-tick.js";
+import { createMusterTickRunner } from "../runtime-muster-tick/runtime-muster-tick.js";
 import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-muster-tick.js";
 import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
 import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
@@ -564,6 +564,14 @@ export class SimulationRuntime {
   // Tracks which muster tile each connected player is viewing (playerId → tileKey).
   // Used to drive a 1-second targeted tick so the tile panel updates in real time.
   private readonly watchedMusterTileByPlayer = new Map<string, string>();
+  // Orchestrates tickMuster/tickWatchedMusterTiles (incl. watched-tile
+  // filtering) — lives in runtime-muster-tick.ts so that logic and its
+  // context wiring stay together rather than inline on this class.
+  private readonly musterTicker = createMusterTickRunner(
+    (musterTilesByOwner) => this.musterTickContext(musterTilesByOwner),
+    () => this.musterTilesByOwner,
+    () => this.watchedMusterTileByPlayer
+  );
   private readonly onMusterRemoteAttack: (() => void) | undefined;
   private readonly onMusterRemoteBlocked: (() => void) | undefined;
   private readonly onMusterRemoteBlockedBarbarian: (() => void) | undefined;
@@ -1402,7 +1410,7 @@ export class SimulationRuntime {
     });
   }
 
-  private musterTickContext(musterTilesByOwner = this.musterTilesByOwner) {
+  private musterTickContext(musterTilesByOwner: ReadonlyMap<string, Set<string>> = this.musterTilesByOwner) {
     return {
       players: this.players,
       tiles: this.tiles,
@@ -1423,28 +1431,18 @@ export class SimulationRuntime {
       handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => this.handleFrontierCommand(command, actionType),
       locksByTile: this.locksByTile,
       advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey,
       isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") =>
         this.isStructureDormant(playerId, tileKey, field)
     };
   }
 
   tickMuster(nowMs: number = this.now()): void {
-    tickMusterImpl({ nowMs, ...this.musterTickContext() });
+    this.musterTicker.tickMuster(nowMs);
   }
 
   tickWatchedMusterTiles(nowMs: number = this.now()): void {
-    if (this.watchedMusterTileByPlayer.size === 0) return;
-    // Build a filtered view of musterTilesByOwner containing only watched players.
-    // Passing all of each player's muster tiles preserves the throughput-split
-    // calculation (activeMusterCount) across their flags.
-    const filteredMusterTiles = new Map<string, Set<string>>();
-    for (const [playerId, tileKey] of this.watchedMusterTileByPlayer) {
-      const playerTiles = this.musterTilesByOwner.get(playerId);
-      if (!playerTiles?.has(tileKey)) continue;
-      filteredMusterTiles.set(playerId, playerTiles);
-    }
-    if (filteredMusterTiles.size === 0) return;
-    tickMusterImpl({ nowMs, ...this.musterTickContext(filteredMusterTiles) });
+    this.musterTicker.tickWatchedMusterTiles(nowMs);
   }
 
   emitShardRainHelloFor(playerId: string, nowMs: number = this.now()): void {
@@ -1524,9 +1522,9 @@ export class SimulationRuntime {
       onMusterRemoteBlockedBarbarian: this.onMusterRemoteBlockedBarbarian,
       scheduleLockResolution: (lock) => this.scheduleLockResolution(lock),
       adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
-      findOwnedDockOriginForCrossing: (playerId, x, y, allowAdjacent) => this.findOwnedDockOriginForCrossing(playerId, x, y, allowAdjacent),
+      findOwnedDockOriginForCrossing: (playerId, x, y) => this.findOwnedDockOriginForCrossing(playerId, x, y),
       findOwnedAetherBridgeOriginForCrossing: (playerId, x, y) => this.findOwnedAetherBridgeOriginForCrossing(playerId, x, y),
-      isDockCrossingTarget: (from, x, y, allowAdjacent) => this.isDockCrossingTarget(from, x, y, allowAdjacent),
+      isDockCrossingTarget: (from, x, y) => this.isDockCrossingTarget(from, x, y),
       isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
       isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
@@ -4406,7 +4404,7 @@ export class SimulationRuntime {
 
   private extendFortPatrolGrace(tileKey: string, graceUntil: number): void { this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil)); }
 
-  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number, allowAdjacent: boolean): boolean { return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey, allowAdjacent); }
+  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean { return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey); }
 
   private isAetherBridgeCrossingTarget(
     playerId: string,
@@ -4428,11 +4426,11 @@ export class SimulationRuntime {
     return false;
   }
 
-  private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number, allowAdjacent: boolean): DomainTileState | undefined {
+  private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
     for (const tileKey of this.summaryForPlayer(playerId).territoryTileKeys) {
       const tile = this.tiles.get(tileKey);
       if (!tile || tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
-      if (this.isDockCrossingTarget(tile, toX, toY, allowAdjacent)) return tile;
+      if (this.isDockCrossingTarget(tile, toX, toY)) return tile;
     }
     return undefined;
   }

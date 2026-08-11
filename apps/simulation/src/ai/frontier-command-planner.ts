@@ -224,12 +224,8 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
         continue;
       }
 
-      // A dock crossing only lands you on the linked dock tile itself when
-      // settling — you must capture that dock before claiming land beyond
-      // it. dockCrossingCandidateTileKeys() also includes the linked dock's
-      // frontier neighbors (needed so ATTACK can reach enemy land past an
-      // owned-but-hostile dock), so exclude those from EXPAND candidates
-      // unless they're also plain frontier-adjacent to `from`.
+      // A dock crossing only lands you on the linked dock tile itself — you
+      // must capture that dock before claiming or attacking land beyond it.
       if (
         !isFrontierAdjacent(from.x, from.y, target.x, target.y) &&
         !(from.dockId && dockLinksByDockTileKey?.get(tileKeyOf(from.x, from.y))?.includes(targetKey))

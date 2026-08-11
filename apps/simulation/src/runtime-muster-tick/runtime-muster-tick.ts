@@ -43,10 +43,52 @@ export type MusterTickInput = {
   locksByTile: ReadonlyMap<string, unknown>;
   // Per-flag cooldown state (mutated in place, lives on the Runtime instance).
   advanceCooldowns: MusterAdvanceCooldowns;
+  // Dock crossings (owned dock tile -> linked dock tile keys) so ADVANCE's BFS
+  // can reach across water the same way manual ATTACK/EXPAND commands do.
+  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   // §5.4: a dormant Siege/Relay Beacon doesn't grant the muster
   // depot-speed/Rail-Depot-boost bonus.
   isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => boolean;
 };
+
+export type MusterTickContext = Omit<MusterTickInput, "nowMs" | "musterTilesByOwner">;
+
+/**
+ * Builds the two tick entry points Runtime calls (`tickMuster` every server
+ * tick, `tickWatchedMusterTiles` on demand for actively-viewed flags) so the
+ * orchestration — and the watched-tile filtering — lives next to the muster
+ * logic itself instead of inline on the Runtime class.
+ *
+ * `buildContext` and the tile-map getters are passed in as closures (rather
+ * than a plain snapshot) because several fields (e.g. rail depot positions)
+ * must be recomputed fresh from current Runtime state on every call.
+ */
+export const createMusterTickRunner = (
+  buildContext: (musterTilesByOwner: ReadonlyMap<string, Set<string>>) => MusterTickContext,
+  getMusterTilesByOwner: () => ReadonlyMap<string, Set<string>>,
+  getWatchedMusterTileByPlayer: () => ReadonlyMap<string, string>
+): { tickMuster: (nowMs: number) => void; tickWatchedMusterTiles: (nowMs: number) => void } => ({
+  tickMuster: (nowMs: number): void => {
+    const musterTilesByOwner = getMusterTilesByOwner();
+    tickMuster({ nowMs, musterTilesByOwner, ...buildContext(musterTilesByOwner) });
+  },
+  tickWatchedMusterTiles: (nowMs: number): void => {
+    const watched = getWatchedMusterTileByPlayer();
+    if (watched.size === 0) return;
+    // Build a filtered view of musterTilesByOwner containing only watched players.
+    // Passing all of each player's muster tiles preserves the throughput-split
+    // calculation (activeMusterCount) across their flags.
+    const allMusterTilesByOwner = getMusterTilesByOwner();
+    const filteredMusterTiles = new Map<string, Set<string>>();
+    for (const [playerId, tileKey] of watched) {
+      const playerTiles = allMusterTilesByOwner.get(playerId);
+      if (!playerTiles?.has(tileKey)) continue;
+      filteredMusterTiles.set(playerId, playerTiles);
+    }
+    if (filteredMusterTiles.size === 0) return;
+    tickMuster({ nowMs, musterTilesByOwner: filteredMusterTiles, ...buildContext(filteredMusterTiles) });
+  }
+});
 
 /**
  * Accumulation tick for the mustering system. The player's manpower regen rate
@@ -230,7 +272,16 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
     const current = queue[head++]!;
     const currentKey = simulationTileKey(current.x, current.y);
 
-    for (const { x, y } of coordsInChebyshevRadius(current.x, current.y, 1)) {
+    const dockLinkedKeys = input.dockLinksByDockTileKey.get(currentKey) ?? [];
+    const neighborCoords = [
+      ...coordsInChebyshevRadius(current.x, current.y, 1),
+      ...dockLinkedKeys.map((key) => {
+        const [nx, ny] = key.split(",").map(Number);
+        return { x: nx!, y: ny! };
+      })
+    ];
+
+    for (const { x, y } of neighborCoords) {
       const neighbor = getTile(x, y);
       if (!neighbor || neighbor.terrain !== "LAND") continue;
       const nKey = simulationTileKey(x, y);
