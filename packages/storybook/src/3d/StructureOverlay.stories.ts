@@ -23,6 +23,7 @@ const KINDS: ReadonlyArray<StructureKind> = [
   "UMBRITE_SYNTHESIZER", "ADVANCED_UMBRITE_SYNTHESIZER",
   "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER",
   "ASTRAL_DOCK",
+  "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
   "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
   "POPULATION_BUREAU", "TITANIUM_LEVY",
   "ANCILLARY_FACTORY", "INCUBATION_ENGINE", "AMBARIC_TOWER",
@@ -108,6 +109,9 @@ export const AdvancedUmbriteSynthesizer: Story = { args: { structures: ["ADVANCE
 export const CrystalSynthesizer: Story = { args: { structures: ["CRYSTAL_SYNTHESIZER"], cameraDistance: 3.5 } };
 export const AdvancedCrystalSynthesizer: Story = { args: { structures: ["ADVANCED_CRYSTAL_SYNTHESIZER"], cameraDistance: 4 } };
 export const AstralDock: Story = { args: { structures: ["ASTRAL_DOCK"], cameraDistance: 4 } };
+export const AstralDockPartCradle: Story = { args: { structures: ["ASTRAL_DOCK_PART_1"], cameraDistance: 3 } };
+export const AstralDockPartArray: Story = { args: { structures: ["ASTRAL_DOCK_PART_2"], cameraDistance: 3 } };
+export const AstralDockPartSail: Story = { args: { structures: ["ASTRAL_DOCK_PART_3"], cameraDistance: 3 } };
 export const QuartermastersOffice: Story = { args: { structures: ["QUARTERMASTERS_OFFICE"], cameraDistance: 3 } };
 export const LogisticsGuild: Story = { args: { structures: ["LOGISTICS_GUILD"], cameraDistance: 3.5 } };
 export const AssemblyWorks: Story = { args: { structures: ["ASSEMBLY_WORKS"], cameraDistance: 3.5 } };
@@ -137,3 +141,4 @@ export const ImperialExchangePartLedger: Story = { args: { structures: ["IMPERIA
 export const ImperialExchangePartEngine: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_2"], cameraDistance: 3 } };
 export const ImperialExchangePartSeal: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_3"], cameraDistance: 3 } };
 export const ImperialExchangePartsBatch: Story = { args: { structures: ["IMPERIAL_EXCHANGE_PART_1", "IMPERIAL_EXCHANGE_PART_2", "IMPERIAL_EXCHANGE_PART_3"], cameraDistance: 7, spacing: 1.6 } };
+export const AstralDockPartsBatch: Story = { args: { structures: ["ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3"], cameraDistance: 7, spacing: 1.6 } };
