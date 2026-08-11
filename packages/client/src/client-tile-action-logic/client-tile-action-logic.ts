@@ -33,6 +33,7 @@ import {
   type SlotStructureType,
   type StructureSlotRequirement
 } from "@border-empires/shared";
+import { marketGoldProductionMultiplier } from "@border-empires/game-domain";
 import { converterStructureMenuEntries } from "../client-converter-menu.js";
 import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, frontierClaimCostLabelForTile, isForestTile } from "../client-constants.js";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
@@ -1781,7 +1782,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : !state.techIds.includes("trade")
                 ? "Requires Merchant Charters"
                 : missingResourceSlotReason(state, "MARKET") ?? "Unavailable",
-            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +50% town gold production • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap`
+            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +${Math.round((marketGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive)) - 1) * 100)}% town gold production (stacks) • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap`
           ),
           slots,
           deps

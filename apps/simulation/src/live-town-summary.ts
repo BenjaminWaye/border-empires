@@ -1,9 +1,10 @@
 import {
   LONG_PEACE_GROWTH_MULT,
   LONG_PEACE_MS,
+  marketGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
-  SEED_GRANARY_GROWTH_MULT,
+  granaryGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN
@@ -91,6 +92,50 @@ export const hasSupportedStructure = (
   return false;
 };
 
+/**
+ * Counting sibling of hasSupportedStructure above (same wire-shaped
+ * RuntimeState tiles, same support-ring adjacency loop) for structures whose
+ * bonus stacks per active instance rather than gating on "any one exists" —
+ * market-stacking task: Market's town gold production bonus is additive per
+ * active Market in the support ring. Unlike economy-network.ts's
+ * countSupportedStructures, this deliberately mirrors THIS file's existing
+ * hasSupportedStructure loop exactly (support-ring only, no on-tile check) —
+ * that's the pre-existing shape every hasMarket call site in this file
+ * already used, so this keeps the reconnect-path counting logic consistent
+ * with itself rather than importing the domain-tile variant's dual-check
+ * semantics.
+ */
+export const countSupportedStructures = (
+  tileKey: string,
+  ownerId: string,
+  structureType: string,
+  tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>,
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+): number => {
+  const [rawX, rawY] = tileKey.split(",");
+  const x = Number(rawX);
+  const y = Number(rawY);
+  if (!Number.isInteger(x) || !Number.isInteger(y)) return 0;
+  let count = 0;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const tile = tilesByKey.get(keyFor(x + dx, y + dy));
+      if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
+      if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
+      const structure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+      if (
+        structure?.status === "active" &&
+        structure.type === structureType &&
+        !dormantEconomicStructureKeys.has(keyFor(tile.x, tile.y))
+      ) {
+        count += 1;
+      }
+    }
+  }
+  return count;
+};
+
 const clearingHouseSourceTownNames = (
   tileKey: string,
   ownerId: string,
@@ -164,7 +209,8 @@ export const buildTownSummary = (
     : { supportCurrent: 0, supportMax: 0 };
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   const isFed = tile.ownerId ? fedTownKeys.has(tileKey) : false;
-  const hasMarket = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "MARKET", tilesByKey, dormantEconomicStructureKeys));
+  const marketCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "MARKET", tilesByKey, dormantEconomicStructureKeys) : 0;
+  const hasMarket = marketCount > 0;
   const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "GRANARY", tilesByKey, dormantEconomicStructureKeys));
   const hasSeedGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "SEED_GRANARY", tilesByKey, dormantEconomicStructureKeys));
   const hasAnyGranary = hasGranary || hasSeedGranary;
@@ -187,7 +233,7 @@ export const buildTownSummary = (
   // multiplier — the old flat +15% ongoing bonus was a leftover from before
   // the redesign and has been removed. Seed Granary's own buffed-radius
   // multiplier is a separate, still-live mechanic.
-  const granaryGrowthMult = hasAnyGranary && seedGranaryBuffed ? SEED_GRANARY_GROWTH_MULT : 1;
+  const granaryGrowthMult = granaryGrowthMultiplier(hasAnyGranary, seedGranaryBuffed);
   const clearingHouseTownNames = tile.ownerId ? clearingHouseSourceTownNames(tileKey, tile.ownerId, tilesByKey, townNetwork, dormantEconomicStructureKeys) : [], clearingHouseActive = clearingHouseTownNames.length > 0;
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);
@@ -212,7 +258,7 @@ export const buildTownSummary = (
               supportRatio *
               townPopulationMultiplier(populationTier) *
               (1 + (townPartial.connectedTownBonus ?? 0)) *
-              (hasMarket ? (clearingHouseActive ? 1.75 : 1.5) : 1) *
+              marketGoldProductionMultiplier(marketCount, clearingHouseActive) *
               firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
@@ -255,7 +301,7 @@ export const buildTownSummary = (
         : [];
   const cap = isSettlement
     ? goldPerMinute * 60 * 8
-    : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
+    : goldPerMinute * 60 * 8 * marketGoldProductionMultiplier(marketCount, clearingHouseActive);
   const nextPopulationTierUpgrade = tile.ownerId && tile.ownershipState === "SETTLED"
     ? nextTownGrowthUpgrade(populationTier, population)
     : undefined;
@@ -277,6 +323,7 @@ export const buildTownSummary = (
     ...(Array.isArray(townPartial.connectedTownNames) ? { connectedTownNames: townPartial.connectedTownNames } : {}),
     hasMarket,
     marketActive: hasMarket && isFed,
+    marketCount,
     hasGranary,
     granaryActive: hasGranary,
     ...(hasSeedGranary ? { hasSeedGranary: true, seedGranaryActive: true } : {}),

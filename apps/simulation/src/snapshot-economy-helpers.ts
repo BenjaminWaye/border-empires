@@ -8,6 +8,7 @@ import {
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   POPULATION_MAX,
   townFoodUpkeepPerMinute,
+  townPopulationMultiplier,
   UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import type { Tile } from "@border-empires/shared";
@@ -85,6 +86,7 @@ export const isCompleteTownSummary = (town: Partial<NonNullable<Tile["town"]>> |
       isFiniteNumber(town.connectedTownBonus) &&
       typeof town.hasMarket === "boolean" &&
       typeof town.marketActive === "boolean" &&
+      isFiniteNumber(town.marketCount) &&
       typeof town.hasGranary === "boolean" &&
       typeof town.granaryActive === "boolean"
   );
@@ -126,13 +128,7 @@ export const sortedBuckets = (buckets: Map<string, EconomyBucket>): EconomyBucke
     .map((bucket) => ({ ...bucket, amountPerMinute: Number(bucket.amountPerMinute.toFixed(4)) }))
     .sort((left, right) => right.amountPerMinute - left.amountPerMinute || left.label.localeCompare(right.label));
 
-export const townPopulationMultiplier = (populationTier: string | undefined): number => {
-  if (populationTier === "SETTLEMENT" || !populationTier) return 0.6;
-  if (populationTier === "CITY") return 1.5;
-  if (populationTier === "GREAT_CITY") return 2.5;
-  if (populationTier === "METROPOLIS") return 3.2;
-  return 1;
-};
+export { townPopulationMultiplier };
 
 // FOOD joined TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced (§5.4) — there's
 // only one food mechanic now (slot dormancy). FARM/FISH still grant FOOD

@@ -21,6 +21,11 @@ import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { lockSourceFromSessionId } from "./runtime-types.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtime-types.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
+import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+
+// Floor so a stacked attackResolveSpeedReduceMs effect (e.g. Steam Vanguard)
+// can never make an ATTACK resolve instantly or negatively.
+const MIN_ATTACK_RESOLVE_MS = 5_000;
 
 export type MusterSourceResult = { sourceKey: string; available: number };
 
@@ -181,6 +186,15 @@ export const handleFrontierCommandImpl = (
 
   const resolvedOriginKey = simulationTileKey(validation.origin.x, validation.origin.y);
   const effectiveMusterSourceKey = musterSource?.sourceKey ?? resolvedOriginKey;
+  // Steam Vanguard's attackResolveSpeedReduceMs shaves time off an ATTACK's
+  // resolution lock (30s base, per COMBAT_LOCK_MS) — floored so it can never
+  // resolve instantly. Does not apply to EXPAND's claim timer.
+  const resolvesAt = actionType === "ATTACK"
+    ? Math.max(
+        ctx.now() + MIN_ATTACK_RESOLVE_MS,
+        validation.resolvesAt - additiveEffectForPlayer(actor, "attackResolveSpeedReduceMs")
+      )
+    : validation.resolvesAt;
   const baseLock: LockRecord = {
     commandId: command.commandId,
     playerId: command.playerId,
@@ -192,7 +206,7 @@ export const handleFrontierCommandImpl = (
     targetY: validation.target.y,
     originKey: resolvedOriginKey,
     targetKey: simulationTileKey(validation.target.x, validation.target.y),
-    resolvesAt: validation.resolvesAt,
+    resolvesAt,
     source: lockSourceFromSessionId(command.sessionId),
     ...(actionType === "ATTACK" && actor.id !== "barbarian-1" ? { musterSourceKey: effectiveMusterSourceKey } : {})
   };
@@ -229,7 +243,7 @@ export const handleFrontierCommandImpl = (
     originY: validation.origin.y,
     targetX: validation.target.x,
     targetY: validation.target.y,
-    resolvesAt: validation.resolvesAt,
+    resolvesAt,
     ...(combatResolution ? { combatResult: combatResolution.result } : {})
   });
   const defenderOwnerId = combatResolution?.result.defenderOwnerId;
@@ -251,7 +265,7 @@ export const handleFrontierCommandImpl = (
         y: validation.target.y,
         fromX: validation.origin.x,
         fromY: validation.origin.y,
-        resolvesAt: validation.resolvesAt
+        resolvesAt
       })
     });
   }

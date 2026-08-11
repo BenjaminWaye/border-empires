@@ -26,12 +26,15 @@ import {
   TITANIUM_WORKS_TITANIUM_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   MARKET_FOOD_UPKEEP,
+  marketGoldProductionMultiplier,
   MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
   RADAR_SYSTEM_GOLD_UPKEEP,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   STRUCTURE_OUTPUT_MULT,
   TOWN_BASE_GOLD_PER_MIN,
+  townFoodUpkeepPerMinute as sharedTownFoodUpkeepPerMinute,
+  townPopulationMultiplier as sharedTownPopulationMultiplier,
   UPKEEP_MINUTES_PER_DAY,
   type SnapshotEconomySection,
   type SnapshotPlayersSection,
@@ -140,23 +143,17 @@ const townPopulationTier = (town: TownDefinition): "SETTLEMENT" | "TOWN" | "CITY
   return "SETTLEMENT";
 };
 
-const townPopulationMultiplier = (town: TownDefinition): number => {
-  const tier = townPopulationTier(town);
-  if (tier === "SETTLEMENT") return 0.6;
-  if (tier === "CITY") return 1.5;
-  if (tier === "GREAT_CITY") return 2.5;
-  if (tier === "METROPOLIS") return 3.2;
-  return 1;
-};
+// townPopulationMultiplier/townFoodUpkeepPerMinute delegate to the shared
+// game-domain functions — see the doc comments there for why the
+// SETTLEMENT case (0.6 here previously) was confirmed-dead code, and why
+// food upkeep is always 0 now (§5.3/§5.4 FOOD-as-slots rewrite). This file
+// used to keep its own independently-hardcoded copies of both tables.
+const townPopulationMultiplier = (town: TownDefinition): number =>
+  sharedTownPopulationMultiplier(townPopulationTier(town));
 
-const townFoodUpkeepPerMinute = (town: TownDefinition): number => {
-  const tier = townPopulationTier(town);
-  if (tier === "SETTLEMENT") return 0;
-  if (tier === "CITY") return 0.2;
-  if (tier === "GREAT_CITY") return 0.4;
-  if (tier === "METROPOLIS") return 0.8;
-  return 0.1;
-};
+const townFoodUpkeepPerMinute = (town: TownDefinition): number =>
+  sharedTownFoodUpkeepPerMinute(townPopulationTier(town));
+
 
 const resourceSourceLabel = (resource: string | undefined): string | undefined => {
   if (resource === "FARM") return "Grain";
@@ -346,6 +343,38 @@ const supportedStructureAtTown = (
   return false;
 };
 
+// market-stacking task: counting sibling of supportedStructureAtTown above,
+// same support-ring loop, for Market's now-additive-per-instance gold bonus
+// (marketGoldProductionMultiplier). Boolean uniqueness/gate checks elsewhere
+// in this file keep using supportedStructureAtTown unchanged.
+const countedStructuresAtTown = (
+  townTileKey: string,
+  ownerId: string,
+  structureType: string,
+  ownershipByTile: Map<string, string>,
+  ownershipStateByTile: Map<string, string>,
+  structuresByTile: Map<string, { ownerId: string; type: string; status: string }>,
+  world: { width: number; height: number }
+): number => {
+  const coords = parseTileKey(townTileKey);
+  if (!coords) return 0;
+  let count = 0;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const x = wrap(coords.x + dx, world.width);
+      const y = wrap(coords.y + dy, world.height);
+      if (terrainAt(x, y) !== "LAND") continue;
+      const tileKey = `${x},${y}`;
+      if (ownershipByTile.get(tileKey) !== ownerId || ownershipStateByTile.get(tileKey) !== "SETTLED") continue;
+      const structure = structuresByTile.get(tileKey);
+      if (!structure || structure.ownerId !== ownerId || structure.status !== "active") continue;
+      if (structure.type === structureType) count += 1;
+    }
+  }
+  return count;
+};
+
 const supportedStructureAtDock = (
   dockTileKey: string,
   ownerId: string,
@@ -505,8 +534,14 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
       const { supportCurrent, supportMax } = supportRatioForTown(town.tileKey, playerId, ownershipByTile, ownershipStateByTile, args.world);
       const supportRatio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
       if (!fedTownKeys.has(town.tileKey)) continue;
-      const hasMarket = supportedStructureAtTown(town.tileKey, playerId, "MARKET", ownershipByTile, ownershipStateByTile, structuresByTile, args.world);
-      const marketMult = hasMarket ? 1.5 : 1;
+      const marketCount = countedStructuresAtTown(town.tileKey, playerId, "MARKET", ownershipByTile, ownershipStateByTile, structuresByTile, args.world);
+      const hasMarket = marketCount > 0;
+      // No town-level Clearing House signal exists on this legacy path
+      // (pre-existing gap — Clearing House was never wired into this formula
+      // even before market-stacking). Detected here the same way Market
+      // itself is, via the local support-ring scan.
+      const clearingHouseActive = supportedStructureAtTown(town.tileKey, playerId, "CLEARING_HOUSE", ownershipByTile, ownershipStateByTile, structuresByTile, args.world);
+      const marketMult = marketGoldProductionMultiplier(marketCount, clearingHouseActive);
       const currentTownIncome =
         TOWN_BASE_GOLD_PER_MIN *
         supportRatio *

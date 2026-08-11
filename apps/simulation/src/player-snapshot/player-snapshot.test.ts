@@ -738,7 +738,16 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         foodUpkeepPerMinute: 0
       })
     );
-    expect(town?.goldPerMinute).toBeCloseTo(1.5207, 4);
+    // market-stacking task: isCompleteTownSummary now also requires
+    // marketCount (snapshot-economy-helpers.ts), which this fixture's
+    // hand-authored townJson blob doesn't carry — that now correctly forces
+    // a live recompute instead of short-circuiting on the canned "complete"
+    // JSON, which in turn recomputes connectedTownCount/connectedTownBonus
+    // from the real (single-town, no network) tile set instead of trusting
+    // the fixture's inconsistent stored values. The new figure reflects 1
+    // active Market with an active Clearing House (marketGoldProductionMultiplier(1, true) = 1.35),
+    // no connected-town bonus (only one town in this fixture).
+    expect(town?.goldPerMinute).toBeCloseTo(0.0094, 4);
     expect(snapshot.player).toEqual(
       expect.objectContaining({
         economyBreakdown: expect.objectContaining({
@@ -885,6 +894,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             connectedTownBonus: 0,
             hasMarket: false,
             marketActive: false,
+            marketCount: 0,
             hasGranary: false,
             granaryActive: false,
             foodUpkeepPerMinute: 0.1

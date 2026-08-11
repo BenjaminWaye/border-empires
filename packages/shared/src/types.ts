@@ -263,6 +263,14 @@ export interface Tile {
     manpowerCap?: number;
     hasMarket: boolean;
     marketActive: boolean;
+    // market-stacking task: real count of active Markets in this town's
+    // support ring, feeding marketGoldProductionMultiplier() — hasMarket/
+    // marketActive stay as-is for existing boolean consumers. Optional (not
+    // required) so the large number of existing test-fixture town objects
+    // across the monorepo don't all need updating under
+    // exactOptionalPropertyTypes; every real read site treats a missing
+    // value as 0 via `?? 0`.
+    marketCount?: number;
     hasGranary: boolean;
     granaryActive: boolean;
     hasSeedGranary?: boolean;

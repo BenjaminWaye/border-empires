@@ -22,6 +22,31 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786441940000, // 2026.08.11.2
+    introducedIn: "2026.08.11.2",
+    title: "Tier 2-5 domain rework",
+    why: "Several domains gave a bonus that wasn't actually wired into gameplay (Stone Curtain's fort-area defense, Merchant Houses' market/granary bonuses, Hidden Hand's ability cooldown) while others duplicated an earlier tier's identity almost exactly. Every domain from tier 2 up now grants a real, distinct effect.",
+    changes: [
+      "Frontier Doctrine now unlocks off Supply Directorate (tier-1 manpower) instead of the unrelated tier-2 Kiln Craft.",
+      "Stone Curtain is now Garrison Doctrine: forts you control fight with +50% defense (was a defense bonus that never applied in combat).",
+      "Titanium Vanguard is now Steam Vanguard: attacks resolve 5s faster and you can hold one more muster flag.",
+      "Merchant Houses now pays more the bigger your connected dock network gets, plus a first-three-towns gold bonus, instead of two bonuses that never applied and a flat dock-cap boost.",
+      "Reworked Provincial Governors, War Foundries, Supply State, and Provincial Nurseries (tier 3) to stop overlapping each other and grant bonuses that actually apply in combat/economy.",
+      "Reworked Imperial Roads, Signal Bastions (formerly Fortress Realm), Siege State, Treasury State, and Hidden Hand (tier 4) — Treasury State now waives food for your first three towns, Hidden Hand halves observatory ability cooldowns.",
+      "Reworked all five tier-5 capstone domains (Imperial Expansion, Titanium Dominion, Enduring Realm, Golden Hegemony, Oracle State) to be clearly stronger, distinct versions of earlier-tier identities."
+    ]
+  },
+  {
+    createdAt: 1786423606364, // 2026.08.11.1
+    introducedIn: "2026.08.11.1",
+    title: "Granary build/modifier text no longer promises a stale ongoing growth bonus",
+    why: "A plain Granary (Incubation Engine) only grants an instant one-time population burst on completion — the old ongoing +15% growth bonus was removed server-side, but the build-menu hint and the town-tile overview modifier line still advertised it, so the client was quietly promising a bonus the town was no longer getting.",
+    changes: [
+      "The Granary build option now describes its real effect: an instant +10,000 population burst on completion.",
+      "The town-tile overview no longer shows a \"+15% population growth\" line for a plain Granary — only an active Seed Granary (or a Granary inside its buffed radius) still shows an ongoing growth bonus."
+    ]
+  },
+  {
     createdAt: 1786413600000, // 2026.08.10.3
     introducedIn: "2026.08.10.3",
     title: "New 3D Umbrite Extraction Rig",
@@ -162,6 +187,19 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // natural-wonder-3d-fidelity entries, and the dirt-road entry pruned:
   // aged out of the 6-day window (the fix-dev-slot-busy-queue-sync entry
   // moved the window anchor forward during this merge).
+  // manpower-branch-map-overlays entry pruned: aged out of the 6-day window
+  // (the domain-tier-rework entry moved the window anchor forward).
+  {
+    createdAt: 1786003565156, // 2026-08-06
+    introducedIn: "next",
+    title: "Fixed: changes made to the world while you were offline could stay missing after you logged back in",
+    why: "The server keeps a cached copy of each player's world snapshot to make logging back in fast, but it only kept that copy up to date while you were connected. Anything that changed while you were offline never reached it, and logging in served the cached copy as-is with no catch-up — so those tiles stayed wrong on your map indefinitely, because nothing later would necessarily touch them again. The most visible case was an outpost built while you were disconnected: the tiles its vision should have revealed stayed dark forever.",
+    changes: [
+      "Logging in now rebuilds your world snapshot whenever the world changed while you were away, instead of serving a stale cached copy.",
+      "Fixes outpost vision discs that never revealed their tiles after a reconnect, and the same staleness for territory ownership, towns and structures that changed while you were offline.",
+      "Fast reconnects where nothing has changed still use the cached snapshot, so logging back in is no slower than before."
+    ]
+  },
   {
     createdAt: 1786035996000, // 2026-08-06
     introducedIn: "next",
@@ -472,6 +510,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Added a low-poly 3D Umbrite Weapons Factory: a dark-iron riveted hall with an overhanging roof and angled buttresses, twin brass-banded smokestacks, and a tall central Umbrite reactor whose ember inspection window shows the violet-black core inside.",
       "Chunky industrial pipes with coupling joints run from the reactor to a mechanical forging press and a production platform carrying standing artillery shells, plus missile-like ordnance waiting at the hall front.",
       "A brass-banded storage tank, vertical magazines and ammunition crates flank the production line, with raw Umbrite lumps and ember bits at the reactor's foot reusing the deposit palette."
+    ]
+  },
+  {
+    createdAt: 1786396516000, // 2026-08-10 — frozen from a live Date.now() call left in astral-dock-part-models
+    introducedIn: "astral-dock-part-models",
+    title: "Astral Dock components now render as distinct 3D models with their own map icons",
+    why: "The Astral Dock's 3 unique components — the Launch Cradle, Orbital Array, and Aether Sail — previously had no dedicated art, so on the map they fell back to a generic placeholder instead of reading as a monument under construction.",
+    changes: [
+      "3D map: each of the Astral Dock's 3 components now renders its own dedicated model — the Launch Cradle (a curved brass rail berth with iron brackets, mechanical joints, and violet-cyan guide lights), the Orbital Array (a slim iron mast carrying an angled grey dish with brass support arms and a violet receiver lens), and the Aether Sail (a folded grey-blue sail panel on an iron mast with a brass frame, structural ribs, and violet aether markings).",
+      "2D map: each component now has its own flat overlay icon matching the monument set's muted iron/brass look with restrained violet-cyan glows.",
+      "The 2D fallback overlay for component tiles is no longer drawn in 3D mode, matching other structures."
     ]
   },
   {

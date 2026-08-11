@@ -124,6 +124,7 @@ const tileTownViewFromDefinition = (town: TownDefinition): NonNullable<Tile["tow
   connectedTownBonus: town.connectedTownBonus,
   hasMarket: false,
   marketActive: false,
+  marketCount: 0,
   hasGranary: false,
   granaryActive: false
 });
