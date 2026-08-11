@@ -2,6 +2,8 @@ import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST, SETTLE_MANPOWER
 import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
+  devQueueCancelWirePayload,
+  devQueueMoveToFrontWirePayload,
   persistDevelopmentQueueForPlayer,
   persistSkippedAutoSettlementTileKeysForPlayer,
   pruneExpiredAutoSettlementQueueVisibleHolds,
@@ -11,7 +13,11 @@ import { createNextFrontierCommandIdentity } from "../client-frontier-command/cl
 import { findClosestMuster } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
-import { persistWaypointQueueForPlayer } from "../client-waypoint-planner/client-waypoint-persistence.js";
+import {
+  persistWaypointQueueForPlayer,
+  syncWaypointQueueToServer,
+  waypointCancelWirePayload
+} from "../client-waypoint-planner/client-waypoint-persistence.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { OptimisticStructureKind, Tile, TileTimedProgress } from "../client-types.js";
@@ -310,6 +316,7 @@ export const cancelQueuedSettlement = (
   deps: {
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
+    sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {
   const nextQueue = state.developmentQueue.filter((entry) => !(entry.kind === "SETTLE" && entry.tileKey === tileKey));
@@ -321,6 +328,7 @@ export const cancelQueuedSettlement = (
     persistSkippedAutoSettlementTileKeysForPlayer(state.me, state.skippedAutoSettlementTileKeys);
   }
   persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+  deps.sendGameMessage?.(devQueueCancelWirePayload(tileKey));
   deps.pushFeed(`Queued settlement at ${tileKey} cancelled.`, "combat", "info");
   deps.renderHud();
   return true;
@@ -332,6 +340,7 @@ export const cancelQueuedBuild = (
   deps: {
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
+    sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {
   const entry = queuedBuildEntryForTile(state, tileKey);
@@ -339,6 +348,7 @@ export const cancelQueuedBuild = (
   const nextQueue = state.developmentQueue.filter((queued) => queued !== entry);
   state.developmentQueue = nextQueue;
   persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+  deps.sendGameMessage?.(devQueueCancelWirePayload(tileKey));
   deps.pushFeed(`${entry.label} cancelled.`, "combat", "info");
   deps.renderHud();
   return true;
@@ -350,6 +360,7 @@ export const moveQueuedEntryToFront = (
   deps: {
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
+    sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {
   const entry = state.developmentQueue.find((queued) => queued.tileKey === tileKey);
@@ -360,6 +371,7 @@ export const moveQueuedEntryToFront = (
   nextQueue.unshift(entry);
   state.developmentQueue = nextQueue;
   persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+  deps.sendGameMessage?.(devQueueMoveToFrontWirePayload(tileKey));
   deps.pushFeed(`${entry.label} moved to the front of the queue.`, "combat", "info");
   deps.renderHud();
   return true;
@@ -375,12 +387,14 @@ export const cancelQueuedWaypointEntry = (
   deps: {
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
+    sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {
   const index = waypointIndexForTile(state, x, y);
   if (index < 0) return false;
   state.waypoint.splice(index, 1);
   persistWaypointQueueForPlayer(state.me, state.waypoint);
+  deps.sendGameMessage?.(waypointCancelWirePayload({ x, y }));
   deps.pushFeed(`Waypoint at (${x}, ${y}) cancelled.`, "info", "info");
   deps.renderHud();
   return true;
@@ -393,6 +407,7 @@ export const moveWaypointToFront = (
   deps: {
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
+    sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {
   const index = waypointIndexForTile(state, x, y);
@@ -415,6 +430,7 @@ export const moveWaypointToFront = (
   entry.consecutiveRetries = 0;
   state.waypoint.unshift(entry);
   persistWaypointQueueForPlayer(state.me, state.waypoint);
+  syncWaypointQueueToServer(state, deps.sendGameMessage); // no MOVE_TO_FRONT command server-side; resync order instead
   deps.pushFeed(`Waypoint to (${x}, ${y}) moved to the front of the queue.`, "info", "info");
   deps.renderHud();
   return true;
@@ -695,6 +711,7 @@ export const processDevelopmentQueue = (
     applyOptimisticStructureRemoval: (x: number, y: number) => void;
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
+    sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {
   if (state.developmentQueue.length === 0 || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
@@ -749,11 +766,14 @@ export const processDevelopmentQueue = (
       if (next.kind === "SETTLE") state.autoSettlementQueueVisibleUntilByTile.delete(next.tileKey);
       state.developmentQueue.shift();
       persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+      // Dispatched directly -- pull back out of the server-durable mirror (a no-op if never mirrored).
+      deps.sendGameMessage?.(devQueueCancelWirePayload(next.tileKey));
       started = true;
     } else {
       if (next.kind === "SETTLE") state.autoSettlementQueueVisibleUntilByTile.delete(next.tileKey);
       state.developmentQueue.shift();
       persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+      deps.sendGameMessage?.(devQueueCancelWirePayload(next.tileKey));
       deps.pushFeed(`${next.label} could not start and was removed from queue.`, "combat", "warn");
     }
     break;

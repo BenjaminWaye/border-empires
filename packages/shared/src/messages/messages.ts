@@ -212,6 +212,30 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("COLLECT_VISIBLE") }),
   z.object({ type: z.literal("WATCH_MUSTER"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("UNWATCH_MUSTER") }),
+  // Server-durable dev/expand queue tail (see
+  // apps/simulation/src/runtime-dev-queue.ts /
+  // runtime-waypoint-queue.ts): keeps the "queued"/durable tier draining
+  // itself while the client is offline, instead of living only in client
+  // sessionStorage. structureType doubles as the "REMOVE_STRUCTURE"
+  // sentinel for removal entries (mirrors tryDrainDevQueue's own check).
+  z.object({
+    type: z.literal("DEV_QUEUE_ENQUEUE"),
+    x: z.number().int(),
+    y: z.number().int(),
+    tileKey: z.string().min(1),
+    kind: z.enum(["SETTLE", "BUILD"]),
+    structureType: z.string().optional()
+  }),
+  z.object({ type: z.literal("DEV_QUEUE_CANCEL"), tileKey: z.string().min(1) }),
+  z.object({ type: z.literal("DEV_QUEUE_MOVE_TO_FRONT"), tileKey: z.string().min(1) }),
+  z.object({
+    type: z.literal("WAYPOINT_ENQUEUE"),
+    x: z.number().int(),
+    y: z.number().int(),
+    trackBarbarian: z.boolean().optional()
+  }),
+  z.object({ type: z.literal("WAYPOINT_CANCEL"), x: z.number().int(), y: z.number().int() }),
+  z.object({ type: z.literal("WAYPOINT_CANCEL_ALL") }),
   z.object({ type: z.literal("REQUEST_TILE_DETAIL"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("REQUEST_REVEAL_MAP") }),
   z.object({ type: z.literal("SET_FOG_DISABLED"), disabled: z.boolean() }),

@@ -2402,6 +2402,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
+      // Harmless: dev/waypoint-queue mirroring re-sends an enqueue the server
+      // already has (dedup); a real full queue is already prevented client-side.
+      if (errorCode === "DEV_QUEUE_FULL" || errorCode === "WAYPOINT_QUEUE_FULL") return;
       if (errorCode === "DISPLAY_NAME_LIMIT") {
         state.pendingDisplayNameChange = "";
         pushFeed(errorMessage, "error", "warn");

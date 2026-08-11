@@ -1,5 +1,6 @@
 import type { ClientState } from "../client-state/client-state.js";
-import { DEV_QUEUE_TOTAL_CAP, SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
+import type { OptimisticStructureKind } from "../client-types.js";
+import { DEV_QUEUE_SERVER_CAP, DEV_QUEUE_TOTAL_CAP, SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 
 export const AUTO_SETTLEMENT_QUEUE_VISIBLE_MS = 3_000;
 
@@ -277,12 +278,40 @@ export const queuedDevelopmentActionExists = (
   kind?: PersistedDevelopmentAction["kind"]
 ): boolean => state.developmentQueue.some((entry) => entry.tileKey === tileKey && (!kind || entry.kind === kind));
 
+// Wire payloads for the server-durable dev-queue tier (see
+// apps/simulation/src/runtime-dev-queue.ts). structureType doubles as the
+// "REMOVE_STRUCTURE" sentinel for removal entries -- matches
+// tryDrainDevQueue's own isRemoval check server-side.
+export const devQueueEnqueueWirePayload = (entry: PersistedDevelopmentAction): Record<string, unknown> => ({
+  type: "DEV_QUEUE_ENQUEUE",
+  x: entry.x,
+  y: entry.y,
+  tileKey: entry.tileKey,
+  kind: entry.kind,
+  ...(entry.kind === "BUILD"
+    ? { structureType: entry.payload.type === "REMOVE_STRUCTURE" ? "REMOVE_STRUCTURE" : entry.payload.structureType }
+    : {})
+});
+
+export const devQueueCancelWirePayload = (tileKey: string): Record<string, unknown> => ({ type: "DEV_QUEUE_CANCEL", tileKey });
+
+export const devQueueMoveToFrontWirePayload = (tileKey: string): Record<string, unknown> => ({ type: "DEV_QUEUE_MOVE_TO_FRONT", tileKey });
+
 /**
  * Push a SETTLE/BUILD action onto the flat, FIFO-dispatched developmentQueue.
  * Position within that array implicitly determines its dev-queue tier (see
  * devQueueTierForIndex in packages/shared/src/dev-queue/dev-queue.ts): the
  * first DEV_QUEUE_SERVER_CAP entries are "queued", the rest "planned" --
  * capped in total at DEV_QUEUE_TOTAL_CAP so the wishlist can't grow forever.
+ *
+ * Entries that land within the durable "queued" tier are also mirrored to
+ * the server via DEV_QUEUE_ENQUEUE (deps.sendGameMessage), so they keep
+ * draining themselves (see tryDrainDevQueue, event-driven off settle/build
+ * completion) even while this client is offline -- previously this queue was
+ * purely client-local sessionStorage, so anything past the one action
+ * in-flight simply stalled the moment the tab closed or the player logged
+ * out. sendGameMessage is optional so callers/tests that don't care about
+ * server durability aren't forced to stub it.
  */
 export const queueDevelopmentAction = (
   state: ClientState,
@@ -290,6 +319,7 @@ export const queueDevelopmentAction = (
   deps: {
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
     renderHud: () => void;
+    sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {
   if (queuedDevelopmentActionExists(state, entry.tileKey, entry.kind)) {
@@ -305,8 +335,10 @@ export const queueDevelopmentAction = (
   if (entry.kind === "SETTLE") {
     state.skippedAutoSettlementTileKeys = clearSkippedAutoSettlementTileKeyForPlayer(state.me, entry.tileKey);
   }
+  const position = state.developmentQueue.length;
   state.developmentQueue.push(entry);
   persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
+  if (position < DEV_QUEUE_SERVER_CAP) deps.sendGameMessage?.(devQueueEnqueueWirePayload(entry));
   deps.pushFeed(`${entry.label} queued. It will start when a development slot frees up.`, "combat", "info");
   deps.renderHud();
   return true;
@@ -356,4 +388,62 @@ export const restorePersistedDevelopmentQueueForPlayer = (
     removeSessionStorage(DEVELOPMENT_QUEUE_SESSION_KEY);
     return [];
   }
+};
+
+export type ServerDevQueueWireEntry = {
+  tileKey: string;
+  x: number;
+  y: number;
+  kind: "SETTLE" | "BUILD";
+  structureType?: string;
+  queuedAt: number;
+};
+
+/** Best-effort reconstruction of a queue entry from the server's durable
+ * dev-queue when sessionStorage has nothing for that tile (e.g. a fresh
+ * login on a new device/tab) -- label/optimisticKind are synthesized rather
+ * than round-tripped, since the wire payload only carries what
+ * tryDrainDevQueue actually needs to dispatch, not full UI copy. */
+const reconstructDevelopmentActionFromServerEntry = (entry: ServerDevQueueWireEntry): PersistedDevelopmentAction => {
+  if (entry.kind === "SETTLE") {
+    return { kind: "SETTLE", x: entry.x, y: entry.y, tileKey: entry.tileKey, label: `Settlement at (${entry.x}, ${entry.y})` };
+  }
+  const isRemoval = entry.structureType === "REMOVE_STRUCTURE";
+  return {
+    kind: "BUILD",
+    x: entry.x,
+    y: entry.y,
+    tileKey: entry.tileKey,
+    label: isRemoval ? `Remove structure at (${entry.x}, ${entry.y})` : `Build ${entry.structureType ?? "structure"} at (${entry.x}, ${entry.y})`,
+    payload: isRemoval
+      ? { type: "REMOVE_STRUCTURE", x: entry.x, y: entry.y }
+      : { type: "BUILD_STRUCTURE", x: entry.x, y: entry.y, structureType: entry.structureType ?? "" },
+    optimisticKind: (entry.structureType ?? "FORT") as OptimisticStructureKind
+  };
+};
+
+/**
+ * Merge the server-durable dev-queue tail (from a PLAYER_UPDATE/login
+ * snapshot) into the sessionStorage-restored queue on login/reconnect. The
+ * server list is authoritative for ordering/presence of the "queued" tier --
+ * it kept draining while this client was offline, so sessionStorage may be
+ * stale (missing tiles that already resolved, or ordered differently). Any
+ * sessionStorage entries the server doesn't know about (the client-local
+ * "planned" tier beyond DEV_QUEUE_SERVER_CAP) are appended after, in their
+ * original order.
+ */
+export const mergeServerDevQueueIntoRestoredQueue = (
+  restoredQueue: readonly PersistedDevelopmentAction[],
+  serverDevQueue: readonly ServerDevQueueWireEntry[] | undefined
+): PersistedDevelopmentAction[] => {
+  if (!serverDevQueue?.length) return [...restoredQueue];
+  const restoredByTileKey = new Map(restoredQueue.map((entry) => [entry.tileKey, entry] as const));
+  const serverTileKeys = new Set(serverDevQueue.map((entry) => entry.tileKey));
+  const merged = serverDevQueue.map(
+    (entry) => restoredByTileKey.get(entry.tileKey) ?? reconstructDevelopmentActionFromServerEntry(entry)
+  );
+  for (const entry of restoredQueue) {
+    if (!serverTileKeys.has(entry.tileKey)) merged.push(entry);
+  }
+  return merged;
 };

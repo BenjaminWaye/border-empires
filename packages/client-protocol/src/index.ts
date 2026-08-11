@@ -42,7 +42,13 @@ export const DurableCommandTypeSchema = z.enum([
   "COLLECT_SHARD",
   "UPGRADE_TOWN_TIER",
   "SET_MUSTER",
-  "CLEAR_MUSTER"
+  "CLEAR_MUSTER",
+  "DEV_QUEUE_ENQUEUE",
+  "DEV_QUEUE_CANCEL",
+  "DEV_QUEUE_MOVE_TO_FRONT",
+  "WAYPOINT_ENQUEUE",
+  "WAYPOINT_CANCEL",
+  "WAYPOINT_CANCEL_ALL"
 ]);
 
 export type DurableCommandType = z.infer<typeof DurableCommandTypeSchema>;

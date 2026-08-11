@@ -61,7 +61,13 @@ export const supportedClientMessageTypes = [
   "TRUCE_ACCEPT",
   "TRUCE_REJECT",
   "TRUCE_CANCEL",
-  "TRUCE_BREAK"
+  "TRUCE_BREAK",
+  "DEV_QUEUE_ENQUEUE",
+  "DEV_QUEUE_CANCEL",
+  "DEV_QUEUE_MOVE_TO_FRONT",
+  "WAYPOINT_ENQUEUE",
+  "WAYPOINT_CANCEL",
+  "WAYPOINT_CANCEL_ALL"
 ] as const;
 
 export type SupportedClientMessageType = (typeof supportedClientMessageTypes)[number];

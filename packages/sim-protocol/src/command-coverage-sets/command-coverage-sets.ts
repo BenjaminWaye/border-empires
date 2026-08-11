@@ -40,7 +40,30 @@ const DURABLE_COMMAND_TYPES = [
   "COLLECT_SHARD",
   "UPGRADE_TOWN_TIER",
   "SET_MUSTER",
-  "CLEAR_MUSTER"
+  "CLEAR_MUSTER",
+  "DEV_QUEUE_ENQUEUE",
+  "DEV_QUEUE_CANCEL",
+  "DEV_QUEUE_MOVE_TO_FRONT",
+  "WAYPOINT_ENQUEUE",
+  "WAYPOINT_CANCEL",
+  "WAYPOINT_CANCEL_ALL"
+] as const;
+
+// Dev/waypoint-queue commands mutate PlayerRuntimeSummary.devQueue/
+// waypointQueue (see player-runtime-summary.ts), which is rebuilt fresh from
+// tiles/players on every boot -- not part of the sqlite snapshot -- so it's
+// durable across a mere disconnect/reconnect (the runtime process keeps
+// running) but not across a cold process restart. Excluded here rather than
+// from DurableCommandTypeSchema itself: they still need normal gateway
+// durable-command handling (persist, ack, replay-on-reconnect) for that
+// disconnect/reconnect case, just not restart-parity coverage.
+const NOT_RESTART_DURABLE_COMMAND_TYPES = [
+  "DEV_QUEUE_ENQUEUE",
+  "DEV_QUEUE_CANCEL",
+  "DEV_QUEUE_MOVE_TO_FRONT",
+  "WAYPOINT_ENQUEUE",
+  "WAYPOINT_CANCEL",
+  "WAYPOINT_CANCEL_ALL"
 ] as const;
 
 const PHASE4_NON_DURABLE_COMMAND_TYPES = [
@@ -60,6 +83,9 @@ const PHASE4_NON_DURABLE_COMMAND_TYPES = [
 ] as const;
 
 export const PHASE4_COMMAND_SURFACE_TYPES = [...DURABLE_COMMAND_TYPES, ...PHASE4_NON_DURABLE_COMMAND_TYPES] as const;
-export const RESTART_PARITY_COMMAND_TYPES = DURABLE_COMMAND_TYPES;
+export const RESTART_PARITY_COMMAND_TYPES = DURABLE_COMMAND_TYPES.filter(
+  (type): type is Exclude<(typeof DURABLE_COMMAND_TYPES)[number], (typeof NOT_RESTART_DURABLE_COMMAND_TYPES)[number]> =>
+    !(NOT_RESTART_DURABLE_COMMAND_TYPES as readonly string[]).includes(type)
+);
 export const ACCEPTANCE_RESOLUTION_COMMAND_TYPES = DURABLE_COMMAND_TYPES;
 export const RECONNECT_COMMAND_TYPES = DURABLE_COMMAND_TYPES;
