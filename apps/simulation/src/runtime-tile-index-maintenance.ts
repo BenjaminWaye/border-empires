@@ -178,7 +178,7 @@ export const registerRuntimeTileAnchor = (input: {
   playerCandidateIndex: PlayerCandidateIndex;
   activeFortAnchorsByOwner: Map<string, Map<string, number>>;
   activeSiegeOutpostsByOwner: Map<string, Set<string>>;
-  activeLightOutpostsByOwner: Map<string, Set<string>>;
+  activeRelayBeaconsByOwner: Map<string, Set<string>>;
   tiles: ReadonlyMap<string, DomainTileState>;
   tileKey: string;
   tile: DomainTileState;
@@ -190,7 +190,7 @@ export const registerRuntimeTileAnchor = (input: {
   const fortRadius = fortSupportAnchorMaxRadius(input.tile, ownerId);
   if (fortRadius > 0) registerFortSupportAnchor(input.activeFortAnchorsByOwner, input.tileKey, ownerId, fortRadius);
   if (isSiegeOutpostActive(input.tile, ownerId)) addTileToOwnerSet(input.activeSiegeOutpostsByOwner, input.tileKey, ownerId);
-  if (isLightOutpostActive(input.tile, ownerId)) addTileToOwnerSet(input.activeLightOutpostsByOwner, input.tileKey, ownerId);
+  if (isRelayBeaconActive(input.tile, ownerId)) addTileToOwnerSet(input.activeRelayBeaconsByOwner, input.tileKey, ownerId);
 };
 
 export const refreshRuntimeTileIndexesForChange = (input: {
@@ -202,7 +202,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   yieldBearingTilesByOwner: Map<string, Set<string>>;
   sortedYieldBearingKeysByOwner: Map<string, string[]>;
   activeSiegeOutpostsByOwner: Map<string, Set<string>>;
-  activeLightOutpostsByOwner: Map<string, Set<string>>;
+  activeRelayBeaconsByOwner: Map<string, Set<string>>;
   musterTilesByOwner: Map<string, Set<string>>;
   fortTilesByOwner: Map<string, Set<string>>;
   railDepotTilesByOwner: Map<string, Set<string>>;
@@ -226,7 +226,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshFortAnchorIndexForTile(input);
   refreshYieldBearingIndexForTile(input);
   refreshSiegeOutpostIndexForTile(input);
-  refreshLightOutpostIndexForTile(input);
+  refreshRelayBeaconIndexForTile(input);
   refreshMusterIndexForTile(input);
   refreshFortGarrisonIndexForTile(input);
   refreshRailDepotIndexForTile(input);
@@ -460,9 +460,9 @@ const refreshYieldBearingIndexForTile = (input: {
 const isSiegeOutpostActive = (tile: DomainTileState, ownerId: string): boolean =>
   tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active";
 
-const isLightOutpostActive = (tile: DomainTileState, ownerId: string): boolean =>
+const isRelayBeaconActive = (tile: DomainTileState, ownerId: string): boolean =>
   tile.economicStructure?.ownerId === ownerId &&
-  tile.economicStructure.type === "LIGHT_OUTPOST" &&
+  tile.economicStructure.type === "RELAY_BEACON" &&
   tile.economicStructure.status === "active";
 
 const refreshSiegeOutpostIndexForTile = (input: {
@@ -481,20 +481,20 @@ const refreshSiegeOutpostIndexForTile = (input: {
   if (nextActive && nextOwnerId) addTileToOwnerSet(input.activeSiegeOutpostsByOwner, input.tileKey, nextOwnerId);
 };
 
-const refreshLightOutpostIndexForTile = (input: {
+const refreshRelayBeaconIndexForTile = (input: {
   tileKey: string;
   previous: DomainTileState | undefined;
   next: DomainTileState;
-  activeLightOutpostsByOwner: Map<string, Set<string>>;
+  activeRelayBeaconsByOwner: Map<string, Set<string>>;
 }): void => {
   const prevOwnerId = input.previous?.ownerId;
   const nextOwnerId = input.next.ownerId;
-  const prevActive = input.previous && prevOwnerId ? isLightOutpostActive(input.previous, prevOwnerId) : false;
-  const nextActive = nextOwnerId ? isLightOutpostActive(input.next, nextOwnerId) : false;
+  const prevActive = input.previous && prevOwnerId ? isRelayBeaconActive(input.previous, prevOwnerId) : false;
+  const nextActive = nextOwnerId ? isRelayBeaconActive(input.next, nextOwnerId) : false;
   if (!prevActive && !nextActive) return;
   if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
-  if (prevActive && prevOwnerId) input.activeLightOutpostsByOwner.get(prevOwnerId)?.delete(input.tileKey);
-  if (nextActive && nextOwnerId) addTileToOwnerSet(input.activeLightOutpostsByOwner, input.tileKey, nextOwnerId);
+  if (prevActive && prevOwnerId) input.activeRelayBeaconsByOwner.get(prevOwnerId)?.delete(input.tileKey);
+  if (nextActive && nextOwnerId) addTileToOwnerSet(input.activeRelayBeaconsByOwner, input.tileKey, nextOwnerId);
 };
 
 const refreshMusterIndexForTile = (input: {

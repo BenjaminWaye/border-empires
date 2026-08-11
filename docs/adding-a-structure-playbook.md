@@ -37,7 +37,7 @@ dormant and stops granting its effect).
 
 `packages/shared/src/structure-registry-economic.ts`:
 - Add `<TYPE>: "<tech-id>"` to `TECH_REQUIREMENTS_BY_STRUCTURE` (omit if the
-  structure should have no tech gate, like Wooden Fort/Light Outpost).
+  structure should have no tech gate, like Wooden Fort/Relay Beacon).
 - Add `<TYPE>: econSpec("<TYPE>")` to `ECONOMIC_SPECS` (pass `{ upkeep, buildMs }`
   as the second arg if it needs non-default upkeep or build time).
 

@@ -411,7 +411,7 @@ export function completeStructureRemoval(context: RuntimeStructureCommandContext
   context.replaceTileState(targetKey, completedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
-  // A removed Light Outpost's vision bonus is dropped by reconcileOutpostVisionBonus
+  // A removed Relay Beacon's vision bonus is dropped by reconcileOutpostVisionBonus
   // via the replaceTileState call above — runtime-outpost-vision.ts.
 }
 

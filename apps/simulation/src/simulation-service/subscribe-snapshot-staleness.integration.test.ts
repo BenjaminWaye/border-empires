@@ -12,7 +12,7 @@ import { createSimulationService } from "./simulation-service.js";
 // unsubscribed never reaches their cached snapshot, and buildInitMessage does
 // no server-side tile replay — so serving that cache on the next subscribe
 // left the client permanently missing those tiles. In the wild this showed up
-// as a Light Outpost's vision disc never revealing: the outpost was built
+// as a Relay Beacon's vision disc never revealing: the outpost was built
 // while the owner was disconnected, so the newly-visible tiles were absent
 // from their INIT and nothing later re-touched them.
 //

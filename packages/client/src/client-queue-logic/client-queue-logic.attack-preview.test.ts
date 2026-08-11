@@ -223,7 +223,7 @@ describe("attack preview prefetch and cache", () => {
         y: 239,
         ownerId: "me",
         ownershipState: "SETTLED",
-        economicStructure: { ownerId: "me", type: "LIGHT_OUTPOST", status: "active" }
+        economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
       })
     );
     const send = vi.fn();

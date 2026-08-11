@@ -200,7 +200,7 @@ export const EXCHANGE_GOLD_PER_SLOT_PER_DAY = {
 // stay in place and naturally go inert, same "leave plumbing, starve input"
 // treatment TITANIUM/CRYSTAL/UMBRITE got when their production was retired).
 export const MARKET_FOOD_UPKEEP = 0;
-export const LIGHT_OUTPOST_GOLD_UPKEEP = 0;
+export const RELAY_BEACON_GOLD_UPKEEP = 0;
 export const CARAVANARY_FOOD_UPKEEP = 0;
 export const CUSTOMS_HOUSE_GOLD_UPKEEP = 0;
 export const GARRISON_HALL_GOLD_UPKEEP = 0;
@@ -261,7 +261,6 @@ export const SURVEY_SWEEP_COOLDOWN_MS = 12 * 60_000;
 export const SURVEY_SWEEP_HALF_EXTENT = 25;
 export const REVEAL_EMPIRE_STATS_CRYSTAL_COST = 0; // §17: free
 export const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
-export const AETHER_LANCE_GOLD_COST = 3_000;
 export const AETHER_LANCE_CRYSTAL_COST = 0; // §17: free
 export const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
 export const AETHER_BRIDGE_CRYSTAL_COST = 0; // §17: free

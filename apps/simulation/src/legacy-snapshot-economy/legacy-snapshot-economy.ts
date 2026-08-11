@@ -205,7 +205,7 @@ const economicStructureOutputMultAt = (
     structure.type === "MARKET" ||
     structure.type === "AIRPORT" ||
     structure.type === "WOODEN_FORT" ||
-    structure.type === "LIGHT_OUTPOST" ||
+    structure.type === "RELAY_BEACON" ||
     structure.type === "UMBRITE_SYNTHESIZER" ||
     structure.type === "ADVANCED_UMBRITE_SYNTHESIZER" ||
     structure.type === "TITANIUM_WORKS" ||
@@ -279,8 +279,8 @@ const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
   }
 };
 
-// §upkeep-rebalance: Light Outpost/Wooden Fort and the Fort/Siege ladders all carry a flat 1 FOOD (0.1/min) upkeep.
-const MILITARY_FOOD_UPKEEP_TYPES = new Set(["WOODEN_FORT", "LIGHT_OUTPOST", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
+// §upkeep-rebalance: Relay Beacon/Wooden Fort and the Fort/Siege ladders all carry a flat 1 FOOD (0.1/min) upkeep.
+const MILITARY_FOOD_UPKEEP_TYPES = new Set(["WOODEN_FORT", "RELAY_BEACON", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
 
 const foodUpkeepPerMinuteForStructure = (structureType: string): number => {
   if (structureType === "MARKET") return MARKET_FOOD_UPKEEP / 10;

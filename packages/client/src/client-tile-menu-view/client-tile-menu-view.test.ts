@@ -940,7 +940,7 @@ describe("menuOverviewForTile", () => {
         ...settledSupportTile("under_construction"),
         economicStructure: {
           ownerId: "me",
-          type: "LIGHT_OUTPOST",
+          type: "RELAY_BEACON",
           status: "under_construction",
           completesAt: Date.now() + 1 // effectively fully elapsed -> minimal price
         }
@@ -958,7 +958,7 @@ describe("menuOverviewForTile", () => {
         ...settledSupportTile("removing"),
         economicStructure: {
           ownerId: "me",
-          type: "LIGHT_OUTPOST",
+          type: "RELAY_BEACON",
           status: "removing",
           completesAt: Date.now() + 45_000
         }
@@ -975,7 +975,7 @@ describe("menuOverviewForTile", () => {
         ...settledSupportTile("removing"),
         economicStructure: {
           ownerId: "me",
-          type: "LIGHT_OUTPOST",
+          type: "RELAY_BEACON",
           status: "removing",
           completesAt: Date.now() + 45_000
         }
@@ -983,7 +983,7 @@ describe("menuOverviewForTile", () => {
       () => "0:45"
     );
 
-    expect(progress?.title).toBe("Removing Light Outpost");
+    expect(progress?.title).toBe("Removing Relay Beacon");
     expect(progress?.remainingLabel).toBe("0:45");
     expect(progress?.cancelLabel).toBe("Cancel removal");
     expect(progress?.note).toContain("Income, upkeep, and structure effects are paused");

@@ -7,7 +7,7 @@ import {
   lockSourceFromSessionId
 } from "../runtime-types.js";
 
-// Regression: passive defensive fire from forts and siege/light outposts
+// Regression: passive defensive fire from forts and siege/Relay Beacons
 // (sweep) creates playerId-scoped combat locks via territory-automation,
 // arriving every ~3 s as long as a valid target is in range. Before this
 // fix, those locks made the AI strategic planner see `active_lock` every

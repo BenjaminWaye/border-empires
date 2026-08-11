@@ -1,4 +1,4 @@
-import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, estimatedAttackManpowerLoss, FRONTIER_CLAIM_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -1632,6 +1632,35 @@ export const attackPreviewDetailForTarget = (
   if (!preview.valid) return preview.reason ? `Attack ${preview.reason}` : undefined;
   if (typeof preview.winChance === "number") return `${Math.round(preview.winChance * 100)}% win chance`;
   return undefined;
+};
+
+export const attackPreviewManpowerCostForTarget = (
+  state: ClientState,
+  to: Tile,
+  deps: {
+    keyFor: (x: number, y: number) => string;
+    pickOriginForTarget: (x: number, y: number) => Tile | undefined;
+  }
+): string | undefined => {
+  const from = deps.pickOriginForTarget(to.x, to.y);
+  const toKey = deps.keyFor(to.x, to.y);
+  const preview = resolvedAttackPreviewForTarget(
+    state,
+    from
+      ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
+      : { toKey, dockFallback: Boolean(to.dockId) }
+  );
+  if (!preview || !preview.valid) return undefined;
+  if (
+    typeof preview.manpowerMin !== "number" ||
+    typeof preview.winChance !== "number" ||
+    typeof preview.atkEff !== "number" ||
+    typeof preview.defEff !== "number"
+  ) {
+    return undefined;
+  }
+  const estimate = estimatedAttackManpowerLoss(preview.manpowerMin, preview.winChance, preview.atkEff, preview.defEff);
+  return `est. ${Math.round(estimate)} manpower`;
 };
 
 export const attackPreviewPendingForTarget = (

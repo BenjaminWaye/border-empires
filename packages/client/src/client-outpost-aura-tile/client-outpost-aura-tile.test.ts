@@ -20,12 +20,12 @@ describe("hasActiveOwnedOutpostAura", () => {
   });
 
   // Regression: previously the 3D map only checked `tile.siegeOutpost`, so
-  // selecting an active light outpost never showed the aura sweep-range
-  // overlay even though light outposts grant the same attack aura bonus.
-  it("returns true for an active owned light outpost", () => {
+  // selecting an active Relay Beacon never showed the aura sweep-range
+  // overlay even though Relay Beacons grant the same attack aura bonus.
+  it("returns true for an active owned Relay Beacon", () => {
     const tile: Tile = {
       ...baseTile(2, 2),
-      economicStructure: { ownerId: "p1", type: "LIGHT_OUTPOST", status: "active" }
+      economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
     };
     expect(hasActiveOwnedOutpostAura(tile, "p1")).toBe(true);
   });
@@ -38,10 +38,10 @@ describe("hasActiveOwnedOutpostAura", () => {
     expect(hasActiveOwnedOutpostAura(tile, "p1")).toBe(false);
   });
 
-  it("returns false when the light outpost is owned by another player", () => {
+  it("returns false when the Relay Beacon is owned by another player", () => {
     const tile: Tile = {
       ...baseTile(4, 4),
-      economicStructure: { ownerId: "enemy", type: "LIGHT_OUTPOST", status: "active" }
+      economicStructure: { ownerId: "enemy", type: "RELAY_BEACON", status: "active" }
     };
     expect(hasActiveOwnedOutpostAura(tile, "p1")).toBe(false);
   });

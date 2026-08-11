@@ -1,6 +1,6 @@
 import {
   landBiomeAt,
-  LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT,
+  RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   structureBuildGoldCost,
   structureBuildManpowerCost,
   structureSlotRequirements,
@@ -16,7 +16,7 @@ import {
 } from "../client-map-display.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
-import { ownedLightOutpostCount } from "../client-light-outpost-food-slot/client-light-outpost-food-slot.js";
+import { ownedRelayBeaconCount } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 
 type BuildableStructureId = "FORT" | "OBSERVATORY" | "SIEGE_OUTPOST" | NonNullable<Tile["economicStructure"]>["type"];
 
@@ -57,8 +57,8 @@ export const createClientRuntimeDisplaySupport = (deps: {
     if (manpowerCost > 0) parts.push(`${manpowerCost} manpower`);
     if (resourceOverride) {
       parts.push(resourceOverride);
-    } else if (structureType === "LIGHT_OUTPOST" && ownedLightOutpostCount(state) < LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT) {
-      // The player's first LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT outposts are
+    } else if (structureType === "RELAY_BEACON" && ownedRelayBeaconCount(state) < RELAY_BEACON_FREE_FOOD_SLOT_COUNT) {
+      // The player's first RELAY_BEACON_FREE_FOOD_SLOT_COUNT outposts are
       // waived server-side (slot-waivers.ts) — omit the FOOD slot line
       // entirely rather than showing a cost that won't actually be charged.
     } else if (!SYNTHESIZER_STRUCTURE_TYPES.includes(structureType as BuildableStructureType)) {

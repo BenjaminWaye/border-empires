@@ -119,7 +119,7 @@ export const tileIsLand: PlacementCheck = (ctx) => {
 /**
  * Reject if the target tile field already has a structure that isn't being
  * upgraded. Accounts for the upgrade path: the handler may upgrade from a
- * wooden fort, light outpost, or lower-tier variant.
+ * wooden fort, Relay Beacon, or lower-tier variant.
  *
  * In Phase 1 this is a composite check that mirrors the per-handler logic.
  * In Phase 2 the generic handler will call this with per-kind diff.

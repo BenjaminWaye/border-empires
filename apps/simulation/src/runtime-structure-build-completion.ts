@@ -149,7 +149,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   }
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId, playerId: ownerId });
-  // Light Outpost's vision bonus (and, once active, a Siege Outpost's own)
+  // Relay Beacon's vision bonus (and, once active, a Siege Outpost's own)
   // is applied by reconcileOutpostVisionBonus via the replaceTileState call
   // above — runtime-outpost-vision.ts.
   if (isMonumentBaseType(structureType)) {

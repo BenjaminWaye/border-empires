@@ -3,7 +3,7 @@ import { structureBuildDurationMs } from "@border-empires/shared";
 
 import { SimulationRuntime } from "./runtime.js";
 
-// A Light Outpost reveals a flat 5-tile ring around itself (LIGHT_OUTPOST_VISION_BONUS,
+// A Relay Beacon reveals a flat 5-tile ring around itself (RELAY_BEACON_VISION_BONUS,
 // config.ts); Survey Corps's outpostVisionRadiusBonus tech effect adds +1 on
 // top for both Light and Siege Outposts. Pins the full-export visibility path
 // (backed by VisibilityCoverageCache) for the outpost vision bonus feature —
@@ -25,7 +25,7 @@ const visibleTileKeys = (runtime: SimulationRuntime, playerId: string): Set<stri
   new Set(runtime.exportVisibleStateForPlayer(playerId).tiles.map((t) => `${t.x},${t.y}`));
 
 describe("SimulationRuntime outpost vision bonus", () => {
-  it("an active Light Outpost reveals 5 tiles around itself at boot, independent of base radius", () => {
+  it("an active Relay Beacon reveals 5 tiles around itself at boot, independent of base radius", () => {
     const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
     for (let x = 0; x <= 20; x += 1) {
       for (let y = 5; y <= 15; y += 1) tiles.push({ x, y, terrain: "LAND" });
@@ -43,7 +43,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
             terrain: "LAND" as const,
             ownerId: "player-1",
             ownershipState: "SETTLED" as const,
-            economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST" as const, status: "active" as const }
+            economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const }
           }
         ],
         activeLocks: []
@@ -55,7 +55,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
     expect(keys.has("16,10")).toBe(false); // dx=6, outside it
   });
 
-  it("upgrading a Light Outpost to a Siege Outpost drops the Light Outpost's flat bonus", async () => {
+  it("upgrading a Relay Beacon to a Siege Outpost drops the Relay Beacon's flat bonus", async () => {
     vi.useFakeTimers();
     try {
       const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
@@ -75,7 +75,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
               terrain: "LAND" as const,
               ownerId: "player-1",
               ownershipState: "SETTLED" as const,
-              economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST" as const, status: "active" as const }
+              economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const }
             },
             // A free UMBRITE slot — SIEGE_OUTPOST's resource-slot requirement.
             { x: 0, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "UMBRITE" as const }
@@ -112,7 +112,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
     }
   });
 
-  it("an ally's Light Outpost ring is visible to the player, and withdraws when the alliance breaks", async () => {
+  it("an ally's Relay Beacon ring is visible to the player, and withdraws when the alliance breaks", async () => {
     const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
     for (let x = 20; x <= 40; x += 1) {
       for (let y = 25; y <= 35; y += 1) tiles.push({ x, y, terrain: "LAND" });
@@ -133,7 +133,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
             terrain: "LAND" as const,
             ownerId: "player-2",
             ownershipState: "SETTLED" as const,
-            economicStructure: { ownerId: "player-2", type: "LIGHT_OUTPOST" as const, status: "active" as const }
+            economicStructure: { ownerId: "player-2", type: "RELAY_BEACON" as const, status: "active" as const }
           }
         ],
         activeLocks: []
@@ -171,7 +171,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
     expect(inAreaKeys().has("35,30")).toBe(false);
   });
 
-  it("manually disabling an active Light Outpost drops its vision ring; re-enabling restores it", async () => {
+  it("manually disabling an active Relay Beacon drops its vision ring; re-enabling restores it", async () => {
     const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
     for (let x = 0; x <= 20; x += 1) {
       for (let y = 5; y <= 15; y += 1) tiles.push({ x, y, terrain: "LAND" });
@@ -189,7 +189,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
             terrain: "LAND" as const,
             ownerId: "player-1",
             ownershipState: "SETTLED" as const,
-            economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST" as const, status: "active" as const }
+            economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const }
           }
         ],
         activeLocks: []
@@ -225,12 +225,12 @@ describe("SimulationRuntime outpost vision bonus", () => {
     expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(true);
   });
 
-  it("losing the FOOD tile that was covering a beyond-the-free-5 Light Outpost drops its vision ring, without the outpost's own tile changing", async () => {
+  it("losing the FOOD tile that was covering a beyond-the-free-5 Relay Beacon drops its vision ring, without the outpost's own tile changing", async () => {
     const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
     for (let x = 0; x <= 20; x += 1) {
       for (let y = 5; y <= 15; y += 1) tiles.push({ x, y, terrain: "LAND" });
     }
-    // Five free (waived) Light Outposts, well out of the way, plus a sixth —
+    // Five free (waived) Relay Beacons, well out of the way, plus a sixth —
     // the first one that actually draws a FOOD slot — at (10, 10). A single
     // FARM tile supplies exactly the 1 FOOD slot it needs.
     const freeOutposts = [0, 1, 2, 3, 4].map((i) => ({
@@ -239,7 +239,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
       terrain: "LAND" as const,
       ownerId: "player-1",
       ownershipState: "SETTLED" as const,
-      economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST" as const, status: "active" as const, activatedAt: 100 + i }
+      economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const, activatedAt: 100 + i }
     }));
     const runtime = new SimulationRuntime({
       now: () => 1_000,
@@ -255,7 +255,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
             terrain: "LAND" as const,
             ownerId: "player-1",
             ownershipState: "SETTLED" as const,
-            economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST" as const, status: "active" as const, activatedAt: 200 }
+            economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const, activatedAt: 200 }
           },
           // The one FOOD slot that keeps the sixth outpost powered.
           { x: 19, y: 5, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "FARM" as const }
