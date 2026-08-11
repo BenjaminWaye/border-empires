@@ -1243,8 +1243,8 @@ export const processActionQueue = (
     }
 
     const allowOptimisticOrigin = Boolean(to.ownerId);
-    let from = to.ownerId ? deps.pickOriginForTarget(to.x, to.y, true, false) : deps.pickOriginForTarget(to.x, to.y, false, false);
-    const optimisticFrom = to.ownerId ? deps.pickOriginForTarget(to.x, to.y, true, true) : deps.pickOriginForTarget(to.x, to.y, false, true);
+    let from = deps.pickOriginForTarget(to.x, to.y, false, false);
+    const optimisticFrom = deps.pickOriginForTarget(to.x, to.y, false, true);
     const selectedFrom = state.selected ? state.tiles.get(deps.keyFor(state.selected.x, state.selected.y)) : undefined;
     if (
       !from &&
