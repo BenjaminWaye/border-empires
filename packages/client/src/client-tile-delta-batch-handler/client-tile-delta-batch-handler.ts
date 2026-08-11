@@ -59,7 +59,12 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     tileUpdates
   );
   if (Array.isArray(tileUpdates)) {
-    const nowMs = Date.now();
+    // performance.now(), not Date.now(): the battle overlay's render loop
+    // (client-map-3d.ts) ticks against performance.now(), so stamping
+    // startAt/clashAt/endAt with Date.now() here made nowMs < startAt on
+    // every frame forever (epoch ms vastly outscales page-uptime ms) and
+    // froze every battle's dots at their spawn position.
+    const nowMs = performance.now();
     for (const update of tileUpdates) registerActiveBattleFromTileDelta(state, keyFor, update, nowMs);
   }
   let resolvedQueuedFrontierCapture = false;
