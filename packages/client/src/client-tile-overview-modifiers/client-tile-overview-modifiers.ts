@@ -1,4 +1,4 @@
-import { DREAD_TOWER_ATTACK_MULT, LIGHT_OUTPOST_ATTACK_MULT, NATURAL_WONDER_LABELS, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
+import { DREAD_TOWER_ATTACK_MULT, LIGHT_OUTPOST_ATTACK_MULT, NATURAL_WONDER_LABELS, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
 import { marketGoldProductionMultiplier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 
@@ -77,7 +77,7 @@ const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStruct
   if (tile.type === "FARMSTEAD" || tile.type === "WATERWORKS" || tile.type === "UMBRITE_RIG") {
     return [{
       reason: tile.type === "FARMSTEAD" ? "Farmstead (farm food only)" : tile.type === "WATERWORKS" ? "Waterworks (radius support)" : "Umbrite Rig",
-      effect: tile.type === "WATERWORKS" ? "+100% farmstead food; raises food cap" : tile.type === "UMBRITE_RIG" ? "+50% umbrite, +15 umbrite cap" : "+50% farm food, +18 food cap",
+      effect: tile.type === "WATERWORKS" ? `+100% farmstead food; each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots` : tile.type === "UMBRITE_RIG" ? "+50% umbrite, +15 umbrite cap" : `+50% farm food, +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot`,
       tone: "positive"
     }];
   }
