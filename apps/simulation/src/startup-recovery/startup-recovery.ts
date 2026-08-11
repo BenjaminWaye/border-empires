@@ -14,6 +14,7 @@ import {
   recoverSimulationStateFromEvents
 } from "../event-recovery/event-recovery.js";
 import type { SimulationEventStore, StoredSimulationEvent } from "../event-store/event-store.js";
+import { migrateLegacyStructureKinds } from "../legacy-structure-kind-migration.js";
 import type { SimulationSeedProfile } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotStore } from "../snapshot-store/snapshot-store.js";
 
@@ -100,8 +101,11 @@ export const loadSimulationStartupRecovery = async ({
     throw new Error("simulation startup recovery requires durable state but no snapshot, events, or bootstrap state were found");
   }
 
+  const recoveredState = finalizeRecoveredSimulationAccumulator(recoveredStateAccumulator);
+  migrateLegacyStructureKinds(recoveredState.tiles);
+
   return {
-    initialState: finalizeRecoveredSimulationAccumulator(recoveredStateAccumulator),
+    initialState: recoveredState,
     initialCommandHistory: finalizeRecoveredCommandHistoryAccumulator(recoveredCommandHistoryAccumulator),
     recoveredCommandCount: recoverableCommands.length,
     recoveredEventCount
