@@ -1722,27 +1722,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     const to = clicked;
     if (shouldRefreshTileDetailOnPress(to, vis)) requestTileDetailIfNeeded(to, { force: true });
     state.selected = { x: wx, y: wy };
-    // Re-clicking the tile that's the active manual EXPAND capture doesn't
-    // need a menu — the capture-overlay progress bar already shows it (see
-    // renderCaptureProgress). Checked here, BEFORE the neutral/owned
-    // branching below, because the tile itself flips to owned-by-me
-    // (optimistically, on ACTION_ACCEPTED) well before the claim actually
-    // resolves — by the time a player re-clicks, `to.ownerId` is usually
-    // already set, so a check gated on "is this tile neutral" would miss it
-    // and fall through to the generic owned-tile branch that opens the
-    // tile menu. Scoped to EXPAND only — an active ATTACK re-click keeps
-    // its existing behavior (tile menu with the progress tab).
-    if (
-      state.capture &&
-      state.capture.target.x === to.x &&
-      state.capture.target.y === to.y &&
-      state.actionCurrent?.actionType === "EXPAND"
-    ) {
-      if (state.dismissedCaptureStartAt === state.capture.startAt) state.dismissedCaptureStartAt = undefined;
-      requestAttackPreviewForHover();
-      renderHud();
-      return;
-    }
     const frontierOrigin = pickOriginForTarget(to.x, to.y, false) ?? pickOriginForTarget(to.x, to.y, false, true);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
@@ -1752,19 +1731,21 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     });
     if (clickOutcome === "queue-adjacent-neutral") {
       // Re-clicking a tile that's already sitting in the action queue
-      // behind the active capture must open its progress/cancel/
-      // jump-to-front detail, not re-run the afford/enqueue gate below —
-      // enqueueTarget silently no-ops on an already-queued target, which
-      // would otherwise leave the click with no menu and no feedback.
+      // behind the active capture, or a tile that's ALREADY the active
+      // capture, must open its progress/cancel/rush-buy/jump-to-front
+      // detail, not re-run the afford/enqueue gate below — gold for an
+      // active claim was already spent (a since-drained wallet must never
+      // block re-viewing it), and enqueueTarget silently no-ops on an
+      // already-queued target, which would otherwise leave the click with
+      // no menu and no feedback.
       const isAlreadyQueued = actionQueueIndexForTileFromModule(state, to.x, to.y) >= 0;
-      if (isAlreadyQueued) {
+      const isActiveCapture = Boolean(state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y);
+      if (isAlreadyQueued || isActiveCapture) {
         openSingleTileActionMenu(to, clientX, clientY);
         requestAttackPreviewForHover();
         renderHud();
         return;
       }
-      // (The active-capture re-click case is handled earlier, above, before
-      // this neutral/owned branching even runs.)
       if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
         notifyInsufficientGoldForFrontierAction("claim");
         requestAttackPreviewForHover();
