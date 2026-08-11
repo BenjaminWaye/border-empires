@@ -10,7 +10,7 @@
  * " • settles this tile first" detail suffix.
  *
  * Covers a representative sample: FARMSTEAD (resource-gated, no slot),
- * MARKET (town-support), LIGHT_OUTPOST (previously only ever built directly on
+ * MARKET (town-support), RELAY_BEACON (previously only ever built directly on
  * a settled tile via a bespoke path), and FOUNDRY (placement-overlay type).
  */
 import { describe, expect, it } from "vitest";
@@ -144,18 +144,18 @@ describe("settle + build — town-support building (MARKET)", () => {
   });
 });
 
-describe("settle + build — Light Outpost on an owned FRONTIER tile", () => {
-  it("shows build_light_outpost on a FRONTIER owned tile (previously settled-only)", () => {
+describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
+  it("shows build_relay_beacon on a FRONTIER owned tile (previously settled-only)", () => {
     const state = richState();
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(3, 3), frontier);
 
     const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
-    const action = findAction(actions, "build_light_outpost");
+    const action = findAction(actions, "build_relay_beacon");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • settles this tile first");
-    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "LIGHT_OUTPOST"));
+    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "RELAY_BEACON"));
   });
 });
 
@@ -238,7 +238,7 @@ describe("settle + build — settled-only building with no resource/town/dock su
   });
 });
 
-describe("Wooden Fort / Light Outpost stay visible as a fallback when their upgrade's resource slot is unavailable", () => {
+describe("Wooden Fort / Relay Beacon stay visible as a fallback when their upgrade's resource slot is unavailable", () => {
   const settledTile = (): Tile => ({ x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile);
 
   it("hides build_wooden_fort once Stoneworks is known and a free TITANIUM slot exists (upgrade path is buildable)", () => {
@@ -270,7 +270,7 @@ describe("Wooden Fort / Light Outpost stay visible as a fallback when their upgr
     expect(upgrade?.disabledReason).toBe("Need a free TITANIUM slot");
   });
 
-  it("hides build_light_outpost once Leatherworking is known and a free UMBRITE slot exists (upgrade path is buildable)", () => {
+  it("keeps build_relay_beacon visible even once Leatherworking is known and a free UMBRITE slot exists (independently choosable from Siege Outpost)", () => {
     const state = richState();
     state.techIds = ["leatherworking"];
     state.resourceSlots.supply.UMBRITE = 1;
@@ -279,13 +279,15 @@ describe("Wooden Fort / Light Outpost stay visible as a fallback when their upgr
     state.tiles.set(keyFor(3, 3), tile);
 
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    expect(findAction(actions, "build_light_outpost")).toBeUndefined();
+    const relayBeacon = findAction(actions, "build_relay_beacon");
+    expect(relayBeacon).toBeDefined();
+    expect(relayBeacon?.disabled).not.toBe(true);
     const upgrade = findAction(actions, "build_siege_camp");
     expect(upgrade?.label).toBe("Build Siege Outpost");
     expect(upgrade?.disabled).not.toBe(true);
   });
 
-  it("keeps build_light_outpost visible when Leatherworking is known but no free UMBRITE slot is available", () => {
+  it("keeps build_relay_beacon visible when Leatherworking is known but no free UMBRITE slot is available", () => {
     const state = richState();
     state.techIds = ["leatherworking"];
     state.resourceSlots.supply.UMBRITE = 0;
@@ -294,9 +296,9 @@ describe("Wooden Fort / Light Outpost stay visible as a fallback when their upgr
     state.tiles.set(keyFor(3, 3), tile);
 
     const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
-    const lightOutpost = findAction(actions, "build_light_outpost");
-    expect(lightOutpost).toBeDefined();
-    expect(lightOutpost?.disabled).not.toBe(true);
+    const relayBeacon = findAction(actions, "build_relay_beacon");
+    expect(relayBeacon).toBeDefined();
+    expect(relayBeacon?.disabled).not.toBe(true);
     const upgrade = findAction(actions, "build_siege_camp");
     expect(upgrade?.disabled).toBe(true);
     expect(upgrade?.disabledReason).toBe("Need a free UMBRITE slot");

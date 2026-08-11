@@ -14,7 +14,7 @@ const KINDS: ReadonlyArray<FortificationOverlayKind> = [
   "TITANIUM_BASTION",
   "THUNDER_BASTION",
   "WOODEN_FORT",
-  "LIGHT_OUTPOST",
+  "RELAY_BEACON",
   "SIEGE_OUTPOST"
 ];
 const OPENINGS: ReadonlyArray<FortificationOpening> = ["CLOSED", "NORTH", "EAST", "SOUTH", "WEST"];
@@ -53,7 +53,7 @@ export const ThunderBastionGateEast: Story = { args: { kind: "THUNDER_BASTION", 
 export const ThunderBastionGateSouth: Story = { args: { kind: "THUNDER_BASTION", opening: "SOUTH" } };
 export const ThunderBastionGateWest: Story = { args: { kind: "THUNDER_BASTION", opening: "WEST" } };
 export const WoodenFort: Story = { args: { kind: "WOODEN_FORT", opening: "EAST" } };
-export const LightOutpost: Story = { args: { kind: "LIGHT_OUTPOST", opening: "CLOSED" } };
+export const RelayBeacon: Story = { args: { kind: "RELAY_BEACON", opening: "CLOSED" } };
 export const SiegeOutpost: Story = { args: { kind: "SIEGE_OUTPOST", opening: "CLOSED" } };
 
 export const AllVariants: Story = {
@@ -63,7 +63,7 @@ export const AllVariants: Story = {
     const overlay = createFortOverlay(stage.scene, KINDS.length);
     const startX = -((KINDS.length - 1) * 1.35) / 2;
     KINDS.forEach((kind, index) => {
-      overlay.addInstance(startX + index * 1.35, 0, 0, kind, kind === "LIGHT_OUTPOST" || kind === "SIEGE_OUTPOST" ? "CLOSED" : "NORTH");
+      overlay.addInstance(startX + index * 1.35, 0, 0, kind, kind === "RELAY_BEACON" || kind === "SIEGE_OUTPOST" ? "CLOSED" : "NORTH");
     });
     overlay.commit();
     return wrapWithCleanup(stage, [overlay.dispose]);

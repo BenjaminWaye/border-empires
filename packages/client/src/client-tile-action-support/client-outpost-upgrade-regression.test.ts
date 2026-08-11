@@ -6,14 +6,14 @@ import { describe, expect, it } from "vitest";
 const here = dirname(fileURLToPath(import.meta.url));
 
 describe("starter fort and outpost regression guard", () => {
-  it("keeps wooden fort and light outpost available from the start and upgrades into the advanced versions", () => {
+  it("keeps wooden fort and Relay Beacon available from the start and upgrades into the advanced versions", () => {
     const source =
       readFileSync(resolve(here, "../main.ts"), "utf8") +
       readFileSync(resolve(here, "../client-tile-action-logic/client-tile-action-logic.ts"), "utf8");
 
     expect(source).toContain('label: "Build Palisade"');
     expect(source).toContain('label: tile.fort || hasWoodenFort ? `Upgrade to ${fortVariant.label}` : `Build ${fortVariant.label}`');
-    expect(source).toContain('label: "Build Light Outpost"');
-    expect(source).toContain('label: tile.siegeOutpost || hasLightOutpost ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`');
+    expect(source).toContain('label: "Build Relay Beacon"');
+    expect(source).toContain('label: tile.siegeOutpost || hasRelayBeacon ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`');
   });
 });

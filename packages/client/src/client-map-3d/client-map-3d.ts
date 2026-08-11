@@ -212,7 +212,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const FORT_DEMO_KINDS: ReadonlyArray<FortificationOverlayKind> = [
     "FORT",
     "WOODEN_FORT",
-    "LIGHT_OUTPOST",
+    "RELAY_BEACON",
     "SIEGE_OUTPOST"
   ];
   const FORT_DEMO_SPACING = 2;

@@ -33,8 +33,8 @@ The user-rule constraints at the bottom of this document are mandatory. They are
 
 Each handler does the same *shape* of work (parse payload, validate owner, check tech, check tile state, charge cost, schedule completion, emit deltas) but diverged on which fields it reads/writes and which side-effects it triggers. The dispatcher at [runtime.ts:8673-8742](apps/simulation/src/runtime/runtime.ts#L8673-L8742) selects one of four by command type. This is the root cause of:
 
-- LIGHT_OUTPOST being awkwardly classified as an `EconomicStructureType` (an attacker living in the economic pipeline)
-- Sweep state needing a duplicate tick path because LIGHT_OUTPOST and SIEGE_OUTPOST live on different tile fields
+- RELAY_BEACON being awkwardly classified as an `EconomicStructureType` (an attacker living in the economic pipeline)
+- Sweep state needing a duplicate tick path because RELAY_BEACON and SIEGE_OUTPOST live on different tile fields
 - Every "is this tile already built on?" check having to consult four fields
 - Capture / removal / status-change logic being duplicated four times
 - New structure families being added by copying one of the existing handlers (the original organic-accretion mechanism)
@@ -51,13 +51,13 @@ Collapse the four wire messages and four handlers into one `BUILD_STRUCTURE` com
 
 **Upside:** the entire client-facing build UX is one code path. ~30 hours of work. No snapshot migration — the on-disk shape is unchanged. Low rollback risk. Most of the duplication the user actually feels (4 build menus, 4 cost-lookup paths, 4 tech-gate checks) is gone.
 
-**Downside:** the symptom you originally complained about (LIGHT_OUTPOST type-lie on `economicStructure`) is *not* fixed by this. The tile shape is still four separate optional fields. Future "is this tile built on?" code still has to check four places. The capture/removal flow is still partially duplicated.
+**Downside:** the symptom you originally complained about (RELAY_BEACON type-lie on `economicStructure`) is *not* fixed by this. The tile shape is still four separate optional fields. Future "is this tile built on?" code still has to check four places. The capture/removal flow is still partially duplicated.
 
 ### Strategy B — Strategy A + tile-shape unification (`tile.structure`)
 
 After A: collapse `tile.fort`, `tile.observatory`, `tile.siegeOutpost`, `tile.economicStructure` into a single `tile.structure: { kind, type, variant?, status, completesAt?, sweepBudget?, ... }` discriminated union.
 
-**Upside:** the symptom IS fixed. LIGHT_OUTPOST is just `{ kind: "OUTPOST", variant: "LIGHT_OUTPOST" }`. One place to read structure state. The sweep type-lie is deleted for good. 3D overlays simplify. History (`lastStructureType`, `structureHistory`) collapses to one type.
+**Upside:** the symptom IS fixed. RELAY_BEACON is just `{ kind: "OUTPOST", variant: "RELAY_BEACON" }`. One place to read structure state. The sweep type-lie is deleted for good. 3D overlays simplify. History (`lastStructureType`, `structureHistory`) collapses to one type.
 
 **Downside:** snapshot migration is **required** — every in-flight game gets upgraded on first sim boot. Once a prod snapshot has been re-saved on the new shape, rollback requires a downgrader. The blast radius hits 3D overlays, the realtime gateway tile projection, the persistence layer, history, capture, removal, and ~40+ files in the client. ~80 hours of work. Real risk of breaking in-flight games on first deploy. A staged rollout (staging → soak → prod) is mandatory.
 
@@ -90,7 +90,7 @@ Goal: extract the per-structure-type rules into a typed registry, without touchi
 5. **Populate the registry, one family at a time, in this order:**
    1. Forts (3 variants) — simplest. Land them in the registry, write parity tests against `handleBuildFortCommand`, confirm green.
    2. Observatory — single entry.
-   3. Outposts (4 variants including LIGHT_OUTPOST) — note LIGHT_OUTPOST's `tileField: "economicStructure"` as acknowledged debt to be unwound in Phase 4.
+   3. Outposts (4 variants including RELAY_BEACON) — note RELAY_BEACON's `tileField: "economicStructure"` as acknowledged debt to be unwound in Phase 4.
    4. Economic (~30 variants) — bulk of the work, mostly mechanical extraction from the already-table-driven `handleBuildEconomicStructureCommand`. Split the registry across `structure-registry-economic-*.ts` files if it crosses 500 lines (see file-size constraint at the bottom).
 6. **Wire the parity tests.** For each spec in the registry, the test must:
    - Compare `spec.cost` to the existing `structure-costs.ts` lookup for that type → equal.
@@ -166,7 +166,7 @@ For each of the ~35 structure types currently in the codebase, extract its rules
 
 - **Fort family** (FORT/IRON_BASTION/THUNDER_BASTION): cost/duration from `structure-costs.ts`, tech from [runtime.ts:6116](apps/simulation/src/runtime/runtime.ts#L6116) (`masonry` for base fort, plus per-variant tech), `tileField: "fort"`. Placement: own settled tile, no other structure. `onCompletion`: just set status to active.
 - **Observatory** (OBSERVATORY): cost/duration from `structure-costs.ts`, tech check at the existing site, `tileField: "observatory"`. `onCompletion`: initialize `cooldownUntil`.
-- **Outpost family** (SIEGE_OUTPOST/SIEGE_TOWER/DREAD_TOWER/LIGHT_OUTPOST): cost/duration per variant, tech per variant, `tileField: "siegeOutpost"` for the three siege variants, `tileField: "economicStructure"` for LIGHT_OUTPOST (acknowledged debt — Phase 4 collapses this). `onCompletion`: initialize `sweepBudget: 300`, `sweepActive: false`.
+- **Outpost family** (SIEGE_OUTPOST/SIEGE_TOWER/DREAD_TOWER/RELAY_BEACON): cost/duration per variant, tech per variant, `tileField: "siegeOutpost"` for the three siege variants, `tileField: "economicStructure"` for RELAY_BEACON (acknowledged debt — Phase 4 collapses this). `onCompletion`: initialize `sweepBudget: 300`, `sweepActive: false`.
 - **Economic family** (~30 types in [types.ts:25-57](packages/shared/src/types.ts#L25-L57)): mostly mechanical extraction from `handleBuildEconomicStructureCommand` since that handler is *already* table-driven internally. The work here is moving the table out of the handler into the registry, with the per-type `placement`, `upkeep`, `prerequisiteStructureTypes`, etc. preserved verbatim.
 
 ### Placement checks — extract these as composable predicates
@@ -333,11 +333,11 @@ One PR. Staging soak for ≥24h with a load test (per user memory "Load-test tic
 - One build command on the wire ✓
 - One handler in the sim ✓
 - Build menu in the client driven by one registry ✓
-- LIGHT_OUTPOST sweep type-lie **still present** (it's still on `economicStructure`)
+- RELAY_BEACON sweep type-lie **still present** (it's still on `economicStructure`)
 - 3D overlay still has 4 code paths
 - Capture/removal still partially family-specific
 
-If you stop here, the symptom you originally yelled about is one config flip away — a follow-up small PR can move LIGHT_OUTPOST's `tileField` in the registry from `"economicStructure"` to a new `"siegeOutpost"` write path and update the tick. That's bridge work to Phase 3+.
+If you stop here, the symptom you originally yelled about is one config flip away — a follow-up small PR can move RELAY_BEACON's `tileField` in the registry from `"economicStructure"` to a new `"siegeOutpost"` write path and update the tick. That's bridge work to Phase 3+.
 
 ---
 
@@ -424,7 +424,7 @@ function upgradeTileStructure(raw: any): void {
 }
 ```
 
-`projectLegacyToUnified` is the one place all four legacy field shapes meet. LIGHT_OUTPOST on `economicStructure` becomes `{ kind: "OUTPOST", variant: "LIGHT_OUTPOST", sweepBudget, sweepActive, ... }`. The type lie is dead.
+`projectLegacyToUnified` is the one place all four legacy field shapes meet. RELAY_BEACON on `economicStructure` becomes `{ kind: "OUTPOST", variant: "RELAY_BEACON", sweepBudget, sweepActive, ... }`. The type lie is dead.
 
 **This is the no-rollback point.** Once a snapshot has been re-saved on the new shape, downgrading requires a separate writer. Document this in the changelog. Confirm staging soak ≥48h before prod.
 

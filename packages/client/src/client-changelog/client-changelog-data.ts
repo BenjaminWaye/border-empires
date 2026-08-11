@@ -216,8 +216,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // Natural Wonders, fort/outpost upkeep rebalance, town food-slot demand,
   // and town vision-bonus entries pruned: aged out of the 6-day window.
   // 2026.08.01.1 ("Rail Depot's Garrison Hall bonus quadrupled..."),
-  // 2026.08.02.1 ("First 5 Light Outposts no longer cost a FOOD slot"),
-  // 2026.08.02.2 ("Build Light Outpost menu no longer shows a FOOD slot
+  // 2026.08.02.1 ("First 5 Relay Beacons no longer cost a FOOD slot"),
+  // 2026.08.02.2 ("Build Relay Beacon menu no longer shows a FOOD slot
   // cost..."), and 2026.08.03.1 ("Fixed: removing a structure crashed the
   // game") pruned: aged out of the 6-day window.
   // buildings-tab-always-show, 2026.08.03.2, wooden-fort-no-iron-build,

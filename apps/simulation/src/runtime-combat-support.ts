@@ -240,11 +240,11 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
       outposts.push({ x: tile.x, y: tile.y, variant: tile.siegeOutpost.variant ?? "SIEGE_OUTPOST" });
     } else if (
       tile.economicStructure?.ownerId === playerId &&
-      tile.economicStructure.type === "LIGHT_OUTPOST" &&
+      tile.economicStructure.type === "RELAY_BEACON" &&
       tile.economicStructure.status === "active" &&
       !ctx.isStructureDormant(playerId, tileKey, "economicStructure")
     ) {
-      outposts.push({ x: tile.x, y: tile.y, variant: "LIGHT_OUTPOST" });
+      outposts.push({ x: tile.x, y: tile.y, variant: "RELAY_BEACON" });
     }
   }
   return targetOutpostMult(outposts, targetX, targetY);

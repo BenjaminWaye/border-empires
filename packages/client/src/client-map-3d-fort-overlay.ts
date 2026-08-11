@@ -15,7 +15,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "./client-fo
 // Fort 3D overlay: stone & wood forts get a 4-wall + 4-corner-tower
 // silhouette (no floor — terrain shows through) with one wall optionally
 // omitted to mirror the `fortificationOpeningForTile` rule (1 cardinal
-// opening max). LIGHT_OUTPOST gets a single watchtower with a red flag;
+// opening max). RELAY_BEACON gets a single watchtower with a red flag;
 // SIEGE_OUTPOST gets a watchtower with a catapult mounted on top.
 
 const TILE_HALF = 0.46;
@@ -276,7 +276,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
         catStoneCount += 1;
       }
     } else {
-      // Light outpost: simple flagpole + flag on the roof.
+      // Relay Beacon: simple flagpole + flag on the roof.
       if (outpostFlagpoleCount < maxTiles) {
         matrix.makeTranslation(worldX, surfaceY + OUTPOST_FLAGPOLE_Y, worldZ);
         outpostFlagpoleMesh.setMatrixAt(outpostFlagpoleCount, matrix);
@@ -301,7 +301,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
       addFortPieces(stone, stoneCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
     } else if (kind === "WOODEN_FORT") {
       addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
-    } else if (kind === "LIGHT_OUTPOST") {
+    } else if (kind === "RELAY_BEACON") {
       addOutpostPieces(worldX, worldZ, surfaceY, false);
     } else if (kind === "SIEGE_OUTPOST") {
       addOutpostPieces(worldX, worldZ, surfaceY, true);

@@ -37,7 +37,7 @@ export class VisibilityCoverageCache {
   private readonly coverage = new Map<string, Map<string, number>>();
   // viewerId -> tileKey -> reason -> refcount. Populated in lockstep with
   // `coverage` whenever a caller supplies a `reason` tag (e.g. "radius:self",
-  // "radius:ally:<id>", "light-outpost", "temporary-reveal" — see
+  // "radius:ally:<id>", "relay-beacon", "temporary-reveal" — see
   // VisibilityCoverageTracker for the vocabulary), so the full-export
   // visibility audit (runtime-visible-state.ts) can explain *why* a tile is
   // visible without recomputing anything from scratch. Refcounted the same
@@ -391,7 +391,7 @@ export class VisibilityCoverageTracker {
   }
 
   /**
-   * Adds a permanent vision bonus from a specific tile (e.g. a light outpost's
+   * Adds a permanent vision bonus from a specific tile (e.g. a Relay Beacon's
    * +5 vision). Unlike tileOwnershipChanged this does NOT go through
    * radiusBySource — it's a flat extra footprint that stacks on top of the
    * owner's territory-based coverage. Call removeTileVisionBonus with the exact
@@ -468,8 +468,8 @@ export class VisibilityCoverageTracker {
   }
 
   /**
-   * Adds a permanent vision bonus for an owned active Light Outpost or Siege
-   * Outpost (runtime-outpost-vision.ts) — Light Outpost's flat base plus
+   * Adds a permanent vision bonus for an owned active Relay Beacon or Siege
+   * Outpost (runtime-outpost-vision.ts) — Relay Beacon's flat base plus
    * Survey Corps's outpostVisionRadiusBonus tech effect on either. Tracked
    * per (source, tile) like setTownVisionBonus, under one fixed reason tag
    * (not the per-viewer self/ally split territoryReason uses) so a Light
@@ -483,8 +483,8 @@ export class VisibilityCoverageTracker {
     const existing = this.outpostBonusRadiusBySourceAndTile.get(sourceId)?.get(tileKey);
     if (existing === bonusRadius) return;
     for (const viewerId of this.viewersForSource(sourceId)) {
-      if (existing !== undefined) this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, "light-outpost");
-      this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter, "light-outpost");
+      if (existing !== undefined) this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, "relay-beacon");
+      this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter, "relay-beacon");
     }
     let byTile = this.outpostBonusRadiusBySourceAndTile.get(sourceId);
     if (!byTile) {
@@ -502,7 +502,7 @@ export class VisibilityCoverageTracker {
     const existing = byTile?.get(tileKey);
     if (existing === undefined) return;
     for (const viewerId of this.viewersForSource(sourceId)) {
-      this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, "light-outpost");
+      this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, "relay-beacon");
     }
     byTile!.delete(tileKey);
     if (byTile!.size === 0) this.outpostBonusRadiusBySourceAndTile.delete(sourceId);
@@ -587,8 +587,8 @@ export class VisibilityCoverageTracker {
     for (const [tileKey, radius] of byTile) {
       const parsed = parseTileKey(tileKey);
       if (!parsed) continue;
-      if (onEnter) this.cache.addFootprint(viewerId, parsed.x, parsed.y, radius, onEnter, "light-outpost");
-      if (onLeave) this.cache.removeFootprint(viewerId, parsed.x, parsed.y, radius, onLeave, "light-outpost");
+      if (onEnter) this.cache.addFootprint(viewerId, parsed.x, parsed.y, radius, onEnter, "relay-beacon");
+      if (onLeave) this.cache.removeFootprint(viewerId, parsed.x, parsed.y, radius, onLeave, "relay-beacon");
     }
   }
 }
