@@ -573,5 +573,14 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Build menu: Titanium Weapons Factory and Umbrite Weapons Factory now show a real description instead of \"undefined\"."
     ]
+  },
+  {
+    createdAt: 1786445193413, // 2026-08-11 — frozen from a live Date.now() call
+    introducedIn: "revert-barley-2d-farm-overlay",
+    title: "2D farm tiles show the classic wheat plates again",
+    why: "The recent 2D farm overlay redraw (dense barley crops) didn't land well, so farm tiles on the 2D map are back to the previous wheat-plate look.",
+    changes: [
+      "2D map: farm resource tiles use the previous wheat-plate overlay style instead of the dense barley crops."
+    ]
   }
 ];
