@@ -73,6 +73,9 @@ const payloadForCommand = (type: RestartCommandType): Record<string, unknown> =>
     case "REVEAL_EMPIRE":
     case "REVEAL_EMPIRE_STATS":
       return { targetPlayerId: "ai-1" };
+    // DEV_QUEUE_*/WAYPOINT_* are intentionally excluded from
+    // RESTART_PARITY_COMMAND_TYPES -- see the comment in
+    // command-coverage-sets.ts -- so they never reach this switch.
   }
 };
 
@@ -113,6 +116,7 @@ describe("restart parity (in-memory stores)", () => {
         persistedCommandEvents.some((event) =>
           event.eventType === "COMMAND_ACCEPTED" ||
           event.eventType === "COMMAND_REJECTED" ||
+          event.eventType === "COMMAND_RESOLVED" ||
           event.eventType === "COLLECT_RESULT" ||
           event.eventType === "TECH_UPDATE" ||
           event.eventType === "DOMAIN_UPDATE" ||

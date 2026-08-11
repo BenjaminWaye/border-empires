@@ -2,8 +2,19 @@ import { isChosenTrickleResource } from "@border-empires/shared";
 import { applyGatewayRecoveryNextClientSeq } from "../client-frontier-command/client-frontier-command.js";
 import { clearServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { applyGatewayInitialState, refreshAllGatewayDerivedTownSummaries } from "../client-gateway-sync/client-gateway-sync.js";
-import { applyAutoSettlementQueueFromServer, restorePersistedDevelopmentQueueForPlayer } from "../client-development-queue/client-development-queue.js";
-import { restorePersistedWaypointQueueForPlayer } from "../client-waypoint-planner/client-waypoint-persistence.js";
+import {
+  applyAutoSettlementQueueFromServer,
+  devQueueEnqueueWirePayload,
+  mergeServerDevQueueIntoRestoredQueue,
+  restorePersistedDevelopmentQueueForPlayer,
+  type ServerDevQueueWireEntry
+} from "../client-development-queue/client-development-queue.js";
+import {
+  restorePersistedWaypointQueueForPlayer,
+  waypointEnqueueWirePayload,
+  type ServerWaypointQueueWireEntry
+} from "../client-waypoint-planner/client-waypoint-persistence.js";
+import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
 import {
   notifyActiveAllianceBreaksOnInit,
   notifyIncomingDiplomacyRequestsOnInit,
@@ -221,6 +232,14 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   applyPendingSettlementsFromServer(
     (player.pendingSettlements as Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined) ?? []
   );
+  // Server-durable dev/expand queue tail (see runtime-dev-queue.ts /
+  // runtime-waypoint-queue.ts) -- authoritative for what actually survived
+  // while this client was offline or logged in elsewhere, unlike
+  // sessionStorage which only covers a same-tab refresh. Merged in on every
+  // INIT (not just when the local queue is empty) so a fresh login always
+  // picks up whatever the server kept draining/holding while disconnected.
+  const serverDevQueue = player.devQueue as ServerDevQueueWireEntry[] | undefined;
+  const serverWaypointQueue = player.waypointQueue as ServerWaypointQueueWireEntry[] | undefined;
   if (state.developmentQueue.length === 0) {
     state.developmentQueue = restorePersistedDevelopmentQueueForPlayer(
       state.me,
@@ -228,8 +247,24 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
       new Set(state.settleProgressByTile.keys())
     );
   }
+  const devQueueTileKeysBeforeMerge = new Set(state.developmentQueue.map((entry) => entry.tileKey));
+  state.developmentQueue = mergeServerDevQueueIntoRestoredQueue(state.developmentQueue, serverDevQueue);
+  // Backfill: mirror any entry that's ending up within the durable tier but
+  // that the server didn't already know about (e.g. queued before this
+  // client picked up dev-queue mirroring, or added just before a drop).
+  const serverDevQueueTileKeys = new Set((serverDevQueue ?? []).map((entry) => entry.tileKey));
+  state.developmentQueue.slice(0, DEV_QUEUE_SERVER_CAP).forEach((entry) => {
+    if (serverDevQueueTileKeys.has(entry.tileKey) || !devQueueTileKeysBeforeMerge.has(entry.tileKey)) return;
+    deps.sendGameMessage?.(devQueueEnqueueWirePayload(entry));
+  });
+
   if (state.waypoint.length === 0) {
-    state.waypoint = restorePersistedWaypointQueueForPlayer(state.me, { state, keyFor });
+    state.waypoint = restorePersistedWaypointQueueForPlayer(state.me, { state, keyFor }, serverWaypointQueue);
+    const serverWaypointTargetKeys = new Set((serverWaypointQueue ?? []).map((entry) => keyFor(entry.x, entry.y)));
+    for (const waypoint of state.waypoint) {
+      if (serverWaypointTargetKeys.has(keyFor(waypoint.target.x, waypoint.target.y))) continue;
+      deps.sendGameMessage?.(waypointEnqueueWirePayload(waypoint.target, waypoint.trackBarbarian));
+    }
   }
   applyAutoSettlementQueueFromServer(
     state,

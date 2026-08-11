@@ -56,7 +56,13 @@ const migratedDurableCommandTypesList: readonly SupportedClientMessageType[] = [
   "SET_MUSTER",
   "CLEAR_MUSTER",
   "WATCH_MUSTER",
-  "UNWATCH_MUSTER"
+  "UNWATCH_MUSTER",
+  "DEV_QUEUE_ENQUEUE",
+  "DEV_QUEUE_CANCEL",
+  "DEV_QUEUE_MOVE_TO_FRONT",
+  "WAYPOINT_ENQUEUE",
+  "WAYPOINT_CANCEL",
+  "WAYPOINT_CANCEL_ALL"
 ];
 
 export const migratedDurableCommandTypes: ReadonlySet<string> = new Set(migratedDurableCommandTypesList);

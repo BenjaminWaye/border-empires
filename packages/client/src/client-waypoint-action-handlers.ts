@@ -1,5 +1,10 @@
 import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
-import { persistWaypointQueueForPlayer, WAYPOINT_QUEUE_CLIENT_CAP } from "./client-waypoint-planner/client-waypoint-persistence.js";
+import {
+  persistWaypointQueueForPlayer,
+  waypointCancelAllWirePayload,
+  waypointEnqueueWirePayload,
+  WAYPOINT_QUEUE_CLIENT_CAP
+} from "./client-waypoint-planner/client-waypoint-persistence.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
@@ -14,6 +19,7 @@ type WaypointHandlerDeps = {
   hideTileActionMenu: () => void;
   showCaptureAlert: (title: string, detail: string, tone?: "error" | "success" | "warn", manpowerLoss?: number) => void;
   processActionQueue: () => boolean;
+  sendGameMessage?: (payload: unknown) => boolean;
 };
 
 const setWaypointForSelected = (
@@ -26,10 +32,11 @@ const setWaypointForSelected = (
     showCaptureAlert: (title: string, detail: string, tone?: "error" | "success" | "warn") => void;
     processActionQueue: () => boolean;
     renderHud: () => void;
+    sendGameMessage?: (payload: unknown) => boolean;
   },
   feedPrefix?: string
 ): boolean => {
-  const { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud } = params;
+  const { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, sendGameMessage } = params;
   if (state.waypoint.length >= WAYPOINT_QUEUE_CLIENT_CAP) {
     showVisibleActionWarning(
       { pushFeed, showCaptureAlert },
@@ -48,12 +55,14 @@ const setWaypointForSelected = (
     return true;
   }
   const selectedTile = state.tiles.get(keyFor(selected.x, selected.y));
+  const trackBarbarian = selectedTile?.ownerId === "barbarian-1";
   state.waypoint.push({
     target: { x: selected.x, y: selected.y },
     plan,
-    trackBarbarian: selectedTile?.ownerId === "barbarian-1"
+    trackBarbarian
   });
   persistWaypointQueueForPlayer(state.me, state.waypoint);
+  sendGameMessage?.(waypointEnqueueWirePayload({ x: selected.x, y: selected.y }, trackBarbarian));
   const summary = plan.attackCount > 0
     ? `${plan.expandCount} expand + ${plan.attackCount} attack`
     : `${plan.expandCount} expand`;
@@ -66,7 +75,7 @@ const setWaypointForSelected = (
 };
 
 export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
-  const { state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue } = deps;
+  const { state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage } = deps;
 
   if (actionId === "cancel_waypoint") {
     if (state.waypoint.length > 0) {
@@ -74,6 +83,7 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
       const targets = state.waypoint.map((w) => `(${w.target.x}, ${w.target.y})`).join(", ");
       state.waypoint = [];
       persistWaypointQueueForPlayer(state.me, state.waypoint);
+      sendGameMessage?.(waypointCancelAllWirePayload());
       pushFeed(`${count} waypoint${count > 1 ? "s" : ""} cancelled: ${targets}.`, "info", "info");
     }
     hideTileActionMenu();
@@ -86,12 +96,16 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
     const oldTargets = state.waypoint.map((w) => `(${w.target.x}, ${w.target.y})`).join(", ");
     state.waypoint = [];
     persistWaypointQueueForPlayer(state.me, state.waypoint);
+    sendGameMessage?.(waypointCancelAllWirePayload());
     const feedPrefix = oldCount > 0 ? `(cleared ${oldCount} waypoint${oldCount > 1 ? "s" : ""}: ${oldTargets}) ` : "";
-    return setWaypointForSelected({ state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud }, feedPrefix);
+    return setWaypointForSelected(
+      { state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, ...(sendGameMessage ? { sendGameMessage } : {}) },
+      feedPrefix
+    );
   }
 
   if (actionId === "expand_here" && selected) {
-    return setWaypointForSelected({ state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud });
+    return setWaypointForSelected({ state, selected, keyFor, pushFeed, hideTileActionMenu, showCaptureAlert, processActionQueue, renderHud, ...(sendGameMessage ? { sendGameMessage } : {}) });
   }
 
   return false;
