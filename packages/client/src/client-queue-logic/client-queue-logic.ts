@@ -16,7 +16,8 @@ import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-p
 import {
   persistWaypointQueueForPlayer,
   syncWaypointQueueToServer,
-  waypointCancelWirePayload
+  waypointCancelWirePayload,
+  waypointEnqueueWirePayload
 } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -812,7 +813,8 @@ const findNearestBarbarian = (
 export const topUpFromWaypoint = (
   state: ClientState,
   keyFor: (x: number, y: number) => string,
-  pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void
+  pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void,
+  sendGameMessage?: (payload: unknown) => boolean
 ): boolean => {
   const waypoint = state.waypoint[0];
   if (!waypoint) return false;
@@ -824,6 +826,7 @@ export const topUpFromWaypoint = (
   if (targetTile && targetTile.ownerId === state.me) {
     state.waypoint.shift();
     persistWaypointQueueForPlayer(state.me, state.waypoint);
+    sendGameMessage?.(waypointCancelWirePayload(target));
     return state.waypoint.length > 0;
   }
 
@@ -832,8 +835,13 @@ export const topUpFromWaypoint = (
   if (waypoint.trackBarbarian && targetTile?.ownerId !== "barbarian-1") {
     const moved = findNearestBarbarian(target.x, target.y, BARBARIAN_TRACK_RADIUS, state, keyFor);
     if (moved) {
+      const previousTarget = target;
       waypoint.target = moved;
       target = moved;
+      // The server mirror is keyed by target coordinates -- swap it too, or
+      // the durable entry keeps pointing at the barbarian's old position.
+      sendGameMessage?.(waypointCancelWirePayload(previousTarget));
+      sendGameMessage?.(waypointEnqueueWirePayload(moved, true));
     }
   }
 
@@ -841,7 +849,10 @@ export const topUpFromWaypoint = (
   waypoint.plan = plan;
   if (!plan.reachable) {
     const result = cancelWaypointOnBarrierBlock(state, plan, target, pushFeed);
-    if (plan.blockReason === "TARGET_BARRIER") persistWaypointQueueForPlayer(state.me, state.waypoint);
+    if (plan.blockReason === "TARGET_BARRIER") {
+      persistWaypointQueueForPlayer(state.me, state.waypoint);
+      sendGameMessage?.(waypointCancelWirePayload(target));
+    }
     return result;
   }
   const firstStep = plan.steps[0];
@@ -1153,10 +1164,11 @@ export const processActionQueue = (
     renderHud: () => void;
     sendSetMuster: (x: number, y: number, mode: "HOLD") => void;
     sendAttack: (fromX: number, fromY: number, toX: number, toY: number, commandId: string, clientSeq: number) => void;
+    sendGameMessage?: (payload: unknown) => boolean;
   }
 ): boolean => {
   if (state.actionInFlight || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
-  topUpFromWaypoint(state, deps.keyFor, deps.pushFeed);
+  topUpFromWaypoint(state, deps.keyFor, deps.pushFeed, deps.sendGameMessage);
   let deferredFrontierSyncTargets = 0;
   while (state.actionQueue.length > 0) {
     const next = state.actionQueue[0];

@@ -481,6 +481,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     authenticateSocket, clearAuthInFlight,
     pushFeed,
     pushFeedEntry,
+    sendGameMessage: actionFlow.sendGameMessage,
     clearOptimisticTileState,
     applyOptimisticTileState,
     requestViewRefresh,

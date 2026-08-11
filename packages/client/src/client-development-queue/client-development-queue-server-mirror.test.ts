@@ -5,6 +5,7 @@ import {
   devQueueCancelWirePayload,
   devQueueEnqueueWirePayload,
   devQueueMoveToFrontWirePayload,
+  isQueuedDevelopmentActionStillValid,
   mergeServerDevQueueIntoRestoredQueue
 } from "./client-development-queue.js";
 import { queueDevelopmentAction, cancelQueuedSettlement, moveQueuedEntryToFront } from "../client-queue-logic/client-queue-logic.js";
@@ -199,5 +200,37 @@ describe("mergeServerDevQueueIntoRestoredQueue", () => {
     expect(merged).toHaveLength(DEV_QUEUE_SERVER_CAP + 1);
     expect(merged[merged.length - 1]).toEqual(restored[0]);
     expect(merged.length).toBeLessThanOrEqual(DEV_QUEUE_TOTAL_CAP);
+  });
+});
+
+describe("isQueuedDevelopmentActionStillValid", () => {
+  // A locally-known entry that's absent from a reconnect's serverDevQueue
+  // isn't necessarily unmirrored -- the server's own auto-drain may have
+  // already resolved it while this client was offline. This is the tile-state
+  // check the INIT handler re-runs post-merge to catch that case.
+  it("is false once a SETTLE's tile already settled (server drained it while offline)", () => {
+    const tiles = new Map([["1,1", { ownerId: "me", ownershipState: "SETTLED" as const }]]);
+    expect(isQueuedDevelopmentActionStillValid({ kind: "SETTLE", x: 1, y: 1, tileKey: "1,1", label: "Settlement at (1, 1)" }, tiles, "me")).toBe(false);
+  });
+
+  it("is true while a SETTLE's tile is still an unclaimed frontier tile", () => {
+    const tiles = new Map([["1,1", { ownerId: "me", ownershipState: "FRONTIER" as const }]]);
+    expect(isQueuedDevelopmentActionStillValid({ kind: "SETTLE", x: 1, y: 1, tileKey: "1,1", label: "Settlement at (1, 1)" }, tiles, "me")).toBe(true);
+  });
+
+  it("is false once ownership of the tile has changed", () => {
+    const tiles = new Map([["1,1", { ownerId: "someone-else", ownershipState: "FRONTIER" as const }]]);
+    expect(isQueuedDevelopmentActionStillValid({ kind: "SETTLE", x: 1, y: 1, tileKey: "1,1", label: "Settlement at (1, 1)" }, tiles, "me")).toBe(false);
+  });
+
+  it("is true for a BUILD entry on an owned, settled tile", () => {
+    const tiles = new Map([["1,1", { ownerId: "me", ownershipState: "SETTLED" as const }]]);
+    expect(
+      isQueuedDevelopmentActionStillValid(
+        { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Build Fort", payload: { type: "BUILD_STRUCTURE", x: 1, y: 1, structureType: "FORT" }, optimisticKind: "FORT" },
+        tiles,
+        "me"
+      )
+    ).toBe(true);
   });
 });
