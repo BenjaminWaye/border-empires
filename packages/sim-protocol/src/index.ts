@@ -7,18 +7,15 @@ import {
   RESTART_PARITY_COMMAND_TYPES as RESTART_PARITY_COMMAND_TYPES_UNTYPED
 } from "./command-coverage-sets/command-coverage-sets.js";
 
+// DEV_QUEUE_*/WAYPOINT_* now live on DurableCommandTypeSchema itself (see
+// @border-empires/client-protocol) now that the gateway forwards them like
+// any other durable command -- no separate literals needed here.
 const SimulationCommandTypeSchema = z.union([
   DurableCommandTypeSchema,
   z.literal("SYNC_ALLIANCE"),
   z.literal("SYNC_TRUCE"),
   z.literal("WATCH_MUSTER"),
-  z.literal("UNWATCH_MUSTER"),
-  z.literal("DEV_QUEUE_ENQUEUE"),
-  z.literal("DEV_QUEUE_CANCEL"),
-  z.literal("DEV_QUEUE_MOVE_TO_FRONT"),
-  z.literal("WAYPOINT_ENQUEUE"),
-  z.literal("WAYPOINT_CANCEL"),
-  z.literal("WAYPOINT_CANCEL_ALL")
+  z.literal("UNWATCH_MUSTER")
 ]);
 
 export const CommandEnvelopeSchema = z.object({
@@ -326,7 +323,7 @@ export type PlayerSubscriptionSnapshot = {
     // disconnected, capped at DEV_QUEUE_SERVER_CAP each. Not restart-durable
     // (in-memory only, see PlayerRuntimeSummary) -- only survives the running
     // process's lifetime, not a process restart.
-    devQueue?: Array<{ tileKey: string; kind: "SETTLE" | "BUILD"; queuedAt: number }>;
+    devQueue?: Array<{ tileKey: string; x: number; y: number; kind: "SETTLE" | "BUILD"; structureType?: string; queuedAt: number }>;
     waypointQueue?: Array<{ x: number; y: number; trackBarbarian?: boolean; queuedAt: number }>;
     techIds: string[];
     domainIds: string[];

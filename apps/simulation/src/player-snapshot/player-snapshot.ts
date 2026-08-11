@@ -291,6 +291,12 @@ export const buildPlayerSubscriptionSnapshot = (
             activeDevelopmentProcessCount,
             pendingSettlements,
             autoSettlementQueue,
+            // Server-durable dev/expand queue tail -- see runtime-dev-queue.ts /
+            // runtime-waypoint-queue.ts. Seeds a fresh login/reconnect with
+            // whatever survived while disconnected; the live PLAYER_UPDATE
+            // stream (emitPlayerStateUpdate) keeps it current after that.
+            ...(livePlayer.devQueue?.length ? { devQueue: livePlayer.devQueue } : {}),
+            ...(livePlayer.waypointQueue?.length ? { waypointQueue: livePlayer.waypointQueue } : {}),
             techIds: [...livePlayer.techIds],
             domainIds: [...livePlayer.domainIds],
             mods: liveProgressionPlayer ? recomputeMods(liveProgressionPlayer) : { attack: 1, defense: 1, income: 1, vision: 1 },

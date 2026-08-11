@@ -71,6 +71,7 @@ import { createGatewaySocialStore } from "../social-store-factory.js";
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { migratedDurableCommandTypes } from "../migrated-command-types/migrated-command-types.js";
+import { devQueueWaypointCommandPayload, isDevQueueWaypointMessageType } from "../dev-queue-waypoint-message/dev-queue-waypoint-message.js";
 import { createRequestTracer } from "../request-tracer.js";
 import { buildPendingInputToStateEvents, sweepStalePendingInputToState } from "../pending-input-to-state-events.js";
 import { buildSnapshotTileDetail } from "../tile-detail-snapshot/tile-detail-snapshot.js";
@@ -3072,6 +3073,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             await dispatchDurableCommand("UPGRADE_TOWN_TIER", { x: message.x, y: message.y }, true);
           } else if (message.type === "COLLECT_SHARD") {
             await dispatchDurableCommand("COLLECT_SHARD", { x: message.x, y: message.y }, true);
+          } else if (isDevQueueWaypointMessageType(message.type)) {
+            await dispatchDurableCommand(message.type, devQueueWaypointCommandPayload(message));
           } else if (message.type === "ATTACK" || message.type === "EXPAND") {
             // The only migratedDurableCommandTypes members not already handled
             // by name above — everything else was rejected as UNSUPPORTED earlier.

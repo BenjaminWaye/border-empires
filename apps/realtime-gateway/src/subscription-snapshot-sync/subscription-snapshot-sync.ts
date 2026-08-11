@@ -150,6 +150,12 @@ export const applyPlayerMessageToSnapshot = (
         ...(Array.isArray(payload.autoSettlementQueue)
           ? { autoSettlementQueue: payload.autoSettlementQueue as NonNullable<PlayerStateSnapshot["autoSettlementQueue"]> }
           : {}),
+        ...(Array.isArray(payload.devQueue)
+          ? { devQueue: payload.devQueue as NonNullable<PlayerStateSnapshot["devQueue"]> }
+          : {}),
+        ...(Array.isArray(payload.waypointQueue)
+          ? { waypointQueue: payload.waypointQueue as NonNullable<PlayerStateSnapshot["waypointQueue"]> }
+          : {}),
         ...playerProgressionFieldsFromPayload(payload)
       }
     };

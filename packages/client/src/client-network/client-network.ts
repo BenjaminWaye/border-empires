@@ -67,6 +67,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     authenticateSocket, clearAuthInFlight,
     pushFeed,
     pushFeedEntry,
+    sendGameMessage,
     clearOptimisticTileState,
     requestViewRefresh,
     applyPendingSettlementsFromServer,
@@ -642,7 +643,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         { kind: "SETTLE", x: tile.x, y: tile.y, tileKey: errorTileKey, label: `Settlement at (${tile.x}, ${tile.y})` },
         {
           pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
-          renderHud: typeof renderHud === "function" ? renderHud : () => {}
+          renderHud: typeof renderHud === "function" ? renderHud : () => {},
+          sendGameMessage: typeof sendGameMessage === "function" ? sendGameMessage : undefined
         }
       );
     }
@@ -657,7 +659,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.lastDevelopmentAttempt = undefined;
     return queueDevelopmentActionFromModule(state, attempt, {
       pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
-      renderHud: typeof renderHud === "function" ? renderHud : () => {}
+      renderHud: typeof renderHud === "function" ? renderHud : () => {},
+      sendGameMessage: typeof sendGameMessage === "function" ? sendGameMessage : undefined
     });
   };
 
@@ -676,7 +679,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     state.lastDevelopmentAttempt = undefined;
     return queueDevelopmentActionFromModule(state, attempt, {
       pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
-      renderHud: typeof renderHud === "function" ? renderHud : () => {}
+      renderHud: typeof renderHud === "function" ? renderHud : () => {},
+      sendGameMessage: typeof sendGameMessage === "function" ? sendGameMessage : undefined
     });
   };
 
@@ -2409,6 +2413,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
+      // Harmless: dev/waypoint-queue mirroring re-sends an enqueue the server
+      // already has (dedup); a real full queue is already prevented client-side.
+      if (errorCode === "DEV_QUEUE_FULL" || errorCode === "WAYPOINT_QUEUE_FULL") return;
       if (errorCode === "DISPLAY_NAME_LIMIT") {
         state.pendingDisplayNameChange = "";
         pushFeed(errorMessage, "error", "warn");
