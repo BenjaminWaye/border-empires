@@ -2579,6 +2579,23 @@ body {
   font-weight: 700;
 }
 
+.capture-dismiss-btn {
+  display: none;
+  min-height: 34px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(219, 236, 255, 0.2);
+  background: transparent;
+  color: rgba(246, 247, 250, 0.82);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.capture-dismiss-btn:hover {
+  background: rgba(219, 236, 255, 0.1);
+}
+
 .capture-debug-btn {
   display: none;
   align-items: center;

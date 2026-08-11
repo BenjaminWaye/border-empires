@@ -279,6 +279,12 @@ export const createInitialState = () => ({
     radius: number;
   }>,
   capture: undefined as { startAt: number; resolvesAt: number; target: { x: number; y: number }; silent?: boolean; fromMusterAdvance?: boolean } | undefined,
+  // Set to the startAt of the capture the player dismissed via the
+  // capture-overlay's "Dismiss" button, so the big progress banner stays
+  // hidden for that specific claim without cancelling it. Compared against
+  // state.capture.startAt so a brand-new claim (different startAt) always
+  // reopens the banner even on the same tile. See client-capture-effects.ts.
+  dismissedCaptureStartAt: undefined as number | undefined,
   // Server-resolved battle overlays keyed by target tile key. Populated from
   // the combat-broadcast payload riding TILE_DELTA_BATCH deltas (see
   // client-battle-overlay.ts) and consumed by client-map-3d-battle-overlay-fx.ts.

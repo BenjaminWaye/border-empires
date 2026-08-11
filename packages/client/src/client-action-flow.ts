@@ -1730,17 +1730,25 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       isNeutral: !to.ownerId
     });
     if (clickOutcome === "queue-adjacent-neutral") {
-      // Re-clicking a tile that's ALREADY the active capture, or already
-      // sitting in the action queue behind it, must open its
-      // progress/cancel/jump-to-front detail, not re-run the afford/enqueue
-      // gate below — gold for an active claim was already spent (a
-      // since-drained wallet must never block re-viewing it), and
+      // Re-clicking a tile that's already sitting in the action queue
+      // behind the active capture must open its progress/cancel/
+      // jump-to-front detail, not re-run the afford/enqueue gate below —
       // enqueueTarget silently no-ops on an already-queued target, which
       // would otherwise leave the click with no menu and no feedback.
-      const isActiveCapture = Boolean(state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y);
       const isAlreadyQueued = actionQueueIndexForTileFromModule(state, to.x, to.y) >= 0;
-      if (isActiveCapture || isAlreadyQueued) {
+      if (isAlreadyQueued) {
         openSingleTileActionMenu(to, clientX, clientY);
+        requestAttackPreviewForHover();
+        renderHud();
+        return;
+      }
+      // Re-clicking the tile that's ALREADY the active capture doesn't need
+      // a menu at all — the capture-overlay progress bar at the top of the
+      // screen already shows it (see renderCaptureProgress), so opening the
+      // full tile menu on top would just be a redundant "description page".
+      // Just un-dismiss that overlay in case the player had dismissed it.
+      if (state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y) {
+        if (state.dismissedCaptureStartAt === state.capture.startAt) state.dismissedCaptureStartAt = undefined;
         requestAttackPreviewForHover();
         renderHud();
         return;
@@ -1753,15 +1761,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
       if (enqueueTarget(to.x, to.y)) {
         processActionQueue();
-        // Open the tile's detail panel only when THIS click's target became
-        // the active capture (queue was idle) — not when it just landed
-        // behind an already-in-progress expansion. Otherwise a manual tap
-        // gave no feedback at all that a frontier claim had started.
-        if (state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y) {
-          openSingleTileActionMenu(to, clientX, clientY);
-        } else {
-          pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
-        }
+        // The capture-overlay progress bar (shown automatically whenever
+        // state.capture is set) already gives feedback that the claim
+        // started, so no popup is needed here — just log it to the feed.
+        pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
       }
       requestAttackPreviewForHover();
       renderHud();

@@ -20,6 +20,7 @@ type UiControlsDeps = {
   collectVisibleDesktopBtn: ClientDom["collectVisibleDesktopBtn"];
   collectVisibleMobileBtn: ClientDom["collectVisibleMobileBtn"];
   captureCancelBtn: ClientDom["captureCancelBtn"];
+  captureDismissBtn: ClientDom["captureDismissBtn"];
   captureCloseBtn: ClientDom["captureCloseBtn"];
   captureDownloadDebugBtn: ClientDom["captureDownloadDebugBtn"];
   captureTimeEl: ClientDom["captureTimeEl"];
@@ -73,6 +74,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     collectVisibleDesktopBtn,
     collectVisibleMobileBtn,
     captureCancelBtn,
+    captureDismissBtn,
     captureCloseBtn,
     captureDownloadDebugBtn,
     captureTimeEl,
@@ -145,6 +147,10 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     collectVisibleYield();
   };
   captureCancelBtn.onclick = () => cancelOngoingCapture();
+  captureDismissBtn.onclick = () => {
+    state.dismissedCaptureStartAt = state.capture?.startAt;
+    renderCaptureProgress();
+  };
   placementCancelBtn.onclick = () => cancelBuildingPlacement();
   placementConfirmBtn.onclick = () => confirmBuildingPlacement();
   captureCloseBtn.onclick = () => {
