@@ -533,5 +533,14 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Natural wonders (Foundry Heart, Deepwater Engine, Conscription Engine, Warpress, Bastion Frame, Calculating Engine, Quickforge, Watchtower Engine, Cartographer's Lens) now render on the 2D map instead of being invisible.",
       "Each overlay matches its 3D counterpart's silhouette so the classic map and the 3D map show the same buildings."
     ]
+  },
+  {
+    createdAt: 1786443946000,
+    introducedIn: "fix/weapons-factory-build-menu-undefined",
+    title: "Fixed \"undefined\" text in the Weapons Factory build menu entries",
+    why: "The Titanium Weapons Factory and Umbrite Weapons Factory build options were missing their detail-text case, so the build menu literally showed the word \"undefined\" instead of a description.",
+    changes: [
+      "Build menu: Titanium Weapons Factory and Umbrite Weapons Factory now show a real description instead of \"undefined\"."
+    ]
   }
 ];
