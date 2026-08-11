@@ -66,4 +66,20 @@ describe("ClientMessageSchema", () => {
       ClientMessageSchema.parse({ type: "CHOOSE_DOMAIN", domainId: "clockwork-stipend", chosenTrickleResource: "PLUTONIUM" })
     ).toThrow();
   });
+
+  it("accepts BUILD_ECONOMIC_STRUCTURE for both Weapons Factories", () => {
+    // Regression: the two Weapons Factories were never added to this
+    // message's structureType enum, so once the client-side dispatch bug
+    // (client-tile-action-support.ts) was fixed and the client actually sent
+    // the BUILD_ECONOMIC_STRUCTURE message, the gateway rejected it with
+    // BAD_MSG ("invalid_enum_value") instead of the intended structure ever
+    // reaching runtime-structure-command-handlers.ts (which already handles
+    // both types).
+    expect(
+      ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "TITANIUM_WEAPONS_FACTORY" })
+    ).toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "TITANIUM_WEAPONS_FACTORY" });
+    expect(
+      ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" })
+    ).toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" });
+  });
 });
