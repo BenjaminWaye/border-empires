@@ -1,6 +1,6 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
-import type { BattleOverlayFx, BattleOverlayRenderEntry } from "./client-map-3d-battle-overlay-fx.js";
+import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-map-3d-battle-overlay-fx.js";
 import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
 import { activeMusterSupplyLines, resolveAdvanceMusterFallbackSource, type AdvanceMusterFallbackCache } from "./client-muster-transit/client-muster-transit.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
@@ -65,16 +65,20 @@ export function syncCaptureOverlays(
 // resolved combat broadcast (see client-battle-overlay.ts), not the local
 // `capture` HUD slot above, so any number of concurrent battles anywhere the
 // player has vision (their own, an enemy's, or a third party's) render
-// independently of this client's own in-flight action.
+// independently of this client's own in-flight action. Also renders an
+// indefinite skirmish loop for tiles still counting down in
+// state.incomingAttacksByTile that don't have a resolved battle yet, so the
+// dots are visible for the whole siege window the red-cross overlay covers,
+// not just the ~2.3s resolution flourish at the very end.
 export function syncBattleOverlayFx(
   state: ClientState,
+  keyFor: (x: number, y: number) => string,
   heightfield: Heightfield,
   playerColorFor: (ownerId: string) => string,
   battleOverlayFx: BattleOverlayFx,
   nowMs: number
 ): void {
   pruneExpiredActiveBattles(state, nowMs);
-  if (state.activeBattles.size === 0) { battleOverlayFx.clear(); return; }
 
   const entries: BattleOverlayRenderEntry[] = [];
   for (const battle of state.activeBattles.values()) {
@@ -97,5 +101,32 @@ export function syncBattleOverlayFx(
       endAt: battle.endAt
     });
   }
-  battleOverlayFx.tick(nowMs, entries);
+
+  const skirmishes: BattleOverlaySkirmishEntry[] = [];
+  if (state.me) {
+    for (const [key, incoming] of state.incomingAttacksByTile) {
+      if (incoming.resolvesAt <= nowMs) continue;
+      if (state.activeBattles.has(key)) continue;
+      if (!incoming.attackerId || incoming.fromX === undefined || incoming.fromY === undefined) continue;
+      const target = state.tiles.get(key);
+      if (!target) continue;
+      const srcDx = toroidDelta(state.camX, incoming.fromX, WORLD_WIDTH);
+      const srcDy = toroidDelta(state.camY, incoming.fromY, WORLD_HEIGHT);
+      const tgtDx = toroidDelta(state.camX, target.x, WORLD_WIDTH);
+      const tgtDy = toroidDelta(state.camY, target.y, WORLD_HEIGHT);
+      skirmishes.push({
+        srcWorldX: srcDx + TILE_CENTER_OFFSET,
+        srcWorldZ: srcDy + TILE_CENTER_OFFSET,
+        tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
+        tgtWorldZ: tgtDy + TILE_CENTER_OFFSET,
+        srcSurfaceY: Math.max(heightfield.elevationAt(incoming.fromX, incoming.fromY), heightfield.cornerYAt(incoming.fromX, incoming.fromY)),
+        tgtSurfaceY: Math.max(heightfield.elevationAt(target.x, target.y), heightfield.cornerYAt(target.x, target.y)),
+        attackerColor: playerColorFor(incoming.attackerId),
+        defenderColor: playerColorFor(state.me)
+      });
+    }
+  }
+
+  if (entries.length === 0 && skirmishes.length === 0) { battleOverlayFx.clear(); return; }
+  battleOverlayFx.tick(nowMs, entries, skirmishes);
 }

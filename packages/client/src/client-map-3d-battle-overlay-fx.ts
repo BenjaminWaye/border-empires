@@ -69,6 +69,22 @@ export type BattleOverlayRenderEntry = {
   endAt: number;
 };
 
+// A siege still counting down to its resolution tick — the server hasn't
+// broadcast a CombatBroadcastPayload yet (that only fires once, at
+// resolveLock), so the outcome is unknown. Renders as an indefinite clash
+// loop at the tile midpoint with no approach/rout phases and no glyph
+// bursts, so it reads as "still contested" rather than "just resolved".
+export type BattleOverlaySkirmishEntry = {
+  srcWorldX: number;
+  srcWorldZ: number;
+  tgtWorldX: number;
+  tgtWorldZ: number;
+  srcSurfaceY: number;
+  tgtSurfaceY: number;
+  attackerColor: string;
+  defenderColor: string;
+};
+
 type DotKit = { offset: number; perpPos: number; freq: number; phase: number };
 type ShardKit = { spawnT: number; angle: number; dist: number; life: number; variant: 0 | 1 };
 
@@ -131,15 +147,20 @@ export function createBattleOverlayFx(scene: Scene) {
     shardMeshB.count = 0;
   };
 
-  const tick = (nowMs: number, battles: BattleOverlayRenderEntry[]): void => {
-    if (battles.length === 0) { clear(); return; }
+  const tick = (
+    nowMs: number,
+    battles: BattleOverlayRenderEntry[],
+    skirmishes: BattleOverlaySkirmishEntry[] = []
+  ): void => {
+    if (battles.length === 0 && skirmishes.length === 0) { clear(); return; }
 
     let atkWrite = 0;
     let defWrite = 0;
     let shardAWrite = 0;
     let shardBWrite = 0;
+    let slot = 0;
 
-    for (let slot = 0; slot < battles.length && slot < MAX_CONCURRENT_BATTLES; slot++) {
+    for (; slot < battles.length && slot < MAX_CONCURRENT_BATTLES; slot++) {
       const b = battles[slot]!;
       const dirX = b.tgtWorldX - b.srcWorldX;
       const dirZ = b.tgtWorldZ - b.srcWorldZ;
@@ -227,6 +248,43 @@ export function createBattleOverlayFx(scene: Scene) {
           tmpM.compose(tmpPos, tmpQuat, tmpScale);
           if (kit.variant === 0) { shardMeshA.setMatrixAt(shardAWrite, tmpM); shardAWrite++; }
           else { shardMeshB.setMatrixAt(shardBWrite, tmpM); shardBWrite++; }
+        }
+      }
+    }
+
+    // Sieges still counting down with no resolved outcome yet: an
+    // indefinite clash-oscillation loop at the midpoint, no approach/rout,
+    // no glyph bursts — visually distinct from a battle that's resolving.
+    for (let s = 0; s < skirmishes.length && slot < MAX_CONCURRENT_BATTLES; s++, slot++) {
+      const b = skirmishes[s]!;
+      const dirX = b.tgtWorldX - b.srcWorldX;
+      const dirZ = b.tgtWorldZ - b.srcWorldZ;
+      const dist = Math.sqrt(dirX * dirX + dirZ * dirZ);
+      if (dist < 0.001) continue;
+      const perpX = -(dirZ / dist);
+      const perpZ = dirX / dist;
+      const midX = (b.srcWorldX + b.tgtWorldX) * 0.5;
+      const midZ = (b.srcWorldZ + b.tgtWorldZ) * 0.5;
+      const midY = (b.srcSurfaceY + b.tgtSurfaceY) * 0.5 + DOT_Y_OFFSET;
+
+      for (let side = 0 as 0 | 1; side < 2; side++) {
+        const isAttacker = side === 0;
+        const mesh = isAttacker ? attackerMesh : defenderMesh;
+        tmpColor.set(isAttacker ? b.attackerColor : b.defenderColor);
+
+        for (let i = 0; i < DOTS_PER_SIDE; i++) {
+          const kit = dotKitFor(slot, side, i);
+          const osc = Math.sin(nowMs / kit.freq + kit.phase) * 0.06;
+          const x = midX + perpX * (kit.perpPos + osc);
+          const z = midZ + perpZ * (kit.perpPos + osc);
+
+          tmpPos.set(x, midY, z);
+          tmpScale.set(1, 1, 1);
+          tmpM.compose(tmpPos, identityQuat, tmpScale);
+          const writeIndex = isAttacker ? atkWrite : defWrite;
+          mesh.setMatrixAt(writeIndex, tmpM);
+          mesh.setColorAt(writeIndex, tmpColor);
+          if (isAttacker) atkWrite++; else defWrite++;
         }
       }
     }
