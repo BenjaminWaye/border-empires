@@ -1722,8 +1722,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const resolvesAt = Number(msg.resolvesAt ?? Date.now() + 3000);
       const fromX = typeof msg.fromX === "number" ? Number(msg.fromX) : undefined;
       const fromY = typeof msg.fromY === "number" ? Number(msg.fromY) : undefined;
+      const attackerId = typeof msg.attackerId === "string" ? msg.attackerId : undefined;
       if (x >= 0 && y >= 0) {
-        state.incomingAttacksByTile.set(keyFor(x, y), { attackerName, resolvesAt });
+        state.incomingAttacksByTile.set(keyFor(x, y), {
+          attackerName,
+          resolvesAt,
+          ...(attackerId !== undefined ? { attackerId } : {}),
+          ...(fromX !== undefined ? { fromX } : {}),
+          ...(fromY !== undefined ? { fromY } : {})
+        });
       }
       state.unreadAttackAlerts += 1;
       appendFeedEntry({
