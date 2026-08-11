@@ -77,18 +77,58 @@ logic). Spread wide without enough Trade/Capital income to back it, and
 upkeep exceeds generation — that's an **Influence deficit**, one of the
 three paths into contestation (§7).
 
-**Spends — kept deliberately short.** Three Senate actions, nothing more:
-
-| Action | Effect |
-|---|---|
-| **Sanction** | Vote to debuff a target empire's next Cycle (e.g. reduced starting bonuses) |
-| **Contest** | Vote to force open a Defense Campaign on a target's held Sector, regardless of its current Stability — the political route into contestation, independent of raids or deficit |
-| **Next Sector terrain** | Vote on the map archetype for the next Frontier Sector (continents vs. island-heavy, etc.), reusing the existing per-season map-style variation |
+**Spends — kept deliberately short.** Three Senate action *categories*,
+nothing more: Sanction, Contest, and the next-Sector terrain vote.
 
 Cut from earlier drafts and deliberately left out: generic policy
 edicts, solo diplomatic pact-seeding, cross-empire vision sharing,
 propaganda strikes. All added complexity without a clear enough payoff
 to justify the client/balance surface.
+
+### How a vote works
+
+- Any Planet-holding empire can raise a proposal by paying its Influence
+  cost. Solo empires vote individually; Bloc members vote as a single
+  weighted bloc (§8), so organizing carries real Senate weight.
+- A proposal resolves at the next Cycle tick if it clears quorum (a
+  percentage of total galaxy voting weight, not a fixed head count — so
+  quorum stays meaningful as the playerbase grows or shrinks).
+- Every sanction and Contest vote has a **cooldown per target**: once
+  resolved (pass or fail), the same empire can't be re-targeted by the
+  same action for the rest of the current Cycle. This is the guardrail
+  against a majority permanently dogpiling one player — a real risk
+  once Blocs can vote as a block (pun noted) instead of individuals.
+
+### Sanctions
+
+Each targets a specific empire and lasts for a set number of Cycles once
+passed:
+
+| Sanction | Effect | Best used against |
+|---|---|---|
+| **Embargo** | Reduces the target's Influence/Production trickle for the sanction's duration | An empire spreading wide without the Trade/Capital income to back it — pushes them toward Stability-draining deficit (§7) |
+| **Blockade** | Increases the target's outbound Fleet travel time | A serial raider — blunts their reach without touching their existing holdings |
+| **Weapons Inspection** | Reveals the target's Fleet compositions and Garrison strength to the whole Senate | Countering a telegraphed Dreadnought buildup before it launches |
+| **Travel Ban** | Bars the target from launching new raids for the sanction's duration | Cooling down a serial raider outright, heavier than Blockade |
+| **War Reparations** | One-time forced Production/Influence transfer from the target to the proposer | Punishing an empire whose raid or Contest vote against someone else just failed — a real cost for a failed aggression |
+
+### Contest
+
+The political route into contestation (§7), independent of Stability:
+a passed Contest vote forces a target's held Sector into a Defense
+Campaign regardless of how healthy that Sector's Stability currently is.
+It costs more Influence to raise than a Sanction and needs a higher
+quorum to pass, in line with it being the most direct galactic-layer
+weapon in the game — a group of empires can end a rival's hold on a
+Sector without ever building a Fleet.
+
+### Next Sector terrain
+
+Lighter-weight than the other two: no target, just a vote on the map
+archetype (continents vs. island-heavy, etc.) for the next Frontier
+Sector to open, reusing the existing per-season map-style variation.
+Lets factions lobby for a map that favors their strengths — a maritime
+Bloc pushing for island-heavy, a landlocked one pushing for continents.
 
 ## 5. Production, Wonders, Fleets
 
@@ -96,11 +136,32 @@ Production is the hard-output currency: it builds permanent things.
 
 - **Wonders** — globally-unique galactic projects, one instance ever,
   refund-the-near-loser-if-close (same pattern as the existing Monument
-  system). Grant the owner's *next* Sector campaign a starting bonus
-  (extra starting manpower, wider initial vision, etc).
+  system). Each grants the owner a standing effect until someone else
+  eventually out-produces and supersedes it (mirrors Monuments being
+  globally unique at any given time, not a permanent one-time claim).
 - **Fleets** — see §6.
 - **Garrisons** — defensive Production sink at the Sector level; raises
   the Stability cost of a successful raid against that Sector (§7).
+
+### Wonder roster
+
+Six, deliberately spread across different levers rather than all being
+"win harder" buttons — a couple are explicitly defensive/political so
+Production has a use beyond funding aggression:
+
+| Wonder | Cost tier | Effect |
+|---|---|---|
+| **Dyson Array** | High | Owner's next Sector campaign starts with a permanent manpower-regen head start for the whole season |
+| **Grand Exchange** | Medium | Owner (and Bloc-mates, if in one) get reduced Senate proposal costs |
+| **Deep Sensor Array** | Medium | Owner's next Sector campaign starts with expanded starting vision radius, reusing the existing Observatory vision model |
+| **Orbital Shipyards** | High | Reduces Fleet Production cost for the owner; the direct Production→military efficiency play |
+| **Aegis Relay** | High | Passive Stability regeneration bonus across all of the owner's held Sectors — the defensive answer to raids and deficit |
+| **The Long Signal** | Medium | Grants the owner an extra Contest-vote token per Cycle — Production buying political leverage, not just economic or military edge |
+
+**Flag, not yet resolved:** Aegis Relay stacked with Bloc mutual defense
+(§8) is the same anti-snowball risk called out there — a Bloc that holds
+both becomes very hard to dislodge. Whatever brake Blocs get needs to
+account for Aegis Relay too, not just treasury pooling.
 
 ## 6. Fleets
 
@@ -154,6 +215,24 @@ mass/delta-v/weapon trade space rather than just a bigger number:
 | Battleline | Balanced mass/delta-v, mixed loadout, real armor | The Garrison-breaker workhorse |
 | Dreadnought | Huge mass, low delta-v, massive weapons/armor | Can force Stability to zero in one strike, but slow — the long travel time telegraphs the raid, giving the defender (and their Bloc) a real window to reinforce before it lands. This is also what keeps raids from feeling like an unfair, agency-free ambush. |
 | Tanker | Carries fuel/ordnance | Extends a raiding fleet's effective range, à la Distant Worlds supply logistics — a vulnerable escort target in its own right |
+
+**Illustrative relative stats** (1–5 scale, not real units — purely to
+show the shape of the trade-off; actual balance numbers are a later
+pass):
+
+| Class | Mass | Δv | Weapons | Armor | Travel speed |
+|---|---|---|---|---|---|
+| Scout | 1 | 5 | 1 | 1 | 5 |
+| Raider | 2 | 4 | 3 | 2 | 4 |
+| Battleline | 3 | 3 | 4 | 4 | 3 |
+| Dreadnought | 5 | 1 | 5 | 5 | 1 |
+| Tanker | 3 | 2 | 1 | 2 | 2 |
+
+Read the Dreadnought row as the point of the whole system: highest
+weapons and armor, lowest travel speed. It can break a Garrison in one
+strike, but it's the slowest thing in the galaxy doing it — the counter
+to "raids feel like an unfair ambush" is built into the stat block
+itself, not bolted on as a separate rule.
 
 Precedent this leans on: Master of Orion/Galactic Civilizations/Stellaris
 for the slot-budget ship-designer loop and tiered hull classes; Aurora 4X
@@ -282,4 +361,8 @@ the core hook fun" before spending budget on the rest.
 - What happens to a Sector's yield during the gap between Stability
   hitting zero and the Defense Campaign season actually being scheduled,
   in a single-stream (no concurrency) launch.
-- Bloc anti-snowball brake (§8) needs a concrete mechanism before v2.
+- Bloc anti-snowball brake (§8) needs a concrete mechanism before v2 —
+  and needs to cover Aegis Relay (§5), not just treasury pooling.
+- Wonder supersession: what actually happens to an owner's standing
+  effect the moment a rival out-produces and takes a Wonder from them —
+  instant cutover, a grace period, partial refund of invested Production?
