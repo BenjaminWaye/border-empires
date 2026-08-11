@@ -48,6 +48,7 @@ export const hudMarkup = `
         <button id="capture-download-debug" class="capture-debug-btn" type="button">Download debug log</button>
       </div>
       <button id="capture-cancel" class="capture-cancel-btn" title="Cancel capture">Cancel</button>
+      <button id="capture-dismiss" class="capture-dismiss-btn" type="button" title="Hide this progress bar">Dismiss</button>
     </div>
   </div>
 
