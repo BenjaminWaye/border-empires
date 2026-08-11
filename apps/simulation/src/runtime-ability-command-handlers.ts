@@ -16,12 +16,6 @@ import { parseAetherWallPayload, parseRevealPayload, parseTilePayload } from "./
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-
-// Hidden Hand / Oracle State's observatoryCooldownMult scales every
-// observatory-gated ability's cooldown (Reveal Empire Stats, Survey Sweep,
-// Aether Lance, Aether Bridge, Aether Wall) uniformly.
-const observatoryCooldownMsForActor = (actor: DomainPlayer, baseCooldownMs: number): number =>
-  Math.round(baseCooldownMs * multiplicativeEffectForPlayer(actor, "observatoryCooldownMult"));
 import type {
   ActiveAetherBridgeView,
   ActiveAetherWallView,
@@ -29,6 +23,12 @@ import type {
   SimulationTileWireDelta
 } from "./runtime-types.js";
 import type { AetherWallSegment } from "./runtime-ability-helpers.js";
+
+// Hidden Hand / Oracle State's observatoryCooldownMult scales every
+// observatory-gated ability's cooldown (Reveal Empire Stats, Survey Sweep,
+// Aether Lance, Aether Bridge, Aether Wall) uniformly.
+const observatoryCooldownMsForActor = (actor: DomainPlayer, baseCooldownMs: number): number =>
+  Math.round(baseCooldownMs * multiplicativeEffectForPlayer(actor, "observatoryCooldownMult"));
 
 type SurveySweepPingKind = "resource" | "town";
 
