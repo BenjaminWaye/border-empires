@@ -15,8 +15,8 @@ import type { FortificationOpening, FortificationOverlayKind } from "./client-fo
 // Fort 3D overlay: stone & wood forts get a 4-wall + 4-corner-tower
 // silhouette (no floor — terrain shows through) with one wall optionally
 // omitted to mirror the `fortificationOpeningForTile` rule (1 cardinal
-// opening max). RELAY_BEACON gets a single watchtower with a red flag;
-// SIEGE_OUTPOST gets a watchtower with a catapult mounted on top.
+// opening max). SIEGE_OUTPOST gets a watchtower with a catapult mounted on
+// top. RELAY_BEACON has its own dedicated overlay (client-map-3d-relay-beacon-overlay.ts).
 
 const TILE_HALF = 0.46;
 
@@ -34,14 +34,6 @@ const TOWER_Y = TOWER_HEIGHT * 0.5;
 const OUTPOST_TOWER_SIDE = 0.22;
 const OUTPOST_TOWER_HEIGHT = 0.66;
 const OUTPOST_TOWER_Y = OUTPOST_TOWER_HEIGHT * 0.5;
-const OUTPOST_FLAGPOLE_HEIGHT = 0.32;
-const OUTPOST_FLAGPOLE_RADIUS = 0.018;
-const OUTPOST_FLAGPOLE_Y = OUTPOST_TOWER_HEIGHT + OUTPOST_FLAGPOLE_HEIGHT * 0.5;
-const OUTPOST_FLAG_W = 0.18;
-const OUTPOST_FLAG_H = 0.11;
-const OUTPOST_FLAG_T = 0.012;
-const OUTPOST_FLAG_Y = OUTPOST_TOWER_HEIGHT + OUTPOST_FLAGPOLE_HEIGHT * 0.78;
-const OUTPOST_FLAG_X = OUTPOST_FLAG_W * 0.5 + 0.012;
 
 // Catapult mounted on top of the SIEGE_OUTPOST watchtower:
 //   - flat platform on the tower roof
@@ -77,8 +69,6 @@ const STONE_TOWER_COLOR = "#b8b3a4";
 const WOOD_WALL_COLOR = "#8a6a47";
 const WOOD_TOWER_COLOR = "#9a7a55";
 const OUTPOST_TOWER_COLOR = "#9a8a72";
-const OUTPOST_FLAGPOLE_COLOR = "#3a2a20";
-const OUTPOST_FLAG_COLOR = "#c14a4a";
 const CAT_WOOD_COLOR = "#5a4530";
 const CAT_STONE_COLOR = "#3a3530";
 
@@ -116,8 +106,6 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const wallAlongZGeometry = new BoxGeometry(WALL_THICKNESS, WALL_HEIGHT, WALL_LENGTH);
   const towerGeometry = new BoxGeometry(TOWER_SIDE, TOWER_HEIGHT, TOWER_SIDE);
   const outpostTowerGeometry = new BoxGeometry(OUTPOST_TOWER_SIDE, OUTPOST_TOWER_HEIGHT, OUTPOST_TOWER_SIDE);
-  const outpostFlagpoleGeometry = new CylinderGeometry(OUTPOST_FLAGPOLE_RADIUS, OUTPOST_FLAGPOLE_RADIUS, OUTPOST_FLAGPOLE_HEIGHT, 5);
-  const outpostFlagGeometry = new BoxGeometry(OUTPOST_FLAG_W, OUTPOST_FLAG_H, OUTPOST_FLAG_T);
   const catBaseGeometry = new BoxGeometry(CAT_BASE_W, CAT_BASE_H, CAT_BASE_D);
   const catPostGeometry = new BoxGeometry(CAT_POST_W, CAT_POST_H, CAT_POST_D);
   const catArmGeometry = new CylinderGeometry(CAT_ARM_RADIUS, CAT_ARM_RADIUS, CAT_ARM_LENGTH, 5);
@@ -128,8 +116,6 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const woodWallMaterial = new MeshStandardMaterial({ color: WOOD_WALL_COLOR, roughness: 0.9, metalness: 0, flatShading: true });
   const woodTowerMaterial = new MeshStandardMaterial({ color: WOOD_TOWER_COLOR, roughness: 0.88, metalness: 0, flatShading: true });
   const outpostTowerMaterial = new MeshStandardMaterial({ color: OUTPOST_TOWER_COLOR, roughness: 0.9, metalness: 0, flatShading: true });
-  const outpostFlagpoleMaterial = new MeshStandardMaterial({ color: OUTPOST_FLAGPOLE_COLOR, roughness: 0.85, metalness: 0, flatShading: true });
-  const outpostFlagMaterial = new MeshStandardMaterial({ color: OUTPOST_FLAG_COLOR, roughness: 0.78, metalness: 0, flatShading: true });
   const catWoodMaterial = new MeshStandardMaterial({ color: CAT_WOOD_COLOR, roughness: 0.92, metalness: 0, flatShading: true });
   const catStoneMaterial = new MeshStandardMaterial({ color: CAT_STONE_COLOR, roughness: 0.88, metalness: 0.05, flatShading: true });
 
@@ -150,14 +136,12 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const stone = buildKindMeshes(stoneWallMaterial, stoneTowerMaterial);
   const wood = buildKindMeshes(woodWallMaterial, woodTowerMaterial);
   const outpostTowerMesh = new InstancedMesh(outpostTowerGeometry, outpostTowerMaterial, maxTiles);
-  const outpostFlagpoleMesh = new InstancedMesh(outpostFlagpoleGeometry, outpostFlagpoleMaterial, maxTiles);
-  const outpostFlagMesh = new InstancedMesh(outpostFlagGeometry, outpostFlagMaterial, maxTiles);
   const catBaseMesh = new InstancedMesh(catBaseGeometry, catWoodMaterial, maxTiles);
   const catPostLeftMesh = new InstancedMesh(catPostGeometry, catWoodMaterial, maxTiles);
   const catPostRightMesh = new InstancedMesh(catPostGeometry, catWoodMaterial, maxTiles);
   const catArmMesh = new InstancedMesh(catArmGeometry, catWoodMaterial, maxTiles);
   const catStoneMesh = new InstancedMesh(catStoneGeometry, catStoneMaterial, maxTiles);
-  const outpostMeshes = [outpostTowerMesh, outpostFlagpoleMesh, outpostFlagMesh, catBaseMesh, catPostLeftMesh, catPostRightMesh, catArmMesh, catStoneMesh];
+  const outpostMeshes = [outpostTowerMesh, catBaseMesh, catPostLeftMesh, catPostRightMesh, catArmMesh, catStoneMesh];
   for (const m of outpostMeshes) {
     m.frustumCulled = false;
     m.count = 0;
@@ -166,7 +150,7 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   scene.add(
     stone.wallN, stone.wallS, stone.wallE, stone.wallW, stone.towers,
     wood.wallN, wood.wallS, wood.wallE, wood.wallW, wood.towers,
-    outpostTowerMesh, outpostFlagpoleMesh, outpostFlagMesh,
+    outpostTowerMesh,
     catBaseMesh, catPostLeftMesh, catPostRightMesh, catArmMesh, catStoneMesh
   );
 
@@ -181,8 +165,6 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
   const stoneCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
   const woodCounters: Counters = { wallN: 0, wallS: 0, wallE: 0, wallW: 0, towers: 0 };
   let outpostTowerCount = 0;
-  let outpostFlagpoleCount = 0;
-  let outpostFlagCount = 0;
   let catBaseCount = 0;
   let catPostLeftCount = 0;
   let catPostRightCount = 0;
@@ -193,8 +175,6 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     stoneCounters.wallN = 0; stoneCounters.wallS = 0; stoneCounters.wallE = 0; stoneCounters.wallW = 0; stoneCounters.towers = 0;
     woodCounters.wallN = 0; woodCounters.wallS = 0; woodCounters.wallE = 0; woodCounters.wallW = 0; woodCounters.towers = 0;
     outpostTowerCount = 0;
-    outpostFlagpoleCount = 0;
-    outpostFlagCount = 0;
     catBaseCount = 0;
     catPostLeftCount = 0;
     catPostRightCount = 0;
@@ -236,57 +216,38 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     }
   };
 
-  const addOutpostPieces = (
-    worldX: number,
-    worldZ: number,
-    surfaceY: number,
-    isSiege: boolean
-  ): void => {
+  const addOutpostPieces = (worldX: number, worldZ: number, surfaceY: number): void => {
     if (outpostTowerCount >= maxTiles) return;
     matrix.makeTranslation(worldX, surfaceY + OUTPOST_TOWER_Y, worldZ);
     outpostTowerMesh.setMatrixAt(outpostTowerCount, matrix);
     outpostTowerCount += 1;
 
-    if (isSiege) {
-      // Catapult on the watchtower roof: base + 2 axle posts + tilted arm + stone.
-      if (catBaseCount < maxTiles) {
-        matrix.makeTranslation(worldX, surfaceY + CAT_BASE_Y, worldZ);
-        catBaseMesh.setMatrixAt(catBaseCount, matrix);
-        catBaseCount += 1;
-      }
-      if (catPostLeftCount < maxTiles) {
-        matrix.makeTranslation(worldX - CAT_POST_X, surfaceY + CAT_POST_Y, worldZ);
-        catPostLeftMesh.setMatrixAt(catPostLeftCount, matrix);
-        catPostLeftCount += 1;
-      }
-      if (catPostRightCount < maxTiles) {
-        matrix.makeTranslation(worldX + CAT_POST_X, surfaceY + CAT_POST_Y, worldZ);
-        catPostRightMesh.setMatrixAt(catPostRightCount, matrix);
-        catPostRightCount += 1;
-      }
-      if (catArmCount < maxTiles) {
-        position.set(worldX, surfaceY + CAT_ARM_CENTER_Y, worldZ + CAT_ARM_CENTER_Z);
-        matrix.compose(position, catArmQuat, scale);
-        catArmMesh.setMatrixAt(catArmCount, matrix);
-        catArmCount += 1;
-      }
-      if (catStoneCount < maxTiles) {
-        matrix.makeTranslation(worldX, surfaceY + CAT_STONE_Y, worldZ + CAT_STONE_Z);
-        catStoneMesh.setMatrixAt(catStoneCount, matrix);
-        catStoneCount += 1;
-      }
-    } else {
-      // Relay Beacon: simple flagpole + flag on the roof.
-      if (outpostFlagpoleCount < maxTiles) {
-        matrix.makeTranslation(worldX, surfaceY + OUTPOST_FLAGPOLE_Y, worldZ);
-        outpostFlagpoleMesh.setMatrixAt(outpostFlagpoleCount, matrix);
-        outpostFlagpoleCount += 1;
-      }
-      if (outpostFlagCount < maxTiles) {
-        matrix.makeTranslation(worldX + OUTPOST_FLAG_X, surfaceY + OUTPOST_FLAG_Y, worldZ);
-        outpostFlagMesh.setMatrixAt(outpostFlagCount, matrix);
-        outpostFlagCount += 1;
-      }
+    // Catapult on the watchtower roof: base + 2 axle posts + tilted arm + stone.
+    if (catBaseCount < maxTiles) {
+      matrix.makeTranslation(worldX, surfaceY + CAT_BASE_Y, worldZ);
+      catBaseMesh.setMatrixAt(catBaseCount, matrix);
+      catBaseCount += 1;
+    }
+    if (catPostLeftCount < maxTiles) {
+      matrix.makeTranslation(worldX - CAT_POST_X, surfaceY + CAT_POST_Y, worldZ);
+      catPostLeftMesh.setMatrixAt(catPostLeftCount, matrix);
+      catPostLeftCount += 1;
+    }
+    if (catPostRightCount < maxTiles) {
+      matrix.makeTranslation(worldX + CAT_POST_X, surfaceY + CAT_POST_Y, worldZ);
+      catPostRightMesh.setMatrixAt(catPostRightCount, matrix);
+      catPostRightCount += 1;
+    }
+    if (catArmCount < maxTiles) {
+      position.set(worldX, surfaceY + CAT_ARM_CENTER_Y, worldZ + CAT_ARM_CENTER_Z);
+      matrix.compose(position, catArmQuat, scale);
+      catArmMesh.setMatrixAt(catArmCount, matrix);
+      catArmCount += 1;
+    }
+    if (catStoneCount < maxTiles) {
+      matrix.makeTranslation(worldX, surfaceY + CAT_STONE_Y, worldZ + CAT_STONE_Z);
+      catStoneMesh.setMatrixAt(catStoneCount, matrix);
+      catStoneCount += 1;
     }
   };
 
@@ -301,10 +262,8 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
       addFortPieces(stone, stoneCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
     } else if (kind === "WOODEN_FORT") {
       addFortPieces(wood, woodCounters, worldX, worldZ, surfaceY, openingToDirection(opening));
-    } else if (kind === "RELAY_BEACON") {
-      addOutpostPieces(worldX, worldZ, surfaceY, false);
     } else if (kind === "SIEGE_OUTPOST") {
-      addOutpostPieces(worldX, worldZ, surfaceY, true);
+      addOutpostPieces(worldX, worldZ, surfaceY);
     }
   };
 
@@ -325,16 +284,12 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     commitKind(stone, stoneCounters);
     commitKind(wood, woodCounters);
     outpostTowerMesh.count = outpostTowerCount;
-    outpostFlagpoleMesh.count = outpostFlagpoleCount;
-    outpostFlagMesh.count = outpostFlagCount;
     catBaseMesh.count = catBaseCount;
     catPostLeftMesh.count = catPostLeftCount;
     catPostRightMesh.count = catPostRightCount;
     catArmMesh.count = catArmCount;
     catStoneMesh.count = catStoneCount;
     outpostTowerMesh.instanceMatrix.needsUpdate = true;
-    outpostFlagpoleMesh.instanceMatrix.needsUpdate = true;
-    outpostFlagMesh.instanceMatrix.needsUpdate = true;
     catBaseMesh.instanceMatrix.needsUpdate = true;
     catPostLeftMesh.instanceMatrix.needsUpdate = true;
     catPostRightMesh.instanceMatrix.needsUpdate = true;
@@ -346,15 +301,13 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     scene.remove(
       stone.wallN, stone.wallS, stone.wallE, stone.wallW, stone.towers,
       wood.wallN, wood.wallS, wood.wallE, wood.wallW, wood.towers,
-      outpostTowerMesh, outpostFlagpoleMesh, outpostFlagMesh,
+      outpostTowerMesh,
       catBaseMesh, catPostLeftMesh, catPostRightMesh, catArmMesh, catStoneMesh
     );
     wallAlongXGeometry.dispose();
     wallAlongZGeometry.dispose();
     towerGeometry.dispose();
     outpostTowerGeometry.dispose();
-    outpostFlagpoleGeometry.dispose();
-    outpostFlagGeometry.dispose();
     catBaseGeometry.dispose();
     catPostGeometry.dispose();
     catArmGeometry.dispose();
@@ -364,8 +317,6 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     woodWallMaterial.dispose();
     woodTowerMaterial.dispose();
     outpostTowerMaterial.dispose();
-    outpostFlagpoleMaterial.dispose();
-    outpostFlagMaterial.dispose();
     catWoodMaterial.dispose();
     catStoneMaterial.dispose();
   };
