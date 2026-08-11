@@ -1761,9 +1761,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
       if (enqueueTarget(to.x, to.y)) {
         processActionQueue();
-        // The capture-overlay progress bar (shown automatically whenever
-        // state.capture is set) already gives feedback that the claim
-        // started, so no popup is needed here — just log it to the feed.
+        // A neutral EXPAND is silent by default (see processActionQueue) —
+        // flip it back on for this one case: a plain manual tap that became
+        // the active capture immediately. That's the overlay's only
+        // feedback signal now that the tile menu doesn't auto-open for it.
+        if (state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y) {
+          state.capture.silent = false;
+        }
         pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
       }
       requestAttackPreviewForHover();
