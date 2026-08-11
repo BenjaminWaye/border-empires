@@ -122,7 +122,8 @@ export function syncBattleOverlayFx(
         srcSurfaceY: Math.max(heightfield.elevationAt(incoming.fromX, incoming.fromY), heightfield.cornerYAt(incoming.fromX, incoming.fromY)),
         tgtSurfaceY: Math.max(heightfield.elevationAt(target.x, target.y), heightfield.cornerYAt(target.x, target.y)),
         attackerColor: playerColorFor(incoming.attackerId),
-        defenderColor: playerColorFor(state.me)
+        defenderColor: playerColorFor(state.me),
+        hashSeed: target.x * 92821 + target.y
       });
     }
   }

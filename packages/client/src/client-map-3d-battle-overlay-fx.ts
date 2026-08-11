@@ -83,6 +83,13 @@ export type BattleOverlaySkirmishEntry = {
   tgtSurfaceY: number;
   attackerColor: string;
   defenderColor: string;
+  // Stable per-tile hash seed (derived from target tile coordinates), NOT
+  // an array index — unlike resolved battles, a skirmish can sit in the
+  // list for many seconds, and any concurrent battle starting/ending
+  // elsewhere on the map would otherwise reshuffle its position-in-array
+  // and reroll every dot's offset/frequency/phase mid-loop, reading as a
+  // visible pop in the swarm.
+  hashSeed: number;
 };
 
 type DotKit = { offset: number; perpPos: number; freq: number; phase: number };
@@ -273,7 +280,7 @@ export function createBattleOverlayFx(scene: Scene) {
         tmpColor.set(isAttacker ? b.attackerColor : b.defenderColor);
 
         for (let i = 0; i < DOTS_PER_SIDE; i++) {
-          const kit = dotKitFor(slot, side, i);
+          const kit = dotKitFor(b.hashSeed, side, i);
           const osc = Math.sin(nowMs / kit.freq + kit.phase) * 0.06;
           const x = midX + perpX * (kit.perpPos + osc);
           const z = midZ + perpZ * (kit.perpPos + osc);
