@@ -10,8 +10,7 @@ import {
   UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   MARKET_FLAT_GOLD_BONUS_PER_MIN,
-  MARKET_GOLD_PRODUCTION_MULT,
-  MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE,
+  marketGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
@@ -26,6 +25,7 @@ import {
   enrichTownWithConnectedNetwork,
   firstThreeTownKeysForPlayer,
   firstThreeTownsGoldOutputMultiplierForPlayer,
+  countSupportedStructures,
   hasSupportedStructure,
   supportTileBelongsToTown,
   type ConnectedTownNetworkEntry,
@@ -235,7 +235,10 @@ export const townGoldPerMinuteForPlayer = (
   if (!fedTownKeys.has(tileKey)) return 0;
   const support = supportSummaryForTown(player.id, tile, tiles);
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
-  const hasMarket = hasSupportedStructure(player.id, tile, "MARKET", tiles, false, dormantEconomicStructureKeys);
+  // market-stacking task: MARKET's gold bonus stacks additively per active
+  // Market in the support ring (marketGoldProductionMultiplier), not a
+  // boolean "any Market" gate — see countSupportedStructures.
+  const marketCount = countSupportedStructures(player.id, tile, "MARKET", tiles, dormantEconomicStructureKeys);
   // connectedClearingHouseKeys is pre-filtered to ONLY towns with a CH at
   // network-build time. Re-verify defensively — a progression command may
   // have destroyed a CH between build and read — but the candidate set is
@@ -256,11 +259,11 @@ export const townGoldPerMinuteForPlayer = (
     supportRatio *
     townPopulationMultiplier(town.populationTier) *
     (1 + (town.connectedTownBonus ?? 0)) *
-    (hasMarket ? (clearingHouseActive ? MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE : MARKET_GOLD_PRODUCTION_MULT) : 1) *
+    marketGoldProductionMultiplier(marketCount, clearingHouseActive) *
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + (hasMarket ? MARKET_FLAT_GOLD_BONUS_PER_MIN : 0);
+  ) + MARKET_FLAT_GOLD_BONUS_PER_MIN * marketCount;
 };
 
 // Refresh goldPerMinute/isFed on a town originally from buildTownSummary

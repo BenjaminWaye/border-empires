@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { MARKET_FLAT_GOLD_BONUS_PER_MIN, marketGoldProductionMultiplier } from "@border-empires/game-domain";
 
-import { buildPlayerUpdateEconomySnapshot, hasSupportedStructure, refreshTownEconomyFields, supportSummaryForTown } from "./player-update-economy.js";
+import { buildPlayerUpdateEconomySnapshot, hasSupportedStructure, refreshTownEconomyFields, supportSummaryForTown, townGoldPerMinuteForPlayer } from "./player-update-economy.js";
 import { createEmptyPlayerRuntimeSummary, applyTileToPlayerSummary, type PlayerRuntimeSummary } from "../player-runtime-summary.js";
 
 const makePlayer = (): DomainPlayer => ({
@@ -256,6 +257,70 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
     const baseEconomy = buildPlayerUpdateEconomySnapshot(base, summaryForTiles(tiles), tiles);
     const boostedEconomy = buildPlayerUpdateEconomySnapshot(boosted, summaryForTiles(tiles), tiles);
     expect(boostedEconomy.goldCapIncomePerMinute).toBe(baseEconomy.goldCapIncomePerMinute);
+  });
+});
+
+describe("townGoldPerMinuteForPlayer — market stacking", () => {
+  // market-stacking task: each active Market in a town's support ring
+  // contributes its own +10% (additive), not a single flat +10%/+35% for
+  // "any Market present." Builds a town tile with N Markets filling its
+  // 8-tile support ring (plus enough remaining ring tiles settled to keep
+  // supportRatio at 1, isolating the assertion to the market multiplier).
+  const buildTownWithMarkets = (marketCount: number) => {
+    const player = makePlayer();
+    const townTile: DomainTileState = {
+      x: 10,
+      y: 10,
+      terrain: "LAND",
+      ownerId: player.id,
+      ownershipState: "SETTLED",
+      town: { type: "MARKET", populationTier: "TOWN", name: "Stackville" }
+    };
+    const ringOffsets = [
+      [-1, -1], [0, -1], [1, -1],
+      [-1, 0], [1, 0],
+      [-1, 1], [0, 1], [1, 1]
+    ];
+    const tiles = new Map<string, DomainTileState>([["10,10", townTile]]);
+    ringOffsets.forEach(([dx, dy], i) => {
+      const x = 10 + dx!;
+      const y = 10 + dy!;
+      const isMarket = i < marketCount;
+      tiles.set(`${x},${y}`, {
+        x, y, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED",
+        ...(isMarket ? { economicStructure: { ownerId: player.id, type: "MARKET", status: "active" } } : {})
+      });
+    });
+    const fedTownKeys = new Set(["10,10"]);
+    return { player, townTile, tiles, fedTownKeys };
+  };
+
+  // Both `buildTownWithMarkets` calls being compared here always keep
+  // supportMax/supportRatio at 8/8 (every ring tile is settled regardless of
+  // whether it holds a Market), so the only thing that differs between them
+  // is marketCount — isolating the assertion to the additive per-market
+  // stacking rather than a support-ratio side effect.
+  const expectedGoldPerMinute = (baseWithNoMarket: number, marketCount: number, clearingHouseActive = false): number =>
+    baseWithNoMarket * marketGoldProductionMultiplier(marketCount, clearingHouseActive) + MARKET_FLAT_GOLD_BONUS_PER_MIN * marketCount;
+
+  it("1 active Market grants +10% town gold production (baseline, must not regress)", () => {
+    const { player, townTile, tiles: noMarketTiles, fedTownKeys: noMarketFed } = buildTownWithMarkets(0);
+    const baseWithNoMarket = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, noMarketTiles, noMarketFed);
+    const { tiles, fedTownKeys } = buildTownWithMarkets(1);
+    const withOneMarket = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, tiles, fedTownKeys);
+    expect(withOneMarket).toBeCloseTo(expectedGoldPerMinute(baseWithNoMarket, 1), 6);
+  });
+
+  it("5 active Markets in the support ring grant +50% town gold production, not +10% and not capped", () => {
+    const { player, townTile, tiles: noMarketTiles, fedTownKeys: noMarketFed } = buildTownWithMarkets(0);
+    const baseWithNoMarket = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, noMarketTiles, noMarketFed);
+    const { tiles, fedTownKeys } = buildTownWithMarkets(5);
+    const withFiveMarkets = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, tiles, fedTownKeys);
+    expect(withFiveMarkets).toBeCloseTo(expectedGoldPerMinute(baseWithNoMarket, 5), 6);
+    // Explicitly rule out the old non-stacking behavior (flat +10% no
+    // matter how many Markets) regressing back in.
+    const oldNonStackingBehavior = expectedGoldPerMinute(baseWithNoMarket, 1);
+    expect(withFiveMarkets).toBeGreaterThan(oldNonStackingBehavior);
   });
 });
 

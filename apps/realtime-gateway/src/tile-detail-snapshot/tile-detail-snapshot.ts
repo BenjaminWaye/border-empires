@@ -8,6 +8,7 @@ import {
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
+  marketGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
   SETTLEMENT_BASE_GOLD_PER_MIN,
@@ -48,7 +49,8 @@ const fallbackTownGoldPerMinute = (input: {
   supportMax: number;
   populationTier: string;
   connectedTownBonus: number;
-  hasMarket: boolean;
+  marketCount: number;
+  clearingHouseActive: boolean;
 }): number => {
   if (input.isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * PASSIVE_INCOME_MULT;
   if (!input.isFed) return 0;
@@ -58,13 +60,13 @@ const fallbackTownGoldPerMinute = (input: {
     supportRatio *
     townPopulationMultiplierLocal(input.populationTier) *
     (1 + input.connectedTownBonus) *
-    (input.hasMarket ? 1.5 : 1) *
+    marketGoldProductionMultiplier(input.marketCount, input.clearingHouseActive) *
     PASSIVE_INCOME_MULT
   );
 };
 
-const fallbackTownCap = (goldPerMinute: number, isSettlement: boolean, hasMarket: boolean): number =>
-  isSettlement ? goldPerMinute * 60 * 8 : goldPerMinute * 60 * 8 * (hasMarket ? 1.5 : 1);
+const fallbackTownCap = (goldPerMinute: number, isSettlement: boolean, marketCount: number, clearingHouseActive: boolean): number =>
+  isSettlement ? goldPerMinute * 60 * 8 : goldPerMinute * 60 * 8 * marketGoldProductionMultiplier(marketCount, clearingHouseActive);
 
 const parseTown = (tile: SnapshotTile): Partial<import("@border-empires/shared").Tile["town"]> | undefined => {
   if (!tile?.townJson) return undefined;
@@ -109,9 +111,13 @@ const derivedTownSupportStructures = (
   ownerId: string,
   x: number,
   y: number
-): { hasMarket: boolean; hasGranary: boolean } => {
-  let hasMarket = false;
+): { hasMarket: boolean; marketCount: number; hasGranary: boolean; clearingHouseActive: boolean } => {
+  let marketCount = 0;
   let hasGranary = false;
+  // market-stacking task: no town-level Clearing House signal previously
+  // existed on this fallback path — detected here the same support-ring way
+  // Market/Granary already are, rather than left permanently false.
+  let clearingHouseActive = false;
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;
@@ -119,11 +125,12 @@ const derivedTownSupportStructures = (
       if (!neighbor || neighbor.ownerId !== ownerId || neighbor.ownershipState !== "SETTLED") continue;
       const structure = parseStructure<{ type?: string; status?: string }>(neighbor.economicStructureJson);
       if (!structure || structure.status !== "active") continue;
-      if (structure.type === "MARKET") hasMarket = true;
+      if (structure.type === "MARKET") marketCount += 1;
       if (structure.type === "GRANARY") hasGranary = true;
+      if (structure.type === "CLEARING_HOUSE") clearingHouseActive = true;
     }
   }
-  return { hasMarket, hasGranary };
+  return { hasMarket: marketCount > 0, marketCount, hasGranary, clearingHouseActive };
 };
 
 const derivedTownIsFed = (
@@ -246,7 +253,8 @@ export const buildSnapshotTileDetail = (
           populationTier,
           connectedTownBonus:
             typeof parsedTown?.connectedTownBonus === "number" ? parsedTown.connectedTownBonus : 0,
-          hasMarket: supportStructures.hasMarket
+          marketCount: supportStructures.marketCount,
+          clearingHouseActive: supportStructures.clearingHouseActive
         });
   // Only backfill cap when goldPerMinute is positive. For unfed TOWN-tier
   // tiles the live-snapshot formula multiplies through 0, which on the wire
@@ -257,7 +265,7 @@ export const buildSnapshotTileDetail = (
     typeof parsedTown?.cap === "number" && Number.isFinite(parsedTown.cap)
       ? parsedTown.cap
       : goldPerMinute > 0
-        ? fallbackTownCap(goldPerMinute, populationTierIsSettlement, supportStructures.hasMarket)
+        ? fallbackTownCap(goldPerMinute, populationTierIsSettlement, supportStructures.marketCount, supportStructures.clearingHouseActive)
         : undefined;
   const populationGrowthPerMinute =
     townPopulationGrowthPerMinute({
@@ -284,6 +292,7 @@ export const buildSnapshotTileDetail = (
         isFed,
         hasMarket: supportStructures.hasMarket,
         marketActive: supportStructures.hasMarket && isFed,
+        marketCount: supportStructures.marketCount,
         hasGranary: supportStructures.hasGranary,
         granaryActive: supportStructures.hasGranary,
         baseGoldPerMinute,
