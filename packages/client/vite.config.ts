@@ -40,5 +40,21 @@ export default defineConfig({
     "process.env": JSON.stringify({
       EMPIRE_INTEGRITY_ENABLED: process.env.EMPIRE_INTEGRITY_ENABLED ?? "true"
     })
+  },
+  test: {
+    // Node >=22 exposes an experimental global `localStorage`/`sessionStorage`
+    // (enabled by default, backed by --localstorage-file) that shadows the
+    // happy-dom polyfill these `@vitest-environment happy-dom` test files rely
+    // on. Node's built-in stub is missing `.clear()` when no file path is
+    // configured, so `window.localStorage.clear()` throws. Disable it in the
+    // test worker so happy-dom's own Storage implementation wins.
+    poolOptions: {
+      forks: {
+        execArgv: ["--no-experimental-webstorage"]
+      },
+      threads: {
+        execArgv: ["--no-experimental-webstorage"]
+      }
+    }
   }
 });

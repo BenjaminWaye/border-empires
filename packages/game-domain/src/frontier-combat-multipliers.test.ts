@@ -2,6 +2,22 @@ import { describe, expect, it } from "vitest";
 import { buildFrontierCombatPreview } from "@border-empires/shared";
 import { resolveFrontierCombatMultipliers } from "./frontier-combat-multipliers.js";
 
+// This suite is data-driven off data/domain-tree.json and data/tech-tree.json,
+// so it names real domain/tech ids and asserts their real current effect
+// values (not invented balance) — kept in sync with a 2026-08-11 content
+// audit that found the ids this suite originally used ("titanium-vanguard",
+// "fortress-realm", "steelworking") had all been redesigned away from
+// granting combat multipliers (titanium-vanguard/fortress-realm now grant
+// muster/vision effects instead; steelworking now only unlocks Thunder
+// Bastion) without the test ever being updated, so it had been silently
+// failing against stale expectations. Rewrote to reference domains that
+// currently carry each effect: war-foundries/siege-state/titanium-dominion
+// (attackVsFortsMult), stone-curtain (fortDefenseMult), supply-raiding
+// (attackVsBarbariansMult, unchanged). NOTE: as of this audit, no domain or
+// tech in the data files grants attackVsSettledMult at all — the field is
+// still supported end-to-end in code (frontier-combat.ts,
+// resolveFrontierCombatMultipliers) but currently unused by any real
+// content; flagged rather than fabricated a domain for it.
 describe("resolveFrontierCombatMultipliers", () => {
   it("returns 1 for all multipliers when no techs or domains", () => {
     const result = resolveFrontierCombatMultipliers([], undefined, undefined, undefined);
@@ -23,67 +39,72 @@ describe("resolveFrontierCombatMultipliers", () => {
     expect(result.attackVsBarbariansMult).toBe(1.5);
   });
 
-  it("resolves attackVsSettledMult from known domains", () => {
+  it("resolves attackVsFortsMult from War Foundries domain", () => {
     const result = resolveFrontierCombatMultipliers(
       [],
-      ["titanium-vanguard"],
+      ["war-foundries"],
       [],
       [],
     );
-    expect(result.attackVsSettledMult).toBe(1.20);
-    expect(result.attackVsFortsMult).toBe(1.20);
+    expect(result.attackVsFortsMult).toBe(1.15);
   });
 
   it("stacks multiplicative effects from multiple domains", () => {
     const result = resolveFrontierCombatMultipliers(
       [],
-      ["titanium-vanguard", "siege-state"],
+      ["war-foundries", "siege-state"],
       [],
       [],
     );
-    expect(result.attackVsSettledMult).toBeCloseTo(1.20 * 1.10, 10);
-    expect(result.attackVsFortsMult).toBeCloseTo(1.20 * 1.10, 10);
+    expect(result.attackVsFortsMult).toBeCloseTo(1.15 * 1.2, 10);
   });
 
-  it("resolves fortDefenseMult from defender domains", () => {
+  it("resolves fortDefenseMult from Garrison Doctrine domain", () => {
     const result = resolveFrontierCombatMultipliers(
       [],
       [],
       [],
-      ["fortress-realm"],
+      ["stone-curtain"],
     );
-    expect(result.fortDefenseMult).toBe(1.25);
+    expect(result.fortDefenseMult).toBe(1.5);
   });
 
-  it("resolves attackVsFortsMult from steelworking tech", () => {
+  it("resolves both attackVsFortsMult and fortDefenseMult from Titanium Dominion capstone", () => {
+    const attackerResult = resolveFrontierCombatMultipliers([], ["titanium-dominion"], [], []);
+    expect(attackerResult.attackVsFortsMult).toBe(1.15);
+    const defenderResult = resolveFrontierCombatMultipliers([], [], [], ["titanium-dominion"]);
+    expect(defenderResult.fortDefenseMult).toBe(1.15);
+  });
+
+  it("steelworking tech no longer grants a combat multiplier (migrated to domain-only combat effects)", () => {
     const result = resolveFrontierCombatMultipliers(
       ["steelworking"],
       [],
       [],
       [],
     );
-    expect(result.attackVsFortsMult).toBe(1.10);
+    expect(result.attackVsFortsMult).toBe(1);
   });
 
-  it("produces correct win chance when techs affect combat", () => {
-    // SETTLED tile, no town, no fort: base defMult = 1.35 → defEff = 13.5
-    // With titanium-vanguard (attackVsSettledMult = 1.20): atkEff = 10 * 1.20 = 12.0
-    // Win chance = 12.0 / (12.0 + 13.5) = 12.0 / 25.5 ≈ 0.4706
-    const target = { terrain: "LAND" as const, ownershipState: "SETTLED" as const };
-    const noTechPreview = buildFrontierCombatPreview(target);
-    expect(noTechPreview.atkEff).toBe(10);
-    expect(noTechPreview.defEff).toBe(13.5);
-    expect(noTechPreview.winChance).toBeCloseTo(10 / 23.5, 6);
+  it("produces correct win chance when a domain boosts attack against a fort", () => {
+    // FORT-variant target, no town/dock/settled bonus: baseFortDefenseMult("FORT") = 2.5,
+    // no defender fortDefenseMult modifier → defEff = 10 * 2.5 = 25.
+    const target = { terrain: "LAND" as const, fortVariant: "FORT" as const };
+    const noDomainPreview = buildFrontierCombatPreview(target);
+    expect(noDomainPreview.atkEff).toBe(10);
+    expect(noDomainPreview.defEff).toBe(25);
+    expect(noDomainPreview.winChance).toBeCloseTo(10 / 35, 6);
 
+    // War Foundries (attackVsFortsMult = 1.15): atkEff = 10 * 1.15 = 11.5.
     const multipliers = resolveFrontierCombatMultipliers(
       [],
-      ["titanium-vanguard"],
+      ["war-foundries"],
       [],
       [],
     );
-    const techPreview = buildFrontierCombatPreview(target, multipliers);
-    expect(techPreview.atkEff).toBeCloseTo(12.0, 6);
-    expect(techPreview.winChance).toBeCloseTo(12.0 / 25.5, 6);
-    expect(techPreview.winChance).toBeGreaterThan(noTechPreview.winChance);
+    const domainPreview = buildFrontierCombatPreview(target, multipliers);
+    expect(domainPreview.atkEff).toBeCloseTo(11.5, 6);
+    expect(domainPreview.winChance).toBeCloseTo(11.5 / 36.5, 6);
+    expect(domainPreview.winChance).toBeGreaterThan(noDomainPreview.winChance);
   });
 });
