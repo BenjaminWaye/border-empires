@@ -23,6 +23,7 @@ describe("renderCaptureProgress", () => {
     const captureCardEl = makeElement();
     const captureWrapEl = makeElement();
     const captureCancelBtn = makeElement();
+    const captureDismissBtn = makeElement();
     const captureCloseBtn = makeElement();
     const captureDownloadDebugBtn = makeElement();
     const captureBarEl = makeElement();
@@ -64,6 +65,7 @@ describe("renderCaptureProgress", () => {
         captureCardEl,
         captureWrapEl,
         captureCancelBtn,
+        captureDismissBtn,
         captureCloseBtn,
         captureDownloadDebugBtn,
         captureBarEl,
@@ -86,6 +88,7 @@ describe("renderCaptureProgress", () => {
     const captureCardEl = makeElement();
     const captureWrapEl = makeElement();
     const captureCancelBtn = makeElement();
+    const captureDismissBtn = makeElement();
     const captureCloseBtn = makeElement();
     const captureDownloadDebugBtn = makeElement();
     const captureBarEl = makeElement();
@@ -115,6 +118,7 @@ describe("renderCaptureProgress", () => {
         captureCardEl,
         captureWrapEl,
         captureCancelBtn,
+        captureDismissBtn,
         captureCloseBtn,
         captureDownloadDebugBtn,
         captureBarEl,
@@ -128,5 +132,107 @@ describe("renderCaptureProgress", () => {
     expect(captureTitleEl.textContent).toBe("Capturing Territory...");
     expect(captureTimeEl.textContent).toBe("0.9s");
     expect(captureDownloadDebugBtn.style.display).toBe("none");
+    expect(captureCancelBtn.style.display).toBe("inline-flex");
+    expect(captureDismissBtn.style.display).toBe("inline-flex");
+  });
+
+  it("hides the overlay for a dismissed capture without touching the underlying claim", () => {
+    vi.spyOn(Date, "now").mockReturnValue(4_100);
+    const captureCardEl = makeElement();
+    const captureWrapEl = makeElement();
+    const captureCancelBtn = makeElement();
+    const captureDismissBtn = makeElement();
+    const captureCloseBtn = makeElement();
+    const captureDownloadDebugBtn = makeElement();
+    const captureBarEl = makeElement();
+    const captureTitleEl = makeElement();
+    const captureTimeEl = makeElement();
+    const captureTargetEl = makeElement();
+
+    renderCaptureProgress(
+      {
+        captureAlert: undefined,
+        collectVisibleCooldownUntil: 0,
+        capture: {
+          startAt: 1_000,
+          resolvesAt: 5_000,
+          target: { x: 10, y: 20 }
+        },
+        dismissedCaptureStartAt: 1_000,
+        me: "player-1",
+        tiles: new Map(),
+        pendingCombatReveal: undefined
+      } as any,
+      {
+        keyFor: (x, y) => `${x},${y}`,
+        formatCooldownShort: () => "0s",
+        showCaptureAlert: vi.fn(),
+        pushFeed: vi.fn(),
+        finalizePredictedCombat: vi.fn(),
+        captureCardEl,
+        captureWrapEl,
+        captureCancelBtn,
+        captureDismissBtn,
+        captureCloseBtn,
+        captureDownloadDebugBtn,
+        captureBarEl,
+        captureTitleEl,
+        captureTimeEl,
+        captureTargetEl
+      }
+    );
+
+    expect(captureCardEl.style.display).toBe("none");
+    expect(captureWrapEl.style.display).toBe("none");
+  });
+
+  it("reopens the overlay for a new claim on the same tile even if the previous claim was dismissed", () => {
+    vi.spyOn(Date, "now").mockReturnValue(4_100);
+    const captureCardEl = makeElement();
+    const captureWrapEl = makeElement();
+    const captureCancelBtn = makeElement();
+    const captureDismissBtn = makeElement();
+    const captureCloseBtn = makeElement();
+    const captureDownloadDebugBtn = makeElement();
+    const captureBarEl = makeElement();
+    const captureTitleEl = makeElement();
+    const captureTimeEl = makeElement();
+    const captureTargetEl = makeElement();
+
+    renderCaptureProgress(
+      {
+        captureAlert: undefined,
+        collectVisibleCooldownUntil: 0,
+        capture: {
+          startAt: 4_000,
+          resolvesAt: 8_000,
+          target: { x: 10, y: 20 }
+        },
+        dismissedCaptureStartAt: 1_000,
+        me: "player-1",
+        tiles: new Map(),
+        pendingCombatReveal: undefined
+      } as any,
+      {
+        keyFor: (x, y) => `${x},${y}`,
+        formatCooldownShort: () => "0s",
+        showCaptureAlert: vi.fn(),
+        pushFeed: vi.fn(),
+        finalizePredictedCombat: vi.fn(),
+        captureCardEl,
+        captureWrapEl,
+        captureCancelBtn,
+        captureDismissBtn,
+        captureCloseBtn,
+        captureDownloadDebugBtn,
+        captureBarEl,
+        captureTitleEl,
+        captureTimeEl,
+        captureTargetEl
+      }
+    );
+
+    expect(captureCardEl.style.display).toBe("grid");
+    expect(captureWrapEl.style.display).toBe("block");
   });
 });

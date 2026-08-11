@@ -6,7 +6,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
 export const renderCaptureProgress = (
-  state: Pick<ClientState, "captureAlert" | "collectVisibleCooldownUntil" | "capture" | "tiles" | "me" | "pendingCombatReveal">,
+  state: Pick<ClientState, "captureAlert" | "collectVisibleCooldownUntil" | "capture" | "tiles" | "me" | "pendingCombatReveal" | "dismissedCaptureStartAt">,
   deps: {
     keyFor: (x: number, y: number) => string;
     formatCooldownShort: (ms: number) => string;
@@ -16,6 +16,7 @@ export const renderCaptureProgress = (
     captureCardEl: HTMLElement;
     captureWrapEl: HTMLElement;
     captureCancelBtn: HTMLElement;
+    captureDismissBtn: HTMLElement;
     captureCloseBtn: HTMLElement;
     captureDownloadDebugBtn: HTMLElement;
     captureBarEl: HTMLElement;
@@ -37,6 +38,7 @@ export const renderCaptureProgress = (
     deps.captureCardEl.style.display = "grid";
     deps.captureWrapEl.style.display = "block";
     deps.captureCancelBtn.style.display = "none";
+    deps.captureDismissBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "inline-flex";
     deps.captureDownloadDebugBtn.style.display = state.captureAlert.tone === "success" ? "none" : "inline-flex";
     deps.captureBarEl.style.width = "100%";
@@ -56,6 +58,7 @@ export const renderCaptureProgress = (
     deps.captureCardEl.style.display = "none";
     deps.captureWrapEl.style.display = "none";
     deps.captureCancelBtn.style.display = "none";
+    deps.captureDismissBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "none";
     deps.captureDownloadDebugBtn.style.display = "none";
     deps.captureBarEl.style.width = "0%";
@@ -105,9 +108,28 @@ export const renderCaptureProgress = (
       state.pendingCombatReveal.revealed = true;
       return;
     }
+    if (state.dismissedCaptureStartAt === state.capture.startAt) {
+      // Dismissed by the player via the "Dismiss" button: hide the banner
+      // for this specific claim without touching the claim itself. A new
+      // claim (different startAt, even on the same tile) reopens it. Combat
+      // reveal/finalize above still ran, so results reach captureAlert
+      // (checked at the top of this function) even while dismissed.
+      deps.captureCardEl.style.display = "none";
+      deps.captureWrapEl.style.display = "none";
+      deps.captureCancelBtn.style.display = "none";
+      deps.captureDismissBtn.style.display = "none";
+      deps.captureCloseBtn.style.display = "none";
+      deps.captureDownloadDebugBtn.style.display = "none";
+      deps.captureBarEl.style.width = "0%";
+      deps.captureTitleEl.textContent = "";
+      deps.captureTimeEl.textContent = "";
+      deps.captureTargetEl.textContent = "";
+      return;
+    }
     deps.captureCardEl.style.display = "grid";
     deps.captureWrapEl.style.display = "block";
     deps.captureCancelBtn.style.display = "inline-flex";
+    deps.captureDismissBtn.style.display = "inline-flex";
     deps.captureCloseBtn.style.display = "none";
     deps.captureDownloadDebugBtn.style.display = showDebugDownload ? "inline-flex" : "none";
     deps.captureBarEl.style.width = awaitingResult ? "100%" : `${Math.floor(pct * 100)}%`;
@@ -124,6 +146,7 @@ export const renderCaptureProgress = (
     deps.captureCardEl.style.display = "none";
     deps.captureWrapEl.style.display = "none";
     deps.captureCancelBtn.style.display = "none";
+    deps.captureDismissBtn.style.display = "none";
     deps.captureCloseBtn.style.display = "none";
     deps.captureDownloadDebugBtn.style.display = "none";
     deps.captureBarEl.style.width = "0%";

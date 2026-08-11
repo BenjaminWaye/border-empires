@@ -21,6 +21,7 @@ export const initClientDom = () => {
   const miniMapEl = requireElement<HTMLCanvasElement>("#mini-map");
   const miniMapLabelEl = requireElement<HTMLDivElement>("#mini-map-label");
   const captureCancelBtn = requireElement<HTMLButtonElement>("#capture-cancel");
+  const captureDismissBtn = requireElement<HTMLButtonElement>("#capture-dismiss");
   const captureCloseBtn = requireElement<HTMLButtonElement>("#capture-close");
   const captureDownloadDebugBtn = requireElement<HTMLButtonElement>("#capture-download-debug");
   const captureCardEl = requireElement<HTMLDivElement>("#capture-card");
@@ -176,6 +177,7 @@ export const initClientDom = () => {
     canvas,
     captureBarEl,
     captureCancelBtn,
+    captureDismissBtn,
     captureCloseBtn,
     captureDownloadDebugBtn,
     captureCardEl,
