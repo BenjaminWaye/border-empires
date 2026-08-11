@@ -11,6 +11,7 @@ import {
   structureBuildDurationMs,
   structureBuildManpowerCost,
   structureSlotRequirements,
+  TILE_SLOT_BOOST_STRUCTURES,
   type SlotResource,
   type SlotStructureType
 } from "@border-empires/shared";
@@ -108,7 +109,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       : `Adds an offensive staging point on this border or dock tile. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
   if (actionId === "build_light_outpost") return "Build a light outpost on this border or dock tile. First 5 Light Outposts are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
-  if (actionId === "build_farmstead") return tile.resource === "FARM" ? "Improves food production on this tile by 50% and adds +18 food cap." : "Farmsteads do not boost fish output.";
+  if (actionId === "build_farmstead") return tile.resource === "FARM" ? `Improves food production on this tile by 50% and adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot.` : "Farmsteads do not boost fish output.";
   if (actionId === "build_umbrite_rig") return "Improves umbrite production on this tile by 50% and adds +15 umbrite cap.";
   if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, scoped to this town's connected network. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_umbrite_weapons_factory") return "Military-industrial structure. Grants +3% attack / +1.5% defense per copy, scoped to this town's connected network. No per-town limit, but cost rises with each one you own.";
