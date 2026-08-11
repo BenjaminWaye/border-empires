@@ -102,5 +102,5 @@ export const fortificationOverlayImages: Record<FortificationOverlayKind, Record
   FORT: fortRingOverlaySet, TITANIUM_BASTION: fortRingOverlaySet, THUNDER_BASTION: fortRingOverlaySet,
   SIEGE_OUTPOST: createDirectionalOverlaySet("siege-outpost-overlay", "static"),
   WOODEN_FORT: createDirectionalOverlaySet("wooden-fort-ring-overlay"),
-  LIGHT_OUTPOST: createDirectionalOverlaySet("light-outpost-overlay", "static")
+  RELAY_BEACON: createDirectionalOverlaySet("relay-beacon-overlay", "static")
 };

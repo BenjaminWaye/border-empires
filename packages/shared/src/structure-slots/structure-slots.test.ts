@@ -89,7 +89,7 @@ describe("structureSlotRequirements", () => {
     }
   });
 
-  it("Wooden Fort requires FOOD slot (same as Light Outpost), not TITANIUM like the upgraded Fort", () => {
+  it("Wooden Fort requires FOOD slot (same as Relay Beacon), not TITANIUM like the upgraded Fort", () => {
     expect(structureSlotRequirements("WOODEN_FORT")).toEqual([{ resource: "FOOD", count: 1 }]);
   });
 });

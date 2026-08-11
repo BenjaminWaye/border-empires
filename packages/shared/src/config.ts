@@ -160,13 +160,13 @@ export const OBSERVATORY_CAST_RADIUS = OBSERVATORY_RANGE;
 
 export const ECONOMIC_STRUCTURE_BUILD_MS = 5 * 60_000;
 export const ECONOMIC_STRUCTURE_REMOVE_MS = 5 * 60_000;
-export const LIGHT_OUTPOST_BUILD_MS = 60_000;
-export const LIGHT_OUTPOST_ATTACK_MULT = 1.25;
-export const LIGHT_OUTPOST_VISION_BONUS = 5;
-// Mirrors slotWaiversForPlayer's lightOutpostFoodSlotWaiverCount
+export const RELAY_BEACON_BUILD_MS = 60_000;
+export const RELAY_BEACON_ATTACK_MULT = 1.25;
+export const RELAY_BEACON_VISION_BONUS = 5;
+// Mirrors slotWaiversForPlayer's relayBeaconFoodSlotWaiverCount
 // (apps/simulation/src/tech-domain-bridge/slot-waivers.ts) — the player's
-// first N Light Outposts (earliest build-order first) need zero FOOD slots.
-export const LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT = 5;
+// first N Relay Beacons (earliest build-order first) need zero FOOD slots.
+export const RELAY_BEACON_FREE_FOOD_SLOT_COUNT = 5;
 export const SIEGE_OUTPOST_BUILD_MS = 60_000;
 export const SIEGE_OUTPOST_BUILD_COST = 900;
 export const SIEGE_OUTPOST_ATTACK_MULT = 1.6;

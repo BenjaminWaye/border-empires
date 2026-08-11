@@ -32,12 +32,23 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1786481000000, // 2026.08.11.7
     introducedIn: "2026.08.11.7",
     title: "Fixed severe stutter while zooming/panning the 3D map",
     why: "Zooming or panning had become nearly unplayable. The terrain's coastal-skirt geometry buffers are pre-allocated at worst-case size (~11MB per attribute) but only a small fraction is ever written on a given rebuild — every rebuild was re-uploading the entire allocation to the GPU regardless, and rebuilds fire on almost every frame during a zoom/pan gesture. A CPU profile of a live zoom showed over 60% of all main-thread time going into that single upload call.",
     changes: [
       "Terrain and coastal-skirt buffer uploads are now scoped to only the vertices/indices actually written each rebuild, instead of re-uploading the full worst-case-sized buffer every time."
+    ]
+  },
+  {
+    createdAt: 1786481071000, // 2026.08.11.8
+    introducedIn: "2026.08.11.8",
+    title: "Relay Beacon now has its own 3D tower and icon",
+    why: "Relay Beacon (renamed from Light Outpost) was still rendering as the old generic watchtower-with-a-flag placeholder in 3D. It now gets a dedicated model — a lattice observation tower with a rotating brass mirror array — plus a matching flat-color 2D icon.",
+    changes: [
+      "Added a dedicated 3D overlay for Relay Beacon: a lattice tower with rotating heliograph mirrors, geared periscopes, and amber signal lamps.",
+      "Added a matching 2D flat-color Relay Beacon icon for the overlay gallery.",
+      "Removed the old placeholder watchtower-with-a-flag rendering that Relay Beacon shared with Siege Outpost."
     ]
   },
   {
@@ -235,8 +246,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // Natural Wonders, fort/outpost upkeep rebalance, town food-slot demand,
   // and town vision-bonus entries pruned: aged out of the 6-day window.
   // 2026.08.01.1 ("Rail Depot's Garrison Hall bonus quadrupled..."),
-  // 2026.08.02.1 ("First 5 Light Outposts no longer cost a FOOD slot"),
-  // 2026.08.02.2 ("Build Light Outpost menu no longer shows a FOOD slot
+  // 2026.08.02.1 ("First 5 Relay Beacons no longer cost a FOOD slot"),
+  // 2026.08.02.2 ("Build Relay Beacon menu no longer shows a FOOD slot
   // cost..."), and 2026.08.03.1 ("Fixed: removing a structure crashed the
   // game") pruned: aged out of the 6-day window.
   // buildings-tab-always-show, 2026.08.03.2, wooden-fort-no-iron-build,

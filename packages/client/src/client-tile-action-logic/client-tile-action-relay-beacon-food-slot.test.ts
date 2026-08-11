@@ -1,21 +1,21 @@
 /**
- * Regression test for the Light Outpost FOOD-slot gate.
+ * Regression test for the Relay Beacon FOOD-slot gate.
  *
  * The server waives the FOOD slot cost for a player's first
- * LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT Light Outposts (slot-waivers.ts). The
+ * RELAY_BEACON_FREE_FOOD_SLOT_COUNT Relay Beacons (slot-waivers.ts). The
  * client's generic hasFreeResourceSlots/missingResourceSlotReason gate
  * doesn't know about that waiver — it only sees the aggregate FOOD
- * supply/demand — so a Light Outpost build needs its own count-based check
- * (ownedLightOutpostCount vs LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT) ahead of the
+ * supply/demand — so a Relay Beacon build needs its own count-based check
+ * (ownedRelayBeaconCount vs RELAY_BEACON_FREE_FOOD_SLOT_COUNT) ahead of the
  * generic FOOD-slot check, which should only actually bite from the 6th
  * outpost onward.
  *
- * Covers both "Build Light Outpost" buttons: the direct build on an owned
- * SETTLED tile (build_light_outpost) and the frontier expand+settle+build
- * button on unclaimed land (build_light_outpost_frontier).
+ * Covers both "Build Relay Beacon" buttons: the direct build on an owned
+ * SETTLED tile (build_relay_beacon) and the frontier expand+settle+build
+ * button on unclaimed land (build_relay_beacon_frontier).
  */
 import { describe, expect, it } from "vitest";
-import { LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT } from "@border-empires/shared";
+import { RELAY_BEACON_FREE_FOOD_SLOT_COUNT } from "@border-empires/shared";
 
 import { createInitialState } from "../client-state/client-state.js";
 import { menuActionsForSingleTile } from "./client-tile-action-logic.js";
@@ -69,13 +69,13 @@ const richState = (): ReturnType<typeof createInitialState> => {
   state.me = "me";
   state.gold = 10_000;
   state.manpower = 10_000;
-  // No FOOD supply at all — isolates the assertions to the Light Outpost
+  // No FOOD supply at all — isolates the assertions to the Relay Beacon
   // count-based waiver rather than a coincidentally-sufficient FOOD slot.
   state.resourceSlots = { supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } };
   return state;
 };
 
-const addOwnedLightOutposts = (state: ReturnType<typeof createInitialState>, count: number): void => {
+const addOwnedRelayBeacons = (state: ReturnType<typeof createInitialState>, count: number): void => {
   for (let i = 0; i < count; i++) {
     const x = 100 + i;
     const y = 100;
@@ -85,100 +85,100 @@ const addOwnedLightOutposts = (state: ReturnType<typeof createInitialState>, cou
       terrain: "LAND",
       ownerId: "me",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "me", type: "LIGHT_OUTPOST", status: "active" }
+      economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
     } as Tile);
   }
 };
 
-describe("Light Outpost FOOD-slot gate — build_light_outpost_frontier (unclaimed, expand+settle+build)", () => {
-  it(`stays enabled with zero FOOD supply while the player owns fewer than ${LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT} outposts`, () => {
+describe("Relay Beacon FOOD-slot gate — build_relay_beacon_frontier (unclaimed, expand+settle+build)", () => {
+  it(`stays enabled with zero FOOD supply while the player owns fewer than ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT} outposts`, () => {
     const state = richState();
-    addOwnedLightOutposts(state, LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT - 1);
+    addOwnedRelayBeacons(state, RELAY_BEACON_FREE_FOOD_SLOT_COUNT - 1);
     const unexplored: Tile = { x: 3, y: 3, terrain: "LAND" } as Tile;
     state.tiles.set(keyFor(3, 3), unexplored);
 
     const actions = menuActionsForSingleTile(state, unexplored, baseDeps as never);
-    const action = findAction(actions, "build_light_outpost_frontier" as TileActionDef["id"]);
+    const action = findAction(actions, "build_relay_beacon_frontier" as TileActionDef["id"]);
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
   });
 
-  it(`disables with "Need a free FOOD slot" once the player already owns ${LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT} outposts and has no free FOOD slot`, () => {
+  it(`disables with "Need a free FOOD slot" once the player already owns ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT} outposts and has no free FOOD slot`, () => {
     const state = richState();
-    addOwnedLightOutposts(state, LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT);
+    addOwnedRelayBeacons(state, RELAY_BEACON_FREE_FOOD_SLOT_COUNT);
     const unexplored: Tile = { x: 3, y: 3, terrain: "LAND" } as Tile;
     state.tiles.set(keyFor(3, 3), unexplored);
 
     const actions = menuActionsForSingleTile(state, unexplored, baseDeps as never);
-    const action = findAction(actions, "build_light_outpost_frontier" as TileActionDef["id"]);
+    const action = findAction(actions, "build_relay_beacon_frontier" as TileActionDef["id"]);
     expect(action).toBeDefined();
     expect(action?.disabled).toBe(true);
     expect(action?.disabledReason).toBe("Need a free FOOD slot");
   });
 
-  it(`re-enables once a free FOOD slot is available for the ${LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT + 1}th outpost`, () => {
+  it(`re-enables once a free FOOD slot is available for the ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT + 1}th outpost`, () => {
     const state = richState();
-    addOwnedLightOutposts(state, LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT);
+    addOwnedRelayBeacons(state, RELAY_BEACON_FREE_FOOD_SLOT_COUNT);
     state.resourceSlots.supply.FOOD = 1;
     const unexplored: Tile = { x: 3, y: 3, terrain: "LAND" } as Tile;
     state.tiles.set(keyFor(3, 3), unexplored);
 
     const actions = menuActionsForSingleTile(state, unexplored, baseDeps as never);
-    const action = findAction(actions, "build_light_outpost_frontier" as TileActionDef["id"]);
+    const action = findAction(actions, "build_relay_beacon_frontier" as TileActionDef["id"]);
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
   });
 });
 
-describe("Light Outpost FOOD-slot gate — build_light_outpost (direct build on an owned SETTLED tile)", () => {
-  it(`stays enabled with zero FOOD supply while the player owns fewer than ${LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT} outposts`, () => {
+describe("Relay Beacon FOOD-slot gate — build_relay_beacon (direct build on an owned SETTLED tile)", () => {
+  it(`stays enabled with zero FOOD supply while the player owns fewer than ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT} outposts`, () => {
     const state = richState();
-    addOwnedLightOutposts(state, LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT - 1);
+    addOwnedRelayBeacons(state, RELAY_BEACON_FREE_FOOD_SLOT_COUNT - 1);
     const settled: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
     state.tiles.set(keyFor(3, 3), settled);
 
     const actions = menuActionsForSingleTile(state, settled, baseDeps as never);
-    const action = findAction(actions, "build_light_outpost" as TileActionDef["id"]);
+    const action = findAction(actions, "build_relay_beacon" as TileActionDef["id"]);
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
   });
 
-  it(`disables with "Need a free FOOD slot" once the player already owns ${LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT} outposts and has no free FOOD slot`, () => {
+  it(`disables with "Need a free FOOD slot" once the player already owns ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT} outposts and has no free FOOD slot`, () => {
     const state = richState();
-    addOwnedLightOutposts(state, LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT);
+    addOwnedRelayBeacons(state, RELAY_BEACON_FREE_FOOD_SLOT_COUNT);
     const settled: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
     state.tiles.set(keyFor(3, 3), settled);
 
     const actions = menuActionsForSingleTile(state, settled, baseDeps as never);
-    const action = findAction(actions, "build_light_outpost" as TileActionDef["id"]);
+    const action = findAction(actions, "build_relay_beacon" as TileActionDef["id"]);
     expect(action).toBeDefined();
     expect(action?.disabled).toBe(true);
     expect(action?.disabledReason).toBe("Need a free FOOD slot");
   });
 });
 
-describe("Light Outpost FOOD-slot gate — build_light_outpost on an owned FRONTIER tile (settle-then-build)", () => {
-  it(`appears on a FRONTIER owned tile with fewer than ${LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT} outposts`, () => {
+describe("Relay Beacon FOOD-slot gate — build_relay_beacon on an owned FRONTIER tile (settle-then-build)", () => {
+  it(`appears on a FRONTIER owned tile with fewer than ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT} outposts`, () => {
     const state = richState();
-    addOwnedLightOutposts(state, LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT - 1);
+    addOwnedRelayBeacons(state, RELAY_BEACON_FREE_FOOD_SLOT_COUNT - 1);
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(3, 3), frontier);
 
     const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
-    const action = findAction(actions, "build_light_outpost" as TileActionDef["id"]);
+    const action = findAction(actions, "build_relay_beacon" as TileActionDef["id"]);
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.cost).toContain("settle + build");
   });
 
-  it(`still bites with "Need a free FOOD slot" past ${LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT} outposts`, () => {
+  it(`still bites with "Need a free FOOD slot" past ${RELAY_BEACON_FREE_FOOD_SLOT_COUNT} outposts`, () => {
     const state = richState();
-    addOwnedLightOutposts(state, LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT);
+    addOwnedRelayBeacons(state, RELAY_BEACON_FREE_FOOD_SLOT_COUNT);
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(3, 3), frontier);
 
     const actions = menuActionsForSingleTile(state, frontier, baseDeps as never);
-    const action = findAction(actions, "build_light_outpost" as TileActionDef["id"]);
+    const action = findAction(actions, "build_relay_beacon" as TileActionDef["id"]);
     expect(action).toBeDefined();
     expect(action?.disabled).toBe(true);
     expect(action?.disabledReason).toBe("Need a free FOOD slot");

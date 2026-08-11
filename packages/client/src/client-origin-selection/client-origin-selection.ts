@@ -1,4 +1,4 @@
-import { LIGHT_OUTPOST_ATTACK_MULT, SIEGE_OUTPOST_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { RELAY_BEACON_ATTACK_MULT, SIEGE_OUTPOST_ATTACK_MULT, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { townHasSupportStructureType } from "../client-support-structures/client-support-structures.js";
 import type { SupportTownStructureKey } from "../client-support-structures/client-support-structures.js";
@@ -35,8 +35,8 @@ export const createClientOriginSelection = (deps: OriginSelectionDeps) => {
     if (tile.siegeOutpost?.ownerId === state.me && tile.siegeOutpost.status === "active") {
       return SIEGE_OUTPOST_ATTACK_MULT * currentOutpostAttackMult();
     }
-    if (tile.economicStructure?.ownerId === state.me && tile.economicStructure.status === "active" && tile.economicStructure.type === "LIGHT_OUTPOST") {
-      return LIGHT_OUTPOST_ATTACK_MULT;
+    if (tile.economicStructure?.ownerId === state.me && tile.economicStructure.status === "active" && tile.economicStructure.type === "RELAY_BEACON") {
+      return RELAY_BEACON_ATTACK_MULT;
     }
     return 1;
   };

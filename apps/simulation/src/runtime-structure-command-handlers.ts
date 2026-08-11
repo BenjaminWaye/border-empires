@@ -11,7 +11,7 @@ import {
   structurePlacementMetadata,
   structureShowsOnTile,
   structureSlotRequirements,
-  LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT, SYNTHESIZER_STRUCTURE_TYPES,
+  RELAY_BEACON_FREE_FOOD_SLOT_COUNT, SYNTHESIZER_STRUCTURE_TYPES,
   QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   type BuildableStructureType,
   type EconomicStructureType,
@@ -263,8 +263,8 @@ function spendStrategicCost(
 // *additional* capacity for the delta, not the new tier's full requirement
 // stacked on top of the old one it's replacing.
 // Synthesizers skip this gate entirely (§6.4: a slot *source*, not a
-// consumer — must be buildable even with zero free slots). LIGHT_OUTPOST
-// skips it too below LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT owned, waived to 0
+// consumer — must be buildable even with zero free slots). RELAY_BEACON
+// skips it too below RELAY_BEACON_FREE_FOOD_SLOT_COUNT owned, waived to 0
 // FOOD demand once built (slot-waivers.ts).
 function hasFreeResourceSlots(
   context: RuntimeStructureCommandContext,
@@ -275,7 +275,7 @@ function hasFreeResourceSlots(
   tileField: "fort" | "observatory" | "siegeOutpost" | "economicStructure"
 ): boolean {
   if (SYNTHESIZER_STRUCTURE_TYPES.includes(structureType)) return true;
-  if (structureType === "LIGHT_OUTPOST" && context.ownedStructureCountForPlayer(command.playerId, "LIGHT_OUTPOST") < LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT) return true;
+  if (structureType === "RELAY_BEACON" && context.ownedStructureCountForPlayer(command.playerId, "RELAY_BEACON") < RELAY_BEACON_FREE_FOOD_SLOT_COUNT) return true;
   const requirements = structureSlotRequirements(slotStructureType);
   if (requirements.length === 0) return true;
   const supply = context.resourceSlotSupplyForPlayer(command.playerId);
@@ -357,7 +357,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     rejectCommand(context, command, "BUILD_INVALID", "tile must be owned");
     return;
   }
-  if ((spec.kind !== "OUTPOST" || structureType === "LIGHT_OUTPOST") && target.ownershipState !== "SETTLED") {
+  if ((spec.kind !== "OUTPOST" || structureType === "RELAY_BEACON") && target.ownershipState !== "SETTLED") {
     rejectCommand(context, command, "BUILD_INVALID", "tile must be settled");
     return;
   }
@@ -368,9 +368,9 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     upgrading = target.economicStructure?.ownerId === command.playerId &&
       target.economicStructure.type === "WOODEN_FORT" &&
       activeOrInactive(target.economicStructure);
-  } else if (spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST") {
+  } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {
     upgrading = target.economicStructure?.ownerId === command.playerId &&
-      target.economicStructure.type === "LIGHT_OUTPOST" &&
+      target.economicStructure.type === "RELAY_BEACON" &&
       activeOrInactive(target.economicStructure);
   } else if (spec.kind === "ECONOMIC") {
     const base = upgradeBaseType(structureType);
@@ -381,7 +381,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   }
 
   const sameFamilyUpgrade = (spec.kind === "FORT" && target.fort?.ownerId === command.playerId) ||
-    (spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST" && target.siegeOutpost?.ownerId === command.playerId);
+    (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeOutpost?.ownerId === command.playerId);
   if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || target.economicStructure || (target.fort && spec.kind !== "ECONOMIC"))) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
     return;
@@ -391,7 +391,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     rejectCommand(context, command, "BUILD_INVALID", target.fort.variant === "THUNDER_BASTION" ? "fort already at maximum tier" : "research the next tier first");
     return;
   }
-  if (spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST" && target.siegeOutpost && !nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)) {
+  if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeOutpost && !nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)) {
     rejectCommand(context, command, "BUILD_INVALID", target.siegeOutpost.variant === "DREAD_TOWER" ? "siege outpost already at maximum tier" : "research the next tier first");
     return;
   }
@@ -407,7 +407,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
     manpowerCost = fortTier.manpower;
     strategicCost = { TITANIUM: fortTier.titanium };
     slotStructureType = fortTier.variant;
-  } else if (spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST") {
+  } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {
     const siegeTier = target.siegeOutpost ? nextSiegeTierForUpgrade(target.siegeOutpost.variant, hasTech)! : bestSiegeTierForTech(hasTech);
     goldCost = siegeTier.gold;
     manpowerCost = siegeTier.manpower;
@@ -452,14 +452,14 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
 
   const buildMs = spec.kind === "FORT"
     ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "fortBuildSpeedMult")))
-    : spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST"
+    : spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON"
       ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "outpostDeploymentSpeedMult")))
       : spec.kind === "ECONOMIC"
         ? Math.max(1, Math.round(spec.buildMs / multiplicativeEffectForPlayer(actor, "economicStructureBuildSpeedMult")))
         : spec.buildMs;
   const completesAt = context.now() + buildMs;
-  const isSiegeFamily = spec.kind === "OUTPOST" && structureType !== "LIGHT_OUTPOST";
-  const isEcoStruct = spec.kind === "ECONOMIC" || structureType === "LIGHT_OUTPOST";
+  const isSiegeFamily = spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON";
+  const isEcoStruct = spec.kind === "ECONOMIC" || structureType === "RELAY_BEACON";
   let resolvedVariant: string | undefined;
   if (spec.kind === "FORT") {
     resolvedVariant = target.fort ? nextFortTierForUpgrade(target.fort.variant, hasTech)?.variant : bestFortTierForTech(hasTech).variant;

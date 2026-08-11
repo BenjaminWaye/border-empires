@@ -40,7 +40,7 @@ export type StructureInfoKey =
   | "CLEARING_HOUSE"
   | "CARAVANARY"
   | "WOODEN_FORT"
-  | "LIGHT_OUTPOST"
+  | "RELAY_BEACON"
   | "UMBRITE_SYNTHESIZER"
   | "ADVANCED_UMBRITE_SYNTHESIZER"
   | "TITANIUM_WORKS"
@@ -102,7 +102,7 @@ export type StructureInfoView = {
   // Tech-tree redesign: which of the 4 player-facing branches (War/Economy/
   // Manpower/Aether) this structure belongs to, for the branch-tag UI
   // requirement. Undefined for structures with no tech gate (Wooden
-  // Fort/Light Outpost) or that predate the branch system (monuments span
+  // Fort/Relay Beacon) or that predate the branch system (monuments span
   // branches by design, left untagged here).
   branch?: "War" | "Economy" | "Manpower" | "Aether";
 };
@@ -201,7 +201,7 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "AIRPORT") return "Aetherport";
   if (kind === "AETHER_TOWER") return "Ambaric Tower";
   if (kind === "WOODEN_FORT") return "Palisade";
-  if (kind === "LIGHT_OUTPOST") return "Light Outpost";
+  if (kind === "RELAY_BEACON") return "Relay Beacon";
   if (kind === "CARAVANARY") return "Caravanary";
   // converter-mode-flip plan §Phase 6: these buildings now run either
   // direction (Refine gold->resource, or Sell off resource->gold), so the
@@ -263,7 +263,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "AIRPORT") return "Launches crystal-powered bombardment that strips enemy ownership from a 3×3 area (structures survive). Free to fire, 20m cooldown. Blocked by Resonance Grids.";
   if (kind === "AETHER_TOWER") return "Powers nearby late-game sky and monument structures.";
   if (kind === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
-  if (kind === "LIGHT_OUTPOST") return "Provides a lighter attack bonus from this owned border tile.";
+  if (kind === "RELAY_BEACON") return "Provides a lighter attack bonus from this owned border tile.";
   if (kind === "CARAVANARY") return "Builds the road network itself — towns only share their connected-town income bonus if at least one has a Caravanary.";
   // converter-mode-flip plan §Phase 6: this building can run either
   // direction now — mode-neutral summary with both figures, since a
@@ -342,7 +342,7 @@ export const structureInfoForKey = (
     | "AIRPORT"
     | "AETHER_TOWER"
     | "WOODEN_FORT"
-    | "LIGHT_OUTPOST"
+    | "RELAY_BEACON"
     | "UMBRITE_SYNTHESIZER"
     | "ADVANCED_UMBRITE_SYNTHESIZER"
     | "TITANIUM_WORKS"
@@ -432,7 +432,7 @@ export const structureInfoForKey = (
     if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Raises Fort defense from 4x to 8x and improves resistance to siege and lance pressure"];
     if (key === "OBSERVATORY") return [`+${OBSERVATORY_VISION_BONUS} local vision`, `${OBSERVATORY_RANGE}-tile crystal range (protection + casting, grows with tech)`];
     if (key === "WOODEN_FORT") return ["Light defensive fortification", "No iron upkeep"];
-    if (key === "LIGHT_OUTPOST") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Outpost"];
+    if (key === "RELAY_BEACON") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Outpost"];
     if (key === "SIEGE_OUTPOST") return ["+60% local offense", "Improves attacks launched from this tile"];
     if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers", "Raises Siege Outpost attack from 1.6x to 1.8x"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers", "Raises Siege attack from 1.8x to 2.0x against heavy fortified targets"];
@@ -683,10 +683,10 @@ export const structureInfoForKey = (
     const converterInfo = converterStructureInfoView(type, structure, imageFor, costBitsFor, buildTimeLabelFor);
     if (converterInfo) return converterInfo;
   }
-  if (type === "LIGHT_OUTPOST") {
+  if (type === "RELAY_BEACON") {
     return structure({
-      title: "Light Outpost",
-      detail: "Light outposts are cheaper offensive staging points that keep the 5 gold / m upkeep but do not use the Siege Outpost +25% offense profile.",
+      title: "Relay Beacon",
+      detail: "Relay Beacons are cheap border structures that extend vision and keep the 5 gold / m upkeep, without the Siege Outpost +25% offense profile.",
       glyph: "⚑",
       placement: "Build on an owned border tile with no town, resource, dock, or other structure.",
       costBits: costBitsFor(type),
