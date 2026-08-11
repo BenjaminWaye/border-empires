@@ -550,4 +550,39 @@ describe("loadSimulationStartupRecovery", () => {
     expect(loadEventsAfterSpy).toHaveBeenCalledTimes(1);
     expect(loadEventsAfterSpy).toHaveBeenNthCalledWith(1, 0, 5_000);
   });
+
+  it("migrates legacy LIGHT_OUTPOST tiles recovered from a snapshot to RELAY_BEACON", async () => {
+    const commandStore = new InMemorySimulationCommandStore();
+    const eventStore = new InMemorySimulationEventStore();
+    const snapshotStore = new InMemorySimulationSnapshotStore();
+
+    await snapshotStore.saveSnapshot({
+      lastAppliedEventId: 0,
+      snapshotSections: buildSimulationSnapshotSections({
+        initialState: {
+          tiles: [
+            {
+              x: 5,
+              y: 5,
+              ownerId: "player-1",
+              ownershipState: "FRONTIER",
+              economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST" as never, status: "active" }
+            }
+          ],
+          activeLocks: []
+        },
+        commands: [],
+        eventsByCommandId: new Map()
+      })
+    });
+
+    const startupRecovery = await loadSimulationStartupRecovery({
+      commandStore,
+      eventStore,
+      snapshotStore
+    });
+
+    const migratedTile = startupRecovery.initialState.tiles.find((t) => t.x === 5 && t.y === 5);
+    expect(migratedTile?.economicStructure).toEqual({ ownerId: "player-1", type: "RELAY_BEACON", status: "active" });
+  });
 });
