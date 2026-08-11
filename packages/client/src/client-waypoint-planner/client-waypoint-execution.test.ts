@@ -78,10 +78,17 @@ describe("topUpFromWaypoint", () => {
         plan: { target: { x: 6, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
       }
     ];
-    const ok = topUpFromWaypoint(state, keyFor, () => {});
+    const sent: unknown[] = [];
+    const ok = topUpFromWaypoint(state, keyFor, () => {}, (payload) => {
+      sent.push(payload);
+      return true;
+    });
     expect(ok).toBe(true);
     expect(state.waypoint).toHaveLength(1);
     expect(state.waypoint[0]?.target).toEqual({ x: 6, y: 3 });
+    // The server-durable mirror (runtime-waypoint-queue.ts) must drop the
+    // reached target too, or it lingers there forever across future logouts.
+    expect(sent).toEqual([{ type: "WAYPOINT_CANCEL", x: 5, y: 3 }]);
   });
 
   it("updates the plan to blocked when no path remains and enqueues nothing", () => {
@@ -125,14 +132,24 @@ describe("topUpFromWaypoint", () => {
       plan: { target: { x: 5, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
     }];
     const messages: Array<{ message: string; severity: string | undefined }> = [];
-    const ok = topUpFromWaypoint(state, keyFor, (message, _type, severity) => {
-      messages.push({ message, severity });
-    });
+    const sent: unknown[] = [];
+    const ok = topUpFromWaypoint(
+      state,
+      keyFor,
+      (message, _type, severity) => {
+        messages.push({ message, severity });
+      },
+      (payload) => {
+        sent.push(payload);
+        return true;
+      }
+    );
     expect(ok).toBe(false);
     expect(state.waypoint).toHaveLength(0);
     expect(state.actionQueue).toHaveLength(0);
     expect(messages[0]?.message).toMatch(/cancelled/i);
     expect(messages[0]?.message).toMatch(/impassable/i);
+    expect(sent).toEqual([{ type: "WAYPOINT_CANCEL", x: 5, y: 3 }]);
     expect(messages[0]?.severity).toBe("warn");
   });
 
@@ -286,7 +303,17 @@ describe("topUpFromWaypoint", () => {
       trackBarbarian: true,
       plan: { target: { x: 4, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
     }];
-    topUpFromWaypoint(state, keyFor, () => {});
+    const sent: unknown[] = [];
+    topUpFromWaypoint(state, keyFor, () => {}, (payload) => {
+      sent.push(payload);
+      return true;
+    });
     expect(state.waypoint[0]?.target).toEqual({ x: 3, y: 2 });
+    // The server-durable mirror is keyed by target coordinates -- swap it too,
+    // or it keeps pointing at the barbarian's stale (4,3) position.
+    expect(sent).toEqual([
+      { type: "WAYPOINT_CANCEL", x: 4, y: 3 },
+      { type: "WAYPOINT_ENQUEUE", x: 3, y: 2, trackBarbarian: true }
+    ]);
   });
 });

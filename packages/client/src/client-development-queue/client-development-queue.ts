@@ -349,6 +349,28 @@ type QueueRestoreTileLike = {
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
 };
 
+/** True if `entry` still describes something worth dispatching -- false once the
+ * tile has moved past it (e.g. a SETTLE whose tile already settled, or a BUILD
+ * whose tile is no longer owned/settled). Used both to prune stale sessionStorage
+ * entries on restore and to catch entries a durable server-side auto-drain
+ * (tryDrainDevQueue) already resolved while this client was disconnected --
+ * those never make it into a reconnect's serverDevQueue, so
+ * mergeServerDevQueueIntoRestoredQueue alone can't distinguish "genuinely still
+ * planned" from "already done"; this tile-state check can. */
+export const isQueuedDevelopmentActionStillValid = (
+  entry: PersistedDevelopmentAction,
+  tiles: ReadonlyMap<string, QueueRestoreTileLike>,
+  playerId: string,
+  pendingSettlementTileKeys: ReadonlySet<string> = new Set()
+): boolean => {
+  const tile = tiles.get(entry.tileKey);
+  if (!tile || tile.ownerId !== playerId) return false;
+  if (entry.kind === "SETTLE") {
+    return tile.ownershipState === "FRONTIER" && !pendingSettlementTileKeys.has(entry.tileKey);
+  }
+  return tile.ownershipState === "SETTLED";
+};
+
 export const restorePersistedDevelopmentQueueForPlayer = (
   playerId: string,
   tiles: ReadonlyMap<string, QueueRestoreTileLike>,
@@ -374,14 +396,7 @@ export const restorePersistedDevelopmentQueueForPlayer = (
     // hand; only prune (and only then re-persist the pruned result) once we
     // have something to validate against.
     if (tiles.size === 0) return parsedQueue;
-    const restoredQueue = parsedQueue.filter((entry) => {
-      const tile = tiles.get(entry.tileKey);
-      if (!tile || tile.ownerId !== playerId) return false;
-      if (entry.kind === "SETTLE") {
-        return tile.ownershipState === "FRONTIER" && !pendingSettlementTileKeys.has(entry.tileKey);
-      }
-      return tile.ownershipState === "SETTLED";
-    });
+    const restoredQueue = parsedQueue.filter((entry) => isQueuedDevelopmentActionStillValid(entry, tiles, playerId, pendingSettlementTileKeys));
     persistDevelopmentQueueForPlayer(playerId, restoredQueue);
     return restoredQueue;
   } catch {

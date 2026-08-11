@@ -5,6 +5,7 @@ import { applyGatewayInitialState, refreshAllGatewayDerivedTownSummaries } from 
 import {
   applyAutoSettlementQueueFromServer,
   devQueueEnqueueWirePayload,
+  isQueuedDevelopmentActionStillValid,
   mergeServerDevQueueIntoRestoredQueue,
   restorePersistedDevelopmentQueueForPlayer,
   type ServerDevQueueWireEntry
@@ -249,6 +250,18 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   }
   const devQueueTileKeysBeforeMerge = new Set(state.developmentQueue.map((entry) => entry.tileKey));
   state.developmentQueue = mergeServerDevQueueIntoRestoredQueue(state.developmentQueue, serverDevQueue);
+  // A locally-queued entry absent from serverDevQueue isn't necessarily
+  // "local-only, not yet mirrored" -- the server's own auto-drain
+  // (tryDrainDevQueue) may have already dispatched and resolved it while
+  // this client was disconnected, which also removes it from serverDevQueue.
+  // Re-validate against current tile state (same check restore uses) so a
+  // stale entry isn't re-dispatched against a tile that's already moved on.
+  if (state.tiles.size > 0) {
+    const pendingSettlementTileKeys = new Set(state.settleProgressByTile.keys());
+    state.developmentQueue = state.developmentQueue.filter(
+      (entry) => devQueueTileKeysBeforeMerge.has(entry.tileKey) === false || isQueuedDevelopmentActionStillValid(entry, state.tiles, state.me, pendingSettlementTileKeys)
+    );
+  }
   // Backfill: mirror any entry that's ending up within the durable tier but
   // that the server didn't already know about (e.g. queued before this
   // client picked up dev-queue mirroring, or added just before a drop).
