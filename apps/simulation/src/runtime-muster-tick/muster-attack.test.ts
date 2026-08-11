@@ -164,6 +164,50 @@ describe("muster-gated attacks", () => {
     }
   });
 
+  it("ADVANCE flag on an owned dock auto-fires across the water at the linked enemy dock", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", makePlayer("player-1")],
+          ["player-2", makePlayer("player-2")]
+        ]),
+        seedTiles: new Map(),
+        seedDocks: [
+          { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
+          { dockId: "dock-b", tileKey: "80,80", pairedDockId: "dock-a", connectedDockIds: ["dock-a"] }
+        ],
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              dockId: "dock-a",
+              muster: { ownerId: "player-1", amount: 60, mode: "ADVANCE", updatedAt: 1_000 }
+            },
+            { x: 80, y: 80, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER", dockId: "dock-b" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.tickMuster(1_000);
+      await Promise.resolve();
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+
+      const captured = runtime.exportState().tiles.find((t) => t.x === 80 && t.y === 80);
+      expect(captured?.ownerId).toBe("player-1");
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("ADVANCE does not fire from a disconnected owned pocket — only fires along connected territory", async () => {
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);

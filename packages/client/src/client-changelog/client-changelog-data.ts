@@ -603,5 +603,14 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A dock-crossing ATTACK must now land on the linked dock tile itself, for both players and AI — matching how dock-crossing EXPAND already worked.",
       "Fixes AI empires bypassing the foothold requirement that human players were always held to."
     ]
+  },
+  {
+    createdAt: 1786454100000, // 2026-08-11
+    introducedIn: "fix/dock-attack-require-foothold",
+    title: "Mustering flags now fire across a linked dock",
+    why: "A muster flag's auto-fire (ADVANCE mode) search only walked ordinary grid neighbors, so a flag placed on a dock could never \"see\" the enemy dock linked across the water — the flag just sat there, staged and never firing, even though a manual attack from the same tile worked fine.",
+    changes: [
+      "Muster flags in ADVANCE mode can now find and fire on an enemy tile across a dock link, the same way manual ATTACK commands already could."
+    ]
   }
 ];
