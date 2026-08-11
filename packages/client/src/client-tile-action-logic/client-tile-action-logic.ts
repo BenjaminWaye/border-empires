@@ -97,7 +97,11 @@ const freeResourceSlotCount = (state: ClientState, resource: SlotResource): numb
 const ownedActiveOrBuildingObservatoryCount = (state: ClientState): number => {
   let count = 0;
   for (const tile of state.tiles.values()) {
-    if (tile.observatory?.ownerId === state.me) count += 1;
+    // Watchtower Engine's own observatory is exempt from upkeep entirely
+    // (server-side: buildDemandContributors in resource-slot-view.ts skips it
+    // the same way) -- must not count toward a real Observatory's rank here,
+    // or this mirror would overstate the CRYSTAL cost the server will charge.
+    if (tile.observatory?.ownerId === state.me && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") count += 1;
   }
   return count;
 };
