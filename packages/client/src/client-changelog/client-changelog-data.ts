@@ -513,7 +513,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1786396516000, // 2026-08-10 — frozen from a live Date.now() call left in astral-dock-part-models
     introducedIn: "astral-dock-part-models",
     title: "Astral Dock components now render as distinct 3D models with their own map icons",
     why: "The Astral Dock's 3 unique components — the Launch Cradle, Orbital Array, and Aether Sail — previously had no dedicated art, so on the map they fell back to a generic placeholder instead of reading as a monument under construction.",
@@ -521,6 +521,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "3D map: each of the Astral Dock's 3 components now renders its own dedicated model — the Launch Cradle (a curved brass rail berth with iron brackets, mechanical joints, and violet-cyan guide lights), the Orbital Array (a slim iron mast carrying an angled grey dish with brass support arms and a violet receiver lens), and the Aether Sail (a folded grey-blue sail panel on an iron mast with a brass frame, structural ribs, and violet aether markings).",
       "2D map: each component now has its own flat overlay icon matching the monument set's muted iron/brass look with restrained violet-cyan glows.",
       "The 2D fallback overlay for component tiles is no longer drawn in 3D mode, matching other structures."
+    ]
+  },
+  {
+    createdAt: 1786449600000, // 2026-08-11
+    introducedIn: "next",
+    title: "2D map now has SVG overlays for every structure and natural wonder that renders in 3D",
+    why: "The 3D map gained several structures and all nine natural wonders that the classic 2D map couldn't draw — those tiles showed only a placeholder box, or nothing at all, so the two maps disagreed about the same world.",
+    changes: [
+      "New 2D SVG overlays for Seed Granary, Census Hall, Weapons Workshop, Titanium Weapons Factory, Umbrite Weapons Factory, and every World Engine and Imperial Exchange monument part.",
+      "Natural wonders (Foundry Heart, Deepwater Engine, Conscription Engine, Warpress, Bastion Frame, Calculating Engine, Quickforge, Watchtower Engine, Cartographer's Lens) now render on the 2D map instead of being invisible.",
+      "Each overlay matches its 3D counterpart's silhouette so the classic map and the 3D map show the same buildings."
     ]
   }
 ];
