@@ -1,4 +1,4 @@
-import { DREAD_TOWER_ATTACK_MULT, LIGHT_OUTPOST_ATTACK_MULT, NATURAL_WONDER_LABELS, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
+import { DREAD_TOWER_ATTACK_MULT, RELAY_BEACON_ATTACK_MULT, NATURAL_WONDER_LABELS, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
 import { marketGoldProductionMultiplier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 
@@ -82,7 +82,7 @@ const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStruct
     }];
   }
   if (tile.type === "WOODEN_FORT") return [{ reason: "Palisade", effect: `${multiplierPercentLabel(WOODEN_FORT_DEFENSE_MULT)} defense`, tone: "positive" }];
-  if (tile.type === "LIGHT_OUTPOST") return [{ reason: "Light Outpost", effect: `${multiplierPercentLabel(LIGHT_OUTPOST_ATTACK_MULT)} offense`, tone: "positive" }];
+  if (tile.type === "RELAY_BEACON") return [{ reason: "Relay Beacon", effect: `${multiplierPercentLabel(RELAY_BEACON_ATTACK_MULT)} offense`, tone: "positive" }];
   if (tile.type === "CARAVANARY") return [{ reason: "Caravanary", effect: "+25% connected-town gold production", tone: "positive" }];
   if (tile.type === "CUSTOMS_HOUSE") return [{ reason: "Harbor Exchange", effect: "+1 gold / minute per connected owned dock", tone: "positive" }];
   if (tile.type === "RAIL_DEPOT") return [{ reason: "Rail Depot", effect: "+0.5 manpower regen, boosts outpost muster", tone: "positive" }];

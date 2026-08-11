@@ -29,7 +29,7 @@ export type MusterTickInput = {
   tiles: ReadonlyMap<string, DomainTileState>;
   musterTilesByOwner: ReadonlyMap<string, Set<string>>;
   activeSiegeOutpostsByOwner: ReadonlyMap<string, Set<string>>;
-  activeLightOutpostsByOwner: ReadonlyMap<string, Set<string>>;
+  activeRelayBeaconsByOwner: ReadonlyMap<string, Set<string>>;
   railDepotPositionsByOwner: ReadonlyMap<string, ReadonlyArray<Position>>;
   applyManpowerRegen: (player: RuntimePlayer, nowMs: number) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
@@ -43,7 +43,7 @@ export type MusterTickInput = {
   locksByTile: ReadonlyMap<string, unknown>;
   // Per-flag cooldown state (mutated in place, lives on the Runtime instance).
   advanceCooldowns: MusterAdvanceCooldowns;
-  // §5.4: a dormant Siege/Light Outpost doesn't grant the muster
+  // §5.4: a dormant Siege/Relay Beacon doesn't grant the muster
   // depot-speed/Rail-Depot-boost bonus.
   isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => boolean;
 };
@@ -294,7 +294,7 @@ const outpostTileKeysForPlayer = (input: MusterTickInput, playerId: string): Set
       if (!input.isStructureDormant(playerId, key, "siegeOutpost")) keys.add(key);
     }
   }
-  const light = input.activeLightOutpostsByOwner.get(playerId);
+  const light = input.activeRelayBeaconsByOwner.get(playerId);
   if (light) {
     for (const key of light) {
       if (!input.isStructureDormant(playerId, key, "economicStructure")) keys.add(key);

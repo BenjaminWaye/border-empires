@@ -59,9 +59,9 @@ export type SlotWaivers = {
   // build-order first) need zero UMBRITE slots. A Siege Tower/Dread Tower's
   // separate TITANIUM requirement is untouched by this waiver.
   outpostUmbriteSlotWaiverCount: number;
-  // Light Outpost FOOD slot waiver — the player's first N Light Outposts
+  // Relay Beacon FOOD slot waiver — the player's first N Relay Beacons
   // (earliest build-order first) need zero FOOD slots. Always 5 (built-in).
-  lightOutpostFoodSlotWaiverCount: number;
+  relayBeaconFoodSlotWaiverCount: number;
   // Treasury State — the player's first N settled towns (deterministic
   // tie-break by tile key — towns carry no founding timestamp, same
   // simplification already flagged below for dormancy ordering) each need 1
@@ -78,7 +78,7 @@ export type SlotWaivers = {
 export const emptySlotWaivers = (): SlotWaivers => ({
   fortTitaniumSlotWaiverCount: 0,
   outpostUmbriteSlotWaiverCount: 0,
-  lightOutpostFoodSlotWaiverCount: 0,
+  relayBeaconFoodSlotWaiverCount: 0,
   firstTownsFoodSlotWaiverCount: 0,
   allTownsFoodSlotWaiverPerTown: 0
 });
@@ -86,7 +86,7 @@ export const emptySlotWaivers = (): SlotWaivers => ({
 const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
   waivers.fortTitaniumSlotWaiverCount <= 0 &&
   waivers.outpostUmbriteSlotWaiverCount <= 0 &&
-  waivers.lightOutpostFoodSlotWaiverCount <= 0 &&
+  waivers.relayBeaconFoodSlotWaiverCount <= 0 &&
   waivers.firstTownsFoodSlotWaiverCount <= 0 &&
   waivers.allTownsFoodSlotWaiverPerTown <= 0;
 
@@ -226,8 +226,8 @@ const buildDemandContributors = (
   waivers: SlotWaivers
 ): DormancyContributor[] => {
   const contributors: DormancyContributor[] = [];
-  // Track which economicStructure keys are LIGHT_OUTPOST for waiver identification below.
-  const lightOutpostKeys: Record<string, boolean> = {};
+  // Track which economicStructure keys are RELAY_BEACON for waiver identification below.
+  const relayBeaconKeys: Record<string, boolean> = {};
   // Ministry Hall (GOVERNORS_OFFICE, tech-tree redesign): collect this
   // player's own active Governors Office coordinates first so the town loop
   // below can check radius membership in O(1) per town (small array — this
@@ -250,7 +250,7 @@ const buildDemandContributors = (
     for (const req of structureSlotRequirements(type)) {
       const key = `${tileKey}:${field}`;
       contributors.push({ key, resource: req.resource, count: req.count, activatedAt });
-      if (field === "economicStructure" && type === "LIGHT_OUTPOST") lightOutpostKeys[key] = true;
+      if (field === "economicStructure" && type === "RELAY_BEACON") relayBeaconKeys[key] = true;
     }
   };
   for (const tile of ownedTiles) {
@@ -288,7 +288,7 @@ const buildDemandContributors = (
     }
   }
   applyObservatoryProgressiveCost(contributors);
-  return noWaiversConfigured(waivers) ? contributors : applySlotWaivers(contributors, waivers, lightOutpostKeys);
+  return noWaiversConfigured(waivers) ? contributors : applySlotWaivers(contributors, waivers, relayBeaconKeys);
 };
 
 // User decision: each additional Observatory a player owns costs progressively
@@ -306,7 +306,7 @@ const applyObservatoryProgressiveCost = (contributors: DormancyContributor[]): v
   });
 };
 
-const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaivers, lightOutpostKeys: Record<string, boolean> = {}): DormancyContributor[] => {
+const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaivers, relayBeaconKeys: Record<string, boolean> = {}): DormancyContributor[] => {
   const waiveEarliestStructures = (fieldSuffix: ":fort" | ":siegeOutpost", waiveCount: number): ReadonlySet<string> => {
     if (waiveCount <= 0) return new Set();
     const activatedAtByKey = new Map<string, number>();
@@ -321,14 +321,14 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
   const waivedForts = waiveEarliestStructures(":fort", waivers.fortTitaniumSlotWaiverCount);
   const waivedOutposts = waiveEarliestStructures(":siegeOutpost", waivers.outpostUmbriteSlotWaiverCount);
 
-  // LIGHT_OUTPOST waiver: find economicStructure keys that contain LIGHT_OUTPOST
+  // RELAY_BEACON waiver: find economicStructure keys that contain RELAY_BEACON
   // and waive the earliest ones. Track by tile key (deduplicate per-tile) with
   // activation order matching Forts/Outposts above.
-  const waivedLightOutposts = new Set<string>();
-  if (waivers.lightOutpostFoodSlotWaiverCount > 0) {
+  const waivedRelayBeacons = new Set<string>();
+  if (waivers.relayBeaconFoodSlotWaiverCount > 0) {
     const activatedAtByTileKey = new Map<string, number>();
     for (const c of contributors) {
-      if (c.key.endsWith(":economicStructure") && lightOutpostKeys[c.key] && c.resource === "FOOD") {
+      if (c.key.endsWith(":economicStructure") && relayBeaconKeys[c.key] && c.resource === "FOOD") {
         const tileKey = c.key.slice(0, c.key.length - ":economicStructure".length);
         if (!activatedAtByTileKey.has(tileKey)) activatedAtByTileKey.set(tileKey, c.activatedAt);
       }
@@ -336,8 +336,8 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
     const keys = [...activatedAtByTileKey.keys()].sort(
       (a, b) => (activatedAtByTileKey.get(a) ?? 0) - (activatedAtByTileKey.get(b) ?? 0) || a.localeCompare(b)
     );
-    for (const tileKey of keys.slice(0, waivers.lightOutpostFoodSlotWaiverCount)) {
-      waivedLightOutposts.add(`${tileKey}:economicStructure`);
+    for (const tileKey of keys.slice(0, waivers.relayBeaconFoodSlotWaiverCount)) {
+      waivedRelayBeacons.add(`${tileKey}:economicStructure`);
     }
   }
 
@@ -349,7 +349,7 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
   return contributors.map((c) => {
     if (c.key.endsWith(":fort") && c.resource === "TITANIUM" && waivedForts.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":siegeOutpost") && c.resource === "UMBRITE" && waivedOutposts.has(c.key)) return { ...c, count: 0 };
-    if (c.key.endsWith(":economicStructure") && lightOutpostKeys[c.key] && c.resource === "FOOD" && waivedLightOutposts.has(c.key)) return { ...c, count: 0 };
+    if (c.key.endsWith(":economicStructure") && relayBeaconKeys[c.key] && c.resource === "FOOD" && waivedRelayBeacons.has(c.key)) return { ...c, count: 0 };
     if (c.key.endsWith(":town")) {
       const waiver = Math.max(waivers.allTownsFoodSlotWaiverPerTown, firstWaivedTownKeys.has(c.key) ? 1 : 0);
       if (waiver > 0) return { ...c, count: Math.max(0, c.count - waiver) };

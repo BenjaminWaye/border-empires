@@ -1,4 +1,4 @@
-import { ECONOMIC_STRUCTURE_BUILD_MS, FORT_BUILD_MS, LIGHT_OUTPOST_BUILD_MS, OBSERVATORY_BUILD_MS, SIEGE_OUTPOST_BUILD_MS, WOODEN_FORT_BUILD_MS } from "../config.js";
+import { ECONOMIC_STRUCTURE_BUILD_MS, FORT_BUILD_MS, RELAY_BEACON_BUILD_MS, OBSERVATORY_BUILD_MS, SIEGE_OUTPOST_BUILD_MS, WOODEN_FORT_BUILD_MS } from "../config.js";
 import type { EconomicStructureType, FortVariant, SiegeOutpostVariant } from "../types.js";
 
 export type StrategicResourceCostType = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
@@ -74,7 +74,7 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
     manpowerCost: 30,
     scaling: { kind: "incremental", rate: 0.1 }
   },
-  LIGHT_OUTPOST: {
+  RELAY_BEACON: {
     baseGoldCost: 0,
     manpowerCost: 30,
     scaling: { kind: "incremental", rate: 0.1 }
@@ -257,7 +257,7 @@ export const structureBuildManpowerCostScaled = (type: BuildableStructureType, e
 
 export const economicStructureBuildDurationMs = (type: EconomicStructureType): number => {
   if (type === "WOODEN_FORT") return WOODEN_FORT_BUILD_MS;
-  if (type === "LIGHT_OUTPOST") return LIGHT_OUTPOST_BUILD_MS;
+  if (type === "RELAY_BEACON") return RELAY_BEACON_BUILD_MS;
   return ECONOMIC_STRUCTURE_BUILD_MS;
 };
 

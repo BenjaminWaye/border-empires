@@ -531,11 +531,11 @@ export class SimulationRuntime {
   // Maintained in replaceTileState via refreshSiegeOutpostIndexForTile.
   // Replaces the O(territory) sweep in tickTerritoryAutomation.
   private readonly activeSiegeOutpostsByOwner = new Map<string, Set<string>>();
-  // Index of active LIGHT_OUTPOST economic structure tiles per owner.
-  // Key: ownerId, Value: Set of tileKeys with an active LIGHT_OUTPOST owned by that player.
-  // Maintained in replaceTileState via refreshLightOutpostIndexForTile.
+  // Index of active RELAY_BEACON economic structure tiles per owner.
+  // Key: ownerId, Value: Set of tileKeys with an active RELAY_BEACON owned by that player.
+  // Maintained in replaceTileState via refreshRelayBeaconIndexForTile.
   // Replaces the O(territory) sweep in tickTerritoryAutomation.
-  private readonly activeLightOutpostsByOwner = new Map<string, Set<string>>();
+  private readonly activeRelayBeaconsByOwner = new Map<string, Set<string>>();
   // Index of tiles carrying a muster flag per owner (mustering system).
   // Key: ownerId, Value: Set of tileKeys whose `muster.ownerId` is that player.
   // Maintained in replaceTileState via refreshMusterIndexForTile. Lets the
@@ -948,15 +948,15 @@ export class SimulationRuntime {
         if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(ownerId, set); }
         set.add(tileKey);
       }
-      // Populate activeLightOutpostsByOwner index. Vision bonus restoration
+      // Populate activeRelayBeaconsByOwner index. Vision bonus restoration
       // at boot is handled by seedOutpostVisionBonus in the first pass above.
       if (
         tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "LIGHT_OUTPOST" &&
+        tile.economicStructure.type === "RELAY_BEACON" &&
         tile.economicStructure.status === "active"
       ) {
-        let set = this.activeLightOutpostsByOwner.get(ownerId);
-        if (!set) { set = new Set<string>(); this.activeLightOutpostsByOwner.set(ownerId, set); }
+        let set = this.activeRelayBeaconsByOwner.get(ownerId);
+        if (!set) { set = new Set<string>(); this.activeRelayBeaconsByOwner.set(ownerId, set); }
         set.add(tileKey);
       }
       // Populate musterTilesByOwner index (mustering system).
@@ -1408,7 +1408,7 @@ export class SimulationRuntime {
       tiles: this.tiles,
       musterTilesByOwner,
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
-      activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
+      activeRelayBeaconsByOwner: this.activeRelayBeaconsByOwner,
       railDepotPositionsByOwner: railDepotPositionsFromKeys(this.railDepotTilesByOwner, this.tiles, (playerId, tileKey, field) =>
         this.isStructureDormant(playerId, tileKey, field)
       ),
@@ -1699,7 +1699,7 @@ export class SimulationRuntime {
   // resyncPlayerOutpostVisionBonuses's own doc comment for the trade-off.
   private ownedOutpostTilesForPlayer(playerId: string): DomainTileState[] {
     const tileKeys = new Set<string>([
-      ...(this.activeLightOutpostsByOwner.get(playerId) ?? []),
+      ...(this.activeRelayBeaconsByOwner.get(playerId) ?? []),
       ...(this.activeSiegeOutpostsByOwner.get(playerId) ?? [])
     ]);
     const tiles: DomainTileState[] = [];
@@ -1749,7 +1749,7 @@ export class SimulationRuntime {
   private markOutpostVisionDormancyDirty(playerId: string | undefined): void {
     if (!playerId) return;
     const hasOutposts =
-      (this.activeLightOutpostsByOwner.get(playerId)?.size ?? 0) > 0 ||
+      (this.activeRelayBeaconsByOwner.get(playerId)?.size ?? 0) > 0 ||
       (this.activeSiegeOutpostsByOwner.get(playerId)?.size ?? 0) > 0;
     if (!hasOutposts) return;
     this.outpostVisionDormancyDirtyPlayerIds.add(playerId);
@@ -2160,7 +2160,7 @@ export class SimulationRuntime {
       yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
       sortedYieldBearingKeysByOwner: this.sortedYieldBearingKeysByOwner,
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
-      activeLightOutpostsByOwner: this.activeLightOutpostsByOwner,
+      activeRelayBeaconsByOwner: this.activeRelayBeaconsByOwner,
       musterTilesByOwner: this.musterTilesByOwner,
       fortTilesByOwner: this.fortTilesByOwner,
       railDepotTilesByOwner: this.railDepotTilesByOwner,

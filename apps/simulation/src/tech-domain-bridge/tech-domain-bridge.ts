@@ -353,9 +353,9 @@ export const townVisionRadiusBonusForPlayer = (
 ): number => additiveEffectForPlayer(player, "townVisionRadiusBonus");
 
 /**
- * Extra vision radius for an owned active Light Outpost or Siege Outpost
- * (runtime-outpost-vision.ts), stacked on top of Light Outpost's flat
- * LIGHT_OUTPOST_VISION_BONUS (config.ts) — Siege Outpost otherwise has no
+ * Extra vision radius for an owned active Relay Beacon or Siege Outpost
+ * (runtime-outpost-vision.ts), stacked on top of Relay Beacon's flat
+ * RELAY_BEACON_VISION_BONUS (config.ts) — Siege Outpost otherwise has no
  * vision bonus of its own. Survey Corps's outpostVisionRadiusBonus is the
  * only source today.
  */

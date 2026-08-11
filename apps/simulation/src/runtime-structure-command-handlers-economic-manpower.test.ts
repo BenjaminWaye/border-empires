@@ -2,7 +2,7 @@
  * Regression tests for Step 4 of docs/manpower-economy-rewrite-plan.md
  * (§4.1/§4.4, §12): every economic structure now costs manpower as a
  * primary cost, not just gold — previously only FORT/SIEGE_OUTPOST/
- * WOODEN_FORT/LIGHT_OUTPOST were manpower-gated; economic structures like
+ * WOODEN_FORT/RELAY_BEACON were manpower-gated; economic structures like
  * MARKET, CARAVANARY, FARMSTEAD, etc. cost zero manpower.
  */
 import { describe, expect, it, vi } from "vitest";

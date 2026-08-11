@@ -1,6 +1,6 @@
 /**
- * Outpost vision bonus — an owned active, non-dormant Light Outpost reveals
- * LIGHT_OUTPOST_VISION_BONUS (config.ts) tiles around itself; an owned active
+ * Outpost vision bonus — an owned active, non-dormant Relay Beacon reveals
+ * RELAY_BEACON_VISION_BONUS (config.ts) tiles around itself; an owned active
  * Siege Outpost (any tier) has no bonus of its own. Survey Corps's
  * outpostVisionRadiusBonus tech effect adds a further, tech-driven radius on
  * top of either. A manually disabled outpost (status "inactive") or one that's
@@ -13,20 +13,20 @@
  * itself is chosen or dormancy could have shifted (a resource tile gained or
  * lost elsewhere in the player's territory doesn't touch the outpost's own
  * tile, so it can't rely on that tile's own reconcile call), so an in-flight
- * Light Outpost -> Siege Outpost upgrade, a fresh Survey Corps unlock, or a
+ * Relay Beacon -> Siege Outpost upgrade, a fresh Survey Corps unlock, or a
  * FOOD/UMBRITE slot going from free to short (or back) all recompute the bonus
  * from current tile + tech + dormancy state rather than relying on matched
  * add/remove call sites.
  */
 
 import type { DomainTileState } from "@border-empires/game-domain";
-import { LIGHT_OUTPOST_VISION_BONUS } from "@border-empires/shared";
+import { RELAY_BEACON_VISION_BONUS } from "@border-empires/shared";
 import { outpostVisionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { RuntimePlayer } from "./runtime-types.js";
 import type { VisibilityTransitionCallbacks } from "./visibility-coverage-cache.js";
 
-type OutpostBonusStructureType = "LIGHT_OUTPOST" | "SIEGE_OUTPOST";
+type OutpostBonusStructureType = "RELAY_BEACON" | "SIEGE_OUTPOST";
 type OutpostBonusField = "siegeOutpost" | "economicStructure";
 
 // A structure counts as "present" (and so is eligible for whatever vision
@@ -39,12 +39,12 @@ const isPresent = (status: string): boolean => status === "active" || status ===
 
 /**
  * The active outpost bonus source on `tile`, if any, owned by `ownerId`.
- * Siege Outpost is checked first: upgrading a Light Outpost in place leaves
+ * Siege Outpost is checked first: upgrading a Relay Beacon in place leaves
  * a stale `economicStructure` entry behind on the tile (a pre-existing
  * data-model quirk unrelated to vision — runtime-structure-command-handlers.ts's
  * `completeStructureBuild` only clears the old economicStructure for the
- * Wooden Fort -> Fort transition, not Light Outpost -> Siege Outpost), so an
- * active siegeOutpost always wins over a stale LIGHT_OUTPOST leftover.
+ * Wooden Fort -> Fort transition, not Relay Beacon -> Siege Outpost), so an
+ * active siegeOutpost always wins over a stale RELAY_BEACON leftover.
  */
 export const outpostVisionBonusStructureType = (
   tile: DomainTileState | undefined,
@@ -54,10 +54,10 @@ export const outpostVisionBonusStructureType = (
   if (tile.siegeOutpost?.ownerId === ownerId && isPresent(tile.siegeOutpost.status)) return "SIEGE_OUTPOST";
   if (
     tile.economicStructure?.ownerId === ownerId &&
-    tile.economicStructure.type === "LIGHT_OUTPOST" &&
+    tile.economicStructure.type === "RELAY_BEACON" &&
     isPresent(tile.economicStructure.status)
   ) {
-    return "LIGHT_OUTPOST";
+    return "RELAY_BEACON";
   }
   return undefined;
 };
@@ -72,7 +72,7 @@ const outpostVisionBonusRadiusFor = (
 ): number => {
   const player = players.get(playerId);
   const techBonus = player ? outpostVisionRadiusBonusForPlayer(player) : 0;
-  const base = structureType === "LIGHT_OUTPOST" ? LIGHT_OUTPOST_VISION_BONUS : 0;
+  const base = structureType === "RELAY_BEACON" ? RELAY_BEACON_VISION_BONUS : 0;
   return base + techBonus;
 };
 
@@ -139,7 +139,7 @@ export const reconcileOutpostVisionBonus = (
  * some other tile in the player's territory (a resource tile gained or lost
  * elsewhere changes their FOOD/UMBRITE slot totals without touching any
  * outpost tile directly). `ownedOutpostTiles` is sourced from the runtime's
- * activeLightOutpostsByOwner/activeSiegeOutpostsByOwner indexes — cheap, but
+ * activeRelayBeaconsByOwner/activeSiegeOutpostsByOwner indexes — cheap, but
  * "active"-only, so a mid-removal outpost won't resync until some other event
  * touches its tile. Self-healing (the next reconcile recomputes from current
  * state anyway) and rare enough in practice not to warrant a full tile scan.

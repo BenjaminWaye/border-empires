@@ -2,7 +2,7 @@ import type { Tile } from "../client-types.js";
 
 /**
  * True when `tile` is an active outpost-family structure (siege outpost /
- * siege tower / dread tower, or a light outpost) owned by `playerId`.
+ * siege tower / dread tower, or a Relay Beacon) owned by `playerId`.
  *
  * Mirrors the ownership contribution rule in
  * `packages/shared/src/outpost-aura/outpost-aura.ts` (`tileOutpostMult`), so
@@ -11,9 +11,9 @@ import type { Tile } from "../client-types.js";
  */
 export const hasActiveOwnedOutpostAura = (tile: Tile, playerId: string): boolean => {
   const hasSiegeOutpost = tile.siegeOutpost?.ownerId === playerId && tile.siegeOutpost.status === "active";
-  const hasLightOutpost =
+  const hasRelayBeacon =
     tile.economicStructure?.ownerId === playerId &&
-    tile.economicStructure.type === "LIGHT_OUTPOST" &&
+    tile.economicStructure.type === "RELAY_BEACON" &&
     tile.economicStructure.status === "active";
-  return hasSiegeOutpost || hasLightOutpost;
+  return hasSiegeOutpost || hasRelayBeacon;
 };

@@ -97,7 +97,7 @@
     "placementMode": "same_tile",
     "sortGroup": "military"
   },
-  "LIGHT_OUTPOST": {
+  "RELAY_BEACON": {
     "showOn": ["settled", "resource", "town", "support", "dock"],
     "placementMode": "same_tile",
     "sortGroup": "military"

@@ -37,8 +37,8 @@ const families = {
     metal: "#694622",
     rivet: "#ebdcb5"
   },
-  LIGHT_OUTPOST: {
-    prefix: "light-outpost-ring-overlay",
+  RELAY_BEACON: {
+    prefix: "relay-beacon-ring-overlay",
     style: "light",
     outer: "#7f6540",
     inner: "#c69d65",
@@ -294,7 +294,7 @@ const banner = (opening, colors) => {
   `;
 };
 
-const lightOutpostSvg = () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+const relayBeaconSvg = () => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <filter id="shadow" x="-24%" y="-24%" width="148%" height="148%">
       <feDropShadow dx="0" dy="1.15" stdDeviation="1.1" flood-color="#2b1d0c" flood-opacity="0.42"/>
@@ -368,5 +368,5 @@ for (const family of ringFamilies) {
     writeFileSync(resolve(outputDir, filename), svgFor(family, opening));
   }
 }
-writeFileSync(resolve(outputDir, "light-outpost-overlay.svg"), lightOutpostSvg());
+writeFileSync(resolve(outputDir, "relay-beacon-overlay.svg"), relayBeaconSvg());
 writeFileSync(resolve(outputDir, "siege-outpost-overlay.svg"), siegeOutpostSvg());

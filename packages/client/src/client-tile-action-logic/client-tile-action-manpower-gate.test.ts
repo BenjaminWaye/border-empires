@@ -12,7 +12,7 @@
  *
  * Fix: both actions now also check state.manpower against the respective
  * manpower cost, matching the pattern already used for structure builds
- * (WOODEN_FORT, FORT, LIGHT_OUTPOST, SIEGE_OUTPOST).
+ * (WOODEN_FORT, FORT, RELAY_BEACON, SIEGE_OUTPOST).
  */
 import { describe, expect, it } from "vitest";
 import { EXPAND_MANPOWER_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
