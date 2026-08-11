@@ -261,7 +261,6 @@ export const SURVEY_SWEEP_COOLDOWN_MS = 12 * 60_000;
 export const SURVEY_SWEEP_HALF_EXTENT = 25;
 export const REVEAL_EMPIRE_STATS_CRYSTAL_COST = 0; // §17: free
 export const REVEAL_EMPIRE_STATS_COOLDOWN_MS = 5 * 60_000;
-export const AETHER_LANCE_GOLD_COST = 3_000;
 export const AETHER_LANCE_CRYSTAL_COST = 0; // §17: free
 export const AETHER_LANCE_COOLDOWN_MS = 10 * 60_000;
 export const AETHER_BRIDGE_CRYSTAL_COST = 0; // §17: free

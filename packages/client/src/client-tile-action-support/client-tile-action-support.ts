@@ -128,9 +128,30 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "TITANIUM_WEAPONS_FACTORY";
     case "build_umbrite_weapons_factory":
       return "UMBRITE_WEAPONS_FACTORY";
+    case "build_quartermasters_office":
+      return "QUARTERMASTERS_OFFICE";
+    case "build_assembly_works":
+      return "ASSEMBLY_WORKS";
+    case "build_logistics_guild":
+      return "LOGISTICS_GUILD";
     default:
       return undefined;
   }
+};
+
+// Defensive net for the exact bug fixed in #1253 (build_titanium_weapons_factory
+// / build_umbrite_weapons_factory) and its build_quartermasters_office /
+// build_assembly_works / build_logistics_guild siblings found alongside it:
+// structureTypeForTileAction's switch silently falling through to `undefined`
+// for a genuine build_* action id makes that build button a no-op — no
+// optimistic update, no message sent to the server, no visible error.
+// client-action-flow.ts calls this right after structureTypeForTileAction
+// comes back empty; a defined return means some build action still has no
+// mapping, so surface it instead of silently swallowing the click again.
+export const unmappedBuildActionWarning = (actionId: TileActionDef["id"]): string | undefined => {
+  if (!tileActionIsBuilding(actionId) || actionId === "build_light_outpost_frontier") return undefined;
+  console.error(`[client-action-flow] build action "${actionId}" has no structureTypeForTileAction mapping — nothing was sent to the server.`);
+  return `"${actionId}" isn't wired up to build anything yet — this has been logged, please report it.`;
 };
 
 export const shouldOptimisticallyBuildOnSelectedTile = (actionId: TileActionDef["id"], tile: Tile): boolean => {
@@ -239,6 +260,12 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "create_mountain":
     case "remove_mountain":
       return "terrain-engineering";
+    case "build_quartermasters_office":
+      return "field-logistics";
+    case "build_assembly_works":
+      return "conveyor-networks";
+    case "build_logistics_guild":
+      return "remade-concordat";
     default:
       return undefined;
   }

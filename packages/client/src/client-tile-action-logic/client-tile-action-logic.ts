@@ -213,6 +213,7 @@ export type TileActionLogicDeps = {
   ws: RealtimeSocket;
   attackPreviewDetailForTarget: (to: Tile) => string | undefined;
   attackPreviewPendingForTarget: (to: Tile) => boolean;
+  attackPreviewManpowerCostForTarget: (to: Tile) => string | undefined;
   pickOriginForTarget: (x: number, y: number, allowAdjacentToDock?: boolean, allowOptimisticExpandOrigin?: boolean) => Tile | undefined;
   buildDetailTextForAction: (actionId: string, tile: Tile, supportedTown?: Tile) => string | undefined;
   developmentSlotSummary: () => DevelopmentSlotSummary;
@@ -2124,6 +2125,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   if (tile.ownerId === "barbarian") {
     const previewDetail = deps.attackPreviewDetailForTarget(tile);
     const previewPending = deps.attackPreviewPendingForTarget(tile);
+    const previewManpowerCost = deps.attackPreviewManpowerCostForTarget(tile);
     const barbOrigin = deps.pickOriginForTarget(tile.x, tile.y, true);
     const reachable = Boolean(barbOrigin);
     const actions: TileActionDef[] = [
@@ -2131,11 +2133,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         id: "launch_attack",
         label: "Launch Attack",
         ...(previewDetail || previewPending ? { detail: previewDetail ?? "Calculating win chance...", loading: previewPending } : {}),
-        ...tileActionAvailability(
-          reachable && state.gold >= FRONTIER_CLAIM_COST,
-          !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
-          `${FRONTIER_CLAIM_COST} gold`
-        )
+        ...tileActionAvailability(reachable, "No bordering origin tile or linked dock", previewManpowerCost)
       }
     ];
     actions.push(...retortRecastActions());
@@ -2149,6 +2147,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   const targetShieldedReason = "Empire is under spawn protection";
   const previewDetail = deps.attackPreviewDetailForTarget(tile);
   const previewPending = deps.attackPreviewPendingForTarget(tile);
+  const previewManpowerCost = deps.attackPreviewManpowerCostForTarget(tile);
   const connectedRegionSize = connectedEnemyRegionKeys(state, tile, {
     keyFor: deps.keyFor,
     wrapX: deps.wrapX,
@@ -2160,9 +2159,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       label: "Launch Attack",
       ...(previewDetail || previewPending ? { detail: previewDetail ?? "Calculating win chance...", loading: previewPending } : {}),
       ...tileActionAvailability(
-        !targetShielded && reachable && state.gold >= FRONTIER_CLAIM_COST,
-        targetShielded ? targetShieldedReason : !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
-        `${FRONTIER_CLAIM_COST} gold`
+        !targetShielded && reachable,
+        targetShielded ? targetShieldedReason : "No bordering origin tile or linked dock",
+        previewManpowerCost
       )
     }
   ];
@@ -2172,9 +2171,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       label: `Attack Connected Region (${connectedRegionSize})`,
       detail: "Queue attacks across this visible connected enemy region from the edge inward.",
       ...tileActionAvailability(
-        !targetShielded && reachable && state.gold >= FRONTIER_CLAIM_COST,
-        targetShielded ? targetShieldedReason : !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
-        `${FRONTIER_CLAIM_COST} gold each`
+        !targetShielded && reachable,
+        targetShielded ? targetShieldedReason : "No bordering origin tile or linked dock",
+        previewManpowerCost ? `${previewManpowerCost} each` : undefined
       )
     });
   }

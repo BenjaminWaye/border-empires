@@ -4,6 +4,7 @@ import {
   BARBARIAN_MULTIPLY_THRESHOLD,
   BARBARIAN_POPULATION_CAP,
   BREAKTHROUGH_DURATION_MS,
+  attackManpowerLoss,
   rollFrontierCombat,
   targetOutpostMult,
   WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
@@ -514,12 +515,7 @@ export const applySettledCapturePlunder = (input: {
   input.attacker.points += input.gold;
 };
 
-export const attackManpowerLoss = (committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number => {
-  if (committedManpower <= 0) return 0;
-  if (attackerWon) return Math.max(10, committedManpower * 0.16);
-  const combatRatio = defEff / Math.max(1, atkEff);
-  return committedManpower * Math.min(1.25, 0.6 + combatRatio * 0.35);
-};
+export { attackManpowerLoss };
 
 export const applyLockedManpowerDelta = (player: DomainPlayer, manpowerDelta: number): number => {
   if (manpowerDelta >= -0.01) return 0;
