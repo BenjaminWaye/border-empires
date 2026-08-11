@@ -31,6 +31,16 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1786482157000, // 2026.08.11.7
+    introducedIn: "2026.08.11.7",
+    title: "Battle dots now animate for the whole siege, not just the last 2.3 seconds",
+    why: "The battle-dot combat animation only ever played during the ~2.3s resolution flourish at the very end of an attack, driven by a one-time server broadcast at lock resolution. For most of a siege's countdown, only the red under-attack cross was visible with no dots, which read as the animation being broken.",
+    changes: [
+      "3D renderer: an indeterminate clash-loop of dots now plays at the tile midpoint for the entire attack countdown, distinct from the resolved clash/rout flourish that still plays at the very end.",
+      "Red under-attack cross indicator is unchanged and still shows for the full countdown alongside the dots."
+    ]
+  },
+  {
     createdAt: 1786473809401, // 2026.08.11.6
     introducedIn: "2026.08.11.6",
     title: "Fixed three more silently-broken build buttons; added a catch for the whole class of bug",
