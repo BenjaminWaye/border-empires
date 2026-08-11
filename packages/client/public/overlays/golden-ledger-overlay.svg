@@ -1,0 +1,23 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <path d="M22 106L40 96H92L74 106H22Z" fill="#87623C"/>
+  <path d="M40 96V88H92V96H40Z" fill="#D8CAB3"/>
+  <path d="M40 88L56 80H92L76 88H40Z" fill="#5F4A2C"/>
+
+  <path d="M52 88L52 62L68 62L68 88L52 88Z" fill="#EFE5D4"/>
+  <path d="M68 88L68 62L78 66L78 92L68 88Z" fill="#B6BFCA"/>
+  <path d="M52 62L68 62L64 56H56L52 62Z" fill="#C99550"/>
+  <path d="M52 78H68" stroke="#B38A55" stroke-width="2"/>
+  <path d="M52 84H68" stroke="#B38A55" stroke-width="2"/>
+
+  <path d="M62 84L62 78" stroke="#7A5A26" stroke-width="2"/>
+  <path d="M60 76H70L68 74H62L60 76Z" fill="#AA4D38"/>
+  <path d="M60 76L66 80L70 76L60 76Z" fill="#D0A552"/>
+
+  <path d="M44 98L46 90H58L56 98H44Z" fill="#C9B08C"/>
+  <path d="M58 98L60 90H72L70 98H58Z" fill="#C9B08C"/>
+  <path d="M72 98L74 90H86L84 98H72Z" fill="#C9B08C"/>
+
+  <path d="M40 84C52 78, 66 78, 78 84" stroke="#D8A53D" stroke-width="4" stroke-linecap="round"/>
+
+</svg>

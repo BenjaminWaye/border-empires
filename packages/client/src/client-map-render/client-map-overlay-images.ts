@@ -6,7 +6,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "../client-f
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20260810a";
+const overlayAssetVersion = "20260810b";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -69,7 +69,30 @@ export const structureOverlayImages = {
   LOGISTICS_GUILD: loadOverlayImage("logistics-guild-overlay.svg"),
   ASSEMBLY_WORKS: loadOverlayImage("assembly-works-overlay.svg"),
   POPULATION_BUREAU: loadOverlayImage("population-bureau-overlay.svg"),
-  TITANIUM_LEVY: loadOverlayImage("titanium-levy-overlay.svg")
+  TITANIUM_LEVY: loadOverlayImage("titanium-levy-overlay.svg"),
+  SEED_GRANARY: loadOverlayImage("seed-granary-overlay.svg"),
+  CENSUS_HALL: loadOverlayImage("census-hall-overlay.svg"),
+  WEAPONS_WORKSHOP: loadOverlayImage("weapons-workshop-overlay.svg"),
+  TITANIUM_WEAPONS_FACTORY: loadOverlayImage("titanium-weapons-factory-overlay.svg"),
+  UMBRITE_WEAPONS_FACTORY: loadOverlayImage("umbrite-weapons-factory-overlay.svg"),
+  WORLD_ENGINE_PART_1: loadOverlayImage("long-barrel-overlay.svg"),
+  WORLD_ENGINE_PART_2: loadOverlayImage("fracture-core-overlay.svg"),
+  WORLD_ENGINE_PART_3: loadOverlayImage("sky-marking-array-overlay.svg"),
+  IMPERIAL_EXCHANGE_PART_1: loadOverlayImage("golden-ledger-overlay.svg"),
+  IMPERIAL_EXCHANGE_PART_2: loadOverlayImage("counting-engine-overlay.svg"),
+  IMPERIAL_EXCHANGE_PART_3: loadOverlayImage("sovereign-seal-overlay.svg")
+} as const;
+
+export const naturalWonderOverlayImages = {
+  FOUNDRY_HEART: loadOverlayImage("foundry-heart-overlay.svg"),
+  DEEPWATER_ENGINE: loadOverlayImage("deepwater-engine-overlay.svg"),
+  CONSCRIPTION_ENGINE: loadOverlayImage("conscription-engine-overlay.svg"),
+  WARPRESS: loadOverlayImage("warpress-overlay.svg"),
+  BASTION_FRAME: loadOverlayImage("bastion-frame-overlay.svg"),
+  CALCULATING_ENGINE: loadOverlayImage("calculating-engine-overlay.svg"),
+  QUICKFORGE: loadOverlayImage("quickforge-overlay.svg"),
+  WATCHTOWER_ENGINE: loadOverlayImage("watchtower-engine-overlay.svg"),
+  CARTOGRAPHERS_LENS: loadOverlayImage("cartographers-lens-overlay.svg")
 } as const;
 const fortRingOverlaySet = createDirectionalOverlaySet("fort-ring-overlay"); // also stands in for TITANIUM_BASTION/THUNDER_BASTION (3D-only art)
 export const fortificationOverlayImages: Record<FortificationOverlayKind, Record<FortificationOpening, HTMLImageElement>> = {
