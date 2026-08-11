@@ -3,7 +3,7 @@ import {
   LONG_PEACE_MS,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
-  SEED_GRANARY_GROWTH_MULT,
+  granaryGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN
@@ -187,7 +187,7 @@ export const buildTownSummary = (
   // multiplier — the old flat +15% ongoing bonus was a leftover from before
   // the redesign and has been removed. Seed Granary's own buffed-radius
   // multiplier is a separate, still-live mechanic.
-  const granaryGrowthMult = hasAnyGranary && seedGranaryBuffed ? SEED_GRANARY_GROWTH_MULT : 1;
+  const granaryGrowthMult = granaryGrowthMultiplier(hasAnyGranary, seedGranaryBuffed);
   const clearingHouseTownNames = tile.ownerId ? clearingHouseSourceTownNames(tileKey, tile.ownerId, tilesByKey, townNetwork, dormantEconomicStructureKeys) : [], clearingHouseActive = clearingHouseTownNames.length > 0;
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);

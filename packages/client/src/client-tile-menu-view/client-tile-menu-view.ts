@@ -111,7 +111,11 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return `Build on this support tile for ${supportedTownLabel}. Grants +50% town gold production and +${Math.round((supportedTown?.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap.`;
   }
   if (actionId === "build_granary") {
-    return `Build on this support tile for ${supportedTownLabel}. Grants +15% population growth.`;
+    // Incubation Engine (Granary) grants an instant one-time population
+    // burst on completion, not an ongoing growth bonus — see
+    // granaryGrowthMultiplier in packages/game-domain (commit 7a51b06b,
+    // "Incubation Engine double-dip" fix).
+    return `Build on this support tile for ${supportedTownLabel}. Grants an instant +10,000 population burst on completion.`;
   }
   if (actionId === "build_bank") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +50% city income and +1 flat income.`;

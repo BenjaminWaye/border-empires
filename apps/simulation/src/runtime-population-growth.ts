@@ -5,7 +5,7 @@ import {
   NEARBY_WAR_PAUSE_MS,
   NEARBY_WAR_RADIUS,
   POPULATION_GROWTH_BASE_RATE,
-  SEED_GRANARY_GROWTH_MULT,
+  granaryGrowthMultiplier,
   SETTLEMENT_GROWTH_RATE_MULT,
   type DomainTileState
 } from "@border-empires/game-domain";
@@ -25,8 +25,9 @@ export function seedGranaryGrowthMultForTile(input: {
   const dormantEconomicStructureKeys = input.dormantEconomicStructureKeys ?? new Set<string>();
   const hasGranary = hasSupportedStructure(input.playerId, input.tile, "GRANARY", input.tiles, false, dormantEconomicStructureKeys);
   const hasSeedGranary = hasSupportedStructure(input.playerId, input.tile, "SEED_GRANARY", input.tiles, false, dormantEconomicStructureKeys);
-  if (!hasGranary && !hasSeedGranary) return 1;
-  if (!hasSeedGranary) return 1.15;
+  const hasAnyGranary = hasGranary || hasSeedGranary;
+  if (!hasAnyGranary) return 1;
+  if (!hasSeedGranary) return granaryGrowthMultiplier(hasAnyGranary, false);
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;
@@ -38,11 +39,11 @@ export function seedGranaryGrowthMultForTile(input: {
         neighbor.economicStructure.status === "active" &&
         !dormantEconomicStructureKeys.has(`${input.tile.x + dx},${input.tile.y + dy}`)
       ) {
-        return SEED_GRANARY_GROWTH_MULT;
+        return granaryGrowthMultiplier(hasAnyGranary, true);
       }
     }
   }
-  return 1.15;
+  return granaryGrowthMultiplier(hasAnyGranary, false);
 }
 
 export function tickPopulationGrowth(input: {

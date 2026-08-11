@@ -18,8 +18,11 @@ import type {
 import {
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
+  granaryGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
-  TOWN_BASE_GOLD_PER_MIN
+  TOWN_BASE_GOLD_PER_MIN,
+  townFoodUpkeepPerMinute as sharedTownFoodUpkeepPerMinute,
+  townPopulationMultiplier as sharedTownPopulationMultiplier
 } from "@border-empires/game-domain";
 import type { SeasonVictoryPathId, SeasonWinnerView } from "@border-empires/shared";
 import type { RecoveredSimulationState } from "../event-recovery/event-recovery.js";
@@ -141,23 +144,19 @@ const townPopulationTierFromSnapshot = (town: TownDefinition): "SETTLEMENT" | "T
   return "SETTLEMENT";
 };
 
-const townPopulationMultiplier = (town: TownDefinition): number => {
-  const tier = townPopulationTierFromSnapshot(town);
-  if (tier === "SETTLEMENT") return 0.6;
-  if (tier === "CITY") return 1.5;
-  if (tier === "GREAT_CITY") return 2.5;
-  if (tier === "METROPOLIS") return 3.2;
-  return 1;
-};
+// townPopulationMultiplier/townFoodUpkeepPerMinute delegate to the shared
+// game-domain functions (imported as sharedTownPopulationMultiplier /
+// sharedTownFoodUpkeepPerMinute below) — see the doc comments on those for
+// why the SETTLEMENT case (0.6 here previously) was confirmed-dead code, and
+// why food upkeep is always 0 now (§5.3/§5.4 FOOD-as-slots rewrite). This
+// file used to keep its own independently-hardcoded copies of both tables,
+// which is why it still charged non-zero food upkeep for TOWN/CITY/etc.
+// tiers years after that mechanic was retired everywhere else.
+const townPopulationMultiplier = (town: TownDefinition): number =>
+  sharedTownPopulationMultiplier(townPopulationTierFromSnapshot(town));
 
-const townFoodUpkeepPerMinute = (town: TownDefinition): number => {
-  const tier = townPopulationTierFromSnapshot(town);
-  if (tier === "SETTLEMENT") return 0;
-  if (tier === "CITY") return 0.2;
-  if (tier === "GREAT_CITY") return 0.4;
-  if (tier === "METROPOLIS") return 0.8;
-  return 0.1;
-};
+const townFoodUpkeepPerMinute = (town: TownDefinition): number =>
+  sharedTownFoodUpkeepPerMinute(townPopulationTierFromSnapshot(town));
 
 const townGrowthModifiersForSnapshot = (input: {
   now: number;
@@ -409,7 +408,11 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
         : (() => {
             const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
             if (logisticFactor <= 0) return 0;
-            const growthMult = (tier === "SETTLEMENT" ? 4 : 1) * (hasGranary ? 1.15 : 1);
+            // No Seed Granary buffed-radius detection on this legacy
+            // bootstrap path, so granaryGrowthMultiplier always resolves to
+            // 1 here — matching the "instant burst only" design (see
+            // granaryGrowthMultiplier doc comment in server-game-constants.ts).
+            const growthMult = (tier === "SETTLEMENT" ? 4 : 1) * granaryGrowthMultiplier(hasGranary, false);
             return town.population * POPULATION_GROWTH_BASE_RATE * growthMult * logisticFactor;
           })();
     const growthModifiers = townGrowthModifiersForSnapshot({

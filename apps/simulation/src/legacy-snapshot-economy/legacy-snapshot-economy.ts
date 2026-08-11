@@ -32,6 +32,8 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   STRUCTURE_OUTPUT_MULT,
   TOWN_BASE_GOLD_PER_MIN,
+  townFoodUpkeepPerMinute as sharedTownFoodUpkeepPerMinute,
+  townPopulationMultiplier as sharedTownPopulationMultiplier,
   UPKEEP_MINUTES_PER_DAY,
   type SnapshotEconomySection,
   type SnapshotPlayersSection,
@@ -140,23 +142,17 @@ const townPopulationTier = (town: TownDefinition): "SETTLEMENT" | "TOWN" | "CITY
   return "SETTLEMENT";
 };
 
-const townPopulationMultiplier = (town: TownDefinition): number => {
-  const tier = townPopulationTier(town);
-  if (tier === "SETTLEMENT") return 0.6;
-  if (tier === "CITY") return 1.5;
-  if (tier === "GREAT_CITY") return 2.5;
-  if (tier === "METROPOLIS") return 3.2;
-  return 1;
-};
+// townPopulationMultiplier/townFoodUpkeepPerMinute delegate to the shared
+// game-domain functions — see the doc comments there for why the
+// SETTLEMENT case (0.6 here previously) was confirmed-dead code, and why
+// food upkeep is always 0 now (§5.3/§5.4 FOOD-as-slots rewrite). This file
+// used to keep its own independently-hardcoded copies of both tables.
+const townPopulationMultiplier = (town: TownDefinition): number =>
+  sharedTownPopulationMultiplier(townPopulationTier(town));
 
-const townFoodUpkeepPerMinute = (town: TownDefinition): number => {
-  const tier = townPopulationTier(town);
-  if (tier === "SETTLEMENT") return 0;
-  if (tier === "CITY") return 0.2;
-  if (tier === "GREAT_CITY") return 0.4;
-  if (tier === "METROPOLIS") return 0.8;
-  return 0.1;
-};
+const townFoodUpkeepPerMinute = (town: TownDefinition): number =>
+  sharedTownFoodUpkeepPerMinute(townPopulationTier(town));
+
 
 const resourceSourceLabel = (resource: string | undefined): string | undefined => {
   if (resource === "FARM") return "Grain";
