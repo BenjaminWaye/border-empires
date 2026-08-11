@@ -168,19 +168,20 @@ describe("RUSH_BUY", () => {
       });
       await Promise.resolve();
 
-      // MARKET moved to same-tile/uncapped placement (tech-tree redesign),
-      // so it builds directly on the targeted tile rather than being
-      // redirected to a separate town_support tile.
-      const builtTile = runtime.exportState().tiles.find((t) => t.x === 16 && t.y === 16);
+      // MARKET is same-tile/uncapped placement (stacks additively per town),
+      // but only a Fort belongs directly on the town tile -- targeting the
+      // town tile (16,16) itself redirects the build onto its open support
+      // tile (16,17) instead.
+      const builtTile = runtime.exportState().tiles.find((t) => t.x === 16 && t.y === 17);
       expect(builtTile?.economicStructureJson).toContain('"status":"under_construction"');
 
       runtime.submitCommand({
         commandId: "rush-1", sessionId: "session-1", playerId: "player-1", clientSeq: 2, issuedAt: 1_000,
-        type: "RUSH_BUY", payloadJson: JSON.stringify({ x: 16, y: 16 })
+        type: "RUSH_BUY", payloadJson: JSON.stringify({ x: 16, y: 17 })
       });
       await Promise.resolve();
 
-      const finished = runtime.exportState().tiles.find((t) => t.x === 16 && t.y === 16);
+      const finished = runtime.exportState().tiles.find((t) => t.x === 16 && t.y === 17);
       expect(finished?.economicStructureJson).toContain('"status":"active"');
     } finally {
       vi.useRealTimers();

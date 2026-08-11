@@ -22,6 +22,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786463807000, // 2026.08.11.5
+    introducedIn: "2026.08.11.5",
+    title: "Town-tile builds, Observatory upkeep, and a Jump to tile button",
+    why: "A Market, Ancillary Factory, or Weapons Factory clicked on a town tile used to build right there — now only a Fort belongs directly on a town, and those auto-place onto an open support tile instead. Each additional Observatory now costs progressively more CRYSTAL upkeep. The Development panel sidebar didn't have any way to jump the camera to a queued or in-progress item's tile.",
+    changes: [
+      "Market, Ancillary Factory, and both Weapons Factories now redirect to an open support tile when targeted at the town tile itself — a Fort is the only structure that belongs directly on a town.",
+      "Each additional Observatory costs progressively more CRYSTAL upkeep: 1st = 1 slot, 2nd = 2, 3rd = 3, and so on.",
+      "Added a Jump to tile button to every active and queued item in the Development panel sidebar."
+    ]
+  },
+  {
     createdAt: 1786445459000, // 2026.08.11.4
     introducedIn: "2026.08.11.4",
     title: "Fixed Titanium/Umbrite Weapons Factory build buttons doing nothing",
@@ -551,7 +562,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1786463900000, // 2026.08.11.6 — frozen from a live Date.now() call
     introducedIn: "population-bureau-part-models",
     title: "Population Bureau components now render as distinct 3D models with their own map icons",
     why: "The Population Bureau's 3 unique components — the Census Engine, Registry Vault, and Levy Charter — previously had no dedicated art, so on the map they fell back to a generic placeholder instead of reading as a monument under construction.",
@@ -559,6 +570,15 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "3D map: each of the Population Bureau's 3 components now renders its own dedicated model — the Census Engine (a compact horizontal brass drum in a dark iron frame with fanned parchment record cards, one separated card carrying a muted green processing glow), the Registry Vault (a squat dark-iron strongbox with reinforced brass corners, heavy hinges, a thick brass lid tilted ajar, and a restrained warm amber glow in the gap), and the Levy Charter (an upright rolled imperial decree with thick brass caps and a small unrolled section bearing a subtle gold sigil).",
       "2D map: each component now has its own flat overlay icon matching the monument set's muted iron/brass/parchment look with a single restrained emissive accent.",
       "The 2D fallback overlay for component tiles is no longer drawn in 3D mode, matching other structures."
+    ]
+  },
+  {
+    createdAt: 1786445193413, // 2026-08-11 — frozen from a live Date.now() call
+    introducedIn: "revert-barley-2d-farm-overlay",
+    title: "2D farm tiles show the classic wheat plates again",
+    why: "The recent 2D farm overlay redraw (dense barley crops) didn't land well, so farm tiles on the 2D map are back to the previous wheat-plate look.",
+    changes: [
+      "2D map: farm resource tiles use the previous wheat-plate overlay style instead of the dense barley crops."
     ]
   }
 ];

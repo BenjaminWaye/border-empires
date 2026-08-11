@@ -45,6 +45,7 @@ const baseDeps = {
   ws: { readyState: 1, send: () => undefined },
   attackPreviewDetailForTarget: () => undefined,
   attackPreviewPendingForTarget: () => false,
+  attackPreviewManpowerCostForTarget: () => undefined,
   // Non-null so the "reachable" branch is exercised — these tests are about
   // the manpower/gold gate, not reachability.
   pickOriginForTarget: () => ({ x: 0, y: 0 }),

@@ -3559,7 +3559,7 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("builds a market through the rewrite simulation path directly on the targeted tile", async () => {
+  it("builds a market through the rewrite simulation path directly on a support tile", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -3606,23 +3606,78 @@ describe("simulation runtime", () => {
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "MARKET" })
+        payloadJson: JSON.stringify({ x: 16, y: 17, structureType: "MARKET" })
       });
 
       await Promise.resolve();
       expect(runtime.exportState().tiles).toContainEqual(
         expect.objectContaining({
           x: 16,
-          y: 16,
+          y: 17,
           economicStructureJson: expect.any(String)
         })
       );
 
       vi.advanceTimersByTime(structureBuildDurationMs("MARKET"));
 
-      const exported = runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 16);
+      const exported = runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 17);
       expect(exported?.economicStructureJson).toContain("\"type\":\"MARKET\"");
       expect(exported?.economicStructureJson).toContain("\"status\":\"active\"");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("redirects a Market/Garrison Hall/Weapons Factory targeted at the town tile itself onto an open support tile — only a Fort belongs directly on a town", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          [
+            "player-1",
+            buildPlayer("player-1", { points: 5_000, manpower: 10_000, techIds: new Set<string>(["trade"]), strategicResources: {} })
+          ]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 30,
+              y: 30,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Redirect Town", type: "MARKET", populationTier: "TOWN" }
+            },
+            { x: 30, y: 31, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 30, y: 32, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 30, y: 33, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 30, y: 34, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 30, y: 35, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+            { x: 30, y: 36, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "market-on-town-tile",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "BUILD_ECONOMIC_STRUCTURE",
+        // Targeting the town tile itself (30,30), not a support tile.
+        payloadJson: JSON.stringify({ x: 30, y: 30, structureType: "MARKET" })
+      });
+
+      await Promise.resolve();
+      // The town tile itself must stay clear...
+      const townTile = runtime.exportState().tiles.find((tile) => tile.x === 30 && tile.y === 30);
+      expect(townTile?.economicStructureJson).toBeUndefined();
+      // ...and the build landed on the open support tile instead.
+      const supportTile = runtime.exportState().tiles.find((tile) => tile.x === 30 && tile.y === 31);
+      expect(supportTile?.economicStructureJson).toEqual(expect.stringContaining("\"type\":\"MARKET\""));
     } finally {
       vi.useRealTimers();
     }
@@ -5772,10 +5827,15 @@ describe("simulation runtime", () => {
           { x: 1, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 2, y: 1, terrain: "MOUNTAIN" },
           { x: 1, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", shardSite: { kind: "CACHE", amount: 3 } },
-          // §5.4: three CRYSTAL slots so all three Observatories aren't dormant.
+          // §5.4/user decision: Observatory upkeep is now progressive (1st=1,
+          // 2nd=2, 3rd=3 CRYSTAL slots), so 3 Observatories need 1+2+3=6
+          // CRYSTAL slots total, not a flat 3, for none of them to go dormant.
           { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 8, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 9, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+          { x: 9, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 10, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 11, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 12, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -5945,9 +6005,12 @@ describe("simulation runtime", () => {
           { x: 0, y: 5, terrain: "LAND" },
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
           { x: 3, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
-          // §5.4: two CRYSTAL slots so both Observatories aren't dormant.
+          // §5.4/user decision: Observatory upkeep is now progressive (1st=1,
+          // 2nd=2 CRYSTAL slots), so 2 Observatories need 1+2=3 CRYSTAL slots
+          // total, not a flat 2, for neither to go dormant.
           { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
-          { x: 21, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
+          { x: 21, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 22, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
         activeLocks: []
       }
@@ -7341,14 +7404,14 @@ describe("simulation runtime — shard rain", () => {
 
   it("broadcasts an 'upcoming' notice one hour before a scheduled rain", () => {
     const runtime = new SimulationRuntime({
-      now: () => localTime(11, 0),
+      now: () => localTime(7, 0),
       initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
       seedTiles: new Map(),
       initialState: { tiles: [], activeLocks: [] }
     });
     const seen = collectEvents(runtime);
 
-    runtime.tickShardRain(localTime(11, 0));
+    runtime.tickShardRain(localTime(7, 0));
 
     const notices = seen.filter(
       (event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> =>
@@ -7358,7 +7421,7 @@ describe("simulation runtime — shard rain", () => {
     expect(notices[0]?.playerId).toBe("human-1");
     const payload = JSON.parse(notices[0]!.payloadJson);
     expect(payload).toEqual(
-      expect.objectContaining({ type: "SHARD_RAIN_EVENT", phase: "upcoming", startsAt: localTime(12, 0) })
+      expect.objectContaining({ type: "SHARD_RAIN_EVENT", phase: "upcoming", startsAt: localTime(8, 0) })
     );
   });
 
@@ -7369,7 +7432,7 @@ describe("simulation runtime — shard rain", () => {
       { x: 2, y: 0, terrain: "LAND" as const }
     ];
     const runtime = new SimulationRuntime({
-      now: () => localTime(12, 0),
+      now: () => localTime(8, 0),
       initialPlayers: new Map([
         ["human-1", humanPlayer("human-1")],
         ["ai-1", aiPlayer("ai-1")]
@@ -7396,7 +7459,7 @@ describe("simulation runtime — shard rain", () => {
     });
 
     try {
-      runtime.tickShardRain(localTime(12, 0));
+      runtime.tickShardRain(localTime(8, 0));
     } finally {
       randomSpy.mockRestore();
     }
@@ -7424,15 +7487,15 @@ describe("simulation runtime — shard rain", () => {
       expect.objectContaining({
         type: "SHARD_RAIN_EVENT",
         phase: "started",
-        startsAt: localTime(12, 0),
-        expiresAt: localTime(12, 0) + 30 * 60_000
+        startsAt: localTime(8, 0),
+        expiresAt: localTime(8, 0) + 30 * 60_000
       })
     );
   });
 
   it("does not double-spawn when ticked twice in the same slot", () => {
     const runtime = new SimulationRuntime({
-      now: () => localTime(12, 0),
+      now: () => localTime(8, 0),
       initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
       seedTiles: new Map(),
       initialState: {
@@ -7444,8 +7507,8 @@ describe("simulation runtime — shard rain", () => {
 
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
-      runtime.tickShardRain(localTime(12, 0));
-      runtime.tickShardRain(localTime(12, 0));
+      runtime.tickShardRain(localTime(8, 0));
+      runtime.tickShardRain(localTime(8, 0));
     } finally {
       randomSpy.mockRestore();
     }
@@ -7460,9 +7523,9 @@ describe("simulation runtime — shard rain", () => {
   });
 
   it("emits an explicit shardSiteJson clear marker when expiring FALL sites", () => {
-    const expiresAt = localTime(12, 0) + 30 * 60_000;
+    const expiresAt = localTime(8, 0) + 30 * 60_000;
     const runtime = new SimulationRuntime({
-      now: () => localTime(12, 0),
+      now: () => localTime(8, 0),
       initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
       seedTiles: new Map(),
       initialState: {
@@ -7492,7 +7555,7 @@ describe("simulation runtime — shard rain", () => {
 
   it("spawns shards even with only AI players, but skips human-only broadcasts", () => {
     const runtime = new SimulationRuntime({
-      now: () => localTime(12, 0),
+      now: () => localTime(8, 0),
       initialPlayers: new Map([["ai-1", aiPlayer("ai-1")]]),
       seedTiles: new Map(),
       initialState: {
@@ -7504,7 +7567,7 @@ describe("simulation runtime — shard rain", () => {
 
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
-      runtime.tickShardRain(localTime(12, 0));
+      runtime.tickShardRain(localTime(8, 0));
     } finally {
       randomSpy.mockRestore();
     }
@@ -7518,9 +7581,9 @@ describe("simulation runtime — shard rain", () => {
   });
 
   it("emitShardRainHelloFor sends a 'started' notice to a player joining mid-rain", () => {
-    const expiresAt = localTime(12, 0) + 30 * 60_000;
+    const expiresAt = localTime(8, 0) + 30 * 60_000;
     const runtime = new SimulationRuntime({
-      now: () => localTime(12, 15),
+      now: () => localTime(8, 15),
       initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
       seedTiles: new Map(),
       initialState: {
@@ -7533,7 +7596,7 @@ describe("simulation runtime — shard rain", () => {
     });
     const seen = collectEvents(runtime);
 
-    runtime.emitShardRainHelloFor("human-1", localTime(12, 15));
+    runtime.emitShardRainHelloFor("human-1", localTime(8, 15));
 
     const notices = seen.filter(
       (event): event is Extract<SimulationEvent, { eventType: "PLAYER_MESSAGE" }> =>
@@ -7554,9 +7617,9 @@ describe("simulation runtime — shard rain", () => {
   });
 
   it("clears the rain hello cache after FALL sites are fully collected", async () => {
-    const expiresAt = localTime(12, 0) + 30 * 60_000;
+    const expiresAt = localTime(8, 0) + 30 * 60_000;
     const runtime = new SimulationRuntime({
-      now: () => localTime(12, 15),
+      now: () => localTime(8, 15),
       initialPlayers: new Map([
         [
           "human-1",
@@ -7601,7 +7664,7 @@ describe("simulation runtime — shard rain", () => {
     ).toBe(false);
 
     const helloBefore = seen.length;
-    runtime.emitShardRainHelloFor("human-1", localTime(12, 15));
+    runtime.emitShardRainHelloFor("human-1", localTime(8, 15));
     const helloNotices = seen
       .slice(helloBefore)
       .filter(
@@ -7611,9 +7674,9 @@ describe("simulation runtime — shard rain", () => {
   });
 
   it("emitShardRainHelloFor only sends one hello per player per rain window", () => {
-    const expiresAt = localTime(12, 0) + 30 * 60_000;
+    const expiresAt = localTime(8, 0) + 30 * 60_000;
     const runtime = new SimulationRuntime({
-      now: () => localTime(12, 15),
+      now: () => localTime(8, 15),
       initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
       seedTiles: new Map(),
       initialState: {
@@ -7623,8 +7686,8 @@ describe("simulation runtime — shard rain", () => {
     });
     const seen = collectEvents(runtime);
 
-    runtime.emitShardRainHelloFor("human-1", localTime(12, 15));
-    runtime.emitShardRainHelloFor("human-1", localTime(12, 20));
+    runtime.emitShardRainHelloFor("human-1", localTime(8, 15));
+    runtime.emitShardRainHelloFor("human-1", localTime(8, 20));
 
     const notices = seen.filter(
       (event) => event.eventType === "PLAYER_MESSAGE" && event.messageType === "SHARD_RAIN_EVENT"
@@ -7657,7 +7720,7 @@ describe("simulation runtime — shard rain", () => {
       { x: 2, y: 0, terrain: "LAND" as const }
     ];
     const runtime = new SimulationRuntime({
-      now: () => localTime(12, 0),
+      now: () => localTime(8, 0),
       initialPlayers: new Map([["human-1", humanPlayer("human-1")]]),
       seedTiles: new Map(),
       initialState: { tiles, activeLocks: [] }
@@ -7678,14 +7741,14 @@ describe("simulation runtime — shard rain", () => {
     });
 
     try {
-      // First rain at 12:00
-      runtime.tickShardRain(localTime(12, 0));
+      // First rain at 08:00
+      runtime.tickShardRain(localTime(8, 0));
 
-      // Advance past TTL (30 min) and trigger second rain at 20:00.
+      // Advance past TTL (30 min) and trigger second rain at 21:00.
       // expireShardFallSites runs first and clears shardSite; then the
       // spawn loop finds no eligible tiles because recentShardRainTileKeys
       // still holds the 3 tiles from the first event.
-      runtime.tickShardRain(localTime(20, 0));
+      runtime.tickShardRain(localTime(21, 0));
 
       const startedNotices = seen.filter(
         (event) =>
@@ -8167,7 +8230,7 @@ describe("aether purge", () => {
     expect(target?.ownershipState).toBeUndefined();
     expect(target?.economicStructureJson).toContain("\"GRANARY\"");
     expect(observatory?.cooldownUntil).toBe(601_000);
-    expect(actor?.points).toBe(2_000);
+    expect(actor?.points).toBe(5_000); // §17: no longer costs gold
     expect(actor?.strategicResources?.CRYSTAL).toBe(500); // §17: no longer costs CRYSTAL
   });
 

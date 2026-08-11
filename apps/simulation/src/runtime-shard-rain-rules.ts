@@ -1,6 +1,11 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 
-export const SHARD_RAIN_SCHEDULE_HOURS = [12] as const;
+// Two rains/day (user decision): 08:00 and 21:00 UTC, aimed at commute-time
+// and evening play windows respectively. Container has no TZ override, so
+// Node's Date getHours()/setHours() below run in UTC — matches the "UTC
+// midnight" convention already used elsewhere in this codebase (Quickforge's
+// daily rush-buy reset).
+export const SHARD_RAIN_SCHEDULE_HOURS = [8, 21] as const;
 export const SHARD_RAIN_TTL_MS = 30 * 60_000;
 export const SHARD_RAIN_WARNING_LEAD_MS = 60 * 60 * 1000;
 export const SHARD_RAIN_SITE_MIN = 3;
