@@ -1,16 +1,7 @@
 import { manpowerRegenWeightForSettlementIndex, TOWN_MANPOWER_BY_TIER } from "@border-empires/shared";
-import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN } from "@border-empires/game-domain";
+import { SETTLEMENT_BASE_GOLD_PER_MIN, TOWN_BASE_GOLD_PER_MIN, townPopulationMultiplier } from "@border-empires/game-domain";
 
 type TownPopulationTier = "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-
-const townPopulationMultiplier = (tier: TownPopulationTier): number => {
-  switch (tier) {
-    case "CITY": return 1.5;
-    case "GREAT_CITY": return 2.5;
-    case "METROPOLIS": return 3.2;
-    default: return 1;
-  }
-};
 
 export type TownCaptureInfo = {
   x: number;

@@ -73,6 +73,31 @@ export const MINE_GOLD_UPKEEP = 0;
 export const GRANARY_GOLD_UPKEEP = 0;
 export const SEED_GRANARY_SLOTS = 5;
 export const SEED_GRANARY_GROWTH_MULT = 1.30;
+
+/**
+ * Pure town population-growth multiplier from Granary/Seed Granary — the
+ * single shared source of truth for both the live-tick engine
+ * (apps/simulation/src/runtime-population-growth.ts) and the display/
+ * fallback snapshot paths (apps/simulation/src/live-town-summary.ts,
+ * apps/realtime-gateway/src/tile-detail-snapshot/tile-detail-snapshot.ts,
+ * apps/simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.ts).
+ *
+ * granary-bonus-unification task: commit 7a51b06b ("fix: Incubation Engine
+ * double-dip") established, per explicit user decision, that a plain
+ * Granary grants ONLY its instant one-time GRANARY_INSTANT_POPULATION_BURST
+ * on completion — the old flat +15% ongoing growth multiplier was a
+ * pre-redesign leftover and was removed. That fix only touched
+ * live-town-summary.ts; runtime-population-growth.ts (the authoritative
+ * live-tick path actually driving population growth),
+ * tile-detail-snapshot.ts, and legacy-snapshot-bootstrap.ts still
+ * independently hardcoded the old flat 1.15 for `hasGranary` alone, so a
+ * plain Granary was silently double-dipping (instant burst + ongoing +15%
+ * forever) in the real economy despite the explicit decision to remove
+ * that. This function is the corrected, single formula: no bonus without a
+ * Seed Granary whose 3x3 buffed radius covers the town tile.
+ */
+export const granaryGrowthMultiplier = (hasAnyGranary: boolean, seedGranaryBuffed: boolean): number =>
+  hasAnyGranary && seedGranaryBuffed ? SEED_GRANARY_GROWTH_MULT : 1;
 export const MANPOWER_EPSILON = 1e-6;
 export const MANPOWER_BASE_CAP = SHARED_MANPOWER_BASE_CAP;
 export const MANPOWER_BASE_REGEN_PER_MINUTE = SHARED_MANPOWER_BASE_REGEN_PER_MINUTE;
@@ -239,6 +264,42 @@ export const SETTLEMENT_GROWTH_RATE_MULT = 4;
 // read it for a "food upkeep per minute" figure that's now always 0, same
 // "leave plumbing, starve input" treatment as MARKET_FOOD_UPKEEP above.
 export const townFoodUpkeepPerMinute = (_populationTier: string | undefined): number => 0;
+
+/**
+ * Pure town gold/growth population-tier multiplier — the single shared
+ * source of truth for every call site that scales a per-town formula by
+ * population tier (TOWN_BASE_GOLD_PER_MIN, gold cap, etc).
+ *
+ * building-bonus-unification task: this table used to be re-implemented
+ * independently in SIX places — apps/simulation/src/player-update-economy/
+ * player-update-economy.ts, apps/simulation/src/snapshot-economy-helpers.ts,
+ * apps/realtime-gateway/src/tile-detail-snapshot/tile-detail-snapshot.ts
+ * (as townPopulationMultiplierLocal), apps/simulation/src/
+ * legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.ts,
+ * apps/simulation/src/legacy-snapshot-economy/legacy-snapshot-economy.ts,
+ * and packages/client/src/client-town-capture/client-town-capture.ts — with
+ * every reachable tier (TOWN/CITY/GREAT_CITY/METROPOLIS) agreeing, EXCEPT
+ * that two of the six (snapshot-economy-helpers.ts,
+ * legacy-snapshot-bootstrap.ts, legacy-snapshot-economy.ts) special-cased
+ * SETTLEMENT to 0.6 while the others fell through to the shared default of
+ * 1. This is confirmed dead-code drift, not a live disagreement: every call
+ * site gates SETTLEMENT-tier towns to a separate SETTLEMENT_BASE_GOLD_PER_MIN
+ * branch before this multiplier is ever reached (see townGoldPerMinuteForPlayer,
+ * fallbackTownGoldPerMinute, the legacy tier===\"SETTLEMENT\" ternaries, and
+ * client-town-capture.ts's isSettlement branch) — the 0.6 case has never
+ * actually executed. Unified on the reachable-tier value (default 1) rather
+ * than the unreachable 0.6, since 1 is what every majority/authoritative
+ * call site already used.
+ */
+export const townPopulationMultiplier = (populationTier: string | undefined): number => {
+  switch (populationTier) {
+    case "CITY": return 1.5;
+    case "GREAT_CITY": return 2.5;
+    case "METROPOLIS": return 3.2;
+    default: return 1;
+  }
+};
+
 export const POPULATION_MAX = 10_000_000;
 export const POPULATION_TOWN_MIN = 10_000;
 export const WORLD_TOWN_POPULATION_MIN = 15_000;
