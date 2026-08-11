@@ -230,7 +230,10 @@ export const createInitialState = () => ({
   playerVisualStyles: new Map<string, EmpireVisualStyle>(),
   playerShieldUntil: new Map<string, number>(),
   serverSupportedMessageTypes: new Set<string>(),
-  incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
+  incomingAttacksByTile: new Map<
+    string,
+    { attackerName: string; resolvesAt: number; attackerId?: string; fromX?: number; fromY?: number }
+  >(),
   incomingAllianceRequests: [] as AllianceRequest[],
   outgoingAllianceRequests: [] as AllianceRequest[],
   incomingTruceRequests: [] as TruceRequest[],
