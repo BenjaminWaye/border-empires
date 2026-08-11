@@ -53,6 +53,27 @@ describe("development queue helpers", () => {
     expect(restored).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
   });
 
+  it("does not wipe the persisted queue when restored before any tile snapshot has arrived (fresh page load)", () => {
+    // Regression: on a fresh page load, applyInitMessage calls restore with
+    // an empty tiles map (state.tiles is still empty at that point — see the
+    // state.tiles.size > 0 reconnect check in client-network-init-message.ts).
+    // Filtering against an empty map used to treat every entry as stale and
+    // immediately re-persist an empty queue, permanently losing it.
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    persistDevelopmentQueueForPlayer("me", [{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+
+    const restored = restorePersistedDevelopmentQueueForPlayer("me", new Map());
+
+    expect(restored).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+    // And it must not have overwritten storage with an empty queue.
+    const restoredAgainWithRealTiles = restorePersistedDevelopmentQueueForPlayer(
+      "me",
+      new Map([["2,2", { ownerId: "me", ownershipState: "FRONTIER" }]])
+    );
+    expect(restoredAgainWithRealTiles).toEqual([{ kind: "SETTLE", x: 2, y: 2, tileKey: "2,2", label: "Settlement at (2, 2)" }]);
+  });
+
   it("drops persisted settlements that are already pending on the server", () => {
     installSessionStorageMock();
     globalThis.sessionStorage.clear();

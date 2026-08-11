@@ -1409,8 +1409,9 @@ export const processActionQueue = (
     }
     resetAttackPreviewState(state);
     if (!to.ownerId) {
-      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST) || state.manpower < EXPAND_MANPOWER_COST) {
-        if (state.manpower < EXPAND_MANPOWER_COST) deps.pushFeed(`Need ${EXPAND_MANPOWER_COST} manpower to claim this tile.`, "combat", "error"); else deps.notifyInsufficientGoldForFrontierAction("claim");
+      // Frontier expand is free (FRONTIER_CLAIM_COST is 0 gold) — only manpower gates it.
+      if (state.manpower < EXPAND_MANPOWER_COST) {
+        deps.pushFeed(`Need ${EXPAND_MANPOWER_COST} manpower to claim this tile.`, "combat", "error");
         state.capture = undefined;
         state.actionInFlight = false;
         state.actionCurrent = undefined;
@@ -1439,19 +1440,7 @@ export const processActionQueue = (
         toOwnershipState: to.ownershipState
       });
     } else {
-      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
-        deps.notifyInsufficientGoldForFrontierAction("attack");
-        state.capture = undefined;
-        state.actionInFlight = false;
-        state.actionCurrent = undefined;
-        state.actionTargetKey = "";
-        state.actionAcceptedAck = false;
-        state.combatStartAck = false;
-        state.actionAcceptTimeoutHandledAt = 0;
-        state.queuedTargetKeys.delete(targetKey);
-        deps.renderHud();
-        continue;
-      }
+      // Attacking/claiming an owned tile is also free (FRONTIER_CLAIM_COST is 0 gold).
       if (to.ownerId !== "barbarian-1") {
         const closest = findClosestMuster(state, to.x, to.y);
         if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES) {

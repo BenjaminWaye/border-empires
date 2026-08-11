@@ -22,6 +22,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786444300000, // 2026.08.11.3
+    introducedIn: "2026.08.11.3",
+    title: "Queue and timing fixes",
+    why: "Queued settle commands were vanishing on a browser refresh, and Hills/Forest settle time didn't match the claim-time 1.5x penalty.",
+    changes: [
+      "Fixed queued SETTLE commands disappearing entirely after a page refresh (the restore step was wiping them before the map's first tile snapshot arrived).",
+      "Settling Hills/Forest tiles now takes 1.5x as long, matching the claim-time penalty (was a flat 2x that never got updated).",
+      "Frontier expand/claim no longer runs a gold-affordability check for a 0-gold action."
+    ]
+  },
+  {
     createdAt: 1786441940000, // 2026.08.11.2
     introducedIn: "2026.08.11.2",
     title: "Tier 2-5 domain rework",
