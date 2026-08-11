@@ -1722,6 +1722,27 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     const to = clicked;
     if (shouldRefreshTileDetailOnPress(to, vis)) requestTileDetailIfNeeded(to, { force: true });
     state.selected = { x: wx, y: wy };
+    // Re-clicking the tile that's the active manual EXPAND capture doesn't
+    // need a menu — the capture-overlay progress bar already shows it (see
+    // renderCaptureProgress). Checked here, BEFORE the neutral/owned
+    // branching below, because the tile itself flips to owned-by-me
+    // (optimistically, on ACTION_ACCEPTED) well before the claim actually
+    // resolves — by the time a player re-clicks, `to.ownerId` is usually
+    // already set, so a check gated on "is this tile neutral" would miss it
+    // and fall through to the generic owned-tile branch that opens the
+    // tile menu. Scoped to EXPAND only — an active ATTACK re-click keeps
+    // its existing behavior (tile menu with the progress tab).
+    if (
+      state.capture &&
+      state.capture.target.x === to.x &&
+      state.capture.target.y === to.y &&
+      state.actionCurrent?.actionType === "EXPAND"
+    ) {
+      if (state.dismissedCaptureStartAt === state.capture.startAt) state.dismissedCaptureStartAt = undefined;
+      requestAttackPreviewForHover();
+      renderHud();
+      return;
+    }
     const frontierOrigin = pickOriginForTarget(to.x, to.y, false) ?? pickOriginForTarget(to.x, to.y, false, true);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
@@ -1742,17 +1763,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         renderHud();
         return;
       }
-      // Re-clicking the tile that's ALREADY the active capture doesn't need
-      // a menu at all — the capture-overlay progress bar at the top of the
-      // screen already shows it (see renderCaptureProgress), so opening the
-      // full tile menu on top would just be a redundant "description page".
-      // Just un-dismiss that overlay in case the player had dismissed it.
-      if (state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y) {
-        if (state.dismissedCaptureStartAt === state.capture.startAt) state.dismissedCaptureStartAt = undefined;
-        requestAttackPreviewForHover();
-        renderHud();
-        return;
-      }
+      // (The active-capture re-click case is handled earlier, above, before
+      // this neutral/owned branching even runs.)
       if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
         notifyInsufficientGoldForFrontierAction("claim");
         requestAttackPreviewForHover();
