@@ -475,7 +475,7 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1786449600000, // 2026-08-11
     introducedIn: "next",
     title: "2D map now has SVG overlays for every structure and natural wonder that renders in 3D",
     why: "The 3D map gained several structures and all nine natural wonders that the classic 2D map couldn't draw — those tiles showed only a placeholder box, or nothing at all, so the two maps disagreed about the same world.",
