@@ -22,6 +22,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786473809401, // 2026.08.11.6
+    introducedIn: "2026.08.11.6",
+    title: "Fixed three more silently-broken build buttons; added a catch for the whole class of bug",
+    why: "The same action-id-to-structure-type mapping gap that broke the two Weapons Factories (fixed last release) also silently broke Build Quartermaster's Office, Build Assembly Works, and Build Logistics Guild — clicking any of them did nothing, with no error. Added a runtime check so any future build button hitting this same gap logs an error and tells the player instead of doing nothing.",
+    changes: [
+      "Build Quartermaster's Office, Build Assembly Works, and Build Logistics Guild now actually queue their build.",
+      "Clicking a build action that still has no structure-type mapping now shows an error message and logs to the console, instead of silently doing nothing."
+    ]
+  },
+  {
     createdAt: 1786463807000, // 2026.08.11.5
     introducedIn: "2026.08.11.5",
     title: "Town-tile builds, Observatory upkeep, and a Jump to tile button",
