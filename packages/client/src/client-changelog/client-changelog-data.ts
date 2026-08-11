@@ -22,6 +22,15 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786482366157, // 2026.08.11.9
+    introducedIn: "2026.08.11.9",
+    title: "Fixed: Build Titanium/Umbrite Weapons Factory rejected by the server with BAD_MSG",
+    why: "Once the client-side dispatch bug for the two Weapons Factories was fixed (previous release), the build click actually reached the server for the first time — and the server rejected it, because the BUILD_ECONOMIC_STRUCTURE message's structureType enum was never updated to include the two Weapons Factories when they replaced Weapons Workshop. So the build still failed, just with a real BAD_MSG error instead of silence.",
+    changes: [
+      "Build Titanium Weapons Factory and Build Umbrite Weapons Factory no longer get rejected by the server; the build now actually queues."
+    ]
+  },
+  {
     createdAt: 1786473809401, // 2026.08.11.6
     introducedIn: "2026.08.11.6",
     title: "Fixed three more silently-broken build buttons; added a catch for the whole class of bug",
