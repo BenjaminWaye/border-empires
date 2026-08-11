@@ -128,7 +128,11 @@ describe("rewrite stack integration", () => {
     );
 
     expect(scheduledResolutions).toHaveLength(1);
-    expect(scheduledResolutions[0]?.delayMs).toBe(3_000);
+    // COMBAT_LOCK_MS is 30s (packages/shared/src/config.ts) — see the "30s
+    // base, per COMBAT_LOCK_MS" comment in runtime-frontier-command.ts. This
+    // assertion was pinned to a stale 3s value from before that constant was
+    // last rebalanced.
+    expect(scheduledResolutions[0]?.delayMs).toBe(30_000);
 
     await waitUntil(async () => (await gatewayCommandStore.get("cmd-1"))?.status === "ACCEPTED");
 
@@ -1762,13 +1766,23 @@ describe("rewrite stack integration", () => {
     await waitUntil(() => scheduledBuilds.length >= 1, 3_000).catch(() => undefined);
     flushScheduledTasks(scheduledBuilds, 0);
 
+    // The build command targets (16,16) — the town's own tile — and MARKET's
+    // placement metadata ("showOn": ["town", "support"], "placementMode":
+    // "same_tile") allows it to land directly on the town tile, which is
+    // exactly what happens: the structure is built and activated at (16,16),
+    // never at (16,17) (a separate, unrelated plain support tile in this
+    // fixture). This assertion previously polled (16,17) and always timed
+    // out — a stale coordinate mismatch, not a product bug (verified by
+    // instrumenting a debug run: (16,16) shows the active MARKET
+    // economicStructureJson immediately after the scheduled build task
+    // flushes; (16,17) never gets one).
     await waitUntil(() => {
-      const tile = simulation.runtime.exportState().tiles.find((candidate) => candidate.x === 16 && candidate.y === 17);
+      const tile = simulation.runtime.exportState().tiles.find((candidate) => candidate.x === 16 && candidate.y === 16);
       return typeof tile?.economicStructureJson === "string" &&
         tile.economicStructureJson.includes("\"type\":\"MARKET\"") &&
         tile.economicStructureJson.includes("\"status\":\"active\"");
     }, 8_000);
-    const exportedEconomicTile = simulation.runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 17);
+    const exportedEconomicTile = simulation.runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 16);
     expect(exportedEconomicTile?.economicStructureJson).toContain("\"type\":\"MARKET\"");
     expect(exportedEconomicTile?.economicStructureJson).toContain("\"status\":\"active\"");
 

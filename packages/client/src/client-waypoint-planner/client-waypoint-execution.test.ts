@@ -45,7 +45,7 @@ describe("topUpFromWaypoint", () => {
     expect(state.actionQueue).toHaveLength(1);
   });
 
-  it("clears the waypoint and emits a feed entry when the target tile is now owned", () => {
+  it("clears the waypoint when the target tile is now owned (no feed echo — commit 1ddf07f7 dropped self-action feed echoes)", () => {
     const state = stateWithTiles([
       tile(3, 3, { ownerId: "me" }),
       tile(5, 3, { ownerId: "me" })
@@ -59,8 +59,7 @@ describe("topUpFromWaypoint", () => {
       messages.push({ message, severity });
     });
     expect(state.waypoint).toHaveLength(0);
-    expect(messages[0]?.message).toMatch(/waypoint reached/i);
-    expect(messages[0]?.severity).toBe("success");
+    expect(messages).toHaveLength(0);
   });
 
   it("advances to the next queued waypoint once the current one is reached", () => {
@@ -209,8 +208,12 @@ describe("topUpFromWaypoint", () => {
     }
 
     expect(claimedOrder).toEqual(["4,3", "5,3", "6,3", "7,3"]);
+    // state.waypoint clearing (asserted above) is itself the proof the chain
+    // reached its target — commit 1ddf07f7 intentionally dropped the
+    // "Waypoint reached" feed echo (self-action echoes moved out of the
+    // Activity Feed), so there is no longer a message to assert on here.
     expect(state.waypoint).toHaveLength(0);
-    expect(messages.some((m) => /waypoint reached/i.test(m))).toBe(true);
+    expect(messages).toHaveLength(0);
   });
 
   it("tolerates a stale-snapshot tick (same step replanned once) and then advances", () => {

@@ -166,14 +166,22 @@ describe("simulation runtime — shared town network cache", () => {
           // Directly 8-adjacent so they're connected the moment both are
           // TOWN-tier-or-higher, with no corridor tiles needed.
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Alpha", type: "FARMING", populationTier: "TOWN", population: 10 }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
-          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Beta", type: "FARMING", populationTier: "SETTLEMENT", population: 10 } },
-          // FOOD slot supply: Alpha + Beta already demand 2 FOOD each just by
-          // existing as towns (§5.3), so UPGRADE_TOWN_TIER's free-FOOD-slot
-          // gate (runtime-progression-command-handlers.ts) needs real supply
-          // here, well away from the connectivity graph under test.
+          // population: 10_000 = POPULATION_TOWN_MIN — SETTLEMENT->TOWN is
+          // gated on this (runtime-progression-command-handlers.ts); the old
+          // population: 10 here always failed that gate with "population too
+          // low to upgrade", which is why UPGRADE_TOWN_TIER never resolved.
+          { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Beta", type: "FARMING", populationTier: "SETTLEMENT", population: 10_000 } },
+          // FOOD slot supply: TOWN_FOOD_SLOT_DEMAND is 4 (commit 9c42fa46,
+          // "towns draw 4 food slots"), not the 2 this comment used to say —
+          // Alpha (TOWN) demands 4, and Beta demands 4 more once upgraded to
+          // TOWN, for 8 total. FISH gives 2 base FOOD slots/tile (§5.3), so
+          // 4 tiles (8 supply) are needed — 3 tiles (6 supply) left the
+          // upgrade command itself rejected for lack of a free FOOD slot,
+          // well away from the connectivity graph under test.
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
-          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const }
+          { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const },
+          { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" as const }
         ],
         activeLocks: []
       }
@@ -255,7 +263,14 @@ describe("simulation runtime — shared town network cache", () => {
           // two are connected through it.
           { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Alpha", type: "FARMING", populationTier: "TOWN", population: 100_000 }, fort: { ownerId: "player-1", status: "active", variant: "FORT" as const } },
           { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Mid", type: "FARMING", populationTier: "SETTLEMENT", population: 10 } },
+          // population: 10_000 = POPULATION_TOWN_MIN, needed for Mid's
+          // SETTLEMENT->TOWN upgrade to actually resolve — with the old
+          // population: 10, "upgrade-mid" silently got rejected for
+          // "population too low to upgrade", so Mid never became a barrier
+          // and Alpha kept reaching Beta straight through it, which looked
+          // exactly like (but was not) the corridor-cache regression this
+          // test exists to catch.
+          { x: 2, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Mid", type: "FARMING", populationTier: "SETTLEMENT", population: 10_000 } },
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Beta", type: "FARMING", populationTier: "TOWN", population: 10 } },
           // FOOD slot supply: Alpha/Beta demand 4 FOOD each by existing as
