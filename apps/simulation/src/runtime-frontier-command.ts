@@ -62,9 +62,9 @@ export type RuntimeFrontierCommandContext = {
   onMusterRemoteBlockedBarbarian: (() => void) | undefined;
   scheduleLockResolution: (lock: LockRecord) => void;
   adjacentTileStates: (x: number, y: number) => DomainTileState[];
-  findOwnedDockOriginForCrossing: (playerId: string, x: number, y: number, allowAdjacent: boolean) => DomainTileState | undefined;
+  findOwnedDockOriginForCrossing: (playerId: string, x: number, y: number) => DomainTileState | undefined;
   findOwnedAetherBridgeOriginForCrossing: (playerId: string, x: number, y: number) => DomainTileState | undefined;
-  isDockCrossingTarget: (from: DomainTileState, x: number, y: number, allowAdjacent: boolean) => boolean;
+  isDockCrossingTarget: (from: DomainTileState, x: number, y: number) => boolean;
   isAetherBridgeCrossingTarget: (playerId: string, x1: number, y1: number, x2: number, y2: number) => boolean;
   crossingBlockedByAetherWall: (x1: number, y1: number, x2: number, y2: number) => boolean;
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1): true while the
@@ -95,7 +95,7 @@ export const handleFrontierCommandImpl = (
     submittedFrom.ownerId === actor.id
       ? submittedFrom
       : ctx.adjacentTileStates(to.x, to.y).find((candidate) => candidate.ownerId === actor.id && candidate.terrain === "LAND") ??
-        ctx.findOwnedDockOriginForCrossing(actor.id, to.x, to.y, actionType !== "EXPAND") ??
+        ctx.findOwnedDockOriginForCrossing(actor.id, to.x, to.y) ??
         ctx.findOwnedAetherBridgeOriginForCrossing(actor.id, to.x, to.y) ??
         submittedFrom;
 
@@ -123,7 +123,7 @@ export const handleFrontierCommandImpl = (
     return false;
   }
 
-  const isDockCrossing = ctx.isDockCrossingTarget(from, to.x, to.y, actionType !== "EXPAND");
+  const isDockCrossing = ctx.isDockCrossingTarget(from, to.x, to.y);
   const expandClaimDurationMs = actionType === "EXPAND" ? frontierClaimDurationMsForCoords(to.x, to.y) : undefined;
   const requiredMuster = actionType === "ATTACK"
     ? ctx.requiredMusterForTarget(to)
