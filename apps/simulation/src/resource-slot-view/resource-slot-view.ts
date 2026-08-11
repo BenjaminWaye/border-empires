@@ -287,7 +287,23 @@ const buildDemandContributors = (
       });
     }
   }
+  applyObservatoryProgressiveCost(contributors);
   return noWaiversConfigured(waivers) ? contributors : applySlotWaivers(contributors, waivers, lightOutpostKeys);
+};
+
+// User decision: each additional Observatory a player owns costs progressively
+// more CRYSTAL upkeep — 1st = 1 slot, 2nd = 2, 3rd = 3, and so on (earliest
+// build-order first, same tie-break convention as the Fort/Siege Outpost
+// waivers above). Overwrites the flat count=1 that addContributor above
+// stamped from structureSlotRequirements("OBSERVATORY") — mutates in place
+// since these are the same contributor objects already pushed into the array.
+const applyObservatoryProgressiveCost = (contributors: DormancyContributor[]): void => {
+  const observatoryContributors = contributors
+    .filter((c) => c.key.endsWith(":observatory"))
+    .sort((a, b) => a.activatedAt - b.activatedAt || a.key.localeCompare(b.key));
+  observatoryContributors.forEach((c, index) => {
+    c.count = index + 1;
+  });
 };
 
 const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaivers, lightOutpostKeys: Record<string, boolean> = {}): DormancyContributor[] => {

@@ -22,6 +22,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786463807000, // 2026.08.11.5
+    introducedIn: "2026.08.11.5",
+    title: "Town-tile builds, Observatory upkeep, and a Jump to tile button",
+    why: "A Market, Ancillary Factory, or Weapons Factory clicked on a town tile used to build right there — now only a Fort belongs directly on a town, and those auto-place onto an open support tile instead. Each additional Observatory now costs progressively more CRYSTAL upkeep. The Development panel sidebar didn't have any way to jump the camera to a queued or in-progress item's tile.",
+    changes: [
+      "Market, Ancillary Factory, and both Weapons Factories now redirect to an open support tile when targeted at the town tile itself — a Fort is the only structure that belongs directly on a town.",
+      "Each additional Observatory costs progressively more CRYSTAL upkeep: 1st = 1 slot, 2nd = 2, 3rd = 3, and so on.",
+      "Added a Jump to tile button to every active and queued item in the Development panel sidebar."
+    ]
+  },
+  {
     createdAt: 1786445459000, // 2026.08.11.4
     introducedIn: "2026.08.11.4",
     title: "Fixed Titanium/Umbrite Weapons Factory build buttons doing nothing",

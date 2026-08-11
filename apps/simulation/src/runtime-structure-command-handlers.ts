@@ -102,6 +102,26 @@ function activeOrInactive(structure: { status: string } | undefined): boolean {
   return structure?.status === "active" || structure?.status === "inactive";
 }
 
+// User decision: the only structure that belongs directly ON a town tile is
+// a Fort — every other support-ring building clicked on the town tile itself
+// should auto-place onto an open support tile next to it instead. That's
+// already what placementMode "town_support" does (see resolveTownSupportTarget
+// below) for most support-ring buildings, but these four are deliberately
+// uncapped/stacking per town (Market: "stacks additively with every other
+// active Market"; Garrison Hall/the two Weapons Factories: "same_tile
+// placement, can sit anywhere", "no per-town limit") — routing them through
+// the same town_support path would wrongly reject a 2nd/3rd copy via its
+// "town already has X" singleton check. So they stay placementMode
+// "same_tile" (preserving stacking when built directly on a support tile)
+// and get their own narrower redirect: only when the target IS the town
+// tile, skip straight to an open support tile, with no uniqueness gate.
+const STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES = new Set<BuildableStructureType>([
+  "MARKET",
+  "GARRISON_HALL",
+  "TITANIUM_WEAPONS_FACTORY",
+  "UMBRITE_WEAPONS_FACTORY"
+]);
+
 function resolveTownSupportTarget(
   context: RuntimeStructureCommandContext,
   command: CommandEnvelope,
@@ -109,7 +129,22 @@ function resolveTownSupportTarget(
   structureType: BuildableStructureType
 ): DomainTileState | undefined {
   const placement = structurePlacementMetadata(structureType);
-  if (placement.placementMode !== "town_support") return target;
+  if (placement.placementMode !== "town_support") {
+    if (target.town && STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES.has(structureType)) {
+      if (target.town.populationTier === "SETTLEMENT") {
+        rejectCommand(context, command, "BUILD_INVALID", "settlements cannot support economic structures — grow this town first");
+        return undefined;
+      }
+      const townKey = simulationTileKey(target.x, target.y);
+      const supportTarget = context.firstAvailableTownSupportTile(command.playerId, townKey, structureType as EconomicStructureType);
+      if (!supportTarget) {
+        rejectCommand(context, command, "BUILD_INVALID", `${structureLabel(structureType)} needs an open support tile next to this town`);
+        return undefined;
+      }
+      return supportTarget;
+    }
+    return target;
+  }
   const economicType = structureType as EconomicStructureType;
 
   if (target.town) {

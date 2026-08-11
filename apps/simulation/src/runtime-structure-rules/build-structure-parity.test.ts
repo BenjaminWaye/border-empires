@@ -356,15 +356,51 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     runtime.submitCommand({
       commandId: "m1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
+      payloadJson: JSON.stringify({ x: 10, y: 11, structureType: "MARKET" }),
+    });
+    await Promise.resolve();
+
+    // Market stays same_tile placement (tech-tree redesign: per-town cap
+    // removed, stacks additively) -- targeted directly at the open support
+    // tile, it lands there without any redirect or singleton rejection.
+    const builtTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
+    expect(builtTile?.economicStructureJson).toContain('"type":"MARKET"');
+  });
+
+  it("redirects MARKET targeted at the town tile itself onto its open support tile", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", {
+        id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
+        techIds: new Set<string>(["trade"]), domainIds: new Set<string>(),
+        mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+        techRootId: "rewrite-local", allies: new Set<string>(),
+        strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      }]]),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "TOWN" } },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
+          { x: 10, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
+          { x: 10, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
+        ],
+        activeLocks: [],
+      },
+    });
+
+    runtime.submitCommand({
+      commandId: "m1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+      type: "BUILD_STRUCTURE" as any,
+      // Targets the town tile itself -- only a Fort belongs directly on it.
       payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "MARKET" }),
     });
     await Promise.resolve();
 
-    // Market moved from town_support to same_tile placement (tech-tree
-    // redesign: per-town cap removed) -- it now lands directly on the tile
-    // the BUILD_STRUCTURE command targeted, not redirected to a support tile.
-    const builtTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
-    expect(builtTile?.economicStructureJson).toContain('"type":"MARKET"');
+    const townTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(townTile?.economicStructureJson).toBeUndefined();
+    const supportTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
+    expect(supportTile?.economicStructureJson).toContain('"type":"MARKET"');
   });
 
   it("upgrades UMBRITE_SYNTHESIZER → ADVANCED", async () => {
