@@ -1,5 +1,5 @@
 import {
-  OBSERVATORY_UPKEEP_PER_MIN, SYNTHESIZER_STRUCTURE_TYPES,
+  OBSERVATORY_UPKEEP_PER_MIN, SYNTHESIZER_STRUCTURE_TYPES, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
   economicStructureBuildDurationMs, structureBuildDurationMs, structureBuildManpowerCost,
   structureCostDefinition, structureSlotRequirements, type BuildableStructureType, type SlotStructureType
 } from "@border-empires/shared";
@@ -307,8 +307,8 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "TITANIUM_LEVY_PART_2") return "Titanium Standard — one of The Titanium Levy's 3 required components.";
   if (kind === "TITANIUM_LEVY_PART_3") return "Levy Writ — one of The Titanium Levy's 3 required components.";
   if (kind === "TITANIUM_LEVY") return "Unique world monument. Converts 50% of your currently-banked manpower into an instant one-time army, then freezes empire-wide manpower regen for 2 hours.";
-  if (kind === "FARMSTEAD") return "Improves food production on farm tiles by 50% and adds +1 FOOD slot on this tile.";
-  if (kind === "WATERWORKS") return "Boosts all farmstead food production by +100% within a 10-tile radius; each boosted Farmstead gains +2 FOOD slots.";
+  if (kind === "FARMSTEAD") return `Improves food production on farm tiles by 50% and adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot on this tile.`;
+  if (kind === "WATERWORKS") return `Boosts all farmstead food production by +100% within a 10-tile radius; each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`;
   if (kind === "UMBRITE_RIG") return "Improves umbrite production on this tile by 50% and adds +1 UMBRITE slot on this tile.";
   if (kind === "MINE") return "Improves titanium or crystal production on this tile and adds +1 slot of that resource.";
   if (kind === "WEAPONS_WORKSHOP") return "Forges Titanium and Umbrite into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Uncapped per town — build many to raise a dedicated military city.";
@@ -436,8 +436,8 @@ export const structureInfoForKey = (
     if (key === "SIEGE_OUTPOST") return ["+60% local offense", "Improves attacks launched from this tile"];
     if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers", "Raises Siege Outpost attack from 1.6x to 1.8x"];
     if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers", "Raises Siege attack from 1.8x to 2.0x against heavy fortified targets"];
-    if (key === "FARMSTEAD") return ["+50% food production on FARM tiles only", "+18 food cap"];
-    if (key === "WATERWORKS") return ["+100% farmstead food within 10 tiles", "Boosted food production raises food cap"];
+    if (key === "FARMSTEAD") return ["+50% food production on FARM tiles only", `+${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot`];
+    if (key === "WATERWORKS") return ["+100% farmstead food within 10 tiles", `Each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots`];
     if (key === "UMBRITE_RIG") return ["+50% umbrite production on UMBRITE tiles", "+15 umbrite cap"];
     if (key === "MINE") return ["+50% iron or crystal production on mineral tiles", "+15 iron cap or +9 crystal cap"];
     if (key === "MARKET") return ["+10 gold instantly on completion", "+1 gold/day", `+${MARKET_PER_MARKET_PERCENT}% town gold production per Market (+${MARKET_PER_MARKET_PERCENT_CLEARING_HOUSE}% with an active Clearing House), stacks additively`];
@@ -602,7 +602,7 @@ export const structureInfoForKey = (
   if (type === "FARMSTEAD") {
     return structure({
       title: "Farmstead",
-      detail: "Farmsteads increase food production on farm tiles by 50% and add +1 FOOD slot on the tile. They have no effect on fish tiles.",
+      detail: `Farmsteads increase food production on farm tiles by 50% and add +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot on the tile. They have no effect on fish tiles.`,
       glyph: "🌾",
       placement: "Build on a settled farm resource tile you own.",
       costBits: costBitsFor(type),
@@ -786,7 +786,7 @@ export const structureInfoForKey = (
   if (type === "WATERWORKS") {
     return structure({
       title: "Waterworks",
-      detail: "A network of irrigation canals that boosts all Farmstead food production by +100% within a 10-tile radius. Each boosted Farmstead gains +2 FOOD slots.",
+      detail: `A network of irrigation canals that boosts all Farmstead food production by +100% within a 10-tile radius. Each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`,
       glyph: "💧",
       placement: "Build on any settled land tile. Does not need a resource tile.",
       costBits: costBitsFor(type),
