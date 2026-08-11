@@ -859,7 +859,7 @@ export const enqueueTarget = (
   x: number,
   y: number,
   keyFor: (x: number, y: number) => string,
-  options: { fromWaypoint?: boolean } = {}
+  options: { fromWaypoint?: boolean; batchQueued?: boolean } = {}
 ): boolean => {
   const targetKey = keyFor(x, y);
   const frontierSyncWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
@@ -870,8 +870,13 @@ export const enqueueTarget = (
     if (!stillQueued && !currentlyExecuting) state.queuedTargetKeys.delete(targetKey);
   }
   if (state.queuedTargetKeys.has(targetKey)) return false;
-  const entry: { x: number; y: number; retries: number; fromWaypoint?: boolean } = { x, y, retries: 0 };
+  const entry: { x: number; y: number; retries: number; fromWaypoint?: boolean; batchQueued?: boolean } = { x, y, retries: 0 };
   if (options.fromWaypoint) entry.fromWaypoint = true;
+  // Tagged by bulk enqueue paths (drag-select, connected-region claim) so
+  // dispatch can keep the big overlay quiet across a multi-tile batch —
+  // same reasoning as fromWaypoint, just a different "this isn't one
+  // ad-hoc manual tap" origin. See the `silent` derivation below.
+  if (options.batchQueued) entry.batchQueued = true;
   state.actionQueue.push(entry);
   state.queuedTargetKeys.add(targetKey);
   return true;
@@ -1367,14 +1372,16 @@ export const processActionQueue = (
     const optimisticMs = !to.ownerId ? frontierClaimDurationMsForTile(to.x, to.y) : 3_000;
     const existingCapture =
       state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y ? state.capture : undefined;
-    // Suppress the big "Capturing Territory..." overlay only for
-    // waypoint-driven EXPANDs on a neutral tile — an automated multi-hop
-    // chain would otherwise pop the overlay open/closed at every hop, and
-    // the tile paint is enough feedback there. A manual one-tap expand
-    // still gets the overlay (with its own Dismiss button) as its primary
-    // feedback signal — see client-action-flow.ts's click handler, which
-    // no longer opens the tile menu for it.
-    const silent = Boolean(next.fromWaypoint) && !to.ownerId;
+    // Suppress the big "Capturing Territory..." overlay for any EXPAND on
+    // a neutral tile that isn't a single ad-hoc manual tap: a waypoint
+    // chain or a bulk multi-tile queue (drag-select, connected-region
+    // claim) would otherwise pop the overlay open/closed once per tile as
+    // the queue works through it, and the tile paint is enough feedback
+    // there. A genuine one-tap manual expand still gets the overlay (with
+    // its own Dismiss button) as its primary feedback signal — see
+    // client-action-flow.ts's click handler, which no longer opens the
+    // tile menu for it.
+    const silent = Boolean(next.fromWaypoint || next.batchQueued) && !to.ownerId;
     const baseCapture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
     state.capture = silent ? { ...baseCapture, silent: true } : baseCapture;
     const actionType = !to.ownerId ? "EXPAND" : "ATTACK";

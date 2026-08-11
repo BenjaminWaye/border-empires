@@ -372,7 +372,7 @@ export const createInitialState = () => ({
   techTreeScrollLeft: 0,
   techTreeScrollTop: 0,
   techTreeZoom: 1,
-  actionQueue: [] as Array<{ x: number; y: number; retries?: number; fromWaypoint?: boolean }>,
+  actionQueue: [] as Array<{ x: number; y: number; retries?: number; fromWaypoint?: boolean; batchQueued?: boolean }>,
   pendingMusterAttacks: [] as Array<{ targetX: number; targetY: number; fromX: number; fromY: number; musterTileKey: string }>,
   waypoint: [] as ClientWaypoint[],
   frontierLateAckUntilByTarget: new Map<string, number>(),

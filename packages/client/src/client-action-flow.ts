@@ -393,7 +393,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     opts?: { cooldownRemainingMs?: number; formatCooldownShort?: (ms: number) => string }
   ): string => explainActionFailureFromServer(code, message, opts);
 
-  const enqueueTarget = (x: number, y: number): boolean => enqueueTargetFromModule(state, x, y, keyFor);
+  const enqueueTarget = (x: number, y: number, options?: { batchQueued?: boolean }): boolean =>
+    enqueueTargetFromModule(state, x, y, keyFor, options);
 
   const buildFrontierQueue = (
     candidates: string[],
@@ -401,8 +402,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   ): { queued: number; skipped: number; queuedKeys: string[] } =>
     buildFrontierQueueFromModule(state, candidates, { keyFor, parseKey, wrapX, wrapY, enqueue });
 
+  // Bulk queue-building paths (drag-select, connected-region claim) tag
+  // every enqueue as batchQueued so dispatch keeps the capture overlay
+  // quiet across the whole multi-tile batch instead of popping it open and
+  // closed once per tile — see the `silent` derivation in processActionQueue.
   const queueDragSelection = (): { queued: number; skipped: number } =>
-    buildFrontierQueue([...state.dragPreviewKeys], (x, y) => enqueueTarget(x, y));
+    buildFrontierQueue([...state.dragPreviewKeys], (x, y) => enqueueTarget(x, y, { batchQueued: true }));
 
   const applyPendingSettlementsFromServer = (
     entries: Array<{ x: number; y: number; startedAt: number; resolvesAt: number }> | undefined
@@ -422,7 +427,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       keyFor,
       isTileOwnedByAlly,
       pickOriginForTarget,
-      enqueueTarget,
+      enqueueTarget: (x, y) => enqueueTarget(x, y, { batchQueued: true }),
       buildFrontierQueue
     });
 

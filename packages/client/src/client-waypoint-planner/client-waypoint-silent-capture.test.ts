@@ -8,15 +8,17 @@ const clientSource = (relative: string): string => {
 };
 
 // Regression guards for the "silent capture" UX: when topUpFromWaypoint
-// enqueues a tile, that queue item is tagged `fromWaypoint`. At dispatch
-// time, a waypoint-driven EXPAND on a NEUTRAL tile sets state.capture.silent
-// — the tile-paint fill is enough feedback there, and it stops an automated
-// multi-step chain from popping the overlay open/closed at every hop. A
-// manual (non-waypoint) EXPAND stays non-silent: the big capture overlay
-// (with its Dismiss button) is its only feedback signal, since the tile
-// menu no longer auto-opens for it. All downstream surfaces (the big
-// capture overlay, the success popup, the success feed entry) must check
-// the flag and stay quiet only for the silent (waypoint-driven) case.
+// enqueues a tile, that queue item is tagged `fromWaypoint`; when a bulk
+// queue-building path (drag-select, connected-region claim) enqueues one,
+// it's tagged `batchQueued`. At dispatch time, an EXPAND on a NEUTRAL tile
+// carrying either tag sets state.capture.silent — the tile-paint fill is
+// enough feedback there, and it stops an automated chain or a multi-tile
+// batch from popping the overlay open/closed once per tile. A genuine
+// single ad-hoc manual tap carries neither tag, so it stays non-silent:
+// the big capture overlay (with its Dismiss button) is its only feedback
+// signal, since the tile menu no longer auto-opens for it. All downstream
+// surfaces (the big capture overlay, the success popup, the success feed
+// entry) must check the flag and stay quiet only for the silent case.
 describe("silent waypoint capture flow", () => {
   it("topUpFromWaypoint tags its enqueues with fromWaypoint: true", () => {
     const source = clientSource("../client-queue-logic/client-queue-logic.ts");
@@ -25,13 +27,24 @@ describe("silent waypoint capture flow", () => {
     expect(source).toMatch(/enqueueTarget\([^)]*\{\s*fromWaypoint:\s*true\s*\}\)/);
   });
 
-  it("dispatch marks the capture silent only for a waypoint-driven neutral (EXPAND) target", () => {
+  it("bulk queue-building paths tag their enqueues with batchQueued: true", () => {
+    const actionFlowSource = clientSource("../client-action-flow.ts");
+    // Drag-select and the shared queueSpecificTargets bulk path (which
+    // backs connected-region claim / launch-attack-region) both must tag
+    // their enqueues, or a big bulk claim would spam the overlay once per
+    // tile as the queue works through it.
+    expect(actionFlowSource).toMatch(/buildFrontierQueue\(\[\.\.\.state\.dragPreviewKeys\], \(x, y\) => enqueueTarget\(x, y, \{ batchQueued: true \}\)\)/);
+    expect(actionFlowSource).toContain("enqueueTarget: (x, y) => enqueueTarget(x, y, { batchQueued: true }),");
+  });
+
+  it("dispatch marks the capture silent for a waypoint-driven or batch-queued neutral (EXPAND) target", () => {
     const source = clientSource("../client-queue-logic/client-queue-logic.ts");
-    // The `silent` derivation requires BOTH fromWaypoint AND a neutral
-    // (un-owned) target — ATTACKs never go silent, and neither does a
-    // manual (non-waypoint) EXPAND tap, which relies on the overlay for
-    // its only feedback now that the tile menu doesn't auto-open for it.
-    expect(source).toMatch(/const silent = Boolean\(next\.fromWaypoint\) && !to\.ownerId;/);
+    // The `silent` derivation requires (fromWaypoint OR batchQueued) AND a
+    // neutral (un-owned) target — ATTACKs never go silent, and neither
+    // does a genuine single manual EXPAND tap (no tag), which relies on
+    // the overlay for its only feedback now that the tile menu doesn't
+    // auto-open for it.
+    expect(source).toMatch(/const silent = Boolean\(next\.fromWaypoint \|\| next\.batchQueued\) && !to\.ownerId;/);
     expect(source).toContain("state.capture = silent ? { ...baseCapture, silent: true } : baseCapture;");
   });
 
