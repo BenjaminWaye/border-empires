@@ -293,9 +293,9 @@ describe("renderEconomyPanelHtml", () => {
     expect(html).toContain("⚠ dormant");
   });
 
-  it("does not double-report light outpost food upkeep as a daily flow on the FOOD slot tab", () => {
+  it("does not double-report Relay Beacon food upkeep as a daily flow on the FOOD slot tab", () => {
     const economyBreakdown = emptyEconomyBreakdown();
-    economyBreakdown.FOOD.sinks = [{ label: "LIGHT_OUTPOST", amountPerMinute: 0.4, count: 4 }];
+    economyBreakdown.FOOD.sinks = [{ label: "RELAY_BEACON", amountPerMinute: 0.4, count: 4 }];
 
     const html = renderEconomyPanelHtml({
       focus: "FOOD",
@@ -306,7 +306,7 @@ describe("renderEconomyPanelHtml", () => {
       storageCap: EMPIRE_STORAGE_FLOOR,
       resourceSlots: {
         // Only 1 of the 6 owned outposts bills a FOOD slot — the first
-        // LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT (5) are waived (§23.2).
+        // RELAY_BEACON_FREE_FOOD_SLOT_COUNT (5) are waived (§23.2).
         supply: { FOOD: 4, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
         demand: { FOOD: 1, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
       },
@@ -316,12 +316,12 @@ describe("renderEconomyPanelHtml", () => {
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [
-        { x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
-        { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
-        { x: 2, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
-        { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
-        { x: 4, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
-        { x: 5, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } }
+        { x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } },
+        { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } },
+        { x: 2, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } },
+        { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } },
+        { x: 4, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } },
+        { x: 5, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } }
       ],
       economyBreakdown,
       isMobile: true,
@@ -332,16 +332,16 @@ describe("renderEconomyPanelHtml", () => {
       economicStructureName: (type) => type
     });
 
-    expect(html).toContain("LIGHT_OUTPOST");
+    expect(html).toContain("RELAY_BEACON");
     expect(html).toContain("1 slot<");
     expect(html).not.toContain("6 slots");
     expect(html).not.toContain("No upkeep beyond the slots above");
-    expect(html).not.toContain("LIGHT_OUTPOST · 4");
+    expect(html).not.toContain("RELAY_BEACON · 4");
     expect(html).not.toContain("-576.0/day");
     expect(html).not.toContain("576.0/day");
   });
 
-  it("waives the FOOD slot entirely for light outposts under the free-slot count", () => {
+  it("waives the FOOD slot entirely for Relay Beacons under the free-slot count", () => {
     const html = renderEconomyPanelHtml({
       focus: "FOOD",
       gold: 0,
@@ -359,10 +359,10 @@ describe("renderEconomyPanelHtml", () => {
       upkeepLastTick: { foodCoverage: 1 },
       activeRevealTargetsCount: 0,
       tiles: [
-        { x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
-        { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
-        { x: 2, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } },
-        { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "LIGHT_OUTPOST", status: "active", ownerId: "me" } }
+        { x: 0, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } },
+        { x: 1, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } },
+        { x: 2, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } },
+        { x: 3, y: 0, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { type: "RELAY_BEACON", status: "active", ownerId: "me" } }
       ],
       economyBreakdown: undefined,
       isMobile: true,
@@ -373,14 +373,14 @@ describe("renderEconomyPanelHtml", () => {
       economicStructureName: (type) => type
     });
 
-    expect(html).not.toContain("LIGHT_OUTPOST");
+    expect(html).not.toContain("RELAY_BEACON");
     expect(html).toContain("No structures using a FOOD slot yet");
   });
 
   it("keeps cross-resource flow upkeep (gold) on the GOLD card, not the slot tab", () => {
     const economyBreakdown = emptyEconomyBreakdown();
     economyBreakdown.FOOD.sinks = [
-      { label: "LIGHT_OUTPOST", amountPerMinute: 0.4, count: 4 },
+      { label: "RELAY_BEACON", amountPerMinute: 0.4, count: 4 },
       { label: "Fur Synthesizer upkeep", amountPerMinute: 12, count: 1, resourceKey: "GOLD" }
     ];
     economyBreakdown.GOLD.sinks = [{ label: "Fur Synthesizer upkeep", amountPerMinute: 12, count: 1, resourceKey: "GOLD" }];
@@ -413,7 +413,7 @@ describe("renderEconomyPanelHtml", () => {
 
     expect(html).toContain("Fur Synthesizer upkeep");
     expect(html).toContain("-17280.0/day");
-    expect(html).not.toContain("LIGHT_OUTPOST · 4");
+    expect(html).not.toContain("RELAY_BEACON · 4");
     expect(html).not.toContain("-576.0/day");
   });
 

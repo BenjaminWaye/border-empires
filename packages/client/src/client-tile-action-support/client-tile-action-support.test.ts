@@ -150,8 +150,8 @@ describe("splitTileActionsIntoTabs", () => {
         disabled: false
       },
       {
-        id: "build_light_outpost",
-        label: "Build Light Outpost",
+        id: "build_relay_beacon",
+        label: "Build Relay Beacon",
         disabled: false
       }
     ];
@@ -161,7 +161,7 @@ describe("splitTileActionsIntoTabs", () => {
       "build_foundry",
       "build_fortification",
       "build_observatory",
-      "build_light_outpost"
+      "build_relay_beacon"
     ]);
   });
 
@@ -293,6 +293,7 @@ describe("town support tile actions", () => {
       ws: { readyState: 1, send: () => undefined },
       attackPreviewDetailForTarget: () => undefined,
       attackPreviewPendingForTarget: () => false,
+  attackPreviewManpowerCostForTarget: () => undefined,
       pickOriginForTarget: () => undefined,
       buildDetailTextForAction: () => undefined,
       developmentSlotSummary: () => ({ busy: 0, limit: 3, available: 3 }),

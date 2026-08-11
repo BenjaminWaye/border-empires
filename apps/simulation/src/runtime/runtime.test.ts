@@ -603,7 +603,7 @@ describe("simulation runtime", () => {
     expect(visibleState.tiles.some((tile) => tile.x === 30 && tile.y === 30)).toBe(false);
   });
 
-  it("restores an active light outpost's vision bonus into the coverage cache on boot", () => {
+  it("restores an active Relay Beacon's vision bonus into the coverage cache on boot", () => {
     // Simulates a server restart: the outpost was already active before this
     // SimulationRuntime instance was constructed, so its vision bonus must be
     // re-applied while indexing tiles, not just when the outpost is built.
@@ -625,7 +625,7 @@ describe("simulation runtime", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST", status: "active" }
+            economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status: "active" }
           },
           { x: 65, y: 60, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
           { x: 66, y: 60, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
@@ -635,7 +635,7 @@ describe("simulation runtime", () => {
     });
 
     const deltas = [
-      // 5 tiles from the outpost — only reachable via LIGHT_OUTPOST_VISION_BONUS
+      // 5 tiles from the outpost — only reachable via RELAY_BEACON_VISION_BONUS
       // (5), not player-1's base territory radius (the outpost tile itself is
       // player-1's only territory).
       { x: 65, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" },
@@ -6718,11 +6718,11 @@ describe("simulation runtime", () => {
                     ownershipState: "SETTLED" as const,
                     economicStructure: {
                       ownerId: "player-1",
-                      type: "LIGHT_OUTPOST" as const,
+                      type: "RELAY_BEACON" as const,
                       status: "active" as const
                     }
                   },
-                  // §5.4: LIGHT_OUTPOST needs 1 FOOD slot to not go dormant.
+                  // §5.4: RELAY_BEACON needs 1 FOOD slot to not go dormant.
                   {
                     x: 12,
                     y: 10,
@@ -8230,7 +8230,7 @@ describe("aether purge", () => {
     expect(target?.ownershipState).toBeUndefined();
     expect(target?.economicStructureJson).toContain("\"GRANARY\"");
     expect(observatory?.cooldownUntil).toBe(601_000);
-    expect(actor?.points).toBe(2_000);
+    expect(actor?.points).toBe(5_000); // §17: no longer costs gold
     expect(actor?.strategicResources?.CRYSTAL).toBe(500); // §17: no longer costs CRYSTAL
   });
 

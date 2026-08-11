@@ -1,0 +1,29 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Levy Charter: upright rolled imperial decree with brass caps, unrolled section bearing a gold sigil -->
+
+  <!-- Iron pedestal ring -->
+  <path d="M48 106L60 98H74L86 106H48Z" fill="#2A241E"/>
+  <path d="M60 98V96H74V98H60Z" fill="#3E3428"/>
+
+  <!-- Rolled parchment document body -->
+  <path d="M56 96H72V48H56V96Z" fill="#D8CAB3"/>
+  <path d="M56 96L62 92V48L56 52V96Z" fill="#C9B08C"/>
+
+  <!-- Brass end caps, thick -->
+  <path d="M54 96H74V92H54V96Z" fill="#B3833A"/>
+  <path d="M54 92H74V90H54V92Z" fill="#7A5A26"/>
+  <path d="M54 48H74V44H54V48Z" fill="#7A5A26"/>
+  <path d="M54 44H74V40H54V44Z" fill="#B3833A"/>
+
+  <!-- Unrolled section near the lower-middle with a compact geometric sigil -->
+  <path d="M50 86L58 82H76L68 86H50Z" fill="#EFE5D4"/>
+  <path d="M50 86V92H68V86H50Z" fill="#C9B08C"/>
+  <path d="M58 82L64 79H76L70 82H58Z" fill="#E2C28A"/>
+
+  <!-- Muted gold emissive sigil on the exposed section -->
+  <circle cx="63" cy="84" r="3.5" fill="#C99A3F"/>
+  <path d="M63 81.5L66 84L63 86.5L60 84L63 81.5Z" fill="#8A6512"/>
+  <circle cx="63" cy="84" r="1.2" fill="#FFE8A0"/>
+
+</svg>

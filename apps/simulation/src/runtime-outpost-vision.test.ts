@@ -56,24 +56,24 @@ const outpostTile = (overrides: Partial<DomainTileState> = {}): DomainTileState 
     terrain: "LAND",
     ownerId: "player-1",
     ownershipState: "SETTLED",
-    economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST", status: "active" },
+    economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status: "active" },
     ...overrides
   }) as DomainTileState;
 
 describe("outpostVisionBonusStructureType", () => {
-  it("treats a manually disabled (inactive) Light Outpost as absent, same as under_construction", () => {
-    const inactive = outpostTile({ economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST", status: "inactive" } });
+  it("treats a manually disabled (inactive) Relay Beacon as absent, same as under_construction", () => {
+    const inactive = outpostTile({ economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status: "inactive" } });
     expect(outpostVisionBonusStructureType(inactive, "player-1")).toBeUndefined();
   });
 
-  it("still treats a removing Light Outpost as present (grace period)", () => {
-    const removing = outpostTile({ economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST", status: "removing" } });
-    expect(outpostVisionBonusStructureType(removing, "player-1")).toBe("LIGHT_OUTPOST");
+  it("still treats a removing Relay Beacon as present (grace period)", () => {
+    const removing = outpostTile({ economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status: "removing" } });
+    expect(outpostVisionBonusStructureType(removing, "player-1")).toBe("RELAY_BEACON");
   });
 });
 
 describe("seedOutpostVisionBonus dormancy handling", () => {
-  it("grants the base 5-tile bonus for an active, non-dormant Light Outpost", () => {
+  it("grants the base 5-tile bonus for an active, non-dormant Relay Beacon", () => {
     const coverage = fakeCoverage();
     const deps: OutpostVisionCoverageDeps = {
       players: new Map([["player-1", makePlayer("player-1")]]),
@@ -84,7 +84,7 @@ describe("seedOutpostVisionBonus dormancy handling", () => {
     expect(coverage.calls).toEqual([{ kind: "set", sourceId: "player-1", x: 5, y: 5, radius: 5 }]);
   });
 
-  it("grants no bonus for a dormant (food-starved) Light Outpost, even though it's active", () => {
+  it("grants no bonus for a dormant (food-starved) Relay Beacon, even though it's active", () => {
     const coverage = fakeCoverage();
     const deps: OutpostVisionCoverageDeps = {
       players: new Map([["player-1", makePlayer("player-1")]]),
@@ -95,14 +95,14 @@ describe("seedOutpostVisionBonus dormancy handling", () => {
     expect(coverage.calls.some((c) => c.kind === "set")).toBe(false);
   });
 
-  it("grants no bonus for a manually disabled Light Outpost", () => {
+  it("grants no bonus for a manually disabled Relay Beacon", () => {
     const coverage = fakeCoverage();
     const deps: OutpostVisionCoverageDeps = {
       players: new Map([["player-1", makePlayer("player-1")]]),
       isStructureDormant: () => false,
       coverage
     };
-    seedOutpostVisionBonus(deps, outpostTile({ economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST", status: "inactive" } }));
+    seedOutpostVisionBonus(deps, outpostTile({ economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status: "inactive" } }));
     expect(coverage.calls.some((c) => c.kind === "set")).toBe(false);
   });
 });
@@ -157,7 +157,7 @@ describe("reconcileOutpostVisionBonus dormancy transitions", () => {
     seedOutpostVisionBonus(deps, active);
     expect(coverage.tracked.get("player-1:5,5")).toBe(5);
 
-    const disabled = outpostTile({ economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST", status: "inactive", inactiveReason: "manual" } });
+    const disabled = outpostTile({ economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status: "inactive", inactiveReason: "manual" } });
     reconcileOutpostVisionBonus(deps, active, disabled);
     expect(coverage.tracked.has("player-1:5,5")).toBe(false);
   });
@@ -169,7 +169,7 @@ describe("reconcileOutpostVisionBonus dormancy transitions", () => {
       isStructureDormant: () => false,
       coverage
     };
-    const disabled = outpostTile({ economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST", status: "inactive", inactiveReason: "manual" } });
+    const disabled = outpostTile({ economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status: "inactive", inactiveReason: "manual" } });
     seedOutpostVisionBonus(deps, disabled);
     expect(coverage.tracked.has("player-1:5,5")).toBe(false);
 
@@ -189,7 +189,7 @@ describe("reconcileOutpostVisionBonus dormancy transitions", () => {
     seedOutpostVisionBonus(deps, owned);
     expect(coverage.tracked.get("player-1:5,5")).toBe(5);
 
-    const captured = { ...owned, ownerId: "player-2", economicStructure: { ownerId: "player-2", type: "LIGHT_OUTPOST" as const, status: "active" as const } };
+    const captured = { ...owned, ownerId: "player-2", economicStructure: { ownerId: "player-2", type: "RELAY_BEACON" as const, status: "active" as const } };
     reconcileOutpostVisionBonus(deps, owned, captured);
     expect(coverage.tracked.has("player-1:5,5")).toBe(false);
     expect(coverage.tracked.get("player-2:5,5")).toBe(5);

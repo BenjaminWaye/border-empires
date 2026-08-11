@@ -34,7 +34,7 @@ export type EconomicStructureType =
   | "AIRPORT"
   | "AETHER_TOWER"
   | "WOODEN_FORT"
-  | "LIGHT_OUTPOST"
+  | "RELAY_BEACON"
   | "UMBRITE_SYNTHESIZER"
   | "ADVANCED_UMBRITE_SYNTHESIZER"
   | "TITANIUM_WORKS"

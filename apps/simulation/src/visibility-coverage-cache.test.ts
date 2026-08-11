@@ -136,7 +136,7 @@ describe("VisibilityCoverageTracker outpost vision bonus", () => {
       territoryTileKeysForPlayer: () => new Set<string>()
     });
 
-  it("a Light Outpost's flat bonus is independent of the source's own base radius", () => {
+  it("a Relay Beacon's flat bonus is independent of the source's own base radius", () => {
     const tracker = makeTracker(() => 1);
     tracker.tileOwnershipChanged(undefined, "viewer-1", 10, 10);
     tracker.setOutpostVisionBonus("viewer-1", 10, 10, 5);

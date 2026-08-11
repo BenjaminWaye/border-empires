@@ -52,7 +52,7 @@ describe("outpost-vision dormancy resync perf (tick-driven mutations)", () => {
       // Each FORT needs its own free TITANIUM slot (§5.4) to stay non-dormant.
       tiles.push({ x: 10 + i, y: 9, terrain: "LAND", resource: "TITANIUM", ownerId: "player-1", ownershipState: "SETTLED" });
     }
-    // A Light Outpost, well clear of the forts, so this player is a
+    // A Relay Beacon, well clear of the forts, so this player is a
     // markOutpostVisionDormancyDirty candidate on every one of their tile
     // mutations this tick (the "hasOutposts" bail passes).
     tiles.push({
@@ -61,7 +61,7 @@ describe("outpost-vision dormancy resync perf (tick-driven mutations)", () => {
       terrain: "LAND",
       ownerId: "player-1",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "player-1", type: "LIGHT_OUTPOST", status: "active" }
+      economicStructure: { ownerId: "player-1", type: "RELAY_BEACON", status: "active" }
     });
 
     const runtime = new SimulationRuntime({

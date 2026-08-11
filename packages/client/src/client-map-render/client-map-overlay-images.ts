@@ -6,7 +6,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "../client-f
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20260810b";
+const overlayAssetVersion = "20260810c";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
@@ -80,7 +80,10 @@ export const structureOverlayImages = {
   WORLD_ENGINE_PART_3: loadOverlayImage("sky-marking-array-overlay.svg"),
   IMPERIAL_EXCHANGE_PART_1: loadOverlayImage("golden-ledger-overlay.svg"),
   IMPERIAL_EXCHANGE_PART_2: loadOverlayImage("counting-engine-overlay.svg"),
-  IMPERIAL_EXCHANGE_PART_3: loadOverlayImage("sovereign-seal-overlay.svg")
+  IMPERIAL_EXCHANGE_PART_3: loadOverlayImage("sovereign-seal-overlay.svg"),
+  POPULATION_BUREAU_PART_1: loadOverlayImage("census-engine-overlay.svg"),
+  POPULATION_BUREAU_PART_2: loadOverlayImage("registry-vault-overlay.svg"),
+  POPULATION_BUREAU_PART_3: loadOverlayImage("levy-charter-overlay.svg")
 } as const;
 
 export const naturalWonderOverlayImages = {
@@ -99,5 +102,5 @@ export const fortificationOverlayImages: Record<FortificationOverlayKind, Record
   FORT: fortRingOverlaySet, TITANIUM_BASTION: fortRingOverlaySet, THUNDER_BASTION: fortRingOverlaySet,
   SIEGE_OUTPOST: createDirectionalOverlaySet("siege-outpost-overlay", "static"),
   WOODEN_FORT: createDirectionalOverlaySet("wooden-fort-ring-overlay"),
-  LIGHT_OUTPOST: createDirectionalOverlaySet("light-outpost-overlay", "static")
+  RELAY_BEACON: createDirectionalOverlaySet("relay-beacon-overlay", "static")
 };

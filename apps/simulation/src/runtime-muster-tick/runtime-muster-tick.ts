@@ -29,7 +29,7 @@ export type MusterTickInput = {
   tiles: ReadonlyMap<string, DomainTileState>;
   musterTilesByOwner: ReadonlyMap<string, Set<string>>;
   activeSiegeOutpostsByOwner: ReadonlyMap<string, Set<string>>;
-  activeLightOutpostsByOwner: ReadonlyMap<string, Set<string>>;
+  activeRelayBeaconsByOwner: ReadonlyMap<string, Set<string>>;
   railDepotPositionsByOwner: ReadonlyMap<string, ReadonlyArray<Position>>;
   applyManpowerRegen: (player: RuntimePlayer, nowMs: number) => void;
   playerManpowerCap: (player: RuntimePlayer) => number;
@@ -46,7 +46,7 @@ export type MusterTickInput = {
   // Dock crossings (owned dock tile -> linked dock tile keys) so ADVANCE's BFS
   // can reach across water the same way manual ATTACK/EXPAND commands do.
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
-  // §5.4: a dormant Siege/Light Outpost doesn't grant the muster
+  // §5.4: a dormant Siege/Relay Beacon doesn't grant the muster
   // depot-speed/Rail-Depot-boost bonus.
   isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") => boolean;
 };
@@ -345,7 +345,7 @@ const outpostTileKeysForPlayer = (input: MusterTickInput, playerId: string): Set
       if (!input.isStructureDormant(playerId, key, "siegeOutpost")) keys.add(key);
     }
   }
-  const light = input.activeLightOutpostsByOwner.get(playerId);
+  const light = input.activeRelayBeaconsByOwner.get(playerId);
   if (light) {
     for (const key of light) {
       if (!input.isStructureDormant(playerId, key, "economicStructure")) keys.add(key);

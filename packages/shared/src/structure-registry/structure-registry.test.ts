@@ -55,12 +55,12 @@ test("covers OBSERVATORY", () => {
 });
 
 test("covers all outpost variants", () => {
-  const outpostTypes = ["SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER", "LIGHT_OUTPOST"];
+  const outpostTypes = ["SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER", "RELAY_BEACON"];
   for (const t of outpostTypes) {
     const spec = STRUCTURE_REGISTRY[t];
     expect(spec, `missing ${t}`).toBeDefined();
     expect(spec.kind).toBe("OUTPOST");
-    if (t === "LIGHT_OUTPOST") {
+    if (t === "RELAY_BEACON") {
       expect(spec.tileField).toBe("economicStructure");
     } else {
       expect(spec.tileField).toBe("siegeOutpost");
@@ -133,7 +133,7 @@ describe("economic structure cost parity against structureCostDefinition", () =>
 
     test(`${type}: cost matches structureCostDefinition`, () => {
       const def = structureCostDefinition(type as any);
-      // WOODEN_FORT and LIGHT_OUTPOST are in EconomicStructureType but have
+      // WOODEN_FORT and RELAY_BEACON are in EconomicStructureType but have
       // their own STRUCTURE_COST_DEFINITIONS entries.
       expect(def, `${type} missing from STRUCTURE_COST_DEFINITIONS`).toBeDefined();
       if (!def) return;
@@ -160,7 +160,7 @@ describe("buildMs parity with structureBuildDurationMs", () => {
     "FORT", "OBSERVATORY", "SIEGE_OUTPOST",
     ...Object.keys(STRUCTURE_REGISTRY).filter((t) => {
       const s = STRUCTURE_REGISTRY[t];
-      return s.kind === "ECONOMIC" || s === STRUCTURE_REGISTRY["LIGHT_OUTPOST"];
+      return s.kind === "ECONOMIC" || s === STRUCTURE_REGISTRY["RELAY_BEACON"];
     }),
   ]);
 
@@ -232,8 +232,8 @@ describe("techIds parity with existing handlers (non-economic)", () => {
     expect(ids).toContain("standing-army");
   });
 
-  test("LIGHT_OUTPOST has no tech requirement", () => {
-    expect(STRUCTURE_REGISTRY["LIGHT_OUTPOST"].techIds).toEqual([]);
+  test("RELAY_BEACON has no tech requirement", () => {
+    expect(STRUCTURE_REGISTRY["RELAY_BEACON"].techIds).toEqual([]);
   });
 
   test("WOODEN_FORT has no tech requirement", () => {
@@ -326,7 +326,7 @@ describe("upkeep parity", () => {
   // per-minute (÷1440).
   //
   // Fort ladder (FORT, TITANIUM_BASTION, THUNDER_BASTION), Siege ladder
-  // (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER), WOODEN_FORT and LIGHT_OUTPOST
+  // (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER), WOODEN_FORT and RELAY_BEACON
   // used to carry a fake FOOD/TITANIUM/UMBRITE per-minute upkeep that double-billed
   // the same cost already charged via their resource-slot occupation
   // (structure-slots.ts) — removed, same as AIRPORT's CRYSTAL upkeep before
@@ -353,7 +353,7 @@ describe("upkeep parity", () => {
     "CARAVANARY", "FOUNDRY",
     "CUSTOMS_HOUSE", "GARRISON_HALL", "GOVERNORS_OFFICE", "RADAR_SYSTEM",
     "AIRPORT", "OBSERVATORY",
-    "WOODEN_FORT", "LIGHT_OUTPOST", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION",
+    "WOODEN_FORT", "RELAY_BEACON", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION",
     "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER",
     "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
     "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3", "POPULATION_BUREAU",
@@ -403,13 +403,13 @@ describe("placement predicates", () => {
     }
   });
 
-  test("economic specs and LIGHT_OUTPOST include noDuplicateStructureType", () => {
+  test("economic specs and RELAY_BEACON include noDuplicateStructureType", () => {
     for (const [type, spec] of Object.entries(STRUCTURE_REGISTRY)) {
-      // LIGHT_OUTPOST has kind=OUTPOST but tileField=economicStructure,
+      // RELAY_BEACON has kind=OUTPOST but tileField=economicStructure,
       // so it needs dedup just like economic structures.
       const isDedupTarget =
         spec.kind === "ECONOMIC" ||
-        type === "LIGHT_OUTPOST";
+        type === "RELAY_BEACON";
 
       if (!isDedupTarget) continue;
 

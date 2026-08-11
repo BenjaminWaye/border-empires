@@ -140,7 +140,7 @@ export const handleRushBuyCommandImpl = (context: RuntimeRushBuyCommandContext, 
   }
   const speedMultKey =
     tileField === "fort" ? "fortBuildSpeedMult" :
-    tileField === "siegeOutpost" && structureType !== "LIGHT_OUTPOST" ? "outpostDeploymentSpeedMult" :
+    tileField === "siegeOutpost" && structureType !== "RELAY_BEACON" ? "outpostDeploymentSpeedMult" :
     spec.kind === "ECONOMIC" ? "economicStructureBuildSpeedMult" :
     undefined;
   const totalMs = speedMultKey

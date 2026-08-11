@@ -20,6 +20,7 @@ import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
   applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
   attackPreviewDetailForTarget as attackPreviewDetailForTargetFromModule,
+  attackPreviewManpowerCostForTarget as attackPreviewManpowerCostForTargetFromModule,
   attackPreviewPendingForTarget as attackPreviewPendingForTargetFromModule,
   attackQueueFailureReason as attackQueueFailureReasonFromModule,
   buildFrontierQueue as buildFrontierQueueFromModule,
@@ -103,7 +104,8 @@ import {
   splitTileActionsIntoTabs as splitTileActionsIntoTabsFromModule,
   structureTypeForTileAction as structureTypeForTileActionFromModule,
   tileActionIsBuilding as tileActionIsBuildingFromModule,
-  tileActionIsCrystal as tileActionIsCrystalFromModule
+  tileActionIsCrystal as tileActionIsCrystalFromModule,
+  unmappedBuildActionWarning as unmappedBuildActionWarningFromModule
 } from "./client-tile-action-support/client-tile-action-support.js";
 import { economicStructureName } from "./client-map-display.js";
 import {
@@ -547,7 +549,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   };
 
   // Owned-tile build entry point: settles-then-builds automatically on a
-  // FRONTIER tile (mirroring the Light Outpost frontier chain) or builds
+  // FRONTIER tile (mirroring the Relay Beacon frontier chain) or builds
   // immediately on a SETTLED tile. A second build click on a tile with a
   // settle-then-build already queued is blocked rather than overwritten.
   const handleBuildAction = (actionId: string, structureType: BuildableStructureType, selected: Tile): void => {
@@ -766,6 +768,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const attackPreviewPendingForTarget = (to: Tile): boolean =>
     attackPreviewPendingForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
+
+  const attackPreviewManpowerCostForTarget = (to: Tile): string | undefined =>
+    attackPreviewManpowerCostForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
 
   const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement });
@@ -1177,6 +1182,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     ws,
     attackPreviewDetailForTarget,
     attackPreviewPendingForTarget,
+    attackPreviewManpowerCostForTarget,
     pickOriginForTarget,
     buildDetailTextForAction,
     developmentSlotSummary,
@@ -1436,18 +1442,17 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "collect_shard") collectSelectedShard();
     if (actionId === "grow_settlement_to_town" || actionId === "grow_town_to_city" || actionId === "grow_city_to_great_city" || actionId === "grow_great_city_to_monumental_city") sendGameMessage({ type: "UPGRADE_TOWN_TIER", x: selected.x, y: selected.y });
     const genericStructureType = structureTypeForTileActionFromModule(actionId as TileActionDef["id"]);
-    if (genericStructureType) {
-      handleBuildAction(actionId, genericStructureType, selected);
-      return;
-    }
+    if (genericStructureType) { handleBuildAction(actionId, genericStructureType, selected); return; }
+    const unmappedBuildWarning = unmappedBuildActionWarningFromModule(actionId as TileActionDef["id"]);
+    if (unmappedBuildWarning) { pushFeed(unmappedBuildWarning, "info", "error"); hideTileActionMenu(); return; }
     if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }
-    if (actionId === "build_light_outpost_frontier") {
+    if (actionId === "build_relay_beacon_frontier") {
       if (selected && !selected.ownerId) {
         const plan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
         if (!plan.reachable) {
-          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Light Outpost unreachable", "No expansion path to that tile.");
+          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Relay Beacon unreachable", "No expansion path to that tile.");
         } else {
           const targetKey = keyFor(selected.x, selected.y);
           // Drive the frontier over via the same waypoint mechanism as
@@ -1457,7 +1462,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           state.waypoint.push({ target: { x: selected.x, y: selected.y }, plan });
           persistWaypointQueueForPlayer(state.me, state.waypoint);
           state.autoSettleTargets.add(targetKey);
-          state.autoBuildTargets.set(targetKey, "LIGHT_OUTPOST");
+          state.autoBuildTargets.set(targetKey, "RELAY_BEACON");
           processActionQueue();
         }
       }
@@ -1809,6 +1814,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     requestAttackPreviewForTarget,
     attackPreviewDetailForTarget,
     attackPreviewPendingForTarget,
+    attackPreviewManpowerCostForTarget,
     buildFortOnSelected,
     settleSelected,
     buildSiegeOutpostOnSelected,
