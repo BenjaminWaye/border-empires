@@ -101,8 +101,14 @@ describe("§5.4 ability dormancy gate", () => {
             ownershipState: "SETTLED",
             economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
           },
+          // AIRPORT demands 3 CRYSTAL slots and AETHER_TOWER another 1 (see
+          // packages/shared/src/structure-slots/structure-slots.ts) — 4 GEMS
+          // tiles needed so player-1's own airport/tower stay powered (this
+          // test is about player-2's radar being dormant, not player-1's).
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 5, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" }, // spares player-1's own tower's FOOD slot
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           {

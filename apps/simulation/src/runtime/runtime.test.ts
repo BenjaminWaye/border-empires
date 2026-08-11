@@ -4648,7 +4648,19 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("emits reveal tile deltas around a hostile capture after combat resolution", async () => {
+  it("emits a single-tile delta for a hostile capture after combat resolution (no reveal scan for ATTACK)", async () => {
+    // commit fbef13aa ("fix(sim): skip capture-reveal scan for ATTACK") made
+    // ATTACK (like EXPAND before it) always take the single-captured-tile
+    // delta branch in runtime-lock-resolution.ts instead of the (2r+1)²
+    // buildCaptureRevealTileDeltas scan — that scan could reach 361+ tiles
+    // under vision-tech bonuses and was synchronously blocking the sim event
+    // loop for 481-557ms+, causing gateway submit timeouts. Since lock
+    // actionType is only ever "ATTACK" | "EXPAND" (runtime-frontier-command.ts),
+    // and both are excluded, buildCaptureRevealTileDeltas is now unreachable
+    // from a real capture for a human player — this test used to assert the
+    // (9,11) neighbor tile got revealed as part of that scan, which no
+    // longer happens by design. Rewritten to assert the real current
+    // behavior: only the captured tile's own delta is emitted.
     vi.useFakeTimers();
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     try {
@@ -4691,10 +4703,10 @@ describe("simulation runtime", () => {
 
       expect(tileDeltaEvents).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ x: 10, y: 11, ownerId: "player-1", ownershipState: "FRONTIER", terrain: "LAND" }),
-          expect.objectContaining({ x: 9, y: 11, terrain: "LAND" })
+          expect.objectContaining({ x: 10, y: 11, ownerId: "player-1", ownershipState: "FRONTIER", terrain: "LAND" })
         ])
       );
+      expect(tileDeltaEvents.some((delta) => delta.x === 9 && delta.y === 11)).toBe(false);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
@@ -6266,8 +6278,15 @@ describe("simulation runtime", () => {
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
           { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
           // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant.
+          // AIRPORT demands 3 CRYSTAL slots and AETHER_TOWER another 1 (see
+          // packages/shared/src/structure-slots/structure-slots.ts), so 4
+          // GEMS tiles (1 CRYSTAL base slot each) are needed — 2 GEMS tiles
+          // only ever supplied 2, silently dormanting one of the two
+          // structures under the resource-slot tie-break.
           { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+          { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
           // §5.4: FOOD supply (FISH gives 2 base slots, §5.3) covering both
           // AETHER_TOWER's own 1 FOOD slot and the pre-existing seed-world
           // Nauticus town at (10,10) this suite always merges in (a lone
@@ -6343,9 +6362,18 @@ describe("simulation runtime", () => {
       },
       { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
       { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
-      // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant.
+      // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant. AIRPORT
+      // alone demands 3 CRYSTAL slots and AETHER_TOWER another 1 (see
+      // packages/shared/src/structure-slots/structure-slots.ts), so 4 GEMS
+      // tiles (1 CRYSTAL base slot each) are needed to cover the combined
+      // demand — 2 GEMS tiles (the old count here) only ever supplied 2,
+      // silently leaving one of the two structures dormant under the
+      // resource-slot tie-break and breaking every bombardment test that
+      // expects the airport to actually be usable.
       { x: 3, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       { x: 4, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 6, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
+      { x: 7, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" },
       // §5.4: FOOD supply so AETHER_TOWER (1 FOOD slot) isn't dormant — a
       // dormant tower no longer powers isStructurePowered's callers. FISH
       // (2 base FOOD slots, §5.3) rather than FARM (1) because this suite
@@ -6534,7 +6562,14 @@ describe("simulation runtime", () => {
     expect(events.some((event) => event["eventType"] === "TILE_DELTA_BATCH" && event["commandId"] === "bombard-unpowered")).toBe(false);
   });
 
-  it("AIRPORT_BOMBARD rejects when gold is insufficient (§17: no longer costs CRYSTAL)", async () => {
+  it("AIRPORT_BOMBARD succeeds with zero gold (commit ea54f603: bombard is now free, was 5,000 gold)", async () => {
+    // This test used to assert a COMMAND_REJECTED "insufficient gold for
+    // bombardment" here, from back when AIRPORT_BOMBARD_GOLD_COST was 5,000.
+    // Commit ea54f603 deliberately zeroed it ("Aetherport bombard is now
+    // free"), so `actor.points < AIRPORT_BOMBARD_GOLD_COST` (0) can never be
+    // true for any non-negative points value — that rejection branch is now
+    // permanently unreachable by design. Rewritten to assert the real
+    // current behavior instead: bombardment succeeds even with 0 gold.
     const runtime = buildAetherTowerRuntime({ points: 0 });
     const events: Array<Record<string, unknown>> = [];
     runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
@@ -6550,12 +6585,11 @@ describe("simulation runtime", () => {
     await Promise.resolve();
     expect(events).toContainEqual(
       expect.objectContaining({
-        eventType: "COMMAND_REJECTED",
-        commandId: "bombard-no-gold",
-        code: "AIRPORT_BOMBARD_INVALID",
-        message: "insufficient gold for bombardment"
+        eventType: "COMMAND_RESOLVED",
+        commandId: "bombard-no-gold"
       })
     );
+    expect(events.some((event) => event["eventType"] === "COMMAND_REJECTED" && event["commandId"] === "bombard-no-gold")).toBe(false);
   });
 
   it("threads attacker outpost aura into resolved combat atkEff", async () => {
