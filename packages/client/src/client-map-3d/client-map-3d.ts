@@ -59,6 +59,7 @@ import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
 import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
+import { createRelayBeaconOverlay } from "../client-map-3d-relay-beacon-overlay.js";
 import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resource-overlay.js"; import { createBarleyFieldOverlay, BARLEY_DETAIL_MIN_ZOOM } from "../client-map-3d-barley-field.js"; import { createTitaniumDepositOverlay } from "../client-map-3d-titanium-deposit.js"; import { createUmbriteDepositOverlay } from "../client-map-3d-umbrite-deposit.js"; import { createUmbriteExtractionRigOverlay } from "../client-map-3d-umbrite-extraction-rig.js"; import { createUmbriteWeaponsFactoryOverlay } from "../client-map-3d-umbrite-weapons-factory.js";
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
@@ -171,6 +172,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
+  const relayBeaconOverlay = createRelayBeaconOverlay(scene, MAX_VISIBLE_TILES);
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES); const barleyFieldOverlay = createBarleyFieldOverlay(scene, MAX_VISIBLE_TILES); const titaniumDepositOverlay = createTitaniumDepositOverlay(scene, MAX_VISIBLE_TILES); const umbriteDepositOverlay = createUmbriteDepositOverlay(scene, MAX_VISIBLE_TILES); const umbriteExtractionRigOverlay = createUmbriteExtractionRigOverlay(scene, MAX_VISIBLE_TILES); const umbriteWeaponsFactoryOverlay = createUmbriteWeaponsFactoryOverlay(scene, MAX_VISIBLE_TILES);
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
   const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
@@ -1301,7 +1303,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     waterSurface.clear();
     barbarianOverlay.clear();
     shardOverlay.clear(); watchtowerOverlay.clear(); naturalWonderOverlays.clear();
-    fortOverlay.clear();
+    fortOverlay.clear(); relayBeaconOverlay.clear();
     resourceOverlay.clear(); barleyFieldOverlay.clear(); titaniumDepositOverlay.clear(); umbriteDepositOverlay.clear(); umbriteExtractionRigOverlay.clear(); umbriteWeaponsFactoryOverlay.clear();
     barleyFieldOverlay.setDetailEnabled(deps.state.zoom >= BARLEY_DETAIL_MIN_ZOOM);
     attackOverlay.clear();
@@ -1647,7 +1649,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         if (tile) {
           const fortKind = fortificationOverlayKindForTile(tile);
-          if (fortKind) {
+          if (fortKind === "RELAY_BEACON") {
+            relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy);
+          } else if (fortKind) {
             const opening = fortificationOpeningForTile(tile, {
               tiles: deps.state.tiles,
               keyFor: deps.keyFor,
@@ -1659,7 +1663,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         const demoFort = fortDemoSpec(wx, wy);
         if (demoFort && terrain === "LAND") {
-          fortOverlay.addInstance(x, z, surfaceY, demoFort.kind, demoFort.opening);
+          if (demoFort.kind === "RELAY_BEACON") {
+            relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy);
+          } else {
+            fortOverlay.addInstance(x, z, surfaceY, demoFort.kind, demoFort.opening);
+          }
         }
         if (isOwnedLand && ownerId) {
           const normalizedColor = normalizeColorForThree(deps.effectiveOverlayColor(ownerId));
@@ -1771,7 +1779,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     waterSurface.commit();
     barbarianOverlay.commit();
     shardOverlay.commit(); watchtowerOverlay.commit(); naturalWonderOverlays.commit();
-    fortOverlay.commit();
+    fortOverlay.commit(); relayBeaconOverlay.commit();
     resourceOverlay.commit(); barleyFieldOverlay.commit(); titaniumDepositOverlay.commit(); umbriteDepositOverlay.commit(); umbriteExtractionRigOverlay.commit(); umbriteWeaponsFactoryOverlay.commit();
     attackOverlay.commit();
     settleOverlay.commit();
@@ -1874,7 +1882,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       toroidDelta
     });
     villageEffects.update(nowMs);
-    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs);
+    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs);
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
     siphonFx.update(nowMs);
@@ -1979,7 +1987,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     dockOverlay.dispose();
     barbarianOverlay.dispose();
     shardOverlay.dispose(); watchtowerOverlay.dispose(); naturalWonderOverlays.dispose();
-    fortOverlay.dispose();
+    fortOverlay.dispose(); relayBeaconOverlay.dispose();
     resourceOverlay.dispose(); barleyFieldOverlay.dispose(); titaniumDepositOverlay.dispose(); umbriteDepositOverlay.dispose(); umbriteExtractionRigOverlay.dispose(); umbriteWeaponsFactoryOverlay.dispose();
     attackOverlay.dispose();
     settleOverlay.dispose();

@@ -22,6 +22,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786481071000, // 2026.08.11.6
+    introducedIn: "2026.08.11.6",
+    title: "Relay Beacon now has its own 3D tower and icon",
+    why: "Relay Beacon (renamed from Light Outpost) was still rendering as the old generic watchtower-with-a-flag placeholder in 3D. It now gets a dedicated model — a lattice observation tower with a rotating brass mirror array — plus a matching flat-color 2D icon.",
+    changes: [
+      "Added a dedicated 3D overlay for Relay Beacon: a lattice tower with rotating heliograph mirrors, geared periscopes, and amber signal lamps.",
+      "Added a matching 2D flat-color Relay Beacon icon for the overlay gallery.",
+      "Removed the old placeholder watchtower-with-a-flag rendering that Relay Beacon shared with Siege Outpost."
+    ]
+  },
+  {
     createdAt: 1786463807000, // 2026.08.11.5
     introducedIn: "2026.08.11.5",
     title: "Town-tile builds, Observatory upkeep, and a Jump to tile button",
