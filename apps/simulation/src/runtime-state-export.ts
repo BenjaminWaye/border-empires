@@ -77,6 +77,13 @@ export type RuntimeExportState = {
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
     eventLog?: PlayerEventLogEntry[];
+    // Server-durable dev/expand queue tail (see player-runtime-summary.ts /
+    // runtime-dev-queue.ts / runtime-waypoint-queue.ts) -- carried through
+    // exportState so player-snapshot.ts can seed a reconnecting/fresh-login
+    // client with whatever survived while it was disconnected, the same way
+    // emitPlayerStateUpdate already does for the live PLAYER_UPDATE stream.
+    devQueue?: Array<{ tileKey: string; x: number; y: number; kind: "SETTLE" | "BUILD"; structureType?: string; queuedAt: number }>;
+    waypointQueue?: Array<{ x: number; y: number; trackBarbarian?: boolean; queuedAt: number }>;
   }>;
   pendingSettlements: Array<PendingSettlementRecord>;
   activeLocks: Array<{
@@ -196,7 +203,29 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
-        ...(player.eventLog?.length ? { eventLog: player.eventLog } : {})
+        ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
+        ...(summary.devQueue.length
+          ? {
+              devQueue: summary.devQueue.map((entry) => ({
+                tileKey: entry.tileKey,
+                x: entry.x,
+                y: entry.y,
+                kind: entry.kind,
+                ...(entry.structureType ? { structureType: entry.structureType } : {}),
+                queuedAt: entry.queuedAt
+              }))
+            }
+          : {}),
+        ...(summary.waypointQueue.length
+          ? {
+              waypointQueue: summary.waypointQueue.map((entry) => ({
+                x: entry.target.x,
+                y: entry.target.y,
+                ...(entry.trackBarbarian ? { trackBarbarian: true } : {}),
+                queuedAt: entry.queuedAt
+              }))
+            }
+          : {})
       };
     })
     .sort((left, right) => left.id.localeCompare(right.id));

@@ -107,7 +107,14 @@ export function emitPlayerStateUpdate(
       integrityPct: Math.round(Math.max(0, Math.min(1, empireIntegrity(metrics.Ts, metrics.Es))) * 100),
       pendingSettlements: context.pendingSettlementsSnapshotForPlayer(playerId),
       autoSettlementQueue: context.autoSettlementQueueForPlayer(playerId),
-      devQueue: summary.devQueue.map((entry) => ({ tileKey: entry.tileKey, kind: entry.kind, queuedAt: entry.queuedAt })),
+      devQueue: summary.devQueue.map((entry) => ({
+        tileKey: entry.tileKey,
+        x: entry.x,
+        y: entry.y,
+        kind: entry.kind,
+        ...(entry.structureType ? { structureType: entry.structureType } : {}),
+        queuedAt: entry.queuedAt
+      })),
       waypointQueue: summary.waypointQueue.map((entry) => ({
         x: entry.target.x,
         y: entry.target.y,

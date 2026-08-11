@@ -132,7 +132,7 @@ import { tileWithVisibleShardSite } from "./client-shard-rain-pings/client-shard
 import { neutralTileClickOutcome } from "./client-tile-interaction/client-tile-interaction.js";
 import { handleWaypointAction } from "./client-waypoint-action-handlers.js";
 import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
-import { persistWaypointQueueForPlayer } from "./client-waypoint-planner/client-waypoint-persistence.js";
+import { persistWaypointQueueForPlayer, waypointEnqueueWirePayload } from "./client-waypoint-planner/client-waypoint-persistence.js";
 import { openUnexploredTileActionMenu } from "./client-unexplored-tile-menu/client-unexplored-tile-menu.js";
 import { revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
@@ -611,7 +611,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       applyOptimisticStructureBuild,
       applyOptimisticStructureRemoval,
       pushFeed,
-      renderHud
+      renderHud,
+      sendGameMessage
     });
 
   const processActionQueue = (): boolean =>
@@ -628,7 +629,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud,
       sendSetMuster: (x, y, mode) => sendGameMessage({ type: "SET_MUSTER", x, y, mode }),
       sendAttack: (fromX, fromY, toX, toY, commandId, clientSeq) =>
-        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq }))
+        ws.send(JSON.stringify({ type: "ATTACK", fromX, fromY, toX, toY, commandId, clientSeq })),
+      sendGameMessage
     });
 
   const combatResolutionAlert = (
@@ -873,7 +875,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   type QueuedDevelopmentAction = ClientState["developmentQueue"][number];
 
   const queueDevelopmentAction = (entry: QueuedDevelopmentAction): boolean =>
-    queueDevelopmentActionFromModule(state, entry, { pushFeed, renderHud });
+    queueDevelopmentActionFromModule(state, entry, { pushFeed, renderHud, sendGameMessage });
 
   const syncOptimisticSettlementTile = (x: number, y: number, awaitingServerConfirm: boolean): void =>
     syncOptimisticSettlementTileFromModule(state, x, y, awaitingServerConfirm, { applyOptimisticTileState });
@@ -894,15 +896,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
 
   const queuedBuildEntryForTile = (tileKey: string) => queuedBuildEntryForTileFromModule(state, tileKey);
 
-  const cancelQueuedSettlement = (tileKey: string): boolean => cancelQueuedSettlementFromModule(state, tileKey, { pushFeed, renderHud });
+  const cancelQueuedSettlement = (tileKey: string): boolean => cancelQueuedSettlementFromModule(state, tileKey, { pushFeed, renderHud, sendGameMessage });
 
-  const cancelQueuedBuild = (tileKey: string): boolean => cancelQueuedBuildFromModule(state, tileKey, { pushFeed, renderHud });
+  const cancelQueuedBuild = (tileKey: string): boolean => cancelQueuedBuildFromModule(state, tileKey, { pushFeed, renderHud, sendGameMessage });
 
-  const moveQueuedEntryToFront = (tileKey: string): boolean => moveQueuedEntryToFrontFromModule(state, tileKey, { pushFeed, renderHud });
+  const moveQueuedEntryToFront = (tileKey: string): boolean => moveQueuedEntryToFrontFromModule(state, tileKey, { pushFeed, renderHud, sendGameMessage });
 
-  const cancelQueuedWaypointEntry = (x: number, y: number): boolean => cancelQueuedWaypointEntryFromModule(state, x, y, { pushFeed, renderHud });
+  const cancelQueuedWaypointEntry = (x: number, y: number): boolean => cancelQueuedWaypointEntryFromModule(state, x, y, { pushFeed, renderHud, sendGameMessage });
 
-  const moveWaypointToFront = (x: number, y: number): boolean => moveWaypointToFrontFromModule(state, x, y, { pushFeed, renderHud });
+  const moveWaypointToFront = (x: number, y: number): boolean => moveWaypointToFrontFromModule(state, x, y, { pushFeed, renderHud, sendGameMessage });
 
   const cancelQueuedExpandEntry = (x: number, y: number): boolean => cancelQueuedExpandEntryFromModule(state, x, y, { keyFor, pushFeed, renderHud });
 
@@ -1317,7 +1319,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       return;
     }
 
-    if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue })) return;
+    if (handleWaypointAction({ state, selected: selectedCoords, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage })) return;
 
     if (actionId === "settle_connected_frontier" && selected) {
       const origSelected = { x: selected.x, y: selected.y };
@@ -1461,6 +1463,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           // reached, auto-settle then auto-build pick up the baton.
           state.waypoint.push({ target: { x: selected.x, y: selected.y }, plan });
           persistWaypointQueueForPlayer(state.me, state.waypoint);
+          sendGameMessage(waypointEnqueueWirePayload({ x: selected.x, y: selected.y }));
           state.autoSettleTargets.add(targetKey);
           state.autoBuildTargets.set(targetKey, "RELAY_BEACON");
           processActionQueue();
