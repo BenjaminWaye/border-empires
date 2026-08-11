@@ -94,8 +94,10 @@ export const frontierClaimDurationMsForTile = (x: number, y: number): number => 
   return FRONTIER_CLAIM_MS;
 };
 export const settleDurationMsForTile = (x: number, y: number): number => {
-  if (isForestTile(x, y)) return SETTLE_MS * 2;
-  if (isHillsTile(x, y)) return SETTLE_MS * 2;
+  // Matches the 1.5x forest/hills penalty used by frontierClaimDurationMsForTile —
+  // this used to be a flat 2x, which didn't get the memo when claim was retuned.
+  if (isForestTile(x, y)) return SETTLE_MS * 1.5;
+  if (isHillsTile(x, y)) return SETTLE_MS * 1.5;
   return SETTLE_MS;
 };
 
