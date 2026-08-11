@@ -49,6 +49,7 @@ describe("aether wall targeting", () => {
       townHasSupportStructure: () => false,
       attackPreviewDetailForTarget: () => undefined,
       attackPreviewPendingForTarget: () => false,
+  attackPreviewManpowerCostForTarget: () => undefined,
       hostileObservatoryProtectingTile: () => undefined,
       ownerSpawnShieldActive: () => false,
       isTileOwnedByAlly: () => false,

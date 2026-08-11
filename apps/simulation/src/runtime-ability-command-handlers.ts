@@ -4,7 +4,6 @@ import {
   AETHER_BRIDGE_COOLDOWN_MS,
   AETHER_BRIDGE_DURATION_MS,
   AETHER_LANCE_COOLDOWN_MS,
-  AETHER_LANCE_GOLD_COST,
   AETHER_WALL_COOLDOWN_MS,
   AETHER_WALL_DURATION_MS,
   REVEAL_EMPIRE_STATS_COOLDOWN_MS,
@@ -300,11 +299,6 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     rejectCommand(context, command, "AETHER_LANCE_INVALID", "no ready observatory in range");
     return;
   }
-  if (actor.points < AETHER_LANCE_GOLD_COST) {
-    rejectCommand(context, command, "AETHER_LANCE_INVALID", "insufficient gold for aether purge");
-    return;
-  }
-  actor.points -= AETHER_LANCE_GOLD_COST;
   context.stampObservatoryCooldown(
     lanceObservatoryKey,
     observatoryCooldownMsForActor(actor, AETHER_LANCE_COOLDOWN_MS),

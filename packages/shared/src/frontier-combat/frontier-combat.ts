@@ -164,3 +164,22 @@ type RollFrontierCombatFn = ((
 export const rollFrontierCombat: RollFrontierCombatFn = Object.assign(rollFrontierCombatImpl, {
   __combatModule: FRONTIER_COMBAT_MODULE
 });
+
+// Manpower lost committing an attack: a small fraction on a win, a larger
+// fraction (scaled by how outmatched the attacker was) on a loss. Shared
+// between the simulation (to settle the actual loss) and the client (to
+// show a win/loss-weighted estimate before the player commits).
+export const attackManpowerLoss = (committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number => {
+  if (committedManpower <= 0) return 0;
+  if (attackerWon) return Math.max(10, committedManpower * 0.16);
+  const combatRatio = defEff / Math.max(1, atkEff);
+  return committedManpower * Math.min(1.25, 0.6 + combatRatio * 0.35);
+};
+
+// Expected manpower loss across both outcomes, weighted by win chance —
+// used for a UI estimate since the actual loss on any single attack is random.
+export const estimatedAttackManpowerLoss = (committedManpower: number, winChance: number, atkEff: number, defEff: number): number => {
+  const lossOnWin = attackManpowerLoss(committedManpower, true, atkEff, defEff);
+  const lossOnLoss = attackManpowerLoss(committedManpower, false, atkEff, defEff);
+  return winChance * lossOnWin + (1 - winChance) * lossOnLoss;
+};

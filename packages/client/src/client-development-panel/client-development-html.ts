@@ -21,7 +21,7 @@ export type DevelopmentPanelArgs = {
   busy: number;
   limit: number;
   activeSlots: DevelopmentSlotOccupant[];
-  queue: Array<{ label: string; tileKey: string; position: number }>;
+  queue: Array<{ label: string; tileKey: string; position: number; x: number; y: number }>;
 };
 
 type StructureEntry = {
@@ -112,22 +112,27 @@ export const deriveDevelopmentPanelData = (
   const queue = developmentQueue.map((entry, i) => ({
     label: entry.label,
     tileKey: entry.tileKey,
-    position: i + 1
+    position: i + 1,
+    x: entry.x,
+    y: entry.y
   }));
 
   return { busy, limit, activeSlots, queue };
 };
 
+const jumpToTileButtonHtml = (x: number, y: number): string =>
+  `<button class="panel-btn" type="button" data-feed-focus-x="${x}" data-feed-focus-y="${y}">Jump to tile</button>`;
+
 export const renderDevelopmentPanelHtml = (args: DevelopmentPanelArgs): string => {
   const slotsHtml = args.activeSlots.length > 0
     ? args.activeSlots.map((slot) => {
         const pct = progressPct(slot.remainingMs, slot.totalMs);
-        return `<div class="economy-line"><span>${slot.label} at (${slot.x}, ${slot.y})</span><strong>${formatRemaining(slot.remainingMs)}</strong></div><div class="tile-progress-bar" style="margin-bottom:8px"><div style="width:${pct}%"></div></div>`;
+        return `<div class="economy-line"><span>${slot.label} at (${slot.x}, ${slot.y})</span><strong>${formatRemaining(slot.remainingMs)}</strong></div><div class="tile-progress-bar" style="margin-bottom:8px"><div style="width:${pct}%"></div></div><div style="margin-bottom:8px">${jumpToTileButtonHtml(slot.x, slot.y)}</div>`;
       }).join("")
     : '<div class="economy-line muted"><span>No active development slots</span></div>';
 
   const queueHtml = args.queue.length > 0
-    ? args.queue.map((item) => `<div class="economy-line"><span>#${item.position} ${item.label}</span><strong>Waiting</strong></div>`).join("")
+    ? args.queue.map((item) => `<div class="economy-line"><span>#${item.position} ${item.label}</span><strong>Waiting</strong></div><div style="margin-bottom:8px">${jumpToTileButtonHtml(item.x, item.y)}</div>`).join("")
     : '<div class="economy-line muted"><span>No queued actions</span></div>';
 
   return `

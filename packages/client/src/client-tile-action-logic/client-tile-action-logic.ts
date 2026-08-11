@@ -87,12 +87,35 @@ const MONUMENT_COMPONENT_TYPES: readonly SupportTownStructureKey[] = [
 const freeResourceSlotCount = (state: ClientState, resource: SlotResource): number =>
   (state.resourceSlots?.supply[resource] ?? 0) - (state.resourceSlots?.demand[resource] ?? 0);
 
+// User decision: each additional Observatory a player owns costs progressively
+// more CRYSTAL upkeep — 1st = 1 slot, 2nd = 2, 3rd = 3, and so on (mirrors
+// applyObservatoryProgressiveCost in apps/simulation's resource-slot-view.ts,
+// the server-authoritative version of this same rule). This client-side
+// mirror exists purely so the build button's afford-check and "Need a free
+// CRYSTAL slot" messaging match what the server will actually charge —
+// building still goes through server validation either way.
+const ownedActiveOrBuildingObservatoryCount = (state: ClientState): number => {
+  let count = 0;
+  for (const tile of state.tiles.values()) {
+    // Watchtower Engine's own observatory is exempt from upkeep entirely
+    // (server-side: buildDemandContributors in resource-slot-view.ts skips it
+    // the same way) -- must not count toward a real Observatory's rank here,
+    // or this mirror would overstate the CRYSTAL cost the server will charge.
+    if (tile.observatory?.ownerId === state.me && tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") count += 1;
+  }
+  return count;
+};
+
 const additionalResourceSlotRequirements = (
+  state: ClientState,
   type: SlotStructureType,
   currentType?: SlotStructureType
 ): StructureSlotRequirement[] => {
   if (SYNTHESIZER_STRUCTURE_TYPES.includes(type as (typeof SYNTHESIZER_STRUCTURE_TYPES)[number])) return [];
-  const newRequirements = structureSlotRequirements(type);
+  const newRequirements =
+    type === "OBSERVATORY"
+      ? [{ resource: "CRYSTAL" as const, count: ownedActiveOrBuildingObservatoryCount(state) + 1 }]
+      : structureSlotRequirements(type);
   if (!currentType) return newRequirements;
   const currentByResource = new Map(structureSlotRequirements(currentType).map((r) => [r.resource, r.count]));
   return newRequirements
@@ -101,11 +124,11 @@ const additionalResourceSlotRequirements = (
 };
 
 const hasFreeResourceSlots = (state: ClientState, type: SlotStructureType, currentType?: SlotStructureType): boolean =>
-  additionalResourceSlotRequirements(type, currentType).every((r) => freeResourceSlotCount(state, r.resource) >= r.count);
+  additionalResourceSlotRequirements(state, type, currentType).every((r) => freeResourceSlotCount(state, r.resource) >= r.count);
 
 // First unmet requirement's reason text, or undefined when all are met.
 const missingResourceSlotReason = (state: ClientState, type: SlotStructureType, currentType?: SlotStructureType): string | undefined => {
-  const missing = additionalResourceSlotRequirements(type, currentType).find((r) => freeResourceSlotCount(state, r.resource) < r.count);
+  const missing = additionalResourceSlotRequirements(state, type, currentType).find((r) => freeResourceSlotCount(state, r.resource) < r.count);
   return missing ? `Need a free ${missing.resource} slot` : undefined;
 };
 
@@ -190,6 +213,7 @@ export type TileActionLogicDeps = {
   ws: RealtimeSocket;
   attackPreviewDetailForTarget: (to: Tile) => string | undefined;
   attackPreviewPendingForTarget: (to: Tile) => boolean;
+  attackPreviewManpowerCostForTarget: (to: Tile) => string | undefined;
   pickOriginForTarget: (x: number, y: number, allowAdjacentToDock?: boolean, allowOptimisticExpandOrigin?: boolean) => Tile | undefined;
   buildDetailTextForAction: (actionId: string, tile: Tile, supportedTown?: Tile) => string | undefined;
   developmentSlotSummary: () => DevelopmentSlotSummary;
@@ -1168,7 +1192,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : tile.fort || tile.siegeOutpost || tile.economicStructure
                 ? "Tile already has structure"
                 : missingResourceSlotReason(state, "OBSERVATORY") ?? "Unavailable",
-            `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision • 36 crystal/day`
+            `${deps.structureCostText("OBSERVATORY")} • ${Math.round(OBSERVATORY_BUILD_MS / 60000)}m • +${OBSERVATORY_VISION_BONUS} vision • ${ownedActiveOrBuildingObservatoryCount(state) + 1} CRYSTAL slot${ownedActiveOrBuildingObservatoryCount(state) + 1 === 1 ? "" : "s"} upkeep (rises with each one you own)`
           ),
           slots,
           deps
@@ -2107,6 +2131,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   if (tile.ownerId === "barbarian") {
     const previewDetail = deps.attackPreviewDetailForTarget(tile);
     const previewPending = deps.attackPreviewPendingForTarget(tile);
+    const previewManpowerCost = deps.attackPreviewManpowerCostForTarget(tile);
     const barbOrigin = deps.pickOriginForTarget(tile.x, tile.y, true);
     const reachable = Boolean(barbOrigin);
     const actions: TileActionDef[] = [
@@ -2114,11 +2139,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         id: "launch_attack",
         label: "Launch Attack",
         ...(previewDetail || previewPending ? { detail: previewDetail ?? "Calculating win chance...", loading: previewPending } : {}),
-        ...tileActionAvailability(
-          reachable && state.gold >= FRONTIER_CLAIM_COST,
-          !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
-          `${FRONTIER_CLAIM_COST} gold`
-        )
+        ...tileActionAvailability(reachable, "No bordering origin tile or linked dock", previewManpowerCost)
       }
     ];
     actions.push(...retortRecastActions());
@@ -2132,6 +2153,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   const targetShieldedReason = "Empire is under spawn protection";
   const previewDetail = deps.attackPreviewDetailForTarget(tile);
   const previewPending = deps.attackPreviewPendingForTarget(tile);
+  const previewManpowerCost = deps.attackPreviewManpowerCostForTarget(tile);
   const connectedRegionSize = connectedEnemyRegionKeys(state, tile, {
     keyFor: deps.keyFor,
     wrapX: deps.wrapX,
@@ -2143,9 +2165,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       label: "Launch Attack",
       ...(previewDetail || previewPending ? { detail: previewDetail ?? "Calculating win chance...", loading: previewPending } : {}),
       ...tileActionAvailability(
-        !targetShielded && reachable && state.gold >= FRONTIER_CLAIM_COST,
-        targetShielded ? targetShieldedReason : !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
-        `${FRONTIER_CLAIM_COST} gold`
+        !targetShielded && reachable,
+        targetShielded ? targetShieldedReason : "No bordering origin tile or linked dock",
+        previewManpowerCost
       )
     }
   ];
@@ -2155,9 +2177,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       label: `Attack Connected Region (${connectedRegionSize})`,
       detail: "Queue attacks across this visible connected enemy region from the edge inward.",
       ...tileActionAvailability(
-        !targetShielded && reachable && state.gold >= FRONTIER_CLAIM_COST,
-        targetShielded ? targetShieldedReason : !reachable ? "No bordering origin tile or linked dock" : `Need ${FRONTIER_CLAIM_COST} gold`,
-        `${FRONTIER_CLAIM_COST} gold each`
+        !targetShielded && reachable,
+        targetShielded ? targetShieldedReason : "No bordering origin tile or linked dock",
+        previewManpowerCost ? `${previewManpowerCost} each` : undefined
       )
     });
   }
