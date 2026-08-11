@@ -1367,11 +1367,14 @@ export const processActionQueue = (
     const optimisticMs = !to.ownerId ? frontierClaimDurationMsForTile(to.x, to.y) : 3_000;
     const existingCapture =
       state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y ? state.capture : undefined;
-    // Suppress the big "Capturing Territory..." overlay for
-    // all EXPANDs on a neutral tile. Attacks and any error
-    // path still surface their popups; expands only paint
-    // the tile since the visual feedback is clear enough.
-    const silent = !to.ownerId;
+    // Suppress the big "Capturing Territory..." overlay only for
+    // waypoint-driven EXPANDs on a neutral tile — an automated multi-hop
+    // chain would otherwise pop the overlay open/closed at every hop, and
+    // the tile paint is enough feedback there. A manual one-tap expand
+    // still gets the overlay (with its own Dismiss button) as its primary
+    // feedback signal — see client-action-flow.ts's click handler, which
+    // no longer opens the tile menu for it.
+    const silent = Boolean(next.fromWaypoint) && !to.ownerId;
     const baseCapture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
     state.capture = silent ? { ...baseCapture, silent: true } : baseCapture;
     const actionType = !to.ownerId ? "EXPAND" : "ATTACK";

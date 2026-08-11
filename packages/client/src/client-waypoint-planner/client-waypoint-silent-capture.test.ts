@@ -9,11 +9,14 @@ const clientSource = (relative: string): string => {
 
 // Regression guards for the "silent capture" UX: when topUpFromWaypoint
 // enqueues a tile, that queue item is tagged `fromWaypoint`. At dispatch
-// time, any EXPAND on a NEUTRAL tile sets state.capture.silent — the
-// tile-paint fill is enough feedback for a claim, waypoint-driven or not.
-// All downstream surfaces (the big capture overlay, the success popup,
-// the success feed entry) must check that flag and stay quiet so a
-// multi-step chain doesn't spam four pop-ups in a row.
+// time, a waypoint-driven EXPAND on a NEUTRAL tile sets state.capture.silent
+// — the tile-paint fill is enough feedback there, and it stops an automated
+// multi-step chain from popping the overlay open/closed at every hop. A
+// manual (non-waypoint) EXPAND stays non-silent: the big capture overlay
+// (with its Dismiss button) is its only feedback signal, since the tile
+// menu no longer auto-opens for it. All downstream surfaces (the big
+// capture overlay, the success popup, the success feed entry) must check
+// the flag and stay quiet only for the silent (waypoint-driven) case.
 describe("silent waypoint capture flow", () => {
   it("topUpFromWaypoint tags its enqueues with fromWaypoint: true", () => {
     const source = clientSource("../client-queue-logic/client-queue-logic.ts");
@@ -22,11 +25,13 @@ describe("silent waypoint capture flow", () => {
     expect(source).toMatch(/enqueueTarget\([^)]*\{\s*fromWaypoint:\s*true\s*\}\)/);
   });
 
-  it("dispatch marks the capture silent for any neutral (EXPAND) target", () => {
+  it("dispatch marks the capture silent only for a waypoint-driven neutral (EXPAND) target", () => {
     const source = clientSource("../client-queue-logic/client-queue-logic.ts");
-    // The `silent` derivation is scoped to a neutral (un-owned) target —
-    // ATTACKs on enemy tiles never go silent, regardless of origin.
-    expect(source).toMatch(/const silent = !to\.ownerId;/);
+    // The `silent` derivation requires BOTH fromWaypoint AND a neutral
+    // (un-owned) target — ATTACKs never go silent, and neither does a
+    // manual (non-waypoint) EXPAND tap, which relies on the overlay for
+    // its only feedback now that the tile menu doesn't auto-open for it.
+    expect(source).toMatch(/const silent = Boolean\(next\.fromWaypoint\) && !to\.ownerId;/);
     expect(source).toContain("state.capture = silent ? { ...baseCapture, silent: true } : baseCapture;");
   });
 
