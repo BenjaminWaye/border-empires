@@ -74,7 +74,7 @@ This is why the swap is structural, not a relabel.
 
 Today manpower only gates **combat** (ATTACK 60, DEEP_STRIKE /
 NAVAL_INFILTRATION 120) and forts (Fort 300, Siege Outpost 60, Wooden
-Fort / Light Outpost 30) `[code: config.ts:67-72, structure-costs.ts]`.
+Fort / Relay Beacon 30) `[code: config.ts:67-72, structure-costs.ts]`.
 EXPAND and SETTLE cost **zero** manpower `[code:
 game-domain index manpowerRequirements()]`. The two actions the beta tester
 says stop mattering are funded by the one currency that can't stay scarce.
@@ -816,7 +816,7 @@ build-cost-plus-drain pattern entirely. The same fix applies to the
 | Structure | Old cost | New manpower | New slot requirement |
 |---|---|---|---|
 | Wooden Fort | 300g + 150mp + 15 iron, ×1.1/build (incremental) | **150** (unchanged) | 1 IRON slot |
-| Light Outpost | 75g + 30mp, ×1.1/build | **30** (unchanged) | 1 FOOD slot |
+| Relay Beacon | 75g + 30mp, ×1.1/build | **30** (unchanged) | 1 FOOD slot |
 
 ### Tier 1 — basic economic sinks (80 manpower) `[increased — see §9 item on structure costs]`
 

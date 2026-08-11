@@ -200,7 +200,7 @@ export const EXCHANGE_GOLD_PER_SLOT_PER_DAY = {
 // stay in place and naturally go inert, same "leave plumbing, starve input"
 // treatment TITANIUM/CRYSTAL/UMBRITE got when their production was retired).
 export const MARKET_FOOD_UPKEEP = 0;
-export const LIGHT_OUTPOST_GOLD_UPKEEP = 0;
+export const RELAY_BEACON_GOLD_UPKEEP = 0;
 export const CARAVANARY_FOOD_UPKEEP = 0;
 export const CUSTOMS_HOUSE_GOLD_UPKEEP = 0;
 export const GARRISON_HALL_GOLD_UPKEEP = 0;

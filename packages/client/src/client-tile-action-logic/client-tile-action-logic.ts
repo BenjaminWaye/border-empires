@@ -5,9 +5,9 @@ import {
   type BuildableStructureType,
   EXPAND_MANPOWER_COST, FORT_BUILD_MS,
   FRONTIER_CLAIM_COST,
-  LIGHT_OUTPOST_ATTACK_MULT,
-  LIGHT_OUTPOST_BUILD_MS,
-  LIGHT_OUTPOST_VISION_BONUS,
+  RELAY_BEACON_ATTACK_MULT,
+  RELAY_BEACON_BUILD_MS,
+  RELAY_BEACON_VISION_BONUS,
   OBSERVATORY_BUILD_MS,
   SETTLE_COST, SETTLE_MANPOWER_COST,
   SIEGE_OUTPOST_ATTACK_MULT,
@@ -59,7 +59,7 @@ import { readyOwnedObservatoryCooldownRemainingMs } from "../client-observatory-
 import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
-import { hasFreeResourceSlotsForLightOutpost, missingLightOutpostSlotReason } from "../client-light-outpost-food-slot/client-light-outpost-food-slot.js";
+import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -780,21 +780,21 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const frontierCostLabel = frontierClaimCostLabelForTile(tile.x, tile.y);
 
     const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("LIGHT_OUTPOST");
-    const totalExploreMs = settleDurationMsForState(state, tile) + LIGHT_OUTPOST_BUILD_MS;
+    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
+    const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
     const exploreHasGold = canAffordCost(state.gold, totalExploreGold);
     const exploreHasManpower = state.manpower >= totalExploreManpower;
 
     const out: TileActionDef[] = [];
     if (isAdjacentToUnexplored(state, tile.x, tile.y, deps)) {
-      const exploreEnabled = exploreHasGold && exploreHasManpower && hasFreeResourceSlotsForLightOutpost(state);
+      const exploreEnabled = exploreHasGold && exploreHasManpower && hasFreeResourceSlotsForRelayBeacon(state);
       out.push({
-        id: "build_light_outpost_frontier" as TileActionDef["id"],
-        label: "Build Light Outpost",
-        detail: `Push into the unknown • expand + settle + build • +${LIGHT_OUTPOST_VISION_BONUS} vision`,
+        id: "build_relay_beacon_frontier" as TileActionDef["id"],
+        label: "Build Relay Beacon",
+        detail: `Push into the unknown • expand + settle + build • +${RELAY_BEACON_VISION_BONUS} vision`,
         ...tileActionAvailability(
           exploreEnabled,
-          !exploreHasManpower ? `Need ${totalExploreManpower} manpower` : !exploreHasGold ? `Need ${totalExploreGold} gold` : (missingLightOutpostSlotReason(state) ?? "Unavailable"),
+          !exploreHasManpower ? `Need ${totalExploreManpower} manpower` : !exploreHasGold ? `Need ${totalExploreGold} gold` : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
           `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
         )
       });
@@ -1114,7 +1114,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       : undefined;
     if (townGrowthAction) out.push(townGrowthAction);
     const hasWoodenFort = tile.economicStructure?.type === "WOODEN_FORT";
-    const hasLightOutpost = tile.economicStructure?.type === "LIGHT_OUTPOST";
+    const hasRelayBeacon = tile.economicStructure?.type === "RELAY_BEACON";
     if (
       buildShowsOnTile("WOODEN_FORT", tile, supportedTowns.length, supportedDocks.length) &&
       !tile.fort &&
@@ -1647,28 +1647,22 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       }
     }
     if (
-      buildShowsOnTile("LIGHT_OUTPOST", tile, supportedTowns.length, supportedDocks.length) &&
+      buildShowsOnTile("RELAY_BEACON", tile, supportedTowns.length, supportedDocks.length) &&
       !tile.fort &&
       !tile.siegeOutpost &&
       !tile.observatory &&
-      !tile.economicStructure &&
-      // Normally leatherworking supersedes the Light Outpost with the full
-      // Siege Outpost upgrade below, but Siege Outpost needs a free UMBRITE
-      // slot while Light Outpost only needs FOOD — if no UMBRITE
-      // is available, keep Light Outpost visible as the fallback rather than
-      // hiding both options.
-      (!state.techIds.includes("leatherworking") || !hasFreeResourceSlots(state, "SIEGE_OUTPOST"))
+      !tile.economicStructure
     ) {
       out.push({
-        id: "build_light_outpost" as TileActionDef["id"],
-        label: "Build Light Outpost",
-        detail: deps.buildDetailTextForAction("build_light_outpost", tile) + frontierBuildDetailSuffix(tile),
+        id: "build_relay_beacon" as TileActionDef["id"],
+        label: "Build Relay Beacon",
+        detail: deps.buildDetailTextForAction("build_relay_beacon", tile) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
-            "LIGHT_OUTPOST",
-            hasFreeResourceSlotsForLightOutpost(state),
-            missingLightOutpostSlotReason(state) ?? "Unavailable",
-            `${deps.structureCostText("LIGHT_OUTPOST")} • ${Math.round(LIGHT_OUTPOST_BUILD_MS / 60000)}m • atk x${LIGHT_OUTPOST_ATTACK_MULT.toFixed(2)}`
+            "RELAY_BEACON",
+            hasFreeResourceSlotsForRelayBeacon(state),
+            missingRelayBeaconSlotReason(state) ?? "Unavailable",
+            `${deps.structureCostText("RELAY_BEACON")} • ${Math.round(RELAY_BEACON_BUILD_MS / 60000)}m • atk x${RELAY_BEACON_ATTACK_MULT.toFixed(2)}`
           ),
           slots,
           deps
@@ -1679,16 +1673,16 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       tile.ownerId === state.me &&
       !tile.fort &&
       !tile.observatory &&
-      (tile.siegeOutpost || !tile.economicStructure || hasLightOutpost)
+      (tile.siegeOutpost || !tile.economicStructure || hasRelayBeacon)
     ) {
       const siegeVariant = nextSiegeVariantForTile(state, tile);
       if (siegeVariant) {
         const hasTech = tile.siegeOutpost ? true : state.techIds.includes("leatherworking");
-        const canUseTile = Boolean(tile.siegeOutpost) || !tile.economicStructure || hasLightOutpost;
+        const canUseTile = Boolean(tile.siegeOutpost) || !tile.economicStructure || hasRelayBeacon;
         const hasFreeSlots = hasFreeResourceSlots(state, siegeVariant.variant, tile.siegeOutpost?.variant);
         out.push({
           id: "build_siege_camp",
-          label: tile.siegeOutpost || hasLightOutpost ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`,
+          label: tile.siegeOutpost || hasRelayBeacon ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`,
           detail: deps.buildDetailTextForAction("build_siege_camp", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(

@@ -84,7 +84,7 @@ describe("simulation runtime — incremental visibility coverage", () => {
   // ability unlocks" rule. The general behavior this test was guarding
   // (tech effects that touch vision apply immediately, not on next tick) is
   // still covered by runtime.outpost-vision.test.ts's "researching Survey
-  // Corps immediately widens an already-built Light Outpost's ring", which
+  // Corps immediately widens an already-built Relay Beacon's ring", which
   // exercises the same immediacy guarantee via a still-existing bonus
   // (outpostVisionRadiusBonus). Flagging for product awareness: if
   // unconditional town-vision-growth-via-research is still meant to exist

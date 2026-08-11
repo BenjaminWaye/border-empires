@@ -14,7 +14,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_fortification") return "🛡";
   if (id === "build_wooden_fort") return "🪵";
   if (id === "build_siege_camp") return "⚔";
-  if (id === "build_light_outpost") return "⚑";
+  if (id === "build_relay_beacon") return "⚑";
   if (id === "build_observatory") return "◉";
   if (id === "build_farmstead") return "▥";
   if (id === "build_umbrite_rig") return "⛺";

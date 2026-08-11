@@ -18,7 +18,7 @@ export type RuntimeVisibilityClassification = {
   visibleKeys: Set<string>;
   allyAndSelfIds: Set<string>;
   // Explains why `tileKey` is visible to this classification's player (e.g.
-  // "radius:self", "radius:ally:<id>", "light-outpost", "temporary-reveal")
+  // "radius:self", "radius:ally:<id>", "relay-beacon", "temporary-reveal")
   // — reads straight from the incrementally-maintained coverage cache, no
   // recomputation. Used by the security/anti-cheat visibility audit
   // (runtime-visible-state.ts) to flag unattributed visibility.
@@ -34,7 +34,7 @@ export const classifyVisibilityForPlayer = (input: {
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   applyManpowerRegen: (player: RuntimePlayer) => void;
   // Single source of truth for territory, ally, town-ring, and structure-bonus
-  // (e.g. light outpost) vision — incrementally maintained by the runtime on
+  // (e.g. Relay Beacon) vision — incrementally maintained by the runtime on
   // every ownership/alliance/radius/structure change (see
   // visibility-coverage-cache.ts), so reading it here is O(territory) at
   // worst (one entry per already-covered tile) instead of the O(territory×r²)
@@ -43,7 +43,7 @@ export const classifyVisibilityForPlayer = (input: {
   // snapshot (login/reconnect/refresh) always matches what streaming
   // tile-deltas already show a connected client — the two code paths used to
   // read from two independently-maintained caches, which is how a
-  // structure-only vision source (light outposts) could show up live but
+  // structure-only vision source (Relay Beacons) could show up live but
   // vanish on refresh.
   visibilityCoverage: VisibilityCoverageReader;
 }): RuntimeVisibilityClassification => {
@@ -60,7 +60,7 @@ export const classifyVisibilityForPlayer = (input: {
     }
   }
   // Covers self territory, each ally's territory, town +1 rings (self and
-  // ally), and structure-based bonuses (light outposts) in one pass — the
+  // ally), and structure-based bonuses (Relay Beacons) in one pass — the
   // coverage cache already tracks all of these per viewer. Also covers the
   // "fog admin" case (a session whose UID has no live row in input.players
   // but owns tiles via seed data): tileOwnershipChanged is invoked for every

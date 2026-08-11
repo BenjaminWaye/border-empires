@@ -1,6 +1,6 @@
 import type { Tile } from "../client-types.js";
 
-export type FortificationOverlayKind = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "LIGHT_OUTPOST";
+export type FortificationOverlayKind = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "SIEGE_OUTPOST" | "WOODEN_FORT" | "RELAY_BEACON";
 export type FortificationOpening = "CLOSED" | "NORTH" | "EAST" | "SOUTH" | "WEST";
 
 type FortificationOverlayDeps = {
@@ -27,7 +27,7 @@ export const fortificationOverlayKindForTile = (tile: Tile | undefined): Fortifi
   }
   if (tile.siegeOutpost) return "SIEGE_OUTPOST";
   if (tile.economicStructure?.type === "WOODEN_FORT") return "WOODEN_FORT";
-  if (tile.economicStructure?.type === "LIGHT_OUTPOST") return "LIGHT_OUTPOST";
+  if (tile.economicStructure?.type === "RELAY_BEACON") return "RELAY_BEACON";
   return undefined;
 };
 
@@ -52,13 +52,13 @@ export const fortificationOpeningForTile = (
 ): FortificationOpening => {
   if (!tile) return "CLOSED";
   const kind = fortificationOverlayKindForTile(tile);
-  if (!kind || kind === "LIGHT_OUTPOST" || kind === "SIEGE_OUTPOST") return "CLOSED";
+  if (!kind || kind === "RELAY_BEACON" || kind === "SIEGE_OUTPOST") return "CLOSED";
   const ownerId = fortificationOwnerIdForTile(tile);
   if (!ownerId) return "CLOSED";
   for (const step of CARDINAL_STEPS) {
     const neighbor = deps.tiles.get(deps.keyFor(deps.wrapX(tile.x + step.dx), deps.wrapY(tile.y + step.dy)));
     if (!isFortificationOverlayTile(neighbor)) continue;
-    if (fortificationOverlayKindForTile(neighbor) === "LIGHT_OUTPOST" || fortificationOverlayKindForTile(neighbor) === "SIEGE_OUTPOST") {
+    if (fortificationOverlayKindForTile(neighbor) === "RELAY_BEACON" || fortificationOverlayKindForTile(neighbor) === "SIEGE_OUTPOST") {
       continue;
     }
     if (fortificationOwnerIdForTile(neighbor) !== ownerId) continue;

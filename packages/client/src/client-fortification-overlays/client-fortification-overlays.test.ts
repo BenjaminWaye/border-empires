@@ -55,28 +55,28 @@ describe("fortification overlay selection", () => {
     expect(fortificationOpeningForTile(east, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("WEST");
   });
 
-  it("treats wooden forts and light outposts as fortification overlay tiles", () => {
+  it("treats wooden forts and Relay Beacons as fortification overlay tiles", () => {
     const woodenFort = {
       ...landTile(1, 1),
       economicStructure: { ownerId: "p1", type: "WOODEN_FORT" as const, status: "under_construction" as const }
     };
-    const lightOutpost = {
+    const relayBeacon = {
       ...landTile(2, 1),
-      economicStructure: { ownerId: "p1", type: "LIGHT_OUTPOST" as const, status: "removing" as const }
+      economicStructure: { ownerId: "p1", type: "RELAY_BEACON" as const, status: "removing" as const }
     };
 
     expect(isFortificationOverlayTile(woodenFort)).toBe(true);
-    expect(isFortificationOverlayTile(lightOutpost)).toBe(true);
+    expect(isFortificationOverlayTile(relayBeacon)).toBe(true);
     expect(fortificationOverlayKindForTile(woodenFort)).toBe("WOODEN_FORT");
-    expect(fortificationOverlayKindForTile(lightOutpost)).toBe("LIGHT_OUTPOST");
+    expect(fortificationOverlayKindForTile(relayBeacon)).toBe("RELAY_BEACON");
     expect(fortificationOverlayAlphaForTile(woodenFort)).toBe(0.82);
-    expect(fortificationOverlayAlphaForTile(lightOutpost)).toBe(0.64);
+    expect(fortificationOverlayAlphaForTile(relayBeacon)).toBe(0.64);
   });
 
-  it("keeps light outposts non-directional", () => {
+  it("keeps Relay Beacons non-directional", () => {
     const tile = {
       ...landTile(2, 2),
-      economicStructure: { ownerId: "p1", type: "LIGHT_OUTPOST" as const, status: "active" as const }
+      economicStructure: { ownerId: "p1", type: "RELAY_BEACON" as const, status: "active" as const }
     };
     const tiles = new Map<string, Tile>([[keyFor(tile.x, tile.y), tile]]);
 
@@ -107,14 +107,14 @@ describe("fortification overlay selection", () => {
       ownerId: "p2",
       fort: { ownerId: "p2", status: "active" as const }
     };
-    const lightOutpost = {
+    const relayBeacon = {
       ...landTile(4, 5),
-      economicStructure: { ownerId: "p1", type: "LIGHT_OUTPOST" as const, status: "active" as const }
+      economicStructure: { ownerId: "p1", type: "RELAY_BEACON" as const, status: "active" as const }
     };
     const tiles = new Map<string, Tile>([
       [keyFor(fort.x, fort.y), fort],
       [keyFor(enemyFort.x, enemyFort.y), enemyFort],
-      [keyFor(lightOutpost.x, lightOutpost.y), lightOutpost]
+      [keyFor(relayBeacon.x, relayBeacon.y), relayBeacon]
     ]);
 
     expect(fortificationOpeningForTile(fort, { tiles, keyFor, wrapX: wrap, wrapY: wrap })).toBe("CLOSED");

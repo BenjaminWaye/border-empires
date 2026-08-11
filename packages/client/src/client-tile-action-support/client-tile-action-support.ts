@@ -22,7 +22,7 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
   id === "remove_mountain";
 
 export const tileActionIsBuilding = (id: TileActionDef["id"]): boolean =>
-  id.startsWith("build_") && id !== "build_light_outpost_frontier";
+  id.startsWith("build_") && id !== "build_relay_beacon_frontier";
 
 export const structureTypeForTileAction = (actionId: TileActionDef["id"]): BuildableStructureType | undefined => {
   switch (actionId) {
@@ -54,8 +54,8 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "AETHER_TOWER";
     case "build_wooden_fort":
       return "WOODEN_FORT";
-    case "build_light_outpost":
-      return "LIGHT_OUTPOST";
+    case "build_relay_beacon":
+      return "RELAY_BEACON";
     case "build_umbrite_synthesizer":
       return "UMBRITE_SYNTHESIZER";
     case "build_titanium_works":
@@ -149,7 +149,7 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
 // comes back empty; a defined return means some build action still has no
 // mapping, so surface it instead of silently swallowing the click again.
 export const unmappedBuildActionWarning = (actionId: TileActionDef["id"]): string | undefined => {
-  if (!tileActionIsBuilding(actionId) || actionId === "build_light_outpost_frontier") return undefined;
+  if (!tileActionIsBuilding(actionId) || actionId === "build_relay_beacon_frontier") return undefined;
   console.error(`[client-action-flow] build action "${actionId}" has no structureTypeForTileAction mapping — nothing was sent to the server.`);
   return `"${actionId}" isn't wired up to build anything yet — this has been logged, please report it.`;
 };

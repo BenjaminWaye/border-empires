@@ -549,7 +549,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   };
 
   // Owned-tile build entry point: settles-then-builds automatically on a
-  // FRONTIER tile (mirroring the Light Outpost frontier chain) or builds
+  // FRONTIER tile (mirroring the Relay Beacon frontier chain) or builds
   // immediately on a SETTLED tile. A second build click on a tile with a
   // settle-then-build already queued is blocked rather than overwritten.
   const handleBuildAction = (actionId: string, structureType: BuildableStructureType, selected: Tile): void => {
@@ -1448,11 +1448,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (actionId === "upgrade_umbrite_synthesizer" || actionId === "upgrade_titanium_works" || actionId === "upgrade_crystal_synthesizer" || actionId === "enable_converter_structure" || actionId === "disable_converter_structure" || actionId === "set_converter_structure_mode") {
       handleConverterTileAction({ selected, sendGameMessage, sendDevelopmentBuild, optimisticStructureBuildForAction })(actionId);
     }
-    if (actionId === "build_light_outpost_frontier") {
+    if (actionId === "build_relay_beacon_frontier") {
       if (selected && !selected.ownerId) {
         const plan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
         if (!plan.reachable) {
-          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Light Outpost unreachable", "No expansion path to that tile.");
+          showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Relay Beacon unreachable", "No expansion path to that tile.");
         } else {
           const targetKey = keyFor(selected.x, selected.y);
           // Drive the frontier over via the same waypoint mechanism as
@@ -1462,7 +1462,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           state.waypoint.push({ target: { x: selected.x, y: selected.y }, plan });
           persistWaypointQueueForPlayer(state.me, state.waypoint);
           state.autoSettleTargets.add(targetKey);
-          state.autoBuildTargets.set(targetKey, "LIGHT_OUTPOST");
+          state.autoBuildTargets.set(targetKey, "RELAY_BEACON");
           processActionQueue();
         }
       }

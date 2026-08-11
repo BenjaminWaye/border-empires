@@ -1,5 +1,5 @@
 import {
-  LIGHT_OUTPOST_BUILD_MS,
+  RELAY_BEACON_BUILD_MS,
   SIEGE_OUTPOST_BUILD_MS,
   SIEGE_OUTPOST_BUILD_COST,
 } from "./config.js";
@@ -17,15 +17,15 @@ import {
 import type { SiegeOutpostVariant } from "./types.js";
 
 // ── Outpost family ─────────────────────────────────────────────────
-// Three siege variants (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER) + LIGHT_OUTPOST.
-// LIGHT_OUTPOST lives on economicStructure in Phase 1 — acknowledged debt to
+// Three siege variants (SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER) + RELAY_BEACON.
+// RELAY_BEACON lives on economicStructure in Phase 1 — acknowledged debt to
 // be unwound in Phase 4.
 
 /**
  * Placement check shared by all outpost variants.
  * Outposts do NOT require SETTLED — only owned.
  * Siege outpost handler checks ownerOwnsTile + tileIsLand + noConflictingStructure.
- * LIGHT_OUTPOST goes through the economic handler which additionally
+ * RELAY_BEACON goes through the economic handler which additionally
  * requires SETTLED (because the economic handler adds it).
  */
 const outpostPlacement: StructureSpec["placement"] = [
@@ -33,7 +33,7 @@ const outpostPlacement: StructureSpec["placement"] = [
   tileIsLand,
   noConflictingStructure,
   // structureShowsOnTile("SIEGE_OUTPOST", ...) is applied by the handler.
-  // LIGHT_OUTPOST uses structureShowsOnTile("LIGHT_OUTPOST", ...) via the economic handler.
+  // RELAY_BEACON uses structureShowsOnTile("RELAY_BEACON", ...) via the economic handler.
 ];
 
 // §12.1: the siege ladder's UMBRITE cost is already charged as a
@@ -64,15 +64,15 @@ function siegeSpec(variant: SiegeOutpostVariant): StructureSpec {
   };
 }
 
-export const LIGHT_OUTPOST_SPEC: StructureSpec = {
-  type: "LIGHT_OUTPOST",
+export const RELAY_BEACON_SPEC: StructureSpec = {
+  type: "RELAY_BEACON",
   kind: "OUTPOST",
-  variant: "LIGHT_OUTPOST",
+  variant: "RELAY_BEACON",
   cost: {
     gold: 0,
     manpower: 30,
   },
-  buildMs: LIGHT_OUTPOST_BUILD_MS,
+  buildMs: RELAY_BEACON_BUILD_MS,
   techIds: [],
   consumesDevelopmentSlot: true,
   placement: [
@@ -83,12 +83,12 @@ export const LIGHT_OUTPOST_SPEC: StructureSpec = {
     noDuplicateStructureType,
   ],
   // §12.1 (docs/manpower-economy-rewrite-plan.md): retired to 0 like the
-  // rest of the non-synthesizer structure roster — LIGHT_OUTPOST_GOLD_UPKEEP
+  // rest of the non-synthesizer structure roster — RELAY_BEACON_GOLD_UPKEEP
   // is 0 now, gold's only remaining jobs are tech/rush-buys/synthesizer upkeep.
   // Food cost is already represented as a FOOD resource slot (see
   // structure-slots.ts), so no separate continuous per-minute drain here.
   upkeep: [],
-  // Acknowledged debt: LIGHT_OUTPOST lives on economicStructure in Phase 1.
+  // Acknowledged debt: RELAY_BEACON lives on economicStructure in Phase 1.
   // Phase 4 collapses to tile.structure.
   tileField: "economicStructure",
 };
