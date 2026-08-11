@@ -25,7 +25,7 @@ const formatSignedPercent = (mult: number): string => {
 // is always visible, no tech required; the rest are revealed by whichever
 // tech in techCatalog has effects.revealResource matching the category.
 export const hasRevealedResourceCategory = (
-  category: "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY",
+  category: "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
   techIds: readonly string[],
   techCatalog: readonly TechInfo[]
 ): boolean => {
@@ -36,7 +36,7 @@ export const hasRevealedResourceCategory = (
 
 export const effectSummaryLabel = (key: string, value: unknown): string | null => {
   if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads (+50% farm food, +18 food cap)";
-  if (key === "unlockCamp" && value === true) return "Unlocks camps";
+  if (key === "unlockUmbriteRig" && value === true) return "Unlocks umbrite rigs";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMarket" && value === true) return "Unlocks markets";
   if (key === "unlockForts" && value === true) return "Unlocks forts";
@@ -46,8 +46,8 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockCensusHall" && value === true) return "Unlocks census halls";
   if (key === "unlockClearingHouse" && value === true) return "Unlocks clearing houses";
   if (key === "unlockCaravanary" && value === true) return "Unlocks caravanaries";
-  if (key === "unlockFurSynthesizer" && value === true) return "Unlocks fur synthesizers";
-  if (key === "unlockIronworks" && value === true) return "Unlocks ironworks";
+  if (key === "unlockUmbriteSynthesizer" && value === true) return "Unlocks umbrite synthesizers";
+  if (key === "unlockTitaniumWorks" && value === true) return "Unlocks titanium works";
   if (key === "unlockCrystalSynthesizer" && value === true) return "Unlocks aether condensers";
   if (key === "unlockSynthOverload" && value === true) return "Unlocks synth overload";
   if (key === "unlockAdvancedSynthesizers" && value === true) return "Unlocks grand synthesis upgrades";
@@ -78,7 +78,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockWorldEngineStrike" && value === true) return "Unlocks Worldbreaker Shot";
   if (key === "unlockStormfront" && value === true) return "Unlocks Stormfront";
   if (key === "unlockAegisLock" && value === true) return "Unlocks Aegis Lock";
-  if (key === "unlockIronBastion" && value === true) return "Unlocks Iron Bastion";
+  if (key === "unlockTitaniumBastion" && value === true) return "Unlocks Titanium Bastion";
   if (key === "unlockSiegeTower" && value === true) return "Unlocks Siege Tower";
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
@@ -91,9 +91,9 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockAssemblyWorks" && value === true) return "Unlocks Assembly Works";
   if (key === "unlockPopulationBureau" && value === true) return "Unlocks Population Bureau";
   // unlockWeaponsWorkshop retired — replaced by the two keys below.
-  if (key === "unlockIronWeaponsFactory" && value === true) return "Unlocks Iron Weapons Factory";
-  if (key === "unlockFurWeaponsFactory" && value === true) return "Unlocks Fur Weapons Factory";
-  if (key === "unlockIronLevy" && value === true) return "Unlocks The Iron Levy";
+  if (key === "unlockTitaniumWeaponsFactory" && value === true) return "Unlocks Titanium Weapons Factory";
+  if (key === "unlockUmbriteWeaponsFactory" && value === true) return "Unlocks Umbrite Weapons Factory";
+  if (key === "unlockTitaniumLevy" && value === true) return "Unlocks The Titanium Levy";
   if (key === "musterMaxTilesAdd" && typeof value === "number") return `Muster tile cap +${value}`;
   if (key === "revealResource" && typeof value === "string") return `Reveals ${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}`;
   if (key === "dockGoldOutputMult" && typeof value === "number") return `Dock income +${Math.round((value - 1) * 100)}%`;
@@ -104,7 +104,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "firstTownsFoodSlotWaiverCount" && typeof value === "number") return `First ${value} towns need 1 fewer FOOD slot`;
   if (key === "resourceOutputMult" && value && typeof value === "object") {
     const ro = value as Record<string, unknown>;
-    const entries: Array<[string, string]> = [["farm", "Farm"], ["fish", "Fish"], ["iron", "Iron"], ["crystal", "Crystal"], ["supply", "Supply"], ["shard", "Shard"]];
+    const entries: Array<[string, string]> = [["farm", "Farm"], ["fish", "Fish"], ["titanium", "Titanium"], ["crystal", "Crystal"], ["umbrite", "Umbrite"], ["shard", "Shard"]];
     const labels = entries.filter(([k]) => typeof ro[k] === "number" && (ro[k] as number) !== 1).map(([k, name]) => `${name} output +${(((ro[k] as number) - 1) * 100).toFixed(0)}%`);
     return labels.length > 0 ? labels.join(" | ") : null;
   }
@@ -142,12 +142,12 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "fortDefenseMult" && typeof value === "number") return `Fort defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "fortBuildGoldCostMult" && typeof value === "number") return `Fort cost ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "fortBuildSpeedMult" && typeof value === "number") return `Fort build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "fortIronSlotWaiverCount" && typeof value === "number") return `First ${value} Forts need no IRON slot`;
+  if (key === "fortTitaniumSlotWaiverCount" && typeof value === "number") return `First ${value} Forts need no TITANIUM slot`;
   if (key === "settledDefenseNearFortMult" && typeof value === "number")
     return `Settled defense near forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsBarbariansMult" && typeof value === "number") return `Attack vs barbarians ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "outpostAttackMult" && typeof value === "number") return `Outpost attack ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "outpostSupplySlotWaiverCount" && typeof value === "number") return `First ${value} Siege Outposts need no SUPPLY slot`;
+  if (key === "outpostUmbriteSlotWaiverCount" && typeof value === "number") return `First ${value} Siege Outposts need no UMBRITE slot`;
   if (key === "outpostGoldUpkeepMult" && typeof value === "number") return `Outpost gold upkeep ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "outpostDeploymentSpeedMult" && typeof value === "number") return `Outpost deployment speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "chosenResourceSlotGrant" && typeof value === "number" && value > 0) {
@@ -256,8 +256,8 @@ export const domainOwnedHtml = (
       const domain = catalogById.get(id);
       // Surface the player's locked resource on the owned card ONLY when this
       // specific domain offered that resource. This prevents a future domain
-      // with a narrower table (e.g. only IRON) from misleadingly displaying
-      // "(SUPPLY slot)" because the player happens to have locked SUPPLY on
+      // with a narrower table (e.g. only TITANIUM) from misleadingly displaying
+      // "(UMBRITE slot)" because the player happens to have locked UMBRITE on
       // a different domain.
       const offeredKeys = domainResourceSlotKeys(domain);
       const slotSuffix =
@@ -438,14 +438,14 @@ const compactChecklistHtml = (items: Array<{ label: string; met: boolean }>): st
 
 const fallbackRequirementChecklist = (requirements: {
   gold?: number;
-  resources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+  resources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
 }): Array<{ label: string; met: boolean }> => {
   const out: Array<{ label: string; met: boolean }> = [];
   const goldCost = requirements.gold ?? 0;
   if (goldCost > 0) {
     out.push({ label: `Gold ${goldCost.toLocaleString()}`, met: false });
   }
-  for (const resourceKey of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
     const amount = requirements.resources?.[resourceKey] ?? 0;
     if (amount > 0) {
       out.push({ label: `${resourceKey} ${amount.toLocaleString()}`, met: false });
@@ -456,7 +456,7 @@ const fallbackRequirementChecklist = (requirements: {
 
 const effectiveRequirementChecklist = (requirements: {
   gold?: number;
-  resources?: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+  resources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
   checklist?: Array<{ label: string; met: boolean }>;
 }): Array<{ label: string; met: boolean }> => {
   const checklist = requirements.checklist ?? [];
@@ -465,13 +465,13 @@ const effectiveRequirementChecklist = (requirements: {
 
 export const formatDomainCost = (domain: DomainInfo): string => {
   const checklist = domain.requirements.checklist ?? [];
-  const costBits = checklist.filter((item) => /gold|food|iron|crystal|supply|shard/i.test(item.label)).map((item) => item.label);
+  const costBits = checklist.filter((item) => /gold|food|titanium|crystal|umbrite|shard/i.test(item.label)).map((item) => item.label);
   if (costBits.length > 0) return costBits.join(" · ");
   const fallbackCostBits: string[] = [];
   if ((domain.requirements.gold ?? 0) > 0) {
     fallbackCostBits.push(`${domain.requirements.gold.toLocaleString()} gold`);
   }
-  for (const resourceKey of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+  for (const resourceKey of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
     const amount = domain.requirements.resources?.[resourceKey] ?? 0;
     if (amount > 0) fallbackCostBits.push(`${amount.toLocaleString()} ${resourceKey.toLowerCase()}`);
   }

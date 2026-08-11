@@ -49,8 +49,8 @@ const stats = {
   farm: "—",
   fish: "—",
   gems: "—",
-  iron: "—",
-  fur: "—"
+  titanium: "—",
+  umbrite: "—"
 };
 
 let lastData: WorkerResponse | null = null;
@@ -109,8 +109,8 @@ worker.onmessage = (event: MessageEvent<WorkerResponse>): void => {
   stats.farm = `${d.farmSites.toLocaleString()} tiles`;
   stats.fish = `${d.fishSites.toLocaleString()} tiles`;
   stats.gems = `${d.gemsSites.toLocaleString()} tiles`;
-  stats.iron = `${d.ironSites.toLocaleString()} tiles`;
-  stats.fur = `${d.furSites.toLocaleString()} tiles`;
+  stats.titanium = `${d.titaniumSites.toLocaleString()} tiles`;
+  stats.umbrite = `${d.umbriteSites.toLocaleString()} tiles`;
   stats.wonders = `${d.wonders.length} / 9 placed`;
   renderWonderList(d.wonders);
 
@@ -202,8 +202,8 @@ const resourceFolder = pane.addFolder({ title: "Resources", expanded: true });
 resourceFolder.addBinding(stats, "farm", { label: "Farm", readonly: true });
 resourceFolder.addBinding(stats, "fish", { label: "Fish", readonly: true });
 resourceFolder.addBinding(stats, "gems", { label: "Gems", readonly: true });
-resourceFolder.addBinding(stats, "iron", { label: "Iron", readonly: true });
-resourceFolder.addBinding(stats, "fur", { label: "Fur", readonly: true });
+resourceFolder.addBinding(stats, "titanium", { label: "Titanium", readonly: true });
+resourceFolder.addBinding(stats, "umbrite", { label: "Umbrite", readonly: true });
 
 // Auto-generate on load
 generate();

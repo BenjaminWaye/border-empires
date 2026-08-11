@@ -297,7 +297,7 @@ import {
   type RuntimeMapCommandContext
 } from "../runtime-map-command-handlers.js";
 import { handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl } from "../runtime-imperial-exchange-levy-command.js";
-import { handleIronLevyMusterCommand as handleIronLevyMusterCommandImpl, IRON_LEVY_REGEN_FREEZE_KEY } from "../runtime-iron-levy-command.js";
+import { handleTitaniumLevyMusterCommand as handleTitaniumLevyMusterCommandImpl, TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
 import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
 import {
   handleChooseDomainCommand as handleChooseDomainCommandImpl,
@@ -1732,7 +1732,7 @@ export class SimulationRuntime {
   // from resourceSlotDormancyForPlayer, which refreshEconomyCachesForTileChange
   // already deletes (for human players) on *every* settled-tile mutation of an
   // owner, regardless of whether that mutation could plausibly touch a
-  // FOOD/IRON/CRYSTAL/SUPPLY total — including tickFortGarrison/tickMuster,
+  // FOOD/TITANIUM/CRYSTAL/UMBRITE total — including tickFortGarrison/tickMuster,
   // which call replaceTileState in tight per-tile loops with no
   // emitPlayerStateUpdate in between (the one place that would otherwise
   // naturally coalesce a rebuild). Eagerly resyncing on every replaceTileState
@@ -1805,7 +1805,7 @@ export class SimulationRuntime {
   private playerManpowerRegenPerMinute(player: RuntimePlayer): number {
     // The Iron Levy (tech-tree redesign): a 2-hour empire-wide manpower
     // regen freeze after triggering the muster ability.
-    if (this.getAbilityCooldownUntil(player.id, IRON_LEVY_REGEN_FREEZE_KEY) > this.now()) return 0;
+    if (this.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > this.now()) return 0;
     const { railDepotNetworkLogisticsGuildCount, logisticsGuildCount, populationBureauManpowerBuildingCount } =
       this.cachedManpowerStructureBonusForPlayer(player);
     return playerManpowerRegenPerMinuteFromSummary(
@@ -2183,7 +2183,7 @@ export class SimulationRuntime {
     if (!sameOwner && tile.naturalWonder) { wonderEffects.syncWatchtowerObservatory(tile); if (previous?.ownerId) wonderEffects.refreshPlayerWonders(previous.ownerId, this.settledTilesForPlayer(previous.ownerId), this.wonderCacheByPlayer, this.players); if (tile.ownerId) wonderEffects.refreshPlayerWonders(tile.ownerId, this.settledTilesForPlayer(tile.ownerId), this.wonderCacheByPlayer, this.players); wonderEffects.applyConscriptionEngineFirstClaim(tile, this.players, this.now()); wonderEffects.announceNaturalWonderClaim(tile, this.players, this.now()); } flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
     reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
     reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
-    // §5.4: this tile's own mutation can change either owner's FOOD/SUPPLY
+    // §5.4: this tile's own mutation can change either owner's FOOD/UMBRITE
     // slot totals (a resource tile gained/lost, a new demand consumer built)
     // without touching any of their outposts directly — mark them dirty for
     // a lazy resync (flushOutpostVisionDormancyResync's doc comment above
@@ -3186,12 +3186,12 @@ export class SimulationRuntime {
     return network;
   }
 
-  // Iron/Fur Weapons Factory (design doc "network-clustered combat bonus"):
-  // resolves an arbitrary combat tile (an attack's origin, or a defended
-  // target) to "the player's own town nearest that tile," then reads that
-  // town's already-computed connected-network factory totals
-  // (ConnectedTownNetworkEntry.connectedIronWeaponsFactoryCount /
-  // connectedFurWeaponsFactoryCount — both self-inclusive of the whole
+  // Titanium/Umbrite Weapons Factory (design doc "network-clustered combat
+  // bonus"): resolves an arbitrary combat tile (an attack's origin, or a
+  // defended target) to "the player's own town nearest that tile," then
+  // reads that town's already-computed connected-network factory totals
+  // (ConnectedTownNetworkEntry.connectedTitaniumWeaponsFactoryCount /
+  // connectedUmbriteWeaponsFactoryCount — both self-inclusive of the whole
   // network, see that type's doc comment) — no fresh BFS beyond what
   // cachedTownNetworkForPlayer already does on a cache miss, same shape as
   // railDepotAlreadyInNetworkForPlayer below. A player with zero towns (very
@@ -3214,16 +3214,16 @@ export class SimulationRuntime {
     return best;
   }
 
-  private networkWeaponsFactoryCountsForOrigin(playerId: string, tileKey: string): { iron: number; fur: number } {
+  private networkWeaponsFactoryCountsForOrigin(playerId: string, tileKey: string): { titanium: number; umbrite: number } {
     const player = this.players.get(playerId);
     const nearestTownKey = player ? this.nearestOwnedTownKeyForPlayer(playerId, tileKey) : undefined;
-    if (!player || !nearestTownKey) return { iron: 0, fur: 0 };
+    if (!player || !nearestTownKey) return { titanium: 0, umbrite: 0 };
     const settledTiles = this.settledTilesForPlayer(playerId);
     const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
     const entry = townNetwork.get(nearestTownKey);
     return {
-      iron: entry?.connectedIronWeaponsFactoryCount ?? 0,
-      fur: entry?.connectedFurWeaponsFactoryCount ?? 0
+      titanium: entry?.connectedTitaniumWeaponsFactoryCount ?? 0,
+      umbrite: entry?.connectedUmbriteWeaponsFactoryCount ?? 0
     };
   }
 
@@ -3888,7 +3888,7 @@ export class SimulationRuntime {
     this.applyPassiveIncomeForPlayer(actor, now, 12 * 60 * 60 * 1000);
     const goldCredited = Math.max(0, actor.points - goldBefore);
     const strategic: Partial<Record<string, number>> = {};
-    for (const key of ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"] as const) {
+    for (const key of ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"] as const) {
       const diff = ((actor.strategicResources ?? {})[key] ?? 0) - (strategicBefore[key] ?? 0);
       if (diff > 0) strategic[key] = diff;
     }
@@ -4332,7 +4332,7 @@ export class SimulationRuntime {
     options: { creditStrategic?: boolean; persistAnchor?: boolean } = {}
   ): {
     gold: number;
-    strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>>;
+    strategic: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
   } {
     const creditStrategic = options.creditStrategic ?? true;
     const persistAnchor = options.persistAnchor ?? true;
@@ -4342,9 +4342,9 @@ export class SimulationRuntime {
     const enrichedTile = tile.town && resolvedContext ? this.enrichTileWithTownContext(tile, player, resolvedContext) : tile;
     const yieldView = buildTileYieldView(enrichedTile, this.tileYieldCollectedAt(tileKey, tile.ownerId), now, this.yieldViewEconomyContext(player, resolvedContext));
     const gold = Math.round((yieldView?.yield?.gold ?? 0) * 1e6) / 1e6; // was floor-to-cents; that destroyed buffered gold post-gold-rescope (§6.1)
-    const strategic: Partial<Record<"FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number>> = {};
+    const strategic: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>> = {};
     for (const [resource, amount] of Object.entries(yieldView?.yield?.strategic ?? {}) as Array<
-      ["FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD", number]
+      ["FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number]
     >) {
       if (amount > 0) {
         strategic[resource] = amount;
@@ -4812,7 +4812,7 @@ export class SimulationRuntime {
       handleWorldEngineStrikeCommand: (command) => handleWorldEngineStrikeCommandImpl(this.mapCommandContext(), command),
       handleAegisLockCommand: (command) => handleAegisLockCommandImpl(this.mapCommandContext(), command),
       handleAstralDockLaunchCommand: (command) => handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command),
-      handleIronLevyMusterCommand: (command) => handleIronLevyMusterCommandImpl(this.mapCommandContext(), command),
+      handleTitaniumLevyMusterCommand: (command) => handleTitaniumLevyMusterCommandImpl(this.mapCommandContext(), command),
       handleActivateImperialWardCommand: (command) => handleActivateImperialWardCommandImpl(this.mapCommandContext(), command),
       handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
       handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),

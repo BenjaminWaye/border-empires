@@ -2,7 +2,7 @@ import type { TechInfo } from "../client-types.js";
 
 type ChecklistItem = { label: string; met: boolean };
 
-const RESOURCE_LABEL_RE = /^(gold|food|iron|crystal|supply|shard|oil)\b/i;
+const RESOURCE_LABEL_RE = /^(gold|food|titanium|crystal|umbrite|shard|oil)\b/i;
 
 const checklistForTech = (tech: Pick<TechInfo, "requirements">): ChecklistItem[] => tech.requirements.checklist ?? [];
 

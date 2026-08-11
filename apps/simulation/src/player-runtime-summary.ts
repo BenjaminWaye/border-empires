@@ -64,16 +64,16 @@ export type PlayerRuntimeSummary = {
 
 const emptyStrategicProduction = (): Record<StrategicResourceKey, number> => ({
   FOOD: 0,
-  IRON: 0,
+  TITANIUM: 0,
   CRYSTAL: 0,
-  SUPPLY: 0,
+  UMBRITE: 0,
   SHARD: 0
 });
 
-// IRON/CRYSTAL/SUPPLY are slot-based, not produced (docs/manpower-economy-
+// TITANIUM/CRYSTAL/UMBRITE are slot-based, not produced (docs/manpower-economy-
 // rewrite-plan.md §5.1/§5.6) — only FARM/FISH still feed FOOD here.
 // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD joined
-// IRON/CRYSTAL/SUPPLY as slot-based, not produced — there's only one food
+// TITANIUM/CRYSTAL/UMBRITE as slot-based, not produced — there's only one food
 // mechanic now (§5.4 dormancy on FOOD slot shortfall, replacing the old
 // stockpile/coverage flow). FARM/FISH still grant FOOD *slot supply*
 // (BASE_SLOTS_BY_TILE_RESOURCE, structure-slots.ts) — a separate mechanism,
@@ -159,9 +159,9 @@ export const cloneStrategicProduction = (
   value: Record<StrategicResourceKey, number>
 ): Record<StrategicResourceKey, number> => ({
   FOOD: value.FOOD,
-  IRON: value.IRON,
+  TITANIUM: value.TITANIUM,
   CRYSTAL: value.CRYSTAL,
-  SUPPLY: value.SUPPLY,
+  UMBRITE: value.UMBRITE,
   SHARD: value.SHARD
 });
 

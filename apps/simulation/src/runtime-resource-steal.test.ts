@@ -26,7 +26,7 @@ const summary = (overrides: Partial<PlayerRuntimeSummary> = {}): PlayerRuntimeSu
   townCount: 0,
   ownedTownTierByTile: new Map(),
   goldIncomePerMinute: 0,
-  strategicProductionPerMinute: { FOOD: 0, IRON: 60 / 1440, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 60 / 1440, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
   activeDevelopmentProcessCount: 0,
   pendingSettlementsByTile: new Map(),
   fishFoodPerMinute: 0,
@@ -36,24 +36,24 @@ const summary = (overrides: Partial<PlayerRuntimeSummary> = {}): PlayerRuntimeSu
 
 describe("resource capture steal", () => {
   it("maps tile and synthesizer resources to strategic balances", () => {
-    expect(stolenResourceForCapture("IRON")).toBe("IRON");
+    expect(stolenResourceForCapture("TITANIUM")).toBe("TITANIUM");
     expect(stolenResourceForCapture("GEMS")).toBe("CRYSTAL");
-    expect(stolenResourceForCapture("WOOD")).toBe("SUPPLY");
-    expect(stolenResourceForCapture(undefined, "ADVANCED_FUR_SYNTHESIZER")).toBe("SUPPLY");
+    expect(stolenResourceForCapture("UMBRITE")).toBe("UMBRITE");
+    expect(stolenResourceForCapture(undefined, "ADVANCED_UMBRITE_SYNTHESIZER")).toBe("UMBRITE");
     expect(stolenResourceForCapture("UNKNOWN")).toBeUndefined();
   });
 
   it("steals a proportional share based on defender resource source count", () => {
     const attacker = makePlayer("attacker", {});
-    const defender = makePlayer("defender", { IRON: 90 });
+    const defender = makePlayer("defender", { TITANIUM: 90 });
     applyResourceTileSteal(
-      { summaryForPlayer: () => summary({ strategicProductionPerMinute: { FOOD: 0, IRON: 180 / 1440, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 } }) },
+      { summaryForPlayer: () => summary({ strategicProductionPerMinute: { FOOD: 0, TITANIUM: 180 / 1440, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } }) },
       attacker,
       defender,
-      "IRON"
+      "TITANIUM"
     );
 
-    expect(defender.strategicResources?.IRON).toBeCloseTo(60, 5);
-    expect(attacker.strategicResources?.IRON).toBeCloseTo(30, 5);
+    expect(defender.strategicResources?.TITANIUM).toBeCloseTo(60, 5);
+    expect(attacker.strategicResources?.TITANIUM).toBeCloseTo(30, 5);
   });
 });

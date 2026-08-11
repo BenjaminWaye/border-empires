@@ -17,9 +17,9 @@ const stats: RevealEmpireStatsView = {
   manpowerCap: 1200,
   strategicResources: {
     FOOD: 10,
-    IRON: 20,
+    TITANIUM: 20,
     CRYSTAL: 30,
-    SUPPLY: 40,
+    UMBRITE: 40,
     SHARD: 1
   }
 };

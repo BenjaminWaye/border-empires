@@ -34,9 +34,8 @@ export const isYieldBearingTile = (tile: DomainTileState): boolean => {
     switch (tile.resource) {
       case "FARM":
       case "FISH":
-      case "IRON":
-      case "WOOD":
-      case "FUR":
+      case "TITANIUM":
+      case "UMBRITE":
       case "GEMS":
         return true;
       default:
@@ -45,10 +44,10 @@ export const isYieldBearingTile = (tile: DomainTileState): boolean => {
   }
   if (tile.economicStructure?.status === "active") {
     switch (tile.economicStructure.type) {
-      case "FUR_SYNTHESIZER":
-      case "ADVANCED_FUR_SYNTHESIZER":
-      case "IRONWORKS":
-      case "ADVANCED_IRONWORKS":
+      case "UMBRITE_SYNTHESIZER":
+      case "ADVANCED_UMBRITE_SYNTHESIZER":
+      case "TITANIUM_WORKS":
+      case "ADVANCED_TITANIUM_WORKS":
       case "CRYSTAL_SYNTHESIZER":
       case "ADVANCED_CRYSTAL_SYNTHESIZER":
         return true;
@@ -256,7 +255,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
  * townNetworkCacheByPlayer/manpowerStructureBonusCacheByPlayer are also
  * invalidated unconditionally (§5.4): both now fold in
  * dormantEconomicStructureKeysForPlayer, which — like resourceSlotDemand —
- * can change from a FRONTIER-only mutation (a Siege Outpost's IRON/SUPPLY
+ * can change from a FRONTIER-only mutation (a Siege Outpost's TITANIUM/UMBRITE
  * demand tipping some other, possibly-SETTLED structure into or out of
  * dormancy), so the SETTLED-gated branch alone isn't sufficient for them
  * anymore even though their own BFS/scan still only reads SETTLED tiles.
@@ -278,7 +277,7 @@ export const refreshEconomyCachesForTileChange = (input: {
   // invalidated unconditionally below (§5.4): both this and
   // townNetworkCacheByPlayer now factor in dormantEconomicStructureKeysForPlayer,
   // which (like resourceSlotDemandCacheByPlayer) can change from a FRONTIER-only
-  // mutation (a Siege Outpost's IRON/SUPPLY demand shifting which OTHER,
+  // mutation (a Siege Outpost's TITANIUM/UMBRITE demand shifting which OTHER,
   // possibly-SETTLED structure is dormant) — the SETTLED-gated branch alone
   // would miss that ripple.
   manpowerStructureBonusCacheByPlayer?: Map<

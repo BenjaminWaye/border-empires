@@ -27,7 +27,7 @@ export const buildPlayer = (id: string, overrides: Partial<RuntimePlayer> = {}):
 
 /** `buildPlayer()` plus a zeroed strategicResources block, for tests that read/mutate resources. */
 export const testRuntimePlayer = (id: string, overrides: Partial<RuntimePlayer> = {}): RuntimePlayer =>
-  buildPlayer(id, { strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }, ...overrides });
+  buildPlayer(id, { strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }, ...overrides });
 
 /** The recurring "1000pt / 10k-manpower AI opponent" shape used across combat/siege tests. */
 export const buildAiOpponent = (overrides: Partial<RuntimePlayer> = {}): RuntimePlayer =>

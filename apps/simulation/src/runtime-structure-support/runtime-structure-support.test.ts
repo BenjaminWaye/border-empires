@@ -45,22 +45,22 @@ describe("runtime structure support helpers", () => {
         y: 10,
         ownerId: "player-1",
         ownershipState: "SETTLED",
-        economicStructure: { ownerId: "player-1", type: "FUR_SYNTHESIZER", status: "active" }
+        economicStructure: { ownerId: "player-1", type: "UMBRITE_SYNTHESIZER", status: "active" }
       }),
       tile({
         x: 9,
         y: 9,
         ownerId: "player-1",
         ownershipState: "SETTLED",
-        resource: "FUR"
+        resource: "UMBRITE"
       })
     ]);
 
     expect(assignedTownKeyForSupportTile(tiles, "player-1", 10, 10)).toBe("9,10");
     expect(supportedTownKeysForTile(tiles, "player-1", 10, 10)).toEqual(["9,10"]);
-    expect(economicStructureForSupportedTown(tiles, "player-1", "9,10", "FUR_SYNTHESIZER")?.x).toBe(10);
-    expect(economicStructureForSupportedTown(tiles, "player-1", "11,10", "FUR_SYNTHESIZER")).toBeUndefined();
-    expect(firstAvailableTownSupportTile(tiles, "player-1", "9,10", "FUR_SYNTHESIZER")?.x).toBe(9);
-    expect(firstAvailableTownSupportTile(tiles, "player-1", "11,10", "FUR_SYNTHESIZER")).toBeUndefined();
+    expect(economicStructureForSupportedTown(tiles, "player-1", "9,10", "UMBRITE_SYNTHESIZER")?.x).toBe(10);
+    expect(economicStructureForSupportedTown(tiles, "player-1", "11,10", "UMBRITE_SYNTHESIZER")).toBeUndefined();
+    expect(firstAvailableTownSupportTile(tiles, "player-1", "9,10", "UMBRITE_SYNTHESIZER")?.x).toBe(9);
+    expect(firstAvailableTownSupportTile(tiles, "player-1", "11,10", "UMBRITE_SYNTHESIZER")).toBeUndefined();
   });
 });

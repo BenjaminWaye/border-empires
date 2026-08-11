@@ -12,20 +12,20 @@ import {
 
 describe("structureSlotRequirements", () => {
   it("matches §12's Fort tier ladder exactly", () => {
-    expect(structureSlotRequirements("FORT")).toEqual([{ resource: "IRON", count: 1 }]);
-    expect(structureSlotRequirements("IRON_BASTION")).toEqual([{ resource: "IRON", count: 2 }]);
-    expect(structureSlotRequirements("THUNDER_BASTION")).toEqual([{ resource: "IRON", count: 4 }]);
+    expect(structureSlotRequirements("FORT")).toEqual([{ resource: "TITANIUM", count: 1 }]);
+    expect(structureSlotRequirements("TITANIUM_BASTION")).toEqual([{ resource: "TITANIUM", count: 2 }]);
+    expect(structureSlotRequirements("THUNDER_BASTION")).toEqual([{ resource: "TITANIUM", count: 4 }]);
   });
 
   it("matches §12's Siege tier ladder exactly", () => {
-    expect(structureSlotRequirements("SIEGE_OUTPOST")).toEqual([{ resource: "SUPPLY", count: 1 }]);
+    expect(structureSlotRequirements("SIEGE_OUTPOST")).toEqual([{ resource: "UMBRITE", count: 1 }]);
     expect(structureSlotRequirements("SIEGE_TOWER")).toEqual([
-      { resource: "SUPPLY", count: 2 },
-      { resource: "IRON", count: 1 }
+      { resource: "UMBRITE", count: 2 },
+      { resource: "TITANIUM", count: 1 }
     ]);
     expect(structureSlotRequirements("DREAD_TOWER")).toEqual([
-      { resource: "SUPPLY", count: 3 },
-      { resource: "IRON", count: 2 }
+      { resource: "UMBRITE", count: 3 },
+      { resource: "TITANIUM", count: 2 }
     ]);
   });
 
@@ -44,10 +44,10 @@ describe("structureSlotRequirements", () => {
   });
 
   it("gives every synthesizer (base and advanced) exactly 1 slot of its own resource, no FOOD slot", () => {
-    expect(structureSlotRequirements("FUR_SYNTHESIZER")).toEqual([{ resource: "SUPPLY", count: 1 }]);
-    expect(structureSlotRequirements("ADVANCED_FUR_SYNTHESIZER")).toEqual([{ resource: "SUPPLY", count: 1 }]);
-    expect(structureSlotRequirements("IRONWORKS")).toEqual([{ resource: "IRON", count: 1 }]);
-    expect(structureSlotRequirements("ADVANCED_IRONWORKS")).toEqual([{ resource: "IRON", count: 1 }]);
+    expect(structureSlotRequirements("UMBRITE_SYNTHESIZER")).toEqual([{ resource: "UMBRITE", count: 1 }]);
+    expect(structureSlotRequirements("ADVANCED_UMBRITE_SYNTHESIZER")).toEqual([{ resource: "UMBRITE", count: 1 }]);
+    expect(structureSlotRequirements("TITANIUM_WORKS")).toEqual([{ resource: "TITANIUM", count: 1 }]);
+    expect(structureSlotRequirements("ADVANCED_TITANIUM_WORKS")).toEqual([{ resource: "TITANIUM", count: 1 }]);
     expect(structureSlotRequirements("CRYSTAL_SYNTHESIZER")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
     expect(structureSlotRequirements("ADVANCED_CRYSTAL_SYNTHESIZER")).toEqual([{ resource: "CRYSTAL", count: 1 }]);
   });
@@ -59,14 +59,14 @@ describe("structureSlotRequirements", () => {
       "AEGIS_DOME_PART_1", "AEGIS_DOME_PART_2", "AEGIS_DOME_PART_3",
       "ASTRAL_DOCK_PART_1", "ASTRAL_DOCK_PART_2", "ASTRAL_DOCK_PART_3",
       "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3",
-      "IRON_LEVY_PART_1", "IRON_LEVY_PART_2", "IRON_LEVY_PART_3"
+      "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3"
     ] as const) {
       expect(structureSlotRequirements(type)).toEqual([{ resource: "CRYSTAL", count: 1 }]);
     }
   });
 
   it("gives every finished monument assembly 4 CRYSTAL slots (1 for itself + 3 absorbing its consumed components' slots)", () => {
-    for (const type of ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "IRON_LEVY"] as const) {
+    for (const type of ["IMPERIAL_EXCHANGE", "WORLD_ENGINE", "AEGIS_DOME", "ASTRAL_DOCK", "POPULATION_BUREAU", "TITANIUM_LEVY"] as const) {
       expect(structureSlotRequirements(type)).toEqual([{ resource: "CRYSTAL", count: 4 }]);
     }
   });
@@ -89,7 +89,7 @@ describe("structureSlotRequirements", () => {
     }
   });
 
-  it("Wooden Fort requires FOOD slot (same as Light Outpost), not IRON like the upgraded Fort", () => {
+  it("Wooden Fort requires FOOD slot (same as Light Outpost), not TITANIUM like the upgraded Fort", () => {
     expect(structureSlotRequirements("WOODEN_FORT")).toEqual([{ resource: "FOOD", count: 1 }]);
   });
 });
@@ -100,19 +100,18 @@ describe("BASE_SLOTS_BY_TILE_RESOURCE", () => {
     expect(BASE_SLOTS_BY_TILE_RESOURCE.FISH).toEqual({ slotResource: "FOOD", baseSlots: 2 });
   });
 
-  it("maps IRON->IRON, GEMS->CRYSTAL, WOOD/FUR->SUPPLY at 1 base slot each", () => {
-    expect(BASE_SLOTS_BY_TILE_RESOURCE.IRON).toEqual({ slotResource: "IRON", baseSlots: 1 });
+  it("maps TITANIUM->TITANIUM, GEMS->CRYSTAL, UMBRITE->UMBRITE at 1 base slot each", () => {
+    expect(BASE_SLOTS_BY_TILE_RESOURCE.TITANIUM).toEqual({ slotResource: "TITANIUM", baseSlots: 1 });
     expect(BASE_SLOTS_BY_TILE_RESOURCE.GEMS).toEqual({ slotResource: "CRYSTAL", baseSlots: 1 });
-    expect(BASE_SLOTS_BY_TILE_RESOURCE.WOOD).toEqual({ slotResource: "SUPPLY", baseSlots: 1 });
-    expect(BASE_SLOTS_BY_TILE_RESOURCE.FUR).toEqual({ slotResource: "SUPPLY", baseSlots: 1 });
+    expect(BASE_SLOTS_BY_TILE_RESOURCE.UMBRITE).toEqual({ slotResource: "UMBRITE", baseSlots: 1 });
   });
 });
 
 describe("TILE_SLOT_BOOST_STRUCTURES / Waterworks bonus", () => {
-  it("Farmstead/Mine/Camp each add +1 slot to their own tile", () => {
+  it("Farmstead/Mine/Umbrite Rig each add +1 slot to their own tile", () => {
     expect(TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD).toBe(1);
     expect(TILE_SLOT_BOOST_STRUCTURES.MINE).toBe(1);
-    expect(TILE_SLOT_BOOST_STRUCTURES.CAMP).toBe(1);
+    expect(TILE_SLOT_BOOST_STRUCTURES.UMBRITE_RIG).toBe(1);
   });
 
   it("Waterworks adds +2 FOOD slots to Farmsteads in its radius, on top of Farmstead's own +1", () => {
@@ -149,8 +148,8 @@ describe("SYNTHESIZER_STRUCTURE_TYPES", () => {
   it("lists all three base + three advanced synthesizer types", () => {
     expect(SYNTHESIZER_STRUCTURE_TYPES).toEqual(
       expect.arrayContaining([
-        "FUR_SYNTHESIZER", "ADVANCED_FUR_SYNTHESIZER",
-        "IRONWORKS", "ADVANCED_IRONWORKS",
+        "UMBRITE_SYNTHESIZER", "ADVANCED_UMBRITE_SYNTHESIZER",
+        "TITANIUM_WORKS", "ADVANCED_TITANIUM_WORKS",
         "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER"
       ])
     );

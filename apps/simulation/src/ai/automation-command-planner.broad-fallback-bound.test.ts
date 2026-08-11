@@ -43,7 +43,7 @@ describe("automation command planner — broad fallback bound (not skipped) for 
     // A real economic opportunity sits next to a DIFFERENT frontier tile,
     // far from the hot origin — only reachable via the broad fallback's
     // sweep of the player's full frontierTiles list.
-    const economicNeutral = makeTile(1, 300, { resource: "IRON" });
+    const economicNeutral = makeTile(1, 300, { resource: "TITANIUM" });
     const tilesByKey = new Map([...ownedTiles, economicNeutral].map((t) => [`${t.x},${t.y}`, t]));
 
     const result = planAutomationCommand({
@@ -77,7 +77,7 @@ describe("automation command planner — broad fallback bound (not skipped) for 
     const hotOrigin = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const enemyNeighbor = makeTile(1, 0, { ownerId: "enemy-1" });
     const otherFrontier = makeTile(20, 20, { ownerId: "ai-1", ownershipState: "FRONTIER" });
-    const economicNeutral = makeTile(21, 20, { resource: "IRON" });
+    const economicNeutral = makeTile(21, 20, { resource: "TITANIUM" });
     const ownedTiles = [hotOrigin, otherFrontier];
     const tilesByKey = new Map(
       [hotOrigin, enemyNeighbor, otherFrontier, economicNeutral].map((t) => [`${t.x},${t.y}`, t])
@@ -110,7 +110,7 @@ describe("automation command planner — broad fallback bound (not skipped) for 
     const hotOrigin = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const enemyNeighbor = makeTile(1, 0, { ownerId: "enemy-1" });
     const otherFrontier = makeTile(20, 20, { ownerId: "ai-1", ownershipState: "FRONTIER" });
-    const economicNeutral = makeTile(21, 20, { resource: "IRON" });
+    const economicNeutral = makeTile(21, 20, { resource: "TITANIUM" });
     const ownedTiles = [hotOrigin, otherFrontier];
     const tilesByKey = new Map(
       [hotOrigin, enemyNeighbor, otherFrontier, economicNeutral].map((t) => [`${t.x},${t.y}`, t])

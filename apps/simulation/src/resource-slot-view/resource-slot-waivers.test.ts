@@ -4,8 +4,8 @@ import { LIGHT_OUTPOST_FREE_FOOD_SLOT_COUNT } from "@border-empires/shared";
 import { emptySlotWaivers, resourceSlotDemandForPlayer, resourceSlotDormantContributorsForPlayer } from "./resource-slot-view.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
 
-// §23.2: Dwarf Kingdom/Fortress Realm (Fort IRON), Supply State (Siege
-// Outpost SUPPLY), and Treasury State/Enduring Realm (town FOOD) — the
+// §23.2: Dwarf Kingdom/Fortress Realm (Fort TITANIUM), Supply State (Siege
+// Outpost UMBRITE), and Treasury State/Enduring Realm (town FOOD) — the
 // count-based waiver redesign of the old, now-inert percentage-upkeep
 // domain effects. These tests exercise the full path: domain ownership ->
 // slotWaiversForPlayer -> resourceSlotDemandForPlayer/
@@ -16,18 +16,18 @@ const tile = (overrides: Partial<DomainTileState> & Pick<DomainTileState, "x" | 
   ({ terrain: "LAND", ...overrides }) as DomainTileState;
 
 describe("§23.2 slot waivers — tech-domain-bridge wiring", () => {
-  it("Fortress Realm's fortIronSlotWaiverCount (5) supersedes Dwarf Kingdom's (3) via max, not sum", () => {
-    const dwarfOnly = { techIds: new Set(["masonry"]), domainIds: new Set(["iron-bastions"]) };
+  it("Fortress Realm's fortTitaniumSlotWaiverCount (5) supersedes Dwarf Kingdom's (3) via max, not sum", () => {
+    const dwarfOnly = { techIds: new Set(["masonry"]), domainIds: new Set(["titanium-bastions"]) };
     const fortressOnly = { techIds: new Set(["steelworking"]), domainIds: new Set(["fortress-realm"]) };
-    const both = { techIds: new Set(["masonry", "steelworking"]), domainIds: new Set(["iron-bastions", "fortress-realm"]) };
-    expect(slotWaiversForPlayer(dwarfOnly).fortIronSlotWaiverCount).toBe(3);
-    expect(slotWaiversForPlayer(fortressOnly).fortIronSlotWaiverCount).toBe(5);
-    expect(slotWaiversForPlayer(both).fortIronSlotWaiverCount).toBe(5);
+    const both = { techIds: new Set(["masonry", "steelworking"]), domainIds: new Set(["titanium-bastions", "fortress-realm"]) };
+    expect(slotWaiversForPlayer(dwarfOnly).fortTitaniumSlotWaiverCount).toBe(3);
+    expect(slotWaiversForPlayer(fortressOnly).fortTitaniumSlotWaiverCount).toBe(5);
+    expect(slotWaiversForPlayer(both).fortTitaniumSlotWaiverCount).toBe(5);
   });
 
-  it("Supply State grants outpostSupplySlotWaiverCount 3", () => {
+  it("Supply State grants outpostUmbriteSlotWaiverCount 3", () => {
     const player = { techIds: new Set(["organized-supply"]), domainIds: new Set(["supply-state"]) };
-    expect(slotWaiversForPlayer(player).outpostSupplySlotWaiverCount).toBe(3);
+    expect(slotWaiversForPlayer(player).outpostUmbriteSlotWaiverCount).toBe(3);
   });
 
   it("Treasury State grants firstTownsFoodSlotWaiverCount 3, Enduring Realm grants allTownsFoodSlotWaiverPerTown 1", () => {
@@ -46,28 +46,28 @@ describe("§23.2 slot waivers — tech-domain-bridge wiring", () => {
 });
 
 describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
-  it("waives IRON for the earliest-built N Forts, regardless of ladder tier", () => {
+  it("waives TITANIUM for the earliest-built N Forts, regardless of ladder tier", () => {
     const tiles = [
       tile({ x: 0, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 100 } }),
-      tile({ x: 1, y: 0, fort: { ownerId: "p1", status: "active", variant: "IRON_BASTION", activatedAt: 200 } }),
+      tile({ x: 1, y: 0, fort: { ownerId: "p1", status: "active", variant: "TITANIUM_BASTION", activatedAt: 200 } }),
       tile({ x: 2, y: 0, fort: { ownerId: "p1", status: "active", variant: "THUNDER_BASTION", activatedAt: 300 } }),
       tile({ x: 3, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 400 } })
     ];
-    // Unwaived: 1 + 2 + 4 + 1 = 8 IRON.
+    // Unwaived: 1 + 2 + 4 + 1 = 8 TITANIUM.
     const unwaived = resourceSlotDemandForPlayer(tiles, "p1");
-    expect(unwaived.IRON).toBe(8);
-    // Waive the first 3 built (activatedAt 100/200/300) -> only the 4th Fort's 1 IRON remains.
-    const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), fortIronSlotWaiverCount: 3 });
-    expect(waived.IRON).toBe(1);
+    expect(unwaived.TITANIUM).toBe(8);
+    // Waive the first 3 built (activatedAt 100/200/300) -> only the 4th Fort's 1 TITANIUM remains.
+    const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), fortTitaniumSlotWaiverCount: 3 });
+    expect(waived.TITANIUM).toBe(1);
   });
 
-  it("Siege Outpost waiver only zeroes the SUPPLY row, not a Siege Tower's separate IRON row", () => {
+  it("Siege Outpost waiver only zeroes the UMBRITE row, not a Siege Tower's separate TITANIUM row", () => {
     const tiles = [
       tile({ x: 0, y: 0, siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_TOWER", activatedAt: 100 } })
     ];
-    const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), outpostSupplySlotWaiverCount: 3 });
-    expect(waived.SUPPLY).toBe(0);
-    expect(waived.IRON).toBe(1);
+    const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), outpostUmbriteSlotWaiverCount: 3 });
+    expect(waived.UMBRITE).toBe(0);
+    expect(waived.TITANIUM).toBe(1);
   });
 
   it("firstTownsFoodSlotWaiverCount reduces only the first N towns (deterministic tile-key order), by 1 each", () => {
@@ -96,8 +96,8 @@ describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
   it("combining firstTownsFoodSlotWaiverCount and allTownsFoodSlotWaiverPerTown takes the max per town, not the sum", () => {
     const tiles = [tile({ x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } })];
     const waived = resourceSlotDemandForPlayer(tiles, "p1", {
-      fortIronSlotWaiverCount: 0,
-      outpostSupplySlotWaiverCount: 0,
+      fortTitaniumSlotWaiverCount: 0,
+      outpostUmbriteSlotWaiverCount: 0,
       firstTownsFoodSlotWaiverCount: 1,
       allTownsFoodSlotWaiverPerTown: 1
     });
@@ -107,8 +107,8 @@ describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
 
   it("a waiver never drives demand negative", () => {
     const tiles = [tile({ x: 0, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 100 } })];
-    const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), fortIronSlotWaiverCount: 99 });
-    expect(waived.IRON).toBe(0);
+    const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), fortTitaniumSlotWaiverCount: 99 });
+    expect(waived.TITANIUM).toBe(0);
   });
 
   it("lightOutpostFoodSlotWaiverCount waives FOOD for the earliest-built N Light Outposts, leaving later ones charged", () => {
@@ -136,17 +136,17 @@ describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
 });
 
 describe("§23.2 slot waivers — resourceSlotDormantContributorsForPlayer", () => {
-  it("a waived Fort's IRON demand is never a dormancy candidate, even under a shortfall", () => {
+  it("a waived Fort's TITANIUM demand is never a dormancy candidate, even under a shortfall", () => {
     const tiles = [
       tile({ x: 0, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 100 } }),
       tile({ x: 1, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 200 } })
     ];
-    // Both Forts waived (fortIronSlotWaiverCount 2) -> zero IRON demand -> zero supply is still enough, nothing dormant.
-    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }, {
+    // Both Forts waived (fortTitaniumSlotWaiverCount 2) -> zero TITANIUM demand -> zero supply is still enough, nothing dormant.
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, {
       ...emptySlotWaivers(),
-      fortIronSlotWaiverCount: 2
+      fortTitaniumSlotWaiverCount: 2
     });
-    expect(dormancy.IRON.size).toBe(0);
+    expect(dormancy.TITANIUM.size).toBe(0);
   });
 
   it("only the unwaived Fort can go dormant when supply is short", () => {
@@ -154,11 +154,11 @@ describe("§23.2 slot waivers — resourceSlotDormantContributorsForPlayer", () 
       tile({ x: 0, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 100 } }),
       tile({ x: 1, y: 0, fort: { ownerId: "p1", status: "active", variant: "FORT", activatedAt: 200 } })
     ];
-    // Waive only the earliest-built Fort (count 1); the later one still demands 1 IRON against 0 supply.
-    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0 }, {
+    // Waive only the earliest-built Fort (count 1); the later one still demands 1 TITANIUM against 0 supply.
+    const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, {
       ...emptySlotWaivers(),
-      fortIronSlotWaiverCount: 1
+      fortTitaniumSlotWaiverCount: 1
     });
-    expect([...dormancy.IRON]).toEqual(["1,0:fort"]);
+    expect([...dormancy.TITANIUM]).toEqual(["1,0:fort"]);
   });
 });

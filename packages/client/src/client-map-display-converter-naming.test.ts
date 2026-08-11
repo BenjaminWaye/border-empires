@@ -7,11 +7,11 @@ import { economicStructureName } from "./client-map-display.js";
 // a copy-only change (§Phase 6 item 1). Guards against a future "helpful"
 // rename of the identifiers themselves.
 describe("economicStructureName — converter-mode-flip naming", () => {
-  it("returns direction-neutral names for the Fur/Iron converter family", () => {
-    expect(economicStructureName("FUR_SYNTHESIZER")).toBe("Fur Works");
-    expect(economicStructureName("ADVANCED_FUR_SYNTHESIZER")).toBe("Advanced Fur Works");
-    expect(economicStructureName("IRONWORKS")).toBe("Iron Works");
-    expect(economicStructureName("ADVANCED_IRONWORKS")).toBe("Advanced Iron Works");
+  it("returns direction-neutral names for the Umbrite/Titanium converter family", () => {
+    expect(economicStructureName("UMBRITE_SYNTHESIZER")).toBe("Umbrite Works");
+    expect(economicStructureName("ADVANCED_UMBRITE_SYNTHESIZER")).toBe("Advanced Umbrite Works");
+    expect(economicStructureName("TITANIUM_WORKS")).toBe("Titanium Works");
+    expect(economicStructureName("ADVANCED_TITANIUM_WORKS")).toBe("Advanced Titanium Works");
   });
 
   it("leaves the already direction-neutral Aether Condenser name unchanged", () => {

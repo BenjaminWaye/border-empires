@@ -62,9 +62,9 @@ export const createPlayersFromRecoveredState = (
           allies: new Set(player.allies ?? []),
           strategicResources: {
             FOOD: player.strategicResources?.FOOD ?? 0,
-            IRON: player.strategicResources?.IRON ?? 0,
+            TITANIUM: player.strategicResources?.TITANIUM ?? 0,
             CRYSTAL: player.strategicResources?.CRYSTAL ?? 0,
-            SUPPLY: player.strategicResources?.SUPPLY ?? 0,
+            UMBRITE: player.strategicResources?.UMBRITE ?? 0,
             SHARD: player.strategicResources?.SHARD ?? 0
           },
           ...(player.chosenTrickleResource && isChosenTrickleResource(player.chosenTrickleResource)
@@ -72,7 +72,7 @@ export const createPlayersFromRecoveredState = (
             : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
           ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
-          strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
+          strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
         }
       ] as const;
     })

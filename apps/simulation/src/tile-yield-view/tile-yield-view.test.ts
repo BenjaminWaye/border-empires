@@ -213,61 +213,61 @@ describe("buildTileYieldView", () => {
     expect(view?.yieldRate.strategicPerDay?.FOOD).toBeUndefined();
   });
 
-  // IRON/CRYSTAL/SUPPLY are slot-based, not tile-yield-produced (§5.1/§5.6) —
-  // MINE/CAMP/IRONWORKS/FUR_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer emit a
+  // TITANIUM/CRYSTAL/UMBRITE are slot-based, not tile-yield-produced (§5.1/§5.6) —
+  // MINE/UMBRITE_RIG/TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER no longer emit a
   // strategicPerDay entry for these keys.
-  it("MINE on an IRON tile produces no IRON strategicPerDay (slot-based, not yield-based)", () => {
+  it("MINE on a TITANIUM tile produces no TITANIUM strategicPerDay (slot-based, not yield-based)", () => {
     const mineTile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
-      resource: "IRON",
+      resource: "TITANIUM",
       economicStructure: { type: "MINE", status: "active", ownerId: player.id }
     };
     const tiles = new Map<string, DomainTileState>([["5,5", mineTile]]);
     const view = buildTileYieldView(mineTile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    expect(view?.yieldRate.strategicPerDay?.IRON).toBeUndefined();
+    expect(view?.yieldRate.strategicPerDay?.TITANIUM).toBeUndefined();
   });
 
-  it("CAMP on a WOOD tile produces no SUPPLY strategicPerDay (slot-based, not yield-based)", () => {
-    const campTile: DomainTileState = {
+  it("UMBRITE_RIG on an UMBRITE tile produces no UMBRITE strategicPerDay (slot-based, not yield-based)", () => {
+    const rigTile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
-      resource: "WOOD",
-      economicStructure: { type: "CAMP", status: "active", ownerId: player.id }
+      resource: "UMBRITE",
+      economicStructure: { type: "UMBRITE_RIG", status: "active", ownerId: player.id }
     };
-    const tiles = new Map<string, DomainTileState>([["5,5", campTile]]);
-    const view = buildTileYieldView(campTile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    expect(view?.yieldRate.strategicPerDay?.SUPPLY).toBeUndefined();
+    const tiles = new Map<string, DomainTileState>([["5,5", rigTile]]);
+    const view = buildTileYieldView(rigTile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
+    expect(view?.yieldRate.strategicPerDay?.UMBRITE).toBeUndefined();
   });
 
-  it("ADVANCED_IRONWORKS produces no IRON strategicPerDay (slot-based, not yield-based)", () => {
+  it("ADVANCED_TITANIUM_WORKS produces no TITANIUM strategicPerDay (slot-based, not yield-based)", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
-      economicStructure: { type: "ADVANCED_IRONWORKS", status: "active", ownerId: player.id }
+      economicStructure: { type: "ADVANCED_TITANIUM_WORKS", status: "active", ownerId: player.id }
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    expect(view?.yieldRate.strategicPerDay?.IRON).toBeUndefined();
+    expect(view?.yieldRate.strategicPerDay?.TITANIUM).toBeUndefined();
   });
 
-  it("ADVANCED_FUR_SYNTHESIZER produces no SUPPLY strategicPerDay (slot-based, not yield-based)", () => {
+  it("ADVANCED_UMBRITE_SYNTHESIZER produces no UMBRITE strategicPerDay (slot-based, not yield-based)", () => {
     const tile: DomainTileState = {
       x: 5, y: 5,
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
-      economicStructure: { type: "ADVANCED_FUR_SYNTHESIZER", status: "active", ownerId: player.id }
+      economicStructure: { type: "ADVANCED_UMBRITE_SYNTHESIZER", status: "active", ownerId: player.id }
     };
     const tiles = new Map<string, DomainTileState>([["5,5", tile]]);
     const view = buildTileYieldView(tile, 0, 1440 * 60000, { player, tiles, dockLinksByDockTileKey: new Map() });
-    expect(view?.yieldRate.strategicPerDay?.SUPPLY).toBeUndefined();
+    expect(view?.yieldRate.strategicPerDay?.UMBRITE).toBeUndefined();
   });
 
   it("ADVANCED_CRYSTAL_SYNTHESIZER produces no CRYSTAL strategicPerDay (slot-based, not yield-based)", () => {
@@ -308,7 +308,7 @@ describe("buildTileYieldView", () => {
       ).toBe(false);
     });
 
-    it("is false for a MINE (no longer strategic-affecting — IRON is slot-based, not yield-based)", () => {
+    it("is false for a MINE (no longer strategic-affecting — TITANIUM is slot-based, not yield-based)", () => {
       expect(
         tileYieldNeedsServerAuthority({ economicStructure: { type: "MINE", status: "active", ownerId: "player-1" } })
       ).toBe(false);

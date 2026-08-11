@@ -243,28 +243,29 @@ export const RAIL_DEPOT_MUSTER_RADIUS = 50;
 // Multiplier to muster inflow when the tile's outpost is backed by a nearby Rail Depot.
 export const RAIL_DEPOT_BOOSTED_MUSTER_MULT = 2.0;
 // Weapons Workshop (retired — see structure-registry-economic.ts — replaced
-// by Iron/Fur Weapons Factory below). Constants kept so any copy a player
-// already owns from before the retirement keeps granting its bonus.
+// by Titanium/Umbrite Weapons Factory below). Constants kept so any copy a
+// player already owns from before the retirement keeps granting its bonus.
 export const WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING = 0.03;
 export const WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING = 0.03;
 
-// Iron/Fur Weapons Factory: the "future 'network' building" the comment
-// above used to describe is this pair. Like Weapons Workshop, a player may
-// build unlimited copies of either per town (placementMode "same_tile", no
-// per-town cap) — each is a genuine, uncapped sink for its resource (1 IRON
-// or 1 SUPPLY slot per copy, structure-slots.ts). Both grant attack AND
-// defense per copy (never zero on either axis), just weighted differently:
-// Iron leans defense, Fur leans attack — "armor doctrine" vs. "raiding
-// doctrine." Unlike Weapons Workshop, the count that actually feeds a given
-// fight's multiplier is scoped to the connected-town network relevant to
-// that side of the fight (runtime-combat-support.ts), not a flat empire-wide
-// sum — concentrating factories in one connected industrial region pays off
-// more than scattering the same count across disconnected pockets. First-
-// pass balance figures, not derived from anything — expect tuning.
-export const IRON_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING = 0.015;
-export const IRON_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING = 0.03;
-export const FUR_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING = 0.03;
-export const FUR_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING = 0.015;
+// Titanium/Umbrite Weapons Factory: the "future 'network' building" the
+// comment above used to describe is this pair. Like Weapons Workshop, a
+// player may build unlimited copies of either per town (placementMode
+// "same_tile", no per-town cap) — each is a genuine, uncapped sink for its
+// resource (1 TITANIUM or 1 UMBRITE slot per copy, structure-slots.ts). Both
+// grant attack AND defense per copy (never zero on either axis), just
+// weighted differently: Titanium leans defense, Umbrite leans attack —
+// "armor doctrine" vs. "raiding doctrine." Unlike Weapons Workshop, the
+// count that actually feeds a given fight's multiplier is scoped to the
+// connected-town network relevant to that side of the fight
+// (runtime-combat-support.ts), not a flat empire-wide sum — concentrating
+// factories in one connected industrial region pays off more than
+// scattering the same count across disconnected pockets. First-pass balance
+// figures, not derived from anything — expect tuning.
+export const TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING = 0.015;
+export const TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING = 0.03;
+export const UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING = 0.03;
+export const UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING = 0.015;
 // "Unarmed" vulnerability: a player who owns zero of a given factory type
 // ANYWHERE in their empire (not network-scoped — this is an empire-wide
 // existence check, not a clustering bonus) is markedly easier to attack.
@@ -296,11 +297,11 @@ export const CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY = 20_000;
 // Census Hall: cheaper town-tier upgrade cost for the Census Hall's own town.
 export const CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT = 0.75;
 export const SETTLEMENT_TO_TOWN_POPULATION_MIN = 10_000;
-// The Iron Levy monument: converts this fraction of currently-banked
+// The Titanium Levy monument: converts this fraction of currently-banked
 // manpower into an instant one-time army, then freezes empire-wide manpower
-// regen for IRON_LEVY_REGEN_FREEZE_MS.
-export const IRON_LEVY_MANPOWER_CONVERSION_RATIO = 0.5;
-export const IRON_LEVY_REGEN_FREEZE_MS = 2 * 60 * 60 * 1000;
+// regen for TITANIUM_LEVY_REGEN_FREEZE_MS.
+export const TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO = 0.5;
+export const TITANIUM_LEVY_REGEN_FREEZE_MS = 2 * 60 * 60 * 1000;
 
 // --- Barbarian raids ---
 export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
@@ -309,7 +310,7 @@ export const BARBARIAN_RAID_COST = 10; // cheap, no muster wind-up
 export const FORT_GARRISON_CAP_BY_VARIANT: Record<string, number> = {
   WOODEN_FORT: 120,
   FORT: 120,
-  IRON_BASTION: 240,
+  TITANIUM_BASTION: 240,
   THUNDER_BASTION: 360,
 };
 // Fraction of the attacking force the garrison loses on a REPULSED assault.

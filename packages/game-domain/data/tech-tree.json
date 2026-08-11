@@ -33,33 +33,33 @@
       "id": "masonry",
       "tier": 1,
       "branch": "war",
-      "name": "Ironclad Masonry",
-      "description": "Stone is the first polite way of saying no. Reveals Iron and unlocks the Iron Weapons Factory: an uncapped Iron sink that arms your empire with heavier defense and iron-forged siege strength, clustered strongest where you build many in one connected industrial region.",
+      "name": "Titanium-Clad Masonry",
+      "description": "Stone is the first polite way of saying no. Reveals Titanium and unlocks the Titanium Weapons Factory: an uncapped Titanium sink that arms your empire with heavier defense and titanium-forged siege strength, clustered strongest where you build many in one connected industrial region.",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 3600,
       "effects": {
         "unlockForts": true,
-        "unlockIronWeaponsFactory": true,
-        "revealResource": "iron"
+        "unlockTitaniumWeaponsFactory": true,
+        "revealResource": "titanium"
       }
     },
     {
       "id": "leatherworking",
       "tier": 1,
       "branch": "war",
-      "name": "Tanner's Craft",
-      "description": "Straps, harnesses, and portable frames turn baggage into warfare. Reveals Supply and unlocks the Fur Weapons Factory: an uncapped Supply sink that arms your empire for the offensive, clustered strongest where you build many in one connected industrial region.",
+      "name": "Rigging Works",
+      "description": "Straps, harnesses, and portable frames turn baggage into warfare. Reveals Umbrite and unlocks the Umbrite Weapons Factory: an uncapped Umbrite sink that arms your empire for the offensive, clustered strongest where you build many in one connected industrial region.",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 3600,
       "effects": {
-        "unlockCamp": true,
+        "unlockUmbriteRig": true,
         "unlockSiegeOutposts": true,
-        "unlockFurWeaponsFactory": true,
-        "revealResource": "supply"
+        "unlockUmbriteWeaponsFactory": true,
+        "revealResource": "umbrite"
       }
     },
     {
@@ -143,14 +143,14 @@
       "tier": 2,
       "branch": "economy",
       "name": "Artisan Workshops",
-      "description": "Once every craft has a foreman, even pelts become industry.",
+      "description": "Once every craft has a foreman, even raw ore becomes industry.",
       "requires": "trade",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockFurSynthesizer": true
+        "unlockUmbriteSynthesizer": true
       }
     },
     {
@@ -188,14 +188,14 @@
       "tier": 2,
       "branch": "war",
       "name": "Reinforced Plating",
-      "description": "Unlocks Iron Bastion upgrades for existing Forts and keeps +10% settled defense.",
+      "description": "Unlocks Titanium Bastion upgrades for existing Forts and keeps +10% settled defense.",
       "requires": "masonry",
       "cost": {
         "gold": 10
       },
       "researchTimeSeconds": 14400,
       "effects": {
-        "unlockIronBastion": true
+        "unlockTitaniumBastion": true
       }
     },
     {
@@ -240,7 +240,7 @@
       },
       "researchTimeSeconds": 7200,
       "effects": {
-        "unlockIronworks": true
+        "unlockTitaniumWorks": true
       }
     },
     {
@@ -293,7 +293,7 @@
       "tier": 3,
       "branch": "war",
       "name": "Steel Foundries",
-      "description": "Unlocks Thunder Bastion upgrades for existing Iron Bastions.",
+      "description": "Unlocks Thunder Bastion upgrades for existing Titanium Bastions.",
       "requires": "fortified-walls",
       "cost": {
         "gold": 10
@@ -420,7 +420,7 @@
       },
       "researchTimeSeconds": 86400,
       "effects": {
-        "unlockIronLevy": true
+        "unlockTitaniumLevy": true
       }
     },
     {

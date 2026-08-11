@@ -12,7 +12,7 @@ import {
   TorusGeometry
 } from "three";
 
-export type RetortRecastFxResource = "FARM" | "WOOD" | "IRON" | "GEMS";
+export type RetortRecastFxResource = "FARM" | "UMBRITE" | "TITANIUM" | "GEMS";
 
 const DURATION_MS = 2600;
 const CIRCLE_LOCK_MS = 520;
@@ -22,8 +22,8 @@ const ORB_COUNT = 8;
 
 const RESOURCE_COLORS: Record<RetortRecastFxResource, { primary: string; secondary: string; dark: string }> = {
   FARM: { primary: "#74f28a", secondary: "#f5d76a", dark: "#1d3c25" },
-  WOOD: { primary: "#d2a45f", secondary: "#78e0a0", dark: "#3a2a18" },
-  IRON: { primary: "#c7d2dc", secondary: "#6f89a2", dark: "#27303a" },
+  UMBRITE: { primary: "#d2a45f", secondary: "#78e0a0", dark: "#3a2a18" },
+  TITANIUM: { primary: "#c7d2dc", secondary: "#6f89a2", dark: "#27303a" },
   GEMS: { primary: "#71e9ff", secondary: "#cc8cff", dark: "#172d3a" }
 };
 

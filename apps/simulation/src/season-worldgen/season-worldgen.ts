@@ -63,8 +63,8 @@ const createRuntimePlayer = (id: string): DomainPlayer => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-seasonal",
   allies: new Set<string>(),
-  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-  strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
 });
 
 const toRecoveredTile = (tile: DomainTileState): RecoveredSimulationState["tiles"][number] => ({

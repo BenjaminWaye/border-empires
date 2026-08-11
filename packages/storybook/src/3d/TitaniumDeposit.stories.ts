@@ -1,6 +1,5 @@
 import { ACESFilmicToneMapping, CanvasTexture, DirectionalLight, Mesh, MeshBasicMaterial, PlaneGeometry } from "three";
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createResourceOverlay, type ResourceKind } from "@client/client-map-3d-resource-overlay.js";
 import { createTitaniumDepositOverlay, titaniumDepositVariantAt, type TitaniumDepositVariant } from "@client/client-map-3d-titanium-deposit.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
@@ -165,24 +164,4 @@ export const Variants: Story = {
 export const Field: Story = {
   args: { cameraDistance: 9, spacing: 1.1, count: 7 },
   render: (args) => render(args, 6)
-};
-
-// Side-by-side: the legacy iron ore piles (current 3D look) next to the
-// new titanium deposit, so the two silhouettes can be compared directly.
-export const IronVsTitanium: Story = {
-  render: () => {
-    const stage = glintStage({ cameraDistance: 6.5 });
-    const ground = createGrassGround(2, 0);
-    stage.scene.add(ground.group);
-    const resources = createResourceOverlay(stage.scene, 3);
-    const titanium = createTitaniumDepositOverlay(stage.scene, 3);
-    ([0, 1, 2] as const).forEach((v, idx) => {
-      const x = (idx - 1) * 1.3;
-      resources.addInstance(x - 1.0, 0, 0, "IRON" as ResourceKind, 0, 0);
-      titanium.addInstance(x + 1.0, 0, 0, worldXForVariant(v), 0);
-    });
-    resources.commit();
-    titanium.commit();
-    return wrapWithCleanup(stage, [resources.dispose, titanium.dispose, ground.dispose]);
-  }
 };

@@ -36,6 +36,70 @@ describe("tileOverviewModifiersForTile", () => {
     ).toContainEqual({ reason: "Nearby war", effect: "-100% population growth", tone: "negative" });
   });
 
+  it("derives the Market modifier text from marketCount instead of a hardcoded +50%", () => {
+    const modifiers = tileOverviewModifiersForTile({
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      town: {
+        type: "MARKET",
+        baseGoldPerMinute: 2,
+        supportCurrent: 8,
+        supportMax: 8,
+        goldPerMinute: 12,
+        cap: 300,
+        isFed: true,
+        population: 18_400,
+        maxPopulation: 100_000,
+        populationGrowthPerMinute: 12,
+        populationTier: "TOWN",
+        connectedTownCount: 0,
+        connectedTownBonus: 0,
+        hasMarket: true,
+        marketActive: true,
+        marketCount: 5,
+        hasGranary: false,
+        granaryActive: false
+      }
+    } satisfies Tile);
+    // 5 active Markets stack additively: +50%, not the old hardcoded +50%
+    // literal that never actually derived from the real count.
+    expect(modifiers).toContainEqual({ reason: "Market", effect: "+50% town gold production", tone: "positive" });
+  });
+
+  it("hides the Market modifier entirely when marketCount is 0", () => {
+    const modifiers = tileOverviewModifiersForTile({
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      town: {
+        type: "MARKET",
+        baseGoldPerMinute: 2,
+        supportCurrent: 8,
+        supportMax: 8,
+        goldPerMinute: 2,
+        cap: 300,
+        isFed: true,
+        population: 18_400,
+        maxPopulation: 100_000,
+        populationGrowthPerMinute: 12,
+        populationTier: "TOWN",
+        connectedTownCount: 0,
+        connectedTownBonus: 0,
+        hasMarket: false,
+        marketActive: false,
+        marketCount: 0,
+        hasGranary: false,
+        granaryActive: false
+      }
+    } satisfies Tile);
+    expect(modifiers.some((m) => m.reason === "Market")).toBe(false);
+  });
+
   it("hides fort defense while a captured fort is in recovery", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-09T12:00:00Z"));
@@ -85,10 +149,10 @@ describe("tileOverviewModifiersForTile", () => {
         fort: {
           ownerId: "me",
           status: "active",
-          variant: "IRON_BASTION"
+          variant: "TITANIUM_BASTION"
         }
       } satisfies Tile)
-    ).toContainEqual({ reason: "Iron Bastion", effect: "4x defense", tone: "positive" });
+    ).toContainEqual({ reason: "Titanium Bastion", effect: "4x defense", tone: "positive" });
 
     expect(
       tileOverviewModifiersForTile({

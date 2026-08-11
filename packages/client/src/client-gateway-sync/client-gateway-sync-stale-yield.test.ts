@@ -22,8 +22,8 @@ const createDeps = (overrides?: { me?: string; mods?: { income?: number } }) => 
     mods: overrides?.mods ?? { income: 1.0 },
     upkeepLastTick: {
       food: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-      iron: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
-      supply: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+      titanium: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
+      umbrite: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
       crystal: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
       gold: { need: 0, fromYield: 0, fromStock: 0, remaining: 0, contributors: [] },
       foodCoverage: 1
@@ -114,9 +114,9 @@ describe("stale yieldRate/yieldCap clearing on structure/resource/dock change (P
     applyGatewayInitialState(deps, {
       tiles: [
         {
-          x: 4, y: 4, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "IRON",
+          x: 4, y: 4, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "TITANIUM",
           economicStructureJson: JSON.stringify({ type: "MINE", status: "active", ownerId: "me" }),
-          yieldRate: { goldPerMinute: 0, strategicPerDay: { IRON: 90 } },
+          yieldRate: { goldPerMinute: 0, strategicPerDay: { TITANIUM: 90 } },
           yieldCap: { gold: 480, strategicEach: 30 }
         }
       ]
@@ -126,11 +126,11 @@ describe("stale yieldRate/yieldCap clearing on structure/resource/dock change (P
       {
         x: 4, y: 4,
         economicStructureJson: JSON.stringify({ type: "MINE", status: "active", ownerId: "me" }),
-        yieldRate: { goldPerMinute: 0, strategicPerDay: { IRON: 180 } },
+        yieldRate: { goldPerMinute: 0, strategicPerDay: { TITANIUM: 180 } },
         yieldCap: { gold: 480, strategicEach: 60 }
       }
     ]);
 
-    expect(deps.state.tiles.get("4,4")?.yieldRate?.strategicPerDay?.IRON).toBe(180);
+    expect(deps.state.tiles.get("4,4")?.yieldRate?.strategicPerDay?.TITANIUM).toBe(180);
   });
 });

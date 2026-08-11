@@ -12,8 +12,8 @@ const snapshot = (): PlayerSubscriptionSnapshot => ({
     manpower: 10,
     manpowerCap: 100,
     incomePerMinute: 1,
-    strategicResources: { FOOD: 0, IRON: 25, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-    strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+    strategicResources: { FOOD: 0, TITANIUM: 25, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+    strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
     developmentProcessLimit: 2,
     activeDevelopmentProcessCount: 0,
     pendingSettlements: [],
@@ -123,14 +123,14 @@ describe("applyPlayerMessageToSnapshot", () => {
     const updated = applyPlayerMessageToSnapshot(snapshot(), {
       type: "PLAYER_UPDATE",
       resourceSlots: {
-        supply: { FOOD: 3, IRON: 1, CRYSTAL: 0, SUPPLY: 0 },
-        demand: { FOOD: 2, IRON: 1, CRYSTAL: 0, SUPPLY: 0 }
+        supply: { FOOD: 3, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 2, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 }
       }
     });
 
     expect(updated.player?.resourceSlots).toEqual({
-      supply: { FOOD: 3, IRON: 1, CRYSTAL: 0, SUPPLY: 0 },
-      demand: { FOOD: 2, IRON: 1, CRYSTAL: 0, SUPPLY: 0 }
+      supply: { FOOD: 3, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 },
+      demand: { FOOD: 2, TITANIUM: 1, CRYSTAL: 0, UMBRITE: 0 }
     });
   });
 

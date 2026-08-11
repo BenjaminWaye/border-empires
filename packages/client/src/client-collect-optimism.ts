@@ -1,6 +1,6 @@
 import type { Tile } from "./client-types.js";
 
-type StrategicResourceKey = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
+type StrategicResourceKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
 
 export const hasCollectableYield = (tile: Tile | undefined): boolean => {
   if (!tile?.yield) return false;
@@ -29,7 +29,7 @@ export const visibleCollectSummary = (deps: {
   return { tileCount, gold, resourceKinds: activeResources.size };
 };
 
-const strategicKeys: StrategicResourceKey[] = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
+const strategicKeys: StrategicResourceKey[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"];
 
 export const clearPendingCollectVisibleDelta = (state: {
   pendingCollectVisibleDelta: { gold: number; strategic: Record<StrategicResourceKey, number> };
@@ -159,9 +159,9 @@ export const applyOptimisticTileCollect = (deps: {
   const gold = tile.yield?.gold ?? 0;
   const strategic = {
     FOOD: Number(tile.yield?.strategic?.FOOD ?? 0),
-    IRON: Number(tile.yield?.strategic?.IRON ?? 0),
+    TITANIUM: Number(tile.yield?.strategic?.TITANIUM ?? 0),
     CRYSTAL: Number(tile.yield?.strategic?.CRYSTAL ?? 0),
-    SUPPLY: Number(tile.yield?.strategic?.SUPPLY ?? 0),
+    UMBRITE: Number(tile.yield?.strategic?.UMBRITE ?? 0),
     SHARD: Number(tile.yield?.strategic?.SHARD ?? 0)
   } satisfies Record<StrategicResourceKey, number>;
   const touched = gold > 0 || Object.values(strategic).some((amount) => amount > 0);

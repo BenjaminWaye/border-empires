@@ -183,7 +183,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
           manpower: 3,
           techIds: [],
           domainIds: [],
-          strategicResources: { FOOD: 10, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+          strategicResources: { FOOD: 10, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
           allies: [],
           vision: 1,
           visionRadiusBonus: 0,
@@ -274,7 +274,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     const tiles = enrichSnapshotTilesForGlobalVisibility({
       tiles: [
         // Bare settled resource tile — no structure, no dock: predicate is false.
-        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "WOOD" },
+        { x: 1, y: 1, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", resource: "UMBRITE" },
         // Active FARMSTEAD — strategic-affecting structure: predicate is true.
         {
           x: 2,

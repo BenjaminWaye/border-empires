@@ -348,7 +348,7 @@ describe("leaderboard and season victory rendering", () => {
           name: "Resource Monopoly",
           description: "Control enough of one resource type.",
           leaderName: "Contested",
-          progressLabel: "6/12 IRON",
+          progressLabel: "6/12 TITANIUM",
           thresholdLabel: "Need 66% of a live resource",
           holdDurationSeconds: 86400,
           statusLabel: "No clear leader",
@@ -359,7 +359,7 @@ describe("leaderboard and season victory rendering", () => {
       new Map([["p1", "#38b000"]])
     );
 
-    expect(html).toContain("Leader: Contested · 6/12 IRON");
+    expect(html).toContain("Leader: Contested · 6/12 TITANIUM");
     expect(html).not.toContain('Leader: <span class="lb-player-name">');
   });
 });

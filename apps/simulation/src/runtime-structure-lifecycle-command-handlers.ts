@@ -98,11 +98,11 @@ export function applyStructureCancelRefund(context: RuntimeStructureCommandConte
 export function fortCancelRefund(actor: DomainPlayer, variant: FortVariant | undefined): StructureCancelRefund {
   const tier = FORT_TIER_LADDER[variant ?? "FORT"];
   const goldMult = multiplicativeEffectForPlayer(actor, "fortBuildGoldCostMult");
-  // Step 5 item 3 (Slice A): IRON is a retired build-time stockpile key (never
+  // Step 5 item 3 (Slice A): TITANIUM is a retired build-time stockpile key (never
   // actually spent by handleBuildStructureCommand any more, see
   // stripRetiredStockpileCost) -- refunding it here would hand back a resource
   // that was never taken.
-  return { gold: Math.max(0, Math.round(tier.gold * goldMult)), manpower: tier.manpower, strategic: stripRetiredStockpileCost({ IRON: tier.iron }) };
+  return { gold: Math.max(0, Math.round(tier.gold * goldMult)), manpower: tier.manpower, strategic: stripRetiredStockpileCost({ TITANIUM: tier.titanium }) };
 }
 
 export function siegeOutpostCancelRefund(variant: SiegeOutpostVariant | undefined): StructureCancelRefund {
@@ -110,7 +110,7 @@ export function siegeOutpostCancelRefund(variant: SiegeOutpostVariant | undefine
   return {
     gold: tier.gold,
     manpower: tier.manpower,
-    strategic: stripRetiredStockpileCost({ SUPPLY: tier.supply, ...(tier.iron > 0 ? { IRON: tier.iron } : {}) })
+    strategic: stripRetiredStockpileCost({ UMBRITE: tier.umbrite, ...(tier.titanium > 0 ? { TITANIUM: tier.titanium } : {}) })
   };
 }
 
@@ -129,7 +129,7 @@ export function economicOrObservatoryCancelRefund(
   // Mirrors handleBuildStructureCommand's strategicCostForStructure precedence exactly
   // (registry cost.strategic wins, falling back to the cost-definitions resourceCost) so
   // this can't drift from what was actually charged if the two tables ever disagree.
-  // stripRetiredStockpileCost then drops FOOD/IRON/CRYSTAL/SUPPLY (retired,
+  // stripRetiredStockpileCost then drops FOOD/TITANIUM/CRYSTAL/UMBRITE (retired,
   // never actually spent) while preserving SHARD (monument assembly, still spent).
   const registryStrategic = STRUCTURE_REGISTRY[structureType]?.cost.strategic as StrategicRefund | undefined;
   const costDef = structureCostDefinition(structureType);

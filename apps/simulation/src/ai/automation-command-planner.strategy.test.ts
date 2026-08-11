@@ -252,7 +252,7 @@ describe("automation command planner strategic parity", () => {
     const deadStrategicFrontier = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "FRONTIER", resource: "FARM" });
     const activeFrontier = makeTile(10, 10, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     // Economic tile (resource) ensures economicExpand fires once the broad fallback finds it.
-    const activeTarget = makeTile(11, 10, { resource: "IRON" });
+    const activeTarget = makeTile(11, 10, { resource: "TITANIUM" });
 
     const result = planAutomationCommand({
       playerId: "ai-1",
@@ -415,7 +415,7 @@ describe("automation command planner strategic parity", () => {
       points: 5_000,
       manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
       techIds: ["masonry"],
-      strategicResources: { IRON: 60 },
+      strategicResources: { TITANIUM: 60 },
       settledTileCount: 5,
       townCount: 2,
       incomePerMinute: 0,

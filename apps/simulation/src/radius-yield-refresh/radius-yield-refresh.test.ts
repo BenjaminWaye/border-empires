@@ -105,7 +105,7 @@ describe("radiusYieldRefreshBeneficiaryTiles", () => {
 
   it("re-emits the owner's MINE tiles within FOUNDRY_RADIUS when a FOUNDRY becomes active", () => {
     const mine = settledTile(8, 5, {
-      resource: "IRON",
+      resource: "TITANIUM",
       economicStructure: { type: "MINE", status: "active", ownerId: PLAYER_ID }
     });
     const previousFoundry = settledTile(5, 5, {
@@ -219,7 +219,7 @@ describe("radiusYieldRefreshBeneficiaryTiles", () => {
       economicStructure: { type: "FARMSTEAD", status: "active", ownerId: PLAYER_ID }
     });
     const mine = settledTile(8, 5, {
-      resource: "IRON",
+      resource: "TITANIUM",
       economicStructure: { type: "MINE", status: "active", ownerId: PLAYER_ID }
     });
     const previousWaterworks = settledTile(6, 5, {

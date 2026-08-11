@@ -324,8 +324,8 @@ export interface TerrainShapeState {
   createdByPlayer: boolean;
 }
 
-export type StrategicResource = "FOOD" | "IRON" | "CRYSTAL" | "SUPPLY" | "SHARD";
-export const STRATEGIC_RESOURCE_KEYS: readonly StrategicResource[] = ["FOOD", "IRON", "CRYSTAL", "SUPPLY", "SHARD"];
+export type StrategicResource = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
+export const STRATEGIC_RESOURCE_KEYS: readonly StrategicResource[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"];
 
 export interface Observatory {
   observatoryId: string;

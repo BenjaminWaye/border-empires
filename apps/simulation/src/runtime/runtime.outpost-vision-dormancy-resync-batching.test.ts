@@ -49,8 +49,8 @@ describe("outpost-vision dormancy resync perf (tick-driven mutations)", () => {
         ownershipState: "SETTLED",
         fort: { ownerId: "player-1", status: "active", variant: "FORT", garrison: 0, garrisonCap: CAP, garrisonUpdatedAt: 1_000 }
       });
-      // Each FORT needs its own free IRON slot (§5.4) to stay non-dormant.
-      tiles.push({ x: 10 + i, y: 9, terrain: "LAND", resource: "IRON", ownerId: "player-1", ownershipState: "SETTLED" });
+      // Each FORT needs its own free TITANIUM slot (§5.4) to stay non-dormant.
+      tiles.push({ x: 10 + i, y: 9, terrain: "LAND", resource: "TITANIUM", ownerId: "player-1", ownershipState: "SETTLED" });
     }
     // A Light Outpost, well clear of the forts, so this player is a
     // markOutpostVisionDormancyDirty candidate on every one of their tile

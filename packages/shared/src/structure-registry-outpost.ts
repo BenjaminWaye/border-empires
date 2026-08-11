@@ -36,7 +36,7 @@ const outpostPlacement: StructureSpec["placement"] = [
   // LIGHT_OUTPOST uses structureShowsOnTile("LIGHT_OUTPOST", ...) via the economic handler.
 ];
 
-// §12.1: the siege ladder's SUPPLY cost is already charged as a
+// §12.1: the siege ladder's UMBRITE cost is already charged as a
 // resource-slot occupation (structure-slots.ts) — no separate per-minute
 // drain on top of that, same as Observatory/Airport.
 
@@ -53,7 +53,7 @@ function siegeSpec(variant: SiegeOutpostVariant): StructureSpec {
     cost: {
       gold: tier.gold,
       manpower: tier.manpower,
-      strategic: { SUPPLY: tier.supply, ...(tier.iron > 0 ? { IRON: tier.iron } : {}) },
+      strategic: { UMBRITE: tier.umbrite, ...(tier.titanium > 0 ? { TITANIUM: tier.titanium } : {}) },
     },
     buildMs: SIEGE_OUTPOST_BUILD_MS,
     techIds,

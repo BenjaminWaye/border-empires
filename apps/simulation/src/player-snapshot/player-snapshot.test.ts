@@ -308,7 +308,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             territoryTileKeys: ["10,10"],
             points: 5,
             manpower: 3,
-            strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
+            strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
             techIds: [],
             domainIds: []
           }
@@ -486,7 +486,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
           townName: "BlackFang",
           townPopulationTier: "TOWN"
         },
-        { x: 31, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", resource: "IRON" }
+        { x: 31, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", resource: "TITANIUM" }
       ],
       players: [
         {
@@ -608,7 +608,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
       tiles: [
         ...visibleRuntimeState.tiles,
         { x: 30, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", townType: "MARKET", townName: "BlackFang" },
-        { x: 31, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", resource: "IRON" },
+        { x: 31, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", resource: "TITANIUM" },
         { x: 32, y: 30, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
         { x: 40, y: 40, terrain: "LAND", townType: "MARKET", townName: "Neutral Port" }
       ]
@@ -738,7 +738,16 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         foodUpkeepPerMinute: 0
       })
     );
-    expect(town?.goldPerMinute).toBeCloseTo(1.5207, 4);
+    // market-stacking task: isCompleteTownSummary now also requires
+    // marketCount (snapshot-economy-helpers.ts), which this fixture's
+    // hand-authored townJson blob doesn't carry — that now correctly forces
+    // a live recompute instead of short-circuiting on the canned "complete"
+    // JSON, which in turn recomputes connectedTownCount/connectedTownBonus
+    // from the real (single-town, no network) tile set instead of trusting
+    // the fixture's inconsistent stored values. The new figure reflects 1
+    // active Market with an active Clearing House (marketGoldProductionMultiplier(1, true) = 1.35),
+    // no connected-town bonus (only one town in this fixture).
+    expect(town?.goldPerMinute).toBeCloseTo(0.0094, 4);
     expect(snapshot.player).toEqual(
       expect.objectContaining({
         economyBreakdown: expect.objectContaining({
@@ -885,6 +894,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             connectedTownBonus: 0,
             hasMarket: false,
             marketActive: false,
+            marketCount: 0,
             hasGranary: false,
             granaryActive: false,
             foodUpkeepPerMinute: 0.1

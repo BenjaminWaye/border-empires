@@ -19,7 +19,7 @@ export const revealEmpireStatsSummaryLines = (stats: RevealEmpireStatsView | und
     `Territory ${formatInt(stats.tiles)} total • ${formatInt(stats.settledTiles)} settled • ${formatInt(stats.frontierTiles)} frontier`,
     `Towns ${formatInt(stats.controlledTowns)} • Tech ${formatInt(stats.techCount)}`,
     `Manpower ${formatInt(stats.manpower)}/${formatInt(stats.manpowerCap)}`,
-    `Stockpiles F ${formatInt(stats.strategicResources.FOOD)} I ${formatInt(stats.strategicResources.IRON)} C ${formatInt(stats.strategicResources.CRYSTAL)} S ${formatInt(stats.strategicResources.SUPPLY)} Sh ${formatInt(stats.strategicResources.SHARD)}`
+    `Stockpiles F ${formatInt(stats.strategicResources.FOOD)} T ${formatInt(stats.strategicResources.TITANIUM)} C ${formatInt(stats.strategicResources.CRYSTAL)} U ${formatInt(stats.strategicResources.UMBRITE)} Sh ${formatInt(stats.strategicResources.SHARD)}`
   ];
 };
 
@@ -49,9 +49,9 @@ export const revealEmpireStatsDossierHtml = (stats: RevealEmpireStatsView): stri
         <div class="intel-section-label">Strategic stockpiles</div>
         <div class="intel-stockpile-grid">
           ${statCardHtml("Food", formatInt(stockpile.FOOD))}
-          ${statCardHtml("Iron", formatInt(stockpile.IRON))}
+          ${statCardHtml("Titanium", formatInt(stockpile.TITANIUM))}
           ${statCardHtml("Crystal", formatInt(stockpile.CRYSTAL))}
-          ${statCardHtml("Supply", formatInt(stockpile.SUPPLY))}
+          ${statCardHtml("Umbrite", formatInt(stockpile.UMBRITE))}
           ${statCardHtml("Shard", formatInt(stockpile.SHARD))}
         </div>
       </div>

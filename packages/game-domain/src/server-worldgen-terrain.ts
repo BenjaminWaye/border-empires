@@ -143,18 +143,18 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
 
   const clusterTypeDefs: ClusterTypeDefinition[] = [
     { type: "FERTILE_PLAINS", resourceType: "FARM", threshold: 3 },
-    { type: "IRON_HILLS", resourceType: "IRON", threshold: 3 },
+    { type: "TITANIUM_HILLS", resourceType: "TITANIUM", threshold: 3 },
     { type: "CRYSTAL_BASIN", resourceType: "GEMS", threshold: 3 },
-    { type: "HORSE_STEPPES", resourceType: "FUR", threshold: 3 },
+    { type: "HORSE_STEPPES", resourceType: "UMBRITE", threshold: 3 },
     { type: "COASTAL_SHOALS", resourceType: "FISH", threshold: 3 }
   ];
 
   const clusterResourceType = (cluster: ClusterDefinition): ResourceType => {
     if (cluster.resourceType) return cluster.resourceType;
     if (cluster.clusterType === "FERTILE_PLAINS") return "FARM";
-    if (cluster.clusterType === "IRON_HILLS") return "IRON";
+    if (cluster.clusterType === "TITANIUM_HILLS") return "TITANIUM";
     if (cluster.clusterType === "CRYSTAL_BASIN") return "GEMS";
-    if (cluster.clusterType === "HORSE_STEPPES") return "FUR";
+    if (cluster.clusterType === "HORSE_STEPPES") return "UMBRITE";
     if (cluster.clusterType === "COASTAL_SHOALS") return "FISH";
     return "GEMS";
   };
@@ -171,7 +171,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     return false;
   };
 
-  const isGrassIronTile = (x: number, y: number, relaxed = false): boolean =>
+  const isGrassTitaniumTile = (x: number, y: number, relaxed = false): boolean =>
     terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && isNearMountain(x, y, relaxed ? 2 : 1);
 
   const clusterRuleMatch = (x: number, y: number, resource: ResourceType): boolean => {
@@ -180,10 +180,10 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     const shade = grassShadeAt(x, y);
     const region = regionTypeAtLocal(x, y);
     if (resource === "FISH") return biome === "COASTAL_SAND";
-    if (resource === "IRON") return (biome === "SAND" && isNearMountain(x, y, 4)) || isGrassIronTile(x, y);
+    if (resource === "TITANIUM") return (biome === "SAND" && isNearMountain(x, y, 4)) || isGrassTitaniumTile(x, y);
     if (resource === "GEMS") return biome === "SAND";
     if (resource === "FARM") return biome === "GRASS" && shade === "LIGHT";
-    if (resource === "FUR") return !isCoastalLand(x, y) && ((biome === "GRASS" && shade === "DARK" && region === "DEEP_FOREST") || biome === "SAND");
+    if (resource === "UMBRITE") return !isCoastalLand(x, y) && ((biome === "GRASS" && shade === "DARK" && region === "DEEP_FOREST") || biome === "SAND");
     return false;
   };
 
@@ -192,10 +192,10 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     const biome = landBiomeAt(x, y);
     const shade = grassShadeAt(x, y);
     if (resource === "FISH") return biome === "COASTAL_SAND";
-    if (resource === "IRON") return (biome === "SAND" && isNearMountain(x, y, 5)) || isGrassIronTile(x, y, true);
+    if (resource === "TITANIUM") return (biome === "SAND" && isNearMountain(x, y, 5)) || isGrassTitaniumTile(x, y, true);
     if (resource === "GEMS") return biome === "SAND";
     if (resource === "FARM") return biome === "GRASS";
-    if (resource === "FUR") return biome === "SAND" || (biome === "GRASS" && shade === "DARK");
+    if (resource === "UMBRITE") return biome === "SAND" || (biome === "GRASS" && shade === "DARK");
     return false;
   };
 
@@ -233,7 +233,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     const out: TileKey[] = [];
     const queue: Array<{ x: number; y: number; d: number }> = [{ x: cx, y: cy, d: 0 }];
     const seen = new Set<string>([key(cx, cy)]);
-    const maxDist = resource === "IRON" && landBiomeAt(cx, cy) === "GRASS" ? 3 : 5;
+    const maxDist = resource === "TITANIUM" && landBiomeAt(cx, cy) === "GRASS" ? 3 : 5;
     while (queue.length > 0 && out.length < count) {
       const current = queue.shift()!;
       if (current.d > maxDist) continue;
@@ -257,7 +257,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     const out: TileKey[] = [];
     const queue: Array<{ x: number; y: number; d: number }> = [{ x: cx, y: cy, d: 0 }];
     const seen = new Set<string>([key(cx, cy)]);
-    const maxDist = resource === "IRON" && landBiomeAt(cx, cy) === "GRASS" ? 4 : 6;
+    const maxDist = resource === "TITANIUM" && landBiomeAt(cx, cy) === "GRASS" ? 4 : 6;
     while (queue.length > 0 && out.length < count) {
       const current = queue.shift()!;
       if (current.d > maxDist) continue;
@@ -277,23 +277,23 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     return out.length >= count ? out.slice(0, count) : [];
   };
 
-  // Desert/sand FUR deposits are deliberately thin — 1 or 2 scattered pelts
-  // rather than a proper cluster — while forest FUR (the fallback 8/3 case
-  // below) stays large. IRON and GEMS are both trimmed by the same 2-tile
-  // cut so the total resource footprint comes down alongside FUR without
-  // singling either out.
+  // Desert/sand UMBRITE deposits are deliberately thin — 1 or 2 scattered
+  // veins rather than a proper cluster — while forest UMBRITE (the fallback
+  // 8/3 case below) stays large. TITANIUM and GEMS are both trimmed by the
+  // same 2-tile cut so the total resource footprint comes down alongside
+  // UMBRITE without singling either out.
   const clusterTileCountForResource = (resource: ResourceType, x: number, y: number, seed: number): number => {
-    if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return seeded01(x * 71 + 3, y * 89 + 7, seed + 4242) < 0.5 ? 1 : 2;
-    if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 2;
-    if (resource === "IRON") return 6;
+    if (resource === "UMBRITE" && landBiomeAt(x, y) === "SAND") return seeded01(x * 71 + 3, y * 89 + 7, seed + 4242) < 0.5 ? 1 : 2;
+    if (resource === "TITANIUM" && landBiomeAt(x, y) === "GRASS") return 2;
+    if (resource === "TITANIUM") return 6;
     if (resource === "GEMS") return 5;
     return 8;
   };
 
   const clusterRadiusForResource = (resource: ResourceType, x: number, y: number): number => {
-    if (resource === "FUR" && landBiomeAt(x, y) === "SAND") return 1;
-    if (resource === "IRON" && landBiomeAt(x, y) === "GRASS") return 1;
-    if (resource === "IRON") return 2;
+    if (resource === "UMBRITE" && landBiomeAt(x, y) === "SAND") return 1;
+    if (resource === "TITANIUM" && landBiomeAt(x, y) === "GRASS") return 1;
+    if (resource === "TITANIUM") return 2;
     if (resource === "GEMS") return 2;
     return 3;
   };

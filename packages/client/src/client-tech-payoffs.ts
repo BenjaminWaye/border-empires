@@ -9,7 +9,7 @@ export type TechHighlightTag = {
 
 const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockFarmstead: "Farmstead",
-  unlockCamp: "Camp",
+  unlockUmbriteRig: "Umbrite Rig",
   unlockMine: "Mine",
   unlockMarket: "Market",
   unlockForts: "Fort",
@@ -19,8 +19,8 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockCensusHall: "Census Hall",
   unlockClearingHouse: "Clearing House",
   unlockCaravanary: "Caravanary",
-  unlockFurSynthesizer: "Fur Synth",
-  unlockIronworks: "Ironworks",
+  unlockUmbriteSynthesizer: "Umbrite Synth",
+  unlockTitaniumWorks: "Titanium Works",
   unlockCrystalSynthesizer: "Aether Condenser",
   unlockFoundry: "Sky Foundry",
   unlockAetherTower: "Ambaric Tower",
@@ -38,12 +38,12 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockLogisticsGuild: "Logistics Guild",
   unlockAssemblyWorks: "Assembly Works",
   unlockPopulationBureau: "Population Bureau",
-  unlockIronLevy: "The Iron Levy",
+  unlockTitaniumLevy: "The Titanium Levy",
   // unlockWeaponsWorkshop retired — Weapons Workshop is no longer
   // unlockable (structure-registry-economic.ts), replaced by the two
   // labels below.
-  unlockIronWeaponsFactory: "Iron Weapons Factory",
-  unlockFurWeaponsFactory: "Fur Weapons Factory"
+  unlockTitaniumWeaponsFactory: "Titanium Weapons Factory",
+  unlockUmbriteWeaponsFactory: "Umbrite Weapons Factory"
 };
 
 const ACTION_UNLOCK_LABELS: Record<string, string> = {
@@ -65,18 +65,18 @@ const ACTION_UNLOCK_LABELS: Record<string, string> = {
   unlockAegisLock: "Aegis Lock"
 };
 
-// revealResource's value is a lowercase category string (food/iron/crystal/
-// supply), not a boolean like every other unlock key -- handled separately
+// revealResource's value is a lowercase category string (food/titanium/crystal/
+// umbrite), not a boolean like every other unlock key -- handled separately
 // in techHighlightTags below rather than via the boolean-keyed maps above.
 const REVEAL_RESOURCE_LABELS: Record<string, string> = {
   food: "Reveals Food",
-  iron: "Reveals Iron",
+  titanium: "Reveals Titanium",
   crystal: "Reveals Crystal",
-  supply: "Reveals Supply"
+  umbrite: "Reveals Umbrite"
 };
 
 const UPGRADE_UNLOCK_LABELS: Record<string, string> = {
-  unlockIronBastion: "Iron Bastion",
+  unlockTitaniumBastion: "Titanium Bastion",
   unlockSiegeTower: "Siege Tower",
   unlockThunderBastion: "Thunder Bastion",
   unlockDreadTower: "Dread Tower",

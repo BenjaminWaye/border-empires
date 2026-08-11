@@ -181,7 +181,7 @@ describe("automation command planner — utility AI path", () => {
       points: 5_000,
       manpower: 10,
       techIds: ["masonry"],
-      strategicResources: { IRON: 60 },
+      strategicResources: { TITANIUM: 60 },
       settledTileCount: 3,
       townCount: 1,
       incomePerMinute: 6,

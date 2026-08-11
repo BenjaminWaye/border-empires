@@ -61,8 +61,8 @@ const createPlayer = (id: string, isAi: boolean): DomainPlayer => ({
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
   allies: new Set<string>(),
-  strategicResources: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 },
-  strategicProductionPerMinute: { FOOD: 0, IRON: 0, CRYSTAL: 0, SUPPLY: 0, SHARD: 0 }
+  strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+  strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
 });
 
 export const createSeedPlayers = (profile: SimulationSeedProfile = "default"): Map<string, DomainPlayer> => {
@@ -98,7 +98,7 @@ const createDefaultSeedWorld = (): SimulationSeedWorld => {
   const tiles = new Map<string, DomainTileState>([
     [simulationTileKey(10, 10), { x: 10, y: 10, terrain: "LAND", resource: "FARM", ownerId: "player-1", ownershipState: "SETTLED", town: createTown("FARMING", "SETTLEMENT", "Nauticus") }],
     [simulationTileKey(10, 11), { x: 10, y: 11, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }],
-    [simulationTileKey(10, 12), { x: 10, y: 12, terrain: "LAND", resource: "IRON" }],
+    [simulationTileKey(10, 12), { x: 10, y: 12, terrain: "LAND", resource: "TITANIUM" }],
     [simulationTileKey(9, 10), { x: 9, y: 10, terrain: "SEA", resource: "FISH" }],
     [simulationTileKey(11, 10), { x: 11, y: 10, terrain: "MOUNTAIN" }]
   ]);
@@ -139,9 +139,9 @@ const createStressSeedWorld = (
         y,
         terrain: isSea ? "SEA" : isMountain ? "MOUNTAIN" : "LAND",
         ...(isSea && (x + y) % 3 === 0 ? { resource: "FISH" as const } : {}),
-        ...(!isSea && !isMountain && x === 1 && y === 8 ? { resource: "FUR" as const } : {}),
+        ...(!isSea && !isMountain && x === 1 && y === 8 ? { resource: "UMBRITE" as const } : {}),
         ...(!isSea && !isMountain && x === 3 && y === 2 ? { resource: "FARM" as const } : {}),
-        ...(!isSea && !isMountain && x === 5 && y === 10 ? { resource: "IRON" as const } : {})
+        ...(!isSea && !isMountain && x === 5 && y === 10 ? { resource: "TITANIUM" as const } : {})
       });
     }
   }
@@ -162,8 +162,8 @@ const createStressSeedWorld = (
       ownershipState: tile.x === 4 ? "FRONTIER" : "SETTLED",
       ...(isHomeTown ? { town: createTown("FARMING", "SETTLEMENT", "Nauticus") } : {}),
       ...(tile.x === 0 && tile.y === 3 ? { resource: "FARM" as const } : {}),
-      ...(tile.x === 1 && tile.y === 7 ? { resource: "FUR" as const } : {}),
-      ...(tile.x === 3 && tile.y === 8 ? { resource: "IRON" as const } : {})
+      ...(tile.x === 1 && tile.y === 7 ? { resource: "UMBRITE" as const } : {}),
+      ...(tile.x === 3 && tile.y === 8 ? { resource: "TITANIUM" as const } : {})
     });
   }
   perPlayer.push({
@@ -208,8 +208,8 @@ const createStressSeedWorld = (
           ownershipState: "SETTLED",
           ...(isTownTile ? { town: createTown(index % 2 === 0 ? "MARKET" : "FARMING", "SETTLEMENT", `${playerId.toUpperCase()}-${towns + 1}`) } : {}),
           ...(x === 0 && y === 0 ? { resource: "FARM" as const } : {}),
-          ...(x === 6 && y === 1 ? { resource: "IRON" as const } : {}),
-          ...(x === 12 && y === 2 ? { resource: "FUR" as const } : {})
+          ...(x === 6 && y === 1 ? { resource: "TITANIUM" as const } : {}),
+          ...(x === 12 && y === 2 ? { resource: "UMBRITE" as const } : {})
         });
         settledTiles += 1;
         if (isTownTile) towns += 1;

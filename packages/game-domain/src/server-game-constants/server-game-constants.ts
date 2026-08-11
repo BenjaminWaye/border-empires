@@ -16,8 +16,8 @@ import {
   GRANARY_INSTANT_POPULATION_BURST as SHARED_GRANARY_INSTANT_POPULATION_BURST,
   CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY as SHARED_CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
   CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT as SHARED_CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT,
-  IRON_LEVY_MANPOWER_CONVERSION_RATIO as SHARED_IRON_LEVY_MANPOWER_CONVERSION_RATIO,
-  IRON_LEVY_REGEN_FREEZE_MS as SHARED_IRON_LEVY_REGEN_FREEZE_MS,
+  TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO as SHARED_TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO,
+  TITANIUM_LEVY_REGEN_FREEZE_MS as SHARED_TITANIUM_LEVY_REGEN_FREEZE_MS,
   TOWN_MANPOWER_BY_TIER as SHARED_TOWN_MANPOWER_BY_TIER,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -68,7 +68,7 @@ export const ECONOMIC_STRUCTURE_UPKEEP_INTERVAL_MS = 10 * 60_000;
 // which already got this treatment). Retired to 0 rather than deleted, same
 // "leave plumbing, starve input" pattern.
 export const FARMSTEAD_GOLD_UPKEEP = 0;
-export const CAMP_GOLD_UPKEEP = 0;
+export const UMBRITE_RIG_GOLD_UPKEEP = 0;
 export const MINE_GOLD_UPKEEP = 0;
 export const GRANARY_GOLD_UPKEEP = 0;
 export const SEED_GRANARY_SLOTS = 5;
@@ -89,52 +89,80 @@ export const QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT = SHARED_QUA
 export const GRANARY_INSTANT_POPULATION_BURST = SHARED_GRANARY_INSTANT_POPULATION_BURST;
 export const CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY = SHARED_CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY;
 export const CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT = SHARED_CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT;
-export const IRON_LEVY_MANPOWER_CONVERSION_RATIO = SHARED_IRON_LEVY_MANPOWER_CONVERSION_RATIO;
-export const IRON_LEVY_REGEN_FREEZE_MS = SHARED_IRON_LEVY_REGEN_FREEZE_MS;
+export const TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO = SHARED_TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO;
+export const TITANIUM_LEVY_REGEN_FREEZE_MS = SHARED_TITANIUM_LEVY_REGEN_FREEZE_MS;
 export const TOWN_MANPOWER_BY_TIER: Record<PopulationTier, { cap: number; regenPerMinute: number }> = SHARED_TOWN_MANPOWER_BY_TIER;
 export const manpowerRegenWeightForSettlementIndex = sharedManpowerRegenWeightForSettlementIndex;
 export const SETTLEMENT_BASE_GOLD_PER_MIN = 2 / GOLD_RESCALE_DIVISOR; // §24.6: 2x divisor (matches TOWN_BASE_GOLD_PER_MIN) — deliberate ~10 gold/day, not the old emergent ~5
 // §6.4 (docs/manpower-economy-rewrite-plan.md): synthesizers are the ONE
 // structure family gold still gates on an ongoing basis — everything else
 // is upkeep-free (slot occupation only, see the GOLD_UPKEEP retirement
-// comment above). Decided figures: 30 gold/day (Fur/Iron), 40 gold/day
+// comment above). Decided figures: 30 gold/day (Umbrite/Titanium), 40 gold/day
 // (Crystal); Advanced tiers at 1.5x (45/45/60), enforcing "an upgraded
 // building never costs less to run than the thing it upgrades." Expressed
 // directly in gold/day per §6.4's implementation rule, converted through
 // the single UPKEEP_MINUTES_PER_DAY divisor rather than each call site
-// re-deriving its own "divide by N" — the exact bug class (Advanced Fur
-// Synthesizer silently reusing CAMP_GOLD_UPKEEP) that rule exists to
+// re-deriving its own "divide by N" — the exact bug class (Advanced Umbrite
+// Synthesizer silently reusing UMBRITE_RIG_GOLD_UPKEEP) that rule exists to
 // prevent.
 export const UPKEEP_MINUTES_PER_DAY = 1440;
-export const FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 30;
-export const ADVANCED_FUR_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 45;
-export const IRONWORKS_GOLD_UPKEEP_PER_DAY = 30;
-export const ADVANCED_IRONWORKS_GOLD_UPKEEP_PER_DAY = 45;
+export const UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 30;
+export const ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 45;
+export const TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY = 30;
+export const ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY = 45;
 export const CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 40;
 export const ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 60;
 
 // Market rebalance (structure-detail-screen task): an instant one-time gold
 // grant on completion, plus a small flat gold/min bonus expressed so it sums
-// to exactly its stated gold/day amount. Its main effect is now a flat +10%
-// town gold production multiplier (+35% with an active Clearing House,
-// preserving the existing +25pp Clearing House synergy gap) rather than the
-// old 50%/75% multiplier — see townGoldPerMinuteForPlayer.
+// to exactly its stated gold/day amount. Its main ongoing effect is a PER-
+// MARKET +10% town gold production bonus (+35% with an active Clearing
+// House, preserving the existing +25pp Clearing House synergy gap), and
+// STACKS ADDITIVELY across every active Market in a town's support ring —
+// e.g. 5 plain Markets = +50% (1.5x), not a flat capped 10%/35%.
+//
+// market-stacking task: this used to be two independently-driftable
+// MULTIPLIER constants (MARKET_GOLD_PRODUCTION_MULT = 1.1 /
+// MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE = 1.35) paired with a boolean
+// hasMarket gate — every call site multiplied by one of those two constants
+// directly, and several other call sites (live-town-summary.ts,
+// tile-detail-snapshot.ts, legacy-snapshot-bootstrap.ts,
+// legacy-snapshot-economy.ts) had independently hardcoded 1.5/1.75 instead of
+// even referencing the constants, so the four formulas silently disagreed.
+// Replaced with a single BONUS-per-market source of truth plus the
+// marketGoldProductionMultiplier() pure function below — every call site now
+// computes a real market COUNT (economy-network.ts's countSupportedStructures)
+// and calls this one function, so the four formulas can no longer drift.
 export const MARKET_INSTANT_GOLD_BONUS = 10;
 export const MARKET_FLAT_GOLD_BONUS_PER_MIN = 1 / UPKEEP_MINUTES_PER_DAY;
-export const MARKET_GOLD_PRODUCTION_MULT = 1.1;
-export const MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE = 1.35;
+export const MARKET_GOLD_PRODUCTION_BONUS = 0.10;
+export const MARKET_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE = 0.35;
+
+/**
+ * Pure per-market gold production multiplier — the single shared source of
+ * truth for both server (apps/simulation, apps/realtime-gateway) and client
+ * (packages/client) call sites. Returns 1 (no bonus) when marketCount <= 0;
+ * otherwise 1 + marketCount * (per-market bonus, higher with an active
+ * Clearing House). Deliberately takes a real count, not a boolean — each
+ * Market contributes its own bonus, stacking additively, not just "any
+ * Market present."
+ */
+export const marketGoldProductionMultiplier = (marketCount: number, clearingHouseActive: boolean): number => {
+  if (marketCount <= 0) return 1;
+  return 1 + marketCount * (clearingHouseActive ? MARKET_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE : MARKET_GOLD_PRODUCTION_BONUS);
+};
 
 // Converter mode flip (docs/plans/2026-08-06-converter-mode-flip.md)
 export const CONVERTER_MODE_FLIP_COOLDOWN_MS = 60 * 60_000;
 // converter-mode-flip plan §Phase 4 (locked rates): flat gold/day per slot
 // consumed by an EXCHANGE-mode converter. Advanced tiers pay 1.5x, mirroring
 // "an upgraded building never costs less to run than the thing it upgrades."
-// Basic: IRON/SUPPLY 8, CRYSTAL 10. Advanced: IRON/SUPPLY 12, CRYSTAL 15.
+// Basic: TITANIUM/UMBRITE 8, CRYSTAL 10. Advanced: TITANIUM/UMBRITE 12, CRYSTAL 15.
 export const EXCHANGE_GOLD_PER_SLOT_PER_DAY = {
-  FUR_SYNTHESIZER: 8,
-  ADVANCED_FUR_SYNTHESIZER: 12,
-  IRONWORKS: 8,
-  ADVANCED_IRONWORKS: 12,
+  UMBRITE_SYNTHESIZER: 8,
+  ADVANCED_UMBRITE_SYNTHESIZER: 12,
+  TITANIUM_WORKS: 8,
+  ADVANCED_TITANIUM_WORKS: 12,
   CRYSTAL_SYNTHESIZER: 10,
   ADVANCED_CRYSTAL_SYNTHESIZER: 15
 } as const;
@@ -145,7 +173,7 @@ export const EXCHANGE_GOLD_PER_SLOT_PER_DAY = {
 // resource two different ways, so they're retired to 0 rather than deleted
 // (their call sites — player-update-economy.ts, player-upkeep-incremental.ts —
 // stay in place and naturally go inert, same "leave plumbing, starve input"
-// treatment IRON/CRYSTAL/SUPPLY got when their production was retired).
+// treatment TITANIUM/CRYSTAL/UMBRITE got when their production was retired).
 export const MARKET_FOOD_UPKEEP = 0;
 export const LIGHT_OUTPOST_GOLD_UPKEEP = 0;
 export const CARAVANARY_FOOD_UPKEEP = 0;
@@ -154,10 +182,10 @@ export const GARRISON_HALL_GOLD_UPKEEP = 0;
 export const GOVERNORS_OFFICE_GOLD_UPKEEP = 0;
 export const RADAR_SYSTEM_GOLD_UPKEEP = 0;
 export const FOUNDRY_GOLD_UPKEEP = 0;
-export const FUR_SYNTHESIZER_SUPPLY_PER_DAY = 18;
-export const ADVANCED_FUR_SYNTHESIZER_SUPPLY_PER_DAY = 21.6;
-export const IRONWORKS_IRON_PER_DAY = 18;
-export const ADVANCED_IRONWORKS_IRON_PER_DAY = 21.6;
+export const UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY = 18;
+export const ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY = 21.6;
+export const TITANIUM_WORKS_TITANIUM_PER_DAY = 18;
+export const ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY = 21.6;
 export const CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 12;
 export const ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY = 14.4;
 // §12.1 (docs/manpower-economy-rewrite-plan.md): Airport's ongoing crystal
