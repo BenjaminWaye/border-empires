@@ -22,6 +22,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786423606364, // 2026.08.11.1
+    introducedIn: "2026.08.11.1",
+    title: "Granary build/modifier text no longer promises a stale ongoing growth bonus",
+    why: "A plain Granary (Incubation Engine) only grants an instant one-time population burst on completion — the old ongoing +15% growth bonus was removed server-side, but the build-menu hint and the town-tile overview modifier line still advertised it, so the client was quietly promising a bonus the town was no longer getting.",
+    changes: [
+      "The Granary build option now describes its real effect: an instant +10,000 population burst on completion.",
+      "The town-tile overview no longer shows a \"+15% population growth\" line for a plain Granary — only an active Seed Granary (or a Granary inside its buffed radius) still shows an ongoing growth bonus."
+    ]
+  },
+  {
     createdAt: 1786413600000, // 2026.08.10.3
     introducedIn: "2026.08.10.3",
     title: "New 3D Umbrite Extraction Rig",

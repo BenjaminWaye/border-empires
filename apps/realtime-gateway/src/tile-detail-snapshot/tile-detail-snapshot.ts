@@ -11,10 +11,12 @@ import {
   marketGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
+  granaryGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
+  townPopulationMultiplier,
   UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 
@@ -33,15 +35,6 @@ const keyFor = (x: number, y: number): string => `${x},${y}`;
 // income multiplier aren't available here; both default to 1.0, so this may
 // under-report by tech/first-three bonuses (<= ~25%) until the sim's
 // authoritative response lands — vastly better than reporting 0.
-const townPopulationMultiplierLocal = (tier: string): number => {
-  switch (tier) {
-    case "CITY": return 1.5;
-    case "GREAT_CITY": return 2.5;
-    case "METROPOLIS": return 3.2;
-    default: return 1;
-  }
-};
-
 const fallbackTownGoldPerMinute = (input: {
   isSettlement: boolean;
   isFed: boolean;
@@ -58,7 +51,7 @@ const fallbackTownGoldPerMinute = (input: {
   return (
     TOWN_BASE_GOLD_PER_MIN *
     supportRatio *
-    townPopulationMultiplierLocal(input.populationTier) *
+    townPopulationMultiplier(input.populationTier) *
     (1 + input.connectedTownBonus) *
     marketGoldProductionMultiplier(input.marketCount, input.clearingHouseActive) *
     PASSIVE_INCOME_MULT
@@ -168,11 +161,16 @@ const townPopulationGrowthPerMinute = (input: {
   if (typeof input.population !== "number" || typeof input.maxPopulation !== "number") return undefined;
   const logisticFactor = 1 - input.population / Math.max(1, input.maxPopulation);
   if (logisticFactor <= 0) return 0;
+  // This fallback path doesn't detect Seed Granary / its buffed-radius state
+  // (unlike runtime-population-growth.ts's authoritative live-tick check),
+  // so it can only ever pass hasAnyGranary — never seedGranaryBuffed=true.
+  // granaryGrowthMultiplier() therefore always resolves to 1 here, matching
+  // the "instant burst only, no ongoing bonus" design for a plain Granary.
   const growth =
     input.population *
     POPULATION_GROWTH_BASE_RATE *
     (input.populationTier === "SETTLEMENT" ? SETTLEMENT_GROWTH_RATE_MULT : 1) *
-    (input.hasGranary ? 1.15 : 1) *
+    granaryGrowthMultiplier(input.hasGranary, false) *
     logisticFactor;
   return Number(growth.toFixed(4));
 };

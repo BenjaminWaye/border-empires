@@ -15,6 +15,7 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
+  townPopulationMultiplier,
   UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import { SYNTHESIZER_TYPE_SET, converterModeOf, SYNTHESIZER_FAMILY_RESOURCE, type BuildableStructureType } from "@border-empires/shared";
@@ -157,20 +158,7 @@ const structureUpkeepPerMinute = (structureType: string, mode?: string): Partial
   }
 };
 
-export const townPopulationMultiplier = (populationTier: string | undefined): number => {
-  switch (populationTier) {
-    case "CITY":
-      return 1.5;
-    case "GREAT_CITY":
-      return 2.5;
-    case "METROPOLIS":
-      return 3.2;
-    default:
-      return 1;
-  }
-};
-
-export { townFoodUpkeepPerMinute };
+export { townFoodUpkeepPerMinute, townPopulationMultiplier };
 export { buildFedTownKeys, hasSupportedStructure } from "../economy-network/economy-network.js";
 
 export const supportSummaryForTown = (
