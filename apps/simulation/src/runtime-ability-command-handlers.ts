@@ -15,6 +15,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { parseAetherWallPayload, parseRevealPayload, parseTilePayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
+import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type {
   ActiveAetherBridgeView,
   ActiveAetherWallView,
@@ -22,6 +23,12 @@ import type {
   SimulationTileWireDelta
 } from "./runtime-types.js";
 import type { AetherWallSegment } from "./runtime-ability-helpers.js";
+
+// Hidden Hand / Oracle State's observatoryCooldownMult scales every
+// observatory-gated ability's cooldown (Reveal Empire Stats, Survey Sweep,
+// Aether Lance, Aether Bridge, Aether Wall) uniformly.
+const observatoryCooldownMsForActor = (actor: DomainPlayer, baseCooldownMs: number): number =>
+  Math.round(baseCooldownMs * multiplicativeEffectForPlayer(actor, "observatoryCooldownMult"));
 
 type SurveySweepPingKind = "resource" | "town";
 
@@ -193,7 +200,7 @@ export function handleRevealEmpireStatsCommand(context: RuntimeAbilityCommandCon
   }
   context.stampObservatoryCooldown(
     revealObservatoryKey,
-    REVEAL_EMPIRE_STATS_COOLDOWN_MS,
+    observatoryCooldownMsForActor(actor, REVEAL_EMPIRE_STATS_COOLDOWN_MS),
     revealNow,
     command.commandId,
     command.playerId
@@ -240,7 +247,7 @@ export function handleSurveySweepCommand(context: RuntimeAbilityCommandContext, 
     return;
   }
   const pings = buildSurveySweepPings(context, actor.id, observatoryTile.x, observatoryTile.y);
-  context.stampObservatoryCooldown(observatoryKey, SURVEY_SWEEP_COOLDOWN_MS, now, command.commandId, command.playerId);
+  context.stampObservatoryCooldown(observatoryKey, observatoryCooldownMsForActor(actor, SURVEY_SWEEP_COOLDOWN_MS), now, command.commandId, command.playerId);
   console.log(
     `[survey-sweep-debug] server emitting SURVEY_SWEEP_RESULT commandId=${command.commandId} playerId=${command.playerId} pingCount=${pings.length}`
   );
@@ -300,7 +307,7 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
   actor.points -= AETHER_LANCE_GOLD_COST;
   context.stampObservatoryCooldown(
     lanceObservatoryKey,
-    AETHER_LANCE_COOLDOWN_MS,
+    observatoryCooldownMsForActor(actor, AETHER_LANCE_COOLDOWN_MS),
     lanceNow,
     command.commandId,
     command.playerId
@@ -356,7 +363,7 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
   }
   context.stampObservatoryCooldown(
     bridgeObservatoryKey,
-    AETHER_BRIDGE_COOLDOWN_MS,
+    observatoryCooldownMsForActor(actor, AETHER_BRIDGE_COOLDOWN_MS),
     bridgeNow,
     command.commandId,
     command.playerId
@@ -415,7 +422,7 @@ export function handleCastAetherWallCommand(context: RuntimeAbilityCommandContex
   }
   context.stampObservatoryCooldown(
     wallObservatoryKey,
-    AETHER_WALL_COOLDOWN_MS,
+    observatoryCooldownMsForActor(actor, AETHER_WALL_COOLDOWN_MS),
     wallNow,
     command.commandId,
     command.playerId
