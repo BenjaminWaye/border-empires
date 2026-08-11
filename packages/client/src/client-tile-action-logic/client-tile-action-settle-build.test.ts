@@ -210,6 +210,32 @@ describe("settle + build — settled-only building with no resource/town/dock su
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • settles this tile first");
   });
+
+  it("a 2nd Observatory needs 2 free CRYSTAL slots, not the flat 1 the 1st one needed", () => {
+    const state = bareFrontierState(["crystal-lattices"]);
+    state.me = "me";
+    // Already own one active Observatory elsewhere — its own 1-slot demand is
+    // netted into resourceSlots.demand, same as the real server-computed value.
+    state.tiles.set(keyFor(9, 9), { x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", observatory: { ownerId: "me", status: "active" } } as Tile);
+    state.resourceSlots.demand.CRYSTAL = 1;
+    // Only 1 CRYSTAL slot free (supply 2 - demand 1) -- not enough for the
+    // 2nd copy's 2-slot cost.
+    state.resourceSlots.supply.CRYSTAL = 2;
+
+    const settled: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" } as Tile;
+    state.tiles.set(keyFor(3, 3), settled);
+
+    const actionsOneFree = menuActionsForSingleTile(state, settled, baseDeps as never);
+    const disabled = findAction(actionsOneFree, "build_observatory");
+    expect(disabled?.disabled).toBe(true);
+    expect(disabled?.disabledReason).toBe("Need a free CRYSTAL slot");
+
+    // With a 2nd free CRYSTAL slot (now 2 total free), the 2nd Observatory becomes buildable.
+    state.resourceSlots.supply.CRYSTAL = 3;
+    const actionsTwoFree = menuActionsForSingleTile(state, settled, baseDeps as never);
+    const enabled = findAction(actionsTwoFree, "build_observatory");
+    expect(enabled?.disabled).not.toBe(true);
+  });
 });
 
 describe("Wooden Fort / Light Outpost stay visible as a fallback when their upgrade's resource slot is unavailable", () => {

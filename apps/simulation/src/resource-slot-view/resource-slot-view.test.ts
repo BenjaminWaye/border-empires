@@ -312,6 +312,36 @@ describe("resourceSlotDemandForPlayer", () => {
     expect(totals.UMBRITE).toBe(3);
     expect(totals.TITANIUM).toBe(2);
   });
+
+  it("each additional Observatory costs progressively more CRYSTAL upkeep — 1st=1, 2nd=2, 3rd=3", () => {
+    const totals = resourceSlotDemandForPlayer(
+      [
+        { x: 0, y: 0, observatory: { ownerId: "p1", status: "active", activatedAt: 1_000 } } as PartialTile as DomainTileState,
+        { x: 1, y: 0, observatory: { ownerId: "p1", status: "active", activatedAt: 3_000 } } as PartialTile as DomainTileState,
+        { x: 2, y: 0, observatory: { ownerId: "p1", status: "active", activatedAt: 2_000 } } as PartialTile as DomainTileState
+      ],
+      "p1"
+    );
+    // 1 (earliest, activatedAt 1000) + 2 (2nd by build order, activatedAt 2000) + 3 (3rd, activatedAt 3000) = 6.
+    expect(totals.CRYSTAL).toBe(6);
+  });
+
+  it("Watchtower Engine's free observatory doesn't count toward another Observatory's progressive rank", () => {
+    const totals = resourceSlotDemandForPlayer(
+      [
+        {
+          x: 0, y: 0,
+          observatory: { ownerId: "p1", status: "active", activatedAt: 500 },
+          naturalWonder: { type: "WATCHTOWER_ENGINE" }
+        } as PartialTile as DomainTileState,
+        { x: 1, y: 0, observatory: { ownerId: "p1", status: "active", activatedAt: 1_000 } } as PartialTile as DomainTileState
+      ],
+      "p1"
+    );
+    // The Watchtower Engine's own observatory is exempt entirely (addContributor
+    // is never called for it), so the real one is still the 1st (and only) paid copy.
+    expect(totals.CRYSTAL).toBe(1);
+  });
 });
 
 describe("currentTileFieldSlotRequirements", () => {
