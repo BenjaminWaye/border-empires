@@ -1,4 +1,4 @@
-import { PLAYER_BASE_VISION, TRICKLE_RESOURCE_KEYS, type ChosenTrickleResource } from "@border-empires/shared";
+import { PLAYER_BASE_VISION, TRICKLE_RESOURCE_KEYS, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainInfo, TechInfo } from "../client-types.js";
 import { isTechHighlightEffectKey } from "../client-tech-payoffs.js";
 type ModKey = "attack" | "defense" | "income" | "vision";
@@ -35,7 +35,7 @@ export const hasRevealedResourceCategory = (
 };
 
 export const effectSummaryLabel = (key: string, value: unknown): string | null => {
-  if (key === "unlockFarmstead" && value === true) return "Unlocks farmsteads (+50% farm food, +18 food cap)";
+  if (key === "unlockFarmstead" && value === true) return `Unlocks farmsteads (+50% farm food, +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot)`;
   if (key === "unlockUmbriteRig" && value === true) return "Unlocks umbrite rigs";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMarket" && value === true) return "Unlocks markets";
@@ -83,7 +83,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
   if (key === "unlockSeedGranaryUpgrade" && value === true) return "Upgrades Granary to Seed Granary";
-  if (key === "unlockWaterworksUpgrade" && value === true) return "Unlocks Waterworks (+100% farmstead food within 10 tiles; raises food cap)";
+  if (key === "unlockWaterworksUpgrade" && value === true) return `Unlocks Waterworks (+100% farmstead food within 10 tiles; each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots)`;
   if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
   if (key === "unlockQuartermastersOffice" && value === true) return "Unlocks Quartermaster's Office";

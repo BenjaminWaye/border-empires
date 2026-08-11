@@ -31,6 +31,17 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1786445548761, // 2026.08.11.5
+    introducedIn: "2026.08.11.5",
+    title: "Farmstead/Waterworks text no longer promises a nonexistent \"food cap\"",
+    why: "Build-menu, tech, and tile-overview text still described Farmstead as granting \"+18 food cap\" and Waterworks as \"raising food cap\" — leftover wording from before the food-as-slots rewrite retired the food-cap mechanic entirely. The real, current effect (Farmstead +1 FOOD slot, Waterworks-boosted Farmstead +2 FOOD slots) was already correct in a couple of other spots, so the stale copies were just quietly promising a bonus that no longer exists.",
+    changes: [
+      "Farmstead build option, tech unlock text, and tile-overview modifier now say \"+1 FOOD slot\" instead of \"+18 food cap\".",
+      "Waterworks build option, tech unlock text, and tile-overview modifier now say \"each boosted Farmstead gains +2 FOOD slots\" instead of \"raises food cap\".",
+      "All of these now read the actual slot-bonus values from the shared @border-empires/shared constants instead of separately hardcoded numbers, so they can't drift out of sync with the real mechanic again."
+    ]
+  },
+  {
     createdAt: 1786444300000, // 2026.08.11.3
     introducedIn: "2026.08.11.3",
     title: "Queue and timing fixes",
