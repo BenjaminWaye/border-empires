@@ -10,12 +10,12 @@ import {
   UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
   MARKET_FLAT_GOLD_BONUS_PER_MIN,
-  MARKET_GOLD_PRODUCTION_MULT,
-  MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE,
+  marketGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
   townFoodUpkeepPerMinute,
+  townPopulationMultiplier,
   UPKEEP_MINUTES_PER_DAY
 } from "@border-empires/game-domain";
 import { SYNTHESIZER_TYPE_SET, converterModeOf, SYNTHESIZER_FAMILY_RESOURCE, type BuildableStructureType } from "@border-empires/shared";
@@ -26,6 +26,7 @@ import {
   enrichTownWithConnectedNetwork,
   firstThreeTownKeysForPlayer,
   firstThreeTownsGoldOutputMultiplierForPlayer,
+  countSupportedStructures,
   hasSupportedStructure,
   supportTileBelongsToTown,
   type ConnectedTownNetworkEntry,
@@ -157,20 +158,7 @@ const structureUpkeepPerMinute = (structureType: string, mode?: string): Partial
   }
 };
 
-export const townPopulationMultiplier = (populationTier: string | undefined): number => {
-  switch (populationTier) {
-    case "CITY":
-      return 1.5;
-    case "GREAT_CITY":
-      return 2.5;
-    case "METROPOLIS":
-      return 3.2;
-    default:
-      return 1;
-  }
-};
-
-export { townFoodUpkeepPerMinute };
+export { townFoodUpkeepPerMinute, townPopulationMultiplier };
 export { buildFedTownKeys, hasSupportedStructure } from "../economy-network/economy-network.js";
 
 export const supportSummaryForTown = (
@@ -235,7 +223,10 @@ export const townGoldPerMinuteForPlayer = (
   if (!fedTownKeys.has(tileKey)) return 0;
   const support = supportSummaryForTown(player.id, tile, tiles);
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
-  const hasMarket = hasSupportedStructure(player.id, tile, "MARKET", tiles, false, dormantEconomicStructureKeys);
+  // market-stacking task: MARKET's gold bonus stacks additively per active
+  // Market in the support ring (marketGoldProductionMultiplier), not a
+  // boolean "any Market" gate — see countSupportedStructures.
+  const marketCount = countSupportedStructures(player.id, tile, "MARKET", tiles, dormantEconomicStructureKeys);
   // connectedClearingHouseKeys is pre-filtered to ONLY towns with a CH at
   // network-build time. Re-verify defensively — a progression command may
   // have destroyed a CH between build and read — but the candidate set is
@@ -256,11 +247,11 @@ export const townGoldPerMinuteForPlayer = (
     supportRatio *
     townPopulationMultiplier(town.populationTier) *
     (1 + (town.connectedTownBonus ?? 0)) *
-    (hasMarket ? (clearingHouseActive ? MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE : MARKET_GOLD_PRODUCTION_MULT) : 1) *
+    marketGoldProductionMultiplier(marketCount, clearingHouseActive) *
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + (hasMarket ? MARKET_FLAT_GOLD_BONUS_PER_MIN : 0);
+  ) + MARKET_FLAT_GOLD_BONUS_PER_MIN * marketCount;
 };
 
 // Refresh goldPerMinute/isFed on a town originally from buildTownSummary

@@ -1,4 +1,5 @@
 import { DREAD_TOWER_ATTACK_MULT, LIGHT_OUTPOST_ATTACK_MULT, NATURAL_WONDER_LABELS, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
+import { marketGoldProductionMultiplier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
@@ -44,18 +45,27 @@ const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
-  if (tile.hasMarket && tile.marketActive) {
-    modifiers.push({ reason: "Market", effect: "+50% town gold production", tone: "positive" });
+  const marketCount = tile.marketCount ?? 0;
+  if (marketCount > 0 && tile.marketActive) {
+    // market-stacking task: derive the real stacked percentage from the
+    // shared marketGoldProductionMultiplier() instead of a hardcoded "+50%"
+    // — each active Market contributes its own +10%/+35% additively.
+    const mult = marketGoldProductionMultiplier(marketCount, Boolean(tile.clearingHouseActive));
+    modifiers.push({ reason: "Market", effect: `+${Math.round((mult - 1) * 100)}% town gold production`, tone: "positive" });
     modifiers.push({ reason: "Market", effect: "higher production raises gold cap", tone: "positive" });
   }
+  // A plain Granary (Incubation Engine) grants ONLY its instant one-time
+  // population burst on completion — the old ongoing +15% growth bonus was
+  // removed (commit 7a51b06b, "Incubation Engine double-dip" fix; see
+  // granaryGrowthMultiplier in packages/game-domain). This modifier line was
+  // missed by that fix and kept showing the stale "+15% population growth"
+  // text even though the server no longer grants it — no ongoing-growth
+  // line is shown here unless a Seed Granary's buffed radius actually
+  // applies (matching granaryGrowthMultiplier's server-side behavior).
   if (tile.hasSeedGranary && tile.seedGranaryActive) {
     modifiers.push({ reason: "Seed Granary", effect: "+30% population growth", tone: "positive" });
-  } else if (tile.hasGranary && tile.granaryActive) {
-    if (tile.seedGranaryBuffed) {
-      modifiers.push({ reason: "Granary (Seed Granary boost)", effect: "+30% population growth", tone: "positive" });
-    } else {
-      modifiers.push({ reason: "Granary", effect: "+15% population growth", tone: "positive" });
-    }
+  } else if (tile.hasGranary && tile.granaryActive && tile.seedGranaryBuffed) {
+    modifiers.push({ reason: "Granary (Seed Granary boost)", effect: "+30% population growth", tone: "positive" });
   }
   if (tile.hasClearingHouse && tile.clearingHouseActive) {
     modifiers.push({ reason: "Clearing House", effect: "+25% Market effect", tone: "positive" });

@@ -1458,8 +1458,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           persistWaypointQueueForPlayer(state.me, state.waypoint);
           state.autoSettleTargets.add(targetKey);
           state.autoBuildTargets.set(targetKey, "LIGHT_OUTPOST");
-          const summary = plan.expandCount > 0 ? `${plan.expandCount} expand tiles, then settle + build` : "settle + build";
-          pushFeed(`Expanding to Light Outpost site at (${selected.x}, ${selected.y}) — ${summary}.`, "info", "info");
           processActionQueue();
         }
       }

@@ -170,6 +170,7 @@ export type DomainTileState = {
             | "manpowerCap"
             | "hasMarket"
             | "marketActive"
+            | "marketCount"
             | "hasGranary"
             | "granaryActive"
             | "foodUpkeepPerMinute"

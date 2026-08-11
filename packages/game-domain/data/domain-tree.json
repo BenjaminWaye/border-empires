@@ -1,12 +1,12 @@
 {
-  "version": 3,
+  "version": 4,
   "domains": [
     {
       "id": "frontier-doctrine",
       "tier": 1,
       "name": "Frontier Doctrine",
       "description": "Settlers move out at breakneck pace, and the realm can coordinate one extra expansion at a time.",
-      "requiresTechId": "pottery",
+      "requiresTechId": "organized-supply",
       "cost": { "gold": 40 },
       "effects": {
         "settlementSpeedMult": 1.5,
@@ -63,7 +63,7 @@
       "id": "cogwork-foundries",
       "tier": 2,
       "name": "Cogwork Foundries",
-      "description": "Steam-driven assembly lines and clockwork cranes turn frontier construction into an industrial process.",
+      "description": "Steam-driven assembly lines and clockwork cranes turn every blueprint into a running production line. Town support buildings build 25% faster.",
       "requiresTechId": "logistics",
       "cost": { "gold": 200, "shard": 1 },
       "effects": {
@@ -73,24 +73,24 @@
     {
       "id": "stone-curtain",
       "tier": 2,
-      "name": "Stone Curtain",
-      "description": "The edge of your realm hardens into a line worth defending.",
+      "name": "Garrison Doctrine",
+      "description": "Every fort you control is dug in, reinforced, and permanently manned. Forts you control fight with 50% extra defense.",
       "requiresTechId": "fortified-walls",
       "cost": { "gold": 200, "shard": 1 },
       "effects": {
-        "settledDefenseNearFortMult": 1.20
+        "fortDefenseMult": 1.5
       }
     },
     {
       "id": "titanium-vanguard",
       "tier": 2,
-      "name": "Titanium Vanguard",
-      "description": "Aggression is sharpened specifically against real territory.",
+      "name": "Steam Vanguard",
+      "description": "Boiler-fed assault columns commit before the enemy can dig in. Attacks resolve 5s faster, and one more muster flag can be held at once.",
       "requiresTechId": "fortified-walls",
       "cost": { "gold": 200, "shard": 1 },
       "effects": {
-        "attackVsSettledMult": 1.20,
-        "attackVsFortsMult": 1.20
+        "musterMaxTilesAdd": 1,
+        "attackResolveSpeedReduceMs": 5000
       }
     },
     {
@@ -119,29 +119,27 @@
       "id": "provincial-governors",
       "tier": 3,
       "name": "Provincial Governors",
-      "description": "Your core cities become richer and easier to administer.",
+      "description": "Governors uncap the treasury: town and dock gold reserves both grow 25% larger.",
       "requiresTechId": "coinage",
       "cost": { "gold": 400, "shard": 2 },
       "effects": {
-        "firstThreeTownsGoldOutputMult": 1.15,
-        "townGoldCapMult": 1.15
+        "townGoldCapMult": 1.25,
+        "dockGoldCapMult": 1.25
       }
     },
     {
       "id": "war-foundries",
       "tier": 3,
       "name": "War Foundries",
-      "description": "Siege pressure and army quality start to compound together.",
+      "description": "Armories mass-produce siege gear: attacks against forts hit harder, and your muster lines hold two more flags.",
       "requiresTechId": "organized-supply",
       "cost": { "gold": 400, "shard": 2 },
       "mods": {
-        "attack": 1.1,
-        "defense": 1.1
+        "attack": 1.08
       },
       "effects": {
-        "outpostAttackMult": 1.15,
-        "attackVsSettledMult": 1.1,
-        "musterMaxTilesAdd": 1
+        "attackVsFortsMult": 1.15,
+        "musterMaxTilesAdd": 2
       }
     },
     {
@@ -152,7 +150,7 @@
       "requiresTechId": "organized-supply",
       "cost": { "gold": 400, "shard": 2 },
       "effects": {
-        "settlementSpeedMult": 1.1,
+        "settlementSpeedMult": 1.15,
         "developmentProcessCapacityAdd": 1,
         "outpostUmbriteSlotWaiverCount": 3
       }
@@ -161,50 +159,49 @@
       "id": "merchant-houses",
       "tier": 3,
       "name": "Merchant Houses",
-      "description": "Markets, granaries, and ports begin compounding around a strong core.",
+      "description": "Every dock you link into the trade network pays more the bigger the network gets, and your first three cities keep more of the profit.",
       "requiresTechId": "coinage",
       "cost": { "gold": 400, "shard": 2 },
       "effects": {
-        "marketBonusMult": 1.15,
-        "granaryBonusMult": 1.15,
-        "dockGoldCapMult": 1.15
+        "dockConnectionBonusPerLink": 0.5,
+        "firstThreeTownsGoldOutputMult": 1.15
       }
     },
     {
       "id": "field-stores",
       "tier": 3,
       "name": "Provincial Nurseries",
-      "description": "The first three cities grow harder and taller than the rest of the realm.",
+      "description": "The first three cities grow harder and taller than the rest of the realm — and two of them are fed for free.",
       "requiresTechId": "pottery",
       "cost": { "gold": 400, "shard": 2 },
       "effects": {
-        "firstThreeTownsPopulationGrowthMult": 1.2,
-        "populationCapFirst3TownsMult": 1.1
+        "firstThreeTownsPopulationGrowthMult": 1.25,
+        "firstTownsFoodSlotWaiverCount": 2
       }
     },
     {
       "id": "imperial-roads-domain",
       "tier": 4,
       "name": "Imperial Roads",
-      "description": "Administration and movement fuse into one expansion machine.",
+      "description": "Administration and movement fuse into one expansion machine, and every connected town pays its neighbors better.",
       "requiresTechId": "civil-service",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {
         "developmentProcessCapacityAdd": 1,
-        "settlementSpeedMult": 1.15,
-        "outpostDeploymentSpeedMult": 1.1
+        "settlementSpeedMult": 1.2,
+        "connectedTownStepBonusAdd": 0.15
       }
     },
     {
       "id": "fortress-realm",
       "tier": 4,
-      "name": "Fortress Realm",
-      "description": "Forts become force multipliers for every nearby settled district.",
+      "name": "Signal Bastions",
+      "description": "Every fort becomes a garrisoned watchtower: forts and towns alike see much further across the frontier.",
       "requiresTechId": "steelworking",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {
-        "fortDefenseMult": 1.25,
-        "settledDefenseNearFortMult": 1.15,
+        "outpostVisionRadiusBonus": 2,
+        "townVisionRadiusBonus": 1,
         "fortTitaniumSlotWaiverCount": 5
       }
     },
@@ -212,56 +209,55 @@
       "id": "siege-state",
       "tier": 4,
       "name": "Siege State",
-      "description": "Outposts are deployed to break empires, not merely harass them.",
+      "description": "Outposts become breaching engines: attacks against forts hit far harder, and muster lines hold two more flags.",
       "requiresTechId": "siegecraft",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {
-        "outpostAttackMult": 1.2,
-        "attackVsFortsMult": 1.1,
-        "attackVsSettledMult": 1.1
+        "attackVsFortsMult": 1.2,
+        "musterMaxTilesAdd": 2
       }
     },
     {
       "id": "treasury-state",
       "tier": 4,
       "name": "Treasury State",
-      "description": "Wealth is disciplined into larger reserves and stronger city infrastructure.",
+      "description": "Your first three settled towns and their support buildings require no food, and the treasury holds more gold.",
       "requiresTechId": "coinage",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {
-        "townGoldCapMult": 1.2,
-        "marketBonusMult": 1.1,
-        "firstTownsFoodSlotWaiverCount": 3
+        "firstTownsFoodSlotWaiverCount": 3,
+        "townGoldCapMult": 1.2
       }
     },
     {
       "id": "hidden-hand",
       "tier": 4,
       "name": "Hidden Hand",
-      "description": "State intelligence speeds research and shortens every special response.",
+      "description": "State intelligence cuts every observatory ability's cooldown in half.",
       "requiresTechId": "cryptography",
       "cost": { "gold": 800, "shard": 3 },
       "effects": {
-        "abilityCooldownMult": 0.8,
-        "revealCapacityBonus": 1
+        "observatoryCooldownMult": 0.5
       }
     },
     {
       "id": "imperial-expansion",
       "tier": 5,
       "name": "Imperial Expansion",
-      "description": "A sprawling empire can expand in parallel and hold a dangerous frontier.",
+      "description": "A sprawling empire expands on every front at once and still holds a dangerous frontier with an extra flag to spare.",
       "requiresTechId": "civil-service",
       "cost": { "gold": 1800, "shard": 5 },
       "effects": {
-        "developmentProcessCapacityAdd": 1
+        "developmentProcessCapacityAdd": 1,
+        "settlementSpeedMult": 1.25,
+        "musterMaxTilesAdd": 2
       }
     },
     {
       "id": "titanium-dominion",
       "tier": 5,
       "name": "Titanium Dominion",
-      "description": "Military force becomes your primary language in attack and defense alike.",
+      "description": "Military force becomes your primary language: attack and defense are stronger everywhere, and your own forts hold the line even harder.",
       "requiresTechId": "steelworking",
       "cost": { "gold": 1800, "shard": 5 },
       "mods": {
@@ -269,21 +265,20 @@
         "defense": 1.18
       },
       "effects": {
-        "attackVsFortsMult": 1.12,
-        "attackVsSettledMult": 1.12,
-        "outpostAttackMult": 1.15
+        "attackVsFortsMult": 1.15,
+        "fortDefenseMult": 1.15
       }
     },
     {
       "id": "enduring-realm",
       "tier": 5,
       "name": "Enduring Realm",
-      "description": "A compact empire survives through elite core cities and relentless stability.",
+      "description": "A compact empire survives through elite core cities and towns that never go hungry.",
       "requiresTechId": "civil-service",
       "cost": { "gold": 1800, "shard": 5 },
       "effects": {
-        "firstThreeTownsGoldOutputMult": 1.2,
-        "growthPauseDurationMult": 0.85,
+        "firstThreeTownsGoldOutputMult": 1.25,
+        "townGoldCapMult": 1.15,
         "allTownsFoodSlotWaiverPerTown": 1
       }
     },
@@ -291,25 +286,26 @@
       "id": "golden-hegemony",
       "tier": 5,
       "name": "Golden Hegemony",
-      "description": "A rich, compact network of cities and ports bankrolls the empire.",
+      "description": "A rich, tightly connected network of cities and ports bankrolls the empire.",
       "requiresTechId": "urban-markets",
       "cost": { "gold": 1800, "shard": 5 },
       "effects": {
-        "marketBonusMult": 1.15,
-        "dockGoldOutputMult": 1.15,
-        "townGoldCapMult": 1.1
+        "dockGoldOutputMult": 1.2,
+        "connectedTownStepBonusAdd": 0.25,
+        "townGoldCapMult": 1.15
       }
     },
     {
       "id": "oracle-state",
       "tier": 5,
       "name": "Oracle State",
-      "description": "Information superiority becomes empire superiority.",
+      "description": "Information superiority becomes empire superiority: observatories reach further, recharge faster, and towns see deep into the frontier.",
       "requiresTechId": "beacon-towers",
       "cost": { "gold": 1800, "shard": 5 },
       "effects": {
-        "observatoryVisionBonus": 1,
-        "abilityCooldownMult": 0.85
+        "observatoryRangeBonus": 15,
+        "observatoryCooldownMult": 0.7,
+        "townVisionRadiusBonus": 2
       }
     }
   ]

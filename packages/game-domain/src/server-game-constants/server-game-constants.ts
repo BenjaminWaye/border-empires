@@ -73,6 +73,31 @@ export const MINE_GOLD_UPKEEP = 0;
 export const GRANARY_GOLD_UPKEEP = 0;
 export const SEED_GRANARY_SLOTS = 5;
 export const SEED_GRANARY_GROWTH_MULT = 1.30;
+
+/**
+ * Pure town population-growth multiplier from Granary/Seed Granary — the
+ * single shared source of truth for both the live-tick engine
+ * (apps/simulation/src/runtime-population-growth.ts) and the display/
+ * fallback snapshot paths (apps/simulation/src/live-town-summary.ts,
+ * apps/realtime-gateway/src/tile-detail-snapshot/tile-detail-snapshot.ts,
+ * apps/simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.ts).
+ *
+ * granary-bonus-unification task: commit 7a51b06b ("fix: Incubation Engine
+ * double-dip") established, per explicit user decision, that a plain
+ * Granary grants ONLY its instant one-time GRANARY_INSTANT_POPULATION_BURST
+ * on completion — the old flat +15% ongoing growth multiplier was a
+ * pre-redesign leftover and was removed. That fix only touched
+ * live-town-summary.ts; runtime-population-growth.ts (the authoritative
+ * live-tick path actually driving population growth),
+ * tile-detail-snapshot.ts, and legacy-snapshot-bootstrap.ts still
+ * independently hardcoded the old flat 1.15 for `hasGranary` alone, so a
+ * plain Granary was silently double-dipping (instant burst + ongoing +15%
+ * forever) in the real economy despite the explicit decision to remove
+ * that. This function is the corrected, single formula: no bonus without a
+ * Seed Granary whose 3x3 buffed radius covers the town tile.
+ */
+export const granaryGrowthMultiplier = (hasAnyGranary: boolean, seedGranaryBuffed: boolean): number =>
+  hasAnyGranary && seedGranaryBuffed ? SEED_GRANARY_GROWTH_MULT : 1;
 export const MANPOWER_EPSILON = 1e-6;
 export const MANPOWER_BASE_CAP = SHARED_MANPOWER_BASE_CAP;
 export const MANPOWER_BASE_REGEN_PER_MINUTE = SHARED_MANPOWER_BASE_REGEN_PER_MINUTE;
@@ -115,14 +140,42 @@ export const ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY = 60;
 
 // Market rebalance (structure-detail-screen task): an instant one-time gold
 // grant on completion, plus a small flat gold/min bonus expressed so it sums
-// to exactly its stated gold/day amount. Its main effect is now a flat +10%
-// town gold production multiplier (+35% with an active Clearing House,
-// preserving the existing +25pp Clearing House synergy gap) rather than the
-// old 50%/75% multiplier — see townGoldPerMinuteForPlayer.
+// to exactly its stated gold/day amount. Its main ongoing effect is a PER-
+// MARKET +10% town gold production bonus (+35% with an active Clearing
+// House, preserving the existing +25pp Clearing House synergy gap), and
+// STACKS ADDITIVELY across every active Market in a town's support ring —
+// e.g. 5 plain Markets = +50% (1.5x), not a flat capped 10%/35%.
+//
+// market-stacking task: this used to be two independently-driftable
+// MULTIPLIER constants (MARKET_GOLD_PRODUCTION_MULT = 1.1 /
+// MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE = 1.35) paired with a boolean
+// hasMarket gate — every call site multiplied by one of those two constants
+// directly, and several other call sites (live-town-summary.ts,
+// tile-detail-snapshot.ts, legacy-snapshot-bootstrap.ts,
+// legacy-snapshot-economy.ts) had independently hardcoded 1.5/1.75 instead of
+// even referencing the constants, so the four formulas silently disagreed.
+// Replaced with a single BONUS-per-market source of truth plus the
+// marketGoldProductionMultiplier() pure function below — every call site now
+// computes a real market COUNT (economy-network.ts's countSupportedStructures)
+// and calls this one function, so the four formulas can no longer drift.
 export const MARKET_INSTANT_GOLD_BONUS = 10;
 export const MARKET_FLAT_GOLD_BONUS_PER_MIN = 1 / UPKEEP_MINUTES_PER_DAY;
-export const MARKET_GOLD_PRODUCTION_MULT = 1.1;
-export const MARKET_GOLD_PRODUCTION_MULT_CLEARING_HOUSE = 1.35;
+export const MARKET_GOLD_PRODUCTION_BONUS = 0.10;
+export const MARKET_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE = 0.35;
+
+/**
+ * Pure per-market gold production multiplier — the single shared source of
+ * truth for both server (apps/simulation, apps/realtime-gateway) and client
+ * (packages/client) call sites. Returns 1 (no bonus) when marketCount <= 0;
+ * otherwise 1 + marketCount * (per-market bonus, higher with an active
+ * Clearing House). Deliberately takes a real count, not a boolean — each
+ * Market contributes its own bonus, stacking additively, not just "any
+ * Market present."
+ */
+export const marketGoldProductionMultiplier = (marketCount: number, clearingHouseActive: boolean): number => {
+  if (marketCount <= 0) return 1;
+  return 1 + marketCount * (clearingHouseActive ? MARKET_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE : MARKET_GOLD_PRODUCTION_BONUS);
+};
 
 // Converter mode flip (docs/plans/2026-08-06-converter-mode-flip.md)
 export const CONVERTER_MODE_FLIP_COOLDOWN_MS = 60 * 60_000;
@@ -239,6 +292,42 @@ export const SETTLEMENT_GROWTH_RATE_MULT = 4;
 // read it for a "food upkeep per minute" figure that's now always 0, same
 // "leave plumbing, starve input" treatment as MARKET_FOOD_UPKEEP above.
 export const townFoodUpkeepPerMinute = (_populationTier: string | undefined): number => 0;
+
+/**
+ * Pure town gold/growth population-tier multiplier — the single shared
+ * source of truth for every call site that scales a per-town formula by
+ * population tier (TOWN_BASE_GOLD_PER_MIN, gold cap, etc).
+ *
+ * building-bonus-unification task: this table used to be re-implemented
+ * independently in SIX places — apps/simulation/src/player-update-economy/
+ * player-update-economy.ts, apps/simulation/src/snapshot-economy-helpers.ts,
+ * apps/realtime-gateway/src/tile-detail-snapshot/tile-detail-snapshot.ts
+ * (as townPopulationMultiplierLocal), apps/simulation/src/
+ * legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.ts,
+ * apps/simulation/src/legacy-snapshot-economy/legacy-snapshot-economy.ts,
+ * and packages/client/src/client-town-capture/client-town-capture.ts — with
+ * every reachable tier (TOWN/CITY/GREAT_CITY/METROPOLIS) agreeing, EXCEPT
+ * that two of the six (snapshot-economy-helpers.ts,
+ * legacy-snapshot-bootstrap.ts, legacy-snapshot-economy.ts) special-cased
+ * SETTLEMENT to 0.6 while the others fell through to the shared default of
+ * 1. This is confirmed dead-code drift, not a live disagreement: every call
+ * site gates SETTLEMENT-tier towns to a separate SETTLEMENT_BASE_GOLD_PER_MIN
+ * branch before this multiplier is ever reached (see townGoldPerMinuteForPlayer,
+ * fallbackTownGoldPerMinute, the legacy tier===\"SETTLEMENT\" ternaries, and
+ * client-town-capture.ts's isSettlement branch) — the 0.6 case has never
+ * actually executed. Unified on the reachable-tier value (default 1) rather
+ * than the unreachable 0.6, since 1 is what every majority/authoritative
+ * call site already used.
+ */
+export const townPopulationMultiplier = (populationTier: string | undefined): number => {
+  switch (populationTier) {
+    case "CITY": return 1.5;
+    case "GREAT_CITY": return 2.5;
+    case "METROPOLIS": return 3.2;
+    default: return 1;
+  }
+};
+
 export const POPULATION_MAX = 10_000_000;
 export const POPULATION_TOWN_MIN = 10_000;
 export const WORLD_TOWN_POPULATION_MIN = 15_000;

@@ -166,6 +166,9 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "economicStructureBuildSpeedMult" && typeof value === "number") return `Economic build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "populationCapFirst3TownsMult" && typeof value === "number") return `First 3 towns pop cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "observatoryVisionBonus" && typeof value === "number") return `Observatory vision +${value}`;
+  if (key === "observatoryCooldownMult" && typeof value === "number")
+    return `Observatory ability cooldowns ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+  if (key === "attackResolveSpeedReduceMs" && typeof value === "number") return `Attacks resolve ${Math.round(value / 1000)}s faster`;
   return null;
 };
 

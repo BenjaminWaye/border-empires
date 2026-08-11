@@ -8,12 +8,21 @@ import { OBSERVATORY_RANGE } from "@border-empires/shared";
 import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY, CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
-  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY
+  UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
+  marketGoldProductionMultiplier
 } from "@border-empires/game-domain";
 import type { Tile } from "./client-types.js";
 import { converterStructureInfoView } from "./client-converter-structure-info.js";
 
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
+
+// market-stacking task: these three call sites are generic/help copy (no
+// specific tile/town in scope) describing the PER-MARKET rate, not a real
+// town's stacked total — derived from the shared function rather than a
+// separate hardcoded literal so the numbers can't drift from it, with
+// wording that makes the additive stacking explicit.
+const MARKET_PER_MARKET_PERCENT = Math.round((marketGoldProductionMultiplier(1, false) - 1) * 100);
+const MARKET_PER_MARKET_PERCENT_CLEARING_HOUSE = Math.round((marketGoldProductionMultiplier(1, true) - 1) * 100);
 
 export type StructureInfoKey =
   | "FORT"
@@ -246,7 +255,7 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
 
 export const economicStructureBenefitText = (type: EconomicStructureType | StructureInfoKey): string => {
   const kind = type as string;
-  if (kind === "MARKET") return "+10 gold instantly on completion, +1 gold/day, and +10% nearby town gold production (+35% with an active Clearing House).";
+  if (kind === "MARKET") return `+10 gold instantly on completion, +1 gold/day, and +${MARKET_PER_MARKET_PERCENT}% nearby town gold production per Market (+${MARKET_PER_MARKET_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — stacks additively with every other active Market supporting the town.`;
   if (kind === "GRANARY") return "Grants an instant one-time +10,000 population burst to the supported town on completion.";
   if (kind === "SEED_GRANARY") return "Upgrades a granary into a seed granary with +30% local town population growth and lower local town food upkeep.";
   if (kind === "CENSUS_HALL") return "Grants +20,000 population to the supported town for every connected city with an active Incubation Engine, and cuts that town's tier-upgrade cost by 25%.";
@@ -431,7 +440,7 @@ export const structureInfoForKey = (
     if (key === "WATERWORKS") return ["+100% farmstead food within 10 tiles", "Boosted food production raises food cap"];
     if (key === "UMBRITE_RIG") return ["+50% umbrite production on UMBRITE tiles", "+15 umbrite cap"];
     if (key === "MINE") return ["+50% iron or crystal production on mineral tiles", "+15 iron cap or +9 crystal cap"];
-    if (key === "MARKET") return ["+10 gold instantly on completion", "+1 gold/day", "+10% town gold production (+35% with an active Clearing House)"];
+    if (key === "MARKET") return ["+10 gold instantly on completion", "+1 gold/day", `+${MARKET_PER_MARKET_PERCENT}% town gold production per Market (+${MARKET_PER_MARKET_PERCENT_CLEARING_HOUSE}% with an active Clearing House), stacks additively`];
     if (key === "GRANARY") return ["Instant one-time +10,000 population burst on completion"];
     if (key === "SEED_GRANARY") return ["+30% local town population growth", "-10% local town food upkeep"];
     if (key === "CENSUS_HALL") return ["+20,000 population per connected city with an active Incubation Engine", "-25% town-tier upgrade cost for this town"];
@@ -623,7 +632,7 @@ export const structureInfoForKey = (
   if (type === "MARKET") {
     return structure({
       title: "Market",
-      detail: "Markets are built on a town support tile. They grant +10 gold instantly on completion, +1 gold/day, and increase that town's gold production by 10% (+35% with an active Clearing House).",
+      detail: `Markets are built on a town support tile. Each grants +10 gold instantly on completion, +1 gold/day, and increases that town's gold production by ${MARKET_PER_MARKET_PERCENT}% (+${MARKET_PER_MARKET_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — multiple Markets stack additively.`,
       glyph: "◌",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),

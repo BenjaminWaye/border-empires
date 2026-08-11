@@ -14,6 +14,7 @@ import {
   type SlotResource,
   type SlotStructureType
 } from "@border-empires/shared";
+import { marketGoldProductionMultiplier } from "@border-empires/game-domain";
 import { converterStructureDetailText, converterModeLockLine, converterModeStatusLine, isConverterStructureType } from "../client-converter-menu.js";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
 import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
@@ -24,7 +25,10 @@ import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 
-const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; return type === "MARKET" ? `Market contributes to ${townName}: +50% town gold production; higher production raises gold cap.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect.` : undefined; };
+// market-stacking task: this describes ONE Market's own per-instance
+// contribution (they stack additively — see marketGoldProductionMultiplier),
+// not the town's total stacked bonus, so it's derived with marketCount=1.
+const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; const perMarketMult = marketGoldProductionMultiplier(1, Boolean(town.town?.clearingHouseActive)); const perMarketPercent = Math.round((perMarketMult - 1) * 100); return type === "MARKET" ? `Market contributes to ${townName}: +${perMarketPercent}% town gold production (stacks with other Markets); higher production raises gold cap.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect.` : undefined; };
 
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "TITANIUM_BASTION" ? "Titanium Bastion" : "Fort";
@@ -108,10 +112,18 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_umbrite_rig") return "Improves umbrite production on this tile by 50% and adds +15 umbrite cap.";
   if (actionId === "build_mine") return `Improves ${tile.resource === "TITANIUM" ? "titanium" : "crystal"} production on this tile by 50% and adds +${tile.resource === "TITANIUM" ? "15 titanium" : "9 crystal"} cap.`;
   if (actionId === "build_market") {
-    return `Build on this support tile for ${supportedTownLabel}. Grants +50% town gold production and +${Math.round((supportedTown?.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap.`;
+    // market-stacking task: this describes what THIS one Market will add
+    // (stacks additively with any other Markets already supporting the
+    // town), not the town's total post-build multiplier.
+    const perMarketPercent = Math.round((marketGoldProductionMultiplier(1, Boolean(supportedTown?.town?.clearingHouseActive)) - 1) * 100);
+    return `Build on this support tile for ${supportedTownLabel}. Grants +${perMarketPercent}% town gold production (stacks with other Markets) and +${Math.round((supportedTown?.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap.`;
   }
   if (actionId === "build_granary") {
-    return `Build on this support tile for ${supportedTownLabel}. Grants +15% population growth.`;
+    // Incubation Engine (Granary) grants an instant one-time population
+    // burst on completion, not an ongoing growth bonus — see
+    // granaryGrowthMultiplier in packages/game-domain (commit 7a51b06b,
+    // "Incubation Engine double-dip" fix).
+    return `Build on this support tile for ${supportedTownLabel}. Grants an instant +10,000 population burst on completion.`;
   }
   if (actionId === "build_bank") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +50% city income and +1 flat income.`;
@@ -519,7 +531,13 @@ export const menuOverviewForTile = (
     if (town) {
       pushLine(town.town?.name ? `Support tile for ${town.town.name}.` : `Support tile for nearby town at (${town.x}, ${town.y}).`);
       const contributionLine = supportContributionLine(tile, town); if (contributionLine) pushLine(contributionLine);
-      if (town.town?.hasMarket) pushLine("Nearby town already has a Market.");
+      // market-stacking task: Markets stack additively now, so "already has
+      // a Market" must not read as a discouragement to build another — show
+      // the current count/bonus instead.
+      if (town.town?.marketCount) {
+        const currentMult = marketGoldProductionMultiplier(town.town.marketCount, Boolean(town.town.clearingHouseActive));
+        pushLine(`Nearby town has ${town.town.marketCount} active Market${town.town.marketCount === 1 ? "" : "s"} (+${Math.round((currentMult - 1) * 100)}% town gold production).`);
+      }
       if (town.town?.hasGranary) pushLine("Nearby town already has a Granary.");
       if (!tile.economicStructure) pushLine("Town buildings like markets and granaries must be built on support tiles.");
     }
