@@ -1,0 +1,285 @@
+# Galactic Campaign — Design Doc (draft)
+
+Status: **concept / not implemented.** This is the output of a design discussion,
+not a build plan. Numbers throughout are placeholders for a later balance pass —
+the point of this doc is the shape of the systems and how they connect, not the
+constants.
+
+## 1. What this is
+
+A persistent, slow strategic layer that sits *above* the existing Border
+Empires season loop, without changing it. A season (the tile-conquest map
+players already play) becomes a **Sector campaign** — a self-contained,
+fast, high-agency fight over one planet. The galactic layer is the opposite
+in every respect: low-agency, slow, and permanent. It exists to make a
+single season's outcome matter beyond that season, not to be a second game
+players actively manage.
+
+Two clocks:
+
+- **Sector campaign** — the existing season. Unchanged. Fast, high-agency.
+- **Galactic Cycle** — a fixed real-time bookkeeping tick (proposed: monthly)
+  governing Senate votes, Project completion, and tier rebalancing. Decoupled
+  from season count — see §9.
+
+## 2. Core loop
+
+1. A Sector campaign (season) runs to completion, exactly as it does today.
+2. Final standing in that campaign converts to a permanent galactic reward,
+   tiered by how well the player did (§3).
+3. Held territory (Planets/Outposts) passively generates **Influence** and
+   **Production** between seasons (§4, §5).
+4. Production funds Wonders and Fleets; Influence funds Senate actions and
+   Bloc politics.
+5. Held territory can be lost to **contestation** — via Influence deficit,
+   a raid, or a Senate vote (§7) — which reopens it as a **Defense Campaign**
+   season.
+6. The galaxy runs until **saturation** triggers Convergence and a reset
+   (§9).
+
+## 3. Rewards: Planet / Outpost / Stipend
+
+Binary win-or-nothing per season was the original draft; it's replaced with
+three tiers so a season played well but not won still leaves a permanent
+mark:
+
+| Tier | Who gets it | What it is |
+|---|---|---|
+| **Planet** | Outright victory (any of the 5 conditions, 24h hold) | Full permanent holding. Specialization set by which victory path was won (table below). Generates the full Influence/Production trickle. Counts toward Senate representation and Wonder eligibility. |
+| **Outpost** | Strong runner-up: significant hold-progress on a *different* victory path than the winner, or came within a threshold of winning | Minor permanent holding. Smaller trickle, same specialization logic, no Senate seat weight, no Wonder-vote weight. This is the default starting territory for new/emerging empires. |
+| **Stipend** | Meaningful participation, no path close to complete | One-time Influence/Production payout scaled to best-path progress. No permanent territory. |
+
+Planet specialization by win condition:
+
+| Won via | Specialization | Leans |
+|---|---|---|
+| Town Control | Industrial | Production |
+| Economic Hegemony | Trade | Influence |
+| Resource Monopoly | Extraction | Production |
+| Maritime Supremacy | Logistics | Both, smaller |
+| Diplomatic Dominance | Capital | Influence |
+
+## 4. Influence
+
+The soft-power currency — politics and starting position, never battlefield
+stats. That boundary is load-bearing: Influence must never touch mid-season
+tile combat directly, or the two layers stop feeling distinct.
+
+**Generation:** Capital/Trade-specialized Planets and Outposts, at a slow
+trickle between Cycles. Also awarded at season end as partial credit
+proportional to how far a player got on the Diplomatic Dominance /
+Economic Hegemony tracks, even without winning outright — so Influence
+flows from ordinary seasons, not only wins.
+
+**Upkeep:** every held Planet/Outpost costs a small Influence upkeep,
+scaling with how much territory an empire holds (Stellaris admin-cap
+logic). Spread wide without enough Trade/Capital income to back it, and
+upkeep exceeds generation — that's an **Influence deficit**, one of the
+three paths into contestation (§7).
+
+**Spends — kept deliberately short.** Three Senate actions, nothing more:
+
+| Action | Effect |
+|---|---|
+| **Sanction** | Vote to debuff a target empire's next Cycle (e.g. reduced starting bonuses) |
+| **Contest** | Vote to force open a Defense Campaign on a target's held Sector, regardless of its current Stability — the political route into contestation, independent of raids or deficit |
+| **Next Sector terrain** | Vote on the map archetype for the next Frontier Sector (continents vs. island-heavy, etc.), reusing the existing per-season map-style variation |
+
+Cut from earlier drafts and deliberately left out: generic policy
+edicts, solo diplomatic pact-seeding, cross-empire vision sharing,
+propaganda strikes. All added complexity without a clear enough payoff
+to justify the client/balance surface.
+
+## 5. Production, Wonders, Fleets
+
+Production is the hard-output currency: it builds permanent things.
+
+- **Wonders** — globally-unique galactic projects, one instance ever,
+  refund-the-near-loser-if-close (same pattern as the existing Monument
+  system). Grant the owner's *next* Sector campaign a starting bonus
+  (extra starting manpower, wider initial vision, etc).
+- **Fleets** — see §6.
+- **Garrisons** — defensive Production sink at the Sector level; raises
+  the Stability cost of a successful raid against that Sector (§7).
+
+## 6. Fleets
+
+Fleets are galactic-layer assets — they never fight tile battles, and
+raids resolve as a short auto-computed engagement (fleet vs. Garrison),
+not a second real-time combat game. The goal is to make *building* a
+fleet the interesting part, the way Master of Orion/Stellaris make ship
+design its own puzzle, without adding a live space-combat sim to
+maintain.
+
+**Grounding, not magic.** No shields-as-forcefield, no faster-than-real
+travel. Stats are drawn from real constraints, the way Aurora 4X and
+*Children of a Dead Earth* build hard-SF combat, so trade-offs make
+physical sense instead of being arbitrary slot fillers:
+
+- **Mass** — hull tonnage. More mass = more slots, but higher Production
+  cost and lower acceleration for a given engine (thrust-to-mass).
+- **Delta-v / fuel** — Tsiolkovsky rocket-equation flavor: fuel mass
+  eats into the same budget as weapons and armor. Determines how far and
+  how fast a fleet can cross the galaxy — this is what sets a raid's
+  **travel time**.
+- **Power** — reactor output, shared budget that weapons, engines, and
+  point-defense all draw from.
+- **Heat** — waste heat needs radiator surface area to dissipate (no
+  convection in vacuum, so this is a real constraint, not flavor text).
+  Radiators are also a detectable signature — a ship running hot is a
+  ship that can be seen coming, which is the real-physics basis for any
+  detection/stealth mechanics rather than magic cloaking.
+
+**Weapons**, each with a real-world basis and a real counter, not a
+damage-type triangle invented for balance's sake:
+
+- **Kinetics (railgun/coilgun)** — damage from projectile mass ×
+  velocity²; power-hungry, good against armor.
+- **Directed energy (lasers)** — instant hit, falls off with range
+  (inverse-square), draws heavily on the power/heat budget, good
+  against shields-that-aren't-shields (thin-skinned targets).
+- **Missiles/torpedoes** — high burst damage, finite magazine (a real
+  logistics constraint), interceptable by point-defense.
+- **Point-defense / armor** — the defensive layer, physical rather than
+  a forcefield: ablative plating and interception, not a magic bubble.
+
+**Hull classes** — a tech-gated tier ladder (Corvette → Cruiser →
+Dreadnought, Stellaris/MOO-style), each a distinct point in the
+mass/delta-v/weapon trade space rather than just a bigger number:
+
+| Class | Profile | Role |
+|---|---|---|
+| Scout | Minimal mass, huge delta-v, unarmed/token PD | Reveals a target Sector's Garrison before a real raid is committed |
+| Raider | Light, high delta-v, kinetic/missile-armed, thin armor | Fast plunder strikes — quick there, quick back, can't slug it out |
+| Battleline | Balanced mass/delta-v, mixed loadout, real armor | The Garrison-breaker workhorse |
+| Dreadnought | Huge mass, low delta-v, massive weapons/armor | Can force Stability to zero in one strike, but slow — the long travel time telegraphs the raid, giving the defender (and their Bloc) a real window to reinforce before it lands. This is also what keeps raids from feeling like an unfair, agency-free ambush. |
+| Tanker | Carries fuel/ordnance | Extends a raiding fleet's effective range, à la Distant Worlds supply logistics — a vulnerable escort target in its own right |
+
+Precedent this leans on: Master of Orion/Galactic Civilizations/Stellaris
+for the slot-budget ship-designer loop and tiered hull classes; Aurora 4X
+and *Children of a Dead Earth* for delta-v/thermal/kinetic-energy
+grounding; Distant Worlds and Sins of a Solar Empire for fuel/supply-line
+logistics as a real constraint rather than flavor.
+
+## 7. Stability and contestation
+
+Every held Planet/Outpost has a **Stability** meter. Three independent
+ways to drain it to zero, all converging on the same outcome:
+
+1. **Influence deficit** — sustained economic neglect (§4).
+2. **Raid** — a Fleet beats the Sector's Garrison (§6).
+3. **Senate Contest vote** — a political majority forces it open regardless
+   of current Stability (§4).
+
+Stability hitting zero opens a **Defense Campaign**: a Sector campaign
+season scoped to the defender plus challenger(s), not the full
+playerbase. Garrisons (Production) and Bloc mutual defense (§8) restore
+or protect Stability before it breaks.
+
+There's no special "leader" carve-out here — this applies uniformly to
+any territory-holding empire. Bigger empires are *emergently* more
+exposed (more upkeep, more to plunder), not singled out by rule.
+
+## 8. Alliance Blocs
+
+A Bloc is a persistent, account-level entity — unlike in-season
+alliances, which still form and break per season exactly as they do
+today. Extends the existing alliance/truce system upward rather than
+replacing it:
+
+- **Shared treasury** — members pool a cut of Influence for joint Senate
+  votes and Wonders too expensive for one empire alone.
+- **Mutual defense** — members can remotely contribute Production to
+  reinforce another member's Garrison mid-raid.
+- **Senate representation by Bloc**, weighted by size/stability — makes
+  organizing matter more than solo-maxing Influence.
+- **Tactical pre-alliance** — bloc-mates landing in the same new Sector
+  campaign start already allied in-game, a direct use of the existing
+  tactical alliance system.
+- **Shared Diplomatic Dominance credit** — a bloc win on that path grants
+  Influence to every member, not just the top scorer.
+- **Betrayal cost** — breaking Bloc trust costs Influence or temporarily
+  strips Senate vote weight, extending the existing truce-break lockout
+  concept upward instead of leaving consequences purely in-season.
+
+**Open risk, unresolved:** pooled treasury + mutual defense could make a
+top Bloc progressively harder to raid or destabilize the larger it gets —
+which undermines the exact anti-snowball effect Stability is there to
+provide. If Blocs ship, they need their own brake (e.g. Influence upkeep
+that scales with member count) so blobbing isn't free.
+
+## 9. Pacing
+
+Cycle length (bookkeeping) is decoupled from how many Sectors resolve —
+this was a real error in an earlier draft. Observed season length in
+production is closer to a week than the 30-day ceiling
+(`SEASON_LENGTH_DAYS`), so a sequential single-stream galaxy could see
+several Sectors resolve per Cycle, not one. Locking "12 Cycles = 12
+Planets" would have been wrong on real numbers.
+
+Instead:
+
+- Size the galaxy's total Sector count to roughly the active playerbase,
+  so scarcity is meaningful without waiting a long time to feel any
+  contestation.
+- No hard calendar reset. **Convergence** (the year-end event: leaderboard
+  snapshot, Hall-of-Fame record using the existing cosmetics/history
+  persistence, then galaxy reset) triggers on **saturation** — e.g. ≥90%
+  of Sectors claimed and broadly stable — rather than a fixed date. This
+  is robust to season cadence changing as the playerbase grows or shrinks;
+  a fixed 365-day countdown isn't.
+
+## 10. Tiered progression and Frontier access
+
+Empires bucket into standing tiers by Planet/Outpost count and Stability
+(proposed: Unclaimed → Emerging → Established → Dominant). New Frontier
+Sectors route to the lowest tier with enough queued players — weighted
+toward the have-nots, not exclusive to them. Established/Dominant empires
+still get occasional Frontier access, just lower priority; their main
+growth path is contesting existing territory (raids, Senate Contest
+votes, waiting out a rival's deficit) rather than endless free land
+grabs. Outposts (§3) are the natural starting rung on this ladder.
+
+## 11. Architecture notes (from earlier discussion, unchanged)
+
+- The galactic Empire record must be its own persistent store keyed by
+  account (`galacticEmpireId`), **not** embedded in `SimulationRuntime` or
+  season state — written to only via an explicit "apply galactic rewards"
+  step hooked into season-end/archive, so it survives the wipe-and-replace
+  that season rollover already does today.
+- `SeasonState` needs a `sectorId` / `galacticEmpireId` foreign key and an
+  immutable final-standing snapshot captured before archive.
+- Actual concurrent multi-world hosting (multiple `SimulationRuntime`
+  instances, matchmaking, per-world routing in the realtime gateway) is a
+  separate, real infra project — sequenced after the core loop is proven,
+  not before. Even the "raid" and "Senate Contest" paths into a Defense
+  Campaign season need a scheduler decision (what runs next in a
+  single-stream queue) before concurrency exists at all; that scheduler is
+  part of the v0 scope, concurrency isn't.
+
+## 12. Recommended build order
+
+Don't build all of this at once — the point of phasing is to answer "is
+the core hook fun" before spending budget on the rest.
+
+- **v0** — persistent Empire record, Planet/Outpost/Stipend claims at
+  season end, specialization mapping, Production funding 1-2 Wonder-style
+  starting bonuses for the claimant's next season. No Influence, no
+  Senate, no Fleets, no Blocs.
+- **v1** — Influence, upkeep, Stability, Senate's three actions. This is
+  where contestation and the anti-snowball pressure come online.
+- **v2** — Fleets and raids (needs Stability from v1). Alliance Blocs
+  (needs raids to exist to matter, and needs its own anti-snowball brake
+  designed before it ships — §8).
+
+## 13. Open questions before implementation
+
+- Actual numbers: upkeep rates, trickle rates, Stability thresholds, raid
+  resolution formula, Outpost/Stipend scaling. None of this doc's numbers
+  are load-bearing yet.
+- Defense Campaign scoping: exactly who's eligible to join one (defender +
+  raider only? Bloc members? anyone?).
+- What happens to a Sector's yield during the gap between Stability
+  hitting zero and the Defense Campaign season actually being scheduled,
+  in a single-stream (no concurrency) launch.
+- Bloc anti-snowball brake (§8) needs a concrete mechanism before v2.
