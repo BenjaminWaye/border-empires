@@ -22,6 +22,15 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786445459000, // 2026.08.11.4
+    introducedIn: "2026.08.11.4",
+    title: "Fixed Titanium/Umbrite Weapons Factory build buttons doing nothing",
+    why: "Clicking Build Titanium Weapons Factory or Build Umbrite Weapons Factory silently did nothing — no build started, no error shown. The action-id-to-structure-type mapping never got the two new Weapons Factories added when they replaced Weapons Workshop, so the click handler had nothing to act on.",
+    changes: [
+      "Build Titanium Weapons Factory and Build Umbrite Weapons Factory now actually queue their build."
+    ]
+  },
+  {
     createdAt: 1786444300000, // 2026.08.11.3
     introducedIn: "2026.08.11.3",
     title: "Queue and timing fixes",

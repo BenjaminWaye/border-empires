@@ -124,6 +124,10 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "GOVERNORS_OFFICE";
     case "build_radar_system":
       return "RADAR_SYSTEM";
+    case "build_titanium_weapons_factory":
+      return "TITANIUM_WEAPONS_FACTORY";
+    case "build_umbrite_weapons_factory":
+      return "UMBRITE_WEAPONS_FACTORY";
     default:
       return undefined;
   }
@@ -140,6 +144,7 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "build_foundry":
       return "industrial-extraction";
     case "build_fortification":
+    case "build_titanium_weapons_factory":
       return "masonry";
     case "build_observatory":
       return "crystal-lattices";
@@ -155,6 +160,7 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
       return "organized-supply";
     case "build_siege_camp":
     case "build_umbrite_rig":
+    case "build_umbrite_weapons_factory":
       return "leatherworking";
     case "build_farmstead":
       return "agriculture";
