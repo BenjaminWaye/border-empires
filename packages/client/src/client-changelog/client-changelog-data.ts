@@ -22,6 +22,21 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786441940000, // 2026.08.11.2
+    introducedIn: "2026.08.11.2",
+    title: "Tier 2-5 domain rework",
+    why: "Several domains gave a bonus that wasn't actually wired into gameplay (Stone Curtain's fort-area defense, Merchant Houses' market/granary bonuses, Hidden Hand's ability cooldown) while others duplicated an earlier tier's identity almost exactly. Every domain from tier 2 up now grants a real, distinct effect.",
+    changes: [
+      "Frontier Doctrine now unlocks off Supply Directorate (tier-1 manpower) instead of the unrelated tier-2 Kiln Craft.",
+      "Stone Curtain is now Garrison Doctrine: forts you control fight with +50% defense (was a defense bonus that never applied in combat).",
+      "Titanium Vanguard is now Steam Vanguard: attacks resolve 5s faster and you can hold one more muster flag.",
+      "Merchant Houses now pays more the bigger your connected dock network gets, plus a first-three-towns gold bonus, instead of two bonuses that never applied and a flat dock-cap boost.",
+      "Reworked Provincial Governors, War Foundries, Supply State, and Provincial Nurseries (tier 3) to stop overlapping each other and grant bonuses that actually apply in combat/economy.",
+      "Reworked Imperial Roads, Signal Bastions (formerly Fortress Realm), Siege State, Treasury State, and Hidden Hand (tier 4) — Treasury State now waives food for your first three towns, Hidden Hand halves observatory ability cooldowns.",
+      "Reworked all five tier-5 capstone domains (Imperial Expansion, Titanium Dominion, Enduring Realm, Golden Hegemony, Oracle State) to be clearly stronger, distinct versions of earlier-tier identities."
+    ]
+  },
+  {
     createdAt: 1786423606364, // 2026.08.11.1
     introducedIn: "2026.08.11.1",
     title: "Granary build/modifier text no longer promises a stale ongoing growth bonus",
@@ -172,17 +187,8 @@ export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   // natural-wonder-3d-fidelity entries, and the dirt-road entry pruned:
   // aged out of the 6-day window (the fix-dev-slot-busy-queue-sync entry
   // moved the window anchor forward during this merge).
-  {
-    createdAt: 1785910000000, // manpower overlays
-    introducedIn: "next",
-    title: "Manpower-branch buildings render on the map",
-    why: "The steampunk Manpower economy branch (quartermaster supply, logistics guilds, conscription, and the workforce-producing Ancillary Factory, Incubation Engine, and Ambaric Tower) had no map art yet. Each building now renders as a distinct 3D model in 3D mode and as a hand-drawn 2D sprite on the classic map.",
-    changes: [
-      "8 new manpower buildings render on the map: Quartermaster's Office, Logistics Guild, Assembly Works, Population Bureau, The Iron Levy, Ancillary Factory, Incubation Engine, and Ambaric Tower.",
-      "3D mode: each building has its own silhouette in a shared bronze/gunmetal/amber steampunk palette - brass supply counters, schedule-tower dials, drive-shaft gears, census columns, an orders-horn ember, boiler ward ports, and spiral ambaric coils.",
-      "2D mode: new map sprites for all 8 buildings."
-    ]
-  },
+  // manpower-branch-map-overlays entry pruned: aged out of the 6-day window
+  // (the domain-tier-rework entry moved the window anchor forward).
   {
     createdAt: 1786003565156, // 2026-08-06
     introducedIn: "next",

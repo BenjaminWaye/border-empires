@@ -74,10 +74,10 @@ describe("tech-domain bridge progression sources", () => {
       domainIds: new Set<string>(["war-foundries"])
     };
 
-    expect(recomputeMods(player)).toEqual({ attack: 1.1, defense: 1.1, income: 1, vision: 1 });
+    expect(recomputeMods(player)).toEqual({ attack: 1.08, defense: 1, income: 1, vision: 1 });
     expect(buildModBreakdownForPlayer(player).attack).toEqual([
       { label: "Base", mult: 1 },
-      { label: "War Foundries", mult: 1.1 }
+      { label: "War Foundries", mult: 1.08 }
     ]);
   });
 
