@@ -565,7 +565,16 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       lastIndexCount = idxCount;
       lastTileSpanX = tileSpanX;
       const indexAttr = geometry.index;
-      if (indexAttr) indexAttr.needsUpdate = true;
+      if (indexAttr) {
+        // Only the first idxCount entries were written this rebuild (the rest
+        // of the fixed MAX_INDEX_COUNT-sized buffer is stale from a larger
+        // previous window) — an unranged needsUpdate reuploads the whole
+        // buffer via bufferSubData every rebuild, which dominates the main
+        // thread during a zoom/pan gesture (see PR description).
+        indexAttr.clearUpdateRanges();
+        indexAttr.addUpdateRange(0, idxCount);
+        indexAttr.needsUpdate = true;
+      }
     }
 
     // Skirt pass: for every drawn (land) tile, drop a vertical wall along
@@ -644,29 +653,82 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
           if (isHole(i + 1, j)) emitSkirtEdge(b.x, b.z, b.y, b.r, b.g, b.b, d.x, d.z, d.y, d.r, d.g, d.b);
         }
       }
-      const skirtPosAttr = skirtGeometry.getAttribute("position");
-      const skirtColorAttr = skirtGeometry.getAttribute("color");
-      const skirtNormalAttr = skirtGeometry.getAttribute("normal");
+      const skirtPosAttr = skirtGeometry.getAttribute("position") as BufferAttribute | undefined;
+      const skirtColorAttr = skirtGeometry.getAttribute("color") as BufferAttribute | undefined;
+      const skirtNormalAttr = skirtGeometry.getAttribute("normal") as BufferAttribute | undefined;
       const skirtIndexAttr = skirtGeometry.index;
-      if (skirtPosAttr) (skirtPosAttr as BufferAttribute).needsUpdate = true;
-      if (skirtColorAttr) (skirtColorAttr as BufferAttribute).needsUpdate = true;
-      if (skirtNormalAttr) (skirtNormalAttr as BufferAttribute).needsUpdate = true;
-      if (skirtIndexAttr) skirtIndexAttr.needsUpdate = true;
+      // skirtPositions/Colors/Normals are allocated at MAX_SKIRT_EDGES*4*3
+      // (worst-case coastline for a full HEIGHTFIELD_MAX_TILES_PER_AXIS
+      // window, ~11MB per attribute) but only skirtVertCount*3 items were
+      // written this rebuild. An unranged needsUpdate reuploads the entire
+      // ~33MB across the three attributes via bufferSubData every rebuild —
+      // this was the dominant cost during zoom (bufferSubData was >60% of
+      // main-thread samples in a zoom-gesture CPU profile).
+      const skirtItemCount = skirtVertCount * 3;
+      if (skirtPosAttr) {
+        skirtPosAttr.clearUpdateRanges();
+        skirtPosAttr.addUpdateRange(0, skirtItemCount);
+        skirtPosAttr.needsUpdate = true;
+      }
+      if (skirtColorAttr) {
+        skirtColorAttr.clearUpdateRanges();
+        skirtColorAttr.addUpdateRange(0, skirtItemCount);
+        skirtColorAttr.needsUpdate = true;
+      }
+      if (skirtNormalAttr) {
+        skirtNormalAttr.clearUpdateRanges();
+        skirtNormalAttr.addUpdateRange(0, skirtItemCount);
+        skirtNormalAttr.needsUpdate = true;
+      }
+      if (skirtIndexAttr) {
+        skirtIndexAttr.clearUpdateRanges();
+        skirtIndexAttr.addUpdateRange(0, skirtIdxCount);
+        skirtIndexAttr.needsUpdate = true;
+      }
       skirtGeometry.setDrawRange(0, skirtIdxCount);
     }
 
-    const positionAttr = geometry.attributes.position;
-    const colorAttr = geometry.attributes.color;
-    const uvAttr = geometry.attributes.uv;
-    const forestAttr = geometry.attributes.forestZone;
-    const normalAttr = geometry.attributes.normal;
-    if (positionAttr) positionAttr.needsUpdate = true;
-    if (colorAttr) colorAttr.needsUpdate = true;
-    if (uvAttr) uvAttr.needsUpdate = true;
-    if (forestAttr) forestAttr.needsUpdate = true;
+    // Vertices are written row-major (baseIdx = (j*VERT_DIM+i)*itemSize) for
+    // j in [0, vertSpanY) and i in [0, vertSpanX), so every written index
+    // falls within the first vertSpanY*VERT_DIM vertices even though each
+    // row only fills the first vertSpanX of its VERT_DIM columns. That's
+    // still a small fraction of the fixed VERT_COUNT=241*241 allocation at
+    // any zoom short of the full 240-tile window, so range the upload to it
+    // instead of reuploading the whole buffer (see skirt buffers above for
+    // why this matters — same pattern, smaller buffers).
+    const writtenVertCount = vertSpanY * VERT_DIM;
+    const positionAttr = geometry.attributes.position as BufferAttribute | undefined;
+    const colorAttr = geometry.attributes.color as BufferAttribute | undefined;
+    const uvAttr = geometry.attributes.uv as BufferAttribute | undefined;
+    const forestAttr = geometry.attributes.forestZone as BufferAttribute | undefined;
+    const normalAttr = geometry.attributes.normal as BufferAttribute | undefined;
+    if (positionAttr) {
+      positionAttr.clearUpdateRanges();
+      positionAttr.addUpdateRange(0, writtenVertCount * 3);
+      positionAttr.needsUpdate = true;
+    }
+    if (colorAttr) {
+      colorAttr.clearUpdateRanges();
+      colorAttr.addUpdateRange(0, writtenVertCount * 3);
+      colorAttr.needsUpdate = true;
+    }
+    if (uvAttr) {
+      uvAttr.clearUpdateRanges();
+      uvAttr.addUpdateRange(0, writtenVertCount * 2);
+      uvAttr.needsUpdate = true;
+    }
+    if (forestAttr) {
+      forestAttr.clearUpdateRanges();
+      forestAttr.addUpdateRange(0, writtenVertCount);
+      forestAttr.needsUpdate = true;
+    }
     geometry.setDrawRange(0, lastIndexCount);
     accumulateHeightfieldNormals(positions, indices, lastIndexCount, normals, VERT_COUNT);
-    if (normalAttr) normalAttr.needsUpdate = true;
+    if (normalAttr) {
+      normalAttr.clearUpdateRanges();
+      normalAttr.addUpdateRange(0, writtenVertCount * 3);
+      normalAttr.needsUpdate = true;
+    }
 
     if (gridlines.visible) {
       // Gridlines must mirror the heightfield's tile-skip rule — emit
@@ -697,13 +759,23 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       }
       gridGeometry.setDrawRange(0, gridIdx);
       const gridIndexAttr = gridGeometry.index;
-      if (gridIndexAttr) gridIndexAttr.needsUpdate = true;
+      if (gridIndexAttr) {
+        gridIndexAttr.clearUpdateRanges();
+        gridIndexAttr.addUpdateRange(0, gridIdx);
+        gridIndexAttr.needsUpdate = true;
+      }
       gridLastTileSpanX = tileSpanX;
       gridLastTileSpanY = tileSpanY;
     }
     if (gridlines.visible) {
-      const gridPosAttr = gridGeometry.getAttribute("position");
-      if (gridPosAttr) (gridPosAttr as BufferAttribute).needsUpdate = true;
+      // gridPositions mirrors `positions` (written by the same loop above),
+      // so it shares the same written-range bound.
+      const gridPosAttr = gridGeometry.getAttribute("position") as BufferAttribute | undefined;
+      if (gridPosAttr) {
+        gridPosAttr.clearUpdateRanges();
+        gridPosAttr.addUpdateRange(0, writtenVertCount * 3);
+        gridPosAttr.needsUpdate = true;
+      }
     }
   };
 
