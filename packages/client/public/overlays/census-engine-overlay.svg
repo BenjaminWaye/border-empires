@@ -1,0 +1,39 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Census Engine: compact horizontal brass drum in a dark iron frame, record cards fanning from one side -->
+  <path d="M16 106L34 96H94L78 106H16Z" fill="#2A241E"/>
+  <path d="M34 96V92H94V96H34Z" fill="#3E3428"/>
+  <path d="M34 92L46 84H94L82 92H34Z" fill="#5F4A2C"/>
+
+  <!-- Iron frame end plates and axles -->
+  <path d="M28 84L34 78H58L48 84H28Z" fill="#1F1B16"/>
+  <path d="M34 78V66H48V78H34Z" fill="#2A241E"/>
+  <path d="M34 66L40 62H48L42 66H34Z" fill="#3E3428"/>
+  <path d="M70 84L76 78H100L90 84H70Z" fill="#1F1B16"/>
+  <path d="M76 78V66H90V78H76Z" fill="#2A241E"/>
+  <path d="M76 66L82 62H90L84 66H76Z" fill="#3E3428"/>
+
+  <!-- Brass drum: horizontal cylinder between the frame plates -->
+  <path d="M30 72L40 64H90L80 72H30Z" fill="#E2C28A"/>
+  <path d="M30 72V80H80V72H30Z" fill="#C99550"/>
+  <path d="M80 80L90 72V64L80 72V80Z" fill="#8A6A3E"/>
+
+  <!-- Mechanical housing and wheel on the left frame -->
+  <path d="M26 62L30 58H40L36 62H26Z" fill="#8A6A3E"/>
+  <path d="M30 58V50H36V58H30Z" fill="#C99550"/>
+  <circle cx="33" cy="54" r="4" fill="#5F4A2C"/>
+
+  <!-- Fanned record cards protruding from the right side of the drum -->
+  <path d="M76 60L82 48L90 52L84 62L76 60Z" fill="#D8CAB3"/>
+  <path d="M80 56L84 42L92 46L88 58L80 56Z" fill="#EFE5D4"/>
+  <path d="M84 50L90 34L98 38L92 52L84 50Z" fill="#D8CAB3"/>
+  <path d="M88 44L94 28L102 32L96 46L88 44Z" fill="#EFE5D4"/>
+  <path d="M92 38L98 22L106 26L100 40L92 38Z" fill="#C9B08C"/>
+
+  <!-- Separated active card, pushed forward, with muted green glow -->
+  <path d="M100 58L110 36L120 40L112 60L100 58Z" fill="#EFE5D4"/>
+  <path d="M110 36L114 28L120 32L116 40L110 36Z" fill="#E8DFC8"/>
+  <circle cx="111" cy="42" r="3" fill="#5C8A4A"/>
+  <circle cx="111" cy="42" r="1.4" fill="#8FC97A"/>
+
+</svg>
