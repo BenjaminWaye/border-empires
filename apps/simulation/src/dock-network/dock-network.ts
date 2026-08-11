@@ -1,6 +1,3 @@
-import { isFrontierAdjacent } from "../frontier-adjacency/frontier-adjacency.js";
-import { forEachFrontierNeighbor } from "../frontier-topology.js";
-
 export type DockRouteDefinition = {
   dockId: string;
   tileKey: string;
@@ -36,35 +33,19 @@ export const buildDockLinksByDockTileKey = (
 export const dockCrossingCandidateTileKeys = (
   fromDockTileKey: string,
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>
-): string[] => {
-  const linkedDockTileKeys = dockLinksByDockTileKey.get(fromDockTileKey) ?? [];
-  const candidates = new Set<string>();
-  for (const dockTileKey of linkedDockTileKeys) {
-    candidates.add(dockTileKey);
-    const coords = parseTileKey(dockTileKey);
-    if (!coords) continue;
-    forEachFrontierNeighbor(coords.x, coords.y, (nx, ny) => candidates.add(`${nx},${ny}`));
-  }
-  return [...candidates];
-};
+): string[] => [...(dockLinksByDockTileKey.get(fromDockTileKey) ?? [])];
 
+// A dock crossing (ATTACK or EXPAND) must land on the linked dock tile
+// itself — you have to capture the dock before you can reach land beyond it.
 export const isValidDockCrossingTarget = (
   fromDockTileKey: string,
   toX: number,
   toY: number,
-  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>,
-  // ATTACK may reach land beside a linked dock (raiding past a hostile dock);
-  // EXPAND must land on the linked dock tile itself — you can't settle around
-  // an unowned dock without capturing it first.
-  allowAdjacent: boolean
+  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>
 ): boolean =>
-  (dockLinksByDockTileKey.get(fromDockTileKey) ?? []).some((dockTileKey) => {
-    const coords = parseTileKey(dockTileKey);
-    return Boolean(coords) && (
-      dockTileKey === `${toX},${toY}` ||
-      (allowAdjacent && isFrontierAdjacent(coords!.x, coords!.y, toX, toY))
-    );
-  });
+  (dockLinksByDockTileKey.get(fromDockTileKey) ?? []).some(
+    (dockTileKey) => dockTileKey === `${toX},${toY}`
+  );
 
 export const computeLinkedDockRevealTileKeys = (
   ownedDockTileKeys: Iterable<string>,

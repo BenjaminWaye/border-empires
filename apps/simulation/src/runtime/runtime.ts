@@ -1524,9 +1524,9 @@ export class SimulationRuntime {
       onMusterRemoteBlockedBarbarian: this.onMusterRemoteBlockedBarbarian,
       scheduleLockResolution: (lock) => this.scheduleLockResolution(lock),
       adjacentTileStates: (x, y) => this.adjacentTileStates(x, y),
-      findOwnedDockOriginForCrossing: (playerId, x, y, allowAdjacent) => this.findOwnedDockOriginForCrossing(playerId, x, y, allowAdjacent),
+      findOwnedDockOriginForCrossing: (playerId, x, y) => this.findOwnedDockOriginForCrossing(playerId, x, y),
       findOwnedAetherBridgeOriginForCrossing: (playerId, x, y) => this.findOwnedAetherBridgeOriginForCrossing(playerId, x, y),
-      isDockCrossingTarget: (from, x, y, allowAdjacent) => this.isDockCrossingTarget(from, x, y, allowAdjacent),
+      isDockCrossingTarget: (from, x, y) => this.isDockCrossingTarget(from, x, y),
       isAetherBridgeCrossingTarget: (playerId, x1, y1, x2, y2) => this.isAetherBridgeCrossingTarget(playerId, x1, y1, x2, y2),
       crossingBlockedByAetherWall: (x1, y1, x2, y2) => this.crossingBlockedByAetherWall(x1, y1, x2, y2),
       isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
@@ -4406,7 +4406,7 @@ export class SimulationRuntime {
 
   private extendFortPatrolGrace(tileKey: string, graceUntil: number): void { this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil)); }
 
-  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number, allowAdjacent: boolean): boolean { return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey, allowAdjacent); }
+  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean { return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey); }
 
   private isAetherBridgeCrossingTarget(
     playerId: string,
@@ -4428,11 +4428,11 @@ export class SimulationRuntime {
     return false;
   }
 
-  private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number, allowAdjacent: boolean): DomainTileState | undefined {
+  private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
     for (const tileKey of this.summaryForPlayer(playerId).territoryTileKeys) {
       const tile = this.tiles.get(tileKey);
       if (!tile || tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
-      if (this.isDockCrossingTarget(tile, toX, toY, allowAdjacent)) return tile;
+      if (this.isDockCrossingTarget(tile, toX, toY)) return tile;
     }
     return undefined;
   }
