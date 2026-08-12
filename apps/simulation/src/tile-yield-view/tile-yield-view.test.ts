@@ -79,7 +79,7 @@ describe("buildTileYieldView", () => {
           ownerId: player.id,
           ownershipState: "SETTLED",
           ...(dx === 1 && dy === 0
-            ? { economicStructure: { type: "MARKET", status: "active", ownerId: player.id } }
+            ? { economicStructure: { type: "MINTWORKS", status: "active", ownerId: player.id } }
             : {})
         });
       }
@@ -314,9 +314,9 @@ describe("buildTileYieldView", () => {
       ).toBe(false);
     });
 
-    it("is false for a non-strategic-affecting structure like MARKET", () => {
+    it("is false for a non-strategic-affecting structure like MINTWORKS", () => {
       expect(
-        tileYieldNeedsServerAuthority({ economicStructure: { type: "MARKET", status: "active", ownerId: "player-1" } })
+        tileYieldNeedsServerAuthority({ economicStructure: { type: "MINTWORKS", status: "active", ownerId: "player-1" } })
       ).toBe(false);
     });
   });

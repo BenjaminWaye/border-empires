@@ -9,20 +9,20 @@ import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY, CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-  marketGoldProductionMultiplier
+  mintworksGoldProductionMultiplier
 } from "@border-empires/game-domain";
 import type { Tile } from "./client-types.js";
 import { converterStructureInfoView } from "./client-converter-structure-info.js";
 
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 
-// market-stacking task: these three call sites are generic/help copy (no
-// specific tile/town in scope) describing the PER-MARKET rate, not a real
+// mintworks-stacking task: these three call sites are generic/help copy (no
+// specific tile/town in scope) describing the PER-MINTWORKS rate, not a real
 // town's stacked total — derived from the shared function rather than a
 // separate hardcoded literal so the numbers can't drift from it, with
 // wording that makes the additive stacking explicit.
-const MARKET_PER_MARKET_PERCENT = Math.round((marketGoldProductionMultiplier(1, false) - 1) * 100);
-const MARKET_PER_MARKET_PERCENT_CLEARING_HOUSE = Math.round((marketGoldProductionMultiplier(1, true) - 1) * 100);
+const MINTWORKS_PER_MINTWORKS_PERCENT = Math.round((mintworksGoldProductionMultiplier(1, false) - 1) * 100);
+const MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE = Math.round((mintworksGoldProductionMultiplier(1, true) - 1) * 100);
 
 export type StructureInfoKey =
   | "FORT"
@@ -33,7 +33,7 @@ export type StructureInfoKey =
   | "WATERWORKS"
   | "UMBRITE_RIG"
   | "MINE"
-  | "MARKET"
+  | "MINTWORKS"
   | "GRANARY"
   | "SEED_GRANARY"
   | "CENSUS_HALL"
@@ -167,7 +167,7 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   WEAPONS_WORKSHOP: "War",
   TITANIUM_WEAPONS_FACTORY: "War", UMBRITE_WEAPONS_FACTORY: "War",
   FARMSTEAD: "Economy", WATERWORKS: "Economy", MINE: "Economy",
-  MARKET: "Economy", CLEARING_HOUSE: "Economy",
+  MINTWORKS: "Economy", CLEARING_HOUSE: "Economy",
   UMBRITE_SYNTHESIZER: "Economy", ADVANCED_UMBRITE_SYNTHESIZER: "Economy",
   TITANIUM_WORKS: "Economy", ADVANCED_TITANIUM_WORKS: "Economy",
   FOUNDRY: "Economy", CUSTOMS_HOUSE: "Economy",
@@ -250,16 +250,16 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "WEAPONS_WORKSHOP") return "Weapons Workshop";
   if (kind === "TITANIUM_WEAPONS_FACTORY") return "Titanium Weapons Factory";
   if (kind === "UMBRITE_WEAPONS_FACTORY") return "Umbrite Weapons Factory";
-  return "Market";
+  return "Mintworks";
 };
 
 export const economicStructureBenefitText = (type: EconomicStructureType | StructureInfoKey): string => {
   const kind = type as string;
-  if (kind === "MARKET") return `+10 gold instantly on completion, +1 gold/day, and +${MARKET_PER_MARKET_PERCENT}% nearby town gold production per Market (+${MARKET_PER_MARKET_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — stacks additively with every other active Market supporting the town.`;
+  if (kind === "MINTWORKS") return `+10 gold instantly on completion, +1 gold/day, and +${MINTWORKS_PER_MINTWORKS_PERCENT}% nearby town gold production per Mintworks (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — stacks additively with every other active Mintworks supporting the town.`;
   if (kind === "GRANARY") return "Grants an instant one-time +10,000 population burst to the supported town on completion.";
   if (kind === "SEED_GRANARY") return "Upgrades a granary into a seed granary with +30% local town population growth and lower local town food upkeep.";
   if (kind === "CENSUS_HALL") return "Grants +20,000 population to the supported town for every connected city with an active Incubation Engine, and cuts that town's tier-upgrade cost by 25%.";
-  if (kind === "CLEARING_HOUSE") return "Strengthens the Market for this town and its directly connected towns.";
+  if (kind === "CLEARING_HOUSE") return "Strengthens the Mintworks for this town and its directly connected towns.";
   if (kind === "AIRPORT") return "Launches crystal-powered bombardment that strips enemy ownership from a 3×3 area (structures survive). Free to fire, 20m cooldown. Blocked by Resonance Grids.";
   if (kind === "AETHER_TOWER") return "Powers nearby late-game sky and monument structures.";
   if (kind === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
@@ -334,7 +334,7 @@ export const structureInfoForKey = (
     | "FARMSTEAD"
     | "UMBRITE_RIG"
     | "MINE"
-    | "MARKET"
+    | "MINTWORKS"
     | "GRANARY"
     | "CENSUS_HALL"
     | "CLEARING_HOUSE"
@@ -440,11 +440,11 @@ export const structureInfoForKey = (
     if (key === "WATERWORKS") return ["+100% farmstead food within 10 tiles", `Each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots`];
     if (key === "UMBRITE_RIG") return ["+50% umbrite production on UMBRITE tiles", "+15 umbrite cap"];
     if (key === "MINE") return ["+50% iron or crystal production on mineral tiles", "+15 iron cap or +9 crystal cap"];
-    if (key === "MARKET") return ["+10 gold instantly on completion", "+1 gold/day", `+${MARKET_PER_MARKET_PERCENT}% town gold production per Market (+${MARKET_PER_MARKET_PERCENT_CLEARING_HOUSE}% with an active Clearing House), stacks additively`];
+    if (key === "MINTWORKS") return ["+10 gold instantly on completion", "+1 gold/day", `+${MINTWORKS_PER_MINTWORKS_PERCENT}% town gold production per Mintworks (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House), stacks additively`];
     if (key === "GRANARY") return ["Instant one-time +10,000 population burst on completion"];
     if (key === "SEED_GRANARY") return ["+30% local town population growth", "-10% local town food upkeep"];
     if (key === "CENSUS_HALL") return ["+20,000 population per connected city with an active Incubation Engine", "-25% town-tier upgrade cost for this town"];
-    if (key === "CLEARING_HOUSE") return ["+25% Market effect across connected towns", "+20% Bank effect across connected towns", "+0.5 flat Bank income across connected towns"];
+    if (key === "CLEARING_HOUSE") return ["+25% Mintworks effect across connected towns", "+20% Bank effect across connected towns", "+0.5 flat Bank income across connected towns"];
     if (key === "CARAVANARY") return ["Enables the connected-town income bonus for this road network"];
     if (key === "UMBRITE_SYNTHESIZER") return ["Refine: gold → 18 umbrite/day", "Sell off: 1 umbrite slot → 8 gold/day"];
     if (key === "ADVANCED_UMBRITE_SYNTHESIZER") return ["Refine: gold → 21.6 umbrite/day", "Sell off: 1 umbrite slot → 12 gold/day"];
@@ -482,7 +482,7 @@ export const structureInfoForKey = (
       : { ...base, effects: effectsFor(type), upkeepBits: upkeepBitsFor(type), ...(branch ? { branch } : {}) };
   };
   const imageFor = (key: StructureInfoKey): string | undefined => {
-    if (key === "MARKET") return "/overlays/market-overlay.svg";
+    if (key === "MINTWORKS") return "/overlays/mintworks-overlay.svg";
     if (key === "GRANARY") return "/overlays/incubation-engine-overlay.svg";
     if (key === "CENSUS_HALL") return "/overlays/census-hall-overlay.svg";
     if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
@@ -629,10 +629,10 @@ export const structureInfoForKey = (
       buildTimeLabel: buildTimeLabelFor(type)
     });
   }
-  if (type === "MARKET") {
+  if (type === "MINTWORKS") {
     return structure({
-      title: "Market",
-      detail: `Markets are built on a town support tile. Each grants +10 gold instantly on completion, +1 gold/day, and increases that town's gold production by ${MARKET_PER_MARKET_PERCENT}% (+${MARKET_PER_MARKET_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — multiple Markets stack additively.`,
+      title: "Mintworks",
+      detail: `Mintworks are built on a town support tile. Each grants +10 gold instantly on completion, +1 gold/day, and increases that town's gold production by ${MINTWORKS_PER_MINTWORKS_PERCENT}% (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House) — multiple Mintworks stack additively.`,
       glyph: "◌",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -662,7 +662,7 @@ export const structureInfoForKey = (
   if (type === "CLEARING_HOUSE") {
     return structure({
       title: "Clearing House",
-      detail: "Clearing Houses are built on a town support tile. One active clearing house gives this town and its directly connected towns +25% Market effect.",
+      detail: "Clearing Houses are built on a town support tile. One active clearing house gives this town and its directly connected towns +25% Mintworks effect.",
       glyph: "⌂",
       placement: "Build on an open settled support tile for a town with a connected city network.",
       costBits: costBitsFor(type),

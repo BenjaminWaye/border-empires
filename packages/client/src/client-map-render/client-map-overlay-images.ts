@@ -40,7 +40,7 @@ export const aetherWallPylonImage = loadOverlayImage("aether-wall-pylon-overlay.
 export const dockOverlayVariants = createOverlayVariantSet(["dock-overlay-1.svg", "dock-overlay-2.svg", "dock-overlay-3.svg"]);
 export const structureOverlayImages = {
   OBSERVATORY: loadOverlayImage("observatory-overlay.svg"),
-  MARKET: loadOverlayImage("market-overlay.svg"),
+  MINTWORKS: loadOverlayImage("mintworks-overlay.svg"),
   GRANARY: loadOverlayImage("incubation-engine-overlay.svg"),
   CLEARING_HOUSE: loadOverlayImage("clearing-house-overlay.svg"),
   AIRPORT: loadOverlayImage("airport-overlay.svg"),

@@ -66,7 +66,7 @@ export const STRUCTURE_SLOT_REQUIREMENTS: Partial<Record<SlotStructureType, Stru
   CUSTOMS_HOUSE: [{ resource: "FOOD", count: 1 }],
 
   // Tier 2 — trade & production infrastructure
-  MARKET: [{ resource: "FOOD", count: 1 }],
+  MINTWORKS: [{ resource: "FOOD", count: 1 }],
   UMBRITE_SYNTHESIZER: [{ resource: "UMBRITE", count: 1 }],
   TITANIUM_WORKS: [{ resource: "TITANIUM", count: 1 }],
   CRYSTAL_SYNTHESIZER: [{ resource: "CRYSTAL", count: 1 }],

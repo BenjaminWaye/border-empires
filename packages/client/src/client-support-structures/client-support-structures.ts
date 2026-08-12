@@ -2,7 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 export type SupportTownStructureKey =
-  | "MARKET"
+  | "MINTWORKS"
   | "GRANARY"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
@@ -33,7 +33,7 @@ export type SupportTownStructureKey =
   | "LOGISTICS_GUILD";
 
 const SUPPORT_STRUCTURE_TYPES: Record<SupportTownStructureKey, ReadonlyArray<NonNullable<Tile["economicStructure"]>["type"]>> = {
-  MARKET: ["MARKET"],
+  MINTWORKS: ["MINTWORKS"],
   GRANARY: ["GRANARY"],
   CENSUS_HALL: ["CENSUS_HALL"],
   CLEARING_HOUSE: ["CLEARING_HOUSE"],

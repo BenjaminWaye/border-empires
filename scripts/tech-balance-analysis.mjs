@@ -24,11 +24,11 @@ const townIncomePerMinute = ({
   tier = "TOWN",
   connectedTownCount = 2,
   connectedTownBonusMultiplier = 1,
-  market = false,
+  mintworks = false,
   bank = false,
   townGoldOutputMult = 1,
   populationIncomeMult = 1,
-  marketIncomeBonusAdd = 0.5,
+  mintworksIncomeBonusAdd = 0.5,
   bankIncomeBonusAdd = 0.5
 } = {}) => {
   const connectedBonus = baseConnectedTownBonus(connectedTownCount) * connectedTownBonusMultiplier;
@@ -37,7 +37,7 @@ const townIncomePerMinute = ({
     supportRatio *
     populationMultiplier(tier) *
     (1 + connectedBonus) *
-    (market ? 1 + marketIncomeBonusAdd : 1) *
+    (mintworks ? 1 + mintworksIncomeBonusAdd : 1) *
     (bank ? 1 + bankIncomeBonusAdd : 1) *
     townGoldOutputMult *
     populationIncomeMult
@@ -91,19 +91,19 @@ const maxFinite = (values) => {
 };
 
 const threeTownRows = [
-  { label: "Base town", market: false, bank: false, connectedTownBonusMultiplier: 1 },
-  { label: "Market", market: true, bank: false, connectedTownBonusMultiplier: 1 },
-  { label: "Bank", market: false, bank: true, connectedTownBonusMultiplier: 1 },
-  { label: "Market + Bank", market: true, bank: true, connectedTownBonusMultiplier: 1 },
-  { label: "Market + Bank + Caravanary x2", market: true, bank: true, connectedTownBonusMultiplier: 2 },
-  { label: "Market + Bank + Caravanary x1.5", market: true, bank: true, connectedTownBonusMultiplier: 1.5 }
+  { label: "Base town", mintworks: false, bank: false, connectedTownBonusMultiplier: 1 },
+  { label: "Mintworks", mintworks: true, bank: false, connectedTownBonusMultiplier: 1 },
+  { label: "Bank", mintworks: false, bank: true, connectedTownBonusMultiplier: 1 },
+  { label: "Mintworks + Bank", mintworks: true, bank: true, connectedTownBonusMultiplier: 1 },
+  { label: "Mintworks + Bank + Caravanary x2", mintworks: true, bank: true, connectedTownBonusMultiplier: 2 },
+  { label: "Mintworks + Bank + Caravanary x1.5", mintworks: true, bank: true, connectedTownBonusMultiplier: 1.5 }
 ];
 
 const currentScenarios = {
   tall: {
-    description: "3 connected towns, all supported, markets on all towns, focused resource empire",
+    description: "3 connected towns, all supported, mintworks on all towns, focused resource empire",
     incomePerDay: {
-      gold: townIncomePerMinute({ tier: "TOWN", supportRatio: 1, connectedTownCount: 2, market: true }) * 3 * 1440 + 1440,
+      gold: townIncomePerMinute({ tier: "TOWN", supportRatio: 1, connectedTownCount: 2, mintworks: true }) * 3 * 1440 + 1440,
       FOOD: 4 * 72 * 1.5,
       TITANIUM: 2 * 60 * 1.5,
       UMBRITE: 2 * 60 * 1.5,
@@ -112,11 +112,11 @@ const currentScenarios = {
     }
   },
   wide: {
-    description: "8 towns, average support 0.75, markets on 4 core towns, broader resource base",
+    description: "8 towns, average support 0.75, mintworks on 4 core towns, broader resource base",
     incomePerDay: {
       gold:
-        townIncomePerMinute({ tier: "TOWN", supportRatio: 0.75, connectedTownCount: 2, market: true }) * 4 * 1440 +
-        townIncomePerMinute({ tier: "TOWN", supportRatio: 0.75, connectedTownCount: 1, market: false }) * 4 * 1440 +
+        townIncomePerMinute({ tier: "TOWN", supportRatio: 0.75, connectedTownCount: 2, mintworks: true }) * 4 * 1440 +
+        townIncomePerMinute({ tier: "TOWN", supportRatio: 0.75, connectedTownCount: 1, mintworks: false }) * 4 * 1440 +
         1440,
       FOOD: 8 * 72 * 1.5,
       TITANIUM: 5 * 60 * 1.5,
@@ -135,7 +135,7 @@ const goldSaturationReference = {
     FARMSTEAD: 400,
     UMBRITE_RIG: 500,
     MINE: 500,
-    MARKET: 600,
+    MINTWORKS: 600,
     GRANARY: 400,
     BANK: 700,
     AIRPORT: 900,
@@ -178,7 +178,7 @@ for (const tier of ["TOWN", "CITY", "GREAT_CITY"]) {
       tier,
       supportRatio: 1,
       connectedTownCount: 2,
-      market: row.market,
+      mintworks: row.mintworks,
       bank: row.bank,
       connectedTownBonusMultiplier: row.connectedTownBonusMultiplier
     });

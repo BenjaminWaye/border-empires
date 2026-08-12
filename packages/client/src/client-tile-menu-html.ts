@@ -68,7 +68,7 @@ const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "build_farmstead") return "▥";
   if (id === "build_umbrite_rig") return "⛺";
   if (id === "build_mine") return "⛏";
-  if (id === "build_market") return "▣";
+  if (id === "build_mintworks") return "▣";
   if (id === "build_granary") return "◫";
   if (id === "build_bank") return "◧";
   if (id === "build_airport") return "✈";

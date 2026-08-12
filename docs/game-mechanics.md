@@ -30,7 +30,7 @@ When something here drifts from code, fix the code reference and update this doc
 - **Strategic resources (numeric currencies)**: `FOOD`, `TITANIUM`, `CRYSTAL`, `UMBRITE`, `SHARD`, `OIL`. Distinct from tile resource *kinds* (a `FARM` tile produces `FOOD`, etc.). `packages/game-domain/src/index.ts:21`, `packages/shared/src/types.ts:1`
 - **Gold**: passive income from settled tiles, scaling with town population tier and structure modifiers. Docks add ~0.5 gold/min per dock. Per-tile gold yield is capped at `TILE_YIELD_CAP_GOLD = 24`. `packages/game-domain/src/server-game-constants/server-game-constants.ts:39-40, 23`
 - **Town economics**:
-  - Base gold: `TOWN_BASE_GOLD_PER_MIN = 2`, plus tier and connected-network bonuses, plus market/bank modifiers.
+  - Base gold: `TOWN_BASE_GOLD_PER_MIN = 2`, plus tier and connected-network bonuses, plus mintworks/bank modifiers.
   - Support: each town has `supportMax` / `supportCurrent`. If unfed, **gold income pauses** until support recovers. Granaries reduce upkeep.
   - Manpower: per-tier regen and cap. `SETTLEMENT` 10/min cap 150; `METROPOLIS` 120/min cap 2400.
   - Gold is *not* stored beyond a town cap; overage is lost. `packages/shared/src/types.ts:230-256`, `packages/game-domain/src/server-game-constants/server-game-constants.ts:84-90`
@@ -48,7 +48,7 @@ There are no unit pieces. Combat is **tile-ownership transitions**:
 
 - **One structure per tile** (mutex). Must be placed on a `SETTLED` tile owned by the builder.
 - **Categories**:
-  - Economic: Farmstead, Umbrite Rig, Mine, Granary, Market, Bank, Synthesizers (Umbrite/Titanium Works/Crystal), Fuel Plant, Caravanary, Foundry, Governance (Governor's Office, Garrison Hall, Customs House, Radar System).
+  - Economic: Farmstead, Umbrite Rig, Mine, Granary, Mintworks, Bank, Synthesizers (Umbrite/Titanium Works/Crystal), Fuel Plant, Caravanary, Foundry, Governance (Governor's Office, Garrison Hall, Customs House, Radar System).
   - Military: Fort, Siege Outpost, Observatory.
   - Monuments (late-game, ultra-high cost, built in 4 stages with shard cost): Imperial Exchange, World Engine, Aegis Dome, Astral Dock.
 - **Unlocks**: tech-gated. Costs scale incrementally or exponentially with existing count, in gold + strategic resources.

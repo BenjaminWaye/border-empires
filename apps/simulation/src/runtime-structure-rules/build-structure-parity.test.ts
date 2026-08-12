@@ -330,7 +330,7 @@ describe("BUILD_STRUCTURE parity — observatory", () => {
 });
 
 describe("BUILD_STRUCTURE parity — economic family", () => {
-  it("builds MARKET (same-tile, uncapped per town)", async () => {
+  it("builds MINTWORKS (same-tile, uncapped per town)", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -344,7 +344,7 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Hub", type: "MARKET", populationTier: "TOWN" } },
           { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-          // §5.3: town draws 4 FOOD, MARKET 1 more — 2 FISH (2 each) + 1 FARM = 5.
+          // §5.3: town draws 4 FOOD, MINTWORKS 1 more — 2 FISH (2 each) + 1 FARM = 5.
           { x: 10, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
           { x: 10, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
           { x: 10, y: 14, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
@@ -356,18 +356,18 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
     runtime.submitCommand({
       commandId: "m1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
-      payloadJson: JSON.stringify({ x: 10, y: 11, structureType: "MARKET" }),
+      payloadJson: JSON.stringify({ x: 10, y: 11, structureType: "MINTWORKS" }),
     });
     await Promise.resolve();
 
-    // Market stays same_tile placement (tech-tree redesign: per-town cap
+    // Mintworks stays same_tile placement (tech-tree redesign: per-town cap
     // removed, stacks additively) -- targeted directly at the open support
     // tile, it lands there without any redirect or singleton rejection.
     const builtTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
-    expect(builtTile?.economicStructureJson).toContain('"type":"MARKET"');
+    expect(builtTile?.economicStructureJson).toContain('"type":"MINTWORKS"');
   });
 
-  it("redirects MARKET targeted at the town tile itself onto its open support tile", async () => {
+  it("redirects MINTWORKS targeted at the town tile itself onto its open support tile", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([["player-1", {
@@ -393,14 +393,14 @@ describe("BUILD_STRUCTURE parity — economic family", () => {
       commandId: "m1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
       type: "BUILD_STRUCTURE" as any,
       // Targets the town tile itself -- only a Fort belongs directly on it.
-      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "MARKET" }),
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "MINTWORKS" }),
     });
     await Promise.resolve();
 
     const townTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
     expect(townTile?.economicStructureJson).toBeUndefined();
     const supportTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
-    expect(supportTile?.economicStructureJson).toContain('"type":"MARKET"');
+    expect(supportTile?.economicStructureJson).toContain('"type":"MINTWORKS"');
   });
 
   it("upgrades UMBRITE_SYNTHESIZER → ADVANCED", async () => {

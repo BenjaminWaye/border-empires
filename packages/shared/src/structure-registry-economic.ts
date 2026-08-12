@@ -27,7 +27,7 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   WATERWORKS: "irrigation",
   UMBRITE_RIG: "leatherworking",
   MINE: "mining",
-  MARKET: "trade",
+  MINTWORKS: "trade",
   GRANARY: "pottery",
   SEED_GRANARY: "pottery",
   CLEARING_HOUSE: "coinage",
@@ -139,7 +139,7 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   MINE: econSpec("MINE"),
 
   // Town-support structures
-  MARKET: econSpec("MARKET"),
+  MINTWORKS: econSpec("MINTWORKS"),
   GRANARY: econSpec("GRANARY"),
   SEED_GRANARY: econSpec("SEED_GRANARY"),
   CENSUS_HALL: econSpec("CENSUS_HALL"),

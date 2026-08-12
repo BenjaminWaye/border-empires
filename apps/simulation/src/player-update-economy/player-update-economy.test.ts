@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { MARKET_FLAT_GOLD_BONUS_PER_MIN, marketGoldProductionMultiplier } from "@border-empires/game-domain";
+import { MINTWORKS_FLAT_GOLD_BONUS_PER_MIN, mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 
 import { buildPlayerUpdateEconomySnapshot, hasSupportedStructure, refreshTownEconomyFields, supportSummaryForTown, townGoldPerMinuteForPlayer } from "./player-update-economy.js";
 import { createEmptyPlayerRuntimeSummary, applyTileToPlayerSummary, type PlayerRuntimeSummary } from "../player-runtime-summary.js";
@@ -48,7 +48,7 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
       terrain: "LAND",
       ownerId: player.id,
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: player.id, type: "MARKET", status: "active" }
+      economicStructure: { ownerId: player.id, type: "MINTWORKS", status: "active" }
     };
     const tiles = new Map<string, DomainTileState>([
       ["10,10", westTown],
@@ -58,8 +58,8 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
 
     expect(supportSummaryForTown(player.id, westTown, tiles)).toEqual({ supportCurrent: 1, supportMax: 1 });
     expect(supportSummaryForTown(player.id, eastTown, tiles)).toEqual({ supportCurrent: 0, supportMax: 0 });
-    expect(hasSupportedStructure(player.id, westTown, "MARKET", tiles)).toBe(true);
-    expect(hasSupportedStructure(player.id, eastTown, "MARKET", tiles)).toBe(false);
+    expect(hasSupportedStructure(player.id, westTown, "MINTWORKS", tiles)).toBe(true);
+    expect(hasSupportedStructure(player.id, eastTown, "MINTWORKS", tiles)).toBe(false);
   });
 
   it("adds connected dock route income when both dock endpoints are settled by the player", () => {
@@ -260,13 +260,13 @@ describe("buildPlayerUpdateEconomySnapshot", () => {
   });
 });
 
-describe("townGoldPerMinuteForPlayer — market stacking", () => {
-  // market-stacking task: each active Market in a town's support ring
+describe("townGoldPerMinuteForPlayer — mintworks stacking", () => {
+  // mintworks-stacking task: each active Mintworks in a town's support ring
   // contributes its own +10% (additive), not a single flat +10%/+35% for
-  // "any Market present." Builds a town tile with N Markets filling its
+  // "any Mintworks present." Builds a town tile with N Mintworks filling its
   // 8-tile support ring (plus enough remaining ring tiles settled to keep
-  // supportRatio at 1, isolating the assertion to the market multiplier).
-  const buildTownWithMarkets = (marketCount: number) => {
+  // supportRatio at 1, isolating the assertion to the mintworks multiplier).
+  const buildTownWithMintworks = (mintworksCount: number) => {
     const player = makePlayer();
     const townTile: DomainTileState = {
       x: 10,
@@ -285,42 +285,42 @@ describe("townGoldPerMinuteForPlayer — market stacking", () => {
     ringOffsets.forEach(([dx, dy], i) => {
       const x = 10 + dx!;
       const y = 10 + dy!;
-      const isMarket = i < marketCount;
+      const isMintworks = i < mintworksCount;
       tiles.set(`${x},${y}`, {
         x, y, terrain: "LAND", ownerId: player.id, ownershipState: "SETTLED",
-        ...(isMarket ? { economicStructure: { ownerId: player.id, type: "MARKET", status: "active" } } : {})
+        ...(isMintworks ? { economicStructure: { ownerId: player.id, type: "MINTWORKS", status: "active" } } : {})
       });
     });
     const fedTownKeys = new Set(["10,10"]);
     return { player, townTile, tiles, fedTownKeys };
   };
 
-  // Both `buildTownWithMarkets` calls being compared here always keep
+  // Both `buildTownWithMintworks` calls being compared here always keep
   // supportMax/supportRatio at 8/8 (every ring tile is settled regardless of
-  // whether it holds a Market), so the only thing that differs between them
-  // is marketCount — isolating the assertion to the additive per-market
+  // whether it holds a Mintworks), so the only thing that differs between them
+  // is mintworksCount — isolating the assertion to the additive per-mintworks
   // stacking rather than a support-ratio side effect.
-  const expectedGoldPerMinute = (baseWithNoMarket: number, marketCount: number, clearingHouseActive = false): number =>
-    baseWithNoMarket * marketGoldProductionMultiplier(marketCount, clearingHouseActive) + MARKET_FLAT_GOLD_BONUS_PER_MIN * marketCount;
+  const expectedGoldPerMinute = (baseWithNoMintworks: number, mintworksCount: number, clearingHouseActive = false): number =>
+    baseWithNoMintworks * mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * mintworksCount;
 
-  it("1 active Market grants +10% town gold production (baseline, must not regress)", () => {
-    const { player, townTile, tiles: noMarketTiles, fedTownKeys: noMarketFed } = buildTownWithMarkets(0);
-    const baseWithNoMarket = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, noMarketTiles, noMarketFed);
-    const { tiles, fedTownKeys } = buildTownWithMarkets(1);
-    const withOneMarket = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, tiles, fedTownKeys);
-    expect(withOneMarket).toBeCloseTo(expectedGoldPerMinute(baseWithNoMarket, 1), 6);
+  it("1 active Mintworks grants +10% town gold production (baseline, must not regress)", () => {
+    const { player, townTile, tiles: noMintworksTiles, fedTownKeys: noMintworksFed } = buildTownWithMintworks(0);
+    const baseWithNoMintworks = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, noMintworksTiles, noMintworksFed);
+    const { tiles, fedTownKeys } = buildTownWithMintworks(1);
+    const withOneMintworks = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, tiles, fedTownKeys);
+    expect(withOneMintworks).toBeCloseTo(expectedGoldPerMinute(baseWithNoMintworks, 1), 6);
   });
 
-  it("5 active Markets in the support ring grant +50% town gold production, not +10% and not capped", () => {
-    const { player, townTile, tiles: noMarketTiles, fedTownKeys: noMarketFed } = buildTownWithMarkets(0);
-    const baseWithNoMarket = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, noMarketTiles, noMarketFed);
-    const { tiles, fedTownKeys } = buildTownWithMarkets(5);
-    const withFiveMarkets = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, tiles, fedTownKeys);
-    expect(withFiveMarkets).toBeCloseTo(expectedGoldPerMinute(baseWithNoMarket, 5), 6);
+  it("5 active Mintworks in the support ring grant +50% town gold production, not +10% and not capped", () => {
+    const { player, townTile, tiles: noMintworksTiles, fedTownKeys: noMintworksFed } = buildTownWithMintworks(0);
+    const baseWithNoMintworks = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, noMintworksTiles, noMintworksFed);
+    const { tiles, fedTownKeys } = buildTownWithMintworks(5);
+    const withFiveMintworks = townGoldPerMinuteForPlayer(player, townTile, townTile.town!, tiles, fedTownKeys);
+    expect(withFiveMintworks).toBeCloseTo(expectedGoldPerMinute(baseWithNoMintworks, 5), 6);
     // Explicitly rule out the old non-stacking behavior (flat +10% no
-    // matter how many Markets) regressing back in.
-    const oldNonStackingBehavior = expectedGoldPerMinute(baseWithNoMarket, 1);
-    expect(withFiveMarkets).toBeGreaterThan(oldNonStackingBehavior);
+    // matter how many Mintworks) regressing back in.
+    const oldNonStackingBehavior = expectedGoldPerMinute(baseWithNoMintworks, 1);
+    expect(withFiveMintworks).toBeGreaterThan(oldNonStackingBehavior);
   });
 });
 
@@ -345,8 +345,8 @@ describe("refreshTownEconomyFields", () => {
         maxPopulation: 25_000,
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMarket: false,
-        marketActive: false,
+        hasMintworks: false,
+        mintworksActive: false,
         hasGranary: false,
         granaryActive: false,
       }
@@ -379,8 +379,8 @@ describe("refreshTownEconomyFields", () => {
         maxPopulation: 25_000,
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMarket: false,
-        marketActive: false,
+        hasMintworks: false,
+        mintworksActive: false,
         hasGranary: false,
         granaryActive: false,
       }
@@ -413,8 +413,8 @@ describe("refreshTownEconomyFields", () => {
         maxPopulation: 2500,
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMarket: false,
-        marketActive: false,
+        hasMintworks: false,
+        mintworksActive: false,
         hasGranary: false,
         granaryActive: false,
       }

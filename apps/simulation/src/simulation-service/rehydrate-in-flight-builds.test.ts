@@ -142,7 +142,7 @@ describe("in-flight structure-build rehydration on sim startup", () => {
               ownershipState: "SETTLED",
               economicStructure: {
                 ownerId: "player-1",
-                type: "MARKET",
+                type: "MINTWORKS",
                 status: "under_construction",
                 completesAt: 50_000
               }
@@ -155,7 +155,7 @@ describe("in-flight structure-build rehydration on sim startup", () => {
       await Promise.resolve();
       vi.advanceTimersByTime(1);
       expect(tileAt(runtime, 8, 8)?.economicStructureJson).toBe(
-        JSON.stringify({ ownerId: "player-1", type: "MARKET", status: "active", activatedAt: 100_000 })
+        JSON.stringify({ ownerId: "player-1", type: "MINTWORKS", status: "active", activatedAt: 100_000 })
       );
     } finally {
       vi.useRealTimers();
@@ -261,7 +261,7 @@ describe("in-flight structure-build rehydration on sim startup", () => {
               ownershipState: "SETTLED",
               economicStructure: {
                 ownerId: "player-1",
-                type: "MARKET",
+                type: "MINTWORKS",
                 status: "under_construction",
                 completesAt: 50_000
               }

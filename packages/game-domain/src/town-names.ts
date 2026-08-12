@@ -47,7 +47,7 @@ const NAME_CULTURES: readonly NameCulture[] = [
     id: "mistclock",
     starts: ["Bramble", "Copper", "Hob", "Kettle", "Merry", "Moss", "Tumble", "Willow"],
     middles: ["berry", "ettle", "fiddle", "hollow", "merry", "whistle"],
-    ends: ["burrow", "corner", "croft", "market", "nook", "row", "run", "wharf"],
+    ends: ["burrow", "corner", "croft", "mintworks", "nook", "row", "run", "wharf"],
     landmarks: ["Bridge", "Close", "Green", "Lane", "Mill", "Pocket"]
   },
   {

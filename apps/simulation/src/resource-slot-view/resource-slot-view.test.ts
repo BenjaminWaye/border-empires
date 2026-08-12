@@ -178,7 +178,7 @@ describe("resourceSlotDemandForPlayer", () => {
         {
           x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED",
           town: { type: "MARKET", populationTier: "TOWN", name: "Town" },
-          economicStructure: { ownerId: "p1", type: "MARKET", status: "active" }
+          economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "active" }
         } as PartialTile as DomainTileState
       ],
       "p1"
@@ -235,7 +235,7 @@ describe("resourceSlotDemandForPlayer", () => {
   it("counts a structure regardless of status — under_construction, active, inactive, and removing all occupy their slot", () => {
     for (const status of ["under_construction", "active", "inactive", "removing"] as const) {
       const totals = resourceSlotDemandForPlayer(
-        [{ economicStructure: { ownerId: "p1", type: "MARKET", status } } as PartialTile as DomainTileState],
+        [{ economicStructure: { ownerId: "p1", type: "MINTWORKS", status } } as PartialTile as DomainTileState],
         "p1"
       );
       expect(totals.FOOD).toBe(1);
@@ -357,7 +357,7 @@ describe("currentTileFieldSlotRequirements", () => {
 
   it("returns [] when the tile field is unoccupied or owned by someone else", () => {
     expect(currentTileFieldSlotRequirements({} as DomainTileState, "economicStructure", "p1")).toEqual([]);
-    const target = { economicStructure: { ownerId: "someone-else", type: "MARKET", status: "active" } } as PartialTile as DomainTileState;
+    const target = { economicStructure: { ownerId: "someone-else", type: "MINTWORKS", status: "active" } } as PartialTile as DomainTileState;
     expect(currentTileFieldSlotRequirements(target, "economicStructure", "p1")).toEqual([]);
   });
 });
@@ -392,9 +392,9 @@ describe("resourceSlotDormantContributorsForPlayer", () => {
   it("protects a town's FOOD demand ahead of a newer building's when FOOD is short", () => {
     const tiles = [
       tile({ x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } }),
-      tile({ x: 1, y: 0, ownerId: "p1", economicStructure: { ownerId: "p1", type: "MARKET", status: "active", activatedAt: 500 } })
+      tile({ x: 1, y: 0, ownerId: "p1", economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "active", activatedAt: 500 } })
     ];
-    // Town demands 4 FOOD (always ranked oldest), Market demands 1 FOOD. Total demand 5, supply 4 -> short by 1.
+    // Town demands 4 FOOD (always ranked oldest), Mintworks demands 1 FOOD. Total demand 5, supply 4 -> short by 1.
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 4, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
     expect([...dormancy.FOOD]).toEqual(["1,0:economicStructure"]);
   });

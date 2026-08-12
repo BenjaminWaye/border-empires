@@ -262,7 +262,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     { kind: "MINE", resource: "TITANIUM" },
     { kind: "MINE", resource: "GEMS" },
     { kind: "TITANIUM_WORKS" },
-    { kind: "MARKET" },
+    { kind: "MINTWORKS" },
     { kind: "OBSERVATORY" },
     { kind: "GRANARY" },
     { kind: "SEED_GRANARY" },

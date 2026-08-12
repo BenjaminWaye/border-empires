@@ -220,7 +220,7 @@ describe("structure command planner", () => {
 
 describe("chooseBestEconomicBuild — town support tile availability", () => {
   // Regression: production staging showed BUILD_ECONOMIC_STRUCTURE rejected
-  // 1108/1109 attempts (99.9%). chooseBestEconomicBuild proposed MARKET/
+  // 1108/1109 attempts (99.9%). chooseBestEconomicBuild proposed MINTWORKS/
   // GRANARY whenever a town's supportCurrent < supportMax, without checking
   // whether a physical open SETTLED neighbor tile actually existed to host
   // the structure. The runtime places these on an adjacent support tile
@@ -260,7 +260,7 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
     const result = chooseBestEconomicBuild(ECONOMIC_BUILD_PLAYER, [town, openSupportTile], tilesByKey);
     expect(result).toBeDefined();
     expect(result?.tile).toBe(town);
-    expect(["MARKET", "GRANARY"]).toContain(result?.structureType);
+    expect(["MINTWORKS", "GRANARY"]).toContain(result?.structureType);
   });
 
   it("does not re-propose a structure type the town already has, even when it outscores the genuinely missing type", () => {
@@ -271,7 +271,7 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
     // THIS specific type. The runtime's economicStructureForSupportedTown
     // check catches the duplicate; chooseBestEconomicBuild must too.
     //
-    // The town already has GRANARY (score 20) — only MARKET (score 54) is
+    // The town already has GRANARY (score 20) — only MINTWORKS (score 54) is
     // genuinely missing, so the fix must not re-propose GRANARY.
     //
     // Coordinates kept positive and away from 0 — negative offsets wrap
@@ -303,7 +303,7 @@ describe("chooseBestEconomicBuild — town support tile availability", () => {
       [town2, existingGranary, openSupportTile, ...frontierNeighbors],
       tilesByKey
     );
-    expect(result?.structureType).toBe("MARKET");
+    expect(result?.structureType).toBe("MINTWORKS");
   });
 
   it("does not propose a town-support structure when the only SETTLED neighbor already has a structure", () => {

@@ -216,7 +216,7 @@ describe("handleCancelStructureBuildCommand refunds", () => {
     const tile = makeTile({
       economicStructure: {
         ownerId: PLAYER_ID,
-        type: "MARKET",
+        type: "MINTWORKS",
         status: "removing",
         previousStatus: "active",
         completesAt: 5_000

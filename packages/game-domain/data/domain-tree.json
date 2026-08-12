@@ -94,7 +94,7 @@
       }
     },
     {
-      "id": "market-league",
+      "id": "mintworks-league",
       "tier": 2,
       "name": "Scholastic Exchanges",
       "description": "Trade routes carry knowledge as well as goods.",
@@ -287,7 +287,7 @@
       "tier": 5,
       "name": "Golden Hegemony",
       "description": "A rich, tightly connected network of cities and ports bankrolls the empire.",
-      "requiresTechId": "urban-markets",
+      "requiresTechId": "urban-mintworks",
       "cost": { "gold": 1800, "shard": 5 },
       "effects": {
         "dockGoldOutputMult": 1.2,

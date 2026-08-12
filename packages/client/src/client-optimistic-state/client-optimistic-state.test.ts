@@ -93,8 +93,8 @@ describe("client optimistic state", () => {
         populationTier: "SETTLEMENT",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMarket: false,
-        marketActive: false,
+        hasMintworks: false,
+        mintworksActive: false,
         hasGranary: false,
         granaryActive: false,
       }

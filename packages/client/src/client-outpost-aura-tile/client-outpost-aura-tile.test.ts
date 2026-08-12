@@ -49,7 +49,7 @@ describe("hasActiveOwnedOutpostAura", () => {
   it("returns false when the economic structure is a different type", () => {
     const tile: Tile = {
       ...baseTile(5, 5),
-      economicStructure: { ownerId: "p1", type: "MARKET", status: "active" }
+      economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "active" }
     };
     expect(hasActiveOwnedOutpostAura(tile, "p1")).toBe(false);
   });

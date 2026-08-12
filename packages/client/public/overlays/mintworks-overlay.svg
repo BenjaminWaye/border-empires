@@ -1,0 +1,57 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Workshop body: dark iron base step + muted grey walls + roof -->
+  <path d="M24 100L40 86H90L74 100H24Z" fill="#191A1E"/>
+  <path d="M40 86V72H90V86H40Z" fill="#4A4642"/>
+  <path d="M90 86L102 79V65L90 72V86Z" fill="#30343A"/>
+  <path d="M40 72L55 63H102L90 72H40Z" fill="#2B2E34"/>
+  <path d="M48 69L59 62H82L72 69H48Z" fill="#7D6A41"/>
+  <!-- Heavy wood door + amber-glow windows -->
+  <path d="M46 84V77H56V84H46Z" fill="#5A3822"/>
+  <path d="M74 82V77H78V82H74ZM81 82V77H85V82H81Z" fill="#FF7A2A"/>
+  <!-- Rear chimney with brass collar -->
+  <path d="M84 56V40H88V56H84Z" fill="#30343A"/>
+  <path d="M83 41H89V45H83Z" fill="#7D6A41"/>
+  <!-- Furnace body + warm opening on the right wall, feed pipe -->
+  <path d="M93 74Q98 72 101 76V84H93V74Z" fill="#2B2E34"/>
+  <path d="M95 78H99V82H95V78Z" fill="#FF7A2A"/>
+  <path d="M88 58L92 55" stroke="#7D6A41" stroke-width="2" stroke-linecap="round"/>
+  <!-- Giant central coin press: dark-iron gantry frame -->
+  <path d="M44 20V90H51V20H44Z" fill="#191A1E"/>
+  <path d="M65 20V90H72V20H65Z" fill="#191A1E"/>
+  <path d="M43 20H73V27H43V20Z" fill="#46413A"/>
+  <path d="M47 15H69V19H47V15Z" fill="#8A6A45"/>
+  <!-- Brass stamping head + chunky piston + circular die -->
+  <path d="M51 27H65V40H51V27Z" fill="#8A6A45"/>
+  <path d="M55 40H61V62H55V40Z" fill="#A9803F"/>
+  <circle cx="58" cy="67" r="8.5" fill="#D0A05F"/>
+  <circle cx="58" cy="67" r="4" fill="#E7C46E"/>
+  <!-- Press base tray platform beneath the die -->
+  <path d="M46 78H70V83H46V78Z" fill="#46413A"/>
+  <!-- Gauge + drive gear on the press frame -->
+  <circle cx="52" cy="23.5" r="2.5" fill="#8A6A45" stroke="#191A1E" stroke-width="1"/>
+  <circle cx="73" cy="82" r="4.5" fill="#8A6A45" stroke="#191A1E" stroke-width="1.5"/>
+  <circle cx="73" cy="82" r="1.8" fill="#191A1E"/>
+  <!-- Large brass flywheel beside the press with hub + six spokes -->
+  <circle cx="29" cy="44" r="16" fill="#191A1E"/>
+  <circle cx="29" cy="44" r="15" fill="#7D6A41"/>
+  <circle cx="29" cy="44" r="10" fill="#191A1E"/>
+  <circle cx="29" cy="44" r="3" fill="#8A6A45"/>
+  <path d="M29 29V59M14 44H44M20 34.5L38 53.5M38 34.5L20 53.5" stroke="#7D6A41" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Freshly minted coins emerging on the press tray -->
+  <circle cx="51" cy="85.5" r="3" fill="#E7C46E"/>
+  <circle cx="58" cy="83" r="3" fill="#D8B15C"/>
+  <circle cx="58" cy="86" r="3" fill="#E7C46E"/>
+  <circle cx="65" cy="85.5" r="3" fill="#D8B15C"/>
+  <!-- Coin stack + small tray at the base (currency output) -->
+  <ellipse cx="32" cy="96" rx="10" ry="3.5" fill="#46413A"/>
+  <circle cx="29" cy="94" r="3.5" fill="#D8B15C"/>
+  <circle cx="34" cy="92" r="3.5" fill="#E7C46E"/>
+  <circle cx="31" cy="89" r="3.5" fill="#D8B15C"/>
+  <!-- Brass ingot stocks (raw metal in) -->
+  <path d="M82 98V93H92V98H82Z" fill="#D0A05F"/>
+  <path d="M85 92V89H95V92H85Z" fill="#B38339"/>
+  <path d="M80 99H94M84 93H93" stroke="#191A1E" stroke-width="1.5"/>
+  <!-- Heavy wood coin crates at the base -->
+  <path d="M86 104H99V95H86V104Z" fill="#5A3822"/>
+  <path d="M85 100H100" stroke="#191A1E" stroke-width="1.5"/>
+</svg>
