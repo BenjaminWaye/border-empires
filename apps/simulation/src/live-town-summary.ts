@@ -7,7 +7,9 @@ import {
   granaryGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   SETTLEMENT_GROWTH_RATE_MULT,
-  TOWN_BASE_GOLD_PER_MIN
+  structureModifiersFor,
+  TOWN_BASE_GOLD_PER_MIN,
+  type ModifierStructureType
 } from "@border-empires/game-domain";
 import { nextTownGrowthUpgrade, type Tile } from "@border-empires/shared";
 import {
@@ -171,6 +173,37 @@ export const supportTileBelongsToTown = (
   return assignedTown?.x === townX && assignedTown.y === townY;
 };
 
+// Unified building modifier display (stage 2): support-tile buildings whose
+// catalog entry (structure-modifier-catalog.ts) carries a flat, additive-
+// per-copy rawValue — safe to multiply by how many active copies of that
+// building sit in this town's support ring. Deliberately a small, explicit
+// list rather than "every isTownWide entry with a rawValue" auto-scanned
+// against every EconomicStructureType: Mintworks also carries a rawValue
+// (its flat +gold/day line) but must NOT be summed here — its percent-based
+// gold-production stacking already has its own math
+// (mintworksGoldProductionMultiplier) and is shown as a single already-
+// stacked line by the tile-overview modifiers instead.
+const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = ["GARRISON_HALL", "LOGISTICS_GUILD"];
+
+const townModifierTotalsForTown = (
+  tileKey: string,
+  ownerId: string,
+  tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>,
+  dormantEconomicStructureKeys: ReadonlySet<string>
+): NonNullable<Tile["town"]>["townModifierTotals"] => {
+  const totals: NonNullable<Tile["town"]>["townModifierTotals"] = [];
+  for (const type of TOWN_MODIFIER_AGGREGATE_TYPES) {
+    const count = countSupportedStructures(tileKey, ownerId, type, tilesByKey, dormantEconomicStructureKeys);
+    if (count <= 0) continue;
+    for (const modifier of structureModifiersFor(type)) {
+      if (typeof modifier.rawValue !== "number") continue;
+      const total = Number((modifier.rawValue * count).toFixed(4));
+      totals!.push({ statLabel: modifier.statLabel, total, valueText: `+${total}`, tone: modifier.tone });
+    }
+  }
+  return totals;
+};
+
 export const buildTownSummary = (
   tile: RuntimeState["tiles"][number],
   player: RuntimeState["players"][number] | undefined,
@@ -305,6 +338,10 @@ export const buildTownSummary = (
   const nextPopulationTierUpgrade = tile.ownerId && tile.ownershipState === "SETTLED"
     ? nextTownGrowthUpgrade(populationTier, population)
     : undefined;
+  const townModifierTotals =
+    tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
+      ? townModifierTotalsForTown(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys)
+      : undefined;
   return {
     ...(townPartial.name ? { name: townPartial.name } : {}),
     type: townType!,
@@ -333,7 +370,8 @@ export const buildTownSummary = (
     ...(typeof captureShockUntil === "number" ? { captureShockUntil } : {}),
     ...(typeof townPartial.populationBeforeCapture === "number" ? { populationBeforeCapture: townPartial.populationBeforeCapture } : {}),
     ...(growthModifiers.length > 0 ? { growthModifiers } : {}),
-    ...(nextPopulationTierUpgrade ? { nextPopulationTierUpgrade } : {})
+    ...(nextPopulationTierUpgrade ? { nextPopulationTierUpgrade } : {}),
+    ...(townModifierTotals && townModifierTotals.length > 0 ? { townModifierTotals } : {})
   };
 };
 

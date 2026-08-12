@@ -482,6 +482,15 @@ export const menuOverviewForTile = (
     } else if (ownTownEconomyPartial) {
       pushOwnTownLoadingRow("Growth");
     }
+    // Unified building modifier display (stage 2): combined totals for
+    // support-ring buildings that stack across the whole town (e.g. 3
+    // Garrison Halls → "Manpower cap: +450") — same white-label/green-value
+    // style as pushEffectLine's fort/siege/town modifiers above.
+    if (isSettled && hasOwnerEconomyData) {
+      for (const total of tile.town.townModifierTotals ?? []) {
+        pushEffectLine(total.statLabel, total.valueText, total.tone);
+      }
+    }
   } else if (tile.townDataPartial) {
     // We received a town payload but it failed the renderable gate
     // (population missing or below the 500 floor). Treat as in-flight and

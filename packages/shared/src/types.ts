@@ -301,6 +301,14 @@ export interface Tile {
     // in connected Granaries can claw the bonus back down rather than only
     // ever growing it.
     censusHallAppliedBonus?: number;
+    // Unified building modifier display (stage 2): flat, additive-per-copy
+    // support-ring modifiers summed across every copy of that building type
+    // in this town's support ring (e.g. 3 Garrison Halls → "Manpower cap:
+    // +450"). Percent/multiplier-based effects (Mintworks stacking, etc.)
+    // are deliberately excluded here — see structureModifiersFor's rawValue
+    // contract in game-domain — they keep showing as the single
+    // already-stacked line from the tile-overview modifiers instead.
+    townModifierTotals?: Array<{ statLabel: string; total: number; valueText: string; tone: "positive" | "negative" | "neutral" }>;
   };
   yield?: {
     gold?: number;
