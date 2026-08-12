@@ -261,8 +261,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
-    introducedIn: "agent/muster-advance-one-attack",
+    createdAt: 1786530000000, // 2026.08.12.3
+    introducedIn: "2026.08.12.3",
     title: "Muster ADVANCE flags launch one attack at a time",
     why: "A flag set to ADVANCE re-searched on every automation tick, so it could fire a second attack while its first was still resolving — and an underfunded flag kept re-sending a doomed strike every tick. A flag now waits for its in-flight attack to resolve before launching another, and only fires when it can actually afford the target.",
     changes: [
