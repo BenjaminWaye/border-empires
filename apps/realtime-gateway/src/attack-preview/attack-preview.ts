@@ -1,8 +1,22 @@
-import { BREAKTHROUGH_ENABLED, buildFrontierCombatPreview, scanOutpostMult, type FortVariant, type OutpostAuraTileFacts } from "@border-empires/shared";
+import {
+  BREAKTHROUGH_ENABLED,
+  buildFrontierCombatPreview,
+  scanOutpostMult,
+  NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
+  TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
+  TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
+  UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
+  UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
+  WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
+  WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
+  type FortVariant,
+  type OutpostAuraTileFacts
+} from "@border-empires/shared";
 import { resolveFrontierCombatMultipliers } from "@border-empires/game-domain";
 import type { PlayerSubscriptionDock } from "@border-empires/sim-protocol";
 
 import { isFrontierAdjacent } from "../../../simulation/src/frontier-adjacency/frontier-adjacency.js";
+import { weaponsFactoryCountsForPlayer } from "../../../simulation/src/tech-domain-bridge/weapons-factory-mod-breakdown.js";
 
 type PreviewTile = {
   x: number;
@@ -106,12 +120,38 @@ export const attackPreviewResult = (
         defenderPlayerData?.domainIds,
       )
     : undefined;
+  // Weapons Workshop/Weapons Factory bonuses are empire-wide (see
+  // runtime-combat-support.ts), so the preview can compute them from
+  // whatever tiles this player's subscription snapshot currently carries —
+  // best-effort against the same tile set the rest of this preview already
+  // trusts, same as everything else here (subscription-limited, not the
+  // simulation's authoritative full-world index).
+  const ownedWeaponsWorkshopCount = (ownerId: string): number => {
+    let count = 0;
+    for (const tile of tileMap.values()) {
+      if (tile.ownerId === ownerId && tile.economicStructure?.status === "active" && tile.economicStructure.type === "WEAPONS_WORKSHOP") count += 1;
+    }
+    return count;
+  };
+  const attackerFactoryCounts = weaponsFactoryCountsForPlayer(playerId, tileMap.values());
+  const defenderFactoryCounts = target.ownerId ? weaponsFactoryCountsForPlayer(target.ownerId, tileMap.values()) : { titanium: 0, umbrite: 0 };
+  const defenderHasWarIndustry = defenderFactoryCounts.titanium > 0 && defenderFactoryCounts.umbrite > 0;
+  const factoryModifiers = {
+    weaponsWorkshopAttackMult: 1 + ownedWeaponsWorkshopCount(playerId) * WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
+    weaponsWorkshopDefenseMult: 1 + (target.ownerId ? ownedWeaponsWorkshopCount(target.ownerId) : 0) * WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
+    titaniumWeaponsFactoryAttackMult: 1 + attackerFactoryCounts.titanium * TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
+    titaniumWeaponsFactoryDefenseMult: 1 + defenderFactoryCounts.titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
+    umbriteWeaponsFactoryAttackMult: 1 + attackerFactoryCounts.umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
+    umbriteWeaponsFactoryDefenseMult: 1 + defenderFactoryCounts.umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
+    noWarIndustryVulnerabilityMult: defenderHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT
+  };
   const targetHasActiveFort = Boolean(target.fort && target.fort.status === "active" && target.fort.ownerId === target.ownerId);
   const preview = buildFrontierCombatPreview(
     { ...target, fortVariant: targetHasActiveFort ? target.fort?.variant : undefined },
     {
       attackerOutpostMult,
       defenderOwnerId: target.ownerId,
+      ...factoryModifiers,
       ...(techModifiers ?? {}), ...(BREAKTHROUGH_ENABLED ? { nowMs: Date.now() } : {}),
     }
   );
