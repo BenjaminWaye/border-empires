@@ -49,4 +49,24 @@ describe("structureModifiersFor", () => {
   it("returns an empty array for a monument component with no numeric effect", () => {
     expect(structureModifiersFor("POPULATION_BUREAU_PART_1")).toEqual([]);
   });
+
+  it("marks Weapons Workshop family attack/defense as percent-per-copy rawValue for town aggregation", () => {
+    for (const type of ["WEAPONS_WORKSHOP", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"] as const) {
+      const modifiers = structureModifiersFor(type);
+      const attack = modifiers.find((m) => m.statLabel === "Empire attack");
+      const defense = modifiers.find((m) => m.statLabel === "Empire defense");
+      expect(typeof attack?.rawValue).toBe("number");
+      expect(attack?.unit).toBe("percent");
+      expect(typeof defense?.rawValue).toBe("number");
+      expect(defense?.unit).toBe("percent");
+    }
+  });
+
+  it("carries an already-aggregated rawValue for Mintworks gold production once a live count is supplied", () => {
+    const modifiers = structureModifiersFor("MINTWORKS", { tile: { town: { mintworksCount: 3, clearingHouseActive: false } } });
+    const stacked = modifiers.find((m) => m.statLabel === "Gold production");
+    expect(stacked?.rawValue).toBe(30);
+    expect(stacked?.unit).toBe("percent");
+    expect(stacked?.alreadyAggregated).toBe(true);
+  });
 });

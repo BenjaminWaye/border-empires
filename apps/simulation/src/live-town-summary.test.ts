@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { GARRISON_HALL_MANPOWER_CAP_BONUS } from "@border-empires/game-domain";
+import { GARRISON_HALL_MANPOWER_CAP_BONUS, MINTWORKS_GOLD_PRODUCTION_BONUS, percentLabel } from "@border-empires/game-domain";
+import { TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING, WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING } from "@border-empires/shared";
 import { buildTownSummary } from "./live-town-summary.js";
 import { keyFor } from "./snapshot-tile-cache.js";
 
@@ -52,5 +53,44 @@ describe("buildTownSummary — townModifierTotals (unified building modifier dis
     const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
     expect(summary?.townModifierTotals ?? []).toEqual([]);
+  });
+
+  it("combines Weapons Workshop and Titanium Weapons Factory into one percent 'Empire attack' total", () => {
+    const ownerId = "p1";
+    const town = townTile(10, 10, ownerId);
+    const tiles: FixtureTile[] = [
+      town,
+      supportTile(11, 10, ownerId, "WEAPONS_WORKSHOP"),
+      supportTile(9, 10, ownerId, "TITANIUM_WEAPONS_FACTORY")
+    ];
+    const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
+    const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
+    const expectedPercent = (WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING + TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING) * 100;
+    expect(summary?.townModifierTotals).toContainEqual({
+      statLabel: "Empire attack",
+      total: expectedPercent,
+      valueText: percentLabel(expectedPercent),
+      tone: "positive"
+    });
+  });
+
+  it("aggregates Mintworks gold production non-linearly (via the live count) instead of a naive per-copy multiply", () => {
+    const ownerId = "p1";
+    const town = townTile(10, 10, ownerId);
+    const tiles: FixtureTile[] = [
+      town,
+      supportTile(11, 10, ownerId, "MINTWORKS"),
+      supportTile(9, 10, ownerId, "MINTWORKS"),
+      supportTile(10, 11, ownerId, "MINTWORKS")
+    ];
+    const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
+    const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
+    const expectedPercent = MINTWORKS_GOLD_PRODUCTION_BONUS * 100 * 3;
+    expect(summary?.townModifierTotals).toContainEqual({
+      statLabel: "Gold production",
+      total: expectedPercent,
+      valueText: percentLabel(expectedPercent),
+      tone: "positive"
+    });
   });
 });

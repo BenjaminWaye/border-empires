@@ -20,13 +20,21 @@ export type ModifierStructureType =
 export type StructureModifier = {
   statLabel: string;
   valueText: string;
-  // Present only for flat, additive-per-copy numbers (e.g. a manpower cap
-  // bonus) that are safe to multiply by a count of copies for town-level
-  // aggregation (see live-town-summary.ts's townModifierTotals). Percent/
-  // multiplier-based effects (Mintworks stacking, etc.) intentionally omit
-  // this — they already have their own stacking math and must not be
-  // double-summed.
+  // Present for any numeric contribution that's safe to combine across every
+  // active copy of this building in a town's support ring, for town-level
+  // aggregation (see live-town-summary.ts's townModifierTotals). By default
+  // the aggregator multiplies rawValue by the copy count (flat-per-copy
+  // numbers like a manpower cap bonus, or a percent-per-copy number like
+  // Weapons Workshop's empire attack bonus — see `unit`). Set
+  // `alreadyAggregated: true` when rawValue was computed from a live count
+  // already (e.g. Mintworks's nonlinear stacking via
+  // mintworksGoldProductionMultiplier) so the aggregator uses it as-is
+  // instead of multiplying again.
   rawValue?: number;
+  // "flat" (default) renders the aggregate as a plain +N; "percent" renders
+  // it as a signed percentage.
+  unit?: "flat" | "percent";
+  alreadyAggregated?: boolean;
   tone: "positive" | "negative" | "neutral";
   // True for support-tile buildings whose effect applies to the whole town
   // rather than just the tile they're built on.
