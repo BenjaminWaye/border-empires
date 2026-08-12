@@ -40,7 +40,8 @@ const buildEntry = (args: Args, startAt: number): BattleOverlayRenderEntry => {
     attackerWon: args.attackerWon,
     startAt,
     clashAt,
-    endAt: clashAt + CLASH_MS + ROUT_MS
+    endAt: clashAt + CLASH_MS + ROUT_MS,
+    hashSeed: 1
   };
 };
 
@@ -176,7 +177,8 @@ export const ConcurrentBattles: Story = {
         attackerWon: p.won,
         startAt,
         clashAt,
-        endAt: clashAt + CLASH_MS + ROUT_MS
+        endAt: clashAt + CLASH_MS + ROUT_MS,
+        hashSeed: i + 1
       };
     });
 
