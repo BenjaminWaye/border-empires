@@ -80,8 +80,10 @@ describe("rewrite stack integration", () => {
       })
     );
     const musterQueued = await nextTypedMessage(firstSocket, "muster queued", "COMMAND_QUEUED");
+    // clientSeq is gateway-assigned (dispatchDurableCommand never forwards
+    // the client's own clientSeq) — see the siege-outpost test's comment.
     expect(musterQueued).toEqual(
-      expect.objectContaining({ type: "COMMAND_QUEUED", clientSeq: 1 })
+      expect.objectContaining({ type: "COMMAND_QUEUED", clientSeq: expect.any(Number) })
     );
     const musterCommandId = (musterQueued as { commandId: string }).commandId;
     await waitUntil(async () => (await gatewayCommandStore.get(musterCommandId))?.status !== "QUEUED");
@@ -1556,11 +1558,18 @@ describe("rewrite stack integration", () => {
     );
 
     const queued = await nextNonBootstrapMessage(socket, "siege queued");
+    // clientSeq is gateway-assigned here, not the client-supplied value sent
+    // above -- BUILD_SIEGE_OUTPOST is dispatched via dispatchDurableCommand,
+    // which never forwards the client's own commandId/clientSeq (see
+    // gateway-app.ts's dispatchDurableCommand). It now comes from a counter
+    // space disjoint from client-tracked (e.g. EXPAND/ATTACK) clientSeq
+    // values, so it's no longer the small positive number it used to
+    // coincidentally be.
     expect(queued).toEqual(
       expect.objectContaining({
         type: "COMMAND_QUEUED",
         commandId: expect.any(String),
-        clientSeq: 1
+        clientSeq: expect.any(Number)
       })
     );
     const commandId = String(queued.commandId);
@@ -1648,11 +1657,13 @@ describe("rewrite stack integration", () => {
     );
 
     const queued = await nextNonBootstrapMessage(socket, "observatory queued");
+    // See the siege-outpost test above: dispatchDurableCommand never forwards
+    // the client's own clientSeq, so this is gateway-assigned.
     expect(queued).toEqual(
       expect.objectContaining({
         type: "COMMAND_QUEUED",
         commandId: expect.any(String),
-        clientSeq: 1
+        clientSeq: expect.any(Number)
       })
     );
     const commandId = String(queued.commandId);
@@ -1752,11 +1763,13 @@ describe("rewrite stack integration", () => {
     );
 
     const queued = await nextNonBootstrapMessage(socket, "mintworks queued");
+    // See the siege-outpost test above: dispatchDurableCommand never forwards
+    // the client's own clientSeq, so this is gateway-assigned.
     expect(queued).toEqual(
       expect.objectContaining({
         type: "COMMAND_QUEUED",
         commandId: expect.any(String),
-        clientSeq: 1
+        clientSeq: expect.any(Number)
       })
     );
     const commandId = String(queued.commandId);
