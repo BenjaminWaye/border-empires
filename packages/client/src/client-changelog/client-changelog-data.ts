@@ -23,6 +23,15 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786526599000, // 2026.08.12.3
+    introducedIn: "2026.08.12.3",
+    title: "Development queue now fills silently once it hits its total cap",
+    why: "The total dev-queue cap exists as a defensive backstop, not something players are meant to actually hit in normal play — but the 'Development queue is full' Activity Feed warning fired as if it were a real, expected rejection, which read as broken rather than as the edge case it is.",
+    changes: [
+      "Queuing an action once the development queue is at its total cap no longer posts an Activity Feed warning — the action is silently dropped, matching how an already-queued action is already handled."
+    ]
+  },
+  {
     createdAt: 1786519200000, // 2026.08.12.2
     introducedIn: "2026.08.12.2",
     title: "Titanium/Umbrite Weapons Factory attack/defense bonuses are now visible",
