@@ -23,6 +23,28 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786545979000, // 2026.08.12.9
+    introducedIn: "2026.08.12.9",
+    title: "Fixed: Titanium/Umbrite Weapons Factory bonus was silently scoped to a single town network instead of empire-wide",
+    why: "Titanium/Umbrite Weapons Factories were combat-relevant only if they happened to sit in the connected-town network nearest whichever tile was attacking or defending — build one at a second, disconnected town and it contributed nothing to a fight fought elsewhere. Nothing in the game ever told players this; the build tooltip and structure-info text actually claimed the opposite ('scoped to this town's connected network' read as intentional, not as a gotcha), and the just-added combat breakdown panel would have shown a number that quietly changed depending on which tile you attacked from. Weapons Workshop, the structure these replaced, was always empire-wide — this brings Weapons Factories in line with it.",
+    changes: [
+      "Titanium/Umbrite Weapons Factory attack/defense bonuses are now empire-wide: every active copy you own counts toward every fight, regardless of which town network it's connected to or how far it is from the battle.",
+      "Build tooltips and structure-info text for both factories updated to say 'empire-wide' instead of the old (now incorrect) 'scoped to this town's connected network' claim.",
+      "The live Launch Attack preview now actually includes Weapons Workshop/Weapons Factory bonuses and the 'no war industry' vulnerability penalty in its win-chance number — previously the preview omitted all three and only the resolved combat applied them, so the number shown before committing to an attack could be meaningfully wrong."
+    ]
+  },
+  {
+    createdAt: 1786543467000, // 2026.08.12.8
+    introducedIn: "2026.08.12.8",
+    title: "Added: a full \"show your work\" breakdown for combat power and win chance",
+    why: "Win chance showed up as a single percentage with no way to see what produced it, and the Attack/Defense stats in the tech tab were shown as vague % deltas that didn't even correspond to the numbers combat actually used — worse, a couple of domains (Titanium Dominion, War Foundries) promised a flat attack/defense bonus in their description that silently never applied to any fight. Both are now the same real numbers: BASE_COMBAT_POWER x persistent infrastructure x this-battle modifiers.",
+    changes: [
+      "Tech tab's Attack/Defense stats now show the actual effective combat-power number (e.g. \"11.8\") instead of a % delta — press either stat to inspect every contributing multiplier.",
+      "The Launch Attack button now shows a breakdown panel: each side's calculated base power (the same number the tech tab shows), the modifiers specific to this fight as a signed %, the resulting effective attack/defense, and the win-chance formula itself.",
+      "Fixed: tech/domain flat attack/defense bonuses (e.g. Titanium Dominion's +18%/+18%, War Foundries' +8% attack) now actually apply to combat instead of only being displayed."
+    ]
+  },
+  {
     createdAt: 1786536900000, // 2026.08.12.7
     introducedIn: "2026.08.12.7",
     title: "Fixed: Aether Purge (and other Observatory abilities) still asking for gold/crystal",

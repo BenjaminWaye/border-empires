@@ -7,11 +7,9 @@ import {
 import type { ModBreakdown } from "./tech-domain-bridge.js";
 
 // Empire-wide count of active Titanium/Umbrite Weapons Factories the player
-// owns, used only for the tech sidebar's informational breakdown below —
-// NOT the value combat actually reads (that's scoped to a single connected
-// town network, see networkWeaponsFactoryCountsForOrigin in runtime.ts).
-// This total is the upper bound a player could reach if every factory they
-// own were connected into one network.
+// owns. Combat reads this exact same empire-wide total (see
+// titaniumWeaponsFactoryAttackMultForPlayer/etc. in runtime-combat-support.ts)
+// — not scoped to any particular town's connected network.
 export const weaponsFactoryCountsForPlayer = (
   playerId: string,
   tiles: Iterable<{ ownerId?: string | undefined; economicStructure?: { type?: string | undefined; status?: string | undefined } | undefined }>
@@ -26,19 +24,20 @@ export const weaponsFactoryCountsForPlayer = (
   return { titanium, umbrite };
 };
 
-// Appends informational (non-authoritative) attack/defense breakdown rows
-// for the player's Weapons Factories, mutating the breakdown in place —
-// same convention as addModBreakdownEntry in tech-domain-bridge.ts.
+// Appends attack/defense breakdown rows for the player's Weapons Factories,
+// mutating the breakdown in place — same convention as addModBreakdownEntry
+// in tech-domain-bridge.ts. These are the exact empire-wide multipliers
+// combat applies (see weaponsFactoryCountsForPlayer's doc comment above).
 export const appendWeaponsFactoryBreakdownEntries = (
   breakdown: ModBreakdown,
   counts: { titanium: number; umbrite: number }
 ): void => {
   if (counts.titanium > 0) {
-    breakdown.attack.push({ label: `Titanium Weapons Factory ×${counts.titanium} (max, if networked together)`, mult: 1 + counts.titanium * TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING });
-    breakdown.defense.push({ label: `Titanium Weapons Factory ×${counts.titanium} (max, if networked together)`, mult: 1 + counts.titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING });
+    breakdown.attack.push({ label: `Titanium Weapons Factory ×${counts.titanium}`, mult: 1 + counts.titanium * TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING });
+    breakdown.defense.push({ label: `Titanium Weapons Factory ×${counts.titanium}`, mult: 1 + counts.titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING });
   }
   if (counts.umbrite > 0) {
-    breakdown.attack.push({ label: `Umbrite Weapons Factory ×${counts.umbrite} (max, if networked together)`, mult: 1 + counts.umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING });
-    breakdown.defense.push({ label: `Umbrite Weapons Factory ×${counts.umbrite} (max, if networked together)`, mult: 1 + counts.umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING });
+    breakdown.attack.push({ label: `Umbrite Weapons Factory ×${counts.umbrite}`, mult: 1 + counts.umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING });
+    breakdown.defense.push({ label: `Umbrite Weapons Factory ×${counts.umbrite}`, mult: 1 + counts.umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING });
   }
 };
