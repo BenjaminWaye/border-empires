@@ -23,6 +23,15 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786533000000, // 2026.08.12.6
+    introducedIn: "2026.08.12.6",
+    title: "Fixed: zoom/pan stutter from the ownership tint overlay",
+    why: "A CPU profile taken mid-zoom showed bufferSubData eating 65% of main-thread time. The ownership overlay's commit() set needsUpdate on its position/color/index buffers without scoping the upload range, so every terrain rebuild reuploaded the full worst-case buffer (sized for the whole tile budget across 4 mesh targets) instead of just the tiles actually written that frame — the same bug class as the heightfield skirt-buffer fix, in a different overlay.",
+    changes: [
+      "Ownership overlay buffer uploads are now scoped to the written tile range instead of reuploading the whole allocation on every rebuild, cutting zoom/pan jank."
+    ]
+  },
+  {
     createdAt: 1786530294000, // 2026.08.12.5
     introducedIn: "2026.08.12.5",
     title: "Fixed: Activity Feed timestamps stuck showing raw minutes forever",
