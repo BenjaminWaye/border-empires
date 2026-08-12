@@ -23,7 +23,12 @@ const render = (args: Args): HTMLElement => {
 const meta: Meta<Args> = {
   title: "3D Library/DockOverlay",
   parameters: {
-    docs: { description: { component: "Dock model is built facing +z (south). Rotate to face adjacent water tile." } }
+    docs: {
+      description: {
+        component:
+          "Dock: the empire's ocean transport hub. A heavy timber-and-iron pier runs out from a compact industrial shore building toward the water. The centrepiece is a large brass cargo crane — a tall tapered mast with a jib over the pier, a counterweight jib over the shore, and a chain visibly suspending a cargo crate above the loading deck. The shore end holds a dockhouse (amber windows, chimney), a steam boiler and winch with brass drum and gear, and a pipe run with a pressure valve. Crates and barrels wait on the deck, mooring posts with chains tie off a small steampunk cargo barge (iron hull, wood deck, cabin, funnel), and small amber lamps dot the pier. No guns or fortifications. The model is built facing +z (south); rotate to face the adjacent water tile."
+      }
+    }
   },
   argTypes: {
     rotationDegrees: { control: { type: "range", min: 0, max: 360, step: 15 } },
