@@ -7,6 +7,7 @@ import { ClientMessageSchema } from "@border-empires/shared";
 import type { DurableCommandType } from "@border-empires/client-protocol";
 
 import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/broadcast-payload.js";
+import { sendCombatResolvedPayload } from "../combat-resolved-payloads/combat-resolved-payloads.js";
 import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringifier.js";
 import { createLoginPhaseNotifier } from "../login-phase-notifier/login-phase-notifier.js";
 import { createSlowLoginAlerter } from "../slow-login-alert/slow-login-alert.js";
@@ -1682,12 +1683,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         }
         if (event.attackerWon) {
           fallbackTileDeltasByCommandId.set(event.commandId, [
-            {
-              x: event.targetX,
-              y: event.targetY,
-              ownerId: event.playerId,
-              ownershipState: "FRONTIER"
-            }
+            { x: event.targetX, y: event.targetY, ownerId: event.playerId, ownershipState: "FRONTIER" }
           ]);
         } else {
           fallbackTileDeltasByCommandId.delete(event.commandId);
@@ -1705,6 +1701,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           });
           continue;
         }
+        sendCombatResolvedPayload(event, sessionsBySocket.get(socket)?.playerId, (payload) => queueOrSendSessionPayload(socket, payload));
       }
     };
   const eventStreamReconnectBaseMs = Math.max(250, Number(process.env.GATEWAY_SIMULATION_EVENT_STREAM_RECONNECT_BASE_MS ?? 1_000));

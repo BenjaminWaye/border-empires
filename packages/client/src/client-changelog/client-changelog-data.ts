@@ -23,6 +23,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786528967000, // 2026.08.12.4
+    introducedIn: "2026.08.12.4",
+    title: "Fixed: attack outcomes (manpower spent, gold/resources plundered) never actually reached the Activity Feed",
+    why: "The simulation computed a full combat outcome for every resolved attack — manpower spent, gold and resources plundered — but the gateway never forwarded that event to the attacker. combatResolutionAlert() and the client's COMBAT_RESULT listener had been dead code on the wire since the rewrite-stack gateway shipped; the only feedback an attacker ever got was the tile silently changing hands.",
+    changes: [
+      "Attack results now post a real Activity Feed entry naming manpower lost and, on a win, gold/resources plundered — not just a tile flip.",
+      "The player being raided now also gets their own Activity Feed entry (with a Go to tile button) naming the attacker and what was pillaged from them — previously they got nothing beyond the pre-resolution 'under attack' alert."
+    ]
+  },
+  {
     createdAt: 1786526599000, // 2026.08.12.3
     introducedIn: "2026.08.12.3",
     title: "Development queue now fills silently once it hits its total cap",
