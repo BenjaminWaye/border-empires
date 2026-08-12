@@ -249,12 +249,41 @@ export const createOwnershipOverlay = (
     frontier.geometry.setDrawRange(0, frontierCount * INDICES_PER_TILE);
     settledHill.geometry.setDrawRange(0, settledHillCount * HILL_INDICES_PER_TILE);
     frontierHill.geometry.setDrawRange(0, frontierHillCount * HILL_INDICES_PER_TILE);
-    for (const target of [settled, frontier, settledHill, frontierHill]) {
-      const pos = target.geometry.getAttribute("position");
-      const color = target.geometry.getAttribute("color");
-      if (pos) (pos as BufferAttribute).needsUpdate = true;
-      if (color) (color as BufferAttribute).needsUpdate = true;
-      if (target.geometry.index) target.geometry.index.needsUpdate = true;
+    // Buffers are pre-allocated at maxTiles/maxHillTiles (worst case) but
+    // only *Count tiles were written this commit — an unranged needsUpdate
+    // reuploads the entire buffer via bufferSubData regardless, which
+    // dominated the main thread during zoom (bufferSubData was 65% of
+    // sampled time in a zoom-gesture CPU profile). Same pattern already
+    // fixed for the heightfield skirt buffers; scope the upload here too.
+    const targets: Array<{
+      target: ReturnType<typeof createMesh>;
+      vertCount: number;
+      indexCount: number;
+    }> = [
+      { target: settled, vertCount: settledCount * VERTS_PER_TILE, indexCount: settledCount * INDICES_PER_TILE },
+      { target: frontier, vertCount: frontierCount * VERTS_PER_TILE, indexCount: frontierCount * INDICES_PER_TILE },
+      { target: settledHill, vertCount: settledHillCount * HILL_VERTS_PER_TILE, indexCount: settledHillCount * HILL_INDICES_PER_TILE },
+      { target: frontierHill, vertCount: frontierHillCount * HILL_VERTS_PER_TILE, indexCount: frontierHillCount * HILL_INDICES_PER_TILE }
+    ];
+    for (const { target, vertCount, indexCount } of targets) {
+      const pos = target.geometry.getAttribute("position") as BufferAttribute | undefined;
+      const color = target.geometry.getAttribute("color") as BufferAttribute | undefined;
+      const index = target.geometry.index;
+      if (pos) {
+        pos.clearUpdateRanges();
+        pos.addUpdateRange(0, vertCount * 3);
+        pos.needsUpdate = true;
+      }
+      if (color) {
+        color.clearUpdateRanges();
+        color.addUpdateRange(0, vertCount * 3);
+        color.needsUpdate = true;
+      }
+      if (index) {
+        index.clearUpdateRanges();
+        index.addUpdateRange(0, indexCount);
+        index.needsUpdate = true;
+      }
     }
   };
 
