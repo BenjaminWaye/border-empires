@@ -230,6 +230,9 @@ export const createUmbriteDepositOverlay = (scene: Scene, maxTiles: number): Umb
   const tmpEuler = new Euler();
   const tmpQuat = new Quaternion();
 
+  // Overall deposit model is scaled down 25% from its original design size.
+  const DEPOSIT_SCALE = 0.75;
+
   const addPiece = (
     key: string,
     wx: number,
@@ -247,8 +250,8 @@ export const createUmbriteDepositOverlay = (scene: Scene, maxTiles: number): Umb
   ): void => {
     const slot = slots.get(key);
     if (!slot || slot.count >= slot.cap) return;
-    position.set(wx + ox, sy + oy, wz + oz);
-    scale.set(sx, sy2, sz);
+    position.set(wx + ox * DEPOSIT_SCALE, sy + oy * DEPOSIT_SCALE, wz + oz * DEPOSIT_SCALE);
+    scale.set(sx * DEPOSIT_SCALE, sy2 * DEPOSIT_SCALE, sz * DEPOSIT_SCALE);
     if (rotX === 0 && rotY === 0 && rotZ === 0) {
       matrix.compose(position, identityQuat, scale);
     } else {
