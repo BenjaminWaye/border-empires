@@ -6,6 +6,7 @@ import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain"
 import { VISION_RADIUS, type SlotResource } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
+import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries } from "./weapons-factory-mod-breakdown.js";
 
 type StatMods = NonNullable<DomainPlayer["mods"]>;
 type ModKey = keyof StatMods;
@@ -232,7 +233,8 @@ const addModBreakdownEntry = (
 };
 
 export const buildModBreakdownForPlayer = (
-  player: Pick<DomainPlayer, "techIds" | "domainIds">
+  player: Pick<DomainPlayer, "techIds" | "domainIds">,
+  weaponsFactoryCounts?: { titanium: number; umbrite: number }
 ): ModBreakdown => {
   const breakdown = emptyModBreakdown();
   for (const techId of player.techIds) {
@@ -243,6 +245,7 @@ export const buildModBreakdownForPlayer = (
     const domain = domainEntryById.get(domainId);
     addModBreakdownEntry(breakdown, domain?.name ?? domainId, domain?.mods);
   }
+  if (weaponsFactoryCounts) appendWeaponsFactoryBreakdownEntries(breakdown, weaponsFactoryCounts);
   return breakdown;
 };
 
@@ -584,9 +587,13 @@ export const chooseDomainForPlayer = (
 
 export const buildTechUpdatePayload = (
   player: DomainPlayer,
-  tiles: Iterable<DomainTileState>,
+  tilesIterable: Iterable<DomainTileState>,
   options?: { incomePerMinute?: number }
 ) => {
+  // Materialized once: callers pass context.tiles.values(), a one-shot Map
+  // iterator, and this function needs to scan it twice (income estimate +
+  // weapons factory counts below).
+  const tiles = [...tilesIterable];
   const techIds = [...player.techIds];
   const domainIds = [...(player.domainIds ?? [])];
   const techChoices = reachableTechChoices(techIds);
@@ -609,7 +616,7 @@ export const buildTechUpdatePayload = (
     nextChoices: techChoices,
     availableTechPicks: techChoices.length > 0 ? 1 : 0,
     mods: player.mods ?? { attack: 1, defense: 1, income: 1, vision: 1 },
-    modBreakdown: buildModBreakdownForPlayer(player),
+    modBreakdown: buildModBreakdownForPlayer(player, weaponsFactoryCountsForPlayer(player.id, tiles)),
     incomePerMinute: options?.incomePerMinute ?? estimateIncomePerMinuteFromTiles(player.id, tiles),
     missions: [],
     gold: player.points,

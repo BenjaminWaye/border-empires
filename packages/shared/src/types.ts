@@ -258,6 +258,13 @@ export interface Tile {
     connectedTownCount: number;
     connectedTownBonus: number;
     connectedTownNames?: string[];
+    // Weapons Factory network totals: this town's connected-network count of
+    // active Titanium/Umbrite Weapons Factories, self-inclusive of the whole
+    // network (mirrors ConnectedTownNetworkEntry in
+    // apps/simulation/src/economy-network/economy-network.ts, the same
+    // scope combat actually reads from).
+    connectedTitaniumWeaponsFactoryCount?: number;
+    connectedUmbriteWeaponsFactoryCount?: number;
     goldIncomePausedReason?: "MANPOWER_NOT_FULL";
     manpowerCurrent?: number;
     manpowerCap?: number;
