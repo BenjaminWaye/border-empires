@@ -256,13 +256,16 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
 // below stands in for the full attacker/defender combat math (outpost scan,
 // tech multipliers, fort/dock defense) that ATTACK needs but EXPAND can't
 // change the outcome with.
+const EXPAND_TRIVIAL_SIDE_BREAKDOWN = { base: 0, infrastructure: [], infrastructureMult: 1, effectiveBase: 0, battle: [], battleMult: 1, effective: 0 };
 const EXPAND_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: true } = {
   atkEff: 0,
   defEff: 0,
   atkMult: 1,
   defMult: 0,
   winChance: 1,
-  attackerWon: true
+  attackerWon: true,
+  attacker: EXPAND_TRIVIAL_SIDE_BREAKDOWN,
+  defender: EXPAND_TRIVIAL_SIDE_BREAKDOWN
 };
 
 // Weapons Workshop is retired (structure-registry-economic.ts) — replaced by
@@ -348,7 +351,12 @@ const resolveAttackCombat = (
     titaniumWeaponsFactoryDefenseMult: titaniumWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId, lock.targetKey),
     umbriteWeaponsFactoryAttackMult: umbriteWeaponsFactoryAttackMultForPlayer(ctx, lock.playerId, lock.originKey),
     umbriteWeaponsFactoryDefenseMult: umbriteWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId, lock.targetKey),
-    noWarIndustryVulnerabilityMult: noWarIndustryVulnerabilityMultForDefender(ctx, defenderOwnerId)
+    noWarIndustryVulnerabilityMult: noWarIndustryVulnerabilityMultForDefender(ctx, defenderOwnerId),
+    // General tech/domain "attack"/"defense" stat mods (e.g. Titanium Dominion's
+    // +18% attack/defense) — persistent infrastructure, same tier as weapons
+    // factories, previously computed but never actually applied to combat.
+    attackerStatMult: attacker?.mods?.attack ?? 1,
+    defenderStatMult: defender?.mods?.defense ?? 1
   };
   const targetForCombat: Parameters<typeof rollFrontierCombat>[0] = previousTarget
     ? {

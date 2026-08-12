@@ -122,6 +122,8 @@ export const attackPreviewResult = (
     atkEff: preview.atkEff,
     defEff: preview.defEff,
     defMult: preview.defMult,
-    atkMult: preview.atkMult
+    atkMult: preview.atkMult,
+    attacker: preview.attacker,
+    defender: preview.defender
   };
 };

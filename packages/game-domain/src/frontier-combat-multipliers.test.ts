@@ -26,7 +26,16 @@ describe("resolveFrontierCombatMultipliers", () => {
       attackVsFortsMult: 1,
       attackVsBarbariansMult: 1,
       fortDefenseMult: 1,
+      attackerStatMult: 1,
+      defenderStatMult: 1,
     });
+  });
+
+  it("resolves attackerStatMult/defenderStatMult from Titanium Dominion's flat attack/defense mods", () => {
+    const attackerResult = resolveFrontierCombatMultipliers([], ["titanium-dominion"], [], []);
+    expect(attackerResult.attackerStatMult).toBe(1.18);
+    const defenderResult = resolveFrontierCombatMultipliers([], [], [], ["titanium-dominion"]);
+    expect(defenderResult.defenderStatMult).toBe(1.18);
   });
 
   it("resolves attackVsBarbariansMult from Dewildernisation domain", () => {
@@ -95,7 +104,8 @@ describe("resolveFrontierCombatMultipliers", () => {
     expect(noDomainPreview.defEff).toBe(25);
     expect(noDomainPreview.winChance).toBeCloseTo(10 / 35, 6);
 
-    // War Foundries (attackVsFortsMult = 1.15): atkEff = 10 * 1.15 = 11.5.
+    // War Foundries (attackVsFortsMult = 1.15, plus its flat mods.attack = 1.08
+    // general attack bonus): atkEff = 10 * 1.15 * 1.08 = 12.42.
     const multipliers = resolveFrontierCombatMultipliers(
       [],
       ["war-foundries"],
@@ -103,8 +113,8 @@ describe("resolveFrontierCombatMultipliers", () => {
       [],
     );
     const domainPreview = buildFrontierCombatPreview(target, multipliers);
-    expect(domainPreview.atkEff).toBeCloseTo(11.5, 6);
-    expect(domainPreview.winChance).toBeCloseTo(11.5 / 36.5, 6);
+    expect(domainPreview.atkEff).toBeCloseTo(12.42, 6);
+    expect(domainPreview.winChance).toBeCloseTo(12.42 / 37.42, 6);
     expect(domainPreview.winChance).toBeGreaterThan(noDomainPreview.winChance);
   });
 });
