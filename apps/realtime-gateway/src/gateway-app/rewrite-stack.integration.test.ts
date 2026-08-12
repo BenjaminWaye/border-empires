@@ -1401,8 +1401,8 @@ describe("rewrite stack integration", () => {
       maxPopulation: 10_000_000,
       connectedTownCount: 3,
       connectedTownBonus: 1.2,
-      hasMarket: false,
-      marketActive: false,
+      hasMintworks: false,
+      mintworksActive: false,
       hasGranary: false,
       granaryActive: false,
     });
@@ -1690,7 +1690,7 @@ describe("rewrite stack integration", () => {
           ownerId: "player-1",
           ownershipState: "SETTLED"
         },
-        // TOWN_FOOD_SLOT_DEMAND: the town draws 4 FOOD slots, MARKET draws 1 more.
+        // TOWN_FOOD_SLOT_DEMAND: the town draws 4 FOOD slots, MINTWORKS draws 1 more.
         { x: 16, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         { x: 16, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         { x: 16, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
@@ -1737,7 +1737,7 @@ describe("rewrite stack integration", () => {
     const socket = await openSocket(gatewayAddress.wsUrl);
     cleanup.push(() => closeSocket(socket.socket));
     socket.socket.send(JSON.stringify({ type: "AUTH", token: "player-1" }));
-    expect((await nextNonBootstrapMessage(socket, "market init")).type).toBe("INIT");
+    expect((await nextNonBootstrapMessage(socket, "mintworks init")).type).toBe("INIT");
     socket.socket.send(JSON.stringify({ type: "SUBSCRIBE_CHUNKS", cx: 0, cy: 0, radius: 4 }));
 
     socket.socket.send(
@@ -1745,13 +1745,13 @@ describe("rewrite stack integration", () => {
         type: "BUILD_ECONOMIC_STRUCTURE",
         x: 16,
         y: 16,
-        structureType: "MARKET",
-        commandId: "market-cmd-1",
+        structureType: "MINTWORKS",
+        commandId: "mintworks-cmd-1",
         clientSeq: 1
       })
     );
 
-    const queued = await nextNonBootstrapMessage(socket, "market queued");
+    const queued = await nextNonBootstrapMessage(socket, "mintworks queued");
     expect(queued).toEqual(
       expect.objectContaining({
         type: "COMMAND_QUEUED",
@@ -1764,24 +1764,24 @@ describe("rewrite stack integration", () => {
     await waitUntil(() => scheduledBuilds.length >= 1, 3_000).catch(() => undefined);
     flushScheduledTasks(scheduledBuilds, 0);
 
-    // The build command targets (16,16) — the town's own tile — and MARKET's
+    // The build command targets (16,16) — the town's own tile — and MINTWORKS's
     // placement metadata ("showOn": ["town", "support"], "placementMode":
     // "same_tile") allows it to land directly on the town tile, which is
     // exactly what happens: the structure is built and activated at (16,16),
     // never at (16,17) (a separate, unrelated plain support tile in this
     // fixture). This assertion previously polled (16,17) and always timed
     // out — a stale coordinate mismatch, not a product bug (verified by
-    // instrumenting a debug run: (16,16) shows the active MARKET
+    // instrumenting a debug run: (16,16) shows the active MINTWORKS
     // economicStructureJson immediately after the scheduled build task
     // flushes; (16,17) never gets one).
     await waitUntil(() => {
       const tile = simulation.runtime.exportState().tiles.find((candidate) => candidate.x === 16 && candidate.y === 16);
       return typeof tile?.economicStructureJson === "string" &&
-        tile.economicStructureJson.includes("\"type\":\"MARKET\"") &&
+        tile.economicStructureJson.includes("\"type\":\"MINTWORKS\"") &&
         tile.economicStructureJson.includes("\"status\":\"active\"");
     }, 8_000);
     const exportedEconomicTile = simulation.runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 16);
-    expect(exportedEconomicTile?.economicStructureJson).toContain("\"type\":\"MARKET\"");
+    expect(exportedEconomicTile?.economicStructureJson).toContain("\"type\":\"MINTWORKS\"");
     expect(exportedEconomicTile?.economicStructureJson).toContain("\"status\":\"active\"");
 
     await waitUntil(async () => (await gatewayCommandStore.get(commandId))?.status === "RESOLVED");

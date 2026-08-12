@@ -22,8 +22,8 @@ describe("structureBuildGoldCost", () => {
   });
 
   test("keeps non-scaling structures at zero gold too", () => {
-    expect(structureBuildGoldCost("MARKET", 0)).toBe(0);
-    expect(structureBuildGoldCost("MARKET", 4)).toBe(0);
+    expect(structureBuildGoldCost("MINTWORKS", 0)).toBe(0);
+    expect(structureBuildGoldCost("MINTWORKS", 4)).toBe(0);
     expect(structureBuildGoldCost("CARAVANARY", 3)).toBe(0);
     expect(structureBuildGoldCost("FOUNDRY", 2)).toBe(0);
   });
@@ -53,8 +53,8 @@ describe("structureBuildManpowerCostScaled", () => {
   });
 
   test("leaves every other structure's manpower cost flat regardless of existing count", () => {
-    expect(structureBuildManpowerCostScaled("MARKET", 0)).toBe(structureBuildManpowerCost("MARKET"));
-    expect(structureBuildManpowerCostScaled("MARKET", 10)).toBe(structureBuildManpowerCost("MARKET"));
+    expect(structureBuildManpowerCostScaled("MINTWORKS", 0)).toBe(structureBuildManpowerCost("MINTWORKS"));
+    expect(structureBuildManpowerCostScaled("MINTWORKS", 10)).toBe(structureBuildManpowerCost("MINTWORKS"));
     expect(structureBuildManpowerCostScaled("WEAPONS_WORKSHOP", 10)).toBe(structureBuildManpowerCost("WEAPONS_WORKSHOP"));
     // FORT has its own `scaling` entry (intended for gold, currently inert),
     // but manpower stays flat since FORT isn't in the manpower-scaling set.
@@ -64,7 +64,7 @@ describe("structureBuildManpowerCostScaled", () => {
 
 describe("structureCostDefinition", () => {
   test("keeps income-support structures gold-only and preserves strategic-resource costs elsewhere", () => {
-    expect(structureCostDefinition("MARKET").resourceCost).toBeUndefined();
+    expect(structureCostDefinition("MINTWORKS").resourceCost).toBeUndefined();
     expect(structureCostDefinition("CARAVANARY").resourceCost).toBeUndefined();
     // #1134 removed these as stale build-time crystal costs — the slot
     // system (structure-slots.ts) is the real FOOD/TITANIUM/CRYSTAL/UMBRITE gate

@@ -35,7 +35,7 @@ import {
   type SlotStructureType,
   type StructureSlotRequirement
 } from "@border-empires/shared";
-import { marketGoldProductionMultiplier } from "@border-empires/game-domain";
+import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 import { converterStructureMenuEntries } from "../client-converter-menu.js";
 import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, frontierClaimCostLabelForTile, isForestTile } from "../client-constants.js";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
@@ -1279,14 +1279,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           ...tileActionAvailabilityWithDevelopmentSlot(
             ...chainedBuildAvailability(
               "IMPERIAL_EXCHANGE",
-              state.techIds.includes("urban-markets") &&
+              state.techIds.includes("urban-mintworks") &&
                 imperialExchangePartCount >= 3 &&
                 !imperialExchangeBuilt &&
                 !tile.siegeOutpost &&
                 !tile.observatory &&
                 (state.strategicResources.SHARD ?? 0) >= 2 &&
                 hasFreeResourceSlots(state, "IMPERIAL_EXCHANGE"),
-              !state.techIds.includes("urban-markets")
+              !state.techIds.includes("urban-mintworks")
                 ? "Requires Imperial Exchange"
                 : imperialExchangeBuilt
                   ? "Imperial Exchange already built"
@@ -1754,9 +1754,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
     }
     if (townBuildSource) {
-      // Market moved to same-tile/uncapped placement in the tech-tree
+      // Mintworks moved to same-tile/uncapped placement in the tech-tree
       // redesign (per-town cap removed, specialization is the point) — no
-      // townHasMarket gate anymore, unlike the other town-support structures
+      // townHasMintworks gate anymore, unlike the other town-support structures
       // below that still cap at one per town.
       const townHasGranary = Boolean(townBuildSource.town?.hasGranary) || deps.townHasSupportStructure(townBuildSource, "GRANARY");
       const townHasCensusHall = deps.townHasSupportStructure(townBuildSource, "CENSUS_HALL");
@@ -1775,19 +1775,19 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const townHasLogisticsGuild = deps.townHasSupportStructure(townBuildSource, "LOGISTICS_GUILD");
       const isGreatCity = townBuildSource.town?.populationTier === "GREAT_CITY" || townBuildSource.town?.populationTier === "METROPOLIS";
       out.push({
-        id: "build_market",
-        label: "Build Market",
-        detail: deps.buildDetailTextForAction("build_market", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
+        id: "build_mintworks",
+        label: "Build Mintworks",
+        detail: deps.buildDetailTextForAction("build_mintworks", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
-            "MARKET",
-            !supportPlacementBlocked && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MARKET"),
+            "MINTWORKS",
+            !supportPlacementBlocked && state.techIds.includes("trade") && hasFreeResourceSlots(state, "MINTWORKS"),
             supportPlacementBlocked
               ? "Tile already has structure"
               : !state.techIds.includes("trade")
                 ? "Requires Merchant Charters"
-                : missingResourceSlotReason(state, "MARKET") ?? "Unavailable",
-            `${deps.structureCostText("MARKET")} • ${Math.round(economicStructureBuildMs("MARKET") / 60000)}m • +${Math.round((marketGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive)) - 1) * 100)}% town gold production (stacks) • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap`
+                : missingResourceSlotReason(state, "MINTWORKS") ?? "Unavailable",
+            `${deps.structureCostText("MINTWORKS")} • ${Math.round(economicStructureBuildMs("MINTWORKS") / 60000)}m • +${Math.round((mintworksGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive)) - 1) * 100)}% town gold production (stacks) • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap`
           ),
           slots,
           deps
@@ -1850,7 +1850,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : !state.techIds.includes("coinage")
                   ? "Requires Minting Works"
                   : missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable",
-            `${deps.structureCostText("CLEARING_HOUSE")} • ${Math.round(economicStructureBuildMs("CLEARING_HOUSE") / 60000)}m • boosts connected Markets (+25% Market effect)`
+            `${deps.structureCostText("CLEARING_HOUSE")} • ${Math.round(economicStructureBuildMs("CLEARING_HOUSE") / 60000)}m • boosts connected Mintworks (+25% Mintworks effect)`
           ),
           slots,
           deps
@@ -1977,9 +1977,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         techLabel: string;
         monumentLabel: string;
       }> = [
-        { actionId: "build_imperial_exchange_part_1", structureType: "IMPERIAL_EXCHANGE_PART_1", actionLabel: "Build Golden Ledger", techId: "urban-markets", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
-        { actionId: "build_imperial_exchange_part_2", structureType: "IMPERIAL_EXCHANGE_PART_2", actionLabel: "Build Counting Engine", techId: "urban-markets", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
-        { actionId: "build_imperial_exchange_part_3", structureType: "IMPERIAL_EXCHANGE_PART_3", actionLabel: "Build Sovereign Seal", techId: "urban-markets", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
+        { actionId: "build_imperial_exchange_part_1", structureType: "IMPERIAL_EXCHANGE_PART_1", actionLabel: "Build Golden Ledger", techId: "urban-mintworks", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
+        { actionId: "build_imperial_exchange_part_2", structureType: "IMPERIAL_EXCHANGE_PART_2", actionLabel: "Build Counting Engine", techId: "urban-mintworks", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
+        { actionId: "build_imperial_exchange_part_3", structureType: "IMPERIAL_EXCHANGE_PART_3", actionLabel: "Build Sovereign Seal", techId: "urban-mintworks", techLabel: "Imperial Exchange", monumentLabel: "Imperial Exchange" },
         { actionId: "build_world_engine_part_1", structureType: "WORLD_ENGINE_PART_1", actionLabel: "Build The Long Barrel", techId: "world-engine", techLabel: "Worldbreaker Cannon", monumentLabel: "Worldbreaker Cannon" },
         { actionId: "build_world_engine_part_2", structureType: "WORLD_ENGINE_PART_2", actionLabel: "Build Fracture Core", techId: "world-engine", techLabel: "Worldbreaker Cannon", monumentLabel: "Worldbreaker Cannon" },
         { actionId: "build_world_engine_part_3", structureType: "WORLD_ENGINE_PART_3", actionLabel: "Build Sky-Marking Array", techId: "world-engine", techLabel: "Worldbreaker Cannon", monumentLabel: "Worldbreaker Cannon" },

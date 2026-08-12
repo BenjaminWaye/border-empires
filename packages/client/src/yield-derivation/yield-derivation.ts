@@ -86,7 +86,7 @@ export const deriveTileYieldRate = (
   const townGoldPerMinute = (() => {
     if (!tile.town) return 0;
     // Persisted goldPerMinute already includes all sim-computed bonuses
-    // (connected towns, population tier, market, bank, income modifier).
+    // (connected towns, population tier, mintworks, bank, income modifier).
     if (typeof tile.town.goldPerMinute === "number" && tile.town.goldPerMinute > 0.0001) {
       return tile.town.goldPerMinute;
     }

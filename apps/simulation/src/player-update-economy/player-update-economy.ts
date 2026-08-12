@@ -9,8 +9,8 @@ import {
   EXCHANGE_GOLD_PER_SLOT_PER_DAY,
   UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-  MARKET_FLAT_GOLD_BONUS_PER_MIN,
-  marketGoldProductionMultiplier,
+  MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
+  mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   TOWN_BASE_GOLD_PER_MIN,
@@ -212,7 +212,7 @@ export const townGoldPerMinuteForPlayer = (
   firstThreeTownKeys: ReadonlySet<string> = new Set<string>(),
   connectedClearingHouseKeys?: readonly string[],
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Market/Caravanary/Clearing House stops granting its gold
+  // dormant Mintworks/Caravanary/Clearing House stops granting its gold
   // bonus, same as hasSupportedStructure's matching param.
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): number => {
@@ -223,10 +223,10 @@ export const townGoldPerMinuteForPlayer = (
   if (!fedTownKeys.has(tileKey)) return 0;
   const support = supportSummaryForTown(player.id, tile, tiles);
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
-  // market-stacking task: MARKET's gold bonus stacks additively per active
-  // Market in the support ring (marketGoldProductionMultiplier), not a
-  // boolean "any Market" gate — see countSupportedStructures.
-  const marketCount = countSupportedStructures(player.id, tile, "MARKET", tiles, dormantEconomicStructureKeys);
+  // mintworks-stacking task: MINTWORKS's gold bonus stacks additively per active
+  // Mintworks in the support ring (mintworksGoldProductionMultiplier), not a
+  // boolean "any Mintworks" gate — see countSupportedStructures.
+  const mintworksCount = countSupportedStructures(player.id, tile, "MINTWORKS", tiles, dormantEconomicStructureKeys);
   // connectedClearingHouseKeys is pre-filtered to ONLY towns with a CH at
   // network-build time. Re-verify defensively — a progression command may
   // have destroyed a CH between build and read — but the candidate set is
@@ -247,11 +247,11 @@ export const townGoldPerMinuteForPlayer = (
     supportRatio *
     townPopulationMultiplier(town.populationTier) *
     (1 + (town.connectedTownBonus ?? 0)) *
-    marketGoldProductionMultiplier(marketCount, clearingHouseActive) *
+    mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive) *
     firstThreeTownMult *
     incomeMultiplier *
     PASSIVE_INCOME_MULT
-  ) + MARKET_FLAT_GOLD_BONUS_PER_MIN * marketCount;
+  ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * mintworksCount;
 };
 
 // Refresh goldPerMinute/isFed on a town originally from buildTownSummary

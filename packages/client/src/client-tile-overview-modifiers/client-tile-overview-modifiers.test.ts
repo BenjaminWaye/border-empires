@@ -26,8 +26,8 @@ describe("tileOverviewModifiersForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMarket: false,
-          marketActive: false,
+          hasMintworks: false,
+          mintworksActive: false,
           hasGranary: false,
           granaryActive: false,
           growthModifiers: [{ label: "Nearby war", deltaPerMinute: -12 }]
@@ -36,7 +36,7 @@ describe("tileOverviewModifiersForTile", () => {
     ).toContainEqual({ reason: "Nearby war", effect: "-100% population growth", tone: "negative" });
   });
 
-  it("derives the Market modifier text from marketCount instead of a hardcoded +50%", () => {
+  it("derives the Mintworks modifier text from mintworksCount instead of a hardcoded +50%", () => {
     const modifiers = tileOverviewModifiersForTile({
       x: 10,
       y: 12,
@@ -57,19 +57,19 @@ describe("tileOverviewModifiersForTile", () => {
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMarket: true,
-        marketActive: true,
-        marketCount: 5,
+        hasMintworks: true,
+        mintworksActive: true,
+        mintworksCount: 5,
         hasGranary: false,
         granaryActive: false
       }
     } satisfies Tile);
-    // 5 active Markets stack additively: +50%, not the old hardcoded +50%
+    // 5 active Mintworks stack additively: +50%, not the old hardcoded +50%
     // literal that never actually derived from the real count.
-    expect(modifiers).toContainEqual({ reason: "Market", effect: "+50% town gold production", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Mintworks", effect: "+50% town gold production", tone: "positive" });
   });
 
-  it("hides the Market modifier entirely when marketCount is 0", () => {
+  it("hides the Mintworks modifier entirely when mintworksCount is 0", () => {
     const modifiers = tileOverviewModifiersForTile({
       x: 10,
       y: 12,
@@ -90,14 +90,14 @@ describe("tileOverviewModifiersForTile", () => {
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMarket: false,
-        marketActive: false,
-        marketCount: 0,
+        hasMintworks: false,
+        mintworksActive: false,
+        mintworksCount: 0,
         hasGranary: false,
         granaryActive: false
       }
     } satisfies Tile);
-    expect(modifiers.some((m) => m.reason === "Market")).toBe(false);
+    expect(modifiers.some((m) => m.reason === "Mintworks")).toBe(false);
   });
 
   it("hides fort defense while a captured fort is in recovery", () => {
@@ -195,8 +195,8 @@ describe("tileOverviewModifiersForTile", () => {
           populationTier: "TOWN",
           connectedTownCount: 0,
           connectedTownBonus: 0,
-          hasMarket: false,
-          marketActive: false,
+          hasMintworks: false,
+          mintworksActive: false,
           hasGranary: false,
           granaryActive: false,
           captureShockUntil: Date.now() + 60_000
@@ -235,8 +235,8 @@ describe("tileOverviewModifiersForTile", () => {
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMarket: false,
-        marketActive: false,
+        hasMintworks: false,
+        mintworksActive: false,
         hasGranary: false,
         granaryActive: false,
         captureShockUntil: Date.now() + 60_000,
@@ -281,8 +281,8 @@ describe("tileOverviewModifiersForTile", () => {
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMarket: false,
-        marketActive: false,
+        hasMintworks: false,
+        mintworksActive: false,
         hasGranary: false,
         granaryActive: false,
         captureShockUntil: Date.now() + 60_000,
@@ -324,8 +324,8 @@ describe("tileOverviewModifiersForTile", () => {
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMarket: false,
-        marketActive: false,
+        hasMintworks: false,
+        mintworksActive: false,
         hasGranary: false,
         granaryActive: false,
         captureShockUntil: Date.now() + 60_000,

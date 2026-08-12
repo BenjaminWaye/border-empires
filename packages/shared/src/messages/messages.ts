@@ -63,7 +63,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "WATERWORKS",
       "UMBRITE_RIG",
       "MINE",
-      "MARKET",
+      "MINTWORKS",
       "GRANARY",
       "SEED_GRANARY",
       "CENSUS_HALL",

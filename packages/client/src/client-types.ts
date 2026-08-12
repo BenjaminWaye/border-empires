@@ -12,7 +12,7 @@ export type OptimisticStructureKind =
   | "WATERWORKS"
   | "UMBRITE_RIG"
   | "MINE"
-  | "MARKET"
+  | "MINTWORKS"
   | "GRANARY"
   | "CENSUS_HALL"
   | "CLEARING_HOUSE"
@@ -125,9 +125,9 @@ export type Tile = {
     goldIncomePausedReason?: "MANPOWER_NOT_FULL";
     manpowerCurrent?: number;
     manpowerCap?: number;
-    hasMarket: boolean;
-    marketActive: boolean;
-    marketCount?: number;
+    hasMintworks: boolean;
+    mintworksActive: boolean;
+    mintworksCount?: number;
     hasGranary: boolean;
     granaryActive: boolean;
     hasSeedGranary?: boolean; seedGranaryActive?: boolean; seedGranaryBuffed?: boolean;
@@ -166,7 +166,7 @@ export type Tile = {
       | "WATERWORKS"
       | "UMBRITE_RIG"
       | "MINE"
-      | "MARKET"
+      | "MINTWORKS"
       | "GRANARY"
       | "CENSUS_HALL"
       | "CLEARING_HOUSE"
@@ -238,7 +238,7 @@ export type Tile = {
       | "WATERWORKS"
       | "UMBRITE_RIG"
       | "MINE"
-      | "MARKET"
+      | "MINTWORKS"
       | "GRANARY"
       | "CENSUS_HALL"
       | "CLEARING_HOUSE"
@@ -271,7 +271,7 @@ export type Tile = {
       | "WATERWORKS"
       | "UMBRITE_RIG"
       | "MINE"
-      | "MARKET"
+      | "MINTWORKS"
       | "GRANARY"
       | "CENSUS_HALL"
       | "CLEARING_HOUSE"
@@ -473,7 +473,7 @@ export type StrategicReplayEvent = {
     | "FARMSTEAD"
     | "UMBRITE_RIG"
     | "MINE"
-    | "MARKET"
+    | "MINTWORKS"
     | "GRANARY"
     | "AIRPORT"
     | "UMBRITE_SYNTHESIZER"
@@ -622,7 +622,7 @@ export type TileActionDef = {
     | "build_waterworks"
     | "build_umbrite_rig"
     | "build_mine"
-    | "build_market"
+    | "build_mintworks"
     | "build_granary"
     | "build_census_hall"
     | "build_bank"

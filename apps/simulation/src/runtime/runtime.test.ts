@@ -3559,7 +3559,7 @@ describe("simulation runtime", () => {
     }
   });
 
-  it("builds a market through the rewrite simulation path directly on a support tile", async () => {
+  it("builds a mintworks through the rewrite simulation path directly on a support tile", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -3587,7 +3587,7 @@ describe("simulation runtime", () => {
               ownerId: "player-1",
               ownershipState: "SETTLED"
             },
-            // §5.3: the town draws 2 FOOD slots, MARKET draws 1 more — supply
+            // §5.3: the town draws 2 FOOD slots, MINTWORKS draws 1 more — supply
             // it or the build rejects with INSUFFICIENT_SLOT.
             { x: 16, y: 18, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
             { x: 16, y: 19, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
@@ -3600,13 +3600,13 @@ describe("simulation runtime", () => {
       });
 
       runtime.submitCommand({
-        commandId: "market-cmd-1",
+        commandId: "mintworks-cmd-1",
         sessionId: "session-1",
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
-        payloadJson: JSON.stringify({ x: 16, y: 17, structureType: "MARKET" })
+        payloadJson: JSON.stringify({ x: 16, y: 17, structureType: "MINTWORKS" })
       });
 
       await Promise.resolve();
@@ -3618,17 +3618,17 @@ describe("simulation runtime", () => {
         })
       );
 
-      vi.advanceTimersByTime(structureBuildDurationMs("MARKET"));
+      vi.advanceTimersByTime(structureBuildDurationMs("MINTWORKS"));
 
       const exported = runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 17);
-      expect(exported?.economicStructureJson).toContain("\"type\":\"MARKET\"");
+      expect(exported?.economicStructureJson).toContain("\"type\":\"MINTWORKS\"");
       expect(exported?.economicStructureJson).toContain("\"status\":\"active\"");
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("redirects a Market/Garrison Hall/Weapons Factory targeted at the town tile itself onto an open support tile — only a Fort belongs directly on a town", async () => {
+  it("redirects a Mintworks/Garrison Hall/Weapons Factory targeted at the town tile itself onto an open support tile — only a Fort belongs directly on a town", async () => {
     vi.useFakeTimers();
     try {
       const runtime = new SimulationRuntime({
@@ -3661,14 +3661,14 @@ describe("simulation runtime", () => {
       });
 
       runtime.submitCommand({
-        commandId: "market-on-town-tile",
+        commandId: "mintworks-on-town-tile",
         sessionId: "session-1",
         playerId: "player-1",
         clientSeq: 1,
         issuedAt: 1_000,
         type: "BUILD_ECONOMIC_STRUCTURE",
         // Targeting the town tile itself (30,30), not a support tile.
-        payloadJson: JSON.stringify({ x: 30, y: 30, structureType: "MARKET" })
+        payloadJson: JSON.stringify({ x: 30, y: 30, structureType: "MINTWORKS" })
       });
 
       await Promise.resolve();
@@ -3677,14 +3677,14 @@ describe("simulation runtime", () => {
       expect(townTile?.economicStructureJson).toBeUndefined();
       // ...and the build landed on the open support tile instead.
       const supportTile = runtime.exportState().tiles.find((tile) => tile.x === 30 && tile.y === 31);
-      expect(supportTile?.economicStructureJson).toEqual(expect.stringContaining("\"type\":\"MARKET\""));
+      expect(supportTile?.economicStructureJson).toEqual(expect.stringContaining("\"type\":\"MINTWORKS\""));
     } finally {
       vi.useRealTimers();
     }
   });
 
   it("rejects duplicate support structures submitted directly on another support tile", async () => {
-    // MARKET moved to same-tile/uncapped placement in the tech-tree redesign
+    // MINTWORKS moved to same-tile/uncapped placement in the tech-tree redesign
     // (per-town cap removed), so it no longer exercises the town_support
     // one-per-town rule this test covers -- CENSUS_HALL is still
     // town_support and needs no tech, so it stands in as the exemplar here.
@@ -6530,25 +6530,25 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED",
-              economicStructure: { ownerId: "player-1", type: "MARKET", status: "active", activatedAt: 500 }
+              economicStructure: { ownerId: "player-1", type: "MINTWORKS", status: "active", activatedAt: 500 }
             }
           ],
           activeLocks: []
         }
       });
-      // Supply = 4 FOOD slots (2 bare FISH tiles). Demand = 4 (town) + 1 (Market) = 5, short by 1 —
-      // shedding just the newer Market covers it, so the town isn't touched.
+      // Supply = 4 FOOD slots (2 bare FISH tiles). Demand = 4 (town) + 1 (Mintworks) = 5, short by 1 —
+      // shedding just the newer Mintworks covers it, so the town isn't touched.
       expect(runtime.isTownFoodDormant("player-1", "1,0")).toBe(false);
       expect(runtime.isStructureDormant("player-1", "2,0", "economicStructure")).toBe(true);
     });
 
-    it("excludes a dormant Market's gold bonus from the exported tile view (tileDeltaFromState)", () => {
+    it("excludes a dormant Mintworks's gold bonus from the exported tile view (tileDeltaFromState)", () => {
       // Regression: tileDeltaFromState (the function every TILE_DELTA_BATCH/
       // exportTilesInAreaForPlayer response goes through) calls
       // enrichTileWithTownContext -> refreshTownEconomyFields, a SEPARATE
       // path from buildPlayerUpdateEconomySnapshot's authoritative gold
       // total. It was missing the dormancy set entirely, so a dormant
-      // Market/Bank/Clearing House still showed its bonus in the client's
+      // Mintworks/Bank/Clearing House still showed its bonus in the client's
       // own tile view even though the player's real income excluded it.
       const runtime = new SimulationRuntime({
         now: () => 1_000,
@@ -6580,21 +6580,21 @@ describe("simulation runtime", () => {
               terrain: "LAND",
               ownerId: "player-1",
               ownershipState: "SETTLED",
-              economicStructure: { ownerId: "player-1", type: "MARKET", status: "active", activatedAt: 500 }
+              economicStructure: { ownerId: "player-1", type: "MINTWORKS", status: "active", activatedAt: 500 }
             }
           ],
           activeLocks: []
         }
       });
       // Same supply/demand shape as the test above: 4 FOOD slots supply,
-      // 4 (town) + 1 (Market) = 5 demand — the newer Market goes dormant,
+      // 4 (town) + 1 (Mintworks) = 5 demand — the newer Mintworks goes dormant,
       // the town stays fed.
       expect(runtime.isStructureDormant("player-1", "2,0", "economicStructure")).toBe(true);
 
       const [centerDelta] = runtime.exportTilesInAreaForPlayer("player-1", 1, 0, 0, { fullVisibility: true });
       const town = centerDelta?.townJson ? (JSON.parse(centerDelta.townJson) as { goldPerMinute?: number }) : undefined;
-      // TOWN_BASE_GOLD_PER_MIN * supportRatio(1) * tierMult(1) — no Market
-      // 1.5x multiplier applied, since the dormant Market doesn't count.
+      // TOWN_BASE_GOLD_PER_MIN * supportRatio(1) * tierMult(1) — no Mintworks
+      // 1.5x multiplier applied, since the dormant Mintworks doesn't count.
       // Before the fix this was TOWN_BASE_GOLD_PER_MIN * 1.5.
       expect(town?.goldPerMinute).toBeCloseTo(TOWN_BASE_GOLD_PER_MIN, 6);
     });
@@ -8571,8 +8571,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               maxPopulation: 25000,
               connectedTownCount: 0,
               connectedTownBonus: 0,
-              hasMarket: false,
-              marketActive: false,
+              hasMintworks: false,
+              mintworksActive: false,
               hasGranary: false,
               granaryActive: false,
             }
@@ -8606,8 +8606,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
 
   it("emits an explicit zero yield buffer for yield-bearing tiles so fresh responses can clear stale cached buffers", () => {
     // Repro for the post-PR-353 bug: a town's cached client snapshot kept
-    // `yield: { gold: 2105 }` from when the town had a market (cap ~2112), but
-    // after market loss + an upkeep tick that emptied the live buffer to 0,
+    // `yield: { gold: 2105 }` from when the town had a mintworks (cap ~2112), but
+    // after mintworks loss + an upkeep tick that emptied the live buffer to 0,
     // FetchTileDetail omitted the `yield` field entirely (because gold was
     // ≤ 0.0001), and the gateway's shallow snapshot merge preserved the stale
     // 2105. Verify the delta now carries `yield: { gold: 0 }` so the client
@@ -8641,8 +8641,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               maxPopulation: 25000,
               connectedTownCount: 0,
               connectedTownBonus: 0,
-              hasMarket: false,
-              marketActive: false,
+              hasMintworks: false,
+              mintworksActive: false,
               hasGranary: false,
               granaryActive: false,
             }
@@ -8682,7 +8682,7 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     // Mirror the user's prod scenario: TOWN-tier town at (5,5) with three
     // owned towns at 8-adjacent positions so buildConnectedTownNetworkForPlayer
     // returns connectedTownCount=3 / bonus=1.2. Town is fed, support 8/8, no
-    // market, no bank. Expected gpm = TOWN_BASE(2) * 1 * 1 * 2.2 * 1 * 1 * 1
+    // mintworks, no bank. Expected gpm = TOWN_BASE(2) * 1 * 1 * 2.2 * 1 * 1 * 1
     // = 4.4; cap = 4.4*60*8 = 2112. If this test fails, the sim has its own
     // bug; if it passes, the prod display of 2.00/m + cap 960 means the
     // gateway's buildSnapshotTileDetail is clobbering the sim's authoritative
@@ -8715,8 +8715,8 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
               maxPopulation: 10000000,
               connectedTownCount: 0,
               connectedTownBonus: 0,
-              hasMarket: false,
-              marketActive: false,
+              hasMintworks: false,
+              mintworksActive: false,
               hasGranary: false,
               granaryActive: false,
             }

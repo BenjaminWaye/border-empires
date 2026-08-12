@@ -78,8 +78,8 @@ describe("buildSnapshotTileDetail", () => {
             maxPopulation: 25_000,
             connectedTownCount: 1,
             connectedTownBonus: 0.1,
-            hasMarket: true,
-            marketActive: true,
+            hasMintworks: true,
+            mintworksActive: true,
             hasGranary: false,
             granaryActive: false,
             foodUpkeepPerMinute: 0.1,
@@ -94,7 +94,7 @@ describe("buildSnapshotTileDetail", () => {
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
-          economicStructureJson: JSON.stringify({ type: "MARKET", status: "active" })
+          economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" })
         }
       ]
     };
@@ -135,8 +135,8 @@ describe("buildSnapshotTileDetail", () => {
             maxPopulation: 100_000,
             connectedTownCount: 1,
             connectedTownBonus: 0.1,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
             // foodUpkeepPerMinute intentionally omitted - the regression shape.
@@ -256,8 +256,8 @@ describe("buildSnapshotTileDetail", () => {
             maxPopulation: 2_500,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
             foodUpkeepPerMinute: 0,
@@ -478,7 +478,7 @@ describe("buildSnapshotTileDetail", () => {
     // with cap 960 on a town that actually had 3 connected towns (+120%): the
     // sim correctly shipped townJson with goldPerMinute=4.4 and cap=2112, but
     // buildSnapshotTileDetail recomputed gpm from baseGoldPerMinute * support *
-    // marketMult * bankMult — a formula missing connectedTownBonus, popMult,
+    // mintworksMult * bankMult — a formula missing connectedTownBonus, popMult,
     // firstThreeTownMult, incomeMult, PASSIVE_INCOME_MULT, and the +1 bank
     // flat. That stripped value clobbered the sim's authoritative one on its
     // way to the client.
@@ -506,8 +506,8 @@ describe("buildSnapshotTileDetail", () => {
             maxPopulation: 10_000_000,
             connectedTownCount: 3,
             connectedTownBonus: 1.2,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           }),
@@ -571,8 +571,8 @@ describe("buildSnapshotTileDetail", () => {
             maxPopulation: 10_000_000,
             connectedTownCount: 3,
             connectedTownBonus: 1.2,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           }),

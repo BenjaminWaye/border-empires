@@ -35,8 +35,8 @@ describe("combatResolutionAlert", () => {
             populationTier: "TOWN",
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           }
@@ -94,8 +94,8 @@ describe("combatResolutionAlert", () => {
             populationTier: "TOWN",
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           }

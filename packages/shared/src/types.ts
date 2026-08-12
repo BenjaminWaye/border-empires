@@ -26,7 +26,7 @@ export type EconomicStructureType =
   | "WATERWORKS"
   | "UMBRITE_RIG"
   | "MINE"
-  | "MARKET"
+  | "MINTWORKS"
   | "GRANARY"
   | "SEED_GRANARY"
   | "CENSUS_HALL"
@@ -268,16 +268,16 @@ export interface Tile {
     goldIncomePausedReason?: "MANPOWER_NOT_FULL";
     manpowerCurrent?: number;
     manpowerCap?: number;
-    hasMarket: boolean;
-    marketActive: boolean;
-    // market-stacking task: real count of active Markets in this town's
-    // support ring, feeding marketGoldProductionMultiplier() — hasMarket/
-    // marketActive stay as-is for existing boolean consumers. Optional (not
+    hasMintworks: boolean;
+    mintworksActive: boolean;
+    // mintworks-stacking task: real count of active Mintworks in this town's
+    // support ring, feeding mintworksGoldProductionMultiplier() — hasMintworks/
+    // mintworksActive stay as-is for existing boolean consumers. Optional (not
     // required) so the large number of existing test-fixture town objects
     // across the monorepo don't all need updating under
     // exactOptionalPropertyTypes; every real read site treats a missing
     // value as 0 via `?? 0`.
-    marketCount?: number;
+    mintworksCount?: number;
     hasGranary: boolean;
     granaryActive: boolean;
     hasSeedGranary?: boolean;

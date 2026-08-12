@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { CONVERTER_MODE_FLIP_COOLDOWN_MS, MARKET_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
+import { CONVERTER_MODE_FLIP_COOLDOWN_MS, MINTWORKS_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
 import { GRANARY_INSTANT_POPULATION_BURST, SYNTHESIZER_STRUCTURE_TYPES, STRUCTURE_REGISTRY, type BuildableStructureType, type MonumentalStructureType } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
@@ -84,13 +84,13 @@ export function grantGranaryPopulationBurst(
   });
 }
 
-export function grantMarketInstantGoldBonus(
+export function grantMintworksInstantGoldBonus(
   context: RuntimeStructureCommandContext,
   ownerId: string
 ): void {
   const owner = context.players.get(ownerId);
   if (!owner) return;
-  owner.points += MARKET_INSTANT_GOLD_BONUS;
+  owner.points += MINTWORKS_INSTANT_GOLD_BONUS;
 }
 
 export function completeStructureBuild(context: RuntimeStructureCommandContext, targetKey: string, ownerId: string, structureType: string, commandId: string): void {
@@ -139,13 +139,13 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
 
   context.replaceTileState(targetKey, completedTile);
   context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId, playerId: ownerId, tileDeltas: [context.tileDeltaFromState(completedTile)] });
-  // Market rebalance (structure-detail-screen task): instant one-time gold
+  // Mintworks rebalance (structure-detail-screen task): instant one-time gold
   // grant on completion, on top of its ongoing flat/percentage gold bonuses.
   // Credited before the single emitPlayerStateUpdate call below so that
   // broadcast carries the post-bonus gold total rather than a stale value
   // followed by a second, redundant PLAYER_UPDATE.
-  if (structureType === "MARKET") {
-    grantMarketInstantGoldBonus(context, ownerId);
+  if (structureType === "MINTWORKS") {
+    grantMintworksInstantGoldBonus(context, ownerId);
   }
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId, playerId: ownerId });

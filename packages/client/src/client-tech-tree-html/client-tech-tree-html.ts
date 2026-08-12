@@ -56,7 +56,7 @@ const TECH_AGE_BY_TIER: Record<number, TechAgeMeta> = {
   1: {
     name: "Founding Age",
     blurb: "Food, trade, scouting, and warbands establish a viable frontier state.",
-    stageBlurb: "Settlement basics, first markets, first maps."
+    stageBlurb: "Settlement basics, first mintworks, first maps."
   },
   2: {
     name: "Mechanical Age",

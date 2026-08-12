@@ -8,19 +8,20 @@ import {
   SphereGeometry
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
+import { registerMintworksStructures } from "./client-map-3d-structure-mintworks.js";
 
 export type EconomicStructureKind =
   | "FARMSTEAD"
   | "WATERWORKS"
   | "MINE"
   | "TITANIUM_WORKS"
-  | "MARKET"
   | "OBSERVATORY"
-  | "SEED_GRANARY";
+  | "SEED_GRANARY"
+  | "MINTWORKS";
 
 export const ECONOMIC_STRUCTURE_KINDS: ReadonlySet<EconomicStructureKind> = new Set([
   "FARMSTEAD", "WATERWORKS", "MINE", "TITANIUM_WORKS",
-  "MARKET", "OBSERVATORY", "SEED_GRANARY"
+  "OBSERVATORY", "SEED_GRANARY", "MINTWORKS"
 ]);
 
 // Resource hint passed through `addInstance` so the MINE mesh can swap
@@ -83,12 +84,6 @@ export const registerEconomicStructures = (
   const forgeStoneMaterial = new MeshStandardMaterial({ color: "#7c726a", roughness: 0.6, metalness: 0.45, flatShading: true });
   const forgeChimneyMaterial = new MeshStandardMaterial({ color: "#3a302a", roughness: 0.7, metalness: 0.5, flatShading: true });
   const forgeGlowMaterial = new MeshStandardMaterial({ color: "#ff7a2a", roughness: 0.4, metalness: 0, flatShading: true, emissive: "#ff5318", emissiveIntensity: 0.85 });
-  const marketCounterMaterial = new MeshStandardMaterial({ color: "#7a5a38", roughness: 0.9, metalness: 0, flatShading: true });
-  const marketAwningRedMaterial = new MeshStandardMaterial({ color: "#c53b2c", roughness: 0.86, metalness: 0, flatShading: true });
-  const marketAwningWhiteMaterial = new MeshStandardMaterial({ color: "#eadcc2", roughness: 0.86, metalness: 0, flatShading: true });
-  const marketPostMaterial = new MeshStandardMaterial({ color: "#5a4530", roughness: 0.9, metalness: 0, flatShading: true });
-  const marketCrateMaterial = new MeshStandardMaterial({ color: "#9a6b3a", roughness: 0.88, metalness: 0, flatShading: true });
-  const marketProduceMaterial = new MeshStandardMaterial({ color: "#d97f2a", roughness: 0.78, metalness: 0, flatShading: true });
   const observatoryStoneMaterial = new MeshStandardMaterial({ color: "#9a948a", roughness: 0.92, metalness: 0, flatShading: true });
   const observatoryDomeMaterial = new MeshStandardMaterial({ color: "#4a5a72", roughness: 0.55, metalness: 0.35, flatShading: true });
   const observatorySlitMaterial = new MeshStandardMaterial({ color: "#1a1a20", roughness: 0.95, metalness: 0, flatShading: true });
@@ -133,11 +128,6 @@ export const registerEconomicStructures = (
   const titaniumWindowGeo = new BoxGeometry(0.022, 0.10, 0.04);
   const titaniumTubeGeo = new CylinderGeometry(0.010, 0.010, 0.10, 6);
   const titaniumTubeCapGeo = new ConeGeometry(0.012, 0.022, 6);
-  const marketCounterGeo = new BoxGeometry(0.40, 0.05, 0.16);
-  const marketAwningGeo = new BoxGeometry(0.40, 0.012, 0.10);
-  const marketPostGeo = new CylinderGeometry(0.014, 0.014, 0.22, 6);
-  const marketCrateGeo = new BoxGeometry(0.07, 0.06, 0.07);
-  const marketProduceGeo = new IcosahedronGeometry(0.025, 0);
   const observatoryBaseGeo = new CylinderGeometry(0.14, 0.16, 0.20, 16);
   // SphereGeometry(radius, wSeg, hSeg, phiStart, phiLength, thetaStart,
   // thetaLength) — last two args clip to the upper half for a dome.
@@ -192,13 +182,6 @@ export const registerEconomicStructures = (
   builder.makeSlot("titaniumWindow", titaniumWindowGeo, forgeGlowMaterial, C);
   builder.makeSlot("titaniumTube", titaniumTubeGeo, forgeChimneyMaterial, C);
   builder.makeSlot("titaniumTubeCap", titaniumTubeCapGeo, forgeChimneyMaterial, C);
-  // Market
-  builder.makeSlot("marketCounter", marketCounterGeo, marketCounterMaterial, C);
-  builder.makeSlot("marketAwningRed", marketAwningGeo, marketAwningRedMaterial, C);
-  builder.makeSlot("marketAwningWhite", marketAwningGeo, marketAwningWhiteMaterial, C);
-  builder.makeSlot("marketPost", marketPostGeo, marketPostMaterial, C * 2);
-  builder.makeSlot("marketCrate", marketCrateGeo, marketCrateMaterial, C * 2);
-  builder.makeSlot("marketProduce", marketProduceGeo, marketProduceMaterial, C * 2);
   // Observatory
   builder.makeSlot("observatoryBase", observatoryBaseGeo, observatoryStoneMaterial, C);
   builder.makeSlot("observatoryDome", observatoryDomeGeo, observatoryDomeMaterial, C);
@@ -222,6 +205,10 @@ export const registerEconomicStructures = (
   builder.makeSlot("seedLabBody", seedLabBodyGeo, seedLabWallMaterial, C);
   builder.makeSlot("seedLabRoof", seedLabRoofGeo, seedLabRoofMaterial, C);
   builder.makeSlot("seedLabWindow", seedLabWindowGeo, seedLabGlowMaterial, C);
+
+  // Mintworks slots are registered by registerMintworksStructures
+  // (client-map-3d-structure-mintworks.ts) so this file stays under the
+  // 500-line cap and the mint instanced meshes don't duplicate pools.
 
   // ─── Layouts ────────────────────────────────────────────────────────
   const addFarmstead: EconomicStructureLayout = (sx, sy, sz) => {
@@ -279,18 +266,6 @@ export const registerEconomicStructures = (
     builder.addPiece("titaniumTubeCap", sx, sy, sz, 0, 0.41, 0);
   };
 
-  const addMarket: EconomicStructureLayout = (sx, sy, sz) => {
-    builder.addPiece("marketCounter", sx, sy, sz, 0, 0.04, 0.04);
-    builder.addPiece("marketPost", sx, sy, sz, -0.18, 0.11, 0.10);
-    builder.addPiece("marketPost", sx, sy, sz, 0.18, 0.11, 0.10);
-    builder.addPiece("marketAwningRed", sx, sy, sz, 0, 0.22, 0.02, 1, 1, 1, 0, Math.PI * 0.10, 0);
-    builder.addPiece("marketAwningWhite", sx, sy, sz, 0, 0.24, 0.10, 1, 1, 1, 0, Math.PI * 0.10, 0);
-    builder.addPiece("marketCrate", sx, sy, sz, -0.12, 0.10, -0.04);
-    builder.addPiece("marketProduce", sx, sy, sz, -0.12, 0.15, -0.04);
-    builder.addPiece("marketCrate", sx, sy, sz, 0.12, 0.10, -0.04);
-    builder.addPiece("marketProduce", sx, sy, sz, 0.12, 0.15, -0.04);
-  };
-
   const addObservatory: EconomicStructureLayout = (sx, sy, sz) => {
     builder.addPiece("observatoryBase", sx, sy, sz, 0, 0.10, 0);
     builder.addPiece("observatoryDome", sx, sy, sz, 0, 0.20, 0);
@@ -315,15 +290,20 @@ export const registerEconomicStructures = (
     builder.addPiece("seedLabWindow", sx, sy, sz, 0, 0.07, 0.235);
   };
 
+  // Mintworks lives in its own module (client-map-3d-structure-mintworks.ts)
+  // so this file stays under the 500-line file cap. Registered here so the
+  // mint slots pool with the rest of the economic family.
+  const addMintworks = registerMintworksStructures(builder);
+
   return {
     layouts: {
       FARMSTEAD: addFarmstead,
       WATERWORKS: addWaterworks,
       MINE: addMine,
       TITANIUM_WORKS: addTitaniumWorks,
-      MARKET: addMarket,
       OBSERVATORY: addObservatory,
-      SEED_GRANARY: addSeedGranary
+      SEED_GRANARY: addSeedGranary,
+      MINTWORKS: addMintworks
     },
     shared: {
       forgeBaseMaterial,

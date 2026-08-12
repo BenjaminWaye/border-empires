@@ -174,8 +174,8 @@ const isRenderableTownSummary = (town: PartialTownSummary | undefined): town is 
       (town.goldIncomePausedReason === undefined || town.goldIncomePausedReason === "MANPOWER_NOT_FULL") &&
       isFiniteOptionalNumber(town.manpowerCurrent) &&
       isFiniteOptionalNumber(town.manpowerCap) &&
-      isOptionalBoolean(town.hasMarket) &&
-      isOptionalBoolean(town.marketActive) &&
+      isOptionalBoolean(town.hasMintworks) &&
+      isOptionalBoolean(town.mintworksActive) &&
       isOptionalBoolean(town.hasGranary) &&
       isOptionalBoolean(town.granaryActive) &&
       isOptionalBoolean(town.hasSeedGranary) &&

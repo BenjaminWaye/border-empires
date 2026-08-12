@@ -11,7 +11,7 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockFarmstead: "Farmstead",
   unlockUmbriteRig: "Umbrite Rig",
   unlockMine: "Mine",
-  unlockMarket: "Market",
+  unlockMintworks: "Mintworks",
   unlockForts: "Fort",
   unlockObservatory: "Observatory",
   unlockSiegeOutposts: "Siege Outpost",
