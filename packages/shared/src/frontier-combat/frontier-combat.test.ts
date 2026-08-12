@@ -13,7 +13,8 @@ describe("frontier combat", () => {
     expect(preview.atkEff).toBe(10);
     expect(preview.atkMult).toBe(1);
     expect(preview.defEff).toBeCloseTo(16.2, 6);
-    expect(preview.winChance).toBeCloseTo(10 / 26.2, 6);
+    // Win chance uses an exponentiated power ratio (COMBAT_WIN_CHANCE_EXPONENT = 2), not a flat ratio.
+    expect(preview.winChance).toBeCloseTo(10 ** 2 / (10 ** 2 + 16.2 ** 2), 6);
   });
 
   it("uses the same preview chance when rolling combat", () => {
@@ -27,7 +28,7 @@ describe("frontier combat", () => {
       0.99
     );
 
-    expect(result.winChance).toBeCloseTo(10 / 26.2, 6);
+    expect(result.winChance).toBeCloseTo(10 ** 2 / (10 ** 2 + 16.2 ** 2), 6);
     expect(result.attackerWon).toBe(false);
   });
 

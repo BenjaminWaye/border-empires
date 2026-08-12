@@ -56,4 +56,10 @@ describe("combat", () => {
     expect(combatWinChance(0, 1)).toBe(0);
     expect(combatWinChance(1, 0)).toBe(1);
   });
+
+  test("decisive power gaps compound toward certainty (exponentiated ratio, not linear)", () => {
+    expect(combatWinChance(20, 10)).toBeCloseTo(0.8, 5); // 2:1 -> 80% (was 66.7% under a linear ratio)
+    expect(combatWinChance(40, 10)).toBeCloseTo(0.9411764705882353, 5); // 4:1 -> ~94% (was 80%)
+    expect(combatWinChance(90, 10)).toBeCloseTo(0.9878048780487805, 5); // 9:1 -> ~98.8% (was 90%)
+  });
 });

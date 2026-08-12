@@ -102,7 +102,8 @@ describe("resolveFrontierCombatMultipliers", () => {
     const noDomainPreview = buildFrontierCombatPreview(target);
     expect(noDomainPreview.atkEff).toBe(10);
     expect(noDomainPreview.defEff).toBe(25);
-    expect(noDomainPreview.winChance).toBeCloseTo(10 / 35, 6);
+    // Win chance uses an exponentiated power ratio (COMBAT_WIN_CHANCE_EXPONENT = 2), not a flat ratio.
+    expect(noDomainPreview.winChance).toBeCloseTo(10 ** 2 / (10 ** 2 + 25 ** 2), 6);
 
     // War Foundries (attackVsFortsMult = 1.15, plus its flat mods.attack = 1.08
     // general attack bonus): atkEff = 10 * 1.15 * 1.08 = 12.42.
@@ -114,7 +115,7 @@ describe("resolveFrontierCombatMultipliers", () => {
     );
     const domainPreview = buildFrontierCombatPreview(target, multipliers);
     expect(domainPreview.atkEff).toBeCloseTo(12.42, 6);
-    expect(domainPreview.winChance).toBeCloseTo(12.42 / 37.42, 6);
+    expect(domainPreview.winChance).toBeCloseTo(12.42 ** 2 / (12.42 ** 2 + 25 ** 2), 6);
     expect(domainPreview.winChance).toBeGreaterThan(noDomainPreview.winChance);
   });
 });
