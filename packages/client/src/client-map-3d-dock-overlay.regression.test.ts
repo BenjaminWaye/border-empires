@@ -93,4 +93,35 @@ describe("dock overlay", () => {
 
     overlay.dispose();
   });
+
+  it("skips instance-matrix uploads when the frame is unchanged", () => {
+    // Docks are static terrain. commit() runs every frame; it must not re-upload
+    // matrices when no tile entered or left the view. three.js r179 exposes
+    // needsUpdate as setter-only and re-uploads when the attribute's `version`
+    // increases, so an unchanged commit must leave `version` untouched (zero GPU
+    // work) while a changed frame must bump it.
+    const scene = new Scene();
+    const overlay = createDockOverlay(scene, 100);
+
+    overlay.addInstance(0, 0, 0, 0, 0, 0);
+    overlay.commit();
+    const drawn = instancedMeshes(scene).filter((mesh) => mesh.count > 0);
+    expect(drawn.length).toBeGreaterThan(0);
+    const afterFirstCommit = drawn.map((mesh) => mesh.instanceMatrix.version);
+    for (const version of afterFirstCommit) expect(version).toBeGreaterThan(0);
+
+    // No tile change between frames: nothing may be re-marked for upload.
+    overlay.commit();
+    expect(drawn.map((mesh) => mesh.instanceMatrix.version)).toEqual(afterFirstCommit);
+
+    // A later tile change must still trigger an upload.
+    overlay.addInstance(3, 0, 0, Math.PI / 2, 3, 0);
+    overlay.commit();
+    const afterChange = drawn.map((mesh) => mesh.instanceMatrix.version);
+    for (let i = 0; i < afterFirstCommit.length; i += 1) {
+      expect(afterChange[i]!).toBeGreaterThan(afterFirstCommit[i]!);
+    }
+
+    overlay.dispose();
+  });
 });

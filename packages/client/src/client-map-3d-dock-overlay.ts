@@ -155,6 +155,7 @@ export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay =
   });
 
   const counts = new Array<number>(meshes.length).fill(0);
+  const lastCommittedCounts = new Array<number>(meshes.length).fill(-1);
 
   const tempMatrix = new Matrix4();
   const localMatrix = new Matrix4();
@@ -287,9 +288,14 @@ export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay =
   };
 
   const commit = (): void => {
+    // Docks are static terrain: only touch a mesh when its instance count
+    // actually changed this frame, so unchanged frames perform zero GPU
+    // uploads instead of re-uploading every mesh's matrices every frame.
     for (let i = 0; i < meshes.length; i += 1) {
       const mesh = meshes[i]!;
       const count = counts[i] ?? 0;
+      if (lastCommittedCounts[i] === count) continue;
+      lastCommittedCounts[i] = count;
       mesh.count = count;
       mesh.instanceMatrix.clearUpdateRanges();
       if (count === 0) continue;
