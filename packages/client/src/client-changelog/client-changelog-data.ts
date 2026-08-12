@@ -23,6 +23,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786568215911, // 2026.08.12.12
+    introducedIn: "2026.08.12.12",
+    title: "Fixed: manually targeted attacks rejected as NOT_ADJACENT from a ready flag",
+    why: "The previous fix for stuck manual attacks (2026.08.12.11) made a fully mustered flag fire immediately whenever it was merely \"in range\" of the target (up to 20 tiles), not actually next to it. The server correctly rejects a non-adjacent attack, so those attacks failed outright instead of firing.",
+    changes: [
+      "A ready flag now only fires an attack directly when it's actually adjacent to the target (or a valid dock crossing).",
+      "A ready flag that's in range but not adjacent stages/parks as before, so it can march into position instead of being rejected."
+    ]
+  },
+  {
     createdAt: 1786550100000, // 2026.08.12.11
     introducedIn: "2026.08.12.11",
     title: "Fixed: manually targeted attacks from a ready muster flag never fired",
