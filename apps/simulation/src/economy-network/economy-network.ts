@@ -905,11 +905,17 @@ export const enrichTownWithConnectedNetwork = (
   // gets downgraded to SETTLEMENT (e.g. capture-aftermath tier reset) must
   // not keep displaying its stale pre-downgrade value forever.
   if (tile.town.populationTier === "SETTLEMENT") {
-    if (tile.town.connectedTownCount === 0 && tile.town.connectedTownBonus === 0 && !tile.town.connectedTownNames) {
+    if (
+      tile.town.connectedTownCount === 0 &&
+      tile.town.connectedTownBonus === 0 &&
+      !tile.town.connectedTownNames &&
+      !tile.town.connectedTitaniumWeaponsFactoryCount &&
+      !tile.town.connectedUmbriteWeaponsFactoryCount
+    ) {
       return tile.town;
     }
     const { connectedTownNames: _drop, ...rest } = tile.town;
-    return { ...rest, connectedTownCount: 0, connectedTownBonus: 0 };
+    return { ...rest, connectedTownCount: 0, connectedTownBonus: 0, connectedTitaniumWeaponsFactoryCount: 0, connectedUmbriteWeaponsFactoryCount: 0 };
   }
   const entry = townNetwork?.get(keyFor(tile.x, tile.y));
   if (!entry) return tile.town;
@@ -917,6 +923,8 @@ export const enrichTownWithConnectedNetwork = (
     ...tile.town,
     connectedTownCount: entry.connectedTownCount,
     connectedTownBonus: entry.connectedTownBonus,
+    connectedTitaniumWeaponsFactoryCount: entry.connectedTitaniumWeaponsFactoryCount ?? 0,
+    connectedUmbriteWeaponsFactoryCount: entry.connectedUmbriteWeaponsFactoryCount ?? 0,
     ...(entry.connectedTownNames ? { connectedTownNames: entry.connectedTownNames } : {})
   };
 };

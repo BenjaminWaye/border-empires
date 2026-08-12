@@ -17,6 +17,7 @@ import {
 } from "@border-empires/shared";
 import { marketGoldProductionMultiplier } from "@border-empires/game-domain";
 import { converterStructureDetailText, converterModeLockLine, converterModeStatusLine, isConverterStructureType } from "../client-converter-menu.js";
+import { weaponsFactoryOwnBonusLine, weaponsFactoryNetworkTotalLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
 import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
@@ -474,6 +475,8 @@ export const menuOverviewForTile = (
       pushOwnTownLoadingRow("Support");
     }
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
+    const factoryTotalLine = weaponsFactoryNetworkTotalLine(tile.town);
+    if (factoryTotalLine) pushLine(factoryTotalLine);
     if (isSettled && hasOwnerEconomyData) {
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
@@ -618,6 +621,8 @@ export const menuOverviewForTile = (
     if (tile.economicStructure.status === "active") {
       const dormantLine = dormantStructureLineHtml(tile, "economicStructure", deps.dormantResourcesForTile?.(tile, "economicStructure"));
       if (dormantLine) pushLine(dormantLine);
+      const ownBonusLine = weaponsFactoryOwnBonusLine(tile);
+      if (ownBonusLine) pushLine(ownBonusLine);
     }
   }
   for (const modifier of tileOverviewModifiersForTile(tile)) {
