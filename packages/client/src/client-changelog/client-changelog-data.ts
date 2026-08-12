@@ -268,6 +268,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Reworded the Town, Dock, Barbarian, Food, Iron, Crystal, and Supply discovery tips to explain what the tile produces and why capturing/settling it matters."
     ]
+  },
+  {
+    createdAt: 1786530000000, // 2026.08.12.3
+    introducedIn: "2026.08.12.3",
+    title: "Muster ADVANCE flags launch one attack at a time",
+    why: "A flag set to ADVANCE re-searched on every automation tick, so it could fire a second attack while its first was still resolving — and an underfunded flag kept re-sending a doomed strike every tick. A flag now waits for its in-flight attack to resolve before launching another, and only fires when it can actually afford the target.",
+    changes: [
+      "Muster flags in ADVANCE mode now wait for their current attack to resolve before launching another.",
+      "A flag that can't afford an attack no longer sends the strike to the server at all."
+    ]
   }
 ];
 
