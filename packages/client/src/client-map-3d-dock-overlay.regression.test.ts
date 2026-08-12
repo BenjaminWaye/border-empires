@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, Object3D, Scene } from "three";
+import { InstancedMesh, Matrix4, Object3D, Scene } from "three";
 import { createDockOverlay } from "./client-map-3d-dock-overlay.js";
 
 const instancedMeshes = (scene: Scene): InstancedMesh[] => {
@@ -112,6 +112,35 @@ describe("dock overlay", () => {
     overlay.dispose();
   });
 
+  it("rotates the whole dock exactly once around the tile center", () => {
+    // Regression: addInstance used to pre-rotate the part position AND then
+    // multiply by the outer rotation matrix, so positions rotated twice while
+    // orientations rotated once — every dock that faced a non-zero direction
+    // came out garbled (only the unrotated Row/FacingSouth docks looked right).
+    // The dockhouse door is a single instance at model (-0.10, 0.26, 0.105);
+    // under a clean rotationY it must land at RY(rot) * that position.
+    const doorPosition = (scene: Scene, rotationY: number): number[] => {
+      const overlay = createDockOverlay(scene, 100);
+      overlay.addInstance(0, 0, 0, rotationY, 0, 0);
+      overlay.commit();
+      const door = instancedMeshes(scene).find((mesh) => mesh.name === "dock-7")!;
+      const matrix = new Matrix4();
+      door.getMatrixAt(0, matrix);
+      overlay.dispose();
+      return [matrix.elements[12]!, matrix.elements[13]!, matrix.elements[14]!];
+    };
+
+    const scene90 = new Scene();
+    // RY(90deg): (x, z) -> (z, -x)
+    expect(doorPosition(scene90, Math.PI / 2).map((v) => Math.round(v * 1000))).toEqual([
+      105, 260, 100
+    ]);
+    const scene180 = new Scene();
+    // RY(180deg): (x, z) -> (-x, -z)
+    expect(doorPosition(scene180, Math.PI).map((v) => Math.round(v * 1000))).toEqual([
+      100, 260, -105
+    ]);
+  });
   it("re-uploads the used range on every commit so a swapped dock is never stale", () => {
     // commit() only runs when the visible tile set changed. A dock leaving and
     // another entering keeps the per-slot instance counts identical, so a

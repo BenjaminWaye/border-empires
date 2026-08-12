@@ -267,12 +267,6 @@ export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay =
     worldX: number,
     worldZ: number
   ): void => {
-    const cosR = Math.cos(rotationY);
-    const sinR = Math.sin(rotationY);
-    const rotate = (lx: number, lz: number): { x: number; z: number } => ({
-      x: lx * cosR - lz * sinR,
-      z: lx * sinR + lz * cosR
-    });
     // Subtle per-tile variation: the hoisted crate is turned by a hash angle.
     const crateSpin = (tileHash(worldX, worldZ, 17, 5) - 2) * 0.3;
 
@@ -282,12 +276,15 @@ export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay =
       const slot = part.slot;
       const slotCount = counts[slot] ?? 0;
       if (slotCount >= (maxTiles * (PARTS_PER_TILE[slot] ?? 1))) continue;
-      const local = rotate(part.cx, part.cz);
       scaleVec.set(part.sx, part.sy, part.sz);
       localEuler.set(part.rx, part.ry + (part.spin ? crateSpin : 0), part.rz, "YXZ");
       localMatrix.makeRotationFromEuler(localEuler);
       localMatrix.scale(scaleVec);
-      localMatrix.setPosition(centerX + local.x, surfaceY + part.cy, centerZ + local.z);
+      // Place at the RAW model-space position. The outer multiply below rotates
+      // this translation by rotationY exactly once (the old code pre-rotated
+      // (cx,cz) here AND then multiplied by rotationMatrix, which applied the
+      // rotation to the translation a second time — garbling every rotated dock).
+      localMatrix.setPosition(centerX + part.cx, surfaceY + part.cy, centerZ + part.cz);
       tempMatrix.copy(rotationMatrix);
       tempMatrix.multiply(localMatrix);
       meshes[slot]!.setMatrixAt(slotCount, tempMatrix);
