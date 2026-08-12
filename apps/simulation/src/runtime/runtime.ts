@@ -680,19 +680,18 @@ export class SimulationRuntime {
       populationBureauManpowerBuildingCount: number;
     }
   >();
-  // Counts boot-time corrections applied by the post-hydration manpower-cap
-  // re-stamp (see the constructor, right after tile indices are populated).
-  // Every hydrated player gets a manpowerCapSnapshot stamped BEFORE
-  // this.tiles/garrisonHallTilesByOwner etc. exist (see the loop above that
-  // calls applyManpowerRegen for initial players), so that snapshot is always
-  // computed against a zero structure-bonus world. Without the re-stamp,
-  // the very next refreshManpowerOnly call after cachedManpowerStructureBonusForPlayer
-  // is invalidated by a real tile mutation would see cap > previousCap and
-  // grant the player their entire structure-bonus cap as free manpower.
-  // Polled into a metric (simManpowerCapBootstrapRestampedTotal) by
-  // simulation-service.ts's metricsTicker so a spike here (e.g. this guard
-  // silently stops firing on some future refactor) is observable in prod —
-  // see feedback_counter_on_skip_paths.md.
+  // Counts recovered players whose persisted manpowerCapSnapshot disagreed
+  // with what boot hydration computed once this.tiles and every
+  // structure-by-owner index (garrisonHallTilesByOwner etc.) were fully
+  // populated — see the applyManpowerRegen loop near the end of the
+  // constructor, and the "deploy just snapped my manpower to full" bug it
+  // fixes (that loop used to run BEFORE this.tiles existed, computing a
+  // structure-bonus-free — artificially low — cap for every recovered
+  // player). Purely observational: incrementing it does not change any
+  // behavior. Polled into a metric (simManpowerCapBootstrapRestampedTotal)
+  // by simulation-service.ts's metricsTicker so a spike here (e.g. this
+  // guard silently stops firing on some future refactor) is observable in
+  // prod — see feedback_counter_on_skip_paths.md.
   private manpowerCapBootstrapRestampedCount = 0;
   // Defensibility metrics cache; invalidated alongside economy snapshot (same
   // tile mutations change income and border exposure T/E/Ts/Es).
@@ -863,29 +862,44 @@ export class SimulationRuntime {
     this.players =
       createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
       (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
-    for (const player of this.players.values()) this.applyManpowerRegen(player);
     this.tiles = createTilesFromInitialState(
       options.initialState,
       options.seedTiles ?? seedWorld!.tiles,
       options.mergeSeedTilesWithInitialState ?? true
     );
     for (const [key, tile] of this.tiles) this.snapshotTileCache.set(key, mapTile(tile));
-    // The applyManpowerRegen loop above runs BEFORE this.tiles is populated
-    // (it needs manpower regen numbers to exist for other constructor steps
-    // that follow), and it can read/cache a per-player connected-town
-    // network as a side effect (cachedTownNetworkForPlayer, called from
-    // upkeep-accrual/manpower-cap code deeper in that call). Any such cache
-    // entry was built against an empty pre-tile-load world and never gets
-    // invalidated afterward — normal tile mutations invalidate it through
-    // replaceTileState -> refreshEconomyCachesForTileChange, but tiles
-    // seeded directly from initialState here bypass that path entirely. A
-    // stale empty network is invisible to Weapons Workshop's old flat
-    // ownedStructureCountForPlayer count, but silently zeroes the Iron/Fur
-    // Weapons Factory network-clustered combat bonus for every runtime
-    // reconstructed from persisted state (i.e. after every server restart)
-    // until the player's next tile mutation happens to invalidate it. Clear
-    // both caches now that the real tiles exist, so the first real read
-    // rebuilds fresh instead of reusing the premature empty snapshot.
+    // applyManpowerRegen (which calls playerManpowerCap ->
+    // cachedManpowerStructureBonusForPlayer under the hood) used to run in a
+    // loop here, immediately after this.players was built and BEFORE
+    // this.tiles existed. garrisonHallTilesByOwner/railDepotTilesByOwner/
+    // assemblyWorksTilesByOwner/logisticsGuildTilesByOwner (populated below,
+    // from the tile-hydration loop) were all still empty at that point, so
+    // that early call computed a structure-bonus-free (artificially LOW) cap
+    // for every recovered player, cached it, AND — because refreshManpowerOnly
+    // clamps player.manpower down to whatever cap it just computed — silently
+    // dropped a recovered player's actual manpower down to that low cap too.
+    // The cached-low-cap entry then sat in manpowerStructureBonusCacheByPlayer
+    // until the player's first post-boot tile mutation invalidated it
+    // (replaceTileState -> refreshEconomyCachesForTileChange); at that point
+    // refreshManpowerOnly recomputed the TRUE (higher) cap, saw
+    // `cap > previousCap`, and handed the player their entire Garrison
+    // Hall/Rail Depot/Assembly Works/Logistics Guild cap bonus as free
+    // manpower — indistinguishable from the intentional "build a Garrison
+    // Hall, get the extra manpower immediately" mechanic that branch exists
+    // for. This is what produced the ~4000 -> full-cap jump right after a
+    // deploy (process restart -> boot hydration -> first post-boot command).
+    //
+    // Fix: this call now runs further below, after this.tiles and every
+    // structure-by-owner index it depends on are fully populated, so the
+    // very first manpower read for a recovered player already sees the true
+    // cap — no separate re-stamp step needed, and no window where a stale
+    // low-cap cache entry can survive into real gameplay.
+    //
+    // The per-player connected-town network cache
+    // (cachedTownNetworkForPlayer) has the same "read before tiles exist"
+    // hazard independent of manpower — see the Weapons Workshop network bonus
+    // comment below — so it's still defensively cleared here even though
+    // nothing above this point calls into it anymore.
     this.townNetworkCacheByPlayer.clear();
     this.townConnectivityStateByPlayer.clear();
     this.docks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? []);
@@ -1020,40 +1034,27 @@ export class SimulationRuntime {
         }
       }
     } for (const tile of this.tiles.values()) wonderEffects.syncWatchtowerObservatory(tile); for (const playerId of this.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.players);
-    // Re-stamp manpowerCapSnapshot now that garrisonHallTilesByOwner/
-    // railDepotTilesByOwner/assemblyWorksTilesByOwner/logisticsGuildTilesByOwner
-    // are fully populated from the recovered tiles above.
-    //
-    // The applyManpowerRegen loop near the top of this constructor ran before
-    // any of those indices existed, so playerManpowerCap (via
-    // cachedManpowerStructureBonusForPlayer) computed and cached a
-    // zero-structure-bonus cap for every player and stamped it into
-    // manpowerCapSnapshot. That stale cache entry sits in
-    // manpowerStructureBonusCacheByPlayer until the player's first real tile
-    // mutation invalidates it (replaceTileState -> refreshEconomyCachesForTileChange).
-    // At that point refreshManpowerOnly would recompute the TRUE (higher) cap,
-    // see cap > previousCap, and hand the player their entire Garrison
-    // Hall/Rail Depot/Assembly Works/Logistics Guild cap bonus as free
-    // manpower — indistinguishable from the intentional "build a Garrison
-    // Hall, get the extra manpower immediately" mechanic this branch exists
-    // for. This is what produced the ~4000 -> full-cap jump right after a
-    // deploy (process restart -> boot hydration -> first post-boot command).
-    //
-    // Fix: clear the stale structure-bonus cache (mirroring the
-    // townNetworkCacheByPlayer.clear() above, same root cause) and recompute
-    // manpowerCapSnapshot for every player directly, WITHOUT touching
-    // player.manpower. This makes the boot-time snapshot correct up front so
-    // the compensation branch in refreshManpowerOnly never sees a bogus
-    // delta — real cap growth from a structure built during actual gameplay
-    // still flows through refreshManpowerOnly's cap > previousCap branch
-    // exactly as before, since that path is untouched by this fix.
-    this.manpowerStructureBonusCacheByPlayer.clear();
+    // Moved here (see the long comment above, right after this.tiles is
+    // assigned) from immediately after `this.players` was built: this is the
+    // first point where garrisonHallTilesByOwner/railDepotTilesByOwner/
+    // assemblyWorksTilesByOwner/logisticsGuildTilesByOwner all reflect the
+    // recovered tiles, so playerManpowerCap sees the TRUE cap for every
+    // recovered player on its very first read — the boot-order bug (manpower
+    // silently clamped down at boot, then snapped back up to full cap on the
+    // player's next tile mutation) can no longer occur.
     for (const player of this.players.values()) {
-      const correctedCap = this.playerManpowerCap(player);
-      if (Number.isFinite(player.manpowerCapSnapshot) && player.manpowerCapSnapshot !== correctedCap) {
+      const previousCapSnapshot = player.manpowerCapSnapshot;
+      this.applyManpowerRegen(player);
+      // Counter (see manpowerCapBootstrapRestampedCount's declaration): a
+      // recovered player whose persisted manpowerCapSnapshot doesn't match
+      // what boot hydration just computed. Expected to fire roughly
+      // once per structure-owning player per restart (their old snapshot
+      // predates this boot's tile hydration) and settle back to 0 — a count
+      // that keeps climbing during steady-state, not just at startup, means
+      // this guard itself has regressed.
+      if (Number.isFinite(previousCapSnapshot) && previousCapSnapshot !== player.manpowerCapSnapshot) {
         this.manpowerCapBootstrapRestampedCount += 1;
       }
-      player.manpowerCapSnapshot = correctedCap;
     }
     for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
