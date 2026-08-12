@@ -31,7 +31,7 @@ describe("automation planner economy gate", () => {
       ownershipState: "SETTLED",
       town: { type: "MARKET", name: "Town", populationTier: "TOWN" }
     });
-    // MARKET is a town-support structure — the runtime places it on an open,
+    // MINTWORKS is a town-support structure — the runtime places it on an open,
     // SETTLED neighbor tile assigned to this town (resolveTownSupportTarget),
     // never on the town tile itself. A fixture with no such neighbor is
     // unrealistic and previously masked the AI proposing commands the
@@ -62,7 +62,7 @@ describe("automation planner economy gate", () => {
 
     expect(result.command).toMatchObject({
       type: "BUILD_ECONOMIC_STRUCTURE",
-      payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "MARKET" })
+      payloadJson: JSON.stringify({ x: 5, y: 5, structureType: "MINTWORKS" })
     });
   });
 

@@ -1,6 +1,6 @@
 /**
  * Shared "town support tile" lookup logic — generic over any tile shape that
- * carries the fields needed to place MARKET/GRANARY-style structures
+ * carries the fields needed to place MINTWORKS/GRANARY-style structures
  * (placementMode: "town_support" in structure-placement-metadata.ts).
  *
  * This is the SINGLE source of truth for "does an open, correctly-assigned
@@ -8,7 +8,7 @@
  * command handler (runtime-structure-support.ts, DomainTileState) and by the
  * AI's candidate selector (structure-command-planner.ts's chooseBestEconomicBuild,
  * StructurePlannerTile). Before this was shared, the AI planner proposed
- * MARKET/GRANARY whenever a town's supportCurrent < supportMax, without
+ * MINTWORKS/GRANARY whenever a town's supportCurrent < supportMax, without
  * checking whether a physical open SETTLED neighbor tile actually existed to
  * host the structure — the runtime's stricter placement check then rejected
  * ~99.9% of those BUILD_ECONOMIC_STRUCTURE commands in production (see
@@ -104,7 +104,7 @@ export function economicStructureForSupportedTown<T extends TownSupportTile>(
  * support tile next to this town, as a Set for O(1) membership checks.
  * Computed once per town via a single 8-neighbor scan (plus a per-neighbor
  * assignment check) — callers checking multiple candidate structure types
- * for the same town (e.g. MARKET/GRANARY) MUST call this once and reuse
+ * for the same town (e.g. MINTWORKS/GRANARY) MUST call this once and reuse
  * the Set instead of calling economicStructureForSupportedTown per type,
  * which would repeat the full neighbor scan once per candidate.
  */
@@ -136,7 +136,7 @@ export function economicStructureTypesForSupportedTown<T extends TownSupportTile
  * town-support structure, before checking any particular structureType's
  * placement rules. This is the expensive part (an 8-neighbor scan, plus an
  * 8-neighbor assignment check per candidate) — callers checking multiple
- * structure types for the same town (e.g. MARKET/GRANARY, which all
+ * structure types for the same town (e.g. MINTWORKS/GRANARY, which all
  * share identical placement rules today — see structure-placement-metadata.ts)
  * should call this ONCE and reuse the result instead of re-scanning per type.
  */

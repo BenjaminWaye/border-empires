@@ -133,8 +133,8 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
             maxPopulation: 8,
             connectedTownCount: 1,
             connectedTownBonus: 0.2,
-            hasMarket: true,
-            marketActive: true,
+            hasMintworks: true,
+            mintworksActive: true,
             hasGranary: false,
             granaryActive: false,
           }),
@@ -162,8 +162,8 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
             maxPopulation: 8,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           }),
@@ -200,7 +200,7 @@ describe("enrichSnapshotTilesForGlobalVisibility", () => {
     expect(town).not.toHaveProperty("isFed");
     expect(town).not.toHaveProperty("supportCurrent");
     expect(town).not.toHaveProperty("supportMax");
-    expect(town).not.toHaveProperty("hasMarket");
+    expect(town).not.toHaveProperty("hasMintworks");
     // yieldRate removed from tile export (see docs/plans/2026-05-30-bootstrap-payload-shrink.md).
     // goldPerMinute remains stripped from shared-visibility town summaries (by design).
     expect(town).not.toHaveProperty("goldPerMinute");

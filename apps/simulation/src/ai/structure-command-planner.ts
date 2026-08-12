@@ -157,7 +157,7 @@ const canAffordStructure = (
     FARMSTEAD: "agriculture",
     UMBRITE_RIG: "leatherworking",
     MINE: "mining",
-    MARKET: "trade",
+    MINTWORKS: "trade",
     GRANARY: "pottery"
   };
   const requiredTechId = requiredTech[structureType];
@@ -190,7 +190,7 @@ export const chooseBestEconomicBuild = (
     if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
     if (!tileOpenForStructure(tile)) continue;
     const candidates: Array<{ type: EconomicStructureType; score: number }> = [];
-    // Town-support structures (MARKET/GRANARY) build on an open,
+    // Town-support structures (MINTWORKS/GRANARY) build on an open,
     // already-SETTLED neighbor tile assigned to this town
     // (resolveTownSupportTarget in runtime-structure-command-handlers.ts),
     // never on the town tile itself. Computed once per tile — the neighbor
@@ -219,7 +219,7 @@ export const chooseBestEconomicBuild = (
         // Computed once per tile, not per candidate type — see
         // economicStructureTypesForSupportedTown's docs in town-support-lookup.ts.
         existingSupportStructureTypes = economicStructureTypesForSupportedTown(tilesByKey, player.id, townKey);
-        candidates.push({ type: foodLow ? "GRANARY" : "MARKET", score: foodLow ? 160 : 54 });
+        candidates.push({ type: foodLow ? "GRANARY" : "MINTWORKS", score: foodLow ? 160 : 54 });
         candidates.push({ type: "GRANARY", score: foodLow ? 132 : 20 });
       }
     }
@@ -235,7 +235,7 @@ export const chooseBestEconomicBuild = (
       }
       // A town needing MORE support capacity overall (supportCurrent <
       // supportMax, checked above) does not mean it's missing THIS specific
-      // type — it might already have a GRANARY and just need a MARKET.
+      // type — it might already have a GRANARY and just need a Mintworks.
       // The runtime rejects a duplicate ("town already has granary") via
       // economicStructureForSupportedTown; without this same check here the
       // AI kept proposing a structure type the town already had, on repeat,

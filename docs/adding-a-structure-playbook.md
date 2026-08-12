@@ -55,7 +55,7 @@ add it to `packages/game-domain/data/tech-tree.json` too (see step 12).
 **`placementMode` is the entire per-town cap mechanism**:
 - `"same_tile"` — one per tile, unlimited tiles per town (uncapped). Use
   this for anything meant to be built repeatedly (Fort, Camp, Mine, and —
-  per an explicit design decision — Weapons Workshop, Market, Ancillary
+  per an explicit design decision — Weapons Workshop, Mintworks, Ancillary
   Factory).
 - `"town_support"` — capped at exactly one per connected-town network,
   enforced in `resolveTownSupportTarget()`

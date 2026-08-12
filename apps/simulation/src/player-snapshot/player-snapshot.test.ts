@@ -60,8 +60,8 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             isFed: false,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           }),
@@ -691,10 +691,10 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         },
         { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FARM" },
         { x: 9, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "CLEARING_HOUSE", status: "active" }) },
-        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MARKET", status: "active" }) },
+        { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
         { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "GRANARY", status: "active" }) },
         { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "CARAVANARY", status: "active" }) },
-        // §5.4: FOOD slot supply — town(2) + MARKET/CARAVANARY/GRANARY/CLEARING_HOUSE
+        // §5.4: FOOD slot supply — town(2) + MINTWORKS/CARAVANARY/GRANARY/CLEARING_HOUSE
         // (1 each) = 6 demand; the FARM tile above only gives 1, so these
         // support structures need real supply to not go dormant.
         { x: 8, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "FISH" },
@@ -730,22 +730,22 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         supportCurrent: 5,
         supportMax: 5,
         isFed: true,
-        hasMarket: true, hasGranary: true,
-        marketActive: true, granaryActive: true,
+        hasMintworks: true, hasGranary: true,
+        mintworksActive: true, granaryActive: true,
         hasClearingHouse: true, clearingHouseActive: true,
         goldPerMinute: expect.any(Number),
         // §5.4: FOOD is slot-based — town food upkeep is retired to 0.
         foodUpkeepPerMinute: 0
       })
     );
-    // market-stacking task: isCompleteTownSummary now also requires
-    // marketCount (snapshot-economy-helpers.ts), which this fixture's
+    // mintworks-stacking task: isCompleteTownSummary now also requires
+    // mintworksCount (snapshot-economy-helpers.ts), which this fixture's
     // hand-authored townJson blob doesn't carry — that now correctly forces
     // a live recompute instead of short-circuiting on the canned "complete"
     // JSON, which in turn recomputes connectedTownCount/connectedTownBonus
     // from the real (single-town, no network) tile set instead of trusting
     // the fixture's inconsistent stored values. The new figure reflects 1
-    // active Market with an active Clearing House (marketGoldProductionMultiplier(1, true) = 1.35),
+    // active Mintworks with an active Clearing House (mintworksGoldProductionMultiplier(1, true) = 1.35),
     // no connected-town bonus (only one town in this fixture).
     expect(town?.goldPerMinute).toBeCloseTo(0.0094, 4);
     expect(snapshot.player).toEqual(
@@ -892,9 +892,9 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
-            marketCount: 0,
+            hasMintworks: false,
+            mintworksActive: false,
+            mintworksCount: 0,
             hasGranary: false,
             granaryActive: false,
             foodUpkeepPerMinute: 0.1

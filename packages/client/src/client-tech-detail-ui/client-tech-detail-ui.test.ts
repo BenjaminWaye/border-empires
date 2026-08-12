@@ -183,7 +183,7 @@ describe("tech detail crystal ability previews", () => {
       requirements: { gold: 26000, resources: { CRYSTAL: 300, SHARD: 3 }, checklist: [], canResearch: true }
     };
     const imperialExchange: TechInfo = {
-      id: "urban-markets",
+      id: "urban-mintworks",
       tier: 6,
       name: "Imperial Exchange",
       description: "Unlocks the Imperial Exchange.",

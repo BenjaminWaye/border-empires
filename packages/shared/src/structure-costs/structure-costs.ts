@@ -53,7 +53,7 @@ const STRUCTURE_COST_DEFINITIONS: Record<BuildableStructureType, StructureCostDe
   WATERWORKS: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 20 } },
   UMBRITE_RIG: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "UMBRITE", amount: 30 } },
   MINE: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "TITANIUM", amount: 30 }, resourceOptions: ["TITANIUM", "CRYSTAL"] },
-  MARKET: { baseGoldCost: 0, manpowerCost: 150 },
+  MINTWORKS: { baseGoldCost: 0, manpowerCost: 150 },
   GRANARY: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 40 } },
   SEED_GRANARY: { baseGoldCost: 0, manpowerCost: 100, resourceCost: { resource: "FOOD", amount: 80 } },
   CENSUS_HALL: { baseGoldCost: 0, manpowerCost: 80, resourceCost: { resource: "FOOD", amount: 30 } },

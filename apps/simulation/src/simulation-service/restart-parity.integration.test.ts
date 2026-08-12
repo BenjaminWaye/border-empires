@@ -60,7 +60,7 @@ const payloadForCommand = (type: RestartCommandType): Record<string, unknown> =>
     case "COLLECT_SHARD":
       return { x: 10, y: 10 };
     case "BUILD_ECONOMIC_STRUCTURE":
-      return { x: 10, y: 10, structureType: "MARKET" };
+      return { x: 10, y: 10, structureType: "MINTWORKS" };
     case "COLLECT_VISIBLE":
       return {};
     case "CHOOSE_TECH":

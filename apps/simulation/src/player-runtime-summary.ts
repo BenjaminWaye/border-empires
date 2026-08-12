@@ -31,7 +31,7 @@ export type ServerDevQueueEntry = {
   x: number;
   y: number;
   kind: "SETTLE" | "BUILD";
-  /** Only present for kind === "BUILD" -- e.g. "FORT", "MARKET", "REMOVE_STRUCTURE". */
+  /** Only present for kind === "BUILD" -- e.g. "FORT", "MINTWORKS", "REMOVE_STRUCTURE". */
   structureType?: string;
   queuedAt: number;
 };

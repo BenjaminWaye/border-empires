@@ -23,6 +23,18 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786533500000, // 2026.08.12.7
+    introducedIn: "2026.08.12.7",
+    title: "Market renamed to Mintworks, with a new 3D overlay and icon",
+    why: "\"Market\" read as a trading post, which isn't what the building does — it's the empire's gold-minting workshop, easy to confuse with the unrelated Market town archetype. Renamed the structure to Mintworks (town archetype naming is unaffected) and gave it a dedicated look worthy of the name: a giant mechanical coin press instead of the old fruit-stall-with-an-awning placeholder.",
+    changes: [
+      "The Market structure is now called Mintworks everywhere — build menu, tile info, tooltips, and the Development queue.",
+      "Added a dedicated 3D overlay for Mintworks: a dark-iron industrial hall with a giant brass coin press, flywheel, gear train, rear furnace, ingot stocks, coin trays, and coin crates.",
+      "Added a matching 2D flat-color Mintworks icon for the overlay gallery.",
+      "Existing Market structures on the map keep working under the new name — no rebuild needed."
+    ]
+  },
+  {
     createdAt: 1786533000000, // 2026.08.12.6
     introducedIn: "2026.08.12.6",
     title: "Fixed: zoom/pan stutter from the ownership tint overlay",
@@ -144,9 +156,9 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1786463807000, // 2026.08.11.5
     introducedIn: "2026.08.11.5",
     title: "Town-tile builds, Observatory upkeep, and a Jump to tile button",
-    why: "A Market, Ancillary Factory, or Weapons Factory clicked on a town tile used to build right there — now only a Fort belongs directly on a town, and those auto-place onto an open support tile instead. Each additional Observatory now costs progressively more CRYSTAL upkeep. The Development panel sidebar didn't have any way to jump the camera to a queued or in-progress item's tile.",
+    why: "A Mintworks, Ancillary Factory, or Weapons Factory clicked on a town tile used to build right there — now only a Fort belongs directly on a town, and those auto-place onto an open support tile instead. Each additional Observatory now costs progressively more CRYSTAL upkeep. The Development panel sidebar didn't have any way to jump the camera to a queued or in-progress item's tile.",
     changes: [
-      "Market, Ancillary Factory, and both Weapons Factories now redirect to an open support tile when targeted at the town tile itself — a Fort is the only structure that belongs directly on a town.",
+      "Mintworks, Ancillary Factory, and both Weapons Factories now redirect to an open support tile when targeted at the town tile itself — a Fort is the only structure that belongs directly on a town.",
       "Each additional Observatory costs progressively more CRYSTAL upkeep: 1st = 1 slot, 2nd = 2, 3rd = 3, and so on.",
       "Added a Jump to tile button to every active and queued item in the Development panel sidebar."
     ]
@@ -186,7 +198,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     createdAt: 1786441940000, // 2026.08.11.2
     introducedIn: "2026.08.11.2",
     title: "Tier 2-5 domain rework",
-    why: "Several domains gave a bonus that wasn't actually wired into gameplay (Stone Curtain's fort-area defense, Merchant Houses' market/granary bonuses, Hidden Hand's ability cooldown) while others duplicated an earlier tier's identity almost exactly. Every domain from tier 2 up now grants a real, distinct effect.",
+    why: "Several domains gave a bonus that wasn't actually wired into gameplay (Stone Curtain's fort-area defense, Merchant Houses' mintworks/granary bonuses, Hidden Hand's ability cooldown) while others duplicated an earlier tier's identity almost exactly. Every domain from tier 2 up now grants a real, distinct effect.",
     changes: [
       "Frontier Doctrine now unlocks off Supply Directorate (tier-1 manpower) instead of the unrelated tier-2 Kiln Craft.",
       "Stone Curtain is now Garrison Doctrine: forts you control fight with +50% defense (was a defense bonus that never applied in combat).",
@@ -258,12 +270,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1786406400000, // 2026.08.10.1
     introducedIn: "2026.08.10.1",
-    title: "Removed Bank and Exchange House; Clearing House now boosts Market",
-    why: "Bank and Market did nearly the same thing, and Exchange House's bonus was never actually implemented — both were confusing dead weight in the tech tree and build menu.",
+    title: "Removed Bank and Exchange House; Clearing House now boosts Mintworks",
+    why: "Bank and Mintworks did nearly the same thing, and Exchange House's bonus was never actually implemented — both were confusing dead weight in the tech tree and build menu.",
     changes: [
       "Removed the Bank and Exchange House structures.",
       "The Minting Works tech now unlocks Clearing House (instead of Bank).",
-      "Clearing House now boosts Market gold production (+25%) for its town and directly connected towns, instead of boosting Bank.",
+      "Clearing House now boosts Mintworks gold production (+25%) for its town and directly connected towns, instead of boosting Bank.",
       "Removed the Provincial Concessions tech; Grand Bazaars now requires Minting Works directly.",
       "Fixed the tech tree structure card showing two separate 'Upkeep' boxes for structures with more than one resource-slot requirement (Bank, Foundry, Rail Depot, Radar System, Exchange House, Ambaric Tower, Weapons Workshop, Assembly Works, Siege Tower, Dread Tower) — now shown as one combined box.",
       "Moved Terrain Shaping into the Aether tech branch (was miscategorized under Economy); it now requires Covert Logistics and unlocks Sky Vessel Engineering alongside its other prerequisites."

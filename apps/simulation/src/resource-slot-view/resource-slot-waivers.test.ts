@@ -124,13 +124,13 @@ describe("§23.2 slot waivers — resourceSlotDemandForPlayer", () => {
     expect(waived.FOOD).toBe(1);
   });
 
-  it("the built-in Relay Beacon waiver doesn't touch a Farmstead/Market's own FOOD demand on other tiles", () => {
+  it("the built-in Relay Beacon waiver doesn't touch a Farmstead/Mintworks's own FOOD demand on other tiles", () => {
     const tiles = [
       tile({ x: 0, y: 0, economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active", activatedAt: 100 } }),
-      tile({ x: 1, y: 0, economicStructure: { ownerId: "p1", type: "MARKET", status: "active", activatedAt: 200 } })
+      tile({ x: 1, y: 0, economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "active", activatedAt: 200 } })
     ];
     const waived = resourceSlotDemandForPlayer(tiles, "p1", { ...emptySlotWaivers(), relayBeaconFoodSlotWaiverCount: 5 });
-    // Relay Beacon waived to 0, Market still demands its own 1 FOOD slot.
+    // Relay Beacon waived to 0, Mintworks still demands its own 1 FOOD slot.
     expect(waived.FOOD).toBe(1);
   });
 });

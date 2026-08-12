@@ -275,8 +275,8 @@ describe("client gateway sync", () => {
             isFed: false,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           })
@@ -343,8 +343,8 @@ describe("client gateway sync", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           })
@@ -434,8 +434,8 @@ describe("client gateway sync", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           })
@@ -498,8 +498,8 @@ describe("client gateway sync", () => {
             goldIncomePausedReason: "MANPOWER_NOT_FULL",
             manpowerCurrent: 80,
             manpowerCap: 100,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
             nextPopulationTierUpgrade: {
@@ -534,8 +534,8 @@ describe("client gateway sync", () => {
           isFed: true,
           connectedTownCount: 1,
           connectedTownBonus: 0.1,
-          hasMarket: true,
-          marketActive: true,
+          hasMintworks: true,
+          mintworksActive: true,
           hasGranary: false,
           granaryActive: false,
         })
@@ -550,8 +550,8 @@ describe("client gateway sync", () => {
         supportMax: 6,
         connectedTownCount: 1,
         connectedTownBonus: 0.1,
-        hasMarket: true,
-        marketActive: true
+        hasMintworks: true,
+        mintworksActive: true
       })
     );
     expect(deps.state.tiles.get("40,18")?.town?.goldIncomePausedReason).toBeUndefined();
@@ -586,8 +586,8 @@ describe("client gateway sync", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           })
@@ -634,8 +634,8 @@ describe("client gateway sync", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           })
@@ -690,8 +690,8 @@ describe("client gateway sync", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            hasMarket: false,
-            marketActive: false,
+            hasMintworks: false,
+            mintworksActive: false,
             hasGranary: false,
             granaryActive: false,
           })

@@ -57,7 +57,7 @@
     "sortGroup": "resource",
     "resourceTypes": ["TITANIUM", "GEMS"]
   },
-  "MARKET": {
+  "MINTWORKS": {
     "showOn": ["town", "support"],
     "placementMode": "same_tile",
     "sortGroup": "support"

@@ -10,7 +10,7 @@
  * " • settles this tile first" detail suffix.
  *
  * Covers a representative sample: FARMSTEAD (resource-gated, no slot),
- * MARKET (town-support), RELAY_BEACON (previously only ever built directly on
+ * MINTWORKS (town-support), RELAY_BEACON (previously only ever built directly on
  * a settled tile via a bespoke path), and FOUNDRY (placement-overlay type).
  */
 import { describe, expect, it } from "vitest";
@@ -122,8 +122,8 @@ describe("settle + build — resource-gated building (FARMSTEAD)", () => {
   });
 });
 
-describe("settle + build — town-support building (MARKET)", () => {
-  it("shows build_market on a FRONTIER owned tile supported by a nearby town", () => {
+describe("settle + build — town-support building (MINTWORKS)", () => {
+  it("shows build_mintworks on a FRONTIER owned tile supported by a nearby town", () => {
     const state = richState();
     state.techIds = ["trade"];
     state.resourceSlots.supply.FOOD = 1;
@@ -137,11 +137,11 @@ describe("settle + build — town-support building (MARKET)", () => {
       ]
     };
     const actions = menuActionsForSingleTile(state, frontier, deps as never);
-    const action = findAction(actions, "build_market");
+    const action = findAction(actions, "build_mintworks");
     expect(action).toBeDefined();
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • settles this tile first");
-    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "MARKET"));
+    expect(action?.cost).toBe(frontierCostLabel(state, frontier, "MINTWORKS"));
   });
 });
 

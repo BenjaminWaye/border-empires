@@ -163,12 +163,12 @@ describe("RUSH_BUY", () => {
       });
 
       runtime.submitCommand({
-        commandId: "market-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
-        type: "BUILD_ECONOMIC_STRUCTURE", payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "MARKET" })
+        commandId: "mintworks-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+        type: "BUILD_ECONOMIC_STRUCTURE", payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "MINTWORKS" })
       });
       await Promise.resolve();
 
-      // MARKET is same-tile/uncapped placement (stacks additively per town),
+      // MINTWORKS is same-tile/uncapped placement (stacks additively per town),
       // but only a Fort belongs directly on the town tile -- targeting the
       // town tile (16,16) itself redirects the build onto its open support
       // tile (16,17) instead.

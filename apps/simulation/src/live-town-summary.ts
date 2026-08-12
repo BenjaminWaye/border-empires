@@ -1,7 +1,7 @@
 import {
   LONG_PEACE_GROWTH_MULT,
   LONG_PEACE_MS,
-  marketGoldProductionMultiplier,
+  mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
   granaryGrowthMultiplier,
@@ -96,11 +96,11 @@ export const hasSupportedStructure = (
  * Counting sibling of hasSupportedStructure above (same wire-shaped
  * RuntimeState tiles, same support-ring adjacency loop) for structures whose
  * bonus stacks per active instance rather than gating on "any one exists" —
- * market-stacking task: Market's town gold production bonus is additive per
- * active Market in the support ring. Unlike economy-network.ts's
+ * mintworks-stacking task: Mintworks's town gold production bonus is additive per
+ * active Mintworks in the support ring. Unlike economy-network.ts's
  * countSupportedStructures, this deliberately mirrors THIS file's existing
  * hasSupportedStructure loop exactly (support-ring only, no on-tile check) —
- * that's the pre-existing shape every hasMarket call site in this file
+ * that's the pre-existing shape every hasMintworks call site in this file
  * already used, so this keeps the reconnect-path counting logic consistent
  * with itself rather than importing the domain-tile variant's dual-check
  * semantics.
@@ -182,7 +182,7 @@ export const buildTownSummary = (
   nearbyWarTownKeys?: ReadonlySet<string>,
   seedGranaryBuffedTileKeys?: ReadonlySet<string>,
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Market/Bank/Caravanary/Clearing House/Granary/Seed Granary
+  // dormant Mintworks/Bank/Caravanary/Clearing House/Granary/Seed Granary
   // stops granting its bonus.
   dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
 ): Tile["town"] | undefined => {
@@ -209,8 +209,8 @@ export const buildTownSummary = (
     : { supportCurrent: 0, supportMax: 0 };
   const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
   const isFed = tile.ownerId ? fedTownKeys.has(tileKey) : false;
-  const marketCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "MARKET", tilesByKey, dormantEconomicStructureKeys) : 0;
-  const hasMarket = marketCount > 0;
+  const mintworksCount = tile.ownerId ? countSupportedStructures(tileKey, tile.ownerId, "MINTWORKS", tilesByKey, dormantEconomicStructureKeys) : 0;
+  const hasMintworks = mintworksCount > 0;
   const hasGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "GRANARY", tilesByKey, dormantEconomicStructureKeys));
   const hasSeedGranary = Boolean(tile.ownerId && hasSupportedStructure(tileKey, tile.ownerId, "SEED_GRANARY", tilesByKey, dormantEconomicStructureKeys));
   const hasAnyGranary = hasGranary || hasSeedGranary;
@@ -258,7 +258,7 @@ export const buildTownSummary = (
               supportRatio *
               townPopulationMultiplier(populationTier) *
               (1 + (townPartial.connectedTownBonus ?? 0)) *
-              marketGoldProductionMultiplier(marketCount, clearingHouseActive) *
+              mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive) *
               firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
@@ -301,7 +301,7 @@ export const buildTownSummary = (
         : [];
   const cap = isSettlement
     ? goldPerMinute * 60 * 8
-    : goldPerMinute * 60 * 8 * marketGoldProductionMultiplier(marketCount, clearingHouseActive);
+    : goldPerMinute * 60 * 8 * mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive);
   const nextPopulationTierUpgrade = tile.ownerId && tile.ownershipState === "SETTLED"
     ? nextTownGrowthUpgrade(populationTier, population)
     : undefined;
@@ -321,9 +321,9 @@ export const buildTownSummary = (
     connectedTownCount: typeof townPartial.connectedTownCount === "number" ? townPartial.connectedTownCount : 0,
     connectedTownBonus: typeof townPartial.connectedTownBonus === "number" ? townPartial.connectedTownBonus : 0,
     ...(Array.isArray(townPartial.connectedTownNames) ? { connectedTownNames: townPartial.connectedTownNames } : {}),
-    hasMarket,
-    marketActive: hasMarket && isFed,
-    marketCount,
+    hasMintworks,
+    mintworksActive: hasMintworks && isFed,
+    mintworksCount,
     hasGranary,
     granaryActive: hasGranary,
     ...(hasSeedGranary ? { hasSeedGranary: true, seedGranaryActive: true } : {}),

@@ -23,8 +23,8 @@ const townTile = (x: number, y: number): Tile => ({
     populationTier: "TOWN",
     connectedTownCount: 0,
     connectedTownBonus: 0,
-    hasMarket: false,
-    marketActive: false,
+    hasMintworks: false,
+    mintworksActive: false,
     hasGranary: false,
     granaryActive: false,
   }
@@ -58,23 +58,23 @@ describe("townHasSupportStructureType", () => {
 
   it("ignores unrelated support structures", () => {
     const town = townTile(10, 10);
-    const tiles = [town, supportTile(11, 11, "MARKET", "active")];
+    const tiles = [town, supportTile(11, 11, "MINTWORKS", "active")];
     expect(townHasSupportStructureType(tiles, town, "me", "UMBRITE_SYNTHESIZER")).toBe(false);
   });
 
   it("assigns a shared support structure to only the lowest-coordinate town", () => {
     const westTown = townTile(10, 10);
     const eastTown = townTile(12, 10);
-    const tiles = [westTown, supportTile(11, 10, "MARKET", "active"), eastTown];
+    const tiles = [westTown, supportTile(11, 10, "MINTWORKS", "active"), eastTown];
 
-    expect(townHasSupportStructureType(tiles, westTown, "me", "MARKET")).toBe(true);
-    expect(townHasSupportStructureType(tiles, eastTown, "me", "MARKET")).toBe(false);
+    expect(townHasSupportStructureType(tiles, westTown, "me", "MINTWORKS")).toBe(true);
+    expect(townHasSupportStructureType(tiles, eastTown, "me", "MINTWORKS")).toBe(false);
   });
 
   it("detects support structures across the wrapped world seam", () => {
     const town = townTile(0, 10);
-    const tiles = [town, supportTile(WORLD_WIDTH - 1, 10, "MARKET", "active")];
+    const tiles = [town, supportTile(WORLD_WIDTH - 1, 10, "MINTWORKS", "active")];
 
-    expect(townHasSupportStructureType(tiles, town, "me", "MARKET")).toBe(true);
+    expect(townHasSupportStructureType(tiles, town, "me", "MINTWORKS")).toBe(true);
   });
 });

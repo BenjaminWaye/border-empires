@@ -21,7 +21,7 @@ export type RuntimeTileYieldEconomyContext = {
   /** Precomputed tile keys of active FOUNDRY structures owned by this player. */
   foundryKeys: Set<string>;
   // §5.4: dormant economicStructure tile keys ("x,y") for this player — a
-  // dormant Market/Bank/Caravanary/Clearing House stops granting its gold
+  // dormant Mintworks/Bank/Caravanary/Clearing House stops granting its gold
   // bonus. Threaded into refreshTownEconomyFields via enrichTileWithTownContext.
   dormantEconomicStructureKeys: ReadonlySet<string>;
 };

@@ -80,7 +80,7 @@ Returns detailed decision-scoring history for debugging wait_and_recover loops:
 - `frontierState` – Counts of frontier opportunities: neutral, economic, town-support, scout, enemy, barbarian
 - Resource state: gold, manpower, dev slot availability
 - `canExpand` / `canAttack` flags
-- `economicBuildCandidate` – The economic structure type (MARKET/BANK/GRANARY/etc.) the
+- `economicBuildCandidate` – The economic structure type (MINTWORKS/BANK/GRANARY/etc.) the
   planner most recently proposed for this player, if any
 - `lastRejection` – `{ commandType, code, message, at }` for the most recent runtime-rejected
   command from this player (e.g. `BUILD_ECONOMIC_STRUCTURE` rejected with "town already has

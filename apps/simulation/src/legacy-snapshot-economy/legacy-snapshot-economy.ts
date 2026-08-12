@@ -25,8 +25,8 @@ import {
   GRANARY_GOLD_UPKEEP,
   TITANIUM_WORKS_TITANIUM_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-  MARKET_FOOD_UPKEEP,
-  marketGoldProductionMultiplier,
+  MINTWORKS_FOOD_UPKEEP,
+  mintworksGoldProductionMultiplier,
   MINE_GOLD_UPKEEP,
   PASSIVE_INCOME_MULT,
   RADAR_SYSTEM_GOLD_UPKEEP,
@@ -202,7 +202,7 @@ const economicStructureOutputMultAt = (
   if (!structure || structure.ownerId !== ownerId || structure.status !== "active") return 1;
   if (
     structure.type === "GRANARY" ||
-    structure.type === "MARKET" ||
+    structure.type === "MINTWORKS" ||
     structure.type === "AIRPORT" ||
     structure.type === "WOODEN_FORT" ||
     structure.type === "RELAY_BEACON" ||
@@ -283,7 +283,7 @@ const goldUpkeepPerMinuteForStructure = (structureType: string): number => {
 const MILITARY_FOOD_UPKEEP_TYPES = new Set(["WOODEN_FORT", "RELAY_BEACON", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
 
 const foodUpkeepPerMinuteForStructure = (structureType: string): number => {
-  if (structureType === "MARKET") return MARKET_FOOD_UPKEEP / 10;
+  if (structureType === "MINTWORKS") return MINTWORKS_FOOD_UPKEEP / 10;
   if (structureType === "CARAVANARY") return CARAVANARY_FOOD_UPKEEP / 10;
   if (MILITARY_FOOD_UPKEEP_TYPES.has(structureType)) return 0.1;
   return 0;
@@ -343,9 +343,9 @@ const supportedStructureAtTown = (
   return false;
 };
 
-// market-stacking task: counting sibling of supportedStructureAtTown above,
-// same support-ring loop, for Market's now-additive-per-instance gold bonus
-// (marketGoldProductionMultiplier). Boolean uniqueness/gate checks elsewhere
+// mintworks-stacking task: counting sibling of supportedStructureAtTown above,
+// same support-ring loop, for Mintworks's now-additive-per-instance gold bonus
+// (mintworksGoldProductionMultiplier). Boolean uniqueness/gate checks elsewhere
 // in this file keep using supportedStructureAtTown unchanged.
 const countedStructuresAtTown = (
   townTileKey: string,
@@ -534,24 +534,24 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
       const { supportCurrent, supportMax } = supportRatioForTown(town.tileKey, playerId, ownershipByTile, ownershipStateByTile, args.world);
       const supportRatio = supportMax <= 0 ? 1 : supportCurrent / supportMax;
       if (!fedTownKeys.has(town.tileKey)) continue;
-      const marketCount = countedStructuresAtTown(town.tileKey, playerId, "MARKET", ownershipByTile, ownershipStateByTile, structuresByTile, args.world);
-      const hasMarket = marketCount > 0;
+      const mintworksCount = countedStructuresAtTown(town.tileKey, playerId, "MINTWORKS", ownershipByTile, ownershipStateByTile, structuresByTile, args.world);
+      const hasMintworks = mintworksCount > 0;
       // No town-level Clearing House signal exists on this legacy path
       // (pre-existing gap — Clearing House was never wired into this formula
-      // even before market-stacking). Detected here the same way Market
+      // even before mintworks-stacking). Detected here the same way Mintworks
       // itself is, via the local support-ring scan.
       const clearingHouseActive = supportedStructureAtTown(town.tileKey, playerId, "CLEARING_HOUSE", ownershipByTile, ownershipStateByTile, structuresByTile, args.world);
-      const marketMult = marketGoldProductionMultiplier(marketCount, clearingHouseActive);
+      const mintworksMult = mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive);
       const currentTownIncome =
         TOWN_BASE_GOLD_PER_MIN *
         supportRatio *
         townPopulationMultiplier(town) *
         (1 + town.connectedTownBonus) *
-        marketMult *
+        mintworksMult *
         (player.mods?.income ?? 1) *
         PASSIVE_INCOME_MULT;
       townIncome += currentTownIncome;
-      if (hasMarket) addBucket(sourceBuckets.GOLD, "Market bonus", currentTownIncome - currentTownIncome / marketMult, { count: 1 });
+      if (hasMintworks) addBucket(sourceBuckets.GOLD, "Mintworks bonus", currentTownIncome - currentTownIncome / mintworksMult, { count: 1 });
     }
 
     for (const dock of ownedDocks) {
