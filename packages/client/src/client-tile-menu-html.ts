@@ -1,4 +1,38 @@
-import type { TileActionDef, TileMenuTab, TileMenuView } from "./client-types.js";
+import type { TileActionDef, TileCombatBreakdown, TileMenuTab, TileMenuView } from "./client-types.js";
+
+const formatCombatPowerNumber = (value: number): string => {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
+};
+
+const formatCombatMultiplier = (mult: number): string => `×${(Math.round(mult * 1000) / 1000).toFixed(2)}`;
+
+// "Verify the math" panel shown next to the Launch Attack button: every side's
+// base -> infrastructure -> battle tiers as plain numbers, ending in the same
+// atkEff/(atkEff+defEff) formula the server's win chance actually uses.
+const combatBreakdownSideHtml = (title: string, side: TileCombatBreakdown["attacker"]): string => `
+  <div class="tile-combat-breakdown-side">
+    <div class="tile-combat-breakdown-side-head"><span>${title}</span><strong>${formatCombatPowerNumber(side.effective)}</strong></div>
+    <div class="tile-combat-breakdown-row"><span>Base</span><span>${formatCombatPowerNumber(side.base)}</span></div>
+    ${side.infrastructure
+      .map((entry) => `<div class="tile-combat-breakdown-row"><span>${entry.label}</span><span>${formatCombatMultiplier(entry.mult)}</span></div>`)
+      .join("")}
+    ${side.infrastructure.length > 0 ? `<div class="tile-combat-breakdown-row is-subtotal"><span>Your base power</span><span>${formatCombatPowerNumber(side.effectiveBase)}</span></div>` : ""}
+    ${side.battle
+      .map((entry) => `<div class="tile-combat-breakdown-row"><span>${entry.label}</span><span>${formatCombatMultiplier(entry.mult)}</span></div>`)
+      .join("")}
+    <div class="tile-combat-breakdown-row is-total"><span>Effective ${title}</span><span>${formatCombatPowerNumber(side.effective)}</span></div>
+  </div>
+`;
+
+const combatBreakdownHtml = (breakdown: TileCombatBreakdown): string => `
+  <div class="tile-combat-breakdown">
+    <div class="tile-combat-breakdown-title">How this win chance is calculated</div>
+    ${combatBreakdownSideHtml("Attack", breakdown.attacker)}
+    ${combatBreakdownSideHtml("Defense", breakdown.defender)}
+    <div class="tile-combat-breakdown-formula">Win chance = Attack ÷ (Attack + Defense) = ${formatCombatPowerNumber(breakdown.attacker.effective)} ÷ (${formatCombatPowerNumber(breakdown.attacker.effective)} + ${formatCombatPowerNumber(breakdown.defender.effective)}) = ${Math.round(breakdown.winChance * 100)}%</div>
+  </div>
+`;
 
 const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "expand_here") return "⚐";
@@ -119,7 +153,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
           ${action.cost ? `<span class="tile-action-cost">${action.cost}</span>` : ""}
         </button>`
       )
-      .join("")}</div>`;
+      .join("")}</div>${view.combatBreakdown ? combatBreakdownHtml(view.combatBreakdown) : ""}`;
   }
   if (activeTab === "progress") {
     if (!view.progress) return `<div class="tile-menu-empty">Nothing is currently in progress on this tile.</div>`;

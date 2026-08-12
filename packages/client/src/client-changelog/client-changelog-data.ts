@@ -23,6 +23,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786543467000, // 2026.08.12.7
+    introducedIn: "2026.08.12.7",
+    title: "Added: a full \"show your work\" breakdown for combat power and win chance",
+    why: "Win chance showed up as a single percentage with no way to see what produced it, and the Attack/Defense stats in the tech tab were shown as vague % deltas that didn't even correspond to the numbers combat actually used — worse, a couple of domains (Titanium Dominion, War Foundries) promised a flat attack/defense bonus in their description that silently never applied to any fight. Both are now the same real numbers: BASE_COMBAT_POWER x persistent infrastructure x this-battle modifiers.",
+    changes: [
+      "Tech tab's Attack/Defense stats now show the actual effective combat-power number (e.g. \"11.8\") instead of a % delta, with an inspectable breakdown of every contributing multiplier.",
+      "The Launch Attack button now shows a full breakdown panel: base power, infrastructure (weapons factories, tech/domain bonuses), this-battle modifiers (fort, town, dock, siege, tech-vs-target), and the win-chance formula itself.",
+      "Fixed: tech/domain flat attack/defense bonuses (e.g. Titanium Dominion's +18%/+18%, War Foundries' +8% attack) now actually apply to combat instead of only being displayed."
+    ]
+  },
+  {
     createdAt: 1786533000000, // 2026.08.12.6
     introducedIn: "2026.08.12.6",
     title: "Fixed: zoom/pan stutter from the ownership tint overlay",

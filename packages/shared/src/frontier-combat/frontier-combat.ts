@@ -13,12 +13,36 @@ export type FrontierCombatPreviewTile = {
   breachShockUntil?: number | undefined;
 };
 
+export type FrontierCombatBreakdownEntry = {
+  label: string;
+  mult: number;
+};
+
+// Splits each side's effective power into three tiers so the client can show
+// its full "verify the math" breakdown: a flat base, persistent infrastructure
+// investment (weapons factories, general tech/domain attack|defense mods —
+// the same regardless of who you're fighting), and this-specific-battle
+// situational factors (fort/town/dock/siege/tech-vs-target etc). infra and
+// battle multipliers always multiply out to the same atkMult/defMult the
+// legacy flat fields report.
+export type FrontierCombatSideBreakdown = {
+  base: number;
+  infrastructure: FrontierCombatBreakdownEntry[];
+  infrastructureMult: number;
+  effectiveBase: number;
+  battle: FrontierCombatBreakdownEntry[];
+  battleMult: number;
+  effective: number;
+};
+
 export type FrontierCombatPreview = {
   atkEff: number;
   defEff: number;
   defMult: number;
   atkMult: number;
   winChance: number;
+  attacker: FrontierCombatSideBreakdown;
+  defender: FrontierCombatSideBreakdown;
 };
 
 // Attacker-side multipliers come from the attacker's tech/domain effects;
@@ -61,9 +85,22 @@ export type FrontierCombatModifiers = {
   // attack-side-only field (the attacker's own war-industry investment,
   // or lack of it, never affects their own defense).
   noWarIndustryVulnerabilityMult?: number | undefined;
+  // Generic tech/domain "attack"/"defense" stat mods (player.mods.attack /
+  // player.mods.defense — recomputeMods in tech-domain-bridge.ts): persistent,
+  // empire-wide, and independent of who/what is being fought, same tier as
+  // the weapons-factory infrastructure mults above. Each side only ever
+  // supplies its own side's field.
+  attackerStatMult?: number | undefined;
+  defenderStatMult?: number | undefined;
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
+
+// The flat power value every empire starts a fight with before any
+// infrastructure or battle modifier is applied. Exported so the client can
+// render the exact same "base attack/defense" number the server's combat
+// math uses (tech tab, launch-attack breakdown) instead of re-deriving it.
+export const BASE_COMBAT_POWER = 10;
 
 const baseFortDefenseMult = (variant: FortVariant | undefined): number => {
   if (variant === "TITANIUM_BASTION") return 4;
@@ -73,58 +110,115 @@ const baseFortDefenseMult = (variant: FortVariant | undefined): number => {
   return 1;
 };
 
-const defenseMultiplierForTile = (
-  target: FrontierCombatPreviewTile,
-  modifiers: FrontierCombatModifiers
-): number => {
+type SideMultBreakdown = { entries: FrontierCombatBreakdownEntry[]; mult: number };
+
+// Folds a named multiplier into a running total, recording it as a labeled
+// breakdown row only when it actually does something (mult present and != 1)
+// so the UI never has to show a meaningless "×1.0" line.
+const foldMult = (entries: FrontierCombatBreakdownEntry[], label: string, mult: number | undefined): number => {
+  if (mult == null || mult === 1) return 1;
+  entries.push({ label, mult });
+  return mult;
+};
+
+const attackerInfrastructure = (modifiers: FrontierCombatModifiers): SideMultBreakdown => {
+  const entries: FrontierCombatBreakdownEntry[] = [];
+  let mult = 1;
+  mult *= foldMult(entries, "Weapons Workshop", modifiers.weaponsWorkshopAttackMult);
+  mult *= foldMult(entries, "Titanium Weapons Factory", modifiers.titaniumWeaponsFactoryAttackMult);
+  mult *= foldMult(entries, "Umbrite Weapons Factory", modifiers.umbriteWeaponsFactoryAttackMult);
+  mult *= foldMult(entries, "Tech & Domains", modifiers.attackerStatMult);
+  return { entries, mult };
+};
+
+const defenderInfrastructure = (modifiers: FrontierCombatModifiers): SideMultBreakdown => {
+  const entries: FrontierCombatBreakdownEntry[] = [];
+  let mult = 1;
+  mult *= foldMult(entries, "Weapons Workshop", modifiers.weaponsWorkshopDefenseMult);
+  mult *= foldMult(entries, "Titanium Weapons Factory", modifiers.titaniumWeaponsFactoryDefenseMult);
+  mult *= foldMult(entries, "Umbrite Weapons Factory", modifiers.umbriteWeaponsFactoryDefenseMult);
+  mult *= foldMult(entries, "Tech & Domains", modifiers.defenderStatMult);
+  return { entries, mult };
+};
+
+const attackerBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCombatModifiers): SideMultBreakdown => {
+  const entries: FrontierCombatBreakdownEntry[] = [];
+  let mult = 1;
+  mult *= foldMult(entries, "Siege/outpost proximity", modifiers.attackerOutpostMult);
+  mult *= foldMult(entries, "Target has no war industry", modifiers.noWarIndustryVulnerabilityMult);
+  mult *= foldMult(entries, "Dock crossing", modifiers.dockAttackMult);
+  if (target.ownershipState === "SETTLED") mult *= foldMult(entries, "Tech vs settled tiles", modifiers.attackVsSettledMult);
+  if (target.fortVariant) mult *= foldMult(entries, "Tech vs forts", modifiers.attackVsFortsMult);
+  if (modifiers.defenderOwnerId?.startsWith("barbarian")) mult *= foldMult(entries, "Tech vs barbarians", modifiers.attackVsBarbariansMult);
+  return { entries, mult };
+};
+
+const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCombatModifiers): SideMultBreakdown => {
+  const entries: FrontierCombatBreakdownEntry[] = [];
   // Legacy parity: frontier tiles provide no defensive effective power.
-  if (target.ownershipState === "FRONTIER") return 0;
-  let defMult = 1;
-  if (target.ownershipState === "SETTLED") defMult *= 1.35;
-  if (target.townType) defMult *= 1.2;
-  if (target.dockId) defMult *= 1.1;
+  if (target.ownershipState === "FRONTIER") return { entries, mult: 0 };
+  let mult = 1;
+  mult *= foldMult(entries, "Settled tile", target.ownershipState === "SETTLED" ? 1.35 : undefined);
+  mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
+  mult *= foldMult(entries, "Dock", target.dockId ? 1.1 : undefined);
   if (target.fortVariant) {
     const baseFortMult = baseFortDefenseMult(target.fortVariant);
     const techMult = modifiers.fortDefenseMult ?? 1;
     const combinedMult = baseFortMult * techMult;
     if (modifiers.fortGarrisonCap != null && modifiers.fortGarrisonCap > 0) {
       const fillRatio = Math.min(1, (modifiers.fortGarrison ?? 0) / modifiers.fortGarrisonCap);
-      defMult *= 1 + (combinedMult - 1) * fillRatio;
+      const garrisonScaledMult = 1 + (combinedMult - 1) * fillRatio;
+      entries.push({ label: `Fort (${target.fortVariant}, ${Math.round(fillRatio * 100)}% garrisoned)`, mult: garrisonScaledMult });
+      mult *= garrisonScaledMult;
     } else {
-      defMult *= combinedMult;
+      entries.push({ label: `Fort (${target.fortVariant})`, mult: combinedMult });
+      mult *= combinedMult;
     }
   }
   if (target.breachShockUntil != null && modifiers.nowMs != null && target.breachShockUntil > modifiers.nowMs) {
-    defMult *= BREAKTHROUGH_DEBUFF_MULT;
+    mult *= foldMult(entries, "Breach shock", BREAKTHROUGH_DEBUFF_MULT);
   }
-  if (modifiers.weaponsWorkshopDefenseMult != null) defMult *= modifiers.weaponsWorkshopDefenseMult;
-  if (modifiers.titaniumWeaponsFactoryDefenseMult != null) defMult *= modifiers.titaniumWeaponsFactoryDefenseMult;
-  if (modifiers.umbriteWeaponsFactoryDefenseMult != null) defMult *= modifiers.umbriteWeaponsFactoryDefenseMult;
-  return defMult;
+  return { entries, mult };
 };
 
 const buildFrontierCombatPreviewImpl = (
   target: FrontierCombatPreviewTile,
   modifiers: FrontierCombatModifiers = {}
 ): FrontierCombatPreview => {
-  let atkMult = modifiers.attackerOutpostMult ?? 1;
-  if (modifiers.weaponsWorkshopAttackMult != null) atkMult *= modifiers.weaponsWorkshopAttackMult;
-  if (modifiers.titaniumWeaponsFactoryAttackMult != null) atkMult *= modifiers.titaniumWeaponsFactoryAttackMult;
-  if (modifiers.umbriteWeaponsFactoryAttackMult != null) atkMult *= modifiers.umbriteWeaponsFactoryAttackMult;
-  if (modifiers.noWarIndustryVulnerabilityMult != null) atkMult *= modifiers.noWarIndustryVulnerabilityMult;
-  if (modifiers.dockAttackMult != null) atkMult *= modifiers.dockAttackMult;
-  if (target.ownershipState === "SETTLED") atkMult *= modifiers.attackVsSettledMult ?? 1;
-  if (target.fortVariant) atkMult *= modifiers.attackVsFortsMult ?? 1;
-  if (modifiers.defenderOwnerId?.startsWith("barbarian")) atkMult *= modifiers.attackVsBarbariansMult ?? 1;
-  const atkEff = 10 * atkMult;
-  const defMult = defenseMultiplierForTile(target, modifiers);
-  const defEff = 10 * defMult;
+  const atkInfra = attackerInfrastructure(modifiers);
+  const atkBattle = attackerBattle(target, modifiers);
+  const atkMult = atkInfra.mult * atkBattle.mult;
+  const atkEff = BASE_COMBAT_POWER * atkMult;
+
+  const defInfra = defenderInfrastructure(modifiers);
+  const defBattle = defenderBattle(target, modifiers);
+  const defMult = defInfra.mult * defBattle.mult;
+  const defEff = BASE_COMBAT_POWER * defMult;
+
   return {
     atkEff,
     defEff,
     defMult,
     atkMult,
-    winChance: combatWinChance(atkEff, defEff)
+    winChance: combatWinChance(atkEff, defEff),
+    attacker: {
+      base: BASE_COMBAT_POWER,
+      infrastructure: atkInfra.entries,
+      infrastructureMult: atkInfra.mult,
+      effectiveBase: BASE_COMBAT_POWER * atkInfra.mult,
+      battle: atkBattle.entries,
+      battleMult: atkBattle.mult,
+      effective: atkEff
+    },
+    defender: {
+      base: BASE_COMBAT_POWER,
+      infrastructure: defInfra.entries,
+      infrastructureMult: defInfra.mult,
+      effectiveBase: BASE_COMBAT_POWER * defInfra.mult,
+      battle: defBattle.entries,
+      battleMult: defBattle.mult,
+      effective: defEff
+    }
   };
 };
 

@@ -21,7 +21,7 @@ import {
 } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { ClientState } from "../client-state/client-state.js";
-import type { OptimisticStructureKind, Tile, TileTimedProgress } from "../client-types.js";
+import type { OptimisticStructureKind, Tile, TileCombatBreakdown, TileTimedProgress } from "../client-types.js";
 
 export type DevelopmentSlotSummary = {
   busy: number;
@@ -1693,6 +1693,30 @@ export const attackPreviewManpowerCostForTarget = (
   }
   const estimate = estimatedAttackManpowerLoss(preview.manpowerMin, preview.winChance, preview.atkEff, preview.defEff);
   return `est. ${Math.round(estimate)} manpower`;
+};
+
+// The full base/infrastructure/battle breakdown for the "verify the math"
+// panel next to the Launch Attack button — same source data as
+// attackPreviewDetailForTarget's win-chance %, just unformatted so the UI
+// can render each tier.
+export const attackPreviewBreakdownForTarget = (
+  state: ClientState,
+  to: Tile,
+  deps: {
+    keyFor: (x: number, y: number) => string;
+    pickOriginForTarget: (x: number, y: number) => Tile | undefined;
+  }
+): TileCombatBreakdown | undefined => {
+  const from = deps.pickOriginForTarget(to.x, to.y);
+  const toKey = deps.keyFor(to.x, to.y);
+  const preview = resolvedAttackPreviewForTarget(
+    state,
+    from
+      ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
+      : { toKey, dockFallback: Boolean(to.dockId) }
+  );
+  if (!preview || !preview.valid || !preview.attacker || !preview.defender || typeof preview.winChance !== "number") return undefined;
+  return { winChance: preview.winChance, attacker: preview.attacker, defender: preview.defender };
 };
 
 export const attackPreviewPendingForTarget = (

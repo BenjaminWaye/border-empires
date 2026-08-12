@@ -25,7 +25,7 @@ import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile
 import { captureRecoveryRemainingMsForTile, isFrontierNaturallyDecaying, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
-import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
+import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 
 // market-stacking task: this describes ONE Market's own per-instance
 // contribution (they stack additively — see marketGoldProductionMultiplier),
@@ -667,11 +667,15 @@ export const tileMenuViewForTile = (
     playerNameForOwner: (ownerId?: string | null) => string | undefined;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
+    combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined;
     state: { me: string };
   }
 ): TileMenuView => {
   const actions = deps.menuActionsForSingleTile(tile);
   const actionTabs = deps.splitTileActionsIntoTabs(actions);
+  const combatBreakdown = actionTabs.actions.some((action) => action.id === "launch_attack")
+    ? deps.combatBreakdownForTile?.(tile)
+    : undefined;
   const settlement = deps.settlementProgressForTile(tile.x, tile.y);
   const capture = deps.captureProgressForTile(tile);
   const queuedSettlement = deps.queuedSettlementProgressForTile(tile);
@@ -735,6 +739,7 @@ export const tileMenuViewForTile = (
     actions: actionTabs.actions,
     buildings: visibleBuildings,
     crystal: actionTabs.crystal,
-    ...(progress ? { progress } : {})
+    ...(progress ? { progress } : {}),
+    ...(combatBreakdown ? { combatBreakdown } : {})
   };
 };

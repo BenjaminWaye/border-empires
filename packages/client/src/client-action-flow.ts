@@ -19,6 +19,7 @@ import { showVisibleActionWarning } from "./client-visible-action-warning.js";
 import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
   applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
+  attackPreviewBreakdownForTarget as attackPreviewBreakdownForTargetFromModule,
   attackPreviewDetailForTarget as attackPreviewDetailForTargetFromModule,
   attackPreviewManpowerCostForTarget as attackPreviewManpowerCostForTargetFromModule,
   attackPreviewPendingForTarget as attackPreviewPendingForTargetFromModule,
@@ -143,6 +144,7 @@ import type {
   OptimisticStructureKind,
   Tile,
   TileActionDef,
+  TileCombatBreakdown,
   TileMenuProgressView,
   TileMenuView,
   TileOverviewLine,
@@ -774,6 +776,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const attackPreviewManpowerCostForTarget = (to: Tile): string | undefined =>
     attackPreviewManpowerCostForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
 
+  const attackPreviewBreakdownForTarget = (to: Tile): TileCombatBreakdown | undefined =>
+    attackPreviewBreakdownForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
+
   const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement });
   const buildSiegeOutpostOnSelected = (): void => buildSiegeOutpostOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
@@ -1133,6 +1138,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       playerNameForOwner: (ownerId?: string | null) => playerDisplayNameForOwnerFromState(state, ownerId),
       terrainLabel,
       isTileOwnedByAlly,
+      combatBreakdownForTile: attackPreviewBreakdownForTarget,
       state
     });
     if (tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) {
