@@ -169,123 +169,144 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
   builder.makeSlot("mwEmber", emberGeo, glowMaterial, C * 2);
 
   // ─── Placement ─────────────────────────────────────────────────────────
+  // Overall footprint is 33% smaller than the piece geometries above imply:
+  // offsets and per-piece scales are both shrunk by SCALE so the whole
+  // structure shrinks uniformly around the tile origin.
+  const SCALE = 2 / 3;
+  const add = (
+    key: string,
+    sx2: number,
+    sy2: number,
+    sz2: number,
+    ox: number,
+    oy: number,
+    oz: number,
+    sx3 = 1,
+    sy3 = 1,
+    sz3 = 1,
+    rotY = 0,
+    rotX = 0,
+    rotZ = 0
+  ): void => {
+    builder.addPiece(key, sx2, sy2, sz2, ox * SCALE, oy * SCALE, oz * SCALE, sx3 * SCALE, sy3 * SCALE, sz3 * SCALE, rotY, rotX, rotZ);
+  };
   const addMintworks: EconomicStructureLayout = (sx, sy, sz) => {
     // Foundation + floor + walls + roof. Walls are plain industrial iron;
     // the wealth reads through the brass machinery inside, not the shell.
-    builder.addPiece("mwBase", sx, sy, sz, 0, 0.05, 0);
-    builder.addPiece("mwFloor", sx, sy, sz, 0, 0.12, 0);
-    builder.addPiece("mwWallSide", sx, sy, sz, -0.24, 0.23, 0);
-    builder.addPiece("mwWallSide", sx, sy, sz, 0.24, 0.23, 0);
-    builder.addPiece("mwWallBack", sx, sy, sz, 0, 0.23, -0.18);
-    builder.addPiece("mwWallFront", sx, sy, sz, 0, 0.23, 0.18);
+    add("mwBase", sx, sy, sz, 0, 0.05, 0);
+    add("mwFloor", sx, sy, sz, 0, 0.12, 0);
+    add("mwWallSide", sx, sy, sz, -0.24, 0.23, 0);
+    add("mwWallSide", sx, sy, sz, 0.24, 0.23, 0);
+    add("mwWallBack", sx, sy, sz, 0, 0.23, -0.18);
+    add("mwWallFront", sx, sy, sz, 0, 0.23, 0.18);
     // Reinforced corner braces leaning against the front walls.
-    builder.addPiece("mwBrace", sx, sy, sz, -0.20, 0.24, 0.10, 1, 1, 1, 0, 0, -0.9);
-    builder.addPiece("mwBrace", sx, sy, sz, 0.20, 0.24, 0.10, 1, 1, 1, 0, 0, 0.9);
-    builder.addPiece("mwRoof", sx, sy, sz, 0, 0.37, 0);
-    builder.addPiece("mwRoofTrim", sx, sy, sz, 0, 0.405, 0);
-    builder.addPiece("mwChimney", sx, sy, sz, 0.12, 0.52, -0.12);
-    builder.addPiece("mwChimneyCap", sx, sy, sz, 0.12, 0.66, -0.12);
-    builder.addPiece("mwCollar", sx, sy, sz, 0.12, 0.56, -0.12, 1, 1, 1, 0, PI_2, 0);
-    builder.addPiece("mwDoor", sx, sy, sz, 0, 0.20, 0.205);
-    builder.addPiece("mwWindow", sx, sy, sz, -0.16, 0.20, 0.205);
-    builder.addPiece("mwWindowGlow", sx, sy, sz, -0.16, 0.20, 0.198);
-    builder.addPiece("mwWindow", sx, sy, sz, 0.16, 0.20, 0.205);
-    builder.addPiece("mwWindowGlow", sx, sy, sz, 0.16, 0.20, 0.198);
+    add("mwBrace", sx, sy, sz, -0.20, 0.24, 0.10, 1, 1, 1, 0, 0, -0.9);
+    add("mwBrace", sx, sy, sz, 0.20, 0.24, 0.10, 1, 1, 1, 0, 0, 0.9);
+    add("mwRoof", sx, sy, sz, 0, 0.37, 0);
+    add("mwRoofTrim", sx, sy, sz, 0, 0.405, 0);
+    add("mwChimney", sx, sy, sz, 0.12, 0.52, -0.12);
+    add("mwChimneyCap", sx, sy, sz, 0.12, 0.66, -0.12);
+    add("mwCollar", sx, sy, sz, 0.12, 0.56, -0.12, 1, 1, 1, 0, PI_2, 0);
+    add("mwDoor", sx, sy, sz, 0, 0.20, 0.205);
+    add("mwWindow", sx, sy, sz, -0.16, 0.20, 0.205);
+    add("mwWindowGlow", sx, sy, sz, -0.16, 0.20, 0.198);
+    add("mwWindow", sx, sy, sz, 0.16, 0.20, 0.205);
+    add("mwWindowGlow", sx, sy, sz, 0.16, 0.20, 0.198);
     // Rivet lines along the base step and roof trim corners.
-    builder.addPiece("mwRivet", sx, sy, sz, -0.20, 0.105, 0.19);
-    builder.addPiece("mwRivet", sx, sy, sz, 0.20, 0.105, 0.19);
-    builder.addPiece("mwRivet", sx, sy, sz, -0.20, 0.105, -0.19);
-    builder.addPiece("mwRivet", sx, sy, sz, 0.20, 0.105, -0.19);
-    builder.addPiece("mwRivet", sx, sy, sz, -0.24, 0.41, 0.22);
-    builder.addPiece("mwRivet", sx, sy, sz, 0.24, 0.41, 0.22);
-    builder.addPiece("mwRivet", sx, sy, sz, -0.24, 0.41, -0.22);
-    builder.addPiece("mwRivet", sx, sy, sz, 0.24, 0.41, -0.22);
+    add("mwRivet", sx, sy, sz, -0.20, 0.105, 0.19);
+    add("mwRivet", sx, sy, sz, 0.20, 0.105, 0.19);
+    add("mwRivet", sx, sy, sz, -0.20, 0.105, -0.19);
+    add("mwRivet", sx, sy, sz, 0.20, 0.105, -0.19);
+    add("mwRivet", sx, sy, sz, -0.24, 0.41, 0.22);
+    add("mwRivet", sx, sy, sz, 0.24, 0.41, 0.22);
+    add("mwRivet", sx, sy, sz, -0.24, 0.41, -0.22);
+    add("mwRivet", sx, sy, sz, 0.24, 0.41, -0.22);
 
     // Giant central coin press rising above the front wall: two dark-iron
     // gantry posts, a brass crossbeam, brass stamping head driving the
     // vertical piston + bright-brass die onto a platform, tray at its foot.
-    builder.addPiece("mwPressFrame", sx, sy, sz, -0.07, 0.275, 0.23);
-    builder.addPiece("mwPressFrame", sx, sy, sz, 0.07, 0.275, 0.23);
-    builder.addPiece("mwPressFrame", sx, sy, sz, 0, 0.475, 0.23, 1, 1, 1, 0, 0, PI_2);
-    builder.addPiece("mwPressHead", sx, sy, sz, 0, 0.42, 0.23);
-    builder.addPiece("mwPressPiston", sx, sy, sz, 0, 0.34, 0.23);
-    builder.addPiece("mwPressDie", sx, sy, sz, 0, 0.22, 0.23);
-    builder.addPiece("mwPressPlatform", sx, sy, sz, 0, 0.185, 0.23);
-    builder.addPiece("mwPressTray", sx, sy, sz, 0, 0.135, 0.28);
+    add("mwPressFrame", sx, sy, sz, -0.07, 0.275, 0.23);
+    add("mwPressFrame", sx, sy, sz, 0.07, 0.275, 0.23);
+    add("mwPressFrame", sx, sy, sz, 0, 0.475, 0.23, 1, 1, 1, 0, 0, PI_2);
+    add("mwPressHead", sx, sy, sz, 0, 0.42, 0.23);
+    add("mwPressPiston", sx, sy, sz, 0, 0.34, 0.23);
+    add("mwPressDie", sx, sy, sz, 0, 0.22, 0.23);
+    add("mwPressPlatform", sx, sy, sz, 0, 0.185, 0.23);
+    add("mwPressTray", sx, sy, sz, 0, 0.135, 0.28);
     // Raw coin blanks resting at the press foot, awaiting stamping.
-    builder.addPiece("mwBlank", sx, sy, sz, -0.05, 0.16, 0.27);
-    builder.addPiece("mwBlank", sx, sy, sz, 0.05, 0.17, 0.26);
-    builder.addPiece("mwBlank", sx, sy, sz, 0.02, 0.155, 0.24);
+    add("mwBlank", sx, sy, sz, -0.05, 0.16, 0.27);
+    add("mwBlank", sx, sy, sz, 0.05, 0.17, 0.26);
+    add("mwBlank", sx, sy, sz, 0.02, 0.155, 0.24);
     // Freshly minted coins emerging on the press tray.
-    builder.addPiece("mwCoin", sx, sy, sz, -0.04, 0.148, 0.28);
-    builder.addPiece("mwCoin", sx, sy, sz, 0.04, 0.148, 0.28);
-    builder.addPiece("mwCoin", sx, sy, sz, 0, 0.148, 0.28);
-    builder.addPiece("mwCoin", sx, sy, sz, 0, 0.148, 0.30);
-    builder.addPiece("mwCoin", sx, sy, sz, -0.02, 0.16, 0.29);
+    add("mwCoin", sx, sy, sz, -0.04, 0.148, 0.28);
+    add("mwCoin", sx, sy, sz, 0.04, 0.148, 0.28);
+    add("mwCoin", sx, sy, sz, 0, 0.148, 0.28);
+    add("mwCoin", sx, sy, sz, 0, 0.148, 0.30);
+    add("mwCoin", sx, sy, sz, -0.02, 0.16, 0.29);
     // Brass imperial seal embossed on the press crossbeam.
-    builder.addPiece("mwSeal", sx, sy, sz, 0, 0.475, 0.272, 1, 1, 1, 0, PI_2, 0);
-    builder.addPiece("mwSealInner", sx, sy, sz, 0, 0.475, 0.275, 1, 1, 1, 0, PI_2, 0);
+    add("mwSeal", sx, sy, sz, 0, 0.475, 0.272, 1, 1, 1, 0, PI_2, 0);
+    add("mwSealInner", sx, sy, sz, 0, 0.475, 0.275, 1, 1, 1, 0, PI_2, 0);
 
     // Large brass flywheel beside the press with spokes + hub, ringed by a
     // heavier brass rim so it reads as a flywheel rather than a coin. The
     // disc (rotZ) lies in the YZ plane, so spokes and rim share that plane.
-    builder.addPiece("mwFlywheel", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, 0, 0, PI_2);
-    builder.addPiece("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, 0, 0, PI_2);
-    builder.addPiece("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, PI_2, 0, 0);
-    builder.addPiece("mwHub", sx, sy, sz, -0.26, 0.26, 0.18, 1, 1, 1, 0, 0, PI_2);
-    builder.addPiece("mwRim", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, PI_2, 0, 0);
+    add("mwFlywheel", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, 0, 0, PI_2);
+    add("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, 0, 0, PI_2);
+    add("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, PI_2, 0, 0);
+    add("mwHub", sx, sy, sz, -0.26, 0.26, 0.18, 1, 1, 1, 0, 0, PI_2);
+    add("mwRim", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, PI_2, 0, 0);
 
     // Brass gear train on the right side of the press + drive shaft.
-    builder.addPiece("mwGearLarge", sx, sy, sz, 0.30, 0.24, 0.20, 1, 1, 1, 0, 0, PI_2);
-    builder.addPiece("mwGearTooth", sx, sy, sz, 0.30, 0.35, 0.20);
-    builder.addPiece("mwGearTooth", sx, sy, sz, 0.30, 0.13, 0.20);
-    builder.addPiece("mwGearTooth", sx, sy, sz, 0.19, 0.24, 0.20);
-    builder.addPiece("mwGearTooth", sx, sy, sz, 0.41, 0.24, 0.20);
-    builder.addPiece("mwGearMedium", sx, sy, sz, 0.24, 0.40, 0.18, 1, 1, 1, 0, 0, PI_2);
-    builder.addPiece("mwGearSmall", sx, sy, sz, 0.30, 0.47, 0.18, 1, 1, 1, 0, 0, PI_2);
-    builder.addPiece("mwDriveShaft", sx, sy, sz, 0.08, 0.30, 0.26, 1, 1, 1, 0, 0, PI_2);
-    builder.addPiece("mwPiston", sx, sy, sz, 0.22, 0.20, 0.14);
-    builder.addPiece("mwPiston", sx, sy, sz, 0.30, 0.20, 0.14);
-    builder.addPiece("mwGauge", sx, sy, sz, 0.08, 0.36, 0.29, 1, 1, 1, 0, PI_2, 0);
-    builder.addPiece("mwLever", sx, sy, sz, 0.10, 0.30, 0.30);
-    builder.addPiece("mwLever", sx, sy, sz, 0.13, 0.30, 0.30);
+    add("mwGearLarge", sx, sy, sz, 0.30, 0.24, 0.20, 1, 1, 1, 0, 0, PI_2);
+    add("mwGearTooth", sx, sy, sz, 0.30, 0.35, 0.20);
+    add("mwGearTooth", sx, sy, sz, 0.30, 0.13, 0.20);
+    add("mwGearTooth", sx, sy, sz, 0.19, 0.24, 0.20);
+    add("mwGearTooth", sx, sy, sz, 0.41, 0.24, 0.20);
+    add("mwGearMedium", sx, sy, sz, 0.24, 0.40, 0.18, 1, 1, 1, 0, 0, PI_2);
+    add("mwGearSmall", sx, sy, sz, 0.30, 0.47, 0.18, 1, 1, 1, 0, 0, PI_2);
+    add("mwDriveShaft", sx, sy, sz, 0.08, 0.30, 0.26, 1, 1, 1, 0, 0, PI_2);
+    add("mwPiston", sx, sy, sz, 0.22, 0.20, 0.14);
+    add("mwPiston", sx, sy, sz, 0.30, 0.20, 0.14);
+    add("mwGauge", sx, sy, sz, 0.08, 0.36, 0.29, 1, 1, 1, 0, PI_2, 0);
+    add("mwLever", sx, sy, sz, 0.10, 0.30, 0.30);
+    add("mwLever", sx, sy, sz, 0.13, 0.30, 0.30);
 
     // Compact furnace at the rear-left with warm glow opening, exhaust stack
     // and brass feed pipes.
-    builder.addPiece("mwFurnaceBody", sx, sy, sz, -0.20, 0.19, -0.14);
-    builder.addPiece("mwFurnaceOpening", sx, sy, sz, -0.20, 0.17, -0.055);
-    builder.addPiece("mwEmber", sx, sy, sz, -0.20, 0.17, -0.045);
-    builder.addPiece("mwExhaust", sx, sy, sz, -0.20, 0.35, -0.14);
-    builder.addPiece("mwCollar", sx, sy, sz, -0.20, 0.40, -0.14, 1, 1, 1, 0, PI_2, 0);
-    builder.addPiece("mwFurnacePipe", sx, sy, sz, -0.16, 0.26, -0.19, 1, 1, 1, 0, 0, PI_2);
-    builder.addPiece("mwFurnacePipe", sx, sy, sz, -0.08, 0.30, -0.12, 1, 1, 1, 0, 0, PI_2);
+    add("mwFurnaceBody", sx, sy, sz, -0.20, 0.19, -0.14);
+    add("mwFurnaceOpening", sx, sy, sz, -0.20, 0.17, -0.055);
+    add("mwEmber", sx, sy, sz, -0.20, 0.17, -0.045);
+    add("mwExhaust", sx, sy, sz, -0.20, 0.35, -0.14);
+    add("mwCollar", sx, sy, sz, -0.20, 0.40, -0.14, 1, 1, 1, 0, PI_2, 0);
+    add("mwFurnacePipe", sx, sy, sz, -0.16, 0.26, -0.19, 1, 1, 1, 0, 0, PI_2);
+    add("mwFurnacePipe", sx, sy, sz, -0.08, 0.30, -0.12, 1, 1, 1, 0, 0, PI_2);
 
     // Raw metal prep at the front-left: loading ramp + bright ingot stocks.
-    builder.addPiece("mwRamp", sx, sy, sz, -0.10, 0.03, 0.28);
-    builder.addPiece("mwIngot", sx, sy, sz, -0.22, 0.045, 0.30);
-    builder.addPiece("mwIngot", sx, sy, sz, -0.16, 0.045, 0.30);
-    builder.addPiece("mwIngot", sx, sy, sz, -0.19, 0.085, 0.30);
-    builder.addPiece("mwIngot", sx, sy, sz, -0.22, 0.045, 0.26);
-    builder.addPiece("mwIngot", sx, sy, sz, -0.16, 0.045, 0.26);
+    add("mwRamp", sx, sy, sz, -0.10, 0.03, 0.28);
+    add("mwIngot", sx, sy, sz, -0.22, 0.045, 0.30);
+    add("mwIngot", sx, sy, sz, -0.16, 0.045, 0.30);
+    add("mwIngot", sx, sy, sz, -0.19, 0.085, 0.30);
+    add("mwIngot", sx, sy, sz, -0.22, 0.045, 0.26);
+    add("mwIngot", sx, sy, sz, -0.16, 0.045, 0.26);
 
     // Coin trays with stacked coins at the front.
-    builder.addPiece("mwTray", sx, sy, sz, 0.14, 0.115, 0.28);
-    builder.addPiece("mwCoin", sx, sy, sz, 0.12, 0.128, 0.28);
-    builder.addPiece("mwCoin", sx, sy, sz, 0.16, 0.128, 0.29);
-    builder.addPiece("mwCoin", sx, sy, sz, 0.13, 0.16, 0.285);
-    builder.addPiece("mwCoin", sx, sy, sz, 0.15, 0.18, 0.285);
-    builder.addPiece("mwTray", sx, sy, sz, 0.14, 0.115, 0.04);
-    builder.addPiece("mwCoin", sx, sy, sz, 0.14, 0.128, 0.04);
-    builder.addPiece("mwCoin", sx, sy, sz, 0.14, 0.143, 0.04);
+    add("mwTray", sx, sy, sz, 0.14, 0.115, 0.28);
+    add("mwCoin", sx, sy, sz, 0.12, 0.128, 0.28);
+    add("mwCoin", sx, sy, sz, 0.16, 0.128, 0.29);
+    add("mwCoin", sx, sy, sz, 0.13, 0.16, 0.285);
+    add("mwCoin", sx, sy, sz, 0.15, 0.18, 0.285);
+    add("mwTray", sx, sy, sz, 0.14, 0.115, 0.04);
+    add("mwCoin", sx, sy, sz, 0.14, 0.128, 0.04);
+    add("mwCoin", sx, sy, sz, 0.14, 0.143, 0.04);
 
     // Finished-currency crates on the front-right; one open crate shows
     // stacks of freshly minted coin rolls.
-    builder.addPiece("mwCrate", sx, sy, sz, 0.20, 0.13, 0.08);
-    builder.addPiece("mwCrate", sx, sy, sz, 0.27, 0.13, 0.06);
-    builder.addPiece("mwCrate", sx, sy, sz, 0.24, 0.13, -0.02);
-    builder.addPiece("mwCrate", sx, sy, sz, 0.10, 0.13, 0.02);
-    builder.addPiece("mwCrateCoinStack", sx, sy, sz, 0.10, 0.185, 0.02);
-    builder.addPiece("mwCrateCoinStack", sx, sy, sz, 0.10, 0.225, 0.02);
+    add("mwCrate", sx, sy, sz, 0.20, 0.13, 0.08);
+    add("mwCrate", sx, sy, sz, 0.27, 0.13, 0.06);
+    add("mwCrate", sx, sy, sz, 0.24, 0.13, -0.02);
+    add("mwCrate", sx, sy, sz, 0.10, 0.13, 0.02);
+    add("mwCrateCoinStack", sx, sy, sz, 0.10, 0.185, 0.02);
+    add("mwCrateCoinStack", sx, sy, sz, 0.10, 0.225, 0.02);
   };
 
   return addMintworks;
