@@ -1,11 +1,13 @@
 # Playbook: adding a new buildable structure
 
-Adding one new building touches ~15-20 files across `packages/shared`,
+Adding one new building touches ~17-22 files across `packages/shared`,
 `packages/game-domain`, `apps/simulation`, and `packages/client`. This is a
 checklist for doing it completely in one pass, derived from actually adding
-the Weapons Workshop (`WEAPONS_WORKSHOP`, PR #1188). Skipping any of the
-"required" items either breaks the build, leaves the structure un-buildable,
-or ships it with a broken/missing UI.
+the Weapons Workshop (`WEAPONS_WORKSHOP`, PR #1188), and amended after two
+real, shipped bugs (#1253/#1265, #1275 — see steps 10 and 11) where a
+structure was buildable everywhere *except* through the actual click path.
+Skipping any of the "required" items either breaks the build, leaves the
+structure un-buildable, or ships it with a broken/missing UI.
 
 Pick a `SCREAMING_SNAKE_CASE` type name up front (e.g. `WEAPONS_WORKSHOP`) —
 every step below keys off it.
@@ -42,7 +44,7 @@ dormant and stops granting its effect).
   as the second arg if it needs non-default upkeep or build time).
 
 If the structure needs a brand-new tech rather than reusing an existing one,
-add it to `packages/game-domain/data/tech-tree.json` too (see step 11).
+add it to `packages/game-domain/data/tech-tree.json` too (see step 12).
 
 ## 5. Placement mode (required — decides the per-town cap)
 
@@ -153,12 +155,56 @@ tech-gated, resource-slot-consuming structure.
 `packages/client/src/client-types.ts` — add `"build_<type>"` to the tile
 action-id union.
 
+**`packages/client/src/client-tile-action-support/client-tile-action-support.ts`
+(required — this is the single most-skipped step in this whole playbook).**
+Add `case "build_<type>": return "<TYPE>";` to `structureTypeForTileAction()`,
+and, if tech-gated, `case "build_<type>": return "<tech-id>";` to
+`requiredTechForTileAction()`. The previous paragraph's `buildShowsOnTile`
+block is what makes the button *appear*; clicking it routes through
+`structureTypeForTileAction()` to decide what to actually build, and
+`client-action-flow.ts` only dispatches a build when that call returns
+something truthy. Miss the case here and the button renders correctly, is
+clickable, and does **absolutely nothing** — no optimistic update, no
+message sent to the server, no error. This exact bug shipped twice for real
+structures because this file lives in a different directory than
+`client-tile-action-logic.ts` and is easy to forget once the button itself
+looks done: Weapons Workshop's two replacements (Titanium/Umbrite Weapons
+Factory, #1253), then Quartermaster's Office/Assembly Works/Logistics Guild
+found alongside them (#1265). `unmappedBuildActionWarning()` in this same
+file now catches a *future* instance of this at runtime (logs and shows the
+player an error instead of dead silence) — that's a safety net for when this
+step gets missed again, not a substitute for doing it.
+
 Optional: `packages/client/src/client-tech-detail-ui/client-tech-detail-ui.ts`'s
 `relatedStructureTypesForTech()` — add a case so the tech's detail card
 shows a "Structures:" link to the new building. Easy to forget since it
 doesn't cause a build error, just a silently missing UI affordance.
 
-## 11. If gating behind a NEW tech (only if step 4 needed one)
+## 11. Wire protocol: message schema enum (required — or the server rejects the build with `BAD_MSG`)
+
+`packages/shared/src/messages/messages.ts` — add `"<TYPE>"` to the
+`structureType` enum inside `ClientMessageSchema`'s `BUILD_ECONOMIC_STRUCTURE`
+entry. This is a **separate list from every union in steps 1/9/10** — Zod
+validates the incoming wire message against this exact enum before the
+command ever reaches `runtime-structure-command-handlers.ts`, so a type
+missing here fails validation even when every other step was done
+correctly. The failure mode is a real, player-visible `BAD_MSG` /
+`invalid_enum_value` error — an improvement over step 10's silent no-op, but
+the build is still broken.
+
+This is exactly what happened for the two Weapons Factories in #1275: this
+gap existed the whole time, but step 10's dispatch bug was masking it — the
+build attempt only started reaching the server (and failing here) once #1265
+fixed the client-side click path. Don't take "no reports of this failing"
+as evidence this step is unnecessary; it may just mean step 10 is still
+broken too.
+
+Add a regression test to `packages/shared/src/messages/messages.test.ts`
+asserting `ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x, y,
+structureType: "<TYPE>" })` succeeds — see the Weapons Factory test added in
+#1275 for the pattern.
+
+## 12. If gating behind a NEW tech (only if step 4 needed one)
 
 `packages/game-domain/data/tech-tree.json` — add an entry: `id`, `tier`,
 `branch`, `name`, `description`, `requires` (single prereq) or `prereqIds`
@@ -173,20 +219,20 @@ Client-side, add the matching label in two places:
   required, there's a test (`client-tech-payoffs.test.ts`) that asserts
   every `unlockX` key in the tech catalog has a highlight label.
 
-## 12. Storybook demo
+## 13. Storybook demo
 
 `packages/storybook/src/3d/StructureOverlay.stories.ts` — add the type to
 the `KINDS` array (for the `AllKinds`/gallery view) and a single-instance
 `export const <Name>: Story = { args: { structures: ["<TYPE>"], cameraDistance: <N> } };`.
 The 2D icon needs no story of its own (auto-discovered, see step 8).
 
-## 13. Changelog entry (required to push — pre-push hook enforced)
+## 14. Changelog entry (required to push — pre-push hook enforced)
 
 Any push touching `packages/client/src/` is blocked unless
 `packages/client/src/client-changelog/client-changelog-data.ts` gets a new
 entry (`createdAt`, `introducedIn`, `title`, `why`, `changes`).
 
-## 14. Tests to update or add
+## 15. Tests to update or add
 
 - `packages/shared/src/structure-registry/structure-registry.test.ts` —
   bump `STRUCTURE_REGISTRY_SIZE`'s expected count, and add the type to
@@ -214,3 +260,13 @@ entry (`createdAt`, `introducedIn`, `title`, `why`, `changes`).
    before shipping — a typecheck pass does not catch a structure that
    silently falls through to the wrong tooltip, an invisible/occluded 3D
    mesh, or a broken SVG path.
+4. Grep the new type's exact `SCREAMING_SNAKE_CASE` name across the whole
+   repo and skim every hit. TypeScript and tests won't catch a switch/enum
+   that's simply missing a case for a valid string literal — that failure
+   mode is silent (step 10) or a runtime-only error (step 11), not a
+   compile error. This single grep is what would have caught both #1265 and
+   #1275 before they shipped.
+5. Actually click the build button end-to-end against a running server —
+   don't stop at "the button appears and isn't grayed out." Both bugs this
+   playbook was amended for left the button fully looking correct; only
+   clicking it surfaced "nothing happens" (step 10) or `BAD_MSG` (step 11).
