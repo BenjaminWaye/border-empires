@@ -23,6 +23,15 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786530294000, // 2026.08.12.5
+    introducedIn: "2026.08.12.5",
+    title: "Fixed: Activity Feed timestamps stuck showing raw minutes forever",
+    why: "Feed entries persist for a session, so their age can run from seconds to months, but the timestamp label only ever scaled up to whole minutes — an entry from 14 hours ago read as '833m ago' instead of converting to hours, days, weeks, or months.",
+    changes: [
+      "Activity Feed timestamps now scale through s/m/h/d/w/mo depending on age, instead of showing raw minutes no matter how old the entry is."
+    ]
+  },
+  {
     createdAt: 1786528967000, // 2026.08.12.4
     introducedIn: "2026.08.12.4",
     title: "Fixed: attack outcomes (manpower spent, gold/resources plundered) never actually reached the Activity Feed",
