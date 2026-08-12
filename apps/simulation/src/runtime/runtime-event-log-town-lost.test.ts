@@ -69,7 +69,7 @@ describe("§20 event log — town lost", () => {
       const state = runtime.exportState();
       const loser = state.players.find((p) => p.id === "player-2");
       expect(loser?.eventLog).toHaveLength(1);
-      expect(loser?.eventLog?.[0]).toMatchObject({ type: "TOWN_LOST", text: "Rival Capital was captured by player-1." });
+      expect(loser?.eventLog?.[0]).toMatchObject({ type: "TOWN_LOST", text: "Rival Capital was captured by player-1.", x: 20, y: 21 });
       const winner = state.players.find((p) => p.id === "player-1");
       expect(winner?.eventLog ?? []).toHaveLength(0);
     } finally {

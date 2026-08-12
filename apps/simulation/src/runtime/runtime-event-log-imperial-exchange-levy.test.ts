@@ -88,11 +88,13 @@ describe("§20 event log — Imperial Exchange Levy", () => {
     const caster = state.players.find((p) => p.id === "player-1");
     const victim = state.players.find((p) => p.id === "player-2");
     expect(caster?.eventLog).toHaveLength(1);
-    expect(caster?.eventLog?.[0]).toMatchObject({ type: "IMPERIAL_EXCHANGE_LEVY_CAST", text: "You levied Rival for 300 gold." });
+    expect(caster?.eventLog?.[0]).toMatchObject({ type: "IMPERIAL_EXCHANGE_LEVY_CAST", text: "You levied Rival for 300 gold.", x: 0, y: 0 });
     expect(victim?.eventLog).toHaveLength(1);
     expect(victim?.eventLog?.[0]).toMatchObject({
       type: "IMPERIAL_EXCHANGE_LEVY_HIT",
-      text: "You were hit by an Imperial Exchange Levy by player-1 — lost 300 gold."
+      text: "You were hit by an Imperial Exchange Levy by player-1 — lost 300 gold.",
+      x: 10,
+      y: 0
     });
   });
 });

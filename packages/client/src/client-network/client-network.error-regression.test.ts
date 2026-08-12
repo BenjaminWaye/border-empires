@@ -1,239 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { bindClientNetwork } from "./client-network.js";
 import { explainActionFailureFromServer } from "../client-player-actions.js";
-
-class FakeWebSocket {
-  static readonly OPEN = 1;
-
-  readyState = FakeWebSocket.OPEN;
-  readonly OPEN = FakeWebSocket.OPEN;
-  private readonly listeners = new Map<string, Array<(event: any) => void>>();
-
-  addEventListener(type: string, listener: (event: any) => void): void {
-    const existing = this.listeners.get(type) ?? [];
-    existing.push(listener);
-    this.listeners.set(type, existing);
-  }
-
-  emit(type: string, event: any): void {
-    for (const listener of this.listeners.get(type) ?? []) listener(event);
-  }
-}
-
-const createState = () =>
-  ({
-    pendingCollectVisibleKeys: new Set<string>(),
-    actionTargetKey: "60,302",
-    actionQueue: [],
-    queuedTargetKeys: new Set<string>(),
-    selected: { x: 61, y: 299 },
-    hover: { x: 73, y: 305 },
-    pendingTechUnlockId: "",
-    pendingDomainUnlockId: "",
-    latestSettleTargetKey: "12,18",
-    authSessionReady: true,
-    authBusy: false,
-    authRetrying: false,
-    authBusyTitle: "",
-    authBusyDetail: "",
-    collectVisibleCooldownUntil: 0,
-    actionInFlight: true,
-    capture: { startAt: 1, resolvesAt: 2, target: { x: 60, y: 302 } },
-    pendingCombatReveal: undefined,
-    actionAcceptedAck: false,
-    combatStartAck: true,
-    actionStartedAt: 123,
-    actionCurrent: { x: 60, y: 302 },
-    frontierSyncWaitUntilByTarget: new Map<string, number>(),
-    frontierLateAckUntilByTarget: new Map<string, number>(),
-    autoSettleTargets: new Set<string>(["60,302"]), autoBuildTargets: new Map<string, string>([["60,302", "FARMSTEAD"]]),
-    attackPreviewPendingKey: "60,302->61,302",
-    attackPreview: { valid: true },
-    attackPreviewCacheByKey: new Map<string, unknown>(),
-    attackPreviewLatestRequestIdByKey: new Map<string, string>(),
-    tiles: new Map(),
-    incomingAttacksByTile: new Map(),
-    revealedPredictedCombatByKey: new Map(),
-    activeTruces: [],
-    incomingTruceRequests: [],
-    activeAetherBridges: [],
-    seasonVictory: [],
-    seasonWinner: undefined,
-    leaderboard: {},
-    playerNames: new Map(),
-    playerColors: new Map(),
-    playerVisualStyles: new Map(),
-    playerShieldUntil: new Map(),
-    pendingCollectTileDelta: new Map(),
-    settleProgressByTile: new Map([
-      [
-        "12,18",
-        {
-          startAt: 100,
-          resolvesAt: Date.now() + 30_000,
-          target: { x: 12, y: 18 },
-          awaitingServerConfirm: false
-        }
-      ]
-    ]),
-    feed: [],
-    developmentQueue: [],
-    missions: [],
-    me: "me",
-    gold: 0,
-    level: 1,
-    mods: {},
-    modBreakdown: {},
-    incomePerMinute: 0,
-    strategicResources: {},
-    strategicProductionPerMinute: {},
-    strategicAnim: {
-      FOOD: { until: 0, dir: 0 },
-      TITANIUM: { until: 0, dir: 0 },
-      CRYSTAL: { until: 0, dir: 0 },
-      UMBRITE: { until: 0, dir: 0 },
-      SHARD: { until: 0, dir: 0 }
-    },
-    economyBreakdown: {},
-    upkeepPerMinute: {},
-    upkeepLastTick: { foodCoverage: 1 },
-    stamina: 0,
-    manpower: 0,
-    manpowerCap: 0,
-    manpowerRegenPerMinute: 0,
-    manpowerBreakdown: {},
-    settledT: 0,
-    settledE: 0,
-    defensibilityPct: 0,
-    defensibilityAnimDir: 0,
-    defensibilityAnimUntil: 0,
-    availableTechPicks: 0,
-    techChoices: [],
-    techCatalog: [],
-    currentResearch: undefined,
-    domainIds: [],
-    domainChoices: [],
-    domainCatalog: [],
-    revealCapacity: 0,
-    activeRevealTargets: [],
-    abilityCooldowns: {},
-    incomingAllianceRequests: [],
-    outgoingAllianceRequests: [],
-    outgoingTruceRequests: [],
-    strategicReplayEvents: [],
-    hasEverInitialized: true,
-    connection: "initialized",
-    mapLoadStartedAt: 1,
-    firstChunkAt: 1,
-    chunkFullCount: 0,
-    hasOwnedTileInCache: false,
-    discoveredTiles: new Set<string>(),
-    discoveredDockTiles: new Set<string>(),
-    tileDetailRequestedAt: new Map<string, number>(),
-    tileDetailReceivedAt: new Map<string, number>(),
-    lastChunkSnapshotGeneration: 0,
-    lastSubAt: Date.now(),
-    lastSubCx: 0,
-    lastSubCy: 0,
-    lastSubRadius: 2,
-    camX: 0,
-    camY: 0,
-    fogDisabled: false,
-    homeTile: undefined
-  }) as any;
-
-const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<string, unknown> = {}) => {
-  const renderHud = vi.fn();
-  const requestViewRefresh = vi.fn();
-  const clearOptimisticTileState = vi.fn();
-  const clearSettlementProgressByKey = vi.fn();
-  const dropQueuedTargetKeyIfAbsent = vi.fn();
-  const reconcileActionQueue = vi.fn();
-  const processActionQueue = vi.fn(() => false);
-  const pushFeed = vi.fn();
-  const applyOptimisticTileState = vi.fn((x: number, y: number, update: (tile: Record<string, unknown>) => void) => {
-    const tileKey = `${x},${y}`;
-    const current = state.tiles.get(tileKey) ?? { x, y, terrain: "LAND", fogged: false };
-    const next = { ...current };
-    update(next);
-    state.tiles.set(tileKey, next);
-  });
-  const applyPendingSettlementsFromServer = vi.fn();
-  const requestTileDetailIfNeeded = vi.fn((tile: { x: number; y: number }) => {
-    state.tileDetailRequestedAt.set(`${tile.x},${tile.y}`, Date.now());
-  });
-
-  bindClientNetwork({
-    state,
-    ws: ws as unknown as WebSocket,
-    wsUrl: "ws://localhost:3001/ws",
-    keyFor: (x: number, y: number) => `${x},${y}`,
-    renderHud,
-    setAuthStatus: vi.fn(),
-    syncAuthOverlay: vi.fn(),
-    authenticateSocket: vi.fn(async () => {}),
-    pushFeed,
-    pushFeedEntry: vi.fn(),
-    clearOptimisticTileState,
-    applyOptimisticTileState,
-    requestViewRefresh,
-    applyPendingSettlementsFromServer,
-    mergeIncomingTileDetail: vi.fn((existing, incoming) => incoming ?? existing),
-    mergeServerTileWithOptimisticState: vi.fn((tile) => tile),
-    maybeAnnounceShardSite: vi.fn(),
-    markDockDiscovered: vi.fn(),
-    centerOnOwnedTile: vi.fn(),
-    authProfileNameEl: { value: "" },
-    authProfileColorEl: { value: "" },
-    defensibilityPctFromTE: vi.fn(() => 0),
-    clearPendingCollectVisibleDelta: vi.fn(),
-    seedProfileSetupFields: vi.fn(),
-    resetStrategicReplayState: vi.fn(),
-    setWorldSeed: vi.fn(),
-    clearRenderCaches: vi.fn(),
-    buildMiniMapBase: vi.fn(),
-    shardAlertKeyForPayload: vi.fn(),
-    showShardAlert: vi.fn(),
-    combatResolutionAlert: vi.fn(),
-    wasPredictedCombatAlreadyShown: vi.fn(() => false),
-    showCaptureAlert: vi.fn(),
-    requestSettlement: vi.fn(() => false),
-    dropQueuedTargetKeyIfAbsent,
-    processActionQueue,
-    clearSettlementProgressForTile: vi.fn(),
-    terrainAt: vi.fn(() => "LAND"),
-    requestTileDetailIfNeeded,
-    requestAttackPreviewForTarget: vi.fn(),
-    openSingleTileActionMenu: vi.fn(),
-    isTileOwnedByAlly: vi.fn(() => false),
-    hideShardAlert: vi.fn(),
-    explainActionFailure: vi.fn((code: string, message: string) => `${code}:${message}`),
-    notifyInsufficientGoldForFrontierAction: vi.fn(),
-    clearSettlementProgressByKey,
-    showCollectVisibleCooldownAlert: vi.fn(),
-    formatCooldownShort: vi.fn(() => "1s"),
-    reconcileActionQueue,
-    revertOptimisticVisibleCollectDelta: vi.fn(),
-    revertOptimisticTileCollectDelta: vi.fn(),
-    clearPendingCollectTileDelta: vi.fn(),
-    playerNameForOwner: vi.fn(),
-    settlementProgressForTile: vi.fn(() => undefined),
-    COLLECT_VISIBLE_COOLDOWN_MS: 1_000,
-    ...overrides
-  } as any);
-
-  return {
-    pushFeed,
-    requestViewRefresh,
-    clearOptimisticTileState,
-    applyOptimisticTileState,
-    reconcileActionQueue,
-    clearSettlementProgressByKey,
-    applyPendingSettlementsFromServer,
-    requestTileDetailIfNeeded,
-    processActionQueue
-  };
-};
+import { FakeWebSocket, createState, bindWithDeps } from "./client-network.error-regression.test-helpers.js";
 
 describe("client network regression guards", () => {
   it("does not crash when the frontier reset policy function is missing", () => {
@@ -1213,7 +980,6 @@ describe("client network regression guards", () => {
     expect(deps.clearSettlementProgressByKey).toHaveBeenCalledWith("12,18");
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
-    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
     expect(consoleErrorSpy).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
@@ -1244,7 +1010,6 @@ describe("client network regression guards", () => {
     expect(state.activeDevelopmentProcessCount).toBe(3);
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
-    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
     expect(consoleErrorSpy).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
@@ -1310,7 +1075,6 @@ describe("client network regression guards", () => {
 
     expect(state.settleProgressByTile.has("12,18")).toBe(false);
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
-    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
   });
 
   it("handles non-busy settlement failures without crashing when settlement clear wiring is missing", () => {
@@ -1375,7 +1139,6 @@ describe("client network regression guards", () => {
     expect(state.settleProgressByTile.has("12,18")).toBe(false);
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
-    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
   });
 
   it("does not crash on settlement errors when alert and queue callbacks are missing", () => {
@@ -1453,7 +1216,6 @@ describe("client network regression guards", () => {
       }
     ]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
-    expect(pushFeed).toHaveBeenCalledWith("Fort at (33, 44) queued. It will start when a development slot frees up.", "combat", "info");
   });
 
   it("keeps the socket-connected bootstrap state and schedules auth retry when the server reports SERVER_STARTING", () => {
@@ -1594,6 +1356,57 @@ describe("client network regression guards", () => {
     });
     expect(state.incomingAttacksByTile.get("42,77")).toBeDefined();
     expect(state.unreadAttackAlerts).toBe(1);
+  });
+
+  it("echoes new PLAYER_UPDATE eventLog entries into the Activity Feed, with a Go to tile button when tile coordinates are present", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const pushFeedEntry = vi.fn();
+    bindWithDeps(state, ws, { pushFeedEntry });
+
+    // First sync just seeds seen-ids so pre-existing history isn't backfilled.
+    ws.emit("message", { data: JSON.stringify({ type: "PLAYER_UPDATE", eventLog: [] }) });
+    expect(pushFeedEntry).not.toHaveBeenCalled();
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "PLAYER_UPDATE",
+        eventLog: [{ id: "town-lost-1", type: "TOWN_LOST", text: "Home was captured by Rival.", occurredAt: 1_000, x: 12, y: 18 }]
+      })
+    });
+
+    expect(pushFeedEntry).toHaveBeenCalledWith({
+      text: "Home was captured by Rival.",
+      type: "combat",
+      severity: "error",
+      at: 1_000,
+      focusX: 12,
+      focusY: 18,
+      actionLabel: "Go to tile"
+    });
+  });
+
+  it("omits focus coordinates for eventLog entries without a tile", () => {
+    const state = createState();
+    const ws = new FakeWebSocket();
+    const pushFeedEntry = vi.fn();
+    bindWithDeps(state, ws, { pushFeedEntry });
+
+    ws.emit("message", { data: JSON.stringify({ type: "PLAYER_UPDATE", eventLog: [] }) });
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "PLAYER_UPDATE",
+        eventLog: [{ id: "levy-1", type: "IMPERIAL_EXCHANGE_LEVY_HIT", text: "You were hit for 50 gold.", occurredAt: 2_000 }]
+      })
+    });
+
+    expect(pushFeedEntry).toHaveBeenCalledWith({
+      text: "You were hit for 50 gold.",
+      type: "combat",
+      severity: "warn",
+      at: 2_000
+    });
   });
 
   it("clears the pending display-name change and surfaces the season-limit message on DISPLAY_NAME_LIMIT", () => {

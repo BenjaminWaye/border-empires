@@ -59,7 +59,7 @@ export type RuntimeMapCommandContext = {
   // appendPlayerEventLogEntry for the append+cap implementation.
   appendPlayerEventLogEntry: (
     player: DomainPlayer,
-    input: { type: "IMPERIAL_EXCHANGE_LEVY_HIT" | "IMPERIAL_EXCHANGE_LEVY_CAST"; text: string; occurredAt: number }
+    input: { type: "IMPERIAL_EXCHANGE_LEVY_HIT" | "IMPERIAL_EXCHANGE_LEVY_CAST"; text: string; occurredAt: number; x?: number; y?: number }
   ) => void;
 };
 
