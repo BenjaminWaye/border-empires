@@ -10,6 +10,7 @@ import type {
   AutomationSessionPrefix
 } from "./automation-command-planner.js";
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
+import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
 import { chooseAiDomainChoiceForPlayer, chooseAiTechChoiceForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -33,9 +34,15 @@ type AutomationPreplanTile = {
 // per-player FOOD slot supply/demand (same known gap as the BUILD_STRUCTURE
 // planner check, docs/manpower-economy-rewrite-plan.md Step 5 item 5: real
 // fix needs an incrementally-maintained slot index threaded through the
-// worker-sync boundary, its own scoped slice). An occasional server-side
-// INSUFFICIENT_SLOT rejection here is the same class of self-correcting
-// staleness already accepted for BUILD_STRUCTURE, not a new gap.
+// worker-sync boundary, its own scoped slice). A server-side INSUFFICIENT_SLOT
+// rejection here is the same class of self-correcting staleness already
+// accepted for BUILD_STRUCTURE — "self-correcting" because the caller backs
+// the attempt off on rejection (decisionCooldowns.UPGRADE_TOWN_TIER below),
+// same as BUILD_STRUCTURE's BUILD_ECONOMY decision class. Without that
+// backoff this used to livelock: the same tile is chosen every tick (nothing
+// about eligibility changes on its own), so a stuck rejection wasn't
+// "occasional" at all — it starved tech/domain choices and the entire main
+// planner for that player, forever.
 const chooseAiTownTierUpgrade = (
   ownedTiles: readonly AutomationPreplanTile[],
   points: number
@@ -72,6 +79,13 @@ export type AutomationPreplanInput<TTile extends AutomationPreplanTile> = {
   clientSeq: number;
   issuedAt: number;
   sessionPrefix: AutomationSessionPrefix;
+  // Rejection cooldowns from the main utility policy (ai-rejection-cooldown.ts).
+  // UPGRADE_TOWN_TIER rides the same map: when a previous attempt was rejected
+  // (e.g. INSUFFICIENT_SLOT — no free FOOD slot for the upgrade), this holds
+  // the upgrade attempt back for REJECTION_COOLDOWN_MS so chooseAiTownTierUpgrade
+  // doesn't re-propose the exact same doomed command every tick and starve
+  // tech/domain/the main planner in the process.
+  decisionCooldowns?: DecisionCooldownMap;
 };
 
 const createDiagnostic = (
@@ -129,7 +143,7 @@ export const chooseAutomationPreplanCommand = <TTile extends AutomationPreplanTi
   const needsFood = foodCoverageLow(input.strategicResources, townCount);
   const needsEconomy = economyWeak(input.manpower ?? 0, settledTileCount);
 
-  if (!needsFood && townCount > 0) {
+  if (!needsFood && townCount > 0 && !input.decisionCooldowns?.UPGRADE_TOWN_TIER) {
     const townTierUpgrade = chooseAiTownTierUpgrade(input.townTiles ?? input.ownedTiles, input.points);
     if (townTierUpgrade) {
       return {
