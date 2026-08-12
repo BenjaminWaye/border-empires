@@ -10,7 +10,7 @@ import {
 } from "@border-empires/shared";
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
-import type { RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
+import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 
 // Distance threshold beyond which ADVANCE search slows to a reduced cadence.
 const ADVANCE_THROTTLE_DIST = 15;
@@ -40,7 +40,10 @@ export type MusterTickInput = {
   requiredMusterForTarget: (target: DomainTileState) => number;
   nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, nowMs: number) => string;
   handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => boolean;
-  locksByTile: ReadonlyMap<string, unknown>;
+  // Active combat locks (keyed by origin/target tile) so ADVANCE can skip tiles
+  // already committed to a fight and enforce one attack in flight per flag via
+  // LockRecord.musterSourceKey.
+  locksByTile: ReadonlyMap<string, LockRecord>;
   // Per-flag cooldown state (mutated in place, lives on the Runtime instance).
   advanceCooldowns: MusterAdvanceCooldowns;
   // Dock crossings (owned dock tile -> linked dock tile keys) so ADVANCE's BFS
@@ -238,6 +241,7 @@ const outpostsWithinRadius = (tile: DomainTileState, outpostKeys: Set<string>): 
  * attacks sourced from isolated territory pockets disconnected from the muster flag.
  *
  * Cooldown (stored in advanceCooldowns, lives on the Runtime):
+ *   - Flag already has an attack in flight → wait until that lock resolves
  *   - Enemy found within ADVANCE_THROTTLE_DIST tiles → fire every tick
  *   - Enemy found beyond that → ADVANCE_FAR_COOLDOWN_MS between searches
  *   - Nothing attackable found at all → ADVANCE_EMPTY_COOLDOWN_MS cooldown
@@ -245,6 +249,17 @@ const outpostsWithinRadius = (tile: DomainTileState, outpostKeys: Set<string>): 
 const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, playerId: string): void => {
   const musterAmount = musterTile.muster?.amount ?? 0;
   const originKey = simulationTileKey(musterTile.x, musterTile.y);
+
+  // One attack at a time per flag: while this flag already has an attack in
+  // flight (an active lock funded from this muster tile), don't launch another
+  // — back off until that lock resolves, then re-search. This also guarantees
+  // the flag's full muster amount is available when the affordability gate
+  // below runs, so no underfunded ATTACK is ever submitted.
+  const inFlightLock = lockSourcedFromMusterTile(input.locksByTile, originKey);
+  if (inFlightLock) {
+    input.advanceCooldowns.set(originKey, Math.max(inFlightLock.resolvesAt, input.nowMs));
+    return;
+  }
 
   // Respect per-flag cooldown.
   const cooldownUntil = input.advanceCooldowns.get(originKey) ?? 0;
@@ -335,6 +350,23 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
     },
     "ATTACK"
   );
+};
+
+/**
+ * Returns the active lock currently funded from `musterTileKey` (attacks
+ * record the flag that paid for them on LockRecord.musterSourceKey), or
+ * undefined when the flag has no attack in flight. Every lock in the map is
+ * scanned rather than a single lookup because a lock is stored under its
+ * origin and target tile keys — the muster flag tile isn't necessarily either.
+ */
+const lockSourcedFromMusterTile = (
+  locksByTile: ReadonlyMap<string, LockRecord>,
+  musterTileKey: string
+): LockRecord | undefined => {
+  for (const lock of locksByTile.values()) {
+    if (lock.musterSourceKey === musterTileKey) return lock;
+  }
+  return undefined;
 };
 
 const outpostTileKeysForPlayer = (input: MusterTickInput, playerId: string): Set<string> => {
