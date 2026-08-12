@@ -23,6 +23,15 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786536900000, // 2026.08.12.7
+    introducedIn: "2026.08.12.7",
+    title: "Fixed: Aether Purge (and other Observatory abilities) still asking for gold/crystal",
+    why: "An earlier release dropped the stale price tags from the ability info panel, but the tile-targeting menu — the button you actually click to cast — had its own separate gold/crystal checks that were never touched, so Aether Purge still refused to fire below 3,000 gold. Aether EMP, Retort Recast, Create/Remove Mountain, and Launch Satellite had the same leftover checks.",
+    changes: [
+      "Removed the stale client-side gold/crystal gates on Aether Purge, Aether EMP, Retort Recast, Create Mountain, Remove Mountain, and Launch Satellite — casting them no longer requires resources they don't actually cost."
+    ]
+  },
+  {
     createdAt: 1786533000000, // 2026.08.12.6
     introducedIn: "2026.08.12.6",
     title: "Fixed: zoom/pan stutter from the ownership tint overlay",
