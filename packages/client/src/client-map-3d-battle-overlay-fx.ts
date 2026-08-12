@@ -17,10 +17,17 @@ import {
 // populated). The animation never decides anything — attackerWon is already
 // known before the first frame renders; this module only stages the reveal.
 //
+// The whole fight happens on the target tile — the tile under attack — never
+// spilling onto the attacker's or any neighboring tile; see TILE_LOCAL_MAX.
+//
 // Timeline per battle (all relative to its own startAt):
-//   [0, APPROACH_MS)                      — approach: both sides converge on the tile midpoint
-//   [APPROACH_MS, APPROACH_MS+CLASH_MS)   — clash: oscillating melee at the midpoint + glyph bursts
+//   [0, APPROACH_MS)                      — approach: both sides converge on the target tile's center
+//   [APPROACH_MS, APPROACH_MS+CLASH_MS)   — clash: oscillating melee at the tile center + glyph bursts
 //   [APPROACH_MS+CLASH_MS, endAt)         — rout: winner pushes through, loser scatters/collapses
+// A battle that picks up from an already-visible pre-resolution skirmish (see
+// BattleOverlaySkirmishEntry and client-battle-overlay.ts) skips the approach
+// entirely and starts straight in the clash phase, continuing seamlessly from
+// wherever the skirmish's dots already were instead of restarting.
 export const APPROACH_MS = 550;
 export const CLASH_MS = 800;
 export const ROUT_MS = 950;
@@ -38,11 +45,20 @@ const FORMATION_T = 0.7;
 // as near-invisible slivers.
 const DOT_RADIUS = 0.045;
 const DOT_Y_OFFSET = 0.07;
-const PUSH_THROUGH_FRACTION = 0.4;
-const RETREAT_FRACTION = 0.38;
+const PUSH_THROUGH_FRACTION = 0.3;
+const RETREAT_FRACTION = 0.34;
 const SHARD_Y_OFFSET = 0.14;
 const SHARD_SIZE = 0.055;
 const UP_AXIS = new Vector3(0, 1, 0);
+
+// Every dot position is computed in tile-local space (origin at the target
+// tile's own center — the tile under attack) and clamped to this box before
+// being placed in world space. This is what keeps the whole fight, including
+// approach/push-through/scatter, from ever spilling onto neighboring tiles —
+// matches the muster overlay's own tile-local [-0.46, 0.46] convention for
+// the same 1x1-world-unit tile footprint.
+const TILE_LOCAL_MAX = 0.46;
+const clampLocal = (v: number): number => Math.max(-TILE_LOCAL_MAX, Math.min(TILE_LOCAL_MAX, v));
 
 function hash01(a: number, b: number, salt: number): number {
   let h = (a * 374761393) ^ (b * 668265263) ^ (salt * 15485863);
@@ -67,13 +83,20 @@ export type BattleOverlayRenderEntry = {
   startAt: number;
   clashAt: number;
   endAt: number;
+  // Stable per-tile hash seed (target tile coordinates), NOT an array index —
+  // see BattleOverlaySkirmishEntry.hashSeed below for why. Also, critically,
+  // this must be derived the same way a preceding skirmish's hashSeed was:
+  // when a resolved battle picks up right where its skirmish left off (see
+  // client-battle-overlay.ts), matching seeds keep every dot's offset/perp/
+  // freq/phase identical across the transition so the clash doesn't jump.
+  hashSeed: number;
 };
 
 // A siege still counting down to its resolution tick — the server hasn't
 // broadcast a CombatBroadcastPayload yet (that only fires once, at
 // resolveLock), so the outcome is unknown. Renders as an indefinite clash
-// loop at the tile midpoint with no approach/rout phases and no glyph
-// bursts, so it reads as "still contested" rather than "just resolved".
+// loop at the target tile's own center with no approach/rout phases and no
+// glyph bursts, so it reads as "still contested" rather than "just resolved".
 export type BattleOverlaySkirmishEntry = {
   srcWorldX: number;
   srcWorldZ: number;
@@ -132,18 +155,18 @@ export function createBattleOverlayFx(scene: Scene) {
   const tmpQuat = new Quaternion();
   const identityQuat = new Quaternion();
 
-  const dotKitFor = (slot: number, side: 0 | 1, i: number): DotKit => ({
-    offset: hash01(slot * 31 + i, side, 3) * 0.22,
-    perpPos: (hash01(slot * 31 + i, side, 0) - 0.5) * 0.8,
-    freq: 4 + hash01(slot * 31 + i, side, 1) * 8,
-    phase: hash01(slot * 31 + i, side, 2) * Math.PI * 2,
+  const dotKitFor = (seed: number, side: 0 | 1, i: number): DotKit => ({
+    offset: hash01(seed * 31 + i, side, 3) * 0.22,
+    perpPos: (hash01(seed * 31 + i, side, 0) - 0.5) * 0.6,
+    freq: 4 + hash01(seed * 31 + i, side, 1) * 8,
+    phase: hash01(seed * 31 + i, side, 2) * Math.PI * 2,
   });
 
-  const shardKitFor = (slot: number, j: number): ShardKit => ({
-    spawnT: hash01(slot * 53 + j, 7, 11),
-    angle: hash01(slot * 53 + j, 7, 13) * Math.PI * 2,
-    dist: 0.08 + hash01(slot * 53 + j, 7, 17) * 0.18,
-    life: 0.28 + hash01(slot * 53 + j, 7, 19) * 0.2,
+  const shardKitFor = (seed: number, j: number): ShardKit => ({
+    spawnT: hash01(seed * 53 + j, 7, 11),
+    angle: hash01(seed * 53 + j, 7, 13) * Math.PI * 2,
+    dist: 0.08 + hash01(seed * 53 + j, 7, 17) * 0.18,
+    life: 0.28 + hash01(seed * 53 + j, 7, 19) * 0.2,
     variant: (j % 2) as 0 | 1,
   });
 
@@ -177,9 +200,11 @@ export function createBattleOverlayFx(scene: Scene) {
       const uz = dirZ / dist;
       const perpX = -uz;
       const perpZ = ux;
-      const midX = (b.srcWorldX + b.tgtWorldX) * 0.5;
-      const midZ = (b.srcWorldZ + b.tgtWorldZ) * 0.5;
-      const midY = (b.srcSurfaceY + b.tgtSurfaceY) * 0.5 + DOT_Y_OFFSET;
+      // The fight lives on the target tile — the tile under attack — not at
+      // the midpoint between attacker and defender territory.
+      const tileX = b.tgtWorldX;
+      const tileZ = b.tgtWorldZ;
+      const tileY = b.tgtSurfaceY + DOT_Y_OFFSET;
 
       const clashEndAt = b.clashAt + CLASH_MS;
       const routElapsed = nowMs - clashEndAt;
@@ -187,45 +212,48 @@ export function createBattleOverlayFx(scene: Scene) {
       for (let side = 0 as 0 | 1; side < 2; side++) {
         const isAttacker = side === 0;
         const winning = isAttacker ? b.attackerWon : !b.attackerWon;
-        const startX = isAttacker ? b.srcWorldX : b.tgtWorldX;
-        const startZ = isAttacker ? b.srcWorldZ : b.tgtWorldZ;
-        // Each side's own forward direction (attacker travels src->mid, defender travels tgt->mid).
+        // Attacker enters from the tile-local edge facing their origin;
+        // defender starts from the opposite edge. Both converge on the
+        // tile's own center for the clash.
+        const entryLocalX = isAttacker ? -ux * TILE_LOCAL_MAX : ux * TILE_LOCAL_MAX;
+        const entryLocalZ = isAttacker ? -uz * TILE_LOCAL_MAX : uz * TILE_LOCAL_MAX;
+        // Each side's own forward direction through the clash point.
         const fwdX = isAttacker ? ux : -ux;
         const fwdZ = isAttacker ? uz : -uz;
         const mesh = isAttacker ? attackerMesh : defenderMesh;
         tmpColor.set(isAttacker ? b.attackerColor : b.defenderColor);
 
         for (let i = 0; i < DOTS_PER_SIDE; i++) {
-          const kit = dotKitFor(slot, side, i);
-          let x: number;
-          let z: number;
+          const kit = dotKitFor(b.hashSeed, side, i);
+          let lx: number;
+          let lz: number;
           let scale = 1;
 
           if (nowMs < b.clashAt) {
             const approachT = clamp01((nowMs - b.startAt) / APPROACH_MS);
             const localT = clamp01((approachT - kit.offset) / (FORMATION_T - kit.offset));
-            x = startX + (midX - startX) * localT + perpX * kit.perpPos;
-            z = startZ + (midZ - startZ) * localT + perpZ * kit.perpPos;
+            lx = entryLocalX * (1 - localT) + perpX * kit.perpPos;
+            lz = entryLocalZ * (1 - localT) + perpZ * kit.perpPos;
           } else if (nowMs < clashEndAt) {
             const osc = Math.sin(nowMs / kit.freq + kit.phase) * 0.06;
-            x = midX + perpX * (kit.perpPos + osc);
-            z = midZ + perpZ * (kit.perpPos + osc);
+            lx = perpX * (kit.perpPos + osc);
+            lz = perpZ * (kit.perpPos + osc);
           } else {
             const routT = clamp01(routElapsed / ROUT_MS);
             if (winning) {
-              const push = routT * PUSH_THROUGH_FRACTION * dist;
-              x = midX + fwdX * push + perpX * kit.perpPos;
-              z = midZ + fwdZ * push + perpZ * kit.perpPos;
+              const push = routT * PUSH_THROUGH_FRACTION;
+              lx = fwdX * push + perpX * kit.perpPos;
+              lz = fwdZ * push + perpZ * kit.perpPos;
             } else {
-              const retreat = routT * RETREAT_FRACTION * dist;
-              const scatter = 1 + routT * 2.2;
-              x = startX - fwdX * retreat + perpX * kit.perpPos * scatter;
-              z = startZ - fwdZ * retreat + perpZ * kit.perpPos * scatter;
+              const retreat = routT * RETREAT_FRACTION;
+              const scatter = 1 + routT * 1.6;
+              lx = entryLocalX - fwdX * retreat + perpX * kit.perpPos * scatter;
+              lz = entryLocalZ - fwdZ * retreat + perpZ * kit.perpPos * scatter;
               scale = 1 - routT;
             }
           }
 
-          tmpPos.set(x, midY, z);
+          tmpPos.set(tileX + clampLocal(lx), tileY, tileZ + clampLocal(lz));
           tmpScale.set(scale, scale, scale);
           tmpM.compose(tmpPos, identityQuat, tmpScale);
           const writeIndex = isAttacker ? atkWrite : defWrite;
@@ -241,14 +269,14 @@ export function createBattleOverlayFx(scene: Scene) {
       if (nowMs >= b.clashAt && nowMs < clashEndAt) {
         const clashT = clamp01((nowMs - b.clashAt) / CLASH_MS);
         for (let j = 0; j < SHARDS_PER_BATTLE; j++) {
-          const kit = shardKitFor(slot, j);
+          const kit = shardKitFor(b.hashSeed, j);
           const localT = (clashT - kit.spawnT) / kit.life;
           if (localT < 0 || localT > 1) continue;
           const rise = Math.sin(localT * Math.PI); // 0 -> 1 -> 0 pop
           const r = kit.dist * localT;
-          const x = midX + Math.cos(kit.angle) * r;
-          const z = midZ + Math.sin(kit.angle) * r;
-          const y = midY + SHARD_Y_OFFSET + localT * 0.05;
+          const x = tileX + clampLocal(Math.cos(kit.angle) * r);
+          const z = tileZ + clampLocal(Math.sin(kit.angle) * r);
+          const y = tileY + SHARD_Y_OFFSET + localT * 0.05;
           tmpPos.set(x, y, z);
           tmpScale.setScalar(rise);
           tmpQuat.setFromAxisAngle(UP_AXIS, kit.angle * 3 + localT * 4);
@@ -260,8 +288,12 @@ export function createBattleOverlayFx(scene: Scene) {
     }
 
     // Sieges still counting down with no resolved outcome yet: an
-    // indefinite clash-oscillation loop at the midpoint, no approach/rout,
-    // no glyph bursts — visually distinct from a battle that's resolving.
+    // indefinite clash-oscillation loop at the target tile's own center, no
+    // approach/rout, no glyph bursts — visually distinct from a battle
+    // that's resolving. Uses the exact same tile-local clash formula (and
+    // hashSeed) as the resolved-battle clash phase above, so a battle that
+    // picks up from a live skirmish (see client-battle-overlay.ts) continues
+    // seamlessly instead of jumping.
     for (let s = 0; s < skirmishes.length && slot < MAX_CONCURRENT_BATTLES; s++, slot++) {
       const b = skirmishes[s]!;
       const dirX = b.tgtWorldX - b.srcWorldX;
@@ -270,9 +302,9 @@ export function createBattleOverlayFx(scene: Scene) {
       if (dist < 0.001) continue;
       const perpX = -(dirZ / dist);
       const perpZ = dirX / dist;
-      const midX = (b.srcWorldX + b.tgtWorldX) * 0.5;
-      const midZ = (b.srcWorldZ + b.tgtWorldZ) * 0.5;
-      const midY = (b.srcSurfaceY + b.tgtSurfaceY) * 0.5 + DOT_Y_OFFSET;
+      const tileX = b.tgtWorldX;
+      const tileZ = b.tgtWorldZ;
+      const tileY = b.tgtSurfaceY + DOT_Y_OFFSET;
 
       for (let side = 0 as 0 | 1; side < 2; side++) {
         const isAttacker = side === 0;
@@ -282,10 +314,10 @@ export function createBattleOverlayFx(scene: Scene) {
         for (let i = 0; i < DOTS_PER_SIDE; i++) {
           const kit = dotKitFor(b.hashSeed, side, i);
           const osc = Math.sin(nowMs / kit.freq + kit.phase) * 0.06;
-          const x = midX + perpX * (kit.perpPos + osc);
-          const z = midZ + perpZ * (kit.perpPos + osc);
+          const x = tileX + clampLocal(perpX * (kit.perpPos + osc));
+          const z = tileZ + clampLocal(perpZ * (kit.perpPos + osc));
 
-          tmpPos.set(x, midY, z);
+          tmpPos.set(x, tileY, z);
           tmpScale.set(1, 1, 1);
           tmpM.compose(tmpPos, identityQuat, tmpScale);
           const writeIndex = isAttacker ? atkWrite : defWrite;

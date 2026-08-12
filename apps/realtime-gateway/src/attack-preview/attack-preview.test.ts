@@ -3,10 +3,19 @@ import { describe, expect, it } from "vitest";
 import { attackPreviewResult } from "./attack-preview.js";
 
 describe("attackPreviewResult", () => {
+  // Both factory types owned by the defender, so the "no war industry"
+  // vulnerability multiplier (empire-wide, always evaluated) stays neutral
+  // and these tests isolate only the multiplier they're actually about.
+  const warIndustryTiles = (ownerId: string) => [
+    { x: 2, y: 0, ownerId, ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ ownerId, type: "TITANIUM_WEAPONS_FACTORY", status: "active" }) },
+    { x: 3, y: 0, ownerId, ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ ownerId, type: "UMBRITE_WEAPONS_FACTORY", status: "active" }) }
+  ];
+
   it("applies attackVsBarbariansMult when previewing an attack on a barbarian tile", () => {
     const tiles = [
       { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
-      { x: 1, y: 0, ownerId: "barbarian-1", ownershipState: "SETTLED" }
+      { x: 1, y: 0, ownerId: "barbarian-1", ownershipState: "SETTLED" },
+      ...warIndustryTiles("barbarian-1")
     ];
     const message = { fromX: 0, fromY: 0, toX: 1, toY: 0 };
 
@@ -21,7 +30,8 @@ describe("attackPreviewResult", () => {
   it("does not apply attackVsBarbariansMult when the target is not a barbarian", () => {
     const tiles = [
       { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
-      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" }
+      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" },
+      ...warIndustryTiles("player-2")
     ];
     const message = { fromX: 0, fromY: 0, toX: 1, toY: 0 };
 

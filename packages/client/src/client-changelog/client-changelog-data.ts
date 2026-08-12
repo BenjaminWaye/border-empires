@@ -23,8 +23,8 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1786533500000, // 2026.08.12.7
-    introducedIn: "2026.08.12.7",
+    createdAt: 1786546500000, // 2026.08.12.10
+    introducedIn: "2026.08.12.10",
     title: "Market renamed to Mintworks, with a new 3D overlay and icon",
     why: "\"Market\" read as a trading post, which isn't what the building does — it's the empire's gold-minting workshop, easy to confuse with the unrelated Market town archetype. Renamed the structure to Mintworks (town archetype naming is unaffected) and gave it a dedicated look worthy of the name: a giant mechanical coin press instead of the old fruit-stall-with-an-awning placeholder.",
     changes: [
@@ -32,6 +32,37 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Added a dedicated 3D overlay for Mintworks: a dark-iron industrial hall with a giant brass coin press, flywheel, gear train, rear furnace, ingot stocks, coin trays, and coin crates.",
       "Added a matching 2D flat-color Mintworks icon for the overlay gallery.",
       "Existing Market structures on the map keep working under the new name — no rebuild needed."
+    ]
+  },
+  {
+    createdAt: 1786545979000, // 2026.08.12.9
+    introducedIn: "2026.08.12.9",
+    title: "Fixed: Titanium/Umbrite Weapons Factory bonus was silently scoped to a single town network instead of empire-wide",
+    why: "Titanium/Umbrite Weapons Factories were combat-relevant only if they happened to sit in the connected-town network nearest whichever tile was attacking or defending — build one at a second, disconnected town and it contributed nothing to a fight fought elsewhere. Nothing in the game ever told players this; the build tooltip and structure-info text actually claimed the opposite ('scoped to this town's connected network' read as intentional, not as a gotcha), and the just-added combat breakdown panel would have shown a number that quietly changed depending on which tile you attacked from. Weapons Workshop, the structure these replaced, was always empire-wide — this brings Weapons Factories in line with it.",
+    changes: [
+      "Titanium/Umbrite Weapons Factory attack/defense bonuses are now empire-wide: every active copy you own counts toward every fight, regardless of which town network it's connected to or how far it is from the battle.",
+      "Build tooltips and structure-info text for both factories updated to say 'empire-wide' instead of the old (now incorrect) 'scoped to this town's connected network' claim.",
+      "The live Launch Attack preview now actually includes Weapons Workshop/Weapons Factory bonuses and the 'no war industry' vulnerability penalty in its win-chance number — previously the preview omitted all three and only the resolved combat applied them, so the number shown before committing to an attack could be meaningfully wrong."
+    ]
+  },
+  {
+    createdAt: 1786543467000, // 2026.08.12.8
+    introducedIn: "2026.08.12.8",
+    title: "Added: a full \"show your work\" breakdown for combat power and win chance",
+    why: "Win chance showed up as a single percentage with no way to see what produced it, and the Attack/Defense stats in the tech tab were shown as vague % deltas that didn't even correspond to the numbers combat actually used — worse, a couple of domains (Titanium Dominion, War Foundries) promised a flat attack/defense bonus in their description that silently never applied to any fight. Both are now the same real numbers: BASE_COMBAT_POWER x persistent infrastructure x this-battle modifiers.",
+    changes: [
+      "Tech tab's Attack/Defense stats now show the actual effective combat-power number (e.g. \"11.8\") instead of a % delta — press either stat to inspect every contributing multiplier.",
+      "The Launch Attack button now shows a breakdown panel: each side's calculated base power (the same number the tech tab shows), the modifiers specific to this fight as a signed %, the resulting effective attack/defense, and the win-chance formula itself.",
+      "Fixed: tech/domain flat attack/defense bonuses (e.g. Titanium Dominion's +18%/+18%, War Foundries' +8% attack) now actually apply to combat instead of only being displayed."
+    ]
+  },
+  {
+    createdAt: 1786536900000, // 2026.08.12.7
+    introducedIn: "2026.08.12.7",
+    title: "Fixed: Aether Purge (and other Observatory abilities) still asking for gold/crystal",
+    why: "An earlier release dropped the stale price tags from the ability info panel, but the tile-targeting menu — the button you actually click to cast — had its own separate gold/crystal checks that were never touched, so Aether Purge still refused to fire below 3,000 gold. Aether EMP, Retort Recast, Create/Remove Mountain, and Launch Satellite had the same leftover checks.",
+    changes: [
+      "Removed the stale client-side gold/crystal gates on Aether Purge, Aether EMP, Retort Recast, Create Mountain, Remove Mountain, and Launch Satellite — casting them no longer requires resources they don't actually cost."
     ]
   },
   {

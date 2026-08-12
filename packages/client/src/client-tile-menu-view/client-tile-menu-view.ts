@@ -17,7 +17,7 @@ import {
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 import { converterStructureDetailText, converterModeLockLine, converterModeStatusLine, isConverterStructureType } from "../client-converter-menu.js";
-import { weaponsFactoryOwnBonusLine, weaponsFactoryNetworkTotalLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
+import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
 import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
@@ -25,7 +25,7 @@ import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile
 import { captureRecoveryRemainingMsForTile, isFrontierNaturallyDecaying, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
-import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
+import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 
 // mintworks-stacking task: this describes ONE Mintworks's own per-instance
 // contribution (they stack additively — see mintworksGoldProductionMultiplier),
@@ -112,8 +112,8 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
   if (actionId === "build_farmstead") return tile.resource === "FARM" ? `Improves food production on this tile by 50% and adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot.` : "Farmsteads do not boost fish output.";
   if (actionId === "build_umbrite_rig") return "Improves umbrite production on this tile by 50% and adds +15 umbrite cap.";
-  if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, scoped to this town's connected network. No per-town limit, but cost rises with each one you own.";
-  if (actionId === "build_umbrite_weapons_factory") return "Military-industrial structure. Grants +3% attack / +1.5% defense per copy, scoped to this town's connected network. No per-town limit, but cost rises with each one you own.";
+  if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
+  if (actionId === "build_umbrite_weapons_factory") return "Military-industrial structure. Grants +3% attack / +1.5% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_mine") return `Improves ${tile.resource === "TITANIUM" ? "titanium" : "crystal"} production on this tile by 50% and adds +${tile.resource === "TITANIUM" ? "15 titanium" : "9 crystal"} cap.`;
   if (actionId === "build_mintworks") {
     // mintworks-stacking task: this describes what THIS one Mintworks will add
@@ -475,8 +475,6 @@ export const menuOverviewForTile = (
       pushOwnTownLoadingRow("Support");
     }
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
-    const factoryTotalLine = weaponsFactoryNetworkTotalLine(tile.town);
-    if (factoryTotalLine) pushLine(factoryTotalLine);
     if (isSettled && hasOwnerEconomyData) {
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
@@ -667,11 +665,15 @@ export const tileMenuViewForTile = (
     playerNameForOwner: (ownerId?: string | null) => string | undefined;
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
+    combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined;
     state: { me: string };
   }
 ): TileMenuView => {
   const actions = deps.menuActionsForSingleTile(tile);
   const actionTabs = deps.splitTileActionsIntoTabs(actions);
+  const combatBreakdown = actionTabs.actions.some((action) => action.id === "launch_attack")
+    ? deps.combatBreakdownForTile?.(tile)
+    : undefined;
   const settlement = deps.settlementProgressForTile(tile.x, tile.y);
   const capture = deps.captureProgressForTile(tile);
   const queuedSettlement = deps.queuedSettlementProgressForTile(tile);
@@ -735,6 +737,7 @@ export const tileMenuViewForTile = (
     actions: actionTabs.actions,
     buildings: visibleBuildings,
     crystal: actionTabs.crystal,
-    ...(progress ? { progress } : {})
+    ...(progress ? { progress } : {}),
+    ...(combatBreakdown ? { combatBreakdown } : {})
   };
 };
