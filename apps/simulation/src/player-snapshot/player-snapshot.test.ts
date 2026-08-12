@@ -765,6 +765,45 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     expect(snapshot.player?.upkeepPerMinute?.food).toBe(0);
   });
 
+  it("includes an active Weapons Factory's attack/defense bonus in the player's modBreakdown", () => {
+    const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
+      tiles: [
+        { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+        {
+          x: 11,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          economicStructureJson: JSON.stringify({ type: "TITANIUM_WEAPONS_FACTORY", status: "active" })
+        }
+      ],
+      players: [
+        {
+          id: "player-1",
+          points: 64,
+          manpower: 120,
+          techIds: [],
+          domainIds: [],
+          strategicResources: {},
+          allies: [],
+          vision: 1,
+          visionRadiusBonus: 0,
+          territoryTileKeys: ["10,10", "11,10"]
+        }
+      ],
+      pendingSettlements: [],
+      activeLocks: []
+    });
+
+    expect(snapshot.player?.modBreakdown?.attack).toContainEqual(
+      expect.objectContaining({ label: expect.stringContaining("Titanium Weapons Factory"), mult: 1.015 })
+    );
+    expect(snapshot.player?.modBreakdown?.defense).toContainEqual(
+      expect.objectContaining({ label: expect.stringContaining("Titanium Weapons Factory"), mult: 1.03 })
+    );
+  });
+
   it("keeps settlement food upkeep at zero in rewrite economy snapshots", () => {
     const snapshot = buildPlayerSubscriptionSnapshot("player-1", {
       tiles: [
