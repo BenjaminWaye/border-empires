@@ -1,4 +1,5 @@
 import { defensivenessMultiplier } from "@border-empires/shared";
+import type { StructureModifier } from "@border-empires/game-domain";
 import { currentDomainChoiceTier } from "./client-tech-html/client-tech-html.js";
 import { renderDomainProgressCard as renderDomainProgressCardFromModule } from "./client-domain-progress-card.js";
 import {
@@ -27,6 +28,7 @@ type TechPanelDeps = {
     title: string;
     detail: string;
     effects: string[];
+    modifiers: StructureModifier[];
     glyph: string;
     placement: string;
     image?: string;
