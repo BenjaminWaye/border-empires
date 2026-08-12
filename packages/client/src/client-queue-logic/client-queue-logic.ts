@@ -10,7 +10,7 @@ import {
   queuedSettlementOrderForTile
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
-import { findClosestMuster } from "../client-muster-attack-gate/client-muster-attack-gate.js";
+import { findClosestMuster, isDockCrossingBetween } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import {
@@ -1476,9 +1476,21 @@ export const processActionQueue = (
       // Attacking/claiming an owned tile is also free (FRONTIER_CLAIM_COST is 0 gold).
       if (to.ownerId !== "barbarian-1") {
         const closest = findClosestMuster(state, to.x, to.y);
-        if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES) {
-          // No flag close enough — park the attack and auto-create a flag on
-          // the origin tile (adjacent to target) so troops begin mustering there.
+        // A "ready" flag can only fire directly when it's actually adjacent
+        // (or a valid dock crossing) to the target — findClosestMuster's
+        // dist is scored against MUSTER_AUTO_FLAG_THRESHOLD_TILES (20) for
+        // staging purposes and does NOT mean adjacent. Firing sendAttack
+        // from a flag that's merely "in range" but not adjacent gets
+        // rejected server-side with NOT_ADJACENT.
+        const closestIsAdjacentOrLinked =
+          closest != null &&
+          (deps.isAdjacent(closest.tile.x, closest.tile.y, to.x, to.y) ||
+            isDockCrossingBetween(state, closest.tile.x, closest.tile.y, to.x, to.y));
+        if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES || !closestIsAdjacentOrLinked) {
+          // No flag close enough (or the closest ready flag isn't actually
+          // adjacent to the target) — park the attack and auto-create a flag
+          // on the origin tile (adjacent to target) so troops begin
+          // mustering there.
           state.capture = undefined;
           state.actionInFlight = false;
           state.actionCurrent = undefined;
