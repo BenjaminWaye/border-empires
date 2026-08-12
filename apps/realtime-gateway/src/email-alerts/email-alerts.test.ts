@@ -36,6 +36,32 @@ describe("email alerts", () => {
     ]);
   });
 
+  it("links attack alerts straight to the targeted tile", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1", email: "player@example.com" });
+    const sent: Array<{ to: string; subject: string; text: string; html: string }> = [];
+    const alerts = createEmailAlertService({
+      authBindingStore,
+      transport: {
+        send: async (message) => {
+          sent.push(message);
+        }
+      },
+      appUrl: "https://play.example"
+    });
+
+    await expect(
+      alerts.sendAttackAlert({ defenderPlayerId: "player-1", attackerName: "Milo Ash", x: 141, y: 174 })
+    ).resolves.toBe("sent");
+
+    expect(sent).toEqual([
+      expect.objectContaining({
+        text: expect.stringContaining("Go to tile: https://play.example/?x=141&y=174"),
+        html: expect.stringContaining('<a href="https://play.example/?x=141&amp;y=174">Go to tile</a>')
+      })
+    ]);
+  });
+
   it("throttles attack alerts per recipient by hour and by day", async () => {
     let currentTime = Date.UTC(2026, 4, 14, 12);
     const authBindingStore = new InMemoryGatewayAuthBindingStore(() => currentTime);
