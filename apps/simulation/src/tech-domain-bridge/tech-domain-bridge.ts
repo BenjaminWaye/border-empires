@@ -1,19 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import {
-  TRICKLE_RESOURCE_KEYS,
-  techGoldCostForResearchedCount,
-  TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
-  TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
-  UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
-  UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
-  type ChosenTrickleResource
-} from "@border-empires/shared";
+import { TRICKLE_RESOURCE_KEYS, techGoldCostForResearchedCount, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import { VISION_RADIUS, type SlotResource } from "@border-empires/shared";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { goldCostForTechResearch } from "../tech-wonder-gold-discount.js";
+import { weaponsFactoryCountsForPlayer, appendWeaponsFactoryBreakdownEntries } from "./weapons-factory-mod-breakdown.js";
 
 type StatMods = NonNullable<DomainPlayer["mods"]>;
 type ModKey = keyof StatMods;
@@ -239,26 +232,6 @@ const addModBreakdownEntry = (
   }
 };
 
-// Empire-wide count of active Titanium/Umbrite Weapons Factories the player
-// owns, used only for the tech sidebar's informational breakdown below —
-// NOT the value combat actually reads (that's scoped to a single connected
-// town network, see networkWeaponsFactoryCountsForOrigin in runtime.ts).
-// This total is the upper bound a player could reach if every factory they
-// own were connected into one network.
-export const weaponsFactoryCountsForPlayer = (
-  playerId: string,
-  tiles: Iterable<{ ownerId?: string | undefined; economicStructure?: { type?: string | undefined; status?: string | undefined } | undefined }>
-): { titanium: number; umbrite: number } => {
-  let titanium = 0;
-  let umbrite = 0;
-  for (const tile of tiles) {
-    if (tile.ownerId !== playerId || tile.economicStructure?.status !== "active") continue;
-    if (tile.economicStructure.type === "TITANIUM_WEAPONS_FACTORY") titanium += 1;
-    else if (tile.economicStructure.type === "UMBRITE_WEAPONS_FACTORY") umbrite += 1;
-  }
-  return { titanium, umbrite };
-};
-
 export const buildModBreakdownForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">,
   weaponsFactoryCounts?: { titanium: number; umbrite: number }
@@ -272,16 +245,7 @@ export const buildModBreakdownForPlayer = (
     const domain = domainEntryById.get(domainId);
     addModBreakdownEntry(breakdown, domain?.name ?? domainId, domain?.mods);
   }
-  const titanium = weaponsFactoryCounts?.titanium ?? 0;
-  if (titanium > 0) {
-    breakdown.attack.push({ label: `Titanium Weapons Factory ×${titanium} (max, if networked together)`, mult: 1 + titanium * TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING });
-    breakdown.defense.push({ label: `Titanium Weapons Factory ×${titanium} (max, if networked together)`, mult: 1 + titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING });
-  }
-  const umbrite = weaponsFactoryCounts?.umbrite ?? 0;
-  if (umbrite > 0) {
-    breakdown.attack.push({ label: `Umbrite Weapons Factory ×${umbrite} (max, if networked together)`, mult: 1 + umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING });
-    breakdown.defense.push({ label: `Umbrite Weapons Factory ×${umbrite} (max, if networked together)`, mult: 1 + umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING });
-  }
+  if (weaponsFactoryCounts) appendWeaponsFactoryBreakdownEntries(breakdown, weaponsFactoryCounts);
   return breakdown;
 };
 
