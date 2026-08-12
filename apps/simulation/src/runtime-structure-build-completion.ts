@@ -153,7 +153,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   // is applied by reconcileOutpostVisionBonus via the replaceTileState call
   // above — runtime-outpost-vision.ts.
   if (isMonumentBaseType(structureType)) {
-    announceMonumentClaim(context, structureType, ownerId, commandId);
+    announceMonumentClaim(context, structureType, ownerId, commandId, completedTile.x, completedTile.y);
     consumeMonumentParts(context, ownerId, structureType, commandId);
   }
   // Incubation Engine (Granary, tech-tree redesign): instant one-time

@@ -34,4 +34,17 @@ describe("appendPlayerEventLogEntry", () => {
     expect(player.eventLog).not.toBe(before);
     expect(before).toHaveLength(0);
   });
+
+  it("records the tile coordinates when provided, so the client can offer a Go to tile button", () => {
+    const player: { eventLog?: PlayerEventLogEntry[] } = {};
+    appendPlayerEventLogEntry(player, { type: "TOWN_LOST", text: "Home was captured by Rival.", occurredAt: 1_000, x: 12, y: 18 });
+    expect(player.eventLog?.[0]).toMatchObject({ x: 12, y: 18 });
+  });
+
+  it("omits x/y entirely when not provided, rather than storing them as undefined", () => {
+    const player: { eventLog?: PlayerEventLogEntry[] } = {};
+    appendPlayerEventLogEntry(player, { type: "TOWN_LOST", text: "x", occurredAt: 1 });
+    expect(player.eventLog?.[0]).not.toHaveProperty("x");
+    expect(player.eventLog?.[0]).not.toHaveProperty("y");
+  });
 });

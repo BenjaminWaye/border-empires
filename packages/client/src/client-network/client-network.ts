@@ -3,7 +3,7 @@ import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
-import { feedMappingForEventType } from "../client-event-log-html.js";
+import { feedEntryForEventLogEntry } from "../client-event-log-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -1284,8 +1284,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           for (const entry of incomingEventLog) {
             if (state.eventLogFeedSeenIds.has(entry.id)) continue;
             state.eventLogFeedSeenIds.add(entry.id);
-            const { type, severity } = feedMappingForEventType(entry.type);
-            appendFeedEntry({ text: entry.text, type, severity, at: entry.occurredAt });
+            appendFeedEntry(feedEntryForEventLogEntry(entry));
           }
         }
         state.eventLog = incomingEventLog;

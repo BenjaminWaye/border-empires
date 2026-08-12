@@ -73,7 +73,7 @@ export type RuntimeStructureCommandContext = {
   // race-consolation notices broadcast to every player.
   appendPlayerEventLogEntry: (
     player: DomainPlayer,
-    input: { type: "MONUMENT_CLAIMED" | "MONUMENT_LOST_TO_RIVAL"; text: string; occurredAt: number }
+    input: { type: "MONUMENT_CLAIMED" | "MONUMENT_LOST_TO_RIVAL"; text: string; occurredAt: number; x?: number; y?: number }
   ) => void;
 };
 

@@ -35,7 +35,9 @@ describe("event log — natural wonder claimed", () => {
     const player = runtime.exportState().players.find((p) => p.id === "player-1");
     expect(player?.eventLog?.[0]).toMatchObject({
       type: "NATURAL_WONDER_CLAIMED",
-      text: expect.stringContaining("Foundry Heart")
+      text: expect.stringContaining("Foundry Heart"),
+      x: 1,
+      y: 0
     });
     expect(player?.eventLog?.[0]?.text).toContain("+1 slot for FOOD, TITANIUM, CRYSTAL, and UMBRITE");
   });
