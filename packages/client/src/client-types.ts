@@ -142,6 +142,12 @@ export type Tile = {
       goldCost: number;
       available: boolean;
     };
+    // Unified building modifier display (stage 2): flat, additive-per-copy
+    // support-ring modifiers summed across every copy of that building type
+    // in this town's support ring (e.g. 3 Garrison Halls → "Manpower cap:
+    // +450"). See packages/shared/src/types.ts's matching field for the
+    // full contract.
+    townModifierTotals?: Array<{ statLabel: string; total: number; valueText: string; tone: "positive" | "negative" | "neutral" }>;
   };
   fort?: {
     ownerId: string;
