@@ -41,7 +41,7 @@ describe("development queue: total cap", () => {
 
     expect(queued).toBe(false);
     expect(state.developmentQueue).toHaveLength(DEV_QUEUE_TOTAL_CAP);
-    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("full"), "combat", "warn");
+    expect(pushFeed).not.toHaveBeenCalled();
   });
 
   it("allows queueing again once below the total cap", () => {

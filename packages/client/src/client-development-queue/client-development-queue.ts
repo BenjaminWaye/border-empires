@@ -327,7 +327,6 @@ export const queueDevelopmentAction = (
     return false;
   }
   if (state.developmentQueue.length >= DEV_QUEUE_TOTAL_CAP) {
-    deps.pushFeed(`Development queue is full (${DEV_QUEUE_TOTAL_CAP}/${DEV_QUEUE_TOTAL_CAP}). Cancel something before queuing more.`, "combat", "warn");
     deps.renderHud();
     return false;
   }
