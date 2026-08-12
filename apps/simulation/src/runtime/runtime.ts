@@ -91,6 +91,7 @@ import {
   domainGrantedResourceSlots
 } from "../tech-domain-bridge/tech-domain-bridge.js";
 import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
+import { weaponsFactoryCountsForPlayer } from "../tech-domain-bridge/weapons-factory-mod-breakdown.js";
 import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
   type TileDeltaVisibilityFilterOptions, type VisibilityAuditSample
@@ -3540,7 +3541,8 @@ export class SimulationRuntime {
       playerManpowerBreakdown: (player) => this.playerManpowerBreakdown(player),
       pendingSettlementsSnapshotForPlayer: (playerId) => this.pendingSettlementsSnapshotForPlayer(playerId),
       autoSettlementQueueForPlayer: (playerId) => this.autoSettlementQueueForPlayer(playerId),
-      activeDevelopmentProcessCountForPlayer: (playerId) => this.activeDevelopmentProcessCountForPlayer(playerId)
+      activeDevelopmentProcessCountForPlayer: (playerId) => this.activeDevelopmentProcessCountForPlayer(playerId),
+      weaponsFactoryCountsForPlayer: (playerId) => weaponsFactoryCountsForPlayer(playerId, this.tiles.values())
     };
   }
 
