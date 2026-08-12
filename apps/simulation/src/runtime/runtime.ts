@@ -30,7 +30,6 @@ import {
   structureSlotRequirements,
   WORLD_HEIGHT,
   WORLD_WIDTH,
-  wrappedChebyshevDistance,
   type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
@@ -1549,8 +1548,7 @@ export class SimulationRuntime {
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       manpowerLossByTileKey: this.manpowerLossByTileKey,
-      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
-      networkWeaponsFactoryCountsForOrigin: (playerId, tileKey) => this.networkWeaponsFactoryCountsForOrigin(playerId, tileKey)
+      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType)
     };
   }
 
@@ -3254,47 +3252,6 @@ export class SimulationRuntime {
     });
     this.townNetworkCacheByPlayer.set(player.id, network);
     return network;
-  }
-
-  // Titanium/Umbrite Weapons Factory (design doc "network-clustered combat
-  // bonus"): resolves an arbitrary combat tile (an attack's origin, or a
-  // defended target) to "the player's own town nearest that tile," then
-  // reads that town's already-computed connected-network factory totals
-  // (ConnectedTownNetworkEntry.connectedTitaniumWeaponsFactoryCount /
-  // connectedUmbriteWeaponsFactoryCount — both self-inclusive of the whole
-  // network, see that type's doc comment) — no fresh BFS beyond what
-  // cachedTownNetworkForPlayer already does on a cache miss, same shape as
-  // railDepotAlreadyInNetworkForPlayer below. A player with zero towns (very
-  // early game, before any TOWN-tier settlement exists) contributes nothing.
-  private nearestOwnedTownKeyForPlayer(playerId: string, tileKey: string): string | undefined {
-    const [rawX, rawY] = tileKey.split(",");
-    const x = Number(rawX);
-    const y = Number(rawY);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
-    let best: string | undefined;
-    let bestDist = Number.POSITIVE_INFINITY;
-    for (const townKey of this.summaryForPlayer(playerId).ownedTownTierByTile.keys()) {
-      const [townRawX, townRawY] = townKey.split(",");
-      const dist = wrappedChebyshevDistance(x, y, Number(townRawX), Number(townRawY), WORLD_WIDTH, WORLD_HEIGHT);
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = townKey;
-      }
-    }
-    return best;
-  }
-
-  private networkWeaponsFactoryCountsForOrigin(playerId: string, tileKey: string): { titanium: number; umbrite: number } {
-    const player = this.players.get(playerId);
-    const nearestTownKey = player ? this.nearestOwnedTownKeyForPlayer(playerId, tileKey) : undefined;
-    if (!player || !nearestTownKey) return { titanium: 0, umbrite: 0 };
-    const settledTiles = this.settledTilesForPlayer(playerId);
-    const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
-    const entry = townNetwork.get(nearestTownKey);
-    return {
-      titanium: entry?.connectedTitaniumWeaponsFactoryCount ?? 0,
-      umbrite: entry?.connectedUmbriteWeaponsFactoryCount ?? 0
-    };
   }
 
   // §4.4: "only one Rail Depot may be built per connected-town network" —
