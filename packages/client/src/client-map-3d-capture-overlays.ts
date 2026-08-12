@@ -98,7 +98,11 @@ export function syncBattleOverlayFx(
       attackerWon: battle.attackerWon,
       startAt: battle.startAt,
       clashAt: battle.clashAt,
-      endAt: battle.endAt
+      endAt: battle.endAt,
+      // Same formula as the skirmish hashSeed below — keeps dot identity
+      // (offset/perp/freq/phase) continuous when a battle picks up from a
+      // preceding skirmish on the same tile.
+      hashSeed: battle.targetX * 92821 + battle.targetY
     });
   }
 
