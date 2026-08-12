@@ -13,6 +13,25 @@ import type {
   TruceRequest
 } from "../client-types.js";
 
+// Activity Feed entries persist across a session (up to 18, see pushFeed/
+// pushFeedEntry), so their age can run from seconds to months — unlike the
+// short-lived UI elsewhere that only ever needs s/m/h. Scales through
+// weeks and months (30-day) rather than showing raw minutes forever.
+export const feedAgeLabel = (atMs: number, nowMs: number): string => {
+  const ageSec = Math.max(0, Math.floor((nowMs - atMs) / 1000));
+  if (ageSec < 60) return `${ageSec}s`;
+  const ageMin = Math.floor(ageSec / 60);
+  if (ageMin < 60) return `${ageMin}m`;
+  const ageHours = Math.floor(ageMin / 60);
+  if (ageHours < 24) return `${ageHours}h`;
+  const ageDays = Math.floor(ageHours / 24);
+  if (ageDays < 7) return `${ageDays}d`;
+  const ageWeeks = Math.floor(ageDays / 7);
+  if (ageDays < 30) return `${ageWeeks}w`;
+  const ageMonths = Math.floor(ageDays / 30);
+  return `${ageMonths}mo`;
+};
+
 const feedIcon = (type: FeedType): string => {
   if (type === "combat") return "⚔";
   if (type === "mission") return "✓";
@@ -70,14 +89,12 @@ export const feedHtml = (feed: FeedEntry[], debugControls?: FeedDebugControls): 
   if (feed.length === 0) return `${debugCard}<article class="card"><p>No activity yet.</p></article>`;
   return `${debugCard}${feed
     .map((entry) => {
-      const ageSec = Math.floor((Date.now() - entry.at) / 1000);
-      const age = ageSec < 60 ? `${ageSec}s` : `${Math.floor(ageSec / 60)}m`;
       return `<article class="card feed-card severity-${entry.severity}">
         <div class="feed-icon">${feedIcon(entry.type)}</div>
         <div>
           ${entry.title ? `<strong>${entry.title}</strong>` : ""}
           <div>${entry.text}</div>
-          <span>${age} ago</span>
+          <span>${feedAgeLabel(entry.at, Date.now())} ago</span>
           ${
             typeof entry.focusX === "number" && typeof entry.focusY === "number"
               ? `<div><button class="panel-btn" type="button" data-feed-focus-x="${entry.focusX}" data-feed-focus-y="${entry.focusY}">${entry.actionLabel ?? "Center"}</button></div>`

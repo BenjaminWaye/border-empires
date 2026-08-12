@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
+import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedAgeLabel, feedHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
 
 const emptyStrategic = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 };
 const emptyAnim = {
@@ -39,6 +39,20 @@ describe("strategicRibbonHtml", () => {
     expect(html).toContain("data-economy-open=\"TITANIUM\"");
     expect(html).toContain("data-economy-open=\"CRYSTAL\"");
     expect(html).toContain("data-economy-open=\"UMBRITE\"");
+  });
+});
+
+describe("feedAgeLabel", () => {
+  const now = Date.UTC(2026, 7, 12, 12, 0, 0);
+
+  it("scales through seconds, minutes, hours, days, weeks, and months instead of raw minutes forever", () => {
+    expect(feedAgeLabel(now - 30 * 1000, now)).toBe("30s");
+    expect(feedAgeLabel(now - 45 * 60_000, now)).toBe("45m");
+    expect(feedAgeLabel(now - 388 * 60_000, now)).toBe("6h");
+    expect(feedAgeLabel(now - 833 * 60_000, now)).toBe("13h");
+    expect(feedAgeLabel(now - 3 * 24 * 60 * 60_000, now)).toBe("3d");
+    expect(feedAgeLabel(now - 10 * 24 * 60 * 60_000, now)).toBe("1w");
+    expect(feedAgeLabel(now - 45 * 24 * 60 * 60_000, now)).toBe("1mo");
   });
 });
 
