@@ -23,6 +23,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786550100000, // 2026.08.12.11
+    introducedIn: "2026.08.12.11",
+    title: "Fixed: manually targeted attacks from a ready muster flag never fired",
+    why: "Steering an attack onto a specific enemy tile — rather than letting a flag's ADVANCE mode auto-pick a target — silently re-queued the attack forever instead of sending it, even once the flag held well over the required manpower. The flag would just sit there fully mustered and nothing would happen.",
+    changes: [
+      "Manually targeting an attack now fires immediately once a muster flag in range already has enough manpower staged, instead of endlessly re-parking the attack.",
+      "Applies to both close-range flags and flags reached via a dock sea crossing."
+    ]
+  },
+  {
     createdAt: 1786546500000, // 2026.08.12.10
     introducedIn: "2026.08.12.10",
     title: "Market renamed to Mintworks, with a new 3D overlay and icon",
