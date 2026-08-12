@@ -1506,28 +1506,15 @@ export const processActionQueue = (
           deps.renderHud();
           continue;
         }
-        // Flag found within range — queue the attack and let it fire once
-        // the existing flag accumulates enough manpower.
-        state.capture = undefined;
-        state.actionInFlight = false;
-        state.actionCurrent = undefined;
-        state.actionTargetKey = "";
-        state.actionAcceptedAck = false;
-        state.combatStartAck = false;
-        state.actionAcceptTimeoutHandledAt = 0;
-        state.queuedTargetKeys.delete(targetKey);
-        const musterTileKey = deps.keyFor(closest.tile.x, closest.tile.y);
-        const alreadyPending = state.pendingMusterAttacks.some(
-          (e) => e.targetX === to.x && e.targetY === to.y
+        // Flag found within range already has enough manpower staged
+        // (findClosestMuster only returns flags at/above MUSTER_ATTACK_COST)
+        // — fire the attack now from that flag instead of re-queuing it.
+        deps.sendAttack(closest.tile.x, closest.tile.y, to.x, to.y, commandId, clientSeq);
+        deps.pushFeed(
+          `Launching attack from flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away`,
+          "combat",
+          "info"
         );
-        if (!alreadyPending) {
-          state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey });
-          deps.pushFeed(
-            `Flag ${closest.dist} tile${closest.dist === 1 ? "" : "s"} away — attack queued`,
-            "combat",
-            "info"
-          );
-        }
         deps.renderHud();
         continue;
       }
