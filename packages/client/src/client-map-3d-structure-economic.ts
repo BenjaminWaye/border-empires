@@ -8,6 +8,7 @@ import {
   SphereGeometry
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
+import { registerMintworksStructures } from "./client-map-3d-structure-mintworks.js";
 
 export type EconomicStructureKind =
   | "FARMSTEAD"
@@ -16,11 +17,12 @@ export type EconomicStructureKind =
   | "TITANIUM_WORKS"
   | "MARKET"
   | "OBSERVATORY"
-  | "SEED_GRANARY";
+  | "SEED_GRANARY"
+  | "MINTWORKS";
 
 export const ECONOMIC_STRUCTURE_KINDS: ReadonlySet<EconomicStructureKind> = new Set([
   "FARMSTEAD", "WATERWORKS", "MINE", "TITANIUM_WORKS",
-  "MARKET", "OBSERVATORY", "SEED_GRANARY"
+  "MARKET", "OBSERVATORY", "SEED_GRANARY", "MINTWORKS"
 ]);
 
 // Resource hint passed through `addInstance` so the MINE mesh can swap
@@ -223,6 +225,10 @@ export const registerEconomicStructures = (
   builder.makeSlot("seedLabRoof", seedLabRoofGeo, seedLabRoofMaterial, C);
   builder.makeSlot("seedLabWindow", seedLabWindowGeo, seedLabGlowMaterial, C);
 
+  // Mintworks slots are registered by registerMintworksStructures
+  // (client-map-3d-structure-mintworks.ts) so this file stays under the
+  // 500-line cap and the mint instanced meshes don't duplicate pools.
+
   // ─── Layouts ────────────────────────────────────────────────────────
   const addFarmstead: EconomicStructureLayout = (sx, sy, sz) => {
     // Barn + silo + back fence. The crop field comes from the FARM
@@ -315,6 +321,11 @@ export const registerEconomicStructures = (
     builder.addPiece("seedLabWindow", sx, sy, sz, 0, 0.07, 0.235);
   };
 
+  // Mintworks lives in its own module (client-map-3d-structure-mintworks.ts)
+  // so this file stays under the 500-line file cap. Registered here so the
+  // mint slots pool with the rest of the economic family.
+  const addMintworks = registerMintworksStructures(builder);
+
   return {
     layouts: {
       FARMSTEAD: addFarmstead,
@@ -323,7 +334,8 @@ export const registerEconomicStructures = (
       TITANIUM_WORKS: addTitaniumWorks,
       MARKET: addMarket,
       OBSERVATORY: addObservatory,
-      SEED_GRANARY: addSeedGranary
+      SEED_GRANARY: addSeedGranary,
+      MINTWORKS: addMintworks
     },
     shared: {
       forgeBaseMaterial,
