@@ -125,4 +125,52 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     expect(sendAttack).toHaveBeenCalledWith(0, 0, 1, 0, expect.any(String), expect.any(Number));
     expect(sendAttack).toHaveBeenCalledWith(50, 50, 51, 50, expect.any(String), expect.any(Number));
   });
+
+  // Regression for: a ready (fully mustered) flag that is "in range" per
+  // MUSTER_AUTO_FLAG_THRESHOLD_TILES but not actually adjacent (or
+  // dock-linked) to the target must not fire directly — the server rejects
+  // a non-adjacent ATTACK with NOT_ADJACENT. It should park instead, same as
+  // the no-flag-found case, so the flag can march (ADVANCE) into range.
+  it("parks (does not fire) an attack when the closest ready flag is in range but not adjacent to the target", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+
+    // Flag is 5 tiles from the target — well within the 20-tile staging
+    // range, but not adjacent.
+    const flag = makeTile({ x: 0, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: Date.now() } });
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    const origin = makeTile({ x: 4, y: 0, ownerId: "me", ownershipState: "FRONTIER" });
+    state.tiles.set("0,0", flag);
+    state.tiles.set("5,0", target);
+    state.tiles.set("4,0", origin);
+
+    state.actionQueue = [{ x: 5, y: 0, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["5,0"]);
+
+    const sendAttack = vi.fn();
+    const sendSetMuster = vi.fn();
+
+    processActionQueue(state, {
+      ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      // Only the origin tile adjacent to the target is truly adjacent —
+      // the muster flag at (0,0) is not.
+      isAdjacent: (ax, ay, bx, by) => ax === 4 && ay === 0 && bx === 5 && by === 0,
+      isTileOwnedByAlly: () => false,
+      pickOriginForTarget: () => state.tiles.get("4,0"),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      pushFeed: vi.fn(),
+      renderHud: vi.fn(),
+      sendSetMuster,
+      sendAttack
+    });
+
+    expect(sendAttack).not.toHaveBeenCalled();
+    expect(state.pendingMusterAttacks).toHaveLength(1);
+    expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 5, targetY: 0, musterTileKey: "4,0" });
+  });
 });
