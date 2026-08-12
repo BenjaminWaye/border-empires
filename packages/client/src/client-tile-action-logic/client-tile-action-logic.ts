@@ -1602,7 +1602,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "TITANIUM_WEAPONS_FACTORY") ?? "Unavailable",
-              `${deps.structureCostText("TITANIUM_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("TITANIUM_WEAPONS_FACTORY") / 60000)}m • +1.5% attack / +3% defense per copy, scoped to this town's connected network • no per-town limit`
+              `${deps.structureCostText("TITANIUM_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("TITANIUM_WEAPONS_FACTORY") / 60000)}m • +1.5% attack / +3% defense per copy, empire-wide • no per-town limit`
             ),
             slots,
             deps
@@ -1623,7 +1623,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : tile.siegeOutpost || tile.observatory
                   ? "Tile already has structure"
                   : missingResourceSlotReason(state, "UMBRITE_WEAPONS_FACTORY") ?? "Unavailable",
-              `${deps.structureCostText("UMBRITE_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("UMBRITE_WEAPONS_FACTORY") / 60000)}m • +3% attack / +1.5% defense per copy, scoped to this town's connected network • no per-town limit`
+              `${deps.structureCostText("UMBRITE_WEAPONS_FACTORY")} (rises with each one you own) • ${Math.round(economicStructureBuildMs("UMBRITE_WEAPONS_FACTORY") / 60000)}m • +3% attack / +1.5% defense per copy, empire-wide • no per-town limit`
             ),
             slots,
             deps

@@ -1,4 +1,48 @@
-import type { TileActionDef, TileMenuTab, TileMenuView } from "./client-types.js";
+import type { TileActionDef, TileCombatBreakdown, TileMenuTab, TileMenuView } from "./client-types.js";
+
+const formatCombatPowerNumber = (value: number): string => {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
+};
+
+// Local (this-battle) modifiers are shown as a signed % delta, not a raw
+// multiplier — the infrastructure tier baked into "Base power" below is
+// already expressed as a number (same one the tech tab shows and lets you
+// press for a full breakdown), so only the situational, per-fight factors
+// need their own display here.
+const formatModifierPercent = (mult: number): string => {
+  const pct = Math.round((mult - 1) * 1000) / 10;
+  if (Math.abs(pct) < 0.05) return "0%";
+  const rounded = Math.abs(pct % 1) > 0.001 ? pct.toFixed(1) : pct.toFixed(0);
+  return `${pct > 0 ? "+" : ""}${rounded}%`;
+};
+
+// "Verify the math" panel shown next to the Launch Attack button: each
+// side's calculated base power (the same effective-base number the tech
+// tab's Attack/Defense chip shows — press that chip there for its own
+// infrastructure breakdown) plus the modifiers specific to this fight,
+// ending in the same atkEff/(atkEff+defEff) formula the server's win
+// chance actually uses.
+const combatBreakdownSideHtml = (title: string, side: TileCombatBreakdown["attacker"]): string => `
+  <div class="tile-combat-breakdown-side">
+    <div class="tile-combat-breakdown-side-head"><span>${title}</span><strong>${formatCombatPowerNumber(side.effective)}</strong></div>
+    <div class="tile-combat-breakdown-row"><span>Base power</span><span>${formatCombatPowerNumber(side.effectiveBase)}</span></div>
+    ${side.battle
+      .map((entry) => `<div class="tile-combat-breakdown-row"><span>${entry.label}</span><span>${formatModifierPercent(entry.mult)}</span></div>`)
+      .join("")}
+    <div class="tile-combat-breakdown-row is-total"><span>Effective ${title}</span><span>${formatCombatPowerNumber(side.effective)}</span></div>
+  </div>
+`;
+
+const combatBreakdownHtml = (breakdown: TileCombatBreakdown): string => `
+  <div class="tile-combat-breakdown">
+    <div class="tile-combat-breakdown-title">How this win chance is calculated</div>
+    <div class="tile-combat-breakdown-hint">Base power matches your tech tab Attack/Defense — modifiers below are specific to this fight.</div>
+    ${combatBreakdownSideHtml("Attack", breakdown.attacker)}
+    ${combatBreakdownSideHtml("Defense", breakdown.defender)}
+    <div class="tile-combat-breakdown-formula">Win chance = Attack ÷ (Attack + Defense) = ${formatCombatPowerNumber(breakdown.attacker.effective)} ÷ (${formatCombatPowerNumber(breakdown.attacker.effective)} + ${formatCombatPowerNumber(breakdown.defender.effective)}) = ${Math.round(breakdown.winChance * 100)}%</div>
+  </div>
+`;
 
 const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "expand_here") return "⚐";
@@ -119,7 +163,7 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
           ${action.cost ? `<span class="tile-action-cost">${action.cost}</span>` : ""}
         </button>`
       )
-      .join("")}</div>`;
+      .join("")}</div>${view.combatBreakdown ? combatBreakdownHtml(view.combatBreakdown) : ""}`;
   }
   if (activeTab === "progress") {
     if (!view.progress) return `<div class="tile-menu-empty">Nothing is currently in progress on this tile.</div>`;
