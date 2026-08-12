@@ -20,6 +20,16 @@ export type GatewaySocketSession = {
   sessionId: string;
   playerId: string;
   nextClientSeq: number;
+  // Disjoint from nextClientSeq's range (which the client also mints values
+  // into) so a command the client never assigned a clientSeq to — e.g.
+  // WAYPOINT_ENQUEUE, see dev-queue-waypoint-message.ts — can never land on
+  // the same (player_id, client_seq) as an unrelated, independently-numbered
+  // client command. Before this existed both sides counted up from 1, and a
+  // background waypoint-queue resync racing a manual EXPAND click could
+  // collide on the same seq: persistQueuedCommand's UNIQUE-constraint
+  // fallback then treated the EXPAND as a duplicate of the waypoint command
+  // and silently dropped it before it ever reached the simulation.
+  nextServerAssignedClientSeq: number;
 };
 
 type SubmitFrontierCommandDeps = {
@@ -49,7 +59,8 @@ export const submitDurableCommand = async <TType extends ClientCommandEnvelope["
 ): Promise<void> => {
   const createCommandId = deps.createCommandId ?? (() => crypto.randomUUID());
   const now = deps.now ?? (() => Date.now());
-  const clientSeq = typeof message.clientSeq === "number" ? message.clientSeq : session.nextClientSeq;
+  const clientSeq =
+    typeof message.clientSeq === "number" ? message.clientSeq : (session.nextServerAssignedClientSeq -= 1);
   const envelope: ClientCommandEnvelope = {
     commandId: message.commandId ?? createCommandId(),
     clientSeq,
