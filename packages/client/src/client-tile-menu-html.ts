@@ -1,3 +1,4 @@
+import { COMBAT_WIN_CHANCE_EXPONENT } from "@border-empires/shared";
 import type { TileActionDef, TileCombatBreakdown, TileMenuTab, TileMenuView } from "./client-types.js";
 
 const formatCombatPowerNumber = (value: number): string => {
@@ -21,8 +22,8 @@ const formatModifierPercent = (mult: number): string => {
 // side's calculated base power (the same effective-base number the tech
 // tab's Attack/Defense chip shows — press that chip there for its own
 // infrastructure breakdown) plus the modifiers specific to this fight,
-// ending in the same atkEff/(atkEff+defEff) formula the server's win
-// chance actually uses.
+// ending in the same exponentiated-ratio formula (combatWinChance in
+// math.ts, COMBAT_WIN_CHANCE_EXPONENT) the server's win chance actually uses.
 const combatBreakdownSideHtml = (title: string, side: TileCombatBreakdown["attacker"]): string => `
   <div class="tile-combat-breakdown-side">
     <div class="tile-combat-breakdown-side-head"><span>${title}</span><strong>${formatCombatPowerNumber(side.effective)}</strong></div>
@@ -34,15 +35,19 @@ const combatBreakdownSideHtml = (title: string, side: TileCombatBreakdown["attac
   </div>
 `;
 
-const combatBreakdownHtml = (breakdown: TileCombatBreakdown): string => `
+const combatBreakdownHtml = (breakdown: TileCombatBreakdown): string => {
+  const atkPow = breakdown.attacker.effective ** COMBAT_WIN_CHANCE_EXPONENT;
+  const defPow = breakdown.defender.effective ** COMBAT_WIN_CHANCE_EXPONENT;
+  return `
   <div class="tile-combat-breakdown">
     <div class="tile-combat-breakdown-title">How this win chance is calculated</div>
     <div class="tile-combat-breakdown-hint">Base power matches your tech tab Attack/Defense — modifiers below are specific to this fight.</div>
     ${combatBreakdownSideHtml("Attack", breakdown.attacker)}
     ${combatBreakdownSideHtml("Defense", breakdown.defender)}
-    <div class="tile-combat-breakdown-formula">Win chance = Attack ÷ (Attack + Defense) = ${formatCombatPowerNumber(breakdown.attacker.effective)} ÷ (${formatCombatPowerNumber(breakdown.attacker.effective)} + ${formatCombatPowerNumber(breakdown.defender.effective)}) = ${Math.round(breakdown.winChance * 100)}%</div>
+    <div class="tile-combat-breakdown-formula">Win chance = Attack<sup>${COMBAT_WIN_CHANCE_EXPONENT}</sup> ÷ (Attack<sup>${COMBAT_WIN_CHANCE_EXPONENT}</sup> + Defense<sup>${COMBAT_WIN_CHANCE_EXPONENT}</sup>) = ${formatCombatPowerNumber(atkPow)} ÷ (${formatCombatPowerNumber(atkPow)} + ${formatCombatPowerNumber(defPow)}) = ${Math.round(breakdown.winChance * 100)}%</div>
   </div>
 `;
+};
 
 const actionIcon = (id: TileActionDef["id"]): string => {
   if (id === "expand_here") return "⚐";

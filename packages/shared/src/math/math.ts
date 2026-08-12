@@ -74,10 +74,20 @@ export const levelFromPoints = (points: number): number => {
   return Math.floor(LEVEL_CURVE_C * Math.log(points + 1));
 };
 
+// Combat odds use an exponentiated power ratio (Bradley-Terry style) rather
+// than a flat linear ratio, so a decisive power gap compounds toward
+// certainty instead of asymptoting slowly. With p=1 (the old behavior) a 2:1
+// power edge only ever bought 66.7% odds and a 9:1 edge was needed for 90%.
+// At p=2, 2:1 -> 80%, 4:1 -> 94%, matching the "overwhelming force should
+// feel overwhelming" intuition without a full attrition/HP rewrite.
+export const COMBAT_WIN_CHANCE_EXPONENT = 2;
+
 export const combatWinChance = (atkEff: number, defEff: number): number => {
   if (atkEff <= 0) return 0;
   if (defEff <= 0) return 1;
-  return atkEff / (atkEff + defEff);
+  const atkPow = atkEff ** COMBAT_WIN_CHANCE_EXPONENT;
+  const defPow = defEff ** COMBAT_WIN_CHANCE_EXPONENT;
+  return atkPow / (atkPow + defPow);
 };
 
 export const randomFactor = (): number => 0.95 + Math.random() * 0.1;
