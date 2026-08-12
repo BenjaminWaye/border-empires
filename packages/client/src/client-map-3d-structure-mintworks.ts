@@ -1,14 +1,20 @@
-// 3D Mintworks overlay — the empire's fundamental gold-minting workshop.
-// A compact dark-iron industrial hall whose centerpiece is a giant mechanical
-// coin press: two dark-iron gantry posts, a brass crossbeam, and a brass
-// stamping head driving a vertical piston + bright-brass die down onto an
-// iron platform. A large brass flywheel with spokes + hub sits beside the
-// press, small brass gears and a drive shaft couple it to the machinery, and
-// a compact furnace with a warm orange glow opening, brass feed pipes and a
-// short exhaust stack sits at the rear. Metal ingots, coin trays with stacked
-// coins, wooden coin crates (one open showing minted coin rolls) and a loading
-// ramp surround the hall. Reads at gameplay distance as: industrial workshop
-// + giant coin press + brass machinery + coin trays/crates = gold production.
+// 3D Mintworks overlay — the empire's engine of monetary wealth. A compact
+// dark-iron industrial hall, deliberately plain and bureaucratic, whose
+// centerpiece is a giant mechanical coin press rising through the open front:
+// two riveted gantry posts, a brass crossbeam bearing the imperial seal, and
+// a brass stamping head driving a vertical piston + bright-brass die down onto
+// an iron platform, with freshly stamped coins spilling onto a tray beneath.
+// A large brass flywheel with spokes + rim sits beside the press, coupled into
+// the machinery by a gear train (large/medium/small gears and teeth), a drive
+// shaft, secondary pistons, pressure gauges and control levers. The shell is
+// riveted: corner braces, a brass-collared chimney, and rivet lines along the
+// base and roof trim. A compact furnace glows warm orange at the rear with
+// brass feed pipes, coupling joints, an exhaust stack, and a bright ember
+// core visible in the opening. Bright ingots and cast blanks wait on the
+// front-left loading ramp, coin trays hold stacked minted coins, and wooden
+// coin crates (one open showing coin rolls) store the finished currency.
+// Reads at gameplay distance as: industrial workshop + giant coin press +
+// brass machinery + coin trays/crates = gold production.
 //
 // Built on the shared StructurePieceBuilder so mint pieces pool with the rest
 // of the economic-family instanced meshes; registered from
@@ -18,7 +24,9 @@ import {
   BoxGeometry,
   ConeGeometry,
   CylinderGeometry,
-  MeshStandardMaterial
+  MeshStandardMaterial,
+  OctahedronGeometry,
+  TorusGeometry
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
 import type { EconomicStructureLayout } from "./client-map-3d-structure-economic.js";
@@ -44,6 +52,8 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
   // the glow layer behind it (mwWindowGlow) reads the amber through a dark
   // pane, and opaque panels avoid the sorted transparent render pass.
   const glassMaterial = new MeshStandardMaterial({ color: "#3a4048", roughness: 0.35, metalness: 0.4, flatShading: true });
+  // Charcoal rivets — fastener detail on the base, roof trim and walls.
+  const rivetMaterial = new MeshStandardMaterial({ color: "#1f1d1b", roughness: 0.6, metalness: 0.35, flatShading: true });
 
   // ─── Geometries ────────────────────────────────────────────────────────
   // Workshop shell (base sits on the tile; walls + roof above it).
@@ -93,6 +103,13 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
   const rampGeo = new BoxGeometry(0.15, 0.04, 0.20);
   const sealGeo = new CylinderGeometry(0.03, 0.03, 0.015, 12);
   const sealInnerGeo = new CylinderGeometry(0.018, 0.018, 0.015, 8);
+  // Fastener + mechanical ring details (rivets, collar bands, flywheel rim).
+  const rivetGeo = new BoxGeometry(0.014, 0.01, 0.014);
+  const collarGeo = new TorusGeometry(0.045, 0.01, 6, 12);
+  const rimGeo = new TorusGeometry(0.185, 0.02, 6, 20);
+  const braceGeo = new CylinderGeometry(0.012, 0.012, 0.32, 6);
+  const blankGeo = new OctahedronGeometry(0.018, 0);
+  const emberGeo = new OctahedronGeometry(0.02, 0);
 
   // ─── Slots ─────────────────────────────────────────────────────────────
   // Workshop shell.
@@ -143,6 +160,13 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
   builder.makeSlot("mwRamp", rampGeo, greyMaterial, C);
   builder.makeSlot("mwSeal", sealGeo, brassMaterial, C);
   builder.makeSlot("mwSealInner", sealInnerGeo, brightBrassMaterial, C);
+  // Fastener + mechanical ring details.
+  builder.makeSlot("mwRivet", rivetGeo, rivetMaterial, C * 12);
+  builder.makeSlot("mwCollar", collarGeo, brassMaterial, C * 4);
+  builder.makeSlot("mwRim", rimGeo, brassMaterial, C);
+  builder.makeSlot("mwBrace", braceGeo, ironMaterial, C * 4);
+  builder.makeSlot("mwBlank", blankGeo, brightBrassMaterial, C * 4);
+  builder.makeSlot("mwEmber", emberGeo, glowMaterial, C * 2);
 
   // ─── Placement ─────────────────────────────────────────────────────────
   const addMintworks: EconomicStructureLayout = (sx, sy, sz) => {
@@ -154,15 +178,28 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
     builder.addPiece("mwWallSide", sx, sy, sz, 0.24, 0.23, 0);
     builder.addPiece("mwWallBack", sx, sy, sz, 0, 0.23, -0.18);
     builder.addPiece("mwWallFront", sx, sy, sz, 0, 0.23, 0.18);
+    // Reinforced corner braces leaning against the front walls.
+    builder.addPiece("mwBrace", sx, sy, sz, -0.20, 0.24, 0.10, 1, 1, 1, 0, 0, -0.9);
+    builder.addPiece("mwBrace", sx, sy, sz, 0.20, 0.24, 0.10, 1, 1, 1, 0, 0, 0.9);
     builder.addPiece("mwRoof", sx, sy, sz, 0, 0.37, 0);
     builder.addPiece("mwRoofTrim", sx, sy, sz, 0, 0.405, 0);
     builder.addPiece("mwChimney", sx, sy, sz, 0.12, 0.52, -0.12);
     builder.addPiece("mwChimneyCap", sx, sy, sz, 0.12, 0.66, -0.12);
+    builder.addPiece("mwCollar", sx, sy, sz, 0.12, 0.56, -0.12, 1, 1, 1, 0, PI_2, 0);
     builder.addPiece("mwDoor", sx, sy, sz, 0, 0.20, 0.205);
     builder.addPiece("mwWindow", sx, sy, sz, -0.16, 0.20, 0.205);
     builder.addPiece("mwWindowGlow", sx, sy, sz, -0.16, 0.20, 0.198);
     builder.addPiece("mwWindow", sx, sy, sz, 0.16, 0.20, 0.205);
     builder.addPiece("mwWindowGlow", sx, sy, sz, 0.16, 0.20, 0.198);
+    // Rivet lines along the base step and roof trim corners.
+    builder.addPiece("mwRivet", sx, sy, sz, -0.20, 0.105, 0.19);
+    builder.addPiece("mwRivet", sx, sy, sz, 0.20, 0.105, 0.19);
+    builder.addPiece("mwRivet", sx, sy, sz, -0.20, 0.105, -0.19);
+    builder.addPiece("mwRivet", sx, sy, sz, 0.20, 0.105, -0.19);
+    builder.addPiece("mwRivet", sx, sy, sz, -0.24, 0.41, 0.22);
+    builder.addPiece("mwRivet", sx, sy, sz, 0.24, 0.41, 0.22);
+    builder.addPiece("mwRivet", sx, sy, sz, -0.24, 0.41, -0.22);
+    builder.addPiece("mwRivet", sx, sy, sz, 0.24, 0.41, -0.22);
 
     // Giant central coin press rising above the front wall: two dark-iron
     // gantry posts, a brass crossbeam, brass stamping head driving the
@@ -175,6 +212,10 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
     builder.addPiece("mwPressDie", sx, sy, sz, 0, 0.22, 0.23);
     builder.addPiece("mwPressPlatform", sx, sy, sz, 0, 0.185, 0.23);
     builder.addPiece("mwPressTray", sx, sy, sz, 0, 0.135, 0.28);
+    // Raw coin blanks resting at the press foot, awaiting stamping.
+    builder.addPiece("mwBlank", sx, sy, sz, -0.05, 0.16, 0.27);
+    builder.addPiece("mwBlank", sx, sy, sz, 0.05, 0.17, 0.26);
+    builder.addPiece("mwBlank", sx, sy, sz, 0.02, 0.155, 0.24);
     // Freshly minted coins emerging on the press tray.
     builder.addPiece("mwCoin", sx, sy, sz, -0.04, 0.148, 0.28);
     builder.addPiece("mwCoin", sx, sy, sz, 0.04, 0.148, 0.28);
@@ -185,11 +226,14 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
     builder.addPiece("mwSeal", sx, sy, sz, 0, 0.475, 0.272, 1, 1, 1, 0, PI_2, 0);
     builder.addPiece("mwSealInner", sx, sy, sz, 0, 0.475, 0.275, 1, 1, 1, 0, PI_2, 0);
 
-    // Large brass flywheel beside the press with spokes + hub.
+    // Large brass flywheel beside the press with spokes + hub, ringed by a
+    // heavier brass rim so it reads as a flywheel rather than a coin. The
+    // disc (rotZ) lies in the YZ plane, so spokes and rim share that plane.
     builder.addPiece("mwFlywheel", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, 0, 0, PI_2);
-    builder.addPiece("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, 0, PI_2, 0);
-    builder.addPiece("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, 0, PI_2, PI_2);
+    builder.addPiece("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, 0, 0, PI_2);
+    builder.addPiece("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, PI_2, 0, 0);
     builder.addPiece("mwHub", sx, sy, sz, -0.26, 0.26, 0.18, 1, 1, 1, 0, 0, PI_2);
+    builder.addPiece("mwRim", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, PI_2, 0, 0);
 
     // Brass gear train on the right side of the press + drive shaft.
     builder.addPiece("mwGearLarge", sx, sy, sz, 0.30, 0.24, 0.20, 1, 1, 1, 0, 0, PI_2);
@@ -210,7 +254,9 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
     // and brass feed pipes.
     builder.addPiece("mwFurnaceBody", sx, sy, sz, -0.20, 0.19, -0.14);
     builder.addPiece("mwFurnaceOpening", sx, sy, sz, -0.20, 0.17, -0.055);
+    builder.addPiece("mwEmber", sx, sy, sz, -0.20, 0.17, -0.045);
     builder.addPiece("mwExhaust", sx, sy, sz, -0.20, 0.35, -0.14);
+    builder.addPiece("mwCollar", sx, sy, sz, -0.20, 0.40, -0.14, 1, 1, 1, 0, PI_2, 0);
     builder.addPiece("mwFurnacePipe", sx, sy, sz, -0.16, 0.26, -0.19, 1, 1, 1, 0, 0, PI_2);
     builder.addPiece("mwFurnacePipe", sx, sy, sz, -0.08, 0.30, -0.12, 1, 1, 1, 0, 0, PI_2);
 
