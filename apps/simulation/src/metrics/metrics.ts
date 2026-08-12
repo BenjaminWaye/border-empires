@@ -93,6 +93,14 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
   // per-player O(territory) planner sync cost — the key scale signal to correlate against event-loop lag).
   let simOwnedTilesTotal = 0;
   let simMaxEmpireTiles = 0;
+  // Boot-time manpowerCapSnapshot corrections — a recovered player whose
+  // persisted manpowerCapSnapshot disagreed with what boot hydration
+  // computed once tiles were fully loaded (see the applyManpowerRegen loop
+  // near the end of SimulationRuntime's constructor, runtime.ts). Should
+  // track ~0 to ~playerCount once per boot and never grow between boots. A
+  // count that keeps climbing during steady-state (not just at startup)
+  // means the guard is misfiring; see feedback_counter_on_skip_paths.md.
+  let simManpowerCapBootstrapRestampedTotal = 0;
   const simAiBroadFallbackSkipped = new Map<string, number>();
   const simAiNarrowAnalyzeCapped = new Map<string, number>();
   const simAiTickThrottledTotal = new Map<AiTickThrottleReason, number>(
@@ -148,6 +156,7 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     simEventLoopMaxMs,
     simOwnedTilesTotal,
     simMaxEmpireTiles,
+    simManpowerCapBootstrapRestampedTotal,
     simEventLoopDelayMs: quantileSample(simEventLoopDelayMs),
     simTickDurationMs: {
       ai: quantileSample(simTickDurationMs.get("ai") ?? []),
@@ -264,6 +273,9 @@ export const createSimulationMetrics = (sampleLimit = 512) => {
     },
     setSimMaxEmpireTiles(value: number): void {
       simMaxEmpireTiles = clampMetric(value);
+    },
+    setSimManpowerCapBootstrapRestampedTotal(value: number): void {
+      simManpowerCapBootstrapRestampedTotal = clampMetric(value);
     },
     observeSimEventLoopDelayMs(value: number): void {
       appendSample(simEventLoopDelayMs, value, limit);

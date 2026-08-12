@@ -20,6 +20,8 @@ export const renderPrometheus = (sample: SimulationMetricsSnapshot): string => {
     `sim_owned_tiles_total ${formatMetricValue(sample.simOwnedTilesTotal)}`,
     "# TYPE sim_max_empire_tiles gauge",
     `sim_max_empire_tiles ${formatMetricValue(sample.simMaxEmpireTiles)}`,
+    "# TYPE sim_manpower_cap_bootstrap_restamped_total counter",
+    `sim_manpower_cap_bootstrap_restamped_total ${formatMetricValue(sample.simManpowerCapBootstrapRestampedTotal)}`,
     "# TYPE sim_event_loop_delay_ms gauge",
     `sim_event_loop_delay_ms{quantile=\"p50\"} ${formatMetricValue(sample.simEventLoopDelayMs.p50)}`,
     `sim_event_loop_delay_ms{quantile=\"p95\"} ${formatMetricValue(sample.simEventLoopDelayMs.p95)}`,
