@@ -28,6 +28,7 @@ export type RuntimePlayerStateUpdateContext = {
   pendingSettlementsSnapshotForPlayer: (playerId: string) => Array<{ x: number; y: number; startedAt: number; resolvesAt: number }>;
   autoSettlementQueueForPlayer: (playerId: string) => Array<{ x: number; y: number }>;
   activeDevelopmentProcessCountForPlayer: (playerId: string) => number;
+  weaponsFactoryCountsForPlayer: (playerId: string) => { titanium: number; umbrite: number };
 };
 
 /**
@@ -64,7 +65,7 @@ export function emitPlayerStateUpdate(
       type: "PLAYER_UPDATE",
       gold: player.points,
       mods: player.mods ?? recomputeMods(player),
-      modBreakdown: buildModBreakdownForPlayer(player),
+      modBreakdown: buildModBreakdownForPlayer(player, context.weaponsFactoryCountsForPlayer(playerId)),
       manpower: player.manpower,
       manpowerCap: context.playerManpowerCap(player),
       manpowerRegenPerMinute: context.playerManpowerRegenPerMinute(player),
