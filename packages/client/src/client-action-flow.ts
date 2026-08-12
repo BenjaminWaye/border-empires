@@ -437,7 +437,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     dropQueuedTargetKeyIfAbsentFromModule(state, targetKey, { keyFor });
 
   const processPendingMusterAttacks = (): void =>
-    processPendingMusterAttacksFromModule(state, { keyFor, pushFeed });
+    processPendingMusterAttacksFromModule(state, { keyFor, isAdjacent, pushFeed });
 
   const reconcileActionQueue = (): void => {
     reconcileActionQueueFromModule(state, { keyFor, pickOriginForTarget, clearOptimisticTileState });
