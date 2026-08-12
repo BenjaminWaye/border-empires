@@ -114,6 +114,28 @@ describe("INIT camera-restore regression", () => {
     expect(state.homeTile).toEqual({ x: 40, y: 40 });
   });
 
+  it("does not stomp a URL-linked selected tile (attack alert deep-link) with the home tile on first INIT", () => {
+    // Mirrors readUrlTileFocus()/cameraLocationInitialState() in
+    // client-camera-storage.ts: a "Go to tile" link pre-populates both
+    // camX/camY and selected before the socket ever connects, and reuses
+    // cameraRestoredFromStorage=true as the one-shot skip flag.
+    const state = createState();
+    state.camX = 141;
+    state.camY = 174;
+    state.selected = { x: 141, y: 174 };
+    state.cameraRestoredFromStorage = true;
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    sendInit(ws);
+
+    expect(state.camX).toBe(141);
+    expect(state.camY).toBe(174);
+    expect(state.selected).toEqual({ x: 141, y: 174 });
+    // homeTile itself should still be recorded.
+    expect(state.homeTile).toEqual({ x: 40, y: 40 });
+  });
+
   it("still centers on the home tile when there is nothing to restore (unchanged default behavior)", () => {
     const state = createState();
     state.cameraRestoredFromStorage = false;
