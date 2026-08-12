@@ -31,6 +31,33 @@ describe("lag diagnostics", () => {
     expect(ring[0]).toMatchObject({ level: "warn", event: "simulation_command_apply_slow", phase: "apply", durationMs: 400 });
   });
 
+  it("carries mainThreadTasks and gcPausesDuringBlock through for event_loop_blocked", () => {
+    const { recordLagDiagnostic, getLagDiagRing } = createLagDiagnostics({ emitLog: () => undefined });
+
+    const mainThreadTasks = [{ phase: "sqlite_writer_postmessage_clone", durationMs: 5200 }];
+    const gcPausesDuringBlock = [{ at: 123, durationMs: 300, gcKind: "mark-sweep-compact" }];
+    recordLagDiagnostic("warn", "event_loop_blocked", {
+      phase: "event_loop_blocked",
+      durationMs: 5900,
+      mainThreadTasks,
+      gcPausesDuringBlock
+    });
+
+    const ring = getLagDiagRing();
+    expect(ring).toHaveLength(1);
+    expect(ring[0]).toMatchObject({ mainThreadTasks, gcPausesDuringBlock });
+  });
+
+  it("omits mainThreadTasks/gcPausesDuringBlock when the payload doesn't carry arrays", () => {
+    const { recordLagDiagnostic, getLagDiagRing } = createLagDiagnostics({ emitLog: () => undefined });
+
+    recordLagDiagnostic("warn", "simulation_persistence_slow", { phase: "event_store", durationMs: 2640 });
+
+    const ring = getLagDiagRing();
+    expect(ring[0]).not.toHaveProperty("mainThreadTasks");
+    expect(ring[0]).not.toHaveProperty("gcPausesDuringBlock");
+  });
+
   it("caps the ring buffer at 50 entries, dropping the oldest", () => {
     const { recordLagDiagnostic, getLagDiagRing } = createLagDiagnostics({ emitLog: () => undefined });
 

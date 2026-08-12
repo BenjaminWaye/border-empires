@@ -10,6 +10,17 @@ export type LagDiagEntry = {
   phase?: unknown;
   durationMs?: unknown;
   gcKind?: unknown;
+  // event_loop_blocked-only: what the main-thread task tracker and GC
+  // observer saw during the stalled window. buildEventLoopBlockedPayload
+  // already computes both (sorted/capped) — without carrying them into the
+  // ring, the live /admin/runtime/debug-bundle and the client's downloaded
+  // debug report can show THAT the thread blocked and THAT a slow SQLite
+  // write happened nearby, but never whether the write was the cause or the
+  // block was GC. The full payload only reaches stdout (emitLog), which
+  // scrolls out of the flyctl buffer in minutes — see
+  // event-loop-block-diagnostic.ts.
+  mainThreadTasks?: unknown;
+  gcPausesDuringBlock?: unknown;
 };
 
 const LAG_DIAG_RING_CAP = 50;
@@ -30,7 +41,9 @@ export const createLagDiagnostics = (options: {
       event,
       ...(payload.phase !== undefined ? { phase: payload.phase } : {}),
       ...(typeof payload.durationMs === "number" ? { durationMs: payload.durationMs } : {}),
-      ...(typeof payload.gcKind === "string" ? { gcKind: payload.gcKind } : {})
+      ...(typeof payload.gcKind === "string" ? { gcKind: payload.gcKind } : {}),
+      ...(Array.isArray(payload.mainThreadTasks) ? { mainThreadTasks: payload.mainThreadTasks } : {}),
+      ...(Array.isArray(payload.gcPausesDuringBlock) ? { gcPausesDuringBlock: payload.gcPausesDuringBlock } : {})
     });
     if (lagDiagRing.length > LAG_DIAG_RING_CAP) lagDiagRing.shift();
   };
