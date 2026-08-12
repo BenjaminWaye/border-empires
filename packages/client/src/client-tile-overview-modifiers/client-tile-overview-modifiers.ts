@@ -26,20 +26,16 @@ const percentLabel = (value: number): string => `${value >= 0 ? "+" : "-"}${Math
 
 const connectedLabel = (count: number): string => `${count} connected ${count === 1 ? "town" : "towns"}`;
 
-// `structureLabel` is the building's display name (e.g. "Titanium Bastion");
-// each catalog StructureModifier already carries its own stat name
-// (statLabel, e.g. "Defense") — for buildings with a single modifier line
-// the building name reads better as the reason, for buildings with several
-// the stat name disambiguates them.
-// "Defense"/"Offense" stat lines read naturally with the stat word folded
-// into the effect text (e.g. "2.5x defense") rather than split across
-// reason/effect — matches the wording used before this catalog existed.
-const FOLDED_STAT_WORDS: ReadonlySet<string> = new Set(["Defense", "Offense"]);
-
+// Unified "label: value" style (white stat name, colored value) — every
+// modifier line uses the catalog's own stat name (statLabel) as the label,
+// same as the multi-modifier and town-aggregate lines. `structureLabel`
+// (the building's display name) only gets folded in as a prefix when a
+// single building contributes more than one modifier line, to disambiguate
+// which line belongs to which stat.
 const toTileOverviewModifiers = (structureLabel: string, modifiers: StructureModifier[]): TileOverviewModifier[] =>
   modifiers.map((m) => ({
-    reason: modifiers.length > 1 ? `${structureLabel} — ${m.statLabel}` : structureLabel,
-    effect: modifiers.length === 1 && FOLDED_STAT_WORDS.has(m.statLabel) ? `${m.valueText} ${m.statLabel.toLowerCase()}` : m.valueText,
+    reason: modifiers.length > 1 ? `${structureLabel} — ${m.statLabel}` : m.statLabel,
+    effect: m.valueText,
     tone: m.tone
   }));
 
