@@ -1213,7 +1213,6 @@ describe("client network regression guards", () => {
     expect(deps.clearSettlementProgressByKey).toHaveBeenCalledWith("12,18");
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
-    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
     expect(consoleErrorSpy).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
@@ -1244,7 +1243,6 @@ describe("client network regression guards", () => {
     expect(state.activeDevelopmentProcessCount).toBe(3);
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
-    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
     expect(consoleErrorSpy).not.toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
@@ -1310,7 +1308,6 @@ describe("client network regression guards", () => {
 
     expect(state.settleProgressByTile.has("12,18")).toBe(false);
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
-    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
   });
 
   it("handles non-busy settlement failures without crashing when settlement clear wiring is missing", () => {
@@ -1375,7 +1372,6 @@ describe("client network regression guards", () => {
     expect(state.settleProgressByTile.has("12,18")).toBe(false);
     expect(state.developmentQueue).toEqual([{ kind: "SETTLE", x: 12, y: 18, tileKey: "12,18", label: "Settlement at (12, 18)" }]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
-    expect(pushFeed).toHaveBeenCalledWith("Settlement at (12, 18) queued. It will start when a development slot frees up.", "combat", "info");
   });
 
   it("does not crash on settlement errors when alert and queue callbacks are missing", () => {
@@ -1453,7 +1449,6 @@ describe("client network regression guards", () => {
       }
     ]);
     expect(showCaptureAlert).not.toHaveBeenCalled();
-    expect(pushFeed).toHaveBeenCalledWith("Fort at (33, 44) queued. It will start when a development slot frees up.", "combat", "info");
   });
 
   it("keeps the socket-connected bootstrap state and schedules auth retry when the server reports SERVER_STARTING", () => {

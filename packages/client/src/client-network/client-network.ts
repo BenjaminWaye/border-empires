@@ -3,7 +3,7 @@ import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
-import { EVENT_LOG_TYPES_MOVED_TO_FEED } from "../client-event-log-html.js";
+import { feedMappingForEventType } from "../client-event-log-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
@@ -1284,9 +1284,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           for (const entry of incomingEventLog) {
             if (state.eventLogFeedSeenIds.has(entry.id)) continue;
             state.eventLogFeedSeenIds.add(entry.id);
-            if (EVENT_LOG_TYPES_MOVED_TO_FEED.has(entry.type)) {
-              appendFeedEntry({ text: entry.text, type: "tech", severity: "success", at: entry.occurredAt });
-            }
+            const { type, severity } = feedMappingForEventType(entry.type);
+            appendFeedEntry({ text: entry.text, type, severity, at: entry.occurredAt });
           }
         }
         state.eventLog = incomingEventLog;
@@ -2193,7 +2192,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           ...(msg.strategicResources as Partial<typeof state.strategicResources>)
         };
       }
-      pushFeed(`Domain chosen: ${state.domainIds[state.domainIds.length - 1] ?? "unknown"}`, "tech", "success");
       renderHud();
       return;
     }

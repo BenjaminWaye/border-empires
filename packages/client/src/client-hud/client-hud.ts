@@ -8,7 +8,7 @@ import { revealEmpireStatsDossierHtml } from "../client-empire-intel/client-empi
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY, guideSteps } from "../client-constants.js";
 import { announceDebugTileState, debugEnabledForAccount, debugTileLoggingEnabled, fogRevealLog, setDebugTileKey, setDebugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { renderDefensibilityPanelHtml } from "../client-defensibility-html/client-defensibility-html.js";
-import { renderEventLogPanelHtml } from "../client-event-log-html.js"; import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
+import { isIntegrityWarningDismissed, wireIntegrityWarningDismissButtons } from "./client-integrity-warning-storage.js";
 import { exposedSidesForTile, isOwnedSettledLandTile } from "../client-defensibility-tile.js";
 import type { initClientDom } from "../client-dom.js";
 import { renderEconomyPanelHtml } from "../client-economy-html/client-economy-html.js";
@@ -974,7 +974,6 @@ export const renderClientHud = (deps: HudDeps): void => {
   dom.panelDomainsContentEl.innerHTML = `
     <div id="domains-overview-content">
       ${safeValue("renderDomainProgressCard", fallbackCard("Sharding progress"), () => deps.renderDomainProgressCard())}
-      ${safeValue("renderEventLogPanelHtml", fallbackCard("Recent Events"), () => renderEventLogPanelHtml(state.eventLog, Date.now()))}
       ${safeValue("renderDomainChoiceGrid", fallbackCard("Sharding choices"), () => deps.renderDomainChoiceGrid())}
       ${safeValue("domainOwnedHtml", fallbackCard("Owned shards"), () => deps.domainOwnedHtml(state.domainCatalog, state.domainIds, state.chosenTrickleResource))}
     </div>

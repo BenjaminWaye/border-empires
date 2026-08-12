@@ -323,7 +323,6 @@ export const queueDevelopmentAction = (
   }
 ): boolean => {
   if (queuedDevelopmentActionExists(state, entry.tileKey, entry.kind)) {
-    deps.pushFeed(`${entry.label} is already queued.`, "combat", "warn");
     deps.renderHud();
     return false;
   }
@@ -339,7 +338,6 @@ export const queueDevelopmentAction = (
   state.developmentQueue.push(entry);
   persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
   if (position < DEV_QUEUE_SERVER_CAP) deps.sendGameMessage?.(devQueueEnqueueWirePayload(entry));
-  deps.pushFeed(`${entry.label} queued. It will start when a development slot frees up.`, "combat", "info");
   deps.renderHud();
   return true;
 };

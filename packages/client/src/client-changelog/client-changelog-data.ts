@@ -22,6 +22,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786510994546, // 2026.08.12.1
+    introducedIn: "2026.08.12.1",
+    title: "Merged the Shard tab's Recent Events into the Activity Feed, and dropped noisy self-action entries",
+    why: "The Shard tab had its own 'Recent Events' panel (town captures, levy hits, monument/wonder claims) that duplicated the Activity Feed instead of feeding it, so players had two places to check. Separately, several self-initiated, non-war actions — choosing a domain, a redundant 'already sending' guard, and every development-queue enqueue — were pushing feed entries that told the player nothing they didn't already see happen on their own screen.",
+    changes: [
+      "The Shard tab no longer has its own 'Recent Events' card; all server-pushed events (town losses, Imperial Exchange Levy hits/casts, monument and natural wonder claims) now appear in the Activity Feed instead.",
+      "Removed the 'Domain chosen: ...', 'Already sending a domain choice...', '... is already queued.', and '... queued. It will start when a development slot frees up.' Activity Feed entries — they fired on your own clicks and added no information beyond what was already visible."
+    ]
+  },
+  {
     createdAt: 1786482366157, // 2026.08.11.9
     introducedIn: "2026.08.11.9",
     title: "Fixed: Build Titanium/Umbrite Weapons Factory rejected by the server with BAD_MSG",

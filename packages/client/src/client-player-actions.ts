@@ -135,7 +135,6 @@ export const chooseDomainFromUi = (domainIdRaw: string | undefined, deps: Player
     return;
   }
   if (deps.state.pendingDomainUnlockId) {
-    deps.pushFeed("Already sending a domain choice. Waiting for server confirmation...", "tech", "warn");
     return;
   }
   const domain = deps.state.domainCatalog.find((item) => item.id === domainId);
