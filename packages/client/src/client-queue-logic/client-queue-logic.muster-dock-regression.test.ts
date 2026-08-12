@@ -9,7 +9,7 @@ vi.hoisted(() => {
 
 import { MUSTER_ATTACK_COST } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
-import { processActionQueue, processPendingMusterAttacks } from "./client-queue-logic.js";
+import { processActionQueue } from "./client-queue-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { Tile } from "../client-types.js";
 
@@ -27,7 +27,7 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
   // flag fills to MUSTER_ATTACK_COST — and the attack must actually fire
   // instead of being parked again by a raw-distance range check that a sea
   // crossing can never satisfy.
-  it("queues (does not re-park) an attack on a dock-linked target once the origin dock's muster is ready", () => {
+  it("dispatches (does not park) an attack on a dock-linked target once the origin dock's muster is ready", () => {
     const state = createInitialState();
     state.authSessionReady = true;
     state.me = "me";
@@ -54,7 +54,7 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     const sendSetMuster = vi.fn();
     const sendAttack = vi.fn();
 
-    const started = processActionQueue(state, {
+    processActionQueue(state, {
       ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
@@ -69,32 +69,17 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
       sendAttack
     });
 
-    // Must not re-park behind a new/duplicate muster flag — the whole point
-    // of the bug is that this kept happening forever instead of dispatching.
-    expect(state.pendingMusterAttacks).toHaveLength(1);
-    expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 300, targetY: 300, musterTileKey: "5,5" });
-    expect(sendSetMuster).not.toHaveBeenCalled();
-
-    // Attack is queued, not started immediately
-    expect(started).toBe(false);
-
-    // Now run processPendingMusterAttacks - it should promote the attack to actionQueue
-    processPendingMusterAttacks(state, {
-      keyFor: (x, y) => `${x},${y}`,
-      pushFeed: vi.fn()
-    });
-
-    // Attack promoted to real action queue
-    expect(state.actionQueue).toHaveLength(1);
-    expect(state.actionQueue[0]).toMatchObject({ x: 300, y: 300 });
-    expect(state.queuedTargetKeys.has("300,300")).toBe(true);
+    // Must not park behind a new/duplicate muster flag — the whole point of
+    // the bug was that this kept happening forever instead of dispatching.
     expect(state.pendingMusterAttacks).toHaveLength(0);
+    expect(sendSetMuster).not.toHaveBeenCalled();
+    expect(sendAttack).toHaveBeenCalledWith(5, 5, 300, 300, expect.any(String), expect.any(Number));
   });
 
   // Regression for: Group E — independent muster flag cooldowns. Two flags
-  // funding two different attacks must both queue in the same queue pass,
-  // each tracked under its own flag tile key.
-  it("queues two different flags' attacks independently in a single queue pass", () => {
+  // funding two different attacks must both dispatch in the same queue pass,
+  // each from its own flag tile.
+  it("dispatches two different flags' attacks independently in a single queue pass", () => {
     const state = createInitialState();
     state.authSessionReady = true;
     state.me = "me";
@@ -118,7 +103,9 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     const pickOriginForTarget = (x: number, y: number): Tile | undefined =>
       x === 1 && y === 0 ? state.tiles.get("0,0") : x === 51 && y === 50 ? state.tiles.get("50,50") : undefined;
 
-    const started = processActionQueue(state, {
+    const sendAttack = vi.fn();
+
+    processActionQueue(state, {
       ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
       authSessionReady: true,
       keyFor: (x, y) => `${x},${y}`,
@@ -130,25 +117,12 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
       pushFeed: vi.fn(),
       renderHud: vi.fn(),
       sendSetMuster: vi.fn(),
-      sendAttack: vi.fn()
+      sendAttack
     });
 
-    // Both attacks should be queued in pendingMusterAttacks
-    expect(started).toBe(false);
-    expect(state.pendingMusterAttacks).toHaveLength(2);
-    expect(state.pendingMusterAttacks.some(e => e.targetX === 1 && e.targetY === 0 && e.musterTileKey === "0,0")).toBe(true);
-    expect(state.pendingMusterAttacks.some(e => e.targetX === 51 && e.targetY === 50 && e.musterTileKey === "50,50")).toBe(true);
-
-    // actionInFlight should be false since nothing was sent
-    expect(state.actionInFlight).toBe(false);
-
-    // Run processPendingMusterAttacks to promote both
-    processPendingMusterAttacks(state, {
-      keyFor: (x, y) => `${x},${y}`,
-      pushFeed: vi.fn()
-    });
-
-    expect(state.actionQueue).toHaveLength(2);
+    // Both attacks should dispatch immediately, each from its own flag.
     expect(state.pendingMusterAttacks).toHaveLength(0);
+    expect(sendAttack).toHaveBeenCalledWith(0, 0, 1, 0, expect.any(String), expect.any(Number));
+    expect(sendAttack).toHaveBeenCalledWith(50, 50, 51, 50, expect.any(String), expect.any(Number));
   });
 });
