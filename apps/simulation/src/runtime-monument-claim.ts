@@ -15,7 +15,9 @@ export function announceMonumentClaim(
   context: RuntimeStructureCommandContext,
   baseType: MonumentalStructureType,
   winnerId: string,
-  commandId: string
+  commandId: string,
+  x?: number,
+  y?: number
 ): void {
   const winnerName = displayNameForOwnershipChange(winnerId, context.players);
   const label = structureLabel(baseType).replace(/\b\w/g, (c) => c.toUpperCase());
@@ -27,7 +29,7 @@ export function announceMonumentClaim(
 
   for (const player of context.players.values()) {
     if (player.id === winnerId) {
-      appendEntry(context, player, "MONUMENT_CLAIMED", `Your ${label} is complete — claimed for the season. No other empire may build one.`, context.now());
+      appendEntry(context, player, "MONUMENT_CLAIMED", `Your ${label} is complete — claimed for the season. No other empire may build one.`, context.now(), x, y);
       continue;
     }
     if (loserIds.has(player.id)) {
@@ -40,11 +42,13 @@ export function announceMonumentClaim(
         player,
         "MONUMENT_LOST_TO_RIVAL",
         `${winnerName} completed the ${label} first. Your invested manpower (${refundAmount.toFixed(0)}) has been refunded.`,
-        context.now()
+        context.now(),
+        x,
+        y
       );
       continue;
     }
-    appendEntry(context, player, "MONUMENT_CLAIMED", `${winnerName} has completed the ${label} — it is now claimed for the season.`, context.now());
+    appendEntry(context, player, "MONUMENT_CLAIMED", `${winnerName} has completed the ${label} — it is now claimed for the season.`, context.now(), x, y);
   }
 }
 
@@ -74,7 +78,9 @@ export function resolveLostMonumentAssemblyRace(
       actor,
       "MONUMENT_LOST_TO_RIVAL",
       `${winnerName} completed the ${label} moments before yours finished. Your investment has been refunded.`,
-      context.now()
+      context.now(),
+      latest.x,
+      latest.y
     );
   }
   const { economicStructure: _drop, ...tileWithoutMonument } = latest;
@@ -90,8 +96,10 @@ function appendEntry(
   player: DomainPlayer,
   type: "MONUMENT_CLAIMED" | "MONUMENT_LOST_TO_RIVAL",
   text: string,
-  occurredAt: number
+  occurredAt: number,
+  x?: number,
+  y?: number
 ): void {
   if (player.id.startsWith("barbarian-") || player.isAi) return;
-  context.appendPlayerEventLogEntry(player, { type, text, occurredAt });
+  context.appendPlayerEventLogEntry(player, { type, text, occurredAt, ...(typeof x === "number" && typeof y === "number" ? { x, y } : {}) });
 }

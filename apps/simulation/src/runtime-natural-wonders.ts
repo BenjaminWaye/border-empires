@@ -52,7 +52,13 @@ export const announceNaturalWonderClaim = (tile: DomainTileState, players: Map<s
   if (!tile.naturalWonder || !tile.ownerId) return;
   const player = players.get(tile.ownerId);
   if (!player || player.id.startsWith("barbarian-") || player.isAi) return;
-  appendPlayerEventLogEntry(player, { type: "NATURAL_WONDER_CLAIMED", text: naturalWonderClaimEventText(tile.naturalWonder.type), occurredAt: nowMs });
+  appendPlayerEventLogEntry(player, {
+    type: "NATURAL_WONDER_CLAIMED",
+    text: naturalWonderClaimEventText(tile.naturalWonder.type),
+    occurredAt: nowMs,
+    x: tile.x,
+    y: tile.y
+  });
 };
 
 // Foundry Heart: +1 of every strategic resource slot for the controller.

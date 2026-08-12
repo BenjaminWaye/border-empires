@@ -344,7 +344,7 @@ export type PlayerSubscriptionSnapshot = {
     // display. type is a free string, not a union, so new event types the
     // server adds don't require a client-protocol version bump to deliver —
     // an unrecognized type just falls back to a generic icon client-side.
-    eventLog?: Array<{ id: string; type: string; text: string; occurredAt: number }>;
+    eventLog?: Array<{ id: string; type: string; text: string; occurredAt: number; x?: number; y?: number }>;
     mods?: Record<"attack" | "defense" | "income" | "vision", number>;
     modBreakdown?: Record<"attack" | "defense" | "income" | "vision", Array<{ label: string; mult: number }>>;
   };

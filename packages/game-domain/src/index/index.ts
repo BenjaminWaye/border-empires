@@ -109,6 +109,10 @@ export type PlayerEventLogEntry = {
   type: PlayerEventLogEntryType;
   text: string;
   occurredAt: number;
+  // Optional tile the event happened at, so the client can offer a "Go to
+  // tile" button. Optional because not every event type is tile-scoped.
+  x?: number;
+  y?: number;
 };
 
 export const PLAYER_EVENT_LOG_MAX_ENTRIES = 50;
@@ -120,14 +124,15 @@ export const PLAYER_EVENT_LOG_MAX_ENTRIES = 50;
 // instead of drifting into two copies of "append and trim."
 export const appendPlayerEventLogEntry = (
   player: { eventLog?: PlayerEventLogEntry[] },
-  input: { type: PlayerEventLogEntryType; text: string; occurredAt: number }
+  input: { type: PlayerEventLogEntryType; text: string; occurredAt: number; x?: number; y?: number }
 ): void => {
   const log = player.eventLog ? [...player.eventLog] : [];
   log.push({
     id: `${input.type}:${input.occurredAt}:${Math.random().toString(36).slice(2, 8)}`,
     type: input.type,
     text: input.text,
-    occurredAt: input.occurredAt
+    occurredAt: input.occurredAt,
+    ...(typeof input.x === "number" && typeof input.y === "number" ? { x: input.x, y: input.y } : {})
   });
   player.eventLog = log.length > PLAYER_EVENT_LOG_MAX_ENTRIES ? log.slice(log.length - PLAYER_EVENT_LOG_MAX_ENTRIES) : log;
 };

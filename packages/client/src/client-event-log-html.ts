@@ -1,68 +1,46 @@
-// §20 of the manpower-economy-rewrite plan: a persistent, scrollable
-// "what happened while I was away" feed, distinct from the ephemeral
-// PLAYER_MESSAGE toast. Vertical timeline, most-recent-first, one entry per
-// event — generic over event type so future additions (monument first-part
-// broadcasts, Ancient Ruins discoveries, tech completions, ...) need no
-// changes here, only a new icon mapping.
-export type ClientEventLogEntry = { id: string; type: string; text: string; occurredAt: number };
+// §20 of the manpower-economy-rewrite plan: server-pushed "what happened
+// while I was away" events. These no longer render their own panel — every
+// entry is folded into the Activity Feed (see appendFeedEntry usage in
+// client-network.ts) so players have one place to look, not two.
+import type { FeedSeverity, FeedType } from "./client-types.js";
 
-const ICON_BY_EVENT_TYPE: Record<string, string> = {
-  TOWN_LOST: "🏚️",
-  IMPERIAL_EXCHANGE_LEVY_HIT: "💰",
-  IMPERIAL_EXCHANGE_LEVY_CAST: "🪙",
-  MONUMENT_CLAIMED: "🏛️",
-  MONUMENT_LOST_TO_RIVAL: "🥈",
-  NATURAL_WONDER_CLAIMED: "✨"
+export type ClientEventLogEntry = { id: string; type: string; text: string; occurredAt: number; x?: number; y?: number };
+
+// How each server event-log type should read in the Activity Feed.
+const FEED_MAPPING_BY_EVENT_TYPE: Record<string, { type: FeedType; severity: FeedSeverity }> = {
+  TOWN_LOST: { type: "combat", severity: "error" },
+  IMPERIAL_EXCHANGE_LEVY_HIT: { type: "combat", severity: "warn" },
+  IMPERIAL_EXCHANGE_LEVY_CAST: { type: "combat", severity: "info" },
+  MONUMENT_CLAIMED: { type: "tech", severity: "success" },
+  MONUMENT_LOST_TO_RIVAL: { type: "combat", severity: "warn" },
+  NATURAL_WONDER_CLAIMED: { type: "tech", severity: "success" }
 };
-const DEFAULT_EVENT_ICON = "•";
+const DEFAULT_FEED_MAPPING: { type: FeedType; severity: FeedSeverity } = { type: "info", severity: "info" };
 
-export const eventLogIconForType = (type: string): string => ICON_BY_EVENT_TYPE[type] ?? DEFAULT_EVENT_ICON;
+export const feedMappingForEventType = (type: string): { type: FeedType; severity: FeedSeverity } =>
+  FEED_MAPPING_BY_EVENT_TYPE[type] ?? DEFAULT_FEED_MAPPING;
 
-// Event types that get moved to the Activity Feed instead of appearing here
-// (see appendFeedEntry usage in client-network.ts) — interesting enough to
-// surface immediately in the feed, so they'd be redundant duplicated in this
-// panel too.
-export const EVENT_LOG_TYPES_MOVED_TO_FEED = new Set(["NATURAL_WONDER_CLAIMED", "MONUMENT_CLAIMED"]);
-
-const escapeHtml = (value: string): string =>
-  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-const formatEventTimestamp = (occurredAt: number, nowMs: number): string => {
-  const deltaMs = Math.max(0, nowMs - occurredAt);
-  const minutes = Math.floor(deltaMs / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+export type EventLogFeedEntry = {
+  text: string;
+  type: FeedType;
+  severity: FeedSeverity;
+  at: number;
+  focusX?: number;
+  focusY?: number;
+  actionLabel?: string;
 };
 
-export const renderEventLogPanelHtml = (entries: readonly ClientEventLogEntry[], nowMs: number): string => {
-  // Sort explicitly by occurredAt DESC rather than assuming the server's
-  // array order (Array.prototype.sort is stable, so same-timestamp entries
-  // keep their relative order). A blind .reverse() would silently corrupt
-  // the display if the server's append order ever changed.
-  const mostRecentFirst = entries
-    .filter((entry) => !EVENT_LOG_TYPES_MOVED_TO_FEED.has(entry.type))
-    .sort((a, b) => b.occurredAt - a.occurredAt);
-  const rows = mostRecentFirst
-    .map(
-      (entry) => `<li class="event-log-row" data-event-type="${escapeHtml(entry.type)}">
-        <span class="event-log-icon" aria-hidden="true">${eventLogIconForType(entry.type)}</span>
-        <span class="event-log-text">${escapeHtml(entry.text)}</span>
-        <span class="event-log-time">${formatEventTimestamp(entry.occurredAt, nowMs)}</span>
-      </li>`
-    )
-    .join("");
-  return `<article class="card event-log-card">
-    <div class="event-log-head">
-      <strong>Recent Events</strong>
-    </div>
-    ${
-      mostRecentFirst.length > 0
-        ? `<ul class="event-log-list">${rows}</ul>`
-        : `<p class="event-log-empty">Nothing has happened yet — town captures and Imperial Exchange Levy hits will show up here.</p>`
-    }
-  </article>`;
+// Converts a server eventLog entry into the shape appendFeedEntry expects,
+// adding a "Go to tile" button whenever the server supplied coordinates.
+export const feedEntryForEventLogEntry = (entry: ClientEventLogEntry): EventLogFeedEntry => {
+  const { type, severity } = feedMappingForEventType(entry.type);
+  return {
+    text: entry.text,
+    type,
+    severity,
+    at: entry.occurredAt,
+    ...(typeof entry.x === "number" && typeof entry.y === "number"
+      ? { focusX: entry.x, focusY: entry.y, actionLabel: "Go to tile" }
+      : {})
+  };
 };

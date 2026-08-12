@@ -123,7 +123,7 @@ export const createInitialState = () => ({
   // structures are dormant right now, and which resource(s) they're short
   // on. Feeds the greyed-out/"unpowered" indicator in the tile detail view.
   dormantStructures: [] as Array<{ key: string; resources: SlotResource[] }>,
-  eventLog: [] as Array<{ id: string; type: string; text: string; occurredAt: number }>, // §20: durable event log, most-recent-last
+  eventLog: [] as Array<{ id: string; type: string; text: string; occurredAt: number; x?: number; y?: number }>, // §20: durable event log, most-recent-last
   eventLogFeedSeenIds: undefined as Set<string> | undefined, // ids already echoed into the Activity Feed; undefined until first sync (avoids backfilling history as new)
   economyBreakdown: undefined as EconomyBreakdown | undefined,
   upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },

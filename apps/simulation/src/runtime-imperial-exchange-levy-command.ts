@@ -79,12 +79,16 @@ export function handleImperialExchangeLevyCommand(context: RuntimeMapCommandCont
   context.appendPlayerEventLogEntry(target, {
     type: "IMPERIAL_EXCHANGE_LEVY_HIT",
     text: `You were hit by an Imperial Exchange Levy by ${actor.name ?? actor.id} — lost ${goldTaken} gold.`,
-    occurredAt: now
+    occurredAt: now,
+    x: payload.toX,
+    y: payload.toY
   });
   context.appendPlayerEventLogEntry(actor, {
     type: "IMPERIAL_EXCHANGE_LEVY_CAST",
     text: `You levied ${target.name ?? target.id} for ${goldTaken} gold.`,
-    occurredAt: now
+    occurredAt: now,
+    x: payload.fromX,
+    y: payload.fromY
   });
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
