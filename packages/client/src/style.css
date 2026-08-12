@@ -3012,6 +3012,11 @@ body {
   text-transform: uppercase;
   color: rgba(198, 212, 232, 0.72);
 }
+.tile-combat-breakdown-hint {
+  font-size: 10px;
+  color: rgba(146, 170, 201, 0.72);
+  margin-top: -6px;
+}
 .tile-combat-breakdown-side {
   display: grid;
   gap: 4px;
@@ -3034,7 +3039,6 @@ body {
   font-size: 12px;
   color: rgba(214, 226, 241, 0.82);
 }
-.tile-combat-breakdown-row.is-subtotal,
 .tile-combat-breakdown-row.is-total {
   border-top: 1px solid rgba(158, 184, 216, 0.16);
   margin-top: 2px;
