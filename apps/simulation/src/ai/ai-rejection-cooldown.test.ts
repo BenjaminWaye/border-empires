@@ -105,6 +105,19 @@ describe("rejection cooldown", () => {
     expect(cooldowns).toEqual({ ATTACK: true });
   });
 
+  it("recordRejectionCooldown maps UPGRADE_TOWN_TIER to itself (preplan livelock fix)", () => {
+    // Regression: UPGRADE_TOWN_TIER is decided by the preplan step
+    // (ai-preplan-command.ts), not the utility policy, but a rejection (e.g.
+    // INSUFFICIENT_SLOT — no free FOOD slot) still needs to back the AI off,
+    // or chooseAiTownTierUpgrade re-picks the exact same tile every tick
+    // forever, starving tech/domain choices and the entire main planner for
+    // that player.
+    const state = createRejectionCooldownState();
+    recordRejectionCooldown(state, "p1", "UPGRADE_TOWN_TIER", 1000);
+    const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
+    expect(cooldowns).toEqual({ UPGRADE_TOWN_TIER: true });
+  });
+
   it("cooldown expires after REJECTION_COOLDOWN_MS", () => {
     const state = createRejectionCooldownState();
     recordRejectionCooldown(state, "p1", "BUILD_FORT", 1000);

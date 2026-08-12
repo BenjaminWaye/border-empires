@@ -2522,9 +2522,8 @@ export class SimulationRuntime {
         incomePerMinute: this.estimatedIncomePerMinuteForPlayer(playerId),
         hasActiveLock,
         ownedTiles, townTiles,
-        clientSeq,
-        issuedAt,
-        sessionPrefix
+        clientSeq, issuedAt, sessionPrefix,
+        ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {})
       });
       preplanDiagnostic = preplan.diagnostic;
       if (preplan.command) return preplan;
