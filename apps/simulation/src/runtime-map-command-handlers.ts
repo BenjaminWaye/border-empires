@@ -11,9 +11,7 @@ import {
   AIRPORT_BOMBARD_RANGE,
   ASTRAL_DOCK_LAUNCH_COOLDOWN_MS,
   ASTRAL_DOCK_LAUNCH_DURATION_MS,
-  ASTRAL_DOCK_LAUNCH_GOLD_COST,
   TERRAIN_SHAPING_COOLDOWN_MS,
-  TERRAIN_SHAPING_GOLD_COST,
   WORLD_ENGINE_STRIKE_COOLDOWN_MS,
   WORLD_ENGINE_STRIKE_GOLD_COST,
   WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO
@@ -114,11 +112,6 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "no ready observatory in range");
     return;
   }
-  if (actor.points < TERRAIN_SHAPING_GOLD_COST) {
-    rejectCommand(context, command, "CREATE_MOUNTAIN_INVALID", "insufficient gold for create mountain");
-    return;
-  }
-  actor.points -= TERRAIN_SHAPING_GOLD_COST;
   context.stampObservatoryCooldown(observatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, now, command.commandId, command.playerId);
   const updatedTile: DomainTileState = {
     ...target,
@@ -166,11 +159,6 @@ export function handleRemoveMountainCommand(context: RuntimeMapCommandContext, c
     rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "no ready observatory in range");
     return;
   }
-  if (actor.points < TERRAIN_SHAPING_GOLD_COST) {
-    rejectCommand(context, command, "REMOVE_MOUNTAIN_INVALID", "insufficient gold for remove mountain");
-    return;
-  }
-  actor.points -= TERRAIN_SHAPING_GOLD_COST;
   context.stampObservatoryCooldown(observatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, now, command.commandId, command.playerId);
   const updatedTile: DomainTileState = { ...target, terrain: "LAND" };
   context.replaceTileState(targetKey, updatedTile);
@@ -461,11 +449,6 @@ export function handleAstralDockLaunchCommand(context: RuntimeMapCommandContext,
     rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "ability on cooldown");
     return;
   }
-  if (actor.points < ASTRAL_DOCK_LAUNCH_GOLD_COST) {
-    rejectCommand(context, command, "ASTRAL_DOCK_LAUNCH_INVALID", "insufficient gold to launch satellite");
-    return;
-  }
-  actor.points -= ASTRAL_DOCK_LAUNCH_GOLD_COST;
   context.setAbilityCooldownUntil(actor.id, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY, now + ASTRAL_DOCK_LAUNCH_DURATION_MS);
   context.setAbilityCooldownUntil(actor.id, "astral_dock_launch", now + ASTRAL_DOCK_LAUNCH_COOLDOWN_MS);
   context.emitPlayerMessage(command, {
