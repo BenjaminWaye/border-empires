@@ -271,15 +271,25 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     }
   };
 
-  const formatMessage = (input: { to: string; subject: string; intro: string; detail: string }): EmailMessage => {
+  const formatMessage = (input: {
+    to: string;
+    subject: string;
+    intro: string;
+    detail: string;
+    linkUrl?: string;
+    linkLabel?: string;
+  }): EmailMessage => {
+    const linkUrl = input.linkUrl ?? appUrl;
+    const linkLabel = input.linkLabel ?? "Open Border Empires";
     const safeIntro = escapeHtml(input.intro);
     const safeDetail = escapeHtml(input.detail);
-    const safeAppUrl = escapeHtml(appUrl);
+    const safeLinkUrl = escapeHtml(linkUrl);
+    const safeLinkLabel = escapeHtml(linkLabel);
     return {
       to: input.to,
       subject: input.subject,
-      text: `${input.intro}\n\n${input.detail}\n\nOpen Border Empires: ${appUrl}`,
-      html: `<p>${safeIntro}</p><p>${safeDetail}</p><p><a href="${safeAppUrl}">Open Border Empires</a></p>`
+      text: `${input.intro}\n\n${input.detail}\n\n${linkLabel}: ${linkUrl}`,
+      html: `<p>${safeIntro}</p><p>${safeDetail}</p><p><a href="${safeLinkUrl}">${safeLinkLabel}</a></p>`
     };
   };
 
@@ -316,7 +326,12 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
           to,
           subject: `${input.attackerName} is attacking your empire`,
           intro: `${input.attackerName} launched an attack against your empire.`,
-          detail: `Target tile: ${input.x}, ${input.y}.`
+          detail: `Target tile: ${input.x}, ${input.y}.`,
+          // Deep-links straight to the targeted tile: readUrlTileFocus() in
+          // client-camera-storage.ts (packages/client) picks up ?x=&y= on
+          // boot and centers the camera there instead of the player's home tile.
+          linkUrl: `${appUrl}/?x=${input.x}&y=${input.y}`,
+          linkLabel: "Go to tile"
         })
       );
     }
