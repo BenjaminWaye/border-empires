@@ -22,6 +22,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786528000000, // 2026.08.12.1
+    introducedIn: "2026.08.12.1",
+    title: "Aether abilities are now free of gold and crystal cost",
+    why: "Most Observatory aether abilities were already free server-side, but the info panel still showed stale gold/crystal price tags. A few abilities (mountain shaping, satellite launch) did charge real gold. Both are now free, and the panel no longer shows a Cost row for any ability.",
+    changes: [
+      "Removed the gold cost checks for Create Mountain, Remove Mountain, and Launch Satellite — they're free to cast now.",
+      "The ability info panel no longer shows a Cost row for any Observatory ability."
+    ]
+  },
+  {
     createdAt: 1786482366157, // 2026.08.11.9
     introducedIn: "2026.08.11.9",
     title: "Fixed: Build Titanium/Umbrite Weapons Factory rejected by the server with BAD_MSG",
