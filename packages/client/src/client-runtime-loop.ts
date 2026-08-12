@@ -498,6 +498,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const handled3DStructure =
           isTrue3DRendererActive() &&
           (t.economicStructure.type === "UMBRITE_RIG" ||
+            t.economicStructure.type === "UMBRITE_WEAPONS_FACTORY" ||
             STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind));
         if (fortificationKind || handled3DStructure) {
           // 3D-rendered (forts + 3D-overlay structures); no 2D fallback.
@@ -1053,6 +1054,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const handled3DStructure2 =
             isTrue3DRendererActive() &&
             (t.economicStructure.type === "UMBRITE_RIG" ||
+              t.economicStructure.type === "UMBRITE_WEAPONS_FACTORY" ||
               STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind));
           if (handled3DStructure2) {
           } else if (overlay && overlay.complete && overlay.naturalWidth) {

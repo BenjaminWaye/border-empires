@@ -201,6 +201,9 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
   const tmpEuler = new Euler();
   const tmpQuat = new Quaternion();
 
+  // Overall factory model is scaled down 25% from its original design size.
+  const FACTORY_SCALE = 0.75;
+
   const addPiece = (
     key: string,
     wx: number,
@@ -218,8 +221,8 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
   ): void => {
     const slot = slots.get(key);
     if (!slot || slot.count >= slot.cap) return;
-    position.set(wx + ox, sy + oy, wz + oz);
-    scale.set(sx, sy2, sz);
+    position.set(wx + ox * FACTORY_SCALE, sy + oy * FACTORY_SCALE, wz + oz * FACTORY_SCALE);
+    scale.set(sx * FACTORY_SCALE, sy2 * FACTORY_SCALE, sz * FACTORY_SCALE);
     if (rotX === 0 && rotY === 0 && rotZ === 0) {
       matrix.compose(position, identityQuat, scale);
     } else {
