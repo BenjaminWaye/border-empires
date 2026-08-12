@@ -115,12 +115,12 @@ describe("recordAiDecisionDiagnosticFromPlanner — economicBuildCandidate", () 
     recordAiDecisionDiagnosticFromPlanner(
       baseDiagnostic({
         playerId: "ai-decision-diag-test-3",
-        economicBuildCandidate: "12,7:MARKET"
+        economicBuildCandidate: "12,7:MINTWORKS"
       })
     );
 
     const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-3");
-    expect(recorded).toMatchObject({ economicBuildCandidate: "12,7:MARKET" });
+    expect(recorded).toMatchObject({ economicBuildCandidate: "12,7:MINTWORKS" });
   });
 
   it("is undefined when the planner diagnostic has no build candidate", () => {

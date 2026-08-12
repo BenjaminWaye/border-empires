@@ -61,7 +61,7 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Build Structures & Fight",
-    body: "Open the Actions menu on your land. Forts boost defense on settled tiles. Siege Outposts near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, rigs, markets, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
+    body: "Open the Actions menu on your land. Forts boost defense on settled tiles. Siege Outposts near borders boost your attack. Observatories expand vision and enable abilities. Economic buildings (farms, mines, rigs, mintworks, granaries) generate resources and support towns. Build 3 things at once. To attack, tap an enemy-adjacent tile — it costs manpower. Attacks rely on mustering forces — plant up to 5 muster flags on your tiles to gather manpower near the front. Odds depend on your outposts vs their forts. Frontier tiles have no defense and always fall."
   },
   {
     title: "Research & Abilities",
@@ -69,7 +69,7 @@ export const guideSteps: GuideStep[] = [
   },
   {
     title: "Towns & Expansion",
-    body: "Towns grow in size with increasing population (Settlement → Town → City → Great City → Metropolis). A Market enables a town's gold income; a Granary enables population growth. Connecting towns with settled land creates a road network that boosts gold income. Population is what raises your manpower cap for war, so growing towns matters as much as growing gold. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear barbarians for gold."
+    body: "Towns grow in size with increasing population (Settlement → Town → City → Great City → Metropolis). A Mintworks enables a town's gold income; a Granary enables population growth. Connecting towns with settled land creates a road network that boosts gold income. Population is what raises your manpower cap for war, so growing towns matters as much as growing gold. Docks on coastlines let you attack across water. Form alliances to coordinate. Truces prevent attacks — breaking one incurs a penalty. Clear barbarians for gold."
   },
   {
     title: "Win the Season",

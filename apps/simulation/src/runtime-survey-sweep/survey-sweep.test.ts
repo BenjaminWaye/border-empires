@@ -53,7 +53,7 @@ describe("survey sweep", () => {
             terrain: "LAND",
             ownerId: "player-2",
             ownershipState: "SETTLED",
-            town: { type: "MARKET", populationTier: "TOWN", name: "Hidden Market" }
+            town: { type: "MARKET", populationTier: "TOWN", name: "Hidden Mintworks" }
           }
         ],
         activeLocks: []

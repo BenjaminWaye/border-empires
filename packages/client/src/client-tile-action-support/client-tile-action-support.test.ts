@@ -109,8 +109,8 @@ describe("splitTileActionsIntoTabs", () => {
         disabled: false
       },
       {
-        id: "build_market",
-        label: "Build Market",
+        id: "build_mintworks",
+        label: "Build Mintworks",
         disabled: false
       },
       {
@@ -121,7 +121,7 @@ describe("splitTileActionsIntoTabs", () => {
     ];
 
     expect(splitTileActionsIntoTabs(rows, state).buildings.map((row) => row.id)).toEqual([
-      "build_market",
+      "build_mintworks",
       "build_clearing_house",
       "build_foundry"
     ]);
@@ -140,8 +140,8 @@ describe("splitTileActionsIntoTabs", () => {
         disabled: false
       },
       {
-        id: "build_market",
-        label: "Build Market",
+        id: "build_mintworks",
+        label: "Build Mintworks",
         disabled: false
       },
       {
@@ -157,7 +157,7 @@ describe("splitTileActionsIntoTabs", () => {
     ];
 
     expect(splitTileActionsIntoTabs(rows, state).buildings.map((row) => row.id)).toEqual([
-      "build_market",
+      "build_mintworks",
       "build_foundry",
       "build_fortification",
       "build_observatory",
@@ -202,8 +202,8 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
       populationTier: "TOWN",
       connectedTownCount: 0,
       connectedTownBonus: 0,
-      hasMarket: false,
-      marketActive: false,
+      hasMintworks: false,
+      mintworksActive: false,
       hasGranary: false,
       granaryActive: false,
     }
@@ -223,15 +223,15 @@ describe("shouldOptimisticallyBuildOnSelectedTile", () => {
   });
 
   it("still allows optimistic builds on real support tiles", () => {
-    expect(shouldOptimisticallyBuildOnSelectedTile("build_market", supportTile)).toBe(true);
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_mintworks", supportTile)).toBe(true);
   });
 
   it("keeps same-tile structures optimistic on town tiles", () => {
-    // Market moved to same-tile/uncapped placement in the tech-tree redesign
+    // Mintworks moved to same-tile/uncapped placement in the tech-tree redesign
     // (per-town cap removed), so it's optimistic on the town tile now too,
     // same as Foundry.
     expect(shouldOptimisticallyBuildOnSelectedTile("build_foundry", townTile)).toBe(true);
-    expect(shouldOptimisticallyBuildOnSelectedTile("build_market", townTile)).toBe(true);
+    expect(shouldOptimisticallyBuildOnSelectedTile("build_mintworks", townTile)).toBe(true);
   });
 });
 
@@ -241,7 +241,7 @@ describe("town support tile actions", () => {
     clientState.me = "me";
     clientState.gold = 500;
     clientState.techIds = ["trade"];
-    // §5 (resource slots): MARKET needs a free FOOD slot at build time now
+    // §5 (resource slots): MINTWORKS needs a free FOOD slot at build time now
     // that the old FOOD stockpile check is retired (Step 5 item 4 Slice A).
     clientState.resourceSlots.supply.FOOD = 1;
     const supportTile: Tile = { x: 210, y: 149, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
@@ -264,8 +264,8 @@ describe("town support tile actions", () => {
         populationTier: "TOWN",
         connectedTownCount: 0,
         connectedTownBonus: 0,
-        hasMarket: false,
-        marketActive: false,
+        hasMintworks: false,
+        mintworksActive: false,
         hasGranary: false,
         granaryActive: false,
       }
@@ -308,7 +308,7 @@ describe("town support tile actions", () => {
       ownerSpawnShieldActive: () => false
     } as never);
 
-    expect(actions.find((action) => action.id === "build_market")).toMatchObject({
+    expect(actions.find((action) => action.id === "build_mintworks")).toMatchObject({
       disabled: false
     });
     expect(actions.some((action) => action.disabledReason === "Support tile touches multiple towns")).toBe(false);

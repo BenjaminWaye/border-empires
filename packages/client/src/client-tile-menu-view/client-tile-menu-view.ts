@@ -15,7 +15,7 @@ import {
   type SlotResource,
   type SlotStructureType
 } from "@border-empires/shared";
-import { marketGoldProductionMultiplier } from "@border-empires/game-domain";
+import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 import { converterStructureDetailText, converterModeLockLine, converterModeStatusLine, isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine, weaponsFactoryNetworkTotalLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
@@ -27,10 +27,10 @@ import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 
-// market-stacking task: this describes ONE Market's own per-instance
-// contribution (they stack additively — see marketGoldProductionMultiplier),
-// not the town's total stacked bonus, so it's derived with marketCount=1.
-const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; const perMarketMult = marketGoldProductionMultiplier(1, Boolean(town.town?.clearingHouseActive)); const perMarketPercent = Math.round((perMarketMult - 1) * 100); return type === "MARKET" ? `Market contributes to ${townName}: +${perMarketPercent}% town gold production (stacks with other Markets); higher production raises gold cap.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect.` : undefined; };
+// mintworks-stacking task: this describes ONE Mintworks's own per-instance
+// contribution (they stack additively — see mintworksGoldProductionMultiplier),
+// not the town's total stacked bonus, so it's derived with mintworksCount=1.
+const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; const perMintworksMult = mintworksGoldProductionMultiplier(1, Boolean(town.town?.clearingHouseActive)); const perMintworksPercent = Math.round((perMintworksMult - 1) * 100); return type === "MINTWORKS" ? `Mintworks contributes to ${townName}: +${perMintworksPercent}% town gold production (stacks with other Mintworks); higher production raises gold cap.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Mintworks effect.` : undefined; };
 
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "TITANIUM_BASTION" ? "Titanium Bastion" : "Fort";
@@ -115,12 +115,12 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, scoped to this town's connected network. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_umbrite_weapons_factory") return "Military-industrial structure. Grants +3% attack / +1.5% defense per copy, scoped to this town's connected network. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_mine") return `Improves ${tile.resource === "TITANIUM" ? "titanium" : "crystal"} production on this tile by 50% and adds +${tile.resource === "TITANIUM" ? "15 titanium" : "9 crystal"} cap.`;
-  if (actionId === "build_market") {
-    // market-stacking task: this describes what THIS one Market will add
-    // (stacks additively with any other Markets already supporting the
+  if (actionId === "build_mintworks") {
+    // mintworks-stacking task: this describes what THIS one Mintworks will add
+    // (stacks additively with any other Mintworks already supporting the
     // town), not the town's total post-build multiplier.
-    const perMarketPercent = Math.round((marketGoldProductionMultiplier(1, Boolean(supportedTown?.town?.clearingHouseActive)) - 1) * 100);
-    return `Build on this support tile for ${supportedTownLabel}. Grants +${perMarketPercent}% town gold production (stacks with other Markets) and +${Math.round((supportedTown?.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap.`;
+    const perMintworksPercent = Math.round((mintworksGoldProductionMultiplier(1, Boolean(supportedTown?.town?.clearingHouseActive)) - 1) * 100);
+    return `Build on this support tile for ${supportedTownLabel}. Grants +${perMintworksPercent}% town gold production (stacks with other Mintworks) and +${Math.round((supportedTown?.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap.`;
   }
   if (actionId === "build_granary") {
     // Incubation Engine (Granary) grants an instant one-time population
@@ -537,15 +537,15 @@ export const menuOverviewForTile = (
     if (town) {
       pushLine(town.town?.name ? `Support tile for ${town.town.name}.` : `Support tile for nearby town at (${town.x}, ${town.y}).`);
       const contributionLine = supportContributionLine(tile, town); if (contributionLine) pushLine(contributionLine);
-      // market-stacking task: Markets stack additively now, so "already has
-      // a Market" must not read as a discouragement to build another — show
+      // mintworks-stacking task: Mintworks stack additively now, so "already has
+      // a Mintworks" must not read as a discouragement to build another — show
       // the current count/bonus instead.
-      if (town.town?.marketCount) {
-        const currentMult = marketGoldProductionMultiplier(town.town.marketCount, Boolean(town.town.clearingHouseActive));
-        pushLine(`Nearby town has ${town.town.marketCount} active Market${town.town.marketCount === 1 ? "" : "s"} (+${Math.round((currentMult - 1) * 100)}% town gold production).`);
+      if (town.town?.mintworksCount) {
+        const currentMult = mintworksGoldProductionMultiplier(town.town.mintworksCount, Boolean(town.town.clearingHouseActive));
+        pushLine(`Nearby town has ${town.town.mintworksCount} active Mintworks${town.town.mintworksCount === 1 ? "" : "s"} (+${Math.round((currentMult - 1) * 100)}% town gold production).`);
       }
       if (town.town?.hasGranary) pushLine("Nearby town already has a Granary.");
-      if (!tile.economicStructure) pushLine("Town buildings like markets and granaries must be built on support tiles.");
+      if (!tile.economicStructure) pushLine("Town buildings like mintworks and granaries must be built on support tiles.");
     }
   } else if (supportedTowns.length > 1) {
     pushLine("This support tile touches multiple towns.");

@@ -26,7 +26,7 @@
       },
       "researchTimeSeconds": 3600,
       "effects": {
-        "unlockMarket": true
+        "unlockMintworks": true
       }
     },
     {
@@ -173,7 +173,7 @@
       "tier": 3,
       "branch": "economy",
       "name": "Minting Works",
-      "description": "Once the crown stamps metal, every market starts behaving like law.",
+      "description": "Once the crown stamps metal, every mintworks starts behaving like law.",
       "requires": "ledger-keeping",
       "cost": {
         "gold": 10
@@ -586,12 +586,12 @@
       }
     },
     {
-      "id": "urban-markets",
+      "id": "urban-mintworks",
       "tier": 5,
       "branch": "economy",
       "name": "Grand Bazaars",
       "requires": "coinage",
-      "description": "If every market in the world hates you, the project is functioning correctly.",
+      "description": "If every mintworks in the world hates you, the project is functioning correctly.",
       "cost": {
         "gold": 10
       },

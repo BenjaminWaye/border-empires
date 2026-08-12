@@ -16,7 +16,7 @@ import type {
   VictoryPressureTracker
 } from "@border-empires/game-domain";
 import {
-  marketGoldProductionMultiplier,
+  mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
   granaryGrowthMultiplier,
@@ -231,9 +231,9 @@ const supportedStructureAtTown = (
   return false;
 };
 
-// market-stacking task: counting sibling of supportedStructureAtTown above,
-// same support-ring loop, for Market's now-additive-per-instance gold bonus
-// (marketGoldProductionMultiplier). Boolean uniqueness/gate checks elsewhere
+// mintworks-stacking task: counting sibling of supportedStructureAtTown above,
+// same support-ring loop, for Mintworks's now-additive-per-instance gold bonus
+// (mintworksGoldProductionMultiplier). Boolean uniqueness/gate checks elsewhere
 // in this file keep using supportedStructureAtTown unchanged.
 const countedStructuresAtTown = (
   townTileKey: string,
@@ -395,22 +395,22 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
     const supportRatio = support.supportMax <= 0 ? 1 : support.supportCurrent / support.supportMax;
     const fedTownKeys = ownerId ? fedTownKeysByPlayer.get(ownerId) : undefined;
     const isFed = Boolean(ownerId && fedTownKeys?.has(town.tileKey));
-    const marketCount = ownerId
+    const mintworksCount = ownerId
       ? countedStructuresAtTown(
           town.tileKey,
           ownerId,
-          "MARKET",
+          "MINTWORKS",
           ownershipByTile,
           ownershipStateByTile,
           structuresByTile,
           meta.world
         )
       : 0;
-    const hasMarket = marketCount > 0;
+    const hasMintworks = mintworksCount > 0;
     // No town-level Clearing House signal exists on this legacy reconnect
     // path (pre-existing gap — Clearing House was never wired into this
-    // formula even before market-stacking). Detected here the same way
-    // Market itself is, via the local support-ring scan, rather than
+    // formula even before mintworks-stacking). Detected here the same way
+    // Mintworks itself is, via the local support-ring scan, rather than
     // leaving it permanently false.
     const clearingHouseActive =
       Boolean(ownerId) &&
@@ -448,7 +448,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
                   supportRatio *
                   townPopulationMultiplier(town) *
                   (1 + town.connectedTownBonus) *
-                  marketGoldProductionMultiplier(marketCount, clearingHouseActive) *
+                  mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive) *
                   incomeMod *
                   PASSIVE_INCOME_MULT
               );
@@ -478,7 +478,7 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
     const cap =
       tier === "SETTLEMENT"
         ? goldPerMinute * 60 * 8
-        : goldPerMinute * 60 * 8 * marketGoldProductionMultiplier(marketCount, clearingHouseActive);
+        : goldPerMinute * 60 * 8 * mintworksGoldProductionMultiplier(mintworksCount, clearingHouseActive);
     tile.town = {
       ...(town.name ? { name: town.name } : {}),
       type: town.type,
@@ -494,9 +494,9 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
       populationGrowthPerMinute: Number(populationGrowthPerMinute.toFixed(4)),
       connectedTownCount: town.connectedTownCount,
       connectedTownBonus: town.connectedTownBonus,
-      hasMarket,
-      marketActive: hasMarket && isFed,
-      marketCount,
+      hasMintworks,
+      mintworksActive: hasMintworks && isFed,
+      mintworksCount,
       hasGranary,
       granaryActive: hasGranary,
       foodUpkeepPerMinute: townFoodUpkeepPerMinute(town),

@@ -13,9 +13,10 @@ type Args = {
 // UMBRITE_RIG has its own dedicated overlay + story file
 // (client-map-3d-umbrite-extraction-rig.ts / UmbriteExtractionRig.stories.ts)
 // and is no longer part of the generic StructureKind union handled here.
+// MINTWORKS likewise has its own dedicated story file (Mintworks.stories.ts).
 const KINDS: ReadonlyArray<StructureKind> = [
   "FARMSTEAD", "WATERWORKS", "MINE", "TITANIUM_WORKS",
-  "MARKET", "OBSERVATORY", "GRANARY", "SEED_GRANARY", "CENSUS_HALL", "MINTWORKS",
+  "OBSERVATORY", "GRANARY", "SEED_GRANARY", "CENSUS_HALL",
   "CLEARING_HOUSE", "AETHER_TOWER", "AEGIS_DOME", "WORLD_ENGINE", "IMPERIAL_EXCHANGE",
   "AIRPORT", "CARAVANARY", "CUSTOMS_HOUSE",
   "GARRISON_HALL", "GOVERNORS_OFFICE", "RAIL_DEPOT", "RADAR_SYSTEM",
@@ -87,7 +88,6 @@ export const Mine: Story = { args: { structures: ["MINE"], cameraDistance: 3 } }
 export const MineTitanium: Story = { args: { structures: ["MINE"], resourceHint: "TITANIUM", cameraDistance: 3 } };
 export const MineGems: Story = { args: { structures: ["MINE"], resourceHint: "GEMS", cameraDistance: 3 } };
 export const Observatory: Story = { args: { structures: ["OBSERVATORY"], cameraDistance: 3 } };
-export const Market: Story = { args: { structures: ["MARKET"], cameraDistance: 3 } };
 export const Granary: Story = { args: { structures: ["GRANARY"], cameraDistance: 3 } };
 export const CensusHall: Story = { args: { structures: ["CENSUS_HALL"], cameraDistance: 3 } };
 export const ClearingHouse: Story = { args: { structures: ["CLEARING_HOUSE"], cameraDistance: 3 } };

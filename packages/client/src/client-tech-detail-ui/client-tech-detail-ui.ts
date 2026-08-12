@@ -62,8 +62,8 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockMine":
         out.add("MINE");
         break;
-      case "unlockMarket":
-        out.add("MARKET");
+      case "unlockMintworks":
+        out.add("MINTWORKS");
         break;
       case "unlockGranary":
         out.add("GRANARY");

@@ -129,7 +129,7 @@ describe("automation command planner — utility AI path", () => {
 
   it("economic build fires when there is no frontier opportunity", () => {
     // Mirrors the GOAP test — isolated town with no neutral neighbours, plus
-    // one open SETTLED support-tile neighbor. MARKET is a town-support
+    // one open SETTLED support-tile neighbor. MINTWORKS is a town-support
     // structure — the runtime places it on an open neighbor assigned to this
     // town (resolveTownSupportTarget), never on the town tile itself, so a
     // fixture with zero neighbors is unrealistic (see

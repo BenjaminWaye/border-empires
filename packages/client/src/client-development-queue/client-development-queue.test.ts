@@ -523,9 +523,9 @@ describe("development queue helpers", () => {
 
     const sent = sendDevelopmentBuild(
       state,
-      { type: "BUILD_STRUCTURE", x: 6, y: 7, structureType: "MARKET" },
+      { type: "BUILD_STRUCTURE", x: 6, y: 7, structureType: "MINTWORKS" },
       optimistic,
-      { x: 6, y: 7, label: "Market at (6, 7)", optimisticKind: "MARKET" },
+      { x: 6, y: 7, label: "Mintworks at (6, 7)", optimisticKind: "MINTWORKS" },
       {
         keyFor: (x, y) => `${x},${y}`,
         queueDevelopmentAction: vi.fn(() => true),
@@ -538,9 +538,9 @@ describe("development queue helpers", () => {
     );
 
     expect(sent).toBe(true);
-    expect(sendGameMessage).toHaveBeenCalledWith({ type: "BUILD_ECONOMIC_STRUCTURE", x: 6, y: 7, structureType: "MARKET" });
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "BUILD_ECONOMIC_STRUCTURE", x: 6, y: 7, structureType: "MINTWORKS" });
     expect(state.lastDevelopmentAttempt).toMatchObject({
-      payload: { type: "BUILD_STRUCTURE", x: 6, y: 7, structureType: "MARKET" }
+      payload: { type: "BUILD_STRUCTURE", x: 6, y: 7, structureType: "MINTWORKS" }
     });
     expect(optimistic).toHaveBeenCalledTimes(1);
   });
@@ -632,9 +632,9 @@ describe("development queue helpers", () => {
         x: 3,
         y: 4,
         tileKey: "3,4",
-        label: "Market at (3, 4)",
-        payload: { type: "BUILD_STRUCTURE", x: 3, y: 4, structureType: "MARKET" },
-        optimisticKind: "MARKET"
+        label: "Mintworks at (3, 4)",
+        payload: { type: "BUILD_STRUCTURE", x: 3, y: 4, structureType: "MINTWORKS" },
+        optimisticKind: "MINTWORKS"
       }
     ]);
 
@@ -649,9 +649,9 @@ describe("development queue helpers", () => {
         x: 3,
         y: 4,
         tileKey: "3,4",
-        label: "Market at (3, 4)",
-        payload: { type: "BUILD_STRUCTURE", x: 3, y: 4, structureType: "MARKET" },
-        optimisticKind: "MARKET"
+        label: "Mintworks at (3, 4)",
+        payload: { type: "BUILD_STRUCTURE", x: 3, y: 4, structureType: "MINTWORKS" },
+        optimisticKind: "MINTWORKS"
       }
     ]);
   });

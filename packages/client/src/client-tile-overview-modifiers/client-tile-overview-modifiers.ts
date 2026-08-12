@@ -1,5 +1,5 @@
 import { DREAD_TOWER_ATTACK_MULT, RELAY_BEACON_ATTACK_MULT, NATURAL_WONDER_LABELS, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
-import { marketGoldProductionMultiplier } from "@border-empires/game-domain";
+import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
@@ -45,14 +45,14 @@ const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
-  const marketCount = tile.marketCount ?? 0;
-  if (marketCount > 0 && tile.marketActive) {
-    // market-stacking task: derive the real stacked percentage from the
-    // shared marketGoldProductionMultiplier() instead of a hardcoded "+50%"
-    // — each active Market contributes its own +10%/+35% additively.
-    const mult = marketGoldProductionMultiplier(marketCount, Boolean(tile.clearingHouseActive));
-    modifiers.push({ reason: "Market", effect: `+${Math.round((mult - 1) * 100)}% town gold production`, tone: "positive" });
-    modifiers.push({ reason: "Market", effect: "higher production raises gold cap", tone: "positive" });
+  const mintworksCount = tile.mintworksCount ?? 0;
+  if (mintworksCount > 0 && tile.mintworksActive) {
+    // mintworks-stacking task: derive the real stacked percentage from the
+    // shared mintworksGoldProductionMultiplier() instead of a hardcoded "+50%"
+    // — each active Mintworks contributes its own +10%/+35% additively.
+    const mult = mintworksGoldProductionMultiplier(mintworksCount, Boolean(tile.clearingHouseActive));
+    modifiers.push({ reason: "Mintworks", effect: `+${Math.round((mult - 1) * 100)}% town gold production`, tone: "positive" });
+    modifiers.push({ reason: "Mintworks", effect: "higher production raises gold cap", tone: "positive" });
   }
   // A plain Granary (Incubation Engine) grants ONLY its instant one-time
   // population burst on completion — the old ongoing +15% growth bonus was
@@ -68,7 +68,7 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
     modifiers.push({ reason: "Granary (Seed Granary boost)", effect: "+30% population growth", tone: "positive" });
   }
   if (tile.hasClearingHouse && tile.clearingHouseActive) {
-    modifiers.push({ reason: "Clearing House", effect: "+25% Market effect", tone: "positive" });
+    modifiers.push({ reason: "Clearing House", effect: "+25% Mintworks effect", tone: "positive" });
   }
   return modifiers;
 };

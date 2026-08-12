@@ -107,8 +107,8 @@ function activeOrInactive(structure: { status: string } | undefined): boolean {
 // should auto-place onto an open support tile next to it instead. That's
 // already what placementMode "town_support" does (see resolveTownSupportTarget
 // below) for most support-ring buildings, but these four are deliberately
-// uncapped/stacking per town (Market: "stacks additively with every other
-// active Market"; Garrison Hall/the two Weapons Factories: "same_tile
+// uncapped/stacking per town (Mintworks: "stacks additively with every other
+// active Mintworks"; Garrison Hall/the two Weapons Factories: "same_tile
 // placement, can sit anywhere", "no per-town limit") — routing them through
 // the same town_support path would wrongly reject a 2nd/3rd copy via its
 // "town already has X" singleton check. So they stay placementMode
@@ -116,7 +116,7 @@ function activeOrInactive(structure: { status: string } | undefined): boolean {
 // and get their own narrower redirect: only when the target IS the town
 // tile, skip straight to an open support tile, with no uniqueness gate.
 const STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES = new Set<BuildableStructureType>([
-  "MARKET",
+  "MINTWORKS",
   "GARRISON_HALL",
   "TITANIUM_WEAPONS_FACTORY",
   "UMBRITE_WEAPONS_FACTORY"
