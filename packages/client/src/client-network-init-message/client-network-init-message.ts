@@ -314,7 +314,16 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
       state.camX = homeTile.x;
       state.camY = homeTile.y;
     }
-    state.selected = homeTile;
+    // Same reasoning as the camX/camY guard above, but for the tile-detail
+    // selection: don't stomp a tile the player was already explicitly
+    // dropped onto before this INIT ever ran (e.g. a "Go to tile" attack
+    // alert deep-link — see readUrlTileFocus() in client-camera-storage.ts,
+    // which pre-populates state.selected at state-creation time, before the
+    // socket even connects). Reconnect INITs (isFirstInitThisSession false)
+    // keep the pre-existing behavior of always re-selecting the home tile.
+    if (!(isFirstInitThisSession && state.selected)) {
+      state.selected = homeTile;
+    }
   }
   const appliedInitialTileCount = applyGatewayInitialState(
     {

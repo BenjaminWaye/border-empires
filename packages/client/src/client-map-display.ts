@@ -312,8 +312,8 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "UMBRITE_RIG") return "Improves umbrite production on this tile by 50% and adds +1 UMBRITE slot on this tile.";
   if (kind === "MINE") return "Improves titanium or crystal production on this tile and adds +1 slot of that resource.";
   if (kind === "WEAPONS_WORKSHOP") return "Forges Titanium and Umbrite into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Uncapped per town — build many to raise a dedicated military city.";
-  if (kind === "TITANIUM_WEAPONS_FACTORY") return "Occupies 1 TITANIUM slot. Forges armor plating for +1.5% attack / +3% defense per copy — armor doctrine. The bonus is scoped to this town's connected network: clustering many together in one connected region pays off more than scattering them. Uncapped — no per-town limit.";
-  if (kind === "UMBRITE_WEAPONS_FACTORY") return "Occupies 1 UMBRITE slot. Outfits raiders for +3% attack / +1.5% defense per copy — raiding doctrine. The bonus is scoped to this town's connected network: clustering many together in one connected region pays off more than scattering them. Uncapped — no per-town limit.";
+  if (kind === "TITANIUM_WEAPONS_FACTORY") return "Occupies 1 TITANIUM slot. Forges armor plating for +1.5% attack / +3% defense per copy — armor doctrine. The bonus is empire-wide, like Weapons Workshop. Uncapped — no per-town limit.";
+  if (kind === "UMBRITE_WEAPONS_FACTORY") return "Occupies 1 UMBRITE slot. Outfits raiders for +3% attack / +1.5% defense per copy — raiding doctrine. The bonus is empire-wide, like Weapons Workshop. Uncapped — no per-town limit.";
   return "Strengthens this tile's economy.";
 };
 
@@ -471,8 +471,8 @@ export const structureInfoForKey = (
     if (key === "POPULATION_BUREAU") return ["Unique world monument", "+0.1 manpower/min empire-wide per Manpower-branch building you own"];
     if (key === "TITANIUM_LEVY") return ["Unique world monument", "Converts 50% of currently-banked manpower into an instant one-time army", "Freezes empire-wide manpower regen for 2 hours afterward", "Requires nearby Ambaric Tower power"];
     if (key === "WEAPONS_WORKSHOP") return ["+3% empire-wide attack per Weapons Workshop you own", "+3% empire-wide defense per Weapons Workshop you own", "No per-town limit — build as many as you like to specialize a town for war"];
-    if (key === "TITANIUM_WEAPONS_FACTORY") return ["+1.5% attack / +3% defense per copy, scoped to this town's connected network", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — armor doctrine: clustering many in one connected region pays off most"];
-    if (key === "UMBRITE_WEAPONS_FACTORY") return ["+3% attack / +1.5% defense per copy, scoped to this town's connected network", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — raiding doctrine: clustering many in one connected region pays off most"];
+    if (key === "TITANIUM_WEAPONS_FACTORY") return ["+1.5% attack / +3% defense per copy, empire-wide", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — armor doctrine"];
+    if (key === "UMBRITE_WEAPONS_FACTORY") return ["+3% attack / +1.5% defense per copy, empire-wide", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — raiding doctrine"];
     return [];
   };
   const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits" | "branch">, image?: string): StructureInfoView => {
@@ -826,7 +826,7 @@ export const structureInfoForKey = (
   if (type === "TITANIUM_WEAPONS_FACTORY") {
     return structure({
       title: "Titanium Weapons Factory",
-      detail: "Titanium Weapons Factories forge armor plating from Titanium — armor doctrine: +1.5% attack / +3% defense per copy. The bonus is scoped to this town's connected network, not your whole empire — clustering many together in one connected region pays off more than scattering them. No per-town limit, but each additional copy costs more manpower than the last. Owning zero Titanium or zero Umbrite Weapons Factories anywhere leaves your whole empire far easier to attack.",
+      detail: "Titanium Weapons Factories forge armor plating from Titanium — armor doctrine: +1.5% attack / +3% defense per copy, empire-wide (like Weapons Workshop). No per-town limit, but each additional copy costs more manpower than the last. Owning zero Titanium or zero Umbrite Weapons Factories anywhere leaves your whole empire far easier to attack.",
       glyph: "🛡",
       placement: "Build on an open settled support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),
@@ -836,7 +836,7 @@ export const structureInfoForKey = (
   if (type === "UMBRITE_WEAPONS_FACTORY") {
     return structure({
       title: "Umbrite Weapons Factory",
-      detail: "Umbrite Weapons Factories outfit raiders from Umbrite — raiding doctrine: +3% attack / +1.5% defense per copy. The bonus is scoped to this town's connected network, not your whole empire — clustering many together in one connected region pays off more than scattering them. No per-town limit, but each additional copy costs more manpower than the last. Owning zero Umbrite or zero Titanium Weapons Factories anywhere leaves your whole empire far easier to attack.",
+      detail: "Umbrite Weapons Factories outfit raiders from Umbrite — raiding doctrine: +3% attack / +1.5% defense per copy, empire-wide (like Weapons Workshop). No per-town limit, but each additional copy costs more manpower than the last. Owning zero Umbrite or zero Titanium Weapons Factories anywhere leaves your whole empire far easier to attack.",
       glyph: "🗡",
       placement: "Build on an open settled support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),

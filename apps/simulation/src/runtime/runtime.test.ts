@@ -6857,18 +6857,19 @@ describe("simulation runtime", () => {
     expect(baseline?.atkEff).toBe(10);
     // 2 owned Weapons Workshops: +3%/each -> 1.06x
     expect(attackerBoosted?.atkEff).toBeCloseTo(10 * 1.06, 6);
-    // Target is SETTLED (1.35x) with a town (1.2x), 3 owned Weapons Workshops -> +9%
-    expect(defenderBoosted?.defEff).toBeCloseTo(10 * 1.35 * 1.2 * 1.09, 6);
+    // Target is SETTLED (1.35x) with a town (1.2x), 3 owned Weapons Workshops
+    // (+9%), plus the fixture's own 1 Titanium (+3%) / 1 Umbrite (+1.5%)
+    // Weapons Factory — both now count empire-wide regardless of network.
+    expect(defenderBoosted?.defEff).toBeCloseTo(10 * 1.35 * 1.2 * 1.09 * 1.03 * 1.015, 6);
   });
 
-  it("threads Titanium/Umbrite Weapons Factory counts into resolved combat atkEff and defEff, scoped to each side's own connected-town network", async () => {
-    // End-to-end smoke test: confirms the runtime resolves each side's
-    // nearest owned town, reads that town's ConnectedTownNetworkEntry from
-    // the (cached) town network, and threads the resulting counts into
-    // resolveAttackCombat's combatModifiers. The mult math itself is covered
-    // exhaustively in frontier-combat.test.ts; the network-scoping/isolation
-    // itself is covered in economy-network.test.ts. This test is purely
-    // about the wiring between the two.
+  it("threads Titanium/Umbrite Weapons Factory counts into resolved combat atkEff and defEff, empire-wide regardless of town network", async () => {
+    // End-to-end smoke test: confirms the runtime sums each side's total
+    // owned active Titanium/Umbrite Weapons Factory count (ownedStructureCountForPlayer,
+    // a full-empire index — not scoped to any particular town's connected
+    // network) and threads it into resolveAttackCombat's combatModifiers.
+    // The mult math itself is covered exhaustively in frontier-combat.test.ts;
+    // this test is purely about the wiring between the two.
     const factoryTile = (x: number, y: number, ownerId: string, type: "TITANIUM_WEAPONS_FACTORY" | "UMBRITE_WEAPONS_FACTORY") => ({
       x,
       y,
@@ -6902,11 +6903,11 @@ describe("simulation runtime", () => {
             ownershipState: "SETTLED",
             town: { name: "Target", type: "FARMING", populationTier: "TOWN" }
           },
-          // Player-1's only town, far from the attack origin — deliberately
-          // distant, to prove the attacker's network mult is resolved via
-          // "nearest owned town" (trivially this one, being the only one
-          // player-1 owns) rather than requiring geometric adjacency to the
-          // attack itself. 2 Titanium + 1 Umbrite Weapons Factory on its support tiles.
+          // Player-1's factories live on a town far from the attack origin —
+          // deliberately distant, to prove the bonus is empire-wide (it
+          // counts regardless of geometric distance from the attack, or
+          // which town network it's connected to). 2 Titanium + 1 Umbrite
+          // Weapons Factory on its support tiles.
           { x: 50, y: 50, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Capital", type: "FARMING", populationTier: "TOWN" } },
           factoryTile(50, 49, "player-1", "TITANIUM_WEAPONS_FACTORY"),
           factoryTile(49, 50, "player-1", "TITANIUM_WEAPONS_FACTORY"),
@@ -6917,7 +6918,7 @@ describe("simulation runtime", () => {
           { x: 52, y: 50, terrain: "LAND", resource: "TITANIUM" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
           { x: 53, y: 50, terrain: "LAND", resource: "TITANIUM" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
           { x: 54, y: 50, terrain: "LAND", resource: "UMBRITE" as const, ownerId: "player-1", ownershipState: "SETTLED" as const },
-          // Defender's own network: 1 Titanium + 1 Umbrite Weapons Factory adjacent
+          // Defender's own empire: 1 Titanium + 1 Umbrite Weapons Factory adjacent
           // to the target town itself, which also neutralizes the "unarmed"
           // vulnerability multiplier (both types present).
           factoryTile(9, 11, "player-2", "TITANIUM_WEAPONS_FACTORY"),

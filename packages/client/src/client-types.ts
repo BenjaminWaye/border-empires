@@ -1,4 +1,4 @@
-import type { FrontierDecayKind, NaturalWonderType, Terrain } from "@border-empires/shared";
+import type { FrontierCombatSideBreakdown, FrontierDecayKind, NaturalWonderType, Terrain } from "@border-empires/shared";
 
 export type OptimisticStructureKind =
   | "FORT"
@@ -755,6 +755,16 @@ export type TileOverviewLine = {
   kind?: "effect" | "section" | "loading";
 };
 
+// The full "verify the math" breakdown for a pending Launch Attack action:
+// each side's base/infrastructure/battle power tiers plus the resulting win
+// chance, straight from the server's ATTACK_PREVIEW_RESULT so it can be
+// rendered next to the attack button.
+export type TileCombatBreakdown = {
+  winChance: number;
+  attacker: FrontierCombatSideBreakdown;
+  defender: FrontierCombatSideBreakdown;
+};
+
 export type TileMenuView = {
   title: string;
   subtitle: string;
@@ -768,4 +778,5 @@ export type TileMenuView = {
   buildings: TileActionDef[];
   crystal: TileActionDef[];
   progress?: TileMenuProgressView;
+  combatBreakdown?: TileCombatBreakdown | undefined;
 };

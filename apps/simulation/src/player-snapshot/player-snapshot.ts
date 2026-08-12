@@ -18,6 +18,7 @@ import {
   buildModBreakdownForPlayer,
   recomputeMods
 } from "../tech-domain-bridge/tech-domain-bridge.js";
+import { weaponsFactoryCountsForPlayer } from "../tech-domain-bridge/weapons-factory-mod-breakdown.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 
@@ -205,6 +206,19 @@ export const buildPlayerSubscriptionSnapshot = (
         domainIds: new Set(livePlayer.domainIds)
       }
     : undefined;
+  // Full (not visibility-filtered) sourceTiles, matching the empire-wide
+  // scan buildTechUpdatePayload/emitPlayerStateUpdate use elsewhere so a
+  // freshly-loaded snapshot's Active Bonuses panel already includes owned
+  // Weapons Factories instead of waiting for the next TECH_UPDATE/PLAYER_UPDATE.
+  const weaponsFactoryCounts = weaponsFactoryCountsForPlayer(
+    playerId,
+    sourceTiles
+      .filter((tile) => tile.ownerId === playerId && tile.economicStructureJson)
+      .map((tile) => ({
+        ownerId: tile.ownerId,
+        economicStructure: JSON.parse(tile.economicStructureJson!) as { type?: string; status?: string }
+      }))
+  );
   const settledTileCount =
     typeof livePlayer?.settledTileCount === "number"
       ? livePlayer.settledTileCount
@@ -301,7 +315,7 @@ export const buildPlayerSubscriptionSnapshot = (
             domainIds: [...livePlayer.domainIds],
             mods: liveProgressionPlayer ? recomputeMods(liveProgressionPlayer) : { attack: 1, defense: 1, income: 1, vision: 1 },
             modBreakdown: liveProgressionPlayer
-              ? buildModBreakdownForPlayer(liveProgressionPlayer)
+              ? buildModBreakdownForPlayer(liveProgressionPlayer, weaponsFactoryCounts)
               : {
                   attack: [{ label: "Base", mult: 1 }],
                   defense: [{ label: "Base", mult: 1 }],

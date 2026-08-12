@@ -43,7 +43,7 @@ export type ActiveBattleOverlay = {
  * overlay FX. Purely additive: never touches state.capture or the frontier
  * action-queue HUD. */
 export const registerActiveBattleFromTileDelta = (
-  state: Pick<ClientState, "activeBattles">,
+  state: Pick<ClientState, "activeBattles" | "incomingAttacksByTile">,
   keyFor: (x: number, y: number) => string,
   update: { x: number; y: number; combatJson?: string },
   nowMs: number
@@ -56,8 +56,17 @@ export const registerActiveBattleFromTileDelta = (
     return;
   }
   if (!isCombatBroadcastPayload(parsed)) return;
-  const clashAt = nowMs + APPROACH_MS;
-  state.activeBattles.set(keyFor(update.x, update.y), {
+  const key = keyFor(update.x, update.y);
+  // ATTACK_ALERT registers this tile in incomingAttacksByTile well before
+  // the resolution broadcast arrives (see client-network.ts), so by the time
+  // we get here the overlay is almost always already mid-clash from the
+  // indefinite pre-resolution skirmish loop (client-map-3d-battle-overlay-fx
+  // .ts's skirmish rendering). Skip straight to the clash phase in that case
+  // instead of restarting a fresh approach — the dots are already at the
+  // clash point, and replaying the approach would snap them back out to the
+  // tile edge and back in, reading as two disjoint fights instead of one.
+  const clashAt = state.incomingAttacksByTile.has(key) ? nowMs : nowMs + APPROACH_MS;
+  state.activeBattles.set(key, {
     originX: parsed.originX,
     originY: parsed.originY,
     targetX: update.x,

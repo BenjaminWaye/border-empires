@@ -2997,6 +2997,63 @@ body {
   font-size: 11px;
 }
 
+.tile-combat-breakdown {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(132, 159, 191, 0.18);
+  background: rgba(4, 11, 22, 0.58);
+}
+.tile-combat-breakdown-title {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(198, 212, 232, 0.72);
+}
+.tile-combat-breakdown-hint {
+  font-size: 10px;
+  color: rgba(146, 170, 201, 0.72);
+  margin-top: -6px;
+}
+.tile-combat-breakdown-side {
+  display: grid;
+  gap: 4px;
+}
+.tile-combat-breakdown-side-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  color: #f2f7ff;
+  padding-bottom: 2px;
+}
+.tile-combat-breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: rgba(214, 226, 241, 0.82);
+}
+.tile-combat-breakdown-row.is-total {
+  border-top: 1px solid rgba(158, 184, 216, 0.16);
+  margin-top: 2px;
+  padding-top: 6px;
+  color: rgba(221, 235, 250, 0.92);
+  font-weight: 700;
+}
+.tile-combat-breakdown-formula {
+  font-size: 11px;
+  color: rgba(166, 191, 221, 0.84);
+  text-align: center;
+  padding-top: 4px;
+  border-top: 1px solid rgba(132, 159, 191, 0.18);
+}
+
 @keyframes tile-action-spin {
   to {
     transform: rotate(360deg);

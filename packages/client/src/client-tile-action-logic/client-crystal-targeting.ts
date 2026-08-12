@@ -219,10 +219,6 @@ export const beginCrystalTargeting = (
   }
   if (ability === "aether_emp") {
     const cooldown = deps.abilityCooldownRemainingMs("aether_emp");
-    if ((state.strategicResources.CRYSTAL ?? 0) < 160) {
-      deps.pushFeed("Aether EMP needs 160 CRYSTAL.", "combat", "warn");
-      return;
-    }
     if (cooldown > 0) {
       deps.pushFeed(`Aether EMP cooling down for ${deps.formatCooldownShort(cooldown)}.`, "combat", "warn");
       return;

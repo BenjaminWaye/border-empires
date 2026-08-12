@@ -1,4 +1,4 @@
-import { PLAYER_BASE_VISION, TRICKLE_RESOURCE_KEYS, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS, type ChosenTrickleResource } from "@border-empires/shared";
+import { BASE_COMBAT_POWER, PLAYER_BASE_VISION, TRICKLE_RESOURCE_KEYS, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainInfo, TechInfo } from "../client-types.js";
 import { isTechHighlightEffectKey } from "../client-tech-payoffs.js";
 type ModKey = "attack" | "defense" | "income" | "vision";
@@ -14,9 +14,18 @@ type ActiveBonusBreakdownEntry =
   | { label: string; kind: "mult"; mult: number }
   | { label: string; kind: "radius"; amount: number };
 
-const formatSignedPercent = (mult: number): string => {
-  const pct = Math.round((mult - 1) * 100);
-  return `${pct >= 0 ? "+" : ""}${pct}%`;
+// Attack/Defense are shown as the absolute effective-power number combat
+// actually uses (BASE_COMBAT_POWER x every persistent multiplier), not a %
+// delta, so players can read the same number the win-chance formula does.
+const formatCombatPower = (value: number): string => {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
+};
+
+const formatMultiplierNumber = (mult: number): { text: string; tone: "positive" | "negative" | "neutral" } => {
+  const rounded = Math.round(mult * 1000) / 1000;
+  if (Math.abs(rounded - 1) < 0.0005) return { text: "×1.00", tone: "neutral" };
+  return { text: `×${rounded.toFixed(2)}`, tone: rounded > 1 ? "positive" : "negative" };
 };
 
 // Mirrors the server's hasRevealedResourceForPlayer (apps/simulation/src/
@@ -300,13 +309,20 @@ export const techCurrentModsHtml = (
   const visionRadiusBonus = radiusEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const effectiveVisionRadius = Math.max(1, Math.floor(PLAYER_BASE_VISION * (mods.vision ?? 1)) + visionRadiusBonus);
 
+  // The tech tab's Attack/Defense chip is meant to read as the same base
+  // power the win-chance formula starts from — BASE_COMBAT_POWER times every
+  // persistent multiplier the player has, which is exactly what modBreakdown
+  // already lists (tech/domain mods, plus the informational weapons-factory
+  // rows appended by appendWeaponsFactoryBreakdownEntries).
+  const combinedBreakdownMult = (key: ModKey): number => (modBreakdown[key] ?? []).reduce((acc, entry) => acc * entry.mult, 1);
+
   const statDefs = [
     {
       key: "attack",
       label: "Attack",
       short: "ATK",
       icon: "△",
-      valueLabel: formatSignedPercent(mods.attack),
+      valueLabel: formatCombatPower(BASE_COMBAT_POWER * combinedBreakdownMult("attack")),
       tone: "attack",
       entries: undefined
     },
@@ -315,7 +331,7 @@ export const techCurrentModsHtml = (
       label: "Defense",
       short: "DEF",
       icon: "⬡",
-      valueLabel: formatSignedPercent(mods.defense),
+      valueLabel: formatCombatPower(BASE_COMBAT_POWER * combinedBreakdownMult("defense")),
       tone: "defense",
       entries: undefined
     },
@@ -389,12 +405,13 @@ export const techCurrentModsHtml = (
       .filter((entry) => entry.label.trim().toLowerCase() !== "base")
       .map((entry): ActiveBonusBreakdownEntry => ({ label: entry.label, kind: "mult", mult: entry.mult }));
   };
+  const isNumericPowerKey = effectiveExpandedModKey === "attack" || effectiveExpandedModKey === "defense";
   const breakdown =
     effectiveExpandedModKey === null
       ? ""
       : `<div class="tech-mod-breakdown">${breakdownEntriesForExpandedKey(effectiveExpandedModKey)
           .map((entry) => {
-            const delta = formatBreakdownEntry(entry);
+            const delta = isNumericPowerKey && entry.kind === "mult" ? formatMultiplierNumber(entry.mult) : formatBreakdownEntry(entry);
             return `<div class="tech-mod-breakdown-row"><span>${entry.label}</span><strong class="tech-mod-delta ${delta.tone}">${delta.text}</strong></div>`;
           })
           .join("")}</div>`;

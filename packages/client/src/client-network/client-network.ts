@@ -1,4 +1,4 @@
-import { COMBAT_LOCK_MS, isChosenTrickleResource } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown } from "@border-empires/shared";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
@@ -2814,6 +2814,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         atkEff?: number;
         defEff?: number;
         defenseEffPct?: number;
+        attacker?: FrontierCombatSideBreakdown;
+        defender?: FrontierCombatSideBreakdown;
         receivedAt: number;
       } = {
         fromKey: keyFor(from.x, from.y),
@@ -2826,11 +2828,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       const atkEff = msg.atkEff as number | undefined;
       const defEff = msg.defEff as number | undefined;
       const defMult = msg.defMult as number | undefined;
+      const attacker = msg.attacker as FrontierCombatSideBreakdown | undefined;
+      const defender = msg.defender as FrontierCombatSideBreakdown | undefined;
       if (reason) preview.reason = reason;
       if (typeof winChance === "number") preview.winChance = winChance;
       if (typeof atkEff === "number") preview.atkEff = atkEff;
       if (typeof defEff === "number") preview.defEff = defEff;
       if (typeof defMult === "number") preview.defenseEffPct = Math.max(0, Math.min(100, defMult * 100));
+      if (attacker) preview.attacker = attacker;
+      if (defender) preview.defender = defender;
       state.attackPreview = preview;
       const acceptedPreviewKey = `${preview.fromKey}->${preview.toKey}`;
       state.attackPreviewCacheByKey.set(acceptedPreviewKey, preview);
