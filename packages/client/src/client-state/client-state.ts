@@ -1,6 +1,6 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
-import { cameraLocationInitialState } from "./client-camera-storage.js";
+import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
@@ -162,7 +162,9 @@ export const createInitialState = () => ({
   integrityWarningDismissed: false,
   settledT: 1,
   settledE: 4,
-  selected: undefined as { x: number; y: number } | undefined,
+  // Opens straight on a deep-linked tile (e.g. an attack alert email's
+  // "Go to tile" link — see readUrlTileFocus() in client-camera-storage.ts).
+  selected: readUrlTileFocus() ?? undefined as { x: number; y: number } | undefined,
   tileDetailRequestedAt: new Map<string, number>(),
   // tileKey -> ms timestamp when a full-detail TILE_DELTA arrived. Used to
   // skip REQUEST_TILE_DETAIL re-sends when we already have a recent answer.

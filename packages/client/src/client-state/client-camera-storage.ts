@@ -1,6 +1,38 @@
 import { CAMERA_LOCATION_STORAGE_KEY, DEFAULT_ZOOM, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { storageGet } from "./client-state.js";
 
+// Reads a deep-linked tile from the page URL, e.g. the "Go to tile" link in
+// an attack-alert email (see sendAttackAlert() in
+// apps/realtime-gateway/src/email-alerts/email-alerts.ts): "?x=141&y=174".
+// Returns null when either coordinate is missing or not a finite number, so
+// callers fall back to the stored/default camera location.
+export const readUrlTileFocus = (
+  locationLike: Pick<Location, "search"> | undefined = typeof window !== "undefined" ? window.location : undefined
+): { x: number; y: number } | null => {
+  if (!locationLike) return null;
+  const params = new URLSearchParams(locationLike.search);
+  const rawX = params.get("x");
+  const rawY = params.get("y");
+  if (rawX === null || rawY === null) return null;
+  const x = Number(rawX);
+  const y = Number(rawY);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y };
+};
+
+// Strips the ?x=&y= deep-link params (see readUrlTileFocus() above) from the
+// address bar once they've been consumed, so a later reload doesn't keep
+// jumping the camera back to a stale tile instead of restoring the player's
+// last-viewed location.
+export const clearUrlTileFocus = (): void => {
+  if (typeof window === "undefined" || typeof window.history?.replaceState !== "function") return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("x") && !url.searchParams.has("y")) return;
+  url.searchParams.delete("x");
+  url.searchParams.delete("y");
+  window.history.replaceState(window.history.state, document.title, url.toString());
+};
+
 // Reads the last-viewed map location saved by saveCameraLocation() in
 // client-view-refresh.ts. Returns null if nothing is stored or the payload
 // is malformed, so callers fall back to the default (0,0) / home-tile camera.
@@ -37,6 +69,20 @@ export const cameraLocationInitialState = (): {
   cameraRestoredFromStorage: boolean;
   cameraRestoredSeasonId: string | undefined;
 } => {
+  const urlFocus = readUrlTileFocus();
+  if (urlFocus) {
+    return {
+      camX: urlFocus.x,
+      camY: urlFocus.y,
+      zoom: DEFAULT_ZOOM,
+      // Reuses the "restored" one-shot skip (consumed in client-network.ts)
+      // so the initial centerOnOwnedTile() fallback doesn't override a tile
+      // the player was explicitly linked to.
+      cameraRestoredFromStorage: true,
+      cameraRestoredSeasonId: undefined
+    };
+  }
+
   const stored = readStoredCameraLocation();
   return {
     camX: stored?.x ?? 0,

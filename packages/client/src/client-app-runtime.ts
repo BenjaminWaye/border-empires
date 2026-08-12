@@ -106,6 +106,7 @@ import {
   structureOverlayImages
 } from "./client-map-render/client-map-render.js";
 import { createInitialState, storageSet } from "./client-state/client-state.js";
+import { clearUrlTileFocus } from "./client-state/client-camera-storage.js";
 import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html/client-tech-html.js";
 import type {
   ActiveAetherBridgeView,
@@ -134,6 +135,10 @@ import type {
 } from "./client-types.js";
 
 const state = createInitialState();
+// Consumes the ?x=&y= deep-link (already read into state.camX/camY/selected
+// above) so a later reload restores the last-viewed camera instead of
+// re-jumping to a stale linked tile.
+clearUrlTileFocus();
 const { dom, miniMapReplayEl } = createClientAppRuntimeDom(state);
 const { firebaseAuth, googleProvider } = createClientFirebaseSetup();
 const { ws, wsUrl } = createClientSocketSetup(state);
