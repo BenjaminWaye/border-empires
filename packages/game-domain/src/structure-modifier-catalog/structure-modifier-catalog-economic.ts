@@ -23,14 +23,26 @@ const mintworksModifiers = (ctx: ModifierContext): StructureModifier[] => {
   const clearingHouseActive = Boolean(ctx.tile?.town?.clearingHouseActive);
   const perCopyPercent = (clearingHouseActive ? MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE : MINTWORKS_GOLD_PRODUCTION_BONUS) * 100;
   const goldPerDay = Math.round(MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * UPKEEP_MINUTES_PER_DAY);
-  const stackedValueText =
-    typeof count === "number" && count > 0
-      ? `${percentLabel(perCopyPercent * count)} town gold production`
-      : `${percentLabel(perCopyPercent)} town gold production per Mintworks`;
+  const hasLiveCount = typeof count === "number" && count > 0;
+  const stackedValueText = hasLiveCount
+    ? `${percentLabel(perCopyPercent * count)} town gold production`
+    : `${percentLabel(perCopyPercent)} town gold production per Mintworks`;
   return [
     { statLabel: "Instant gold", valueText: `+${MINTWORKS_INSTANT_GOLD_BONUS} (once, on completion)`, tone: "positive", isTownWide: true },
     { statLabel: "Gold", valueText: `+${goldPerDay}/day`, tone: "positive", isTownWide: true, rawValue: goldPerDay },
-    { statLabel: "Gold production", valueText: stackedValueText, tone: "positive", isTownWide: true }
+    // Nonlinear stacking (each copy is worth more with an active Clearing
+    // House) means the aggregate total can't be derived by multiplying a
+    // flat per-copy rawValue by count like the other town-wide modifiers —
+    // it's already computed above from the live count, so rawValue carries
+    // the final total percent directly (alreadyAggregated: true tells the
+    // town-summary aggregator not to multiply it again).
+    {
+      statLabel: "Gold production",
+      valueText: stackedValueText,
+      tone: "positive",
+      isTownWide: true,
+      ...(hasLiveCount ? { rawValue: perCopyPercent * count, unit: "percent" as const, alreadyAggregated: true } : {})
+    }
   ];
 };
 

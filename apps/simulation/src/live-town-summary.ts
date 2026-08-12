@@ -3,6 +3,7 @@ import {
   LONG_PEACE_MS,
   mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
+  percentLabel,
   POPULATION_GROWTH_BASE_RATE,
   granaryGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
@@ -173,35 +174,60 @@ export const supportTileBelongsToTown = (
   return assignedTown?.x === townX && assignedTown.y === townY;
 };
 
-// Unified building modifier display (stage 2): support-tile buildings whose
-// catalog entry (structure-modifier-catalog.ts) carries a flat, additive-
-// per-copy rawValue — safe to multiply by how many active copies of that
-// building sit in this town's support ring. Deliberately a small, explicit
-// list rather than "every isTownWide entry with a rawValue" auto-scanned
-// against every EconomicStructureType: Mintworks also carries a rawValue
-// (its flat +gold/day line) but must NOT be summed here — its percent-based
-// gold-production stacking already has its own math
-// (mintworksGoldProductionMultiplier) and is shown as a single already-
-// stacked line by the tile-overview modifiers instead.
-const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = ["GARRISON_HALL", "LOGISTICS_GUILD"];
+// Unified building modifier display (stage 2, widened): every support-tile
+// building type whose catalog entry (structure-modifier-catalog.ts) carries
+// a numeric rawValue gets folded into the town's aggregate totals — flat
+// per-copy numbers (Garrison Hall manpower cap, Logistics Guild manpower/min,
+// Mintworks flat gold/day) are multiplied by how many active copies sit in
+// this town's support ring; percent-per-copy numbers (the Weapons Workshop
+// family's empire attack/defense) are summed the same way but rendered as a
+// percentage. Entries from different buildings that share a statLabel (e.g.
+// "Empire attack" from Weapons Workshop AND Titanium/Umbrite Weapons
+// Factory) combine into one bucket, so the total really is "everything this
+// town's support buildings contribute to that stat" rather than one line
+// per building. Mintworks's gold-production stacking is nonlinear (each
+// copy is worth more with an active Clearing House), so that one entry is
+// computed from the live count up front and carries `alreadyAggregated:
+// true` — the loop below adds it to its bucket as-is instead of multiplying
+// by count again. Buildings without a numeric rawValue (Census Hall scaling
+// off connected Incubation Engines, Customs House off connected docks, Rail
+// Depot/Assembly Works off other network buildings, one-time bursts, etc.)
+// are intentionally left out — their effect doesn't reduce to "count × a
+// constant for this town alone", so summing them here would just be wrong.
+const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
+  "GARRISON_HALL", "LOGISTICS_GUILD", "MINTWORKS",
+  "WEAPONS_WORKSHOP", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"
+];
 
 const townModifierTotalsForTown = (
   tileKey: string,
   ownerId: string,
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>,
-  dormantEconomicStructureKeys: ReadonlySet<string>
+  dormantEconomicStructureKeys: ReadonlySet<string>,
+  clearingHouseActive: boolean
 ): NonNullable<Tile["town"]>["townModifierTotals"] => {
-  const totals: NonNullable<Tile["town"]>["townModifierTotals"] = [];
+  const buckets = new Map<string, { total: number; tone: "positive" | "negative" | "neutral"; unit: "flat" | "percent" }>();
   for (const type of TOWN_MODIFIER_AGGREGATE_TYPES) {
     const count = countSupportedStructures(tileKey, ownerId, type, tilesByKey, dormantEconomicStructureKeys);
     if (count <= 0) continue;
-    for (const modifier of structureModifiersFor(type)) {
-      if (typeof modifier.rawValue !== "number") continue;
-      const total = Number((modifier.rawValue * count).toFixed(4));
-      totals!.push({ statLabel: modifier.statLabel, total, valueText: `+${total}`, tone: modifier.tone });
+    const ctx = type === "MINTWORKS" ? { tile: { town: { mintworksCount: count, clearingHouseActive } } } : {};
+    for (const modifier of structureModifiersFor(type, ctx)) {
+      if (!modifier.isTownWide || typeof modifier.rawValue !== "number") continue;
+      const contribution = modifier.alreadyAggregated ? modifier.rawValue : modifier.rawValue * count;
+      const existing = buckets.get(modifier.statLabel);
+      buckets.set(modifier.statLabel, {
+        total: Number(((existing?.total ?? 0) + contribution).toFixed(4)),
+        tone: modifier.tone,
+        unit: modifier.unit ?? "flat"
+      });
     }
   }
-  return totals;
+  return [...buckets.entries()].map(([statLabel, bucket]) => ({
+    statLabel,
+    total: bucket.total,
+    valueText: bucket.unit === "percent" ? percentLabel(bucket.total) : `+${bucket.total}`,
+    tone: bucket.tone
+  }));
 };
 
 export const buildTownSummary = (
@@ -340,7 +366,7 @@ export const buildTownSummary = (
     : undefined;
   const townModifierTotals =
     tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
-      ? townModifierTotalsForTown(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys)
+      ? townModifierTotalsForTown(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys, clearingHouseActive)
       : undefined;
   return {
     ...(townPartial.name ? { name: townPartial.name } : {}),

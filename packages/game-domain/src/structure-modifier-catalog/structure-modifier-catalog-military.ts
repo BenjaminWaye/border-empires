@@ -26,20 +26,38 @@ export const militaryStructureModifiers = (type: ModifierStructureType): Structu
   }
   if (type === "WEAPONS_WORKSHOP") {
     return [
-      { statLabel: "Empire attack", valueText: `${percentLabel(WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING * 100)} per copy`, tone: "positive", isTownWide: true },
-      { statLabel: "Empire defense", valueText: `${percentLabel(WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING * 100)} per copy`, tone: "positive", isTownWide: true }
+      {
+        statLabel: "Empire attack", valueText: `${percentLabel(WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING * 100)} per copy`,
+        tone: "positive", isTownWide: true, rawValue: WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING * 100, unit: "percent"
+      },
+      {
+        statLabel: "Empire defense", valueText: `${percentLabel(WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING * 100)} per copy`,
+        tone: "positive", isTownWide: true, rawValue: WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING * 100, unit: "percent"
+      }
     ];
   }
   if (type === "TITANIUM_WEAPONS_FACTORY") {
     return [
-      { statLabel: "Empire attack", valueText: `${percentLabel(TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING * 100)} per copy`, tone: "positive", isTownWide: true },
-      { statLabel: "Empire defense", valueText: `${percentLabel(TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * 100)} per copy`, tone: "positive", isTownWide: true }
+      {
+        statLabel: "Empire attack", valueText: `${percentLabel(TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING * 100)} per copy`,
+        tone: "positive", isTownWide: true, rawValue: TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING * 100, unit: "percent"
+      },
+      {
+        statLabel: "Empire defense", valueText: `${percentLabel(TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * 100)} per copy`,
+        tone: "positive", isTownWide: true, rawValue: TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * 100, unit: "percent"
+      }
     ];
   }
   if (type === "UMBRITE_WEAPONS_FACTORY") {
     return [
-      { statLabel: "Empire attack", valueText: `${percentLabel(UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING * 100)} per copy`, tone: "positive", isTownWide: true },
-      { statLabel: "Empire defense", valueText: `${percentLabel(UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * 100)} per copy`, tone: "positive", isTownWide: true }
+      {
+        statLabel: "Empire attack", valueText: `${percentLabel(UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING * 100)} per copy`,
+        tone: "positive", isTownWide: true, rawValue: UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING * 100, unit: "percent"
+      },
+      {
+        statLabel: "Empire defense", valueText: `${percentLabel(UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * 100)} per copy`,
+        tone: "positive", isTownWide: true, rawValue: UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING * 100, unit: "percent"
+      }
     ];
   }
   return undefined;
