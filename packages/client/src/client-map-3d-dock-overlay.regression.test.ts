@@ -38,6 +38,22 @@ describe("dock overlay", () => {
     overlay.dispose();
   });
 
+  it("renders every dock in a multi-dock frame completely", () => {
+    // Regression for the storybook Row view: per-slot capacity is maxTiles *
+    // parts-per-tile, so placing several docks in one commit must not drop the
+    // parts of docks after the first (a single maxTiles-sized pool would only
+    // fit one dock's worth of planks/piles/barge/crane).
+    const scene = new Scene();
+    const overlay = createDockOverlay(scene, 4);
+
+    for (let i = 0; i < 4; i += 1) overlay.addInstance(i * 1.4, 0, 0, 0, i, 0);
+    overlay.commit();
+
+    expect(renderedPieces(scene)).toBe(4 * 64);
+
+    overlay.dispose();
+  });
+
   it("clears instance counts without removing meshes from the scene", () => {
     const scene = new Scene();
     const overlay = createDockOverlay(scene, 100);
@@ -54,12 +70,11 @@ describe("dock overlay", () => {
     overlay.dispose();
   });
 
-  it("does not allocate instance capacity proportional to per-tile piece count", () => {
-    // Regression guard for the GPU blowup that plagued other overlays: pools are
-    // sized at maxTiles per shared (geometry, material) slot, not maxTiles * 63
-    // (the per-tile part count), which would have reserved ~56 MB for a sparse
-    // coastal feature. 24 shared slots stay inside the renderer's preallocation
-    // budget (~40 InstancedMeshes at budget count).
+  it("sizes instance capacity to maxTiles * parts-per-tile, under the old dock", () => {
+    // The old overlay reserved maxTiles * 12 instances per mesh (≈64.5MB at the
+    // 14k budget). This overlay reserves exactly the parts each dock emits per
+    // slot — 64 parts per dock in total — so preallocation is strictly lower
+    // while a full screen of dock tiles can never drop parts.
     const scene = new Scene();
     const overlay = createDockOverlay(scene, 14_000);
 
@@ -68,7 +83,10 @@ describe("dock overlay", () => {
       (total, mesh) => total + mesh.instanceMatrix.array.length * 4,
       0
     );
-    expect(totalBytes).toBeLessThan(32 * 1024 * 1024);
+    const partsPerDock = 64;
+    const bytesPerPart = 16 * 4;
+    expect(totalBytes).toBe(14_000 * partsPerDock * bytesPerPart);
+    expect(totalBytes).toBeLessThan(14_000 * 72 * bytesPerPart);
 
     overlay.dispose();
   });
@@ -94,12 +112,13 @@ describe("dock overlay", () => {
     overlay.dispose();
   });
 
-  it("skips instance-matrix uploads when the frame is unchanged", () => {
-    // Docks are static terrain. commit() runs every frame; it must not re-upload
-    // matrices when no tile entered or left the view. three.js r179 exposes
-    // needsUpdate as setter-only and re-uploads when the attribute's `version`
-    // increases, so an unchanged commit must leave `version` untouched (zero GPU
-    // work) while a changed frame must bump it.
+  it("re-uploads the used range on every commit so a swapped dock is never stale", () => {
+    // commit() only runs when the visible tile set changed. A dock leaving and
+    // another entering keeps the per-slot instance counts identical, so a
+    // "count unchanged" skip would leave the previous dock's matrices on the
+    // GPU. Every commit must re-mark the used range for upload (three r179
+    // re-uploads when the setter-only needsUpdate bumps the attribute's
+    // `version`).
     const scene = new Scene();
     const overlay = createDockOverlay(scene, 100);
 
@@ -107,19 +126,17 @@ describe("dock overlay", () => {
     overlay.commit();
     const drawn = instancedMeshes(scene).filter((mesh) => mesh.count > 0);
     expect(drawn.length).toBeGreaterThan(0);
-    const afterFirstCommit = drawn.map((mesh) => mesh.instanceMatrix.version);
-    for (const version of afterFirstCommit) expect(version).toBeGreaterThan(0);
+    const versionsAfterFirst = drawn.map((mesh) => mesh.instanceMatrix.version);
+    for (const version of versionsAfterFirst) expect(version).toBeGreaterThan(0);
 
-    // No tile change between frames: nothing may be re-marked for upload.
+    // Same number of docks, different tile (per-slot counts unchanged): the
+    // matrices were re-written, so the upload must be marked again, not skipped.
+    overlay.clear();
+    overlay.addInstance(1, 0, 0, Math.PI / 2, 1, 0);
     overlay.commit();
-    expect(drawn.map((mesh) => mesh.instanceMatrix.version)).toEqual(afterFirstCommit);
-
-    // A later tile change must still trigger an upload.
-    overlay.addInstance(3, 0, 0, Math.PI / 2, 3, 0);
-    overlay.commit();
-    const afterChange = drawn.map((mesh) => mesh.instanceMatrix.version);
-    for (let i = 0; i < afterFirstCommit.length; i += 1) {
-      expect(afterChange[i]!).toBeGreaterThan(afterFirstCommit[i]!);
+    const versionsAfterSwap = drawn.map((mesh) => mesh.instanceMatrix.version);
+    for (let i = 0; i < versionsAfterFirst.length; i += 1) {
+      expect(versionsAfterSwap[i]!).toBeGreaterThan(versionsAfterFirst[i]!);
     }
 
     overlay.dispose();

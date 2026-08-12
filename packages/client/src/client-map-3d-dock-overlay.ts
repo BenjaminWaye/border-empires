@@ -70,10 +70,12 @@ export type DockOverlay = {
   readonly dispose: () => void;
 };
 
-// One InstancedMesh per shared (geometry, material) combo, each sized to the
-// tile budget (docks are sparse, so a single budget-sized pool per slot is
-// far more headroom than any frame needs and stays inside the renderer's
-// preallocation budget).
+// One InstancedMesh per shared (geometry, material) combo. Each slot must be
+// able to hold every part of one dock for every one of the `maxTiles` dock
+// tiles the renderer may show at once, so capacity is maxTiles * partsPerTile
+// per slot (64 parts total per dock). This is the same worst-case contract the
+// old overlay used (maxTiles * 12 per mesh) but with exact per-slot counts, so
+// total preallocation stays below the previous implementation.
 const SLOT = {
   deck: 0,
   plank: 1,
@@ -100,6 +102,12 @@ const SLOT = {
   barrel: 22,
   cap: 23
 } as const;
+
+// Parts emitted per dock tile, indexed by SLOT. Each slot's InstancedMesh is
+// sized maxTiles * perTile so a full screen of dock tiles can never drop parts.
+const PARTS_PER_TILE: ReadonlyArray<number> = [
+  2, 3, 6, 6, 4, 5, 5, 1, 1, 5, 1, 2, 2, 5, 2, 3, 1, 1, 1, 1, 2, 2, 2, 1
+];
 
 export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay => {
   const group = new Group();
@@ -146,7 +154,8 @@ export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay =
   ] as const;
 
   const meshes: InstancedMesh[] = slotDefs.map(([geometry, material], index) => {
-    const mesh = new InstancedMesh(geometry, material, maxTiles);
+    const capacity = maxTiles * (PARTS_PER_TILE[index] ?? 1);
+    const mesh = new InstancedMesh(geometry, material, capacity);
     mesh.name = `dock-${index}`;
     mesh.frustumCulled = false;
     mesh.count = 0;
@@ -155,7 +164,6 @@ export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay =
   });
 
   const counts = new Array<number>(meshes.length).fill(0);
-  const lastCommittedCounts = new Array<number>(meshes.length).fill(-1);
 
   const tempMatrix = new Matrix4();
   const localMatrix = new Matrix4();
@@ -273,7 +281,7 @@ export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay =
     for (const part of partTransforms) {
       const slot = part.slot;
       const slotCount = counts[slot] ?? 0;
-      if (slotCount >= maxTiles) continue;
+      if (slotCount >= (maxTiles * (PARTS_PER_TILE[slot] ?? 1))) continue;
       const local = rotate(part.cx, part.cz);
       scaleVec.set(part.sx, part.sy, part.sz);
       localEuler.set(part.rx, part.ry + (part.spin ? crateSpin : 0), part.rz, "YXZ");
@@ -288,14 +296,14 @@ export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay =
   };
 
   const commit = (): void => {
-    // Docks are static terrain: only touch a mesh when its instance count
-    // actually changed this frame, so unchanged frames perform zero GPU
-    // uploads instead of re-uploading every mesh's matrices every frame.
+    // rebuildVisibleTerrain runs only when the visible tile set changed, so
+    // commit is only ever called at a moment when matrices were re-written.
+    // Re-upload every non-empty slot's used range: a dock swap keeps the same
+    // per-slot counts, so a "count unchanged" skip would leave stale geometry
+    // on the GPU. Partial range uploads (count * 16 floats) keep the cost low.
     for (let i = 0; i < meshes.length; i += 1) {
       const mesh = meshes[i]!;
       const count = counts[i] ?? 0;
-      if (lastCommittedCounts[i] === count) continue;
-      lastCommittedCounts[i] = count;
       mesh.count = count;
       mesh.instanceMatrix.clearUpdateRanges();
       if (count === 0) continue;
