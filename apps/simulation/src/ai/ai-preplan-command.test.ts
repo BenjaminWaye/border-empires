@@ -399,6 +399,38 @@ describe("automation preplan command", () => {
     expect(result.command).toMatchObject({ type: "CHOOSE_TECH" });
   });
 
+  it("does not re-propose UPGRADE_TOWN_TIER while it's on rejection cooldown, falling through to tech choice", () => {
+    // Regression for the livelock this cooldown fixes: chooseAiTownTierUpgrade
+    // always re-picks the same eligible tile (nothing about eligibility
+    // changes on its own), so a rejected upgrade (e.g. INSUFFICIENT_SLOT — no
+    // free FOOD slot) used to get re-proposed identically every tick, starving
+    // tech/domain choices and the whole main planner for that player forever.
+    const town = makeTile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { name: "Core", populationTier: "TOWN", population: 150_000 }
+    });
+
+    const result = chooseAutomationPreplanCommand({
+      playerId: "ai-1",
+      points: 2_500,
+      techIds: [],
+      domainIds: [],
+      strategicResources: { FOOD: 600 },
+      settledTileCount: 1,
+      townCount: 1,
+      incomePerMinute: 6,
+      hasActiveLock: false,
+      ownedTiles: [town],
+      clientSeq: 1,
+      issuedAt: 1000,
+      sessionPrefix: "ai-runtime",
+      decisionCooldowns: { UPGRADE_TOWN_TIER: true }
+    });
+
+    expect(result.command).toMatchObject({ type: "CHOOSE_TECH" });
+  });
+
   it("reports missing progression reachability when there is nothing legal to pick", () => {
     const result = chooseAutomationPreplanCommand({
       playerId: "ai-1",

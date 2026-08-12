@@ -170,7 +170,8 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
         ...(options?.collectVisibleOnCooldown ? { collectVisibleOnCooldown: true } : {}),
         ...(typeof options?.lastHeartbeatAtMs === "number"
           ? { lastHeartbeatAtMs: options.lastHeartbeatAtMs }
-          : {})
+          : {}),
+        ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {})
       });
       preplanDiagnostic = preplan.diagnostic;
       if (preplan.command) {
