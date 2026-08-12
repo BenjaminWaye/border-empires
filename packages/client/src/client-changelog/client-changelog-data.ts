@@ -23,6 +23,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786572000000, // 2026.08.12.13
+    introducedIn: "2026.08.12.13",
+    title: "Fixed: manual attack could stay queued forever behind a non-adjacent muster flag",
+    why: "The NOT_ADJACENT fix (2026.08.12.12) made processActionQueue require a ready flag to actually be adjacent before firing, but the queue-promotion step that runs beforehand didn't check adjacency at all. Whenever the only fully-mustered flag near a target wasn't adjacent to it, the attack got promoted, rejected, and re-parked in an endless loop — the exact \"stuck forever\" symptom the original fix was meant to resolve.",
+    changes: [
+      "A pending muster attack now only promotes to fire once its funded flag is actually adjacent to the target (or a valid dock crossing), matching the check that decides whether it's allowed to fire.",
+      "A funded-but-not-adjacent flag keeps the attack parked instead of bouncing it between the queues."
+    ]
+  },
+  {
     createdAt: 1786568215911, // 2026.08.12.12
     introducedIn: "2026.08.12.12",
     title: "Fixed: manually targeted attacks rejected as NOT_ADJACENT from a ready flag",

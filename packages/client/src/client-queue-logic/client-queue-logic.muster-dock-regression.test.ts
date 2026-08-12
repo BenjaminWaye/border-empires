@@ -9,7 +9,7 @@ vi.hoisted(() => {
 
 import { MUSTER_ATTACK_COST } from "@border-empires/shared";
 import { createInitialState } from "../client-state/client-state.js";
-import { processActionQueue } from "./client-queue-logic.js";
+import { processActionQueue, processPendingMusterAttacks } from "./client-queue-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { Tile } from "../client-types.js";
 
@@ -172,5 +172,36 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     expect(sendAttack).not.toHaveBeenCalled();
     expect(state.pendingMusterAttacks).toHaveLength(1);
     expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 5, targetY: 0, musterTileKey: "4,0" });
+  });
+
+  // Regression for: processPendingMusterAttacks promoted an entry back into
+  // actionQueue based only on findClosestMuster (funded + nearest), with no
+  // adjacency check. processActionQueue's own adjacency check (added by the
+  // fix above) then rejected the promoted entry and re-parked it — bouncing
+  // the same attack between the two queues forever, exactly like the
+  // original never-fires bug, whenever the only funded flag in range isn't
+  // adjacent to the target (e.g. a HOLD flag 2+ tiles away that never
+  // marches in on its own).
+  it("does not promote a pending attack whose only funded flag is not adjacent to the target", () => {
+    const state = createInitialState();
+    state.me = "me";
+
+    const flag = makeTile({ x: 0, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: Date.now() } });
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    state.tiles.set("0,0", flag);
+    state.tiles.set("5,0", target);
+
+    state.pendingMusterAttacks = [{ targetX: 5, targetY: 0, fromX: 4, fromY: 0, musterTileKey: "4,0" }];
+
+    processPendingMusterAttacks(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      // Nothing is adjacent to the target in this scenario — the flag at
+      // (0,0) is 5 tiles away.
+      isAdjacent: () => false,
+      pushFeed: vi.fn()
+    });
+
+    expect(state.actionQueue).toHaveLength(0);
+    expect(state.pendingMusterAttacks).toHaveLength(1);
   });
 });

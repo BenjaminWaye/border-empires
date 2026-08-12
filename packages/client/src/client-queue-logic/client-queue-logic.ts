@@ -1120,6 +1120,7 @@ export const processPendingMusterAttacks = (
   state: ClientState,
   deps: {
     keyFor: (x: number, y: number) => string;
+    isAdjacent: (ax: number, ay: number, bx: number, by: number) => boolean;
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
   }
 ): void => {
@@ -1133,8 +1134,17 @@ export const processPendingMusterAttacks = (
 
     // Check for any muster closest to the target — a different muster may have
     // filled first, or the player may have placed a new flag closer to the front.
+    // Must also actually be adjacent (or a valid dock crossing): processActionQueue
+    // rejects a fire attempt from a merely-in-range-but-non-adjacent flag with
+    // NOT_ADJACENT, and without this check that rejection just re-parks the
+    // entry here forever — bouncing between the two queues with no progress
+    // (a HOLD flag never marches into adjacency on its own; only ADVANCE does).
     const closest = findClosestMuster(state, entry.targetX, entry.targetY);
-    if (!closest) {
+    const closestIsAdjacentOrLinked =
+      closest != null &&
+      (deps.isAdjacent(closest.tile.x, closest.tile.y, entry.targetX, entry.targetY) ||
+        isDockCrossingBetween(state, closest.tile.x, closest.tile.y, entry.targetX, entry.targetY));
+    if (!closest || !closestIsAdjacentOrLinked) {
       remaining.push(entry);
       continue;
     }
