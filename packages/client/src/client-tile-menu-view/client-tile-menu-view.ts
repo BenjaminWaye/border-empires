@@ -12,6 +12,10 @@ import {
   structureBuildManpowerCost,
   structureSlotRequirements,
   TILE_SLOT_BOOST_STRUCTURES,
+  TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
+  TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
+  UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
+  UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
   type SlotResource,
   type SlotStructureType
 } from "@border-empires/shared";
@@ -30,6 +34,44 @@ import type { OptimisticStructureKind, Tile, TileActionDef, TileMenuProgressView
 // contribution (they stack additively — see marketGoldProductionMultiplier),
 // not the town's total stacked bonus, so it's derived with marketCount=1.
 const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; const perMarketMult = marketGoldProductionMultiplier(1, Boolean(town.town?.clearingHouseActive)); const perMarketPercent = Math.round((perMarketMult - 1) * 100); return type === "MARKET" ? `Market contributes to ${townName}: +${perMarketPercent}% town gold production (stacks with other Markets); higher production raises gold cap.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Market effect.` : undefined; };
+
+const formatPercent = (mult: number): string => `${mult >= 0 ? "+" : ""}${(mult * 100).toFixed(1).replace(/\.0$/, "")}%`;
+
+// This one building's own per-copy contribution (flat constant, independent
+// of network size) — distinct from the town-network total below.
+const weaponsFactoryOwnBonusLine = (tile: Tile): string | undefined => {
+  if (tile.economicStructure?.status !== "active") return undefined;
+  if (tile.economicStructure.type === "TITANIUM_WEAPONS_FACTORY") {
+    return `This Titanium Weapons Factory contributes ${formatPercent(TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING)} attack / ${formatPercent(TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING)} defense to its town's connected network.`;
+  }
+  if (tile.economicStructure.type === "UMBRITE_WEAPONS_FACTORY") {
+    return `This Umbrite Weapons Factory contributes ${formatPercent(UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING)} attack / ${formatPercent(UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING)} defense to its town's connected network.`;
+  }
+  return undefined;
+};
+
+// Sum across every active Titanium/Umbrite Weapons Factory in this town's
+// connected network (server-computed count, see
+// ConnectedTownNetworkEntry.connectedTitaniumWeaponsFactoryCount /
+// connectedUmbriteWeaponsFactoryCount) — the actual total combat reads for
+// an attack or defense launched from/at this network.
+const weaponsFactoryNetworkTotalLine = (town: NonNullable<Tile["town"]>): string | undefined => {
+  const titanium = town.connectedTitaniumWeaponsFactoryCount ?? 0;
+  const umbrite = town.connectedUmbriteWeaponsFactoryCount ?? 0;
+  if (titanium === 0 && umbrite === 0) return undefined;
+  const parts: string[] = [];
+  if (titanium > 0) {
+    const attack = titanium * TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING;
+    const defense = titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING;
+    parts.push(`${titanium} Titanium Weapons Factor${titanium === 1 ? "y" : "ies"} (${formatPercent(attack)} attack / ${formatPercent(defense)} defense)`);
+  }
+  if (umbrite > 0) {
+    const attack = umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING;
+    const defense = umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING;
+    parts.push(`${umbrite} Umbrite Weapons Factor${umbrite === 1 ? "y" : "ies"} (${formatPercent(attack)} attack / ${formatPercent(defense)} defense)`);
+  }
+  return `This town's connected network has ${parts.join(" and ")}.`;
+};
 
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "TITANIUM_BASTION" ? "Titanium Bastion" : "Fort";
@@ -474,6 +516,8 @@ export const menuOverviewForTile = (
       pushOwnTownLoadingRow("Support");
     }
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
+    const factoryTotalLine = weaponsFactoryNetworkTotalLine(tile.town);
+    if (factoryTotalLine) pushLine(factoryTotalLine);
     if (isSettled && hasOwnerEconomyData) {
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
@@ -618,6 +662,8 @@ export const menuOverviewForTile = (
     if (tile.economicStructure.status === "active") {
       const dormantLine = dormantStructureLineHtml(tile, "economicStructure", deps.dormantResourcesForTile?.(tile, "economicStructure"));
       if (dormantLine) pushLine(dormantLine);
+      const ownBonusLine = weaponsFactoryOwnBonusLine(tile);
+      if (ownBonusLine) pushLine(ownBonusLine);
     }
   }
   for (const modifier of tileOverviewModifiersForTile(tile)) {

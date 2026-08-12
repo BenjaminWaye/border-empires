@@ -120,6 +120,8 @@ export type Tile = {
     connectedTownCount: number;
     connectedTownBonus: number;
     connectedTownNames?: string[];
+    connectedTitaniumWeaponsFactoryCount?: number;
+    connectedUmbriteWeaponsFactoryCount?: number;
     goldIncomePausedReason?: "MANPOWER_NOT_FULL";
     manpowerCurrent?: number;
     manpowerCap?: number;

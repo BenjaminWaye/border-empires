@@ -170,6 +170,8 @@ export type DomainTileState = {
             | "connectedTownCount"
             | "connectedTownBonus"
             | "connectedTownNames"
+            | "connectedTitaniumWeaponsFactoryCount"
+            | "connectedUmbriteWeaponsFactoryCount"
             | "goldIncomePausedReason"
             | "manpowerCurrent"
             | "manpowerCap"
