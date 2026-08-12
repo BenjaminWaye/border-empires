@@ -149,6 +149,62 @@ describe("combatResolutionAlert", () => {
 
     expect(result.detail).toBe("Dock was conquered from Enemy Empire.");
   });
+
+  it("appends manpower lost to the detail text on a costly victory", () => {
+    const result = combatResolutionAlert(
+      {
+        attackType: "ATTACK",
+        attackerWon: true,
+        defenderOwnerId: "enemy",
+        target: { x: 18, y: 42 },
+        manpowerDelta: -50
+      },
+      {
+        targetTileBefore: { x: 18, y: 42, terrain: "LAND", ownerId: "enemy", ownershipState: "FRONTIER" } as Tile,
+        originTileBefore: undefined
+      },
+      {
+        playerNameForOwner: (ownerId?: string | null) => (ownerId === "enemy" ? "Enemy Empire" : undefined),
+        prettyToken: (value: string) => value,
+        resourceLabel: (value: string) => value,
+        terrainLabel: (_x: number, _y: number, terrain: Tile["terrain"]) => terrain,
+        terrainAt: () => "LAND",
+        tiles: new Map(),
+        keyFor: (x: number, y: number) => `${x},${y}`
+      }
+    );
+
+    expect(result.detail).toBe("LAND was conquered from Enemy Empire. Lost 50 manpower.");
+    expect(result.manpowerLoss).toBe(50);
+  });
+
+  it("appends manpower lost to the detail text when an attack is beaten back", () => {
+    const result = combatResolutionAlert(
+      {
+        attackType: "ATTACK",
+        attackerWon: false,
+        defenderOwnerId: "enemy",
+        target: { x: 18, y: 42 },
+        manpowerDelta: -30
+      },
+      {
+        targetTileBefore: { x: 18, y: 42, terrain: "LAND", ownerId: "enemy", ownershipState: "FRONTIER" } as Tile,
+        originTileBefore: undefined
+      },
+      {
+        playerNameForOwner: (ownerId?: string | null) => (ownerId === "enemy" ? "Enemy Empire" : undefined),
+        prettyToken: (value: string) => value,
+        resourceLabel: (value: string) => value,
+        terrainLabel: (_x: number, _y: number, terrain: Tile["terrain"]) => terrain,
+        terrainAt: () => "LAND",
+        tiles: new Map(),
+        keyFor: (x: number, y: number) => `${x},${y}`
+      }
+    );
+
+    expect(result.detail).toBe("Attack on Enemy Empire was beaten back. Lost 30 manpower.");
+    expect(result.manpowerLoss).toBe(30);
+  });
 });
 
 describe("feed attention state", () => {

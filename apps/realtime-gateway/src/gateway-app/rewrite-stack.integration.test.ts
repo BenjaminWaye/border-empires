@@ -106,11 +106,7 @@ describe("rewrite stack integration", () => {
     });
 
     expect(await nextTypedMessage(firstSocket, "accepted", "ACTION_ACCEPTED")).toEqual(
-      expect.objectContaining({
-        type: "ACTION_ACCEPTED",
-        commandId: "cmd-1",
-        actionType: "ATTACK"
-      })
+      expect.objectContaining({ type: "ACTION_ACCEPTED", commandId: "cmd-1", actionType: "ATTACK" })
     );
     expect(await nextTypedMessage(firstSocket, "combat start", "COMBAT_START")).toEqual(
       expect.objectContaining({
@@ -159,19 +155,18 @@ describe("rewrite stack integration", () => {
 
     scheduledResolutions[0]?.task();
 
-    const resolutionMessage = await nextNonBootstrapMessage(secondSocket, "resolution");
+    // COMBAT_RESULT and TILE_DELTA_BATCH are separate events with no guaranteed arrival order — fetch each by type.
+    const combatResult = await nextTypedMessage(secondSocket, "combat result", "COMBAT_RESULT");
+    expect(combatResult).toEqual(
+      expect.objectContaining({ type: "COMBAT_RESULT", commandId: "cmd-1", attackType: "ATTACK", attackerWon: true })
+    );
+
+    const resolutionMessage = await nextTypedMessage(secondSocket, "resolution", "TILE_DELTA_BATCH");
     expect(resolutionMessage).toEqual(
       expect.objectContaining({
         type: "TILE_DELTA_BATCH",
         commandId: "cmd-1",
-        tiles: expect.arrayContaining([
-          expect.objectContaining({
-            x: 10,
-            y: 11,
-            ownerId: "player-1",
-            ownershipState: "FRONTIER"
-          })
-        ])
+        tiles: expect.arrayContaining([expect.objectContaining({ x: 10, y: 11, ownerId: "player-1", ownershipState: "FRONTIER" })])
       })
     );
   }, 15_000);
@@ -1061,7 +1056,10 @@ describe("rewrite stack integration", () => {
     expect(scheduledResolutions).toHaveLength(1);
     scheduledResolutions[0]?.task();
 
-    const fogRefresh = await nextNonBootstrapMessage(fogAdminSocket, "fog-admin refresh after remote delta");
+    // COMBAT_RESULT also arrives on resolution now — consume it by type before the fog-admin's TILE_SNAPSHOT_REPLACE.
+    await nextTypedMessage(fogAdminSocket, "combat result", "COMBAT_RESULT");
+
+    const fogRefresh = await nextTypedMessage(fogAdminSocket, "fog-admin refresh after remote delta", "TILE_SNAPSHOT_REPLACE");
     expect(fogRefresh).toEqual(
       expect.objectContaining({
         type: "TILE_SNAPSHOT_REPLACE",

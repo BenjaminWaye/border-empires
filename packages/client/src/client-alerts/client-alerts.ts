@@ -1,4 +1,5 @@
 import { FRONTIER_CLAIM_COST } from "@border-empires/shared";
+import { prettyToken } from "../client-app-runtime-utils.js";
 import { formatGoldAmount } from "../client-constants.js";
 import { resourceIconForKey } from "../client-map-display.js";
 import { maybeRegisterShardRainPing } from "../client-shard-rain-pings/client-shard-rain-pings.js";
@@ -228,10 +229,10 @@ const formatPlunderAmount = (amount: number): string => {
   return Math.abs(amount - rounded) < 0.01 ? String(rounded) : amount.toFixed(2);
 };
 
-const plunderSummary = (
+const pillagedResourceParts = (
   msg: Record<string, unknown>,
   deps: { prettyToken: (value: string) => string }
-): string | undefined => {
+): string[] => {
   const pillagedGold = typeof msg.pillagedGold === "number" ? msg.pillagedGold : 0;
   const strategic = (msg.pillagedStrategic as Record<string, number> | undefined) ?? {};
   const parts: string[] = [];
@@ -241,8 +242,40 @@ const plunderSummary = (
     if (typeof amount !== "number" || amount <= 0.01) continue;
     parts.push(`${resourceIconForKey(resource)} ${formatPlunderAmount(amount)} ${deps.prettyToken(resource)}`);
   }
+  return parts;
+};
+
+const plunderSummary = (
+  msg: Record<string, unknown>,
+  deps: { prettyToken: (value: string) => string }
+): string | undefined => {
+  const parts = pillagedResourceParts(msg, deps);
   if (parts.length === 0) return undefined;
   return ` Plundered ${parts.join(", ")}.`;
+};
+
+// Mirror of plunderSummary/combatResolutionAlert, but for the RAID_RESULT
+// message a defender receives when their tile is captured — same pillaged
+// gold/strategic fields, framed as a loss from their side rather than a gain
+// from the attacker's. There is no defender manpower loss on a capture (only
+// gold/resources — see runtime-lock-resolution.ts's applySettledCapturePlunder/
+// applyResourceTileSteal), so this never mentions manpower.
+export const raidResultFeedEntry = (
+  msg: Record<string, unknown>,
+  deps: { playerNameForOwner: (ownerId?: string | null) => string | undefined }
+): FeedEntry => {
+  const target = msg.target as { x: number; y: number } | undefined;
+  const attackerId = typeof msg.attackerId === "string" ? msg.attackerId : undefined;
+  const attackerName = playerNameOrFallback(attackerId, deps);
+  const parts = pillagedResourceParts(msg, { prettyToken });
+  const lossDetail = parts.length > 0 ? ` Lost ${parts.join(", ")}.` : "";
+  return {
+    text: `Raided by ${attackerName}${target ? ` at (${target.x}, ${target.y})` : ""}.${lossDetail}`,
+    type: "combat",
+    severity: "error",
+    at: Date.now(),
+    ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Go to tile" } : {})
+  };
 };
 
 export const combatResolutionAlert = (
@@ -287,11 +320,12 @@ export const combatResolutionAlert = (
       ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {})
     };
   }
+  const manpowerLossDetail = typeof manpowerLoss === "number" ? ` Lost ${manpowerLoss} manpower.` : "";
   if (attackerWon) {
     const plunderDetail = plunderSummary(msg, deps);
     return {
       title: "Victory",
-      detail: `${targetLabel} was conquered from ${targetOwnerName}.${plunderDetail ?? ""}`,
+      detail: `${targetLabel} was conquered from ${targetOwnerName}.${plunderDetail ?? ""}${manpowerLossDetail}`,
       tone: "success",
       ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {}),
       ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
@@ -301,9 +335,9 @@ export const combatResolutionAlert = (
   return {
     title: "Attack Beaten Back",
     detail:
-      originLost && origin
+      (originLost && origin
         ? `Attack on ${targetTerritoryLabel} was beaten back and we lost (${origin.x}, ${origin.y}).`
-        : `Attack on ${targetTerritoryLabel} was beaten back.`,
+        : `Attack on ${targetTerritoryLabel} was beaten back.`) + manpowerLossDetail,
     tone: "warn",
     ...(target ? { focusX: target.x, focusY: target.y, actionLabel: "Center" } : {}),
     ...(typeof manpowerLoss === "number" ? { manpowerLoss } : {})
