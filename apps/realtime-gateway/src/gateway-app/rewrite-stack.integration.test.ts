@@ -1777,25 +1777,30 @@ describe("rewrite stack integration", () => {
     await waitUntil(() => scheduledBuilds.length >= 1, 3_000).catch(() => undefined);
     flushScheduledTasks(scheduledBuilds, 0);
 
-    // The build command targets (16,16) — the town's own tile — and MINTWORKS's
-    // placement metadata ("showOn": ["town", "support"], "placementMode":
-    // "same_tile") allows it to land directly on the town tile, which is
-    // exactly what happens: the structure is built and activated at (16,16),
-    // never at (16,17) (a separate, unrelated plain support tile in this
-    // fixture). This assertion previously polled (16,17) and always timed
-    // out — a stale coordinate mismatch, not a product bug (verified by
-    // instrumenting a debug run: (16,16) shows the active MINTWORKS
-    // economicStructureJson immediately after the scheduled build task
-    // flushes; (16,17) never gets one).
+    // The build command targets (16,16) — the town's own tile — same as
+    // pressing Mintworks in the build menu while looking at the town. Per
+    // resolveTownSupportTarget in runtime-structure-command-handlers.ts
+    // ("the only structure that belongs directly ON a town tile is a
+    // Fort"), MINTWORKS is redirected to the nearest open support tile via
+    // firstAvailableTownSupportTile — which only ever considers the town's
+    // neighbor tiles, never the town's own coordinates — so the structure
+    // lands at (16,17), the one plain open support tile in this fixture's
+    // neighbor ring, and (16,16) never gets an economicStructureJson at
+    // all. A previous version of this test/comment incorrectly asserted
+    // the opposite (that Mintworks lands ON the town tile) and always
+    // failed as a result — confirmed against the real redirect logic, not
+    // a flake.
     await waitUntil(() => {
-      const tile = simulation.runtime.exportState().tiles.find((candidate) => candidate.x === 16 && candidate.y === 16);
+      const tile = simulation.runtime.exportState().tiles.find((candidate) => candidate.x === 16 && candidate.y === 17);
       return typeof tile?.economicStructureJson === "string" &&
         tile.economicStructureJson.includes("\"type\":\"MINTWORKS\"") &&
         tile.economicStructureJson.includes("\"status\":\"active\"");
     }, 8_000);
-    const exportedEconomicTile = simulation.runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 16);
+    const exportedEconomicTile = simulation.runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 17);
     expect(exportedEconomicTile?.economicStructureJson).toContain("\"type\":\"MINTWORKS\"");
     expect(exportedEconomicTile?.economicStructureJson).toContain("\"status\":\"active\"");
+    const townTile = simulation.runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 16);
+    expect(townTile?.economicStructureJson ?? null).toBeFalsy();
 
     await waitUntil(async () => (await gatewayCommandStore.get(commandId))?.status === "RESOLVED");
   }, 20_000);
