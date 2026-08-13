@@ -44,6 +44,14 @@ jobs:
       # Pause between soak batches so player-1 manpower regenerates; without this
       # every batch after the first starts drained and collects zero samples.
       LOAD_HARNESS_INTER_BATCH_PAUSE_MS: "20000"
+      # Measure ACTION_ACCEPTED latency, not full COMBAT_RESULT/FRONTIER_RESULT
+      # resolution. The gate names (actionAcceptedP95Under300 etc.) are 300-1000ms
+      # thresholds meant for server acceptance latency; EXPAND/ATTACK resolution
+      # is gated by game mechanics (FRONTIER_CLAIM_MS=15000, COMBAT_LOCK_MS=30000
+      # in packages/shared/src/config.ts), not server performance, so waiting for
+      # it against a 15s LOAD_HARNESS_SOAK_TIMEOUT_MS always times out. Without
+      # this the harness collects zero accepted samples on every run.
+      LOAD_HARNESS_WAIT_FOR_RESULT: "0"
 
       LOAD_HARNESS_SLACK_WEBHOOK: ${{ secrets.LOAD_HARNESS_SLACK_WEBHOOK }}
 
