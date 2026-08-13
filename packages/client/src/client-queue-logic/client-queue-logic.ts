@@ -1,4 +1,4 @@
-import { EXPAND_MANPOWER_COST, estimatedAttackManpowerLoss, FRONTIER_CLAIM_COST, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, estimatedAttackManpowerLoss, FRONTIER_CLAIM_COST, requiredMusterForTarget, SETTLE_COST, SETTLE_MANPOWER_COST, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
 import { MUSTER_AUTO_FLAG_THRESHOLD_TILES, MUSTER_TRANSIT_MS_PER_TILE, canAffordCost, frontierClaimDurationMsForTile, settleDurationMsForTile } from "../client-constants.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, tileSyncDebugEnabled, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import {
@@ -10,7 +10,7 @@ import {
   queuedSettlementOrderForTile
 } from "../client-development-queue/client-development-queue.js";
 import { createNextFrontierCommandIdentity } from "../client-frontier-command/client-frontier-command.js";
-import { findClosestMuster, isDockCrossingBetween } from "../client-muster-attack-gate/client-muster-attack-gate.js";
+import { dropStuckPendingMusterAttack, findClosestMuster, hasFundedMusterWithinRange, isDockCrossingBetween } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import {
@@ -1145,7 +1145,7 @@ export const processPendingMusterAttacks = (
       (deps.isAdjacent(closest.tile.x, closest.tile.y, entry.targetX, entry.targetY) ||
         isDockCrossingBetween(state, closest.tile.x, closest.tile.y, entry.targetX, entry.targetY));
     if (!closest || !closestIsAdjacentOrLinked) {
-      remaining.push(entry);
+      if (!dropStuckPendingMusterAttack(state, entry, deps.pushFeed)) remaining.push(entry);
       continue;
     }
 
@@ -1486,21 +1486,20 @@ export const processActionQueue = (
       // Attacking/claiming an owned tile is also free (FRONTIER_CLAIM_COST is 0 gold).
       if (to.ownerId !== "barbarian-1") {
         const closest = findClosestMuster(state, to.x, to.y);
-        // A "ready" flag can only fire directly when it's actually adjacent
-        // (or a valid dock crossing) to the target — findClosestMuster's
-        // dist is scored against MUSTER_AUTO_FLAG_THRESHOLD_TILES (20) for
-        // staging purposes and does NOT mean adjacent. Firing sendAttack
-        // from a flag that's merely "in range" but not adjacent gets
-        // rejected server-side with NOT_ADJACENT.
+        // A "ready" flag found by findClosestMuster must itself be adjacent (or dock-linked) to fire directly — merely "in range" gets NOT_ADJACENT server-side.
         const closestIsAdjacentOrLinked =
           closest != null &&
           (deps.isAdjacent(closest.tile.x, closest.tile.y, to.x, to.y) ||
             isDockCrossingBetween(state, closest.tile.x, closest.tile.y, to.x, to.y));
         if (!closest || closest.dist >= MUSTER_AUTO_FLAG_THRESHOLD_TILES || !closestIsAdjacentOrLinked) {
-          // No flag close enough (or the closest ready flag isn't actually
-          // adjacent to the target) — park the attack and auto-create a flag
-          // on the origin tile (adjacent to target) so troops begin
-          // mustering there.
+          // No flag itself sits adjacent — but the server auto-funds an ATTACK from any owned flag within remote-funding range of the firing tile (see hasFundedMusterWithinRange), same as ADVANCE already relies on. Fire from the normal border origin instead of parking behind a redundant new flag.
+          if (hasFundedMusterWithinRange(state, from.x, from.y, requiredMusterForTarget(to))) {
+            deps.sendAttack(from.x, from.y, to.x, to.y, commandId, clientSeq);
+            deps.pushFeed("Launching attack — funded from a nearby muster flag", "combat", "info");
+            deps.renderHud();
+            continue;
+          }
+          // Nothing usable nearby — park the attack and auto-create a flag on the origin tile so troops begin mustering there.
           state.capture = undefined;
           state.actionInFlight = false;
           state.actionCurrent = undefined;
@@ -1519,7 +1518,7 @@ export const processActionQueue = (
             (e) => e.targetX === to.x && e.targetY === to.y
           );
           if (!alreadyPending) {
-            state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey });
+            state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey, ...(originAlreadyHasMuster ? {} : { musterRequestedAt: Date.now() }) });
             const feedMsg = !closest || !playerHasAnyMuster
               ? `Staging flag near (${to.x}, ${to.y}) — attack queued`
               : `Closest flag is ${closest.dist} tiles away — staging flag closer to front, attack queued`;
