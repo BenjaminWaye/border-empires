@@ -109,6 +109,7 @@ jobs:
       - name: Start simulation (background)
         run: |
           SIMULATION_SQLITE_PATH="$(pwd)/.local-data/${FIXTURE_ASSET}" \
+          SIMULATION_DB_APPLY_SCHEMA=1 \
           SIMULATION_SNAPSHOT_BUILD_INLINE=1 \
           SIMULATION_ENABLE_AI_AUTOPILOT=1 \
           SIMULATION_ENABLE_SYSTEM_AUTOPILOT=1 \
