@@ -497,6 +497,18 @@ export const createInitialState = () => ({
   autoSettleTargets: new Set<string>(),
   autoBuildTargets: new Map<string, BuildableStructureType>(),
   frontierSyncWaitUntilByTarget: new Map<string, number>(),
+  // How many times processActionQueue has deferred a target while waiting for
+  // its confirmed (non-optimistic) origin to resolve. Separate from the
+  // per-entry `retries` field (which tracks failed dispatch attempts) so a
+  // bounded cap can fall back to the optimistic origin without perturbing
+  // dispatch-retry bookkeeping. Cleared whenever the target is dispatched or
+  // dropped from the queue.
+  confirmedOriginWaitAttemptsByTarget: new Map<string, number>(),
+  // Last two observed (amount, updatedAt) samples per muster tile key, used to
+  // linearly extrapolate the displayed muster progress between the sparse
+  // server-pushed tile deltas (muster ticks server-side every 30s) instead of
+  // holding flat then jumping. Re-anchored on every real delta.
+  musterAmountRateByTile: new Map<string, { amount: number; at: number; ratePerMs: number }>(),
   hasOwnedTileInCache: false,
   tileActionMenu: {
     visible: false,
