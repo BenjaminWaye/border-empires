@@ -118,11 +118,13 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
   if (type === "GARRISON_HALL") {
     return [{ statLabel: "Manpower cap", valueText: `+${GARRISON_HALL_MANPOWER_CAP_BONUS}`, tone: "positive", isTownWide: true, rawValue: GARRISON_HALL_MANPOWER_CAP_BONUS }];
   }
+  // Rail Depot only amplifies Logistics Guild manpower regen — the
+  // tech-tree redesign moved manpower-cap network amplification to Assembly
+  // Works exclusively (see runtime-manpower.ts's
+  // playerManpowerCapFromSummary: assemblyWorksNetworkGarrisonHallCount,
+  // "Rail Depot no longer touches it"). Don't add a manpower-cap line here.
   if (type === "RAIL_DEPOT") {
-    return [
-      { statLabel: "Manpower/min per Logistics Guild in network", valueText: `+${RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD}`, tone: "positive", isTownWide: true },
-      { statLabel: "Manpower cap per Garrison Hall in network", valueText: `+${RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL}`, tone: "positive", isTownWide: true }
-    ];
+    return [{ statLabel: "Manpower/min per Logistics Guild in network", valueText: `+${RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD}`, tone: "positive", isTownWide: true }];
   }
   if (type === "QUARTERMASTERS_OFFICE") return [{ statLabel: "War-structure manpower cost (20-tile radius)", valueText: percentLabel(-(1 - QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT) * 100), tone: "positive", isTownWide: true }];
   if (type === "LOGISTICS_GUILD") {
