@@ -35,6 +35,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1786582800000, // 2026.08.13.2
+    introducedIn: "2026.08.13.2",
+    title: "Fixed: a town's Modifier totals never actually reached the tile popup",
+    why: "The unified modifier catalog computed a town's combined stat totals (e.g. 3 Garrison Halls -> \"Manpower cap: +450\") correctly on the server, but the tile popup (REQUEST_TILE_DETAIL) is served by a separate gateway code path that reconstructs the town object from a persisted, redacted copy stripped down to 8 basic fields — townModifierTotals was never one of them, and this path never recomputed it the way it already does for support/gold/population numbers. The totals silently never reached any player's tile popup, including a town's own owner. Also found while fixing this: a stray non-numeric \"higher production raises gold cap\" line sitting inside the Modifiers list, and an old hand-written paragraph under Upkeep that restated the same Mintworks/Granary/Clearing House numbers the new Modifiers section already shows.",
+    changes: [
+      "A town's Modifier totals (manpower cap, gold, empire attack/defense, etc. from its support-ring buildings) now actually show on the tile popup.",
+      "The aggregation math itself moved into the shared catalog so the simulation and the tile-popup path can't compute it two different (and driftable) ways again.",
+      "Removed a non-numeric line that was sitting inside Mintworks's Modifiers list instead of being a real stat.",
+      "Removed a duplicate paragraph under Upkeep that restated numbers the Modifiers section already shows for Mintworks, Granary, and Clearing House."
+    ]
+  },
+  {
     createdAt: 1786579200000, // 2026.08.13.1
     introducedIn: "2026.08.13.1",
     title: "Fixed: most buildings still showed no Modifier section on their own tile",

@@ -15,9 +15,12 @@ import {
   SETTLEMENT_BASE_GOLD_PER_MIN,
   SETTLEMENT_GROWTH_RATE_MULT,
   TOWN_BASE_GOLD_PER_MIN,
+  TOWN_MODIFIER_AGGREGATE_TYPES,
   townFoodUpkeepPerMinute,
+  townModifierTotalsFromCounts,
   townPopulationMultiplier,
-  UPKEEP_MINUTES_PER_DAY
+  UPKEEP_MINUTES_PER_DAY,
+  type ModifierStructureType
 } from "@border-empires/game-domain";
 
 type SnapshotTile = PlayerSubscriptionSnapshot["tiles"][number];
@@ -99,31 +102,51 @@ const supportSummaryForTown = (
   return { supportCurrent, supportMax };
 };
 
+const TOWN_MODIFIER_AGGREGATE_TYPE_SET = new Set<string>(TOWN_MODIFIER_AGGREGATE_TYPES);
+
 const derivedTownSupportStructures = (
   tilesByKey: ReadonlyMap<string, SnapshotTile>,
   ownerId: string,
   x: number,
   y: number
-): { hasMintworks: boolean; mintworksCount: number; hasGranary: boolean; clearingHouseActive: boolean } => {
+): {
+  hasMintworks: boolean;
+  mintworksCount: number;
+  hasGranary: boolean;
+  clearingHouseActive: boolean;
+  // Unified building modifier display (stage 2): per-type counts for every
+  // TOWN_MODIFIER_AGGREGATE_TYPES member found in the support ring, fed
+  // into game-domain's townModifierTotalsFromCounts below — the single
+  // source of truth for the aggregation math itself, shared with
+  // apps/simulation/src/live-town-summary.ts so the two paths can't drift
+  // apart again the way they did the first time (this path never computed
+  // townModifierTotals at all, so it never reached the tile popup).
+  aggregateCounts: Partial<Record<ModifierStructureType, number>>;
+} => {
   let mintworksCount = 0;
   let hasGranary = false;
   // mintworks-stacking task: no town-level Clearing House signal previously
   // existed on this fallback path — detected here the same support-ring way
   // Mintworks/Granary already are, rather than left permanently false.
   let clearingHouseActive = false;
+  const aggregateCounts: Partial<Record<ModifierStructureType, number>> = {};
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const neighbor = tilesByKey.get(keyFor(x + dx, y + dy));
       if (!neighbor || neighbor.ownerId !== ownerId || neighbor.ownershipState !== "SETTLED") continue;
       const structure = parseStructure<{ type?: string; status?: string }>(neighbor.economicStructureJson);
-      if (!structure || structure.status !== "active") continue;
+      if (!structure || structure.status !== "active" || !structure.type) continue;
       if (structure.type === "MINTWORKS") mintworksCount += 1;
       if (structure.type === "GRANARY") hasGranary = true;
       if (structure.type === "CLEARING_HOUSE") clearingHouseActive = true;
+      if (TOWN_MODIFIER_AGGREGATE_TYPE_SET.has(structure.type)) {
+        const type = structure.type as ModifierStructureType;
+        aggregateCounts[type] = (aggregateCounts[type] ?? 0) + 1;
+      }
     }
   }
-  return { hasMintworks: mintworksCount > 0, mintworksCount, hasGranary, clearingHouseActive };
+  return { hasMintworks: mintworksCount > 0, mintworksCount, hasGranary, clearingHouseActive, aggregateCounts };
 };
 
 const derivedTownIsFed = (
@@ -280,6 +303,18 @@ export const buildSnapshotTileDetail = (
       : undefined);
   const hasTown = Boolean(tile.townType || parsedTown);
   const townFoodUpkeep = hasTown ? townFoodUpkeepPerMinute(populationTier) : 0;
+  // Unified building modifier display (stage 2): compute townModifierTotals
+  // fresh here rather than relying on parsedTown to carry it — the
+  // persisted townJson this spreads in was written by
+  // toSharedVisibilityTownSummary (live-snapshot-view.ts), a hard field
+  // allowlist that strips townModifierTotals (and most other fields) before
+  // persisting, so it would otherwise be silently absent for every viewer,
+  // including the town's own owner. Every other derived field in this
+  // object already works this way (recomputed from the support ring, not
+  // trusted from the cached JSON) for the same reason.
+  const townModifierTotals = townModifierTotalsFromCounts(supportStructures.aggregateCounts, {
+    clearingHouseActive: supportStructures.clearingHouseActive
+  });
   const town = hasTown
     ? {
         ...(parsedTown ?? {}),
@@ -298,7 +333,8 @@ export const buildSnapshotTileDetail = (
         ...(typeof goldPerMinute === "number" ? { goldPerMinute } : {}),
         ...(typeof cap === "number" ? { cap } : {}),
         ...(typeof populationGrowthPerMinute === "number" ? { populationGrowthPerMinute } : {}),
-        ...(growthModifiers ? { growthModifiers } : {})
+        ...(growthModifiers ? { growthModifiers } : {}),
+        ...(townModifierTotals.length > 0 ? { townModifierTotals } : {})
       }
     : undefined;
   if (town) update.townJson = JSON.stringify(town);

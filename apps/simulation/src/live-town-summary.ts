@@ -3,14 +3,13 @@ import {
   LONG_PEACE_MS,
   mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
-  percentLabel,
   POPULATION_GROWTH_BASE_RATE,
   granaryGrowthMultiplier,
   SETTLEMENT_BASE_GOLD_PER_MIN,
   SETTLEMENT_GROWTH_RATE_MULT,
-  structureModifiersFor,
   TOWN_BASE_GOLD_PER_MIN,
-  type ModifierStructureType
+  TOWN_MODIFIER_AGGREGATE_TYPES,
+  townModifierTotalsFromCounts
 } from "@border-empires/game-domain";
 import { nextTownGrowthUpgrade, type Tile } from "@border-empires/shared";
 import {
@@ -174,31 +173,14 @@ export const supportTileBelongsToTown = (
   return assignedTown?.x === townX && assignedTown.y === townY;
 };
 
-// Unified building modifier display (stage 2, widened): every support-tile
-// building type whose catalog entry (structure-modifier-catalog.ts) carries
-// a numeric rawValue gets folded into the town's aggregate totals — flat
-// per-copy numbers (Garrison Hall manpower cap, Logistics Guild manpower/min,
-// Mintworks flat gold/day) are multiplied by how many active copies sit in
-// this town's support ring; percent-per-copy numbers (the Weapons Workshop
-// family's empire attack/defense) are summed the same way but rendered as a
-// percentage. Entries from different buildings that share a statLabel (e.g.
-// "Empire attack" from Weapons Workshop AND Titanium/Umbrite Weapons
-// Factory) combine into one bucket, so the total really is "everything this
-// town's support buildings contribute to that stat" rather than one line
-// per building. Mintworks's gold-production stacking is nonlinear (each
-// copy is worth more with an active Clearing House), so that one entry is
-// computed from the live count up front and carries `alreadyAggregated:
-// true` — the loop below adds it to its bucket as-is instead of multiplying
-// by count again. Buildings without a numeric rawValue (Census Hall scaling
-// off connected Incubation Engines, Customs House off connected docks, Rail
-// Depot/Assembly Works off other network buildings, one-time bursts, etc.)
-// are intentionally left out — their effect doesn't reduce to "count × a
-// constant for this town alone", so summing them here would just be wrong.
-const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
-  "GARRISON_HALL", "LOGISTICS_GUILD", "MINTWORKS",
-  "WEAPONS_WORKSHOP", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"
-];
-
+// Unified building modifier display (stage 2, widened): the actual bucketing
+// math (which types aggregate, how per-copy counts turn into a stat total)
+// lives in game-domain's townModifierTotalsFromCounts — this function's only
+// job is deriving this town's own per-type counts from the support ring.
+// Do not reimplement the aggregation math here; it used to be duplicated
+// between this file and the gateway's tile-detail-snapshot.ts (the separate
+// REQUEST_TILE_DETAIL path), and the gateway's copy was simply missing,
+// which is exactly why the aggregate never reached the tile popup at all.
 const townModifierTotalsForTown = (
   tileKey: string,
   ownerId: string,
@@ -206,28 +188,11 @@ const townModifierTotalsForTown = (
   dormantEconomicStructureKeys: ReadonlySet<string>,
   clearingHouseActive: boolean
 ): NonNullable<Tile["town"]>["townModifierTotals"] => {
-  const buckets = new Map<string, { total: number; tone: "positive" | "negative" | "neutral"; unit: "flat" | "percent" }>();
+  const countsByType: Partial<Record<(typeof TOWN_MODIFIER_AGGREGATE_TYPES)[number], number>> = {};
   for (const type of TOWN_MODIFIER_AGGREGATE_TYPES) {
-    const count = countSupportedStructures(tileKey, ownerId, type, tilesByKey, dormantEconomicStructureKeys);
-    if (count <= 0) continue;
-    const ctx = type === "MINTWORKS" ? { tile: { town: { mintworksCount: count, clearingHouseActive } } } : {};
-    for (const modifier of structureModifiersFor(type, ctx)) {
-      if (!modifier.isTownWide || typeof modifier.rawValue !== "number") continue;
-      const contribution = modifier.alreadyAggregated ? modifier.rawValue : modifier.rawValue * count;
-      const existing = buckets.get(modifier.statLabel);
-      buckets.set(modifier.statLabel, {
-        total: Number(((existing?.total ?? 0) + contribution).toFixed(4)),
-        tone: modifier.tone,
-        unit: modifier.unit ?? "flat"
-      });
-    }
+    countsByType[type] = countSupportedStructures(tileKey, ownerId, type, tilesByKey, dormantEconomicStructureKeys);
   }
-  return [...buckets.entries()].map(([statLabel, bucket]) => ({
-    statLabel,
-    total: bucket.total,
-    valueText: bucket.unit === "percent" ? percentLabel(bucket.total) : `+${bucket.total}`,
-    tone: bucket.tone
-  }));
+  return townModifierTotalsFromCounts(countsByType, { clearingHouseActive });
 };
 
 export const buildTownSummary = (

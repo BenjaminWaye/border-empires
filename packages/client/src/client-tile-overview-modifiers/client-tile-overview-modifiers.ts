@@ -61,7 +61,6 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
       tile: { town: { mintworksCount, clearingHouseActive: Boolean(tile.clearingHouseActive) } }
     }).filter((m) => m.statLabel === "Gold production");
     modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.MINTWORKS!, stackedGoldProduction));
-    modifiers.push({ reason: "Mintworks", effect: "higher production raises gold cap", tone: "positive" });
   }
   // A plain Granary (Incubation Engine) grants ONLY its instant one-time
   // population burst on completion — the old ongoing +15% growth bonus was

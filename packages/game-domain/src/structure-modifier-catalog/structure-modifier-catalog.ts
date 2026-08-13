@@ -10,13 +10,9 @@
 //   - structure-modifier-catalog-military.ts (fort/siege/observatory/weapons)
 //   - structure-modifier-catalog-economic.ts (farm/resource/support buildings)
 //   - structure-modifier-catalog-utility.ts (power/vision/monuments)
-import { militaryStructureModifiers } from "./structure-modifier-catalog-military.js";
-import { economicStructureModifiers } from "./structure-modifier-catalog-economic.js";
-import { utilityStructureModifiers } from "./structure-modifier-catalog-utility.js";
-import type { ModifierContext, ModifierStructureType, ModifierTileContext, StructureModifier } from "./structure-modifier-catalog-types.js";
+import type { ModifierContext, ModifierStructureType, ModifierTileContext, StructureModifier, TownModifierTotal } from "./structure-modifier-catalog-types.js";
 
-export type { ModifierContext, ModifierStructureType, ModifierTileContext, StructureModifier };
+export type { ModifierContext, ModifierStructureType, ModifierTileContext, StructureModifier, TownModifierTotal };
 export { percentLabel, multiplierPercentLabel, connectedLabel } from "./structure-modifier-catalog-types.js";
-
-export const structureModifiersFor = (type: ModifierStructureType, ctx: ModifierContext = {}): StructureModifier[] =>
-  militaryStructureModifiers(type) ?? economicStructureModifiers(type, ctx) ?? utilityStructureModifiers(type) ?? [];
+export { structureModifiersFor } from "./structure-modifier-catalog-core.js";
+export { TOWN_MODIFIER_AGGREGATE_TYPES, townModifierTotalsFromCounts } from "./structure-modifier-catalog-town-aggregate.js";

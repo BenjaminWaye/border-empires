@@ -27,11 +27,6 @@ import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 
-// mintworks-stacking task: this describes ONE Mintworks's own per-instance
-// contribution (they stack additively — see mintworksGoldProductionMultiplier),
-// not the town's total stacked bonus, so it's derived with mintworksCount=1.
-const supportContributionLine = (tile: Tile, town: Tile): string | undefined => { const type = tile.economicStructure?.status === "active" ? tile.economicStructure.type : undefined; const townName = town.town?.name ?? `town at (${town.x}, ${town.y})`; const perMintworksMult = mintworksGoldProductionMultiplier(1, Boolean(town.town?.clearingHouseActive)); const perMintworksPercent = Math.round((perMintworksMult - 1) * 100); return type === "MINTWORKS" ? `Mintworks contributes to ${townName}: +${perMintworksPercent}% town gold production (stacks with other Mintworks); higher production raises gold cap.` : type === "GRANARY" ? `${economicStructureName(type)} contributes to ${townName}: population growth bonus.` : type === "CLEARING_HOUSE" ? `Clearing House contributes to ${townName} and directly connected towns: +25% Mintworks effect.` : undefined; };
-
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "TITANIUM_BASTION" ? "Titanium Bastion" : "Fort";
   if (tile.observatory) return "Observatory";
@@ -543,7 +538,6 @@ export const menuOverviewForTile = (
     const town = supportedTowns[0];
     if (town) {
       pushLine(town.town?.name ? `Support tile for ${town.town.name}.` : `Support tile for nearby town at (${town.x}, ${town.y}).`);
-      const contributionLine = supportContributionLine(tile, town); if (contributionLine) pushLine(contributionLine);
       // mintworks-stacking task: Mintworks stack additively now, so "already has
       // a Mintworks" must not read as a discouragement to build another — show
       // the current count/bonus instead.
