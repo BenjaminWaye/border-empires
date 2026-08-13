@@ -1,4 +1,5 @@
 import { requiredMusterForTarget, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { MUSTER_FLAG_REQUEST_TIMEOUT_MS } from "../client-constants.js";
 import { chebyshevDistanceClient } from "../client-tile-action-support/client-tile-action-support.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -11,6 +12,15 @@ import type { Tile } from "../client-types.js";
 // never passes for a dock-connected target, and a fully mustered attack
 // across a dock link never fires (it just re-parks forever).
 const DOCK_CROSSING_MUSTER_TRANSIT_TILES = 1;
+
+// Mirrors resolveMusterSource's hardcoded search radius in
+// apps/simulation/src/runtime-muster-source.ts — the server already funds an
+// ATTACK from any owned flag within this distance of the firing tile,
+// regardless of which flag is physically adjacent to the target (ADVANCE
+// already relies on exactly this: it fires from whichever connected owned
+// tile borders the enemy, funded remotely by the flag). Keep in sync with
+// that file if its radius ever changes — there's no shared constant for it.
+const MUSTER_REMOTE_FUNDING_RADIUS_TILES = 10;
 
 const isAdjacentWrapped = (ax: number, ay: number, bx: number, by: number): boolean => {
   const dx = Math.min(Math.abs(ax - bx), WORLD_WIDTH - Math.abs(ax - bx));
@@ -75,4 +85,52 @@ export const findClosestMuster = (
     }
   }
   return bestTile ? { tile: bestTile, dist: bestDist } : undefined;
+};
+
+// True when some owned, unreserved flag has enough manpower and sits within
+// the server's remote-funding radius of (originX, originY) — the tile an
+// attack would actually fire from. When true, the client doesn't need the
+// firing tile to itself host a flag: sending ATTACK from originX/originY
+// is enough, and the server auto-funds it from that nearby flag (same as
+// ADVANCE). This is what lets a manual attack use a flag that's close but
+// not literally adjacent to the target, instead of parking behind (and
+// potentially auto-creating) a brand new flag it doesn't need.
+export const hasFundedMusterWithinRange = (
+  state: Pick<ClientState, "tiles" | "me" | "musterTransitByTile">,
+  originX: number,
+  originY: number,
+  required: number
+): boolean => {
+  for (const tile of state.tiles.values()) {
+    if (!tile.muster || tile.muster.ownerId !== state.me) continue;
+    if (tile.muster.amount < required) continue;
+    if (state.musterTransitByTile.has(`${tile.x},${tile.y}`)) continue;
+    if (chebyshevDistanceClient(tile.x, tile.y, originX, originY) <= MUSTER_REMOTE_FUNDING_RADIUS_TILES) return true;
+  }
+  return false;
+};
+
+// SET_MUSTER (sent by processActionQueue when auto-creating a flag for a
+// parked attack) is fire-and-forget — no ack, no optimistic local state. If
+// the server rejects it (e.g. MUSTER_LIMIT: "max 3 muster tiles per player")
+// nothing tells the pending entry, and it would otherwise sit forever
+// waiting on a flag that will never exist — the "Mustering 0/N" overlay that
+// never fills. processActionQueue stamps musterRequestedAt only when it just
+// asked for a brand new flag; once that flag still hasn't shown up long
+// after the request, treat it as rejected and drop the entry, notifying the
+// player via pushFeed instead of leaving it parked.
+export const dropStuckPendingMusterAttack = (
+  state: Pick<ClientState, "tiles" | "me">,
+  entry: { targetX: number; targetY: number; musterTileKey: string; musterRequestedAt?: number },
+  pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void
+): boolean => {
+  if (entry.musterRequestedAt == null) return false;
+  if (state.tiles.get(entry.musterTileKey)?.muster?.ownerId === state.me) return false;
+  if (Date.now() - entry.musterRequestedAt <= MUSTER_FLAG_REQUEST_TIMEOUT_MS) return false;
+  pushFeed(
+    `Couldn't stage a flag near (${entry.targetX}, ${entry.targetY}) — attack cancelled. Check your muster flags (max 3).`,
+    "combat",
+    "error"
+  );
+  return true;
 };
