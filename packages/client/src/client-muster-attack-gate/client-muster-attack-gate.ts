@@ -1,4 +1,4 @@
-import { MUSTER_ATTACK_COST, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { requiredMusterForTarget, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { chebyshevDistanceClient } from "../client-tile-action-support/client-tile-action-support.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
@@ -43,7 +43,9 @@ export const isDockCrossingBetween = (
 };
 
 // Find the muster tile owned by the player closest to (targetX, targetY)
-// that has at least MUSTER_ATTACK_COST staged. No distance cap — any owned
+// that has at least requiredMusterForTarget(target) staged — the real
+// per-target requirement (garrisoned forts need more than the flat base
+// cost), not just the flat base cost itself. No distance cap — any owned
 // flag qualifies. A flag on a dock tile that is dock-linked to the target
 // (a sea crossing) is scored as a short fixed hop rather than raw grid
 // distance, since a dock crossing has no meaningful tile distance.
@@ -52,11 +54,13 @@ export const findClosestMuster = (
   targetX: number,
   targetY: number
 ): { tile: Tile; dist: number } | undefined => {
+  const target = state.tiles.get(`${targetX},${targetY}`);
+  const required = requiredMusterForTarget(target);
   let bestTile: Tile | undefined;
   let bestDist = Infinity;
   for (const tile of state.tiles.values()) {
     if (!tile.muster || tile.muster.ownerId !== state.me) continue;
-    if (tile.muster.amount < MUSTER_ATTACK_COST) continue;
+    if (tile.muster.amount < required) continue;
     // A flag already funding another in-flight (marching or just-fired)
     // attack can't be double-booked for a second target at the same time —
     // skip it so a different flag (or none) is chosen instead.

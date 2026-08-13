@@ -118,10 +118,28 @@ export const uncaptureSelected = (
 export const cancelOngoingCapture = (
   state: Pick<
     ClientState,
-    "actionQueue" | "queuedTargetKeys" | "dragPreviewKeys" | "musterTransitByTile" | "deferredAttackByTile" | "actionInFlight" | "actionCurrent" | "actionTargetKey" | "capture"
+    | "actionQueue"
+    | "queuedTargetKeys"
+    | "dragPreviewKeys"
+    | "musterTransitByTile"
+    | "deferredAttackByTile"
+    | "actionInFlight"
+    | "actionCurrent"
+    | "actionTargetKey"
+    | "capture"
+    | "pendingMusterAttacks"
   >,
   sendGameMessage: (payload: unknown) => boolean
 ): void => {
+  // Still just mustering (parked, nothing sent to the server yet): drop
+  // the most-recently-queued target — the one the mustering overlay is
+  // currently showing — so the flag stops waiting on it. The flag itself,
+  // and any manpower already staged on it, is left alone; "Clear Muster"
+  // (a separate tile action) is how a player drains it entirely.
+  if (!state.capture && state.pendingMusterAttacks.length > 0) {
+    state.pendingMusterAttacks = state.pendingMusterAttacks.slice(0, -1);
+    return;
+  }
   state.actionQueue.length = 0;
   state.queuedTargetKeys.clear();
   state.dragPreviewKeys.clear();
