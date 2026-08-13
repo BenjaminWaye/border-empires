@@ -23,6 +23,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786647377657, // 2026.08.13.4
+    introducedIn: "2026.08.13.4",
+    title: "Fixed a manual attack permanently stuck showing only a queue-position badge",
+    why: "A dead local variable (`allowOptimisticOrigin`, computed but never passed) meant every queued attack — not just EXPANDs — always looked up its origin with confirmed-ownership-only rules, even though attacks were always meant to allow an optimistic (not-yet-acked) origin. When the only adjacent origin tile was itself still an unconfirmed optimistic claim, the queue entry could never resolve an origin: it just re-armed a 900ms wait and requeued itself forever, with no cap. Because the promotion out of \"Mustering...\" happens before that wait loop is reached, the capture overlay had already disappeared, leaving only the small numeric queue-position badge (e.g. \"1\") with nothing visibly ahead of it — looking permanently stuck. Separately, the \"Mustering...\" progress bar itself only updates when a server tile delta lands, and muster accumulation only ticks server-side once per 30s, so the displayed percentage held flat for up to 30s and then jumped instead of visibly progressing.",
+    changes: [
+      "Attacks (as opposed to EXPANDs onto a neutral tile) now correctly allow dispatching from an optimistic origin immediately, instead of always requiring a confirmed one.",
+      "As a backstop for any other case that could still stall this way: after ~13.5s of repeated waits for a confirmed origin, the queue falls back to the optimistic origin and dispatches rather than waiting indefinitely.",
+      "The \"Mustering...\" progress bar now linearly extrapolates between server ticks using the last observed accumulation rate, instead of holding flat and jumping once a delta arrives."
+    ]
+  },
+  {
     createdAt: 1786633566657, // 2026.08.13.3
     introducedIn: "2026.08.13.3",
     title: "Manual attacks now reuse a nearby muster flag instead of demanding a new one",
