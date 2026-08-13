@@ -1890,6 +1890,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       const session: SocketSession = {
         sessionId: crypto.randomUUID(),
         nextClientSeq: 1,
+        // See GatewaySocketSession's doc comment (frontier-submit.ts) — kept
+        // disjoint from nextClientSeq's range so server-assigned seqs (for
+        // commands like WAYPOINT_ENQUEUE that never carry a client clientSeq)
+        // can't collide with a value the client independently mints.
+        nextServerAssignedClientSeq: -Date.now(),
         initSent: channel === "bulk",
         pendingPayloads: [],
         channel,

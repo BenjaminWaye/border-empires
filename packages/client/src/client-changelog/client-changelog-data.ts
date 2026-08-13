@@ -23,8 +23,8 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1786553700000, // 2026.08.12.12
-    introducedIn: "2026.08.12.12",
+    createdAt: 1786575600000, // 2026.08.12.14
+    introducedIn: "2026.08.12.14",
     title: "Unified building modifier display across tile popup and tech tree",
     why: "Building effect numbers (\"Manpower +150\", \"+50% farm food\", etc.) were hand-written in up to three separate places with no shared source of truth, so the tile-detail popup, the tech-tree structure panel, and the town summary could each show slightly different or missing numbers for the same building.",
     changes: [
@@ -32,6 +32,26 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The structure-info panel (opened from the build menu or tech tree) now shows the exact same modifier numbers in the same style, instead of separately hand-written prose.",
       "A town's support-ring buildings that stack across the whole town (e.g. multiple Garrison Halls) now show their combined total next to the town's Support/Population/Growth summary — widened to cover every stat a support building contributes, including Mintworks gold production and the Weapons Workshop family's empire attack/defense, combined across every building that feeds the same stat.",
       "Fort and Siege Outpost defense/offense lines now use the same \"stat: value\" format as every other modifier (e.g. \"Defense: 2.5x\") instead of folding the stat name into the colored value text."
+    ]
+  },
+  {
+    createdAt: 1786572000000, // 2026.08.12.13
+    introducedIn: "2026.08.12.13",
+    title: "Fixed: manual attack could stay queued forever behind a non-adjacent muster flag",
+    why: "The NOT_ADJACENT fix (2026.08.12.12) made processActionQueue require a ready flag to actually be adjacent before firing, but the queue-promotion step that runs beforehand didn't check adjacency at all. Whenever the only fully-mustered flag near a target wasn't adjacent to it, the attack got promoted, rejected, and re-parked in an endless loop — the exact \"stuck forever\" symptom the original fix was meant to resolve.",
+    changes: [
+      "A pending muster attack now only promotes to fire once its funded flag is actually adjacent to the target (or a valid dock crossing), matching the check that decides whether it's allowed to fire.",
+      "A funded-but-not-adjacent flag keeps the attack parked instead of bouncing it between the queues."
+    ]
+  },
+  {
+    createdAt: 1786568215911, // 2026.08.12.12
+    introducedIn: "2026.08.12.12",
+    title: "Fixed: manually targeted attacks rejected as NOT_ADJACENT from a ready flag",
+    why: "The previous fix for stuck manual attacks (2026.08.12.11) made a fully mustered flag fire immediately whenever it was merely \"in range\" of the target (up to 20 tiles), not actually next to it. The server correctly rejects a non-adjacent attack, so those attacks failed outright instead of firing.",
+    changes: [
+      "A ready flag now only fires an attack directly when it's actually adjacent to the target (or a valid dock crossing).",
+      "A ready flag that's in range but not adjacent stages/parks as before, so it can march into position instead of being rejected."
     ]
   },
   {
