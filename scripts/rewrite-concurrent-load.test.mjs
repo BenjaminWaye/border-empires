@@ -121,4 +121,20 @@ describe("computeCliffLevel", () => {
   it("empty records returns null", () => {
     assert.strictEqual(computeCliffLevel([], defaultThresholds), null);
   });
+
+  it("detects cliff from simWriterQueueDepthMaxDepth when threshold is set", () => {
+    const records = [
+      makeRecord(5, { simWriterQueueDepthMaxDepth: 50 }),
+      makeRecord(10, { simWriterQueueDepthMaxDepth: 420 })
+    ];
+    const thresholds = { ...defaultThresholds, simWriterQueueDepthMaxDepth: 400 };
+    assert.strictEqual(computeCliffLevel(records, thresholds), 10);
+  });
+
+  it("ignores simWriterQueueDepthMaxDepth when no threshold is configured", () => {
+    const records = [
+      makeRecord(5, { simWriterQueueDepthMaxDepth: 9999 })
+    ];
+    assert.strictEqual(computeCliffLevel(records, defaultThresholds), null);
+  });
 });

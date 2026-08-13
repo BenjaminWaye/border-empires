@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const WS_URL = process.env.WS_URL ?? "ws://127.0.0.1:3101/ws";
-const CONCURRENCY_LEVELS = parseConcurrencyLevels(process.env.CONCURRENCY_LEVELS ?? "5,10,20,30,40,50");
+const CONCURRENCY_LEVELS = parseConcurrencyLevels(process.env.CONCURRENCY_LEVELS ?? "5,10,20,30,40,50,75,100");
 const LEVEL_DURATION_MS = Math.max(5_000, Number(process.env.LEVEL_DURATION_MS ?? "60000"));
 const ACTIONS_PER_CLIENT_PER_SEC = Math.max(0.1, Number(process.env.ACTIONS_PER_CLIENT_PER_SEC ?? "1"));
 const AUTH_TOKEN_PREFIX = process.env.AUTH_TOKEN_PREFIX ?? "loadtest-";
@@ -39,6 +39,13 @@ export function computeCliffLevel(levelRecords, thresholds) {
     if (typeof record.acceptedP99Ms === "number" && record.acceptedP99Ms >= thresholds.acceptedP99Ms) return record.level;
     if (typeof record.gatewayEventLoopMaxMs === "number" && record.gatewayEventLoopMaxMs >= thresholds.gatewayEventLoopMaxMs) return record.level;
     if (typeof record.simEventLoopMaxMs === "number" && record.simEventLoopMaxMs >= thresholds.simEventLoopMaxMs) return record.level;
+    if (
+      typeof thresholds.simWriterQueueDepthMaxDepth === "number" &&
+      typeof record.simWriterQueueDepthMaxDepth === "number" &&
+      record.simWriterQueueDepthMaxDepth >= thresholds.simWriterQueueDepthMaxDepth
+    ) {
+      return record.level;
+    }
   }
   return null;
 }
@@ -140,6 +147,14 @@ const openSession = (token, timeoutMs = 15_000) =>
       nextClientSeq: 1,
       tilesByKey: new Map(),
       pending: new Map(),
+      // Tracks accepted-but-not-yet-resolved commands so COMBAT_RESULT/FRONTIER_RESULT
+      // latency can be sampled passively, without making the action loop wait for it.
+      // EXPAND resolves via FRONTIER_CLAIM_MS (15s) and ATTACK via COMBAT_LOCK_MS (30s)
+      // — both game-mechanic timers, not server latency — so blocking the pacing loop
+      // on them (as opposed to just observing them) reintroduces the exact bug fixed in
+      // the nightly-load-harness workflow (see LOAD_HARNESS_WAIT_FOR_RESULT).
+      awaitingResolution: new Map(),
+      resolvedLatencies: [],
       ready: false
     };
     const timer = setTimeout(() => { try { socket.close(); } catch { /* */ } reject(new Error(`INIT timeout for ${token}`)); }, timeoutMs);
@@ -170,6 +185,17 @@ const openSession = (token, timeoutMs = 15_000) =>
         }
       }
 
+      // Checked independently of `pending` below — by the time a resolution
+      // message arrives, ACTION_ACCEPTED has usually already deleted the
+      // pending entry and unblocked the action loop for this commandId.
+      if (msg.type === "COMBAT_RESULT" || msg.type === "FRONTIER_RESULT") {
+        const awaiting = state.awaitingResolution.get(msg.commandId);
+        if (awaiting) {
+          state.awaitingResolution.delete(msg.commandId);
+          state.resolvedLatencies.push(Date.now() - awaiting.startedAt);
+        }
+      }
+
       const entry = state.pending.get(msg.commandId);
       if (!entry) return;
 
@@ -177,6 +203,7 @@ const openSession = (token, timeoutMs = 15_000) =>
         entry.acceptedAt = Date.now();
         clearTimeout(entry.timer);
         state.pending.delete(msg.commandId);
+        state.awaitingResolution.set(msg.commandId, { startedAt: entry.startedAt });
         entry.resolve({ kind: "accepted", acceptedDelayMs: entry.acceptedAt - entry.startedAt });
         return;
       }
@@ -309,7 +336,7 @@ const actionLoop = async (state, deadlineAt, actionIntervalMs, actionTimeoutMs) 
     }
   }
 
-  return { acceptedLatencies, exhausted };
+  return { acceptedLatencies, resolvedLatencies: state.resolvedLatencies, exhausted };
 };
 
 // ── Metrics poller ──────────────────────────────────────────────────────────
@@ -337,6 +364,16 @@ const runLevel = async (level, durationMs, actionsPerSec) => {
   const initFailures = [];
   const actionIntervalMs = Math.max(100, Math.round(1000 / actionsPerSec));
   const actionTimeoutMs = Math.max(5_000, actionIntervalMs * 5);
+
+  // Baseline counters so this level's delta (not the process's lifetime total)
+  // is what gets reported — otherwise retries/backpressure from an earlier
+  // level would inflate every subsequent level's numbers.
+  const baselineMetrics = await Promise.all([
+    fetchMetrics(GATEWAY_METRICS_URL).catch(() => ({})),
+    fetchMetrics(SIMULATION_METRICS_URL).catch(() => ({}))
+  ]);
+  const baselineGatewaySqliteRetryTotal = baselineMetrics[0]["gateway_sqlite_retry_total"] ?? 0;
+  const baselineSimWriterQueueBackpressureWaitTotal = baselineMetrics[1]["sim_writer_queue_backpressure_wait_total"] ?? 0;
 
   // Open all N clients concurrently
   const openPromises = [];
@@ -370,7 +407,16 @@ const runLevel = async (level, durationMs, actionsPerSec) => {
 
   // Aggregate
   const allLatencies = loopResults.flatMap((l) => l.acceptedLatencies).filter((v) => Number.isFinite(v));
+  const allResolvedLatencies = loopResults.flatMap((l) => l.resolvedLatencies).filter((v) => Number.isFinite(v));
   const exhaustedCount = loopResults.filter((l) => l.exhausted).length;
+
+  const lastSample = metricsSamples.at(-1);
+  const gatewaySqliteRetryTotalDelta = lastSample
+    ? Math.max(0, (lastSample.gateway["gateway_sqlite_retry_total"] ?? 0) - baselineGatewaySqliteRetryTotal)
+    : null;
+  const simWriterQueueBackpressureWaitDelta = lastSample
+    ? Math.max(0, (lastSample.simulation["sim_writer_queue_backpressure_wait_total"] ?? 0) - baselineSimWriterQueueBackpressureWaitTotal)
+    : null;
 
   return {
     level,
@@ -384,6 +430,17 @@ const runLevel = async (level, durationMs, actionsPerSec) => {
     acceptedP95Ms: quantile(allLatencies, 0.95),
     acceptedP99Ms: quantile(allLatencies, 0.99),
     acceptedMaxMs: allLatencies.length > 0 ? Math.max(...allLatencies) : null,
+    // Full COMBAT_RESULT/FRONTIER_RESULT round trip, sampled passively (see
+    // awaitingResolution in openSession) — dominated by the game's own
+    // FRONTIER_CLAIM_MS/COMBAT_LOCK_MS timers, not server latency. Reported
+    // for visibility that resolution is still happening correctly under
+    // load, NOT gated on — an EXPAND/ATTACK can never resolve in under 15s/
+    // 30s by design, so a tight SLA here would always fail regardless of
+    // server health.
+    resolvedSampleCount: allResolvedLatencies.length,
+    resolvedP50Ms: quantile(allResolvedLatencies, 0.5),
+    resolvedP99Ms: quantile(allResolvedLatencies, 0.99),
+    resolvedMaxMs: allResolvedLatencies.length > 0 ? Math.max(...allResolvedLatencies) : null,
     gatewayEventLoopMaxMs: metricsSamples.length > 0
       ? Math.max(...metricsSamples.map((s) => s.gateway["gateway_event_loop_max_ms"] ?? 0)) : null,
     simEventLoopMaxMs: metricsSamples.length > 0
@@ -392,6 +449,14 @@ const runLevel = async (level, durationMs, actionsPerSec) => {
       ? Math.max(...metricsSamples.map((s) => s.simulation["sim_human_interactive_backlog_ms"] ?? 0)) : null,
     simCheckpointRssMaxMb: metricsSamples.length > 0
       ? Math.max(...metricsSamples.map((s) => s.simulation["sim_checkpoint_rss_mb"] ?? 0)) : null,
+    // sim_writer_queue_depth is a live gauge of in-flight SQLite writer-worker
+    // messages (DEFAULT_MAX_PENDING=500 is where the sim thread starts
+    // self-throttling); a level trending toward that cap is the earliest
+    // signal of a persistence bottleneck, well before event-loop lag shows it.
+    simWriterQueueDepthMaxDepth: metricsSamples.length > 0
+      ? Math.max(...metricsSamples.map((s) => s.simulation["sim_writer_queue_depth"] ?? 0)) : null,
+    simWriterQueueBackpressureWaitDelta,
+    gatewaySqliteRetryTotalDelta,
     metricsSampleCount: metricsSamples.length
   };
 };
@@ -408,7 +473,12 @@ const outputPath = resolve(root, "docs", "load-results", `concurrent-${dateStamp
 const thresholds = {
   acceptedP99Ms: 250,
   gatewayEventLoopMaxMs: 1000,
-  simEventLoopMaxMs: 1000
+  simEventLoopMaxMs: 1000,
+  // DEFAULT_MAX_PENDING in SqliteWriterChannel (apps/simulation) is 500 — the
+  // point where the sim thread starts self-throttling writes. Gate at 400 so
+  // a queue trending toward saturation trips the cliff before backpressure
+  // (and the command-acceptance latency it causes) actually engages.
+  simWriterQueueDepthMaxDepth: 400
 };
 
 const levelRecords = [];
@@ -419,8 +489,9 @@ for (const level of CONCURRENCY_LEVELS) {
   levelRecords.push(record);
   console.log(`[level] N=${level} connected=${record.clientsConnected} failed=${record.initFailures} ` +
     `exhausted=${record.exhaustedClients} actions=${record.totalAcceptedActions} ` +
-    `p99=${record.acceptedP99Ms}ms ` +
-    `gwLoop=${record.gatewayEventLoopMaxMs}ms simLoop=${record.simEventLoopMaxMs}ms`);
+    `p99=${record.acceptedP99Ms}ms resolvedP99=${record.resolvedP99Ms}ms ` +
+    `gwLoop=${record.gatewayEventLoopMaxMs}ms simLoop=${record.simEventLoopMaxMs}ms ` +
+    `writerQueue=${record.simWriterQueueDepthMaxDepth} sqliteRetries=${record.gatewaySqliteRetryTotalDelta}`);
 }
 
 const cliffLevel = computeCliffLevel(levelRecords, thresholds);
