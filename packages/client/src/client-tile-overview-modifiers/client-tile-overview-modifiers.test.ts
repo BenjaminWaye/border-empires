@@ -342,4 +342,97 @@ describe("tileOverviewModifiersForTile", () => {
 
     vi.useRealTimers();
   });
+
+  // Regression test: economicStructureModifiersForTile used to gate behind a
+  // small hardcoded allowlist (FARMSTEAD/WATERWORKS/UMBRITE_RIG/WOODEN_FORT/
+  // RELAY_BEACON/CARAVANARY/CUSTOMS_HOUSE/RAIL_DEPOT) left over from before
+  // the shared catalog existed, so most buildings — including every one of
+  // the Weapons Workshop family — showed no Modifier section at all when
+  // their own tile was clicked directly in-game, even though the catalog
+  // had entries for them (reachable only from the tech-tree/build-menu
+  // panel, not the tile popup). Covers a representative building outside
+  // the old allowlist.
+  it("shows modifiers for a Titanium Weapons Factory tile (previously outside the tile-overview allowlist)", () => {
+    const modifiers = tileOverviewModifiersForTile({
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: "me", type: "TITANIUM_WEAPONS_FACTORY", status: "active" }
+    } satisfies Tile);
+    expect(modifiers).toContainEqual({ reason: "Titanium Weapons Factory — Empire attack", effect: "+2% per copy", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Titanium Weapons Factory — Empire defense", effect: "+3% per copy", tone: "positive" });
+  });
+
+  it("shows both the offense and vision modifier for a Relay Beacon (vision was previously missing from the catalog)", () => {
+    const modifiers = tileOverviewModifiersForTile({
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
+    } satisfies Tile);
+    expect(modifiers).toContainEqual({ reason: "Relay Beacon — Offense", effect: "+25%", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Relay Beacon — Local vision", effect: "+5", tone: "positive" });
+  });
+
+  // Regression test: Observatory tiles were never checked at all by
+  // tileOverviewModifiersForTile (no tile.observatory handling existed),
+  // so an Observatory's vision/crystal-range modifiers never showed
+  // anywhere in-game despite having catalog entries.
+  it("shows vision and crystal range modifiers for an active Observatory tile", () => {
+    const modifiers = tileOverviewModifiersForTile({
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      observatory: { ownerId: "me", status: "active" }
+    } satisfies Tile);
+    expect(modifiers).toContainEqual({ reason: "Observatory — Local vision", effect: "+5", tone: "positive" });
+    expect(modifiers.some((m) => m.reason === "Observatory — Crystal range")).toBe(true);
+  });
+
+  // Regression test: Mintworks (placementMode "same_tile") can be built
+  // directly on a town's own tile, so a single tile can carry both `town`
+  // and `economicStructure: { type: "MINTWORKS" }`. Widening
+  // economicStructureModifiersForTile to cover every building type must
+  // not double-render Mintworks's Gold production line — the live-stacked
+  // version from activeSupportStructureModifiers is the only one that
+  // should show.
+  it("does not double-render Mintworks Gold production when it sits on the town's own tile", () => {
+    const modifiers = tileOverviewModifiersForTile({
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: "me", type: "MINTWORKS", status: "active" },
+      town: {
+        type: "MARKET",
+        baseGoldPerMinute: 2,
+        supportCurrent: 8,
+        supportMax: 8,
+        goldPerMinute: 12,
+        cap: 300,
+        isFed: true,
+        population: 18_400,
+        maxPopulation: 100_000,
+        populationGrowthPerMinute: 12,
+        populationTier: "TOWN",
+        connectedTownCount: 0,
+        connectedTownBonus: 0,
+        hasMintworks: true,
+        mintworksActive: true,
+        mintworksCount: 3,
+        hasGranary: false,
+        granaryActive: false
+      }
+    } satisfies Tile);
+    const goldProductionLines = modifiers.filter((m) => m.reason === "Gold production");
+    expect(goldProductionLines).toHaveLength(1);
+    expect(goldProductionLines[0]).toEqual({ reason: "Gold production", effect: "+30% town gold production", tone: "positive" });
+  });
 });

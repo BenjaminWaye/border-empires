@@ -1,7 +1,7 @@
 // Fort/siege/defense-family modifier entries — split out from the economic
 // catalog to keep each file under the repo's 500-line cap.
 import {
-  DREAD_TOWER_ATTACK_MULT, OBSERVATORY_VISION_BONUS, OBSERVATORY_RANGE, RELAY_BEACON_ATTACK_MULT,
+  DREAD_TOWER_ATTACK_MULT, OBSERVATORY_VISION_BONUS, OBSERVATORY_RANGE, RELAY_BEACON_ATTACK_MULT, RELAY_BEACON_VISION_BONUS,
   SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, WOODEN_FORT_DEFENSE_MULT,
   WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING, WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
   TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING, TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
@@ -14,7 +14,12 @@ export const militaryStructureModifiers = (type: ModifierStructureType): Structu
   if (type === "TITANIUM_BASTION") return [{ statLabel: "Defense", valueText: "4x", tone: "positive", isTownWide: false }];
   if (type === "THUNDER_BASTION") return [{ statLabel: "Defense", valueText: "8x", tone: "positive", isTownWide: false }];
   if (type === "WOODEN_FORT") return [{ statLabel: "Defense", valueText: multiplierPercentLabel(WOODEN_FORT_DEFENSE_MULT), tone: "positive", isTownWide: false }];
-  if (type === "RELAY_BEACON") return [{ statLabel: "Offense", valueText: multiplierPercentLabel(RELAY_BEACON_ATTACK_MULT), tone: "positive", isTownWide: false }];
+  if (type === "RELAY_BEACON") {
+    return [
+      { statLabel: "Offense", valueText: multiplierPercentLabel(RELAY_BEACON_ATTACK_MULT), tone: "positive", isTownWide: false },
+      { statLabel: "Local vision", valueText: `+${RELAY_BEACON_VISION_BONUS}`, tone: "positive", isTownWide: false }
+    ];
+  }
   if (type === "SIEGE_OUTPOST") return [{ statLabel: "Offense", valueText: multiplierPercentLabel(SIEGE_OUTPOST_ATTACK_MULT), tone: "positive", isTownWide: false }];
   if (type === "SIEGE_TOWER") return [{ statLabel: "Offense", valueText: multiplierPercentLabel(SIEGE_TOWER_ATTACK_MULT), tone: "positive", isTownWide: false }];
   if (type === "DREAD_TOWER") return [{ statLabel: "Offense", valueText: multiplierPercentLabel(DREAD_TOWER_ATTACK_MULT), tone: "positive", isTownWide: false }];
