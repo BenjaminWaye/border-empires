@@ -23,6 +23,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786633566657, // 2026.08.13.3
+    introducedIn: "2026.08.13.3",
+    title: "Manual attacks now reuse a nearby muster flag instead of demanding a new one",
+    why: "Launching a manual attack only ever considered a flag \"usable\" if it sat directly adjacent to the target — anything else, even a fully-funded flag two tiles away, was ignored, and the client auto-created a brand new flag right next to the target instead. With players already at the 3-muster-flag cap (e.g. mid an ADVANCE chain), that new flag request was silently rejected by the server (MUSTER_LIMIT), and the attack sat parked forever pointing at a flag that would never exist — the new \"Mustering...\" overlay (2026.08.13.2) stuck at 0 staged with no way to clear it short of reloading. The server, however, already auto-funds an attack from any owned flag within 10 tiles of wherever it's launched from (the same mechanism ADVANCE relies on) — the client just never used it for manual attacks.",
+    changes: [
+      "A manual attack now fires from the normal border tile and lets the server fund it remotely from any nearby flag with enough manpower, instead of requiring that exact flag to sit adjacent to the target — no more redundant flags for something an existing one already covers.",
+      "Falling back to auto-creating a new flag only happens when nothing nearby has the manpower to fund the attack at all.",
+      "As a safety net for the remaining case: a parked attack now gives up and cancels itself, with a feed message, if the flag it auto-requested still hasn't shown up a few seconds later — instead of sitting on a permanently stuck \"Mustering 0/N\" overlay."
+    ]
+  },
+  {
     createdAt: 1786616905363, // 2026.08.13.2
     introducedIn: "2026.08.13.2",
     title: "Manual attacks now show a \"Mustering...\" overlay while manpower stages",
