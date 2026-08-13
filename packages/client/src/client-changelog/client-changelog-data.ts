@@ -30,6 +30,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Launching a manual attack now immediately shows the capture overlay in a \"Mustering...\" state, with a bar that fills toward the actual manpower this target requires (higher for a garrisoned enemy fort) and hands off to \"Capturing Territory...\" the moment it fires — no more silent wait in between.",
       "Cancel during mustering now just drops that queued target, leaving the flag and its staged manpower in place for another attack.",
+      "Dismiss is also available during mustering, hiding the overlay while the flag keeps filling in the background — same as it already worked for the Capturing phase.",
       "Fixed: a muster flag could be judged ready off a flat 60-manpower threshold and fire early against a garrisoned fort, getting rejected by the server instead of waiting for the fort's real requirement."
     ]
   },

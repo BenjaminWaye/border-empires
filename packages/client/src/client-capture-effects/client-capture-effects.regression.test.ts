@@ -297,7 +297,52 @@ describe("renderCaptureProgress", () => {
     expect(captureTimeEl.textContent).toBe("30 / 90");
     expect(captureTargetEl.textContent).toBe("Target: (10, 20)");
     expect(captureCancelBtn.style.display).toBe("inline-flex");
-    expect(captureDismissBtn.style.display).toBe("none");
+    expect(captureDismissBtn.style.display).toBe("inline-flex");
+  });
+
+  it("hides the Mustering overlay once its entry is dismissed, without touching the pending attack", () => {
+    const captureCardEl = makeElement();
+    const captureWrapEl = makeElement();
+    const captureCancelBtn = makeElement();
+    const captureDismissBtn = makeElement();
+    const captureCloseBtn = makeElement();
+    const captureDownloadDebugBtn = makeElement();
+    const captureBarEl = makeElement();
+    const captureTitleEl = makeElement();
+    const captureTimeEl = makeElement();
+    const captureTargetEl = makeElement();
+
+    renderCaptureProgress(
+      {
+        captureAlert: undefined,
+        collectVisibleCooldownUntil: 0,
+        capture: undefined,
+        me: "player-1",
+        tiles: new Map([["0,0", { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", muster: { ownerId: "player-1", amount: 30, mode: "HOLD", updatedAt: 0 } }]]),
+        pendingCombatReveal: undefined,
+        pendingMusterAttacks: [{ targetX: 10, targetY: 20, fromX: 0, fromY: 0, musterTileKey: "0,0", dismissed: true }]
+      } as any,
+      {
+        keyFor: (x, y) => `${x},${y}`,
+        formatCooldownShort: () => "0s",
+        showCaptureAlert: vi.fn(),
+        pushFeed: vi.fn(),
+        finalizePredictedCombat: vi.fn(),
+        captureCardEl,
+        captureWrapEl,
+        captureCancelBtn,
+        captureDismissBtn,
+        captureCloseBtn,
+        captureDownloadDebugBtn,
+        captureBarEl,
+        captureTitleEl,
+        captureTimeEl,
+        captureTargetEl
+      }
+    );
+
+    expect(captureCardEl.style.display).toBe("none");
+    expect(captureTitleEl.textContent).toBe("");
   });
 
   it("hides the overlay when there is no active capture and nothing pending", () => {

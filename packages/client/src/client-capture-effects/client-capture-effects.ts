@@ -9,7 +9,14 @@ import type { Tile } from "../client-types.js";
 export const renderCaptureProgress = (
   state: Pick<
     ClientState,
-    "captureAlert" | "collectVisibleCooldownUntil" | "capture" | "tiles" | "me" | "pendingCombatReveal" | "dismissedCaptureStartAt" | "pendingMusterAttacks"
+    | "captureAlert"
+    | "collectVisibleCooldownUntil"
+    | "capture"
+    | "tiles"
+    | "me"
+    | "pendingCombatReveal"
+    | "dismissedCaptureStartAt"
+    | "pendingMusterAttacks"
   >,
   deps: {
     keyFor: (x: number, y: number) => string;
@@ -155,8 +162,26 @@ export const renderCaptureProgress = (
     // entry is promoted off pendingMusterAttacks and this falls through to
     // the state.capture branch above with no gap.
     const entry = state.pendingMusterAttacks[state.pendingMusterAttacks.length - 1]!;
+    const targetKey = deps.keyFor(entry.targetX, entry.targetY);
+    if (entry.dismissed) {
+      // Dismissed by the player via "Dismiss": hide the banner for this
+      // specific pending target without cancelling it — the flag keeps
+      // accumulating in the background. A different (or new) pending
+      // target is a different entry and reopens the banner immediately.
+      deps.captureCardEl.style.display = "none";
+      deps.captureWrapEl.style.display = "none";
+      deps.captureCancelBtn.style.display = "none";
+      deps.captureDismissBtn.style.display = "none";
+      deps.captureCloseBtn.style.display = "none";
+      deps.captureDownloadDebugBtn.style.display = "none";
+      deps.captureBarEl.style.width = "0%";
+      deps.captureTitleEl.textContent = "";
+      deps.captureTimeEl.textContent = "";
+      deps.captureTargetEl.textContent = "";
+      return;
+    }
     const musterTile = state.tiles.get(entry.musterTileKey);
-    const targetTile = state.tiles.get(deps.keyFor(entry.targetX, entry.targetY));
+    const targetTile = state.tiles.get(targetKey);
     const staged = Math.floor(musterTile?.muster?.amount ?? 0);
     const required = requiredMusterForTarget(targetTile);
     const pct = Math.max(0, Math.min(1, required > 0 ? staged / required : 1));
@@ -164,7 +189,7 @@ export const renderCaptureProgress = (
     deps.captureCardEl.style.display = "grid";
     deps.captureWrapEl.style.display = "block";
     deps.captureCancelBtn.style.display = "inline-flex";
-    deps.captureDismissBtn.style.display = "none";
+    deps.captureDismissBtn.style.display = "inline-flex";
     deps.captureCloseBtn.style.display = "none";
     deps.captureDownloadDebugBtn.style.display = "none";
     deps.captureBarEl.style.width = `${Math.floor(pct * 100)}%`;

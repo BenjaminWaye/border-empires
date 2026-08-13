@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildFortOnSelected, buildSiegeOutpostOnSelected, cancelOngoingCapture } from "./client-selected-actions.js";
+import { buildFortOnSelected, buildSiegeOutpostOnSelected, cancelOngoingCapture, dismissOngoingCapture } from "./client-selected-actions.js";
 import { createInitialState } from "../client-state/client-state.js";
 
 describe("selected action helpers", () => {
@@ -84,5 +84,27 @@ describe("cancelOngoingCapture", () => {
     // A different, still-parked attack is untouched by cancelling the active one.
     expect(state.pendingMusterAttacks).toEqual([{ targetX: 1, targetY: 1, fromX: 0, fromY: 0, musterTileKey: "0,0" }]);
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "CANCEL_CAPTURE" });
+  });
+});
+
+describe("dismissOngoingCapture", () => {
+  it("marks the currently-shown pending muster attack dismissed, without cancelling it", () => {
+    const state = createInitialState();
+    state.pendingMusterAttacks = [{ targetX: 7, targetY: 8, fromX: 0, fromY: 0, musterTileKey: "0,0" }];
+
+    dismissOngoingCapture(state);
+
+    expect(state.dismissedCaptureStartAt).toBeUndefined();
+    // Purely a display toggle — the pending attack itself is untouched, just flagged.
+    expect(state.pendingMusterAttacks).toEqual([{ targetX: 7, targetY: 8, fromX: 0, fromY: 0, musterTileKey: "0,0", dismissed: true }]);
+  });
+
+  it("dismisses the active capture by startAt once an attack has fired", () => {
+    const state = createInitialState();
+    state.capture = { startAt: 5_000, resolvesAt: 35_000, target: { x: 1, y: 1 } };
+
+    dismissOngoingCapture(state);
+
+    expect(state.dismissedCaptureStartAt).toBe(5_000);
   });
 });
