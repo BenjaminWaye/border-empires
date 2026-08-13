@@ -77,6 +77,63 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     expect(sendAttack).toHaveBeenCalledWith(5, 5, 300, 300, expect.any(String), expect.any(Number));
   });
 
+  // Regression for: a dock-crossing attack whose funded flag sits near the
+  // dock but not literally on it. findClosestMuster's dock-crossing distance
+  // shortcut only applies when the flag tile itself is the paired dock, so
+  // this flag scores a huge raw distance to the far-away target and fails
+  // that check — but hasFundedMusterWithinRange measures from the origin
+  // dock instead of the target, so a flag a few tiles inland from the dock
+  // (well within remote-funding range of it) should still fund the attack,
+  // fired from the dock, exactly like resolveMusterSource allows server-side.
+  it("dispatches a dock-linked attack funded by a flag near the dock, not on it", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+
+    const originDock = makeTile({ x: 5, y: 5, dockId: "dockP", ownerId: "me", ownershipState: "SETTLED" });
+    const enemyDock = makeTile({ x: 300, y: 300, dockId: "dockE", ownerId: "enemy", ownershipState: "SETTLED" });
+    // Flag is 3 tiles from the dock (well within the 10-tile remote-funding
+    // radius of the origin), not on the dock tile itself.
+    const nearbyFlag = makeTile({
+      x: 8,
+      y: 5,
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: Date.now() }
+    });
+    state.tiles.set("5,5", originDock);
+    state.tiles.set("8,5", nearbyFlag);
+    state.tiles.set("300,300", enemyDock);
+    state.dockPairs = [{ ax: 5, ay: 5, bx: 300, by: 300 }];
+
+    state.actionQueue = [{ x: 300, y: 300, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["300,300"]);
+
+    const sendSetMuster = vi.fn();
+    const sendAttack = vi.fn();
+
+    processActionQueue(state, {
+      ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      isTileOwnedByAlly: () => false,
+      pickOriginForTarget: () => state.tiles.get("5,5"),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      pushFeed: vi.fn(),
+      renderHud: vi.fn(),
+      sendSetMuster,
+      sendAttack
+    });
+
+    // Fires from the dock (5,5) — funded remotely from the flag at (8,5).
+    expect(sendAttack).toHaveBeenCalledWith(5, 5, 300, 300, expect.any(String), expect.any(Number));
+    expect(sendSetMuster).not.toHaveBeenCalled();
+    expect(state.pendingMusterAttacks).toHaveLength(0);
+  });
+
   // Regression for: Group E — independent muster flag cooldowns. Two flags
   // funding two different attacks must both dispatch in the same queue pass,
   // each from its own flag tile.
