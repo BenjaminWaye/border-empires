@@ -142,10 +142,11 @@ export type Tile = {
       goldCost: number;
       available: boolean;
     };
-    // Unified building modifier display (stage 2): flat, additive-per-copy
-    // support-ring modifiers summed across every copy of that building type
-    // in this town's support ring (e.g. 3 Garrison Halls → "Manpower cap:
-    // +450"). See packages/shared/src/types.ts's matching field for the
+    // Unified building modifier display (stage 2): every numeric stat this
+    // town's support-ring buildings contribute, combined across all active
+    // copies and across every building type that feeds the same stat (e.g.
+    // Weapons Workshop + Titanium Weapons Factory both feed "Empire
+    // attack"). See packages/shared/src/types.ts's matching field for the
     // full contract.
     townModifierTotals?: Array<{ statLabel: string; total: number; valueText: string; tone: "positive" | "negative" | "neutral" }>;
   };

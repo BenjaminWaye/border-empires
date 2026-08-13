@@ -301,13 +301,18 @@ export interface Tile {
     // in connected Granaries can claw the bonus back down rather than only
     // ever growing it.
     censusHallAppliedBonus?: number;
-    // Unified building modifier display (stage 2): flat, additive-per-copy
-    // support-ring modifiers summed across every copy of that building type
-    // in this town's support ring (e.g. 3 Garrison Halls → "Manpower cap:
-    // +450"). Percent/multiplier-based effects (Mintworks stacking, etc.)
-    // are deliberately excluded here — see structureModifiersFor's rawValue
-    // contract in game-domain — they keep showing as the single
-    // already-stacked line from the tile-overview modifiers instead.
+    // Unified building modifier display (stage 2): every numeric stat this
+    // town's support-ring buildings contribute, combined across all active
+    // copies (e.g. 3 Garrison Halls → "Manpower cap: +450") and across every
+    // building type that feeds the same stat (e.g. Weapons Workshop +
+    // Titanium Weapons Factory both feed "Empire attack"). Covers both flat
+    // per-copy numbers and percent-per-copy ones (rendered as a percentage —
+    // see StructureModifier's `unit` field in game-domain). Buildings whose
+    // effect scales off something other than their own count in this town
+    // (Census Hall off connected Incubation Engines, Customs House off
+    // connected docks, Rail Depot/Assembly Works off other network
+    // buildings, one-time bursts) are deliberately excluded — see
+    // structureModifiersFor's rawValue contract in game-domain.
     townModifierTotals?: Array<{ statLabel: string; total: number; valueText: string; tone: "positive" | "negative" | "neutral" }>;
   };
   yield?: {
