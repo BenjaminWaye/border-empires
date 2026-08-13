@@ -8,6 +8,7 @@ vi.hoisted(() => {
 });
 
 import { MUSTER_ATTACK_COST } from "@border-empires/shared";
+import { MUSTER_FLAG_REQUEST_TIMEOUT_MS } from "../client-constants.js";
 import { createInitialState } from "../client-state/client-state.js";
 import { processActionQueue, processPendingMusterAttacks } from "./client-queue-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
@@ -76,6 +77,63 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     expect(sendAttack).toHaveBeenCalledWith(5, 5, 300, 300, expect.any(String), expect.any(Number));
   });
 
+  // Regression for: a dock-crossing attack whose funded flag sits near the
+  // dock but not literally on it. findClosestMuster's dock-crossing distance
+  // shortcut only applies when the flag tile itself is the paired dock, so
+  // this flag scores a huge raw distance to the far-away target and fails
+  // that check — but hasFundedMusterWithinRange measures from the origin
+  // dock instead of the target, so a flag a few tiles inland from the dock
+  // (well within remote-funding range of it) should still fund the attack,
+  // fired from the dock, exactly like resolveMusterSource allows server-side.
+  it("dispatches a dock-linked attack funded by a flag near the dock, not on it", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+
+    const originDock = makeTile({ x: 5, y: 5, dockId: "dockP", ownerId: "me", ownershipState: "SETTLED" });
+    const enemyDock = makeTile({ x: 300, y: 300, dockId: "dockE", ownerId: "enemy", ownershipState: "SETTLED" });
+    // Flag is 3 tiles from the dock (well within the 10-tile remote-funding
+    // radius of the origin), not on the dock tile itself.
+    const nearbyFlag = makeTile({
+      x: 8,
+      y: 5,
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: Date.now() }
+    });
+    state.tiles.set("5,5", originDock);
+    state.tiles.set("8,5", nearbyFlag);
+    state.tiles.set("300,300", enemyDock);
+    state.dockPairs = [{ ax: 5, ay: 5, bx: 300, by: 300 }];
+
+    state.actionQueue = [{ x: 300, y: 300, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["300,300"]);
+
+    const sendSetMuster = vi.fn();
+    const sendAttack = vi.fn();
+
+    processActionQueue(state, {
+      ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      isTileOwnedByAlly: () => false,
+      pickOriginForTarget: () => state.tiles.get("5,5"),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      pushFeed: vi.fn(),
+      renderHud: vi.fn(),
+      sendSetMuster,
+      sendAttack
+    });
+
+    // Fires from the dock (5,5) — funded remotely from the flag at (8,5).
+    expect(sendAttack).toHaveBeenCalledWith(5, 5, 300, 300, expect.any(String), expect.any(Number));
+    expect(sendSetMuster).not.toHaveBeenCalled();
+    expect(state.pendingMusterAttacks).toHaveLength(0);
+  });
+
   // Regression for: Group E — independent muster flag cooldowns. Two flags
   // funding two different attacks must both dispatch in the same queue pass,
   // each from its own flag tile.
@@ -128,17 +186,21 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
 
   // Regression for: a ready (fully mustered) flag that is "in range" per
   // MUSTER_AUTO_FLAG_THRESHOLD_TILES but not actually adjacent (or
-  // dock-linked) to the target must not fire directly — the server rejects
-  // a non-adjacent ATTACK with NOT_ADJACENT. It should park instead, same as
-  // the no-flag-found case, so the flag can march (ADVANCE) into range.
-  it("parks (does not fire) an attack when the closest ready flag is in range but not adjacent to the target", () => {
+  // dock-linked) to the target must not fire directly from the flag's own
+  // tile — the server rejects a non-adjacent ATTACK with NOT_ADJACENT. But
+  // resolveMusterSource (apps/simulation/src/runtime-muster-source.ts) will
+  // auto-fund an ATTACK from any owned flag within 10 tiles of the firing
+  // tile — the same thing ADVANCE already relies on — so the attack should
+  // fire from the normal border origin, funded remotely by this flag,
+  // instead of parking behind (and potentially auto-creating) a new one.
+  it("fires from the border origin, remotely funded, when the closest ready flag isn't itself adjacent but is within funding range", () => {
     const state = createInitialState();
     state.authSessionReady = true;
     state.me = "me";
     state.gold = 999;
 
-    // Flag is 5 tiles from the target — well within the 20-tile staging
-    // range, but not adjacent.
+    // Flag is 4 tiles from the origin — not adjacent to the target itself,
+    // but well within resolveMusterSource's 10-tile remote-funding radius.
     const flag = makeTile({ x: 0, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: Date.now() } });
     const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
     const origin = makeTile({ x: 4, y: 0, ownerId: "me", ownershipState: "FRONTIER" });
@@ -169,9 +231,57 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
       sendAttack
     });
 
+    // Fires from the border origin (4,0), not the flag's own tile (0,0) —
+    // the server resolves funding from (0,0) remotely.
+    expect(sendAttack).toHaveBeenCalledWith(4, 0, 5, 0, expect.any(String), expect.any(Number));
+    expect(sendSetMuster).not.toHaveBeenCalled();
+    expect(state.pendingMusterAttacks).toHaveLength(0);
+  });
+
+  // Companion to the above: once the only funded flag is far enough away
+  // that it's outside resolveMusterSource's remote-funding radius too,
+  // there's genuinely nothing to fund the attack from — it must still park
+  // (and auto-create a new flag) exactly as before.
+  it("parks (does not fire) an attack when the closest ready flag is beyond remote-funding range", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+
+    // Flag is 20 tiles from the origin — well beyond the 10-tile
+    // remote-funding radius, so it can neither fire directly nor fund
+    // an attack launched from the border origin.
+    const flag = makeTile({ x: 0, y: 0, ownerId: "me", ownershipState: "SETTLED", muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: Date.now() } });
+    const target = makeTile({ x: 21, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    const origin = makeTile({ x: 20, y: 0, ownerId: "me", ownershipState: "FRONTIER" });
+    state.tiles.set("0,0", flag);
+    state.tiles.set("21,0", target);
+    state.tiles.set("20,0", origin);
+
+    state.actionQueue = [{ x: 21, y: 0, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["21,0"]);
+
+    const sendAttack = vi.fn();
+    const sendSetMuster = vi.fn();
+
+    processActionQueue(state, {
+      ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: (ax, ay, bx, by) => ax === 20 && ay === 0 && bx === 21 && by === 0,
+      isTileOwnedByAlly: () => false,
+      pickOriginForTarget: () => state.tiles.get("20,0"),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      pushFeed: vi.fn(),
+      renderHud: vi.fn(),
+      sendSetMuster,
+      sendAttack
+    });
+
     expect(sendAttack).not.toHaveBeenCalled();
     expect(state.pendingMusterAttacks).toHaveLength(1);
-    expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 5, targetY: 0, musterTileKey: "4,0" });
+    expect(state.pendingMusterAttacks[0]).toMatchObject({ targetX: 21, targetY: 0, musterTileKey: "20,0" });
   });
 
   // Regression for: processPendingMusterAttacks promoted an entry back into
@@ -202,6 +312,143 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     });
 
     expect(state.actionQueue).toHaveLength(0);
+    expect(state.pendingMusterAttacks).toHaveLength(1);
+  });
+
+  // Regression for: SET_MUSTER is fire-and-forget — processActionQueue sends
+  // it and optimistically parks the attack with no ack tracking. When the
+  // server rejects it (e.g. MUSTER_LIMIT: "max 3 muster tiles per player"),
+  // nothing ever told the parked entry, so it sat forever waiting on a flag
+  // that would never exist — visibly, a "Mustering 0/N" overlay that never
+  // filled. processActionQueue must stamp musterRequestedAt only when it
+  // actually asks the server for a brand new flag.
+  it("stamps musterRequestedAt when parking behind a brand new flag, but not when the origin already has one", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    const origin = makeTile({ x: 4, y: 0, ownerId: "me", ownershipState: "FRONTIER" });
+    state.tiles.set("5,0", target);
+    state.tiles.set("4,0", origin);
+    state.actionQueue = [{ x: 5, y: 0, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["5,0"]);
+
+    const before = Date.now();
+    processActionQueue(state, {
+      ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      isTileOwnedByAlly: () => false,
+      pickOriginForTarget: () => state.tiles.get("4,0"),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      pushFeed: vi.fn(),
+      renderHud: vi.fn(),
+      sendSetMuster: vi.fn(),
+      sendAttack: vi.fn()
+    });
+
+    expect(state.pendingMusterAttacks).toHaveLength(1);
+    expect(state.pendingMusterAttacks[0]!.musterRequestedAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it("does not stamp musterRequestedAt when the origin tile already has a muster flag", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    // Origin already has a (not-yet-funded) flag — no new SET_MUSTER is sent.
+    const origin = makeTile({
+      x: 4,
+      y: 0,
+      ownerId: "me",
+      ownershipState: "FRONTIER",
+      muster: { ownerId: "me", amount: 5, mode: "HOLD", updatedAt: Date.now() }
+    });
+    state.tiles.set("5,0", target);
+    state.tiles.set("4,0", origin);
+    state.actionQueue = [{ x: 5, y: 0, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["5,0"]);
+
+    const sendSetMuster = vi.fn();
+    processActionQueue(state, {
+      ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      isTileOwnedByAlly: () => false,
+      pickOriginForTarget: () => state.tiles.get("4,0"),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      pushFeed: vi.fn(),
+      renderHud: vi.fn(),
+      sendSetMuster,
+      sendAttack: vi.fn()
+    });
+
+    expect(sendSetMuster).not.toHaveBeenCalled();
+    expect(state.pendingMusterAttacks).toHaveLength(1);
+    expect(state.pendingMusterAttacks[0]!.musterRequestedAt).toBeUndefined();
+  });
+
+  it("drops a pending attack once its requested flag has timed out without ever being created", () => {
+    const state = createInitialState();
+    state.me = "me";
+
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    state.tiles.set("5,0", target);
+    // musterTileKey "4,0" has no tile at all (and definitely no muster) —
+    // the server rejected the SET_MUSTER that was supposed to create it.
+    state.pendingMusterAttacks = [
+      {
+        targetX: 5,
+        targetY: 0,
+        fromX: 4,
+        fromY: 0,
+        musterTileKey: "4,0",
+        musterRequestedAt: Date.now() - MUSTER_FLAG_REQUEST_TIMEOUT_MS - 1
+      }
+    ];
+
+    const pushFeed = vi.fn();
+    processPendingMusterAttacks(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      pushFeed
+    });
+
+    expect(state.pendingMusterAttacks).toHaveLength(0);
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("(5, 0)"), "combat", "error");
+  });
+
+  it("keeps a pending attack parked while its requested flag is still within the timeout window", () => {
+    const state = createInitialState();
+    state.me = "me";
+
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    state.tiles.set("5,0", target);
+    state.pendingMusterAttacks = [
+      {
+        targetX: 5,
+        targetY: 0,
+        fromX: 4,
+        fromY: 0,
+        musterTileKey: "4,0",
+        musterRequestedAt: Date.now()
+      }
+    ];
+
+    processPendingMusterAttacks(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      pushFeed: vi.fn()
+    });
+
     expect(state.pendingMusterAttacks).toHaveLength(1);
   });
 });

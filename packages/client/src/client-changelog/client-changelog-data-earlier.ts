@@ -15,41 +15,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786100000000, // 2026-08-07
-    introducedIn: "next",
-    title: "Incubation Engine no longer double-dips on population growth; fixed wrong/missing building icons and a 288x gold display bug",
-    why: "Incubation Engine (Granary) was granting both its intended instant +10,000 population burst on completion AND an old ongoing +15% population growth multiplier at the same time — the redesign was meant to replace the old mechanic, not stack on top of it. Separately, Ambaric Tower's detail page and map icon were showing the Radar System's art, Incubation Engine's icon still used the old Granary art instead of its own dedicated art, and 5 Manpower buildings (Quartermaster's Office, Logistics Guild, Assembly Works, Population Bureau, The Iron Levy) had no icon at all on their detail pages. Dock income also displayed 288x too high in one fallback path (a leftover pre-rescope number, same bug class as several other tooltips fixed recently).",
-    changes: [
-      "Incubation Engine's ongoing +15% population growth bonus has been removed — it now only grants its instant one-time population burst, as intended.",
-      "Ambaric Tower and Incubation Engine now show their own dedicated artwork on both the map and their detail pages, instead of Radar System's/the old Granary's.",
-      "Quartermaster's Office, Logistics Guild, Assembly Works, Population Bureau, and The Iron Levy now show their artwork on their detail pages.",
-      "Ancillary Factory no longer requires a CRYSTAL slot to build — it now only needs FOOD, matching its Manpower-branch role.",
-      "Ancillary Factory and Quartermaster's Office now correctly show 0-gold costs as blank instead of \"0 gold\".",
-      "Fixed a dock-income display bug that could show 288x the real value when the server hadn't yet sent live dock data."
-    ]
-  },
-  {
-    createdAt: 1786100500000, // 2026-08-07
-    introducedIn: "clockwork-stipend-slot-grant",
-    title: "Clockwork Stipend now grants a free logistics slot instead of a steady resource trickle",
-    why: "The empire no longer earns passive per-minute resource income — iron, supply, and crystal are now slot-based. So Clockwork Stipend's old 0.2/min (or 0.1/min crystal) trickle no longer had a place in the economy. It now grants one free logistics slot for the resource you choose, effectively making that resource exempt from land-use pressure.",
-    changes: [
-      "Choosing Clockwork Stipend now locks in one free logistics slot for iron, supply, or crystal instead of a per-minute trickle.",
-      "The free slot is purely additive — it counts on top of your tile-based supply and applies everywhere slots are read (live economy, tile detail, and reconnect snapshots).",
-      "Your choice is still locked forever the moment you confirm the domain, same as before."
-    ]
-  },
-  {
-    createdAt: 1786101000000, // 2026-08-07
-    introducedIn: "fix-attack-reveal-scan",
-    title: "Faster attack resolution",
-    why: "Each ATTACK capture was building a (2r+1)² tile-delta batch to reveal fog-of-war, even though the target tile is always adjacent to the attacker's existing territory — meaning nearly every tile in the batch was already visible. With vision-radius tech bonuses, this batch could reach 361+ tiles and block the server event loop for 500ms+, causing action-accept-timeouts on ATTACK commands.",
-    changes: [
-      "The capture-reveal scan now skips already-visible tiles for ATTACK, matching EXPAND behavior.",
-      "Attack command acceptance is faster and more reliable."
-    ]
-  },
-  {
     createdAt: 1786174507000,
     introducedIn: "resource-reveal-settle-and-ribbon",
     title: "Fixed: settling near a hidden resource revealed it early, and the toolbar showed hidden resource types",
