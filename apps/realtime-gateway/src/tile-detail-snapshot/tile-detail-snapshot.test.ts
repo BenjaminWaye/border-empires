@@ -703,4 +703,48 @@ describe("buildSnapshotTileDetail", () => {
       })
     );
   });
+
+  // Regression: townModifierTotals was computed correctly by the simulation
+  // (apps/simulation/src/live-town-summary.ts) but persisted into a
+  // redacted townJson (toSharedVisibilityTownSummary's field allowlist
+  // strips it) before this REQUEST_TILE_DETAIL path ever saw it, and this
+  // path never independently recomputed it the way it already does for
+  // supportCurrent/mintworksCount/goldPerMinute/etc. — so it silently never
+  // reached the tile popup for any player, including a town's own owner.
+  it("computes townModifierTotals for the tile-detail path, not just the persisted (redacted) townJson", () => {
+    const snapshot: PlayerSubscriptionSnapshot = {
+      playerId: "player-1",
+      tiles: [
+        {
+          x: 300,
+          y: 300,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "SETTLED",
+          // Simulates the real persisted shape: toSharedVisibilityTownSummary
+          // already stripped townModifierTotals (and most other fields) out
+          // of this JSON before it was written — the fix must not depend on
+          // it being present here.
+          townJson: JSON.stringify({ type: "MARKET", populationTier: "TOWN" }),
+          townType: "MARKET",
+          townPopulationTier: "TOWN"
+        },
+        { x: 301, y: 300, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
+        { x: 299, y: 300, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
+        { x: 300, y: 301, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active" }) },
+        { x: 300, y: 299, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", economicStructureJson: JSON.stringify({ type: "GARRISON_HALL", status: "active" }) }
+      ]
+    };
+
+    const detail = buildSnapshotTileDetail(snapshot, "player-1", 300, 300);
+    const town = detail?.townJson ? (JSON.parse(detail.townJson as string) as { townModifierTotals?: Array<{ statLabel: string; total: number; valueText: string; tone: string }> }) : undefined;
+
+    expect(town?.townModifierTotals).toBeDefined();
+    // 3 active Mintworks: flat +1 gold/day each (Gold: +3) plus the
+    // nonlinear stacked gold-production percentage (Gold production: +30%).
+    expect(town?.townModifierTotals).toContainEqual({ statLabel: "Gold", total: 3, valueText: "+3", tone: "positive" });
+    expect(town?.townModifierTotals).toContainEqual({ statLabel: "Gold production", total: 30, valueText: "+30%", tone: "positive" });
+    // 1 Garrison Hall: flat manpower cap bonus.
+    expect(town?.townModifierTotals).toContainEqual({ statLabel: "Manpower cap", total: 150, valueText: "+150", tone: "positive" });
+  });
 });
