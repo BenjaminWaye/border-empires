@@ -9,7 +9,7 @@ import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY, CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY, TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
-  mintworksGoldProductionMultiplier
+  mintworksGoldProductionMultiplier, structureModifiersFor, type ModifierStructureType, type StructureModifier
 } from "@border-empires/game-domain";
 import type { Tile } from "./client-types.js";
 import { converterStructureInfoView } from "./client-converter-structure-info.js";
@@ -93,6 +93,13 @@ export type StructureInfoView = {
   title: string;
   detail: string;
   effects: string[];
+  // Structured Modifier-style entries (statLabel/valueText/tone), sourced
+  // from the shared game-domain catalog — same data and same
+  // white-label/green-value styling as the tile-overview popup. `effects`
+  // is kept alongside for bullets that don't cleanly reduce to a number
+  // (e.g. "Blocked by Resonance Grids", "Requires nearby Ambaric Tower
+  // power").
+  modifiers: StructureModifier[];
   glyph: string;
   placement: string;
   image?: string;
@@ -426,60 +433,61 @@ export const structureInfoForKey = (
     }
     return bits;
   };
+  // Numeric effects now live in `modifiers` (structureModifiersFor, below) —
+  // this list is only for qualitative bullets that don't reduce to a
+  // Modifier line (mechanic descriptions, "requires power", limits, etc).
   const effectsFor = (key: StructureInfoKey): string[] => {
-    if (key === "FORT") return ["2.5x local defense", "Prevents failed attacks from immediately flipping the fortified origin tile"];
-    if (key === "TITANIUM_BASTION") return ["Upgrades Forts into Titanium Bastions", "Raises Fort defense from 2.5x to 4x and keeps the +10% settled defense from Bastion Walls"];
-    if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Raises Fort defense from 4x to 8x and improves resistance to siege and lance pressure"];
-    if (key === "OBSERVATORY") return [`+${OBSERVATORY_VISION_BONUS} local vision`, `${OBSERVATORY_RANGE}-tile crystal range (protection + casting, grows with tech)`];
+    if (key === "FORT") return ["Prevents failed attacks from immediately flipping the fortified origin tile"];
+    if (key === "TITANIUM_BASTION") return ["Upgrades Forts into Titanium Bastions", "Also keeps the +10% settled defense from Bastion Walls"];
+    if (key === "THUNDER_BASTION") return ["Upgrades Titanium Bastions into Thunder Bastions", "Improves resistance to siege and lance pressure"];
+    if (key === "OBSERVATORY") return ["Crystal range grows with tech"];
     if (key === "WOODEN_FORT") return ["Light defensive fortification", "No iron upkeep"];
     if (key === "RELAY_BEACON") return ["Cheap offensive staging point", "Faster, weaker alternative to a Siege Outpost"];
-    if (key === "SIEGE_OUTPOST") return ["+60% local offense", "Improves attacks launched from this tile"];
-    if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers", "Raises Siege Outpost attack from 1.6x to 1.8x"];
-    if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers", "Raises Siege attack from 1.8x to 2.0x against heavy fortified targets"];
-    if (key === "FARMSTEAD") return ["+50% food production on FARM tiles only", `+${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot`];
-    if (key === "WATERWORKS") return ["+100% farmstead food within 10 tiles", `Each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots`];
-    if (key === "UMBRITE_RIG") return ["+50% umbrite production on UMBRITE tiles", "+15 umbrite cap"];
-    if (key === "MINE") return ["+50% iron or crystal production on mineral tiles", "+15 iron cap or +9 crystal cap"];
-    if (key === "MINTWORKS") return ["+10 gold instantly on completion", "+1 gold/day", `+${MINTWORKS_PER_MINTWORKS_PERCENT}% town gold production per Mintworks (+${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% with an active Clearing House), stacks additively`];
-    if (key === "GRANARY") return ["Instant one-time +10,000 population burst on completion"];
-    if (key === "SEED_GRANARY") return ["+30% local town population growth", "-10% local town food upkeep"];
-    if (key === "CENSUS_HALL") return ["+20,000 population per connected city with an active Incubation Engine", "-25% town-tier upgrade cost for this town"];
-    if (key === "CLEARING_HOUSE") return ["+25% Mintworks effect across connected towns", "+20% Bank effect across connected towns", "+0.5 flat Bank income across connected towns"];
+    if (key === "SIEGE_OUTPOST") return ["Improves attacks launched from this tile"];
+    if (key === "SIEGE_TOWER") return ["Upgrades Siege Outposts into Siege Towers"];
+    if (key === "DREAD_TOWER") return ["Upgrades Siege Towers into Dread Towers, effective against heavy fortified targets"];
+    if (key === "FARMSTEAD") return ["Farm tiles only — no effect on fish tiles"];
+    if (key === "WATERWORKS") return [];
+    if (key === "UMBRITE_RIG") return [];
+    if (key === "MINE") return [];
+    if (key === "MINTWORKS") return ["Stacks additively across every active Mintworks in the town"];
+    if (key === "GRANARY") return [];
+    if (key === "SEED_GRANARY") return [];
+    if (key === "CENSUS_HALL") return [];
+    if (key === "CLEARING_HOUSE") return [];
     if (key === "CARAVANARY") return ["Enables the connected-town income bonus for this road network"];
-    if (key === "UMBRITE_SYNTHESIZER") return ["Refine: gold → 18 umbrite/day", "Sell off: 1 umbrite slot → 8 gold/day"];
-    if (key === "ADVANCED_UMBRITE_SYNTHESIZER") return ["Refine: gold → 21.6 umbrite/day", "Sell off: 1 umbrite slot → 12 gold/day"];
-    if (key === "TITANIUM_WORKS") return ["Refine: gold → 18 titanium/day", "Sell off: 1 titanium slot → 8 gold/day"];
-    if (key === "ADVANCED_TITANIUM_WORKS") return ["Refine: gold → 21.6 titanium/day", "Sell off: 1 titanium slot → 12 gold/day"];
-    if (key === "CRYSTAL_SYNTHESIZER") return ["Refine: gold → 12 crystal/day", "Sell off: 1 crystal slot → 10 gold/day"];
-    if (key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Refine: gold → 14.4 crystal/day", "Sell off: 1 crystal slot → 15 gold/day"];
-    if (key === "FOUNDRY") return ["Doubles active Mine slot output within 5 tiles"];
-    if (key === "CUSTOMS_HOUSE") return ["+1 gold / m per connected owned dock"];
-    if (key === "GOVERNORS_OFFICE") return ["-10% local town food upkeep", "Reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles"];
-    if (key === "GARRISON_HALL") return ["+150 manpower cap for this town", "+300 manpower cap if an Assembly Works is in this town's connected network"];
-    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area within 30 tiles (structures survive)", "Free • 20m cooldown • 15% base miss per tile", "Blocked by Resonance Grids", "Requires nearby Ambaric Tower power"];
-    if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments within 30 tiles", "Can chain power through other Ambaric Towers within 30 tiles"];
-    if (key === "RADAR_SYSTEM") return ["Blocks enemy bombardment within 30 tiles", "Requires nearby Ambaric Tower power"];
-    if (key === "QUARTERMASTERS_OFFICE") return ["-33% manpower cost for War-branch structures built within 20 tiles", "Does not stack with other Quartermaster's Offices"];
-    if (key === "LOGISTICS_GUILD") return ["+0.05 manpower/min empire-wide, standalone", "+0.1/min instead if a Rail Depot is in this town's connected network"];
-    if (key === "ASSEMBLY_WORKS") return ["+300 manpower cap for every Ancillary Factory in this connected-town network", "One per connected-town network"];
+    if (key === "UMBRITE_SYNTHESIZER" || key === "ADVANCED_UMBRITE_SYNTHESIZER") return ["Sell off: 1 umbrite slot → gold"];
+    if (key === "TITANIUM_WORKS" || key === "ADVANCED_TITANIUM_WORKS") return ["Sell off: 1 titanium slot → gold"];
+    if (key === "CRYSTAL_SYNTHESIZER" || key === "ADVANCED_CRYSTAL_SYNTHESIZER") return ["Sell off: 1 crystal slot → gold"];
+    if (key === "FOUNDRY") return [];
+    if (key === "CUSTOMS_HOUSE") return [];
+    if (key === "GOVERNORS_OFFICE") return [];
+    if (key === "GARRISON_HALL") return ["Also boosts manpower cap further if an Assembly Works is in this town's connected network"];
+    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Tower power"];
+    if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments", "Can chain power through other Ambaric Towers"];
+    if (key === "RADAR_SYSTEM") return ["Requires nearby Ambaric Tower power"];
+    if (key === "QUARTERMASTERS_OFFICE") return ["Does not stack with other Quartermaster's Offices"];
+    if (key === "LOGISTICS_GUILD") return ["Boosted rate applies instead of the standalone rate when a Rail Depot is in this town's connected network"];
+    if (key === "ASSEMBLY_WORKS") return ["One per connected-town network"];
     if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];
-    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Launches one satellite for 24 hours of full-map vision for 1,000 gold — must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Tower power"];
-    if (key === "RAIL_DEPOT") return ["+0.1 manpower/min for every Logistics Guild in this connected-town network", "Boosts outpost muster speed within 50 tiles", "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "+10 connected-town income points across this town's linked network", "One per connected-town network"];
-    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Once every 24 hours, levy 100% of a single chosen rival's gold, free", "Requires nearby Ambaric Tower power"];
-    if (key === "AEGIS_DOME") return ["Unique world monument", "Blocks hostile bombardment and hostile crystal actions within 25 tiles", "Aegis Lock prevents hostile ownership changes in that radius for 15 minutes every 60 minutes, free", "Requires nearby Ambaric Tower power"];
-    if (key === "WORLD_ENGINE") return ["Unique world monument", "Fires one Worldbreaker shot anywhere on the map every 10 minutes, destroying an enemy structure and cutting that town's population by 30%, for 1,000 gold", "Requires nearby Ambaric Tower power"];
-    if (key === "POPULATION_BUREAU") return ["Unique world monument", "+0.1 manpower/min empire-wide per Manpower-branch building you own"];
-    if (key === "TITANIUM_LEVY") return ["Unique world monument", "Converts 50% of currently-banked manpower into an instant one-time army", "Freezes empire-wide manpower regen for 2 hours afterward", "Requires nearby Ambaric Tower power"];
-    if (key === "WEAPONS_WORKSHOP") return ["+3% empire-wide attack per Weapons Workshop you own", "+3% empire-wide defense per Weapons Workshop you own", "No per-town limit — build as many as you like to specialize a town for war"];
-    if (key === "TITANIUM_WEAPONS_FACTORY") return ["+1.5% attack / +3% defense per copy, empire-wide", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — armor doctrine"];
-    if (key === "UMBRITE_WEAPONS_FACTORY") return ["+3% attack / +1.5% defense per copy, empire-wide", "Escalating manpower cost — each additional copy you own costs more", "No per-town limit — raiding doctrine"];
+    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Tower power"];
+    if (key === "RAIL_DEPOT") return ["Boosts outpost muster speed within 50 tiles", "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "One per connected-town network"];
+    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Free", "Requires nearby Ambaric Tower power"];
+    if (key === "AEGIS_DOME") return ["Unique world monument", "Aegis Lock prevents hostile ownership changes in that radius, free", "Requires nearby Ambaric Tower power"];
+    if (key === "WORLD_ENGINE") return ["Unique world monument", "Every 10 minutes, anywhere on the map", "Requires nearby Ambaric Tower power"];
+    if (key === "POPULATION_BUREAU") return ["Unique world monument"];
+    if (key === "TITANIUM_LEVY") return ["Unique world monument", "Freezes empire-wide manpower regen afterward", "Requires nearby Ambaric Tower power"];
+    if (key === "WEAPONS_WORKSHOP") return ["No per-town limit — build as many as you like to specialize a town for war"];
+    if (key === "TITANIUM_WEAPONS_FACTORY") return ["Escalating manpower cost — each additional copy you own costs more", "No per-town limit — armor doctrine"];
+    if (key === "UMBRITE_WEAPONS_FACTORY") return ["Escalating manpower cost — each additional copy you own costs more", "No per-town limit — raiding doctrine"];
     return [];
   };
-  const structure = (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits" | "branch">, image?: string): StructureInfoView => {
+  const modifiersFor = (key: StructureInfoKey): StructureModifier[] => structureModifiersFor(key as unknown as ModifierStructureType, {});
+  const structure = (base: Omit<StructureInfoView, "image" | "effects" | "modifiers" | "upkeepBits" | "branch">, image?: string): StructureInfoView => {
     const branch = STRUCTURE_BRANCH_BY_KEY[type];
     return image
-      ? { ...base, effects: effectsFor(type), upkeepBits: upkeepBitsFor(type), image, ...(branch ? { branch } : {}) }
-      : { ...base, effects: effectsFor(type), upkeepBits: upkeepBitsFor(type), ...(branch ? { branch } : {}) };
+      ? { ...base, effects: effectsFor(type), modifiers: modifiersFor(type), upkeepBits: upkeepBitsFor(type), image, ...(branch ? { branch } : {}) }
+      : { ...base, effects: effectsFor(type), modifiers: modifiersFor(type), upkeepBits: upkeepBitsFor(type), ...(branch ? { branch } : {}) };
   };
   const imageFor = (key: StructureInfoKey): string | undefined => {
     if (key === "MINTWORKS") return "/overlays/mintworks-overlay.svg";

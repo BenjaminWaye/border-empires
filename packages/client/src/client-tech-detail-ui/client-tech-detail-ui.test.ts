@@ -244,10 +244,12 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("WORLD_ENGINE", deps).title).toBe("Worldbreaker Cannon");
     expect(structureInfoForKey("WORLD_ENGINE", deps).detail).toContain("10 minutes");
     expect(structureInfoForKey("AEGIS_DOME", deps).detail).toContain("15-minute");
-    expect(structureInfoForKey("TITANIUM_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 2.5x to 4x");
-    expect(structureInfoForKey("THUNDER_BASTION", deps).effects.join(" ")).toContain("Raises Fort defense from 4x to 8x");
-    expect(structureInfoForKey("SIEGE_TOWER", deps).effects.join(" ")).toContain("Raises Siege Outpost attack from 1.6x to 1.8x");
-    expect(structureInfoForKey("DREAD_TOWER", deps).effects.join(" ")).toContain("Raises Siege attack from 1.8x to 2.0x");
+    // Fort/siege multiplier numbers now live in `modifiers` (the shared
+    // game-domain catalog), not the qualitative `effects` bullets.
+    expect(structureInfoForKey("TITANIUM_BASTION", deps).modifiers).toContainEqual({ statLabel: "Defense", valueText: "4x", tone: "positive", isTownWide: false });
+    expect(structureInfoForKey("THUNDER_BASTION", deps).modifiers).toContainEqual({ statLabel: "Defense", valueText: "8x", tone: "positive", isTownWide: false });
+    expect(structureInfoForKey("SIEGE_TOWER", deps).modifiers).toContainEqual({ statLabel: "Offense", valueText: "+80%", tone: "positive", isTownWide: false });
+    expect(structureInfoForKey("DREAD_TOWER", deps).modifiers).toContainEqual({ statLabel: "Offense", valueText: "+100%", tone: "positive", isTownWide: false });
     expect(structureInfoForKey("TITANIUM_BASTION", deps).costBits).toEqual(["1,800 gold", "300 manpower"]);
     expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 gold", "300 manpower"]);
     expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 gold", "60 manpower"]);

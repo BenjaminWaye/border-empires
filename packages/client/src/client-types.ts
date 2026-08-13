@@ -142,6 +142,13 @@ export type Tile = {
       goldCost: number;
       available: boolean;
     };
+    // Unified building modifier display (stage 2): every numeric stat this
+    // town's support-ring buildings contribute, combined across all active
+    // copies and across every building type that feeds the same stat (e.g.
+    // Weapons Workshop + Titanium Weapons Factory both feed "Empire
+    // attack"). See packages/shared/src/types.ts's matching field for the
+    // full contract.
+    townModifierTotals?: Array<{ statLabel: string; total: number; valueText: string; tone: "positive" | "negative" | "neutral" }>;
   };
   fort?: {
     ownerId: string;
