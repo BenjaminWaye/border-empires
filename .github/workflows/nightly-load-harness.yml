@@ -122,6 +122,7 @@ jobs:
         run: |
           PORT=13101 \
           SIMULATION_ADDRESS=127.0.0.1:50051 \
+          GATEWAY_DB_APPLY_SCHEMA=1 \
           nohup pnpm --filter @border-empires/realtime-gateway run dev > /tmp/gateway.log 2>&1 &
           echo "Gateway starting; log at /tmp/gateway.log"
 
