@@ -54,6 +54,11 @@ export type EconomicSharedAssets = {
 export type EconomicHandle = {
   readonly layouts: Record<EconomicStructureKind, EconomicStructureLayout>;
   readonly shared: EconomicSharedAssets;
+  // Family-level animation hooks. The economic family is the only one with
+  // animated pieces today (the mintworks flywheel); the structure overlay
+  // forwards these so the orchestrator's render loop can drive them.
+  readonly clear: () => void;
+  readonly update: (nowMs: number) => void;
 };
 
 export const registerEconomicStructures = (
@@ -293,7 +298,7 @@ export const registerEconomicStructures = (
   // Mintworks lives in its own module (client-map-3d-structure-mintworks.ts)
   // so this file stays under the 500-line file cap. Registered here so the
   // mint slots pool with the rest of the economic family.
-  const addMintworks = registerMintworksStructures(builder);
+  const mintworks = registerMintworksStructures(builder);
 
   return {
     layouts: {
@@ -303,7 +308,7 @@ export const registerEconomicStructures = (
       TITANIUM_WORKS: addTitaniumWorks,
       OBSERVATORY: addObservatory,
       SEED_GRANARY: addSeedGranary,
-      MINTWORKS: addMintworks
+      MINTWORKS: mintworks.layout
     },
     shared: {
       forgeBaseMaterial,
@@ -313,6 +318,8 @@ export const registerEconomicStructures = (
       barnRoofMaterial,
       blueCrystalGeo,
       blueCrystalMaterial
-    }
+    },
+    clear: mintworks.clear,
+    update: mintworks.update
   };
 };
