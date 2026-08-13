@@ -235,4 +235,113 @@ describe("renderCaptureProgress", () => {
     expect(captureCardEl.style.display).toBe("grid");
     expect(captureWrapEl.style.display).toBe("block");
   });
+
+  it("shows a Mustering overlay while a manual attack is parked waiting on manpower", () => {
+    const captureCardEl = makeElement();
+    const captureWrapEl = makeElement();
+    const captureCancelBtn = makeElement();
+    const captureDismissBtn = makeElement();
+    const captureCloseBtn = makeElement();
+    const captureDownloadDebugBtn = makeElement();
+    const captureBarEl = makeElement();
+    const captureTitleEl = makeElement();
+    const captureTimeEl = makeElement();
+    const captureTargetEl = makeElement();
+
+    renderCaptureProgress(
+      {
+        captureAlert: undefined,
+        collectVisibleCooldownUntil: 0,
+        capture: undefined,
+        me: "player-1",
+        tiles: new Map([
+          ["0,0", { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", muster: { ownerId: "player-1", amount: 30, mode: "HOLD", updatedAt: 0 } }],
+          [
+            "10,20",
+            {
+              x: 10,
+              y: 20,
+              terrain: "LAND",
+              ownerId: "enemy",
+              fort: { ownerId: "enemy", status: "active", garrison: 90, garrisonCap: 200 }
+            }
+          ]
+        ]),
+        pendingCombatReveal: undefined,
+        pendingMusterAttacks: [{ targetX: 10, targetY: 20, fromX: 0, fromY: 0, musterTileKey: "0,0" }]
+      } as any,
+      {
+        keyFor: (x, y) => `${x},${y}`,
+        formatCooldownShort: () => "0s",
+        showCaptureAlert: vi.fn(),
+        pushFeed: vi.fn(),
+        finalizePredictedCombat: vi.fn(),
+        captureCardEl,
+        captureWrapEl,
+        captureCancelBtn,
+        captureDismissBtn,
+        captureCloseBtn,
+        captureDownloadDebugBtn,
+        captureBarEl,
+        captureTitleEl,
+        captureTimeEl,
+        captureTargetEl
+      }
+    );
+
+    expect(captureCardEl.dataset.state).toBe("mustering");
+    expect(captureCardEl.style.display).toBe("grid");
+    expect(captureTitleEl.textContent).toBe("Mustering...");
+    // 30 staged / 90 required (the fort's garrison, not the flat base cost) = 33%.
+    expect(captureBarEl.style.width).toBe("33%");
+    expect(captureTimeEl.textContent).toBe("30 / 90");
+    expect(captureTargetEl.textContent).toBe("Target: (10, 20)");
+    expect(captureCancelBtn.style.display).toBe("inline-flex");
+    expect(captureDismissBtn.style.display).toBe("none");
+  });
+
+  it("hides the overlay when there is no active capture and nothing pending", () => {
+    const captureCardEl = makeElement();
+    const captureWrapEl = makeElement();
+    const captureCancelBtn = makeElement();
+    const captureDismissBtn = makeElement();
+    const captureCloseBtn = makeElement();
+    const captureDownloadDebugBtn = makeElement();
+    const captureBarEl = makeElement();
+    const captureTitleEl = makeElement();
+    const captureTimeEl = makeElement();
+    const captureTargetEl = makeElement();
+
+    renderCaptureProgress(
+      {
+        captureAlert: undefined,
+        collectVisibleCooldownUntil: 0,
+        capture: undefined,
+        me: "player-1",
+        tiles: new Map(),
+        pendingCombatReveal: undefined,
+        pendingMusterAttacks: []
+      } as any,
+      {
+        keyFor: (x, y) => `${x},${y}`,
+        formatCooldownShort: () => "0s",
+        showCaptureAlert: vi.fn(),
+        pushFeed: vi.fn(),
+        finalizePredictedCombat: vi.fn(),
+        captureCardEl,
+        captureWrapEl,
+        captureCancelBtn,
+        captureDismissBtn,
+        captureCloseBtn,
+        captureDownloadDebugBtn,
+        captureBarEl,
+        captureTitleEl,
+        captureTimeEl,
+        captureTargetEl
+      }
+    );
+
+    expect(captureCardEl.style.display).toBe("none");
+    expect(captureTitleEl.textContent).toBe("");
+  });
 });
