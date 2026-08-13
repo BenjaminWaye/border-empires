@@ -13,6 +13,7 @@ import {
 } from "../client-tech-html/client-tech-html.js";
 import { renderCompactTechChoiceGridHtml, renderExpandedTechChoiceTreeHtml } from "../client-tech-tree-html/client-tech-tree-html.js";
 import type { ChosenTrickleResource } from "@border-empires/shared";
+import type { StructureModifier } from "@border-empires/game-domain";
 import type { DomainInfo, TechInfo } from "../client-types.js";
 import { MONUMENT_COMPONENTS_BY_BASE, type StructureInfoKey } from "../client-map-display.js";
 
@@ -332,6 +333,7 @@ export const renderStructureInfoOverlay = (
     title: string;
     detail: string;
     effects: string[];
+    modifiers: StructureModifier[];
     glyph: string;
     placement: string;
     image?: string;
@@ -350,6 +352,22 @@ export const renderStructureInfoOverlay = (
     : "";
   const upkeepHtml = (info.upkeepBits ?? []).length
     ? `<div class="structure-info-meta-card"><span>Upkeep</span><strong>${(info.upkeepBits ?? []).join(" · ")}</strong></div>`
+    : "";
+  // Modifier lines reuse the same white-label/green-value styling as the
+  // tile-overview popup (tile-overview-effect-name / tile-overview-effect-mod
+  // is-{tone}) so both surfaces read identically for the same building.
+  const modifiersHtml = info.modifiers.length
+    ? `<section class="structure-info-section">
+        <span class="structure-info-section-label">Modifiers</span>
+        <ul class="structure-info-effects-list">
+          ${info.modifiers
+            .map(
+              (modifier) =>
+                `<li><span class="tile-overview-effect-name">${modifier.statLabel}:</span> <span class="tile-overview-effect-mod is-${modifier.tone}">${modifier.valueText}</span></li>`
+            )
+            .join("")}
+        </ul>
+      </section>`
     : "";
   const effectsHtml = info.effects.length
     ? `<section class="structure-info-section">
@@ -393,6 +411,7 @@ export const renderStructureInfoOverlay = (
           </div>
         </div>
         ${componentsHtml}
+        ${modifiersHtml}
         ${effectsHtml}
         <div class="structure-info-meta">
           ${costHtml}

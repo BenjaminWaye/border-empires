@@ -1,5 +1,5 @@
-import { DREAD_TOWER_ATTACK_MULT, RELAY_BEACON_ATTACK_MULT, NATURAL_WONDER_LABELS, SIEGE_OUTPOST_ATTACK_MULT, SIEGE_TOWER_ATTACK_MULT, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS, WOODEN_FORT_DEFENSE_MULT } from "@border-empires/shared";
-import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
+import { NATURAL_WONDER_LABELS } from "@border-empires/shared";
+import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
@@ -24,69 +24,75 @@ export type TileOverviewModifier = {
 
 const percentLabel = (value: number): string => `${value >= 0 ? "+" : "-"}${Math.abs(Math.round(value))}%`;
 
-const multiplierPercentLabel = (value: number): string => percentLabel((value - 1) * 100);
-
 const connectedLabel = (count: number): string => `${count} connected ${count === 1 ? "town" : "towns"}`;
 
-const siegeOutpostModifier = (variant?: string): TileOverviewModifier => {
-  if (variant === "DREAD_TOWER") return { reason: "Dread Tower", effect: `${multiplierPercentLabel(DREAD_TOWER_ATTACK_MULT)} offense`, tone: "positive" };
-  if (variant === "SIEGE_TOWER") return { reason: "Siege Tower", effect: `${multiplierPercentLabel(SIEGE_TOWER_ATTACK_MULT)} offense`, tone: "positive" };
-  return { reason: "Siege Outpost", effect: `${multiplierPercentLabel(SIEGE_OUTPOST_ATTACK_MULT)} offense`, tone: "positive" };
-};
-
-const fortModifierForTile = (tile: NonNullable<Tile["fort"]>): TileOverviewModifier => {
-  if (tile.variant === "THUNDER_BASTION") return { reason: "Thunder Bastion", effect: "8x defense", tone: "positive" };
-  if (tile.variant === "TITANIUM_BASTION") return { reason: "Titanium Bastion", effect: "4x defense", tone: "positive" };
-  return { reason: "Fort", effect: "2.5x defense", tone: "positive" };
-};
+// Unified "label: value" style (white stat name, colored value) — every
+// modifier line uses the catalog's own stat name (statLabel) as the label,
+// same as the multi-modifier and town-aggregate lines. `structureLabel`
+// (the building's display name) only gets folded in as a prefix when a
+// single building contributes more than one modifier line, to disambiguate
+// which line belongs to which stat.
+const toTileOverviewModifiers = (structureLabel: string, modifiers: StructureModifier[]): TileOverviewModifier[] =>
+  modifiers.map((m) => ({
+    reason: modifiers.length > 1 ? `${structureLabel} — ${m.statLabel}` : m.statLabel,
+    effect: m.valueText,
+    tone: m.tone
+  }));
 
 const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
   typeof tile.town?.captureShockUntil === "number" && tile.town.captureShockUntil > nowMs;
+
+// Town support-ring buildings whose modal/tile display name differs from
+// their catalog label — kept as a small lookup rather than baking display
+// names into the catalog (game-domain has no notion of UI copy).
+const SUPPORT_STRUCTURE_LABELS: Partial<Record<ModifierStructureType, string>> = {
+  MINTWORKS: "Mintworks",
+  SEED_GRANARY: "Seed Granary",
+  GRANARY: "Granary",
+  CLEARING_HOUSE: "Clearing House"
+};
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
   const mintworksCount = tile.mintworksCount ?? 0;
   if (mintworksCount > 0 && tile.mintworksActive) {
-    // mintworks-stacking task: derive the real stacked percentage from the
-    // shared mintworksGoldProductionMultiplier() instead of a hardcoded "+50%"
-    // — each active Mintworks contributes its own +10%/+35% additively.
-    const mult = mintworksGoldProductionMultiplier(mintworksCount, Boolean(tile.clearingHouseActive));
-    modifiers.push({ reason: "Mintworks", effect: `+${Math.round((mult - 1) * 100)}% town gold production`, tone: "positive" });
+    const stackedGoldProduction = structureModifiersFor("MINTWORKS", {
+      tile: { town: { mintworksCount, clearingHouseActive: Boolean(tile.clearingHouseActive) } }
+    }).filter((m) => m.statLabel === "Gold production");
+    modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.MINTWORKS!, stackedGoldProduction));
     modifiers.push({ reason: "Mintworks", effect: "higher production raises gold cap", tone: "positive" });
   }
   // A plain Granary (Incubation Engine) grants ONLY its instant one-time
   // population burst on completion — the old ongoing +15% growth bonus was
-  // removed (commit 7a51b06b, "Incubation Engine double-dip" fix; see
-  // granaryGrowthMultiplier in packages/game-domain). This modifier line was
-  // missed by that fix and kept showing the stale "+15% population growth"
-  // text even though the server no longer grants it — no ongoing-growth
-  // line is shown here unless a Seed Granary's buffed radius actually
-  // applies (matching granaryGrowthMultiplier's server-side behavior).
+  // removed (commit 7a51b06b, "Incubation Engine double-dip" fix). No
+  // ongoing-growth line is shown here unless a Seed Granary's buffed radius
+  // actually applies (matching granaryGrowthMultiplier's server-side
+  // behavior).
   if (tile.hasSeedGranary && tile.seedGranaryActive) {
-    modifiers.push({ reason: "Seed Granary", effect: "+30% population growth", tone: "positive" });
+    modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.SEED_GRANARY!, structureModifiersFor("SEED_GRANARY").filter((m) => m.statLabel === "Population growth")));
   } else if (tile.hasGranary && tile.granaryActive && tile.seedGranaryBuffed) {
     modifiers.push({ reason: "Granary (Seed Granary boost)", effect: "+30% population growth", tone: "positive" });
   }
   if (tile.hasClearingHouse && tile.clearingHouseActive) {
-    modifiers.push({ reason: "Clearing House", effect: "+25% Mintworks effect", tone: "positive" });
+    modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.CLEARING_HOUSE!, structureModifiersFor("CLEARING_HOUSE")));
   }
   return modifiers;
 };
 
-const activeEconomicStructureModifiers = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
-  if (tile.type === "FARMSTEAD" || tile.type === "WATERWORKS" || tile.type === "UMBRITE_RIG") {
-    return [{
-      reason: tile.type === "FARMSTEAD" ? "Farmstead (farm food only)" : tile.type === "WATERWORKS" ? "Waterworks (radius support)" : "Umbrite Rig",
-      effect: tile.type === "WATERWORKS" ? `+100% farmstead food; each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots` : tile.type === "UMBRITE_RIG" ? "+50% umbrite, +15 umbrite cap" : `+50% farm food, +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot`,
-      tone: "positive"
-    }];
-  }
-  if (tile.type === "WOODEN_FORT") return [{ reason: "Palisade", effect: `${multiplierPercentLabel(WOODEN_FORT_DEFENSE_MULT)} defense`, tone: "positive" }];
-  if (tile.type === "RELAY_BEACON") return [{ reason: "Relay Beacon", effect: `${multiplierPercentLabel(RELAY_BEACON_ATTACK_MULT)} offense`, tone: "positive" }];
-  if (tile.type === "CARAVANARY") return [{ reason: "Caravanary", effect: "+25% connected-town gold production", tone: "positive" }];
-  if (tile.type === "CUSTOMS_HOUSE") return [{ reason: "Harbor Exchange", effect: "+1 gold / minute per connected owned dock", tone: "positive" }];
-  if (tile.type === "RAIL_DEPOT") return [{ reason: "Rail Depot", effect: "+0.5 manpower regen, boosts outpost muster", tone: "positive" }];
-  return [];
+const economicStructureModifiersForTile = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
+  const supportedTypes: ReadonlySet<string> = new Set(["FARMSTEAD", "WATERWORKS", "UMBRITE_RIG", "WOODEN_FORT", "RELAY_BEACON", "CARAVANARY", "CUSTOMS_HOUSE", "RAIL_DEPOT"]);
+  if (!supportedTypes.has(tile.type)) return [];
+  const labels: Partial<Record<string, string>> = {
+    FARMSTEAD: "Farmstead (farm food only)",
+    WATERWORKS: "Waterworks (radius support)",
+    UMBRITE_RIG: "Umbrite Rig",
+    WOODEN_FORT: "Palisade",
+    RELAY_BEACON: "Relay Beacon",
+    CARAVANARY: "Caravanary",
+    CUSTOMS_HOUSE: "Harbor Exchange",
+    RAIL_DEPOT: "Rail Depot"
+  };
+  return toTileOverviewModifiers(labels[tile.type] ?? tile.type, structureModifiersFor(tile.type as ModifierStructureType));
 };
 
 export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[] => {
@@ -129,17 +135,19 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   }
 
   if (tile.fort?.status === "active" && (tile.fort.disabledUntil ?? 0) <= nowMs) {
-    modifiers.push(fortModifierForTile(tile.fort));
+    const variant = tile.fort.variant === "TITANIUM_BASTION" || tile.fort.variant === "THUNDER_BASTION" ? tile.fort.variant : "FORT";
+    const label = variant === "THUNDER_BASTION" ? "Thunder Bastion" : variant === "TITANIUM_BASTION" ? "Titanium Bastion" : "Fort";
+    modifiers.push(...toTileOverviewModifiers(label, structureModifiersFor(variant)));
   }
-  if (tile.siegeOutpost?.status === "active") modifiers.push(siegeOutpostModifier(tile.siegeOutpost.variant));
+  if (tile.siegeOutpost?.status === "active") {
+    const variant = tile.siegeOutpost.variant === "SIEGE_TOWER" || tile.siegeOutpost.variant === "DREAD_TOWER" ? tile.siegeOutpost.variant : "SIEGE_OUTPOST";
+    const label = variant === "DREAD_TOWER" ? "Dread Tower" : variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Outpost";
+    modifiers.push(...toTileOverviewModifiers(label, structureModifiersFor(variant)));
+  }
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
-    modifiers.push({
-      reason: "Mine",
-      effect: tile.resource === "TITANIUM" ? "+50% titanium production" : tile.resource === "GEMS" ? "+50% crystal production" : "+50% strategic resource production",
-      tone: "positive"
-    });
+    modifiers.push(...toTileOverviewModifiers("Mine", structureModifiersFor("MINE", { tile: { resource: tile.resource } }).filter((m) => m.statLabel === "Production")));
   }
-  if (tile.economicStructure?.status === "active") modifiers.push(...activeEconomicStructureModifiers(tile.economicStructure));
+  if (tile.economicStructure?.status === "active") modifiers.push(...economicStructureModifiersForTile(tile.economicStructure));
 
   return modifiers;
 };

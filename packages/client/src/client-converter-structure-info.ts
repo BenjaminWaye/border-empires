@@ -12,7 +12,7 @@ import type { StructureInfoKey, StructureInfoView } from "./client-map-display.j
 // disagree with the rest of the info panel on cost/upkeep/branch/image.
 export const converterStructureInfoView = (
   type: StructureInfoKey,
-  structure: (base: Omit<StructureInfoView, "image" | "effects" | "upkeepBits" | "branch">, image?: string) => StructureInfoView,
+  structure: (base: Omit<StructureInfoView, "image" | "effects" | "modifiers" | "upkeepBits" | "branch">, image?: string) => StructureInfoView,
   imageFor: (key: StructureInfoKey) => string | undefined,
   costBitsFor: (key: StructureInfoKey) => string[],
   buildTimeLabelFor: (key: StructureInfoKey) => string

@@ -66,7 +66,7 @@ describe("tileOverviewModifiersForTile", () => {
     } satisfies Tile);
     // 5 active Mintworks stack additively: +50%, not the old hardcoded +50%
     // literal that never actually derived from the real count.
-    expect(modifiers).toContainEqual({ reason: "Mintworks", effect: "+50% town gold production", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Gold production", effect: "+50% town gold production", tone: "positive" });
   });
 
   it("hides the Mintworks modifier entirely when mintworksCount is 0", () => {
@@ -117,7 +117,7 @@ describe("tileOverviewModifiersForTile", () => {
       }
     } satisfies Tile);
 
-    expect(modifiers.some((modifier) => modifier.reason === "Fort")).toBe(false);
+    expect(modifiers.some((modifier) => modifier.reason === "Defense")).toBe(false);
     vi.useRealTimers();
   });
 
@@ -135,7 +135,7 @@ describe("tileOverviewModifiersForTile", () => {
           variant: "FORT"
         }
       } satisfies Tile)
-    ).toContainEqual({ reason: "Fort", effect: "2.5x defense", tone: "positive" });
+    ).toContainEqual({ reason: "Defense", effect: "2.5x", tone: "positive" });
   });
 
   it("labels upgraded fort defense modifiers by variant", () => {
@@ -152,7 +152,7 @@ describe("tileOverviewModifiersForTile", () => {
           variant: "TITANIUM_BASTION"
         }
       } satisfies Tile)
-    ).toContainEqual({ reason: "Titanium Bastion", effect: "4x defense", tone: "positive" });
+    ).toContainEqual({ reason: "Defense", effect: "4x", tone: "positive" });
 
     expect(
       tileOverviewModifiersForTile({
@@ -167,7 +167,7 @@ describe("tileOverviewModifiersForTile", () => {
           variant: "THUNDER_BASTION"
         }
       } satisfies Tile)
-    ).toContainEqual({ reason: "Thunder Bastion", effect: "8x defense", tone: "positive" });
+    ).toContainEqual({ reason: "Defense", effect: "8x", tone: "positive" });
   });
 
   it("shows recently captured frontier towns as paused until settled", () => {

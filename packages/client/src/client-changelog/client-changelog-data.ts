@@ -23,6 +23,18 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786575600000, // 2026.08.12.14
+    introducedIn: "2026.08.12.14",
+    title: "Unified building modifier display across tile popup and tech tree",
+    why: "Building effect numbers (\"Manpower +150\", \"+50% farm food\", etc.) were hand-written in up to three separate places with no shared source of truth, so the tile-detail popup, the tech-tree structure panel, and the town summary could each show slightly different or missing numbers for the same building.",
+    changes: [
+      "Every building's tile-overview popup now shows a Modifiers section with the same white-label/green-value styling for every structure, not just the ~15 that used to be covered.",
+      "The structure-info panel (opened from the build menu or tech tree) now shows the exact same modifier numbers in the same style, instead of separately hand-written prose.",
+      "A town's support-ring buildings that stack across the whole town (e.g. multiple Garrison Halls) now show their combined total next to the town's Support/Population/Growth summary — widened to cover every stat a support building contributes, including Mintworks gold production and the Weapons Workshop family's empire attack/defense, combined across every building that feeds the same stat.",
+      "Fort and Siege Outpost defense/offense lines now use the same \"stat: value\" format as every other modifier (e.g. \"Defense: 2.5x\") instead of folding the stat name into the colored value text."
+    ]
+  },
+  {
     createdAt: 1786572000000, // 2026.08.12.13
     introducedIn: "2026.08.12.13",
     title: "Fixed: manual attack could stay queued forever behind a non-adjacent muster flag",
