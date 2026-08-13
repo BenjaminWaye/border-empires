@@ -6,6 +6,32 @@ import { victoryHoldAlertDetail, victoryHoldAlertTitle, victoryHoldBannerText } 
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
+// Muster accumulation only advances server-side once per ~30s tick, and the
+// client only learns the new amount when that tick's tile delta arrives —
+// so a naive read of `muster.amount` holds flat for up to 30s then jumps.
+// Track the last two observed samples per muster tile and linearly
+// extrapolate between them so the progress bar visibly ticks in between.
+// Re-anchors (and stops extrapolating past `required`) on every real delta.
+const extrapolatedMusterAmount = (
+  rateByTile: Map<string, { amount: number; at: number; ratePerMs: number }>,
+  musterTileKey: string,
+  musterTile: Tile | undefined,
+  required: number
+): number => {
+  const amount = musterTile?.muster?.amount ?? 0;
+  const updatedAt = musterTile?.muster?.updatedAt ?? 0;
+  const prev = rateByTile.get(musterTileKey);
+  if (!prev || prev.at !== updatedAt) {
+    // A fresh server sample landed (or this is the first one) — re-anchor,
+    // deriving a fresh rate from the previous sample when one exists.
+    const ratePerMs = prev && updatedAt > prev.at ? Math.max(0, (amount - prev.amount) / (updatedAt - prev.at)) : 0;
+    rateByTile.set(musterTileKey, { amount, at: updatedAt, ratePerMs });
+    return amount;
+  }
+  const elapsedMs = Math.max(0, Date.now() - prev.at);
+  return Math.min(required > 0 ? required : amount, prev.amount + prev.ratePerMs * elapsedMs);
+};
+
 export const renderCaptureProgress = (
   state: Pick<
     ClientState,
@@ -17,6 +43,7 @@ export const renderCaptureProgress = (
     | "pendingCombatReveal"
     | "dismissedCaptureStartAt"
     | "pendingMusterAttacks"
+    | "musterAmountRateByTile"
   >,
   deps: {
     keyFor: (x: number, y: number) => string;
@@ -182,8 +209,10 @@ export const renderCaptureProgress = (
     }
     const musterTile = state.tiles.get(entry.musterTileKey);
     const targetTile = state.tiles.get(targetKey);
-    const staged = Math.floor(musterTile?.muster?.amount ?? 0);
     const required = requiredMusterForTarget(targetTile);
+    const staged = Math.floor(
+      extrapolatedMusterAmount(state.musterAmountRateByTile, entry.musterTileKey, musterTile, required)
+    );
     const pct = Math.max(0, Math.min(1, required > 0 ? staged / required : 1));
     deps.captureCardEl.dataset.state = "mustering";
     deps.captureCardEl.style.display = "grid";

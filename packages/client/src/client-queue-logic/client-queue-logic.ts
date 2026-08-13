@@ -1179,6 +1179,10 @@ export const processActionQueue = (
 ): boolean => {
   if (state.actionInFlight || deps.ws.readyState !== deps.ws.OPEN || !deps.authSessionReady) return false;
   topUpFromWaypoint(state, deps.keyFor, deps.pushFeed, deps.sendGameMessage);
+  // ~13.5s of retries (15 * 900ms) before giving up on a confirmed origin
+  // and falling back to the optimistic one, so a queued attack can never
+  // stall forever with nothing else visibly ahead of it.
+  const MAX_CONFIRMED_ORIGIN_WAIT_ATTEMPTS = 15;
   let deferredFrontierSyncTargets = 0;
   while (state.actionQueue.length > 0) {
     const next = state.actionQueue[0];
@@ -1245,6 +1249,7 @@ export const processActionQueue = (
       });
       state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
+      state.confirmedOriginWaitAttemptsByTarget.delete(targetKey);
       continue;
     }
     if (to.ownerId && to.ownerId !== state.me && deps.isTileOwnedByAlly(to)) {
@@ -1263,6 +1268,7 @@ export const processActionQueue = (
       });
       state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
+      state.confirmedOriginWaitAttemptsByTarget.delete(targetKey);
       continue;
     }
     if (to.ownerId === state.me) {
@@ -1281,11 +1287,12 @@ export const processActionQueue = (
       });
       state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
+      state.confirmedOriginWaitAttemptsByTarget.delete(targetKey);
       continue;
     }
 
     const allowOptimisticOrigin = Boolean(to.ownerId);
-    let from = deps.pickOriginForTarget(to.x, to.y, false, false);
+    let from = deps.pickOriginForTarget(to.x, to.y, false, allowOptimisticOrigin);
     const optimisticFrom = deps.pickOriginForTarget(to.x, to.y, false, true);
     const selectedFrom = state.selected ? state.tiles.get(deps.keyFor(state.selected.x, state.selected.y)) : undefined;
     if (
@@ -1298,29 +1305,47 @@ export const processActionQueue = (
       from = selectedFrom;
     }
     if (!from && optimisticFrom) {
-      const existingWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
-      const waitUntil = Math.max(existingWaitUntil, Date.now() + 900);
-      state.frontierSyncWaitUntilByTarget.set(targetKey, waitUntil);
-      logActionQueue("action-queue-wait-confirmed-origin", {
-        targetKey,
-        waitMs: Math.max(0, waitUntil - Date.now()),
-        queueLength: state.actionQueue.length,
-        optimisticFrom: { x: optimisticFrom.x, y: optimisticFrom.y, ownerId: optimisticFrom.ownerId }
-      });
-      logFrontierQueue("frontier-queue-wait-confirmed-origin", {
-        before: to,
-        after: to,
-        extra: {
-          waitMs: Math.max(0, waitUntil - Date.now()),
+      const confirmedOriginWaitAttempts = (state.confirmedOriginWaitAttemptsByTarget.get(targetKey) ?? 0) + 1;
+      if (confirmedOriginWaitAttempts > MAX_CONFIRMED_ORIGIN_WAIT_ATTEMPTS) {
+        // The confirmed origin never showed up after repeated waits (e.g. the
+        // adjacent tile's own optimistic EXPAND never got acked). Rather than
+        // requeue forever with nothing visibly ahead of it, fall back to the
+        // optimistic origin so the attack actually dispatches.
+        logActionQueue("action-queue-fallback-optimistic-origin", {
+          targetKey,
+          attempts: confirmedOriginWaitAttempts,
           optimisticFrom: { x: optimisticFrom.x, y: optimisticFrom.y, ownerId: optimisticFrom.ownerId }
-        }
-      });
-      const blocked = state.actionQueue.shift();
-      if (!blocked) return false;
-      state.actionQueue.push(blocked);
-      deferredFrontierSyncTargets += 1;
-      if (deferredFrontierSyncTargets >= state.actionQueue.length) return false;
-      continue;
+        });
+        state.confirmedOriginWaitAttemptsByTarget.delete(targetKey);
+        from = optimisticFrom;
+      } else {
+        state.confirmedOriginWaitAttemptsByTarget.set(targetKey, confirmedOriginWaitAttempts);
+        const existingWaitUntil = state.frontierSyncWaitUntilByTarget.get(targetKey) ?? 0;
+        const waitUntil = Math.max(existingWaitUntil, Date.now() + 900);
+        state.frontierSyncWaitUntilByTarget.set(targetKey, waitUntil);
+        logActionQueue("action-queue-wait-confirmed-origin", {
+          targetKey,
+          waitMs: Math.max(0, waitUntil - Date.now()),
+          queueLength: state.actionQueue.length,
+          attempts: confirmedOriginWaitAttempts,
+          optimisticFrom: { x: optimisticFrom.x, y: optimisticFrom.y, ownerId: optimisticFrom.ownerId }
+        });
+        logFrontierQueue("frontier-queue-wait-confirmed-origin", {
+          before: to,
+          after: to,
+          extra: {
+            waitMs: Math.max(0, waitUntil - Date.now()),
+            attempts: confirmedOriginWaitAttempts,
+            optimisticFrom: { x: optimisticFrom.x, y: optimisticFrom.y, ownerId: optimisticFrom.ownerId }
+          }
+        });
+        const blocked = state.actionQueue.shift();
+        if (!blocked) return false;
+        state.actionQueue.push(blocked);
+        deferredFrontierSyncTargets += 1;
+        if (deferredFrontierSyncTargets >= state.actionQueue.length) return false;
+        continue;
+      }
     }
     if (!from && to.ownerId && to.dockId) {
       logActionQueue("action-queue-drop-no-dock-origin", {
@@ -1331,6 +1356,7 @@ export const processActionQueue = (
       });
       state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
+      state.confirmedOriginWaitAttemptsByTarget.delete(targetKey);
       continue;
     }
     if (!from) {
@@ -1352,6 +1378,7 @@ export const processActionQueue = (
       });
       state.actionQueue.shift();
       state.queuedTargetKeys.delete(targetKey);
+      state.confirmedOriginWaitAttemptsByTarget.delete(targetKey);
       continue;
     }
     const fromKey = deps.keyFor(from.x, from.y);
@@ -1389,6 +1416,7 @@ export const processActionQueue = (
       selectedFrom: selectedFrom ? { x: selectedFrom.x, y: selectedFrom.y, ownerId: selectedFrom.ownerId, ownershipState: selectedFrom.ownershipState } : undefined
     });
     state.actionQueue.shift();
+    state.confirmedOriginWaitAttemptsByTarget.delete(targetKey);
 
     state.actionCurrent = {
       x: to.x,

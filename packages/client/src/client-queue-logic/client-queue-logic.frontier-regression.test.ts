@@ -231,7 +231,16 @@ describe("frontier queue regressions", () => {
     expect(state.frontierSyncWaitUntilByTarget.get("12,18")).toBeGreaterThan(Date.now());
   });
 
-  it("waits for confirmed ownership before launching attacks from a freshly optimistic frontier origin", () => {
+  it("proceeds to dispatch attacks from a freshly optimistic frontier origin, without waiting for confirmed ownership", () => {
+    // ATTACK targets (owned by someone else) are allowed to dispatch from an
+    // optimistic origin — only EXPAND targets onto a neutral tile need to
+    // wait for a confirmed (non-optimistic) origin. Previously a dead
+    // `allowOptimisticOrigin` variable meant this case incorrectly fell into
+    // the confirmed-origin wait path and could stall the queue indefinitely
+    // whenever the origin's own claim never resolved. With no muster flag
+    // set up yet, dispatch takes the "stage a flag and park" branch rather
+    // than firing immediately — but critically it gets there at all, instead
+    // of looping forever in the confirmed-origin wait.
     const state = createInitialState();
     state.authSessionReady = true;
     state.me = "me";
@@ -245,6 +254,8 @@ describe("frontier queue regressions", () => {
     state.tiles.set("12,18", enemyTarget);
 
     const send = vi.fn();
+    const sendSetMuster = vi.fn();
+    const sendAttack = vi.fn();
 
     const started = processActionQueue(state, {
       ws: { OPEN: 1, readyState: 1, send } as unknown as RealtimeSocket,
@@ -254,18 +265,21 @@ describe("frontier queue regressions", () => {
       isTileOwnedByAlly: () => false,
       pickOriginForTarget: (_x, _y, _allowDock, allowOptimisticOrigin) => (allowOptimisticOrigin ? optimisticOrigin : undefined),
       notifyInsufficientGoldForFrontierAction: vi.fn(),
-      sendSetMuster: vi.fn(),
-      sendAttack: vi.fn(),
+      sendSetMuster,
+      sendAttack,
       applyOptimisticTileState: vi.fn(),
       pushFeed: vi.fn(),
       renderHud: vi.fn()
     });
 
     expect(started).toBe(false);
-    expect(send).not.toHaveBeenCalled();
-    expect(state.actionQueue).toEqual([{ x: 12, y: 18, retries: 0 }]);
-    expect(state.queuedTargetKeys.has("12,18")).toBe(true);
-    expect(state.frontierSyncWaitUntilByTarget.get("12,18")).toBeGreaterThan(Date.now());
+    expect(sendAttack).not.toHaveBeenCalled();
+    expect(sendSetMuster).toHaveBeenCalledWith(11, 18, "HOLD");
+    expect(state.pendingMusterAttacks).toEqual([
+      expect.objectContaining({ targetX: 12, targetY: 18, fromX: 11, fromY: 18 })
+    ]);
+    expect(state.actionQueue).toEqual([]);
+    expect(state.frontierSyncWaitUntilByTarget.has("12,18")).toBe(false);
   });
 
   it("keeps a queued target chained off another target that is only locally queued (not yet dispatched)", () => {
