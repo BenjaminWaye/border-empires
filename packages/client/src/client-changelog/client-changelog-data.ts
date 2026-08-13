@@ -23,6 +23,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786579200000, // 2026.08.13.1
+    introducedIn: "2026.08.13.1",
+    title: "Fixed: most buildings still showed no Modifier section on their own tile",
+    why: "The unified modifier catalog (2026.08.12.14) was reachable from the tech-tree/build-menu info panel for every building, but the tile-overview popup you get from clicking a built tile in-game still gated behind a small hardcoded allowlist of 8 building types left over from before the catalog existed — so most buildings (Garrison Hall, Census Hall, Foundry, Governor's Office, the Weapons Workshop family, synthesizers, Airport, Ambaric Tower, Resonance Grid, and more) showed an empty Modifier section when checked the normal way, in-game.",
+    changes: [
+      "Clicking any built structure's own tile now shows its full Modifier section, not just the small set of buildings that happened to be allowlisted before.",
+      "Observatory tiles were never checked at all by the tile popup — its vision and crystal-range modifiers now show correctly.",
+      "Relay Beacon was missing its vision bonus from the catalog (only offense showed) — both now show."
+    ]
+  },
+  {
     createdAt: 1786575600000, // 2026.08.12.14
     introducedIn: "2026.08.12.14",
     title: "Unified building modifier display across tile popup and tech tree",

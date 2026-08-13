@@ -1,6 +1,7 @@
-import { NATURAL_WONDER_LABELS } from "@border-empires/shared";
+import { NATURAL_WONDER_LABELS, type EconomicStructureType } from "@border-empires/shared";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
+import { economicStructureName } from "../client-map-display.js";
 
 type TileOwnerKind = "unclaimed" | "mine-frontier" | "mine-settled" | "ally" | "enemy";
 
@@ -79,20 +80,22 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
   return modifiers;
 };
 
+// Covers EVERY EconomicStructureType via the shared catalog — MINE is
+// excluded because it's handled separately above with resource-aware
+// filtering, and everything else (previously a small hardcoded allowlist of
+// 8 types left over from before the catalog existed) now falls through to
+// structureModifiersFor generically. Monument-component types correctly
+// return [] from the catalog (no numeric effect of their own), so nothing
+// renders for them here — that's intended, not a gap.
+const FARM_RESOURCE_LABEL_OVERRIDES: Partial<Record<string, string>> = {
+  FARMSTEAD: "Farmstead (farm food only)",
+  WATERWORKS: "Waterworks (radius support)"
+};
+
 const economicStructureModifiersForTile = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
-  const supportedTypes: ReadonlySet<string> = new Set(["FARMSTEAD", "WATERWORKS", "UMBRITE_RIG", "WOODEN_FORT", "RELAY_BEACON", "CARAVANARY", "CUSTOMS_HOUSE", "RAIL_DEPOT"]);
-  if (!supportedTypes.has(tile.type)) return [];
-  const labels: Partial<Record<string, string>> = {
-    FARMSTEAD: "Farmstead (farm food only)",
-    WATERWORKS: "Waterworks (radius support)",
-    UMBRITE_RIG: "Umbrite Rig",
-    WOODEN_FORT: "Palisade",
-    RELAY_BEACON: "Relay Beacon",
-    CARAVANARY: "Caravanary",
-    CUSTOMS_HOUSE: "Harbor Exchange",
-    RAIL_DEPOT: "Rail Depot"
-  };
-  return toTileOverviewModifiers(labels[tile.type] ?? tile.type, structureModifiersFor(tile.type as ModifierStructureType));
+  if (tile.type === "MINE") return [];
+  const label = FARM_RESOURCE_LABEL_OVERRIDES[tile.type] ?? economicStructureName(tile.type as EconomicStructureType);
+  return toTileOverviewModifiers(label, structureModifiersFor(tile.type as ModifierStructureType));
 };
 
 export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[] => {
@@ -144,10 +147,15 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     const label = variant === "DREAD_TOWER" ? "Dread Tower" : variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Outpost";
     modifiers.push(...toTileOverviewModifiers(label, structureModifiersFor(variant)));
   }
+  if (tile.observatory?.status === "active") {
+    modifiers.push(...toTileOverviewModifiers("Observatory", structureModifiersFor("OBSERVATORY")));
+  }
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
     modifiers.push(...toTileOverviewModifiers("Mine", structureModifiersFor("MINE", { tile: { resource: tile.resource } }).filter((m) => m.statLabel === "Production")));
   }
-  if (tile.economicStructure?.status === "active") modifiers.push(...economicStructureModifiersForTile(tile.economicStructure));
+  if (tile.economicStructure?.status === "active") {
+    modifiers.push(...economicStructureModifiersForTile(tile.economicStructure));
+  }
 
   return modifiers;
 };
