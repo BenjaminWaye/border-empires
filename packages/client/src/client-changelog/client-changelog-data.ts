@@ -30,8 +30,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Clicking any built structure's own tile now shows its full Modifier section, not just the small set of buildings that happened to be allowlisted before.",
       "Observatory tiles were never checked at all by the tile popup — its vision and crystal-range modifiers now show correctly.",
-      "Relay Beacon was missing its vision bonus from the catalog (only offense showed) — both now show.",
-      "Mintworks built directly on a town's own tile (a valid placement) no longer double-renders its Gold production line."
+      "Relay Beacon was missing its vision bonus from the catalog (only offense showed) — both now show."
     ]
   },
   {

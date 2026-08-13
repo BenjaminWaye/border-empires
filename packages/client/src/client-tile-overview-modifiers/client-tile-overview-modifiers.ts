@@ -153,16 +153,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
     modifiers.push(...toTileOverviewModifiers("Mine", structureModifiersFor("MINE", { tile: { resource: tile.resource } }).filter((m) => m.statLabel === "Production")));
   }
-  // Mintworks (and, in principle, other support-tile buildings) can be
-  // built directly on a town's own tile (placementMode: "same_tile"), so a
-  // single tile can carry both `town` and `economicStructure` for the same
-  // building. When that happens, activeSupportStructureModifiers above
-  // already renders the authoritative, live-stacked line for
-  // MINTWORKS/GRANARY/SEED_GRANARY/CLEARING_HOUSE from the town's own
-  // flags — skip the generic catalog fallback for those specific types
-  // here so the same stat doesn't render twice (once correct/stacked, once
-  // a misleading non-stacked "per copy" fallback).
-  if (tile.economicStructure?.status === "active" && !(tile.town && SUPPORT_STRUCTURE_LABELS[tile.economicStructure.type as ModifierStructureType])) {
+  if (tile.economicStructure?.status === "active") {
     modifiers.push(...economicStructureModifiersForTile(tile.economicStructure));
   }
 
