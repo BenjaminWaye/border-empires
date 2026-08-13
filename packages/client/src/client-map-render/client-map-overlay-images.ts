@@ -6,7 +6,7 @@ import type { FortificationOpening, FortificationOverlayKind } from "../client-f
 // in packages/client/public/overlays/, cache-busted by
 // overlayAssetVersion — bump it whenever overlay art changes.
 
-const overlayAssetVersion = "20260810c";
+const overlayAssetVersion = "20260812a";
 export const overlaySrc = (filename: string): string => `/overlays/${filename}?v=${overlayAssetVersion}`;
 const loadOverlayImage = (filename: string): HTMLImageElement => {
   const image = new Image();
