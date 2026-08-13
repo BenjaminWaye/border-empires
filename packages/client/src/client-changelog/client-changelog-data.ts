@@ -414,6 +414,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Muster flags in ADVANCE mode now wait for their current attack to resolve before launching another.",
       "A flag that can't afford an attack no longer sends the strike to the server at all."
     ]
+  },
+  {
+    createdAt: 1786622000000, // 2026.08.13.3
+    introducedIn: "2026.08.13.3",
+    title: "Mintworks flywheels and Umbrite reactor cores now move",
+    why: "The relay beacon's slowly rotating mirror array reads beautifully on the landscape, but the other high-tier buildings sat perfectly still. The mintworks' brass flywheel and the Umbrite weapons factory's reactor core both deserved a small touch of the same idle motion, so the world keeps a consistent, living feel at gameplay distance.",
+    changes: [
+      "The Mintworks flywheel assembly (wheel, spokes, hub and rim) now spins slowly, like its drive machinery is running.",
+      "The Umbrite weapons factory's reactor core now gently pulses — the core, fissures and embers breathe in and out like contained power.",
+      "Every structure picks its own phase from its tile, so neighbouring buildings never pulse or spin in sync."
+    ]
   }
 ];
 

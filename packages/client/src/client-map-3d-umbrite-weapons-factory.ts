@@ -32,12 +32,16 @@ export type UmbriteWeaponsFactoryOverlay = {
   readonly clear: () => void;
   readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number) => void;
   readonly commit: () => void;
+  readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
 };
 
 export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: number): UmbriteWeaponsFactoryOverlay => {
   const C = maxTiles;
   const PI_2 = Math.PI / 2;
+  // Reactor-core pulse rate — a slow beat (several seconds per cycle) so the
+  // ember glow reads as contained power rather than a flickering light.
+  const PULSE_SPEED = 0.001;
 
   // ─── Materials (shared by piece type) ───────────────────────────────
   // Dark gunmetal iron — the dominant structural material.
@@ -322,12 +326,52 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
     addPiece("ember", wx, sy, wz, -0.05, 0.16, 0.09, 0.4, 0.4, 0.4);
   };
 
+  // ─── Reactor-core pulse animation ────────────────────────────────────
+  // The emissive materials are shared across factories, so the pulse can't
+  // vary per instance — instead the core, fissure and ember pieces breathe by
+  // scaling about their resting size. Offsets/scales mirror exactly what
+  // addPiece wrote (FACTORY_SCALE applied), and slotIndex addresses the piece
+  // within its per-factory slot run (reactorCore = 1, coreFissure/ember = 2).
+  type PulsePiece = {
+    readonly key: string;
+    readonly perKey: number;
+    readonly slotIndex: number;
+    readonly ox: number;
+    readonly oy: number;
+    readonly oz: number;
+    readonly sx: number;
+    readonly sy: number;
+    readonly sz: number;
+    readonly rotX: number;
+    readonly rotY: number;
+    readonly rotZ: number;
+    readonly amp: number;
+  };
+  const FS = FACTORY_SCALE;
+  const pulsePieces: readonly PulsePiece[] = [
+    { key: "reactorCore", perKey: 1, slotIndex: 0, ox: 0, oy: 0.33 * FS, oz: 0.03 * FS, sx: FS, sy: FS, sz: FS, rotX: 0, rotY: 0, rotZ: 0, amp: 0.15 },
+    { key: "coreFissure", perKey: 2, slotIndex: 0, ox: 0.06 * FS, oy: 0.24 * FS, oz: 0.055 * FS, sx: FS, sy: FS, sz: FS, rotX: 0.4, rotY: 0, rotZ: 0, amp: 0.25 },
+    { key: "coreFissure", perKey: 2, slotIndex: 1, ox: -0.06 * FS, oy: 0.46 * FS, oz: 0.055 * FS, sx: FS, sy: FS, sz: FS, rotX: -0.4, rotY: 0, rotZ: 0, amp: 0.25 },
+    { key: "ember", perKey: 2, slotIndex: 0, ox: 0.09 * FS, oy: 0.17 * FS, oz: 0.05 * FS, sx: 0.5 * FS, sy: 0.5 * FS, sz: 0.5 * FS, rotX: 0, rotY: 0, rotZ: 0, amp: 0.3 },
+    { key: "ember", perKey: 2, slotIndex: 1, ox: -0.05 * FS, oy: 0.16 * FS, oz: 0.09 * FS, sx: 0.4 * FS, sy: 0.4 * FS, sz: 0.4 * FS, rotX: 0, rotY: 0, rotZ: 0, amp: 0.3 }
+  ];
+  type FactoryRecord = { readonly x: number; readonly y: number; readonly z: number; readonly phase: number };
+  const records: FactoryRecord[] = [];
+
   // ─── Public API ─────────────────────────────────────────────────────
   const clear = (): void => {
     for (const slot of slots.values()) slot.count = 0;
+    records.length = 0;
   };
 
   const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldTileX: number, worldTileY: number): void => {
+    // The pulse slots are capped at C factories (1 core, 2 fissures, 2 embers
+    // per factory); drop factories beyond that up front so `records` and the
+    // piece buffers stay in lockstep (same trick as the relay beacon).
+    if (records.length >= C) return;
+    const hash = ((worldTileX * 92_821) ^ (worldTileY * 68_917)) >>> 0;
+    const phase = ((hash % 1000) / 1000) * Math.PI * 2;
+    records.push({ x: sceneX, y: surfaceY, z: sceneZ, phase });
     addFactory(sceneX, surfaceY, sceneZ);
   };
 
@@ -339,6 +383,38 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
       mesh.instanceMatrix.clearUpdateRanges();
       mesh.instanceMatrix.addUpdateRange(0, count * 16);
       mesh.instanceMatrix.needsUpdate = true;
+    }
+  };
+
+  const update = (nowMs: number): void => {
+    const count = records.length;
+    if (count === 0) return;
+    for (let i = 0; i < count; i += 1) {
+      const rec = records[i]!;
+      const pulse = Math.sin(nowMs * PULSE_SPEED + rec.phase);
+      for (const piece of pulsePieces) {
+        const slot = slots.get(piece.key);
+        if (!slot) continue;
+        const breathe = 1 + piece.amp * pulse;
+        position.set(rec.x + piece.ox, rec.y + piece.oy, rec.z + piece.oz);
+        scale.set(piece.sx * breathe, piece.sy * breathe, piece.sz * breathe);
+        if (piece.rotX === 0 && piece.rotY === 0 && piece.rotZ === 0) {
+          matrix.compose(position, identityQuat, scale);
+        } else {
+          tmpEuler.set(piece.rotX, piece.rotY, piece.rotZ, "XYZ");
+          tmpQuat.setFromEuler(tmpEuler);
+          matrix.compose(position, tmpQuat, scale);
+        }
+        slot.mesh.setMatrixAt(i * piece.perKey + piece.slotIndex, matrix);
+      }
+    }
+    // Partial re-upload of just the breathing slots' used prefixes.
+    for (const key of ["reactorCore", "coreFissure", "ember"]) {
+      const slot = slots.get(key);
+      if (!slot || slot.count === 0) continue;
+      slot.mesh.instanceMatrix.clearUpdateRanges();
+      slot.mesh.instanceMatrix.addUpdateRange(0, slot.count * 16);
+      slot.mesh.instanceMatrix.needsUpdate = true;
     }
   };
 
@@ -359,5 +435,5 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
     ].forEach((m) => m.dispose());
   };
 
-  return { clear, addInstance, commit, dispose };
+  return { clear, addInstance, commit, update, dispose };
 };
