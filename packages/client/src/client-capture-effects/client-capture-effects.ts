@@ -1,3 +1,4 @@
+import { requiredMusterForTarget } from "@border-empires/shared";
 import { isForestTile } from "../client-constants.js";
 import { shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
@@ -6,7 +7,17 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
 export const renderCaptureProgress = (
-  state: Pick<ClientState, "captureAlert" | "collectVisibleCooldownUntil" | "capture" | "tiles" | "me" | "pendingCombatReveal" | "dismissedCaptureStartAt">,
+  state: Pick<
+    ClientState,
+    | "captureAlert"
+    | "collectVisibleCooldownUntil"
+    | "capture"
+    | "tiles"
+    | "me"
+    | "pendingCombatReveal"
+    | "dismissedCaptureStartAt"
+    | "pendingMusterAttacks"
+  >,
   deps: {
     keyFor: (x: number, y: number) => string;
     formatCooldownShort: (ms: number) => string;
@@ -142,6 +153,50 @@ export const renderCaptureProgress = (
     deps.captureTargetEl.textContent = awaitingResult
       ? `Waiting for result at (${state.capture.target.x}, ${state.capture.target.y})`
       : `Target: (${state.capture.target.x}, ${state.capture.target.y})`;
+  } else if (state.pendingMusterAttacks.length > 0) {
+    // A manual attack was launched but the adjacent muster flag doesn't
+    // have enough manpower yet — it's parked waiting to accumulate
+    // (client-queue-logic.ts's processActionQueue/processPendingMusterAttacks).
+    // Show the same overlay in a "Mustering..." state so the wait isn't
+    // silent; once the flag reaches the target's real requirement the
+    // entry is promoted off pendingMusterAttacks and this falls through to
+    // the state.capture branch above with no gap.
+    const entry = state.pendingMusterAttacks[state.pendingMusterAttacks.length - 1]!;
+    const targetKey = deps.keyFor(entry.targetX, entry.targetY);
+    if (entry.dismissed) {
+      // Dismissed by the player via "Dismiss": hide the banner for this
+      // specific pending target without cancelling it — the flag keeps
+      // accumulating in the background. A different (or new) pending
+      // target is a different entry and reopens the banner immediately.
+      deps.captureCardEl.style.display = "none";
+      deps.captureWrapEl.style.display = "none";
+      deps.captureCancelBtn.style.display = "none";
+      deps.captureDismissBtn.style.display = "none";
+      deps.captureCloseBtn.style.display = "none";
+      deps.captureDownloadDebugBtn.style.display = "none";
+      deps.captureBarEl.style.width = "0%";
+      deps.captureTitleEl.textContent = "";
+      deps.captureTimeEl.textContent = "";
+      deps.captureTargetEl.textContent = "";
+      return;
+    }
+    const musterTile = state.tiles.get(entry.musterTileKey);
+    const targetTile = state.tiles.get(targetKey);
+    const staged = Math.floor(musterTile?.muster?.amount ?? 0);
+    const required = requiredMusterForTarget(targetTile);
+    const pct = Math.max(0, Math.min(1, required > 0 ? staged / required : 1));
+    deps.captureCardEl.dataset.state = "mustering";
+    deps.captureCardEl.style.display = "grid";
+    deps.captureWrapEl.style.display = "block";
+    deps.captureCancelBtn.style.display = "inline-flex";
+    deps.captureDismissBtn.style.display = "inline-flex";
+    deps.captureCloseBtn.style.display = "none";
+    deps.captureDownloadDebugBtn.style.display = "none";
+    deps.captureBarEl.style.width = `${Math.floor(pct * 100)}%`;
+    deps.captureTitleEl.textContent = "Mustering...";
+    deps.captureTimeEl.classList.remove("capture-loss");
+    deps.captureTimeEl.textContent = `${staged} / ${required}`;
+    deps.captureTargetEl.textContent = `Target: (${entry.targetX}, ${entry.targetY})`;
   } else {
     deps.captureCardEl.style.display = "none";
     deps.captureWrapEl.style.display = "none";

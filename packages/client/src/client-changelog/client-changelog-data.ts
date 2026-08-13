@@ -23,6 +23,18 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786616905363, // 2026.08.13.2
+    introducedIn: "2026.08.13.2",
+    title: "Manual attacks now show a \"Mustering...\" overlay while manpower stages",
+    why: "Launching a manual attack against a target whose adjacent muster flag wasn't fully staged used to give almost no feedback — the big capture overlay only appeared once the attack actually fired, so the wait beforehand looked like nothing was happening. Fixing this also surfaced (and fixed) a related bug: the flag was judged \"ready\" using a flat 60-manpower threshold instead of the target's real requirement, so an attack on a garrisoned fort could fire early and get rejected by the server even with manpower still visibly staged.",
+    changes: [
+      "Launching a manual attack now immediately shows the capture overlay in a \"Mustering...\" state, with a bar that fills toward the actual manpower this target requires (higher for a garrisoned enemy fort) and hands off to \"Capturing Territory...\" the moment it fires — no more silent wait in between.",
+      "Cancel during mustering now just drops that queued target, leaving the flag and its staged manpower in place for another attack.",
+      "Dismiss is also available during mustering, hiding the overlay while the flag keeps filling in the background — same as it already worked for the Capturing phase.",
+      "Fixed: a muster flag could be judged ready off a flat 60-manpower threshold and fire early against a garrisoned fort, getting rejected by the server instead of waiting for the fort's real requirement."
+    ]
+  },
+  {
     createdAt: 1786582800000, // 2026.08.13.2
     introducedIn: "2026.08.13.2",
     title: "Fixed: a town's Modifier totals never actually reached the tile popup",

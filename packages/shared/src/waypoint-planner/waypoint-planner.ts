@@ -40,6 +40,7 @@ import {
 
 export {
   isFrontierOriginCutOff,
+  requiredMusterForTarget,
   type WaypointAction,
   type WaypointBlockReason,
   type WaypointPlan,
