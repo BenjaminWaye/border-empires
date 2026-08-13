@@ -1,0 +1,17 @@
+/* "Mustering..." state for the #capture-overlay (shared with the
+   "Capturing Territory..."/EXPAND states in style.css) — shown while a
+   manual attack is parked waiting on manpower, before it actually fires.
+   Distinct blue/staging tint so it reads apart from the default progress
+   tint and the amber/green/red result states. See renderCaptureProgress
+   in client-capture-effects.ts. Split into its own file (style.css is
+   already at the repo's 500-line cap for growth — see
+   client-victory-alert-style.css for the same pattern). */
+#capture-card[data-state="mustering"] {
+  border-color: rgba(140, 186, 255, 0.5);
+  background: linear-gradient(145deg, rgba(31, 58, 99, 0.72), rgba(17, 34, 63, 0.78));
+  box-shadow: 0 14px 36px rgba(10, 24, 48, 0.38);
+}
+
+#capture-card[data-state="mustering"] #capture-bar {
+  background: linear-gradient(90deg, rgba(133, 179, 255, 0.96), rgba(74, 118, 209, 0.98));
+}
