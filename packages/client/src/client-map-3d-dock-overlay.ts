@@ -280,13 +280,20 @@ export const createDockOverlay = (scene: Scene, maxTiles: number): DockOverlay =
       localEuler.set(part.rx, part.ry + (part.spin ? crateSpin : 0), part.rz, "YXZ");
       localMatrix.makeRotationFromEuler(localEuler);
       localMatrix.scale(scaleVec);
-      // Place at the RAW model-space position. The outer multiply below rotates
-      // this translation by rotationY exactly once (the old code pre-rotated
-      // (cx,cz) here AND then multiplied by rotationMatrix, which applied the
-      // rotation to the translation a second time — garbling every rotated dock).
-      localMatrix.setPosition(centerX + part.cx, surfaceY + part.cy, centerZ + part.cz);
+      // Position the local offset only (not the tile center) before rotating.
+      // tempMatrix = rotationMatrix * localMatrix, whose translation works out
+      // to rotationMatrix.linear * localMatrix.translation — so anything placed
+      // in localMatrix's translation gets rotated. Baking centerX/centerZ into
+      // that translation (as a previous version of this code did) rotates the
+      // tile's own world position around the world origin, not just the part's
+      // offset around the tile center: every dock away from world (0,0) with a
+      // non-zero rotationY would render at the wrong place. Rotate the local
+      // offset only, then translate by the (unrotated) tile center afterward.
+      localMatrix.setPosition(part.cx, surfaceY + part.cy, part.cz);
       tempMatrix.copy(rotationMatrix);
       tempMatrix.multiply(localMatrix);
+      tempMatrix.elements[12] += centerX;
+      tempMatrix.elements[14] += centerZ;
       meshes[slot]!.setMatrixAt(slotCount, tempMatrix);
       counts[slot] = slotCount + 1;
     }
