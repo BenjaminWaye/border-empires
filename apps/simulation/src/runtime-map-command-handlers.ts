@@ -221,6 +221,7 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
   }
   actor.points -= AIRPORT_BOMBARD_GOLD_COST;
   const changedTiles: SimulationTileWireDelta[] = [];
+  const broadcastMusterClears: SimulationTileWireDelta[] = [];
   const tileOutcomes: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> = [];
   let targetableTiles = 0;
   let hitTiles = 0;
@@ -242,15 +243,22 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
       }
       hitTiles += 1;
       tileOutcomes.push({ dx, dy, outcome: "hit" });
+      const hadMuster = Boolean(tile.muster);
       const updatedTile: DomainTileState = {
         ...tile,
         ownerId: undefined,
         ownershipState: undefined,
         frontierDecayAt: undefined,
-        frontierDecayKind: undefined
+        frontierDecayKind: undefined,
+        // Bombing out a tile's ownership destroys any muster flag staged on
+        // it — the accumulated manpower is lost, not refunded.
+        muster: undefined
       };
       context.replaceTileState(tileKey, updatedTile, command.commandId);
       changedTiles.push(context.tileDeltaFromState(updatedTile));
+      if (hadMuster) {
+        broadcastMusterClears.push({ x: updatedTile.x, y: updatedTile.y, ownerId: updatedTile.ownerId, ownershipState: updatedTile.ownershipState, musterJson: "" });
+      }
     }
   }
   // Stamp cooldown on the airport tile and broadcast it
@@ -269,6 +277,14 @@ export function handleAirportBombardCommand(context: RuntimeMapCommandContext, c
     playerId: command.playerId,
     tileDeltas: changedTiles
   });
+  if (broadcastMusterClears.length > 0) {
+    context.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: `${command.commandId}:bc`,
+      playerId: "__broadcast__",
+      tileDeltas: broadcastMusterClears
+    });
+  }
   context.emitPlayerMessage(command, {
     type: "PLAYER_UPDATE",
     points: actor.points,

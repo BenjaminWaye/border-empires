@@ -1,5 +1,6 @@
 import type { initClientDom } from "../client-dom.js";
 import { closeActivePanel, setActivePanel } from "../client-panel-nav/client-panel-nav.js";
+import { dismissOngoingCapture } from "../client-selected-actions/client-selected-actions.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
@@ -148,7 +149,7 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
   };
   captureCancelBtn.onclick = () => cancelOngoingCapture();
   captureDismissBtn.onclick = () => {
-    state.dismissedCaptureStartAt = state.capture?.startAt;
+    dismissOngoingCapture(state);
     renderCaptureProgress();
   };
   placementCancelBtn.onclick = () => cancelBuildingPlacement();

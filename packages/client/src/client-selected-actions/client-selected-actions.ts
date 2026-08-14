@@ -118,10 +118,28 @@ export const uncaptureSelected = (
 export const cancelOngoingCapture = (
   state: Pick<
     ClientState,
-    "actionQueue" | "queuedTargetKeys" | "dragPreviewKeys" | "musterTransitByTile" | "deferredAttackByTile" | "actionInFlight" | "actionCurrent" | "actionTargetKey" | "capture"
+    | "actionQueue"
+    | "queuedTargetKeys"
+    | "dragPreviewKeys"
+    | "musterTransitByTile"
+    | "deferredAttackByTile"
+    | "actionInFlight"
+    | "actionCurrent"
+    | "actionTargetKey"
+    | "capture"
+    | "pendingMusterAttacks"
   >,
   sendGameMessage: (payload: unknown) => boolean
 ): void => {
+  // Still just mustering (parked, nothing sent to the server yet): drop
+  // the most-recently-queued target — the one the mustering overlay is
+  // currently showing — so the flag stops waiting on it. The flag itself,
+  // and any manpower already staged on it, is left alone; "Clear Muster"
+  // (a separate tile action) is how a player drains it entirely.
+  if (!state.capture && state.pendingMusterAttacks.length > 0) {
+    state.pendingMusterAttacks = state.pendingMusterAttacks.slice(0, -1);
+    return;
+  }
   state.actionQueue.length = 0;
   state.queuedTargetKeys.clear();
   state.dragPreviewKeys.clear();
@@ -139,6 +157,25 @@ export const cancelOngoingCapture = (
   // any other in-flight capture) is a real server-side lock — cancelled
   // via CANCEL_CAPTURE, which is harmless to send even if nothing is active.
   sendGameMessage({ type: "CANCEL_CAPTURE" });
+};
+
+// Hides the capture overlay for the currently-displayed instance without
+// cancelling anything underneath it — the mustering flag keeps
+// accumulating, or the in-flight capture keeps resolving, either way.
+// Mirrors cancelOngoingCapture's phase check: while still parked
+// (state.capture undefined), dismiss the pending muster attack the overlay
+// is showing; once it's actually fired, dismiss the capture itself.
+export const dismissOngoingCapture = (
+  state: Pick<ClientState, "capture" | "pendingMusterAttacks" | "dismissedCaptureStartAt">
+): void => {
+  if (!state.capture && state.pendingMusterAttacks.length > 0) {
+    // dismissed lives on the entry itself (see pendingMusterAttacks' type in
+    // client-state.ts) so it clears for free once the entry is cancelled or
+    // promoted — no separate keyed field to keep in sync.
+    state.pendingMusterAttacks[state.pendingMusterAttacks.length - 1]!.dismissed = true;
+    return;
+  }
+  state.dismissedCaptureStartAt = state.capture?.startAt;
 };
 
 export const collectVisibleYield = (

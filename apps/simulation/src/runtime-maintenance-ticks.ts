@@ -21,6 +21,7 @@ export async function tickTileShedding(input: {
   emitEvent: (event: SimulationEvent) => void;
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   emitPlayerStateUpdate: (command: { commandId: string; playerId: string }) => void;
+  playerManpowerCap: (player: RuntimePlayer) => number;
   yieldToEventLoop?: () => Promise<void>;
   trackSync?: TrackSync;
   /** Fires each time the AI-player PLAYER_UPDATE emit is skipped below. Zero
@@ -76,7 +77,16 @@ export async function tickTileShedding(input: {
       // tile, not the town itself (mirrors handleUncaptureTileCommand, which
       // leaves an abandoned town intact as a neutral town). fort/observatory/
       // siegeOutpost/economicStructure carry their own ownerId and don't
-      // survive losing the owning player, same as on uncapture.
+      // survive losing the owning player, same as on uncapture. Any staged
+      // muster manpower is refunded to the pool before the flag is dropped,
+      // same as handleUncaptureTileCommand.
+      if (shedTile.muster?.ownerId && shedTile.muster.amount > 0) {
+        const musterOwner = input.players.get(shedTile.muster.ownerId);
+        if (musterOwner) {
+          musterOwner.manpower = Math.min(input.playerManpowerCap(musterOwner), musterOwner.manpower + shedTile.muster.amount);
+        }
+      }
+      const hadMuster = Boolean(shedTile.muster);
       const shedState: DomainTileState = {
         ...shedTile,
         ownerId: undefined,
@@ -84,7 +94,8 @@ export async function tickTileShedding(input: {
         fort: undefined,
         observatory: undefined,
         siegeOutpost: undefined,
-        economicStructure: undefined
+        economicStructure: undefined,
+        muster: undefined
       };
       input.replaceTileState(shedTileKey, shedState, commandId);
       input.emitEvent({
@@ -99,10 +110,19 @@ export async function tickTileShedding(input: {
             fortJson: "",
             observatoryJson: "",
             siegeOutpostJson: "",
-            economicStructureJson: ""
+            economicStructureJson: "",
+            musterJson: ""
           }
         ]
       });
+      if (hadMuster) {
+        input.emitEvent({
+          eventType: "TILE_DELTA_BATCH",
+          commandId: `${commandId}:bc`,
+          playerId: "__broadcast__",
+          tileDeltas: [{ x: shedState.x, y: shedState.y, ownerId: "", ownershipState: "", musterJson: "" }]
+        });
+      }
       // AI players have no WS subscribers (established precedent: PR #732
       // skips this same emit on lock resolution for the same reason), so the
       // resulting PLAYER_UPDATE — which forces an economy snapshot +
