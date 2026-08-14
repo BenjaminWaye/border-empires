@@ -3,6 +3,7 @@ import { CAMERA_LOCATION_STORAGE_KEY } from "./client-constants.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import { storageSet, type ClientState } from "./client-state/client-state.js";
+import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 
 // Persists the player's last-viewed map location so a reload/reconnect (or a
 // fresh login on the same browser) drops them back where they were instead
@@ -122,8 +123,18 @@ export const requestViewRefresh = (
     force?: boolean;
   }
 ): void => {
-  if (deps.ws.readyState !== deps.ws.OPEN) return;
-  if (!state.authSessionReady) return;
+  // Unconditional (not gated behind a debug flag): this is the one place
+  // that decides whether the client asks the server for more map data, and
+  // a stuck/black-map report needs to show whether a request was actually
+  // sent, suppressed by the cooldown, or never attempted at all.
+  if (deps.ws.readyState !== deps.ws.OPEN) {
+    recordClientDebugEvent("info", "chunk-sync", "subscribe-skipped", { reason: "ws-not-open", readyState: deps.ws.readyState });
+    return;
+  }
+  if (!state.authSessionReady) {
+    recordClientDebugEvent("info", "chunk-sync", "subscribe-skipped", { reason: "auth-session-not-ready" });
+    return;
+  }
   const effectiveRadius = effectiveFogDisabled(state) ? deps.fullMapChunkRadius : deps.radius ?? 2;
   const cx = Math.floor(state.camX / CHUNK_SIZE);
   const cy = Math.floor(state.camY / CHUNK_SIZE);
@@ -133,13 +144,20 @@ export const requestViewRefresh = (
   const forcedRetryCooldownMs = stillWaitingForInitialChunks ? 8_000 : 30_000;
   const normalRefreshCooldownMs = 700;
   if (sameSub) {
-    if (!deps.force && elapsed < normalRefreshCooldownMs) return;
-    if (deps.force && elapsed < forcedRetryCooldownMs) return;
+    if (!deps.force && elapsed < normalRefreshCooldownMs) {
+      recordClientDebugEvent("info", "chunk-sync", "subscribe-suppressed", { cx, cy, radius: effectiveRadius, elapsed, cooldownMs: normalRefreshCooldownMs, force: false });
+      return;
+    }
+    if (deps.force && elapsed < forcedRetryCooldownMs) {
+      recordClientDebugEvent("info", "chunk-sync", "subscribe-suppressed", { cx, cy, radius: effectiveRadius, elapsed, cooldownMs: forcedRetryCooldownMs, force: true });
+      return;
+    }
   }
   state.lastSubCx = cx;
   state.lastSubCy = cy;
   state.lastSubRadius = effectiveRadius;
   state.lastSubAt = Date.now();
+  recordClientDebugEvent("info", "chunk-sync", "subscribe-sent", { cx, cy, radius: effectiveRadius, force: Boolean(deps.force) });
   deps.ws.send(
     JSON.stringify({
       type: "SUBSCRIBE_CHUNKS",

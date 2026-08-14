@@ -38,6 +38,13 @@ export const buildDiagnosticsBundle = (
     | "bridgeDebugAcceptLatencyP95Ms"
     | "bridgeDebugInitialTileCount"
     | "bridgeDebugSupportedMessageCount"
+    | "fogDisabled"
+    | "mapRevealEnabled"
+    | "lastSubCx"
+    | "lastSubCy"
+    | "lastSubRadius"
+    | "lastSubAt"
+    | "recentTileMessages"
   >,
   wsUrl: string,
   now: number = Date.now()
@@ -83,8 +90,25 @@ export const buildDiagnosticsBundle = (
       bridgeDebugAcceptLatencyP95Ms: state.bridgeDebugAcceptLatencyP95Ms,
       bridgeDebugInitialTileCount: state.bridgeDebugInitialTileCount,
       bridgeDebugSupportedMessageCount: state.bridgeDebugSupportedMessageCount,
-      renderer: isTrue3DRendererActive() ? "true-3d" : "2d-canvas"
+      renderer: isTrue3DRendererActive() ? "true-3d" : "2d-canvas",
+      // Fog/reveal + chunk-subscription state: shows whether a full-map
+      // reveal was active (which changes the requested SUBSCRIBE_CHUNKS
+      // radius) and when/where the last chunk request actually went out, so
+      // a stuck-at-N-known-tiles report can tell "never asked for more"
+      // apart from "asked, but nothing came back".
+      fogDisabled: state.fogDisabled,
+      mapRevealEnabled: state.mapRevealEnabled,
+      lastSubCx: state.lastSubCx,
+      lastSubCy: state.lastSubCy,
+      lastSubRadius: state.lastSubRadius,
+      lastSubAt: state.lastSubAt,
+      lastSubAgoMs: state.lastSubAt > 0 ? Math.max(0, now - state.lastSubAt) : null
     },
+    // Rolling log of the last ~50 tile/chunk-touching WS messages (see
+    // recordRecentTileMessage in client-network.ts). This is the direct
+    // answer to "did any map data arrive after the first chunk, and when" —
+    // more useful than the counters above for a black-map/stuck-load report.
+    recentTileMessages: state.recentTileMessages,
     loadWaterfall: {
       capturedElapsedMs: now - navStart,
       mapLoadStartedElapsedMs: state.mapLoadStartedAt > 0 ? state.mapLoadStartedAt - navStart : null,
