@@ -332,7 +332,11 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
   // scaling about their resting size. Offsets/scales mirror exactly what
   // addPiece wrote (FACTORY_SCALE applied), and slotIndex addresses the piece
   // within its per-factory slot run (reactorCore = 1, coreFissure/ember = 2).
-  type PulsePiece = {
+  // Rotation never changes over time (only scale breathes), and the target
+  // mesh is stable once registered, so both are resolved/composed once here
+  // instead of being recomputed from Euler angles + a Map lookup on every
+  // piece, every factory, every frame.
+  type PulsePieceSpec = {
     readonly key: string;
     readonly perKey: number;
     readonly slotIndex: number;
@@ -347,14 +351,30 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
     readonly rotZ: number;
     readonly amp: number;
   };
+  type PulsePiece = PulsePieceSpec & { readonly mesh: InstancedMesh; readonly restQuat: Quaternion };
   const FS = FACTORY_SCALE;
-  const pulsePieces: readonly PulsePiece[] = [
+  const pulsePieceSpecs: readonly PulsePieceSpec[] = [
     { key: "reactorCore", perKey: 1, slotIndex: 0, ox: 0, oy: 0.33 * FS, oz: 0.03 * FS, sx: FS, sy: FS, sz: FS, rotX: 0, rotY: 0, rotZ: 0, amp: 0.15 },
     { key: "coreFissure", perKey: 2, slotIndex: 0, ox: 0.06 * FS, oy: 0.24 * FS, oz: 0.055 * FS, sx: FS, sy: FS, sz: FS, rotX: 0.4, rotY: 0, rotZ: 0, amp: 0.25 },
     { key: "coreFissure", perKey: 2, slotIndex: 1, ox: -0.06 * FS, oy: 0.46 * FS, oz: 0.055 * FS, sx: FS, sy: FS, sz: FS, rotX: -0.4, rotY: 0, rotZ: 0, amp: 0.25 },
     { key: "ember", perKey: 2, slotIndex: 0, ox: 0.09 * FS, oy: 0.17 * FS, oz: 0.05 * FS, sx: 0.5 * FS, sy: 0.5 * FS, sz: 0.5 * FS, rotX: 0, rotY: 0, rotZ: 0, amp: 0.3 },
     { key: "ember", perKey: 2, slotIndex: 1, ox: -0.05 * FS, oy: 0.16 * FS, oz: 0.09 * FS, sx: 0.4 * FS, sy: 0.4 * FS, sz: 0.4 * FS, rotX: 0, rotY: 0, rotZ: 0, amp: 0.3 }
   ];
+  const pulsePieces: readonly PulsePiece[] = pulsePieceSpecs
+    .map((spec): PulsePiece | undefined => {
+      const mesh = slots.get(spec.key)?.mesh;
+      if (!mesh) return undefined;
+      const restQuat = new Quaternion();
+      if (spec.rotX !== 0 || spec.rotY !== 0 || spec.rotZ !== 0) {
+        restQuat.setFromEuler(new Euler(spec.rotX, spec.rotY, spec.rotZ, "XYZ"));
+      }
+      return { ...spec, mesh, restQuat };
+    })
+    .filter((piece): piece is PulsePiece => piece !== undefined);
+  // Distinct meshes touched by pulsePieces, resolved once for the per-frame
+  // partial GPU re-upload (reactorCore, coreFissure, ember).
+  const pulseMeshes: readonly InstancedMesh[] = [...new Set(pulsePieces.map((p) => p.mesh))];
+
   type FactoryRecord = { readonly x: number; readonly y: number; readonly z: number; readonly phase: number };
   const records: FactoryRecord[] = [];
 
@@ -393,28 +413,19 @@ export const createUmbriteWeaponsFactoryOverlay = (scene: Scene, maxTiles: numbe
       const rec = records[i]!;
       const pulse = Math.sin(nowMs * PULSE_SPEED + rec.phase);
       for (const piece of pulsePieces) {
-        const slot = slots.get(piece.key);
-        if (!slot) continue;
         const breathe = 1 + piece.amp * pulse;
         position.set(rec.x + piece.ox, rec.y + piece.oy, rec.z + piece.oz);
         scale.set(piece.sx * breathe, piece.sy * breathe, piece.sz * breathe);
-        if (piece.rotX === 0 && piece.rotY === 0 && piece.rotZ === 0) {
-          matrix.compose(position, identityQuat, scale);
-        } else {
-          tmpEuler.set(piece.rotX, piece.rotY, piece.rotZ, "XYZ");
-          tmpQuat.setFromEuler(tmpEuler);
-          matrix.compose(position, tmpQuat, scale);
-        }
-        slot.mesh.setMatrixAt(i * piece.perKey + piece.slotIndex, matrix);
+        matrix.compose(position, piece.restQuat, scale);
+        piece.mesh.setMatrixAt(i * piece.perKey + piece.slotIndex, matrix);
       }
     }
     // Partial re-upload of just the breathing slots' used prefixes.
-    for (const key of ["reactorCore", "coreFissure", "ember"]) {
-      const slot = slots.get(key);
-      if (!slot || slot.count === 0) continue;
-      slot.mesh.instanceMatrix.clearUpdateRanges();
-      slot.mesh.instanceMatrix.addUpdateRange(0, slot.count * 16);
-      slot.mesh.instanceMatrix.needsUpdate = true;
+    for (const mesh of pulseMeshes) {
+      if (mesh.count === 0) continue;
+      mesh.instanceMatrix.clearUpdateRanges();
+      mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
+      mesh.instanceMatrix.needsUpdate = true;
     }
   };
 

@@ -25,6 +25,7 @@ import {
   ConeGeometry,
   CylinderGeometry,
   Euler,
+  InstancedMesh,
   Matrix4,
   MeshStandardMaterial,
   OctahedronGeometry,
@@ -181,6 +182,15 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Min
   builder.makeSlot("mwBlank", blankGeo, brightBrassMaterial, C * 4);
   builder.makeSlot("mwEmber", emberGeo, glowMaterial, C * 2);
 
+  // Resolved once (not per frame): the animated slots' InstancedMesh refs, so
+  // the per-frame flywheel spin can write matrices and flag GPU upload ranges
+  // directly instead of paying a Map lookup per piece, per mint, every frame.
+  const flywheelMesh = builder.getMesh("mwFlywheel")!;
+  const spokeMesh = builder.getMesh("mwSpoke")!;
+  const hubMesh = builder.getMesh("mwHub")!;
+  const rimMesh = builder.getMesh("mwRim")!;
+  const flywheelAssemblyMeshes = [flywheelMesh, spokeMesh, hubMesh, rimMesh];
+
   // ─── Placement ─────────────────────────────────────────────────────────
   // Overall footprint is 33% smaller than the piece geometries above imply:
   // offsets and per-piece scales are both shrunk by SCALE so the whole
@@ -214,6 +224,7 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Min
   // plane. At a=0 the matrix collapses to exactly the static rest pose.
   type FlywheelPiece = {
     readonly key: string;
+    readonly mesh: InstancedMesh;
     readonly index: number;
     readonly ox: number;
     readonly oy: number;
@@ -317,11 +328,11 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Min
       z: sz,
       phase: phaseFor(sx, sy, sz),
       pieces: [
-        { key: "mwFlywheel", index: flywheelIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: 0.85 * SCALE, sz: 0.85 * SCALE, restRotY: 0, restRotZ: PI_2 },
-        { key: "mwSpoke", index: spokeAIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: SCALE, sz: 0.85 * SCALE, restRotY: 0, restRotZ: PI_2 },
-        { key: "mwSpoke", index: spokeBIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: SCALE, sz: 0.85 * SCALE, restRotY: PI_2, restRotZ: 0 },
-        { key: "mwHub", index: hubIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: SCALE, sy: SCALE, sz: SCALE, restRotY: 0, restRotZ: PI_2 },
-        { key: "mwRim", index: rimIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: 0.85 * SCALE, sz: 0.85 * SCALE, restRotY: PI_2, restRotZ: 0 }
+        { key: "mwFlywheel", mesh: flywheelMesh, index: flywheelIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: 0.85 * SCALE, sz: 0.85 * SCALE, restRotY: 0, restRotZ: PI_2 },
+        { key: "mwSpoke", mesh: spokeMesh, index: spokeAIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: SCALE, sz: 0.85 * SCALE, restRotY: 0, restRotZ: PI_2 },
+        { key: "mwSpoke", mesh: spokeMesh, index: spokeBIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: SCALE, sz: 0.85 * SCALE, restRotY: PI_2, restRotZ: 0 },
+        { key: "mwHub", mesh: hubMesh, index: hubIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: SCALE, sy: SCALE, sz: SCALE, restRotY: 0, restRotZ: PI_2 },
+        { key: "mwRim", mesh: rimMesh, index: rimIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: 0.85 * SCALE, sz: 0.85 * SCALE, restRotY: PI_2, restRotZ: 0 }
       ]
     });
 
@@ -395,13 +406,15 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Min
         position.set(t.x + piece.ox, t.y + piece.oy, t.z + piece.oz);
         scale.set(piece.sx, piece.sy, piece.sz);
         matrix.compose(position, tmpQuat, scale);
-        builder.setMatrixAt(piece.key, piece.index, matrix);
+        piece.mesh.setMatrixAt(piece.index, matrix);
       }
     }
-    builder.uploadSlot("mwFlywheel");
-    builder.uploadSlot("mwSpoke");
-    builder.uploadSlot("mwHub");
-    builder.uploadSlot("mwRim");
+    for (const mesh of flywheelAssemblyMeshes) {
+      if (mesh.count === 0) continue;
+      mesh.instanceMatrix.clearUpdateRanges();
+      mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
+      mesh.instanceMatrix.needsUpdate = true;
+    }
   };
 
   const clear = (): void => {
