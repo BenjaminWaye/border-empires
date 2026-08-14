@@ -104,6 +104,7 @@ export type StructureOverlay = {
     resource?: StructureResourceHint
   ) => void;
   readonly commit: () => void;
+  readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
 };
 
@@ -115,7 +116,7 @@ type UniformLayoutFn = (
 ) => void;
 
 export const createStructureOverlay = (scene: Scene, maxTiles: number): StructureOverlay => {
-  const { builder, clear, commit, dispose } = createStructurePieceBuilder(scene, maxTiles);
+  const { builder, clear: clearBuilder, commit, dispose } = createStructurePieceBuilder(scene, maxTiles);
 
   // Economic registers first so its `shared` assets (forge palette +
   // blue crystal) are available to industrial (FOUNDRY/ADV_TITANIUM_WORKS
@@ -179,5 +180,18 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     layouts[kind]?.(sceneX, surfaceY, sceneZ, resource);
   };
 
-  return { clear, addInstance, commit, dispose };
+  // Family-local animation state (e.g. mintworks flywheel records) resets
+  // alongside the shared piece buffers, and update() drives them per frame.
+  const clear = (): void => {
+    economic.clear();
+    clearBuilder();
+  };
+
+  return {
+    clear,
+    addInstance,
+    commit,
+    update: (nowMs: number): void => economic.update(nowMs),
+    dispose
+  };
 };
