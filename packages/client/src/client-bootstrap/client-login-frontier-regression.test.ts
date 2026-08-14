@@ -58,11 +58,11 @@ describe("login and frontier retry regression guard", () => {
     const source = clientSource("../client-network/client-network.ts");
     expect(source).toMatch(/rebindLateFrontierAck\(\s*target,\s*"COMBAT_START"/);
     expect(source).toContain("const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;");
-    // The capture assignment lives across multiple lines now so it can
-    // spread the preserved `silent` flag for waypoint-driven neutral
-    // EXPANDs. The literal startAt/resolvesAt/target tuple is still the
-    // load-bearing part of the regression guard.
-    expect(source).toMatch(/state\.capture = \{\s*startAt,\s*resolvesAt: resolvesAtForCapture,\s*target,/);
+    // The capture is now assembled by buildCaptureState (client-siege-
+    // tracking.ts) so the attacker-side battle overlay can also read the
+    // action's origin. The literal startAt/resolvesAt/target tuple is still
+    // the load-bearing part of the regression guard.
+    expect(source).toMatch(/buildCaptureState\(\{\s*startAt,\s*resolvesAt: resolvesAtForCapture,\s*target,/);
   });
 
   it("preserves the existing optimistic frontier timer when retrying the same target", () => {

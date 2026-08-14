@@ -1,9 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { InstancedMesh, Scene } from "three";
+import { InstancedMesh, OctahedronGeometry, Scene } from "three";
 import { createUmbriteWeaponsFactoryOverlay } from "./client-map-3d-umbrite-weapons-factory.js";
 
 const instancedMeshes = (scene: Scene): InstancedMesh[] =>
   scene.children.filter((child): child is InstancedMesh => child instanceof InstancedMesh);
+
+const reactorCoreMesh = (scene: Scene): InstancedMesh | undefined =>
+  instancedMeshes(scene).find(
+    (mesh) =>
+      mesh.geometry.type === "OctahedronGeometry" &&
+      (mesh.geometry as OctahedronGeometry).parameters.radius === 0.05
+  );
 
 describe("umbrite weapons factory overlay", () => {
   it("commits a fully assembled factory with visible pieces", () => {
@@ -69,6 +76,52 @@ describe("umbrite weapons factory overlay", () => {
       expect(ranges[0]).toEqual({ start: 0, count: mesh.count * 16 });
       expect(ranges[0]!.count).toBeLessThan(mesh.instanceMatrix.array.length);
     }
+
+    overlay.dispose();
+  });
+
+  it("pulses the reactor core on update with a partial instance upload", () => {
+    const scene = new Scene();
+    const overlay = createUmbriteWeaponsFactoryOverlay(scene, 8);
+
+    overlay.addInstance(0, 0, 0, 3, 7);
+    overlay.commit();
+
+    const core = reactorCoreMesh(scene);
+    expect(core).toBeDefined();
+    expect(core!.count).toBe(1);
+
+    const before = Array.from(core!.instanceMatrix.array.slice(0, 16));
+    overlay.update(1000);
+    const after = Array.from(core!.instanceMatrix.array.slice(0, 16));
+
+    expect(after).not.toEqual(before);
+    expect(core!.count).toBe(1);
+
+    const ranges = core!.instanceMatrix.updateRanges;
+    expect(ranges).toHaveLength(1);
+    expect(ranges[0]!.count).toBe(core!.count * 16);
+    expect(ranges[0]!.count).toBeLessThan(core!.instanceMatrix.array.length);
+    expect(core!.instanceMatrix.version).toBeGreaterThan(0);
+
+    overlay.dispose();
+  });
+
+  it("pulses factories on different tiles out of phase", () => {
+    const scene = new Scene();
+    const overlay = createUmbriteWeaponsFactoryOverlay(scene, 4);
+
+    overlay.addInstance(0, 0, 0, 3, 7);
+    overlay.addInstance(2, 0, 0, 11, 1);
+    overlay.commit();
+    overlay.update(1000);
+
+    const core = reactorCoreMesh(scene);
+    expect(core).toBeDefined();
+    expect(core!.count).toBe(2);
+    const factoryOne = Array.from(core!.instanceMatrix.array.slice(0, 16));
+    const factoryTwo = Array.from(core!.instanceMatrix.array.slice(16, 32));
+    expect(factoryOne).not.toEqual(factoryTwo);
 
     overlay.dispose();
   });

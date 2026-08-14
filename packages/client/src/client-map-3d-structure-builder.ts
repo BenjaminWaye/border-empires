@@ -53,7 +53,16 @@ export type StructurePieceBuilder = {
     rotY?: number,
     rotX?: number,
     rotZ?: number
-  ) => void;
+  ) => number;
+  // Animation hooks: overwrite one instance's matrix after it was placed, and
+  // flag just that slot's used prefix for a partial GPU re-upload. Families
+  // that animate per-frame call these from their own `update(nowMs)`.
+  readonly setMatrixAt: (key: string, index: number, matrix: Matrix4) => void;
+  readonly uploadSlot: (key: string) => void;
+  // Resolves a slot's InstancedMesh once so per-frame animation code can call
+  // mesh.setMatrixAt/instanceMatrix directly instead of paying a Map lookup
+  // (via setMatrixAt/uploadSlot) on every animated piece, every frame.
+  readonly getMesh: (key: string) => InstancedMesh | undefined;
 };
 
 export type StructurePieceBuilderInternals = {
@@ -111,9 +120,9 @@ export const createStructurePieceBuilder = (
     rotY = 0,
     rotX = 0,
     rotZ = 0
-  ): void => {
+  ): number => {
     const slot = slots.get(key);
-    if (!slot || slot.count >= slot.cap) return;
+    if (!slot || slot.count >= slot.cap) return -1;
     position.set(sceneX + ox, surfaceY + oy, sceneZ + oz);
     scale.set(sx, sy, sz);
     if (rotX === 0 && rotY === 0 && rotZ === 0) {
@@ -123,9 +132,27 @@ export const createStructurePieceBuilder = (
       tmpQuat.setFromEuler(tmpEuler);
       matrix.compose(position, tmpQuat, scale);
     }
-    slot.mesh.setMatrixAt(slot.count, matrix);
+    const index = slot.count;
+    slot.mesh.setMatrixAt(index, matrix);
     slot.count += 1;
+    return index;
   };
+
+  const setMatrixAt = (key: string, index: number, target: Matrix4): void => {
+    const slot = slots.get(key);
+    if (!slot || index < 0 || index >= slot.count) return;
+    slot.mesh.setMatrixAt(index, target);
+  };
+
+  const uploadSlot = (key: string): void => {
+    const slot = slots.get(key);
+    if (!slot || slot.count === 0) return;
+    slot.mesh.instanceMatrix.clearUpdateRanges();
+    slot.mesh.instanceMatrix.addUpdateRange(0, slot.count * 16);
+    slot.mesh.instanceMatrix.needsUpdate = true;
+  };
+
+  const getMesh = (key: string): InstancedMesh | undefined => slots.get(key)?.mesh;
 
   const clear = (): void => {
     for (const slot of slots.values()) slot.count = 0;
@@ -145,7 +172,7 @@ export const createStructurePieceBuilder = (
   };
 
   return {
-    builder: { maxTiles, makeSlot, addPiece },
+    builder: { maxTiles, makeSlot, addPiece, setMatrixAt, uploadSlot, getMesh },
     clear,
     commit,
     dispose

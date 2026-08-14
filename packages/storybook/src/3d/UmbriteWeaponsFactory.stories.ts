@@ -1,13 +1,25 @@
 import { ACESFilmicToneMapping, CanvasTexture, DirectionalLight, Mesh, MeshBasicMaterial, PlaneGeometry } from "three";
 import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createTitaniumDepositOverlay } from "@client/client-map-3d-titanium-deposit.js";
-import { createUmbriteWeaponsFactoryOverlay } from "@client/client-map-3d-umbrite-weapons-factory.js";
+import { createUmbriteWeaponsFactoryOverlay, type UmbriteWeaponsFactoryOverlay } from "@client/client-map-3d-umbrite-weapons-factory.js";
 import { createGrassGround, createStage, wrapWithCleanup, type Stage } from "../three-stage.js";
 
 type Args = {
   cameraDistance: number;
   spacing: number;
   count: number;
+};
+
+// Keep the reactor core pulsing in every story — it is the factory's
+// signature idle animation. Returns a cleanup that cancels the loop.
+const startReactorPulse = (overlay: UmbriteWeaponsFactoryOverlay): (() => void) => {
+  let rafId = 0;
+  const animate = (): void => {
+    overlay.update(performance.now());
+    rafId = requestAnimationFrame(animate);
+  };
+  animate();
+  return () => cancelAnimationFrame(rafId);
 };
 
 // A soft radial-contact-shadow disc placed flat on the ground plane so an
@@ -90,7 +102,8 @@ const render = (args: Args, groundRadius: number): HTMLElement => {
     overlay.addInstance((i - offset) * args.spacing, 0, 0, i, 0);
   }
   overlay.commit();
-  return wrapWithCleanup(stage, [overlay.dispose, ground.dispose]);
+  const cancel = startReactorPulse(overlay);
+  return wrapWithCleanup(stage, [cancel, overlay.dispose, ground.dispose]);
 };
 
 const meta: Meta<Args> = {
@@ -120,7 +133,8 @@ export const FactoryHero: Story = {
     const overlay = createUmbriteWeaponsFactoryOverlay(stage.scene, 1);
     overlay.addInstance(0, 0, 0, 0, 0);
     overlay.commit();
-    return wrapWithCleanup(stage, [overlay.dispose, shadow.dispose]);
+    const cancel = startReactorPulse(overlay);
+    return wrapWithCleanup(stage, [cancel, overlay.dispose, shadow.dispose]);
   }
 };
 
@@ -134,7 +148,8 @@ export const FactoryHeroDark: Story = {
     const overlay = createUmbriteWeaponsFactoryOverlay(stage.scene, 1);
     overlay.addInstance(0, 0, 0, 0, 0);
     overlay.commit();
-    return wrapWithCleanup(stage, [overlay.dispose, shadow.dispose]);
+    const cancel = startReactorPulse(overlay);
+    return wrapWithCleanup(stage, [cancel, overlay.dispose, shadow.dispose]);
   }
 };
 
@@ -169,6 +184,7 @@ export const FactoryVsTitanium: Story = {
     }
     factory.commit();
     titanium.commit();
-    return wrapWithCleanup(stage, [factory.dispose, titanium.dispose, ground.dispose]);
+    const cancel = startReactorPulse(factory);
+    return wrapWithCleanup(stage, [cancel, factory.dispose, titanium.dispose, ground.dispose]);
   }
 };

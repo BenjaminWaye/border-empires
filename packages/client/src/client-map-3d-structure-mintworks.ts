@@ -24,16 +24,30 @@ import {
   BoxGeometry,
   ConeGeometry,
   CylinderGeometry,
+  Euler,
+  InstancedMesh,
+  Matrix4,
   MeshStandardMaterial,
   OctahedronGeometry,
-  TorusGeometry
+  Quaternion,
+  TorusGeometry,
+  Vector3
 } from "three";
 import type { StructurePieceBuilder } from "./client-map-3d-structure-builder.js";
 import type { EconomicStructureLayout } from "./client-map-3d-structure-economic.js";
 
-export const registerMintworksStructures = (builder: StructurePieceBuilder): EconomicStructureLayout => {
+export type MintworksHandle = {
+  readonly layout: EconomicStructureLayout;
+  readonly clear: () => void;
+  readonly update: (nowMs: number) => void;
+};
+
+export const registerMintworksStructures = (builder: StructurePieceBuilder): MintworksHandle => {
   const C = builder.maxTiles;
   const PI_2 = Math.PI / 2;
+  // Flywheel spin rate — a few seconds per revolution, slow enough to read as
+  // idle machinery (same family as the relay beacon's 10.5s mirror sweep).
+  const SPIN_SPEED = 0.001;
 
   // ─── Materials (Border Empires industrial palette) ────────────────────
   // Dark charcoal iron — dominant structural material.
@@ -168,6 +182,15 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
   builder.makeSlot("mwBlank", blankGeo, brightBrassMaterial, C * 4);
   builder.makeSlot("mwEmber", emberGeo, glowMaterial, C * 2);
 
+  // Resolved once (not per frame): the animated slots' InstancedMesh refs, so
+  // the per-frame flywheel spin can write matrices and flag GPU upload ranges
+  // directly instead of paying a Map lookup per piece, per mint, every frame.
+  const flywheelMesh = builder.getMesh("mwFlywheel")!;
+  const spokeMesh = builder.getMesh("mwSpoke")!;
+  const hubMesh = builder.getMesh("mwHub")!;
+  const rimMesh = builder.getMesh("mwRim")!;
+  const flywheelAssemblyMeshes = [flywheelMesh, spokeMesh, hubMesh, rimMesh];
+
   // ─── Placement ─────────────────────────────────────────────────────────
   // Overall footprint is 33% smaller than the piece geometries above imply:
   // offsets and per-piece scales are both shrunk by SCALE so the whole
@@ -187,10 +210,53 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
     rotY = 0,
     rotX = 0,
     rotZ = 0
-  ): void => {
-    builder.addPiece(key, sx2, sy2, sz2, ox * SCALE, oy * SCALE, oz * SCALE, sx3 * SCALE, sy3 * SCALE, sz3 * SCALE, rotY, rotX, rotZ);
+  ): number => {
+    return builder.addPiece(key, sx2, sy2, sz2, ox * SCALE, oy * SCALE, oz * SCALE, sx3 * SCALE, sy3 * SCALE, sz3 * SCALE, rotY, rotX, rotZ);
   };
+
+  // ─── Flywheel animation ──────────────────────────────────────────────
+  // The brass flywheel assembly (flywheel + two spokes + hub + rim) spins
+  // slowly about its axle (world X). Each of the five pieces is the rest
+  // pose it was placed in, with an extra rotation about X applied *after*
+  // placement; with Euler order "XYZ" the matrix is Rx(a)*Ry(restY)*Rz(restZ),
+  // so the X term lands outermost — the disc turns about its own axle, which
+  // stays fixed along world X, and the assembly stays coplanar in the YZ
+  // plane. At a=0 the matrix collapses to exactly the static rest pose.
+  type FlywheelPiece = {
+    readonly key: string;
+    readonly mesh: InstancedMesh;
+    readonly index: number;
+    readonly ox: number;
+    readonly oy: number;
+    readonly oz: number;
+    readonly sx: number;
+    readonly sy: number;
+    readonly sz: number;
+    readonly restRotY: number;
+    readonly restRotZ: number;
+  };
+  type MintRecord = {
+    readonly x: number;
+    readonly y: number;
+    readonly z: number;
+    readonly phase: number;
+    readonly pieces: ReadonlyArray<FlywheelPiece>;
+  };
+  const mintRecords: MintRecord[] = [];
+
+  // Deterministic per-tile phase from the scene position (layout callbacks
+  // carry no world tile coords). Integer tile centers give distinct hashes
+  // to neighbouring mints, desyncing their spin like the relay beacons.
+  const phaseFor = (x: number, y: number, z: number): number => {
+    const hash = ((x * 73856093) ^ (y * 19349663) ^ (z * 83492791)) >>> 0;
+    return ((hash % 1000) / 1000) * Math.PI * 2;
+  };
+
   const addMintworks: EconomicStructureLayout = (sx, sy, sz) => {
+    // The animated flywheel slots are capped at C (one slot per mint); drop
+    // mints beyond that up front so the records and the piece buffers stay in
+    // lockstep (same trick as the relay beacon dropping excess beacons).
+    if (mintRecords.length >= C) return;
     // Foundation + floor + walls + roof. Walls are plain industrial iron;
     // the wealth reads through the brass machinery inside, not the shell.
     add("mwBase", sx, sy, sz, 0, 0.05, 0);
@@ -250,11 +316,25 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
     // Large brass flywheel beside the press with spokes + hub, ringed by a
     // heavier brass rim so it reads as a flywheel rather than a coin. The
     // disc (rotZ) lies in the YZ plane, so spokes and rim share that plane.
-    add("mwFlywheel", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, 0, 0, PI_2);
-    add("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, 0, 0, PI_2);
-    add("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, PI_2, 0, 0);
-    add("mwHub", sx, sy, sz, -0.26, 0.26, 0.18, 1, 1, 1, 0, 0, PI_2);
-    add("mwRim", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, PI_2, 0, 0);
+    // Indices are captured so update() can spin the whole assembly.
+    const flywheelIndex = add("mwFlywheel", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, 0, 0, PI_2);
+    const spokeAIndex = add("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, 0, 0, PI_2);
+    const spokeBIndex = add("mwSpoke", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 1, 0.85, PI_2, 0, 0);
+    const hubIndex = add("mwHub", sx, sy, sz, -0.26, 0.26, 0.18, 1, 1, 1, 0, 0, PI_2);
+    const rimIndex = add("mwRim", sx, sy, sz, -0.26, 0.26, 0.18, 0.85, 0.85, 0.85, PI_2, 0, 0);
+    mintRecords.push({
+      x: sx,
+      y: sy,
+      z: sz,
+      phase: phaseFor(sx, sy, sz),
+      pieces: [
+        { key: "mwFlywheel", mesh: flywheelMesh, index: flywheelIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: 0.85 * SCALE, sz: 0.85 * SCALE, restRotY: 0, restRotZ: PI_2 },
+        { key: "mwSpoke", mesh: spokeMesh, index: spokeAIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: SCALE, sz: 0.85 * SCALE, restRotY: 0, restRotZ: PI_2 },
+        { key: "mwSpoke", mesh: spokeMesh, index: spokeBIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: SCALE, sz: 0.85 * SCALE, restRotY: PI_2, restRotZ: 0 },
+        { key: "mwHub", mesh: hubMesh, index: hubIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: SCALE, sy: SCALE, sz: SCALE, restRotY: 0, restRotZ: PI_2 },
+        { key: "mwRim", mesh: rimMesh, index: rimIndex, ox: -0.26 * SCALE, oy: 0.26 * SCALE, oz: 0.18 * SCALE, sx: 0.85 * SCALE, sy: 0.85 * SCALE, sz: 0.85 * SCALE, restRotY: PI_2, restRotZ: 0 }
+      ]
+    });
 
     // Brass gear train on the right side of the press + drive shaft.
     add("mwGearLarge", sx, sy, sz, 0.30, 0.24, 0.20, 1, 1, 1, 0, 0, PI_2);
@@ -309,5 +389,37 @@ export const registerMintworksStructures = (builder: StructurePieceBuilder): Eco
     add("mwCrateCoinStack", sx, sy, sz, 0.10, 0.225, 0.02);
   };
 
-  return addMintworks;
+  const matrix = new Matrix4();
+  const position = new Vector3();
+  const scale = new Vector3();
+  const tmpEuler = new Euler();
+  const tmpQuat = new Quaternion();
+
+  const update = (nowMs: number): void => {
+    const count = mintRecords.length;
+    if (count === 0) return;
+    for (const t of mintRecords) {
+      const angle = nowMs * SPIN_SPEED + t.phase;
+      for (const piece of t.pieces) {
+        tmpEuler.set(angle, piece.restRotY, piece.restRotZ, "XYZ");
+        tmpQuat.setFromEuler(tmpEuler);
+        position.set(t.x + piece.ox, t.y + piece.oy, t.z + piece.oz);
+        scale.set(piece.sx, piece.sy, piece.sz);
+        matrix.compose(position, tmpQuat, scale);
+        piece.mesh.setMatrixAt(piece.index, matrix);
+      }
+    }
+    for (const mesh of flywheelAssemblyMeshes) {
+      if (mesh.count === 0) continue;
+      mesh.instanceMatrix.clearUpdateRanges();
+      mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  };
+
+  const clear = (): void => {
+    mintRecords.length = 0;
+  };
+
+  return { layout: addMintworks, clear, update };
 };
