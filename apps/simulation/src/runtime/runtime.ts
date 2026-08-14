@@ -1561,9 +1561,9 @@ export class SimulationRuntime {
       incrementAuthRecoveryRespawn: () => this.onAuthRecoveryRespawn?.(),
       incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.(),
       coastalLandKeys: () => this.spawnPlacementIndex.coastalLandKeys(this.tiles),
-      settledCoords: () => this.spawnPlacementIndex.settledCoords(),
-      townCoords: () => this.spawnPlacementIndex.townCoords(),
-      foodCoords: () => this.spawnPlacementIndex.foodCoords(this.tiles)
+      hasNearbySettled: (x, y, radius) => this.spawnPlacementIndex.hasNearbySettled(x, y, radius),
+      hasNearbyTown: (x, y, radius) => this.spawnPlacementIndex.hasNearbyTown(x, y, radius),
+      hasNearbyFood: (x, y, radius) => this.spawnPlacementIndex.hasNearbyFood(this.tiles, x, y, radius)
     };
   }
 
