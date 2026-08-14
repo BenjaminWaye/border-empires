@@ -6,118 +6,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
-    createdAt: 1786165552000, // 2026.08.08.1
-    introducedIn: "2026.08.08.1",
-    title: "Wooden Fort renamed to Palisade",
-    why: "\"Wooden Fort\" was a mouthful next to the ladder's other short names (Fort, Titanium Bastion, Thunder Bastion); Palisade is shorter and reads as the entry-tier defensive structure it is.",
-    changes: [
-      "The lightweight border/dock fortification is now called \"Palisade\" everywhere in the UI — tile menu, economy panel, and build actions. No change to its cost, defense bonus, or build time."
-    ]
-  },
-  {
-    createdAt: 1786174507000,
-    introducedIn: "resource-reveal-settle-and-ribbon",
-    title: "Fixed: settling near a hidden resource revealed it early, and the toolbar showed hidden resource types",
-    why: "Iron, Supply, and Crystal are supposed to stay hidden until you've researched the tech that reveals them. That masking was already fixed for the streaming map view and for what you see on login, but settling next to a hidden resource (or capturing territory near one) still exposed it instantly through a separate reveal path. The toolbar's resource ribbon also always showed all four resource pills regardless of tech.",
-    changes: [
-      "Settling, expanding, or capturing near an unrevealed Iron/Supply/Crystal tile no longer exposes its resource type early.",
-      "The toolbar's resource ribbon now hides the Iron/Crystal/Supply pill entirely until you've researched the tech that reveals it."
-    ]
-  },
-  {
-    createdAt: 1786174507001,
-    introducedIn: "resource-reveal-economy-panel",
-    title: "Fixed: the detailed economy screen still listed hidden resources",
-    why: "The ribbon fix hid Iron/Crystal/Supply from the toolbar, but the detailed economy screen (opened by tapping a resource, or from the panel nav) still showed a card for each one with a \"No access to this resource yet\" label — still revealing that the category exists before you've earned it.",
-    changes: [
-      "The economy screen's summary cards and detail breakdowns now hide Iron/Crystal/Supply entirely until revealed, instead of showing an empty placeholder card."
-    ]
-  },
-  {
-    createdAt: 1786174507002,
-    introducedIn: "weapons-workshop",
-    title: "New: Weapons Workshop",
-    why: "The War branch needed a building that lets a town specialize for combat, and a new tech to reach it early.",
-    changes: [
-      "New building: Weapons Workshop. Forges Iron and Supply into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost (+3% each, per copy owned).",
-      "No per-town limit on Weapons Workshop — build as many as you like in one town to raise a dedicated military city.",
-      "New tech: Weapons Forging (War branch), unlocked by researching both Ironclad Masonry and Tanner's Craft.",
-      "Mintworks and Ancillary Factory also lost their one-per-town limit, so towns can specialize with multiples of either."
-    ]
-  },
-  {
-    createdAt: 1786174507003,
-    introducedIn: "tech-tag-consistency",
-    title: "Fixed: tech tags were inconsistent between the tech-tree card and the tech detail screen",
-    why: "The tech-tree card and the tech detail screen could show a different set of unlock tags for the same tech, resource-reveal effects (like 'Reveals Crystal') never got a tag at all, and some techs showed only a redundant yellow text summary instead of tags.",
-    changes: [
-      "The tech-tree card and the tech detail screen now always show the exact same tags for a tech.",
-      "Resource-reveal effects (Reveals Food/Iron/Crystal/Supply) now show as their own tag, everywhere a tech's unlocks are shown.",
-      "Removed the separate yellow 'Unlocks X' text summary — tags are now the only way a tech's unlocks are shown."
-    ]
-  },
-  {
-    createdAt: 1786174507004,
-    introducedIn: "next",
-    title: "Converters can now be pointed either direction: Refine or Sell off",
-    why: "Fur Works, Iron Works, and Aether Condenser (and their Advanced tiers) each had one job: turn gold into a resource slot. Now every one of them can point either way in place. Refine works as before — gold upkeep manufactures 1 slot of its resource. Sell off runs the building in reverse: it consumes that same slot and pays out gold each day instead, with no gold upkeep while selling off. The old 1-per-empire limit on these buildings is gone entirely — build as many as you can afford in whichever direction your economy needs. A captured converter also can't be sold off immediately — it starts mode-locked for the same 60 minutes as a fresh flip, so capturing one isn't an instant payday.",
-    changes: [
-      "New building names: Fur Synthesizer -> Fur Works, Ironworks -> Iron Works (Aether Condenser is unchanged — it already read as direction-neutral).",
-      "The structure panel shows a converter's current mode with a flip control and remaining cooldown.",
-      "Flipping a converter's mode has a 60-minute cooldown, and a freshly built or freshly captured converter starts locked for the same 60 minutes.",
-      "Sell off mode: no gold upkeep; pays 8 gold/day for Iron Works and Fur Works, 10 gold/day for Aether Condenser (Advanced tiers: 12 / 15 gold/day).",
-      "The 1-per-empire cap on these buildings is removed — build and run as many as you want, in either mode."
-    ]
-  },
-  {
-    createdAt: 1786174511000, // 2026-08-08
-    introducedIn: "expand-ui-multi-waypoint",
-    title: "Expand manpower now shows as reserved, queue numbering fixed, and waypoints can be queued",
-    why: "Manpower for a queued or in-progress Expand wasn't shown as spent until the server resolved it, so the displayed manpower total looked available when it was already committed. The queue badge on a currently-executing action also showed \"1\", which read as \"next in line\" rather than \"in progress\". And only one waypoint could be set at a time, so a multi-hop trip required babysitting each leg to fire the next one manually.",
-    changes: [
-      "Manpower reserved by an active or queued Expand now shows as already spent, and reappears if the action is cancelled before the server resolves it.",
-      "The currently-executing queued action no longer shows a \"1\" badge — only actual waiting-in-line entries are numbered, starting at 1.",
-      "The big \"Capturing Territory...\" overlay no longer appears for Expand — the tile-paint fill is the only feedback, matching waypoint-driven expands.",
-      "Clicking a tile that's actively expanding now opens its tile detail with a Cancel expansion option, instead of only the top-level Cancel button.",
-      "You can now queue multiple waypoints — clicking \"Add Waypoint\" on a new distant tile appends it instead of replacing the current one, so a multi-leg trip runs unattended leg by leg."
-    ]
-  },
-  {
-    createdAt: 1786174512000, // 2026-08-08
-    introducedIn: "tech-tree-cleanup",
-    title: "Fixed: several structure descriptions in the tech tree showed the wrong numbers or the wrong building",
-    why: "Several structures (Assembly Works, Logistics Guild, Quartermaster's Office, Iron Levy, Population Bureau) fell through to a default and showed 'Siege Outpost' as their description. Rail Depot's description claimed it boosted the wrong building. Several structures also showed made-up upkeep costs that don't exist in the real game economy, and Aetherport's bombard and the Astral Dock's satellite launch had stale gold-cost text.",
-    changes: [
-      "Assembly Works, Logistics Guild, Quartermaster's Office, Iron Levy (and its part), and Population Bureau (and its part) now show their own correct description instead of Siege Outpost's.",
-      "Rail Depot's description now correctly says it amplifies Logistics Guild, not Ancillary Factory.",
-      "Removed fabricated upkeep costs from Aetherport, Astral Dock, Ambaric Tower, Resonance Grid, Aegis Dome, and Aegis Dome Part — none of these actually have per-minute upkeep.",
-      "Aetherport's bombard ability is now free to fire (was 5,000 gold) and requires 3 CRYSTAL slots to build (was 1).",
-      "The Astral Dock's satellite launch now costs 1,000 gold (was free) — text and in-game cost now match.",
-      "Removed the non-functional City Overclock button — it had no effect in-game."
-    ]
-  },
-  {
-    createdAt: 1786180756479, // 2026-08-08
-    introducedIn: "barley-field-overlay",
-    title: "Farm tiles now render as dense golden barley fields",
-    why: "Farm tiles used to read as a few neat plates of golden wheat with trees and paths, which looked sparse and farmed-out rather than like an active agricultural tile. Farms now render as a full, dense crop: a dark fertile soil bed covered in a carpet of mature golden barley with seed heads and pale awns, so a farm tile reads unmistakably as a working field.",
-    changes: [
-      "3D map: farm tiles now show a dense golden barley field with lean and tone variation per tile, instead of the old wheat plates and orchard trees.",
-      "2D map: farm overlays were redrawn as dense barley crops with dark soil showing between clumps.",
-      "Each tile's crop arrangement is deterministic, so it stays stable while panning and doesn't reshuffle on refresh."
-    ]
-  },
-  {
-    createdAt: 1786180757000, // 2026-08-08
-    introducedIn: "cut-tech-bonuses-keep-muster",
-    title: "Techs no longer grant passive stat bonuses — only Muster Discipline/Command's flag capacity remains",
-    why: "Techs unlocking a structure or ability alongside a hidden passive stat bump (extra town gold cap, attack-vs-forts, settlement speed, outpost vision, dock gold, observatory range) made a tech's real payoff harder to read from its description. Muster Discipline and Muster Command's flag-capacity bonus is the one exception kept, by design.",
-    changes: [
-      "Double-Entry Ledgers, Steel Foundries, Survey Sweep, Covert Logistics, Harbor Engineering, Beacon Network, and Provincial Concessions no longer grant a passive stat bonus — each still unlocks the same structure/ability as before.",
-      "Muster Discipline and Muster Command still each add +1 mustering flag capacity — unchanged."
-    ]
-  },
-  {
     createdAt: 1786214940000, // 2026-08-08
     introducedIn: "monument-parts-population-bureau-iron-levy",
     title: "Fixed: Population Bureau and Iron Levy monument parts couldn't be built at all",
@@ -151,19 +39,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "The Iron Levy: Muster Klaxon, Iron Standard, Levy Writ.",
       "Opening a monument's structure-info popup now shows a \"Monument Components\" checklist with a live N/3 status for each.",
       "Same rules as before: one component per Great City/Monumental City, and the monument tech gates all 3 of its own components."
-    ]
-  },
-  {
-    createdAt: 1786180758000, // 2026-08-08
-    introducedIn: "expand-tile-detail-and-queue",
-    title: "Frontier expansion now shows its own progress, and waypoint queues survive a refresh",
-    why: "Clicking a tile to expand into it gave no feedback that anything had started, and clicking it again while it was mid-claim did nothing at all. Queuing a second (or third) waypoint also produced no visible marker on the map for it. Separately, a queued expand plan only ever lived in memory, so refreshing or reconnecting silently dropped it.",
-    changes: [
-      "Clicking an adjacent neutral tile to expand into it now opens its tile detail, showing claim progress with Cancel and Rush-buy buttons.",
-      "Clicking a tile that's already mid-expansion reopens the same progress view instead of doing nothing.",
-      "Rush-buying an in-progress frontier claim is now available, priced the same way as settlement/build rush-buys.",
-      "Queued waypoints beyond the first now show their own dimmed, numbered flag on the 3D map instead of no marker at all; a waypoint's flag hides once its own tile starts actively expanding.",
-      "The waypoint queue now survives a page refresh or reconnect (capped at 20 queued destinations)."
     ]
   },
   {

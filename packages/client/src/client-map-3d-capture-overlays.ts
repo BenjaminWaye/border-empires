@@ -2,6 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-map-3d-battle-overlay-fx.js";
 import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
+import { pruneExpiredIncomingAttacks } from "./client-siege-tracking/client-siege-tracking.js";
 import { activeMusterSupplyLines, resolveAdvanceMusterFallbackSource, type AdvanceMusterFallbackCache } from "./client-muster-transit/client-muster-transit.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { SupplyLineOverlay } from "./client-map-3d-supply-line-overlay.js";
@@ -79,6 +80,13 @@ export function syncBattleOverlayFx(
   nowMs: number
 ): void {
   pruneExpiredActiveBattles(state, nowMs);
+  // `nowMs` is performance.now() (page uptime) — the clock every battle/FX
+  // timestamp is stamped in. Siege countdowns (`resolvesAt`) are server epoch
+  // ms instead, so they must be compared against Date.now(); comparing them to
+  // nowMs made `resolvesAt <= nowMs` permanently false (epoch ms vastly
+  // outscales uptime ms) and never expired a finished siege.
+  const nowEpochMs = Date.now();
+  pruneExpiredIncomingAttacks(state, nowEpochMs);
 
   const entries: BattleOverlayRenderEntry[] = [];
   for (const battle of state.activeBattles.values()) {
@@ -107,28 +115,58 @@ export function syncBattleOverlayFx(
   }
 
   const skirmishes: BattleOverlaySkirmishEntry[] = [];
+  const skirmishKeys = new Set<string>();
+  const pushSkirmish = (
+    key: string,
+    srcX: number,
+    srcY: number,
+    target: { x: number; y: number },
+    attackerOwnerId: string,
+    defenderOwnerId: string
+  ): void => {
+    if (skirmishKeys.has(key)) return;
+    skirmishKeys.add(key);
+    const srcDx = toroidDelta(state.camX, srcX, WORLD_WIDTH);
+    const srcDy = toroidDelta(state.camY, srcY, WORLD_HEIGHT);
+    const tgtDx = toroidDelta(state.camX, target.x, WORLD_WIDTH);
+    const tgtDy = toroidDelta(state.camY, target.y, WORLD_HEIGHT);
+    skirmishes.push({
+      srcWorldX: srcDx + TILE_CENTER_OFFSET,
+      srcWorldZ: srcDy + TILE_CENTER_OFFSET,
+      tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
+      tgtWorldZ: tgtDy + TILE_CENTER_OFFSET,
+      srcSurfaceY: Math.max(heightfield.elevationAt(srcX, srcY), heightfield.cornerYAt(srcX, srcY)),
+      tgtSurfaceY: Math.max(heightfield.elevationAt(target.x, target.y), heightfield.cornerYAt(target.x, target.y)),
+      attackerColor: playerColorFor(attackerOwnerId),
+      defenderColor: playerColorFor(defenderOwnerId),
+      hashSeed: target.x * 92821 + target.y
+    });
+  };
+
   if (state.me) {
+    // Defending: ATTACK_ALERT populated incomingAttacksByTile up front.
     for (const [key, incoming] of state.incomingAttacksByTile) {
-      if (incoming.resolvesAt <= nowMs) continue;
+      if (incoming.resolvesAt <= nowEpochMs) continue;
       if (state.activeBattles.has(key)) continue;
       if (!incoming.attackerId || incoming.fromX === undefined || incoming.fromY === undefined) continue;
       const target = state.tiles.get(key);
       if (!target) continue;
-      const srcDx = toroidDelta(state.camX, incoming.fromX, WORLD_WIDTH);
-      const srcDy = toroidDelta(state.camY, incoming.fromY, WORLD_HEIGHT);
-      const tgtDx = toroidDelta(state.camX, target.x, WORLD_WIDTH);
-      const tgtDy = toroidDelta(state.camY, target.y, WORLD_HEIGHT);
-      skirmishes.push({
-        srcWorldX: srcDx + TILE_CENTER_OFFSET,
-        srcWorldZ: srcDy + TILE_CENTER_OFFSET,
-        tgtWorldX: tgtDx + TILE_CENTER_OFFSET,
-        tgtWorldZ: tgtDy + TILE_CENTER_OFFSET,
-        srcSurfaceY: Math.max(heightfield.elevationAt(incoming.fromX, incoming.fromY), heightfield.cornerYAt(incoming.fromX, incoming.fromY)),
-        tgtSurfaceY: Math.max(heightfield.elevationAt(target.x, target.y), heightfield.cornerYAt(target.x, target.y)),
-        attackerColor: playerColorFor(incoming.attackerId),
-        defenderColor: playerColorFor(state.me),
-        hashSeed: target.x * 92821 + target.y
-      });
+      pushSkirmish(key, incoming.fromX, incoming.fromY, target, incoming.attackerId, state.me);
+    }
+
+    // Attacking: the server addresses ATTACK_ALERT to the defender only (see
+    // runtime-frontier-command.ts), so this client's own outgoing attack never
+    // reaches incomingAttacksByTile — without this it would show no dots at
+    // all until the resolution flourish. Drive it off the in-flight action
+    // instead. EXPAND is excluded: claiming neutral land is not a fight.
+    const capture = state.capture;
+    if (capture?.actionType === "ATTACK" && capture.origin && capture.resolvesAt > nowEpochMs) {
+      const key = keyFor(capture.target.x, capture.target.y);
+      const target = state.tiles.get(key);
+      const defenderOwnerId = target?.ownerId;
+      if (target && defenderOwnerId && defenderOwnerId !== state.me && !state.activeBattles.has(key)) {
+        pushSkirmish(key, capture.origin.x, capture.origin.y, target, state.me, defenderOwnerId);
+      }
     }
   }
 
