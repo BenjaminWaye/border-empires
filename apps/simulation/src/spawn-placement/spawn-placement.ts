@@ -19,6 +19,13 @@ export type LegacySpawnPlacementInput = {
   tiles: Iterable<DomainTileState>;
   blockedTileKeys?: ReadonlySet<string>;
   rallyAnchor?: { x: number; y: number };
+  // Coastal-land membership depends only on tile.terrain, which never
+  // changes after worldgen — callers that hit this on a hot path (every new
+  // player connecting, via ensurePlayerHasSpawnTerritory) can precompute it
+  // once and pass it here instead of paying the O(tiles) scan-and-flood-fill
+  // in computeCoastalLandKeys on every call. Falls back to computing it
+  // in-line (unchanged behavior) when omitted.
+  coastalLandKeys?: ReadonlySet<string>;
 };
 
 const RALLY_SPAWN_RADIUS = 24;
@@ -47,7 +54,7 @@ const hashString = (value: string): number => {
 
 const nextSeed = (seed: number): number => (Math.imul(seed, 1664525) + 1013904223) >>> 0;
 
-const computeCoastalLandKeys = (tileList: readonly DomainTileState[]): Set<string> => {
+export const computeCoastalLandKeys = (tileList: readonly DomainTileState[]): Set<string> => {
   const landByKey = new Map<string, DomainTileState>();
   const seaKeys = new Set<string>();
   for (const tile of tileList) {
@@ -92,7 +99,7 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   if (tileList.length === 0) return undefined;
 
   const blocked = input.blockedTileKeys ?? new Set<string>();
-  const coastalLandKeys = computeCoastalLandKeys(tileList);
+  const coastalLandKeys = input.coastalLandKeys ?? computeCoastalLandKeys(tileList);
   const settledCoords = tileList
     .filter((tile) => tile.ownerId && tile.ownershipState && tile.ownershipState !== "BARBARIAN")
     .map((tile) => ({ x: tile.x, y: tile.y }));
