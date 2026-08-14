@@ -1,4 +1,5 @@
 import { isForestTile } from "./client-constants.js";
+import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
@@ -715,11 +716,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         deps.ctx.strokeStyle = "rgba(255,255,255,0.55)";
         deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
       }
-      const incomingAttack = state.incomingAttacksByTile.get(wk);
-      if (incomingAttack) {
-        if (incomingAttack.resolvesAt <= Date.now()) state.incomingAttacksByTile.delete(wk);
-        else if (!isTrue3DRendererActive()) deps.drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
-      }
+      const incomingAttack = drawableIncomingAttack(state, wk, Date.now());
+      if (incomingAttack && !isTrue3DRendererActive()) deps.drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
       if (!isTrue3DRendererActive() && settlementProgress) {
         const totalMs = Math.max(1, settlementProgress.resolvesAt - settlementProgress.startAt);
         const now = Date.now();
@@ -1229,11 +1227,8 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.strokeStyle = "rgba(255,255,255,0.55)";
           deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
         }
-        const incomingAttack = state.incomingAttacksByTile.get(wk);
-        if (incomingAttack) {
-          if (incomingAttack.resolvesAt <= Date.now()) state.incomingAttacksByTile.delete(wk);
-          else if (!isTrue3DRendererActive()) deps.drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
-        }
+        const incomingAttack = drawableIncomingAttack(state, wk, Date.now());
+        if (incomingAttack && !isTrue3DRendererActive()) deps.drawIncomingAttackOverlay(wx, wy, px, py, size, incomingAttack.resolvesAt);
         if (!isTrue3DRendererActive() && settlementProgress) {
           const totalMs = Math.max(1, settlementProgress.resolvesAt - settlementProgress.startAt);
           const now = Date.now();

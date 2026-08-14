@@ -23,6 +23,18 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786710132407, // 2026.08.14.1
+    introducedIn: "2026.08.14.1",
+    title: "Battle dots now animate for the whole attack, not just its last two seconds",
+    why: "The pre-resolution skirmish animation added in 2026.08.11 was effectively never visible to anyone. Two independent bugs killed it. First, the client tracked an in-progress siege in a map that was wiped by *any* tile delta touching that tile — and a tile under attack keeps receiving routine yield, population, and muster tick deltas throughout its ~30s countdown, so the siege was usually evicted seconds after it registered, taking the dots and the red under-attack cross with it. Second, the attacker never had a siege entry to begin with: the server addresses its attack alert to the defender only, which is correct for an \"under attack\" warning but left the attacking player's own fight with nothing to render until the outcome broadcast arrived. What survived both was the ~2.3s resolution flourish, which is driven separately — so an attack looked like it only animated at the very end.",
+    changes: [
+      "Battle dots now animate for the full duration of an attack instead of only the final ~2.3s resolution flourish.",
+      "Attackers now see the fight on the tile they are attacking, not just defenders.",
+      "An in-progress siege now ends only when the combat actually resolves or the tile changes hands — no longer cancelled by unrelated yield/population/muster updates on the same tile. The red under-attack cross also stays visible for the whole countdown.",
+      "The under-attack cross now pulses faster as the attack becomes imminent, which it previously never did."
+    ]
+  },
+  {
     createdAt: 1786647377657, // 2026.08.13.4
     introducedIn: "2026.08.13.4",
     title: "Fixed a manual attack permanently stuck showing only a queue-position badge",
@@ -428,15 +440,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Muster Discipline, Muster Command, and War Foundries each grant +1 muster flag capacity, but the tech tree card never showed a highlight chip for it — every other tech payoff (unlocks, reveals) got a tag except this one.",
     changes: [
       "Muster Discipline, Muster Command, and War Foundries now show a \"Muster Flag +1\" chip on their tech-tree card and detail view."
-    ]
-  },
-  {
-    createdAt: 1786165552001, // 2026.08.08.2
-    introducedIn: "2026.08.08.2",
-    title: "Clearer Discovery tips",
-    why: "The first-seen tooltips for towns, docks, barbarians, and strategic resources were vague about what each tile actually does or how to use it.",
-    changes: [
-      "Reworded the Town, Dock, Barbarian, Food, Iron, Crystal, and Supply discovery tips to explain what the tile produces and why capturing/settling it matters."
     ]
   },
   {
