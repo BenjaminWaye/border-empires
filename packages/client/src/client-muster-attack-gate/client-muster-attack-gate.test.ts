@@ -84,6 +84,8 @@ describe("findClosestMuster", () => {
   it("ignores flags below the muster attack cost", () => {
     const state = createInitialState();
     state.me = "me";
+    // A garrison-less enemy target requires the flat MUSTER_ATTACK_COST.
+    state.tiles.set("6,6", makeTile({ x: 6, y: 6, ownerId: "enemy" }));
     const musterTile = makeTile({
       x: 5,
       y: 5,
@@ -93,5 +95,49 @@ describe("findClosestMuster", () => {
     state.tiles.set("5,5", musterTile);
 
     expect(findClosestMuster(state, 6, 6)).toBeUndefined();
+  });
+
+  it("requires more than the flat cost against a garrisoned fort", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set(
+      "6,6",
+      makeTile({
+        x: 6,
+        y: 6,
+        ownerId: "enemy",
+        fort: { ownerId: "enemy", status: "active", garrison: 150, garrisonCap: 200 }
+      })
+    );
+    const musterTile = makeTile({
+      x: 5,
+      y: 5,
+      ownerId: "me",
+      muster: { ownerId: "me", amount: MUSTER_ATTACK_COST, mode: "HOLD", updatedAt: 0 }
+    });
+    state.tiles.set("5,5", musterTile);
+
+    // 60 staged is not enough against a 150-garrison fort — the old flat
+    // MUSTER_ATTACK_COST gate would have wrongly called this ready.
+    expect(findClosestMuster(state, 6, 6)).toBeUndefined();
+
+    musterTile.muster!.amount = 150;
+    expect(findClosestMuster(state, 6, 6)).toBeDefined();
+  });
+
+  it("uses the cheaper barbarian raid cost against a barbarian target", () => {
+    const state = createInitialState();
+    state.me = "me";
+    state.tiles.set("6,6", makeTile({ x: 6, y: 6, ownerId: "barbarian-1" }));
+    const musterTile = makeTile({
+      x: 5,
+      y: 5,
+      ownerId: "me",
+      muster: { ownerId: "me", amount: MUSTER_ATTACK_COST - 1, mode: "HOLD", updatedAt: 0 }
+    });
+    state.tiles.set("5,5", musterTile);
+
+    // Below MUSTER_ATTACK_COST but above BARBARIAN_RAID_COST — still ready.
+    expect(findClosestMuster(state, 6, 6)).toBeDefined();
   });
 });
