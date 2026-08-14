@@ -32,16 +32,16 @@ export type RuntimeRespawnContext = {
   respawnMinimumGold: number;
   incrementAuthRecoveryRespawn: () => void;
   incrementAuthRecoveryRespawnGuarded: () => void;
-  // Cached/incrementally-maintained map-wide lookups threaded through to
-  // chooseLegacySpawnPlacement — see SpawnPlacementIndex and
-  // LegacySpawnPlacementInput's matching fields. Passing these avoids
-  // re-scanning every tile on the map on every single spawn/respawn
-  // placement, which load testing showed costing ~700-900ms per new player
-  // connecting at 100-tile-map-scale.
+  // Cached/incrementally-maintained, spatially-indexed lookups threaded
+  // through to chooseLegacySpawnPlacement — see SpawnPlacementIndex and
+  // LegacySpawnPlacementInput's matching fields. Passing these avoids both
+  // re-scanning every tile on the map AND linearly scanning every owned tile
+  // on every single spawn/respawn placement, which load testing showed
+  // costing ~700-900ms per new player connecting at 100-tile-map-scale.
   coastalLandKeys: () => ReadonlySet<string>;
-  settledCoords: () => Iterable<{ x: number; y: number }>;
-  townCoords: () => Iterable<{ x: number; y: number }>;
-  foodCoords: () => Iterable<{ x: number; y: number }>;
+  hasNearbySettled: (x: number, y: number, radius: number) => boolean;
+  hasNearbyTown: (x: number, y: number, radius: number) => boolean;
+  hasNearbyFood: (x: number, y: number, radius: number) => boolean;
 };
 
 export const preparePlayerRespawnNotice = (
@@ -131,9 +131,9 @@ export const ensurePlayerHasSpawnTerritory = (
     tiles: ctx.tiles.values(),
     blockedTileKeys,
     coastalLandKeys: ctx.coastalLandKeys(),
-    settledCoords: ctx.settledCoords(),
-    townCoords: ctx.townCoords(),
-    foodCoords: ctx.foodCoords(),
+    hasNearbySettled: ctx.hasNearbySettled,
+    hasNearbyTown: ctx.hasNearbyTown,
+    hasNearbyFood: ctx.hasNearbyFood,
     ...(rallyAnchor ? { rallyAnchor } : {})
   });
   if (!spawn) return false;
@@ -165,9 +165,9 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
     tiles: ctx.tiles.values(),
     blockedTileKeys,
     coastalLandKeys: ctx.coastalLandKeys(),
-    settledCoords: ctx.settledCoords(),
-    townCoords: ctx.townCoords(),
-    foodCoords: ctx.foodCoords()
+    hasNearbySettled: ctx.hasNearbySettled,
+    hasNearbyTown: ctx.hasNearbyTown,
+    hasNearbyFood: ctx.hasNearbyFood
   });
   if (!spawn) return false;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
@@ -227,9 +227,9 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
     tiles: ctx.tiles.values(),
     blockedTileKeys,
     coastalLandKeys: ctx.coastalLandKeys(),
-    settledCoords: ctx.settledCoords(),
-    townCoords: ctx.townCoords(),
-    foodCoords: ctx.foodCoords()
+    hasNearbySettled: ctx.hasNearbySettled,
+    hasNearbyTown: ctx.hasNearbyTown,
+    hasNearbyFood: ctx.hasNearbyFood
   });
   if (!spawn) return;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
