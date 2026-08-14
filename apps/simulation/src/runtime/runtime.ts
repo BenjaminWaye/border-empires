@@ -417,7 +417,7 @@ import {
   respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
   type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
-import { computeCoastalLandKeys } from "../spawn-placement/spawn-placement.js";
+import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js";
 import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 
 export type { VisibilityAuditSample };
@@ -557,14 +557,13 @@ export class SimulationRuntime {
   // firing on nearly every command at concurrency — turning a "rare" full
   // 200k-tile scan into a dominant main-thread cost.
   private readonly activeMonumentOwnerByType = new Map<MonumentalStructureType, { ownerId: string; tileKey: string }>();
-  // Coastal-land tile-key set for spawn placement (chooseLegacySpawnPlacement),
-  // derived purely from tile.terrain — which never changes after worldgen, so
-  // this is safe to compute once and reuse for the runtime's lifetime. Load
-  // testing showed ensurePlayerHasSpawnTerritory (called once per new player
-  // connecting) recomputing this via a full O(tiles) scan-and-flood-fill on
-  // every single call, costing ~700-900ms per new player at 100-concurrent
-  // scale and dominating WS connect/INIT latency.
-  private coastalLandKeysCache: ReadonlySet<string> | undefined;
+  // Map-wide lookups for spawn placement (chooseLegacySpawnPlacement) —
+  // coastal-land/settled/town/food coordinates — maintained incrementally or
+  // cached once instead of rescanning every tile on the map on every single
+  // spawn/respawn placement; see SpawnPlacementIndex for why (load testing:
+  // ~700-900ms per new player at 100-concurrent scale, dominating WS
+  // connect/INIT latency).
+  private readonly spawnPlacementIndex = new SpawnPlacementIndex();
   // Tech-tree redesign: per-owner tile-set indexes for the new Manpower
   // buildings, maintained the same way as railDepotTilesByOwner/
   // garrisonHallTilesByOwner above (see refreshEconomicStructureTypeIndexForTile
@@ -970,6 +969,11 @@ export class SimulationRuntime {
       }
       // Populate neutralBeaconTileKeys index (unowned towns/docks/resources).
       if (isNeutralBeaconTileImpl(tile)) this.neutralBeaconTileKeys.add(tileKey);
+      // Seed spawnPlacementIndex's settled/town coords — unconditional (not
+      // ownership-gated) since unowned tiles can carry a neutral/capturable
+      // town (see isNeutralBeaconTileImpl above) that must still count for
+      // chooseLegacySpawnPlacement's hasNearbyTown check.
+      this.spawnPlacementIndex.refreshForTileChange(tileKey, tile);
       // Populate ownedStructureCountByPlayerByType. Each structure slot has its
       // own ownerId — count by structure ownership, not by tile ownership,
       // to mirror the original ownedStructureCountForPlayer semantics.
@@ -1533,19 +1537,6 @@ export class SimulationRuntime {
     });
   }
 
-  // Lazy, and deliberately never cached while this.tiles is still empty — a
-  // cold construction-time call (before hydration populates this.tiles, same
-  // hazard documented on cachedManpowerStructureBonusForPlayer) would
-  // otherwise permanently cache an empty result once hydration does complete,
-  // since terrain-derived data has no other invalidation trigger.
-  private coastalLandKeys(): ReadonlySet<string> {
-    if (this.tiles.size === 0) return this.coastalLandKeysCache ?? new Set<string>();
-    if (!this.coastalLandKeysCache) {
-      this.coastalLandKeysCache = computeCoastalLandKeys([...this.tiles.values()]);
-    }
-    return this.coastalLandKeysCache;
-  }
-
   private respawnContext(): RuntimeRespawnContext {
     return {
       now: this.now,
@@ -1569,7 +1560,10 @@ export class SimulationRuntime {
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
       incrementAuthRecoveryRespawn: () => this.onAuthRecoveryRespawn?.(),
       incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.(),
-      coastalLandKeys: () => this.coastalLandKeys()
+      coastalLandKeys: () => this.spawnPlacementIndex.coastalLandKeys(this.tiles),
+      settledCoords: () => this.spawnPlacementIndex.settledCoords(),
+      townCoords: () => this.spawnPlacementIndex.townCoords(),
+      foodCoords: () => this.spawnPlacementIndex.foodCoords(this.tiles)
     };
   }
 
@@ -2262,6 +2256,7 @@ export class SimulationRuntime {
     if (refreshNeutralBeaconIndexForTileImpl({ tileKey, previous, next: tile, neutralBeaconTileKeys: this.neutralBeaconTileKeys })) {
       this.beaconGeneration += 1;
     }
+    this.spawnPlacementIndex.refreshForTileChange(tileKey, tile);
     // Structure count index: keep ownedStructureCountByPlayerByType consistent
     // across capture / build / cancel / removal transitions. Each slot is
     // tracked by the STRUCTURE's ownerId (not the tile's), to match the

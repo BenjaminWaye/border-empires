@@ -26,6 +26,16 @@ export type LegacySpawnPlacementInput = {
   // in computeCoastalLandKeys on every call. Falls back to computing it
   // in-line (unchanged behavior) when omitted.
   coastalLandKeys?: ReadonlySet<string>;
+  // settledCoords/townCoords/foodCoords: precomputed equivalents of this
+  // function's own settledCoords/townCoords/foodCoords derivation below.
+  // Hot-path callers maintain these incrementally (settled/town) or cache
+  // them once (food, resource-derived and as terrain-invariant as
+  // coastalLandKeys) instead of filtering every tile on the map on every
+  // placement call — see SpawnPlacementIndex. Falls back to deriving them
+  // from `tiles` (unchanged behavior) when omitted.
+  settledCoords?: Iterable<{ x: number; y: number }>;
+  townCoords?: Iterable<{ x: number; y: number }>;
+  foodCoords?: Iterable<{ x: number; y: number }>;
 };
 
 const RALLY_SPAWN_RADIUS = 24;
@@ -100,13 +110,13 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
 
   const blocked = input.blockedTileKeys ?? new Set<string>();
   const coastalLandKeys = input.coastalLandKeys ?? computeCoastalLandKeys(tileList);
-  const settledCoords = tileList
-    .filter((tile) => tile.ownerId && tile.ownershipState && tile.ownershipState !== "BARBARIAN")
-    .map((tile) => ({ x: tile.x, y: tile.y }));
-  const townCoords = tileList.filter((tile) => tile.town).map((tile) => ({ x: tile.x, y: tile.y }));
-  const foodCoords = tileList
-    .filter((tile) => tile.resource === "FARM" || tile.resource === "FISH")
-    .map((tile) => ({ x: tile.x, y: tile.y }));
+  const settledCoords = input.settledCoords
+    ? [...input.settledCoords]
+    : tileList.filter((tile) => tile.ownerId && tile.ownershipState && tile.ownershipState !== "BARBARIAN").map((tile) => ({ x: tile.x, y: tile.y }));
+  const townCoords = input.townCoords ? [...input.townCoords] : tileList.filter((tile) => tile.town).map((tile) => ({ x: tile.x, y: tile.y }));
+  const foodCoords = input.foodCoords
+    ? [...input.foodCoords]
+    : tileList.filter((tile) => tile.resource === "FARM" || tile.resource === "FISH").map((tile) => ({ x: tile.x, y: tile.y }));
   const spawnCandidates = tileList.filter((tile) => {
     const tileKey = simulationTileKey(tile.x, tile.y);
     if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId || blocked.has(tileKey)) return false;
