@@ -10,12 +10,25 @@ type Args = {
   cameraDistance: number;
 };
 
+// Keep the brass flywheel assembly turning in every story — it is the
+// mintworks' signature idle animation. Returns a cleanup that cancels the loop.
+const startFlywheelSpin = (overlay: { update: (nowMs: number) => void }): (() => void) => {
+  let rafId = 0;
+  const animate = (): void => {
+    overlay.update(performance.now());
+    rafId = requestAnimationFrame(animate);
+  };
+  animate();
+  return () => cancelAnimationFrame(rafId);
+};
+
 const render = (args: Args): HTMLElement => {
   const stage = createStage({ cameraDistance: args.cameraDistance, background: "#1b1d22" });
   const overlay = createStructureOverlay(stage.scene, 1);
   overlay.addInstance(0, 0, 0, "MINTWORKS");
   overlay.commit();
-  return wrapWithCleanup(stage, [overlay.dispose]);
+  const cancel = startFlywheelSpin(overlay);
+  return wrapWithCleanup(stage, [cancel, overlay.dispose]);
 };
 
 const meta: Meta<Args> = {
