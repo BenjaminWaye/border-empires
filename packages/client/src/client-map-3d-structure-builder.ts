@@ -59,6 +59,10 @@ export type StructurePieceBuilder = {
   // that animate per-frame call these from their own `update(nowMs)`.
   readonly setMatrixAt: (key: string, index: number, matrix: Matrix4) => void;
   readonly uploadSlot: (key: string) => void;
+  // Resolves a slot's InstancedMesh once so per-frame animation code can call
+  // mesh.setMatrixAt/instanceMatrix directly instead of paying a Map lookup
+  // (via setMatrixAt/uploadSlot) on every animated piece, every frame.
+  readonly getMesh: (key: string) => InstancedMesh | undefined;
 };
 
 export type StructurePieceBuilderInternals = {
@@ -148,6 +152,8 @@ export const createStructurePieceBuilder = (
     slot.mesh.instanceMatrix.needsUpdate = true;
   };
 
+  const getMesh = (key: string): InstancedMesh | undefined => slots.get(key)?.mesh;
+
   const clear = (): void => {
     for (const slot of slots.values()) slot.count = 0;
   };
@@ -166,7 +172,7 @@ export const createStructurePieceBuilder = (
   };
 
   return {
-    builder: { maxTiles, makeSlot, addPiece, setMatrixAt, uploadSlot },
+    builder: { maxTiles, makeSlot, addPiece, setMatrixAt, uploadSlot, getMesh },
     clear,
     commit,
     dispose
