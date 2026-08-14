@@ -1,23 +1,33 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
   <g>
-  <path d="M17 94L33 87L54 87L39 94H17Z" fill="#A8CC71"/>
+  <path d="M36 96 L55 84 H90 L72 96 Z" fill="#A1C76A"/>
+  <path d="M55 84 V56 H90 V84 Z" fill="#8A8478"/>
+  <path d="M90 84 L103 74 V46 L90 56 Z" fill="#454A52"/>
+  <path d="M55 56 L73 46 H103 L90 56 Z" fill="#4C5663"/>
+  <path d="M72 46 V34 H84 V46 Z" fill="#7A5A26"/>
+  <path d="M64 34 L78 26 L92 34 Z" fill="#B3833A"/>
+  <path d="M64 34 L72 38 H94 L86 34 Z" fill="#D4A653"/>
+  <path d="M72 76 L76 70 L82 70 L78 76 L82 78 L76 80 L72 78 Z" fill="#B3833A"/>
+  <circle cx="77" cy="75" r="2" fill="#FFE0A3"/>
 
-  <path d="M18 89L33 79L53 79L38 89H18Z" fill="#7A9B47"/>
-  <path d="M33 79L33 65L53 65L53 79H33Z" fill="#D7E0E8"/>
-  <path d="M53 79L64 71L64 57L53 65V79Z" fill="#94A1AF"/>
-  <path d="M33 65L47 57L64 57L53 65H33Z" fill="#C88D4B"/>
+  <path d="M14 94 L28 85 H46 L33 94 Z" fill="#A1C76A"/>
+  <path d="M28 85 V70 H46 V85 Z" fill="#6B4A30"/>
+  <path d="M46 85 L56 78 V63 L46 70 Z" fill="#54361F"/>
+  <path d="M28 70 L41 63 H56 L46 70 Z" fill="#8C4030"/>
 
-  <path d="M42 91L58 80L81 80L65 91H42Z" fill="#6E8E3D"/>
-  <path d="M58 80L58 62L81 62L81 80H58Z" fill="#E5ECF2"/>
-  <path d="M81 80L95 70L95 52L81 62V80Z" fill="#97A4B2"/>
-  <path d="M58 62L74 52L95 52L81 62H58Z" fill="#D49A57"/>
-  <rect x="66" y="69" width="6" height="11" rx="1.3" fill="#2B3543"/>
+  <path d="M86 95 L99 86 H118 L105 95 Z" fill="#A1C76A"/>
+  <path d="M99 86 V71 H118 V86 Z" fill="#66707E"/>
+  <path d="M118 86 L126 80 V65 L118 71 Z" fill="#454A52"/>
+  <path d="M99 71 L111 65 H126 L118 71 Z" fill="#B5AE9F"/>
 
-  <path d="M72 92L88 81L110 81L94 92H72Z" fill="#86A550"/>
-  <path d="M88 81L88 67L110 67L110 81H88Z" fill="#D3DCE7"/>
-  <path d="M110 81L120 74L120 60L110 67V81Z" fill="#8E9BAA"/>
-  <path d="M88 67L102 60L120 60L110 67H88Z" fill="#BE8343"/>
+  <path d="M46 66 H86" stroke="#66707E" stroke-width="5" stroke-linecap="round"/>
+  <path d="M58 66 L62 72 L66 66 Z" fill="#B5AE9F"/>
+  <path d="M78 66 L82 72 L86 66 Z" fill="#B5AE9F"/>
+  <path d="M64 62 H82" stroke="#1FA9CF" stroke-width="2.5" stroke-linecap="round"/>
 
-  <path d="M44 95L93 95" stroke="#6E9342" stroke-width="4" stroke-linecap="round"/>
+  <path d="M92 92 L97 88 L103 91 L98 96 Z" fill="#454A52"/>
+  <path d="M98 84 L101 87 L99 91 L96 88 Z" fill="#1FA9CF"/>
+
+  <path d="M28 99 H104" stroke="#6F9343" stroke-width="4" stroke-linecap="round"/>
   </g>
 </svg>

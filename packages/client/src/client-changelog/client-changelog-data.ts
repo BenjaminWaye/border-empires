@@ -431,15 +431,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786165552001, // 2026.08.08.2
-    introducedIn: "2026.08.08.2",
-    title: "Clearer Discovery tips",
-    why: "The first-seen tooltips for towns, docks, barbarians, and strategic resources were vague about what each tile actually does or how to use it.",
-    changes: [
-      "Reworded the Town, Dock, Barbarian, Food, Iron, Crystal, and Supply discovery tips to explain what the tile produces and why capturing/settling it matters."
-    ]
-  },
-  {
     createdAt: 1786530000000, // 2026.08.12.3
     introducedIn: "2026.08.12.3",
     title: "Muster ADVANCE flags launch one attack at a time",
@@ -458,6 +449,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Docks now render a dedicated 3D cargo port: timber-and-iron pier, tall brass rotating cargo crane with a visibly suspended crate, steam winch and boiler, compact dockhouse, moored steampunk cargo barge, mooring chains, and small amber lamps.",
       "The 2D dock icon (used where the 3D renderer is off) matches the new look: same crane, pier, cargo and barge, with strong dark outlines so it still reads at a glance.",
       "Docks are unchanged mechanically — this is purely the on-map look."
+    ]
+  },
+  {
+    createdAt: 1786698000000, // 2026.08.14 steampunk town overlays
+    introducedIn: "2026.08.14",
+    title: "Towns now grow from a frontier settlement into a magnificent steampunk metropolis",
+    why: "Town tiles all looked like generic clusters of little houses and huts no matter their population tier — the game tells you a settlement became a Metropolis, but the map didn't show it. Each tier now renders a distinct, hand-built steampunk city that visibly evolves: wood-and-iron shacks and a mechanical water pump (frontier spark), then a working clockwork hall with elevated walkways (growing industry), then factories, brass towers, steam vents and a towering civic engine (industrial metropolis), then a domed civic complex with an elevated transit loop (imperial powerhouse), and finally a colossal three-part brass-and-aether Monument rising above organized districts (wonder of the world) — the same silhouette you see from orbit is the one that greets you when you zoom in.",
+    changes: [
+      "Rebuilt the 3D town overlay from generic hut clusters into five distinct steampunk cities, one per tier, each with its own hero structure: settlement pump + timber shacks, town clockwork hall with gears and lamps, city civic engine with factories/pipes/bridges, great-city domed civic complex with twin brass towers and a transit loop, and metropolis' three-part Monument with flanking pylons, brass bands, glowing aether orbs and radial conduit lines.",
+      "Tier cityscapes now use a shared steampunk palette (dark iron, charcoal, brass, muted stone, amber, aether-blue) with emissive aether/amber glows, and scale up in height and density so the skyline reads at strategic-map zoom.",
+      "Matching 2D flat-color SVG town icons for all five tiers (sand and grass terrain) were redrawn to show the same evolution and city landmarks.",
+      "Towns remain mechanically unchanged — this is purely the on-map look."
     ]
   }
 ];
