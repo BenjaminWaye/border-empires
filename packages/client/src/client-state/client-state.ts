@@ -481,6 +481,11 @@ export const createInitialState = () => ({
     y?: number;
     tileCount?: number;
     raw?: unknown;
+    // Set false only for CHUNK_FULL/CHUNK_BATCH messages the client received
+    // but discarded (stale chunk generation) rather than applying to
+    // state.tiles — omitted (implicitly applied) for every other message
+    // type, which don't go through that generation check.
+    applied?: boolean;
   }>,
   mapRevealEligible: false,
   mapRevealEnabled: false,
