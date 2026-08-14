@@ -417,6 +417,7 @@ import {
   respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
   type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
+import { computeCoastalLandKeys } from "../spawn-placement/spawn-placement.js";
 import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 
 export type { VisibilityAuditSample };
@@ -556,6 +557,14 @@ export class SimulationRuntime {
   // firing on nearly every command at concurrency — turning a "rare" full
   // 200k-tile scan into a dominant main-thread cost.
   private readonly activeMonumentOwnerByType = new Map<MonumentalStructureType, { ownerId: string; tileKey: string }>();
+  // Coastal-land tile-key set for spawn placement (chooseLegacySpawnPlacement),
+  // derived purely from tile.terrain — which never changes after worldgen, so
+  // this is safe to compute once and reuse for the runtime's lifetime. Load
+  // testing showed ensurePlayerHasSpawnTerritory (called once per new player
+  // connecting) recomputing this via a full O(tiles) scan-and-flood-fill on
+  // every single call, costing ~700-900ms per new player at 100-concurrent
+  // scale and dominating WS connect/INIT latency.
+  private coastalLandKeysCache: ReadonlySet<string> | undefined;
   // Tech-tree redesign: per-owner tile-set indexes for the new Manpower
   // buildings, maintained the same way as railDepotTilesByOwner/
   // garrisonHallTilesByOwner above (see refreshEconomicStructureTypeIndexForTile
@@ -1524,6 +1533,19 @@ export class SimulationRuntime {
     });
   }
 
+  // Lazy, and deliberately never cached while this.tiles is still empty — a
+  // cold construction-time call (before hydration populates this.tiles, same
+  // hazard documented on cachedManpowerStructureBonusForPlayer) would
+  // otherwise permanently cache an empty result once hydration does complete,
+  // since terrain-derived data has no other invalidation trigger.
+  private coastalLandKeys(): ReadonlySet<string> {
+    if (this.tiles.size === 0) return this.coastalLandKeysCache ?? new Set<string>();
+    if (!this.coastalLandKeysCache) {
+      this.coastalLandKeysCache = computeCoastalLandKeys([...this.tiles.values()]);
+    }
+    return this.coastalLandKeysCache;
+  }
+
   private respawnContext(): RuntimeRespawnContext {
     return {
       now: this.now,
@@ -1546,7 +1568,8 @@ export class SimulationRuntime {
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
       incrementAuthRecoveryRespawn: () => this.onAuthRecoveryRespawn?.(),
-      incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.()
+      incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.(),
+      coastalLandKeys: () => this.coastalLandKeys()
     };
   }
 
