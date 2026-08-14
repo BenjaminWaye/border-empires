@@ -1199,6 +1199,7 @@ export class SimulationRuntime {
       emitEvent: (event) => this.emitEvent(event),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      playerManpowerCap: (player) => this.playerManpowerCap(player),
       onPlayerStateUpdateSkippedAi: (playerId) => this.onPlayerStateUpdateSkippedAi?.(playerId),
       ...(yieldToEventLoop !== undefined ? { yieldToEventLoop } : {}),
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
