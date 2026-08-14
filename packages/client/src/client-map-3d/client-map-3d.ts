@@ -1895,7 +1895,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     astralDockLaunchFx.update(nowMs);
     aegisLockFx.update(nowMs);
     floatingText.update(nowMs);
-    attackOverlay.tick(nowMs);
+    attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
     for (const overlay of Object.values(resourceBadgeOverlays)) overlay.tick(nowMs);
