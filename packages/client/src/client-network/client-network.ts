@@ -1068,7 +1068,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   });
 
   const MAX_RECENT_TILE_MESSAGES = 50;
-  const recordRecentTileMessage = (msg: Record<string, unknown>, msgType: string): void => {
+  // CHUNK_FULL/CHUNK_BATCH are intentionally excluded from this allowlist —
+  // they're logged explicitly (with an accurate `applied` flag) right next
+  // to the CHUNK_FULL/CHUNK_BATCH handling below, after the generation
+  // check, instead of unconditionally here. Logging them here would record
+  // a message as "received" (with a real tileCount) even when
+  // shouldApplyChunkGeneration went on to discard it as stale, which would
+  // make a diagnostics bundle look like map data arrived when it was
+  // actually dropped.
+  const recordRecentTileMessage = (msg: Record<string, unknown>, msgType: string, applied = true): void => {
     if (
       msgType !== "TILE_DELTA" &&
       msgType !== "TILE_DELTA_BATCH" &&
@@ -1076,10 +1084,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       msgType !== "FOG_UPDATE" &&
       msgType !== "FRONTIER_RESULT" &&
       msgType !== "COMBAT_RESULT" &&
-      // CHUNK_FULL/CHUNK_BATCH are the messages that actually populate
-      // state.tiles on join (see applyChunkTiles below) — without these in
-      // the allowlist, a diagnostics bundle taken during a stuck/black map
-      // load can't show whether any chunk data arrived after the first one.
       msgType !== "CHUNK_FULL" &&
       msgType !== "CHUNK_BATCH"
     ) {
@@ -1105,6 +1109,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       ...(typeof target?.x === "number" ? { x: target.x } : {}),
       ...(typeof target?.y === "number" ? { y: target.y } : {}),
       ...(typeof tiles === "number" ? { tileCount: tiles } : {}),
+      ...(applied ? {} : { applied: false }),
       ...(msgType === "CHUNK_BATCH" && Array.isArray(msg.chunks) ? { raw: { chunkCount: (msg.chunks as unknown[]).length } } : {})
     });
     if (state.recentTileMessages.length > MAX_RECENT_TILE_MESSAGES) {
@@ -1127,7 +1132,12 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     try {
     msg = JSON.parse(ev.data as string) as Record<string, unknown>;
     const msgType = typeof msg.type === "string" ? msg.type : "UNKNOWN";
-    recordRecentTileMessage(msg, msgType);
+    // CHUNK_FULL/CHUNK_BATCH are recorded explicitly below, after the
+    // generation check, so their `applied` flag is accurate — skip them
+    // here to avoid double-logging.
+    if (msgType !== "CHUNK_FULL" && msgType !== "CHUNK_BATCH") {
+      recordRecentTileMessage(msg, msgType);
+    }
     if (
       msgType === "COMMAND_QUEUED" ||
       msgType === "ACTION_ACCEPTED" ||
@@ -1247,13 +1257,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "CHUNK_FULL") {
-      if (!shouldApplyChunkGeneration(msg.generation)) return;
+      const applied = shouldApplyChunkGeneration(msg.generation);
+      recordRecentTileMessage(msg, "CHUNK_FULL", applied);
+      if (!applied) return;
       applyChunkTiles(msg.tilesMaskedByFog as any[]);
       return;
     }
 
     if (msg.type === "CHUNK_BATCH") {
-      if (!shouldApplyChunkGeneration(msg.generation)) return;
+      const applied = shouldApplyChunkGeneration(msg.generation);
+      recordRecentTileMessage(msg, "CHUNK_BATCH", applied);
+      if (!applied) return;
       const chunks = (msg.chunks as Array<{ cx: number; cy: number; tilesMaskedByFog: any[] }>) ?? [];
       for (const chunk of chunks) applyChunkTiles(chunk.tilesMaskedByFog);
       return;
