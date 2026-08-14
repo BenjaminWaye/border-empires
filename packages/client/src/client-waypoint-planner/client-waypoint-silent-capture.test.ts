@@ -44,15 +44,15 @@ describe("silent waypoint capture flow", () => {
   it("ACTION_ACCEPTED preserves the silent flag on the rebuilt capture", () => {
     const source = clientSource("../client-network/client-network.ts");
     // The rewrite at ACTION_ACCEPTED has to read the prior silent flag
-    // before stomping state.capture, then spread it back in.
+    // before stomping state.capture, then hand it back to buildCaptureState
+    // (which only emits `silent` when truthy — see client-siege-tracking.ts).
     expect(source).toContain("const wasSilent = Boolean(state.capture?.silent && state.capture.target.x === target.x && state.capture.target.y === target.y);");
-    expect(source).toMatch(/\.\.\.\(wasSilent \|\| isMusterAdvance \? \{ silent: true/);
+    expect(source).toMatch(/silent: wasSilent \|\| isMusterAdvance/);
   });
 
   it("COMBAT_START-late capture rewrite preserves the silent flag", () => {
     const source = clientSource("../client-network/client-network.ts");
-    expect(source).toContain("const preservedSilent = Boolean(existingCapture?.silent);");
-    expect(source).toMatch(/\.\.\.\(preservedSilent \? \{ silent: true/);
+    expect(source).toMatch(/silent: Boolean\(existingCapture\?\.silent\)/);
   });
 
   it("renderCaptureProgress hides the big overlay when state.capture.silent is set", () => {
