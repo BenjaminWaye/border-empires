@@ -6339,7 +6339,14 @@ describe("simulation runtime", () => {
             economicStructure: { ownerId: "player-1", type: "AETHER_TOWER", status: "active" }
           },
           { x: 2, y: 2, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "SETTLEMENT" } },
-          { x: 2, y: 3, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          {
+            x: 2,
+            y: 3,
+            terrain: "LAND",
+            ownerId: "player-2",
+            ownershipState: "FRONTIER",
+            muster: { ownerId: "player-2", amount: 15, mode: "HOLD", updatedAt: 500 }
+          },
           // §5.4: CRYSTAL supply so AIRPORT/AETHER_TOWER aren't dormant.
           // AIRPORT demands 3 CRYSTAL slots and AETHER_TOWER another 1 (see
           // packages/shared/src/structure-slots/structure-slots.ts), so 4
@@ -6397,6 +6404,14 @@ describe("simulation runtime", () => {
     expect(tile22Delta).toBeDefined();
     expect(tile22Delta!["townJson"]).toBeDefined();
     expect(tile22Delta!["ownerId"]).toBeUndefined();
+
+    // A muster flag staged on a bombed tile is destroyed along with its
+    // manpower, not left behind on the now-neutral tile or refunded.
+    const tile23Delta = tileDeltas.find((d) => d["x"] === 2 && d["y"] === 3);
+    expect(tile23Delta).toBeDefined();
+    expect(tile23Delta!["musterJson"]).toBeFalsy();
+    const defender = runtime.exportState().players.find((p) => p.id === "player-2");
+    expect(defender?.manpower).toBeLessThan(10_010);
 
     // Airport tile should include a bombardCooldownUntil in its economicStructureJson
     const airportDelta = tileDeltas.find((d) => d["x"] === 0 && d["y"] === 0);
@@ -8107,6 +8122,47 @@ describe("simulation runtime — tile shedding", () => {
     expect(shed?.townPopulationTier).toBe("TOWN");
   });
 
+  it("releases a muster flag staged on the shed tile and refunds its manpower to the pool", async () => {
+    // Regression: shedding cleared fort/observatory/siegeOutpost/economicStructure
+    // on the released tile but forgot `muster`, so a staged flag survived
+    // shedding the tile out from under it — mirrors handleUncaptureTileCommand,
+    // which does refund+clear for the same self-abandon scenario.
+    let now = 1_000;
+    const runtime = new SimulationRuntime({
+      now: () => now,
+      initialPlayers: new Map([
+        ["ai-1", buildPlayer("ai-1", { isAi: true, points: 0, manpower: 50 })]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 0,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "ai-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "ai-1", amount: 30, mode: "HOLD", updatedAt: 500 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    now = 60_000;
+    await runtime.tickTileShedding(60_000);
+
+    const state = runtime.exportState();
+    const shed = state.tiles.find((tile) => tile.x === 0 && tile.y === 0);
+    expect(shed?.ownerId).toBeUndefined();
+    expect(shed?.musterJson).toBeFalsy();
+    const player = state.players.find((p) => p.id === "ai-1");
+    // ~80 (50 base + 30 refunded), plus a touch of regen accrued over the tick —
+    // well above the 50 it would be if the refund never happened.
+    expect(player?.manpower).toBeGreaterThan(79);
+    expect(player?.manpower).toBeLessThan(85);
+  });
+
   it("never sheds a SETTLEMENT-tier town, even when it is the player's only eligible tile", async () => {
     let now = 1_000;
     const runtime = new SimulationRuntime({
@@ -8164,7 +8220,8 @@ describe("aether purge", () => {
         terrain: "LAND",
         ownerId: "player-2",
         ownershipState: "FRONTIER",
-        fort: { ownerId: "player-2", status: "active" }
+        fort: { ownerId: "player-2", status: "active" },
+        muster: { ownerId: "player-2", amount: 20, mode: "HOLD", updatedAt: 500 }
       },
       // §5.4: CRYSTAL supply so player-1's Observatory isn't dormant.
       { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
@@ -8252,6 +8309,31 @@ describe("aether purge", () => {
     expect(target?.ownerId).toBeUndefined();
     expect(target?.ownershipState).toBeUndefined();
     expect(target?.fortJson).toContain("\"ownerId\":\"player-2\"");
+  });
+
+  it("destroys a muster flag staged on the purged tile instead of leaving it behind", async () => {
+    // Regression: purging ownership used to spread the target tile forward
+    // (`...target`) without touching `muster`, so a flag staged on the tile
+    // survived the purge — still owned by player-2, still accumulating —
+    // even though the tile itself was now neutral.
+    const runtime = buildAetherLanceRuntime();
+    runtime.submitCommand({
+      commandId: "aether-purge-muster",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "AETHER_LANCE",
+      payloadJson: JSON.stringify({ x: 5, y: 1 })
+    });
+    await Promise.resolve();
+    const state = runtime.exportState();
+    const target = state.tiles.find((tile) => tile.x === 5 && tile.y === 1);
+    expect(target?.ownerId).toBeUndefined();
+    expect(target?.musterJson).toBeFalsy();
+    // The staged manpower is destroyed along with the flag, not refunded.
+    const defender = state.players.find((player) => player.id === "player-2");
+    expect(defender?.manpower).toBe(100);
   });
 
   it("rejects through an enemy Aegis Dome without spending resources", async () => {
