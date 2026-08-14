@@ -386,4 +386,74 @@ describe("muster-gated attacks", () => {
       vi.useRealTimers();
     }
   });
+
+  it("destroys the defender's staged muster manpower on capture instead of refunding it", async () => {
+    vi.useFakeTimers();
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([
+          ["player-1", makePlayer("player-1")],
+          ["player-2", makePlayer("player-2")]
+        ]),
+        initialState: {
+          tiles: [
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              muster: { ownerId: "player-1", amount: 60, mode: "HOLD", updatedAt: 1_000 }
+            },
+            {
+              x: 10,
+              y: 11,
+              terrain: "LAND",
+              ownerId: "player-2",
+              ownershipState: "FRONTIER",
+              muster: { ownerId: "player-2", amount: 10, mode: "HOLD", updatedAt: 1_000 }
+            },
+            // A second SETTLEMENT-tier tile so losing (10,11) doesn't trip
+            // ensureGrossIncomeSettlementForPlayer's zero-income safety net,
+            // which would otherwise place a fresh respawn settlement and
+            // confound the manpower assertion below.
+            {
+              x: 30,
+              y: 30,
+              terrain: "LAND",
+              ownerId: "player-2",
+              ownershipState: "SETTLED",
+              town: { name: "Holdfast", type: "FARMING", populationTier: "SETTLEMENT", population: 800 }
+            }
+          ],
+          activeLocks: []
+        }
+      });
+      runtime.submitCommand({
+        commandId: "muster-attack-destroy",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 1,
+        issuedAt: 1_000,
+        type: "ATTACK",
+        payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 10, toY: 11 })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(COMBAT_LOCK_MS + 100);
+
+      const captured = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
+      expect(captured?.ownerId).toBe("player-1");
+      expect(captured?.musterJson).toBeFalsy();
+
+      // player-2 (the loser) started at 150 manpower — the 10 staged on the
+      // captured flag is destroyed, not folded back into their pool.
+      const defender = runtime.exportPlayerDebugSnapshot().find((p) => p.id === "player-2")!;
+      expect(defender.manpower).toBe(150);
+    } finally {
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });
