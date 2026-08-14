@@ -1075,7 +1075,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       msgType !== "TILE_SNAPSHOT_REPLACE" &&
       msgType !== "FOG_UPDATE" &&
       msgType !== "FRONTIER_RESULT" &&
-      msgType !== "COMBAT_RESULT"
+      msgType !== "COMBAT_RESULT" &&
+      // CHUNK_FULL/CHUNK_BATCH are the messages that actually populate
+      // state.tiles on join (see applyChunkTiles below) — without these in
+      // the allowlist, a diagnostics bundle taken during a stuck/black map
+      // load can't show whether any chunk data arrived after the first one.
+      msgType !== "CHUNK_FULL" &&
+      msgType !== "CHUNK_BATCH"
     ) {
       return;
     }
@@ -1085,13 +1091,21 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       ? (msg.tiles as Array<unknown>).length
       : Array.isArray(msg.updates)
         ? (msg.updates as Array<unknown>).length
-        : undefined;
+        : Array.isArray(msg.tilesMaskedByFog)
+          ? (msg.tilesMaskedByFog as Array<unknown>).length
+          : Array.isArray(msg.chunks)
+            ? (msg.chunks as Array<{ tilesMaskedByFog?: unknown[] }>).reduce(
+                (sum, chunk) => sum + (Array.isArray(chunk.tilesMaskedByFog) ? chunk.tilesMaskedByFog.length : 0),
+                0
+              )
+            : undefined;
     state.recentTileMessages.push({
       ts: Date.now(),
       type: msgType,
       ...(typeof target?.x === "number" ? { x: target.x } : {}),
       ...(typeof target?.y === "number" ? { y: target.y } : {}),
-      ...(typeof tiles === "number" ? { tileCount: tiles } : {})
+      ...(typeof tiles === "number" ? { tileCount: tiles } : {}),
+      ...(msgType === "CHUNK_BATCH" && Array.isArray(msg.chunks) ? { raw: { chunkCount: (msg.chunks as unknown[]).length } } : {})
     });
     if (state.recentTileMessages.length > MAX_RECENT_TILE_MESSAGES) {
       state.recentTileMessages.splice(0, state.recentTileMessages.length - MAX_RECENT_TILE_MESSAGES);
@@ -2938,6 +2952,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
     } catch (error) {
       console.error("[client-network] unhandled message processing error", error, { msgType: msg?.type });
+      recordClientDebugEvent("error", "message-handler", "unhandled-error", {
+        msgType: typeof msg?.type === "string" ? msg.type : "unknown",
+        message: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 };
