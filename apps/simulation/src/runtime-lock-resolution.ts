@@ -172,13 +172,11 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ownerId: lock.playerId,
       ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER"
     };
+    // Capturing a tile destroys any muster flag staged on it — the accumulated
+    // manpower is lost, not refunded to the previous owner's pool. resolvedTarget
+    // never carries `muster` forward (see the object literal above), so the flag
+    // itself is already gone; this just drops the pooled manpower with it.
     const hadMuster = Boolean(previousTarget?.muster);
-    if (previousTarget?.muster?.ownerId && previousTarget.muster.amount > 0) {
-      const musterOwner = context.players.get(previousTarget.muster.ownerId);
-      if (musterOwner) {
-        musterOwner.manpower = Math.min(context.playerManpowerCap(musterOwner), musterOwner.manpower + previousTarget.muster.amount);
-      }
-    }
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
     if (resolvedTarget.ownershipState === "FRONTIER") context.extendFortPatrolGrace(lock.targetKey, context.now() + FORT_PATROL_GRACE_MS);
     else context.clearFortPatrolGrace(lock.targetKey);
@@ -297,13 +295,10 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
   else context.clearFortPatrolGrace(lock.originKey);
   const tileDeltas = [context.tileDeltaFromState(resolvedOrigin)];
 
+  // The origin's muster flag (already stripped via `_discardMuster` above) is
+  // destroyed along with its staged manpower — no refund to the player who
+  // just lost the tile.
   const hadMuster = Boolean(previousOrigin.muster);
-  if (previousOrigin.muster?.ownerId && previousOrigin.muster.amount > 0) {
-    const musterOwner = context.players.get(previousOrigin.muster.ownerId);
-    if (musterOwner) {
-      musterOwner.manpower = Math.min(context.playerManpowerCap(musterOwner), musterOwner.manpower + previousOrigin.muster.amount);
-    }
-  }
 
   if (previousOwnerId === "barbarian-1") {
     const defenderTile = context.tiles.get(lock.targetKey);

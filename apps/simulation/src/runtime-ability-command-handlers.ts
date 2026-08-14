@@ -306,12 +306,16 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     command.commandId,
     command.playerId
   );
+  const hadMuster = Boolean(target.muster);
   const updatedTile: DomainTileState = {
     ...target,
     ownerId: undefined,
     ownershipState: undefined,
     frontierDecayAt: undefined,
-    frontierDecayKind: undefined
+    frontierDecayKind: undefined,
+    // Purging ownership destroys any muster flag staged on the tile — the
+    // accumulated manpower is lost, not refunded.
+    muster: undefined
   };
   context.replaceTileState(targetKey, updatedTile, command.commandId);
   context.emitEvent({
@@ -320,6 +324,14 @@ export function handleAetherLanceCommand(context: RuntimeAbilityCommandContext, 
     playerId: command.playerId,
     tileDeltas: [context.tileDeltaFromState(updatedTile)]
   });
+  if (hadMuster) {
+    context.emitEvent({
+      eventType: "TILE_DELTA_BATCH",
+      commandId: `${command.commandId}:bc`,
+      playerId: "__broadcast__",
+      tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: updatedTile.ownerId, ownershipState: updatedTile.ownershipState, musterJson: "" }]
+    });
+  }
   context.emitPlayerMessage(command, {
     type: "PLAYER_UPDATE",
     points: actor.points,
