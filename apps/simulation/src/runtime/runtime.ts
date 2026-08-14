@@ -33,6 +33,7 @@ import {
   type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
+  type MonumentalStructureType,
   type SlotStructureType
 } from "@border-empires/shared";
 import {
@@ -80,7 +81,7 @@ import {
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, railDepotAlreadyInNetwork, railDepotNetworkLogisticsGuildCountForPlayer, assemblyWorksAlreadyInNetwork, assemblyWorksNetworkGarrisonHallCountForPlayer, censusHallConnectedGranaryCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
-import { monumentClaimOwnerId } from "../monument-uniqueness.js";
+import { isMonumentBaseType } from "../monument-uniqueness.js";
 import { createTownConnectivityState, maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
@@ -547,6 +548,14 @@ export class SimulationRuntime {
   // bonus) — a plain per-structure count, not town-adjacency-scoped, since
   // GARRISON_HALL uses "same_tile" placement and can sit anywhere.
   private readonly garrisonHallTilesByOwner = new Map<string, Set<string>>();
+  // O(1) mirror of monumentClaimOwnerId (§16, monument-uniqueness.ts), keyed
+  // by monument base type. See refreshMonumentOwnerIndexForTile for why: the
+  // O(tiles) scan monumentClaimOwnerId does is fine at its own (rare) call
+  // sites, but cachedManpowerStructureBonusForPlayer below reads monument
+  // ownership on every manpower-cache recompute, which load testing showed
+  // firing on nearly every command at concurrency — turning a "rare" full
+  // 200k-tile scan into a dominant main-thread cost.
+  private readonly activeMonumentOwnerByType = new Map<MonumentalStructureType, { ownerId: string; tileKey: string }>();
   // Tech-tree redesign: per-owner tile-set indexes for the new Manpower
   // buildings, maintained the same way as railDepotTilesByOwner/
   // garrisonHallTilesByOwner above (see refreshEconomicStructureTypeIndexForTile
@@ -1018,6 +1027,14 @@ export class SimulationRuntime {
         let set = this.garrisonHallTilesByOwner.get(tile.economicStructure.ownerId);
         if (!set) { set = new Set<string>(); this.garrisonHallTilesByOwner.set(tile.economicStructure.ownerId, set); }
         set.add(tileKey);
+      }
+      // Populate activeMonumentOwnerByType index (§16, season-unique monuments).
+      if (
+        tile.economicStructure?.ownerId === ownerId &&
+        tile.economicStructure.status === "active" &&
+        isMonumentBaseType(tile.economicStructure.type)
+      ) {
+        this.activeMonumentOwnerByType.set(tile.economicStructure.type, { ownerId, tileKey });
       }
       // Seed the tech-tree redesign's new per-owner structure indexes.
       for (const [structureType, index] of [
@@ -2216,7 +2233,8 @@ export class SimulationRuntime {
       logisticsGuildTilesByOwner: this.logisticsGuildTilesByOwner,
       quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
       granaryTilesByOwner: this.granaryTilesByOwner,
-      censusHallTilesByOwner: this.censusHallTilesByOwner
+      censusHallTilesByOwner: this.censusHallTilesByOwner,
+      activeMonumentOwnerByType: this.activeMonumentOwnerByType
     });
     if (refreshNeutralBeaconIndexForTileImpl({ tileKey, previous, next: tile, neutralBeaconTileKeys: this.neutralBeaconTileKeys })) {
       this.beaconGeneration += 1;
@@ -3204,15 +3222,16 @@ export class SimulationRuntime {
     }
     // Population Bureau (monument, single-per-map): only its owner gets the
     // empire-wide regen bonus, scaling with the count of Manpower-branch
-    // buildings they own. A full-tile scan for monument ownership mirrors
-    // monumentClaimOwnerId's own accepted cost tradeoff (monuments are rare;
-    // this only runs on a manpower-structure-bonus cache miss, not every tick).
+    // buildings they own. Reads the O(1) activeMonumentOwnerByType index
+    // (seeded at boot, maintained incrementally by refreshMonumentOwnerIndexForTile)
+    // rather than scanning all tiles — this fires on every manpower-cache
+    // recompute, which is effectively every command under concurrent load
+    // since manpowerStructureBonusCacheByPlayer is invalidated unconditionally
+    // on every tile-ownership change (§5.4); a full-map scan here was the
+    // dominant main-thread cost under load testing (200k-tile heterogeneous
+    // property access → V8 megamorphic ICs).
     let populationBureauManpowerBuildingCount = 0;
-    // this.tiles isn't populated yet during SimulationRuntime construction
-    // (applyManpowerRegen fires for initial players before tile hydration) —
-    // skip the scan entirely rather than throw; it re-runs correctly on the
-    // next real manpower read once tiles are seeded.
-    if (this.tiles && this.tiles.size > 0 && monumentClaimOwnerId(this.tiles, "POPULATION_BUREAU") === player.id) {
+    if (this.activeMonumentOwnerByType.get("POPULATION_BUREAU")?.ownerId === player.id) {
       populationBureauManpowerBuildingCount =
         garrisonHallCount +
         logisticsGuildCount +

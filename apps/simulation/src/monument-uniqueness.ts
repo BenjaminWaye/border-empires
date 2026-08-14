@@ -45,6 +45,51 @@ export const monumentClaimOwnerId = (
   return undefined;
 };
 
+// Incrementally-maintained mirror of monumentClaimOwnerId, keyed by monument
+// base type instead of requiring a scan. monumentClaimOwnerId's O(tiles) scan
+// is fine at its two call sites (a build-structure command reject-gate and an
+// assembly-completion race, both genuinely rare events) — but
+// cachedManpowerStructureBonusForPlayer (runtime.ts) reads monument ownership
+// on every manpower-cache recompute, and that cache is invalidated
+// unconditionally on every tile-ownership change for every player (§5.4,
+// runtime-tile-index-maintenance.ts). Under concurrent load that turns into a
+// full 200k-tile scan on nearly every EXPAND/ATTACK/SETTLE, which load
+// testing showed dominating main-thread time (V8 megamorphic IC cost from the
+// heterogeneous per-tile property access). This index keeps that read O(1)
+// instead, updated the same way as garrisonHallTilesByOwner/
+// railDepotTilesByOwner et al.: seeded once at boot from a full tile scan,
+// then incrementally maintained per-tile-change via refreshMonumentOwnerIndexForTile.
+export const activeMonumentOnTile = (
+  tile: DomainTileState
+): { type: MonumentalStructureType; ownerId: string } | undefined => {
+  const structure = tile.economicStructure;
+  if (!structure || structure.status !== "active" || !structure.ownerId) return undefined;
+  if (!isMonumentBaseType(structure.type)) return undefined;
+  return { type: structure.type, ownerId: structure.ownerId };
+};
+
+export const refreshMonumentOwnerIndexForTile = (input: {
+  tileKey: string;
+  previous: DomainTileState | undefined;
+  next: DomainTileState;
+  activeMonumentOwnerByType: Map<MonumentalStructureType, { ownerId: string; tileKey: string }>;
+}): void => {
+  const prevMonument = input.previous ? activeMonumentOnTile(input.previous) : undefined;
+  const nextMonument = activeMonumentOnTile(input.next);
+  // Only clear the indexed entry if it still points at THIS tile — a monument
+  // is season-unique (at most one active tile per type, enforced by the
+  // build-command reject gate), but guarding on tileKey keeps this correct
+  // even if that invariant were ever violated instead of silently dropping a
+  // still-valid entry for a different tile of the same type.
+  if (prevMonument && (!nextMonument || nextMonument.type !== prevMonument.type)) {
+    const current = input.activeMonumentOwnerByType.get(prevMonument.type);
+    if (current?.tileKey === input.tileKey) input.activeMonumentOwnerByType.delete(prevMonument.type);
+  }
+  if (nextMonument) {
+    input.activeMonumentOwnerByType.set(nextMonument.type, { ownerId: nextMonument.ownerId, tileKey: input.tileKey });
+  }
+};
+
 // Every other player who owns any of `partTypes` (a monument's 3 component
 // types) — the pool eligible for the race-consolation manpower refund (§16)
 // once someone else finishes the assembly first.

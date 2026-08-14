@@ -1,4 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import type { MonumentalStructureType } from "@border-empires/shared";
+import { refreshMonumentOwnerIndexForTile } from "./monument-uniqueness.js";
 import type { RuntimePlayer, RuntimeTileYieldEconomyContext } from "./runtime-types.js";
 import type { PlayerCandidateIndex } from "./player-candidate-index/player-candidate-index.js";
 import {
@@ -212,6 +214,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   quartermastersOfficeTilesByOwner: Map<string, Set<string>>;
   granaryTilesByOwner: Map<string, Set<string>>;
   censusHallTilesByOwner: Map<string, Set<string>>;
+  activeMonumentOwnerByType: Map<MonumentalStructureType, { ownerId: string; tileKey: string }>;
 }): void => {
   const prevIsFrontier = input.previous?.ownershipState === "FRONTIER" && input.previous?.ownerId && !input.previous.ownerId.startsWith("barbarian-");
   const nextIsFrontier = input.next.ownershipState === "FRONTIER" && input.next.ownerId && !input.next.ownerId.startsWith("barbarian-");
@@ -236,6 +239,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "QUARTERMASTERS_OFFICE", index: input.quartermastersOfficeTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "GRANARY", index: input.granaryTilesByOwner });
   refreshEconomicStructureTypeIndexForTile({ ...input, structureType: "CENSUS_HALL", index: input.censusHallTilesByOwner });
+  refreshMonumentOwnerIndexForTile(input);
 };
 
 /**
