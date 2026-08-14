@@ -6,6 +6,26 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1786214940000, // 2026-08-08
+    introducedIn: "monument-parts-population-bureau-iron-levy",
+    title: "Fixed: Population Bureau and Iron Levy monument parts couldn't be built at all",
+    why: "Every other monument (Imperial Exchange, Worldbreaker Cannon, Aegis Dome, Astral Dock) has a working \"build 3 parts in different Great/Monumental Cities, then place the monument for free\" flow. Population Bureau and Iron Levy's part-building buttons existed in the menu but were wired to nothing — clicking them sent no command — and the final monument itself had no build action at all, so the 3 parts you could never even place had nowhere to go.",
+    changes: [
+      "\"Build Population Bureau Part\" and \"Build The Iron Levy Part\" now actually build, with the same Great City/Monumental City and one-monument-part-per-city rules as the other four monuments.",
+      "Added the missing \"Build Population Bureau\" and \"Build The Iron Levy\" actions — each unlocks once you own 3 of that monument's parts and have researched its tech."
+    ]
+  },
+  {
+    createdAt: 1786217054000, // 2026-08-08
+    introducedIn: "consume-monument-parts-on-build",
+    title: "Building a monument now consumes its 3 Parts, and the monument's own CRYSTAL cost went up to cover it",
+    why: "The 3 Parts you build to unlock a monument (Imperial Exchange, Worldbreaker Cannon, Aegis Dome, Astral Dock, Population Bureau, The Iron Levy) used to just sit there forever after the monument was placed, still eating their CRYSTAL slots for nothing. Now completing the monument clears all 3 Parts automatically, and the monument's own CRYSTAL slot requirement went from 1 to 4 to absorb what they used to occupy.",
+    changes: [
+      "Placing any of the 6 monuments now removes all 3 of your Parts for that monument the moment it completes.",
+      "Each monument's own CRYSTAL slot cost is now 4 (was 1) — no net change to your total CRYSTAL commitment once the Parts are gone."
+    ]
+  },
+  {
     createdAt: 1786305917000, // 2026-08-09
     introducedIn: "unique-monument-components",
     title: "Each monument now has 3 uniquely-named components instead of 3 identical Parts",

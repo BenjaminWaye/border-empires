@@ -1882,7 +1882,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       toroidDelta
     });
     villageEffects.update(nowMs);
-    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs);
+    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs);
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
     siphonFx.update(nowMs);
@@ -1895,7 +1895,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     astralDockLaunchFx.update(nowMs);
     aegisLockFx.update(nowMs);
     floatingText.update(nowMs);
-    attackOverlay.tick(nowMs);
+    attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
     for (const overlay of Object.values(resourceBadgeOverlays)) overlay.tick(nowMs);

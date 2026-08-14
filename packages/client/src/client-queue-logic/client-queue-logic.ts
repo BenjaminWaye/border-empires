@@ -1114,6 +1114,17 @@ export const reconcileActionQueue = (
   state.queuedTargetKeys = nextQueuedKeys;
 };
 
+// TEMPORARY diagnostic instrumentation for a live investigation into pending
+// muster attacks that never promote (see PR history around 2026-08-14).
+// Unconditional (not gated behind the debug-tile localStorage flags) so it
+// shows up in the Settings > Download Diagnostics bundle without any manual
+// setup. Throttled per-target to at most one log per 5s (plus one on any
+// state change) so the 400-entry ring buffer isn't flooded by the 300ms
+// heartbeat this runs on. Remove once the root cause is found.
+const musterPromotionDebugLastLoggedAtByTarget = new Map<string, number>();
+const musterPromotionDebugLastSignatureByTarget = new Map<string, string>();
+const MUSTER_PROMOTION_DEBUG_LOG_INTERVAL_MS = 5_000;
+
 // Check all pending muster attacks; promote those whose muster tile has reached
 // MUSTER_ATTACK_COST into the real action queue.
 export const processPendingMusterAttacks = (
@@ -1144,6 +1155,31 @@ export const processPendingMusterAttacks = (
       closest != null &&
       (deps.isAdjacent(closest.tile.x, closest.tile.y, entry.targetX, entry.targetY) ||
         isDockCrossingBetween(state, closest.tile.x, closest.tile.y, entry.targetX, entry.targetY));
+
+    const musterTile = state.tiles.get(entry.musterTileKey);
+    const required = requiredMusterForTarget(target);
+    const debugPayload = {
+      targetKey,
+      musterTileKey: entry.musterTileKey,
+      musterTileAmount: musterTile?.muster?.amount,
+      musterTileOwnerId: musterTile?.muster?.ownerId,
+      musterTileUpdatedAt: musterTile?.muster?.updatedAt,
+      required,
+      closest: closest ? { x: closest.tile.x, y: closest.tile.y, amount: closest.tile.muster?.amount, dist: closest.dist } : undefined,
+      closestIsAdjacentOrLinked,
+      musterTransitReserved: state.musterTransitByTile.has(entry.musterTileKey),
+      alreadyQueued: state.queuedTargetKeys.has(targetKey),
+      musterRequestedAt: entry.musterRequestedAt
+    };
+    const signature = JSON.stringify(debugPayload);
+    const lastSignature = musterPromotionDebugLastSignatureByTarget.get(targetKey);
+    const lastLoggedAt = musterPromotionDebugLastLoggedAtByTarget.get(targetKey) ?? 0;
+    if (signature !== lastSignature || Date.now() - lastLoggedAt >= MUSTER_PROMOTION_DEBUG_LOG_INTERVAL_MS) {
+      attackSyncLog("pending-muster-attack-check", debugPayload);
+      musterPromotionDebugLastSignatureByTarget.set(targetKey, signature);
+      musterPromotionDebugLastLoggedAtByTarget.set(targetKey, Date.now());
+    }
+
     if (!closest || !closestIsAdjacentOrLinked) {
       if (!dropStuckPendingMusterAttack(state, entry, deps.pushFeed)) remaining.push(entry);
       continue;
@@ -1151,6 +1187,7 @@ export const processPendingMusterAttacks = (
 
     // Muster is ready — promote to action queue.
     if (!state.queuedTargetKeys.has(targetKey)) {
+      attackSyncLog("pending-muster-attack-promoted", { targetKey, closest: { x: closest.tile.x, y: closest.tile.y, amount: closest.tile.muster?.amount }, required });
       state.actionQueue.push({ x: entry.targetX, y: entry.targetY });
       state.queuedTargetKeys.add(targetKey);
       deps.pushFeed(`Muster ready — launching attack on (${entry.targetX}, ${entry.targetY})`, "combat", "info");

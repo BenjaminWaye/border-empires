@@ -44,6 +44,14 @@ jobs:
       # Pause between soak batches so player-1 manpower regenerates; without this
       # every batch after the first starts drained and collects zero samples.
       LOAD_HARNESS_INTER_BATCH_PAUSE_MS: "20000"
+      # Measure ACTION_ACCEPTED latency, not full COMBAT_RESULT/FRONTIER_RESULT
+      # resolution. The gate names (actionAcceptedP95Under300 etc.) are 300-1000ms
+      # thresholds meant for server acceptance latency; EXPAND/ATTACK resolution
+      # is gated by game mechanics (FRONTIER_CLAIM_MS=15000, COMBAT_LOCK_MS=30000
+      # in packages/shared/src/config.ts), not server performance, so waiting for
+      # it against a 15s LOAD_HARNESS_SOAK_TIMEOUT_MS always times out. Without
+      # this the harness collects zero accepted samples on every run.
+      LOAD_HARNESS_WAIT_FOR_RESULT: "0"
 
       LOAD_HARNESS_SLACK_WEBHOOK: ${{ secrets.LOAD_HARNESS_SLACK_WEBHOOK }}
 
@@ -109,6 +117,7 @@ jobs:
       - name: Start simulation (background)
         run: |
           SIMULATION_SQLITE_PATH="$(pwd)/.local-data/${FIXTURE_ASSET}" \
+          SIMULATION_DB_APPLY_SCHEMA=1 \
           SIMULATION_SNAPSHOT_BUILD_INLINE=1 \
           SIMULATION_ENABLE_AI_AUTOPILOT=1 \
           SIMULATION_ENABLE_SYSTEM_AUTOPILOT=1 \
@@ -122,6 +131,7 @@ jobs:
         run: |
           PORT=13101 \
           SIMULATION_ADDRESS=127.0.0.1:50051 \
+          GATEWAY_DB_APPLY_SCHEMA=1 \
           nohup pnpm --filter @border-empires/realtime-gateway run dev > /tmp/gateway.log 2>&1 &
           echo "Gateway starting; log at /tmp/gateway.log"
 

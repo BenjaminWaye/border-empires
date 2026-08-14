@@ -230,7 +230,7 @@ describe("simulation service startup recovery", () => {
       service.startupRecovery.initialState.players?.filter((player) => player.id.startsWith("ai-")).length
     ).toBe(20);
     await service.close();
-  }, 30_000);
+  }, 30_000); // full ruleset worldgen (>1000 tiles) measures 7-9s alone; the file's 10s default isn't enough under full-suite CPU contention. Same override below on the other two full-worldgen tests here.
 
   it("backfills seed tiles for sparse db-backed snapshots while preserving recovered ownership", async () => {
     const commandStore = new InMemorySimulationCommandStore();
@@ -323,7 +323,7 @@ describe("simulation service startup recovery", () => {
     expect(service.startupRecovery.initialState.tiles.some((tile) => tile.ownerId?.startsWith("ai-"))).toBe(true);
     expect(service.startupRecovery.initialState.tiles.some((tile) => tile.dockId)).toBe(true);
     await service.close();
-  });
+  }, 30_000);
 
   it("refreshes the persisted current summary from recovered runtime state on startup", async () => {
     const commandStore = new InMemorySimulationCommandStore();
@@ -381,7 +381,7 @@ describe("simulation service startup recovery", () => {
       })
     );
     await service.close();
-  });
+  }, 30_000);
 
   it("runs startup replay compaction after the service starts listening", async () => {
     const commandStore = new InMemorySimulationCommandStore();

@@ -5,6 +5,7 @@ import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
 import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
 import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js";
+import { clearResolvedIncomingAttack } from "../client-siege-tracking/client-siege-tracking.js";
 
 // Logs every real ownerId/ownershipState change, gated only by the account-level debugTileLoggingEnabled flag (not a specific watched tile).
 const logOwnershipChangeIfAny = (x: number, y: number, before: Tile | undefined, after: Tile | undefined, scope: string): void => {
@@ -82,7 +83,7 @@ export type GatewayTileUpdate = {
   landBiome?: Tile["landBiome"];
   regionType?: Tile["regionType"];
   visibilityState?: VisibilityState;
-  ownershipClearOnly?: boolean;
+  ownershipClearOnly?: boolean; combatJson?: string;
 };
 
 type GatewayTileSyncDeps = {
@@ -325,10 +326,9 @@ export const refreshGatewayDerivedTownSummariesAroundTile = (
 
 const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUpdate, skipRevision = false): boolean => {
   const tileKey = deps.keyFor(update.x, update.y);
-  deps.state.incomingAttacksByTile.delete(tileKey);
   deps.state.pendingCollectVisibleKeys.delete(tileKey);
-
   const existing = deps.state.tiles.get(tileKey);
+  clearResolvedIncomingAttack(deps.state, tileKey, update, existing);
 
   // Broadcast-only ghost-ownership cleanup: sent to every player regardless of visibility (see tile-delta-visibility-filter.ts). Must update stale ownership on a tile we already know about, but must NEVER discover or unfog a tile.
   if (update.ownershipClearOnly === true) {

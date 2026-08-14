@@ -15,6 +15,7 @@ import {
   matchesCurrentFrontierCommand
 } from "../client-frontier-command/client-frontier-command.js";
 import { clearFrontierStatusAlert } from "../client-frontier-status/client-frontier-status.js";
+import { buildCaptureState, clearResolvedIncomingAttack } from "../client-siege-tracking/client-siege-tracking.js";
 import { resetIntegrityWarningIfRecovered } from "../client-hud/client-integrity-warning-storage.js";
 import { applySeasonVictorySnapshot, clearVictoryHoldAlert, raidResultFeedEntry, resetVictoryHoldAlertForNewSeason } from "../client-alerts/client-alerts.js";
 import { applyGatewayInitialState, applyGatewayTileDeltaBatch, normalizeGatewayTileUpdate, refreshAllGatewayDerivedTownSummaries, refreshGatewayDerivedTownSummariesAroundTile } from "../client-gateway-sync/client-gateway-sync.js";
@@ -1474,13 +1475,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       // when the server confirms acceptance.
       const wasSilent = Boolean(state.capture?.silent && state.capture.target.x === target.x && state.capture.target.y === target.y);
       const isMusterAdvance = typeof msg.commandId === "string" && msg.commandId.startsWith("territory-auto:muster-advance:");
-      state.capture = {
-        startAt: state.actionStartedAt || Date.now(),
-        resolvesAt: msg.resolvesAt as number,
-        target,
-        ...(wasSilent || isMusterAdvance ? { silent: true } : {}),
-        ...(isMusterAdvance ? { fromMusterAdvance: true } as const : {}),
-      };
+      state.capture = buildCaptureState({
+        startAt: state.actionStartedAt || Date.now(), resolvesAt: msg.resolvesAt as number, target,
+        origin: msg.origin, actionType: msg.actionType,
+        silent: wasSilent || isMusterAdvance, fromMusterAdvance: isMusterAdvance
+      });
       state.actionTargetKey = targetKey;
       if (!state.actionCurrent) {
         state.actionCurrent = {
@@ -1673,15 +1672,13 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.capture && state.capture.target.x === target.x && state.capture.target.y === target.y ? state.capture : undefined;
       const startAt = existingCapture?.startAt ?? Date.now();
       const resolvesAtForCapture = existingCapture ? Math.min(existingCapture.resolvesAt, resolvesAt) : resolvesAt;
-      const preservedSilent = Boolean(existingCapture?.silent);
-      const preservedFromMusterAdvance = Boolean(existingCapture?.fromMusterAdvance);
-      state.capture = {
-        startAt,
-        resolvesAt: resolvesAtForCapture,
-        target,
-        ...(preservedSilent ? { silent: true } : {}),
-        ...(preservedFromMusterAdvance ? { fromMusterAdvance: true } as const : {}),
-      };
+      // The gateway only emits COMBAT_START for non-EXPAND actions, so an unlabelled one is an ATTACK.
+      state.capture = buildCaptureState({
+        startAt, resolvesAt: resolvesAtForCapture, target,
+        origin: msg.origin ?? existingCapture?.origin,
+        actionType: lockedResult?.attackType ?? state.actionCurrent?.actionType ?? "ATTACK",
+        silent: Boolean(existingCapture?.silent), fromMusterAdvance: Boolean(existingCapture?.fromMusterAdvance)
+      });
       const lockedCombatResult = msg.result as Record<string, unknown> | undefined;
       if (lockedCombatResult) {
         const predictedAlert = combatResolutionAlert(lockedCombatResult, {
@@ -1954,9 +1951,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         const normalizedUpdate = { ...update };
         Object.assign(normalizedUpdate, gatewayNormalizedUpdate);
         const updateKey = keyFor(update.x, update.y);
-        state.incomingAttacksByTile.delete(updateKey);
         state.pendingCollectVisibleKeys.delete(keyFor(update.x, update.y));
         const existing = state.tiles.get(keyFor(update.x, update.y));
+        clearResolvedIncomingAttack(state, updateKey, normalizedUpdate, existing);
         const previousTerrain = existing?.terrain;
         const previousLandBiome = existing?.landBiome;
         const previousRegionType = existing?.regionType;
