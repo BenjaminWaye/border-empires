@@ -23,6 +23,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786796146676, // 2026.08.15.3
+    introducedIn: "2026.08.15.3",
+    title: "Mustering overlay no longer shows \"ready\" before it actually is; ambient audio now defaults off",
+    why: "The Mustering overlay's staged/required readout is smoothed between the sparse (~30s-cadence) server updates by extrapolating from the last observed accumulation rate. That extrapolation was capped at `required`, so once the prediction crossed the threshold — commonly well before the next real server tick, since the rate estimate from a short first sample tends to overshoot — the bar showed a false \"ready\" state for a long stretch before the attack that number is supposed to represent actually fired. Separately, ambient background audio defaulted to on for anyone who'd never touched the setting.",
+    changes: [
+      "The Mustering overlay's staged/required number can no longer visually reach or exceed what's required before a real server update confirms it — it always stays a hair behind reality instead of occasionally lying ahead of it.",
+      "Ambient background audio now defaults to muted; turn it on from Settings if you want it."
+    ]
+  },
+  {
     createdAt: 1786792818601, // 2026.08.15.2
     introducedIn: "2026.08.15.2",
     title: "A muster flag reaching full manpower now actually launches the attack",
