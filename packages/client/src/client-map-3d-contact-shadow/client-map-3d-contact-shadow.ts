@@ -33,9 +33,27 @@ import { CanvasTexture, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry
 // otherwise punch through; `polygonOffset` on the material covers the rest.
 const SURFACE_LIFT_Y = 0.012;
 
-// Under the ground-overlay band (settle tint and friends sit at 5) so a
-// selection tint paints over the shadow rather than under it.
-const RENDER_ORDER = 4;
+// Above every ground-tint layer, not below it — most importantly the
+// ownership overlay (client-map-3d-ownership-overlay.ts), which paints a
+// near-opaque settled/frontier tint at renderOrder 6/7 over essentially every
+// owned or visible tile on the map, and frontierClaimPlate in client-map-3d.ts
+// at renderOrder 7.
+//
+// This module's first version put the decal at renderOrder 4, reasoning only
+// about client-map-3d-settle-overlay.ts's tint (renderOrder 5) and never
+// checking the ownership overlay at all. Three.js draws the transparent pass
+// in ascending renderOrder, so that ordering had the territory tint painting
+// over the shadow on every owned or explored tile — which in a live game is
+// nearly all of them. The result was correct-by-construction and invisible in
+// practice: the decal for the *previous* fix (client-map-3d-structure-overlay
+// coverage in the last PR) never actually reached the screen, which is why
+// extending its coverage to towns/watchtowers/resources changed nothing that
+// could be seen either.
+//
+// A real contact shadow darkens whatever ground color is under it — sitting
+// above the tint is the physically correct order, not just the one that
+// happens to be visible.
+const RENDER_ORDER = 8;
 
 const TEXTURE_SIZE = 128;
 

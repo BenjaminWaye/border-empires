@@ -122,14 +122,18 @@ describe("contact shadow overlay", () => {
     expect(shadowMesh(scene).count).toBe(0);
   });
 
-  // Ground overlays (settle tint and friends) sit at renderOrder 5; the
-  // shadow has to sort under them or it paints over a selection highlight.
-  it("renders in the transparent pass beneath the ground-overlay band", () => {
+  // The ownership overlay (client-map-3d-ownership-overlay.ts) paints a
+  // near-opaque settled/frontier tint at renderOrder 6/7 over nearly every
+  // owned or visible tile. Three.js draws the transparent pass in ascending
+  // renderOrder, so a shadow at or below that sorts underneath and gets
+  // painted over almost everywhere — this module's first version did exactly
+  // that (renderOrder 4) and was invisible in a live game as a result.
+  it("renders in the transparent pass above the ownership-tint band", () => {
     const scene = new Scene();
     createContactShadowOverlay(scene, 4);
     const mesh = shadowMesh(scene);
     const material = Array.isArray(mesh.material) ? mesh.material[0]! : mesh.material;
-    expect(mesh.renderOrder).toBeLessThan(5);
+    expect(mesh.renderOrder).toBeGreaterThan(7);
     expect(material.transparent).toBe(true);
     expect(material.depthWrite).toBe(false);
   });
