@@ -233,7 +233,7 @@ export const openSingleTileActionMenu = (
   clientX: number,
   clientY: number,
   deps: TileActionMenuUiDeps,
-  options: { requestAttackPreview?: boolean; preserveTab?: boolean } = {}
+  options: { requestAttackPreview?: boolean; preserveTab?: boolean; openTab?: TileMenuTab } = {}
 ): void => {
   if ((options.requestAttackPreview ?? true) && tile.ownerId && tile.ownerId !== state.me && !deps.isTileOwnedByAlly(tile)) deps.requestAttackPreviewForTarget(tile);
   state.tileActionMenu.mode = "single";
@@ -248,7 +248,9 @@ export const openSingleTileActionMenu = (
     keyFor: deps.keyFor,
     pickOriginForTarget: deps.pickOriginForTarget
   });
-  if (!options.preserveTab) state.tileActionMenu.activeTab = view.tabs[0] ?? "overview";
+  if (!options.preserveTab) {
+    state.tileActionMenu.activeTab = (options.openTab && view.tabs.includes(options.openTab)) ? options.openTab : (view.tabs[0] ?? "overview");
+  }
   renderTileActionMenu(state, view, clientX, clientY, deps);
 };
 
