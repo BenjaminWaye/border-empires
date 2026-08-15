@@ -301,6 +301,87 @@ describe("renderCaptureProgress", () => {
     expect(captureDismissBtn.style.display).toBe("inline-flex");
   });
 
+  // Regression for a live report: the overlay's extrapolation (added to
+  // smooth the ~30s-tick-driven staged/required readout between real
+  // deltas) previously capped its prediction AT `required`, so once the
+  // extrapolated value crossed the threshold — commonly well before the
+  // next real tick, since the rate estimate from a short first sample
+  // tends to overshoot — the bar showed "ready" (e.g. "60/60") for a long
+  // stretch before the real, promotion-driving amount actually got there.
+  // Capping just under `required` keeps the bar honest: it can approach
+  // but never claim completion ahead of the real data.
+  it("never extrapolates the Mustering readout up to or past required before a real delta confirms it", () => {
+    const makeDom = () => ({
+      captureCardEl: makeElement(),
+      captureWrapEl: makeElement(),
+      captureCancelBtn: makeElement(),
+      captureDismissBtn: makeElement(),
+      captureCloseBtn: makeElement(),
+      captureDownloadDebugBtn: makeElement(),
+      captureBarEl: makeElement(),
+      captureTitleEl: makeElement(),
+      captureTimeEl: makeElement(),
+      captureTargetEl: makeElement()
+    });
+    const deps = (dom: ReturnType<typeof makeDom>) => ({
+      keyFor: (x: number, y: number) => `${x},${y}`,
+      formatCooldownShort: () => "0s",
+      showCaptureAlert: vi.fn(),
+      pushFeed: vi.fn(),
+      finalizePredictedCombat: vi.fn(),
+      ...dom
+    });
+    const musterAmountRateByTile = new Map();
+    const targetTile = { x: 10, y: 20, terrain: "LAND", ownerId: "enemy", ownershipState: "FRONTIER" };
+    const baseState = {
+      captureAlert: undefined,
+      collectVisibleCooldownUntil: 0,
+      capture: undefined,
+      me: "player-1",
+      pendingCombatReveal: undefined,
+      pendingMusterAttacks: [{ targetX: 10, targetY: 20, fromX: 0, fromY: 0, musterTileKey: "0,0" }],
+      musterAmountRateByTile
+    };
+
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    // First real sample: a small amount from a very short first interval —
+    // e.g. 22 staged 7.5s after the flag was created (required is
+    // MUSTER_ATTACK_COST = 60 for a plain, non-fort target).
+    renderCaptureProgress(
+      {
+        ...baseState,
+        tiles: new Map<string, any>([
+          ["0,0", { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", muster: { ownerId: "player-1", amount: 22, mode: "HOLD", updatedAt: now } }],
+          ["10,20", targetTile]
+        ])
+      } as any,
+      deps(makeDom())
+    );
+
+    // 20 seconds later, still no new real delta — a naive linear
+    // extrapolation from a 22/7.5s rate would already be well past 60.
+    (Date.now as any).mockReturnValue(now + 20_000);
+    const dom = makeDom();
+    renderCaptureProgress(
+      {
+        ...baseState,
+        tiles: new Map<string, any>([
+          ["0,0", { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", muster: { ownerId: "player-1", amount: 22, mode: "HOLD", updatedAt: now } }],
+          ["10,20", targetTile]
+        ])
+      } as any,
+      deps(dom)
+    );
+
+    const parts = dom.captureTimeEl.textContent!.split(" / ").map(Number);
+    const staged = parts[0]!;
+    const required = parts[1]!;
+    expect(required).toBe(60);
+    expect(staged).toBeLessThan(required);
+    vi.restoreAllMocks();
+  });
+
   it("hides the Mustering overlay once its entry is dismissed, without touching the pending attack", () => {
     const captureCardEl = makeElement();
     const captureWrapEl = makeElement();

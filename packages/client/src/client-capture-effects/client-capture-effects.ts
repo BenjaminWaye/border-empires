@@ -11,7 +11,15 @@ import type { Tile } from "../client-types.js";
 // so a naive read of `muster.amount` holds flat for up to 30s then jumps.
 // Track the last two observed samples per muster tile and linearly
 // extrapolate between them so the progress bar visibly ticks in between.
-// Re-anchors (and stops extrapolating past `required`) on every real delta.
+// Re-anchors on every real delta.
+//
+// Capped just *below* `required`, never at or above it: promotion out of
+// pendingMusterAttacks is driven by the real (non-extrapolated) amount, so
+// if this were allowed to reach `required` the overlay could show "ready"
+// for a long stretch before the real value actually gets there — the rate
+// estimate from a short first sample commonly overshoots the true 30s-tick
+// pace. Capping just under required keeps the bar always a hair behind
+// reality instead of ever lying ahead of it.
 const extrapolatedMusterAmount = (
   rateByTile: Map<string, { amount: number; at: number; ratePerMs: number }>,
   musterTileKey: string,
@@ -29,7 +37,8 @@ const extrapolatedMusterAmount = (
     return amount;
   }
   const elapsedMs = Math.max(0, Date.now() - prev.at);
-  return Math.min(required > 0 ? required : amount, prev.amount + prev.ratePerMs * elapsedMs);
+  const cap = required > 0 ? Math.max(prev.amount, required - 1) : amount;
+  return Math.min(cap, prev.amount + prev.ratePerMs * elapsedMs);
 };
 
 export const renderCaptureProgress = (
