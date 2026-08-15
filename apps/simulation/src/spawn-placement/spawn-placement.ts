@@ -19,6 +19,25 @@ export type LegacySpawnPlacementInput = {
   tiles: Iterable<DomainTileState>;
   blockedTileKeys?: ReadonlySet<string>;
   rallyAnchor?: { x: number; y: number };
+  // Coastal-land membership depends only on tile.terrain, which never
+  // changes after worldgen — callers that hit this on a hot path (every new
+  // player connecting, via ensurePlayerHasSpawnTerritory) can precompute it
+  // once and pass it here instead of paying the O(tiles) scan-and-flood-fill
+  // in computeCoastalLandKeys on every call. Falls back to computing it
+  // in-line (unchanged behavior) when omitted.
+  coastalLandKeys?: ReadonlySet<string>;
+  // Spatial "is there a settled/town/food tile within radius of (x,y)"
+  // queries, replacing this function's own linear-scan derivation below. The
+  // search loop calls these up to ~24,000 times per spawn attempt, and
+  // settledCoords in particular tracks every OWNED TILE across every player
+  // (not one point per player) — on a mature world that's thousands of
+  // coordinates, and a linear scan against it dominates connect/INIT latency
+  // under load. Hot-path callers pass a grid-backed index (see
+  // SpawnPlacementIndex) instead; falls back to deriving from `tiles` with a
+  // plain per-call linear scan (unchanged behavior) when omitted.
+  hasNearbySettled?: (x: number, y: number, radius: number) => boolean;
+  hasNearbyTown?: (x: number, y: number, radius: number) => boolean;
+  hasNearbyFood?: (x: number, y: number, radius: number) => boolean;
 };
 
 const RALLY_SPAWN_RADIUS = 24;
@@ -47,7 +66,7 @@ const hashString = (value: string): number => {
 
 const nextSeed = (seed: number): number => (Math.imul(seed, 1664525) + 1013904223) >>> 0;
 
-const computeCoastalLandKeys = (tileList: readonly DomainTileState[]): Set<string> => {
+export const computeCoastalLandKeys = (tileList: readonly DomainTileState[]): Set<string> => {
   const landByKey = new Map<string, DomainTileState>();
   const seaKeys = new Set<string>();
   for (const tile of tileList) {
@@ -92,14 +111,7 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   if (tileList.length === 0) return undefined;
 
   const blocked = input.blockedTileKeys ?? new Set<string>();
-  const coastalLandKeys = computeCoastalLandKeys(tileList);
-  const settledCoords = tileList
-    .filter((tile) => tile.ownerId && tile.ownershipState && tile.ownershipState !== "BARBARIAN")
-    .map((tile) => ({ x: tile.x, y: tile.y }));
-  const townCoords = tileList.filter((tile) => tile.town).map((tile) => ({ x: tile.x, y: tile.y }));
-  const foodCoords = tileList
-    .filter((tile) => tile.resource === "FARM" || tile.resource === "FISH")
-    .map((tile) => ({ x: tile.x, y: tile.y }));
+  const coastalLandKeys = input.coastalLandKeys ?? computeCoastalLandKeys(tileList);
   const spawnCandidates = tileList.filter((tile) => {
     const tileKey = simulationTileKey(tile.x, tile.y);
     if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId || blocked.has(tileKey)) return false;
@@ -108,12 +120,26 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   });
   if (spawnCandidates.length === 0) return undefined;
 
-  const hasNearbyTown = (x: number, y: number, radius: number): boolean =>
-    townCoords.some((town) => manhattanDistance(x, y, town.x, town.y) <= radius);
-  const hasNearbyFood = (x: number, y: number, radius: number): boolean =>
-    foodCoords.some((food) => manhattanDistance(x, y, food.x, food.y) <= radius);
-  const hasNearbySpawn = (x: number, y: number, radius: number): boolean =>
-    settledCoords.some((spawn) => chebyshevDistance(x, y, spawn.x, spawn.y) < radius);
+  const hasNearbyTown =
+    input.hasNearbyTown ??
+    ((): ((x: number, y: number, radius: number) => boolean) => {
+      const townCoords = tileList.filter((tile) => tile.town).map((tile) => ({ x: tile.x, y: tile.y }));
+      return (x, y, radius) => townCoords.some((town) => manhattanDistance(x, y, town.x, town.y) <= radius);
+    })();
+  const hasNearbyFood =
+    input.hasNearbyFood ??
+    ((): ((x: number, y: number, radius: number) => boolean) => {
+      const foodCoords = tileList.filter((tile) => tile.resource === "FARM" || tile.resource === "FISH").map((tile) => ({ x: tile.x, y: tile.y }));
+      return (x, y, radius) => foodCoords.some((food) => manhattanDistance(x, y, food.x, food.y) <= radius);
+    })();
+  const hasNearbySpawn =
+    input.hasNearbySettled ??
+    ((): ((x: number, y: number, radius: number) => boolean) => {
+      const settledCoords = tileList
+        .filter((tile) => tile.ownerId && tile.ownershipState && tile.ownershipState !== "BARBARIAN")
+        .map((tile) => ({ x: tile.x, y: tile.y }));
+      return (x, y, radius) => settledCoords.some((spawn) => chebyshevDistance(x, y, spawn.x, spawn.y) < radius);
+    })();
 
   const canSpawnAt = (x: number, y: number, requirements: SpawnRequirements): boolean => {
     if (requirements.minSpawnDistance > 0 && hasNearbySpawn(x, y, requirements.minSpawnDistance)) return false;
