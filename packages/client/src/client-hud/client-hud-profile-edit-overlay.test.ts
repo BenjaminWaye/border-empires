@@ -99,6 +99,36 @@ describe("profile edit overlay", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("stays open when the send fails synchronously, instead of closing as if it saved", async () => {
+    const state = makeState();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const overlayEl = document.createElement("div");
+    overlayEl.innerHTML = profileEditModalHtml(state);
+    document.body.appendChild(overlayEl);
+    const sendGameMessage = vi.fn().mockReturnValue(false);
+    const pushFeed = vi.fn();
+    const onClose = vi.fn();
+    bindProfileEditModal({
+      state,
+      overlayEl,
+      sendGameMessage,
+      pushFeed,
+      updateFirebaseDisplayName: vi.fn().mockResolvedValue(undefined),
+      setPendingDisplayNameChange: vi.fn(),
+      setPendingColorChange: vi.fn(),
+      onClose
+    });
+    const nameInput = overlayEl.querySelector<HTMLInputElement>("[data-profile-edit-name]")!;
+    nameInput.value = "New Name";
+    const saveBtn = overlayEl.querySelector<HTMLButtonElement>("[data-profile-edit-save]")!;
+    saveBtn.click();
+    await flush();
+
+    expect(sendGameMessage).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(overlayEl.innerHTML).not.toBe("");
+  });
+
   it("carries the new name (not the stale one) when both name and colour change", async () => {
     const state = makeState();
     vi.spyOn(window, "confirm").mockReturnValue(true);

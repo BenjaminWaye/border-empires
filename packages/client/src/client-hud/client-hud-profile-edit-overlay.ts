@@ -133,6 +133,16 @@ export const bindProfileEditModal = (args: {
       );
       if (!confirmed) return;
     }
+    // Neither update function reports success/failure back to its caller
+    // (the server confirms asynchronously via PLAYER_UPDATE), so track
+    // whether the synchronous send itself failed (e.g. connection not
+    // ready) to avoid closing the modal as if the save had gone through.
+    let sendFailed = false;
+    const trackedSendGameMessage = (payload: unknown, message?: string): boolean => {
+      const sent = sendGameMessage(payload, message);
+      if (!sent) sendFailed = true;
+      return sent;
+    };
     // Each call forwards the OTHER field's *target* value (not its stale
     // current value) so a combined rename+recolour can't have the second
     // SET_PROFILE revert the first — SET_PROFILE always applies both fields
@@ -141,7 +151,7 @@ export const bindProfileEditModal = (args: {
       await updateSettingsDisplayName(newName, {
         currentName: state.meName,
         currentColor: newColor,
-        sendGameMessage,
+        sendGameMessage: trackedSendGameMessage,
         updateFirebaseDisplayName,
         pushFeed,
         setPendingDisplayNameChange
@@ -151,12 +161,12 @@ export const bindProfileEditModal = (args: {
       await updateSettingsColor(newColor, {
         currentName: newName,
         currentColor,
-        sendGameMessage,
+        sendGameMessage: trackedSendGameMessage,
         pushFeed,
         setPendingColorChange
       });
     }
-    close();
+    if (!sendFailed) close();
   };
 };
 

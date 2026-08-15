@@ -58,7 +58,7 @@ export const settingsHubHtml = (state: Pick<ClientState, "meName" | "authUserLab
 `;
 
 export const settingsAccountPageHtml = (
-  state: Pick<ClientState, "meName" | "authUserLabel" | "me" | "playerColors" | "authReady">
+  state: Pick<ClientState, "meName" | "authUserLabel" | "me" | "playerColors" | "authReady" | "authSessionReady">
 ): string => {
   const color = state.playerColors.get(state.me) ?? "#38b000";
   return `
@@ -68,7 +68,7 @@ export const settingsAccountPageHtml = (
         <span class="settings-account-swatch" style="--swatch: ${color}" aria-hidden="true"></span>
         <span>${state.meName || "Unnamed empire"}</span>
       </div>
-      <button type="button" class="panel-btn" data-settings-edit-profile>Edit Name &amp; Colour</button>
+      <button type="button" class="panel-btn" data-settings-edit-profile ${state.authSessionReady ? "" : "disabled"}>Edit Name &amp; Colour</button>
       <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
     </div>
   `;
