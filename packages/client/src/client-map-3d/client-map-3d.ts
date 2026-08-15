@@ -64,6 +64,7 @@ import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resou
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { createContactShadowOverlay, DEFAULT_CONTACT_SHADOW_RADIUS_TILES } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
@@ -176,7 +177,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES); const barleyFieldOverlay = createBarleyFieldOverlay(scene, MAX_VISIBLE_TILES); const titaniumDepositOverlay = createTitaniumDepositOverlay(scene, MAX_VISIBLE_TILES); const umbriteDepositOverlay = createUmbriteDepositOverlay(scene, MAX_VISIBLE_TILES); const umbriteExtractionRigOverlay = createUmbriteExtractionRigOverlay(scene, MAX_VISIBLE_TILES); const umbriteWeaponsFactoryOverlay = createUmbriteWeaponsFactoryOverlay(scene, MAX_VISIBLE_TILES);
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
   const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
-  const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES);
+  // Shared across every ground occupant below (structures, towns,
+  // watchtowers, resources, deposits) rather than one per overlay module —
+  // see the comment in client-map-3d-contact-shadow.ts.
+  const contactShadowOverlay = createContactShadowOverlay(scene, MAX_VISIBLE_TILES);
+  const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES, contactShadowOverlay);
   const defensibilityOverlay = createDefensibilityOverlay(scene, MAX_VISIBLE_TILES);
 
   // Visual-only demo: ?towndemo=1 fakes a row of 5 tiers near (camX, camY)
@@ -1308,6 +1313,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     barleyFieldOverlay.setDetailEnabled(deps.state.zoom >= BARLEY_DETAIL_MIN_ZOOM);
     attackOverlay.clear();
     settleOverlay.clear();
+    // Cleared before any addInstance/addShadow call below can run this
+    // rebuild, and committed/disposed alongside structureOverlay — see the
+    // shared-ownership comment where contactShadowOverlay is constructed.
+    contactShadowOverlay.clear();
     structureOverlay.clear();
     defensibilityOverlay.clear();
     // Build the dock-endpoint key set the same way the 2D runtime loop
@@ -1496,6 +1505,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
         if (renderedTier && terrain === "LAND") {
           townOverlay.addInstance(x, z, surfaceY, renderedTier);
+          contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
           const tileSeed = wx * 17 + wy * 31;
           if (tile && shouldShowTownSmoke(tile)) {
             // Pale owned-village smoke marks active settled town growth. Capital banners stay
@@ -1548,7 +1558,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         if (tile?.shardSite && terrain === "LAND" && visibility === "visible") {
           shardOverlay.addInstance(x, z, surfaceY, wx, wy);
-        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy); }
+        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy); }
         // Resolve the underlying resource once per tile — used by the
         // resource overlay (for the icon) AND by the structure overlay
         // (so a MINE on a GEMS tile loads its cart with blue crystals
@@ -1566,6 +1576,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             if ((validResources as ReadonlyArray<string>).includes(resolvedResource)) {
               tileResource = resolvedResource as ResourceType;
               if (tileResource === "FARM") { barleyFieldOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "TITANIUM") { titaniumDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "UMBRITE") { umbriteDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else { resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy); }
+              contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
             }
           }
         }
@@ -1577,8 +1588,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const structureType = tile.economicStructure.type as string;
           if (structureType === "UMBRITE_RIG") {
             umbriteExtractionRigOverlay.addInstance(x, z, surfaceY, wx, wy);
+            contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
           } else if (structureType === "UMBRITE_WEAPONS_FACTORY") {
             umbriteWeaponsFactoryOverlay.addInstance(x, z, surfaceY, wx, wy);
+            contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
           } else if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
             const mineResourceHint =
               structureType === "MINE" && (tileResource === "TITANIUM" || tileResource === "GEMS")
@@ -1784,6 +1797,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.commit();
     settleOverlay.commit();
     structureOverlay.commit();
+    contactShadowOverlay.commit();
     defensibilityOverlay.commit();
     const commitMs = performance.now() - commitStartAt;
 
@@ -1992,6 +2006,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.dispose();
     settleOverlay.dispose();
     structureOverlay.dispose();
+    contactShadowOverlay.dispose();
     defensibilityOverlay.dispose();
     forest.dispose();
     villageEffects.dispose();
