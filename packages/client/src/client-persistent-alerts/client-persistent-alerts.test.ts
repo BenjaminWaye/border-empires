@@ -74,6 +74,7 @@ describe("persistent alerts", () => {
   it("creates a persistent alert only for owned unresolved unfed towns", () => {
     const state = {
       me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
       tiles: new Map<string, Tile>([
         ["12,18", unfedTownTile()],
         ["20,22", unfedTownTile({ x: 20, y: 22, ownerId: "enemy" })],
@@ -96,6 +97,7 @@ describe("persistent alerts", () => {
   it("creates a persistent alert for an owned active muster flag", () => {
     const state = {
       me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
       tiles: new Map<string, Tile>([["30,40", musterTile()]])
     };
 
@@ -110,9 +112,43 @@ describe("persistent alerts", () => {
     ]);
   });
 
+  it("creates a persistent alert for a waypoint paused on manpower, anchored at the blocked step's origin", () => {
+    const state = {
+      me: "me",
+      waypoint: [
+        {
+          target: { x: 9, y: 9 },
+          pausedForManpower: true,
+          plan: {
+            target: { x: 9, y: 9 },
+            steps: [{ origin: { x: 7, y: 7 }, target: { x: 8, y: 7 }, action: "EXPAND" as const, durationMs: 0, goldCost: 0, manpowerCost: 10, manpowerMin: 10, throughFog: false, viaDock: false }],
+            totalGold: 0,
+            totalManpower: 0,
+            totalDurationMs: 0,
+            expandCount: 1,
+            attackCount: 0,
+            reachable: true
+          }
+        }
+      ] as import("../client-state/client-state.js").ClientWaypoint[],
+      tiles: new Map<string, Tile>()
+    };
+
+    expect(persistentAlertsForState(state)).toEqual([
+      expect.objectContaining({
+        id: "waypoint_manpower_paused:9,9",
+        kind: "waypoint_manpower_paused",
+        title: "Waypoint paused",
+        x: 7,
+        y: 7
+      })
+    ]);
+  });
+
   it("ignores a muster flag owned by another player even on our own tile", () => {
     const state = {
       me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
       tiles: new Map<string, Tile>([["30,40", musterTile({ muster: { ownerId: "enemy" } })]])
     };
 
@@ -122,6 +158,7 @@ describe("persistent alerts", () => {
   it("shows both HOLD and ADVANCE muster flags", () => {
     const state = {
       me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
       tiles: new Map<string, Tile>([
         ["30,40", musterTile({ x: 30, y: 40, muster: { mode: "HOLD" } })],
         ["31,40", musterTile({ x: 31, y: 40, muster: { mode: "ADVANCE", targetX: 35, targetY: 40 } })]
@@ -165,6 +202,7 @@ describe("persistent alerts", () => {
   it("backfills off-screen locators when the nearest alert candidates are already visible", () => {
     const state = {
       me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
       camX: 10,
       camY: 10,
       persistentAlertLocators: [] as PersistentAlertLocator[],
@@ -218,6 +256,7 @@ describe("persistent alerts", () => {
     ];
     const state = {
       me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
       camX: 10,
       camY: 10,
       persistentAlertLocators: [] as PersistentAlertLocator[],
