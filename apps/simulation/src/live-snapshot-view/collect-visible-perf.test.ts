@@ -3,7 +3,11 @@
  *
  * HARD GATES:
  *   - 250,000 owned tiles, handleCollectVisibleCommand < 100ms wall time
- *   - Correctness: gold + strategic output exactly matches a manual full-scan
+ *   - Correctness: gold is credited and the yield-bearing index contains
+ *     exactly the expected tiles. Strategic resources (FOOD/TITANIUM/CRYSTAL/
+ *     UMBRITE) are slot-based, not a stockpiled per-minute yield (docs/
+ *     manpower-economy-rewrite-plan.md §5.4/§5.6) — see the correctness test
+ *     below for why they are deliberately not asserted here.
  */
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
@@ -336,16 +340,20 @@ describe("yield-bearing tile index: correctness", () => {
     );
     expect(result).toBeDefined();
 
-    // The result must have collected from TOWN tiles and FARM/TITANIUM_WORKS tiles.
-    // We cannot compute exact gold values here without replicating the full economy
-    // engine, but we can assert:
+    // The result must have collected from TOWN tiles, and touched the FARM/
+    // TITANIUM_WORKS tiles via the yield-bearing index (checked below). We
+    // cannot compute exact gold values here without replicating the full
+    // economy engine, but we can assert:
     //   1. gold > 0  (towns produce gold)
-    //   2. strategic.FOOD > 0  (FARM tiles produce FOOD)
-    //   3. strategic.TITANIUM > 0  (TITANIUM_WORKS produces TITANIUM)
-    //   4. tiles > 0 (at least some tiles yielded)
+    //   2. tiles > 0 (at least some tiles yielded)
+    // FOOD/TITANIUM are NOT asserted here: FARM/FISH's food contribution and
+    // TITANIUM_WORKS/UMBRITE_SYNTHESIZER/CRYSTAL_SYNTHESIZER's output are
+    // both slot-based now, not a stockpiled per-minute yield (docs/manpower-
+    // economy-rewrite-plan.md §5.4/§5.6) — passive collection on these tile
+    // types is 0 by design, not a bug. See strategicDailyFromResource
+    // (tile-yield-view.ts) and strategicProductionPerMinuteForResource
+    // (player-runtime-summary.ts) for the same documented retirement.
     expect(result!.gold, "expected positive gold from SETTLEMENT towns").toBeGreaterThan(0);
-    expect(result!.strategic?.FOOD, "expected FOOD from FARM tiles").toBeGreaterThan(0);
-    expect(result!.strategic?.TITANIUM, "expected TITANIUM from TITANIUM_WORKS").toBeGreaterThan(0);
     expect(result!.tiles, "expected touched tiles > 0").toBeGreaterThan(0);
 
     // Verify index contains exactly the yield-bearing tiles (10 towns + 5 farm + 5 ironworks = 20)
