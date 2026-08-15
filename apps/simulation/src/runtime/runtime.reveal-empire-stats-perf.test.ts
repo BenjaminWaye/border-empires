@@ -50,8 +50,11 @@ const revealEmpireStatsDurationMs = async (bulkTileCount: number): Promise<numbe
     { x: 0, y: 0, terrain: "LAND", ownerId: "target-player", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } },
     { x: 1, y: 0, terrain: "LAND", ownerId: "target-player", ownershipState: "SETTLED" },
     { x: 2, y: 0, terrain: "LAND", ownerId: "target-player", ownershipState: "FRONTIER" },
-    // Viewer needs a ready owned observatory to be allowed to reveal.
-    { x: 10, y: 0, terrain: "LAND", ownerId: "viewer", ownershipState: "SETTLED", observatory: { ownerId: "viewer", status: "active" } }
+    // Viewer needs a ready owned observatory to be allowed to reveal — which
+    // needs a CRYSTAL resource slot (structure-slots.ts) to not be dormant,
+    // supplied here by an owned GEMS tile (BASE_SLOTS_BY_TILE_RESOURCE).
+    { x: 10, y: 0, terrain: "LAND", ownerId: "viewer", ownershipState: "SETTLED", observatory: { ownerId: "viewer", status: "active" } },
+    { x: 11, y: 0, terrain: "LAND", ownerId: "viewer", ownershipState: "SETTLED", resource: "GEMS" }
   );
 
   const viewer = { ...makePlayer("viewer"), techIds: new Set<string>(["surveying"]) };
