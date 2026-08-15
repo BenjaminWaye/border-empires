@@ -495,7 +495,7 @@ const chainedBuildAvailabilityFromModule = (
           : state.manpower < totalManpower
             ? `Need ${totalManpower} manpower`
             : "",
-      `${[totalGold > 0 ? `${totalGold} gold` : undefined, `${totalManpower} m.p.`].filter(Boolean).join(", ")} • settle + build • ${Math.round((settleDurationMsForState(state, tile) + structureBuildDurationMs(structureType)) / 60000)}m total`
+      `${totalGold > 0 ? `${totalGold} gold, ` : ""}${totalManpower} m.p. • settle + build • ${Math.round((settleDurationMsForState(state, tile) + structureBuildDurationMs(structureType)) / 60000)}m total`
     ];
   }
   return [
