@@ -25,9 +25,11 @@ import {
 //   [APPROACH_MS, APPROACH_MS+CLASH_MS)   — clash: oscillating melee at the tile center + glyph bursts
 //   [APPROACH_MS+CLASH_MS, endAt)         — rout: winner pushes through, loser scatters/collapses
 // A battle that picks up from an already-visible pre-resolution skirmish (see
-// BattleOverlaySkirmishEntry and client-battle-overlay.ts) skips the approach
-// entirely and starts straight in the clash phase, continuing seamlessly from
-// wherever the skirmish's dots already were instead of restarting.
+// BattleOverlaySkirmishEntry and client-battle-overlay.ts) continues that
+// skirmish's own approach/clash trajectory exactly (same startAt) instead of
+// restarting it — in the overwhelmingly common case the skirmish's own
+// approach already finished, so this lands straight in the clash phase, but
+// either way the dots never jump.
 export const APPROACH_MS = 550;
 export const CLASH_MS = 800;
 export const ROUT_MS = 950;
@@ -126,6 +128,27 @@ export type BattleOverlaySkirmishEntry = {
 
 type DotKit = { offset: number; perpPos: number; freq: number; phase: number };
 type ShardKit = { spawnT: number; angle: number; dist: number; life: number; variant: 0 | 1 };
+
+// Shared by both the resolved-battle approach phase and the pre-resolution
+// skirmish's one-time approach: interpolates a dot from its tile-local entry
+// edge to its formation position (reaching formation at approachT ===
+// FORMATION_T, staggered per-dot by kit.offset), then holds there for the
+// remainder of the approach window. Kept as one function so the two call
+// sites can't drift out of sync with each other.
+const approachLocalXZ = (
+  entryLocalX: number,
+  entryLocalZ: number,
+  approachT: number,
+  kit: DotKit,
+  perpX: number,
+  perpZ: number
+): [number, number] => {
+  const localT = clamp01((approachT - kit.offset) / (FORMATION_T - kit.offset));
+  return [
+    entryLocalX * (1 - localT) + perpX * kit.perpPos,
+    entryLocalZ * (1 - localT) + perpZ * kit.perpPos
+  ];
+};
 
 export type BattleOverlayFx = ReturnType<typeof createBattleOverlayFx>;
 
@@ -240,9 +263,7 @@ export function createBattleOverlayFx(scene: Scene) {
 
           if (nowMs < b.clashAt) {
             const approachT = clamp01((nowMs - b.startAt) / APPROACH_MS);
-            const localT = clamp01((approachT - kit.offset) / (FORMATION_T - kit.offset));
-            lx = entryLocalX * (1 - localT) + perpX * kit.perpPos;
-            lz = entryLocalZ * (1 - localT) + perpZ * kit.perpPos;
+            [lx, lz] = approachLocalXZ(entryLocalX, entryLocalZ, approachT, kit, perpX, perpZ);
           } else if (nowMs < clashEndAt) {
             const osc = Math.sin(nowMs / kit.freq + kit.phase) * 0.06;
             lx = perpX * (kit.perpPos + osc);
@@ -336,9 +357,7 @@ export function createBattleOverlayFx(scene: Scene) {
           let lz: number;
 
           if (approachT < 1) {
-            const localT = clamp01((approachT - kit.offset) / (FORMATION_T - kit.offset));
-            lx = entryLocalX * (1 - localT) + perpX * kit.perpPos;
-            lz = entryLocalZ * (1 - localT) + perpZ * kit.perpPos;
+            [lx, lz] = approachLocalXZ(entryLocalX, entryLocalZ, approachT, kit, perpX, perpZ);
           } else {
             const osc = Math.sin(nowMs / kit.freq + kit.phase) * 0.06;
             lx = perpX * (kit.perpPos + osc);

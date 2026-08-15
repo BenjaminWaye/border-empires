@@ -12,14 +12,6 @@ const TILE_CENTER_OFFSET = 0.5;
 
 let advanceSrcCache: AdvanceMusterFallbackCache;
 
-// When each currently-tracked skirmish was first rendered by this client
-// (performance.now()-scale), keyed by target tile — drives the one-time
-// approach phase in client-map-3d-battle-overlay-fx.ts's skirmish loop.
-// Pruned each tick to whatever's still an active skirmish, so a fight that
-// ends and later restarts on the same tile gets a fresh approach rather than
-// reusing a stale timestamp.
-const skirmishStartTimes = new Map<string, number>();
-
 export function syncCaptureOverlays(
   state: ClientState,
   keyFor: (x: number, y: number) => string,
@@ -134,10 +126,14 @@ export function syncBattleOverlayFx(
   ): void => {
     if (skirmishKeys.has(key)) return;
     skirmishKeys.add(key);
-    let startAt = skirmishStartTimes.get(key);
+    // Also read by registerActiveBattleFromTileDelta (client-battle-overlay
+    // .ts) once the resolution broadcast lands, so a resolved battle can
+    // continue this exact approach trajectory instead of restarting it or
+    // jumping straight to the clash oscillation.
+    let startAt = state.skirmishSeenAt.get(key);
     if (startAt === undefined) {
       startAt = nowMs;
-      skirmishStartTimes.set(key, startAt);
+      state.skirmishSeenAt.set(key, startAt);
     }
     const srcDx = toroidDelta(state.camX, srcX, WORLD_WIDTH);
     const srcDy = toroidDelta(state.camY, srcY, WORLD_HEIGHT);
@@ -184,8 +180,24 @@ export function syncBattleOverlayFx(
     }
   }
 
-  for (const key of skirmishStartTimes.keys()) {
-    if (!skirmishKeys.has(key)) skirmishStartTimes.delete(key);
+  // Prune stale seenAt entries so a fight that ends and later restarts on the
+  // same tile gets a fresh approach instead of reusing an old timestamp.
+  // Deliberately NOT scoped to skirmishKeys (this frame's *drawn* skirmishes)
+  // alone: pushSkirmish above stops firing for a tile the instant its
+  // resolvesAt passes, but the resolution broadcast reliably lands a little
+  // later (server tick + network), and registerActiveBattleFromTileDelta
+  // needs to find this tile's seenAt intact when it does. incomingAttacksByTile
+  // and capture already encode that same grace window in their own eviction
+  // rules, so anything they still reference (or activeBattles now owns) stays.
+  const stillRelevant = new Set(skirmishKeys);
+  for (const key of state.activeBattles.keys()) stillRelevant.add(key);
+  if (state.me) {
+    for (const key of state.incomingAttacksByTile.keys()) stillRelevant.add(key);
+    const capture = state.capture;
+    if (capture?.actionType === "ATTACK") stillRelevant.add(keyFor(capture.target.x, capture.target.y));
+  }
+  for (const key of state.skirmishSeenAt.keys()) {
+    if (!stillRelevant.has(key)) state.skirmishSeenAt.delete(key);
   }
 
   if (entries.length === 0 && skirmishes.length === 0) { battleOverlayFx.clear(); return; }
