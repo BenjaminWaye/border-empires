@@ -378,7 +378,23 @@ export const createInitialState = () => ({
   techTreeScrollTop: 0,
   techTreeZoom: 1,
   actionQueue: [] as Array<{ x: number; y: number; retries?: number; fromWaypoint?: boolean }>,
-  pendingMusterAttacks: [] as Array<{ targetX: number; targetY: number; fromX: number; fromY: number; musterTileKey: string; dismissed?: boolean; musterRequestedAt?: number }>,
+  pendingMusterAttacks: [] as Array<{
+    targetX: number;
+    targetY: number;
+    fromX: number;
+    fromY: number;
+    musterTileKey: string;
+    dismissed?: boolean;
+    musterRequestedAt?: number;
+    // When this entry was first parked. dropStuckPendingMusterAttack's own
+    // timeout only fires when a brand-new flag was just requested
+    // (musterRequestedAt set) — an entry parked against an already-existing
+    // flag has no such field and, if that flag later disappears (cleared,
+    // captured away, or otherwise lost) or amount/required simply never
+    // converge, previously had no expiry at all and could sit forever with
+    // no feedback. This backstops that gap in processPendingMusterAttacks.
+    queuedAt?: number;
+  }>,
   waypoint: [] as ClientWaypoint[],
   frontierLateAckUntilByTarget: new Map<string, number>(),
   developmentQueue: [] as Array<

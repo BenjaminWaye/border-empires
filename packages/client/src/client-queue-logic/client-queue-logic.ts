@@ -1125,6 +1125,16 @@ const musterPromotionDebugLastLoggedAtByTarget = new Map<string, number>();
 const musterPromotionDebugLastSignatureByTarget = new Map<string, string>();
 const MUSTER_PROMOTION_DEBUG_LOG_INTERVAL_MS = 5_000;
 
+// Backstop so a parked attack can never sit in pendingMusterAttacks forever
+// with no feedback. dropStuckPendingMusterAttack (client-muster-attack-gate.ts)
+// only fires when a brand-new flag was just requested (entry.musterRequestedAt
+// set) — an entry parked against an already-existing flag has no such field,
+// so if that flag never becomes usable (cleared, captured away, amount/
+// required never converging, or any other reason) it previously had no
+// expiry at all. This hard cap is independent of *why* it's stuck — it
+// guarantees eventual feedback regardless of which sub-condition is failing.
+const MUSTER_PENDING_HARD_TIMEOUT_MS = 5 * 60 * 1000;
+
 // Check all pending muster attacks; promote those whose muster tile has reached
 // MUSTER_ATTACK_COST into the real action queue.
 export const processPendingMusterAttacks = (
@@ -1158,6 +1168,29 @@ export const processPendingMusterAttacks = (
 
     const musterTile = state.tiles.get(entry.musterTileKey);
     const required = requiredMusterForTarget(target);
+
+    // Hard backstop: no matter which sub-condition below is failing, an
+    // entry parked for this long has clearly stalled — drop it with visible
+    // feedback rather than leaving it silently stuck forever.
+    if (entry.queuedAt != null && Date.now() - entry.queuedAt > MUSTER_PENDING_HARD_TIMEOUT_MS) {
+      attackSyncLog("pending-muster-attack-hard-timeout", {
+        targetKey,
+        musterTileKey: entry.musterTileKey,
+        queuedAt: entry.queuedAt,
+        elapsedMs: Date.now() - entry.queuedAt,
+        musterTileAmount: musterTile?.muster?.amount,
+        musterTileOwnerId: musterTile?.muster?.ownerId,
+        required
+      });
+      state.queuedTargetKeys.delete(targetKey);
+      deps.pushFeed(
+        `Attack on (${entry.targetX}, ${entry.targetY}) never staged enough manpower — cancelled after 5 minutes. Try again.`,
+        "combat",
+        "warn"
+      );
+      continue;
+    }
+
     const debugPayload = {
       targetKey,
       musterTileKey: entry.musterTileKey,
@@ -1583,7 +1616,7 @@ export const processActionQueue = (
             (e) => e.targetX === to.x && e.targetY === to.y
           );
           if (!alreadyPending) {
-            state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey, ...(originAlreadyHasMuster ? {} : { musterRequestedAt: Date.now() }) });
+            state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey, queuedAt: Date.now(), ...(originAlreadyHasMuster ? {} : { musterRequestedAt: Date.now() }) });
             const feedMsg = !closest || !playerHasAnyMuster
               ? `Staging flag near (${to.x}, ${to.y}) — attack queued`
               : `Closest flag is ${closest.dist} tiles away — staging flag closer to front, attack queued`;
