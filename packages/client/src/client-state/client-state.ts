@@ -55,7 +55,7 @@ export type ClientWaypoint = {
   // When true, the waypoint dynamically retargets if the barbarian moves
   // off the original coordinate. Set when the destination tile is owned
   // by barbarian-1.
-  trackBarbarian?: boolean;
+  trackBarbarian?: boolean; pausedForManpower?: boolean; // pausedForManpower: paused on an unaffordable EXPAND leg — see client-waypoint-manpower-pause.ts.
 };
 
 type QueuedOptimisticKind = OptimisticStructureKind;
@@ -276,7 +276,7 @@ export const createInitialState = () => ({
   feedAttentionUntil: 0,
   persistentAlertLocators: [] as Array<{
     id: string;
-    kind: "town_unfed" | "muster_active";
+    kind: "town_unfed" | "muster_active" | "waypoint_manpower_paused";
     x: number;
     y: number;
     screenX: number;

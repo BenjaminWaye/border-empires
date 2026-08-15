@@ -5,7 +5,7 @@ import type { Tile } from "../client-types.js";
 
 export type NotificationCategory = "persistent_alert" | "action_feedback" | "history" | "debug";
 
-export type PersistentAlertKind = "town_unfed" | "muster_active";
+export type PersistentAlertKind = "town_unfed" | "muster_active" | "waypoint_manpower_paused";
 
 export type PersistentAlert = {
   id: string;
@@ -27,7 +27,7 @@ export type PersistentAlertLocator = {
   radius: number;
 };
 
-type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "persistentAlertLocators">;
+type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "waypoint" | "persistentAlertLocators">;
 
 const townLabel = (tile: Tile): string => tile.town?.name || tile.townName || `Town ${tile.x}, ${tile.y}`;
 
@@ -62,7 +62,7 @@ export const notificationCategoryForServerError = (code: string): NotificationCa
   return "action_feedback";
 };
 
-export const persistentAlertsForState = (state: Pick<ClientState, "me" | "tiles">): PersistentAlert[] => {
+export const persistentAlertsForState = (state: Pick<ClientState, "me" | "tiles" | "waypoint">): PersistentAlert[] => {
   const alerts: PersistentAlert[] = [];
   for (const tile of state.tiles.values()) {
     if (tile.ownerId === state.me && shouldShowTownUnfedWarning(tile)) {
@@ -87,6 +87,19 @@ export const persistentAlertsForState = (state: Pick<ClientState, "me" | "tiles"
         severity: "warn"
       });
     }
+  }
+  for (const wp of state.waypoint) {
+    if (!wp.pausedForManpower) continue;
+    const origin = wp.plan.steps[0]?.origin ?? wp.target;
+    alerts.push({
+      id: `waypoint_manpower_paused:${wp.target.x},${wp.target.y}`,
+      kind: "waypoint_manpower_paused",
+      title: "Waypoint paused",
+      detail: `Waiting on manpower to keep expanding toward (${wp.target.x}, ${wp.target.y}).`,
+      x: origin.x,
+      y: origin.y,
+      severity: "warn"
+    });
   }
   return alerts;
 };
