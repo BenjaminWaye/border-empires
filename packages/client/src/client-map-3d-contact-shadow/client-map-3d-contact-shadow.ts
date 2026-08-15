@@ -1,21 +1,30 @@
-// Structures currently sit on the terrain with nothing connecting them to it:
-// there is no shadow map, no `aoMap`, and no ground decal anywhere in the
-// renderer, so every building and tower reads as pasted on top of its tile
-// rather than standing on it.
+// Ground occupants — structures, towns, watchtowers, resources, deposits —
+// sit on the terrain with nothing connecting them to it: there is no shadow
+// map, no `aoMap`, and no ground decal anywhere in the renderer, so
+// everything on the map reads as pasted on top of its tile rather than
+// standing on it.
 //
 // This is the cheap half of that fix. Real shadow mapping is a poor trade at
 // this camera range — the ground footprint at MIN_ZOOM is ~91 tiles deep by up
-// to ~185 wide, so a single 2048² directional map resolves a 1-tile building's
+// to ~185 wide, so a single 2048² directional map resolves a 1-tile object's
 // shadow to ~11 texels (blocky, and it crawls while panning), and the 4096²
 // that would look right costs a ~67MB depth texture on devices that already
 // die allocating the overlay buffers.
 //
-// A soft blob decal under each structure buys most of the perceptual win —
-// grounding — for one extra InstancedMesh and no depth texture. It is also
+// A soft blob decal under each occupant buys most of the perceptual win —
+// grounding — for one shared InstancedMesh and no depth texture. It is also
 // *correct* here rather than a cheat: the sun is set once in
 // client-map-3d-atmosphere.ts and never moves, and the camera has a fixed tilt
 // and no rotation, so the offset and shape of a real contact shadow would be
 // constant anyway.
+//
+// One instance of this overlay is shared across every caller in
+// client-map-3d.ts (see contactShadowOverlay there) rather than each overlay
+// module owning its own: they all use the same MAX_VISIBLE_TILES budget, and
+// giving each of the ~8 callers its own InstancedMesh would preallocate that
+// budget's instance-matrix buffer eight times over for no benefit — the
+// occupancy dedup below already makes a shared instance correct even when two
+// different occupant kinds land on the same tile.
 
 import { CanvasTexture, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry, Quaternion, Scene, Vector3 } from "three";
 
@@ -57,6 +66,12 @@ export type ContactShadowOverlay = {
   readonly commit: () => void;
   readonly dispose: () => void;
 };
+
+// Every occupant this overlay currently shadows (structures, towns,
+// watchtowers, resources, deposits) fits within one tile, so one radius
+// covers them all — a little short of the tile edge grounds the silhouette
+// without bleeding onto a neighbouring tile.
+export const DEFAULT_CONTACT_SHADOW_RADIUS_TILES = 0.42;
 
 // Black at the core falling to fully transparent at the rim. The midpoint
 // stops keep the falloff from reading as a hard-edged dot the way a plain
