@@ -29,9 +29,13 @@ const readStoredVolume = (): number => {
 
 const readStoredMuted = (): boolean => {
   try {
-    return window.localStorage.getItem(MUTED_STORAGE_KEY) === "1";
+    const raw = window.localStorage.getItem(MUTED_STORAGE_KEY);
+    // Default to muted for anyone who hasn't set a preference yet — ambient
+    // audio should be opt-in, not opt-out.
+    if (raw === null) return true;
+    return raw === "1";
   } catch {
-    return false;
+    return true;
   }
 };
 

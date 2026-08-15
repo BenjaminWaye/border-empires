@@ -40,9 +40,15 @@ describe("client-audio", () => {
     expect(getAmbientAudioVolume()).toBe(0.4);
   });
 
-  it("persists the muted flag", () => {
+  it("defaults to muted on a fresh load with no stored preference — ambient audio is opt-in", async () => {
     stubWindowWithoutAudioContext();
-    expect(isAmbientAudioMuted()).toBe(false);
+    vi.resetModules();
+    const fresh = await import("./client-audio.js");
+    expect(fresh.isAmbientAudioMuted()).toBe(true);
+  });
+
+  it("persists the muted flag, and updates it independently of readStoredMuted's own module-load default", () => {
+    stubWindowWithoutAudioContext();
     setAmbientAudioMuted(true);
     expect(isAmbientAudioMuted()).toBe(true);
     setAmbientAudioMuted(false);

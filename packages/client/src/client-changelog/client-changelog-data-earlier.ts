@@ -62,16 +62,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786275426380, // 2026-08-09
-    introducedIn: "worldbreaker-part-models",
-    title: "Worldbreaker Cannon components now render as distinct 3D models",
-    why: "The Worldbreaker Cannon's 3 unique components — The Long Barrel, Fracture Core, and Sky-Marking Array — previously all drew the same generic placeholder in 3D mode, so the monument-in-progress read as a row of identical boxes instead of a piece-by-piece assembly.",
-    changes: [
-      "3D map: each of the Worldbreaker Cannon's 3 components now renders its own dedicated model — a tapered barrel in a brass cradle, a faceted crystal core in an iron containment ring, and a tripod targeting array.",
-      "All three share the monument set's flat-shaded industrial look and its dark iron, aged brass, and stone palette."
-    ]
-  },
-  {
     createdAt: 1786410000000, // 2026-08-10
     introducedIn: "aegis-dome-components",
     title: "Aegis Dome monuments now render a full defensive assembly in 3D mode",
