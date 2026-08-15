@@ -520,9 +520,9 @@ export const applyGatewayTileDeltaBatch = (
   for (const update of updates) {
     // Live deltas only (never the initial bootstrap) — "newly seen" gates first-discovery tips (first town/resource of a kind).
     const tileKey = deps.keyFor(update.x, update.y);
-    const wasKnown = deps.state.tiles.has(tileKey);
-    invalidatedTerrainCache = applyGatewayTileUpdate(deps, update) || invalidatedTerrainCache;
-    if (!wasKnown) { const seenTile = deps.state.tiles.get(tileKey); if (deps.state.discoveryTipQueue) enqueueDiscoveryTipForNewlySeenTile(deps.state.discoveryTipQueue, seenTile, deps.state.authEmail); unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue); }
+    const wasKnown = deps.state.tiles.has(tileKey); const priorOwnerId = deps.state.tiles.get(tileKey)?.ownerId; // priorOwnerId: read before the merge, so an ownership FLIP (not just a first sighting) can also unlock mustering
+    invalidatedTerrainCache = applyGatewayTileUpdate(deps, update) || invalidatedTerrainCache; const seenTile = deps.state.tiles.get(tileKey);
+    if (!wasKnown && deps.state.discoveryTipQueue) enqueueDiscoveryTipForNewlySeenTile(deps.state.discoveryTipQueue, seenTile, deps.state.authEmail); if (seenTile?.ownerId !== priorOwnerId) unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue);
   }
   if (invalidatedTerrainCache) {
     deps.clearRenderCaches?.();
