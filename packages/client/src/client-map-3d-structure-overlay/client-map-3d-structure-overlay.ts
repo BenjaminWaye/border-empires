@@ -1,5 +1,6 @@
 import type { Scene } from "three";
 import { createStructurePieceBuilder } from "../client-map-3d-structure-builder.js";
+import { createContactShadowOverlay } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import {
   ECONOMIC_STRUCTURE_KINDS,
   registerEconomicStructures,
@@ -94,6 +95,11 @@ export const STRUCTURE_KINDS_HANDLED_BY_3D: ReadonlySet<StructureKind> = new Set
   ...POPULATION_BUREAU_PART_STRUCTURE_KINDS
 ]);
 
+// Half-width of a structure's grounding decal, in tiles. Structure footprints
+// vary by family, but they all sit within one tile, and a blob a little short
+// of the tile edge grounds the silhouette without bleeding onto neighbours.
+const STRUCTURE_SHADOW_RADIUS_TILES = 0.42;
+
 export type StructureOverlay = {
   readonly clear: () => void;
   readonly addInstance: (
@@ -116,7 +122,13 @@ type UniformLayoutFn = (
 ) => void;
 
 export const createStructureOverlay = (scene: Scene, maxTiles: number): StructureOverlay => {
-  const { builder, clear: clearBuilder, commit, dispose } = createStructurePieceBuilder(scene, maxTiles);
+  const { builder, clear: clearBuilder, commit: commitBuilder, dispose: disposeBuilder } =
+    createStructurePieceBuilder(scene, maxTiles);
+
+  // One grounding decal per structure. This is the only place every kind
+  // funnels through, so hanging it here keeps all ~10 families covered
+  // without each one having to opt in.
+  const contactShadows = createContactShadowOverlay(scene, maxTiles);
 
   // Economic registers first so its `shared` assets (forge palette +
   // blue crystal) are available to industrial (FOUNDRY/ADV_TITANIUM_WORKS
@@ -177,7 +189,12 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     kind: StructureKind,
     resource: StructureResourceHint = undefined
   ): void => {
-    layouts[kind]?.(sceneX, surfaceY, sceneZ, resource);
+    const layout = layouts[kind];
+    if (!layout) return;
+    layout(sceneX, surfaceY, sceneZ, resource);
+    // Only shadow kinds that actually placed geometry, so an unhandled kind
+    // can't leave a blob sitting on bare ground.
+    contactShadows.addShadow(sceneX, sceneZ, surfaceY, STRUCTURE_SHADOW_RADIUS_TILES);
   };
 
   // Family-local animation state (e.g. mintworks flywheel records) resets
@@ -185,6 +202,17 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   const clear = (): void => {
     economic.clear();
     clearBuilder();
+    contactShadows.clear();
+  };
+
+  const commit = (): void => {
+    commitBuilder();
+    contactShadows.commit();
+  };
+
+  const dispose = (): void => {
+    disposeBuilder();
+    contactShadows.dispose();
   };
 
   return {
