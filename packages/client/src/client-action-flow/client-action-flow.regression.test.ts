@@ -42,8 +42,9 @@ describe("client action flow regressions", () => {
     const source = actionFlowSource();
 
     expect(source).toContain(
-      'const isActiveCaptureTarget = Boolean(state.capture && state.capture.target.x === selected.x && state.capture.target.y === selected.y);'
+      'const isPendingExpansionTarget = (state: Pick<ClientState, "capture">, x: number, y: number): boolean =>\n  Boolean(state.capture && state.capture.actionType === "EXPAND" && state.capture.target.x === x && state.capture.target.y === y);'
     );
+    expect(source).toContain('const isActiveCaptureTarget = isPendingExpansionTarget(state, selected.x, selected.y);');
     expect(source).toContain('if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }');
     expect(source).toContain('if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);');
   });
@@ -54,11 +55,9 @@ describe("client action flow regressions", () => {
     expect(source).toContain('openSingleTileActionMenu(to, clientX, clientY, isActiveCapture ? { openTab: "buildings" } : undefined);');
   });
 
-  it("marks the tile menu view as pending ownership while the player's own expansion is targeting it", () => {
+  it("marks the tile menu view as pending ownership only for the player's own EXPAND capture, not an ATTACK", () => {
     const source = actionFlowSource();
 
-    expect(source).toContain(
-      'pendingOwnershipTile: Boolean(state.capture && state.capture.target.x === menuTile.x && state.capture.target.y === menuTile.y)'
-    );
+    expect(source).toContain('pendingOwnershipTile: isPendingExpansionTarget(state, menuTile.x, menuTile.y)');
   });
 });
