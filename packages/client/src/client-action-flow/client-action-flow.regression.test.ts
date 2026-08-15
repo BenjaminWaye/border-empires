@@ -37,4 +37,28 @@ describe("client action flow regressions", () => {
     expect(source).toContain('if (vis === "fogged") {');
     expect(source).toContain('if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);');
   });
+
+  it("lets the generic build handler queue settle+build on the player's own active frontier-expansion target", () => {
+    const source = actionFlowSource();
+
+    expect(source).toContain(
+      'const isActiveCaptureTarget = Boolean(state.capture && state.capture.target.x === selected.x && state.capture.target.y === selected.y);'
+    );
+    expect(source).toContain('if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }');
+    expect(source).toContain('if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);');
+  });
+
+  it("re-pressing a tile mid own-expansion jumps to the buildings tab instead of the progress tab", () => {
+    const source = actionFlowSource();
+
+    expect(source).toContain('openSingleTileActionMenu(to, clientX, clientY, isActiveCapture ? { openTab: "buildings" } : undefined);');
+  });
+
+  it("marks the tile menu view as pending ownership while the player's own expansion is targeting it", () => {
+    const source = actionFlowSource();
+
+    expect(source).toContain(
+      'pendingOwnershipTile: Boolean(state.capture && state.capture.target.x === menuTile.x && state.capture.target.y === menuTile.y)'
+    );
+  });
 });

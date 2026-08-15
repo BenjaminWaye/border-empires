@@ -147,6 +147,7 @@ import type {
   TileActionDef,
   TileCombatBreakdown,
   TileMenuProgressView,
+  TileMenuTab,
   TileMenuView,
   TileOverviewLine,
   TileTimedProgress,
@@ -557,7 +558,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   // settle-then-build already queued is blocked rather than overwritten.
   const handleBuildAction = (actionId: string, structureType: BuildableStructureType, selected: Tile): void => {
     const targetKey = keyFor(selected.x, selected.y);
-    if (selected.ownerId !== state.me) { hideTileActionMenu(); return; }
+    const isActiveCaptureTarget = Boolean(state.capture && state.capture.target.x === selected.x && state.capture.target.y === selected.y);
+    if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }
     if (selected.ownershipState === "SETTLED") {
       hideTileActionMenu();
       triggerBuildForStructureType(structureType, selected);
@@ -570,8 +572,17 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     state.autoSettleTargets.add(targetKey);
     state.autoBuildTargets.set(targetKey, structureType);
-    pushFeed(`Settling (${selected.x}, ${selected.y}) — settle + build ${structureDisplayLabel(structureType)}.`, "info", "info");
-    requestSettlement(selected.x, selected.y);
+    pushFeed(
+      isActiveCaptureTarget
+        ? `Queued settle + build ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`
+        : `Settling (${selected.x}, ${selected.y}) — settle + build ${structureDisplayLabel(structureType)}.`,
+      "info",
+      "info"
+    );
+    // processAutoSettleTargets fires requestSettlement itself once the tile
+    // actually becomes owned FRONTIER territory (see the runtime tick loop);
+    // calling it here would fail since ownership hasn't landed yet.
+    if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);
     hideTileActionMenu();
   };
 
@@ -1140,7 +1151,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       terrainLabel,
       isTileOwnedByAlly,
       combatBreakdownForTile: attackPreviewBreakdownForTarget,
-      state
+      state,
+      pendingOwnershipTile: Boolean(state.capture && state.capture.target.x === menuTile.x && state.capture.target.y === menuTile.y)
     });
     if (tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) {
       if (verboseTileDebugEnabled()) {
@@ -1299,7 +1311,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const renderTileActionMenu = (view: TileMenuView, clientX: number, clientY: number): void =>
     renderTileActionMenuFromModule(state, view, clientX, clientY, tileActionMenuUiDeps());
 
-  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean }): void => {
+  const openSingleTileActionMenu = (tile: Tile, clientX: number, clientY: number, options?: { requestAttackPreview?: boolean; openTab?: TileMenuTab }): void => {
     if (tile.muster?.ownerId === state.me) {
       musterWatchGuard.noteWatchSent();
       sendGameMessage({ type: "WATCH_MUSTER", x: tile.x, y: tile.y });
@@ -1755,7 +1767,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       const isAlreadyQueued = actionQueueIndexForTileFromModule(state, to.x, to.y) >= 0;
       const isActiveCapture = Boolean(state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y);
       if (isAlreadyQueued || isActiveCapture) {
-        openSingleTileActionMenu(to, clientX, clientY);
+        // Re-pressing a tile mid-frontier-expansion should jump straight to
+        // the buildings tab so a settle + building can be queued to fire
+        // the moment the expansion finishes, instead of defaulting to the
+        // progress tab the player has already seen.
+        openSingleTileActionMenu(to, clientX, clientY, isActiveCapture ? { openTab: "buildings" } : undefined);
         requestAttackPreviewForHover();
         renderHud();
         return;

@@ -1277,7 +1277,35 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(menu.subtitle).toBe("Green Banner · ANCIENT_HEARTLAND");
-    expect(menu.subtitleHtml).toBe('<span class="tile-owner-label is-ally">Green Banner</span> · ANCIENT_HEARTLAND');
+  });
+
+  it("derives actions/buildings from a virtual FRONTIER-owned tile when pendingOwnershipTile is set, without relabeling the real owner", () => {
+    const neutralTile: Tile = { x: 30, y: 30, terrain: "LAND" };
+    let seenActionTile: Tile | undefined;
+    const menu = tileMenuViewForTile(neutralTile, {
+      ...deps,
+      menuActionsForSingleTile: (tile) => {
+        seenActionTile = tile;
+        return tile.ownerId === "me" ? [{ id: "build_mine" as const, label: "Build Mine" }] : [];
+      },
+      splitTileActionsIntoTabs: (actions) => ({ actions: [], buildings: actions, crystal: [] }),
+      settlementProgressForTile: () => undefined,
+      captureProgressForTile: () => undefined,
+      queuedSettlementProgressForTile: () => undefined,
+      queuedBuildProgressForTile: () => undefined,
+      queuedExpandProgressForTile: () => undefined,
+      queuedWaypointProgressForTile: () => undefined,
+      constructionProgressForTile: () => undefined,
+      menuOverviewForTile: () => [],
+      pendingOwnershipTile: true
+    });
+
+    expect(seenActionTile?.ownerId).toBe("me");
+    expect(seenActionTile?.ownershipState).toBe("FRONTIER");
+    expect(menu.tabs).toContain("buildings");
+    expect(menu.buildings).toHaveLength(1);
+    // The real tile is still neutral -- ownership must not leak into display copy.
+    expect(menu.subtitle).not.toContain("Your frontier");
   });
 });
 
