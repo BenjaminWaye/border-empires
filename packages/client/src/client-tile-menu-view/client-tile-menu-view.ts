@@ -670,9 +670,19 @@ export const tileMenuViewForTile = (
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined;
     state: { me: string };
+    /**
+     * True when this tile is the target of the player's own in-progress
+     * frontier expansion — not owned yet, but about to be. Actions/tabs are
+     * then derived from a virtual FRONTIER-owned copy of the tile so a
+     * building can be picked and queued (settle + build) ahead of time; it
+     * fires once the expansion resolves and ownership actually lands (see
+     * autoSettleTargets/autoBuildTargets).
+     */
+    pendingOwnershipTile?: boolean;
   }
 ): TileMenuView => {
-  const actions = deps.menuActionsForSingleTile(tile);
+  const actionSourceTile: Tile = deps.pendingOwnershipTile ? { ...tile, ownerId: deps.state.me, ownershipState: "FRONTIER" } : tile;
+  const actions = deps.menuActionsForSingleTile(actionSourceTile);
   const actionTabs = deps.splitTileActionsIntoTabs(actions);
   const combatBreakdown = actionTabs.actions.some((action) => action.id === "launch_attack")
     ? deps.combatBreakdownForTile?.(tile)
@@ -690,7 +700,7 @@ export const tileMenuViewForTile = (
   const tabs: TileMenuTab[] = [];
   const canShowBuildingsTab =
     !buildBlockedByQueue &&
-    tile.ownerId === deps.state.me &&
+    actionSourceTile.ownerId === deps.state.me &&
     (tile.terrain === "LAND" || Boolean(tile.dockId));
   if (progress) tabs.push("progress");
   if (actionTabs.actions.length > 0) tabs.push("actions");
