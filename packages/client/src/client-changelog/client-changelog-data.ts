@@ -23,6 +23,15 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786792818601, // 2026.08.15.2
+    introducedIn: "2026.08.15.2",
+    title: "A muster flag reaching full manpower now actually launches the attack",
+    why: "Once a muster flag finished staging, the attack was promoted from the waiting list into the real dispatch queue — but nothing then told the queue to actually process it. The 300ms heartbeat that runs the promotion check returns immediately afterward on a guard meant for an unrelated case (handling a stuck server acknowledgement while an attack is already in flight), so a freshly promoted attack just sat in the queue doing nothing unless some unrelated event happened to nudge it — a different click, an incoming tile update, anything. Visibly, the flag would fill up and the attack would simply never fire.",
+    changes: [
+      "A muster flag that finishes staging now dispatches its attack immediately instead of potentially sitting queued indefinitely."
+    ]
+  },
+  {
     createdAt: 1786792013605, // 2026.08.15.1
     introducedIn: "2026.08.15.1",
     title: "A stuck manual attack now cancels itself after 5 minutes instead of parking forever",
