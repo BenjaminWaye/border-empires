@@ -315,6 +315,36 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     expect(state.pendingMusterAttacks).toHaveLength(1);
   });
 
+  // Regression for a permanently-stuck "Mustering..." overlay report:
+  // dropStuckPendingMusterAttack only expires an entry parked against a
+  // brand-new flag (musterRequestedAt set). An entry parked against a flag
+  // that already existed at queue time has no such field, so if it never
+  // becomes usable there was previously no expiry for it at all — it sat
+  // forever with no feedback. processPendingMusterAttacks now has an
+  // unconditional 5-minute hard cap as a backstop.
+  it("drops a pending attack that has been parked past the hard timeout, regardless of cause", () => {
+    const state = createInitialState();
+    state.me = "me";
+
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    state.tiles.set("5,0", target);
+    state.queuedTargetKeys.add("5,0");
+    state.pendingMusterAttacks = [
+      { targetX: 5, targetY: 0, fromX: 4, fromY: 0, musterTileKey: "4,0", queuedAt: Date.now() - 5 * 60 * 1000 - 1 }
+    ];
+
+    const pushFeed = vi.fn();
+    processPendingMusterAttacks(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      pushFeed
+    });
+
+    expect(state.pendingMusterAttacks).toHaveLength(0);
+    expect(state.queuedTargetKeys.has("5,0")).toBe(false);
+    expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("never staged enough manpower"), "combat", "warn");
+  });
+
   // Regression for: SET_MUSTER is fire-and-forget — processActionQueue sends
   // it and optimistically parks the attack with no ack tracking. When the
   // server rejects it (e.g. MUSTER_LIMIT: "max 3 muster tiles per player"),

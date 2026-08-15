@@ -23,6 +23,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786792013605, // 2026.08.15.1
+    introducedIn: "2026.08.15.1",
+    title: "A stuck manual attack now cancels itself after 5 minutes instead of parking forever",
+    why: "A parked attack waiting on a muster flag only had an expiry if the client had just requested a brand-new flag for it. An attack parked against a flag that already existed at queue time had no expiry at all — if that flag never accumulated enough manpower (or the amount/requirement otherwise never converged), the \"Mustering...\" overlay could sit frozen indefinitely with no way out short of a reload. Separately, that overlay's staged/required text was unreadable — the number defaults to near-black text sized for the lighter default capture-bar background, but Mustering uses a dark blue background.",
+    changes: [
+      "A parked attack now cancels itself with a feed message if it hasn't staged enough manpower within 5 minutes, regardless of why it stalled — instead of sitting frozen forever.",
+      "Fixed: the staged/required number on the Mustering overlay was rendered in near-black text on a dark blue background, making it unreadable."
+    ]
+  },
+  {
     createdAt: 1786710132407, // 2026.08.14.1
     introducedIn: "2026.08.14.1",
     title: "Battle dots now animate for the whole attack, not just its last two seconds",
@@ -424,16 +434,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786530000000, // 2026.08.12.3
-    introducedIn: "2026.08.12.3",
-    title: "Muster ADVANCE flags launch one attack at a time",
-    why: "A flag set to ADVANCE re-searched on every automation tick, so it could fire a second attack while its first was still resolving — and an underfunded flag kept re-sending a doomed strike every tick. A flag now waits for its in-flight attack to resolve before launching another, and only fires when it can actually afford the target.",
-    changes: [
-      "Muster flags in ADVANCE mode now wait for their current attack to resolve before launching another.",
-      "A flag that can't afford an attack no longer sends the strike to the server at all."
-    ]
-  },
-  {
     createdAt: 1786622000000, // 2026.08.13.3
     introducedIn: "2026.08.13.3",
     title: "Mintworks flywheels and Umbrite reactor cores now move",
@@ -442,17 +442,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Mintworks flywheel assembly (wheel, spokes, hub and rim) now spins slowly, like its drive machinery is running.",
       "The Umbrite weapons factory's reactor core now gently pulses — the core, fissures and embers breathe in and out like contained power.",
       "Every structure picks its own phase from its tile, so neighbouring buildings never pulse or spin in sync."
-    ]
-  },
-  {
-    createdAt: 1786547200000, // 2026.08.12.11
-    introducedIn: "2026.08.12.11",
-    title: "New 3D dock overlay and matching 2D icon: a working cargo-crane pier",
-    why: "Docks used a placeholder timber-deck look with a mast and flag that read as a boatyard — none of it said 'this tile is how goods move across the ocean'. Replaced it with an actual working port scene: the dock is now a heavy timber-and-iron pier with a large brass cargo crane actively hoisting a crate over the loading deck, backed by a steam winch, boiler and pipe run, a compact dockhouse with amber-lit windows, mooring posts chaining a small steampunk cargo barge alongside, and crates, barrels and lamps that make the pier feel busy and lived-in.",
-    changes: [
-      "Docks now render a dedicated 3D cargo port: timber-and-iron pier, tall brass rotating cargo crane with a visibly suspended crate, steam winch and boiler, compact dockhouse, moored steampunk cargo barge, mooring chains, and small amber lamps.",
-      "The 2D dock icon (used where the 3D renderer is off) matches the new look: same crane, pier, cargo and barge, with strong dark outlines so it still reads at a glance.",
-      "Docks are unchanged mechanically — this is purely the on-map look."
     ]
   },
   {
