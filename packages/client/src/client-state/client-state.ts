@@ -297,6 +297,13 @@ export const createInitialState = () => ({
   // in-flight action for the HUD) so any number of battles — including ones
   // this player isn't a party to — can animate concurrently.
   activeBattles: new Map<string, ActiveBattleOverlay>(),
+  // Keyed by target tile key: when this client first rendered a pre-
+  // resolution skirmish there (performance.now()-scale), NOT the siege's
+  // actual server-side start time — see client-map-3d-capture-overlays.ts
+  // (writer) and client-battle-overlay.ts (reader, so a resolved battle can
+  // continue the skirmish's own in-progress approach instead of restarting
+  // or snapping straight to the clash oscillation).
+  skirmishSeenAt: new Map<string, number>(),
   // Keyed by the muster flag's own tile key (`${x},${y}`) so independent
   // flags can arm, march, and fire concurrently. See client-muster-transit.ts.
   musterTransitByTile: new Map<string, MusterTransitEntry>(),
