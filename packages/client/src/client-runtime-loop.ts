@@ -1672,6 +1672,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       requestViewRefresh: deps.requestViewRefresh
     });
     if (state.pendingMusterAttacks.length > 0) deps.processPendingMusterAttacks(); // queued muster attacks share this heartbeat
+    // A promotion above just pushed a target onto actionQueue with
+    // actionInFlight still false (nothing dispatched yet) — without this,
+    // the early return right below (written for the accept-timeout handling
+    // further down, which only applies once something IS in flight) meant
+    // nothing in this heartbeat ever went on to dispatch the freshly
+    // promoted entry. It would then sit inert in actionQueue forever unless
+    // some unrelated trigger (a different click, an incoming TILE_DELTA,
+    // etc.) happened to call processActionQueue afterward.
+    if (!state.actionInFlight && state.actionQueue.length > 0) deps.processActionQueue();
     if (!state.actionInFlight) return;
     const started = state.actionStartedAt;
     if (!started) return;
