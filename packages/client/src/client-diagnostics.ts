@@ -158,8 +158,13 @@ export const downloadDiagnosticsBundle = (bundle: Record<string, unknown>): void
     window.document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   } catch (error) {
-    // Last-resort: log to console so a developer-tools user can still grab it.
+    // Log to console so a developer-tools user can still grab it, then
+    // rethrow — callers wrap this in their own try/catch to surface a
+    // visible failure (feed message / alert) instead of the click silently
+    // doing nothing, which is indistinguishable from the button being
+    // broken.
     console.error("[diagnostics] download failed", error);
     console.error("[diagnostics] bundle", bundle);
+    throw error;
   }
 };
