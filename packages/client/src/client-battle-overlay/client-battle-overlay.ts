@@ -43,7 +43,7 @@ export type ActiveBattleOverlay = {
  * overlay FX. Purely additive: never touches state.capture or the frontier
  * action-queue HUD. */
 export const registerActiveBattleFromTileDelta = (
-  state: Pick<ClientState, "activeBattles" | "incomingAttacksByTile">,
+  state: Pick<ClientState, "activeBattles" | "skirmishSeenAt">,
   keyFor: (x: number, y: number) => string,
   update: { x: number; y: number; combatJson?: string },
   nowMs: number
@@ -57,15 +57,20 @@ export const registerActiveBattleFromTileDelta = (
   }
   if (!isCombatBroadcastPayload(parsed)) return;
   const key = keyFor(update.x, update.y);
-  // ATTACK_ALERT registers this tile in incomingAttacksByTile well before
-  // the resolution broadcast arrives (see client-network.ts), so by the time
-  // we get here the overlay is almost always already mid-clash from the
-  // indefinite pre-resolution skirmish loop (client-map-3d-battle-overlay-fx
-  // .ts's skirmish rendering). Skip straight to the clash phase in that case
-  // instead of restarting a fresh approach — the dots are already at the
-  // clash point, and replaying the approach would snap them back out to the
-  // tile edge and back in, reading as two disjoint fights instead of one.
-  const clashAt = state.incomingAttacksByTile.has(key) ? nowMs : nowMs + APPROACH_MS;
+  // A pre-resolution skirmish (see client-map-3d-capture-overlays.ts, which
+  // stamps state.skirmishSeenAt the first time this client renders it — for
+  // the defender via ATTACK_ALERT/incomingAttacksByTile, for the attacker via
+  // their own in-flight `capture`) is almost always already visible by the
+  // time we get here. Continue its own approach/clash trajectory exactly —
+  // same startAt, so the approach-phase interpolation in
+  // client-map-3d-battle-overlay-fx.ts picks up mid-stride instead of either
+  // restarting a fresh approach (snapping already-clashing dots back out to
+  // the tile edge) or forcing an immediate clash while the skirmish's own
+  // approach animation was still in flight (snapping mid-approach dots
+  // straight to full formation).
+  const seenAt = state.skirmishSeenAt.get(key);
+  const startAt = seenAt ?? nowMs;
+  const clashAt = seenAt === undefined ? nowMs + APPROACH_MS : Math.max(nowMs, seenAt + APPROACH_MS);
   state.activeBattles.set(key, {
     originX: parsed.originX,
     originY: parsed.originY,
@@ -74,7 +79,7 @@ export const registerActiveBattleFromTileDelta = (
     attackerOwnerId: parsed.attackerOwnerId,
     defenderOwnerId: parsed.defenderOwnerId,
     attackerWon: parsed.attackerWon,
-    startAt: nowMs,
+    startAt,
     clashAt,
     endAt: clashAt + CLASH_MS + ROUT_MS
   });

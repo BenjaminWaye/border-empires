@@ -68,10 +68,13 @@ export const pruneExpiredIncomingAttacks = (state: SiegeState, nowEpochMs: numbe
  *
  * Evicting exactly at `resolvesAt` — which is what those call sites used to do
  * — is what the grace window exists to prevent: the resolution broadcast always
- * lands a little after `resolvesAt`, and registerActiveBattleFromTileDelta
- * checks for a live entry here to decide whether to continue an in-progress
- * clash or restart the approach. Dropping it a beat early makes the resolved
- * battle replay its approach and read as two disjoint fights. */
+ * lands a little after `resolvesAt`, and syncBattleOverlayFx (see
+ * client-map-3d-capture-overlays.ts) keeps a tile's skirmishSeenAt entry alive
+ * for as long as this map still references it, specifically so
+ * registerActiveBattleFromTileDelta can still find that timestamp and continue
+ * the in-progress clash instead of restarting the approach. Dropping it a beat
+ * early makes the resolved battle replay its approach and read as two disjoint
+ * fights. */
 export const drawableIncomingAttack = (state: SiegeState, tileKey: string, nowEpochMs: number): IncomingAttack | undefined => {
   const incoming = state.incomingAttacksByTile.get(tileKey);
   if (!incoming) return undefined;
