@@ -12,6 +12,14 @@ const TILE_CENTER_OFFSET = 0.5;
 
 let advanceSrcCache: AdvanceMusterFallbackCache;
 
+// When each currently-tracked skirmish was first rendered by this client
+// (performance.now()-scale), keyed by target tile — drives the one-time
+// approach phase in client-map-3d-battle-overlay-fx.ts's skirmish loop.
+// Pruned each tick to whatever's still an active skirmish, so a fight that
+// ends and later restarts on the same tile gets a fresh approach rather than
+// reusing a stale timestamp.
+const skirmishStartTimes = new Map<string, number>();
+
 export function syncCaptureOverlays(
   state: ClientState,
   keyFor: (x: number, y: number) => string,
@@ -126,6 +134,11 @@ export function syncBattleOverlayFx(
   ): void => {
     if (skirmishKeys.has(key)) return;
     skirmishKeys.add(key);
+    let startAt = skirmishStartTimes.get(key);
+    if (startAt === undefined) {
+      startAt = nowMs;
+      skirmishStartTimes.set(key, startAt);
+    }
     const srcDx = toroidDelta(state.camX, srcX, WORLD_WIDTH);
     const srcDy = toroidDelta(state.camY, srcY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(state.camX, target.x, WORLD_WIDTH);
@@ -139,6 +152,7 @@ export function syncBattleOverlayFx(
       tgtSurfaceY: Math.max(heightfield.elevationAt(target.x, target.y), heightfield.cornerYAt(target.x, target.y)),
       attackerColor: playerColorFor(attackerOwnerId),
       defenderColor: playerColorFor(defenderOwnerId),
+      startAt,
       hashSeed: target.x * 92821 + target.y
     });
   };
@@ -168,6 +182,10 @@ export function syncBattleOverlayFx(
         pushSkirmish(key, capture.origin.x, capture.origin.y, target, state.me, defenderOwnerId);
       }
     }
+  }
+
+  for (const key of skirmishStartTimes.keys()) {
+    if (!skirmishKeys.has(key)) skirmishStartTimes.delete(key);
   }
 
   if (entries.length === 0 && skirmishes.length === 0) { battleOverlayFx.clear(); return; }
