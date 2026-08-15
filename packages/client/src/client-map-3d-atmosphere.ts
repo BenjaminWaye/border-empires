@@ -10,10 +10,15 @@ import {
   SphereGeometry
 } from "three";
 
-export const SKY_TOP_COLOR = "#000000";
-export const SKY_MID_COLOR = "#000000";
-export const SKY_HORIZON_COLOR = "#000000";
-export const FOG_COLOR = "#000000";
+// Deep blue-violet zenith fading through a soft sky-blue midtone to a warm
+// golden horizon — echoes the sun/fill light pairing below (fff0c0 warm key,
+// ff8a5c warm fill) instead of the flat black void the sky mesh previously
+// rendered regardless of view direction. Fog reuses the horizon color so
+// distant tiles fade into the sky line rather than into black.
+export const SKY_TOP_COLOR = "#2c3e64";
+export const SKY_MID_COLOR = "#7d97c4";
+export const SKY_HORIZON_COLOR = "#e9b98a";
+export const FOG_COLOR = "#e9b98a";
 export const FOG_DENSITY = 0.0042;
 export const SKY_RADIUS = 1800;
 

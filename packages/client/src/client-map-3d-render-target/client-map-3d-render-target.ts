@@ -13,7 +13,7 @@
 //     leaves the canvas permanently blank while the render loop keeps
 //     spinning against a dead context.
 
-import { WebGLRenderer } from "three";
+import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
 import { describeWebGLProbe, webGLProbe } from "../client-webgl-probe/client-webgl-probe.js";
 
 export type WebGLContextGuard = {
@@ -93,7 +93,14 @@ export const createThreeRenderTarget = (
   assertWebGLRendererSupported();
 
   const renderer = new WebGLRenderer({ canvas: glCanvas, antialias: true, alpha: true, powerPreference: "high-performance" });
-  renderer.setPixelRatio(1);
+  // Capped at 2: uncapped devicePixelRatio on a 3x phone would quadruple
+  // fragment cost for a sharpness gain nobody can see past 2x.
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  // Filmic tone mapping gives the painterly terrain/water materials the
+  // highlight rolloff they were tuned to expect instead of clipped, flat sRGB.
+  renderer.outputColorSpace = SRGBColorSpace;
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
 
   return { glCanvas, renderer, contextGuard: installWebGLContextGuard(glCanvas, onContextLost) };
 };
