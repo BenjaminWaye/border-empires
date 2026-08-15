@@ -9,8 +9,12 @@ import { readFileSync } from "node:fs";
 // name captured at login.
 describe("client HUD Settings 'Signed in as' regression", () => {
   it("prefers the live in-game display name over the stale login-time auth label", () => {
-    const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
+    // Moved out of client-hud.ts into the settings hub/sub-page builders as
+    // part of the settings redesign; the line is duplicated on both (the hub
+    // and the Account page still greet the player by name).
+    const settingsPanelSource = readFileSync(new URL("./client-hud-settings-panel.ts", import.meta.url), "utf8");
 
-    expect(hudSource).toContain("<p>Signed in as ${state.meName || state.authUserLabel || \"Guest\"}.</p>");
+    const occurrences = settingsPanelSource.split("Signed in as ${state.meName || state.authUserLabel || \"Guest\"}.").length - 1;
+    expect(occurrences).toBeGreaterThanOrEqual(1);
   });
 });

@@ -13,6 +13,30 @@ export const setAuthStatus = (
   authStatusEl.dataset.tone = tone;
 };
 
+// Populates a row of colour-swatch buttons from server-suggested colours and
+// marks whichever one matches `activeColor` as selected. Shared by the
+// onboarding profile-setup panel and the Settings "Edit Name & Colour"
+// overlay so both pickers behave identically.
+export const syncColorSwatchButtons = (
+  buttons: NodeListOf<HTMLButtonElement> | HTMLButtonElement[],
+  suggestedColors: string[],
+  activeColor: string
+): void => {
+  if (suggestedColors.length) {
+    buttons.forEach((btn, i) => {
+      const c = suggestedColors[i];
+      if (c) {
+        btn.dataset.color = c;
+        btn.style.setProperty("--swatch", c);
+      }
+    });
+  }
+  const normalizedActive = activeColor.toLowerCase();
+  buttons.forEach((btn) => {
+    btn.dataset.selected = btn.dataset.color?.toLowerCase() === normalizedActive ? "true" : "false";
+  });
+};
+
 export const syncAuthPanelState = (
   state: Pick<ClientState, "profileSetupRequired" | "suggestedColors">,
   deps: {
@@ -25,20 +49,7 @@ export const syncAuthPanelState = (
 ): void => {
   deps.authPanelEl.dataset.mode = state.profileSetupRequired ? "setup" : deps.authEmailLinkSentTo ? "sent" : "login";
   deps.authEmailSentAddressEl.textContent = deps.authEmailLinkSentTo;
-  // Phase 9: populate swatch buttons from server-suggested colours
-  if (state.suggestedColors.length) {
-    deps.authColorPresetButtons.forEach((btn, i) => {
-      const c = state.suggestedColors[i];
-      if (c) {
-        btn.dataset.color = c;
-        btn.style.setProperty("--swatch", c);
-      }
-    });
-  }
-  const activeColor = deps.authProfileColorEl.value.toLowerCase();
-  deps.authColorPresetButtons.forEach((btn) => {
-    btn.dataset.selected = btn.dataset.color?.toLowerCase() === activeColor ? "true" : "false";
-  });
+  syncColorSwatchButtons(deps.authColorPresetButtons, state.suggestedColors, deps.authProfileColorEl.value);
 };
 
 export const syncAuthOverlay = (
