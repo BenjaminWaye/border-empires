@@ -25,7 +25,7 @@ const stubWindowWithoutAudioContext = (): Map<string, string> => {
 describe("client-audio", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("does nothing and does not throw when the Web Audio API is unavailable", () => {
+  it("does nothing and does not throw when Audio is unavailable", () => {
     stubWindowWithoutAudioContext();
     expect(() => startAmbientAudio()).not.toThrow();
   });
@@ -40,11 +40,11 @@ describe("client-audio", () => {
     expect(getAmbientAudioVolume()).toBe(0.4);
   });
 
-  it("defaults to muted on a fresh load with no stored preference — ambient audio is opt-in", async () => {
+  it("defaults to unmuted on a fresh load with no stored preference — the soundtrack is on by default", async () => {
     stubWindowWithoutAudioContext();
     vi.resetModules();
     const fresh = await import("./client-audio.js");
-    expect(fresh.isAmbientAudioMuted()).toBe(true);
+    expect(fresh.isAmbientAudioMuted()).toBe(false);
   });
 
   it("persists the muted flag, and updates it independently of readStoredMuted's own module-load default", () => {

@@ -1,19 +1,22 @@
-// Procedural ambient background sound for Border Empires. Built entirely
-// from Web Audio API oscillators rather than a licensed music file, so
-// there's nothing to source, license, or ship as a binary asset.
+// Background soundtrack for Border Empires — loops through the two music
+// tracks in /audio, playing one after another and wrapping back to the
+// start. Uses a plain HTMLAudioElement rather than the Web Audio API so it
+// works the same everywhere <audio> does.
 //
 // Playback only starts after the player's first pointer/key interaction —
-// browsers block audio autoplay before a user gesture — and stays at a low
-// default level so it reads as background ambience, not foreground music.
-// Volume/mute are persisted device-wide (not per-account: it's a playback
-// preference like a browser's own volume control, not game state).
+// browsers block audio autoplay before a user gesture. Volume/mute are
+// persisted device-wide (not per-account: it's a playback preference like a
+// browser's own volume control, not game state), and the soundtrack is on
+// by default.
 
 const VOLUME_STORAGE_KEY = "be-ambient-audio-volume";
 const MUTED_STORAGE_KEY = "be-ambient-audio-muted";
 const DEFAULT_VOLUME = 0.35;
 
-let audioContext: AudioContext | undefined;
-let masterGain: GainNode | undefined;
+const TRACK_URLS = ["/audio/aether-forger-frontier.m4a", "/audio/aetherium-frontier.m4a"];
+
+let audioElement: HTMLAudioElement | undefined;
+let trackIndex = 0;
 let started = false;
 
 const readStoredVolume = (): number => {
@@ -30,12 +33,12 @@ const readStoredVolume = (): number => {
 const readStoredMuted = (): boolean => {
   try {
     const raw = window.localStorage.getItem(MUTED_STORAGE_KEY);
-    // Default to muted for anyone who hasn't set a preference yet — ambient
-    // audio should be opt-in, not opt-out.
-    if (raw === null) return true;
+    // Default to unmuted for anyone who hasn't set a preference yet — the
+    // background soundtrack is on by default.
+    if (raw === null) return false;
     return raw === "1";
   } catch {
-    return true;
+    return false;
   }
 };
 
@@ -43,67 +46,29 @@ let volume = readStoredVolume();
 let muted = readStoredMuted();
 
 const applyGain = (): void => {
-  if (!audioContext || !masterGain) return;
-  const target = muted ? 0 : volume;
-  masterGain.gain.setTargetAtTime(target, audioContext.currentTime, 0.4);
+  if (!audioElement) return;
+  audioElement.volume = muted ? 0 : volume;
 };
 
-// Three slightly-detuned low oscillators through a slow-sweeping lowpass
-// filter — reads as a living machine hum (fitting the steampunk setting)
-// rather than a static tone.
-const buildAmbientGraph = (ctx: AudioContext, destination: GainNode): void => {
-  const filter = ctx.createBiquadFilter();
-  filter.type = "lowpass";
-  filter.frequency.value = 400;
-  filter.Q.value = 0.7;
-  filter.connect(destination);
-
-  const filterLfo = ctx.createOscillator();
-  filterLfo.frequency.value = 0.05;
-  const filterLfoGain = ctx.createGain();
-  filterLfoGain.gain.value = 180;
-  filterLfo.connect(filterLfoGain);
-  filterLfoGain.connect(filter.frequency);
-  filterLfo.start();
-
-  const partials: Array<{ freq: number; type: OscillatorType; gain: number }> = [
-    { freq: 55, type: "sawtooth", gain: 0.5 },
-    { freq: 82.41, type: "sine", gain: 0.28 },
-    { freq: 110.3, type: "sine", gain: 0.18 }
-  ];
-  for (const { freq, type, gain } of partials) {
-    const osc = ctx.createOscillator();
-    osc.type = type;
-    osc.frequency.value = freq;
-    const oscGain = ctx.createGain();
-    oscGain.gain.value = gain;
-    osc.connect(oscGain);
-    oscGain.connect(filter);
-    osc.start();
-  }
+const playTrack = (index: number): void => {
+  if (!audioElement) return;
+  trackIndex = ((index % TRACK_URLS.length) + TRACK_URLS.length) % TRACK_URLS.length;
+  audioElement.src = TRACK_URLS[trackIndex] as string;
+  applyGain();
+  void audioElement.play();
 };
 
-const resolveAudioContextCtor = (): typeof AudioContext | undefined => {
-  if (typeof window === "undefined") return undefined;
-  return window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-};
-
-/** Builds the audio graph and begins playback. Safe to call more than once — only the first call does anything. */
+/** Builds the audio element and begins playback. Safe to call more than once — only the first call does anything. */
 export const startAmbientAudio = (): void => {
   if (started) return;
-  const Ctx = resolveAudioContextCtor();
-  if (!Ctx) return;
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
   started = true;
-  audioContext = new Ctx();
-  masterGain = audioContext.createGain();
-  masterGain.gain.value = 0;
-  masterGain.connect(audioContext.destination);
-  buildAmbientGraph(audioContext, masterGain);
-  applyGain();
-  if (audioContext.state === "suspended") void audioContext.resume();
+  audioElement = new Audio();
+  audioElement.addEventListener("ended", () => playTrack(trackIndex + 1));
+  playTrack(0);
 };
 
-/** Registers one-time listeners that start ambient audio on the player's first interaction with the page, and pause it while the tab is hidden. */
+/** Registers one-time listeners that start the soundtrack on the player's first interaction with the page, and pause it while the tab is hidden. */
 export const initClientAudio = (): void => {
   if (typeof window === "undefined" || typeof document === "undefined") return;
   const unlock = (): void => {
@@ -114,9 +79,9 @@ export const initClientAudio = (): void => {
   window.addEventListener("pointerdown", unlock, { once: true });
   window.addEventListener("keydown", unlock, { once: true });
   document.addEventListener("visibilitychange", () => {
-    if (!audioContext) return;
-    if (document.hidden) void audioContext.suspend();
-    else if (!muted) void audioContext.resume();
+    if (!audioElement) return;
+    if (document.hidden) audioElement.pause();
+    else if (!muted) void audioElement.play();
   });
 };
 
