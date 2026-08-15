@@ -103,7 +103,8 @@ export const createThreeRenderTarget = (
   renderer.setPixelRatio(
     pixelRatioFor({
       devicePixelRatio: window.devicePixelRatio,
-      previousAttemptSurvived: previousAttempt === undefined ? undefined : previousAttempt.phase === "survived"
+      previousAttemptDiedDuringAllocation:
+        previousAttempt === undefined ? undefined : previousAttempt.phase === "init-started"
     })
   );
 
