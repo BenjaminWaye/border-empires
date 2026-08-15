@@ -161,7 +161,8 @@ body {
   color: #8c95a6;
 }
 
-#auth-card input {
+#auth-card input,
+.auth-style-input {
   min-height: 64px;
   border-radius: 22px;
   border: 1px solid rgba(63, 74, 96, 0.95);
@@ -211,9 +212,11 @@ body {
   }
 }
 
-#auth-card input::placeholder { color: #6e7788; }
+#auth-card input::placeholder,
+.auth-style-input::placeholder { color: #6e7788; }
 
-#auth-card input:focus {
+#auth-card input:focus,
+.auth-style-input:focus {
   outline: none;
   border-color: rgba(245, 158, 11, 0.62);
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.12);
@@ -3225,6 +3228,100 @@ body {
   gap: 8px;
 }
 
+.settings-hub {
+  gap: 10px;
+}
+
+.settings-nav-item {
+  appearance: none;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.settings-nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.settings-nav-item-title {
+  font-weight: 700;
+  color: rgba(233, 242, 255, 0.95);
+}
+
+.settings-nav-item-desc {
+  font-size: 12px;
+  color: rgba(200, 225, 255, 0.72);
+}
+
+.settings-page-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.settings-back-btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  font: inherit;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.settings-page-title {
+  font-weight: 700;
+  color: rgba(233, 242, 255, 0.95);
+}
+
+.settings-account-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-account-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--swatch);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  flex: 0 0 auto;
+}
+
+.profile-edit-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(3, 7, 14, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.profile-edit-modal {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 22px 20px;
+  box-sizing: border-box;
+}
+
+.profile-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .client-build-version {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 12px;
@@ -3232,12 +3329,12 @@ body {
   color: rgba(162, 212, 255, 0.86);
 }
 
-.auth-map-reveal, .settings-display-name-field {
+.auth-map-reveal {
   display: grid;
   gap: 6px;
 }
 
-.auth-map-reveal p, .settings-display-name-field p {
+.auth-map-reveal p {
   margin: 0;
   color: rgba(200, 225, 255, 0.82);
 }

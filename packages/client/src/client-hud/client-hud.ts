@@ -22,11 +22,13 @@ import { buildMapLoadingView } from "../client-map-loading-view/client-map-loadi
 import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
-import { effectiveFogDisabled, setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
+import { setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
-import { bridgeStatusHtml, authDebugSnapshot, authDebugCopyPayload, authDebugHtml } from "./client-hud-debug.js";
-import { updateSettingsDisplayName, updateSettingsColor, updateFirebaseDisplayNameBestEffort } from "./client-hud-settings.js"; import { audioSettingsFieldHtml, bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js";
+import { authDebugSnapshot, authDebugCopyPayload } from "./client-hud-debug.js";
+import { settingsPanelHtml } from "./client-hud-settings-panel.js";
+import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
+import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
 import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
@@ -234,20 +236,6 @@ export const renderClientHud = (deps: HudDeps): void => {
 
   const fallbackCard = (label: string): string =>
     `<article class="card"><p>${label} is temporarily unavailable.</p></article>`;
-
-  const mapRevealCardHtml = (): string => {
-    if (!mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })) return "";
-    const buttonLabel = state.mapRevealEnabled ? "Restore Fog" : "Reveal Full Map";
-    const statusLabel = effectiveFogDisabled(state)
-      ? "Map reveal is on for this browser."
-      : "Map reveal is off.";
-    return `
-      <div class="auth-map-reveal">
-        <button type="button" class="panel-btn" data-map-reveal>${buttonLabel}</button>
-        <p>${statusLabel}</p>
-      </div>
-    `;
-  };
 
   const replayToolbarHtml = (): string => {
     return `<div class="mini-map-toolbar">
@@ -988,42 +976,12 @@ export const renderClientHud = (deps: HudDeps): void => {
   `;
   dom.mobilePanelDomainsEl.innerHTML = dom.panelDomainsContentEl.innerHTML;
 
-  // Skip the rebuild while the player is typing a new name or changing color,
-  // or a background re-render would wipe unsaved keystrokes and reset focus.
-  if (!(document.activeElement instanceof Element && (document.activeElement.matches("[data-settings-display-name]") || document.activeElement.matches("[data-settings-color]")))) {
-    dom.panelSettingsEl.innerHTML = `
-      <div class="card auth-settings-card">
-        <p>Signed in as ${state.meName || state.authUserLabel || "Guest"}.</p>
-        <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
-        ${bridgeStatusHtml(state, wsUrl)}
-        ${mapRevealCardHtml()}
-        <div class="settings-display-name-field">
-          <label>
-            <p>Display Name</p>
-            <div class="row settings-display-name-row">
-              <input type="text" placeholder="Display name" maxlength="24" value="${state.meName || ""}" ${state.authSessionReady ? "" : "disabled"} data-settings-display-name />
-              <button type="button" class="panel-btn" data-settings-update-display-name ${state.authSessionReady ? "" : "disabled"}>Update</button>
-            </div>
-          </label>
-        </div>
-        <div class="settings-color-field">
-          <label>
-            <p>Empire Colour</p>
-            <div class="row settings-color-row">
-              <input type="color" value="${state.playerColors.get(state.me) ?? "#38b000"}" ${state.authSessionReady ? "" : "disabled"} data-settings-color />
-              <button type="button" class="panel-btn" data-settings-update-color ${state.authSessionReady ? "" : "disabled"}>Update</button>
-            </div>
-          </label>
-        </div>
-        ${audioSettingsFieldHtml()}<button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
-        ${authDebugHtml(authDebugSnapshot(state, wsUrl, firebaseAuth))}
-        <button type="button" class="panel-btn" data-settings-download-diagnostics>Download Diagnostics</button>
-        <button type="button" class="panel-btn" data-settings-download-disconnect-history>Download Disconnect History</button>
-        <button type="button" class="panel-btn" data-settings-report-bug>Report Bug</button>
-      </div>
-    `;
-    dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
-  }
+  // Settings is a hub + sub-pages (Account / Gameplay / Diagnostics &
+  // Support) instead of one flat card; the name/colour editor lives in its
+  // own overlay (renderProfileEditOverlay below), so nothing here is typed
+  // into between renders and no focus-preserving guard is needed.
+  dom.panelSettingsEl.innerHTML = settingsPanelHtml(state, wsUrl, firebaseAuth);
+  dom.mobilePanelSettingsEl.innerHTML = dom.panelSettingsEl.innerHTML;
 
   // Shared binder for the near-identical accept/reject/cancel request-action
   // buttons below (alliance + truce), which previously duplicated the same
@@ -1066,61 +1024,23 @@ export const renderClientHud = (deps: HudDeps): void => {
       window.location.reload();
     };
   });
-  const settingsUpdateNameButtons = dom.hud.querySelectorAll("[data-settings-update-display-name]") as NodeListOf<HTMLButtonElement>;
-  settingsUpdateNameButtons.forEach((updateBtn: HTMLButtonElement) => {
-    updateBtn.onclick = async () => {
-      // Scope to this button's own row: the card renders twice (desktop + mobile), so a
-      // global "#id" query would always read the first copy's value instead of this one's.
-      const input = updateBtn.closest(".settings-display-name-row")?.querySelector<HTMLInputElement>("[data-settings-display-name]");
-      if (!input) return;
-      // Renaming an already-set name is throttled to once per season
-      // server-side (see gateway-app.ts SET_PROFILE), so warn before sending
-      // instead of letting the player discover the limit only after a
-      // rejection. Skip the prompt when there's no existing name yet
-      // (initial setup) or the value didn't actually change.
-      const trimmedNewName = input.value.trim();
-      if (state.meName && trimmedNewName !== state.meName && typeof window !== "undefined" && typeof window.confirm === "function") {
-        const confirmed = window.confirm(
-          `Change your display name to "${trimmedNewName}"? You can only change your display name once per season.`
-        );
-        if (!confirmed) return;
-      }
-      await updateSettingsDisplayName(input.value, {
-        currentName: state.meName,
-        currentColor: dom.authProfileColorEl.value,
-        sendGameMessage,
-        updateFirebaseDisplayName: (name) => updateFirebaseDisplayNameBestEffort(firebaseAuth, name),
-        pushFeed,
-        setPendingDisplayNameChange: (name) => {
-          state.pendingDisplayNameChange = name;
-        }
-      });
+  const settingsNavButtons = dom.hud.querySelectorAll("[data-settings-nav]") as NodeListOf<HTMLButtonElement>;
+  settingsNavButtons.forEach((navBtn: HTMLButtonElement) => {
+    navBtn.onclick = () => {
+      const page = navBtn.dataset.settingsNav as ClientState["settingsSubPage"];
+      if (!page) return;
+      state.settingsSubPage = page;
+      renderClientHud(deps);
     };
   });
-  const settingsUpdateColorButtons = dom.hud.querySelectorAll("[data-settings-update-color]") as NodeListOf<HTMLButtonElement>;
-  settingsUpdateColorButtons.forEach((updateBtn: HTMLButtonElement) => {
-    updateBtn.onclick = async () => {
-      const input = updateBtn.closest(".settings-color-row")?.querySelector<HTMLInputElement>("[data-settings-color]");
-      if (!input) return;
-      const currentColor = state.playerColors.get(state.me) ?? "#38b000";
-      const newColor = input.value.trim();
-      if (currentColor && newColor !== currentColor && typeof window !== "undefined" && typeof window.confirm === "function") {
-        const confirmed = window.confirm(
-          "Change your empire colour? You can only change your empire colour once per season."
-        );
-        if (!confirmed) return;
-      }
-      await updateSettingsColor(newColor, {
-        currentName: state.meName,
-        currentColor,
-        sendGameMessage,
-        pushFeed,
-        setPendingColorChange: (color) => {
-          state.pendingColorChange = color;
-        }
-      });
+  const settingsBackButtons = dom.hud.querySelectorAll("[data-settings-back]") as NodeListOf<HTMLButtonElement>;
+  settingsBackButtons.forEach((backBtn: HTMLButtonElement) => {
+    backBtn.onclick = () => {
+      state.settingsSubPage = null;
+      renderClientHud(deps);
     };
   });
+  renderProfileEditOverlay({ state, dom, sendGameMessage, pushFeed, firebaseAuth, renderHud: () => renderClientHud(deps) });
   bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
   mapRevealButtons.forEach((mapRevealBtn: HTMLButtonElement) => {
     mapRevealBtn.onclick = () => {
