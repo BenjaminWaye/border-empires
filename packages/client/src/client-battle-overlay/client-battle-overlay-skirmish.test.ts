@@ -21,6 +21,7 @@ const createState = (overrides: Partial<ClientState>): ClientState =>
     tiles: new Map(),
     activeBattles: new Map(),
     incomingAttacksByTile: new Map(),
+    skirmishSeenAt: new Map(),
     capture: undefined,
     ...overrides
   }) as unknown as ClientState;
@@ -108,6 +109,56 @@ describe("battle overlay skirmish sourcing", () => {
     });
 
     expect(skirmishesFrom(state)).toHaveLength(0);
+  });
+
+  it("stamps a stable skirmishSeenAt on first render and reuses it on later ticks", () => {
+    // registerActiveBattleFromTileDelta (client-battle-overlay.ts) reads this
+    // timestamp to continue the skirmish's approach trajectory once the
+    // resolution broadcast lands, instead of restarting it.
+    const state = createState({
+      me: "victim",
+      tiles: new Map([["5,5", target]]),
+      incomingAttacksByTile: new Map([
+        ["5,5", { attackerName: "Rival", resolvesAt: Date.now() + 25_000, attackerId: "rival-1", fromX: 4, fromY: 5 }]
+      ])
+    });
+
+    const { fx } = createFx();
+    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1000);
+    expect(state.skirmishSeenAt.get("5,5")).toBe(1000);
+
+    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1500);
+    expect(state.skirmishSeenAt.get("5,5")).toBe(1000);
+  });
+
+  it("keeps skirmishSeenAt alive through the resolvesAt-to-broadcast gap", () => {
+    // Regression: pushSkirmish stops firing for a tile the instant its
+    // resolvesAt passes, but the resolution broadcast reliably lands a beat
+    // later. Pruning skirmishSeenAt off of "was a skirmish drawn this exact
+    // frame" (rather than "does incomingAttacksByTile still reference this
+    // tile") would wipe the timestamp during that gap, forcing the eventual
+    // resolved battle to restart its approach instead of continuing it.
+    const state = createState({
+      me: "victim",
+      tiles: new Map([["5,5", target]]),
+      incomingAttacksByTile: new Map([
+        ["5,5", { attackerName: "Rival", resolvesAt: Date.now() + 100, attackerId: "rival-1", fromX: 4, fromY: 5 }]
+      ])
+    });
+
+    const { fx } = createFx();
+    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1000);
+    const seenAt = state.skirmishSeenAt.get("5,5");
+    expect(seenAt).toBeDefined();
+
+    // resolvesAt has now passed server-side, but the tile delta carrying the
+    // resolution hasn't arrived yet — incomingAttacksByTile is untouched.
+    state.incomingAttacksByTile.set("5,5", {
+      attackerName: "Rival", resolvesAt: Date.now() - 50, attackerId: "rival-1", fromX: 4, fromY: 5
+    });
+    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 2000);
+
+    expect(state.skirmishSeenAt.get("5,5")).toBe(seenAt);
   });
 
   it("does not double-render a tile the player is both attacking and alerted about", () => {

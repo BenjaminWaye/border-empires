@@ -126,6 +126,15 @@ export function syncBattleOverlayFx(
   ): void => {
     if (skirmishKeys.has(key)) return;
     skirmishKeys.add(key);
+    // Also read by registerActiveBattleFromTileDelta (client-battle-overlay
+    // .ts) once the resolution broadcast lands, so a resolved battle can
+    // continue this exact approach trajectory instead of restarting it or
+    // jumping straight to the clash oscillation.
+    let startAt = state.skirmishSeenAt.get(key);
+    if (startAt === undefined) {
+      startAt = nowMs;
+      state.skirmishSeenAt.set(key, startAt);
+    }
     const srcDx = toroidDelta(state.camX, srcX, WORLD_WIDTH);
     const srcDy = toroidDelta(state.camY, srcY, WORLD_HEIGHT);
     const tgtDx = toroidDelta(state.camX, target.x, WORLD_WIDTH);
@@ -139,6 +148,7 @@ export function syncBattleOverlayFx(
       tgtSurfaceY: Math.max(heightfield.elevationAt(target.x, target.y), heightfield.cornerYAt(target.x, target.y)),
       attackerColor: playerColorFor(attackerOwnerId),
       defenderColor: playerColorFor(defenderOwnerId),
+      startAt,
       hashSeed: target.x * 92821 + target.y
     });
   };
@@ -168,6 +178,26 @@ export function syncBattleOverlayFx(
         pushSkirmish(key, capture.origin.x, capture.origin.y, target, state.me, defenderOwnerId);
       }
     }
+  }
+
+  // Prune stale seenAt entries so a fight that ends and later restarts on the
+  // same tile gets a fresh approach instead of reusing an old timestamp.
+  // Deliberately NOT scoped to skirmishKeys (this frame's *drawn* skirmishes)
+  // alone: pushSkirmish above stops firing for a tile the instant its
+  // resolvesAt passes, but the resolution broadcast reliably lands a little
+  // later (server tick + network), and registerActiveBattleFromTileDelta
+  // needs to find this tile's seenAt intact when it does. incomingAttacksByTile
+  // and capture already encode that same grace window in their own eviction
+  // rules, so anything they still reference (or activeBattles now owns) stays.
+  const stillRelevant = new Set(skirmishKeys);
+  for (const key of state.activeBattles.keys()) stillRelevant.add(key);
+  if (state.me) {
+    for (const key of state.incomingAttacksByTile.keys()) stillRelevant.add(key);
+    const capture = state.capture;
+    if (capture?.actionType === "ATTACK") stillRelevant.add(keyFor(capture.target.x, capture.target.y));
+  }
+  for (const key of state.skirmishSeenAt.keys()) {
+    if (!stillRelevant.has(key)) state.skirmishSeenAt.delete(key);
   }
 
   if (entries.length === 0 && skirmishes.length === 0) { battleOverlayFx.clear(); return; }
