@@ -424,25 +424,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786320000000, // 2026.08.09.2
-    introducedIn: "2026.08.09.2",
-    title: "Smaller soil mound on grain tiles",
-    why: "The dirt bed under the barley crop was large enough to cover most of the tile, hiding the grain it was supposed to sit beneath.",
-    changes: [
-      "Shrunk the grain tile's soil mound and widened the crop patch so the golden barley fills the tile, with the dirt only showing as a thin rim.",
-      "Increased stalk and seed-head density for a fuller-looking crop."
-    ]
-  },
-  {
-    createdAt: 1786306202000, // 2026.08.09.1
-    introducedIn: "2026.08.09.1",
-    title: "Muster tile cap tag on Muster Discipline/Command",
-    why: "Muster Discipline, Muster Command, and War Foundries each grant +1 muster flag capacity, but the tech tree card never showed a highlight chip for it — every other tech payoff (unlocks, reveals) got a tag except this one.",
-    changes: [
-      "Muster Discipline, Muster Command, and War Foundries now show a \"Muster Flag +1\" chip on their tech-tree card and detail view."
-    ]
-  },
-  {
     createdAt: 1786530000000, // 2026.08.12.3
     introducedIn: "2026.08.12.3",
     title: "Muster ADVANCE flags launch one attack at a time",
@@ -472,6 +453,30 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Docks now render a dedicated 3D cargo port: timber-and-iron pier, tall brass rotating cargo crane with a visibly suspended crate, steam winch and boiler, compact dockhouse, moored steampunk cargo barge, mooring chains, and small amber lamps.",
       "The 2D dock icon (used where the 3D renderer is off) matches the new look: same crane, pier, cargo and barge, with strong dark outlines so it still reads at a glance.",
       "Docks are unchanged mechanically — this is purely the on-map look."
+    ]
+  },
+  {
+    createdAt: 1786723412408, // 2026.08.14
+    introducedIn: "2026.08.14",
+    title: "Towns now grow from a frontier settlement into a magnificent steampunk metropolis",
+    why: "Towns all shared one generic hut-cluster look, so the biggest, most important settlements on the map were visually indistinguishable from the smallest. Each tier of your civilization is now a cohesive miniature city built in a single evolving steampunk style — dark iron, weathered brass, timber, stone, warm amber lamps and glowing aether machinery — from a frontier aether workshop up to a colossal three-part wonder.",
+    changes: [
+      "SETTLEMENT — Frontier Spark: a compact aether-powered workshop with a glowing aether core, brass machinery, pressure tanks, timber cottages and warm lamps.",
+      "TOWN — Growing Industry: a clockwork aether hall with turret, mechanical crane, elevated walkway and expanding pipe networks.",
+      "CITY — Industrial Metropolis: a dense civic engine with factories, brass towers, elevated bridges and steam vents.",
+      "GREAT_CITY — Imperial Powerhouse: a domed civic complex with an elevated transit loop, gear spire, beacon and clock tower.",
+      "METROPOLIS — Wonder of the World: the colossal three-part Monument towers over dense districts, transit bridges and glowing aether conduits.",
+      "The 2D town icons match the new 3D look tier-for-tier, and settlement growth is otherwise mechanically unchanged."
+    ]
+  },
+  {
+    createdAt: 1786739629437, // 2026.08.14
+    introducedIn: "2026.08.14",
+    title: "The Monumental City now truly towers over the map as a wonder of the world",
+    why: "The top-tier Monumental City was impressive but not dramatic enough to feel like a wonder of the world. The Monument now rises far above the skyline as an unmistakable three-part wonder, dwarfing the Great City below it.",
+    changes: [
+      "METROPOLIS — Wonder of the World: the central Monument is now much taller and grander, with extra stepped brass shafts, integrated gear decks and a soaring needle crowned by a luminous aether orb.",
+      "The 2D metropolis icon was redrawn to match the taller Monument, and everything remains mechanically unchanged."
     ]
   }
 ];
