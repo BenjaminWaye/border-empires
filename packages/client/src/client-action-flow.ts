@@ -180,6 +180,12 @@ export const shouldSendTileDetailRequest = (tile: Tile | undefined, me: string, 
 export const shouldRefreshTileDetailOnPress = (tile: Tile | undefined, visibility: TileVisibilityState): tile is Tile =>
   Boolean(tile && visibility === "visible" && !tile.fogged);
 
+// True only for a tile the player's own in-flight EXPAND capture is about to
+// hand them ownership of — never for an ATTACK capture (target is already
+// enemy-owned territory, not a pending acquisition) or a muster-fed attack.
+const isPendingExpansionTarget = (state: Pick<ClientState, "capture">, x: number, y: number): boolean =>
+  Boolean(state.capture && state.capture.actionType === "EXPAND" && state.capture.target.x === x && state.capture.target.y === y);
+
 export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const {
     state,
@@ -558,7 +564,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   // settle-then-build already queued is blocked rather than overwritten.
   const handleBuildAction = (actionId: string, structureType: BuildableStructureType, selected: Tile): void => {
     const targetKey = keyFor(selected.x, selected.y);
-    const isActiveCaptureTarget = Boolean(state.capture && state.capture.target.x === selected.x && state.capture.target.y === selected.y);
+    const isActiveCaptureTarget = isPendingExpansionTarget(state, selected.x, selected.y);
     if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }
     if (selected.ownershipState === "SETTLED") {
       hideTileActionMenu();
@@ -1152,7 +1158,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       isTileOwnedByAlly,
       combatBreakdownForTile: attackPreviewBreakdownForTarget,
       state,
-      pendingOwnershipTile: Boolean(state.capture && state.capture.target.x === menuTile.x && state.capture.target.y === menuTile.y)
+      pendingOwnershipTile: isPendingExpansionTarget(state, menuTile.x, menuTile.y)
     });
     if (tileMatchesDebugKey(tile.x, tile.y, 1, { fallbackTile: state.selected })) {
       if (verboseTileDebugEnabled()) {
