@@ -39,6 +39,17 @@ const TEXTURE_SIZE = 128;
 const SUN_OFFSET_X = -0.055;
 const SUN_OFFSET_Z = -0.031;
 
+// Tile centers arrive as an integer camera-relative offset + 0.5 (see
+// TILE_CENTER_OFFSET in client-map-3d.ts), so doubling lands on exact integers
+// and a packed numeric key dedupes positions without allocating strings in the
+// rebuild path. The bias covers the negative half; the stride clears the widest
+// window the heightfield will ever walk (HEIGHTFIELD_MAX_TILES_PER_AXIS = 240).
+const KEY_BIAS = 4096;
+const KEY_STRIDE = 8192;
+
+const positionKey = (sceneX: number, sceneZ: number): number =>
+  (Math.round(sceneX * 2) + KEY_BIAS) * KEY_STRIDE + (Math.round(sceneZ * 2) + KEY_BIAS);
+
 export type ContactShadowOverlay = {
   readonly clear: () => void;
   /** `radius` is the decal's half-width in tiles; 0.5 covers one full tile. */
@@ -110,12 +121,23 @@ export const createContactShadowOverlay = (scene: Scene, maxTiles: number): Cont
   // The geometry is already rotated flat, so instances never need one.
   const noRotation = new Quaternion();
 
+  // One decal per ground position, however many structures the caller reports
+  // standing there. A tile can carry both an `economicStructure` and an
+  // `observatory` — they are separate tile fields, and client-map-3d.ts adds
+  // them from separate call sites — so without this a shared tile stacks two
+  // blobs and composites to a visibly darker splotch than its neighbours.
+  const occupied = new Set<number>();
+
   const clear = (): void => {
     count = 0;
+    occupied.clear();
   };
 
   const addShadow = (sceneX: number, sceneZ: number, surfaceY: number, radius: number): void => {
     if (count >= maxTiles || radius <= 0) return;
+    const key = positionKey(sceneX, sceneZ);
+    if (occupied.has(key)) return;
+    occupied.add(key);
     const diameter = radius * 2;
     // Scaled by the decal's own size so a larger blob leans proportionally.
     position.set(sceneX + SUN_OFFSET_X * diameter, surfaceY + SURFACE_LIFT_Y, sceneZ + SUN_OFFSET_Z * diameter);

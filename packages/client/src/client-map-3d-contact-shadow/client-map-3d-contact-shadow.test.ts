@@ -73,6 +73,47 @@ describe("contact shadow overlay", () => {
     expect(scale.z).toBeCloseTo(1, 5);
   });
 
+  // A tile can carry both an economicStructure and an observatory, added from
+  // separate call sites in client-map-3d.ts. Two decals at one position
+  // composite to a visibly darker blob than the surrounding tiles.
+  it("emits one decal per position when several structures share a tile", () => {
+    const scene = new Scene();
+    const overlay = createContactShadowOverlay(scene, 8);
+    overlay.addShadow(3.5, 4.5, 0.5, 0.42);
+    overlay.addShadow(3.5, 4.5, 0.5, 0.42);
+    overlay.commit();
+    expect(shadowMesh(scene).count).toBe(1);
+  });
+
+  it("still shadows neighbouring tiles independently", () => {
+    const scene = new Scene();
+    const overlay = createContactShadowOverlay(scene, 8);
+    overlay.addShadow(3.5, 4.5, 0.5, 0.42);
+    overlay.addShadow(4.5, 4.5, 0.5, 0.42);
+    overlay.addShadow(3.5, 5.5, 0.5, 0.42);
+    overlay.commit();
+    expect(shadowMesh(scene).count).toBe(3);
+  });
+
+  it("frees positions on clear so the next rebuild can reshadow them", () => {
+    const scene = new Scene();
+    const overlay = createContactShadowOverlay(scene, 8);
+    overlay.addShadow(3.5, 4.5, 0.5, 0.42);
+    overlay.clear();
+    overlay.addShadow(3.5, 4.5, 0.5, 0.42);
+    overlay.commit();
+    expect(shadowMesh(scene).count).toBe(1);
+  });
+
+  it("keeps negative tile offsets distinct from positive ones", () => {
+    const scene = new Scene();
+    const overlay = createContactShadowOverlay(scene, 8);
+    overlay.addShadow(-3.5, -4.5, 0, 0.42);
+    overlay.addShadow(3.5, 4.5, 0, 0.42);
+    overlay.commit();
+    expect(shadowMesh(scene).count).toBe(2);
+  });
+
   it("ignores a non-positive radius rather than committing a degenerate quad", () => {
     const scene = new Scene();
     const overlay = createContactShadowOverlay(scene, 4);
