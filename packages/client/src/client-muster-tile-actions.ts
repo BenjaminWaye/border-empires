@@ -1,5 +1,6 @@
 import type { ClientState } from "./client-state/client-state.js";
 import type { Tile, TileActionDef } from "./client-types.js";
+import { isMusterUnlocked } from "./client-muster-unlock/client-muster-unlock-storage.js";
 
 // Inline to avoid circular dependency with client-tile-action-logic.ts
 // (which imports buildMusterActions from here).
@@ -7,14 +8,18 @@ const avail = (): Pick<TileActionDef, "disabled" | "disabledReason" | "cost"> =>
   ({ disabled: false });
 
 /**
- * Muster tile-menu actions: shown on owned land tiles, gated on ownership
- * and the current muster state.
+ * Muster tile-menu actions: shown on owned land tiles, gated on ownership,
+ * the current muster state, and having met a rival empire at least once
+ * (see client-muster-unlock-storage.ts) — an existing HOLD/ADVANCE flag
+ * still shows its clear action even if reached before an unlock, so a
+ * player is never left unable to reclaim staged manpower.
  */
 export const buildMusterActions = (
   tile: Tile,
-  state: Pick<ClientState, "me">
+  state: Pick<ClientState, "me" | "authEmail">
 ): TileActionDef[] => {
   if (tile.terrain !== "LAND" || tile.ownerId !== state.me) return [];
+  if (!tile.muster && !isMusterUnlocked(state.authEmail)) return [];
 
   const out: TileActionDef[] = [];
   const muster = tile.muster;

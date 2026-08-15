@@ -106,6 +106,7 @@ import {
   structureOverlayImages
 } from "./client-map-render/client-map-render.js";
 import { createInitialState, storageSet } from "./client-state/client-state.js";
+import { initClientAudio } from "./client-audio/client-audio.js";
 import { clearUrlTileFocus } from "./client-state/client-camera-storage.js";
 import { domainOwnedHtml, hasRevealedResourceCategory, techCurrentModsHtml, techOwnedHtml } from "./client-tech-html/client-tech-html.js";
 import type {
@@ -324,6 +325,8 @@ const {
   renderTechChoiceDetails,
   affordableTechChoicesCount
 } = techFlow;
+
+initClientAudio();
 
 // HUD and auth flow are wired below after socket setup.
 bootstrapClientApp({

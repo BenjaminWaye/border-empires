@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { EXPAND_MANPOWER_COST } from "@border-empires/shared";
 
 import { topUpFromWaypoint } from "../client-queue-logic/client-queue-logic.js";
 import { createInitialState } from "../client-state/client-state.js";
@@ -288,6 +289,61 @@ describe("topUpFromWaypoint", () => {
     }
     expect(state.waypoint[0]?.plan.reachable).toBe(false);
     expect(messages.some((m) => /waypoint halted/i.test(m))).toBe(true);
+  });
+
+  it("pauses (not halts) an EXPAND leg when manpower is insufficient, and never emits a halted message", () => {
+    const state = stateWithTiles([
+      tile(3, 3, { ownerId: "me" }),
+      tile(4, 3),
+      tile(5, 3)
+    ]);
+    state.manpower = EXPAND_MANPOWER_COST - 1;
+    state.waypoint = [{
+      target: { x: 5, y: 3 },
+      plan: { target: { x: 5, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
+    }];
+    const messages: Array<{ message: string; severity: string | undefined }> = [];
+    const log = (message: string, _type?: string, severity?: string): void => { messages.push({ message, severity }); };
+
+    for (let i = 0; i < 6; i += 1) {
+      const ok = topUpFromWaypoint(state, keyFor, log);
+      expect(ok).toBe(false);
+      expect(state.actionQueue).toHaveLength(0);
+    }
+
+    expect(state.waypoint[0]?.pausedForManpower).toBe(true);
+    // Still reachable — this is a wait, not a block — and it must never be
+    // relabelled as a stuck/impassable path the way the old code did.
+    expect(state.waypoint[0]?.plan.reachable).toBe(true);
+    expect(messages.some((m) => /halted/i.test(m.message))).toBe(false);
+    // The pause message is emitted once on the transition in, not every tick.
+    expect(messages.filter((m) => /paused/i.test(m.message))).toHaveLength(1);
+  });
+
+  it("resumes a manpower-paused waypoint automatically once manpower is available again", () => {
+    const state = stateWithTiles([
+      tile(3, 3, { ownerId: "me" }),
+      tile(4, 3),
+      tile(5, 3)
+    ]);
+    state.manpower = EXPAND_MANPOWER_COST - 1;
+    state.waypoint = [{
+      target: { x: 5, y: 3 },
+      plan: { target: { x: 5, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
+    }];
+    const messages: string[] = [];
+    const log = (message: string): void => { messages.push(message); };
+
+    topUpFromWaypoint(state, keyFor, log);
+    expect(state.waypoint[0]?.pausedForManpower).toBe(true);
+
+    state.manpower = EXPAND_MANPOWER_COST;
+    const ok = topUpFromWaypoint(state, keyFor, log);
+
+    expect(ok).toBe(true);
+    expect(state.waypoint[0]?.pausedForManpower).toBe(false);
+    expect(state.actionQueue[0]).toMatchObject({ x: 4, y: 3 });
+    expect(messages.some((m) => /resumed/i.test(m))).toBe(true);
   });
 
   it("retargets a tracked barbarian waypoint to a diagonally-offset relocation", () => {

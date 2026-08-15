@@ -4,7 +4,7 @@ import type { Tile } from "../client-types.js";
 import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
 import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
 import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDebugKey } from "../client-debug/client-debug.js";
-import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js";
+import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js"; import { unlockMusterOnEnemyContact } from "../client-muster-unlock/client-muster-unlock.js";
 import { clearResolvedIncomingAttack } from "../client-siege-tracking/client-siege-tracking.js";
 
 // Logs every real ownerId/ownershipState change, gated only by the account-level debugTileLoggingEnabled flag (not a specific watched tile).
@@ -522,7 +522,7 @@ export const applyGatewayTileDeltaBatch = (
     const tileKey = deps.keyFor(update.x, update.y);
     const wasKnown = deps.state.tiles.has(tileKey);
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, update) || invalidatedTerrainCache;
-    if (!wasKnown && deps.state.discoveryTipQueue) enqueueDiscoveryTipForNewlySeenTile(deps.state.discoveryTipQueue, deps.state.tiles.get(tileKey), deps.state.authEmail);
+    if (!wasKnown) { const seenTile = deps.state.tiles.get(tileKey); if (deps.state.discoveryTipQueue) enqueueDiscoveryTipForNewlySeenTile(deps.state.discoveryTipQueue, seenTile, deps.state.authEmail); unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue); }
   }
   if (invalidatedTerrainCache) {
     deps.clearRenderCaches?.();
