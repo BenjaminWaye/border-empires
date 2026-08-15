@@ -13,8 +13,10 @@
 //     leaves the canvas permanently blank while the render loop keeps
 //     spinning against a dead context.
 
-import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
+import { WebGLRenderer } from "three";
 import { describeWebGLProbe, webGLProbe } from "../client-webgl-probe/client-webgl-probe.js";
+import { pixelRatioFor } from "../client-map-3d-pixel-ratio/client-map-3d-pixel-ratio.js";
+import { previousRendererAttempt } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 
 export type WebGLContextGuard = {
   /** True once the GPU has taken the context away; the renderer can't recover. */
@@ -93,14 +95,17 @@ export const createThreeRenderTarget = (
   assertWebGLRendererSupported();
 
   const renderer = new WebGLRenderer({ canvas: glCanvas, antialias: true, alpha: true, powerPreference: "high-performance" });
-  // Capped at 2: uncapped devicePixelRatio on a 3x phone would quadruple
-  // fragment cost for a sharpness gain nobody can see past 2x.
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  // Filmic tone mapping gives the painterly terrain/water materials the
-  // highlight rolloff they were tuned to expect instead of clipped, flat sRGB.
-  renderer.outputColorSpace = SRGBColorSpace;
-  renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  // `#game-3d` is sized entirely by CSS (`inset: 0; width/height: 100%`), and
+  // client-map-3d.ts calls `setSize(w, h, false)` with the viewport's *CSS*
+  // pixel size, so the ratio here scales the drawing buffer without disturbing
+  // layout — which is what makes rendering above 1:1 possible at all.
+  const previousAttempt = previousRendererAttempt();
+  renderer.setPixelRatio(
+    pixelRatioFor({
+      devicePixelRatio: window.devicePixelRatio,
+      previousAttemptSurvived: previousAttempt === undefined ? undefined : previousAttempt.phase === "survived"
+    })
+  );
 
   return { glCanvas, renderer, contextGuard: installWebGLContextGuard(glCanvas, onContextLost) };
 };

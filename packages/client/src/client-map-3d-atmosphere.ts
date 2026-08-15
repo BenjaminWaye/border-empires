@@ -10,15 +10,25 @@ import {
   SphereGeometry
 } from "three";
 
-// Deep blue-violet zenith fading through a soft sky-blue midtone to a warm
-// golden horizon — echoes the sun/fill light pairing below (fff0c0 warm key,
-// ff8a5c warm fill) instead of the flat black void the sky mesh previously
-// rendered regardless of view direction. Fog reuses the horizon color so
-// distant tiles fade into the sky line rather than into black.
-export const SKY_TOP_COLOR = "#2c3e64";
-export const SKY_MID_COLOR = "#7d97c4";
-export const SKY_HORIZON_COLOR = "#e9b98a";
-export const FOG_COLOR = "#e9b98a";
+// These are black on purpose, and only one of them is ever drawn.
+//
+// Note the sky shader's naming is misleading: `midColor` is the color *at* the
+// horizon line, `topColor` is the zenith, and `horizonColor` is what's drawn
+// *below* the horizon — the void the world sits in.
+//
+// The map camera has a fixed tilt (PERSPECTIVE_TILT_RADIANS = 0.6) and a 45°
+// FOV, which puts its topmost ray ~33° below horizontal. Every visible sky
+// fragment therefore has h <= -0.546, past the end of the shader's
+// smoothstep(0.0, -0.5, h) — so the whole screen resolves to `horizonColor`
+// and `midColor`/`topColor` never render at all.
+//
+// Consequence: giving these a daylight gradient does nothing except repaint
+// the entire unexplored void, which is what reads as fog-of-war in the
+// current art direction. Changing them is a camera change, not a color one.
+export const SKY_TOP_COLOR = "#000000";
+export const SKY_MID_COLOR = "#000000";
+export const SKY_HORIZON_COLOR = "#000000";
+export const FOG_COLOR = "#000000";
 export const FOG_DENSITY = 0.0042;
 export const SKY_RADIUS = 1800;
 
