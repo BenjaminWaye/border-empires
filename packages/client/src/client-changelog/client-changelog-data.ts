@@ -23,6 +23,16 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786810965877, // 2026.08.15.4
+    introducedIn: "2026.08.15.4",
+    title: "The Mustering overlay now updates every second instead of every ~30 seconds",
+    why: "A muster flag's manpower only ticks on the server's regular ~30-second global schedule, which is why the overlay always felt jaggy — long flat stretches then a jump. The server already has a mechanism for fast per-second ticks on a specific flag a player is actively watching, but it was only ever triggered by tapping that exact tile's action menu — never by simply having an attack parked and waiting on it, which is when the overlay is actually on screen.",
+    changes: [
+      "Parking a manual attack behind a muster flag now tells the server to watch that flag, so its manpower ticks every 1 second instead of every ~30 while the attack is waiting on it — the overlay should track real progress far more smoothly.",
+      "The fast tick automatically stops once the attack fires, is dropped, or is cancelled."
+    ]
+  },
+  {
     createdAt: 1786796146676, // 2026.08.15.3
     introducedIn: "2026.08.15.3",
     title: "Mustering overlay no longer shows \"ready\" before it actually is; ambient audio now defaults off",
@@ -436,20 +446,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "If loading the 3D map crashes the browser outright, the game now notices on the next visit and comes up in 2D instead of crashing again. Add ?renderer=3d to the URL to try 3D again.",
       "Downloaded diagnostics now include your device's graphics capabilities, the reason 3D was unavailable, and how far the previous 3D attempt got before the browser died — so map crashes can be diagnosed from a phone.",
       "The 3D map now sizes its memory buffers to your screen instead of always reserving for a large desktop display, which cuts its memory use substantially on phones."
-    ]
-  },
-  {
-    createdAt: 1786406400000, // 2026.08.10.1
-    introducedIn: "2026.08.10.1",
-    title: "Removed Bank and Exchange House; Clearing House now boosts Mintworks",
-    why: "Bank and Mintworks did nearly the same thing, and Exchange House's bonus was never actually implemented — both were confusing dead weight in the tech tree and build menu.",
-    changes: [
-      "Removed the Bank and Exchange House structures.",
-      "The Minting Works tech now unlocks Clearing House (instead of Bank).",
-      "Clearing House now boosts Mintworks gold production (+25%) for its town and directly connected towns, instead of boosting Bank.",
-      "Removed the Provincial Concessions tech; Grand Bazaars now requires Minting Works directly.",
-      "Fixed the tech tree structure card showing two separate 'Upkeep' boxes for structures with more than one resource-slot requirement (Bank, Foundry, Rail Depot, Radar System, Exchange House, Ambaric Tower, Weapons Workshop, Assembly Works, Siege Tower, Dread Tower) — now shown as one combined box.",
-      "Moved Terrain Shaping into the Aether tech branch (was miscategorized under Economy); it now requires Covert Logistics and unlocks Sky Vessel Engineering alongside its other prerequisites."
     ]
   },
   {

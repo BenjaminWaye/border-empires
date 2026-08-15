@@ -1143,6 +1143,7 @@ export const processPendingMusterAttacks = (
     keyFor: (x: number, y: number) => string;
     isAdjacent: (ax: number, ay: number, bx: number, by: number) => boolean;
     pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
+    sendGameMessage?: (payload: unknown) => boolean;
   }
 ): void => {
   if (state.pendingMusterAttacks.length === 0) return;
@@ -1225,6 +1226,12 @@ export const processPendingMusterAttacks = (
       state.queuedTargetKeys.add(targetKey);
       deps.pushFeed(`Muster ready — launching attack on (${entry.targetX}, ${entry.targetY})`, "combat", "info");
     }
+  }
+  // Stop the server's fast per-second tick once nothing is left watching
+  // for it — the watched-tile mechanism is scoped to whatever's actively
+  // driving the Mustering overlay, not a standing subscription.
+  if (remaining.length === 0 && state.pendingMusterAttacks.length > 0) {
+    deps.sendGameMessage?.({ type: "UNWATCH_MUSTER" });
   }
   state.pendingMusterAttacks = remaining;
 };
@@ -1617,6 +1624,13 @@ export const processActionQueue = (
           );
           if (!alreadyPending) {
             state.pendingMusterAttacks.push({ targetX: to.x, targetY: to.y, fromX: from.x, fromY: from.y, musterTileKey, queuedAt: Date.now(), ...(originAlreadyHasMuster ? {} : { musterRequestedAt: Date.now() }) });
+            // The server only ticks muster amounts once per ~30s on the
+            // regular schedule, but ticks any *watched* flag every 1s
+            // (tickWatchedMusterTiles) — scoped per-player, no cost to
+            // anyone else. Watching the flag that's now driving the
+            // Mustering overlay makes its progress track close to
+            // real-time instead of jumping in ~30s steps.
+            deps.sendGameMessage?.({ type: "WATCH_MUSTER", x: from.x, y: from.y });
             const feedMsg = !closest || !playerHasAnyMuster
               ? `Staging flag near (${to.x}, ${to.y}) — attack queued`
               : `Closest flag is ${closest.dist} tiles away — staging flag closer to front, attack queued`;
