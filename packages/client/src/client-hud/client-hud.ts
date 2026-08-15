@@ -478,8 +478,13 @@ export const renderClientHud = (deps: HudDeps): void => {
     dom.mapLoadingRetryBtn.onclick = () => retryBootstrapNow();
     dom.mapLoadingReloadBtn.onclick = () => window.location.reload();
     dom.mapLoadingDiagnosticsBtn.onclick = () => {
-      const bundle = buildDiagnosticsBundle(state, wsUrl);
-      downloadDiagnosticsBundle(bundle);
+      try {
+        const bundle = buildDiagnosticsBundle(state, wsUrl);
+        downloadDiagnosticsBundle(bundle);
+      } catch (error) {
+        console.error("[diagnostics] download button failed", error);
+        window.alert(`Diagnostics download failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
     };
   } else {
     dom.mapLoadingOverlayEl.style.display = "none";
@@ -1151,8 +1156,27 @@ export const renderClientHud = (deps: HudDeps): void => {
     };
   });
   // Shared binder for the settings panel's JSON-bundle download buttons.
+  // Wrapped in try/catch: an uncaught exception inside an onclick handler is
+  // swallowed by the browser with no visible feedback at all — a bug in
+  // buildBundle() (or in the download itself) would just look like "nothing
+  // happens" when the button is pressed, rather than surfacing the actual
+  // failure. Report it through the feed instead so it's visible and the
+  // console still has the real error for follow-up.
   const bindBundleDownloadButton = (selector: string, buildBundle: () => Record<string, unknown>): void =>
-    (dom.hud.querySelectorAll(selector) as NodeListOf<HTMLButtonElement>).forEach((btn) => { btn.onclick = (): void => downloadDiagnosticsBundle(buildBundle()); });
+    (dom.hud.querySelectorAll(selector) as NodeListOf<HTMLButtonElement>).forEach((btn) => {
+      btn.onclick = (): void => {
+        try {
+          downloadDiagnosticsBundle(buildBundle());
+        } catch (error) {
+          console.error("[diagnostics] download button failed", error);
+          pushFeed(
+            `Diagnostics download failed: ${error instanceof Error ? error.message : String(error)}`,
+            "error",
+            "warn"
+          );
+        }
+      };
+    });
   bindBundleDownloadButton("[data-settings-download-diagnostics]", () => buildDiagnosticsBundle(state, wsUrl));
   bindBundleDownloadButton("[data-settings-download-disconnect-history]", buildDisconnectHistoryBundle);
 
