@@ -26,7 +26,7 @@ import { effectiveFogDisabled, setMapRevealEnabled, mapRevealAvailable } from ".
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
 import { bridgeStatusHtml, authDebugSnapshot, authDebugCopyPayload, authDebugHtml } from "./client-hud-debug.js";
-import { updateSettingsDisplayName, updateSettingsColor, updateFirebaseDisplayNameBestEffort } from "./client-hud-settings.js";
+import { updateSettingsDisplayName, updateSettingsColor, updateFirebaseDisplayNameBestEffort } from "./client-hud-settings.js"; import { audioSettingsFieldHtml, bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
 import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
@@ -1015,7 +1015,7 @@ export const renderClientHud = (deps: HudDeps): void => {
             </div>
           </label>
         </div>
-        <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
+        ${audioSettingsFieldHtml()}<button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
         ${authDebugHtml(authDebugSnapshot(state, wsUrl, firebaseAuth))}
         <button type="button" class="panel-btn" data-settings-download-diagnostics>Download Diagnostics</button>
         <button type="button" class="panel-btn" data-settings-download-disconnect-history>Download Disconnect History</button>
@@ -1121,7 +1121,7 @@ export const renderClientHud = (deps: HudDeps): void => {
       });
     };
   });
-  const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
+  bindAudioSettingsControls(dom.hud, () => renderClientHud(deps)); const mapRevealButtons = dom.hud.querySelectorAll("[data-map-reveal]") as NodeListOf<HTMLButtonElement>;
   mapRevealButtons.forEach((mapRevealBtn: HTMLButtonElement) => {
     mapRevealBtn.onclick = () => {
       if (!mapRevealAvailable({ enabledForAccount: state.mapRevealEligible && state.authSessionReady })) return;

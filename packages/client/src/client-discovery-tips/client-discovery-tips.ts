@@ -9,7 +9,7 @@ import { NATURAL_WONDER_LABELS, type NaturalWonderType } from "@border-empires/s
 import type { Tile } from "../client-types.js";
 import { isDiscoveryTipSeen, isDiscoveryTipsMuted, markDiscoveryTipSeen, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
-export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | NaturalWonderType;
+export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | NaturalWonderType;
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
 
@@ -65,6 +65,16 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
     title: "Umbrite Resource Discovered",
     body: "Umbrite deposits provide Umbrite, a strategic resource used for offensive military structures and coordinating attacks with multiple Mustering Flags."
   },
+  FIRST_MUSTER: {
+    id: "FIRST_MUSTER",
+    title: "First Muster Flag Placed!",
+    body: "Muster Flags gather manpower to attack from. Distance to your target sets how long the strike takes. Cracking a settled tile takes 60 manpower; a fort takes far more."
+  },
+  ENEMY_EMPIRE: {
+    id: "ENEMY_EMPIRE",
+    title: "First Contact!",
+    body: "You've found a rival empire! Mustering is now unlocked — place a Muster Flag on your border to gather manpower and attack."
+  },
   ...NATURAL_WONDER_DISCOVERY_TIPS
 };
 
@@ -98,6 +108,22 @@ export const discoveryTipIdForNewlySeenTile = (
 };
 
 /**
+ * Enqueues a discovery tip by id onto `queue` (in place) if the player
+ * hasn't muted all discovery tips, this id hasn't already been dismissed
+ * (persisted, within its 30-day/season window), and it isn't already
+ * queued this session. Returns true if a tip was enqueued. Used both for
+ * tile-driven tips (see below) and tips triggered by a player action, e.g.
+ * placing their first Muster Flag.
+ */
+export const enqueueDiscoveryTip = (queue: DiscoveryTipId[], id: DiscoveryTipId, authEmail?: string | null): boolean => {
+  if (isDiscoveryTipsMuted(authEmail)) return false;
+  if (queue.includes(id)) return false;
+  if (isDiscoveryTipSeen(id, authEmail)) return false;
+  queue.push(id);
+  return true;
+};
+
+/**
  * Enqueues a discovery tip for a newly-seen tile onto `queue` (in place) if
  * the player hasn't muted all discovery tips, this id hasn't already been
  * dismissed (persisted, within its 30-day/season window), and it isn't
@@ -110,11 +136,7 @@ export const enqueueDiscoveryTipForNewlySeenTile = (
 ): boolean => {
   const id = tile && discoveryTipIdForNewlySeenTile(tile);
   if (!id) return false;
-  if (isDiscoveryTipsMuted(authEmail)) return false;
-  if (queue.includes(id)) return false;
-  if (isDiscoveryTipSeen(id, authEmail)) return false;
-  queue.push(id);
-  return true;
+  return enqueueDiscoveryTip(queue, id, authEmail);
 };
 
 /**

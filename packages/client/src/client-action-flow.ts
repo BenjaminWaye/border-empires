@@ -62,6 +62,7 @@ import {
   type DevelopmentSlotSummary
 } from "./client-queue-logic/client-queue-logic.js";
 import { dispatchPaced } from "./client-paced-bulk-dispatch/client-paced-bulk-dispatch.js";
+import { announceDiscoveryTip } from "./client-discovery-tips/client-discovery-tip-overlay.js";
 import {
   buildFortOnSelected as buildFortOnSelectedFromModule,
   buildSiegeOutpostOnSelected as buildSiegeOutpostOnSelectedFromModule,
@@ -1506,8 +1507,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
       }
     }
-    if (actionId === "muster_hold") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "HOLD" });
-    if (actionId === "muster_advance") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "ADVANCE" });
+    if (actionId === "muster_hold" || actionId === "muster_advance") { sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" }); if (state.discoveryTipQueue) announceDiscoveryTip(state.discoveryTipQueue, "FIRST_MUSTER", state.authEmail, renderHud); }
     if (actionId === "muster_clear") sendGameMessage({ type: "CLEAR_MUSTER", x: selected.x, y: selected.y });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });

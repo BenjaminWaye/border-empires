@@ -4,7 +4,7 @@
 // non-blocking, auto-positioned, one at a time.
 
 import type { DiscoveryTipDef, DiscoveryTipId } from "./client-discovery-tips.js";
-import { DISCOVERY_TIPS, dismissActiveDiscoveryTip } from "./client-discovery-tips.js";
+import { DISCOVERY_TIPS, dismissActiveDiscoveryTip, enqueueDiscoveryTip } from "./client-discovery-tips.js";
 import { isDiscoveryTipsMuted } from "./client-discovery-tips-storage.js";
 
 const OVERLAY_ID = "discovery-tip-overlay";
@@ -66,6 +66,11 @@ export const renderDiscoveryTipOverlay = (
     currentOverlayTipId = null;
     onDismiss();
   });
+};
+
+/** Enqueues a tip triggered by a player action (rather than a newly-seen tile) and renders it immediately, instead of waiting for the next tile-delta batch to trigger a render. */
+export const announceDiscoveryTip = (queue: DiscoveryTipId[], id: DiscoveryTipId, authEmail: string | null | undefined, onDismiss: () => void): void => {
+  if (enqueueDiscoveryTip(queue, id, authEmail)) renderDiscoveryTipOverlay(queue, authEmail, onDismiss);
 };
 
 const escapeHtml = (value: string): string =>
