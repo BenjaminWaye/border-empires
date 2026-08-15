@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CylinderGeometry, InstancedMesh, Scene } from "three";
+import { createContactShadowOverlay } from "./client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { createStructureOverlay } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 
 const instancedMeshes = (scene: Scene): InstancedMesh[] =>
@@ -16,7 +17,7 @@ const flywheelMesh = (scene: Scene): InstancedMesh | undefined =>
 describe("mintworks structure overlay", () => {
   it("commits an assembled mint with a visible flywheel", () => {
     const scene = new Scene();
-    const overlay = createStructureOverlay(scene, 3);
+    const overlay = createStructureOverlay(scene, 3, createContactShadowOverlay(scene, 3));
 
     overlay.addInstance(0, 0, 0, "MINTWORKS");
     overlay.addInstance(2, 0, 0, "MINTWORKS");
@@ -32,7 +33,7 @@ describe("mintworks structure overlay", () => {
 
   it("spins the flywheel on update with a partial upload and without disturbing counts", () => {
     const scene = new Scene();
-    const overlay = createStructureOverlay(scene, 8);
+    const overlay = createStructureOverlay(scene, 8, createContactShadowOverlay(scene, 8));
 
     overlay.addInstance(0, 0, 0, "MINTWORKS");
     overlay.addInstance(2, 0, 0, "MINTWORKS");
@@ -64,7 +65,7 @@ describe("mintworks structure overlay", () => {
 
   it("spins the wheel about its fixed axle rather than wobbling", () => {
     const scene = new Scene();
-    const overlay = createStructureOverlay(scene, 2);
+    const overlay = createStructureOverlay(scene, 2, createContactShadowOverlay(scene, 2));
 
     overlay.addInstance(0, 0, 0, "MINTWORKS");
     overlay.commit();
@@ -88,7 +89,7 @@ describe("mintworks structure overlay", () => {
 
   it("spins two mints on different tiles out of phase", () => {
     const scene = new Scene();
-    const overlay = createStructureOverlay(scene, 4);
+    const overlay = createStructureOverlay(scene, 4, createContactShadowOverlay(scene, 4));
 
     overlay.addInstance(0, 0, 0, "MINTWORKS");
     overlay.addInstance(2, 0, 0, "MINTWORKS");
@@ -106,7 +107,7 @@ describe("mintworks structure overlay", () => {
 
   it("clears flywheel animation records alongside the piece buffers", () => {
     const scene = new Scene();
-    const overlay = createStructureOverlay(scene, 1);
+    const overlay = createStructureOverlay(scene, 1, createContactShadowOverlay(scene, 1));
 
     overlay.addInstance(0, 0, 0, "MINTWORKS");
     overlay.commit();
