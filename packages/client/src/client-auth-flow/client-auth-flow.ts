@@ -137,7 +137,12 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       setAuthStatus
     });
     dom.authBusyDiagnosticsBtn.onclick = () => {
-      downloadDiagnosticsBundle(buildDiagnosticsBundle(state, wsUrl));
+      try {
+        downloadDiagnosticsBundle(buildDiagnosticsBundle(state, wsUrl));
+      } catch (error) {
+        console.error("[diagnostics] download button failed", error);
+        setAuthStatus(`Diagnostics download failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+      }
     };
   };
 
