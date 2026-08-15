@@ -33,6 +33,7 @@ import {
   type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
+  type MonumentalStructureType,
   type SlotStructureType
 } from "@border-empires/shared";
 import {
@@ -80,7 +81,11 @@ import {
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, railDepotAlreadyInNetwork, railDepotNetworkLogisticsGuildCountForPlayer, assemblyWorksAlreadyInNetwork, assemblyWorksNetworkGarrisonHallCountForPlayer, censusHallConnectedGranaryCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
-import { monumentClaimOwnerId } from "../monument-uniqueness.js";
+import { activeMonumentOnTile, refreshMonumentOwnerIndexForTile } from "../monument-uniqueness.js";
+import {
+  cachedManpowerStructureBonusForPlayer as cachedManpowerStructureBonusForPlayerImpl,
+  type ManpowerStructureBonus
+} from "../runtime-manpower-structure-bonus.js";
 import { createTownConnectivityState, maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
@@ -416,6 +421,7 @@ import {
   respawnPlayerOnUnownedLand as respawnPlayerOnUnownedLandImpl,
   type RuntimeRespawnContext
 } from "../runtime-respawn-helpers.js";
+import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js";
 import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
 
 export type { VisibilityAuditSample };
@@ -547,6 +553,12 @@ export class SimulationRuntime {
   // bonus) — a plain per-structure count, not town-adjacency-scoped, since
   // GARRISON_HALL uses "same_tile" placement and can sit anywhere.
   private readonly garrisonHallTilesByOwner = new Map<string, Set<string>>();
+  // O(1) mirror of monumentClaimOwnerId (§16) — see
+  // refreshMonumentOwnerIndexForTile in monument-uniqueness.ts for why.
+  private readonly activeMonumentOwnerByType = new Map<MonumentalStructureType, { ownerId: string; tileKey: string }>();
+  // Map-wide lookups backing chooseLegacySpawnPlacement — see
+  // SpawnPlacementIndex for why they are indexed rather than rescanned.
+  private readonly spawnPlacementIndex = new SpawnPlacementIndex();
   // Tech-tree redesign: per-owner tile-set indexes for the new Manpower
   // buildings, maintained the same way as railDepotTilesByOwner/
   // garrisonHallTilesByOwner above (see refreshEconomicStructureTypeIndexForTile
@@ -952,6 +964,15 @@ export class SimulationRuntime {
       }
       // Populate neutralBeaconTileKeys index (unowned towns/docks/resources).
       if (isNeutralBeaconTileImpl(tile)) this.neutralBeaconTileKeys.add(tileKey);
+      // Both seeds run in this unconditional first pass, and through the same
+      // predicates their incremental counterparts use — an unowned tile can
+      // carry a neutral/capturable town (hasNearbyTown must see it), and a
+      // monument is keyed by its STRUCTURE's owner, which monumentClaimOwnerId
+      // reads without consulting tile.ownerId at all. Gating either on tile
+      // ownership would make a booted world disagree with a live-built one.
+      this.spawnPlacementIndex.refreshForTileChange(tileKey, tile);
+      const seededMonument = activeMonumentOnTile(tile);
+      if (seededMonument) this.activeMonumentOwnerByType.set(seededMonument.type, { ownerId: seededMonument.ownerId, tileKey });
       // Populate ownedStructureCountByPlayerByType. Each structure slot has its
       // own ownerId — count by structure ownership, not by tile ownership,
       // to mirror the original ownedStructureCountForPlayer semantics.
@@ -1530,7 +1551,11 @@ export class SimulationRuntime {
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
       incrementAuthRecoveryRespawn: () => this.onAuthRecoveryRespawn?.(),
-      incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.()
+      incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.(),
+      coastalLandKeys: () => this.spawnPlacementIndex.coastalLandKeys(this.tiles),
+      hasNearbySettled: (x, y, radius) => this.spawnPlacementIndex.hasNearbySettled(x, y, radius),
+      hasNearbyTown: (x, y, radius) => this.spawnPlacementIndex.hasNearbyTown(x, y, radius),
+      hasNearbyFood: (x, y, radius) => this.spawnPlacementIndex.hasNearbyFood(this.tiles, x, y, radius)
     };
   }
 
@@ -2222,6 +2247,8 @@ export class SimulationRuntime {
     if (refreshNeutralBeaconIndexForTileImpl({ tileKey, previous, next: tile, neutralBeaconTileKeys: this.neutralBeaconTileKeys })) {
       this.beaconGeneration += 1;
     }
+    this.spawnPlacementIndex.refreshForTileChange(tileKey, tile);
+    refreshMonumentOwnerIndexForTile({ tileKey, previous, next: tile, activeMonumentOwnerByType: this.activeMonumentOwnerByType });
     // Structure count index: keep ownedStructureCountByPlayerByType consistent
     // across capture / build / cancel / removal transitions. Each slot is
     // tracked by the STRUCTURE's ownerId (not the tile's), to match the
@@ -3106,132 +3133,27 @@ export class SimulationRuntime {
   // read (called many times per tick, per the guardrails in
   // docs/game-mechanics.md §13/AGENTS.md) stays an O(1) map lookup except on
   // an actual cache-miss.
-  private cachedManpowerStructureBonusForPlayer(
-    player: RuntimePlayer
-  ): {
-    garrisonHallCount: number;
-    assemblyWorksNetworkGarrisonHallCount: number;
-    railDepotNetworkLogisticsGuildCount: number;
-    logisticsGuildCount: number;
-    populationBureauManpowerBuildingCount: number;
-  } {
-    const cached = this.manpowerStructureBonusCacheByPlayer.get(player.id);
-    if (cached) return cached;
-    const garrisonHallKeys = this.garrisonHallTilesByOwner.get(player.id);
-    const railDepotKeys = this.railDepotTilesByOwner.get(player.id);
-    const assemblyWorksKeys = this.assemblyWorksTilesByOwner.get(player.id);
-    const logisticsGuildKeys = this.logisticsGuildTilesByOwner.get(player.id);
-    // §5.4: a dormant Garrison Hall/Rail Depot doesn't grant its bonus —
-    // filter the raw existence indices against this player's current
-    // dormant-economicStructure set before counting/checking presence. Only
-    // computed when the player actually has at least one such structure
-    // (rare, same as the pre-existing hasAnyRailDepot gate below): this is a
-    // manpower read fired on essentially every command and periodic tick
-    // (including during SimulationRuntime construction, before
-    // trackSyncMainThreadTask is safe to route through — see below), so an
-    // unconditional dormancy computation here would pre-warm
-    // resourceSlotSupplyCacheByPlayer/resourceSlotDemandCacheByPlayer too
-    // early and poison them with a stale pre-tile-setup value that never
-    // gets invalidated (initial tile hydration doesn't go through
-    // replaceTileState/refreshEconomyCachesForTileChange).
-    const dormantEconomicStructureKeys =
-      (garrisonHallKeys?.size ?? 0) > 0 ||
-      (railDepotKeys?.size ?? 0) > 0 ||
-      (assemblyWorksKeys?.size ?? 0) > 0 ||
-      (logisticsGuildKeys?.size ?? 0) > 0
-        ? this.dormantEconomicStructureKeysForPlayer(player.id)
-        : undefined;
-    const garrisonHallCount = garrisonHallKeys
-      ? dormantEconomicStructureKeys
-        ? [...garrisonHallKeys].filter((key) => !dormantEconomicStructureKeys.has(key)).length
-        : garrisonHallKeys.size
-      : 0;
-    const logisticsGuildCount = logisticsGuildKeys
-      ? dormantEconomicStructureKeys
-        ? [...logisticsGuildKeys].filter((key) => !dormantEconomicStructureKeys.has(key)).length
-        : logisticsGuildKeys.size
-      : 0;
-    const hasAnyRailDepot = railDepotKeys
-      ? dormantEconomicStructureKeys
-        ? [...railDepotKeys].some((key) => !dormantEconomicStructureKeys.has(key))
-        : railDepotKeys.size > 0
-      : false;
-    const hasAnyAssemblyWorks = assemblyWorksKeys
-      ? dormantEconomicStructureKeys
-        ? [...assemblyWorksKeys].some((key) => !dormantEconomicStructureKeys.has(key))
-        : assemblyWorksKeys.size > 0
-      : false;
-    // Only touch the connected-town network when the player actually has a
-    // Rail Depot or Assembly Works — the common case (none yet) skips it
-    // entirely, which matters for two reasons: it keeps this O(1) instead of
-    // O(settled tiles + towns²) for most players, and it avoids pre-warming
-    // townNetworkCacheByPlayer as a side effect of a manpower read (this
-    // fires during SimulationRuntime construction too, before
-    // trackSyncMainThreadTask is safe to route through — see below).
-    let railDepotNetworkLogisticsGuildCount = 0;
-    let assemblyWorksNetworkGarrisonHallCount = 0;
-    if (hasAnyRailDepot || hasAnyAssemblyWorks) {
-      const summary = this.summaryForPlayer(player.id);
-      const settledTiles = this.settledTilesForPlayer(player.id);
-      // Reuse the shared town-network cache if it's already warm, but do NOT
-      // go through cachedTownNetworkForPlayer's trackSyncMainThreadTask
-      // wrapper on a cold cache: playerManpowerCap (and so this method) fires
-      // during SimulationRuntime construction (applyManpowerRegen for
-      // initial players), before simulation-service.ts's module-level
-      // `simulationMetrics` has finished initializing — routing an uncached
-      // rebuild through that instrumentation this early throws a
-      // temporal-dead-zone ReferenceError. Building directly still populates
-      // townNetworkCacheByPlayer, so later, instrumented callers still get a
-      // cache hit.
-      const townNetwork = this.townNetworkCacheByPlayer.get(player.id) ?? this.rebuildTownNetworkUninstrumented(player, settledTiles);
-      if (hasAnyRailDepot) {
-        railDepotNetworkLogisticsGuildCount = railDepotNetworkLogisticsGuildCountForPlayer(
-          player.id,
-          this.tiles,
-          townNetwork,
-          summary.ownedTownTierByTile.keys(),
-          dormantEconomicStructureKeys
-        );
-      }
-      if (hasAnyAssemblyWorks) {
-        assemblyWorksNetworkGarrisonHallCount = assemblyWorksNetworkGarrisonHallCountForPlayer(
-          player.id,
-          this.tiles,
-          townNetwork,
-          summary.ownedTownTierByTile.keys(),
-          dormantEconomicStructureKeys
-        );
-      }
-    }
-    // Population Bureau (monument, single-per-map): only its owner gets the
-    // empire-wide regen bonus, scaling with the count of Manpower-branch
-    // buildings they own. A full-tile scan for monument ownership mirrors
-    // monumentClaimOwnerId's own accepted cost tradeoff (monuments are rare;
-    // this only runs on a manpower-structure-bonus cache miss, not every tick).
-    let populationBureauManpowerBuildingCount = 0;
-    // this.tiles isn't populated yet during SimulationRuntime construction
-    // (applyManpowerRegen fires for initial players before tile hydration) —
-    // skip the scan entirely rather than throw; it re-runs correctly on the
-    // next real manpower read once tiles are seeded.
-    if (this.tiles && this.tiles.size > 0 && monumentClaimOwnerId(this.tiles, "POPULATION_BUREAU") === player.id) {
-      populationBureauManpowerBuildingCount =
-        garrisonHallCount +
-        logisticsGuildCount +
-        (railDepotKeys?.size ?? 0) +
-        (assemblyWorksKeys?.size ?? 0) +
-        (this.quartermastersOfficeTilesByOwner.get(player.id)?.size ?? 0) +
-        (this.granaryTilesByOwner.get(player.id)?.size ?? 0) +
-        (this.censusHallTilesByOwner.get(player.id)?.size ?? 0);
-    }
-    const result = {
-      garrisonHallCount,
-      assemblyWorksNetworkGarrisonHallCount,
-      railDepotNetworkLogisticsGuildCount,
-      logisticsGuildCount,
-      populationBureauManpowerBuildingCount
-    };
-    this.manpowerStructureBonusCacheByPlayer.set(player.id, result);
-    return result;
+  private cachedManpowerStructureBonusForPlayer(player: RuntimePlayer): ManpowerStructureBonus {
+    return cachedManpowerStructureBonusForPlayerImpl(
+      {
+        tiles: this.tiles,
+        manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer,
+        garrisonHallTilesByOwner: this.garrisonHallTilesByOwner,
+        railDepotTilesByOwner: this.railDepotTilesByOwner,
+        assemblyWorksTilesByOwner: this.assemblyWorksTilesByOwner,
+        logisticsGuildTilesByOwner: this.logisticsGuildTilesByOwner,
+        quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
+        granaryTilesByOwner: this.granaryTilesByOwner,
+        censusHallTilesByOwner: this.censusHallTilesByOwner,
+        townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
+        activeMonumentOwnerByType: this.activeMonumentOwnerByType,
+        dormantEconomicStructureKeysForPlayer: (playerId) => this.dormantEconomicStructureKeysForPlayer(playerId),
+        summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+        settledTilesForPlayer: (playerId) => this.settledTilesForPlayer(playerId),
+        rebuildTownNetworkUninstrumented: (p, settledTiles) => this.rebuildTownNetworkUninstrumented(p, settledTiles)
+      },
+      player
+    );
   }
 
   // Same rebuild as cachedTownNetworkForPlayer, without the

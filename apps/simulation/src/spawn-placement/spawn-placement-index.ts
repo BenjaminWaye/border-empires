@@ -1,0 +1,155 @@
+import type { DomainTileState } from "@border-empires/game-domain";
+import { computeCoastalLandKeys } from "./spawn-placement.js";
+
+export type SpawnPlacementCoord = { x: number; y: number };
+
+const isSettledCoordTile = (tile: DomainTileState): boolean =>
+  Boolean(tile.ownerId) && Boolean(tile.ownershipState) && tile.ownershipState !== "BARBARIAN";
+const isTownCoordTile = (tile: DomainTileState): boolean => Boolean(tile.town);
+const isFoodCoordTile = (tile: DomainTileState): boolean => tile.resource === "FARM" || tile.resource === "FISH";
+
+const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number => Math.max(Math.abs(ax - bx), Math.abs(ay - by));
+const manhattanDistance = (ax: number, ay: number, bx: number, by: number): number => Math.abs(ax - bx) + Math.abs(ay - by);
+
+/**
+ * Uniform-grid spatial index answering "is there a coordinate within radius
+ * of (x,y)" in O(cells covering the radius) instead of O(all coordinates).
+ *
+ * chooseLegacySpawnPlacement's random-placement search calls this kind of
+ * check up to ~24,000 times per spawn attempt (once per candidate tried
+ * across its search passes). settledCoords in particular tracks every owned
+ * tile across every player — not one point per player — so on a mature world
+ * that's thousands of coordinates; a linear .some() scan against it, times
+ * ~24,000 attempts, was found under load testing to cost ~230-250ms per new
+ * player connecting (confirmed via direct instrumentation: settled=4888,
+ * attempts=23000+ before the search's minSpawnDistance requirement finally
+ * relaxed enough to succeed). Bucketing by a fixed cell size turns each
+ * "nearby" check into a handful of small bucket scans instead.
+ */
+class CoordGrid {
+  private readonly cellSize: number;
+  private readonly buckets = new Map<string, Map<string, SpawnPlacementCoord>>();
+  private readonly cellKeyByEntryKey = new Map<string, string>();
+
+  constructor(cellSize: number) {
+    this.cellSize = cellSize;
+  }
+
+  private cellKeyFor(x: number, y: number): string {
+    return `${Math.floor(x / this.cellSize)}:${Math.floor(y / this.cellSize)}`;
+  }
+
+  set(entryKey: string, coord: SpawnPlacementCoord): void {
+    this.delete(entryKey);
+    const cellKey = this.cellKeyFor(coord.x, coord.y);
+    let bucket = this.buckets.get(cellKey);
+    if (!bucket) {
+      bucket = new Map<string, SpawnPlacementCoord>();
+      this.buckets.set(cellKey, bucket);
+    }
+    bucket.set(entryKey, coord);
+    this.cellKeyByEntryKey.set(entryKey, cellKey);
+  }
+
+  delete(entryKey: string): void {
+    const cellKey = this.cellKeyByEntryKey.get(entryKey);
+    if (cellKey === undefined) return;
+    this.buckets.get(cellKey)?.delete(entryKey);
+    this.cellKeyByEntryKey.delete(entryKey);
+  }
+
+  private forEachNearbyBucket(x: number, y: number, radius: number, visit: (bucket: ReadonlyMap<string, SpawnPlacementCoord>) => boolean): boolean {
+    const cellRadius = Math.ceil(radius / this.cellSize) + 1;
+    const cx = Math.floor(x / this.cellSize);
+    const cy = Math.floor(y / this.cellSize);
+    for (let dy = -cellRadius; dy <= cellRadius; dy += 1) {
+      for (let dx = -cellRadius; dx <= cellRadius; dx += 1) {
+        const bucket = this.buckets.get(`${cx + dx}:${cy + dy}`);
+        if (bucket && visit(bucket)) return true;
+      }
+    }
+    return false;
+  }
+
+  // Chebyshev distance strictly less than radius — matches
+  // chooseLegacySpawnPlacement's hasNearbySpawn semantics.
+  hasWithinChebyshev(x: number, y: number, radius: number): boolean {
+    return this.forEachNearbyBucket(x, y, radius, (bucket) => {
+      for (const coord of bucket.values()) if (chebyshevDistance(x, y, coord.x, coord.y) < radius) return true;
+      return false;
+    });
+  }
+
+  // Manhattan distance less-than-or-equal radius — matches
+  // chooseLegacySpawnPlacement's hasNearbyTown/hasNearbyFood semantics.
+  hasWithinManhattan(x: number, y: number, radius: number): boolean {
+    return this.forEachNearbyBucket(x, y, radius, (bucket) => {
+      for (const coord of bucket.values()) if (manhattanDistance(x, y, coord.x, coord.y) <= radius) return true;
+      return false;
+    });
+  }
+}
+
+/**
+ * Backs chooseLegacySpawnPlacement's map-wide lookups (coastalLandKeys,
+ * hasNearbySettled/hasNearbyTown/hasNearbyFood) with data maintained
+ * incrementally instead of rescanned from every tile on the map — and, for
+ * the "nearby" checks, indexed spatially instead of linearly scanned — on
+ * every single spawn/respawn placement call. That combined cost (called once
+ * per new player connecting, via PreparePlayer -> ensurePlayerHasSpawnTerritory)
+ * was found under concurrent-player load testing to dominate connect/INIT
+ * latency at scale.
+ *
+ * coastalLandKeys/foodCoords derive only from tile.terrain/tile.resource,
+ * neither of which changes after worldgen, so both are computed once,
+ * lazily, on first real use (never cached while the world hasn't hydrated
+ * yet, matching the same boot-order caution as the manpower/monument cache
+ * in runtime.ts). settled/town grids depend on ownership/town state, which
+ * changes on every tile mutation, so refreshForTileChange keeps them
+ * incrementally in sync — the same add/remove-per-tile-change idiom already
+ * used for the per-owner tile-set indexes in runtime-tile-index-maintenance.ts,
+ * just keyed globally instead of per-owner.
+ */
+export class SpawnPlacementIndex {
+  private static readonly CELL_SIZE = 25;
+
+  private readonly settledGrid = new CoordGrid(SpawnPlacementIndex.CELL_SIZE);
+  private readonly townGrid = new CoordGrid(SpawnPlacementIndex.CELL_SIZE);
+  private coastalLandKeysCache: ReadonlySet<string> | undefined;
+  private foodGridCache: CoordGrid | undefined;
+
+  refreshForTileChange(tileKey: string, next: DomainTileState): void {
+    if (isSettledCoordTile(next)) this.settledGrid.set(tileKey, { x: next.x, y: next.y });
+    else this.settledGrid.delete(tileKey);
+    if (isTownCoordTile(next)) this.townGrid.set(tileKey, { x: next.x, y: next.y });
+    else this.townGrid.delete(tileKey);
+  }
+
+  hasNearbySettled(x: number, y: number, radius: number): boolean {
+    return this.settledGrid.hasWithinChebyshev(x, y, radius);
+  }
+
+  hasNearbyTown(x: number, y: number, radius: number): boolean {
+    return this.townGrid.hasWithinManhattan(x, y, radius);
+  }
+
+  hasNearbyFood(tiles: ReadonlyMap<string, DomainTileState>, x: number, y: number, radius: number): boolean {
+    return this.foodGrid(tiles).hasWithinManhattan(x, y, radius);
+  }
+
+  coastalLandKeys(tiles: ReadonlyMap<string, DomainTileState>): ReadonlySet<string> {
+    if (tiles.size === 0) return this.coastalLandKeysCache ?? new Set<string>();
+    if (!this.coastalLandKeysCache) this.coastalLandKeysCache = computeCoastalLandKeys([...tiles.values()]);
+    return this.coastalLandKeysCache;
+  }
+
+  private foodGrid(tiles: ReadonlyMap<string, DomainTileState>): CoordGrid {
+    if (tiles.size === 0) return this.foodGridCache ?? new CoordGrid(SpawnPlacementIndex.CELL_SIZE);
+    if (!this.foodGridCache) {
+      const grid = new CoordGrid(SpawnPlacementIndex.CELL_SIZE);
+      for (const [tileKey, tile] of tiles) if (isFoodCoordTile(tile)) grid.set(tileKey, { x: tile.x, y: tile.y });
+      this.foodGridCache = grid;
+    }
+    return this.foodGridCache;
+  }
+}

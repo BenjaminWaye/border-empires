@@ -32,6 +32,16 @@ export type RuntimeRespawnContext = {
   respawnMinimumGold: number;
   incrementAuthRecoveryRespawn: () => void;
   incrementAuthRecoveryRespawnGuarded: () => void;
+  // Cached/incrementally-maintained, spatially-indexed lookups threaded
+  // through to chooseLegacySpawnPlacement — see SpawnPlacementIndex and
+  // LegacySpawnPlacementInput's matching fields. Passing these avoids both
+  // re-scanning every tile on the map AND linearly scanning every owned tile
+  // on every single spawn/respawn placement, which load testing showed
+  // costing ~700-900ms per new player connecting at 100-tile-map-scale.
+  coastalLandKeys: () => ReadonlySet<string>;
+  hasNearbySettled: (x: number, y: number, radius: number) => boolean;
+  hasNearbyTown: (x: number, y: number, radius: number) => boolean;
+  hasNearbyFood: (x: number, y: number, radius: number) => boolean;
 };
 
 export const preparePlayerRespawnNotice = (
@@ -116,7 +126,16 @@ export const ensurePlayerHasSpawnTerritory = (
   }
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
   ctx.rememberedAutomationVictoryPathByPlayer.delete(playerId);
-  const spawn = chooseLegacySpawnPlacement({ playerId, tiles: ctx.tiles.values(), blockedTileKeys, ...(rallyAnchor ? { rallyAnchor } : {}) });
+  const spawn = chooseLegacySpawnPlacement({
+    playerId,
+    tiles: ctx.tiles.values(),
+    blockedTileKeys,
+    coastalLandKeys: ctx.coastalLandKeys(),
+    hasNearbySettled: ctx.hasNearbySettled,
+    hasNearbyTown: ctx.hasNearbyTown,
+    hasNearbyFood: ctx.hasNearbyFood,
+    ...(rallyAnchor ? { rallyAnchor } : {})
+  });
   if (!spawn) return false;
   const tileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(tileKey);
@@ -141,7 +160,15 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   if (!actor) return false;
   if (!actor.isAi && !ctx.pendingRespawnNoticeByPlayerId.has(playerId)) preparePlayerRespawnNotice(ctx, playerId, "auth_recovery", commandId, { wasOnline: true });
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
-  const spawn = chooseLegacySpawnPlacement({ playerId, tiles: ctx.tiles.values(), blockedTileKeys });
+  const spawn = chooseLegacySpawnPlacement({
+    playerId,
+    tiles: ctx.tiles.values(),
+    blockedTileKeys,
+    coastalLandKeys: ctx.coastalLandKeys(),
+    hasNearbySettled: ctx.hasNearbySettled,
+    hasNearbyTown: ctx.hasNearbyTown,
+    hasNearbyFood: ctx.hasNearbyFood
+  });
   if (!spawn) return false;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);
@@ -195,7 +222,15 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   );
 
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
-  const spawn = chooseLegacySpawnPlacement({ playerId, tiles: ctx.tiles.values(), blockedTileKeys });
+  const spawn = chooseLegacySpawnPlacement({
+    playerId,
+    tiles: ctx.tiles.values(),
+    blockedTileKeys,
+    coastalLandKeys: ctx.coastalLandKeys(),
+    hasNearbySettled: ctx.hasNearbySettled,
+    hasNearbyTown: ctx.hasNearbyTown,
+    hasNearbyFood: ctx.hasNearbyFood
+  });
   if (!spawn) return;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);
