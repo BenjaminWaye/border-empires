@@ -424,25 +424,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786320000000, // 2026.08.09.2
-    introducedIn: "2026.08.09.2",
-    title: "Smaller soil mound on grain tiles",
-    why: "The dirt bed under the barley crop was large enough to cover most of the tile, hiding the grain it was supposed to sit beneath.",
-    changes: [
-      "Shrunk the grain tile's soil mound and widened the crop patch so the golden barley fills the tile, with the dirt only showing as a thin rim.",
-      "Increased stalk and seed-head density for a fuller-looking crop."
-    ]
-  },
-  {
-    createdAt: 1786306202000, // 2026.08.09.1
-    introducedIn: "2026.08.09.1",
-    title: "Muster tile cap tag on Muster Discipline/Command",
-    why: "Muster Discipline, Muster Command, and War Foundries each grant +1 muster flag capacity, but the tech tree card never showed a highlight chip for it — every other tech payoff (unlocks, reveals) got a tag except this one.",
-    changes: [
-      "Muster Discipline, Muster Command, and War Foundries now show a \"Muster Flag +1\" chip on their tech-tree card and detail view."
-    ]
-  },
-  {
     createdAt: 1786530000000, // 2026.08.12.3
     introducedIn: "2026.08.12.3",
     title: "Muster ADVANCE flags launch one attack at a time",

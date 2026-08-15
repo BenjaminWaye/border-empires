@@ -148,9 +148,19 @@ export const createTownOverlay = (scene: Scene, maxTiles: number): TownOverlay =
     for (const slot of slots.values()) {
       const { mesh } = slot;
       mesh.count = slot.index;
+      // Upload only the instances actually used. Without an update range three.js does
+      // gl.bufferSubData(target, 0, array) — the entire allocated capacity, however few
+      // instances are drawn — every time needsUpdate is set. Town capacity is sized for
+      // the worst-case tile-full-of-metropolises case, so most of it is idle most frames.
+      mesh.instanceMatrix.clearUpdateRanges();
+      if (mesh.instanceColor) mesh.instanceColor.clearUpdateRanges();
       if (slot.index === 0) continue;
+      mesh.instanceMatrix.addUpdateRange(0, slot.index * 16);
       mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      if (mesh.instanceColor) {
+        mesh.instanceColor.addUpdateRange(0, slot.index * 3);
+        mesh.instanceColor.needsUpdate = true;
+      }
     }
   };
 
