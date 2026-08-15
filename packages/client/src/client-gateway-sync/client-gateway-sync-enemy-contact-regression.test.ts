@@ -66,4 +66,18 @@ describe("first enemy contact unlocks mustering", () => {
 
     expect(isMusterUnlocked("a@example.com")).toBe(false);
   });
+
+  it("unlocks mustering when a tile already known as neutral flips to a rival owner (not just on first sighting)", () => {
+    stubWindowStorage();
+    const deps = createDeps();
+    // Simulates a tile the player scouted early (already in state.tiles as
+    // neutral) that a rival empire later settles — `wasKnown` is true for
+    // this delta, so the unlock must not depend on the "newly seen" gate.
+    deps.state.tiles.set("5,5", { x: 5, y: 5, terrain: "LAND" });
+
+    applyGatewayTileDeltaBatch(deps, [{ x: 5, y: 5, ownerId: "rival-1", ownershipState: "SETTLED" }]);
+
+    expect(isMusterUnlocked("a@example.com")).toBe(true);
+    expect(deps.state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
+  });
 });
