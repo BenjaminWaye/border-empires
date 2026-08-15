@@ -6,6 +6,27 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1786530000000, // 2026.08.12.3
+    introducedIn: "2026.08.12.3",
+    title: "Muster ADVANCE flags launch one attack at a time",
+    why: "A flag set to ADVANCE re-searched on every automation tick, so it could fire a second attack while its first was still resolving — and an underfunded flag kept re-sending a doomed strike every tick. A flag now waits for its in-flight attack to resolve before launching another, and only fires when it can actually afford the target.",
+    changes: [
+      "Muster flags in ADVANCE mode now wait for their current attack to resolve before launching another.",
+      "A flag that can't afford an attack no longer sends the strike to the server at all."
+    ]
+  },
+  {
+    createdAt: 1786547200000, // 2026.08.12.11
+    introducedIn: "2026.08.12.11",
+    title: "New 3D dock overlay and matching 2D icon: a working cargo-crane pier",
+    why: "Docks used a placeholder timber-deck look with a mast and flag that read as a boatyard — none of it said 'this tile is how goods move across the ocean'. Replaced it with an actual working port scene: the dock is now a heavy timber-and-iron pier with a large brass cargo crane actively hoisting a crate over the loading deck, backed by a steam winch, boiler and pipe run, a compact dockhouse with amber-lit windows, mooring posts chaining a small steampunk cargo barge alongside, and crates, barrels and lamps that make the pier feel busy and lived-in.",
+    changes: [
+      "Docks now render a dedicated 3D cargo port: timber-and-iron pier, tall brass rotating cargo crane with a visibly suspended crate, steam winch and boiler, compact dockhouse, moored steampunk cargo barge, mooring chains, and small amber lamps.",
+      "The 2D dock icon (used where the 3D renderer is off) matches the new look: same crane, pier, cargo and barge, with strong dark outlines so it still reads at a glance.",
+      "Docks are unchanged mechanically — this is purely the on-map look."
+    ]
+  },
+  {
     createdAt: 1786305917000, // 2026-08-09
     introducedIn: "unique-monument-components",
     title: "Each monument now has 3 uniquely-named components instead of 3 identical Parts",
@@ -31,16 +52,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786267157000, // 2026-08-09
-    introducedIn: "iron-titanium-deposit-overlay",
-    title: "Iron tiles now show a richer metallic outcrop in 3D mode",
-    why: "Iron tiles rendered as small grey ore piles, which read as minor details on the 3D map. Iron now uses the titanium-deposit outcrop mesh (bedrock lumps, bright ore chunks, tilted plates, blue-grey veins, and crystals) so mineable metal tiles are visually distinct and easier to spot.",
-    changes: [
-      "3D map: iron resource tiles now display a low irregular metallic outcrop with per-tile variation instead of the small ore stockpile.",
-      "The visual is deterministic per tile, so it stays stable while panning and on refresh."
-    ]
-  },
-  {
     createdAt: 1786413600000, // 2026.08.10.2
     introducedIn: "umbrite-deposit-overlay",
     title: "New Umbrite deposit overlay for the 3D map",
@@ -58,16 +69,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     changes: [
       "3D map: each of the Worldbreaker Cannon's 3 components now renders its own dedicated model — a tapered barrel in a brass cradle, a faceted crystal core in an iron containment ring, and a tripod targeting array.",
       "All three share the monument set's flat-shaded industrial look and its dark iron, aged brass, and stone palette."
-    ]
-  },
-  {
-    createdAt: 1786224715236,
-    introducedIn: "imperial-exchange-part-models",
-    title: "Imperial Exchange components now render as distinct 3D models",
-    why: "Imperial Exchange component tiles had no dedicated 3D model, so on the 3D map they fell back to a flat 2D overlay and read as a placeholder rather than a monument under construction. Each of the three components you build now renders its own distinct low-poly monument component.",
-    changes: [
-      "3D map: each of the Imperial Exchange's 3 components now renders its own dedicated model — the Golden Ledger (an upright iron ledger with brass binding and a dull-gold seal), the Counting Engine (a brass calculating drum with tally wheels and a glowing cyan ring), and the Sovereign Seal (a ceremonial iron-and-brass seal stamp with a gold crest center).",
-      "The 2D fallback overlay for component tiles is no longer drawn in 3D mode, matching other structures."
     ]
   },
   {
