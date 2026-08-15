@@ -345,6 +345,34 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     expect(pushFeed).toHaveBeenCalledWith(expect.stringContaining("never staged enough manpower"), "combat", "warn");
   });
 
+  // Companion to the WATCH_MUSTER regression above: once nothing is left in
+  // pendingMusterAttacks (dropped here via the hard timeout), the server's
+  // fast per-second tick for that flag should stop too — it's scoped to
+  // "whatever's driving the Mustering overlay right now", not a standing
+  // subscription that outlives the overlay.
+  it("sends UNWATCH_MUSTER once the last pending muster attack is dropped", () => {
+    const state = createInitialState();
+    state.me = "me";
+
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    state.tiles.set("5,0", target);
+    state.queuedTargetKeys.add("5,0");
+    state.pendingMusterAttacks = [
+      { targetX: 5, targetY: 0, fromX: 4, fromY: 0, musterTileKey: "4,0", queuedAt: Date.now() - 5 * 60 * 1000 - 1 }
+    ];
+
+    const sendGameMessage = vi.fn(() => true);
+    processPendingMusterAttacks(state, {
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      pushFeed: vi.fn(),
+      sendGameMessage
+    });
+
+    expect(state.pendingMusterAttacks).toHaveLength(0);
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "UNWATCH_MUSTER" });
+  });
+
   // Regression for: SET_MUSTER is fire-and-forget — processActionQueue sends
   // it and optimistically parks the attack with no ack tracking. When the
   // server rejects it (e.g. MUSTER_LIMIT: "max 3 muster tiles per player"),
@@ -383,6 +411,45 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
 
     expect(state.pendingMusterAttacks).toHaveLength(1);
     expect(state.pendingMusterAttacks[0]!.musterRequestedAt).toBeGreaterThanOrEqual(before);
+  });
+
+  // Regression: server-side tickWatchedMusterTiles fast-ticks (1s cadence)
+  // any flag a player has told it to WATCH_MUSTER, vs. the regular ~30s
+  // global cadence for everything else — scoped per-player, no cost to
+  // anyone else. Parking an attack behind a flag is exactly when the
+  // Mustering overlay starts driving off that flag's amount, so it should
+  // start being watched at the same moment.
+  it("sends WATCH_MUSTER for the origin flag when parking a new pending muster attack", () => {
+    const state = createInitialState();
+    state.authSessionReady = true;
+    state.me = "me";
+    state.gold = 999;
+
+    const target = makeTile({ x: 5, y: 0, ownerId: "enemy", ownershipState: "SETTLED" });
+    const origin = makeTile({ x: 4, y: 0, ownerId: "me", ownershipState: "FRONTIER" });
+    state.tiles.set("5,0", target);
+    state.tiles.set("4,0", origin);
+    state.actionQueue = [{ x: 5, y: 0, retries: 0 }];
+    state.queuedTargetKeys = new Set<string>(["5,0"]);
+
+    const sendGameMessage = vi.fn(() => true);
+    processActionQueue(state, {
+      ws: { OPEN: 1, readyState: 1, send: vi.fn() } as unknown as RealtimeSocket,
+      authSessionReady: true,
+      keyFor: (x, y) => `${x},${y}`,
+      isAdjacent: () => false,
+      isTileOwnedByAlly: () => false,
+      pickOriginForTarget: () => state.tiles.get("4,0"),
+      notifyInsufficientGoldForFrontierAction: vi.fn(),
+      applyOptimisticTileState: vi.fn(),
+      pushFeed: vi.fn(),
+      renderHud: vi.fn(),
+      sendSetMuster: vi.fn(),
+      sendAttack: vi.fn(),
+      sendGameMessage
+    });
+
+    expect(sendGameMessage).toHaveBeenCalledWith({ type: "WATCH_MUSTER", x: 4, y: 0 });
   });
 
   it("does not stamp musterRequestedAt when the origin tile already has a muster flag", () => {

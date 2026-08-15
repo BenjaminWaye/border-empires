@@ -6,6 +6,20 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1786406400000, // 2026.08.10.1
+    introducedIn: "2026.08.10.1",
+    title: "Removed Bank and Exchange House; Clearing House now boosts Mintworks",
+    why: "Bank and Mintworks did nearly the same thing, and Exchange House's bonus was never actually implemented — both were confusing dead weight in the tech tree and build menu.",
+    changes: [
+      "Removed the Bank and Exchange House structures.",
+      "The Minting Works tech now unlocks Clearing House (instead of Bank).",
+      "Clearing House now boosts Mintworks gold production (+25%) for its town and directly connected towns, instead of boosting Bank.",
+      "Removed the Provincial Concessions tech; Grand Bazaars now requires Minting Works directly.",
+      "Fixed the tech tree structure card showing two separate 'Upkeep' boxes for structures with more than one resource-slot requirement (Bank, Foundry, Rail Depot, Radar System, Exchange House, Ambaric Tower, Weapons Workshop, Assembly Works, Siege Tower, Dread Tower) — now shown as one combined box.",
+      "Moved Terrain Shaping into the Aether tech branch (was miscategorized under Economy); it now requires Covert Logistics and unlocks Sky Vessel Engineering alongside its other prerequisites."
+    ]
+  },
+  {
     createdAt: 1786530000000, // 2026.08.12.3
     introducedIn: "2026.08.12.3",
     title: "Muster ADVANCE flags launch one attack at a time",
