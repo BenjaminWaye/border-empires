@@ -18,6 +18,9 @@ const TRACK_URLS = ["/audio/aether-forger-frontier.m4a", "/audio/aetherium-front
 let audioElement: HTMLAudioElement | undefined;
 let trackIndex = 0;
 let started = false;
+let retryArmed = false;
+let armedRetryListener: (() => void) | undefined;
+let consecutiveTrackErrors = 0;
 
 const readStoredVolume = (): number => {
   try {
@@ -50,21 +53,68 @@ const applyGain = (): void => {
   audioElement.volume = muted ? 0 : volume;
 };
 
+/** Removes a pending retry-on-interaction listener, if one is armed. Called before every fresh play() attempt so a listener from an earlier failure can't outlive it — otherwise a later, unrelated interaction could trigger a stale extra play() call. */
+const disarmRetry = (): void => {
+  if (!retryArmed || typeof window === "undefined") return;
+  retryArmed = false;
+  if (armedRetryListener) {
+    window.removeEventListener("pointerdown", armedRetryListener);
+    window.removeEventListener("keydown", armedRetryListener);
+    armedRetryListener = undefined;
+  }
+};
+
+/** Re-attempts play() on the player's next pointer/key interaction. Used when play() is rejected (e.g. the browser's autoplay policy blocked a resume after the tab was backgrounded) instead of leaving playback silently stalled forever. Idempotent — a failure while a retry is already armed doesn't stack listeners. */
+const armRetryOnNextInteraction = (): void => {
+  if (retryArmed || typeof window === "undefined") return;
+  retryArmed = true;
+  const retry = (): void => {
+    retryArmed = false;
+    armedRetryListener = undefined;
+    window.removeEventListener("pointerdown", retry);
+    window.removeEventListener("keydown", retry);
+    if (!muted) attemptPlay();
+  };
+  armedRetryListener = retry;
+  window.addEventListener("pointerdown", retry, { once: true });
+  window.addEventListener("keydown", retry, { once: true });
+};
+
+/** Calls play() on the current track, catching rejection (autoplay block, transient failure) instead of leaving an unhandled promise rejection — and arms a retry for the next user gesture. */
+const attemptPlay = (): void => {
+  if (!audioElement) return;
+  disarmRetry();
+  audioElement.play().catch(() => armRetryOnNextInteraction());
+};
+
 const playTrack = (index: number): void => {
   if (!audioElement) return;
   trackIndex = ((index % TRACK_URLS.length) + TRACK_URLS.length) % TRACK_URLS.length;
   audioElement.src = TRACK_URLS[trackIndex] as string;
   applyGain();
-  void audioElement.play();
+  attemptPlay();
 };
 
-/** Builds the audio element and begins playback. Safe to call more than once — only the first call does anything. */
+/** Builds the audio element and begins playback. Safe to call more than once — after the first call, later calls just retry playback (e.g. re-enabling via the settings checkbox after a prior play() failure). */
 export const startAmbientAudio = (): void => {
-  if (started) return;
+  if (started) {
+    if (!muted) attemptPlay();
+    return;
+  }
   if (typeof window === "undefined" || typeof Audio === "undefined") return;
   started = true;
   audioElement = new Audio();
   audioElement.addEventListener("ended", () => playTrack(trackIndex + 1));
+  audioElement.addEventListener("playing", () => {
+    consecutiveTrackErrors = 0;
+  });
+  audioElement.addEventListener("error", () => {
+    consecutiveTrackErrors += 1;
+    // Both tracks failing back-to-back means the files themselves are broken —
+    // stop rather than spin forever alternating between two dead URLs.
+    if (consecutiveTrackErrors >= TRACK_URLS.length) return;
+    playTrack(trackIndex + 1);
+  });
   playTrack(0);
 };
 
@@ -81,7 +131,7 @@ export const initClientAudio = (): void => {
   document.addEventListener("visibilitychange", () => {
     if (!audioElement) return;
     if (document.hidden) audioElement.pause();
-    else if (!muted) void audioElement.play();
+    else if (!muted) attemptPlay();
   });
 };
 
