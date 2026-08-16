@@ -89,7 +89,9 @@ describe("VisibilityCoverageTracker town +1 reveal", () => {
     new VisibilityCoverageTracker(200, 200, {
       visionRadiusForPlayer: radius,
       getPlayer: (id) => ({ id, allies: new Set<string>() }),
-      territoryTileKeysForPlayer: () => new Set<string>()
+      territoryTileKeysForPlayer: () => new Set<string>(),
+      settledTileKeysForPlayer: () => new Set<string>(),
+      frontierTileKeysForPlayer: () => new Set<string>()
     });
 
   it("a town tile's own reveal extends one extra ring beyond a plain tile", () => {
@@ -133,7 +135,9 @@ describe("VisibilityCoverageTracker outpost vision bonus", () => {
     new VisibilityCoverageTracker(200, 200, {
       visionRadiusForPlayer: radius,
       getPlayer: (id) => ({ id, allies: new Set<string>() }),
-      territoryTileKeysForPlayer: () => new Set<string>()
+      territoryTileKeysForPlayer: () => new Set<string>(),
+      settledTileKeysForPlayer: () => new Set<string>(),
+      frontierTileKeysForPlayer: () => new Set<string>()
     });
 
   it("a Relay Beacon's flat bonus is independent of the source's own base radius", () => {

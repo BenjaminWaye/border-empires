@@ -19,15 +19,16 @@ import { TECH_REQUIREMENTS_BY_STRUCTURE as LIVE_TECH_REQ } from "../structure-re
 
 // ── Size check ─────────────────────────────────────────────────────
 
-test("STRUCTURE_REGISTRY covers exactly 62 structure types", () => {
+test("STRUCTURE_REGISTRY covers exactly 61 structure types", () => {
   // 51 minus BANK and EXCHANGE_HOUSE (both removed; Clearing House now
   // covers Bank's former unlock slot on the coinage tech), minus
   // WEAPONS_WORKSHOP (retired, no longer in ECONOMIC_SPECS — see
   // structure-registry-economic.ts), plus TITANIUM_WEAPONS_FACTORY and
   // UMBRITE_WEAPONS_FACTORY (its replacements): 49 - 1 + 2 = 50, plus 12 for
   // each of the 6 monuments' single Part becoming 3 uniquely-named
-  // components = 62.
-  expect(STRUCTURE_REGISTRY_SIZE).toBe(62);
+  // components = 62, minus QUARTERMASTERS_OFFICE (retired, same reason as
+  // WEAPONS_WORKSHOP above) = 61.
+  expect(STRUCTURE_REGISTRY_SIZE).toBe(61);
 });
 
 test("all registered types are unique", () => {
@@ -355,13 +356,14 @@ describe("upkeep parity", () => {
     "AIRPORT", "OBSERVATORY",
     "WOODEN_FORT", "RELAY_BEACON", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION",
     "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER",
-    "QUARTERMASTERS_OFFICE", "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
+    "LOGISTICS_GUILD", "ASSEMBLY_WORKS",
     "POPULATION_BUREAU_PART_1", "POPULATION_BUREAU_PART_2", "POPULATION_BUREAU_PART_3", "POPULATION_BUREAU",
     "TITANIUM_LEVY_PART_1", "TITANIUM_LEVY_PART_2", "TITANIUM_LEVY_PART_3", "TITANIUM_LEVY",
-    // WEAPONS_WORKSHOP is retired (no longer in STRUCTURE_REGISTRY, so this
-    // entry is inert) — kept here rather than removed since it's harmless
-    // and documents the type's prior no-upkeep status.
-    "WEAPONS_WORKSHOP",
+    // WEAPONS_WORKSHOP and QUARTERMASTERS_OFFICE are retired (no longer in
+    // STRUCTURE_REGISTRY, so these entries are inert) — kept here rather
+    // than removed since it's harmless and documents each type's prior
+    // no-upkeep status.
+    "WEAPONS_WORKSHOP", "QUARTERMASTERS_OFFICE",
     "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY",
   ]);
 

@@ -191,4 +191,90 @@ describe("client network in-place reconnect regression", () => {
     expect(ws.reconnect).toHaveBeenCalledTimes(6);
     expect(reload).not.toHaveBeenCalled();
   });
+
+  it("restarts mapLoadStartedAt on every socket open, not just the first ever connection", () => {
+    // Regression for a bug where a backgrounded-tab reconnect showed a wildly
+    // stale "Elapsed Xs" on the map-loading overlay: mapLoadStartedAt was
+    // only ever set once (guarded by "if unset"), so the elapsed timer kept
+    // counting from the original page load instead of the current reconnect
+    // attempt for however long the post-open INIT handshake took.
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const reload = vi.fn();
+    stubWindow(reload);
+
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    const firstOpenAt = state.mapLoadStartedAt;
+
+    vi.setSystemTime(950_000);
+    ws.emit("close", { code: 1006, reason: "" });
+    ws.readyState = FakeWebSocket.OPEN;
+    ws.emit("open", {});
+
+    expect(state.mapLoadStartedAt).toBeGreaterThan(firstOpenAt);
+    expect(state.mapLoadStartedAt).toBe(950_000);
+  });
+
+  it("anchors disconnectedSince at the first drop and holds it through reopen and repeat drops in one outage", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const reload = vi.fn();
+    stubWindow(reload);
+
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    expect(state.disconnectedSince).toBe(0);
+
+    vi.setSystemTime(1_000);
+    ws.emit("close", { code: 1006, reason: "" });
+    expect(state.disconnectedSince).toBe(1_000);
+
+    // Reopening the socket (pre-INIT "connected" state) must not clear it —
+    // that gap is exactly what the overlay grace window is timing.
+    vi.setSystemTime(1_050);
+    ws.readyState = FakeWebSocket.OPEN;
+    ws.emit("open", {});
+    expect(state.disconnectedSince).toBe(1_000);
+
+    // A second drop before recovery keeps the *original* drop time so the
+    // overlay grace window doesn't keep resetting during a flapping outage
+    // (which would let a long outage hide the overlay indefinitely).
+    vi.setSystemTime(1_200);
+    ws.emit("close", { code: 1006, reason: "" });
+    expect(state.disconnectedSince).toBe(1_000);
+  });
+
+  it("re-anchors disconnectedSince on the next drop once the session actually recovered", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const reload = vi.fn();
+    stubWindow(reload);
+
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    vi.setSystemTime(1_000);
+    ws.emit("close", { code: 1006, reason: "" });
+    expect(state.disconnectedSince).toBe(1_000);
+
+    // Full recovery: INIT landed and chunks arrived, so the map is usable
+    // again. INIT deliberately does not clear the anchor (the grace window
+    // must still cover the post-INIT resync), so the stale value only clears
+    // when a *healthy* session is the thing that drops.
+    ws.readyState = FakeWebSocket.OPEN;
+    ws.emit("open", {});
+    state.connection = "initialized";
+    state.firstChunkAt = 1_500;
+
+    vi.setSystemTime(900_000);
+    ws.emit("close", { code: 1006, reason: "" });
+    // Without the re-anchor this would still read 1_000, making now-anchor
+    // enormous and firing the overlay instantly on a plain tab switch — the
+    // exact flash this whole change exists to prevent.
+    expect(state.disconnectedSince).toBe(900_000);
+  });
 });

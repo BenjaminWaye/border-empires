@@ -92,7 +92,7 @@ type BannerRecord = {
 
 export const createVillageEffects = (scene: Scene): VillageEffects => {
   const smokeGeometry = new SphereGeometry(SMOKE_PUFF_RADIUS, 8, 6);
-  const smokeMaterial = new MeshBasicMaterial({
+  const smokeMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#d8d3c4",
     transparent: true,
     opacity: 0.32,
@@ -106,7 +106,7 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
   // Captured-town smoke: darker, more opaque, no additive blend so columns
   // read as solid soot against the sky rather than the wispy pale puffs above.
   const capturedSmokeGeometry = new SphereGeometry(CAPTURED_PUFF_RADIUS, 8, 6);
-  const capturedSmokeMaterial = new MeshBasicMaterial({
+  const capturedSmokeMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#3a3a3a",
     transparent: true,
     opacity: 0.7,

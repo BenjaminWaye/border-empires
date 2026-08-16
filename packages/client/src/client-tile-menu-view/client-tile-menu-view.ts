@@ -1,4 +1,6 @@
 import {
+  CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
+  CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT,
   FORT_BUILD_MS,
   FORT_TIER_LADDER,
   MUSTER_ATTACK_COST,
@@ -12,10 +14,11 @@ import {
   structureBuildManpowerCost,
   structureSlotRequirements,
   TILE_SLOT_BOOST_STRUCTURES,
+  WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
   type SlotResource,
   type SlotStructureType
 } from "@border-empires/shared";
-import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
+import { mintworksGoldProductionMultiplier, MINTWORKS_GOLD_PRODUCTION_BONUS, MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE } from "@border-empires/game-domain";
 import { converterStructureDetailText, converterModeLockLine, converterModeStatusLine, isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
@@ -131,6 +134,15 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_aether_tower") return "Late-game power node. Sky and monument structures in its radius stay online.";
   if (actionId === "build_caravanary") {
     return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Caravanary built.`;
+  }
+  if (actionId === "build_waterworks") {
+    return `Build on this support tile for ${supportedTownLabel}. Boosts food production on every Farmstead within 10 tiles by +100% and adds +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots to each one boosted.`;
+  }
+  if (actionId === "build_census_hall") {
+    return `Build on this support tile for ${supportedTownLabel}. Grants +${CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY.toLocaleString()} population per connected Incubation Engine and cuts this town's tier-upgrade gold cost by ${Math.round((1 - CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT) * 100)}%.`;
+  }
+  if (actionId === "build_clearing_house") {
+    return `Build on this support tile for ${supportedTownLabel}. Raises the gold bonus of every connected Mintworks from +${Math.round(MINTWORKS_GOLD_PRODUCTION_BONUS * 100)}% to +${Math.round(MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE * 100)}% per copy.`;
   }
   // §Cap removal: build as many of these as affordable; each occupies 1 slot and can be flipped between Refine/Sell off later.
   if (actionId === "build_umbrite_synthesizer") return "Occupies 1 Umbrite slot on this support tile. Refine (default): 30 gold/day upkeep for 18 umbrite/day. Can be flipped to Sell off later: 8 gold/day from the slot instead.";
@@ -381,11 +393,23 @@ export const menuOverviewForTile = (
   const pushLine = (html: string): void => {
     lines.push({ html });
   };
-  const pushEffectLine = (name: string, mod: string, tone: "positive" | "negative" | "neutral"): void => {
+  const pushEffectLine = (name: string, mod: string, tone: "positive" | "negative" | "neutral", options?: { nested?: boolean }): void => {
     modifierLines.push({
       kind: "effect",
+      ...(options?.nested ? { nested: true } : {}),
       html: `<span class="tile-overview-effect-name">${name}:</span><span class="tile-overview-effect-mod is-${tone}">${mod}</span>`
     });
+  };
+  // Unified building modifier display (stage 3): "<count> <Building>"
+  // heading followed by that building's own stat lines, indented under it —
+  // see menuOverviewForTile's townModifierTotals loop below for the only
+  // caller. A plain flat list here read as duplicated info when two
+  // different buildings fed the same bare stat name (e.g. two unlabeled
+  // "Gold production" lines with different percentages); a heading per
+  // building traces every number back to its source.
+  const pushModifierGroup = (heading: string, modifiers: Array<{ statLabel: string; valueText: string; tone: "positive" | "negative" | "neutral" }>): void => {
+    modifierLines.push({ kind: "group", html: heading });
+    for (const modifier of modifiers) pushEffectLine(modifier.statLabel, modifier.valueText, modifier.tone, { nested: true });
   };
   const ownerKind =
     !tile.ownerId
@@ -477,13 +501,13 @@ export const menuOverviewForTile = (
     } else if (ownTownEconomyPartial) {
       pushOwnTownLoadingRow("Growth");
     }
-    // Unified building modifier display (stage 2): combined totals for
-    // support-ring buildings that stack across the whole town (e.g. 3
-    // Garrison Halls → "Manpower cap: +450") — same white-label/green-value
-    // style as pushEffectLine's fort/siege/town modifiers above.
+    // Unified building modifier display (stage 3): one "<count> <Building>"
+    // heading per support-ring building type, with that building's own
+    // stat lines nested under it (e.g. "3 Garrison Halls" → Manpower cap:
+    // +450) — see pushModifierGroup above.
     if (isSettled && hasOwnerEconomyData) {
-      for (const total of tile.town.townModifierTotals ?? []) {
-        pushEffectLine(total.statLabel, total.valueText, total.tone);
+      for (const group of tile.town.townModifierTotals ?? []) {
+        pushModifierGroup(group.heading, group.modifiers);
       }
     }
   } else if (tile.townDataPartial) {

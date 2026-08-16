@@ -26,8 +26,8 @@ const supportTile = (x: number, y: number, ownerId: string, structureType?: stri
   ...(structureType ? { economicStructureJson: JSON.stringify({ type: structureType, status: "active", ownerId }) } : {})
 });
 
-describe("buildTownSummary — townModifierTotals (unified building modifier display, stage 2)", () => {
-  it("sums a flat, additive-per-copy modifier (manpower cap) across every active Garrison Hall in the support ring", () => {
+describe("buildTownSummary — townModifierTotals (unified building modifier display, stage 3)", () => {
+  it("sums a flat, additive-per-copy modifier (manpower cap) across every active Garrison Hall in the support ring, under a '<count> Garrison Halls' heading", () => {
     const ownerId = "p1";
     const town = townTile(10, 10, ownerId);
     const tiles: FixtureTile[] = [
@@ -39,10 +39,8 @@ describe("buildTownSummary — townModifierTotals (unified building modifier dis
     const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
     expect(summary?.townModifierTotals).toContainEqual({
-      statLabel: "Manpower cap",
-      total: GARRISON_HALL_MANPOWER_CAP_BONUS * 2,
-      valueText: `+${GARRISON_HALL_MANPOWER_CAP_BONUS * 2}`,
-      tone: "positive"
+      heading: "2 Garrison Halls",
+      modifiers: [{ statLabel: "Manpower cap", valueText: `+${GARRISON_HALL_MANPOWER_CAP_BONUS * 2}`, tone: "positive" }]
     });
   });
 
@@ -55,7 +53,11 @@ describe("buildTownSummary — townModifierTotals (unified building modifier dis
     expect(summary?.townModifierTotals ?? []).toEqual([]);
   });
 
-  it("combines Weapons Workshop and Titanium Weapons Factory into one percent 'Empire attack' total", () => {
+  // Regression: Weapons Workshop and Titanium Weapons Factory used to be
+  // merged into one combined, unlabeled "Empire attack" total. Each building
+  // type now gets its own heading and its own total instead, so the panel
+  // always shows which building a number came from.
+  it("gives Weapons Workshop and Titanium Weapons Factory separate headings/totals for Empire attack", () => {
     const ownerId = "p1";
     const town = townTile(10, 10, ownerId);
     const tiles: FixtureTile[] = [
@@ -65,16 +67,19 @@ describe("buildTownSummary — townModifierTotals (unified building modifier dis
     ];
     const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
-    const expectedPercent = (WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING + TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING) * 100;
+    const workshopPercent = WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING * 100;
+    const factoryPercent = TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING * 100;
     expect(summary?.townModifierTotals).toContainEqual({
-      statLabel: "Empire attack",
-      total: expectedPercent,
-      valueText: percentLabel(expectedPercent),
-      tone: "positive"
+      heading: "1 Weapons Workshop",
+      modifiers: expect.arrayContaining([{ statLabel: "Empire attack", valueText: percentLabel(workshopPercent), tone: "positive" }])
+    });
+    expect(summary?.townModifierTotals).toContainEqual({
+      heading: "1 Titanium Weapons Factory",
+      modifiers: expect.arrayContaining([{ statLabel: "Empire attack", valueText: percentLabel(factoryPercent), tone: "positive" }])
     });
   });
 
-  it("aggregates Mintworks gold production non-linearly (via the live count) instead of a naive per-copy multiply", () => {
+  it("aggregates Mintworks gold production non-linearly (via the live count) instead of a naive per-copy multiply, under a '<count> Mintworks' heading", () => {
     const ownerId = "p1";
     const town = townTile(10, 10, ownerId);
     const tiles: FixtureTile[] = [
@@ -87,10 +92,8 @@ describe("buildTownSummary — townModifierTotals (unified building modifier dis
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
     const expectedPercent = MINTWORKS_GOLD_PRODUCTION_BONUS * 100 * 3;
     expect(summary?.townModifierTotals).toContainEqual({
-      statLabel: "Gold production",
-      total: expectedPercent,
-      valueText: percentLabel(expectedPercent),
-      tone: "positive"
+      heading: "3 Mintworks",
+      modifiers: expect.arrayContaining([{ statLabel: "Gold production", valueText: percentLabel(expectedPercent), tone: "positive" }])
     });
   });
 });

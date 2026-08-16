@@ -33,9 +33,27 @@ import { CanvasTexture, InstancedMesh, Matrix4, MeshBasicMaterial, PlaneGeometry
 // otherwise punch through; `polygonOffset` on the material covers the rest.
 const SURFACE_LIFT_Y = 0.012;
 
-// Under the ground-overlay band (settle tint and friends sit at 5) so a
-// selection tint paints over the shadow rather than under it.
-const RENDER_ORDER = 4;
+// Above every ground-tint layer, not below it — most importantly the
+// ownership overlay (client-map-3d-ownership-overlay.ts), which paints a
+// near-opaque settled/frontier tint at renderOrder 6/7 over essentially every
+// owned or visible tile on the map, and frontierClaimPlate in client-map-3d.ts
+// at renderOrder 7.
+//
+// This module's first version put the decal at renderOrder 4, reasoning only
+// about client-map-3d-settle-overlay.ts's tint (renderOrder 5) and never
+// checking the ownership overlay at all. Three.js draws the transparent pass
+// in ascending renderOrder, so that ordering had the territory tint painting
+// over the shadow on every owned or explored tile — which in a live game is
+// nearly all of them. The result was correct-by-construction and invisible in
+// practice: the decal for the *previous* fix (client-map-3d-structure-overlay
+// coverage in the last PR) never actually reached the screen, which is why
+// extending its coverage to towns/watchtowers/resources changed nothing that
+// could be seen either.
+//
+// A real contact shadow darkens whatever ground color is under it — sitting
+// above the tint is the physically correct order, not just the one that
+// happens to be visible.
+const RENDER_ORDER = 8;
 
 const TEXTURE_SIZE = 128;
 
@@ -67,11 +85,31 @@ export type ContactShadowOverlay = {
   readonly dispose: () => void;
 };
 
-// Every occupant this overlay currently shadows (structures, towns,
-// watchtowers, resources, deposits) fits within one tile, so one radius
-// covers them all — a little short of the tile edge grounds the silhouette
-// without bleeding onto a neighbouring tile.
+// Three size tiers, picked by measuring each family's own geometry rather
+// than assumed — the previous single DEFAULT radius (0.42, diameter 0.84)
+// was invisible under towns because their own opaque foundation slab is
+// 0.78-0.92 tiles wide (town-tier-capitals.ts / town-tier-cities.ts):
+// equal to or *larger* than the decal, so it fully occluded the shadow with
+// no rim showing outside it. A contact shadow only reads if it extends
+// past the opaque footprint sitting on top of it.
+
+// Generic single-tile occupants (economic/civic/industrial structures,
+// watchtowers, relay beacons, barbarian totems, shard sites, resource
+// deposits): all comfortably under 0.7 tiles wide by their own geometry, so
+// a little short of the tile edge grounds the silhouette without bleeding
+// onto a neighbouring tile.
 export const DEFAULT_CONTACT_SHADOW_RADIUS_TILES = 0.42;
+
+// Wide-footprint occupants: town foundation slabs run up to 0.92 tiles wide
+// at the capital tier, and fort walls (WALL_LENGTH in
+// client-map-3d-fort-overlay.ts) run 0.86. Diameter 0.96 clears both with a
+// visible rim while staying inside the tile.
+export const LARGE_CONTACT_SHADOW_RADIUS_TILES = 0.48;
+
+// A single tree's canopy (pineCanopyGeometry in client-map-3d-forest.ts) has
+// radius 0.22 — using DEFAULT here would draw a building-sized blob under a
+// trunk a third that wide.
+export const SMALL_CONTACT_SHADOW_RADIUS_TILES = 0.22;
 
 // Black at the core falling to fully transparent at the rim. The midpoint
 // stops keep the falloff from reading as a hard-edged dot the way a plain
@@ -110,7 +148,7 @@ export const createContactShadowOverlay = (scene: Scene, maxTiles: number): Cont
   // `rotateX(-90°)` turns the plane's +Z normal to +Y, and the map camera is
   // always above the ground, so the default FrontSide is all that ever renders.
   const map = createContactShadowTexture();
-  const material = new MeshBasicMaterial({
+  const material = new MeshBasicMaterial({ toneMapped: false,
     color: "#ffffff",
     transparent: true,
     opacity: 0.38,

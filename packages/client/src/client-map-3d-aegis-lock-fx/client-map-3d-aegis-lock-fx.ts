@@ -48,7 +48,7 @@ export const createAegisLockFxLayer = (scene: Scene): AegisLockFxLayer => {
     entryGroup.position.set(sceneX, surfaceY + 0.03, sceneZ);
 
     const boundaryGeometry = new RingGeometry(radius - 0.18, radius, 96);
-    const boundaryMaterial = new MeshBasicMaterial({
+    const boundaryMaterial = new MeshBasicMaterial({ toneMapped: false,
       color: "#7fe6ff",
       transparent: true,
       opacity: 0,
@@ -61,7 +61,7 @@ export const createAegisLockFxLayer = (scene: Scene): AegisLockFxLayer => {
     entryGroup.add(boundaryRing);
 
     const shimmerGeometry = new TorusGeometry(radius * 0.94, 0.04, 6, 96);
-    const shimmerMaterial = new MeshBasicMaterial({
+    const shimmerMaterial = new MeshBasicMaterial({ toneMapped: false,
       color: "#bff6ff",
       transparent: true,
       opacity: 0,

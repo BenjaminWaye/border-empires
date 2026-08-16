@@ -68,7 +68,7 @@ export const createSiphonFxLayer = (scene: Scene): SiphonFxLayer => {
   const entries: SiphonEntry[] = [];
 
   const makeMaterial = (color: string, opacity: number): MeshBasicMaterial =>
-    new MeshBasicMaterial({
+    new MeshBasicMaterial({ toneMapped: false,
       color,
       transparent: true,
       opacity,

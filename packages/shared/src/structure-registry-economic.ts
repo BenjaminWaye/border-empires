@@ -45,7 +45,6 @@ export const TECH_REQUIREMENTS_BY_STRUCTURE: Partial<Record<EconomicStructureTyp
   CUSTOMS_HOUSE: "trade",
   GOVERNORS_OFFICE: "civil-service",
   RADAR_SYSTEM: "radar",
-  QUARTERMASTERS_OFFICE: "field-logistics",
   LOGISTICS_GUILD: "remade-concordat",
   ASSEMBLY_WORKS: "conveyor-networks",
   TITANIUM_WEAPONS_FACTORY: "masonry",
@@ -180,7 +179,13 @@ export const ECONOMIC_SPECS: Record<string, StructureSpec> = {
   RADAR_SYSTEM: econSpec("RADAR_SYSTEM"),
 
   // Manpower branch — new buildings
-  QUARTERMASTERS_OFFICE: econSpec("QUARTERMASTERS_OFFICE"),
+  // QUARTERMASTERS_OFFICE retired (weak payoff: only discounted Fort/Siege
+  // Outpost manpower cost, a one-time build-cost saving that couldn't
+  // compete with the escalating per-tech gold tax); intentionally left out
+  // of this registry so it can never be newly built again, while
+  // types.ts/structure-slots.ts/config.ts/runtime-structure-command-handlers.ts
+  // keep supporting any copies a player already owns from before the
+  // retirement (no data migration for a live game).
   LOGISTICS_GUILD: econSpec("LOGISTICS_GUILD"),
   ASSEMBLY_WORKS: econSpec("ASSEMBLY_WORKS"),
 

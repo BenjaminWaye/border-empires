@@ -34,7 +34,6 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockImperialExchange: "Imperial Exchange",
   unlockWorldEngine: "Worldbreaker Cannon",
   unlockAegisDome: "Aegis Dome",
-  unlockQuartermastersOffice: "Quartermaster's Office",
   unlockLogisticsGuild: "Logistics Guild",
   unlockAssemblyWorks: "Assembly Works",
   unlockPopulationBureau: "Population Bureau",
