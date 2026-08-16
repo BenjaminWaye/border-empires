@@ -15,6 +15,7 @@ import {
   SRGBColorSpace,
   TorusGeometry
 } from "three";
+import { BLOOM_LAYER } from "./client-map-3d-bloom/client-map-3d-bloom-layer.js";
 
 // Real 3D anchor pylons standing at each end of an active Aether Bridge.
 // The bridge lane itself is still painted as a 2D canvas overlay (it reads
@@ -213,6 +214,10 @@ export const createAetherBridgePylonOverlay = (
 
     const core = new Mesh(coreGeometry, coreMaterial);
     core.position.y = TOWER_HEIGHT * 0.5 + 0.08;
+    // Only the aether core and its aura opt into bloom — the plinth, rivets,
+    // towers, bands, finials, and gear are plain iron/brass/copper and should
+    // render as solid metal, not glow. See client-map-3d-bloom-layer.ts.
+    core.layers.enable(BLOOM_LAYER);
     pylonGroup.add(core);
 
     const gear = buildGear();
@@ -222,6 +227,7 @@ export const createAetherBridgePylonOverlay = (
     const aura = new Sprite(auraMaterial);
     aura.scale.set(0.85, 0.85, 0.85);
     aura.position.y = TOWER_HEIGHT * 0.55;
+    aura.layers.enable(BLOOM_LAYER);
     pylonGroup.add(aura);
 
     pylonGroup.visible = false;
