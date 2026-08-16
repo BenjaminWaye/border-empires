@@ -110,9 +110,10 @@ describe("menuOverviewForTile", () => {
   it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Settle this tile to activate: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); });
   // supportContributionLine (the old hand-written "X contributes to Y: ..."
   // prose) was removed — it duplicated the unified Modifiers section
-  // word-for-word. A clicked Clearing House's own Mintworks-effect bonus
-  // now shows only once, as a Modifier line sourced from the shared catalog.
-  it("shows the Clearing House Mintworks-effect modifier for a clicked Clearing House (no duplicate prose)", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMintworks: true, mintworksActive: true, hasGranary: true, granaryActive: true, } }] }); const html = lines.map((line) => line.html).join(" "); expect(html).toContain("Mintworks effect:"); expect(html).toContain("+25%"); expect(html).not.toContain("contributes to"); });
+  // word-for-word. A clicked Clearing House's own Mintworks gold-bonus
+  // now shows only once, as a Modifier line sourced from the shared catalog,
+  // spelling out both ends of the boost instead of an ambiguous bare "+25%".
+  it("shows the Clearing House Mintworks gold-bonus modifier for a clicked Clearing House (no duplicate prose)", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMintworks: true, mintworksActive: true, hasGranary: true, granaryActive: true, } }] }); const html = lines.map((line) => line.html).join(" "); expect(html).toContain("Mintworks gold bonus per copy:"); expect(html).toContain("+10% → +35%"); expect(html).not.toContain("contributes to"); });
   it("uses Monumental City in the overview label for the final tier", () => {
     const lines = menuOverviewForTile(
       {
@@ -1345,5 +1346,60 @@ describe("buildDetailTextForAction fort tier text", () => {
     expect(detail).toBeDefined();
     expect(detail).not.toContain("Upgrade");
     expect(detail).not.toContain("Bastion");
+  });
+});
+
+// Regression test: buildDetailTextForAction had no branch at all for
+// build_waterworks / build_census_hall / build_clearing_house, so it fell
+// through to `return undefined`. The build-menu action list then does
+// `deps.buildDetailTextForAction(...) + frontierBuildDetailSuffix(tile)`
+// (client-tile-action-logic.ts), and `undefined + string` coerces to the
+// literal string "undefined" — shipping that text straight into the build
+// menu.
+describe("buildDetailTextForAction never returns undefined for a real build action", () => {
+  const supportTile: Tile = { x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" };
+  const supportedTown: Tile = {
+    x: 11,
+    y: 10,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    town: {
+      name: "Testford",
+      type: "MARKET",
+      baseGoldPerMinute: 2,
+      supportCurrent: 5,
+      supportMax: 5,
+      goldPerMinute: 7,
+      cap: 100,
+      isFed: true,
+      population: 10_000,
+      maxPopulation: 25_000,
+      populationTier: "TOWN",
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      hasMintworks: false,
+      mintworksActive: false,
+      hasGranary: false,
+      granaryActive: false
+    }
+  };
+
+  it("returns real detail text for build_waterworks", () => {
+    const detail = buildDetailTextForAction("build_waterworks", supportTile, supportedTown);
+    expect(detail).not.toContain("undefined");
+    expect(detail).toContain("Farmstead");
+  });
+
+  it("returns real detail text for build_census_hall", () => {
+    const detail = buildDetailTextForAction("build_census_hall", supportTile, supportedTown);
+    expect(detail).not.toContain("undefined");
+    expect(detail).toContain("Testford");
+  });
+
+  it("returns real detail text for build_clearing_house", () => {
+    const detail = buildDetailTextForAction("build_clearing_house", supportTile, supportedTown);
+    expect(detail).not.toContain("undefined");
+    expect(detail).toContain("Mintworks");
   });
 });
