@@ -34,6 +34,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1786924800000, // 2026.08.16.2
+    introducedIn: "2026.08.16.2",
+    title: "Fogged sea tiles no longer render as a solid black hole",
+    why: "Sea tiles were never part of the 3D heightfield mesh (the water plane sits over a deliberate hole in it), so the fog-of-war darken overlay — which works by tinting a land tile's already-drawn remembered terrain — had nothing underneath it for sea. The result was a fully opaque black quad over an empty hole, on top of the scene's own black fog background: indistinguishable from unexplored fog, right at any coastline your vision doesn't currently reach.",
+    changes: [
+      "Fogged SEA/COASTAL_SEA tiles now draw the same live water surface visible sea gets instead of a black darken overlay, so remembered coastline reads as water again."
+    ]
+  },
+  {
     createdAt: 1786811200000, // 2026.08.15.5
     introducedIn: "2026.08.15.5",
     title: "Battle dots now actually approach and meet in the middle before fighting",
