@@ -267,11 +267,19 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   // ghost get merged back in unchecked on every subsequent reconnect and
   // redispatched against a tile that already has the structure, producing a
   // repeating BUILD_INVALID "tile already has structure" loop.
+  //
+  // A tile absent from state.tiles is a separate case, not a stale entry --
+  // this filter runs before applyGatewayInitialState below, so a genuinely
+  // fresh login on a new device/tab (reconstructDevelopmentActionFromServerEntry's
+  // scenario) won't have the tile cached yet. There's no local evidence to
+  // invalidate that entry against, so it's kept rather than guessed away;
+  // it'll get re-validated on the next INIT once tile data exists locally.
   if (state.tiles.size > 0) {
     const pendingSettlementTileKeys = new Set(state.settleProgressByTile.keys());
-    state.developmentQueue = state.developmentQueue.filter((entry) =>
-      isQueuedDevelopmentActionStillValid(entry, state.tiles, state.me, pendingSettlementTileKeys)
-    );
+    state.developmentQueue = state.developmentQueue.filter((entry) => {
+      if (!state.tiles.has(entry.tileKey)) return true;
+      return isQueuedDevelopmentActionStillValid(entry, state.tiles, state.me, pendingSettlementTileKeys);
+    });
   }
   // Backfill: mirror any entry that's ending up within the durable tier but
   // that the server didn't already know about (e.g. queued before this
