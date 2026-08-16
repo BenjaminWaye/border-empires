@@ -57,9 +57,9 @@ export type PlacementRangeOverlay = {
 // of world/map size.
 export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay => {
   const validMaterial = new LineBasicMaterial({ color: "#f5d742", transparent: true, opacity: 0.65, depthTest: false, depthWrite: false });
-  const validFillMaterial = new MeshBasicMaterial({ color: "#f5d742", transparent: true, opacity: 0.12, depthTest: false, depthWrite: false, side: DoubleSide });
+  const validFillMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#f5d742", transparent: true, opacity: 0.12, depthTest: false, depthWrite: false, side: DoubleSide });
   const invalidMaterial = new LineBasicMaterial({ color: "#dc5050", transparent: true, opacity: 0.65, depthTest: false, depthWrite: false });
-  const invalidFillMaterial = new MeshBasicMaterial({ color: "#dc5050", transparent: true, opacity: 0.12, depthTest: false, depthWrite: false, side: DoubleSide });
+  const invalidFillMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#dc5050", transparent: true, opacity: 0.12, depthTest: false, depthWrite: false, side: DoubleSide });
 
   const maxSegments = observatoryRangeBorderSegmentCount(MAX_PLACEMENT_RADIUS);
   const maxFillVertices = observatoryRangeFillVertexCount(MAX_PLACEMENT_RADIUS);
@@ -74,7 +74,7 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
 
   const benefitGeometry = new PlaneGeometry(0.92, 0.92);
   benefitGeometry.rotateX(-Math.PI * 0.5);
-  const benefitMaterial = new MeshBasicMaterial({
+  const benefitMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#50dc6e",
     transparent: true,
     opacity: 0.42,

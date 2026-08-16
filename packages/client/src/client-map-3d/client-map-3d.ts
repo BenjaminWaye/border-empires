@@ -389,7 +389,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // tile filling in with their color instead.
   const frontierClaimPlateGeometry = new PlaneGeometry(0.94, 0.94);
   frontierClaimPlateGeometry.rotateX(-Math.PI * 0.5);
-  const frontierClaimPlateMaterial = new MeshBasicMaterial({
+  const frontierClaimPlateMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#ffffff",
     transparent: true,
     opacity: 0,
@@ -424,7 +424,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     depthTest: false,
     depthWrite: false
   });
-  const observatoryRangeFillMaterial = new MeshBasicMaterial({
+  const observatoryRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#6ab4ff",
     transparent: true,
     opacity: 0.10,
@@ -447,7 +447,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     depthTest: false,
     depthWrite: false
   });
-  const sweepRangeFillMaterial = new MeshBasicMaterial({
+  const sweepRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#ff8c42",
     transparent: true,
     opacity: 0.10,
@@ -470,7 +470,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     depthTest: false,
     depthWrite: false
   });
-  const waterworksRangeFillMaterial = new MeshBasicMaterial({
+  const waterworksRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#4caf74",
     transparent: true,
     opacity: 0.10,
@@ -493,7 +493,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     depthTest: false,
     depthWrite: false
   });
-  const airportRangeFillMaterial = new MeshBasicMaterial({
+  const airportRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#ff4444",
     transparent: true,
     opacity: 0.10,
