@@ -49,6 +49,12 @@ export type RuntimeLockResolutionContext = {
   // surrounding area, then reverts to normal fog-of-war. No-op if the tile
   // has no watchtower or it was already activated.
   maybeActivateWatchtower: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
+  // Fires a temporary discovery-pulse vision reveal (see
+  // runtime-expand-reveal-tick.ts) on every EXPAND, independent of any
+  // watchtower feature — FRONTIER tiles no longer hold standing vision (see
+  // visibility-coverage-cache.ts), so this is what makes pushing the
+  // frontier outward feel like exploring rather than blind claiming.
+  activateExpandReveal: (x: number, y: number, playerId: string) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -182,6 +188,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     else context.clearFortPatrolGrace(lock.targetKey);
     if (lock.actionType === "EXPAND") {
       context.maybeActivateWatchtower(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
+      context.activateExpandReveal(lock.targetX, lock.targetY, lock.playerId);
     }
 
     let tileDeltas: SimulationTileWireDelta[];

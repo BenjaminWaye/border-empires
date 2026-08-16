@@ -250,6 +250,11 @@ export interface VisibilityCoverageTrackerDeps {
   readonly visionRadiusForPlayer: (playerId: string) => number;
   readonly getPlayer: (playerId: string) => VisibilitySourcePlayer | undefined;
   readonly territoryTileKeysForPlayer: (playerId: string) => ReadonlySet<string>;
+  // Same as territoryTileKeysForPlayer but excluding FRONTIER tiles — a
+  // FRONTIER claim holds no standing vision of its own (see
+  // tileOwnershipChanged's ownershipState gate below), so resyncVisionRadius
+  // must only touch the subset that actually contributed a footprint.
+  readonly settledTileKeysForPlayer: (playerId: string) => ReadonlySet<string>;
 }
 
 /**
@@ -321,25 +326,40 @@ export class VisibilityCoverageTracker {
   }
 
   /**
-   * Call whenever a tile's owner changes (or is first assigned at boot):
-   * cancels the previous owner's footprint at that cell and applies the new
-   * owner's — O(radius²) total, the hot path this class exists to protect.
+   * Call whenever a tile's owner and/or ownershipState changes (or is first
+   * assigned at boot): cancels the previous owner's footprint at that cell
+   * and applies the new owner's — O(radius²) total, the hot path this class
+   * exists to protect.
+   *
+   * A FRONTIER claim holds no standing halo beyond itself — it contributes a
+   * radius-0 (self-tile-only) footprint instead of the source's full vision
+   * radius, gated via `options.previousOwnershipState`/`nextOwnershipState`.
+   * You can still always see land you own, just not a ring around it; only a
+   * SETTLED tile (or a tile with no explicit ownershipState, e.g. legacy/
+   * barbarian data) projects the full radius. This is why callers must pass
+   * options whenever ownershipState is known: omitting them (as existing
+   * tests that predate this distinction do) preserves the old always-on
+   * full-radius behavior. EXPAND additionally grants a one-time discovery
+   * pulse via addTemporaryReveal (see runtime-expand-reveal-tick.ts) over a
+   * wider radius, so claiming still feels like exploring — it just doesn't
+   * linger once the pulse fades.
    */
   tileOwnershipChanged(
     previousOwnerId: string | undefined,
     nextOwnerId: string | undefined,
     x: number,
     y: number,
-    callbacks?: VisibilityTransitionCallbacks
+    callbacks?: VisibilityTransitionCallbacks,
+    options?: { previousOwnershipState?: string | undefined; nextOwnershipState?: string | undefined }
   ): void {
     if (previousOwnerId && !this.isBarbarian(previousOwnerId)) {
-      const radius = this.radiusForSource(previousOwnerId);
+      const radius = options?.previousOwnershipState === "FRONTIER" ? 0 : this.radiusForSource(previousOwnerId);
       for (const viewerId of this.viewersForSource(previousOwnerId)) {
         this.cache.removeFootprint(viewerId, x, y, radius, callbacks?.onLeave, this.territoryReason(previousOwnerId, viewerId));
       }
     }
     if (nextOwnerId && !this.isBarbarian(nextOwnerId)) {
-      const radius = this.radiusForSource(nextOwnerId);
+      const radius = options?.nextOwnershipState === "FRONTIER" ? 0 : this.radiusForSource(nextOwnerId);
       for (const viewerId of this.viewersForSource(nextOwnerId)) {
         this.cache.addFootprint(viewerId, x, y, radius, callbacks?.onEnter, this.territoryReason(nextOwnerId, viewerId));
       }
@@ -359,14 +379,16 @@ export class VisibilityCoverageTracker {
     if (oldRadius === newRadius) return;
     const viewers = this.viewersForSource(playerId);
     if (viewers.length > 0) {
-      const territoryTileKeys = this.deps.territoryTileKeysForPlayer(playerId);
+      // FRONTIER tiles never contributed a footprint (see tileOwnershipChanged),
+      // so only the settled subset needs resyncing to the new radius.
+      const settledTileKeys = this.deps.settledTileKeysForPlayer(playerId);
       if (oldRadius !== undefined) {
         for (const viewerId of viewers) {
-          this.cache.removeSourceContribution(viewerId, territoryTileKeys, oldRadius, callbacks?.onLeave, this.territoryReason(playerId, viewerId));
+          this.cache.removeSourceContribution(viewerId, settledTileKeys, oldRadius, callbacks?.onLeave, this.territoryReason(playerId, viewerId));
         }
       }
       for (const viewerId of viewers) {
-        this.cache.addSourceContribution(viewerId, territoryTileKeys, newRadius, callbacks?.onEnter, this.territoryReason(playerId, viewerId));
+        this.cache.addSourceContribution(viewerId, settledTileKeys, newRadius, callbacks?.onEnter, this.territoryReason(playerId, viewerId));
       }
     }
     this.radiusBySource.set(playerId, newRadius);
