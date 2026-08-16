@@ -514,7 +514,8 @@ export class SimulationRuntime {
       const settled = new Set<string>();
       for (const key of summary.territoryTileKeys) if (!summary.frontierTileKeys.has(key)) settled.add(key);
       return settled;
-    }
+    },
+    frontierTileKeysForPlayer: (id) => this.summaryForPlayer(id).frontierTileKeys
   }, this.visionFootprintTable);
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
   // Watchtower "flicker" reveals in flight — see runtime-watchtower-reveal-tick.ts. Self-draining, bounded, never persisted.

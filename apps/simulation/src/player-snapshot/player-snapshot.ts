@@ -78,7 +78,9 @@ export const buildPlayerSubscriptionSnapshot = (
     return { x, y };
   };
 
+  const EMPTY_KEY_SET: ReadonlySet<string> = new Set();
   const ownedTileKeysByPlayer = new Map<string, string[]>();
+  const frontierTileKeySetByPlayer = new Map<string, Set<string>>();
   for (const tile of sourceTiles) {
     if (!tile.ownerId) continue;
     let keys = ownedTileKeysByPlayer.get(tile.ownerId);
@@ -87,22 +89,38 @@ export const buildPlayerSubscriptionSnapshot = (
       ownedTileKeysByPlayer.set(tile.ownerId, keys);
     }
     keys.push(keyFor(tile.x, tile.y));
+    if (tile.ownershipState === "FRONTIER") {
+      let frontierKeys = frontierTileKeySetByPlayer.get(tile.ownerId);
+      if (!frontierKeys) {
+        frontierKeys = new Set();
+        frontierTileKeySetByPlayer.set(tile.ownerId, frontierKeys);
+      }
+      frontierKeys.add(keyFor(tile.x, tile.y));
+    }
   }
   const ownedTileKeys = (pid: string): string[] => ownedTileKeysByPlayer.get(pid) ?? [];
+  const frontierTileKeys = (pid: string): ReadonlySet<string> => frontierTileKeySetByPlayer.get(pid) ?? EMPTY_KEY_SET;
 
   const playersById = new Map(runtimeState.players.map((player) => [player.id, player] as const));
+  // A FRONTIER claim holds no standing vision halo of its own (see the same
+  // rule enforced server-side in visibility-coverage-cache.ts's
+  // tileOwnershipChanged) — only the tile itself is visible (radius 0),
+  // gated per-key via `frontierKeys` so SETTLED territory keeps the full
+  // radius.
   const addVision = (
     targetKeys: Set<string>,
     territoryTileKeys: Iterable<string>,
     vision: number,
-    visionRadiusBonus: number
+    visionRadiusBonus: number,
+    frontierKeys: ReadonlySet<string> = EMPTY_KEY_SET
   ): void => {
     const radius = Math.max(1, Math.floor(VISION_RADIUS * vision) + visionRadiusBonus);
     for (const tileKey of territoryTileKeys) {
       const coords = parseKey(tileKey);
       if (!coords) continue;
-      for (let dy = -radius; dy <= radius; dy += 1) {
-        for (let dx = -radius; dx <= radius; dx += 1) {
+      const effectiveRadius = frontierKeys.has(tileKey) ? 0 : radius;
+      for (let dy = -effectiveRadius; dy <= effectiveRadius; dy += 1) {
+        for (let dx = -effectiveRadius; dx <= effectiveRadius; dx += 1) {
           targetKeys.add(keyFor(wrapX(coords.x + dx), wrapY(coords.y + dy)));
         }
       }
@@ -111,7 +129,7 @@ export const buildPlayerSubscriptionSnapshot = (
   const addVisionForPlayer = (targetKeys: Set<string>, nextPlayerId: string): void => {
     const nextPlayer = playersById.get(nextPlayerId);
     if (!nextPlayer) return;
-    addVision(targetKeys, ownedTileKeys(nextPlayerId), nextPlayer.vision, nextPlayer.visionRadiusBonus);
+    addVision(targetKeys, ownedTileKeys(nextPlayerId), nextPlayer.vision, nextPlayer.visionRadiusBonus, frontierTileKeys(nextPlayerId));
   };
 
   const tiles =
@@ -121,16 +139,16 @@ export const buildPlayerSubscriptionSnapshot = (
           const visibleKeys = new Set<string>();
           const primaryPlayer = playersById.get(playerId);
           if (primaryPlayer) {
-            addVision(visibleKeys, ownedTileKeys(playerId), primaryPlayer.vision, primaryPlayer.visionRadiusBonus);
+            addVision(visibleKeys, ownedTileKeys(playerId), primaryPlayer.vision, primaryPlayer.visionRadiusBonus, frontierTileKeys(playerId));
             for (const allyId of primaryPlayer.allies) addVisionForPlayer(visibleKeys, allyId);
           } else {
+            const ownerTiles = sourceTiles.filter((tile) => tile.ownerId === playerId);
             addVision(
               visibleKeys,
-              sourceTiles
-                .filter((tile) => tile.ownerId === playerId)
-                .map((tile) => keyFor(tile.x, tile.y)),
+              ownerTiles.map((tile) => keyFor(tile.x, tile.y)),
               1,
-              0
+              0,
+              new Set(ownerTiles.filter((tile) => tile.ownershipState === "FRONTIER").map((tile) => keyFor(tile.x, tile.y)))
             );
           }
           for (const lock of runtimeState.activeLocks) {
