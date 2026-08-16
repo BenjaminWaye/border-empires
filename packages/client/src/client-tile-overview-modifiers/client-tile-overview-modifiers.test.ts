@@ -419,7 +419,7 @@ describe("tileOverviewModifiersForTile", () => {
     expect(modifiers).toContainEqual({ reason: "Mintworks gold bonus per copy", effect: "+10% → +35%", tone: "positive" });
   });
 
-  it("shows a Hills vision modifier for a real hills tile", () => {
+  it("shows a plain 'Vision' modifier for a real hills tile with no other modifier to disambiguate from", () => {
     setWorldSeed(1);
     const modifiers = tileOverviewModifiersForTile({
       x: KNOWN_HILLS_TILE.x,
@@ -428,7 +428,28 @@ describe("tileOverviewModifiersForTile", () => {
       ownerId: "me",
       ownershipState: "FRONTIER"
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Hills", effect: "+1 local vision", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Vision", effect: "+1", tone: "positive" });
+    expect(modifiers.some((m) => m.reason === "Hills")).toBe(false);
+  });
+
+  // Regression: a bare hills tile shows an unlabeled "Vision: +1" line
+  // (nothing else to disambiguate from), but once the tile already has
+  // another modifier — e.g. a Relay Beacon's own vision line — the hills
+  // contribution is named "Hills:" so the two vision lines aren't confused
+  // for each other.
+  it("names 'Hills' as the source when the tile already has another modifier", () => {
+    setWorldSeed(1);
+    const modifiers = tileOverviewModifiersForTile({
+      x: KNOWN_HILLS_TILE.x,
+      y: KNOWN_HILLS_TILE.y,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
+    } satisfies Tile);
+    expect(modifiers).toContainEqual({ reason: "Relay Beacon — Local vision", effect: "+5", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Hills", effect: "vision +1", tone: "positive" });
+    expect(modifiers.some((m) => m.reason === "Vision")).toBe(false);
   });
 
   it("does not show a Hills modifier for a non-hills land tile", () => {
@@ -441,5 +462,6 @@ describe("tileOverviewModifiersForTile", () => {
       ownershipState: "FRONTIER"
     } satisfies Tile);
     expect(modifiers.some((m) => m.reason === "Hills")).toBe(false);
+    expect(modifiers.some((m) => m.reason === "Vision")).toBe(false);
   });
 });
