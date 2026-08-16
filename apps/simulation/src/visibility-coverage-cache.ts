@@ -255,6 +255,12 @@ export interface VisibilityCoverageTrackerDeps {
   // tileOwnershipChanged's ownershipState gate below), so resyncVisionRadius
   // must only touch the subset that actually contributed a footprint.
   readonly settledTileKeysForPlayer: (playerId: string) => ReadonlySet<string>;
+  // The complementary subset — FRONTIER-only tiles. syncAllianceChange needs
+  // both subsets, since a new ally must be backfilled at the source's full
+  // radius over SETTLED tiles but only radius 0 (self-tile) over FRONTIER
+  // ones, matching what tileOwnershipChanged already grants the source
+  // itself and its allies going forward.
+  readonly frontierTileKeysForPlayer: (playerId: string) => ReadonlySet<string>;
 }
 
 /**
@@ -536,6 +542,12 @@ export class VisibilityCoverageTracker {
    * O(territory × radius²) once per alliance change (rare), instead of any
    * per-tile cost on the hot capture/loss path.
    *
+   * Split into two contributions per side — SETTLED tiles at the source's
+   * full radius, FRONTIER tiles at radius 0 — mirroring the same gate
+   * tileOwnershipChanged applies on the hot path. Without this split a new
+   * ally would get a full-radius halo around the source's FRONTIER claims
+   * that the source itself can't see.
+   *
    * Also adds/removes each side's town +1 vision-bonus rings (see
    * setTownVisionBonus) and outpost vision-bonus rings (see
    * setOutpostVisionBonus) to/from the other's coverage. Those rings are
@@ -549,18 +561,24 @@ export class VisibilityCoverageTracker {
     if (this.isBarbarian(actorId) || this.isBarbarian(targetId)) return;
     const actorRadius = this.radiusForSource(actorId);
     const targetRadius = this.radiusForSource(targetId);
-    const actorTerritory = this.deps.territoryTileKeysForPlayer(actorId);
-    const targetTerritory = this.deps.territoryTileKeysForPlayer(targetId);
+    const actorSettled = this.deps.settledTileKeysForPlayer(actorId);
+    const targetSettled = this.deps.settledTileKeysForPlayer(targetId);
+    const actorFrontier = this.deps.frontierTileKeysForPlayer(actorId);
+    const targetFrontier = this.deps.frontierTileKeysForPlayer(targetId);
     if (allied) {
-      this.cache.addSourceContribution(targetId, actorTerritory, actorRadius, callbacks?.onEnter, `radius:ally:${actorId}`);
-      this.cache.addSourceContribution(actorId, targetTerritory, targetRadius, callbacks?.onEnter, `radius:ally:${targetId}`);
+      this.cache.addSourceContribution(targetId, actorSettled, actorRadius, callbacks?.onEnter, `radius:ally:${actorId}`);
+      this.cache.addSourceContribution(targetId, actorFrontier, 0, callbacks?.onEnter, `radius:ally:${actorId}`);
+      this.cache.addSourceContribution(actorId, targetSettled, targetRadius, callbacks?.onEnter, `radius:ally:${targetId}`);
+      this.cache.addSourceContribution(actorId, targetFrontier, 0, callbacks?.onEnter, `radius:ally:${targetId}`);
       this.applyTownBonusesToViewer(actorId, targetId, callbacks?.onEnter);
       this.applyTownBonusesToViewer(targetId, actorId, callbacks?.onEnter);
       this.applyOutpostBonusesToViewer(actorId, targetId, callbacks?.onEnter);
       this.applyOutpostBonusesToViewer(targetId, actorId, callbacks?.onEnter);
     } else {
-      this.cache.removeSourceContribution(targetId, actorTerritory, actorRadius, callbacks?.onLeave, `radius:ally:${actorId}`);
-      this.cache.removeSourceContribution(actorId, targetTerritory, targetRadius, callbacks?.onLeave, `radius:ally:${targetId}`);
+      this.cache.removeSourceContribution(targetId, actorSettled, actorRadius, callbacks?.onLeave, `radius:ally:${actorId}`);
+      this.cache.removeSourceContribution(targetId, actorFrontier, 0, callbacks?.onLeave, `radius:ally:${actorId}`);
+      this.cache.removeSourceContribution(actorId, targetSettled, targetRadius, callbacks?.onLeave, `radius:ally:${targetId}`);
+      this.cache.removeSourceContribution(actorId, targetFrontier, 0, callbacks?.onLeave, `radius:ally:${targetId}`);
       this.applyTownBonusesToViewer(actorId, targetId, undefined, callbacks?.onLeave);
       this.applyTownBonusesToViewer(targetId, actorId, undefined, callbacks?.onLeave);
       this.applyOutpostBonusesToViewer(actorId, targetId, undefined, callbacks?.onLeave);
