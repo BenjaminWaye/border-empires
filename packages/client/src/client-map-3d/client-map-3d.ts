@@ -1481,11 +1481,16 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // the deck sits on the ground inland and overhangs the water.
         const tileKey = deps.keyFor(wx, wy);
         if (tile?.dockId || dockEndpointKeys.has(tileKey)) {
+          // World x maps directly onto 3D x (x = dx + offset where
+          // dx = wx - camX), and makeRotationY(theta) sends the model's
+          // local +z facing direction to (sin theta, 0, cos theta). So an
+          // east neighbor (dx:1) needs +x, i.e. rot=+PI/2, and a west
+          // neighbor (dx:-1) needs -x, i.e. rot=-PI/2.
           const cardinalsForDock: Array<{ dx: number; dy: number; rot: number }> = [
             { dx: 0, dy: 1, rot: 0 },
-            { dx: 1, dy: 0, rot: -Math.PI / 2 },
+            { dx: 1, dy: 0, rot: Math.PI / 2 },
             { dx: 0, dy: -1, rot: Math.PI },
-            { dx: -1, dy: 0, rot: Math.PI / 2 }
+            { dx: -1, dy: 0, rot: -Math.PI / 2 }
           ];
           let dockRotation = 0;
           for (const c of cardinalsForDock) {
