@@ -132,6 +132,33 @@ describe("trade nexus overlay", () => {
     overlay.dispose();
   });
 
+  it("renders along-direction crane beams as elongated pieces, not slivers", () => {
+    const scene = new Scene();
+    const overlay = createTradeNexusOverlay(scene, 1);
+
+    // Boom/tie geometries must be unit-length along Y (BoxGeometry height 1)
+    // so addPieceAlong's `len` scale is applied along the requested beam
+    // direction. Geometries with the long axis on X/Y instead collapsed the
+    // beams into near-invisible slivers and left the freight block floating.
+    const boom = instancedMeshes(scene).find(
+      (mesh) =>
+        mesh.geometry.type === "BoxGeometry" &&
+        (mesh.geometry as BoxGeometry).parameters.width === 0.018 &&
+        (mesh.geometry as BoxGeometry).parameters.depth === 0.018
+    );
+    const tie = instancedMeshes(scene).find(
+      (mesh) =>
+        mesh.geometry.type === "BoxGeometry" &&
+        (mesh.geometry as BoxGeometry).parameters.width === 0.012
+    );
+    expect(boom).toBeDefined();
+    expect(tie).toBeDefined();
+    expect((boom!.geometry as BoxGeometry).parameters.height).toBe(1);
+    expect((tie!.geometry as BoxGeometry).parameters.height).toBe(1);
+
+    overlay.dispose();
+  });
+
   it("spins the clockwork seal on update without disturbing instance counts", () => {
     const scene = new Scene();
     const overlay = createTradeNexusOverlay(scene, 4);
