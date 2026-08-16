@@ -110,14 +110,6 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   const modifiers: TileOverviewModifier[] = [];
   const nowMs = Date.now();
 
-  // Hills-ness is a permanent, purely procedural property of the coordinate
-  // (isHillsTileAt, mirrored server-side in vision-footprint-table.ts) —
-  // not gated on ownership or a built structure, so it's shown for any land
-  // tile the same way the natural-wonder line is.
-  if (tile.terrain === "LAND" && isHillsTileAt(tile.x, tile.y)) {
-    modifiers.push({ reason: "Hills", effect: `+${HILLS_VISION_BONUS} local vision`, tone: "positive" });
-  }
-
   if (tile.town) {
     const inCaptureShock = hasActiveTownCaptureShock(tile, nowMs);
     if (inCaptureShock) {
@@ -171,6 +163,22 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
   }
   if (tile.economicStructure?.status === "active") {
     modifiers.push(...economicStructureModifiersForTile(tile.economicStructure));
+  }
+
+  // Hills-ness is a permanent, purely procedural property of the coordinate
+  // (isHillsTileAt, mirrored server-side in vision-footprint-table.ts) —
+  // not gated on ownership or a built structure, so it's shown for any land
+  // tile the same way the natural-wonder line is. Computed last so it can
+  // tell whether the tile already has another modifier: with one (e.g. a
+  // Relay Beacon's own vision line already showing), "Hills" is named as
+  // the source to disambiguate; alone, there's nothing to disambiguate
+  // from, so it's shown as a plain "Vision" line instead.
+  if (tile.terrain === "LAND" && isHillsTileAt(tile.x, tile.y)) {
+    modifiers.push(
+      modifiers.length > 0
+        ? { reason: "Hills", effect: `vision +${HILLS_VISION_BONUS}`, tone: "positive" }
+        : { reason: "Vision", effect: `+${HILLS_VISION_BONUS}`, tone: "positive" }
+    );
   }
 
   return modifiers;
