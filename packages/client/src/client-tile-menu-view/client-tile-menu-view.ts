@@ -1,4 +1,6 @@
 import {
+  CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
+  CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT,
   FORT_BUILD_MS,
   FORT_TIER_LADDER,
   MUSTER_ATTACK_COST,
@@ -12,10 +14,11 @@ import {
   structureBuildManpowerCost,
   structureSlotRequirements,
   TILE_SLOT_BOOST_STRUCTURES,
+  WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS,
   type SlotResource,
   type SlotStructureType
 } from "@border-empires/shared";
-import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
+import { mintworksGoldProductionMultiplier, MINTWORKS_GOLD_PRODUCTION_BONUS, MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE } from "@border-empires/game-domain";
 import { converterStructureDetailText, converterModeLockLine, converterModeStatusLine, isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
@@ -131,6 +134,15 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_aether_tower") return "Late-game power node. Sky and monument structures in its radius stay online.";
   if (actionId === "build_caravanary") {
     return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Caravanary built.`;
+  }
+  if (actionId === "build_waterworks") {
+    return `Build on this support tile for ${supportedTownLabel}. Boosts food production on every Farmstead within 10 tiles by +100% and adds +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots to each one boosted.`;
+  }
+  if (actionId === "build_census_hall") {
+    return `Build on this support tile for ${supportedTownLabel}. Grants +${CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY.toLocaleString()} population per connected Incubation Engine and cuts this town's tier-upgrade gold cost by ${Math.round((1 - CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT) * 100)}%.`;
+  }
+  if (actionId === "build_clearing_house") {
+    return `Build on this support tile for ${supportedTownLabel}. Raises the gold bonus of every connected Mintworks from +${Math.round(MINTWORKS_GOLD_PRODUCTION_BONUS * 100)}% to +${Math.round(MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE * 100)}% per copy.`;
   }
   // §Cap removal: build as many of these as affordable; each occupies 1 slot and can be flipped between Refine/Sell off later.
   if (actionId === "build_umbrite_synthesizer") return "Occupies 1 Umbrite slot on this support tile. Refine (default): 30 gold/day upkeep for 18 umbrite/day. Can be flipped to Sell off later: 8 gold/day from the slot instead.";
