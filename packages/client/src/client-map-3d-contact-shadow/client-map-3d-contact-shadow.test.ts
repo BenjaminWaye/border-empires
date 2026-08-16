@@ -1,6 +1,11 @@
 import { InstancedMesh, Matrix4, Quaternion, Scene, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
-import { createContactShadowOverlay } from "./client-map-3d-contact-shadow.js";
+import {
+  createContactShadowOverlay,
+  DEFAULT_CONTACT_SHADOW_RADIUS_TILES,
+  LARGE_CONTACT_SHADOW_RADIUS_TILES,
+  SMALL_CONTACT_SHADOW_RADIUS_TILES
+} from "./client-map-3d-contact-shadow.js";
 
 const shadowMesh = (scene: Scene): InstancedMesh => {
   const mesh = scene.children.find((child): child is InstancedMesh => child instanceof InstancedMesh);
@@ -143,5 +148,39 @@ describe("contact shadow overlay", () => {
     const overlay = createContactShadowOverlay(scene, 4);
     overlay.dispose();
     expect(scene.children.some((child) => child instanceof InstancedMesh)).toBe(false);
+  });
+
+  // Regression guard for the "no shadow under towns" bug: DEFAULT was sized
+  // for generic single-tile structures, but a town's own opaque foundation
+  // slab runs up to 0.92 tiles wide — equal to or wider than DEFAULT's 0.84
+  // diameter — so it fully hid the decal underneath with no rim showing.
+  // LARGE exists specifically to clear footprints DEFAULT can't.
+  describe("radius tiers", () => {
+    it("orders SMALL < DEFAULT < LARGE", () => {
+      expect(SMALL_CONTACT_SHADOW_RADIUS_TILES).toBeLessThan(DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
+      expect(DEFAULT_CONTACT_SHADOW_RADIUS_TILES).toBeLessThan(LARGE_CONTACT_SHADOW_RADIUS_TILES);
+    });
+
+    it("keeps LARGE's diameter past the widest known opaque footprint (town capital slab, 0.92 tiles)", () => {
+      expect(LARGE_CONTACT_SHADOW_RADIUS_TILES * 2).toBeGreaterThan(0.92);
+    });
+
+    it("keeps every tier's diameter inside one tile so it never bleeds onto a neighbour", () => {
+      for (const radius of [SMALL_CONTACT_SHADOW_RADIUS_TILES, DEFAULT_CONTACT_SHADOW_RADIUS_TILES, LARGE_CONTACT_SHADOW_RADIUS_TILES]) {
+        expect(radius * 2).toBeLessThan(1);
+      }
+    });
+
+    it("actually renders a wider decal for LARGE than DEFAULT", () => {
+      const scene = new Scene();
+      const overlay = createContactShadowOverlay(scene, 4);
+      overlay.addShadow(0, 0, 0, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
+      overlay.addShadow(2, 0, 0, LARGE_CONTACT_SHADOW_RADIUS_TILES);
+      overlay.commit();
+      const mesh = shadowMesh(scene);
+      const { scale: defaultScale } = decompose(mesh, 0);
+      const { scale: largeScale } = decompose(mesh, 1);
+      expect(largeScale.x).toBeGreaterThan(defaultScale.x);
+    });
   });
 });
