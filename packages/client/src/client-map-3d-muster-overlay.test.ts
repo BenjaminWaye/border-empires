@@ -41,8 +41,8 @@ describe("3d muster overlay z-index regression guard", () => {
     // Single-instance-per-tile part (base glow ring) vs. a mirrored
     // left/right part (the two side cannons) — both should scale with
     // the number of mustering tiles, just at different multiples.
-    const singleInstancePart = meshes.find((m) => m.instanceMatrix.count === 64)!;
-    const mirroredPart = meshes.find((m) => m.instanceMatrix.count === 128)!;
+    const singleInstancePart = meshes.find((m) => m.instanceMatrix.count === 256)!;
+    const mirroredPart = meshes.find((m) => m.instanceMatrix.count === 512)!;
 
     overlay.addMuster(1, 2, 0, 0.5, "#ff0000", false, 1, 2);
     overlay.commit();
