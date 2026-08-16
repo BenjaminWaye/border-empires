@@ -64,7 +64,12 @@ import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resou
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
-import { createContactShadowOverlay, DEFAULT_CONTACT_SHADOW_RADIUS_TILES } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
+import {
+  createContactShadowOverlay,
+  DEFAULT_CONTACT_SHADOW_RADIUS_TILES,
+  LARGE_CONTACT_SHADOW_RADIUS_TILES,
+  SMALL_CONTACT_SHADOW_RADIUS_TILES
+} from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
@@ -1494,18 +1499,26 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           }
           const dockSurfaceY = Math.max(heightfield.elevationAt(wx, wy), -0.04) + 0.02;
           dockOverlay.addInstance(x, z, dockSurfaceY, dockRotation, wx, wy);
+          contactShadowOverlay.addShadow(x, z, dockSurfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
         }
         if (terrain === "MOUNTAIN") {
           mountainMassifs.addInstance(x, z, surfaceY);
           continue;
         }
-        if (forestTile) forest.addInstance(x, z, surfaceY);
+        if (forestTile) {
+          forest.addInstance(x, z, surfaceY);
+          contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
+        }
         const realTier = tile?.town?.populationTier;
         const demoTier = isTownDemoTile(wx, wy);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
         if (renderedTier && terrain === "LAND") {
           townOverlay.addInstance(x, z, surfaceY, renderedTier);
-          contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
+          // LARGE, not DEFAULT: a town's own foundation slab runs up to 0.92
+          // tiles wide (see the radius comments in
+          // client-map-3d-contact-shadow.ts) — DEFAULT's 0.84 diameter was
+          // fully hidden underneath it, which is why towns showed no shadow.
+          contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
           const tileSeed = wx * 17 + wy * 31;
           if (tile && shouldShowTownSmoke(tile)) {
             // Pale owned-village smoke marks active settled town growth. Capital banners stay
@@ -1555,10 +1568,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         if (tile && ownerId === "barbarian-1" && terrain === "LAND") {
           barbarianOverlay.addInstance(x, z, surfaceY);
+          contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
         }
         if (tile?.shardSite && terrain === "LAND" && visibility === "visible") {
           shardOverlay.addInstance(x, z, surfaceY, wx, wy);
-        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy); }
+          contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
+        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); }
         // Resolve the underlying resource once per tile — used by the
         // resource overlay (for the icon) AND by the structure overlay
         // (so a MINE on a GEMS tile loads its cart with blue crystals
@@ -1664,6 +1679,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const fortKind = fortificationOverlayKindForTile(tile);
           if (fortKind === "RELAY_BEACON") {
             relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy);
+            contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
           } else if (fortKind) {
             const opening = fortificationOpeningForTile(tile, {
               tiles: deps.state.tiles,
@@ -1672,6 +1688,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
               wrapY: deps.wrapY
             });
             fortOverlay.addInstance(x, z, surfaceY, fortKind, opening);
+            // LARGE: fort walls run WALL_LENGTH = 0.86 tiles
+            // (client-map-3d-fort-overlay.ts) — same reasoning as towns.
+            contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
           }
         }
         const demoFort = fortDemoSpec(wx, wy);
