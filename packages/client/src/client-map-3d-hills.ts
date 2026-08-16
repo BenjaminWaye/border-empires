@@ -1,6 +1,7 @@
 import {
   BufferAttribute,
   BufferGeometry,
+  DoubleSide,
   Mesh,
   MeshStandardMaterial,
   Scene
@@ -10,6 +11,8 @@ import {
   heightfieldFlatTileElevation,
   heightfieldTileColor,
   HEIGHTFIELD_HILLS_ELEVATION_BONUS,
+  SKIRT_BOTTOM_Y,
+  SKIRT_SHADE,
   type HeightfieldTerrainKind
 } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { accumulateHeightfieldNormals } from "./client-map-3d-heightfield-normals.js";
@@ -114,6 +117,48 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   mesh.frustumCulled = false;
   scene.add(mesh);
 
+  // A hill dome has zero thickness at its own edge, same as the main
+  // heightfield grid — see SKIRT_BOTTOM_Y's comment in
+  // client-map-3d-heightfield.ts for the "black crack at grazing angles"
+  // failure mode this prevents. The main grid's own skirt pass explicitly
+  // excludes hills tiles (they aren't part of that grid at all), so without
+  // this, a hill bordering sea or unexplored territory had no wall bridging
+  // its edge down to a safe depth — this is what "tiles lost their bottoms"
+  // in the reported bug actually was.
+  //
+  // One quad per tile-edge, not one per SUBDIV segment: the dome's own
+  // boundary ring is flat (domeFalloff is 0 at r >= HILL_DOME_RADIUS, well
+  // inside the tile edge at r=0.5), so a straight line between the tile's
+  // two real corner values is geometrically exact, not an approximation —
+  // matching the main grid's own per-tile-edge skirt granularity instead of
+  // the dome surface's SUBDIV=10, which keeps this buffer's cost in the
+  // same ballpark as the main grid's skirt rather than 10x larger.
+  const maxHillSkirtEdges = maxTiles * 4;
+  const skirtPositions = new Float32Array(maxHillSkirtEdges * 4 * 3);
+  const skirtColors = new Float32Array(maxHillSkirtEdges * 4 * 3);
+  const skirtNormals = new Float32Array(maxHillSkirtEdges * 4 * 3);
+  const skirtIndices = new Uint32Array(maxHillSkirtEdges * 6);
+  const skirtGeometry = new BufferGeometry();
+  skirtGeometry.setAttribute("position", new BufferAttribute(skirtPositions, 3));
+  skirtGeometry.setAttribute("color", new BufferAttribute(skirtColors, 3));
+  skirtGeometry.setAttribute("normal", new BufferAttribute(skirtNormals, 3));
+  skirtGeometry.setIndex(new BufferAttribute(skirtIndices, 1));
+  skirtGeometry.setDrawRange(0, 0);
+  // Matches the main grid's own skirt material exactly (see skirtMaterial in
+  // client-map-3d-heightfield.ts) — same unlit-feeling flat response, same
+  // double-sided draw so it's covered from both directions of grazing angle.
+  const skirtMaterial = new MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 1,
+    metalness: 0,
+    side: DoubleSide
+  });
+  const skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
+  skirtMesh.frustumCulled = false;
+  skirtMesh.receiveShadow = false;
+  skirtMesh.castShadow = false;
+  scene.add(skirtMesh);
+
   const rebuild = (inputs: HillTerrainRebuildInputs): void => {
     const { camX, camY, halfW, halfH, worldWidth, worldHeight, tileKindAt, isExploredAt, isHillsAt } = inputs;
     const exploredAt = isExploredAt ?? ((): boolean => true);
@@ -139,7 +184,27 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     // Real ground elevation/colour at world grid corner (cx, cz), averaged
     // over whichever of its 4 tiles count as flat land — the exact value
     // the main grid renders there, so a dome edge lines up with no seam.
-    const flatCorner = (cx: number, cz: number): { e: number; r: number; g: number; b: number } => {
+    //
+    // `fallback` is this dome's *own* tile's elevation/colour, used only if
+    // count is still 0 after both loops above. In practice this dome's own
+    // tile is always one of the 4 cells the second loop checks at each of
+    // its 4 corners, and the outer per-tile loop above already requires
+    // exploredAt(wx, wy) to be true to reach this point at all — so that
+    // second loop always finds at least this tile itself, and count never
+    // actually reaches 0 for a hill's own corners today. This fallback was
+    // originally suspected as the cause of "tiles lost their bottoms" (a
+    // hardcoded { e: 0, r: 0, g: 0, b: 0 } sat here before), but that theory
+    // didn't survive a test: a hill tile surrounded entirely by unexplored
+    // territory still resolved every corner through the self-count above,
+    // never reaching this line. Kept anyway as defensive correctness — a
+    // real fallback beats a hardcoded black one if some future refactor
+    // changes who calls flatCorner or how — but the actual fix for the
+    // reported bug is the skirt below, not this.
+    const flatCorner = (
+      cx: number,
+      cz: number,
+      fallback: { e: number; r: number; g: number; b: number }
+    ): { e: number; r: number; g: number; b: number } => {
       let sumE = 0;
       let sumR = 0;
       let sumG = 0;
@@ -170,9 +235,60 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
           count += 1;
         }
       }
-      if (count === 0) return { e: 0, r: 0, g: 0, b: 0 };
+      if (count === 0) return fallback;
       const inv = 1 / count;
       return { e: sumE * inv, r: sumR * inv, g: sumG * inv, b: sumB * inv };
+    };
+
+    // Mirrors isHole in client-map-3d-heightfield.ts's own skirt pass
+    // exactly: a hills-tile neighbour is not a hole (the neighbouring dome
+    // covers its own footprint fully, no wall needed at that shared edge),
+    // only sea and unexplored territory are.
+    const isHole = (nwx: number, nwy: number): boolean => {
+      const wnwx = wrap(nwx, worldWidth);
+      const wnwy = wrap(nwy, worldHeight);
+      if (!exploredAt(wnwx, wnwy)) return true;
+      const nk = tileKindAt(wnwx, wnwy);
+      return nk === "SEA" || nk === "COASTAL_SEA";
+    };
+
+    let skirtVertCount = 0;
+    let skirtIdxCount = 0;
+    const emitHillSkirtEdge = (
+      ax: number, az: number, ay: number, ar: number, ag: number, ab: number,
+      bx: number, bz: number, by: number, br: number, bg: number, bb: number
+    ): void => {
+      if (skirtVertCount + 4 > maxHillSkirtEdges * 4) return;
+      const base = skirtVertCount;
+      const p = base * 3;
+      skirtPositions[p + 0] = ax; skirtPositions[p + 1] = ay; skirtPositions[p + 2] = az;
+      skirtPositions[p + 3] = bx; skirtPositions[p + 4] = by; skirtPositions[p + 5] = bz;
+      skirtPositions[p + 6] = ax; skirtPositions[p + 7] = SKIRT_BOTTOM_Y; skirtPositions[p + 8] = az;
+      skirtPositions[p + 9] = bx; skirtPositions[p + 10] = SKIRT_BOTTOM_Y; skirtPositions[p + 11] = bz;
+      skirtColors[p + 0] = ar; skirtColors[p + 1] = ag; skirtColors[p + 2] = ab;
+      skirtColors[p + 3] = br; skirtColors[p + 4] = bg; skirtColors[p + 5] = bb;
+      skirtColors[p + 6] = ar * SKIRT_SHADE; skirtColors[p + 7] = ag * SKIRT_SHADE; skirtColors[p + 8] = ab * SKIRT_SHADE;
+      skirtColors[p + 9] = br * SKIRT_SHADE; skirtColors[p + 10] = bg * SKIRT_SHADE; skirtColors[p + 11] = bb * SKIRT_SHADE;
+      // Flat quad normal, same approximation as the main grid's own skirt:
+      // perpendicular to the top edge in the XZ plane, ignoring the
+      // (usually tiny) top-edge Y slope — a thin wall seen edge-on doesn't
+      // need more.
+      const dx = bx - ax;
+      const dz = bz - az;
+      const len = Math.hypot(dx, dz) || 1;
+      const nx = dz / len;
+      const nz = -dx / len;
+      skirtNormals[p + 0] = nx; skirtNormals[p + 1] = 0; skirtNormals[p + 2] = nz;
+      skirtNormals[p + 3] = nx; skirtNormals[p + 4] = 0; skirtNormals[p + 5] = nz;
+      skirtNormals[p + 6] = nx; skirtNormals[p + 7] = 0; skirtNormals[p + 8] = nz;
+      skirtNormals[p + 9] = nx; skirtNormals[p + 10] = 0; skirtNormals[p + 11] = nz;
+      skirtIndices[skirtIdxCount++] = base + 0;
+      skirtIndices[skirtIdxCount++] = base + 2;
+      skirtIndices[skirtIdxCount++] = base + 1;
+      skirtIndices[skirtIdxCount++] = base + 1;
+      skirtIndices[skirtIdxCount++] = base + 2;
+      skirtIndices[skirtIdxCount++] = base + 3;
+      skirtVertCount += 4;
     };
 
     for (let dj = 0; dj < spanY; dj += 1) {
@@ -187,12 +303,30 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
         const peak = hillPeakBonus();
         const tileX = offsetX + di;
         const tileZ = offsetY + dj;
+        // This dome's own ground elevation/colour, used as flatCorner's
+        // last-resort fallback (see its comment) instead of hardcoded black.
+        const [ownR, ownG, ownB] = heightfieldTileColor(kind, terrainShadeVariantAt(wx, wy));
+        const ownFallback = {
+          e: heightfieldFlatTileElevation(wx, wy, kind),
+          r: ownR / 255,
+          g: ownG / 255,
+          b: ownB / 255
+        };
         // This tile's 4 real corner values (height + colour), matching
         // the main grid exactly.
-        const cTL = flatCorner(wx, wy);
-        const cTR = flatCorner(wx + 1, wy);
-        const cBL = flatCorner(wx, wy + 1);
-        const cBR = flatCorner(wx + 1, wy + 1);
+        const cTL = flatCorner(wx, wy, ownFallback);
+        const cTR = flatCorner(wx + 1, wy, ownFallback);
+        const cBL = flatCorner(wx, wy + 1, ownFallback);
+        const cBR = flatCorner(wx + 1, wy + 1, ownFallback);
+
+        // Same 4-cardinal-neighbour pattern as the main grid's own skirt
+        // pass (client-map-3d-heightfield.ts): a wall wherever this tile's
+        // edge borders a hole, using the tile's own real corner data so the
+        // wall's top edge lines up with the dome exactly, no seam.
+        if (isHole(wx, wy - 1)) emitHillSkirtEdge(tileX, tileZ, cTL.e, cTL.r, cTL.g, cTL.b, tileX + 1, tileZ, cTR.e, cTR.r, cTR.g, cTR.b);
+        if (isHole(wx, wy + 1)) emitHillSkirtEdge(tileX, tileZ + 1, cBL.e, cBL.r, cBL.g, cBL.b, tileX + 1, tileZ + 1, cBR.e, cBR.r, cBR.g, cBR.b);
+        if (isHole(wx - 1, wy)) emitHillSkirtEdge(tileX, tileZ + 1, cBL.e, cBL.r, cBL.g, cBL.b, tileX, tileZ, cTL.e, cTL.r, cTL.g, cTL.b);
+        if (isHole(wx + 1, wy)) emitHillSkirtEdge(tileX + 1, tileZ, cTR.e, cTR.r, cTR.g, cTR.b, tileX + 1, tileZ + 1, cBR.e, cBR.r, cBR.g, cBR.b);
 
         const base = vertCount;
         for (let b = 0; b <= SUBDIV; b += 1) {
@@ -265,13 +399,52 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     const indexAttr = geometry.index;
     if (indexAttr) indexAttr.needsUpdate = true;
     geometry.setDrawRange(0, idxCount);
+
+    // Ranged upload, unlike the dome buffers just above: this skirt buffer
+    // is sized for maxHillSkirtEdges (the worst case of every hill tile
+    // needing a wall on all 4 sides), but only skirtVertCount*3 of it was
+    // actually written this rebuild. An unranged needsUpdate here would
+    // reupload the whole preallocated buffer via bufferSubData every
+    // rebuild regardless of how few tiles actually border a hole — exactly
+    // the cost pattern client-map-3d-heightfield.ts's own skirt had to be
+    // fixed to avoid (see its comment on the same technique).
+    const skirtItemCount = skirtVertCount * 3;
+    const skirtPosAttr = skirtGeometry.getAttribute("position") as BufferAttribute | undefined;
+    const skirtColorAttr = skirtGeometry.getAttribute("color") as BufferAttribute | undefined;
+    const skirtNormalAttr = skirtGeometry.getAttribute("normal") as BufferAttribute | undefined;
+    const skirtIndexAttr = skirtGeometry.index;
+    if (skirtPosAttr) {
+      skirtPosAttr.clearUpdateRanges();
+      skirtPosAttr.addUpdateRange(0, skirtItemCount);
+      skirtPosAttr.needsUpdate = true;
+    }
+    if (skirtColorAttr) {
+      skirtColorAttr.clearUpdateRanges();
+      skirtColorAttr.addUpdateRange(0, skirtItemCount);
+      skirtColorAttr.needsUpdate = true;
+    }
+    if (skirtNormalAttr) {
+      skirtNormalAttr.clearUpdateRanges();
+      skirtNormalAttr.addUpdateRange(0, skirtItemCount);
+      skirtNormalAttr.needsUpdate = true;
+    }
+    if (skirtIndexAttr) {
+      skirtIndexAttr.clearUpdateRanges();
+      skirtIndexAttr.addUpdateRange(0, skirtIdxCount);
+      skirtIndexAttr.needsUpdate = true;
+    }
+    skirtGeometry.setDrawRange(0, skirtIdxCount);
   };
 
   // sharedMaterial is owned (and disposed) by the main heightfield, not
-  // this module.
+  // this module. skirtMaterial is owned here — it's a plain vertex-colored
+  // material created fresh for this skirt, unlike sharedMaterial.
   const dispose = (): void => {
     scene.remove(mesh);
     geometry.dispose();
+    scene.remove(skirtMesh);
+    skirtGeometry.dispose();
+    skirtMaterial.dispose();
   };
 
   return { mesh, rebuild, dispose };
