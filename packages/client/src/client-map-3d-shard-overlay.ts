@@ -46,7 +46,7 @@ export const createShardOverlay = (scene: Scene, maxTiles: number): ShardOverlay
   // regardless of scene lighting. depthWrite: false prevents z-fighting
   // with the tile surface.
   const shimmerGeometry = new CircleGeometry(1, 24);
-  const shimmerMaterial = new MeshBasicMaterial({
+  const shimmerMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#32d2e9",
     transparent: true,
     opacity: 0.28,

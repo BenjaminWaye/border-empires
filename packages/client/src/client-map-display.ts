@@ -670,7 +670,7 @@ export const structureInfoForKey = (
   if (type === "CLEARING_HOUSE") {
     return structure({
       title: "Clearing House",
-      detail: "Clearing Houses are built on a town support tile. One active clearing house gives this town and its directly connected towns +25% Mintworks effect.",
+      detail: `Clearing Houses are built on a town support tile. One active clearing house raises the gold bonus of every Mintworks in this town and its directly connected towns from +${MINTWORKS_PER_MINTWORKS_PERCENT}% to +${MINTWORKS_PER_MINTWORKS_PERCENT_CLEARING_HOUSE}% per copy.`,
       glyph: "⌂",
       placement: "Build on an open settled support tile for a town with a connected city network.",
       costBits: costBitsFor(type),

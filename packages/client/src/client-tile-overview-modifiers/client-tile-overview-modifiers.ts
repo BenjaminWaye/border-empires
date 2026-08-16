@@ -47,7 +47,6 @@ const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
 // their catalog label — kept as a small lookup rather than baking display
 // names into the catalog (game-domain has no notion of UI copy).
 const SUPPORT_STRUCTURE_LABELS: Partial<Record<ModifierStructureType, string>> = {
-  MINTWORKS: "Mintworks",
   SEED_GRANARY: "Seed Granary",
   GRANARY: "Granary",
   CLEARING_HOUSE: "Clearing House"
@@ -55,13 +54,12 @@ const SUPPORT_STRUCTURE_LABELS: Partial<Record<ModifierStructureType, string>> =
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
-  const mintworksCount = tile.mintworksCount ?? 0;
-  if (mintworksCount > 0 && tile.mintworksActive) {
-    const stackedGoldProduction = structureModifiersFor("MINTWORKS", {
-      tile: { town: { mintworksCount, clearingHouseActive: Boolean(tile.clearingHouseActive) } }
-    }).filter((m) => m.statLabel === "Gold production");
-    modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.MINTWORKS!, stackedGoldProduction));
-  }
+  // Mintworks gold production used to be recomputed here from
+  // tile.mintworksCount AND separately as part of the town's
+  // townModifierTotals (menuOverviewForTile, client-tile-menu-view.ts) —
+  // both fed off the same live count, so the town-center tile always showed
+  // two "Gold production" lines side by side. townModifierTotals is the
+  // single source of truth for town-wide aggregates now; don't duplicate it.
   // A plain Granary (Incubation Engine) grants ONLY its instant one-time
   // population burst on completion — the old ongoing +15% growth bonus was
   // removed (commit 7a51b06b, "Incubation Engine double-dip" fix). No
@@ -91,10 +89,21 @@ const FARM_RESOURCE_LABEL_OVERRIDES: Partial<Record<string, string>> = {
   WATERWORKS: "Waterworks (radius support)"
 };
 
+// Farmstead's "Farm food" and Waterworks's "Farmstead food (10-tile radius)"
+// lines duplicate the same static build-menu copy (client-map-display.ts)
+// with no new information — they never reflect the tile's actual boosted
+// output, so they're excluded here rather than repeated as a "modifier".
+const REDUNDANT_STATIC_STAT_LABELS_BY_TYPE: Partial<Record<string, string>> = {
+  FARMSTEAD: "Farm food",
+  WATERWORKS: "Farmstead food (10-tile radius)"
+};
+
 const economicStructureModifiersForTile = (tile: NonNullable<Tile["economicStructure"]>): TileOverviewModifier[] => {
   if (tile.type === "MINE") return [];
   const label = FARM_RESOURCE_LABEL_OVERRIDES[tile.type] ?? economicStructureName(tile.type as EconomicStructureType);
-  return toTileOverviewModifiers(label, structureModifiersFor(tile.type as ModifierStructureType));
+  const redundantLabel = REDUNDANT_STATIC_STAT_LABELS_BY_TYPE[tile.type];
+  const modifiers = structureModifiersFor(tile.type as ModifierStructureType).filter((m) => m.statLabel !== redundantLabel);
+  return toTileOverviewModifiers(label, modifiers);
 };
 
 export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[] => {
