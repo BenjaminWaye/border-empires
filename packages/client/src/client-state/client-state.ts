@@ -85,11 +85,16 @@ export const createInitialState = () => ({
   authReady: false,
   authSessionReady: false,
   hasEverInitialized: false,
-  // 0 while healthy/initialized; set to Date.now() the moment the socket
-  // tears down, cleared once a fresh INIT lands. Lets the HUD tell "just
-  // dropped" apart from "never came back" so a brief backgrounded-tab
-  // reconnect doesn't flash the full loading overlay — see
-  // RECONNECT_OVERLAY_GRACE_MS in client-constants.ts.
+  // When the current outage started: 0 until the first socket teardown, then
+  // re-anchored on each teardown of a healthy session (see
+  // handleSocketTornDown). Lets the HUD tell "just dropped, probably a
+  // backgrounded tab" apart from "down long enough to be worth interrupting
+  // for", so a brief reconnect never flashes the full loading overlay — see
+  // RECONNECT_OVERLAY_GRACE_MS in client-constants.ts. Deliberately NOT
+  // cleared on INIT: the grace window has to cover the post-INIT resync too,
+  // since INIT resets firstChunkAt to 0. A stale value once the map is back
+  // is harmless — isMapLoadingOverlayActive ignores it entirely while the
+  // session is initialized with chunks in hand.
   disconnectedSince: 0,
   authBusy: false,
   authBusyStartedAt: 0,

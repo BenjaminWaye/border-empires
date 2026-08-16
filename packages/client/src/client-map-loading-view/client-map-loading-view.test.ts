@@ -295,6 +295,27 @@ describe("isMapLoadingOverlayActive", () => {
     expect(active).toBe(true);
   });
 
+  it("stays hidden through the post-INIT resync of a fast reconnect", () => {
+    // INIT resets firstChunkAt to 0, so the reconnect's chunk-refetch keeps
+    // rawActive true after the socket is already back and "initialized".
+    // The grace window is anchored at the drop and spans the whole outage,
+    // so this window — the one the user actually saw as "Loading nearby
+    // land... chunks 1" — stays suppressed too.
+    const active = isMapLoadingOverlayActive(
+      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000 },
+      1_600 // 600ms since the drop: socket gap + INIT already done
+    );
+    expect(active).toBe(false);
+  });
+
+  it("shows once a reconnect's resync drags past the grace window", () => {
+    const active = isMapLoadingOverlayActive(
+      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000 },
+      5_000
+    );
+    expect(active).toBe(true);
+  });
+
   it("shows immediately when there is no in-flight disconnect to debounce (e.g. a mid-session forced resync)", () => {
     const active = isMapLoadingOverlayActive(
       { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 0 },

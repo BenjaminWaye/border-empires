@@ -995,11 +995,17 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     capture: state.capture ? { target: state.capture.target, resolvesAt: state.capture.resolvesAt } : undefined
   });
   const handleSocketTornDown = (currentActionKey: string, feedMessage: string, interruptedDetail: string): void => {
+    // Anchors the map-loading overlay's grace window at the moment a healthy
+    // session dropped. The window has to span the whole outage — socket gap
+    // *and* the post-INIT resync, since INIT resets firstChunkAt to 0 — so a
+    // recovered-and-resynced session is the only thing that re-arms it.
+    // Repeat closes mid-outage (a failed in-place reconnect attempt closes
+    // again before recovering) deliberately keep the original anchor, so a
+    // long flapping outage still surfaces the overlay rather than restarting
+    // the grace on every flap.
+    const wasHealthy = state.connection === "initialized" && state.firstChunkAt > 0;
+    if (wasHealthy || !state.disconnectedSince) state.disconnectedSince = Date.now();
     clearAuthInFlight?.(); state.connection = "disconnected";
-    // Keep the earliest drop time across repeated closes in the same outage
-    // (a failed in-place reconnect attempt closes again before recovering) —
-    // only the first drop should start the overlay's grace window.
-    if (!state.disconnectedSince) state.disconnectedSince = Date.now();
     state.actionInFlight = false;
     state.actionAcceptedAck = false;
     state.combatStartAck = false;

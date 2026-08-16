@@ -217,7 +217,7 @@ describe("client network in-place reconnect regression", () => {
     expect(state.mapLoadStartedAt).toBe(950_000);
   });
 
-  it("records disconnectedSince at the first drop and keeps it through reopen and repeat drops (only INIT clears it)", () => {
+  it("anchors disconnectedSince at the first drop and holds it through reopen and repeat drops in one outage", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     const reload = vi.fn();
@@ -240,9 +240,41 @@ describe("client network in-place reconnect regression", () => {
     expect(state.disconnectedSince).toBe(1_000);
 
     // A second drop before recovery keeps the *original* drop time so the
-    // overlay grace window doesn't keep resetting during a flapping outage.
+    // overlay grace window doesn't keep resetting during a flapping outage
+    // (which would let a long outage hide the overlay indefinitely).
     vi.setSystemTime(1_200);
     ws.emit("close", { code: 1006, reason: "" });
     expect(state.disconnectedSince).toBe(1_000);
+  });
+
+  it("re-anchors disconnectedSince on the next drop once the session actually recovered", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const reload = vi.fn();
+    stubWindow(reload);
+
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    vi.setSystemTime(1_000);
+    ws.emit("close", { code: 1006, reason: "" });
+    expect(state.disconnectedSince).toBe(1_000);
+
+    // Full recovery: INIT landed and chunks arrived, so the map is usable
+    // again. INIT deliberately does not clear the anchor (the grace window
+    // must still cover the post-INIT resync), so the stale value only clears
+    // when a *healthy* session is the thing that drops.
+    ws.readyState = FakeWebSocket.OPEN;
+    ws.emit("open", {});
+    state.connection = "initialized";
+    state.firstChunkAt = 1_500;
+
+    vi.setSystemTime(900_000);
+    ws.emit("close", { code: 1006, reason: "" });
+    // Without the re-anchor this would still read 1_000, making now-anchor
+    // enormous and firing the overlay instantly on a plain tab switch — the
+    // exact flash this whole change exists to prevent.
+    expect(state.disconnectedSince).toBe(900_000);
   });
 });
