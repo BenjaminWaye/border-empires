@@ -1,5 +1,6 @@
-import { SETTLE_COST } from "@border-empires/shared";
+import { SETTLE_COST, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
+import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
 import { rememberTileMenuScrollTop, restoreTileMenuScrollTop } from "../client-tile-menu-scroll/client-tile-menu-scroll.js";
 import { injectWaypointActions } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
@@ -8,6 +9,27 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
+
+/** A support tile is a plain owned tile adjacent to one of the player's own (non-settlement) towns — there's no dedicated field for it. */
+const isOwnedTownSupportTile = (state: ClientState, tile: Tile): boolean => {
+  for (const candidate of state.tiles.values()) {
+    if (!candidate.town || candidate.ownerId !== state.me || candidate.ownershipState !== "SETTLED") continue;
+    if (candidate.town.populationTier === "SETTLEMENT") continue;
+    const dx = Math.min(Math.abs(candidate.x - tile.x), WORLD_WIDTH - Math.abs(candidate.x - tile.x));
+    const dy = Math.min(Math.abs(candidate.y - tile.y), WORLD_HEIGHT - Math.abs(candidate.y - tile.y));
+    if (dx === 0 && dy === 0) continue;
+    if (dx <= 1 && dy <= 1) return true;
+  }
+  return false;
+};
+
+const locationThemeForTile = (state: ClientState, tile: Tile): "town" | "dock" | "wonder" | undefined => {
+  if (tile.town) return "town";
+  if (tile.dockId) return "dock";
+  if (tile.naturalWonder) return "wonder";
+  if (isOwnedTownSupportTile(state, tile)) return "town";
+  return undefined;
+};
 
 type TileActionMenuUiDeps = {
   tileActionMenuEl: ClientDom["tileActionMenuEl"];
@@ -238,7 +260,13 @@ export const openSingleTileActionMenu = (
   if ((options.requestAttackPreview ?? true) && tile.ownerId && tile.ownerId !== state.me && !deps.isTileOwnedByAlly(tile)) deps.requestAttackPreviewForTarget(tile);
   state.tileActionMenu.mode = "single";
   state.tileActionMenu.bulkKeys = [];
-  state.tileActionMenu.currentTileKey = deps.keyFor(tile.x, tile.y);
+  const previousTileKey = state.tileActionMenu.currentTileKey;
+  const nextTileKey = deps.keyFor(tile.x, tile.y);
+  state.tileActionMenu.currentTileKey = nextTileKey;
+  if (nextTileKey !== previousTileKey) {
+    const theme = locationThemeForTile(state, tile);
+    if (theme) playLocationTheme(theme);
+  }
   if (!options.preserveTab) {
     state.tileActionMenu.scrollTopByTab = {};
     state.tileActionMenu.renderSignature = "";
