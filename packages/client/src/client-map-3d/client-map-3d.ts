@@ -1416,6 +1416,34 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // of their last-witnessed owner -- no roads, structures, units,
           // or FX, since we no longer have live data for any of that. This
           // mirrors the 2D canvas renderer's fog rules (client-runtime-loop.ts).
+          //
+          // SEA/COASTAL_SEA is a special case: sea tiles are never part of
+          // the heightfield mesh (client-map-3d-heightfield.ts skips them,
+          // leaving a hole for the live water plane to sit over), so unlike
+          // LAND there is no "frozen remembered terrain" underneath for the
+          // darken overlay below to tint -- it would just paint a black quad
+          // over an empty hole, on top of the scene's own black background
+          // (FOG_COLOR), reading as a solid black void. Draw the same live
+          // water quad visible sea gets instead, so fogged sea reads as
+          // remembered ocean rather than a hole. Not dimmed relative to
+          // live-visible water (the water-surface module has no "dimmed"
+          // vertex-color variant to plumb through) -- undimmed water is a
+          // solid improvement over a black hole and isn't worth a bigger
+          // change to add that distinction.
+          if (terrain === "SEA" || terrain === "COASTAL_SEA") {
+            let shallow = false;
+            for (let nz = -2; nz <= 2 && !shallow; nz += 1) {
+              for (let nx = -2; nx <= 2 && !shallow; nx += 1) {
+                if (nx === 0 && nz === 0) continue;
+                const nwx = deps.wrapX(wx + nx);
+                const nwy = deps.wrapY(wy + nz);
+                const nt = terrainForWorldTile(nwx, nwy);
+                if (nt === "LAND" || nt === "MOUNTAIN") shallow = true;
+              }
+            }
+            waterSurface.addTile(x, z, shallow);
+            continue;
+          }
           const fogIsHill = isHillsTile(wx, wy);
           const fogCorner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const fogCorner10Y = heightfield.cornerYAt(wxNext, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
