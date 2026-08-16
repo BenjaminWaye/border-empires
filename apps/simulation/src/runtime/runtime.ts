@@ -350,6 +350,12 @@ import {
   type PendingWatchtowerReveal,
   type WatchtowerRevealRuntimeInput
 } from "../runtime-watchtower-reveal-tick.js";
+import {
+  activateExpandRevealAt as activateExpandRevealAtImpl,
+  tickExpandReveals as tickExpandRevealsImpl,
+  type PendingExpandReveal,
+  type ExpandRevealRuntimeInput
+} from "../runtime-expand-reveal-tick.js";
 import { computeShardRainWelcomeNotice } from "../runtime-shard-rain-rules.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
 import {
@@ -501,11 +507,21 @@ export class SimulationRuntime {
   private readonly visibilityCoverage = new VisibilityCoverageTracker(WORLD_WIDTH, WORLD_HEIGHT, {
     visionRadiusForPlayer: (id) => { const p = this.players.get(id); return p ? effectiveVisionRadiusForPlayer(p) : 1; },
     getPlayer: (id) => this.players.get(id),
-    territoryTileKeysForPlayer: (id) => this.summaryForPlayer(id).territoryTileKeys
+    territoryTileKeysForPlayer: (id) => this.summaryForPlayer(id).territoryTileKeys,
+    settledTileKeysForPlayer: (id) => {
+      const summary = this.summaryForPlayer(id);
+      if (summary.frontierTileKeys.size === 0) return summary.territoryTileKeys;
+      const settled = new Set<string>();
+      for (const key of summary.territoryTileKeys) if (!summary.frontierTileKeys.has(key)) settled.add(key);
+      return settled;
+    },
+    frontierTileKeysForPlayer: (id) => this.summaryForPlayer(id).frontierTileKeys
   }, this.visionFootprintTable);
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
   // Watchtower "flicker" reveals in flight — see runtime-watchtower-reveal-tick.ts. Self-draining, bounded, never persisted.
   private readonly pendingWatchtowerReveals: PendingWatchtowerReveal[] = [];
+  // EXPAND discovery-pulse reveals in flight — see runtime-expand-reveal-tick.ts. Self-draining, bounded, never persisted.
+  private readonly pendingExpandReveals: PendingExpandReveal[] = [];
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
@@ -936,7 +952,7 @@ export class SimulationRuntime {
     // neighbour regardless of iteration order.
     for (const [tileKey, tile] of this.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
-      this.visibilityCoverage.tileOwnershipChanged(undefined, tile.ownerId, tile.x, tile.y);
+      this.visibilityCoverage.tileOwnershipChanged(undefined, tile.ownerId, tile.x, tile.y, undefined, { nextOwnershipState: tile.ownershipState });
       // Seed town +1 vision for any player-owned town present at boot.
       seedTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage }, tile);
       // Seed Light/Siege Outpost vision bonus for any owned active outpost present at boot.
@@ -1423,6 +1439,21 @@ export class SimulationRuntime {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
   }
 
+  private expandRevealContext(): ExpandRevealRuntimeInput {
+    return {
+      now: this.now,
+      pendingExpandReveals: this.pendingExpandReveals,
+      visibilityCoverage: this.visibilityCoverage,
+      visionTransitionCallbacks: this.visionTransitions.callbacks
+    };
+  }
+
+  private activateExpandRevealAt(x: number, y: number, playerId: string): void { activateExpandRevealAtImpl(this.expandRevealContext(), x, y, playerId); }
+
+  tickExpandReveals(nowMs: number = this.now()): void {
+    tickExpandRevealsImpl(this.expandRevealContext(), nowMs);
+  }
+
   async tickTerritoryAutomation(
     nowMs: number = this.now(),
     yieldToEventLoop?: () => Promise<void>
@@ -1661,6 +1692,7 @@ export class SimulationRuntime {
       respawnIfEliminated: (playerId, commandId) => this.respawnIfEliminated(playerId, commandId),
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId),
+      activateExpandReveal: (x, y, playerId) => this.activateExpandRevealAt(x, y, playerId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({
             capturedTile,
@@ -2198,7 +2230,16 @@ export class SimulationRuntime {
       // mutations (muster, pop growth, income) leave this counter unchanged.
       if (previous?.ownerId) this.territoryVersionByPlayer.set(previous.ownerId, (this.territoryVersionByPlayer.get(previous.ownerId) ?? 0) + 1);
       if (tile.ownerId) this.territoryVersionByPlayer.set(tile.ownerId, (this.territoryVersionByPlayer.get(tile.ownerId) ?? 0) + 1);
-      this.visibilityCoverage.tileOwnershipChanged(previous?.ownerId, tile.ownerId, tile.x, tile.y, this.visionTransitions.callbacks);
+    }
+    // A FRONTIER tile holds no standing vision (see visibility-coverage-cache.ts's
+    // tileOwnershipChanged), so the footprint must also be recomputed on a
+    // same-owner ownershipState flip — most importantly SETTLE, which grants
+    // the tile's footprint for the first time even though ownerId never changes.
+    if (!sameOwner || previous?.ownershipState !== tile.ownershipState) {
+      this.visibilityCoverage.tileOwnershipChanged(previous?.ownerId, tile.ownerId, tile.x, tile.y, this.visionTransitions.callbacks, {
+        previousOwnershipState: previous?.ownershipState,
+        nextOwnershipState: tile.ownershipState
+      });
     }
     if (previousOwnerTileOrder && tile.ownerId) {
       const summary = this.summaryForPlayer(tile.ownerId);
