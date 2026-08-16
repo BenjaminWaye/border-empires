@@ -143,9 +143,6 @@ export const relatedStructureTypesForTech = (tech: TechInfo): StructureInfoKey[]
       case "unlockRailDepot":
         out.add("RAIL_DEPOT");
         break;
-      case "unlockQuartermastersOffice":
-        out.add("QUARTERMASTERS_OFFICE");
-        break;
       case "unlockLogisticsGuild":
         out.add("LOGISTICS_GUILD");
         break;
