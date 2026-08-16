@@ -101,7 +101,12 @@ export class VisionFootprintTable {
    */
   getOffsets(x: number, y: number, radius: number): ReadonlyArray<[number, number]> {
     this.invalidateIfEpochChanged();
-    const effectiveRadius = isHillsTileAt(x, y) ? radius + HILLS_VISION_BONUS : radius;
+    // radius 0 means "self-tile only, no standing halo" (a FRONTIER claim —
+    // see visibility-coverage-cache.ts's tileOwnershipChanged) — the hills
+    // bonus extends an existing halo outward, it doesn't conjure one from
+    // nothing, so it's skipped entirely at radius 0 rather than bumping it
+    // to 1 and silently reintroducing the halo FRONTIER isn't meant to have.
+    const effectiveRadius = radius > 0 && isHillsTileAt(x, y) ? radius + HILLS_VISION_BONUS : radius;
     const key = this.packKey(x, y, effectiveRadius);
 
     const permanent = this.permanentByKey.get(key);
