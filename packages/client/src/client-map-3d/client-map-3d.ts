@@ -81,6 +81,9 @@ import { recordTerrainRebuildSample } from "../client-performance-metrics/client
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
 import { createThreeRenderTarget } from "../client-map-3d-render-target/client-map-3d-render-target.js";
+import { createBloomPipeline, type BloomPipeline } from "../client-map-3d-bloom/client-map-3d-bloom-pipeline.js";
+import { bloomEnabledFor } from "../client-map-3d-bloom/client-map-3d-bloom-gating.js";
+import { previousRendererAttempt } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
 import { lightenHex, parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
 import { createWaypointFlag } from "../client-map-3d-waypoint-flag/client-map-3d-waypoint-flag.js";
@@ -121,6 +124,18 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const scene = new Scene();
   const atmosphere = createAtmosphere(scene);
   const camera = createPerspectiveCamera(deps.canvas);
+
+  // Same device-health signal client-map-3d-render-target.ts uses for pixel
+  // ratio (see client-map-3d-bloom-gating.ts): bloom's extra render targets
+  // are real memory on top of an already-tight allocation, so a device whose
+  // last 3D attempt died during allocation skips bloom entirely rather than
+  // constructing (and paying for) a pipeline it may not survive.
+  const previousAttempt = previousRendererAttempt();
+  const bloomPipeline: BloomPipeline | undefined = bloomEnabledFor({
+    previousAttemptDiedDuringAllocation: previousAttempt === undefined ? undefined : previousAttempt.phase === "init-started"
+  })
+    ? createBloomPipeline(renderer, scene, camera)
+    : undefined;
   const heightfield = createHeightfield();
   scene.add(heightfield.mesh);
   scene.add(heightfield.skirtMesh);
@@ -1242,6 +1257,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     glCanvas.width = width;
     glCanvas.height = height;
     renderer.setSize(width, height, false);
+    bloomPipeline?.resize(width, height);
     applyCamera();
   };
 
@@ -1937,7 +1953,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     musterOverlay.tick(nowMs);
     syncBattleOverlayFx(deps.state, deps.keyFor, heightfield, deps.effectiveOverlayColor, battleOverlayFx, nowMs);
     supplyLineOverlay.tick(nowMs);
-    renderer.render(scene, camera);
+    if (bloomPipeline) bloomPipeline.render();
+    else renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
 
@@ -1952,6 +1969,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const stop = (): void => {
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     contextGuard.dispose();
+    bloomPipeline?.dispose();
     renderer.dispose();
     ownershipOverlay.dispose();
     fogDarkenOverlay.dispose();
