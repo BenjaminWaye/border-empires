@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { applyGatewayTileDeltaBatch } from "./client-gateway-sync.js";
+import { applyGatewayInitialState, applyGatewayTileDeltaBatch } from "./client-gateway-sync.js";
 import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
 import type { DiscoveryTipId } from "../client-discovery-tips/client-discovery-tips.js";
 import type { Tile } from "../client-types.js";
@@ -79,5 +79,36 @@ describe("first enemy contact unlocks mustering", () => {
 
     expect(isMusterUnlocked("a@example.com")).toBe(true);
     expect(deps.state.discoveryTipQueue).toContain("ENEMY_EMPIRE");
+  });
+});
+
+describe("first enemy contact unlocks mustering from the initial bootstrap snapshot", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("unlocks mustering when a rival-owned tile is already visible in the initial state load (e.g. a fresh device with no localStorage flag)", () => {
+    stubWindowStorage();
+    const deps = createDeps();
+
+    expect(isMusterUnlocked("a@example.com")).toBe(false);
+
+    applyGatewayInitialState(deps, {
+      tiles: [{ x: 5, y: 5, terrain: "LAND", ownerId: "rival-1", ownershipState: "SETTLED" }]
+    });
+
+    expect(isMusterUnlocked("a@example.com")).toBe(true);
+  });
+
+  it("does not unlock mustering from an own or barbarian tile in the initial snapshot", () => {
+    stubWindowStorage();
+    const deps = createDeps("me");
+
+    applyGatewayInitialState(deps, {
+      tiles: [
+        { x: 1, y: 1, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED" },
+        { x: 2, y: 2, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "BARBARIAN" }
+      ]
+    });
+
+    expect(isMusterUnlocked("a@example.com")).toBe(false);
   });
 });

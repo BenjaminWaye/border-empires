@@ -73,7 +73,7 @@ export const createWatchtowerOverlay = (scene: Scene, maxTiles: number): Watchto
   // Ground reveal pulse — amber flare matching the lantern, unlit for a
   // consistent glow regardless of scene lighting.
   const ringGeometry = new CircleGeometry(1, 32);
-  const ringMaterial = new MeshBasicMaterial({ color: "#ffb347", transparent: true, opacity: 0, depthWrite: false });
+  const ringMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffb347", transparent: true, opacity: 0, depthWrite: false });
 
   const towerMesh = new InstancedMesh(towerGeometry, towerMaterial, maxTiles);
   const bandMesh = new InstancedMesh(bandGeometry, bandMaterial, maxTiles);

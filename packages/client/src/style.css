@@ -2722,6 +2722,15 @@ body {
 .tile-overview-line-loading {
   margin-top: 4px;
 }
+.tile-overview-line-group {
+  margin-top: 6px;
+  color: rgba(241, 247, 255, 0.92);
+  font-weight: 800;
+  font-size: 12.5px;
+}
+.tile-overview-line-nested {
+  padding-left: 14px;
+}
 .tile-town-loading {
   display: flex;
   align-items: center;

@@ -175,4 +175,19 @@ describe("VisionFootprintTable", () => {
     const expectedSide = expectedRadius * 2 + 1;
     expect(offsets.length).toBe(expectedSide * expectedSide);
   });
+
+  it("does not extend a radius-0 (self-tile-only) source's vision even on hills", () => {
+    // A FRONTIER claim's radius-0 footprint (see visibility-coverage-cache.ts's
+    // tileOwnershipChanged) means "self tile only, no standing halo" — the
+    // hills bonus must not reintroduce a halo from nothing.
+    setWorldSeed(1);
+    const { table } = makeTable(new Set());
+    const offsets = table.getOffsets(KNOWN_HILLS_TILE.x, KNOWN_HILLS_TILE.y, 0);
+    expect(offsets.length).toBe(1);
+    // Loose equality (not toBe/toEqual) sidesteps Object.is distinguishing
+    // -0 from 0 — squareOffsets(0)'s loop produces -0 for dx/dy, numerically
+    // identical to 0 for every real purpose here.
+    expect(offsets[0][0] == 0).toBe(true);
+    expect(offsets[0][1] == 0).toBe(true);
+  });
 });

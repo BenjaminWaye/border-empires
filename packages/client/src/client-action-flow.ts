@@ -46,6 +46,7 @@ import {
   processDevelopmentQueue as processDevelopmentQueueFromModule,
   processPendingMusterAttacks as processPendingMusterAttacksFromModule,
   queueDevelopmentAction as queueDevelopmentActionFromModule,
+  queuedDevelopmentActionExists,
   queueSpecificTargets as queueSpecificTargetsFromModule,
   queuedDevelopmentEntryForTile as queuedDevelopmentEntryForTileFromModule,
   queuedBuildEntryForTile as queuedBuildEntryForTileFromModule,
@@ -614,6 +615,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     for (const targetKey of [...state.autoSettleTargets]) {
       const tile = state.tiles.get(targetKey);
       if (!tile) continue;
+      // A settle already dispatched (or waiting in the development queue) for
+      // this tile keeps it FRONTIER until the server confirms, and the optimistic
+      // marker can be cleared by an intervening tile update. Firing again here
+      // sends a second SETTLE and the server rejects it with
+      // "tile is already settling" -- drop the auto-settle entry instead, the
+      // matching autoBuildTargets entry still runs once the tile lands SETTLED.
+      if (state.settleProgressByTile.has(targetKey) || queuedDevelopmentActionExists(state, targetKey, "SETTLE")) {
+        state.autoSettleTargets.delete(targetKey);
+        continue;
+      }
       if (tile.ownerId === state.me && tile.ownershipState === "FRONTIER" && !tile.optimisticPending) {
         state.autoSettleTargets.delete(targetKey);
         requestSettlement(tile.x, tile.y);

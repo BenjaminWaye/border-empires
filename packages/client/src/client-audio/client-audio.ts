@@ -36,6 +36,9 @@ let started = false;
 let ducked = false;
 let locationThemeResumeTimeout: ReturnType<typeof setTimeout> | undefined;
 let musicFadeGen = 0;
+let retryArmed = false;
+let armedRetryListener: (() => void) | undefined;
+let consecutiveTrackErrors = 0;
 
 const readStoredVolume = (): number => {
   try {
@@ -102,11 +105,51 @@ const trackForModeEntry = (mode: MusicMode): string => {
   return CALM_TRACKS[0] as string;
 };
 
+const currentPlaylistLength = (): number => {
+  if (musicMode === "tension") return TENSION_TRACKS.length;
+  if (musicMode === "combat") return COMBAT_TRACKS.length;
+  return CALM_TRACKS.length;
+};
+
+/** Removes a pending retry-on-interaction listener, if one is armed. Called before every fresh play() attempt so a listener from an earlier failure can't outlive it — otherwise a later, unrelated interaction could trigger a stale extra play() call. */
+const disarmRetry = (): void => {
+  if (!retryArmed || typeof window === "undefined") return;
+  retryArmed = false;
+  if (armedRetryListener) {
+    window.removeEventListener("pointerdown", armedRetryListener);
+    window.removeEventListener("keydown", armedRetryListener);
+    armedRetryListener = undefined;
+  }
+};
+
+/** Re-attempts play() on the player's next pointer/key interaction. Used when play() is rejected (e.g. the browser's autoplay policy blocked a resume after the tab was backgrounded) instead of leaving playback silently stalled forever. Idempotent — a failure while a retry is already armed doesn't stack listeners. */
+const armRetryOnNextInteraction = (): void => {
+  if (retryArmed || typeof window === "undefined") return;
+  retryArmed = true;
+  const retry = (): void => {
+    retryArmed = false;
+    armedRetryListener = undefined;
+    window.removeEventListener("pointerdown", retry);
+    window.removeEventListener("keydown", retry);
+    if (!muted) attemptPlay();
+  };
+  armedRetryListener = retry;
+  window.addEventListener("pointerdown", retry, { once: true });
+  window.addEventListener("keydown", retry, { once: true });
+};
+
+/** Calls play() on the current music track, catching rejection (autoplay block, transient failure) instead of leaving an unhandled promise rejection — and arms a retry for the next user gesture. */
+const attemptPlay = (): void => {
+  if (!musicElement) return;
+  disarmRetry();
+  musicElement.play().catch(() => armRetryOnNextInteraction());
+};
+
 const playMusicUrl = (url: string): void => {
   if (!musicElement) return;
   musicElement.src = url;
   applyGain();
-  void musicElement.play();
+  attemptPlay();
 };
 
 const handleMusicEnded = (): void => {
@@ -120,13 +163,26 @@ const handleMusicEnded = (): void => {
   }
 };
 
-/** Builds the music element and begins playback. Safe to call more than once — only the first call does anything. */
+/** Builds the music element and begins playback. Safe to call more than once — after the first call, later calls just retry playback (e.g. re-enabling via the settings checkbox after a prior play() failure). */
 export const startAmbientAudio = (): void => {
-  if (started) return;
+  if (started) {
+    if (!muted) attemptPlay();
+    return;
+  }
   if (typeof window === "undefined" || typeof Audio === "undefined") return;
   started = true;
   musicElement = new Audio();
   musicElement.addEventListener("ended", handleMusicEnded);
+  musicElement.addEventListener("playing", () => {
+    consecutiveTrackErrors = 0;
+  });
+  musicElement.addEventListener("error", () => {
+    consecutiveTrackErrors += 1;
+    // The whole current playlist failing back-to-back means the files
+    // themselves are broken — stop rather than spin forever cycling dead URLs.
+    if (consecutiveTrackErrors >= currentPlaylistLength()) return;
+    handleMusicEnded();
+  });
   playMusicUrl(trackForModeEntry(musicMode));
 };
 
@@ -147,7 +203,7 @@ export const initClientAudio = (): void => {
       return;
     }
     if (muted) return;
-    void musicElement?.play();
+    attemptPlay();
     void sfxElement?.play();
   });
 };
@@ -222,7 +278,7 @@ export const playLocationTheme = (theme: LocationTheme): void => {
         ducked = false;
         if (!musicElement) return;
         musicElement.volume = 0;
-        void musicElement.play();
+        attemptPlay();
         fadeMusicVolume(targetVolume(), FADE_MS * 2);
       }, LOCATION_THEME_RESUME_DELAY_MS);
     });

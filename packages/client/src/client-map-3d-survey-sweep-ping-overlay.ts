@@ -44,10 +44,10 @@ export const createSurveySweepPingOverlay = (scene: Scene): SurveySweepPingOverl
   const townGeometry = new BoxGeometry(0.2, 0.14, 0.06);
   const ringGeometry = new RingGeometry(0.18, 0.22, 28);
 
-  const resourceMaterial = new MeshBasicMaterial({ color: "#8ff1ff", transparent: true, opacity: 0.86, blending: AdditiveBlending, depthWrite: false });
-  const townMaterial = new MeshBasicMaterial({ color: "#f2c86a", transparent: true, opacity: 0.88, blending: AdditiveBlending, depthWrite: false });
-  const resourceRingMaterial = new MeshBasicMaterial({ color: "#5edff4", transparent: true, opacity: 0.34, blending: AdditiveBlending, depthWrite: false });
-  const townRingMaterial = new MeshBasicMaterial({ color: "#f2c86a", transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false });
+  const resourceMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#8ff1ff", transparent: true, opacity: 0.86, blending: AdditiveBlending, depthWrite: false });
+  const townMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#f2c86a", transparent: true, opacity: 0.88, blending: AdditiveBlending, depthWrite: false });
+  const resourceRingMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#5edff4", transparent: true, opacity: 0.34, blending: AdditiveBlending, depthWrite: false });
+  const townRingMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#f2c86a", transparent: true, opacity: 0.32, blending: AdditiveBlending, depthWrite: false });
 
   const resourceMesh = new InstancedMesh(resourceGeometry, resourceMaterial, MAX_PINGS);
   const townMesh = new InstancedMesh(townGeometry, townMaterial, MAX_PINGS);

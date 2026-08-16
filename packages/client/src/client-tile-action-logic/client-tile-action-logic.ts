@@ -1563,27 +1563,10 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           )
         });
       }
-      if (buildShowsOnTile("QUARTERMASTERS_OFFICE", tile, supportedTowns.length, supportedDocks.length)) {
-        out.push({
-          id: "build_quartermasters_office",
-          label: "Build Quartermaster's Office",
-          detail: deps.buildDetailTextForAction("build_quartermasters_office", tile) + frontierBuildDetailSuffix(tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            ...chainedBuildAvailability(
-              "QUARTERMASTERS_OFFICE",
-              state.techIds.includes("field-logistics") && hasFreeResourceSlots(state, "QUARTERMASTERS_OFFICE") && !tile.siegeOutpost && !tile.observatory,
-              !state.techIds.includes("field-logistics")
-                ? "Requires Field Logistics"
-                : tile.siegeOutpost || tile.observatory
-                  ? "Tile already has structure"
-                  : missingResourceSlotReason(state, "QUARTERMASTERS_OFFICE") ?? "Unavailable",
-              `${deps.structureCostText("QUARTERMASTERS_OFFICE")} • ${Math.round(economicStructureBuildMs("QUARTERMASTERS_OFFICE") / 60000)}m • reduces manpower cost for War-branch structures within 20 tiles`
-            ),
-            slots,
-            deps
-          )
-        });
-      }
+      // QUARTERMASTERS_OFFICE is retired (weak payoff vs. its escalating
+      // tech-gold cost) — no build clause for it, so it stops appearing in
+      // any build menu. Legacy copies a player already owns keep
+      // functioning; see structure-registry-economic.ts.
       // WEAPONS_WORKSHOP is retired (replaced by the two structures below) —
       // no build clause for it, so it stops appearing in any build menu.
       // Legacy copies a player already owns keep functioning; see
@@ -1850,7 +1833,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : !state.techIds.includes("coinage")
                   ? "Requires Minting Works"
                   : missingResourceSlotReason(state, "CLEARING_HOUSE") ?? "Unavailable",
-            `${deps.structureCostText("CLEARING_HOUSE")} • ${Math.round(economicStructureBuildMs("CLEARING_HOUSE") / 60000)}m • boosts connected Mintworks (+25% Mintworks effect)`
+            `${deps.structureCostText("CLEARING_HOUSE")} • ${Math.round(economicStructureBuildMs("CLEARING_HOUSE") / 60000)}m • connected Mintworks gold bonus: +${Math.round((mintworksGoldProductionMultiplier(1, false) - 1) * 100)}% → +${Math.round((mintworksGoldProductionMultiplier(1, true) - 1) * 100)}% per copy`
           ),
           slots,
           deps

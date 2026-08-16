@@ -995,6 +995,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     capture: state.capture ? { target: state.capture.target, resolvesAt: state.capture.resolvesAt } : undefined
   });
   const handleSocketTornDown = (currentActionKey: string, feedMessage: string, interruptedDetail: string): void => {
+    // Anchors the map-loading overlay's grace window at the moment a healthy
+    // session dropped. The window has to span the whole outage — socket gap
+    // *and* the post-INIT resync, since INIT resets firstChunkAt to 0 — so a
+    // recovered-and-resynced session is the only thing that re-arms it.
+    // Repeat closes mid-outage (a failed in-place reconnect attempt closes
+    // again before recovering) deliberately keep the original anchor, so a
+    // long flapping outage still surfaces the overlay rather than restarting
+    // the grace on every flap.
+    const wasHealthy = state.connection === "initialized" && state.firstChunkAt > 0;
+    if (wasHealthy || !state.disconnectedSince) state.disconnectedSince = Date.now();
     clearAuthInFlight?.(); state.connection = "disconnected";
     state.actionInFlight = false;
     state.actionAcceptedAck = false;
@@ -1025,7 +1035,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     });
     wsOpenedAt = Date.now();
     state.connection = "connected";
-    if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
+    // Always restart the clock here, not just when unset: this "open" can be
+    // an in-place reconnect long after the original page load, and the INIT
+    // handshake that follows can take a beat. Without this, the map-loading
+    // overlay's "Elapsed Xs" reads against the original mapLoadStartedAt from
+    // minutes/hours ago (whatever it was before the drop) until INIT resets
+    // it again, showing a bogus huge elapsed time for however long that gap
+    // lasts.
+    state.mapLoadStartedAt = Date.now();
     clearReconnectReloadTimer();
     resetInPlaceReconnectAttempt();
     clearAuthReconnectTimer();
