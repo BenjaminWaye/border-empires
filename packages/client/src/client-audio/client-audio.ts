@@ -1,7 +1,8 @@
-// Background soundtrack for Border Empires — loops through the two music
-// tracks in /audio, playing one after another and wrapping back to the
-// start. Uses a plain HTMLAudioElement rather than the Web Audio API so it
-// works the same everywhere <audio> does.
+// Dynamic soundtrack for Border Empires. A looping music bed reacts to
+// conflict state (calm / an attack approaching or marching out / an active
+// battle), and short location themes play once over the top when the player
+// looks at a town, dock, or natural wonder tile — ducking the music bed out
+// and fading it back in afterward.
 //
 // Playback only starts after the player's first pointer/key interaction —
 // browsers block audio autoplay before a user gesture. Volume/mute are
@@ -12,12 +13,29 @@
 const VOLUME_STORAGE_KEY = "be-ambient-audio-volume";
 const MUTED_STORAGE_KEY = "be-ambient-audio-muted";
 const DEFAULT_VOLUME = 0.35;
+const FADE_MS = 900;
+const LOCATION_THEME_RESUME_DELAY_MS = 600;
 
-const TRACK_URLS = ["/audio/aether-forger-frontier.m4a", "/audio/aetherium-frontier.m4a"];
+type MusicMode = "calm" | "tension" | "combat";
+export type LocationTheme = "town" | "dock" | "wonder";
 
-let audioElement: HTMLAudioElement | undefined;
-let trackIndex = 0;
+const CALM_TRACKS = ["/audio/aether-forger-frontier.m4a", "/audio/aetherium-frontier.m4a"];
+const TENSION_TRACKS = ["/audio/march.m4a", "/audio/front.m4a"];
+const COMBAT_TRACKS = ["/audio/battle-v1.m4a", "/audio/battle-v2.m4a"];
+const LOCATION_TRACKS: Record<LocationTheme, string> = {
+  town: "/audio/town.m4a",
+  dock: "/audio/dock.m4a",
+  wonder: "/audio/wonder.m4a"
+};
+
+let musicElement: HTMLAudioElement | undefined;
+let sfxElement: HTMLAudioElement | undefined;
+let musicMode: MusicMode = "calm";
+let calmIndex = 0;
 let started = false;
+let ducked = false;
+let locationThemeResumeTimeout: ReturnType<typeof setTimeout> | undefined;
+let musicFadeGen = 0;
 
 const readStoredVolume = (): number => {
   try {
@@ -45,27 +63,71 @@ const readStoredMuted = (): boolean => {
 let volume = readStoredVolume();
 let muted = readStoredMuted();
 
+const targetVolume = (): number => (muted ? 0 : volume);
+
 const applyGain = (): void => {
-  if (!audioElement) return;
-  audioElement.volume = muted ? 0 : volume;
+  if (musicElement) musicElement.volume = targetVolume();
+  if (sfxElement) sfxElement.volume = targetVolume();
 };
 
-const playTrack = (index: number): void => {
-  if (!audioElement) return;
-  trackIndex = ((index % TRACK_URLS.length) + TRACK_URLS.length) % TRACK_URLS.length;
-  audioElement.src = TRACK_URLS[trackIndex] as string;
+// `isCurrent` lets a fade check, on every frame, whether a newer fade of the
+// same element has since started — if so it bows out instead of fighting
+// the newer one over `el.volume`.
+const fadeVolume = (el: HTMLAudioElement, to: number, durationMs: number, isCurrent: () => boolean, onDone?: () => void): void => {
+  const from = el.volume;
+  const startTime = performance.now();
+  const step = (now: number): void => {
+    if (!isCurrent()) return;
+    const t = Math.min(1, (now - startTime) / durationMs);
+    el.volume = from + (to - from) * t;
+    if (t < 1) requestAnimationFrame(step);
+    else onDone?.();
+  };
+  requestAnimationFrame(step);
+};
+
+const fadeMusicVolume = (to: number, durationMs: number, onDone?: () => void): void => {
+  if (!musicElement) return;
+  const gen = ++musicFadeGen;
+  fadeVolume(musicElement, to, durationMs, () => gen === musicFadeGen, onDone);
+};
+
+const randomTrack = (urls: readonly string[]): string => urls[Math.floor(Math.random() * urls.length)] as string;
+
+/** The track to start playing when entering `mode` — sequential for the calm playlist, random for tension/combat. */
+const trackForModeEntry = (mode: MusicMode): string => {
+  if (mode === "tension") return randomTrack(TENSION_TRACKS);
+  if (mode === "combat") return randomTrack(COMBAT_TRACKS);
+  calmIndex = 0;
+  return CALM_TRACKS[0] as string;
+};
+
+const playMusicUrl = (url: string): void => {
+  if (!musicElement) return;
+  musicElement.src = url;
   applyGain();
-  void audioElement.play();
+  void musicElement.play();
 };
 
-/** Builds the audio element and begins playback. Safe to call more than once — only the first call does anything. */
+const handleMusicEnded = (): void => {
+  if (musicMode === "calm") {
+    calmIndex = (calmIndex + 1) % CALM_TRACKS.length;
+    playMusicUrl(CALM_TRACKS[calmIndex] as string);
+  } else if (musicMode === "tension") {
+    playMusicUrl(randomTrack(TENSION_TRACKS));
+  } else {
+    playMusicUrl(randomTrack(COMBAT_TRACKS));
+  }
+};
+
+/** Builds the music element and begins playback. Safe to call more than once — only the first call does anything. */
 export const startAmbientAudio = (): void => {
   if (started) return;
   if (typeof window === "undefined" || typeof Audio === "undefined") return;
   started = true;
-  audioElement = new Audio();
-  audioElement.addEventListener("ended", () => playTrack(trackIndex + 1));
-  playTrack(0);
+  musicElement = new Audio();
+  musicElement.addEventListener("ended", handleMusicEnded);
+  playMusicUrl(trackForModeEntry(musicMode));
 };
 
 /** Registers one-time listeners that start the soundtrack on the player's first interaction with the page, and pause it while the tab is hidden. */
@@ -79,9 +141,14 @@ export const initClientAudio = (): void => {
   window.addEventListener("pointerdown", unlock, { once: true });
   window.addEventListener("keydown", unlock, { once: true });
   document.addEventListener("visibilitychange", () => {
-    if (!audioElement) return;
-    if (document.hidden) audioElement.pause();
-    else if (!muted) void audioElement.play();
+    if (document.hidden) {
+      musicElement?.pause();
+      sfxElement?.pause();
+      return;
+    }
+    if (muted) return;
+    void musicElement?.play();
+    void sfxElement?.play();
   });
 };
 
@@ -106,4 +173,65 @@ export const setAmbientAudioVolume = (next: number): void => {
     // Ignore storage failures in restricted browser contexts.
   }
   applyGain();
+};
+
+/**
+ * Crossfades the looping music bed to reflect current conflict state.
+ * Call this from the game loop with the latest combat/tension signals —
+ * a no-op unless the derived mode actually changed. Combat (an active
+ * battle) takes priority over tension (an attack incoming or a muster
+ * marching out), which takes priority over calm.
+ */
+export const updateMusicForGameState = (input: { combat: boolean; tension: boolean }): void => {
+  const nextMode: MusicMode = input.combat ? "combat" : input.tension ? "tension" : "calm";
+  if (nextMode === musicMode) return;
+  musicMode = nextMode;
+  if (!started || !musicElement) return; // picked up by trackForModeEntry() once startAmbientAudio() runs
+  if (ducked) {
+    // A location theme is playing over a silenced, paused music bed — just
+    // line up the new mode's track; playLocationTheme's own resume timer
+    // will play() and fade it in once the one-shot finishes.
+    musicElement.pause();
+    musicElement.src = trackForModeEntry(musicMode);
+    musicElement.volume = 0;
+    return;
+  }
+  fadeMusicVolume(0, FADE_MS, () => {
+    playMusicUrl(trackForModeEntry(musicMode));
+    if (musicElement) musicElement.volume = 0;
+    fadeMusicVolume(targetVolume(), FADE_MS);
+  });
+};
+
+/**
+ * Plays a location theme once (town/dock/natural wonder), ducking the music
+ * bed out while it plays and fading the bed back in a short beat after it
+ * ends. Safe to call repeatedly — a new theme cuts off whatever one-shot is
+ * already playing.
+ */
+export const playLocationTheme = (theme: LocationTheme): void => {
+  if (!started || typeof window === "undefined" || typeof Audio === "undefined") return;
+  if (locationThemeResumeTimeout) {
+    clearTimeout(locationThemeResumeTimeout);
+    locationThemeResumeTimeout = undefined;
+  }
+  if (!sfxElement) {
+    sfxElement = new Audio();
+    sfxElement.addEventListener("ended", () => {
+      locationThemeResumeTimeout = setTimeout(() => {
+        ducked = false;
+        if (!musicElement) return;
+        musicElement.volume = 0;
+        void musicElement.play();
+        fadeMusicVolume(targetVolume(), FADE_MS * 2);
+      }, LOCATION_THEME_RESUME_DELAY_MS);
+    });
+  }
+  ducked = true;
+  fadeMusicVolume(0, FADE_MS, () => musicElement?.pause());
+  sfxElement.pause();
+  sfxElement.src = LOCATION_TRACKS[theme];
+  sfxElement.currentTime = 0;
+  sfxElement.volume = targetVolume();
+  void sfxElement.play();
 };
