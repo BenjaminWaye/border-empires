@@ -20,7 +20,11 @@ import { buildTowerPartSpecs, computeTowerAnim, type TowerAnim } from "./client-
 //   • Dot count scales with fill ratio (sparse at start, dense near full).
 //   • ADVANCE mode: soldier dots march faster.
 
-const MAX = 64;
+// Matches the original (pre-tower) pennant overlay's cap — the per-frame
+// matrix-recompute cost at this ceiling (MAX * ~19 tower parts) is the same
+// order of magnitude as the soldier-dot cost already paid every frame below
+// (MAX * SOLDIERS_MAX), so there's no perf reason to cap lower than before.
+const MAX = 256;
 const FLAG_Y = 0.014; // rise above surface
 
 const SOLDIER_W = 0.022;
