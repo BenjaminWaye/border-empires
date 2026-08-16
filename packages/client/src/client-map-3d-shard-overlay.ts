@@ -1,5 +1,4 @@
 import { CircleGeometry, Group, InstancedMesh, Matrix4, MeshBasicMaterial, MeshStandardMaterial, OctahedronGeometry, Scene } from "three";
-import { BLOOM_LAYER } from "./client-map-3d-bloom/client-map-3d-bloom-layer.js";
 
 type ActiveShard = {
   readonly centerX: number;
@@ -58,13 +57,6 @@ export const createShardOverlay = (scene: Scene, maxTiles: number): ShardOverlay
   const shimmerMesh = new InstancedMesh(shimmerGeometry, shimmerMaterial, maxTiles);
   shardMesh.frustumCulled = false;
   shimmerMesh.frustumCulled = false;
-  // Both the emissive crystal and its glow shimmer are genuine bloom
-  // material — see client-map-3d-bloom-layer.ts. Tagged on each mesh
-  // directly rather than on `group`: layers aren't inherited from a parent
-  // during the bloom pipeline's scene.traverse, each Object3D is checked
-  // individually.
-  shardMesh.layers.enable(BLOOM_LAYER);
-  shimmerMesh.layers.enable(BLOOM_LAYER);
   // Draw shimmer first so the shard renders on top
   group.add(shimmerMesh, shardMesh);
 
