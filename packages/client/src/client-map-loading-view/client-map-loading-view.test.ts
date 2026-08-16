@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildMapLoadingView } from "./client-map-loading-view.js";
+import { buildMapLoadingView, isMapLoadingOverlayActive } from "./client-map-loading-view.js";
 
 describe("buildMapLoadingView", () => {
   it("surfaces retryable server-starting state instead of generic chunk loading copy", () => {
@@ -267,5 +267,47 @@ describe("buildMapLoadingView", () => {
     expect(view.showRetry).toBe(false);
     expect(view.showReload).toBe(false);
     expect(view.showDiagnostics).toBe(false);
+  });
+});
+
+describe("isMapLoadingOverlayActive", () => {
+  it("shows immediately on the very first boot, even with no disconnect recorded", () => {
+    const active = isMapLoadingOverlayActive(
+      { connection: "connecting", firstChunkAt: 0, hasEverInitialized: false, disconnectedSince: 0 },
+      1_000
+    );
+    expect(active).toBe(true);
+  });
+
+  it("suppresses the overlay for a brief reconnect within the grace window (the tab-switch case)", () => {
+    const active = isMapLoadingOverlayActive(
+      { connection: "connected", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000 },
+      1_500 // 500ms since the drop, under RECONNECT_OVERLAY_GRACE_MS
+    );
+    expect(active).toBe(false);
+  });
+
+  it("shows the overlay once a disconnect outlasts the grace window", () => {
+    const active = isMapLoadingOverlayActive(
+      { connection: "connected", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000 },
+      3_000 // 2s since the drop, past RECONNECT_OVERLAY_GRACE_MS
+    );
+    expect(active).toBe(true);
+  });
+
+  it("shows immediately when there is no in-flight disconnect to debounce (e.g. a mid-session forced resync)", () => {
+    const active = isMapLoadingOverlayActive(
+      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 0 },
+      1_000
+    );
+    expect(active).toBe(true);
+  });
+
+  it("stays hidden once fully initialized with data, regardless of a stale disconnectedSince", () => {
+    const active = isMapLoadingOverlayActive(
+      { connection: "initialized", firstChunkAt: 500, hasEverInitialized: true, disconnectedSince: 999 },
+      1_000
+    );
+    expect(active).toBe(false);
   });
 });

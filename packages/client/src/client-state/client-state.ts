@@ -85,6 +85,12 @@ export const createInitialState = () => ({
   authReady: false,
   authSessionReady: false,
   hasEverInitialized: false,
+  // 0 while healthy/initialized; set to Date.now() the moment the socket
+  // tears down, cleared once a fresh INIT lands. Lets the HUD tell "just
+  // dropped" apart from "never came back" so a brief backgrounded-tab
+  // reconnect doesn't flash the full loading overlay — see
+  // RECONNECT_OVERLAY_GRACE_MS in client-constants.ts.
+  disconnectedSince: 0,
   authBusy: false,
   authBusyStartedAt: 0,
   authRetrying: false,
