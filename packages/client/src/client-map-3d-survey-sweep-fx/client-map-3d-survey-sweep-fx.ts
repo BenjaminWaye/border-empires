@@ -72,7 +72,7 @@ export const createSurveySweepFxLayer = (scene: Scene): SurveySweepFxLayer => {
   const entries: SurveySweepEntry[] = [];
 
   const makeMaterial = (color: string, opacity: number): MeshBasicMaterial =>
-    new MeshBasicMaterial({
+    new MeshBasicMaterial({ toneMapped: false,
       color,
       transparent: true,
       opacity,

@@ -69,7 +69,7 @@ export const createAetherPurgeFxLayer = (scene: Scene): AetherPurgeFxLayer => {
   const entries: PurgeEntry[] = [];
 
   const makeMaterial = (color: string, opacity: number): MeshBasicMaterial =>
-    new MeshBasicMaterial({
+    new MeshBasicMaterial({ toneMapped: false,
       color,
       transparent: true,
       opacity,

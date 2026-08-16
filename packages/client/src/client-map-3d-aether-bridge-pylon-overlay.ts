@@ -132,7 +132,7 @@ export const createAetherBridgePylonOverlay = (
     roughness: 0.62,
     flatShading: true
   });
-  const coreMaterial = new MeshBasicMaterial({
+  const coreMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: AETHER_CORE,
     transparent: true,
     opacity: 0.55,
@@ -140,7 +140,7 @@ export const createAetherBridgePylonOverlay = (
     depthWrite: false
   });
   const auraTexture = makeAuraTexture();
-  const auraMaterial = new SpriteMaterial({
+  const auraMaterial = new SpriteMaterial({ toneMapped: false,
     map: auraTexture,
     color: AURA_COLOR,
     transparent: true,
