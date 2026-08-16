@@ -503,6 +503,13 @@ export const applyGatewayInitialState = (
   let invalidatedTerrainCache = false;
   for (const tile of tiles) {
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, tile, true) || invalidatedTerrainCache;
+    // Re-derive the muster unlock from the bootstrap snapshot too: a fresh
+    // device has no localStorage flag, and without this an already-visible
+    // rival tile in the initial load would leave mustering hidden until some
+    // later delta happened to touch an enemy tile. No-ops once unlocked, so
+    // scanning every bootstrap tile is safe.
+    const seenTile = deps.state.tiles.get(deps.keyFor(tile.x, tile.y));
+    unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue);
   }
   if (invalidatedTerrainCache) {
     deps.clearRenderCaches?.();
@@ -518,7 +525,7 @@ export const applyGatewayTileDeltaBatch = (
   if (!Array.isArray(updates) || updates.length === 0) return;
   let invalidatedTerrainCache = false;
   for (const update of updates) {
-    // Live deltas only (never the initial bootstrap) — "newly seen" gates first-discovery tips (first town/resource of a kind).
+    // "Newly seen" gates first-discovery tips (first town/resource of a kind) to live deltas only — the initial bootstrap has its own muster-unlock pass above, but doesn't fire discovery tips to avoid spamming them all at once on load.
     const tileKey = deps.keyFor(update.x, update.y);
     const wasKnown = deps.state.tiles.has(tileKey); const priorOwnerId = deps.state.tiles.get(tileKey)?.ownerId; // priorOwnerId: read before the merge, so an ownership FLIP (not just a first sighting) can also unlock mustering
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, update) || invalidatedTerrainCache; const seenTile = deps.state.tiles.get(tileKey);
