@@ -83,7 +83,7 @@ export const createRetortRecastFxLayer = (scene: Scene): RetortRecastFxLayer => 
   const entries: RetortEntry[] = [];
 
   const makeMaterial = (color: string, opacity: number): MeshBasicMaterial =>
-    new MeshBasicMaterial({
+    new MeshBasicMaterial({ toneMapped: false,
       color,
       transparent: true,
       opacity,

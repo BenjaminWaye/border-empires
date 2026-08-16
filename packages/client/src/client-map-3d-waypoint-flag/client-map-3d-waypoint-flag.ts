@@ -72,22 +72,22 @@ const drawQueueBadgeTexture = (n: number): Texture => {
 export const createWaypointFlag = (): WaypointFlag => {
   const group = new Group();
 
-  const baseHexMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.7, depthTest: false, depthWrite: false });
+  const baseHexMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", transparent: true, opacity: 0.7, depthTest: false, depthWrite: false });
   const baseHex = new Mesh(new TorusGeometry(0.55, 0.04, 4, 8), baseHexMaterial);
   baseHex.rotation.x = Math.PI / 2;
   baseHex.rotation.z = Math.PI / 8;
   baseHex.position.y = 0.01;
 
-  const pedestalMaterial = new MeshBasicMaterial({ color: BRASS_LO, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const pedestalMaterial = new MeshBasicMaterial({ toneMapped: false, color: BRASS_LO, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
   const pedestal = new Mesh(new CylinderGeometry(0.42, 0.46, 0.16, 8), pedestalMaterial);
   pedestal.position.y = 0.1;
 
-  const pedestalGlowMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.8, depthTest: false, depthWrite: false });
+  const pedestalGlowMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", transparent: true, opacity: 0.8, depthTest: false, depthWrite: false });
   const pedestalGlow = new Mesh(new TorusGeometry(0.28, 0.03, 4, 16), pedestalGlowMaterial);
   pedestalGlow.rotation.x = Math.PI / 2;
   pedestalGlow.position.y = 0.19;
 
-  const cannonMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const cannonMaterial = new MeshBasicMaterial({ toneMapped: false, color: COPPER, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
   const cannonLeft = new Mesh(new CylinderGeometry(0.04, 0.05, 0.32, 10), cannonMaterial);
   cannonLeft.rotation.z = Math.PI / 2;
   cannonLeft.position.set(-0.4, 0.24, 0);
@@ -95,10 +95,10 @@ export const createWaypointFlag = (): WaypointFlag => {
   cannonRight.rotation.z = Math.PI / 2;
   cannonRight.position.set(0.4, 0.24, 0);
 
-  const towerMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const towerMaterial = new MeshBasicMaterial({ toneMapped: false, color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
   const towerTrunk = new Mesh(new CylinderGeometry(0.075, 0.1, 1.1, 12), towerMaterial);
   towerTrunk.position.y = 0.75;
-  const towerBandMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+  const towerBandMaterial = new MeshBasicMaterial({ toneMapped: false, color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
   const towerBandLow = new Mesh(new CylinderGeometry(0.105, 0.105, 0.04, 12), towerBandMaterial);
   towerBandLow.position.y = 0.4;
   const towerBandHi = new Mesh(new CylinderGeometry(0.085, 0.085, 0.04, 12), towerBandMaterial);
@@ -112,30 +112,30 @@ export const createWaypointFlag = (): WaypointFlag => {
   const bannerArmCapR = new Mesh(new SphereGeometry(0.04, 8, 6), towerMaterial);
   bannerArmCapR.position.set(0.25, 0.7, 0);
 
-  const bannerBackingMaterial = new MeshBasicMaterial({ color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, side: DoubleSide });
+  const bannerBackingMaterial = new MeshBasicMaterial({ toneMapped: false, color: COPPER, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false, side: DoubleSide });
   const bannerBacking = new Mesh(new PlaneGeometry(0.42, 0.7), bannerBackingMaterial);
   bannerBacking.position.set(0, 0.36, -0.005);
-  const bannerMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.97, depthTest: false, depthWrite: false, side: DoubleSide });
+  const bannerMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", transparent: true, opacity: 0.97, depthTest: false, depthWrite: false, side: DoubleSide });
   const banner = new Mesh(new PlaneGeometry(0.36, 0.62), bannerMaterial);
   banner.position.set(0, 0.38, 0);
 
-  const bannerEmblemPlateMaterial = new MeshBasicMaterial({ color: BRASS_LO, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+  const bannerEmblemPlateMaterial = new MeshBasicMaterial({ toneMapped: false, color: BRASS_LO, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
   const bannerEmblemPlate = new Mesh(new CylinderGeometry(0.1, 0.1, 0.005, 16), bannerEmblemPlateMaterial);
   bannerEmblemPlate.rotation.x = Math.PI / 2;
   bannerEmblemPlate.position.set(0, 0.4, 0.01);
-  const bannerEmblemRingMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const bannerEmblemRingMaterial = new MeshBasicMaterial({ toneMapped: false, color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
   const bannerEmblemRing = new Mesh(new TorusGeometry(0.1, 0.012, 6, 16), bannerEmblemRingMaterial);
   bannerEmblemRing.position.set(0, 0.4, 0.015);
 
-  const medallionFrameMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const medallionFrameMaterial = new MeshBasicMaterial({ toneMapped: false, color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
   const medallionFrame = new Mesh(new TorusGeometry(0.22, 0.025, 8, 24), medallionFrameMaterial);
   medallionFrame.position.y = 1.35;
-  const medallionFaceMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.9, depthTest: false, depthWrite: false });
+  const medallionFaceMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", transparent: true, opacity: 0.9, depthTest: false, depthWrite: false });
   const medallionFace = new Mesh(new CylinderGeometry(0.2, 0.2, 0.025, 18), medallionFaceMaterial);
   medallionFace.rotation.x = Math.PI / 2;
   medallionFace.position.y = 1.35;
 
-  const wingMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
+  const wingMaterial = new MeshBasicMaterial({ toneMapped: false, color: BRASS_HI, transparent: true, opacity: 0.95, depthTest: false, depthWrite: false });
   const wingLeft = new Mesh(new ConeGeometry(0.06, 0.3, 5), wingMaterial);
   wingLeft.rotation.z = Math.PI / 2;
   wingLeft.position.set(-0.36, 1.35, 0);
@@ -143,14 +143,14 @@ export const createWaypointFlag = (): WaypointFlag => {
   wingRight.rotation.z = -Math.PI / 2;
   wingRight.position.set(0.36, 1.35, 0);
 
-  const domeMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const domeMaterial = new MeshBasicMaterial({ toneMapped: false, color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
   const dome = new Mesh(new SphereGeometry(0.12, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), domeMaterial);
   dome.position.y = 1.5;
-  const spireMaterial = new MeshBasicMaterial({ color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
+  const spireMaterial = new MeshBasicMaterial({ toneMapped: false, color: BRASS_HI, transparent: true, opacity: 0.98, depthTest: false, depthWrite: false });
   const spire = new Mesh(new ConeGeometry(0.025, 0.22, 8), spireMaterial);
   spire.position.y = 1.72;
 
-  const smokeMaterial = new MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.18, depthTest: false, depthWrite: false, side: DoubleSide });
+  const smokeMaterial = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", transparent: true, opacity: 0.18, depthTest: false, depthWrite: false, side: DoubleSide });
   const smokeLeft = new Mesh(new PlaneGeometry(0.12, 0.5), smokeMaterial);
   smokeLeft.position.set(-0.28, 0.5, 0);
   const smokeRight = new Mesh(new PlaneGeometry(0.12, 0.5), smokeMaterial);
@@ -279,7 +279,7 @@ export const createWaypointFlag = (): WaypointFlag => {
     }
     if (n === undefined) return;
     badgeTexture = drawQueueBadgeTexture(n);
-    const material = new SpriteMaterial({ map: badgeTexture, transparent: true, depthTest: false, depthWrite: false });
+    const material = new SpriteMaterial({ toneMapped: false, map: badgeTexture, transparent: true, depthTest: false, depthWrite: false });
     badgeSprite = new Sprite(material);
     badgeSprite.scale.set(QUEUE_BADGE_SIZE, QUEUE_BADGE_SIZE, 1);
     badgeSprite.position.set(0.3, 1.55, 0);

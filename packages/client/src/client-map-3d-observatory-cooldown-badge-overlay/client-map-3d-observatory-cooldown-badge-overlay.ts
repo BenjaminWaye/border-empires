@@ -92,7 +92,7 @@ export const createObservatoryCooldownBadgeOverlay = (
   }
 
   const planeGeometry = new PlaneGeometry(BADGE_SIZE, BADGE_SIZE);
-  const material = new MeshBasicMaterial({
+  const material = new MeshBasicMaterial({ toneMapped: false,
     map: texture,
     transparent: true,
     side: DoubleSide,
