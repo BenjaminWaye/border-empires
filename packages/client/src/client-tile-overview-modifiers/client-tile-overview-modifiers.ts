@@ -1,4 +1,4 @@
-import { NATURAL_WONDER_LABELS, type EconomicStructureType } from "@border-empires/shared";
+import { HILLS_VISION_BONUS, isHillsTileAt, NATURAL_WONDER_LABELS, type EconomicStructureType } from "@border-empires/shared";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 import { economicStructureName } from "../client-map-display.js";
@@ -109,6 +109,14 @@ const economicStructureModifiersForTile = (tile: NonNullable<Tile["economicStruc
 export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[] => {
   const modifiers: TileOverviewModifier[] = [];
   const nowMs = Date.now();
+
+  // Hills-ness is a permanent, purely procedural property of the coordinate
+  // (isHillsTileAt, mirrored server-side in vision-footprint-table.ts) —
+  // not gated on ownership or a built structure, so it's shown for any land
+  // tile the same way the natural-wonder line is.
+  if (tile.terrain === "LAND" && isHillsTileAt(tile.x, tile.y)) {
+    modifiers.push({ reason: "Hills", effect: `+${HILLS_VISION_BONUS} local vision`, tone: "positive" });
+  }
 
   if (tile.town) {
     const inCaptureShock = hasActiveTownCaptureShock(tile, nowMs);

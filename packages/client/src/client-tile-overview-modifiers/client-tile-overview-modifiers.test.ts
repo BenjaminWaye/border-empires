@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
+import { setWorldSeed } from "@border-empires/shared";
 
 import { tileOverviewModifiersForTile } from "./client-tile-overview-modifiers.js";
 import type { Tile } from "../client-types.js";
+
+// A real hills tile (isHillsTileAt true) under seed 1 — same known-good
+// coordinate used by apps/simulation/src/vision-footprint-table.test.ts,
+// which mirrors this same hills-vision mechanic server-side.
+const KNOWN_HILLS_TILE = { x: 99, y: 57 };
 
 describe("tileOverviewModifiersForTile", () => {
   it("shows nearby war as a negative town growth modifier", () => {
@@ -411,5 +417,29 @@ describe("tileOverviewModifiersForTile", () => {
       economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" }
     } satisfies Tile);
     expect(modifiers).toContainEqual({ reason: "Mintworks gold bonus per copy", effect: "+10% → +35%", tone: "positive" });
+  });
+
+  it("shows a Hills vision modifier for a real hills tile", () => {
+    setWorldSeed(1);
+    const modifiers = tileOverviewModifiersForTile({
+      x: KNOWN_HILLS_TILE.x,
+      y: KNOWN_HILLS_TILE.y,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER"
+    } satisfies Tile);
+    expect(modifiers).toContainEqual({ reason: "Hills", effect: "+1 local vision", tone: "positive" });
+  });
+
+  it("does not show a Hills modifier for a non-hills land tile", () => {
+    setWorldSeed(1);
+    const modifiers = tileOverviewModifiersForTile({
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "FRONTIER"
+    } satisfies Tile);
+    expect(modifiers.some((m) => m.reason === "Hills")).toBe(false);
   });
 });

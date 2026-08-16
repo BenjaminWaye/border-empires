@@ -62,6 +62,65 @@ describe("menuOverviewForTile", () => {
     vi.useRealTimers();
   });
 
+  // Unified building modifier display (stage 3): townModifierTotals now
+  // arrives grouped per building type ("<count> <Building>" heading + that
+  // building's own stat lines), and menuOverviewForTile must render each
+  // group as a "group" heading line followed by its stat lines marked
+  // "nested" — not a flat list of unlabeled stat lines like before.
+  it("renders townModifierTotals as a group heading followed by its nested stat lines", () => {
+    const lines = menuOverviewForTile(
+      {
+        x: 20,
+        y: 44,
+        terrain: "LAND",
+        ownerId: "me",
+        ownershipState: "SETTLED",
+        town: {
+          name: "Mintvale",
+          type: "MARKET",
+          baseGoldPerMinute: 2,
+          supportCurrent: 5,
+          supportMax: 5,
+          goldPerMinute: 7,
+          cap: 100,
+          isFed: true,
+          population: 20_000,
+          maxPopulation: 50_000,
+          populationTier: "TOWN",
+          connectedTownCount: 0,
+          connectedTownBonus: 0,
+          hasMintworks: true,
+          mintworksActive: true,
+          hasGranary: false,
+          granaryActive: false,
+          townModifierTotals: [
+            {
+              heading: "6 Mintworks",
+              modifiers: [
+                { statLabel: "Gold", valueText: "+6", tone: "positive" },
+                { statLabel: "Gold production", valueText: "+210%", tone: "positive" }
+              ]
+            }
+          ]
+        }
+      },
+      deps
+    );
+
+    const groupIndex = lines.findIndex((line) => line.kind === "group" && line.html === "6 Mintworks");
+    expect(groupIndex).toBeGreaterThanOrEqual(0);
+    const goldLine = lines[groupIndex + 1];
+    const goldProductionLine = lines[groupIndex + 2];
+    expect(goldLine?.kind).toBe("effect");
+    expect(goldLine?.nested).toBe(true);
+    expect(goldLine?.html).toContain("Gold:");
+    expect(goldLine?.html).toContain("+6");
+    expect(goldProductionLine?.kind).toBe("effect");
+    expect(goldProductionLine?.nested).toBe(true);
+    expect(goldProductionLine?.html).toContain("Gold production:");
+    expect(goldProductionLine?.html).toContain("+210%");
+  });
+
   it("avoids repeating fed town production in prose and shows connection guidance when isolated", () => {
     const lines = menuOverviewForTile(
       {
