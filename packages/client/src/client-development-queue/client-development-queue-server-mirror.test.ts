@@ -233,4 +233,54 @@ describe("isQueuedDevelopmentActionStillValid", () => {
       )
     ).toBe(true);
   });
+
+  // Regression for a repeating BUILD_INVALID "tile already has structure" loop
+  // (see 2026-08-16 debug bundle): a dev-queue BUILD entry can survive on the
+  // server's durable mirror after the client already dispatched it and moved
+  // on (e.g. the DEV_QUEUE_CANCEL that should have cleared it got dropped).
+  // Once the structure actually exists on the tile, redispatching that ghost
+  // entry is never valid again, regardless of ownership/settlement state.
+  it("is false for a BUILD entry once the requested structure already exists on the tile", () => {
+    const tiles = new Map([["1,1", { ownerId: "me", ownershipState: "SETTLED" as const, fort: { status: "active" } }]]);
+    expect(
+      isQueuedDevelopmentActionStillValid(
+        { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Build Fort", payload: { type: "BUILD_STRUCTURE", x: 1, y: 1, structureType: "FORT" }, optimisticKind: "FORT" },
+        tiles,
+        "me"
+      )
+    ).toBe(false);
+  });
+
+  it("is false for a BUILD entry once the requested economic structure already exists on the tile", () => {
+    const tiles = new Map([["1,1", { ownerId: "me", ownershipState: "SETTLED" as const, economicStructure: { type: "GRANARY", status: "active" } }]]);
+    expect(
+      isQueuedDevelopmentActionStillValid(
+        { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Build Granary", payload: { type: "BUILD_STRUCTURE", x: 1, y: 1, structureType: "GRANARY" }, optimisticKind: "GRANARY" as any },
+        tiles,
+        "me"
+      )
+    ).toBe(false);
+  });
+
+  it("is true for a BUILD entry when a different economic structure exists on the tile", () => {
+    const tiles = new Map([["1,1", { ownerId: "me", ownershipState: "SETTLED" as const, economicStructure: { type: "GRANARY", status: "active" } }]]);
+    expect(
+      isQueuedDevelopmentActionStillValid(
+        { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Build Mine", payload: { type: "BUILD_STRUCTURE", x: 1, y: 1, structureType: "MINE" }, optimisticKind: "MINE" as any },
+        tiles,
+        "me"
+      )
+    ).toBe(true);
+  });
+
+  it("is true for a REMOVE_STRUCTURE entry on an owned, settled tile", () => {
+    const tiles = new Map([["1,1", { ownerId: "me", ownershipState: "SETTLED" as const, fort: { status: "active" } }]]);
+    expect(
+      isQueuedDevelopmentActionStillValid(
+        { kind: "BUILD", x: 1, y: 1, tileKey: "1,1", label: "Remove structure", payload: { type: "REMOVE_STRUCTURE", x: 1, y: 1 }, optimisticKind: "FORT" },
+        tiles,
+        "me"
+      )
+    ).toBe(true);
+  });
 });
