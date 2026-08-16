@@ -92,7 +92,7 @@ const createMesh = (vertCount: number, indexCount: number, opacity: number): {
   geometry.setAttribute("color", new BufferAttribute(colors, 3));
   geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
-  const material = new MeshBasicMaterial({
+  const material = new MeshBasicMaterial({ toneMapped: false,
     color: "#ffffff",
     vertexColors: true,
     transparent: true,

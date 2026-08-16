@@ -148,7 +148,7 @@ export const createContactShadowOverlay = (scene: Scene, maxTiles: number): Cont
   // `rotateX(-90°)` turns the plane's +Z normal to +Y, and the map camera is
   // always above the ground, so the default FrontSide is all that ever renders.
   const map = createContactShadowTexture();
-  const material = new MeshBasicMaterial({
+  const material = new MeshBasicMaterial({ toneMapped: false,
     color: "#ffffff",
     transparent: true,
     opacity: 0.38,
