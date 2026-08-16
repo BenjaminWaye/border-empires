@@ -13,7 +13,7 @@
 //     leaves the canvas permanently blank while the render loop keeps
 //     spinning against a dead context.
 
-import { WebGLRenderer } from "three";
+import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
 import { describeWebGLProbe, webGLProbe } from "../client-webgl-probe/client-webgl-probe.js";
 import { pixelRatioFor } from "../client-map-3d-pixel-ratio/client-map-3d-pixel-ratio.js";
 import { previousRendererAttempt } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
@@ -107,6 +107,17 @@ export const createThreeRenderTarget = (
         previousAttempt === undefined ? undefined : previousAttempt.phase === "init-started"
     })
   );
+
+  // Filmic tone mapping gives the lit terrain/water/structure materials the
+  // highlight rolloff they were tuned to expect instead of clipped, flat
+  // sRGB. It applies to every material by default, though, and the map's
+  // ~70 unlit MeshBasicMaterial/SpriteMaterial instances — ownership tints,
+  // selection highlights, badges, targeting overlays — are chosen for
+  // gameplay legibility, not lighting; those all set `toneMapped: false` at
+  // their own construction site so this doesn't touch them.
+  renderer.outputColorSpace = SRGBColorSpace;
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
 
   return { glCanvas, renderer, contextGuard: installWebGLContextGuard(glCanvas, onContextLost) };
 };
