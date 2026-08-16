@@ -183,6 +183,31 @@ describe("client-audio", () => {
     expect(fakeAudio.playCount).toBe(2);
   });
 
+  it("clears a pending interaction-retry listener when startAmbientAudio() retries directly, so a later interaction doesn't double-play", async () => {
+    const { fakeAudio, fireWindowEvent } = stubWindowWithFakeAudio();
+    vi.resetModules();
+    const fresh = await import("./client-audio.js");
+
+    // A failed play() arms a pointerdown/keydown retry listener.
+    fakeAudio.nextPlayResult = "reject";
+    fresh.startAmbientAudio();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(fakeAudio.playCount).toBe(1);
+
+    // Re-enabling via the settings checkbox retries directly — this must
+    // disarm the stale listener from the failure above, not stack on top of it.
+    fakeAudio.nextPlayResult = "resolve";
+    fresh.startAmbientAudio();
+    expect(fakeAudio.playCount).toBe(2);
+
+    // A later, unrelated interaction must not trigger an extra play() call
+    // from the listener that should have been cleared.
+    fireWindowEvent("pointerdown");
+    await Promise.resolve();
+    expect(fakeAudio.playCount).toBe(2);
+  });
+
   it("skips to the next track when the current one errors, and stops once every track has failed", async () => {
     const { fakeAudio } = stubWindowWithFakeAudio();
     vi.resetModules();

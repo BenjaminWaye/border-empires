@@ -19,6 +19,7 @@ let audioElement: HTMLAudioElement | undefined;
 let trackIndex = 0;
 let started = false;
 let retryArmed = false;
+let armedRetryListener: (() => void) | undefined;
 let consecutiveTrackErrors = 0;
 
 const readStoredVolume = (): number => {
@@ -52,16 +53,29 @@ const applyGain = (): void => {
   audioElement.volume = muted ? 0 : volume;
 };
 
+/** Removes a pending retry-on-interaction listener, if one is armed. Called before every fresh play() attempt so a listener from an earlier failure can't outlive it — otherwise a later, unrelated interaction could trigger a stale extra play() call. */
+const disarmRetry = (): void => {
+  if (!retryArmed || typeof window === "undefined") return;
+  retryArmed = false;
+  if (armedRetryListener) {
+    window.removeEventListener("pointerdown", armedRetryListener);
+    window.removeEventListener("keydown", armedRetryListener);
+    armedRetryListener = undefined;
+  }
+};
+
 /** Re-attempts play() on the player's next pointer/key interaction. Used when play() is rejected (e.g. the browser's autoplay policy blocked a resume after the tab was backgrounded) instead of leaving playback silently stalled forever. Idempotent — a failure while a retry is already armed doesn't stack listeners. */
 const armRetryOnNextInteraction = (): void => {
   if (retryArmed || typeof window === "undefined") return;
   retryArmed = true;
   const retry = (): void => {
     retryArmed = false;
+    armedRetryListener = undefined;
     window.removeEventListener("pointerdown", retry);
     window.removeEventListener("keydown", retry);
     if (!muted) attemptPlay();
   };
+  armedRetryListener = retry;
   window.addEventListener("pointerdown", retry, { once: true });
   window.addEventListener("keydown", retry, { once: true });
 };
@@ -69,6 +83,7 @@ const armRetryOnNextInteraction = (): void => {
 /** Calls play() on the current track, catching rejection (autoplay block, transient failure) instead of leaving an unhandled promise rejection — and arms a retry for the next user gesture. */
 const attemptPlay = (): void => {
   if (!audioElement) return;
+  disarmRetry();
   audioElement.play().catch(() => armRetryOnNextInteraction());
 };
 
