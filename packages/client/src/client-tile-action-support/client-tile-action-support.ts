@@ -128,8 +128,6 @@ export const structureTypeForTileAction = (actionId: TileActionDef["id"]): Build
       return "TITANIUM_WEAPONS_FACTORY";
     case "build_umbrite_weapons_factory":
       return "UMBRITE_WEAPONS_FACTORY";
-    case "build_quartermasters_office":
-      return "QUARTERMASTERS_OFFICE";
     case "build_assembly_works":
       return "ASSEMBLY_WORKS";
     case "build_logistics_guild":
@@ -260,8 +258,6 @@ export const requiredTechForTileAction = (actionId: TileActionDef["id"]): string
     case "create_mountain":
     case "remove_mountain":
       return "terrain-engineering";
-    case "build_quartermasters_office":
-      return "field-logistics";
     case "build_assembly_works":
       return "conveyor-networks";
     case "build_logistics_guild":
