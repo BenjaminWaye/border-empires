@@ -10,6 +10,7 @@ import {
   Scene,
   Vector2
 } from "three";
+import { BLOOM_LAYER } from "./client-map-3d-bloom/client-map-3d-bloom-layer.js";
 
 export const WATER_SURFACE_Y = -0.06;
 
@@ -226,6 +227,12 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
     mesh = new Mesh(geometry, material);
     mesh.frustumCulled = false;
     mesh.renderOrder = 12;
+    // The material's own emissive channel (see DEEP_COLOR's emissive comment
+    // above) is genuine bloom material — see client-map-3d-bloom-layer.ts for
+    // why this is opt-in rather than a whole-scene threshold. The mesh is
+    // rebuilt (not just repositioned) on every commit as tiles pan in/out, so
+    // this has to be set here rather than once at module init.
+    mesh.layers.enable(BLOOM_LAYER);
     scene.add(mesh);
   };
 
