@@ -996,6 +996,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
   });
   const handleSocketTornDown = (currentActionKey: string, feedMessage: string, interruptedDetail: string): void => {
     clearAuthInFlight?.(); state.connection = "disconnected";
+    // Keep the earliest drop time across repeated closes in the same outage
+    // (a failed in-place reconnect attempt closes again before recovering) —
+    // only the first drop should start the overlay's grace window.
+    if (!state.disconnectedSince) state.disconnectedSince = Date.now();
     state.actionInFlight = false;
     state.actionAcceptedAck = false;
     state.combatStartAck = false;
@@ -1025,7 +1029,14 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     });
     wsOpenedAt = Date.now();
     state.connection = "connected";
-    if (!state.mapLoadStartedAt) state.mapLoadStartedAt = Date.now();
+    // Always restart the clock here, not just when unset: this "open" can be
+    // an in-place reconnect long after the original page load, and the INIT
+    // handshake that follows can take a beat. Without this, the map-loading
+    // overlay's "Elapsed Xs" reads against the original mapLoadStartedAt from
+    // minutes/hours ago (whatever it was before the drop) until INIT resets
+    // it again, showing a bogus huge elapsed time for however long that gap
+    // lasts.
+    state.mapLoadStartedAt = Date.now();
     clearReconnectReloadTimer();
     resetInPlaceReconnectAttempt();
     clearAuthReconnectTimer();

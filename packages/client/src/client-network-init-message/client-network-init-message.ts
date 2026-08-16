@@ -80,6 +80,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   const isFirstInitThisSession = !state.hasEverInitialized;
   clearDeferredBootstrapRefreshTimer();
   state.connection = "initialized";
+  state.disconnectedSince = 0;
   state.serverDeploying = false;
   clearServerDeployingSession();
   state.authSessionReady = true;

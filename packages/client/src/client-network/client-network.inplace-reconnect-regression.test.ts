@@ -191,4 +191,58 @@ describe("client network in-place reconnect regression", () => {
     expect(ws.reconnect).toHaveBeenCalledTimes(6);
     expect(reload).not.toHaveBeenCalled();
   });
+
+  it("restarts mapLoadStartedAt on every socket open, not just the first ever connection", () => {
+    // Regression for a bug where a backgrounded-tab reconnect showed a wildly
+    // stale "Elapsed Xs" on the map-loading overlay: mapLoadStartedAt was
+    // only ever set once (guarded by "if unset"), so the elapsed timer kept
+    // counting from the original page load instead of the current reconnect
+    // attempt for however long the post-open INIT handshake took.
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const reload = vi.fn();
+    stubWindow(reload);
+
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    const firstOpenAt = state.mapLoadStartedAt;
+
+    vi.setSystemTime(950_000);
+    ws.emit("close", { code: 1006, reason: "" });
+    ws.readyState = FakeWebSocket.OPEN;
+    ws.emit("open", {});
+
+    expect(state.mapLoadStartedAt).toBeGreaterThan(firstOpenAt);
+    expect(state.mapLoadStartedAt).toBe(950_000);
+  });
+
+  it("records disconnectedSince at the first drop and keeps it through reopen and repeat drops (only INIT clears it)", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const reload = vi.fn();
+    stubWindow(reload);
+
+    const state = createState();
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+    expect(state.disconnectedSince).toBe(0);
+
+    vi.setSystemTime(1_000);
+    ws.emit("close", { code: 1006, reason: "" });
+    expect(state.disconnectedSince).toBe(1_000);
+
+    // Reopening the socket (pre-INIT "connected" state) must not clear it —
+    // that gap is exactly what the overlay grace window is timing.
+    vi.setSystemTime(1_050);
+    ws.readyState = FakeWebSocket.OPEN;
+    ws.emit("open", {});
+    expect(state.disconnectedSince).toBe(1_000);
+
+    // A second drop before recovery keeps the *original* drop time so the
+    // overlay grace window doesn't keep resetting during a flapping outage.
+    vi.setSystemTime(1_200);
+    ws.emit("close", { code: 1006, reason: "" });
+    expect(state.disconnectedSince).toBe(1_000);
+  });
 });

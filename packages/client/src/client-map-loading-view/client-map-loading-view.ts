@@ -1,4 +1,4 @@
-import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS } from "../client-constants.js";
+import { AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS, RECONNECT_OVERLAY_GRACE_MS } from "../client-constants.js";
 import type { ClientState } from "../client-state/client-state.js";
 
 export type MapLoadingView = {
@@ -8,6 +8,25 @@ export type MapLoadingView = {
   showReload: boolean;
   showDiagnostics: boolean;
   tone: "normal" | "warn";
+};
+
+// Whether the full-screen map-loading overlay should be shown at all. Kept
+// separate from buildMapLoadingView (which only decides what it says once
+// shown) so the RECONNECT_OVERLAY_GRACE_MS debounce is unit-testable on its
+// own: a backgrounded tab's socket reconnecting in place usually resolves in
+// well under a second, and covering the whole game with this overlay for
+// every one of those blips is worse than the disconnect itself. Skips the
+// grace entirely on the very first boot (hasEverInitialized === false),
+// since there's nothing on screen yet to protect.
+export const isMapLoadingOverlayActive = (
+  state: Pick<ClientState, "connection" | "firstChunkAt" | "hasEverInitialized" | "disconnectedSince">,
+  now: number = Date.now()
+): boolean => {
+  const rawActive = state.connection !== "initialized" || state.firstChunkAt === 0;
+  if (!rawActive) return false;
+  if (!state.hasEverInitialized) return true;
+  if (state.disconnectedSince <= 0) return true;
+  return now - state.disconnectedSince >= RECONNECT_OVERLAY_GRACE_MS;
 };
 
 // Elapsed-time thresholds for escalating the connecting/securing-session
