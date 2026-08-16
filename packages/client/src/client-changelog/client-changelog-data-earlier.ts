@@ -6,6 +6,19 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1786410000000, // 2026.08.10.2
+    introducedIn: "2026.08.10.2",
+    title: "The 2D map now takes over when 3D can't run on your device",
+    why: "On some phones — Safari on iPhone in particular — the 3D map could fail to start or have its graphics context taken away by the system, leaving a blank map with no explanation and no way to report what happened.",
+    changes: [
+      "If the 3D map can't start, or its graphics context is lost mid-session, the game now switches to the 2D map instead of showing a blank screen.",
+      "A short banner explains why the 2D map is being used, with the specific reason.",
+      "If loading the 3D map crashes the browser outright, the game now notices on the next visit and comes up in 2D instead of crashing again. Add ?renderer=3d to the URL to try 3D again.",
+      "Downloaded diagnostics now include your device's graphics capabilities, the reason 3D was unavailable, and how far the previous 3D attempt got before the browser died — so map crashes can be diagnosed from a phone.",
+      "The 3D map now sizes its memory buffers to your screen instead of always reserving for a large desktop display, which cuts its memory use substantially on phones."
+    ]
+  },
+  {
     createdAt: 1786406400000, // 2026.08.10.1
     introducedIn: "2026.08.10.1",
     title: "Removed Bank and Exchange House; Clearing House now boosts Mintworks",
@@ -38,22 +51,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "Docks now render a dedicated 3D cargo port: timber-and-iron pier, tall brass rotating cargo crane with a visibly suspended crate, steam winch and boiler, compact dockhouse, moored steampunk cargo barge, mooring chains, and small amber lamps.",
       "The 2D dock icon (used where the 3D renderer is off) matches the new look: same crane, pier, cargo and barge, with strong dark outlines so it still reads at a glance.",
       "Docks are unchanged mechanically — this is purely the on-map look."
-    ]
-  },
-  {
-    createdAt: 1786305917000, // 2026-08-09
-    introducedIn: "unique-monument-components",
-    title: "Each monument now has 3 uniquely-named components instead of 3 identical Parts",
-    why: "Building 3 copies of one \"Part\" structure to unlock a monument read as busywork rather than assembling something. Each monument's 3 components are now distinct, individually named structures with their own art and their own build button, and the structure-info popup shows a live checklist of which ones you've completed.",
-    changes: [
-      "Imperial Exchange: Golden Ledger, Counting Engine, Sovereign Seal.",
-      "Worldbreaker Cannon: The Long Barrel, Fracture Core, Sky-Marking Array.",
-      "Aegis Dome: Shield Lattice, Ward Anchor, Aegis Crown.",
-      "Astral Dock: Launch Cradle, Orbital Array, Aether Sail.",
-      "Population Bureau: Census Engine, Registry Vault, Levy Charter.",
-      "The Iron Levy: Muster Klaxon, Iron Standard, Levy Writ.",
-      "Opening a monument's structure-info popup now shows a \"Monument Components\" checklist with a live N/3 status for each.",
-      "Same rules as before: one component per Great City/Monumental City, and the monument tech gates all 3 of its own components."
     ]
   },
   {
@@ -165,25 +162,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     why: "A muster flag's auto-fire (ADVANCE mode) search only walked ordinary grid neighbors, so a flag placed on a dock could never \"see\" the enemy dock linked across the water — the flag just sat there, staged and never firing, even though a manual attack from the same tile worked fine.",
     changes: [
       "Muster flags in ADVANCE mode can now find and fire on an enemy tile across a dock link, the same way manual ATTACK commands already could."
-    ]
-  },
-  {
-    createdAt: 1786320000000, // 2026.08.09.2
-    introducedIn: "2026.08.09.2",
-    title: "Smaller soil mound on grain tiles",
-    why: "The dirt bed under the barley crop was large enough to cover most of the tile, hiding the grain it was supposed to sit beneath.",
-    changes: [
-      "Shrunk the grain tile's soil mound and widened the crop patch so the golden barley fills the tile, with the dirt only showing as a thin rim.",
-      "Increased stalk and seed-head density for a fuller-looking crop."
-    ]
-  },
-  {
-    createdAt: 1786306202000, // 2026.08.09.1
-    introducedIn: "2026.08.09.1",
-    title: "Muster tile cap tag on Muster Discipline/Command",
-    why: "Muster Discipline, Muster Command, and War Foundries each grant +1 muster flag capacity, but the tech tree card never showed a highlight chip for it — every other tech payoff (unlocks, reveals) got a tag except this one.",
-    changes: [
-      "Muster Discipline, Muster Command, and War Foundries now show a \"Muster Flag +1\" chip on their tech-tree card and detail view."
     ]
   }
 ];

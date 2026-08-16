@@ -1,58 +1,35 @@
-import {
-  BufferAttribute,
-  BufferGeometry,
-  Color,
-  ConeGeometry,
-  CylinderGeometry,
-  DoubleSide,
-  InstancedMesh,
-  Matrix4,
-  MeshBasicMaterial,
-  Scene
-} from "three";
+import { Color, ConeGeometry, InstancedMesh, MeshBasicMaterial, Object3D, Scene } from "three";
 
-// Muster overlay: a small war pennant planted on each mustering tile,
-// with converging soldier-dot animation showing troops marching to muster.
+import { buildTowerPartSpecs, computeTowerAnim, type TowerAnim } from "./client-map-3d-muster-tower-parts.js";
+
+// Muster overlay: the same steampunk tower/banner model that used to mark
+// a single waypoint now marks every mustering tile — a tower reads as a
+// rallying point far better than it does as a mere movement destination.
+// Soldier dots still march from tile perimeter toward the tower base,
+// showing troops assembling; the waypoint queue now uses a small pennant
+// instead (client-map-3d-waypoint-flag/), which never shows soldier dots.
 //
 // Design:
-//   • Smaller than the waypoint flag — multiple can coexist on adjacent tiles
-//   • Triangular pennant in empire color, iron pole, 4-sided spike tip
-//   • Soldier dots march from tile perimeter toward the flag (troops assembling)
-//   • Dot count scales with fill ratio (sparse at start, dense near full)
-//   • ADVANCE mode: pennant brighter, dots march faster
+//   • Up to MAX towers on screen at once — mustering on several border
+//     tiles simultaneously is an explicit play pattern, so every part is
+//     one InstancedMesh shared across all mustering tiles rather than a
+//     Group of raw meshes per tile (that would be MAX * ~20 draw calls).
+//   • Tinted parts (glow ring, pedestal glow, banner, medallion face,
+//     smoke) get the tile owner's color per-instance via instanceColor;
+//     brighter (lerped toward white) in ADVANCE mode reads as more urgent.
+//   • Dot count scales with fill ratio (sparse at start, dense near full).
+//   • ADVANCE mode: soldier dots march faster.
 
-const POLE_H     = 0.50;
-const POLE_R_BOT = 0.020;
-const POLE_R_TOP = 0.015;
-const PENNANT_W  = 0.22;
-const PENNANT_H  = 0.13;
-const SPIKE_H    = 0.085;
-const SPIKE_R    = 0.020;
-const FLAG_Y     = 0.014; // rise above surface
+const MAX = 64;
+const FLAG_Y = 0.014; // rise above surface
 
-const SOLDIER_W  = 0.022;
-const SOLDIER_H  = 0.048;
-const SOLDIER_Y  = SOLDIER_H * 0.5 + 0.006;
-const SOLDIERS_MAX  = 16;
-const SOLDIERS_MIN  = 3;
-const MARCH_HOLD_MS    = 3400;
+const SOLDIER_W = 0.022;
+const SOLDIER_H = 0.048;
+const SOLDIER_Y = SOLDIER_H * 0.5 + 0.006;
+const SOLDIERS_MAX = 16;
+const SOLDIERS_MIN = 3;
+const MARCH_HOLD_MS = 3400;
 const MARCH_ADVANCE_MS = 2000;
-
-// Right-pointing triangle: top-left, bottom-left, right tip
-const buildPennantGeometry = (): BufferGeometry => {
-  const g = new BufferGeometry();
-  const hh = PENNANT_H * 0.5;
-  g.setAttribute("position", new BufferAttribute(new Float32Array([
-    0,   hh,  0,
-    0,  -hh,  0,
-    PENNANT_W,  0,  0
-  ]), 3));
-  g.setAttribute("normal", new BufferAttribute(new Float32Array([
-    0, 0, 1, 0, 0, 1, 0, 0, 1
-  ]), 3));
-  g.setIndex([0, 1, 2]);
-  return g;
-};
 
 // Murmur3-style hash [0,1) — same mixing as the settle overlay wanderHash.
 const hash01 = (wx: number, wy: number, i: number, salt: number): number => {
@@ -72,7 +49,7 @@ const soldierPos = (
   const offset = hash01(wx, wy, i, 7) * periodMs;
   const t = ((nowMs + offset) % periodMs) / periodMs; // 0=edge, 1=center
 
-  const edge  = Math.floor(hash01(wx, wy, i, 31) * 4);
+  const edge = Math.floor(hash01(wx, wy, i, 31) * 4);
   const along = (hash01(wx, wy, i, 53) - 0.5) * 0.9;
   let sx = 0, sz = 0;
   if      (edge === 0) { sx = -0.46; sz = along; }
@@ -87,6 +64,7 @@ type TileEntry = {
   sceneX: number; sceneZ: number; surfaceY: number;
   fillRatio: number; advance: boolean;
   worldTileX: number; worldTileY: number;
+  tintColor: Color;
 };
 
 export type MusterOverlay = {
@@ -102,34 +80,27 @@ export type MusterOverlay = {
 };
 
 export const createMusterOverlay = (scene: Scene): MusterOverlay => {
-  const MAX = 256;
-
-  const poleGeom = new CylinderGeometry(POLE_R_TOP, POLE_R_BOT, POLE_H, 6);
-  const poleMat  = new MeshBasicMaterial({ toneMapped: false, color: "#2d2d3c", depthTest: false, depthWrite: false, transparent: true });
-  const poleMesh = new InstancedMesh(poleGeom, poleMat, MAX);
-
-  const pennantGeom = buildPennantGeometry();
-  const pennantMat  = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", side: DoubleSide, depthTest: false, depthWrite: false, transparent: true });
-  const pennantMesh = new InstancedMesh(pennantGeom, pennantMat, MAX);
-
-  const spikeGeom = new ConeGeometry(SPIKE_R, SPIKE_H, 4);
-  const spikeMat  = new MeshBasicMaterial({ toneMapped: false, color: "#4a4a5c", depthTest: false, depthWrite: false, transparent: true });
-  const spikeMesh = new InstancedMesh(spikeGeom, spikeMat, MAX);
+  const specs = buildTowerPartSpecs();
+  const meshes = specs.map((spec) => {
+    const mesh = new InstancedMesh(spec.geometry, spec.material, MAX * spec.subCount);
+    mesh.frustumCulled = false;
+    mesh.count = 0;
+    mesh.renderOrder = spec.renderOrder;
+    return mesh;
+  });
 
   const soldierGeom = new ConeGeometry(SOLDIER_W * 0.5, SOLDIER_H, 4); // tiny soldier silhouette
   const soldierMat  = new MeshBasicMaterial({ toneMapped: false, color: "#0a0d18", depthTest: false, depthWrite: false, transparent: true });
   const soldierMesh = new InstancedMesh(soldierGeom, soldierMat, MAX * SOLDIERS_MAX);
+  soldierMesh.frustumCulled = false;
+  soldierMesh.count = 0;
+  soldierMesh.renderOrder = 36;
 
-  for (const m of [poleMesh, pennantMesh, spikeMesh, soldierMesh]) {
-    m.frustumCulled = false;
-    m.count = 0;
-    m.renderOrder = 36;
-  }
-  scene.add(poleMesh, pennantMesh, spikeMesh, soldierMesh);
+  scene.add(...meshes, soldierMesh);
 
   const entries: TileEntry[] = [];
   const tmpColor = new Color();
-  const tmpM = new Matrix4();
+  const dummy = new Object3D();
 
   const clear = (): void => { entries.length = 0; };
 
@@ -139,42 +110,54 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
     worldTileX: number, worldTileY: number
   ): void => {
     if (entries.length >= MAX) return;
-    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY });
     tmpColor.set(ownerColor);
     if (advance) tmpColor.lerp(new Color("#ffffff"), 0.30); // brighter in ADVANCE
-    pennantMesh.setColorAt(entries.length - 1, tmpColor);
+    entries.push({ sceneX, sceneZ, surfaceY, fillRatio, advance, worldTileX, worldTileY, tintColor: tmpColor.clone() });
   };
 
   const commit = (): void => {
-    poleMesh.count    = entries.length;
-    pennantMesh.count = entries.length;
-    spikeMesh.count   = entries.length;
-    if (pennantMesh.instanceColor) pennantMesh.instanceColor.needsUpdate = true;
-
-    for (let i = 0; i < entries.length; i++) {
-      const e = entries[i]!;
-      const base = e.surfaceY + FLAG_Y;
-
-      tmpM.makeTranslation(e.sceneX, base + POLE_H * 0.5, e.sceneZ);
-      poleMesh.setMatrixAt(i, tmpM);
-
-      // Pennant top-left corner anchors at pole top, hangs rightward
-      tmpM.makeTranslation(e.sceneX, base + POLE_H - PENNANT_H * 0.5, e.sceneZ);
-      pennantMesh.setMatrixAt(i, tmpM);
-
-      tmpM.makeTranslation(e.sceneX, base + POLE_H + SPIKE_H * 0.5, e.sceneZ);
-      spikeMesh.setMatrixAt(i, tmpM);
+    for (let p = 0; p < specs.length; p++) {
+      const spec = specs[p]!;
+      const mesh = meshes[p]!;
+      mesh.count = entries.length * spec.subCount;
+      if (!spec.tinted) continue;
+      for (let i = 0; i < entries.length; i++) {
+        const color = entries[i]!.tintColor;
+        for (let sub = 0; sub < spec.subCount; sub++) mesh.setColorAt(i * spec.subCount + sub, color);
+      }
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
-    poleMesh.instanceMatrix.needsUpdate    = true;
-    pennantMesh.instanceMatrix.needsUpdate = true;
-    spikeMesh.instanceMatrix.needsUpdate   = true;
   };
 
-  const tick = (nowMs: number): void => {
+  const applyTowerMatrices = (nowMs: number): void => {
+    if (entries.length === 0) return;
+    const perEntry: Array<{ anim: TowerAnim; base: number }> = entries.map((e) => {
+      const phase = hash01(e.worldTileX, e.worldTileY, 0, 99) * Math.PI * 2;
+      const t = nowMs / 1000 + phase;
+      return { anim: computeTowerAnim(t), base: e.surfaceY + FLAG_Y + Math.sin(t * 1.4) * 0.03 };
+    });
+    for (let p = 0; p < specs.length; p++) {
+      const spec = specs[p]!;
+      const mesh = meshes[p]!;
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i]!;
+        const { anim, base } = perEntry[i]!;
+        for (let sub = 0; sub < spec.subCount; sub++) {
+          const local = spec.local(sub, anim);
+          dummy.position.set(e.sceneX + local.x, base + local.y, e.sceneZ + local.z);
+          dummy.rotation.set(local.rx, local.ry, local.rz);
+          dummy.updateMatrix();
+          mesh.setMatrixAt(i * spec.subCount + sub, dummy.matrix);
+        }
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  };
+
+  const applySoldierMatrices = (nowMs: number): void => {
     if (entries.length === 0) { soldierMesh.count = 0; return; }
     let writeIdx = 0;
-    for (let ei = 0; ei < entries.length; ei++) {
-      const e = entries[ei]!;
+    for (const e of entries) {
       const period = e.advance ? MARCH_ADVANCE_MS : MARCH_HOLD_MS;
       const activeSoldiers = Math.max(
         SOLDIERS_MIN,
@@ -182,18 +165,26 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
       );
       for (let i = 0; i < activeSoldiers; i++) {
         const { x, z } = soldierPos(nowMs, e.worldTileX, e.worldTileY, i, period);
-        tmpM.makeTranslation(e.sceneX + x, e.surfaceY + SOLDIER_Y, e.sceneZ + z);
-        soldierMesh.setMatrixAt(writeIdx++, tmpM);
+        dummy.position.set(e.sceneX + x, e.surfaceY + SOLDIER_Y, e.sceneZ + z);
+        dummy.rotation.set(0, 0, 0);
+        dummy.updateMatrix();
+        soldierMesh.setMatrixAt(writeIdx++, dummy.matrix);
       }
     }
     soldierMesh.count = writeIdx;
     soldierMesh.instanceMatrix.needsUpdate = true;
   };
 
+  const tick = (nowMs: number): void => {
+    applyTowerMatrices(nowMs);
+    applySoldierMatrices(nowMs);
+  };
+
   const dispose = (): void => {
-    scene.remove(poleMesh, pennantMesh, spikeMesh, soldierMesh);
-    for (const g of [poleGeom, pennantGeom, spikeGeom, soldierGeom]) g.dispose();
-    for (const m of [poleMat, pennantMat, spikeMat, soldierMat]) m.dispose();
+    scene.remove(...meshes, soldierMesh);
+    for (const spec of specs) { spec.geometry.dispose(); spec.material.dispose(); }
+    soldierGeom.dispose();
+    soldierMat.dispose();
   };
 
   return { clear, addMuster, commit, tick, dispose };

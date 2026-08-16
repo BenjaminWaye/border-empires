@@ -23,6 +23,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786910628146, // 2026.08.16.1
+    introducedIn: "2026.08.16.1",
+    title: "Swapped the waypoint and mustering flag overlays",
+    why: "The elaborate steampunk tower — banner, medallion, cannons, dome, spire — used to mark a single movement waypoint, while mustering tiles got a small pennant. That was backwards: a big banner-bearing tower reads as a rallying point, not a mere movement destination, and mustering tiles can appear several at once across a border while a waypoint queue is just one player's own path.",
+    changes: [
+      "Mustering tiles now show the full tower/banner assembly, with the marching soldier dots still converging on it as manpower fills.",
+      "Waypoint queue entries now show a small pennant instead — no soldier dots, since a waypoint isn't accumulating troops.",
+      "The tower now renders efficiently across many simultaneous mustering tiles instead of being limited to a handful of instances."
+    ]
+  },
+  {
     createdAt: 1786811200000, // 2026.08.15.5
     introducedIn: "2026.08.15.5",
     title: "Battle dots now actually approach and meet in the middle before fighting",
@@ -444,19 +455,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "You can now queue an expansion onto a neutral tile that only borders another tile you've already queued or are currently claiming — the new claim waits for the earlier one to finish, then launches from it automatically.",
       "Chains can go several tiles deep, so a whole planned route can be queued up in one pass instead of one click at a time."
-    ]
-  },
-  {
-    createdAt: 1786410000000, // 2026.08.10.2
-    introducedIn: "2026.08.10.2",
-    title: "The 2D map now takes over when 3D can't run on your device",
-    why: "On some phones — Safari on iPhone in particular — the 3D map could fail to start or have its graphics context taken away by the system, leaving a blank map with no explanation and no way to report what happened.",
-    changes: [
-      "If the 3D map can't start, or its graphics context is lost mid-session, the game now switches to the 2D map instead of showing a blank screen.",
-      "A short banner explains why the 2D map is being used, with the specific reason.",
-      "If loading the 3D map crashes the browser outright, the game now notices on the next visit and comes up in 2D instead of crashing again. Add ?renderer=3d to the URL to try 3D again.",
-      "Downloaded diagnostics now include your device's graphics capabilities, the reason 3D was unavailable, and how far the previous 3D attempt got before the browser died — so map crashes can be diagnosed from a phone.",
-      "The 3D map now sizes its memory buffers to your screen instead of always reserving for a large desktop display, which cuts its memory use substantially on phones."
     ]
   },
   {
