@@ -393,11 +393,23 @@ export const menuOverviewForTile = (
   const pushLine = (html: string): void => {
     lines.push({ html });
   };
-  const pushEffectLine = (name: string, mod: string, tone: "positive" | "negative" | "neutral"): void => {
+  const pushEffectLine = (name: string, mod: string, tone: "positive" | "negative" | "neutral", options?: { nested?: boolean }): void => {
     modifierLines.push({
       kind: "effect",
+      ...(options?.nested ? { nested: true } : {}),
       html: `<span class="tile-overview-effect-name">${name}:</span><span class="tile-overview-effect-mod is-${tone}">${mod}</span>`
     });
+  };
+  // Unified building modifier display (stage 3): "<count> <Building>"
+  // heading followed by that building's own stat lines, indented under it —
+  // see menuOverviewForTile's townModifierTotals loop below for the only
+  // caller. A plain flat list here read as duplicated info when two
+  // different buildings fed the same bare stat name (e.g. two unlabeled
+  // "Gold production" lines with different percentages); a heading per
+  // building traces every number back to its source.
+  const pushModifierGroup = (heading: string, modifiers: Array<{ statLabel: string; valueText: string; tone: "positive" | "negative" | "neutral" }>): void => {
+    modifierLines.push({ kind: "group", html: heading });
+    for (const modifier of modifiers) pushEffectLine(modifier.statLabel, modifier.valueText, modifier.tone, { nested: true });
   };
   const ownerKind =
     !tile.ownerId
@@ -489,13 +501,13 @@ export const menuOverviewForTile = (
     } else if (ownTownEconomyPartial) {
       pushOwnTownLoadingRow("Growth");
     }
-    // Unified building modifier display (stage 2): combined totals for
-    // support-ring buildings that stack across the whole town (e.g. 3
-    // Garrison Halls → "Manpower cap: +450") — same white-label/green-value
-    // style as pushEffectLine's fort/siege/town modifiers above.
+    // Unified building modifier display (stage 3): one "<count> <Building>"
+    // heading per support-ring building type, with that building's own
+    // stat lines nested under it (e.g. "3 Garrison Halls" → Manpower cap:
+    // +450) — see pushModifierGroup above.
     if (isSettled && hasOwnerEconomyData) {
-      for (const total of tile.town.townModifierTotals ?? []) {
-        pushEffectLine(total.statLabel, total.valueText, total.tone);
+      for (const group of tile.town.townModifierTotals ?? []) {
+        pushModifierGroup(group.heading, group.modifiers);
       }
     }
   } else if (tile.townDataPartial) {
