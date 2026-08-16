@@ -3,14 +3,16 @@
 // EffectComposer graph, so — like client-map-3d-render-target.ts — it can't be
 // meaningfully unit-tested: `new WebGLRenderer(...)` itself needs a real WebGL
 // context the vitest/happy-dom environment doesn't provide. The testable parts
-// (the device gate, and which meshes opt into BLOOM_LAYER) live in
-// client-map-3d-bloom-gating.ts and each tagged overlay module instead.
+// (the device gate, which meshes opt into BLOOM_LAYER, and the darken/restore
+// material-swap logic) live in client-map-3d-bloom-gating.ts,
+// client-map-3d-bloom-darken.ts, and each tagged overlay module instead —
+// none of those need a live GPU context to test.
 //
 // Two EffectComposers, following the pattern from three.js's own
 // webgl_postprocessing_unreal_bloom_selective example:
 //   bloomComposer  — renders only BLOOM_LAYER-tagged objects (everything else
 //                    is swapped to solid black immediately beforehand — see
-//                    darkenNonBloomed below), then blurs that into a glow.
+//                    client-map-3d-bloom-darken.ts), then blurs that into a glow.
 //   finalComposer  — renders the *real*, full scene normally, additively mixes
 //                    the blurred bloom texture on top, then applies the
 //                    renderer's tone mapping / color space via OutputPass.
@@ -24,24 +26,13 @@
 // by the caller via client-map-3d-bloom-gating.ts before this module is ever
 // touched, so a device that shouldn't pay for any of this never allocates it.
 
-import {
-  Camera,
-  Color,
-  Material,
-  MeshBasicMaterial,
-  Object3D,
-  Scene,
-  UnsignedByteType,
-  Vector2,
-  WebGLRenderer,
-  WebGLRenderTarget
-} from "three";
+import { Camera, Scene, UnsignedByteType, Vector2, WebGLRenderer, WebGLRenderTarget } from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
-import { BLOOM_LAYER } from "./client-map-3d-bloom-layer.js";
+import { createDarkenController } from "./client-map-3d-bloom-darken.js";
 
 // UnrealBloomPass halves whatever resolution it's given as its own first mip
 // level internally, regardless of what's passed in. This divisor is an
@@ -51,8 +42,6 @@ import { BLOOM_LAYER } from "./client-map-3d-bloom-layer.js";
 // so the extra quarter-the-pixel-count saving on those buffers costs nothing
 // visible in the final blurred result.
 const BLOOM_RESOLUTION_DIVISOR = 2;
-
-const BLOOM_LAYER_MASK = 1 << BLOOM_LAYER;
 
 const BLOOM_STRENGTH = 0.85;
 const BLOOM_RADIUS = 0.35;
@@ -85,18 +74,6 @@ const MIX_SHADER = {
   `
 };
 
-type MaterialBearer = Object3D & { material: Material | Material[] };
-
-// Meshes and Sprites both carry `.material`; Line/LineSegments objects
-// (selection ring outlines, gridlines, targeting reticle borders) are
-// deliberately not handled here — their ~1px screen footprint means even an
-// undarkened bright line contributes negligible area to the bloom buffer,
-// unlike a filled badge, pennant, or targeting-reticle fill. If a future
-// addition puts a large or bright Line-based element in the scene, this
-// assumption needs revisiting.
-const isMaterialBearer = (obj: Object3D): obj is MaterialBearer =>
-  (obj as { isMesh?: boolean }).isMesh === true || (obj as { isSprite?: boolean }).isSprite === true;
-
 export type BloomPipeline = {
   readonly render: () => void;
   readonly resize: (width: number, height: number) => void;
@@ -128,32 +105,12 @@ export const createBloomPipeline = (
   finalComposer.addPass(mixPass);
   finalComposer.addPass(new OutputPass());
 
-  // toneMapped: false — see client-map-3d-render-target.ts's tone-mapping
-  // comment. This is pure black; ACES(0) = 0 regardless, but every unlit
-  // MeshBasicMaterial construction in this codebase sets the flag so the
-  // source-scanning regression guard (client-map-3d-tone-mapping-regression
-  // .test.ts) can trust the invariant holds everywhere without exceptions.
-  const darkMaterial = new MeshBasicMaterial({ toneMapped: false, color: new Color(0x000000) });
-  const materialCache = new Map<Object3D, Material | Material[]>();
-
-  const darkenNonBloomed = (obj: Object3D): void => {
-    if (!isMaterialBearer(obj)) return;
-    if ((obj.layers.mask & BLOOM_LAYER_MASK) !== 0) return;
-    materialCache.set(obj, obj.material);
-    obj.material = darkMaterial;
-  };
-
-  const restoreMaterial = (obj: Object3D): void => {
-    const cached = materialCache.get(obj);
-    if (cached === undefined) return;
-    (obj as MaterialBearer).material = cached;
-    materialCache.delete(obj);
-  };
+  const darken = createDarkenController();
 
   const render = (): void => {
-    scene.traverse(darkenNonBloomed);
+    scene.traverse(darken.darkenNonBloomed);
     bloomComposer.render();
-    scene.traverse(restoreMaterial);
+    scene.traverse(darken.restoreMaterial);
     finalComposer.render();
   };
 
@@ -174,8 +131,7 @@ export const createBloomPipeline = (
     mixPass.dispose();
     bloomComposer.dispose();
     finalComposer.dispose();
-    darkMaterial.dispose();
-    materialCache.clear();
+    darken.dispose();
   };
 
   return { render, resize, dispose };
