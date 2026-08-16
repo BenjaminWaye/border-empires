@@ -85,7 +85,6 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
       "RAIL_DEPOT",
       "GOVERNORS_OFFICE",
       "RADAR_SYSTEM",
-      "QUARTERMASTERS_OFFICE",
       "LOGISTICS_GUILD",
       "ASSEMBLY_WORKS",
       "TITANIUM_WEAPONS_FACTORY",
