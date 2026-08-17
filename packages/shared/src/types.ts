@@ -138,6 +138,13 @@ export interface SeasonWinnerView {
   crownedAt: number;
   objectiveId: SeasonVictoryPathId;
   objectiveName: string;
+  // Deadliest-tile / longest-road misc stats, captured once at crowning and
+  // persisted with the winner (see sim-protocol's SeasonWinnerSnapshot) so a
+  // reconnecting/late-joining client still gets them via INIT.
+  seasonStats?: {
+    mostDeadlyTile?: { x: number; y: number; manpowerLost: number };
+    longestRoad?: { tileCount: number };
+  };
 }
 
 export interface TruceRequest {
