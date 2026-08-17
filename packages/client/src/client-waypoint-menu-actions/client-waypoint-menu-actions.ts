@@ -29,7 +29,11 @@ const waypointPlanForTile = (
   state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint">,
   deps: WaypointMenuDeps
 ): WaypointPlan | undefined => {
-  if (tile.terrain !== "LAND" || tile.fogged || tile.ownerId === state.me) return;
+  // tile.fogged (currently-obscured, but previously-confirmed terrain) does
+  // NOT disqualify a waypoint target -- only genuinely non-LAND terrain or
+  // already-owned-by-me does. Excluding fogged tiles here used to leave
+  // distant fog-of-war tiles with no offered action at all.
+  if (tile.terrain !== "LAND" || tile.ownerId === state.me) return;
   const adjacentOrigin =
     deps.pickOriginForTarget(tile.x, tile.y, false) ??
     deps.pickOriginForTarget(tile.x, tile.y, false, true);

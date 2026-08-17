@@ -81,7 +81,12 @@ describe("injectWaypointActions", () => {
     expect(v.actions).toHaveLength(0);
   });
 
-  it("does not inject Expand Here on fogged tiles", () => {
+  it("still injects Expand Here on a distant fogged tile with confirmed LAND terrain", () => {
+    // Fog only means "not currently visible", not "terrain unknown" -- a
+    // previously-confirmed LAND tile that's now fogged should still be a
+    // valid waypoint target, the same as a visible one. Only genuinely
+    // unconfirmed (never-seen) terrain skips the waypoint offer, which is
+    // handled by the "unexplored" tile menu using a separate placeholder.
     const tiles = [tile(3, 3, { ownerId: "me" }), ...explored([4, 5, 6, 7], 3), tile(8, 3, { fogged: true })];
     const state = stateWith(tiles);
     const v = view();
@@ -89,7 +94,8 @@ describe("injectWaypointActions", () => {
       keyFor,
       pickOriginForTarget: noAdjacentOrigin
     });
-    expect(v.actions).toHaveLength(0);
+    expect(v.actions).toHaveLength(1);
+    expect(v.actions[0]?.id).toBe("expand_here");
   });
 
   it("does not inject Expand Here when no path exists to the tile", () => {
