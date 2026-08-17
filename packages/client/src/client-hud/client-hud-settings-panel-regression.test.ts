@@ -13,28 +13,41 @@ const sourceFor = (name: string): string => {
 };
 
 describe("settings panel regression guard", () => {
-  it("shows the client build version in the diagnostics page", () => {
-    const settingsPanelSource = sourceFor("./client-hud-settings-panel.ts");
-    const styleSource = sourceFor("../style.css");
+  it("shows the client build version in the merged diagnostics card", () => {
+    // The connection-status and account/auth debug cards were merged into
+    // one, so the build version now lives in client-hud-debug.ts's combined
+    // card instead of a standalone line in client-hud-settings-panel.ts.
+    const hudDebugSource = sourceFor("./client-hud-debug.ts");
 
-    expect(settingsPanelSource).toContain("Client build ${CLIENT_BUILD_VERSION}");
-    expect(styleSource).toContain(".client-build-version");
+    expect(hudDebugSource).toContain("clientBuildShortLabel");
+    expect(hudDebugSource).toContain("`Client build ${CLIENT_BUILD_VERSION}`");
   });
 
-  it("keeps auth investigation details and copy support reachable from the diagnostics page", () => {
+  it("merges connection status and account debug info into one card with a single Copy button", () => {
     const hudSource = sourceFor("./client-hud.ts");
     const hudDebugSource = sourceFor("./client-hud-debug.ts");
+    const settingsPanelSource = sourceFor("./client-hud-settings-panel.ts");
+
+    expect(hudDebugSource).not.toContain("bridgeStatusHtml");
+    expect(hudDebugSource).not.toContain("data-copy-bridge-debug");
+    expect(settingsPanelSource).not.toContain("bridgeStatusHtml");
+    expect(hudSource).not.toContain("data-copy-bridge-debug");
+    expect(hudSource).not.toContain("bridgeDebugCopyButtons");
 
     expect(hudDebugSource).toContain("export const authDebugHtml = (details: AuthDebugSnapshot): string => {");
     expect(hudDebugSource).toContain("Render FPS");
     expect(hudDebugSource).toContain("data-fps-readout");
     expect(hudDebugSource).toContain("data-zoom-readout");
     expect(hudDebugSource).toContain("data-copy-auth-debug");
-    expect(hudDebugSource).toContain("Copy Auth Debug");
+    expect(hudDebugSource).toContain("Copy Debug Info");
     expect(hudDebugSource).toContain("details.authUid");
     expect(hudDebugSource).toContain("details.playerId");
+    expect(hudDebugSource).toContain("details.backendLabel");
+    expect(hudDebugSource).toContain("details.serverBuildLabel");
     expect(hudDebugSource).toContain("export const authDebugCopyPayload = (");
-    expect(hudSource).toContain("const authDebugCopyButtons = dom.hud.querySelectorAll(\"[data-copy-auth-debug]\")");
+    expect(hudDebugSource).toContain("export const bindAuthDebugCopyButton = (");
+    expect(hudDebugSource).toContain("navigator.clipboard.writeText(");
+    expect(hudSource).toContain("bindAuthDebugCopyButton(dom.hud, { state, wsUrl, firebaseAuth, pushFeed, onCopied: () => renderClientHud(deps) })");
   });
 
   it("binds every rendered logout button instead of only the first duplicated settings card control", () => {
@@ -45,6 +58,18 @@ describe("settings panel regression guard", () => {
     expect(hudSource).toContain("authLogoutButtons.forEach((authLogoutBtn: HTMLButtonElement) => {");
     expect(hudSource).not.toContain("document.querySelector(\"#auth-logout\")");
     expect(hudSource).not.toContain("id=\"auth-logout\"");
+  });
+
+  it("puts Log Out on the settings hub, not inside the Account sub-page", () => {
+    const settingsPanelSource = sourceFor("./client-hud-settings-panel.ts");
+
+    const hubStart = settingsPanelSource.indexOf("export const settingsHubHtml");
+    const hubEnd = settingsPanelSource.indexOf("export const settingsAccountPageHtml");
+    const accountStart = hubEnd;
+    const accountEnd = settingsPanelSource.indexOf("export const settingsGameplayPageHtml");
+
+    expect(settingsPanelSource.slice(hubStart, hubEnd)).toContain("data-auth-logout");
+    expect(settingsPanelSource.slice(accountStart, accountEnd)).not.toContain("data-auth-logout");
   });
 
   it("keeps the map reveal button reachable from the gameplay page", () => {
