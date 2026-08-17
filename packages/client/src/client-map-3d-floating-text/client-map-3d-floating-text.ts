@@ -59,7 +59,7 @@ export const createFloatingTextLayer = (scene: Scene): FloatingTextLayer => {
 
   const spawn = (worldX: number, worldZ: number, surfaceY: number, text: string, color = "#ff2d2d"): void => {
     const texture = buildLabelTexture(text, color);
-    const material = new SpriteMaterial({ map: texture, transparent: true, depthWrite: false, depthTest: false });
+    const material = new SpriteMaterial({ toneMapped: false, map: texture, transparent: true, depthWrite: false, depthTest: false });
     const sprite = new Sprite(material);
     sprite.scale.set(SPRITE_BASE_SCALE_X, SPRITE_BASE_SCALE_Y, 1);
     sprite.position.set(worldX, surfaceY + 2.2, worldZ);

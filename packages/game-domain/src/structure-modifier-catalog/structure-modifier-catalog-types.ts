@@ -50,14 +50,17 @@ export type ModifierTileContext = {
 
 export type ModifierContext = { tile?: ModifierTileContext };
 
-// One combined stat total across every copy of every support-tile building
-// in a town's support ring that contributes to that stat (see
-// townModifierTotalsFromCounts in structure-modifier-catalog-town-aggregate.ts).
+// One heading ("6 Mintworks") plus every stat total that building type
+// contributes, combined across all its active copies in a town's support
+// ring (see townModifierTotalsFromCounts in
+// structure-modifier-catalog-town-aggregate.ts). Grouped per building type
+// — rather than merging every building's totals into flat, unlabeled stat
+// buckets — so the tile-overview panel can show which building a number
+// actually comes from instead of two differently-scoped lines both reading
+// bare "Gold production".
 export type TownModifierTotal = {
-  statLabel: string;
-  total: number;
-  valueText: string;
-  tone: "positive" | "negative" | "neutral";
+  heading: string;
+  modifiers: Array<{ statLabel: string; valueText: string; tone: "positive" | "negative" | "neutral" }>;
 };
 
 export const percentLabel = (value: number): string => `${value >= 0 ? "+" : "-"}${Math.abs(Math.round(value))}%`;

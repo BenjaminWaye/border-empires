@@ -60,14 +60,28 @@ export const createInPlaceReconnectScheduler = (deps: InPlaceReconnectDeps): InP
   // notices once the browser delivers a "close" event plus a backoff wait.
   // Checking immediately on return removes that lag instead of waiting for
   // whatever's left of the current backoff delay.
+  const reconnectIfStillDown = (): void => {
+    if (!state.hasEverInitialized) return;
+    if (ws.readyState === ws.OPEN || ws.readyState === ws.CONNECTING) return;
+    clear();
+    ws.reconnect();
+  };
+
   if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState !== "visible") return;
-      if (!state.hasEverInitialized) return;
-      if (ws.readyState === ws.OPEN || ws.readyState === ws.CONNECTING) return;
-      clear();
-      ws.reconnect();
+      reconnectIfStillDown();
     });
+
+    // Chrome's Page Lifecycle API can outright freeze a hidden tab's JS
+    // execution after a few minutes backgrounded — a stronger step than
+    // visibilitychange, which only reports show/hide and says nothing about
+    // whether the page was actually still running while hidden. This is
+    // usually what kills a long-backgrounded socket. "resume" fires the
+    // moment execution restarts, so wire it up as a second, more direct
+    // trigger alongside visibilitychange. Chrome/Edge only; unsupported
+    // browsers simply never fire it, leaving visibilitychange to cover them.
+    document.addEventListener("resume", reconnectIfStillDown);
   }
 
   return { clear, resetAttempt, schedule };

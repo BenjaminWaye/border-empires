@@ -38,13 +38,13 @@ export const createAttackOverlay = (scene: Scene, maxTiles: number): AttackOverl
 
   const barGeometry = new BoxGeometry(X_BAR_LENGTH, X_BAR_HEIGHT, X_BAR_THICKNESS);
 
-  const plateMaterial = new MeshBasicMaterial({
+  const plateMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: new Color("#ff3838"),
     transparent: true,
     opacity: 0.36,
     depthWrite: false
   });
-  const barMaterial = new MeshBasicMaterial({
+  const barMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: new Color("#ff5555"),
     transparent: true,
     opacity: 0.92,

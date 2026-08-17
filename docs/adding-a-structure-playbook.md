@@ -148,7 +148,7 @@ adding yours; if it isn't, that union doesn't need this one either.
 add a `buildShowsOnTile("<TYPE>", ...)` block that pushes a `build_<type>`
 action with tech/slot-availability gating (`hasFreeResourceSlots`,
 `missingResourceSlotReason`) and a cost/detail label. Copy an existing
-same-shaped entry (e.g. `QUARTERMASTERS_OFFICE`) rather than writing from
+same-shaped entry (e.g. `LOGISTICS_GUILD`) rather than writing from
 scratch — the gating boilerplate is identical for every same-tile,
 tech-gated, resource-slot-consuming structure.
 

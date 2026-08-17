@@ -1,6 +1,10 @@
 import type { Scene } from "three";
 import { createStructurePieceBuilder } from "../client-map-3d-structure-builder.js";
 import {
+  DEFAULT_CONTACT_SHADOW_RADIUS_TILES,
+  type ContactShadowOverlay
+} from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
+import {
   ECONOMIC_STRUCTURE_KINDS,
   registerEconomicStructures,
   type EconomicStructureKind,
@@ -115,8 +119,18 @@ type UniformLayoutFn = (
   resource: StructureResourceHint
 ) => void;
 
-export const createStructureOverlay = (scene: Scene, maxTiles: number): StructureOverlay => {
-  const { builder, clear: clearBuilder, commit, dispose } = createStructurePieceBuilder(scene, maxTiles);
+// `contactShadows` is a shared overlay owned by the caller (client-map-3d.ts)
+// and passed in rather than created here, so structures, towns, watchtowers,
+// resources, and deposits all decal into the same InstancedMesh instead of
+// each overlay module preallocating its own MAX_VISIBLE_TILES buffer. See the
+// comment in client-map-3d-contact-shadow.ts for why that sharing matters.
+export const createStructureOverlay = (
+  scene: Scene,
+  maxTiles: number,
+  contactShadows: ContactShadowOverlay
+): StructureOverlay => {
+  const { builder, clear: clearBuilder, commit: commitBuilder, dispose: disposeBuilder } =
+    createStructurePieceBuilder(scene, maxTiles);
 
   // Economic registers first so its `shared` assets (forge palette +
   // blue crystal) are available to industrial (FOUNDRY/ADV_TITANIUM_WORKS
@@ -177,11 +191,19 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
     kind: StructureKind,
     resource: StructureResourceHint = undefined
   ): void => {
-    layouts[kind]?.(sceneX, surfaceY, sceneZ, resource);
+    const layout = layouts[kind];
+    if (!layout) return;
+    layout(sceneX, surfaceY, sceneZ, resource);
+    // Only shadow kinds that actually placed geometry, so an unhandled kind
+    // can't leave a blob sitting on bare ground.
+    contactShadows.addShadow(sceneX, sceneZ, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
   };
 
   // Family-local animation state (e.g. mintworks flywheel records) resets
   // alongside the shared piece buffers, and update() drives them per frame.
+  // The shared contactShadows overlay is cleared/committed/disposed by its
+  // owner (client-map-3d.ts), once, after every caller has had a turn — not
+  // here, since this module doesn't own it.
   const clear = (): void => {
     economic.clear();
     clearBuilder();
@@ -190,8 +212,8 @@ export const createStructureOverlay = (scene: Scene, maxTiles: number): Structur
   return {
     clear,
     addInstance,
-    commit,
+    commit: commitBuilder,
     update: (nowMs: number): void => economic.update(nowMs),
-    dispose
+    dispose: disposeBuilder
   };
 };

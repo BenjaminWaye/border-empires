@@ -256,11 +256,30 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   // this client was disconnected, which also removes it from serverDevQueue.
   // Re-validate against current tile state (same check restore uses) so a
   // stale entry isn't re-dispatched against a tile that's already moved on.
+  //
+  // This must run over every entry, including ones that came in fresh from
+  // serverDevQueue itself (not just ones devQueueTileKeysBeforeMerge already
+  // knew about): the server's durable mirror can carry a "ghost" entry for a
+  // tile whose BUILD already completed -- e.g. the client dispatched it and
+  // shifted it out of its own queue, but the DEV_QUEUE_CANCEL that was
+  // supposed to clear the server-side mirror never made it across (dropped
+  // connection). Skipping validation for server-sourced entries let that
+  // ghost get merged back in unchecked on every subsequent reconnect and
+  // redispatched against a tile that already has the structure, producing a
+  // repeating BUILD_INVALID "tile already has structure" loop.
+  //
+  // A tile absent from state.tiles is a separate case, not a stale entry --
+  // this filter runs before applyGatewayInitialState below, so a genuinely
+  // fresh login on a new device/tab (reconstructDevelopmentActionFromServerEntry's
+  // scenario) won't have the tile cached yet. There's no local evidence to
+  // invalidate that entry against, so it's kept rather than guessed away;
+  // it'll get re-validated on the next INIT once tile data exists locally.
   if (state.tiles.size > 0) {
     const pendingSettlementTileKeys = new Set(state.settleProgressByTile.keys());
-    state.developmentQueue = state.developmentQueue.filter(
-      (entry) => devQueueTileKeysBeforeMerge.has(entry.tileKey) === false || isQueuedDevelopmentActionStillValid(entry, state.tiles, state.me, pendingSettlementTileKeys)
-    );
+    state.developmentQueue = state.developmentQueue.filter((entry) => {
+      if (!state.tiles.has(entry.tileKey)) return true;
+      return isQueuedDevelopmentActionStillValid(entry, state.tiles, state.me, pendingSettlementTileKeys);
+    });
   }
   // Backfill: mirror any entry that's ending up within the durable tier but
   // that the server didn't already know about (e.g. queued before this

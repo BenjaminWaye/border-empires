@@ -6,6 +6,8 @@ import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.
 // renders at full empire-color tint and opacity; every waypoint behind it
 // in the queue renders desaturated gray and dimmed, with a numbered badge
 // showing its position, so a player can spot the whole queue on the map.
+// Deliberately a small pennant, not the elaborate tower — that reads as a
+// rallying point and is reserved for the mustering overlay instead.
 const EMPIRE_COLOR = "#3b82f6";
 const QUEUE_GRAY = "#8b93a0";
 const HALT_COLOR = "#f59e0b";
@@ -54,7 +56,7 @@ const meta: Meta<Args> = {
     docs: {
       description: {
         component:
-          "The waypoint flag tower used for multi-waypoint queueing. Waypoint 1 (active) renders at full empire color; " +
+          "The waypoint pennant used for multi-waypoint queueing. Waypoint 1 (active) renders at full empire color; " +
           "waypoints 2+ render desaturated gray, dimmed, and numbered so the whole queue is visible on the map at once."
       }
     }

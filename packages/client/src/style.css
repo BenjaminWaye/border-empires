@@ -913,10 +913,10 @@ body {
   border-color: rgba(180, 180, 180, 0.45);
 }
 .resource-pill.res-crystal {
-  border-color: rgba(176, 132, 255, 0.5);
+  border-color: rgba(95, 167, 230, 0.55);
 }
 .resource-pill.res-umbrite {
-  border-color: rgba(77, 42, 134, 0.5);
+  border-color: rgba(176, 132, 255, 0.5);
 }
 .resource-pill.res-shard {
   border-color: rgba(126, 188, 255, 0.5);
@@ -2722,6 +2722,15 @@ body {
 .tile-overview-line-loading {
   margin-top: 4px;
 }
+.tile-overview-line-group {
+  margin-top: 6px;
+  color: rgba(241, 247, 255, 0.92);
+  font-weight: 800;
+  font-size: 12.5px;
+}
+.tile-overview-line-nested {
+  padding-left: 14px;
+}
 .tile-town-loading {
   display: flex;
   align-items: center;
@@ -3320,13 +3329,6 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-}
-
-.client-build-version {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: rgba(162, 212, 255, 0.86);
 }
 
 .auth-map-reveal {

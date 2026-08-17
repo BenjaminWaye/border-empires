@@ -20,6 +20,16 @@ export const WATCHTOWER_TARGET_MIN_COUNT = 25;
 export const WATCHTOWER_TARGET_COEFFICIENT = 247;
 export const WATCHTOWER_REVEAL_RADIUS = 5;
 export const WATCHTOWER_REVEAL_TTL_MS = 10_000;
+// Every successful EXPAND or ATTACK capture fires a one-time discovery
+// pulse over the surrounding area (same mechanic as a Watchtower's
+// activation pulse), so pushing your frontier outward — peacefully or by
+// force — always reveals a burst of the map even though a FRONTIER tile
+// itself no longer holds standing vision (see FRONTIER exclusion in
+// visibility-coverage-cache.ts's tileOwnershipChanged). Smaller than the
+// Relay Beacon's permanent +5 radius so a beacon still meaningfully
+// outperforms a bare expand/attack for real reconnaissance.
+export const EXPAND_REVEAL_RADIUS = 3;
+export const EXPAND_REVEAL_TTL_MS = 10_000;
 // A vision source standing on a forest tile only sees this far, regardless
 // of the player's effective vision radius (tech/observatory bonuses). The
 // forest itself and its immediate neighbors remain visible; nothing farther

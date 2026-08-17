@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InstancedMesh, Scene } from "three";
+import { createContactShadowOverlay } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import {
   createStructureOverlay,
   STRUCTURE_KINDS_HANDLED_BY_3D
@@ -24,7 +25,7 @@ describe("astral dock part structure overlay", () => {
 
   it("commits visible pieces for every astral dock part kind", () => {
     const scene = new Scene();
-    const overlay = createStructureOverlay(scene, ASTRAL_DOCK_PART_KINDS.length);
+    const overlay = createStructureOverlay(scene, ASTRAL_DOCK_PART_KINDS.length, createContactShadowOverlay(scene, ASTRAL_DOCK_PART_KINDS.length));
 
     ASTRAL_DOCK_PART_KINDS.forEach((kind, idx) => {
       overlay.addInstance(idx * 2, 0, 0, kind);

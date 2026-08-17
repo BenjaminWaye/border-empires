@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { InstancedMesh, Scene } from "three";
+import { createContactShadowOverlay } from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D } from "./client-map-3d-structure-overlay.js";
 
 describe("mintworks structure overlay", () => {
@@ -9,7 +10,7 @@ describe("mintworks structure overlay", () => {
 
   it("commits visible mintworks pieces", () => {
     const scene = new Scene();
-    const overlay = createStructureOverlay(scene, 1);
+    const overlay = createStructureOverlay(scene, 1, createContactShadowOverlay(scene, 1));
 
     overlay.addInstance(0, 0, 0, "MINTWORKS");
     overlay.commit();
