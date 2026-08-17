@@ -81,8 +81,8 @@ const fadeVolume = (el: HTMLAudioElement, to: number, durationMs: number, isCurr
   const startTime = performance.now();
   const step = (now: number): void => {
     if (!isCurrent()) return;
-    const t = Math.min(1, (now - startTime) / durationMs);
-    el.volume = from + (to - from) * t;
+    const t = Math.min(1, Math.max(0, (now - startTime) / durationMs));
+    el.volume = Math.min(1, Math.max(0, from + (to - from) * t));
     if (t < 1) requestAnimationFrame(step);
     else onDone?.();
   };
