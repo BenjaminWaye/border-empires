@@ -32,6 +32,7 @@ export const GUIDE_STORAGE_KEY = "border-empires-guide-complete-v1";
 export const GUIDE_AUTO_OPEN_STORAGE_KEY = "border-empires-guide-auto-opened-v1";
 export const RENDERER_PROMPT_STORAGE_KEY = "border-empires-renderer-prompt-v1";
 export const CAMERA_LOCATION_STORAGE_KEY = "border-empires-camera-location-v1";
+export const DISCOVERED_TILES_STORAGE_KEY = "border-empires-discovered-tiles-v1";
 export const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 // Shared across every "still waiting on auth/session" overlay (the initial
 // Firebase auth busy modal in client-auth-ui.ts, and the post-connect

@@ -78,6 +78,14 @@ export const storageSet = (keyName: string, value: string): void => {
   }
 };
 
+export const storageRemove = (keyName: string): void => {
+  try {
+    window.localStorage.removeItem(keyName);
+  } catch {
+    // Ignore storage failures in restricted browser contexts.
+  }
+};
+
 export const createInitialState = () => ({
   me: "",
   meName: "",

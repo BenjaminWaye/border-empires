@@ -3,6 +3,7 @@ import { CAMERA_LOCATION_STORAGE_KEY } from "./client-constants.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import type { RealtimeSocket } from "./client-socket-types.js";
 import { storageSet, type ClientState } from "./client-state/client-state.js";
+import { maybeSaveDiscoveredTiles } from "./client-state/client-discovered-tiles-storage.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 
 // Persists the player's last-viewed map location so a reload/reconnect (or a
@@ -171,7 +172,18 @@ export const requestViewRefresh = (
 export const maybeRefreshForCamera = (
   state: Pick<
     ClientState,
-    "authSessionReady" | "camX" | "camY" | "zoom" | "lastSubCx" | "lastSubCy" | "actionInFlight" | "capture" | "actionQueue"
+    | "authSessionReady"
+    | "camX"
+    | "camY"
+    | "zoom"
+    | "lastSubCx"
+    | "lastSubCy"
+    | "actionInFlight"
+    | "capture"
+    | "actionQueue"
+    | "me"
+    | "discoveredTiles"
+    | "discoveredDockTiles"
   > & { bridgeDebugSeasonId?: string | undefined },
   deps: {
     ws: RealtimeSocket;
@@ -185,6 +197,11 @@ export const maybeRefreshForCamera = (
   // one place that reliably observes camera changes independent of whether
   // a chunk-subscribe network round trip is happening.
   maybeSaveCameraLocation(state);
+  // Same rationale for discoveredTiles: throttled write-through so a hard
+  // refresh has something recent to restore from (see
+  // client-network-init-message.ts's INIT handler and
+  // client-discovered-tiles-storage.ts).
+  maybeSaveDiscoveredTiles(state);
   if (deps.ws.readyState !== deps.ws.OPEN) return;
   if (!state.authSessionReady) return;
   if (!deps.force && (state.actionInFlight || state.capture || state.actionQueue.length > 0)) return;
