@@ -86,10 +86,25 @@ export const createAtmosphere = (scene: Scene): AtmosphereResources => {
   skyMesh.frustumCulled = false;
   skyMesh.renderOrder = -1000;
 
-  const hemiLight = new HemisphereLight("#b8c8ff", "#2a2030", 0.45);
+  // hemiLight and fillLight are what light the side of a structure that
+  // isn't facing the sun — which, for a single fixed-direction key light,
+  // is most of what the camera actually sees on any given building. The 3D
+  // overlays (dozens of them now) are all authored and eyeballed in
+  // Storybook, whose stage lighting runs far brighter than this (its
+  // default is an 0.55 ambient + 0.9 sun with no tone mapping at all, and
+  // several overlays' own "studio" rigs stack a 2+ intensity key light on
+  // top of that). Tuned against that, then dropped into these dimmer,
+  // more contrasty numbers, every overlay's shadow-facing surfaces sank
+  // toward the same near-black regardless of their actual palette — which
+  // is why buildings stopped reading as visually distinct in game even
+  // though they're clearly different in their Storybook previews. Raising
+  // hemi/fill (and leaving the sun alone) keeps the key light's direction
+  // and mood intact while giving those surfaces enough light to actually
+  // show their color again.
+  const hemiLight = new HemisphereLight("#b8c8ff", "#2a2030", 0.7);
   const sun = new DirectionalLight("#fff0c0", 1.55);
   sun.position.set(45, 75, 25);
-  const fillLight = new DirectionalLight("#ff8a5c", 0.35);
+  const fillLight = new DirectionalLight("#ff8a5c", 0.55);
   fillLight.position.set(-30, 20, -40);
 
   scene.add(skyMesh, hemiLight, sun, fillLight);
