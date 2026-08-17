@@ -10,8 +10,20 @@ export const SHARD_RAIN_TTL_MS = 30 * 60_000;
 export const SHARD_RAIN_WARNING_LEAD_MS = 60 * 60 * 1000;
 export const SHARD_RAIN_SITE_MIN = 3;
 export const SHARD_RAIN_SITE_MAX = 6;
+// Extra sites per eligible (human, non-barbarian) player beyond the base
+// range above — keeps a rain worth chasing when the world is crowded
+// instead of a fixed handful of sites getting split 100 ways.
+export const SHARD_RAIN_SITES_PER_PLAYER = 0.25;
 export const SHARD_RAIN_COMMAND_ID_PREFIX = "system-shard-rain";
 export const SHARD_RAIN_SYSTEM_PLAYER_ID = "system-shard-rain";
+
+export const isEligibleShardRainPlayer = (player: { id: string; isAi?: boolean }): boolean =>
+  player.id !== SHARD_RAIN_SYSTEM_PLAYER_ID && !player.id.startsWith("barbarian-") && !player.isAi;
+
+export const shardRainSiteCountRange = (eligiblePlayerCount: number): { min: number; max: number } => {
+  const bonus = Math.floor(Math.max(0, eligiblePlayerCount) * SHARD_RAIN_SITES_PER_PLAYER);
+  return { min: SHARD_RAIN_SITE_MIN + bonus, max: SHARD_RAIN_SITE_MAX + bonus };
+};
 
 export const shardRainSlotKey = (at: Date): string =>
   `${at.getFullYear()}-${at.getMonth() + 1}-${at.getDate()}-${at.getHours()}`;
