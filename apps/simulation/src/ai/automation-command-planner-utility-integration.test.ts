@@ -143,10 +143,17 @@ describe("automation command planner — utility AI path", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      manpower: 10,
+      // MINTWORKS costs 150 manpower, but scoreBuildEconomy only scores
+      // meaningfully while needsEconomy holds — economyWeak(manpower,
+      // settledTileCount), i.e. manpower < max(40, settledTileCount * 6). Those
+      // two conditions only overlap once the empire is large enough for the
+      // threshold to clear the structure's price (>25 settled tiles for
+      // MINTWORKS), so this fixture models that empire rather than a 6-tile one.
+      // See docs/ai-structure-building-rewrite-plan.md §13.6.
+      manpower: 150,
       techIds: ["trade"],
       strategicResources: { FOOD: 60 },
-      settledTileCount: 6,
+      settledTileCount: 30,
       townCount: 1,
       incomePerMinute: 0,
       hasActiveLock: false,
@@ -179,7 +186,8 @@ describe("automation command planner — utility AI path", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      manpower: 10,
+      // Covers FORT_TIER_LADDER.FORT's 300 manpower.
+      manpower: 300,
       techIds: ["masonry"],
       strategicResources: { TITANIUM: 60 },
       settledTileCount: 3,
@@ -194,6 +202,9 @@ describe("automation command planner — utility AI path", () => {
         ["9,8", enemyA],
         ["8,9", enemyB]
       ]),
+      // Without this MUSTER outranks BUILD_DEFENSE at fort-affording manpower
+      // — see the niche note in automation-command-planner.test.ts.
+      attackStalemateTargetTileKeys: new Set(["9,8", "8,9"]),
       clientSeq: 4,
       issuedAt: 1000,
       sessionPrefix: "ai-runtime"
@@ -304,10 +315,17 @@ describe("automation command planner — utility AI diagnostic fields (Phase 2)"
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      manpower: 10,
+      // MINTWORKS costs 150 manpower, but scoreBuildEconomy only scores
+      // meaningfully while needsEconomy holds — economyWeak(manpower,
+      // settledTileCount), i.e. manpower < max(40, settledTileCount * 6). Those
+      // two conditions only overlap once the empire is large enough for the
+      // threshold to clear the structure's price (>25 settled tiles for
+      // MINTWORKS), so this fixture models that empire rather than a 6-tile one.
+      // See docs/ai-structure-building-rewrite-plan.md §13.6.
+      manpower: 150,
       techIds: ["trade"],
       strategicResources: { FOOD: 60 },
-      settledTileCount: 6,
+      settledTileCount: 30,
       townCount: 1,
       incomePerMinute: 0,
       hasActiveLock: false,
