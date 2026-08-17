@@ -167,10 +167,21 @@ account for Aegis Relay too, not just treasury pooling.
 
 Fleets are galactic-layer assets — they never fight tile battles, and
 raids resolve as a short auto-computed engagement (fleet vs. Garrison),
-not a second real-time combat game. The goal is to make *building* a
-fleet the interesting part, the way Master of Orion/Stellaris make ship
-design its own puzzle, without adding a live space-combat sim to
-maintain.
+not a second real-time combat game.
+
+**A scope correction that belongs on the record.** The physics grounding
+below was researched against games like Cosmoteer, NEBULOUS: Fleet
+Command, and Highfleet — but those are games where ship design *is* the
+entire session, played for hours at a stretch. That's the wrong
+reference class for a decision made every few weeks inside a layer
+that's supposed to stay low-agency (§1). The right comparison for the
+*interaction weight* is a Civilization production-queue order or a
+Clash-of-Clans raid: pick a composition, commit, wait, see the outcome —
+a couple of clicks, not a build screen. The physics stays, because it's
+what makes hull identity legible without a wiki; a spatial module editor
+and a per-tick fuel resource to babysit while a fleet is deployed do not
+— both were cut for adding real-time-game complexity to a layer that
+needs to work asynchronously over weeks.
 
 **Grounding, not magic.** No shields-as-forcefield, no faster-than-real
 travel. Stats are drawn from real constraints, the way Aurora 4X and
@@ -234,11 +245,47 @@ strike, but it's the slowest thing in the galaxy doing it — the counter
 to "raids feel like an unfair ambush" is built into the stat block
 itself, not bolted on as a separate rule.
 
+### Composition, budget, and blueprints
+
+Sending a fleet is one screen, not a session:
+
+- **A single Fleet Production budget**, not a per-hull cost — the player
+  spends a lump of Production across however many hulls they want. One
+  Dreadnought and five Raiders can be the same total bet, and quantity-
+  vs-quality is the actual decision, not a stat comparison (this is the
+  one idea worth keeping from NEBULOUS: Fleet Command's editor — the
+  budget-across-a-task-force part, not the editor itself).
+- **Weapon emphasis is one choice per fleet** (kinetic / energy / missile
+  leaning), not a per-hull loadout screen — enough to make the
+  rock-paper-scissors counters in the weapons list above matter, without
+  turning fleet assembly into a build screen.
+- **Blueprints**: save a composition once, reuse or re-send it later
+  without re-deciding every time (the one genuinely worth borrowing from
+  Cosmoteer — it *reduces* repeat decisions rather than adding load, which
+  is the right direction for a slow layer). Bloc-mates can share
+  blueprints with each other.
+
+### Defense posture
+
+The raid-agency question from earlier discussion — a defender needs a
+real choice, not a silent dice roll — has to be answered asynchronously,
+since nobody can be guaranteed online at the moment a raid happens to
+land. So instead of a live reactive window (the FTL/Into the Breach
+answer, and the wrong one for a game that ticks over days): a **standing
+defense posture**, set once ahead of time and left in place until
+changed — e.g. prioritize armor, prioritize point-defense, or hold
+Garrison Production in reserve — auto-applies the moment a raid is
+detected inbound. Same fairness principle as the travel-time telegraph
+(full information, a real prior decision shapes the outcome), none of
+the "be online right now" requirement.
+
 Precedent this leans on: Master of Orion/Galactic Civilizations/Stellaris
-for the slot-budget ship-designer loop and tiered hull classes; Aurora 4X
-and *Children of a Dead Earth* for delta-v/thermal/kinetic-energy
-grounding; Distant Worlds and Sins of a Solar Empire for fuel/supply-line
-logistics as a real constraint rather than flavor.
+for tiered hull classes as an identity ladder; Aurora 4X and
+*Children of a Dead Earth* for delta-v/thermal/kinetic-energy grounding;
+NEBULOUS: Fleet Command for the whole-force budget; Cosmoteer for
+blueprints. Deliberately *not* leaned on for interaction weight: none of
+those games' actual build/combat screens belong here — see the scope
+correction above.
 
 ## 7. Stability and contestation
 
@@ -252,8 +299,16 @@ ways to drain it to zero, all converging on the same outcome:
 
 Stability hitting zero opens a **Defense Campaign**: a Sector campaign
 season scoped to the defender plus challenger(s), not the full
-playerbase. Garrisons (Production) and Bloc mutual defense (§8) restore
-or protect Stability before it breaks.
+playerbase. Garrisons (Production), the defender's standing Defense
+posture (§6), and Bloc mutual defense (§8) restore or protect Stability
+before it breaks.
+
+**Battle log:** every raid resolution posts to a galaxy-wide public log
+on the map — attacker, defender, outcome, nothing hidden. Cheap to build
+(it's a feed, not a system) and it's what turns a raid from a private
+stat change into something the rest of the galaxy sees and reacts to —
+the EVE Online precedent for why losses read as drama instead of as a
+punishment.
 
 There's no special "leader" carve-out here — this applies uniformly to
 any territory-holding empire. Bigger empires are *emergently* more
