@@ -191,6 +191,11 @@ export type SeasonWinnerSnapshot = {
   objectiveId: SeasonVictoryPathId;
   objectiveName: string;
   stats?: SeasonWinnerStats;
+  // Deadliest-tile / longest-road misc stats, captured once at crowning time
+  // and persisted with the winner so a reconnecting/late-joining client can
+  // still see them on the season-end screen (they otherwise only ever went
+  // out on the single GLOBAL_STATUS_UPDATE broadcast at crowning).
+  seasonStats?: SeasonStats;
 };
 
 export type SeasonVictoryTrackerSnapshot = {

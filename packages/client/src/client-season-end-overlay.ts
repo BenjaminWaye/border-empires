@@ -58,8 +58,6 @@ const playerBadge = (
 const rankClass = (rank: number): string =>
   rank === 1 ? "is-gold" : rank === 2 ? "is-silver" : rank === 3 ? "is-bronze" : "";
 
-const rankGlyph = (rank: number, isWinner: boolean): string => isWinner ? "♔" : `${rank}`;
-
 const num = (value: number, digits = 0): string =>
   value.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
@@ -100,13 +98,19 @@ const rankRowHtml = (
   colors: ReadonlyMap<string, string>,
   options: { self: boolean; detached?: boolean; winnerId: string | undefined }
 ): string => {
+  // Score rank (the gold/silver/bronze medal) and the season winner (the
+  // crown) are independent -- the winner is decided by their victory path,
+  // not necessarily by having the top score. Swapping the medal's number for
+  // a crown while keeping its rank-based color (e.g. silver) read as if 2nd
+  // place had won, so the crown is now a separate badge next to the name and
+  // the medal always shows the entry's true score rank.
   const isWinner = Boolean(options.winnerId && entry.id === options.winnerId);
   const medalClass = options.detached ? "" : rankClass(entry.rank);
-  const glyph = options.detached ? `${entry.rank}` : rankGlyph(entry.rank, isWinner);
+  const crown = isWinner ? `<span class="se-rank-crown" title="Season Victor" aria-hidden="true">♔</span>` : "";
   return `
-    <li class="se-rank-row${options.self ? " is-self" : ""}${options.detached ? " is-detached" : ""}">
-      <span class="se-rank-medal ${medalClass}">${glyph}</span>
-      <span class="se-rank-name">${playerBadge(entry.id, options.self ? "You" : entry.name, colors)}</span>
+    <li class="se-rank-row${options.self ? " is-self" : ""}${options.detached ? " is-detached" : ""}${isWinner ? " is-winner" : ""}">
+      <span class="se-rank-medal ${medalClass}">${entry.rank}</span>
+      <span class="se-rank-name">${crown}${playerBadge(entry.id, options.self ? "You" : entry.name, colors)}</span>
       <span class="se-rank-stats">
         <span class="se-gauge" title="Final score"><em>${num(entry.score, 1)}</em><span>score</span></span>
         <span class="se-gauge" title="Settled tiles"><em>${num(entry.tiles)}</em><span>tiles</span></span>

@@ -1838,7 +1838,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   setInterval(() => {
     updateMusicForGameState({
       combat: state.activeBattles.size > 0,
-      tension: state.incomingAttacksByTile.size > 0 || state.musterTransitByTile.size > 0 || state.deferredAttackByTile.size > 0
+      tension:
+        state.incomingAttacksByTile.size > 0 ||
+        state.musterTransitByTile.size > 0 ||
+        state.deferredAttackByTile.size > 0 ||
+        state.pendingMusterAttacks.length > 0
     });
   }, 500);
 

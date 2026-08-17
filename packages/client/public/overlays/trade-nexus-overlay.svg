@@ -1,0 +1,59 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g stroke="#15161a">
+    <!-- ground contact -->
+    <ellipse cx="64" cy="115" rx="46" ry="5" fill="#14161b" fill-opacity="0.35" stroke="none"/>
+
+    <!-- converging trade roads -->
+    <path d="M40 90 L16 119 L30 122 L49 94 Z M62 90 L55 122 L72 122 L67 94 Z M88 90 L112 119 L98 122 L79 94 Z" fill="#1a1b20"/>
+
+    <!-- plinth steps -->
+    <path d="M30 96 H98 L93 101 H35 Z M34 91 H94 L89 96 H39 Z" fill="#948a78"/>
+
+    <!-- brass dome + sheen -->
+    <path d="M48 67 Q64 23 80 67 Z" fill="#8a6b3c"/>
+    <path d="M52 64.5 Q64 29 76 64.5" stroke="#a5864d" stroke-width="2.6" fill="none"/>
+
+    <!-- dome band / cornice -->
+    <path d="M44 67 H84 V70 H44 Z M45 71 H83 L80 74 H48 Z" fill="#6f5a33"/>
+
+    <!-- grand hall body -->
+    <path d="M48 74 H80 V94 H48 Z" fill="#c9bda4"/>
+
+    <!-- warm window band -->
+    <path d="M53 83 H75 V87 H53 Z M61 83 V87 M67 83 V87" fill="#ff9d3d"/>
+
+    <!-- flanking warehouses -->
+    <path d="M20 76 H38 V94 H20 Z M90 76 H108 V94 H90 Z" fill="#c9bda4"/>
+    <path d="M18 76 H40 L36 67 H22 Z M88 76 H110 L106 67 H92 Z" fill="#8a6b3c"/>
+    <path d="M25 82 H33 V85 H25 Z M95 82 H103 V85 H95 Z" fill="#ff9d3d"/>
+
+    <!-- cargo: stacked crates + barrel -->
+    <path d="M26 110 H36 V120 H26 Z" fill="#5a4632"/>
+    <path d="M33 102 H43 V110 H33 Z" fill="#7a5e3a"/>
+    <path d="M98 108 H106 V116 H98 Z" fill="#7a5e3a"/>
+    <path d="M98 110.6 H106 V112.4 H98 Z" fill="#8a6b3c"/>
+
+    <!-- brass jib crane -->
+    <path d="M110 66 H116 V94 H110 Z" fill="#2c2e34"/>
+    <path d="M112 64 L127 56 L128 59 L115 67 Z" fill="#8a6b3c"/>
+    <path d="M115.5 60 L121 56.5 M125.5 59 V74" stroke="#3c3a38" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M121 74 H130 V82 H121 Z" fill="#7a5e3a"/>
+
+    <!-- hanging trade lamps -->
+    <path d="M51 70 V76 M77 70 V76" stroke="#3a3d45" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+    <path d="M47 76 H55 V82 H47 Z M73 76 H81 V82 H73 Z" fill="#8a6b3c"/>
+    <circle cx="51" cy="79" r="1.9" fill="#ff9d3d" stroke="none"/>
+    <circle cx="77" cy="79" r="1.9" fill="#ff9d3d" stroke="none"/>
+
+    <!-- brass feed pipes -->
+    <path d="M48 80 H38 M80 80 H90" stroke="#8a6b3c" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+    <circle cx="44" cy="80" r="1.7" fill="#a5864d"/>
+    <circle cx="84" cy="80" r="1.7" fill="#a5864d"/>
+
+    <!-- clockwork seal -->
+    <circle cx="64" cy="20" r="7" fill="#a5864d"/>
+    <circle cx="64" cy="20" r="7" fill="none" stroke="#6f5a33" stroke-width="1.4"/>
+    <circle cx="64" cy="20" r="2" fill="#5fa8d8" stroke="none"/>
+    <path d="M58 13.5 L60.5 16.5 M70 26.5 L67.5 23.5 M70 13.5 L67.5 16.5 M58 26.5 L60.5 23.5" stroke="#8a6b3c" stroke-width="2" stroke-linecap="round" fill="none"/>
+  </g>
+</svg>

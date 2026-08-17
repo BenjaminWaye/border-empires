@@ -5,8 +5,13 @@ import {
   APPROACH_MS,
   CLASH_MS,
   ROUT_MS,
-  type BattleOverlayRenderEntry
+  type BattleOverlayRenderEntry,
+  type BattleOverlaySkirmishEntry
 } from "@client/client-map-3d-battle-overlay-fx.js";
+import {
+  registerActiveBattleFromTileDelta,
+  type ActiveBattleOverlay
+} from "@client/client-battle-overlay/client-battle-overlay.js";
 import { createStage, wrapWithCleanup } from "../three-stage.js";
 
 // Demonstrates the battle overlay FX exactly as the real game drives it: the
@@ -200,5 +205,269 @@ export const ConcurrentBattles: Story = {
     animate();
 
     return wrapWithCleanup(stage, [() => cancelAnimationFrame(rafId), fx.dispose]);
+  }
+};
+
+// Full lifecycle of a single siege from the moment it's first seen through to
+// the resolved battle clearing: pre-resolution skirmish (approach once, then
+// an indefinite oscillating clash loop for the rest of the countdown) handing
+// off into the resolved battle (continuing that same approach trajectory,
+// then clash + glyph bursts, then rout). Timing (startAt/clashAt/endAt) is
+// computed by the real registerActiveBattleFromTileDelta — the exact function
+// client-tile-delta-batch-handler.ts calls on every TILE_DELTA_BATCH — fed a
+// fabricated combatJson delta, so the handoff shown here can't drift from
+// what actually ships. A siege this long is impractical to just sit and
+// watch, so this scrubs/plays on a virtual clock instead of wall time: drag
+// the timeline, jump to a phase boundary, or press play at any speed.
+type LifecycleArgs = {
+  attackerColor: string;
+  defenderColor: string;
+  attackerWon: boolean;
+  cameraDistance: number;
+  siegeDurationMs: number;
+  playbackSpeed: number;
+  autoPlay: boolean;
+};
+
+const SIEGE_KEY = "5,5";
+const keyForSim = (_x: number, _y: number): string => SIEGE_KEY;
+
+const computeHandoff = (args: LifecycleArgs): { startAt: number; clashAt: number; endAt: number } => {
+  const state = { activeBattles: new Map<string, ActiveBattleOverlay>(), skirmishSeenAt: new Map([[SIEGE_KEY, 0]]) };
+  const combatJson = JSON.stringify({
+    attackerOwnerId: "attacker",
+    defenderOwnerId: "defender",
+    attackerWon: args.attackerWon,
+    originX: 0,
+    originY: 0
+  });
+  // nowMs = siegeDurationMs: the resolution broadcast lands exactly when the
+  // siege's countdown ends, on this story's virtual clock (t=0 is when the
+  // skirmish's own startAt/skirmishSeenAt was stamped).
+  registerActiveBattleFromTileDelta(state, keyForSim, { x: 5, y: 5, combatJson }, args.siegeDurationMs);
+  const battle = state.activeBattles.get(SIEGE_KEY)!;
+  return { startAt: battle.startAt, clashAt: battle.clashAt, endAt: battle.endAt };
+};
+
+const SPEED_OPTIONS = [0.5, 1, 2, 4, 8, 16, 32];
+
+const styleButton = (el: HTMLElement): void => {
+  el.style.padding = "6px 10px";
+  el.style.border = "1px solid rgba(255,207,107,0.55)";
+  el.style.background = "rgba(13,15,22,0.9)";
+  el.style.color = "#fff3d6";
+  el.style.cursor = "pointer";
+  el.style.borderRadius = "4px";
+  el.style.font = "11px monospace";
+};
+
+export const FullAttackLifecycle: StoryObj<LifecycleArgs> = {
+  argTypes: {
+    attackerColor: { control: "color" },
+    defenderColor: { control: "color" },
+    attackerWon: { control: "boolean" },
+    cameraDistance: { control: { type: "range", min: 2, max: 12, step: 0.5 } },
+    siegeDurationMs: { control: { type: "range", min: 200, max: 60_000, step: 100 }, description: "Server-side siege countdown (resolvesAt - now). ~30s in the real game." },
+    playbackSpeed: { control: { type: "select" }, options: SPEED_OPTIONS },
+    autoPlay: { control: "boolean" }
+  },
+  args: {
+    attackerColor: "#4fb3ff",
+    defenderColor: "#ff5d5d",
+    attackerWon: true,
+    cameraDistance: 5,
+    siegeDurationMs: 30_000,
+    playbackSpeed: 8,
+    autoPlay: true
+  },
+  render: (args) => {
+    const stage = createStage({ cameraDistance: args.cameraDistance, background: "#0d0f16" });
+    const fx = createBattleOverlayFx(stage.scene);
+
+    const attackerTile = makeTerritoryTile(-TILE_GAP / 2, args.attackerColor);
+    const defenderTile = makeTerritoryTile(TILE_GAP / 2, args.defenderColor);
+    stage.scene.add(attackerTile, defenderTile);
+
+    const { startAt, clashAt, endAt } = computeHandoff(args);
+    const totalMs = endAt;
+
+    const skirmish: BattleOverlaySkirmishEntry = {
+      srcWorldX: -TILE_GAP / 2, srcWorldZ: 0,
+      tgtWorldX: TILE_GAP / 2, tgtWorldZ: 0,
+      srcSurfaceY: 0, tgtSurfaceY: 0,
+      attackerColor: args.attackerColor,
+      defenderColor: args.defenderColor,
+      startAt,
+      hashSeed: 1
+    };
+    const battle: BattleOverlayRenderEntry = {
+      srcWorldX: -TILE_GAP / 2, srcWorldZ: 0,
+      tgtWorldX: TILE_GAP / 2, tgtWorldZ: 0,
+      srcSurfaceY: 0, tgtSurfaceY: 0,
+      attackerColor: args.attackerColor,
+      defenderColor: args.defenderColor,
+      attackerWon: args.attackerWon,
+      startAt, clashAt, endAt,
+      hashSeed: 1
+    };
+
+    const tickAt = (t: number): void => {
+      if (t < args.siegeDurationMs) fx.tick(t, [], [skirmish]);
+      else if (t < endAt) fx.tick(t, [battle], []);
+      else fx.tick(t, [], []);
+    };
+
+    const phaseAt = (t: number): { name: string; detail: string } => {
+      if (t < args.siegeDurationMs) {
+        if (t < APPROACH_MS) {
+          return { name: "SKIRMISH · approach", detail: `${t.toFixed(0)} / ${APPROACH_MS}ms — both sides converging on the tile center` };
+        }
+        return {
+          name: "SKIRMISH · clash loop",
+          detail: `${(t / 1000).toFixed(1)}s / ${(args.siegeDurationMs / 1000).toFixed(1)}s countdown — oscillating melee, outcome not yet known to the player`
+        };
+      }
+      if (t < clashAt) {
+        return { name: "RESOLVED · finishing approach", detail: `${(t - startAt).toFixed(0)} / ${APPROACH_MS}ms — broadcast landed before the skirmish's own approach finished` };
+      }
+      if (t < clashAt + CLASH_MS) {
+        return { name: "RESOLVED · clash + glyph bursts", detail: `${(t - clashAt).toFixed(0)} / ${CLASH_MS}ms` };
+      }
+      if (t < endAt) {
+        return {
+          name: "RESOLVED · rout",
+          detail: `${(t - clashAt - CLASH_MS).toFixed(0)} / ${ROUT_MS}ms — ${args.attackerWon ? "attacker pushes through" : "defender holds, attacker scatters"}`
+        };
+      }
+      return { name: "DONE", detail: "state.activeBattles entry pruned — nothing left to render" };
+    };
+
+    // -- controls --------------------------------------------------------
+    const controls = document.createElement("div");
+    controls.style.position = "absolute";
+    controls.style.left = "0";
+    controls.style.right = "0";
+    controls.style.bottom = "0";
+    controls.style.padding = "10px 12px";
+    controls.style.background = "rgba(13,15,22,0.85)";
+    controls.style.display = "flex";
+    controls.style.flexDirection = "column";
+    controls.style.gap = "6px";
+    controls.style.fontFamily = "monospace";
+
+    const label = document.createElement("div");
+    label.style.color = "#cbd5e1";
+    label.style.font = "12px monospace";
+
+    const scrubber = document.createElement("input");
+    scrubber.type = "range";
+    scrubber.min = "0";
+    scrubber.max = String(totalMs);
+    scrubber.step = "16";
+    scrubber.value = "0";
+    scrubber.style.width = "100%";
+
+    const buttonsRow = document.createElement("div");
+    buttonsRow.style.display = "flex";
+    buttonsRow.style.gap = "6px";
+    buttonsRow.style.alignItems = "center";
+    buttonsRow.style.flexWrap = "wrap";
+
+    const playButton = document.createElement("button");
+    playButton.type = "button";
+    styleButton(playButton);
+
+    const speedSelect = document.createElement("select");
+    styleButton(speedSelect);
+    for (const s of SPEED_OPTIONS) {
+      const opt = document.createElement("option");
+      opt.value = String(s);
+      opt.textContent = `${s}x`;
+      if (s === args.playbackSpeed) opt.selected = true;
+      speedSelect.appendChild(opt);
+    }
+
+    const jumpTo = (t: number) => (): void => {
+      simT = Math.max(0, Math.min(totalMs, t));
+      playing = false;
+      scrubber.value = String(simT);
+      tickAt(simT);
+      updateUi();
+    };
+    const jumps: Array<[string, number]> = [
+      ["0s", 0],
+      ["Approach end", APPROACH_MS],
+      ["Resolve", args.siegeDurationMs],
+      ["Clash end", clashAt + CLASH_MS],
+      ["Rout end", endAt]
+    ];
+    const jumpButtons = jumps.map(([text, t]) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = text;
+      styleButton(btn);
+      btn.addEventListener("click", jumpTo(t));
+      return btn;
+    });
+
+    let simT = 0;
+    let playing = args.autoPlay;
+    let speed = args.playbackSpeed;
+
+    const updateUi = (): void => {
+      const { name, detail } = phaseAt(simT);
+      label.textContent = `${name} — ${detail}  |  t=${(simT / 1000).toFixed(2)}s / ${(totalMs / 1000).toFixed(2)}s`;
+      playButton.textContent = playing ? "Pause" : "Play";
+    };
+
+    playButton.addEventListener("click", () => {
+      if (simT >= totalMs) simT = 0;
+      playing = !playing;
+      updateUi();
+    });
+    speedSelect.addEventListener("change", () => { speed = Number(speedSelect.value); });
+    scrubber.addEventListener("input", () => {
+      simT = Number(scrubber.value);
+      playing = false;
+      tickAt(simT);
+      updateUi();
+    });
+
+    buttonsRow.appendChild(playButton);
+    buttonsRow.appendChild(speedSelect);
+    for (const btn of jumpButtons) buttonsRow.appendChild(btn);
+    controls.appendChild(label);
+    controls.appendChild(scrubber);
+    controls.appendChild(buttonsRow);
+
+    let lastReal = performance.now();
+    let rafId = 0;
+    const animate = (): void => {
+      const now = performance.now();
+      const dt = now - lastReal;
+      lastReal = now;
+      if (playing) {
+        simT = Math.min(totalMs, simT + dt * speed);
+        scrubber.value = String(simT);
+        if (simT >= totalMs) playing = false;
+      }
+      tickAt(simT);
+      updateUi();
+      rafId = requestAnimationFrame(animate);
+    };
+    animate();
+
+    const stageEl = wrapWithCleanup(stage, [
+      () => {
+        cancelAnimationFrame(rafId);
+        fx.dispose();
+        attackerTile.geometry.dispose();
+        (attackerTile.material as MeshStandardMaterial).dispose();
+        defenderTile.geometry.dispose();
+        (defenderTile.material as MeshStandardMaterial).dispose();
+      }
+    ]);
+    stageEl.appendChild(controls);
+    return stageEl;
   }
 };
