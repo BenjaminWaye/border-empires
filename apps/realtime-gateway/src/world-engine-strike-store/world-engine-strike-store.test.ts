@@ -51,6 +51,17 @@ describe("InMemoryWorldEngineStrikeStore", () => {
     await store.insert(record({ strikeId: "fresh", occurredAt: now }));
     expect((await store.listSince(0)).map((r) => r.strikeId)).toEqual(["fresh"]);
   });
+
+  it("prunes stale records even when insert() calls arrive out of occurredAt order", async () => {
+    const now = WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS + 1_000;
+    const store = new InMemoryWorldEngineStrikeStore(() => now);
+    // "fresh" (within the window) is inserted before "ancient" (outside it) —
+    // a naive prune-from-front-only implementation would leave "ancient"
+    // sitting behind "fresh" and never prune it.
+    await store.insert(record({ strikeId: "fresh", occurredAt: now }));
+    await store.insert(record({ strikeId: "ancient", occurredAt: 0 }));
+    expect((await store.listSince(0)).map((r) => r.strikeId)).toEqual(["fresh"]);
+  });
 });
 
 describe("readWorldEngineStrikeAnnouncement", () => {

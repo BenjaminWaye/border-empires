@@ -56,15 +56,18 @@ export const readWorldEngineStrikeAnnouncement = (payload: Record<string, unknow
 };
 
 export class InMemoryWorldEngineStrikeStore implements WorldEngineStrikeStore {
-  private readonly records: WorldEngineStrikeRecord[] = [];
+  private records: WorldEngineStrikeRecord[] = [];
 
   constructor(private readonly now: () => number = () => Date.now()) {}
 
   async insert(record: WorldEngineStrikeRecord): Promise<void> {
     if (this.records.some((existing) => existing.strikeId === record.strikeId)) return;
     this.records.push(record);
+    // Filter the whole array rather than shifting off the front — insert()
+    // makes no ordering guarantee about occurredAt across calls, so the
+    // oldest record isn't necessarily at index 0.
     const cutoff = this.now() - WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS;
-    while (this.records[0] && this.records[0].occurredAt < cutoff) this.records.shift();
+    this.records = this.records.filter((existing) => existing.occurredAt >= cutoff);
   }
 
   async listSince(sinceMs: number): Promise<WorldEngineStrikeRecord[]> {
