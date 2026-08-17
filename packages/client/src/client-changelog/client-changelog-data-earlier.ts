@@ -6,33 +6,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
-    createdAt: 1786410000000, // 2026.08.10.2
-    introducedIn: "2026.08.10.2",
-    title: "The 2D map now takes over when 3D can't run on your device",
-    why: "On some phones — Safari on iPhone in particular — the 3D map could fail to start or have its graphics context taken away by the system, leaving a blank map with no explanation and no way to report what happened.",
-    changes: [
-      "If the 3D map can't start, or its graphics context is lost mid-session, the game now switches to the 2D map instead of showing a blank screen.",
-      "A short banner explains why the 2D map is being used, with the specific reason.",
-      "If loading the 3D map crashes the browser outright, the game now notices on the next visit and comes up in 2D instead of crashing again. Add ?renderer=3d to the URL to try 3D again.",
-      "Downloaded diagnostics now include your device's graphics capabilities, the reason 3D was unavailable, and how far the previous 3D attempt got before the browser died — so map crashes can be diagnosed from a phone.",
-      "The 3D map now sizes its memory buffers to your screen instead of always reserving for a large desktop display, which cuts its memory use substantially on phones."
-    ]
-  },
-  {
-    createdAt: 1786406400000, // 2026.08.10.1
-    introducedIn: "2026.08.10.1",
-    title: "Removed Bank and Exchange House; Clearing House now boosts Mintworks",
-    why: "Bank and Mintworks did nearly the same thing, and Exchange House's bonus was never actually implemented — both were confusing dead weight in the tech tree and build menu.",
-    changes: [
-      "Removed the Bank and Exchange House structures.",
-      "The Minting Works tech now unlocks Clearing House (instead of Bank).",
-      "Clearing House now boosts Mintworks gold production (+25%) for its town and directly connected towns, instead of boosting Bank.",
-      "Removed the Provincial Concessions tech; Grand Bazaars now requires Minting Works directly.",
-      "Fixed the tech tree structure card showing two separate 'Upkeep' boxes for structures with more than one resource-slot requirement (Bank, Foundry, Rail Depot, Radar System, Exchange House, Ambaric Tower, Weapons Workshop, Assembly Works, Siege Tower, Dread Tower) — now shown as one combined box.",
-      "Moved Terrain Shaping into the Aether tech branch (was miscategorized under Economy); it now requires Covert Logistics and unlocks Sky Vessel Engineering alongside its other prerequisites."
-    ]
-  },
-  {
     createdAt: 1786530000000, // 2026.08.12.3
     introducedIn: "2026.08.12.3",
     title: "Muster ADVANCE flags launch one attack at a time",
@@ -54,38 +27,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786413600000, // 2026.08.10.2
-    introducedIn: "umbrite-deposit-overlay",
-    title: "New Umbrite deposit overlay for the 3D map",
-    why: "Umbrite is a new strategic resource planned around ancient forest deposits, and needed its own 3D tile visual so it reads distinctly from titanium, glass steel and ordinary rock when it reaches the map.",
-    changes: [
-      "3D map: added an Umbrite deposit overlay — an unnaturally dark near-black mineral vein breaking through an ancient forest floor, intertwined with thick fossilized roots, with subtle violet-blue sheen and sparse glowing orange fissures.",
-      "The visual is deterministic per tile and ships with three layout variants, so adjacent deposits stay varied but stable while panning and on refresh."
-    ]
-  },
-  {
-    createdAt: 1786410000000, // 2026-08-10
-    introducedIn: "aegis-dome-components",
-    title: "Aegis Dome monuments now render a full defensive assembly in 3D mode",
-    why: "Aegis Dome tiles drew only a bare base, core block, and translucent dome — the monument's defensive story (lattice shielding, grounding anchors, ceremonial crown) was missing from the map.",
-    changes: [
-      "3D map: Aegis Dome now rings its dome with three curved shield-lattice fragments (dark-iron frames, brass hex cells, one pale-cyan active cell each).",
-      "Four heavy Ward Anchors (tapered iron spikes, reinforcement bands, brass cages with glowing energy orbs) pin the field at the structure's corners.",
-      "A ceremonial Aegis Crown — iron base, grey ring, eight brass spikes, and a pale-cyan emissive dome cap — now crowns the apex."
-    ]
-  },
-  {
-    createdAt: 1786417200000, // 2026.08.10.4
-    introducedIn: "2026.08.10.4",
-    title: "New 3D Umbrite Weapons Factory",
-    why: "The Umbrite Weapons Factory — a heavy military-industrial complex that forges Umbrite-tempered ordnance — now has a full 3D model, ready to be placed on the map as part of the Umbrite gameplay.",
-    changes: [
-      "Added a low-poly 3D Umbrite Weapons Factory: a dark-iron riveted hall with an overhanging roof and angled buttresses, twin brass-banded smokestacks, and a tall central Umbrite reactor whose ember inspection window shows the violet-black core inside.",
-      "Chunky industrial pipes with coupling joints run from the reactor to a mechanical forging press and a production platform carrying standing artillery shells, plus missile-like ordnance waiting at the hall front.",
-      "A brass-banded storage tank, vertical magazines and ammunition crates flank the production line, with raw Umbrite lumps and ember bits at the reactor's foot reusing the deposit palette."
-    ]
-  },
-  {
     createdAt: 1786449600000, // 2026-08-11
     introducedIn: "next",
     title: "2D map now has SVG overlays for every structure and natural wonder that renders in 3D",
@@ -97,15 +38,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786443946000,
-    introducedIn: "fix/weapons-factory-build-menu-undefined",
-    title: "Fixed \"undefined\" text in the Weapons Factory build menu entries",
-    why: "The Titanium Weapons Factory and Umbrite Weapons Factory build options were missing their detail-text case, so the build menu literally showed the word \"undefined\" instead of a description.",
-    changes: [
-      "Build menu: Titanium Weapons Factory and Umbrite Weapons Factory now show a real description instead of \"undefined\"."
-    ]
-  },
-  {
     createdAt: 1786463900000, // 2026.08.11.6 — frozen from a live Date.now() call
     introducedIn: "population-bureau-part-models",
     title: "Population Bureau components now render as distinct 3D models with their own map icons",
@@ -114,15 +46,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "3D map: each of the Population Bureau's 3 components now renders its own dedicated model — the Census Engine (a compact horizontal brass drum in a dark iron frame with fanned parchment record cards, one separated card carrying a muted green processing glow), the Registry Vault (a squat dark-iron strongbox with reinforced brass corners, heavy hinges, a thick brass lid tilted ajar, and a restrained warm amber glow in the gap), and the Levy Charter (an upright rolled imperial decree with thick brass caps and a small unrolled section bearing a subtle gold sigil).",
       "2D map: each component now has its own flat overlay icon matching the monument set's muted iron/brass/parchment look with a single restrained emissive accent.",
       "The 2D fallback overlay for component tiles is no longer drawn in 3D mode, matching other structures."
-    ]
-  },
-  {
-    createdAt: 1786445193413, // 2026-08-11 — frozen from a live Date.now() call
-    introducedIn: "revert-barley-2d-farm-overlay",
-    title: "2D farm tiles show the classic wheat plates again",
-    why: "The recent 2D farm overlay redraw (dense barley crops) didn't land well, so farm tiles on the 2D map are back to the previous wheat-plate look.",
-    changes: [
-      "2D map: farm resource tiles use the previous wheat-plate overlay style instead of the dense barley crops."
     ]
   },
   {
