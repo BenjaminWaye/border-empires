@@ -43,6 +43,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1786965132570, // 2026.08.16.3
+    introducedIn: "2026.08.16.3",
+    title: "Battle dots: attacker and defender no longer disappear into each other during the clash",
+    why: "The clash-phase oscillation only ever varied a dot's position along the perpendicular spread across the tile, never along the attacker-defender line itself. That meant an attacker dot and a defender dot with the same per-dot spread value landed on the exact same point, every frame, for the whole clash — the two swarms were genuinely coincident, not just visually crowded. With depth testing disabled on both dot materials (needed so they always render on top of the terrain), whichever side's mesh happened to draw second fully hid the other, so the entire clash read as a single-color blob with no visible fight between two sides — confirmed with the new Storybook \"Full Attack Lifecycle\" story, where the attacker's dots were invisible for the whole clash and only reappeared once rout physically separated the two sides.",
+    changes: [
+      "Each side now holds a small, jostling offset along the attack line during the clash, so attacker and defender read as two distinct lines pressed together instead of one side fully hiding the other."
+    ]
+  },
+  {
     createdAt: 1786811200000, // 2026.08.15.5
     introducedIn: "2026.08.15.5",
     title: "Battle dots now actually approach and meet in the middle before fighting",
@@ -373,97 +382,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Mintworks, Ancillary Factory, and both Weapons Factories now redirect to an open support tile when targeted at the town tile itself — a Fort is the only structure that belongs directly on a town.",
       "Each additional Observatory costs progressively more CRYSTAL upkeep: 1st = 1 slot, 2nd = 2, 3rd = 3, and so on.",
       "Added a Jump to tile button to every active and queued item in the Development panel sidebar."
-    ]
-  },
-  {
-    createdAt: 1786445459000, // 2026.08.11.4
-    introducedIn: "2026.08.11.4",
-    title: "Fixed Titanium/Umbrite Weapons Factory build buttons doing nothing",
-    why: "Clicking Build Titanium Weapons Factory or Build Umbrite Weapons Factory silently did nothing — no build started, no error shown. The action-id-to-structure-type mapping never got the two new Weapons Factories added when they replaced Weapons Workshop, so the click handler had nothing to act on.",
-    changes: [
-      "Build Titanium Weapons Factory and Build Umbrite Weapons Factory now actually queue their build."
-    ]
-  },
-  {
-    createdAt: 1786445548761, // 2026.08.11.5
-    introducedIn: "2026.08.11.5",
-    title: "Farmstead/Waterworks text no longer promises a nonexistent \"food cap\"",
-    why: "Build-menu, tech, and tile-overview text still described Farmstead as granting \"+18 food cap\" and Waterworks as \"raising food cap\" — leftover wording from before the food-as-slots rewrite retired the food-cap mechanic entirely. The real, current effect (Farmstead +1 FOOD slot, Waterworks-boosted Farmstead +2 FOOD slots) was already correct in a couple of other spots, so the stale copies were just quietly promising a bonus that no longer exists.",
-    changes: [
-      "Farmstead build option, tech unlock text, and tile-overview modifier now say \"+1 FOOD slot\" instead of \"+18 food cap\".",
-      "Waterworks build option, tech unlock text, and tile-overview modifier now say \"each boosted Farmstead gains +2 FOOD slots\" instead of \"raises food cap\".",
-      "All of these now read the actual slot-bonus values from the shared @border-empires/shared constants instead of separately hardcoded numbers, so they can't drift out of sync with the real mechanic again."
-    ]
-  },
-  {
-    createdAt: 1786444300000, // 2026.08.11.3
-    introducedIn: "2026.08.11.3",
-    title: "Queue and timing fixes",
-    why: "Queued settle commands were vanishing on a browser refresh, and Hills/Forest settle time didn't match the claim-time 1.5x penalty.",
-    changes: [
-      "Fixed queued SETTLE commands disappearing entirely after a page refresh (the restore step was wiping them before the map's first tile snapshot arrived).",
-      "Settling Hills/Forest tiles now takes 1.5x as long, matching the claim-time penalty (was a flat 2x that never got updated).",
-      "Frontier expand/claim no longer runs a gold-affordability check for a 0-gold action."
-    ]
-  },
-  {
-    createdAt: 1786441940000, // 2026.08.11.2
-    introducedIn: "2026.08.11.2",
-    title: "Tier 2-5 domain rework",
-    why: "Several domains gave a bonus that wasn't actually wired into gameplay (Stone Curtain's fort-area defense, Merchant Houses' mintworks/granary bonuses, Hidden Hand's ability cooldown) while others duplicated an earlier tier's identity almost exactly. Every domain from tier 2 up now grants a real, distinct effect.",
-    changes: [
-      "Frontier Doctrine now unlocks off Supply Directorate (tier-1 manpower) instead of the unrelated tier-2 Kiln Craft.",
-      "Stone Curtain is now Garrison Doctrine: forts you control fight with +50% defense (was a defense bonus that never applied in combat).",
-      "Titanium Vanguard is now Steam Vanguard: attacks resolve 5s faster and you can hold one more muster flag.",
-      "Merchant Houses now pays more the bigger your connected dock network gets, plus a first-three-towns gold bonus, instead of two bonuses that never applied and a flat dock-cap boost.",
-      "Reworked Provincial Governors, War Foundries, Supply State, and Provincial Nurseries (tier 3) to stop overlapping each other and grant bonuses that actually apply in combat/economy.",
-      "Reworked Imperial Roads, Signal Bastions (formerly Fortress Realm), Siege State, Treasury State, and Hidden Hand (tier 4) — Treasury State now waives food for your first three towns, Hidden Hand halves observatory ability cooldowns.",
-      "Reworked all five tier-5 capstone domains (Imperial Expansion, Titanium Dominion, Enduring Realm, Golden Hegemony, Oracle State) to be clearly stronger, distinct versions of earlier-tier identities."
-    ]
-  },
-  {
-    createdAt: 1786423606364, // 2026.08.11.1
-    introducedIn: "2026.08.11.1",
-    title: "Granary build/modifier text no longer promises a stale ongoing growth bonus",
-    why: "A plain Granary (Incubation Engine) only grants an instant one-time population burst on completion — the old ongoing +15% growth bonus was removed server-side, but the build-menu hint and the town-tile overview modifier line still advertised it, so the client was quietly promising a bonus the town was no longer getting.",
-    changes: [
-      "The Granary build option now describes its real effect: an instant +10,000 population burst on completion.",
-      "The town-tile overview no longer shows a \"+15% population growth\" line for a plain Granary — only an active Seed Granary (or a Granary inside its buffed radius) still shows an ongoing growth bonus."
-    ]
-  },
-  {
-    createdAt: 1786413600000, // 2026.08.10.3
-    introducedIn: "2026.08.10.3",
-    title: "New 3D Umbrite Extraction Rig",
-    why: "The Umbrite Extraction Rig — a heavy industrial machine that drills into exposed Umbrite veins and contains their volatile stored energy — now has a full 3D model, ready to be placed on the map as part of the Umbrite gameplay.",
-    changes: [
-      "Added a low-poly 3D Umbrite Extraction Rig: squat iron base, reinforced drilling column with brass bands, a rotating drill descending into the ground, angled brass support struts, and anchor feet.",
-      "The drill visibly penetrates an exposed violet-black Umbrite vein, with a containment collar leaking a small, restrained amount of orange containment energy.",
-      "A brass-banded pressure vessel with an ember inspection window receives the extracted Umbrite through chunky industrial pipes with coupling joints and valves."
-    ]
-  },
-  {
-    createdAt: 1786417200000, // 2026.08.10.4
-    introducedIn: "2026.08.10.4",
-    title: "Weapons Workshop split into Titanium and Umbrite Weapons Factories",
-    why: "Weapons Workshop forged both Titanium and Umbrite into the same flat empire-wide attack/defense boost, giving the two resources no distinct identity in the War branch. It's retired and replaced with two resource-specific factories that reward a real strategic choice: mass-produce anywhere, or cluster into one connected industrial network for a bigger payoff — and skipping both leaves your empire exposed.",
-    changes: [
-      "Titanium Weapons Factory (unlocked by Titanium-Clad Masonry): an uncapped Titanium sink granting +1.5% attack / +3% defense per copy — armor doctrine.",
-      "Umbrite Weapons Factory (unlocked by Rigging Works): an uncapped Umbrite sink granting +3% attack / +1.5% defense per copy — raiding doctrine.",
-      "Both buildings' bonus is scoped to the connected-town network relevant to each fight, not a flat empire-wide sum — clustering many together in one connected region pays off more than scattering them.",
-      "Each additional copy of either factory costs more manpower than the last.",
-      "Owning zero Titanium Weapons Factories or zero Umbrite Weapons Factories anywhere in your empire leaves you markedly easier to attack.",
-      "Weapons Workshop can no longer be newly built; any copies you already own keep working as before."
-    ]
-  },
-  {
-    createdAt: 1786413600000, // 2026.08.10.3
-    introducedIn: "2026.08.10.3",
-    title: "Queue expansions ahead of your frontier",
-    why: "You could only queue an expansion onto a tile that already touched your territory, so planning a route deep into neutral land meant clicking one tile at a time and waiting for each to finish before the next could even be queued.",
-    changes: [
-      "You can now queue an expansion onto a neutral tile that only borders another tile you've already queued or are currently claiming — the new claim waits for the earlier one to finish, then launches from it automatically.",
-      "Chains can go several tiles deep, so a whole planned route can be queued up in one pass instead of one click at a time."
     ]
   },
   {
