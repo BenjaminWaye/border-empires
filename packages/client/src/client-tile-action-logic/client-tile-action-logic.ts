@@ -1841,7 +1841,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
       out.push({
         id: "build_caravanary",
-        label: "Build Caravanary",
+        label: "Build Trade Nexus",
         detail: deps.buildDetailTextForAction("build_caravanary", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
@@ -1850,7 +1850,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasCaravanary
-                ? "Nearby town already has Caravanary"
+                ? "Nearby town already has Trade Nexus"
                 : !state.techIds.includes("ledger-keeping")
                   ? "Requires Double-Entry Ledgers"
                   : missingResourceSlotReason(state, "CARAVANARY") ?? "Unavailable",
