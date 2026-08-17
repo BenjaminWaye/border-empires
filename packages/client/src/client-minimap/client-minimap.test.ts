@@ -3,6 +3,7 @@ import type { Tile } from "../client-types.js";
 import type { MiniMapContentCache } from "./client-minimap.js";
 
 let miniMapTownMarkerPalette: typeof import("./client-minimap.js").miniMapTownMarkerPalette;
+let miniMapEdgeArrowPoint: typeof import("./client-minimap.js").miniMapEdgeArrowPoint;
 let drawMiniMap: typeof import("./client-minimap.js").drawMiniMap;
 let hexWithAlpha: typeof import("../client-map-render/client-map-render.js").hexWithAlpha;
 
@@ -12,7 +13,7 @@ beforeAll(async () => {
     src = "";
   }
   Object.assign(globalThis, { Image: MockImage });
-  ({ miniMapTownMarkerPalette, drawMiniMap } = await import("./client-minimap.js"));
+  ({ miniMapTownMarkerPalette, miniMapEdgeArrowPoint, drawMiniMap } = await import("./client-minimap.js"));
   ({ hexWithAlpha } = await import("../client-map-render/client-map-render.js"));
 });
 
@@ -42,11 +43,19 @@ const townTile = (isFed: boolean): Tile => ({
   }
 });
 
-const makeFakeCtx = (): CanvasRenderingContext2D & { fillRectCalls: Array<{ x: number; y: number; w: number; h: number; style: string }> } => {
+const makeFakeCtx = (): CanvasRenderingContext2D & {
+  fillRectCalls: Array<{ x: number; y: number; w: number; h: number; style: string }>;
+  arcCalls: Array<{ x: number; y: number }>;
+  translateCalls: Array<{ x: number; y: number }>;
+} => {
   const calls: Array<{ x: number; y: number; w: number; h: number; style: string }> = [];
+  const arcCalls: Array<{ x: number; y: number }> = [];
+  const translateCalls: Array<{ x: number; y: number }> = [];
   let fillStyle = "#000000";
   const ctx = {
     fillRectCalls: calls,
+    arcCalls,
+    translateCalls,
     get fillStyle(): string {
       return fillStyle;
     },
@@ -60,12 +69,21 @@ const makeFakeCtx = (): CanvasRenderingContext2D & { fillRectCalls: Array<{ x: n
     drawImage: () => {},
     strokeRect: () => {},
     beginPath: () => {},
-    arc: () => {},
+    arc: (x: number, y: number) => {
+      arcCalls.push({ x, y });
+    },
     fill: () => {},
     stroke: () => {},
     fillText: () => {},
     save: () => {},
     restore: () => {},
+    translate: (x: number, y: number) => {
+      translateCalls.push({ x, y });
+    },
+    rotate: () => {},
+    moveTo: () => {},
+    lineTo: () => {},
+    closePath: () => {},
     strokeStyle: "",
     lineWidth: 1,
     textAlign: "center",
@@ -73,7 +91,7 @@ const makeFakeCtx = (): CanvasRenderingContext2D & { fillRectCalls: Array<{ x: n
     font: "",
     imageSmoothingEnabled: false
   };
-  return ctx as unknown as CanvasRenderingContext2D & { fillRectCalls: typeof calls };
+  return ctx as unknown as CanvasRenderingContext2D & { fillRectCalls: typeof calls; arcCalls: typeof arcCalls; translateCalls: typeof translateCalls };
 };
 
 describe("drawMiniMap fog rendering", () => {
@@ -321,5 +339,103 @@ describe("miniMapTownMarkerPalette", () => {
     const unfed = miniMapTownMarkerPalette(townTile(false), false);
     expect(unfed.outer).toBe(fed.outer);
     expect(unfed.outer).toBe("rgba(6, 10, 18, 0.86)");
+  });
+});
+
+describe("miniMapEdgeArrowPoint", () => {
+  it("clamps a point outside the canvas onto its border, inset by the margin", () => {
+    // Straight east of a 100x100 canvas's center (50,50): clamped to the right edge.
+    const arrow = miniMapEdgeArrowPoint(500, 50, 100, 100, 8);
+    expect(arrow.x).toBeCloseTo(92, 5);
+    expect(arrow.y).toBeCloseTo(50, 5);
+    expect(arrow.angle).toBeCloseTo(0, 5);
+  });
+
+  it("picks the tighter of the two axis constraints for an off-diagonal target", () => {
+    // Far more east than south of center: clamped by the right edge, not the bottom edge.
+    const arrow = miniMapEdgeArrowPoint(1000, 60, 100, 100, 0);
+    expect(arrow.x).toBeCloseTo(100, 5);
+    expect(arrow.y).toBeLessThan(60);
+  });
+
+  it("returns the canvas center for a target exactly at the center", () => {
+    expect(miniMapEdgeArrowPoint(50, 50, 100, 100)).toEqual({ x: 50, y: 50, angle: 0 });
+  });
+});
+
+describe("drawMiniMap shard rain ping rendering", () => {
+  const drawWithPing = (args: {
+    ping: { x: number; y: number; createdAt: number; activateAt: number };
+    fogDisabled: boolean;
+    tiles?: Map<string, Tile>;
+  }): ReturnType<typeof makeFakeCtx> => {
+    const w = 100;
+    const h = 100;
+    const contentCtx = makeFakeCtx();
+    const canvas = { width: 200, height: 200 } as HTMLCanvasElement;
+    const miniMapEl = { width: w, height: h } as HTMLCanvasElement;
+    const miniMapContentEl = { width: w, height: h } as HTMLCanvasElement;
+    const miniMapBase = { width: w, height: h } as HTMLCanvasElement;
+
+    drawMiniMap({
+      nowMs: 0,
+      state: {
+        camX: 5,
+        camY: 5,
+        zoom: 1,
+        replayActive: false,
+        replayIndex: 0,
+        replayOwnershipByTile: new Map(),
+        fogDisabled: args.fogDisabled,
+        tiles: args.tiles ?? new Map(),
+        dockPairs: [],
+        shardRainPingsByTile: new Map([[`${args.ping.x},${args.ping.y}`, args.ping]])
+      },
+      canvas,
+      miniMapEl,
+      miniMapCtx: makeFakeCtx(),
+      miniMapContentEl,
+      miniMapContentCtx: contentCtx,
+      miniMapBase,
+      miniMapBaseReady: true,
+      miniMapLast: { camX: -1, camY: -1, zoom: -1, replayIndex: -1, tileCount: -1 },
+      contentCache: { computedAt: 0 },
+      parseKey: (key) => {
+        const parts = key.split(",").map(Number);
+        return { x: parts[0] ?? 0, y: parts[1] ?? 0 };
+      },
+      keyFor: (x, y) => `${x},${y}`,
+      tileVisibilityStateAt: () => "visible",
+      effectiveOverlayColor: () => "#ffffff",
+      isDockRouteVisibleForPlayer: () => false,
+      hasCollectableYield: () => false,
+      replayCurrentEvent: () => undefined
+    });
+    return contentCtx;
+  };
+
+  it("draws a pulsing ring for an active ping inside the (fog-disabled, full-world) view box", () => {
+    // Fog disabled -> the view box is the full 450x450 world, so any world tile is in-box.
+    const contentCtx = drawWithPing({ ping: { x: 225, y: 225, createdAt: 0, activateAt: 0 }, fogDisabled: true });
+    expect(contentCtx.arcCalls.length).toBeGreaterThan(0);
+    expect(contentCtx.translateCalls).toHaveLength(0);
+  });
+
+  it("draws nothing for a ping that has not activated yet", () => {
+    const contentCtx = drawWithPing({ ping: { x: 225, y: 225, createdAt: 0, activateAt: 60_000 }, fogDisabled: true });
+    expect(contentCtx.arcCalls).toHaveLength(0);
+    expect(contentCtx.translateCalls).toHaveLength(0);
+  });
+
+  it("draws an edge arrow instead of a ring for an active ping far outside the explored-territory view box", () => {
+    // A single explored tile near the origin shrinks the view box to roughly (0,0)-(50,50);
+    // a ping at (400,400) falls well outside it.
+    const tiles = new Map<string, Tile>([["5,5", { x: 5, y: 5, terrain: "LAND" }]]);
+    const contentCtx = drawWithPing({ ping: { x: 400, y: 400, createdAt: 0, activateAt: 0 }, fogDisabled: false, tiles });
+    expect(contentCtx.arcCalls).toHaveLength(0);
+    expect(contentCtx.translateCalls).toHaveLength(1);
+    // Clamped near the bottom-right corner of the 100x100 canvas, not off in space at the raw ping position.
+    expect(contentCtx.translateCalls[0]!.x).toBeLessThanOrEqual(100);
+    expect(contentCtx.translateCalls[0]!.y).toBeLessThanOrEqual(100);
   });
 });
