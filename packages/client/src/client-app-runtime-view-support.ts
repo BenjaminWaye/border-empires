@@ -6,7 +6,6 @@ import {
   pushFeedEntry as pushFeedEntryFromModule,
   shardAlertKeyForPayload as shardAlertKeyForPayloadFromModule,
   showCaptureAlert as showCaptureAlertFromModule,
-  showCollectVisibleCooldownAlert as showCollectVisibleCooldownAlertFromModule,
   showShardAlert as showShardAlertFromModule
 } from "./client-alerts/client-alerts.js";
 import { createMultiplexWebSocket } from "./client-multiplex-websocket/client-multiplex-websocket.js";
@@ -33,9 +32,8 @@ export const createClientViewSupport = (deps: {
   dom: ClientAppDom;
   ws: ReturnType<typeof createMultiplexWebSocket>;
   fullMapChunkRadius: number;
-  formatCooldownShort: (remainingMs: number) => string;
 }) => {
-  const { state, dom, ws, fullMapChunkRadius, formatCooldownShort } = deps;
+  const { state, dom, ws, fullMapChunkRadius } = deps;
 
   const pushFeed = (msg: string, type: FeedType = "info", severity: FeedSeverity = "info"): void =>
     pushFeedFromModule(state, msg, type, severity);
@@ -49,7 +47,6 @@ export const createClientViewSupport = (deps: {
     showCaptureAlertFromModule(state, title, detail, tone, manpowerLoss);
   const notifyInsufficientGoldForFrontierAction = (action: "claim" | "attack"): void =>
     notifyInsufficientGoldForFrontierActionFromModule(state, action);
-  const showCollectVisibleCooldownAlert = (): void => showCollectVisibleCooldownAlertFromModule(state, formatCooldownShort);
   const centerOnOwnedTile = (): void => centerOnOwnedTileFromModule(state);
   const requestViewRefresh = (radius = 2, force = false): void =>
     requestViewRefreshFromModule(state, { ws, fullMapChunkRadius, radius, force });
@@ -97,7 +94,6 @@ export const createClientViewSupport = (deps: {
     hideShardAlert,
     showCaptureAlert,
     notifyInsufficientGoldForFrontierAction,
-    showCollectVisibleCooldownAlert,
     centerOnOwnedTile,
     requestViewRefresh,
     maybeRefreshForCamera,

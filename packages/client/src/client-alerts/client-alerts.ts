@@ -160,20 +160,6 @@ export const notifyInsufficientGoldForFrontierAction = (
   showCaptureAlert(state, "Insufficient gold", detail, "error");
 };
 
-export const showCollectVisibleCooldownAlert = (
-  state: Pick<ClientState, "captureAlert" | "collectVisibleCooldownUntil">,
-  formatCooldownShort: (ms: number) => string
-): void => {
-  const remaining = state.collectVisibleCooldownUntil - Date.now();
-  if (remaining <= 0) return;
-  state.captureAlert = {
-    title: "Collect Visible Cooldown",
-    detail: `Retry in ${formatCooldownShort(remaining)}.`,
-    until: state.collectVisibleCooldownUntil,
-    tone: "warn"
-  };
-};
-
 const playerNameOrFallback = (
   ownerId: string | undefined,
   deps: { playerNameForOwner: (ownerId?: string | null) => string | undefined }
