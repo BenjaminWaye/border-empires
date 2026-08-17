@@ -11,14 +11,18 @@ export type ExpandRevealRuntimeInput = {
 };
 
 /**
- * Fires on every resolved EXPAND (see runtime-lock-resolution.ts): grants the
- * claiming player a one-time EXPAND_REVEAL_TTL_MS vision pulse over
- * EXPAND_REVEAL_RADIUS tiles around the newly-claimed tile, then reverts to
- * normal fog-of-war (the tiles drop to "fogged" — last-known terrain
- * remembered, not blacked back out — same as any other vision loss). Unlike
- * the Watchtower's activation pulse this isn't gated on any tile feature or
- * one-time-per-tile flag — every EXPAND gets one, mirroring the same
- * addTemporaryReveal/removeTemporaryReveal primitive.
+ * Fires on every successful EXPAND or ATTACK capture (see
+ * runtime-lock-resolution.ts): grants the capturing player a one-time
+ * EXPAND_REVEAL_TTL_MS vision pulse over EXPAND_REVEAL_RADIUS tiles around
+ * the newly-owned tile, then reverts to normal fog-of-war (the tiles drop to
+ * "fogged" — last-known terrain remembered, not blacked back out — same as
+ * any other vision loss). Unlike the Watchtower's activation pulse this
+ * isn't gated on any tile feature or one-time-per-tile flag — every capture
+ * gets one, mirroring the same addTemporaryReveal/removeTemporaryReveal
+ * primitive. Needed for ATTACK too, not just EXPAND: a captured tile always
+ * lands as FRONTIER for the new owner (radius-0 standing vision), so without
+ * this an attack chain could never see past its own edge to line up the
+ * next target.
  */
 export const activateExpandRevealAt = (input: ExpandRevealRuntimeInput, x: number, y: number, playerId: string): void => {
   const expiresAt = input.now() + EXPAND_REVEAL_TTL_MS;
