@@ -80,7 +80,10 @@ describe("camera location save", () => {
       lastSubCy: 0,
       actionInFlight: false,
       capture: undefined,
-      actionQueue: EMPTY_ACTION_QUEUE
+      actionQueue: EMPTY_ACTION_QUEUE,
+      me: "p1",
+      discoveredTiles: new Set<string>(),
+      discoveredDockTiles: new Set<string>()
     };
     const ws = fakeSocket(1);
     const requestViewRefresh = vi.fn();
@@ -106,7 +109,10 @@ describe("camera location save", () => {
       lastSubCy: 0,
       actionInFlight: false,
       capture: undefined,
-      actionQueue: EMPTY_ACTION_QUEUE
+      actionQueue: EMPTY_ACTION_QUEUE,
+      me: "p1",
+      discoveredTiles: new Set<string>(),
+      discoveredDockTiles: new Set<string>()
     };
     const ws = fakeSocket(1);
 
@@ -133,7 +139,10 @@ describe("camera location save", () => {
       lastSubCy: Number.NaN,
       actionInFlight: false,
       capture: undefined,
-      actionQueue: EMPTY_ACTION_QUEUE
+      actionQueue: EMPTY_ACTION_QUEUE,
+      me: "p1",
+      discoveredTiles: new Set<string>(),
+      discoveredDockTiles: new Set<string>()
     };
     const ws = fakeSocket(3); // CLOSED
 
