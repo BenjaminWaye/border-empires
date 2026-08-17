@@ -25,46 +25,5 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "The 2D dock icon (used where the 3D renderer is off) matches the new look: same crane, pier, cargo and barge, with strong dark outlines so it still reads at a glance.",
       "Docks are unchanged mechanically — this is purely the on-map look."
     ]
-  },
-  {
-    createdAt: 1786449600000, // 2026-08-11
-    introducedIn: "next",
-    title: "2D map now has SVG overlays for every structure and natural wonder that renders in 3D",
-    why: "The 3D map gained several structures and all nine natural wonders that the classic 2D map couldn't draw — those tiles showed only a placeholder box, or nothing at all, so the two maps disagreed about the same world.",
-    changes: [
-      "New 2D SVG overlays for Seed Granary, Census Hall, Weapons Workshop, Titanium Weapons Factory, Umbrite Weapons Factory, and every World Engine and Imperial Exchange monument part.",
-      "Natural wonders (Foundry Heart, Deepwater Engine, Conscription Engine, Warpress, Bastion Frame, Calculating Engine, Quickforge, Watchtower Engine, Cartographer's Lens) now render on the 2D map instead of being invisible.",
-      "Each overlay matches its 3D counterpart's silhouette so the classic map and the 3D map show the same buildings."
-    ]
-  },
-  {
-    createdAt: 1786463900000, // 2026.08.11.6 — frozen from a live Date.now() call
-    introducedIn: "population-bureau-part-models",
-    title: "Population Bureau components now render as distinct 3D models with their own map icons",
-    why: "The Population Bureau's 3 unique components — the Census Engine, Registry Vault, and Levy Charter — previously had no dedicated art, so on the map they fell back to a generic placeholder instead of reading as a monument under construction.",
-    changes: [
-      "3D map: each of the Population Bureau's 3 components now renders its own dedicated model — the Census Engine (a compact horizontal brass drum in a dark iron frame with fanned parchment record cards, one separated card carrying a muted green processing glow), the Registry Vault (a squat dark-iron strongbox with reinforced brass corners, heavy hinges, a thick brass lid tilted ajar, and a restrained warm amber glow in the gap), and the Levy Charter (an upright rolled imperial decree with thick brass caps and a small unrolled section bearing a subtle gold sigil).",
-      "2D map: each component now has its own flat overlay icon matching the monument set's muted iron/brass/parchment look with a single restrained emissive accent.",
-      "The 2D fallback overlay for component tiles is no longer drawn in 3D mode, matching other structures."
-    ]
-  },
-  {
-    createdAt: 1786453200000, // 2026-08-11
-    introducedIn: "fix/dock-attack-require-foothold",
-    title: "Attacking across a dock now requires capturing the dock first",
-    why: "AI empires could attack land tiles merely adjacent to an enemy-linked dock without ever capturing that dock, letting them raid an island human players can only reach by first taking the dock as a foothold.",
-    changes: [
-      "A dock-crossing ATTACK must now land on the linked dock tile itself, for both players and AI — matching how dock-crossing EXPAND already worked.",
-      "Fixes AI empires bypassing the foothold requirement that human players were always held to."
-    ]
-  },
-  {
-    createdAt: 1786454100000, // 2026-08-11
-    introducedIn: "fix/dock-attack-require-foothold",
-    title: "Mustering flags now fire across a linked dock",
-    why: "A muster flag's auto-fire (ADVANCE mode) search only walked ordinary grid neighbors, so a flag placed on a dock could never \"see\" the enemy dock linked across the water — the flag just sat there, staged and never firing, even though a manual attack from the same tile worked fine.",
-    changes: [
-      "Muster flags in ADVANCE mode can now find and fire on an enemy tile across a dock link, the same way manual ATTACK commands already could."
-    ]
   }
 ];
