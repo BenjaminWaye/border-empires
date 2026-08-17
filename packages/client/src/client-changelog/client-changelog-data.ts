@@ -23,6 +23,18 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787003302865, // 2026.08.17.1
+    introducedIn: "2026.08.17.1",
+    title: "Battle animation reworked: troops line up, march, clash with casualties, then rout",
+    why: "The battle overlay's approach phase was a single 550ms beat — dots barely had time to read as \"forming up\" before they were already marching. And the clash itself, while it now threw glyph bursts into the air, never lost a single dot: the swarm stayed exactly DOTS_PER_SIDE strong right up until rout, so a fight that had clearly been decided (attackerWon is known from the very first frame) never showed any sign of a cost.",
+    changes: [
+      "Both sides now form up at their own tile-local edge for ~2.5s before marching — previously they started marching almost immediately.",
+      "The march itself now takes ~0.9s (previously ~550ms combined with forming up), so the two sides visibly close the distance instead of snapping into position.",
+      "Once the outcome is known, some dots now fall during the clash — a fixed 2 of 10 for the winning side, 4 of 10 for the losing side, so the losing side visibly thins before rout confirms it, and both sides always keep enough survivors for rout to have something to actually push through or scatter.",
+      "The clash window is now ~1.3s (previously 800ms), giving the glyph bursts and new casualties room to read clearly instead of feeling rushed."
+    ]
+  },
+  {
     createdAt: 1786910628146, // 2026.08.16.1
     introducedIn: "2026.08.16.1",
     title: "Swapped the waypoint and mustering flag overlays",
@@ -322,66 +334,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Removed the gold cost checks for Create Mountain, Remove Mountain, and Launch Satellite — they're free to cast now.",
       "The ability info panel no longer shows a Cost row for any Observatory ability."
-    ]
-  },
-  {
-    createdAt: 1786482366157, // 2026.08.11.9
-    introducedIn: "2026.08.11.9",
-    title: "Fixed: Build Titanium/Umbrite Weapons Factory rejected by the server with BAD_MSG",
-    why: "Once the client-side dispatch bug for the two Weapons Factories was fixed (previous release), the build click actually reached the server for the first time — and the server rejected it, because the BUILD_ECONOMIC_STRUCTURE message's structureType enum was never updated to include the two Weapons Factories when they replaced Weapons Workshop. So the build still failed, just with a real BAD_MSG error instead of silence.",
-    changes: [
-      "Build Titanium Weapons Factory and Build Umbrite Weapons Factory no longer get rejected by the server; the build now actually queues."
-    ]
-  },
-  {
-    createdAt: 1786482157000, // 2026.08.11.7
-    introducedIn: "2026.08.11.7",
-    title: "Battle dots now animate for the whole siege, not just the last 2.3 seconds",
-    why: "The battle-dot combat animation only ever played during the ~2.3s resolution flourish at the very end of an attack, driven by a one-time server broadcast at lock resolution. For most of a siege's countdown, only the red under-attack cross was visible with no dots, which read as the animation being broken.",
-    changes: [
-      "3D renderer: an indeterminate clash-loop of dots now plays at the tile midpoint for the entire attack countdown, distinct from the resolved clash/rout flourish that still plays at the very end.",
-      "Red under-attack cross indicator is unchanged and still shows for the full countdown alongside the dots."
-    ]
-  },
-  {
-    createdAt: 1786473809401, // 2026.08.11.6
-    introducedIn: "2026.08.11.6",
-    title: "Fixed three more silently-broken build buttons; added a catch for the whole class of bug",
-    why: "The same action-id-to-structure-type mapping gap that broke the two Weapons Factories (fixed last release) also silently broke Build Quartermaster's Office, Build Assembly Works, and Build Logistics Guild — clicking any of them did nothing, with no error. Added a runtime check so any future build button hitting this same gap logs an error and tells the player instead of doing nothing.",
-    changes: [
-      "Build Quartermaster's Office, Build Assembly Works, and Build Logistics Guild now actually queue their build.",
-      "Clicking a build action that still has no structure-type mapping now shows an error message and logs to the console, instead of silently doing nothing."
-    ]
-  },
-  {
-    createdAt: 1786481000000, // 2026.08.11.7
-    introducedIn: "2026.08.11.7",
-    title: "Fixed severe stutter while zooming/panning the 3D map",
-    why: "Zooming or panning had become nearly unplayable. The terrain's coastal-skirt geometry buffers are pre-allocated at worst-case size (~11MB per attribute) but only a small fraction is ever written on a given rebuild — every rebuild was re-uploading the entire allocation to the GPU regardless, and rebuilds fire on almost every frame during a zoom/pan gesture. A CPU profile of a live zoom showed over 60% of all main-thread time going into that single upload call.",
-    changes: [
-      "Terrain and coastal-skirt buffer uploads are now scoped to only the vertices/indices actually written each rebuild, instead of re-uploading the full worst-case-sized buffer every time."
-    ]
-  },
-  {
-    createdAt: 1786481071000, // 2026.08.11.8
-    introducedIn: "2026.08.11.8",
-    title: "Relay Beacon now has its own 3D tower and icon",
-    why: "Relay Beacon (renamed from Light Outpost) was still rendering as the old generic watchtower-with-a-flag placeholder in 3D. It now gets a dedicated model — a lattice observation tower with a rotating brass mirror array — plus a matching flat-color 2D icon.",
-    changes: [
-      "Added a dedicated 3D overlay for Relay Beacon: a lattice tower with rotating heliograph mirrors, geared periscopes, and amber signal lamps.",
-      "Added a matching 2D flat-color Relay Beacon icon for the overlay gallery.",
-      "Removed the old placeholder watchtower-with-a-flag rendering that Relay Beacon shared with Siege Outpost."
-    ]
-  },
-  {
-    createdAt: 1786463807000, // 2026.08.11.5
-    introducedIn: "2026.08.11.5",
-    title: "Town-tile builds, Observatory upkeep, and a Jump to tile button",
-    why: "A Mintworks, Ancillary Factory, or Weapons Factory clicked on a town tile used to build right there — now only a Fort belongs directly on a town, and those auto-place onto an open support tile instead. Each additional Observatory now costs progressively more CRYSTAL upkeep. The Development panel sidebar didn't have any way to jump the camera to a queued or in-progress item's tile.",
-    changes: [
-      "Mintworks, Ancillary Factory, and both Weapons Factories now redirect to an open support tile when targeted at the town tile itself — a Fort is the only structure that belongs directly on a town.",
-      "Each additional Observatory costs progressively more CRYSTAL upkeep: 1st = 1 slot, 2nd = 2, 3rd = 3, and so on.",
-      "Added a Jump to tile button to every active and queued item in the Development panel sidebar."
     ]
   },
   {
