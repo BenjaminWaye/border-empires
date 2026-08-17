@@ -8,13 +8,13 @@ import type { RuntimePlayer, SimulationTileWireDelta } from "./runtime-types.js"
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import {
   SHARD_RAIN_COMMAND_ID_PREFIX,
-  SHARD_RAIN_SITE_MAX,
-  SHARD_RAIN_SITE_MIN,
   SHARD_RAIN_SYSTEM_PLAYER_ID,
   SHARD_RAIN_TTL_MS,
   canHostShardFallSiteAt,
   computeShardRainNotice,
+  isEligibleShardRainPlayer,
   isScheduledShardRainMinute,
+  shardRainSiteCountRange,
   shouldBroadcastShardRainWarningAt
 } from "./runtime-shard-rain-rules.js";
 
@@ -50,9 +50,7 @@ export const tickShardRain = (input: ShardRainRuntimeInput, nowMs: number): void
 export const emitShardRainHelloFor = (input: ShardRainRuntimeInput, playerId: string, nowMs: number): void => {
   const player = input.players.get(playerId);
   if (!player) return;
-  if (player.id === SHARD_RAIN_SYSTEM_PLAYER_ID) return;
-  if (player.id.startsWith("barbarian-")) return;
-  if (player.isAi) return;
+  if (!isEligibleShardRainPlayer(player)) return;
   const notice = computeShardRainNotice({
     nowMs,
     currentSiteCount: input.getCurrentShardRainSiteCount(),
@@ -80,9 +78,7 @@ const broadcastShardRainNotice = (input: ShardRainRuntimeInput, payload: Record<
   const commandId = nextShardRainCommandId(input, "notice");
   const payloadJson = JSON.stringify(payload);
   for (const player of input.players.values()) {
-    if (player.id === SHARD_RAIN_SYSTEM_PLAYER_ID) continue;
-    if (player.id.startsWith("barbarian-")) continue;
-    if (player.isAi) continue;
+    if (!isEligibleShardRainPlayer(player)) continue;
     input.emitEvent({
       eventType: "PLAYER_MESSAGE",
       commandId,
@@ -110,7 +106,12 @@ const maybeSpawnScheduledShardRain = (input: ShardRainRuntimeInput, nowMs: numbe
 };
 
 const spawnShardRain = (input: ShardRainRuntimeInput, nowMs: number): void => {
-  const count = SHARD_RAIN_SITE_MIN + Math.floor(Math.random() * (SHARD_RAIN_SITE_MAX - SHARD_RAIN_SITE_MIN + 1));
+  let eligiblePlayerCount = 0;
+  for (const player of input.players.values()) {
+    if (isEligibleShardRainPlayer(player)) eligiblePlayerCount += 1;
+  }
+  const { min, max } = shardRainSiteCountRange(eligiblePlayerCount);
+  const count = min + Math.floor(Math.random() * (max - min + 1));
   const expiresAt = nowMs + SHARD_RAIN_TTL_MS;
   const startsAt = nowMs;
   const placed: { tileKey: string; tile: DomainTileState }[] = [];

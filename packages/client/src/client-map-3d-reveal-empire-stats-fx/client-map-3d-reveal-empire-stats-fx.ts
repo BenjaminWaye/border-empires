@@ -71,7 +71,7 @@ export const createRevealEmpireStatsFxLayer = (scene: Scene): RevealEmpireStatsF
   const entries: RevealStatsEntry[] = [];
 
   const makeMaterial = (color: string, opacity: number): MeshBasicMaterial =>
-    new MeshBasicMaterial({
+    new MeshBasicMaterial({ toneMapped: false,
       color,
       transparent: true,
       opacity,

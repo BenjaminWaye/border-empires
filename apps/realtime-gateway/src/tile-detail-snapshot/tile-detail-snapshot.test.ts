@@ -737,14 +737,27 @@ describe("buildSnapshotTileDetail", () => {
     };
 
     const detail = buildSnapshotTileDetail(snapshot, "player-1", 300, 300);
-    const town = detail?.townJson ? (JSON.parse(detail.townJson as string) as { townModifierTotals?: Array<{ statLabel: string; total: number; valueText: string; tone: string }> }) : undefined;
+    const town = detail?.townJson
+      ? (JSON.parse(detail.townJson as string) as {
+          townModifierTotals?: Array<{ heading: string; modifiers: Array<{ statLabel: string; valueText: string; tone: string }> }>;
+        })
+      : undefined;
 
     expect(town?.townModifierTotals).toBeDefined();
-    // 3 active Mintworks: flat +1 gold/day each (Gold: +3) plus the
-    // nonlinear stacked gold-production percentage (Gold production: +30%).
-    expect(town?.townModifierTotals).toContainEqual({ statLabel: "Gold", total: 3, valueText: "+3", tone: "positive" });
-    expect(town?.townModifierTotals).toContainEqual({ statLabel: "Gold production", total: 30, valueText: "+30%", tone: "positive" });
-    // 1 Garrison Hall: flat manpower cap bonus.
-    expect(town?.townModifierTotals).toContainEqual({ statLabel: "Manpower cap", total: 150, valueText: "+150", tone: "positive" });
+    // 3 active Mintworks, grouped under one heading: flat +1 gold/day each
+    // (Gold: +3) plus the nonlinear stacked gold-production percentage
+    // (Gold production: +30%).
+    expect(town?.townModifierTotals).toContainEqual({
+      heading: "3 Mintworks",
+      modifiers: [
+        { statLabel: "Gold", valueText: "+3", tone: "positive" },
+        { statLabel: "Gold production", valueText: "+30%", tone: "positive" }
+      ]
+    });
+    // 1 Garrison Hall, its own heading: flat manpower cap bonus.
+    expect(town?.townModifierTotals).toContainEqual({
+      heading: "1 Garrison Hall",
+      modifiers: [{ statLabel: "Manpower cap", valueText: "+150", tone: "positive" }]
+    });
   });
 });

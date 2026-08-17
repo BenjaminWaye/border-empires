@@ -301,11 +301,14 @@ export interface Tile {
     // in connected Granaries can claw the bonus back down rather than only
     // ever growing it.
     censusHallAppliedBonus?: number;
-    // Unified building modifier display (stage 2): every numeric stat this
-    // town's support-ring buildings contribute, combined across all active
-    // copies (e.g. 3 Garrison Halls → "Manpower cap: +450") and across every
-    // building type that feeds the same stat (e.g. Weapons Workshop +
-    // Titanium Weapons Factory both feed "Empire attack"). Covers both flat
+    // Unified building modifier display (stage 3): one group per building
+    // type this town's support ring has active copies of, each with a
+    // "<count> <Building>" heading (e.g. "3 Garrison Halls") and every
+    // numeric stat that building contributes, summed across its own active
+    // copies. Building types are never merged into a shared, unlabeled stat
+    // bucket (Weapons Workshop and Titanium Weapons Factory both feed
+    // "Empire attack", but get separate headings/totals) — every number
+    // in the panel traces back to a specific building. Covers both flat
     // per-copy numbers and percent-per-copy ones (rendered as a percentage —
     // see StructureModifier's `unit` field in game-domain). Buildings whose
     // effect scales off something other than their own count in this town
@@ -313,7 +316,10 @@ export interface Tile {
     // connected docks, Rail Depot/Assembly Works off other network
     // buildings, one-time bursts) are deliberately excluded — see
     // structureModifiersFor's rawValue contract in game-domain.
-    townModifierTotals?: Array<{ statLabel: string; total: number; valueText: string; tone: "positive" | "negative" | "neutral" }>;
+    townModifierTotals?: Array<{
+      heading: string;
+      modifiers: Array<{ statLabel: string; valueText: string; tone: "positive" | "negative" | "neutral" }>;
+    }>;
   };
   yield?: {
     gold?: number;

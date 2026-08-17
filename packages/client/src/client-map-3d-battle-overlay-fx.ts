@@ -192,10 +192,10 @@ export function createBattleOverlayFx(scene: Scene) {
   // with no `color` attribute (plain SphereGeometry here) makes the vertex
   // shader multiply in an unbound attribute that reads as black, zeroing out
   // every instance's color regardless of what setColorAt wrote.
-  const attackerMat = new MeshBasicMaterial({ color: "#ffffff", depthTest: false, depthWrite: false });
-  const defenderMat = new MeshBasicMaterial({ color: "#ffffff", depthTest: false, depthWrite: false });
-  const shardMatA = new MeshBasicMaterial({ color: "#ffcf6b", depthTest: false, depthWrite: false, transparent: true });
-  const shardMatB = new MeshBasicMaterial({ color: "#b388ff", depthTest: false, depthWrite: false, transparent: true });
+  const attackerMat = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", depthTest: false, depthWrite: false });
+  const defenderMat = new MeshBasicMaterial({ toneMapped: false, color: "#ffffff", depthTest: false, depthWrite: false });
+  const shardMatA = new MeshBasicMaterial({ toneMapped: false, color: "#ffcf6b", depthTest: false, depthWrite: false, transparent: true });
+  const shardMatB = new MeshBasicMaterial({ toneMapped: false, color: "#b388ff", depthTest: false, depthWrite: false, transparent: true });
 
   const attackerMesh = new InstancedMesh(dotGeom, attackerMat, MAX_CONCURRENT_BATTLES * DOTS_PER_SIDE);
   const defenderMesh = new InstancedMesh(dotGeom, defenderMat, MAX_CONCURRENT_BATTLES * DOTS_PER_SIDE);

@@ -364,21 +364,6 @@
       }
     },
     {
-      "id": "field-logistics",
-      "tier": 2,
-      "branch": "manpower",
-      "name": "Field Logistics",
-      "description": "Every war chest breathes easier with a quartermaster nearby.",
-      "requires": "organized-supply",
-      "cost": {
-        "gold": 10
-      },
-      "researchTimeSeconds": 28800,
-      "effects": {
-        "unlockQuartermastersOffice": true
-      }
-    },
-    {
       "id": "remade-concordat",
       "tier": 2,
       "branch": "manpower",

@@ -42,7 +42,7 @@ export const createMonumentPulseFxLayer = (scene: Scene, color: string, name: st
   const entries: PulseEntry[] = [];
 
   const makeMaterial = (opacity: number): MeshBasicMaterial =>
-    new MeshBasicMaterial({ color, transparent: true, opacity, blending: AdditiveBlending, depthWrite: false });
+    new MeshBasicMaterial({ toneMapped: false, color, transparent: true, opacity, blending: AdditiveBlending, depthWrite: false });
 
   const spawn = (sceneX: number, sceneZ: number, surfaceY: number): void => {
     const entryGroup = new Group();

@@ -246,7 +246,9 @@ describe("fog-of-war — vision-leave transitions carry the post-mutation tile s
     const tracker = new VisibilityCoverageTracker(450, 450, {
       visionRadiusForPlayer: () => 4,
       getPlayer: (id) => ({ id, allies: new Set() }),
-      territoryTileKeysForPlayer: (id) => territoryByPlayer.get(id) ?? new Set()
+      territoryTileKeysForPlayer: (id) => territoryByPlayer.get(id) ?? new Set(),
+      settledTileKeysForPlayer: (id) => territoryByPlayer.get(id) ?? new Set(),
+      frontierTileKeysForPlayer: () => new Set()
     });
     tracker.tileOwnershipChanged(undefined, "player-1", 10, 10);
     tracker.tileOwnershipChanged(undefined, "player-2", 10, 11);

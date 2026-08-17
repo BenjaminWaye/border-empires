@@ -8,17 +8,21 @@ import { readFileSync } from "node:fs";
 // initial name pick (state.meName still empty) and for a no-op resubmit of
 // the same name — only an actual rename should be gated.
 describe("client HUD display-name rename confirmation regression", () => {
-  it("confirms with the player before sending an actual display-name change", () => {
-    const hudSource = readFileSync(new URL("./client-hud.ts", import.meta.url), "utf8");
+  it("confirms with the player before sending an actual name/colour change", () => {
+    // Moved out of client-hud.ts's inline settings-panel bindings into the
+    // standalone "Edit Name & Colour" overlay (client-hud-profile-edit-overlay.ts)
+    // as part of the settings redesign; the throttle-warning behavior itself
+    // is unchanged, just now combined across both fields in one dialog.
+    const overlaySource = readFileSync(new URL("./client-hud-profile-edit-overlay.ts", import.meta.url), "utf8");
 
-    const clickHandlerStart = hudSource.indexOf("const settingsUpdateNameButtons");
-    const clickHandlerEnd = hudSource.indexOf("const mapRevealButtons");
-    const clickHandlerSource = hudSource.slice(clickHandlerStart, clickHandlerEnd);
+    const saveHandlerStart = overlaySource.indexOf("saveBtn.onclick = async ()");
+    const saveHandlerEnd = overlaySource.indexOf("close();", saveHandlerStart);
+    const saveHandlerSource = overlaySource.slice(saveHandlerStart, saveHandlerEnd);
 
-    expect(clickHandlerSource).toContain("const trimmedNewName = input.value.trim();");
-    expect(clickHandlerSource).toContain('if (state.meName && trimmedNewName !== state.meName && typeof window !== "undefined" && typeof window.confirm === "function") {');
-    expect(clickHandlerSource).toContain("window.confirm(");
-    expect(clickHandlerSource).toContain("once per season");
-    expect(clickHandlerSource).toContain("if (!confirmed) return;");
+    expect(saveHandlerSource).toContain("const nameChanged = newName !== state.meName;");
+    expect(saveHandlerSource).toContain('if (typeof window !== "undefined" && typeof window.confirm === "function") {');
+    expect(saveHandlerSource).toContain("window.confirm(");
+    expect(saveHandlerSource).toContain("once per season");
+    expect(saveHandlerSource).toContain("if (!confirmed) return;");
   });
 });
