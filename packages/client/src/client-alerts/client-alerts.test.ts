@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { combatResolutionAlert, hideShardAlert, notifyInsufficientGoldForFrontierAction, pushFeed, showShardAlert } from "./client-alerts.js";
+import { applySeasonVictorySnapshot, combatResolutionAlert, hideShardAlert, notifyInsufficientGoldForFrontierAction, pushFeed, showShardAlert } from "./client-alerts.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile } from "../client-types.js";
 
@@ -303,5 +303,57 @@ describe("shard rain status persistence", () => {
 
     expect(state.shardAlert).toBeUndefined();
     expect(state.shardRainStatus).toBeDefined();
+  });
+});
+
+describe("applySeasonVictorySnapshot", () => {
+  const baseState = () => ({
+    seasonVictory: [] as ClientState["seasonVictory"],
+    seasonWinner: undefined as ClientState["seasonWinner"],
+    seasonStats: undefined as ClientState["seasonStats"],
+    victoryHoldAlert: undefined as ClientState["victoryHoldAlert"],
+    victoryHoldAlertCollapsed: false,
+    acknowledgedVictoryHoldAlertKeys: new Set<string>()
+  });
+
+  it("carries the winner's persisted misc stats into state.seasonStats — e.g. on a reconnect INIT, which never sends a separate GLOBAL_STATUS_UPDATE", () => {
+    const state = baseState();
+
+    applySeasonVictorySnapshot(
+      state,
+      undefined,
+      {
+        playerId: "p1",
+        playerName: "Empire One",
+        crownedAt: Date.now(),
+        objectiveId: "TOWN_CONTROL",
+        objectiveName: "Town Control",
+        seasonStats: { longestRoad: { tileCount: 12 } }
+      },
+      "p1"
+    );
+
+    expect(state.seasonWinner?.playerId).toBe("p1");
+    expect(state.seasonStats).toEqual({ longestRoad: { tileCount: 12 } });
+  });
+
+  it("keeps a previously-set seasonStats when a later snapshot's winner doesn't carry one", () => {
+    const state = baseState();
+    state.seasonStats = { longestRoad: { tileCount: 12 } };
+
+    applySeasonVictorySnapshot(
+      state,
+      [],
+      {
+        playerId: "p1",
+        playerName: "Empire One",
+        crownedAt: Date.now(),
+        objectiveId: "TOWN_CONTROL",
+        objectiveName: "Town Control"
+      },
+      "p1"
+    );
+
+    expect(state.seasonStats).toEqual({ longestRoad: { tileCount: 12 } });
   });
 });
