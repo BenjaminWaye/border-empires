@@ -52,12 +52,43 @@ describe("client action flow regressions", () => {
   it("re-pressing a tile mid own-expansion jumps to the buildings tab instead of the progress tab", () => {
     const source = actionFlowSource();
 
-    expect(source).toContain('openSingleTileActionMenu(to, clientX, clientY, isActiveCapture ? { openTab: "buildings" } : undefined);');
+    expect(source).toContain(
+      'if (activeTile) openSingleTileActionMenu(activeTile, clientX, clientY, isActiveCapture ? { openTab: "buildings" } : undefined);'
+    );
   });
 
   it("marks the tile menu view as pending ownership only for the player's own EXPAND capture, not an ATTACK", () => {
     const source = actionFlowSource();
 
     expect(source).toContain('pendingOwnershipTile: isPendingExpansionTarget(state, menuTile.x, menuTile.y)');
+  });
+
+  it("routes a fogged tile adjacent to owned territory into a direct frontier-expand claim instead of just the description menu", () => {
+    const source = actionFlowSource();
+
+    // Previously clicking any fogged tile unconditionally opened the tile
+    // description menu, with no path to actually starting an expand into it
+    // even when it touched the player's own territory.
+    expect(source).toContain('const isLand = clicked?.terrain === "LAND";');
+    expect(source).toContain('const isNeutral = !clicked?.ownerId;');
+    expect(source).toContain(
+      'const frontierOrigin = isLand && isNeutral ? (pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true)) : undefined;'
+    );
+  });
+
+  it("routes an unexplored tile adjacent to owned territory into a direct frontier-expand claim instead of the waypoint-only menu", () => {
+    const source = actionFlowSource();
+
+    // Previously an unexplored tile always went through
+    // openUnexploredTileActionMenu, whose only possible action is a
+    // multi-hop waypoint — and that helper explicitly declines to offer
+    // even a waypoint when the tile is adjacent-reachable, so an
+    // unexplored tile touching the player's territory offered nothing.
+    expect(source).toContain("openUnexploredTileActionMenu(state, wx, wy, clientX, clientY,");
+    const unexploredBranch = source.slice(
+      0,
+      source.indexOf("openUnexploredTileActionMenu(state, wx, wy, clientX, clientY,")
+    );
+    expect(unexploredBranch.slice(-400)).toContain("queueAdjacentExpandClaim(wx, wy);");
   });
 });
