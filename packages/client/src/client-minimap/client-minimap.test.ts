@@ -117,7 +117,8 @@ describe("drawMiniMap fog rendering", () => {
         fogDisabled: false,
         tiles: new Map(),
         dockPairs: [],
-        shardRainPingsByTile: new Map()
+        shardRainPingsByTile: new Map(),
+        shardRainStatus: undefined
       },
       canvas,
       miniMapEl,
@@ -180,7 +181,8 @@ const drawMiniMapWithTiles = (contentCtx: ReturnType<typeof makeFakeCtx>, tiles:
       fogDisabled: false,
       tiles,
       dockPairs: [],
-      shardRainPingsByTile: new Map()
+      shardRainPingsByTile: new Map(),
+      shardRainStatus: undefined
     },
     canvas,
     miniMapEl,
@@ -278,7 +280,8 @@ describe("drawMiniMap content-layer recompute throttle", () => {
         fogDisabled: true,
         tiles: new Map(),
         dockPairs: [],
-        shardRainPingsByTile: new Map()
+        shardRainPingsByTile: new Map(),
+        shardRainStatus: undefined
       },
       canvas,
       miniMapEl,
@@ -389,7 +392,8 @@ describe("drawMiniMap shard rain ping rendering", () => {
         fogDisabled: args.fogDisabled,
         tiles: args.tiles ?? new Map(),
         dockPairs: [],
-        shardRainPingsByTile: new Map([[`${args.ping.x},${args.ping.y}`, args.ping]])
+        shardRainPingsByTile: new Map([[`${args.ping.x},${args.ping.y}`, args.ping]]),
+        shardRainStatus: { key: "rain", phase: "started", startsAt: -1, expiresAt: 60_000, siteCount: 1 }
       },
       canvas,
       miniMapEl,

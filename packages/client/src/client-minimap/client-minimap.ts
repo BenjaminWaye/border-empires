@@ -3,7 +3,8 @@ import { drawAetherBridgeLane, hexWithAlpha } from "../client-map-render/client-
 import { resourceIconForKey } from "../client-map-display.js";
 import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
 import { townIdentityForTile, tileHasTownIdentity } from "../client-town-identity.js";
-import { shardRainPingActiveAt, visibleShardSiteForTile, type ClientShardRainPing } from "../client-shard-rain-pings/client-shard-rain-pings.js";
+import { visibleShardSiteForTile, type ClientShardRainPing } from "../client-shard-rain-pings/client-shard-rain-pings.js";
+import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
 import type { DockPair, StrategicReplayEvent, Tile } from "../client-types.js";
 
@@ -83,6 +84,11 @@ export const drawMiniMap = (options: {
     tiles: Map<string, Tile>;
     dockPairs: DockPair[];
     shardRainPingsByTile: Map<string, ClientShardRainPing>;
+    // Drives how long the minimap arrow/ring stays up: the "started" phase's
+    // expiresAt is the actual duration of the rain event's impact sites, as
+    // opposed to shardAlert (cleared on toast dismissal) or the ping's own
+    // short activation delay.
+    shardRainStatus: ClientShardRainAlert | undefined;
   };
   canvas: HTMLCanvasElement;
   miniMapEl: HTMLCanvasElement;
@@ -285,10 +291,12 @@ export const drawMiniMap = (options: {
       cctx.fillStyle = shardSite.kind === "FALL" ? "rgba(255, 244, 176, 0.98)" : "rgba(147, 235, 255, 0.96)";
       cctx.fillText(resourceIconForKey("SHARD"), tx, ty);
     }
+    const rainStatus = options.state.shardRainStatus;
+    const rainOngoing = rainStatus?.phase === "started" && options.nowMs < rainStatus.expiresAt;
     const pingPhase = 0.5 + 0.5 * Math.sin(options.nowMs / 240);
     cctx.lineWidth = 1.2;
-    for (const [, ping] of options.state.shardRainPingsByTile) {
-      if (!shardRainPingActiveAt(ping, options.nowMs)) continue;
+    for (const [, ping] of rainOngoing ? options.state.shardRainPingsByTile : []) {
+      if (options.nowMs < ping.activateAt) continue;
       if (inBox(ping.x, ping.y)) {
         const tx = Math.floor(wxToPx(ping.x));
         const ty = Math.floor(wyToPy(ping.y));
