@@ -8557,6 +8557,59 @@ describe("worldbreaker shot", () => {
     expect(town?.populationTier).toBe("CITY");
   });
 
+  it("broadcasts a WORLD_ENGINE_STRIKE_ANNOUNCEMENT to every player when it lands on an enemy town", async () => {
+    const runtime = buildStrikeRuntime({ targetTown: { population: 1_000_000, populationTier: "GREAT_CITY" } });
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "strike-broadcast",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "WORLD_ENGINE_STRIKE",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    const broadcast = events.find(
+      (event) =>
+        event.eventType === "PLAYER_MESSAGE" &&
+        event.playerId === "__broadcast__" &&
+        event.messageType === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT"
+    );
+    expect(broadcast).toBeDefined();
+    const payload = JSON.parse(broadcast!.payloadJson as string) as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      type: "WORLD_ENGINE_STRIKE_ANNOUNCEMENT",
+      strikeId: "strike-broadcast:bc",
+      occurredAt: 1_000,
+      casterName: "player-1",
+      targetX: 50,
+      targetY: 50,
+      townName: "",
+      populationTier: "CITY",
+      populationLost: 300_000,
+      targetOwnerName: "player-2"
+    });
+  });
+
+  it("does not broadcast a WORLD_ENGINE_STRIKE_ANNOUNCEMENT when the strike hits a tile with no town", async () => {
+    const runtime = buildStrikeRuntime({});
+    const events: Array<Record<string, unknown>> = [];
+    runtime.onEvent((event) => events.push(event as unknown as Record<string, unknown>));
+    runtime.submitCommand({
+      commandId: "strike-no-town",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "WORLD_ENGINE_STRIKE",
+      payloadJson: JSON.stringify({ fromX: 0, fromY: 0, toX: 50, toY: 50 })
+    });
+    await Promise.resolve();
+    expect(events.some((event) => event.messageType === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT")).toBe(false);
+  });
+
   it("demotes tier on strike but floors at TOWN", async () => {
     const runtime = buildStrikeRuntime({ targetTown: { population: 12_000, populationTier: "TOWN" } });
     runtime.submitCommand({
