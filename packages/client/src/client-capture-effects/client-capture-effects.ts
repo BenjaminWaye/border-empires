@@ -1,6 +1,6 @@
 import { requiredMusterForTarget } from "@border-empires/shared";
 import { isForestTile } from "../client-constants.js";
-import { shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
+import { formatShardSiteBearing, nearestShardSiteBearing, shardRainAlertDetail, type ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import { shouldFinalizePredictedCombat } from "../client-predicted-combat/client-predicted-combat.js";
 import { victoryHoldAlertDetail, victoryHoldAlertTitle, victoryHoldBannerText } from "../client-victory-alert/client-victory-alert.js";
 import type { ClientState } from "../client-state/client-state.js";
@@ -250,7 +250,7 @@ export const renderCaptureProgress = (
 };
 
 export const renderShardAlert = (
-  state: Pick<ClientState, "shardAlert" | "shardRainFxUntil">,
+  state: Pick<ClientState, "shardAlert" | "shardRainFxUntil" | "homeTile">,
   deps: {
     shardAlertOverlayEl: HTMLElement;
     shardAlertTitleEl: HTMLElement;
@@ -274,7 +274,9 @@ export const renderShardAlert = (
     return;
   }
   deps.shardAlertTitleEl.textContent = alert.phase === "upcoming" ? "Shard Rain Incoming" : "Shard Rain Begun";
-  deps.shardAlertDetailEl.textContent = shardRainAlertDetail(alert, nowMs);
+  const bearing = alert.phase === "started" ? nearestShardSiteBearing(alert.sites, state.homeTile) : undefined;
+  const bearingLabel = formatShardSiteBearing(bearing);
+  deps.shardAlertDetailEl.textContent = bearingLabel ? `${shardRainAlertDetail(alert, nowMs)} ${bearingLabel}` : shardRainAlertDetail(alert, nowMs);
   deps.shardAlertOverlayEl.style.display = "block";
 };
 

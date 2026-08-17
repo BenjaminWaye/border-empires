@@ -37,4 +37,27 @@ describe("client action flow regressions", () => {
     expect(source).toContain('if (vis === "fogged") {');
     expect(source).toContain('if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);');
   });
+
+  it("lets the generic build handler queue settle+build on the player's own active frontier-expansion target", () => {
+    const source = actionFlowSource();
+
+    expect(source).toContain(
+      'const isPendingExpansionTarget = (state: Pick<ClientState, "capture">, x: number, y: number): boolean =>\n  Boolean(state.capture && state.capture.actionType === "EXPAND" && state.capture.target.x === x && state.capture.target.y === y);'
+    );
+    expect(source).toContain('const isActiveCaptureTarget = isPendingExpansionTarget(state, selected.x, selected.y);');
+    expect(source).toContain('if (selected.ownerId !== state.me && !isActiveCaptureTarget) { hideTileActionMenu(); return; }');
+    expect(source).toContain('if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);');
+  });
+
+  it("re-pressing a tile mid own-expansion jumps to the buildings tab instead of the progress tab", () => {
+    const source = actionFlowSource();
+
+    expect(source).toContain('openSingleTileActionMenu(to, clientX, clientY, isActiveCapture ? { openTab: "buildings" } : undefined);');
+  });
+
+  it("marks the tile menu view as pending ownership only for the player's own EXPAND capture, not an ATTACK", () => {
+    const source = actionFlowSource();
+
+    expect(source).toContain('pendingOwnershipTile: isPendingExpansionTarget(state, menuTile.x, menuTile.y)');
+  });
 });

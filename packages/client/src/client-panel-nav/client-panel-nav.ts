@@ -93,9 +93,13 @@ export const setActivePanel = (
   deps.renderMobilePanels();
 };
 
-export const closeActivePanel = (state: Pick<ClientState, "activePanel" | "domainDetailOpen">): void => {
+export const closeActivePanel = (state: Pick<ClientState, "activePanel" | "domainDetailOpen" | "settingsSubPage">): void => {
   if (state.activePanel === "domains" && state.domainDetailOpen) {
     state.domainDetailOpen = false;
+    return;
+  }
+  if (state.activePanel === "settings" && state.settingsSubPage) {
+    state.settingsSubPage = null;
     return;
   }
   state.activePanel = null;

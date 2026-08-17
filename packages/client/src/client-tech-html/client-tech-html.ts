@@ -95,7 +95,6 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockWaterworksUpgrade" && value === true) return `Unlocks Waterworks (+100% farmstead food within 10 tiles; each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots)`;
   if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
-  if (key === "unlockQuartermastersOffice" && value === true) return "Unlocks Quartermaster's Office";
   if (key === "unlockLogisticsGuild" && value === true) return "Unlocks Logistics Guild";
   if (key === "unlockAssemblyWorks" && value === true) return "Unlocks Assembly Works";
   if (key === "unlockPopulationBureau" && value === true) return "Unlocks Population Bureau";

@@ -43,25 +43,25 @@ export const createDefensibilityOverlay = (scene: Scene, maxTiles: number): Defe
 
   // Bright fills (higher alpha than the 2D 0.12/0.18 because the
   // ownership colour underneath would otherwise wash them out).
-  const warningPlaneMaterial = new MeshBasicMaterial({
+  const warningPlaneMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#ffad5c",
     transparent: true,
     opacity: 0.45,
     depthWrite: false
   });
-  const criticalPlaneMaterial = new MeshBasicMaterial({
+  const criticalPlaneMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#ff5454",
     transparent: true,
     opacity: 0.55,
     depthWrite: false
   });
-  const warningPipMaterial = new MeshBasicMaterial({
+  const warningPipMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#ffc45c",
     transparent: true,
     opacity: 0.95,
     depthWrite: false
   });
-  const criticalPipMaterial = new MeshBasicMaterial({
+  const criticalPipMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#ff5454",
     transparent: true,
     opacity: 0.98,

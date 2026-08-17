@@ -104,7 +104,15 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
     ];
   }
   if (type === "CLEARING_HOUSE") {
-    return [{ statLabel: "Mintworks effect", valueText: percentLabel((MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE - MINTWORKS_GOLD_PRODUCTION_BONUS) * 100), tone: "positive", isTownWide: true }];
+    // "+25%" alone read as +25% of gold production, when it's really a jump
+    // from +10% to +35% gold bonus per Mintworks copy — spell out both ends
+    // so the size of the buff is unambiguous.
+    return [{
+      statLabel: "Mintworks gold bonus per copy",
+      valueText: `${percentLabel(MINTWORKS_GOLD_PRODUCTION_BONUS * 100)} → ${percentLabel(MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE * 100)}`,
+      tone: "positive",
+      isTownWide: true
+    }];
   }
   if (type === "CARAVANARY") return [{ statLabel: "Connected-town gold production", valueText: "+25%", tone: "positive", isTownWide: true }];
   if (type === "CUSTOMS_HOUSE") return [{ statLabel: "Gold / minute per connected owned dock", valueText: "+1", tone: "positive", isTownWide: true }];
