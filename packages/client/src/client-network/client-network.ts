@@ -44,6 +44,7 @@ import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
+import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js";
@@ -1270,6 +1271,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         clearQueuedDevelopmentDispatchPending,
         appendFeedEntry
       });
+      backfillWorldEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
       return;
     }
 
@@ -1790,6 +1792,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "RAID_RESULT") { appendFeedEntry(raidResultFeedEntry(msg, { playerNameForOwner })); renderHud(); return; }
+    if (msg.type === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT") {
+      applyWorldEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
+      renderHud();
+      return;
+    }
     if (msg.type === "AIRPORT_BOMBARD_RESULT") {
       const targetableTiles = Number(msg.targetableTiles ?? 0);
       const hitTiles = Number(msg.hitTiles ?? 0);

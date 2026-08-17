@@ -43,6 +43,7 @@ import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-sto
 import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js";
+import { createWorldEngineStrikeGatewayIntegration } from "../world-engine-strike-broadcast/world-engine-strike-broadcast.js";
 import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js";
 import { startImperialWardAutoStartTimer } from "../galaxy-endorsement-auto-start/galaxy-endorsement-auto-start.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
@@ -614,6 +615,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     options.galaxyPlanetStore ??
     (await createGalaxyPlanetStore(commandStoreFactoryOptions));
   const galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions));
+  const worldEngineStrike = await createWorldEngineStrikeGatewayIntegration(commandStoreFactoryOptions);
   const emailAlerts = createEmailAlertService({
     authBindingStore,
     ...(options.emailAlerts ?? {}),
@@ -1097,6 +1099,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       rallyLinkStore,
       galaxyPlanetStore,
       galaxyEndorsementStore,
+      worldEngineStrikeStore: worldEngineStrike.store,
       authBindingStore,
       ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}),
       ...(slackAlerter ? { alertPlayerBugReport: (report: BugReportInput) => slackAlerter!.alertPlayerBugReport(report) } : {}),
@@ -1416,6 +1419,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           tiles: jsonSafeTileDeltaBatch(event.tileDeltas)
         });
         for (const socket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(socket, broadcastPayload);
+        return;
+      }
+      if (event.playerId === "__broadcast__" && event.eventType === "PLAYER_MESSAGE" && event.messageType === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT") {
+        worldEngineStrike.handleBroadcastEvent(
+          event.payload,
+          (payload) => { for (const socket of playerSubscriptions.allSockets()) queueOrSendSessionPayload(socket, payload); },
+          (error) => recordGatewayEvent("error", "gateway_world_engine_strike_persist_failed", { error: error instanceof Error ? error.message : String(error) })
+        );
         return;
       }
       const sockets = playerSubscriptions.socketsForPlayer(event.playerId);

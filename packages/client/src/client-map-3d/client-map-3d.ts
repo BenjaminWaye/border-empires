@@ -51,6 +51,7 @@ import { createSiphonFxLayer } from "../client-map-3d-siphon-fx/client-map-3d-si
 import { createRetortRecastFxLayer } from "../client-map-3d-retort-recast-fx/client-map-3d-retort-recast-fx.js";
 import { createRevealEmpireFxLayer } from "../client-map-3d-reveal-empire-fx/client-map-3d-reveal-empire-fx.js";
 import { createMonumentPulseFxLayer } from "../client-map-3d-monument-pulse-fx/client-map-3d-monument-pulse-fx.js";
+import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
 import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-map-3d-aegis-lock-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
@@ -171,6 +172,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const revealEmpireStatsFx = createRevealEmpireStatsFxLayer(scene);
   const bombardFx = createBombardFxLayer(scene);
   const worldEngineStrikeFx = createMonumentPulseFxLayer(scene, "#ff5533", "world-engine-strike-fx");
+  const worldEngineShakeFx = createCameraShakeFx(camera);
   const imperialExchangeLevyFx = createMonumentPulseFxLayer(scene, "#ffd166", "imperial-exchange-levy-fx");
   const astralDockLaunchFx = createRevealEmpireFxLayer(scene);
   const aegisLockFx = createAegisLockFxLayer(scene);
@@ -1068,6 +1070,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       worldEngineStrikeFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
+  const syncWorldEngineStrikeShakeQueue = (nowMs: number): void => {
+    while (deps.state.worldEngineStrikeShakeQueue.length > 0) {
+      deps.state.worldEngineStrikeShakeQueue.shift();
+      worldEngineShakeFx.trigger(nowMs);
+    }
+  };
   const syncImperialExchangeLevyFxQueue = (): void => {
     while (deps.state.imperialExchangeLevyFxQueue.length > 0) {
       const cast = deps.state.imperialExchangeLevyFxQueue.shift()!;
@@ -1933,6 +1941,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncRevealEmpireStatsFxQueue();
     syncBombardFxQueue();
     syncWorldEngineStrikeFxQueue();
+    syncWorldEngineStrikeShakeQueue(nowMs);
     syncImperialExchangeLevyFxQueue();
     syncAstralDockLaunchFxQueue();
     syncAegisLockFxQueue();
@@ -1952,6 +1961,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     revealEmpireStatsFx.update(nowMs);
     bombardFx.update(nowMs);
     worldEngineStrikeFx.update(nowMs);
+    worldEngineShakeFx.update(nowMs);
     imperialExchangeLevyFx.update(nowMs);
     astralDockLaunchFx.update(nowMs);
     aegisLockFx.update(nowMs);
