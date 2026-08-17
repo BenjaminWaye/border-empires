@@ -643,17 +643,47 @@ needs review during Phase 2 to determine which sense it wants.
 
 Surfaced by building the ROI model; recorded rather than acted on (§2.2).
 
-### §13.1 Manpower-production buildings barely pay back
+### §13.1 Manpower buildings are third-best, and the AI must learn the ordering
 
-At `LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE = 0.05` (`config.ts:289`) and a
-150 MP cost, payback is **3 000 minutes ≈ 50 hours**. `RAIL_DEPOT` (300 MP,
-+0.1/min per networked guild) needs five guilds to reach a 10-hour payback — but
-those five guilds cost 750 MP and carry a 50-hour payback of their own, so the
-combined package is far worse than the Rail Depot's figure alone. A correct ROI model
-will rank these near-last almost always — which is arguably right, but means
-§4's `MANPOWER_THROUGHPUT` need will be served mostly by *town growth*, not by
-manpower buildings. If the intent is that manpower buildings be a real lever,
-these rates likely need revisiting.
+The two Logistics Guild bonuses **stack**: a guild inside a Rail Depot network
+earns its standalone `LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE = 0.05`
+(`config.ts:289`) *plus* `RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD
+= 0.1` (`config.ts:290`) — both terms are added in
+`playerManpowerRegenPerMinuteFromSummary` (`runtime-manpower.ts:66-73`), and
+`economy-network.ts:849-852` states the "on top of" intent explicitly. So a
+networked guild is 0.15/min (a standalone one, 0.05/min).
+
+Amortising the Rail Depot's own 300 MP across the guilds it serves:
+
+| Guilds per depot | Total MP | Regen gained | Payback |
+| --- | --- | --- | --- |
+| 1 | 450 | 0.15/min | 50.0 h |
+| 3 | 750 | 0.45/min | 27.8 h |
+| 5 | 1 050 | 0.75/min | 23.3 h |
+| asymptote | — | — | 16.7 h |
+
+Against a 30-day season (`SEASON_LENGTH_DAYS = 30`, `config.ts:195` — 720 h) a
+~25 h payback returns ~29×, so these are **not** dead buildings. The issue is
+opportunity cost. Settling a `TOWN`-tier town costs ~50 MP all-in and yields
+0.417 MP/min **plus +300 cap** — roughly a 2-hour payback, ~8× better on both
+axes. The regen taper (`manpowerRegenWeightForSettlementIndex`,
+`config.ts:132-136`) narrows but never closes the gap:
+
+| Town index | Weight | Regen each | Payback |
+| --- | --- | --- | --- |
+| 1–5 | ×1.0 | 0.417/min | ~2 h |
+| 6–15 | ×0.5 | 0.208/min | ~4 h |
+| 16+ | ×0.2 | 0.083/min | ~10 h |
+
+Even the harshest-tapered town beats the best-case guild, and still carries cap
+the guild never provides. Manpower buildings are therefore correctly a
+**hemmed-in / no-land-left** lever, not a general one.
+
+This is the ordering §4's `MANPOWER_THROUGHPUT` need must encode — cheapest
+first: **town tier upgrade (§13.5, costs no manpower at all) → settle a new town
+(~2 h) → manpower buildings (~25 h)**. Ranking guilds highly before the first two
+are exhausted would optimise the wrong end. §6.2's `requiresOwned` gate is the
+natural place to express "only when settling is unavailable".
 
 ### §13.2 `GARRISON_HALL` is cost-neutral on the ceiling
 
@@ -675,6 +705,29 @@ Per §1.3 the AI's manpower is pinned near zero regardless of empire health, so
 empire past ~7 settled tiles. It has the same permanently-tripped character the
 `incomePerMinute` version had before §24.5 rescaled it.
 
+### §13.5 Town tier upgrades dominate every manpower building, and cost no manpower
+
+`TOWN_TIER_UPGRADE_GOLD_COST` (`structure-slots.ts:250-260`) prices upgrades in
+**gold**: 20 / 40 / 80 / 160 for TOWN / CITY / GREAT_CITY / METROPOLIS. Each step
+doubles both regen and cap (`TOWN_MANPOWER_BY_TIER`, `config.ts:122-131`):
+
+| Step | Gold | Regen gain | Cap gain |
+| --- | --- | --- | --- |
+| SETTLEMENT → TOWN | 20 | +0.208/min | +150 |
+| TOWN → CITY | 40 | +0.417/min | +300 |
+| CITY → GREAT_CITY | 80 | +0.833/min | +600 |
+
+A single TOWN → CITY upgrade yields +0.417 MP/min — the equivalent of **~2.8
+networked Logistics Guilds** (420 MP of guilds plus a share of a 300 MP depot) —
+for 40 gold and **zero manpower**. Manpower payback is undefined because no
+manpower is spent.
+
+AI players bank thousands of gold against a 45 000 cap with few sinks
+(`docs/AI_DEBUGGING.md`), so this is effectively free, and it is the single
+highest-value manpower lever in the game. The AI does not emit
+`UPGRADE_TOWN_TIER` at all — see §15.2, which this finding promotes from an open
+question to the plan's most likely highest-ROI follow-up.
+
 ---
 
 ## §14 Risks
@@ -694,11 +747,14 @@ empire past ~7 settled tiles. It has the same permanently-tripped character the
 
 1. **Wonder→path mapping (§7.3)** is a proposal from each wonder's effect. Is
    there an intended canonical mapping?
-2. **Should the AI upgrade town tiers?** `UPGRADE_TOWN_TIER` is gold-costed
-   (`structure-slots.ts:250-260`) and is the single biggest lever on both
-   manpower cap and regen — a `CITY` is 4× a `SETTLEMENT` on both. The AI does
-   not emit it today. It sits outside "structure building" but is arguably the
-   highest-value item in this whole plan, and AIs bank gold with few sinks.
+2. **Should the AI upgrade town tiers? (Recommended: yes, and first.)** Per
+   §13.5 this is the highest-ROI manpower lever in the game — gold-costed,
+   zero-manpower, and one TOWN → CITY step is worth ~2.8 networked Logistics
+   Guilds. The AI never emits `UPGRADE_TOWN_TIER`. It sits outside "structure
+   building" as scoped here, so it is called out rather than absorbed — but
+   shipping this plan's §3 savings work *without* it would have the AI grinding
+   for hours toward buildings it could out-earn for 40 gold. Strong candidate to
+   pull into Phase 2, or to run as its own small parallel change.
 3. **`AIRPORT_BOMBARD` / crystal abilities** remain unused (`AI_DEBUGGING.md`).
    In scope for a follow-up, or fold `CRYSTAL_SLOTS` demand into this work?
 4. **Fort/siege ladder upgrades** (`nextFortTierForUpgrade`) — the AI builds
