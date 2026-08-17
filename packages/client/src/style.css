@@ -4753,6 +4753,15 @@ body {
   gap: 8px;
 }
 
+.feed-section-heading {
+  margin: 14px 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(233, 242, 255, 0.55);
+}
+
 .feed-card span {
   display: block;
   font-size: 11px;

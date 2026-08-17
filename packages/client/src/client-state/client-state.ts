@@ -8,6 +8,7 @@ import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-al
 import type { VictoryHoldAlert } from "../client-victory-alert/client-victory-alert.js";
 import type { DeferredMusterAttack, MusterTransitEntry } from "../client-muster-transit/client-muster-transit.js";
 import type { ActiveBattleOverlay } from "../client-battle-overlay/client-battle-overlay.js";
+import type { WorldEngineStrikeHistoryRecord } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
 import type {
   AllianceRequest,
   ActiveAetherBridgeView,
@@ -269,6 +270,18 @@ export const createInitialState = () => ({
     tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }>;
   }>,
   worldEngineStrikeFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  // Drives the global camera-shake trigger (client-map-3d-camera-shake-fx.ts) —
+  // pushed once per newly-seen WORLD_ENGINE_STRIKE_ANNOUNCEMENT broadcast, for
+  // every connected client (not just the caster/target), never replayed from
+  // 12h history so it only ever fires live, once, at the moment of the strike.
+  worldEngineStrikeShakeQueue: [] as Array<{ strikeId: string; queuedAt: number }>,
+  // strikeId dedup set shared by the live broadcast handler and the 12h
+  // history backfill, so a strike already seen live isn't replayed as a
+  // toast/popup/shake when history is fetched on reconnect.
+  worldEngineStrikeSeenIds: new Set<string>(),
+  // Most-recent-first, capped list backing the Activity Feed's world-events
+  // history section — populated both live and from the 12h history fetch.
+  worldEngineStrikeAnnouncements: [] as WorldEngineStrikeHistoryRecord[],
   imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,

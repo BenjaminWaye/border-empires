@@ -13,6 +13,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786960037000, // 2026.08.17.1
+    introducedIn: "2026.08.17.1",
+    title: "World Engine strikes now shake the map and broadcast to everyone",
+    why: "Firing the World Engine used to be a private moment — only the caster's own client got any indication a city had been leveled, via a local pulse effect that never reached anyone else, including the city's owner. A strike that levels a city and costs real population is exactly the kind of moment every empire should hear about, not just the two sides involved.",
+    changes: [
+      "Landing a World Engine strike on an enemy city now shakes the map once, live, for every connected player — not just the caster.",
+      "A new destruction-themed popup announces who fired it, what city was hit, how many lives were lost, and who owned the town.",
+      "That announcement stays visible in the Activity Feed's new \"World Events\" section for 12 hours, so logging in after the fact still tells you what happened."
+    ]
+  },
+  {
     createdAt: 1786910628146, // 2026.08.16.1
     introducedIn: "2026.08.16.1",
     title: "Swapped the waypoint and mustering flag overlays",

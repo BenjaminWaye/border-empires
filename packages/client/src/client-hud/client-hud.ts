@@ -32,6 +32,7 @@ import { bindAudioSettingsControls } from "../client-audio/client-audio-settings
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
 import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
+import { worldEngineStrikeRecordToFeedEntry, WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import { refreshLiveTechRequirements } from "../client-tech-live-requirements/client-tech-live-requirements.js";
 import type { StructureInfoKey } from "../client-map-display.js";
@@ -899,13 +900,25 @@ export const renderClientHud = (deps: HudDeps): void => {
     fallbackCard("Leaderboard"),
     () => leaderboardHtml(state.leaderboard, state.seasonVictory, state.seasonWinner, state.playerColors)
   );
-  dom.feedEl.innerHTML = dom.mobileFeedEl.innerHTML = safeValue("feedHtml", fallbackCard("Activity feed"), () =>
-    feedHtml(state.feed, {
+  dom.feedEl.innerHTML = dom.mobileFeedEl.innerHTML = safeValue("feedHtml", fallbackCard("Activity feed"), () => {
+    const liveFeedHtml = feedHtml(state.feed, {
       visible: debugEnabledForAccount(),
       enabled: debugTileLoggingEnabled(),
       selectedTileKey: state.selected ? `${state.selected.x},${state.selected.y}` : undefined
-    })
-  );
+    });
+    // World Engine strikes stay discoverable here for up to 12h even after
+    // they've scrolled off the live feed above (see client-network.ts's
+    // silent history backfill and WORLD_ENGINE_STRIKE_ANNOUNCEMENT handling).
+    // Filtered by age here (not just capped by count) since live-received
+    // entries are never locally expired — a long-lived connected session
+    // would otherwise keep showing strikes well past the "last 12h" label.
+    const recentStrikes = state.worldEngineStrikeAnnouncements.filter(
+      (entry) => Date.now() - entry.occurredAt <= WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS
+    );
+    if (recentStrikes.length === 0) return liveFeedHtml;
+    const worldEventsHtml = feedHtml(recentStrikes.map(worldEngineStrikeRecordToFeedEntry));
+    return `${liveFeedHtml}<h4 class="feed-section-heading">World Events (last 12h)</h4>${worldEventsHtml}`;
+  });
   const feedFocusButtons = dom.hud.querySelectorAll("[data-feed-focus-x][data-feed-focus-y]") as NodeListOf<HTMLButtonElement>;
   feedFocusButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {
