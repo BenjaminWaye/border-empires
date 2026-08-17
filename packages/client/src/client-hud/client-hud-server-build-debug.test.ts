@@ -13,7 +13,7 @@ describe("client HUD server-build debug regression", () => {
 
     expect(hudDebugSource).toContain("state.bridgeDebugServerBuildSha");
     expect(hudDebugSource).toContain("<strong>Server build</strong>");
-    expect(hudDebugSource).toContain("Server build ${serverBuildLabel}");
+    expect(hudDebugSource).toContain("Server build ${details.serverBuildLabel}${details.buildMismatchLabel}");
     expect(hudDebugSource).toContain("⚠ mismatch");
   });
 

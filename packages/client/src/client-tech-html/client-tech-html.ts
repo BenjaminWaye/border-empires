@@ -54,7 +54,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockGranary" && value === true) return "Unlocks granaries";
   if (key === "unlockCensusHall" && value === true) return "Unlocks census halls";
   if (key === "unlockClearingHouse" && value === true) return "Unlocks clearing houses";
-  if (key === "unlockCaravanary" && value === true) return "Unlocks caravanaries";
+  if (key === "unlockCaravanary" && value === true) return "Unlocks trade nexuses";
   if (key === "unlockUmbriteSynthesizer" && value === true) return "Unlocks umbrite synthesizers";
   if (key === "unlockTitaniumWorks" && value === true) return "Unlocks titanium works";
   if (key === "unlockCrystalSynthesizer" && value === true) return "Unlocks aether condensers";
@@ -767,4 +767,3 @@ export const renderDomainDetailCardHtml = (args: {
     </div>
   </article>`;
 };
-

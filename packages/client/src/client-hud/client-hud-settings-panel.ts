@@ -4,11 +4,10 @@
 // the HUD's bindings, following the same split used by
 // client-audio-settings-ui.ts and client-hud-debug.ts.
 import type { Auth } from "firebase/auth";
-import { CLIENT_BUILD_VERSION } from "../client-build-version.js";
 import { audioSettingsFieldHtml } from "../client-audio/client-audio-settings-ui.js";
 import { effectiveFogDisabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "../client-state/client-state.js";
-import { authDebugHtml, authDebugSnapshot, bridgeStatusHtml, type AuthDebugState } from "./client-hud-debug.js";
+import { authDebugHtml, authDebugSnapshot, type AuthDebugState } from "./client-hud-debug.js";
 
 export type SettingsSubPage = NonNullable<ClientState["settingsSubPage"]>;
 
@@ -33,7 +32,7 @@ export const mapRevealCardHtml = (
 };
 
 const SETTINGS_NAV_ITEMS: Array<{ id: SettingsSubPage; title: string; desc: string }> = [
-  { id: "account", title: "Account", desc: "Name, empire colour, sign out" },
+  { id: "account", title: "Account", desc: "Name and empire colour" },
   { id: "gameplay", title: "Gameplay", desc: "Ambient sound, map reveal" },
   { id: "diagnostics", title: "Diagnostics & Support", desc: "Connection status, downloads, report a bug" }
 ];
@@ -44,7 +43,7 @@ const SETTINGS_PAGE_TITLES: Record<SettingsSubPage, string> = {
   diagnostics: "Diagnostics & Support"
 };
 
-export const settingsHubHtml = (state: Pick<ClientState, "meName" | "authUserLabel">): string => `
+export const settingsHubHtml = (state: Pick<ClientState, "meName" | "authUserLabel" | "authReady">): string => `
   <div class="card auth-settings-card settings-hub">
     <p>Signed in as ${state.meName || state.authUserLabel || "Guest"}.</p>
     ${SETTINGS_NAV_ITEMS.map(
@@ -54,11 +53,12 @@ export const settingsHubHtml = (state: Pick<ClientState, "meName" | "authUserLab
         <span class="settings-nav-item-desc">${item.desc}</span>
       </button>`
     ).join("")}
+    <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
   </div>
 `;
 
 export const settingsAccountPageHtml = (
-  state: Pick<ClientState, "meName" | "authUserLabel" | "me" | "playerColors" | "authReady" | "authSessionReady">
+  state: Pick<ClientState, "meName" | "authUserLabel" | "me" | "playerColors" | "authSessionReady">
 ): string => {
   const color = state.playerColors.get(state.me) ?? "#38b000";
   return `
@@ -69,7 +69,6 @@ export const settingsAccountPageHtml = (
         <span>${state.meName || "Unnamed empire"}</span>
       </div>
       <button type="button" class="panel-btn" data-settings-edit-profile ${state.authSessionReady ? "" : "disabled"}>Edit Name &amp; Colour</button>
-      <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
     </div>
   `;
 };
@@ -85,8 +84,6 @@ export const settingsGameplayPageHtml = (
 
 export const settingsDiagnosticsPageHtml = (state: AuthDebugState, wsUrl: string, firebaseAuth: Auth | null | undefined): string => `
   <div class="card auth-settings-card">
-    <p class="client-build-version">Client build ${CLIENT_BUILD_VERSION}</p>
-    ${bridgeStatusHtml(state, wsUrl)}
     ${authDebugHtml(authDebugSnapshot(state, wsUrl, firebaseAuth))}
     <button type="button" class="panel-btn" data-settings-download-diagnostics>Download Diagnostics</button>
     <button type="button" class="panel-btn" data-settings-download-disconnect-history>Download Disconnect History</button>

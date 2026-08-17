@@ -1,16 +1,8 @@
-// Changelog entry data only, split out from client-changelog.ts to keep that
-// file (rendering/visibility logic) under the repo's 500-line file cap. This
-// file grows by ~1 entry per user-visible change; the oldest entries live in
-// client-changelog-data-earlier.ts (same split, same rules) once this file
-// approaches the cap — extract more of the tail there before adding new
-// entries rather than letting this file keep growing.
-//
-// Entries are unordered here — append new ones anywhere (the end is
-// easiest) instead of inserting at the top. client-changelog.ts sorts by
-// createdAt before rendering, so there is no shared "top of list" or
-// version field for parallel branches to collide on.
+// Changelog entry data only, split out from client-changelog.ts (rendering/
+// visibility) to keep that file under the 500-line cap. Entries are unordered —
+// client-changelog.ts sorts by createdAt. Move old entries to
+// client-changelog-data-earlier.ts when this file approaches the cap.
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER } from "./client-changelog-data-earlier.js";
-
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use Date.now() when authoring a new entry.
   introducedIn: string;
@@ -18,9 +10,7 @@ export type ClientChangelogEntry = {
   why: string;
   changes: string[];
 };
-
-// Add a new entry for every user-facing client release. Order doesn't
-// matter; client-changelog.ts sorts by createdAt.
+// Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1786960037000, // 2026.08.17.1
@@ -51,6 +41,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Sea tiles were never part of the 3D heightfield mesh (the water plane sits over a deliberate hole in it), so the fog-of-war darken overlay — which works by tinting a land tile's already-drawn remembered terrain — had nothing underneath it for sea. The result was a fully opaque black quad over an empty hole, on top of the scene's own black fog background: indistinguishable from unexplored fog, right at any coastline your vision doesn't currently reach.",
     changes: [
       "Fogged SEA/COASTAL_SEA tiles now draw the same live water surface visible sea gets instead of a black darken overlay, so remembered coastline reads as water again."
+    ]
+  },
+  {
+    createdAt: 1786965132570, // 2026.08.16.3
+    introducedIn: "2026.08.16.3",
+    title: "Battle dots: attacker and defender no longer disappear into each other during the clash",
+    why: "The clash-phase oscillation only ever varied a dot's position along the perpendicular spread across the tile, never along the attacker-defender line itself. That meant an attacker dot and a defender dot with the same per-dot spread value landed on the exact same point, every frame, for the whole clash — the two swarms were genuinely coincident, not just visually crowded. With depth testing disabled on both dot materials (needed so they always render on top of the terrain), whichever side's mesh happened to draw second fully hid the other, so the entire clash read as a single-color blob with no visible fight between two sides — confirmed with the new Storybook \"Full Attack Lifecycle\" story, where the attacker's dots were invisible for the whole clash and only reappeared once rout physically separated the two sides.",
+    changes: [
+      "Each side now holds a small, jostling offset along the attack line during the clash, so attacker and defender read as two distinct lines pressed together instead of one side fully hiding the other."
     ]
   },
   {
@@ -387,37 +386,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786445459000, // 2026.08.11.4
-    introducedIn: "2026.08.11.4",
-    title: "Fixed Titanium/Umbrite Weapons Factory build buttons doing nothing",
-    why: "Clicking Build Titanium Weapons Factory or Build Umbrite Weapons Factory silently did nothing — no build started, no error shown. The action-id-to-structure-type mapping never got the two new Weapons Factories added when they replaced Weapons Workshop, so the click handler had nothing to act on.",
-    changes: [
-      "Build Titanium Weapons Factory and Build Umbrite Weapons Factory now actually queue their build."
-    ]
-  },
-  {
-    createdAt: 1786445548761, // 2026.08.11.5
-    introducedIn: "2026.08.11.5",
-    title: "Farmstead/Waterworks text no longer promises a nonexistent \"food cap\"",
-    why: "Build-menu, tech, and tile-overview text still described Farmstead as granting \"+18 food cap\" and Waterworks as \"raising food cap\" — leftover wording from before the food-as-slots rewrite retired the food-cap mechanic entirely. The real, current effect (Farmstead +1 FOOD slot, Waterworks-boosted Farmstead +2 FOOD slots) was already correct in a couple of other spots, so the stale copies were just quietly promising a bonus that no longer exists.",
-    changes: [
-      "Farmstead build option, tech unlock text, and tile-overview modifier now say \"+1 FOOD slot\" instead of \"+18 food cap\".",
-      "Waterworks build option, tech unlock text, and tile-overview modifier now say \"each boosted Farmstead gains +2 FOOD slots\" instead of \"raises food cap\".",
-      "All of these now read the actual slot-bonus values from the shared @border-empires/shared constants instead of separately hardcoded numbers, so they can't drift out of sync with the real mechanic again."
-    ]
-  },
-  {
-    createdAt: 1786444300000, // 2026.08.11.3
-    introducedIn: "2026.08.11.3",
-    title: "Queue and timing fixes",
-    why: "Queued settle commands were vanishing on a browser refresh, and Hills/Forest settle time didn't match the claim-time 1.5x penalty.",
-    changes: [
-      "Fixed queued SETTLE commands disappearing entirely after a page refresh (the restore step was wiping them before the map's first tile snapshot arrived).",
-      "Settling Hills/Forest tiles now takes 1.5x as long, matching the claim-time penalty (was a flat 2x that never got updated).",
-      "Frontier expand/claim no longer runs a gold-affordability check for a 0-gold action."
-    ]
-  },
-  {
     createdAt: 1786622000000, // 2026.08.13.3
     introducedIn: "2026.08.13.3",
     title: "Mintworks flywheels and Umbrite reactor cores now move",
@@ -451,9 +419,19 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "METROPOLIS — Wonder of the World: the central Monument is now much taller and grander, with extra stepped brass shafts, integrated gear decks and a soaring needle crowned by a luminous aether orb.",
       "The 2D metropolis icon was redrawn to match the taller Monument, and everything remains mechanically unchanged."
     ]
+  },
+  {
+    createdAt: 1786905792661, // 2026.08.16
+    introducedIn: "2026.08.16",
+    title: "The Caravanary is now the Trade Nexus, with a new commercial-hub look",
+    why: "The Caravanary still read as a humble road-station courtyard, while the trade network needed to sell concentrated wealth — a grand exchange hall where trade routes converge, with cargo and brass machinery at work. Renamed the building to Trade Nexus and gave it a look to match; the underlying road-network mechanics are unchanged.",
+    changes: [
+      "The Caravanary structure is renamed Trade Nexus everywhere in the UI (build menu, tile info, tech tree). Its behavior — enabling the connected-town road network and income bonus — is unchanged.",
+      "New 3D overlay: a grand domed trading hall on an octagonal stone plinth, ringed by six converging trade roads, merchants' warehouses, stacked cargo, brass jib cranes, feed pipes, warm hanging lamps and a slowly winding brass clockwork seal atop the dome — replacing the old fortified-inn look.",
+      "A matching flat-color 2D icon (trading hall, converging routes, cargo and brass machinery) accompanies the 3D asset."
+    ]
   }
 ];
-
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER

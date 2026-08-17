@@ -89,6 +89,7 @@ import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed
 import { attackPreviewResult } from "../attack-preview/attack-preview.js";
 import { createSeededAiTruceResponder } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
 import { createLoginQueue } from "../login-queue/login-queue.js";
+import { admitBootstrap } from "../login-queue/bootstrap-admission.js";
 import { createWebSocketHeartbeat } from "./websocket-heartbeat.js";
 
 import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
@@ -2032,6 +2033,32 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               playerIdentity.playerId,
               socialRegistrationNameFor(playerIdentity.playerId, persistedProfile?.name ?? playerIdentity.playerName)
             );
+            // Admission gate covers PreparePlayer + subscribePlayer as one unit, and
+            // runs BEFORE the rally-code reservation below: if the socket closes while
+            // queued here, we return before ever reserving a rally code, so there is
+            // nothing to leak. Reserving first and gating after would let a queued-out
+            // socket leak its rally reservation.
+            authTrace.startStep("bootstrap_admission");
+            const admission = await admitBootstrap(playerIdentity.playerId, channel, socket, {
+              bootstrapsInFlight: () => bootstrapsInFlight,
+              incrementBootstrapsInFlight: () => { bootstrapsInFlight += 1; },
+              decrementBootstrapsInFlight: () => { bootstrapsInFlight -= 1; },
+              maxConcurrentBootstraps,
+              minBootstrapIntervalMs,
+              lastBootstrapAtByPlayerId,
+              maxLoginQueueSize,
+              loginQueue,
+              gatewayMetrics,
+              recordGatewayEvent,
+              sendJson
+            });
+            authTrace.endStep("bootstrap_admission", admission.granted);
+            if (!admission.granted) {
+              authTrace.complete("rejected", admission.reason === "rate" || admission.reason === "queue_full" ? "bootstrap_admission" : "queue_socket_closed");
+              return;
+            }
+            let bootstrapInitialState;
+            try {
             let rallyAnchor: { x: number; y: number; island?: string } | undefined;
             let acceptedRallyCode: string | undefined;
             if (message.rallyCode) {
@@ -2107,59 +2134,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.complete("rejected", "prepare_failed");
               return;
             }
-            const bootstrapNowMs = Date.now();
-            const lastBootstrapAtMs = lastBootstrapAtByPlayerId.get(playerIdentity.playerId) ?? 0;
-            const overConcurrency = bootstrapsInFlight >= maxConcurrentBootstraps;
-            const overRate = bootstrapNowMs - lastBootstrapAtMs < minBootstrapIntervalMs;
-            if (overRate) {
-              recordGatewayEvent("warn", "gateway_bootstrap_admission_rejected", {
-                playerId: playerIdentity.playerId,
-                channel,
-                reason: "rate",
-                bootstrapsInFlight,
-                maxConcurrentBootstraps
-              });
-              sendJson(socket, { type: "ERROR", code: "SERVER_BUSY", retryAfterMs: 4000 + Math.floor(Math.random() * 4000), message: "Server is busy. Retry shortly." });
-              authTrace.complete("rejected", "bootstrap_admission");
-              return;
-            }
-            if (overConcurrency) {
-              if (loginQueue.size() >= maxLoginQueueSize) {
-                gatewayMetrics.incrementLoginQueueRejectedTotal();
-                recordGatewayEvent("warn", "gateway_bootstrap_admission_rejected", {
-                  playerId: playerIdentity.playerId,
-                  channel,
-                  reason: "queue_full",
-                  bootstrapsInFlight,
-                  maxConcurrentBootstraps,
-                  queueDepth: loginQueue.size()
-                });
-                sendJson(socket, { type: "ERROR", code: "SERVER_BUSY", retryAfterMs: 4000 + Math.floor(Math.random() * 4000), message: "Server is busy. Retry shortly." });
-                authTrace.complete("rejected", "bootstrap_admission");
-                return;
-              }
-              gatewayMetrics.incrementLoginQueuedTotal();
-              const queuePosition = bootstrapsInFlight + loginQueue.size() + 1;
-              const estimatedWaitMs = loginQueue.estimatedWaitMs(loginQueue.size() + 1);
-              recordGatewayEvent("info", "gateway_bootstrap_queued", {
-                playerId: playerIdentity.playerId,
-                channel,
-                position: queuePosition,
-                queueDepth: loginQueue.size()
-              });
-              sendJson(socket, { type: "LOGIN_QUEUED", position: queuePosition, estimatedWaitMs });
-              authTrace.startStep("login_queue_wait");
-              const granted = await loginQueue.enqueueAndWait(socket);
-              authTrace.endStep("login_queue_wait", granted);
-              if (!granted) {
-                authTrace.complete("rejected", "queue_socket_closed");
-                return;
-              }
-            }
-            if (lastBootstrapAtByPlayerId.size > 5000) lastBootstrapAtByPlayerId.clear();
-            lastBootstrapAtByPlayerId.set(playerIdentity.playerId, bootstrapNowMs);
-            bootstrapsInFlight += 1;
-            let bootstrapInitialState;
             loginTracer.stage("bootstrap_subscribe_start");
             authTrace.startStep("bootstrap_subscribe");
             try {
@@ -2203,9 +2177,12 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.endStep("bootstrap_subscribe", false);
               authTrace.complete("rejected", "bootstrap_failed");
               return;
+            }
             } finally {
-              bootstrapsInFlight -= 1;
-              loginQueue.drain();
+              // Releases the admission slot taken above, on every exit path from this
+              // block: prepare success, prepare failure (early return), subscribe
+              // success, subscribe failure (early return), or any thrown error.
+              admission.release();
             }
             // Client gave up during the multi-second bootstrap subscribe: socket is closed and its
             // close handler already no-op'd (nothing attached yet). Attaching now leaks a dead socket

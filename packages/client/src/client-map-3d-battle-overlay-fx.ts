@@ -150,6 +150,35 @@ const approachLocalXZ = (
   ];
 };
 
+// How far each side's clash formation sits from the tile's exact center,
+// along the attacker-defender line (fwdX/fwdZ — each side's own forward
+// direction through the clash point). Without this, both sides' oscillation
+// only ever varies the *perpendicular* spread (perpX/perpZ), so a dot with a
+// given perpPos lands on the exact same point regardless of side — the two
+// swarms sit fully coincident all through the clash, and with depthTest
+// disabled on both materials, whichever mesh draws second fully hides the
+// other (verified in the Storybook "Full Attack Lifecycle" story: the
+// attacker's dots were never visible during the clash phase, only during
+// rout once the two sides actually separate). Pulling each side back along
+// its own forward axis keeps them as two distinct, pressed-together lines —
+// still "meeting in the middle", just not literally stacked — and the extra
+// jitter term (its own frequency/phase offset from the perpendicular one)
+// reads as the line jostling forward into contact and back.
+const CLASH_LINE_DEPTH = 0.09;
+const CLASH_LINE_JITTER = 0.03;
+
+// Shared by the resolved-battle clash phase and the pre-resolution
+// skirmish's clash loop, for the same reason approachLocalXZ is shared: one
+// formula, so the two can't drift apart.
+const clashLocalXZ = (kit: DotKit, nowMs: number, perpX: number, perpZ: number, fwdX: number, fwdZ: number): [number, number] => {
+  const spread = Math.sin(nowMs / kit.freq + kit.phase) * 0.06;
+  const depth = CLASH_LINE_DEPTH + Math.sin(nowMs / (kit.freq * 0.6) + kit.phase * 1.7) * CLASH_LINE_JITTER;
+  return [
+    perpX * (kit.perpPos + spread) - fwdX * depth,
+    perpZ * (kit.perpPos + spread) - fwdZ * depth
+  ];
+};
+
 export type BattleOverlayFx = ReturnType<typeof createBattleOverlayFx>;
 
 export function createBattleOverlayFx(scene: Scene) {
@@ -265,9 +294,7 @@ export function createBattleOverlayFx(scene: Scene) {
             const approachT = clamp01((nowMs - b.startAt) / APPROACH_MS);
             [lx, lz] = approachLocalXZ(entryLocalX, entryLocalZ, approachT, kit, perpX, perpZ);
           } else if (nowMs < clashEndAt) {
-            const osc = Math.sin(nowMs / kit.freq + kit.phase) * 0.06;
-            lx = perpX * (kit.perpPos + osc);
-            lz = perpZ * (kit.perpPos + osc);
+            [lx, lz] = clashLocalXZ(kit, nowMs, perpX, perpZ, fwdX, fwdZ);
           } else {
             const routT = clamp01(routElapsed / ROUT_MS);
             if (winning) {
@@ -348,6 +375,9 @@ export function createBattleOverlayFx(scene: Scene) {
         // opposite edge, both converging on the tile center.
         const entryLocalX = isAttacker ? -ux * TILE_LOCAL_MAX : ux * TILE_LOCAL_MAX;
         const entryLocalZ = isAttacker ? -uz * TILE_LOCAL_MAX : uz * TILE_LOCAL_MAX;
+        // Each side's own forward direction through the clash point.
+        const fwdX = isAttacker ? ux : -ux;
+        const fwdZ = isAttacker ? uz : -uz;
         const mesh = isAttacker ? attackerMesh : defenderMesh;
         tmpColor.set(isAttacker ? b.attackerColor : b.defenderColor);
 
@@ -359,9 +389,7 @@ export function createBattleOverlayFx(scene: Scene) {
           if (approachT < 1) {
             [lx, lz] = approachLocalXZ(entryLocalX, entryLocalZ, approachT, kit, perpX, perpZ);
           } else {
-            const osc = Math.sin(nowMs / kit.freq + kit.phase) * 0.06;
-            lx = perpX * (kit.perpPos + osc);
-            lz = perpZ * (kit.perpPos + osc);
+            [lx, lz] = clashLocalXZ(kit, nowMs, perpX, perpZ, fwdX, fwdZ);
           }
 
           tmpPos.set(tileX + clampLocal(lx), tileY, tileZ + clampLocal(lz));
