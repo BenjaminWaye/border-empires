@@ -358,9 +358,6 @@ export const createInitialState = () => ({
   optimisticTileSnapshots: new Map<string, Tile | undefined>(),
   captureAlert: undefined as { title: string; detail: string; until: number; tone: "success" | "error" | "warn"; manpowerLoss?: number } | undefined,
   settlementRepairDiagnosticKey: "" as string,
-  collectVisibleCooldownUntil: 0,
-  pendingCollectVisibleKeys: new Set<string>(),
-  pendingCollectVisibleDelta: { gold: 0, strategic: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 } as Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number> },
   pendingCollectTileDelta: new Map<
     string,
     {

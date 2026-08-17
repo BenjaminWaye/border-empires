@@ -22,7 +22,6 @@ const createDeps = (me = "me") => ({
     tiles: new Map<string, Tile>(),
     tilesRevision: 0,
     incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
-    pendingCollectVisibleKeys: new Set<string>(),
     discoveredTiles: new Set<string>(),
     upkeepLastTick: { foodCoverage: 1 },
     mods: { income: 1.0 },

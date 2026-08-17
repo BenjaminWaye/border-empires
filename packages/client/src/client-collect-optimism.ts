@@ -8,35 +8,7 @@ export const hasCollectableYield = (tile: Tile | undefined): boolean => {
   return Object.values(tile.yield.strategic ?? {}).some((value) => Number(value) > 0.01);
 };
 
-export const visibleCollectSummary = (deps: {
-  tiles: Iterable<Tile>;
-  me: string;
-  tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => "visible" | "fogged" | "unexplored";
-}): { tileCount: number; gold: number; resourceKinds: number } => {
-  let tileCount = 0;
-  let gold = 0;
-  const activeResources = new Set<string>();
-  for (const tile of deps.tiles) {
-    if (tile.ownerId !== deps.me || tile.ownershipState !== "SETTLED") continue;
-    if (deps.tileVisibilityStateAt(tile.x, tile.y, tile) !== "visible") continue;
-    if (!hasCollectableYield(tile)) continue;
-    tileCount += 1;
-    gold += tile.yield?.gold ?? 0;
-    for (const [resource, amount] of Object.entries(tile.yield?.strategic ?? {})) {
-      if (Number(amount) > 0.01) activeResources.add(resource);
-    }
-  }
-  return { tileCount, gold, resourceKinds: activeResources.size };
-};
-
 const strategicKeys: StrategicResourceKey[] = ["FOOD", "TITANIUM", "CRYSTAL", "UMBRITE", "SHARD"];
-
-export const clearPendingCollectVisibleDelta = (state: {
-  pendingCollectVisibleDelta: { gold: number; strategic: Record<StrategicResourceKey, number> };
-}): void => {
-  state.pendingCollectVisibleDelta.gold = 0;
-  for (const resource of strategicKeys) state.pendingCollectVisibleDelta.strategic[resource] = 0;
-};
 
 export const clearPendingCollectTileDelta = (
   state: { pendingCollectTileDelta: Map<string, unknown> },
@@ -47,20 +19,6 @@ export const clearPendingCollectTileDelta = (
     return;
   }
   state.pendingCollectTileDelta.clear();
-};
-
-export const revertOptimisticVisibleCollectDelta = (state: {
-  gold: number;
-  strategicResources: Record<StrategicResourceKey, number>;
-  pendingCollectVisibleDelta: { gold: number; strategic: Record<StrategicResourceKey, number> };
-}): void => {
-  const delta = state.pendingCollectVisibleDelta;
-  if (delta.gold > 0) state.gold = Math.max(0, state.gold - delta.gold);
-  for (const resource of strategicKeys) {
-    const amount = delta.strategic[resource] ?? 0;
-    if (amount > 0) state.strategicResources[resource] = Math.max(0, state.strategicResources[resource] - amount);
-  }
-  clearPendingCollectVisibleDelta(state);
 };
 
 export const revertOptimisticTileCollectDelta = (
@@ -90,50 +48,6 @@ export const revertOptimisticTileCollectDelta = (
   if (tile && delta.previousYield) tile.yield = delta.previousYield;
   else if (tile) delete tile.yield;
   state.pendingCollectTileDelta.delete(tileKey);
-};
-
-export const applyOptimisticVisibleCollect = (deps: {
-  state: {
-    me: string;
-    gold: number;
-    goldAnimUntil: number;
-    goldAnimDir: number;
-    strategicResources: Record<StrategicResourceKey, number>;
-    strategicAnim: Record<StrategicResourceKey, { until: number; dir: number }>;
-    pendingCollectVisibleKeys: Set<string>;
-    pendingCollectVisibleDelta: { gold: number; strategic: Record<StrategicResourceKey, number> };
-  };
-  tilesIterable: Iterable<Tile>;
-  tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => "visible" | "fogged" | "unexplored";
-  keyFor: (x: number, y: number) => string;
-}): number => {
-  const state = deps.state;
-  state.pendingCollectVisibleKeys.clear();
-  clearPendingCollectVisibleDelta(state);
-  let touched = 0;
-  for (const tile of deps.tilesIterable) {
-    if (tile.ownerId !== state.me || tile.ownershipState !== "SETTLED") continue;
-    if (deps.tileVisibilityStateAt(tile.x, tile.y, tile) !== "visible") continue;
-    if (!hasCollectableYield(tile)) continue;
-    state.pendingCollectVisibleKeys.add(deps.keyFor(tile.x, tile.y));
-    const gold = tile.yield?.gold ?? 0;
-    if (gold > 0) {
-      state.gold += gold;
-      state.pendingCollectVisibleDelta.gold += gold;
-      state.goldAnimUntil = Date.now() + 350;
-      state.goldAnimDir = 1;
-    }
-    for (const resource of strategicKeys) {
-      const amount = Number(tile.yield?.strategic?.[resource] ?? 0);
-      if (amount <= 0) continue;
-      state.strategicResources[resource] += amount;
-      state.pendingCollectVisibleDelta.strategic[resource] += amount;
-      state.strategicAnim[resource] = { until: Date.now() + 350, dir: 1 };
-    }
-    tile.yield = { gold: 0, strategic: {} };
-    touched += 1;
-  }
-  return touched;
 };
 
 export const applyOptimisticTileCollect = (deps: {

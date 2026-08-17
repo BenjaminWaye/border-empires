@@ -40,12 +40,6 @@ import type { DevelopmentSlotSummary } from "../client-queue-logic/client-queue-
 import type { DomainInfo, PlayerRespawnNotice, TechInfo, Tile, TileMenuView } from "../client-types.js";
 
 type ClientDom = ReturnType<typeof initClientDom>;
-type VisibleCollectSummary = {
-  tileCount: number;
-  totalGold: number;
-  totalShards: number;
-  totalResources: Record<string, number>;
-};
 
 type HudDeps = {
   state: ClientState;
@@ -55,7 +49,6 @@ type HudDeps = {
   firebaseAuth?: Auth;
   syncAuthOverlay: () => void;
   storageSet: typeof storageSet;
-  visibleCollectSummary: () => VisibleCollectSummary;
   developmentSlotSummary: () => DevelopmentSlotSummary;
   isMobile: () => boolean;
   rateToneClass: (value: number) => string;
@@ -158,7 +151,6 @@ export const renderClientHud = (deps: HudDeps): void => {
     firebaseAuth,
     syncAuthOverlay,
     storageSet,
-    visibleCollectSummary,
     developmentSlotSummary,
     isMobile,
     rateToneClass,
@@ -258,13 +250,6 @@ export const renderClientHud = (deps: HudDeps): void => {
     storageSet(GUIDE_AUTO_OPEN_STORAGE_KEY, "1");
   }
 
-  const collectVisibleCooldownRemaining = Math.max(0, state.collectVisibleCooldownUntil - Date.now());
-  const collectVisibleReady = collectVisibleCooldownRemaining <= 0;
-  const collectSummary = safeValue(
-    "visibleCollectSummary",
-    { tileCount: 0, totalGold: 0, totalShards: 0, totalResources: {} },
-    () => visibleCollectSummary()
-  );
   const development = safeValue("developmentSlotSummary", { busy: 0, limit: 0, available: 0 }, () => developmentSlotSummary());
   const mobile = isMobile();
   const connClass = state.connection === "disconnected" ? "warning" : "normal";
@@ -315,14 +300,6 @@ export const renderClientHud = (deps: HudDeps): void => {
       (key) => hasRevealedResourceCategory(key, state.techIds, state.techCatalog)
     )}
   `;
-  dom.collectVisibleDesktopBtn.disabled = !collectVisibleReady;
-  dom.collectVisibleMobileBtn.disabled = !collectVisibleReady;
-  const collectReady = collectVisibleReady && collectSummary.tileCount > 0;
-  const collectMeta = !collectVisibleReady ? `Cooldown ${formatCooldownShort(collectVisibleCooldownRemaining)}` : collectReady ? "Ready to collect" : "Tap to gather";
-  dom.collectVisibleDesktopMetaEl.textContent = collectMeta;
-  dom.collectVisibleMobileMetaEl.textContent = collectMeta;
-  dom.collectVisibleDesktopBtn.classList.toggle("is-attention", collectReady);
-  dom.collectVisibleMobileBtn.classList.toggle("is-attention", collectReady);
   const economyButtons = dom.statsChipsEl.querySelectorAll("[data-economy-open]") as NodeListOf<HTMLButtonElement>;
   economyButtons.forEach((btn: HTMLButtonElement) => {
     btn.onclick = () => {

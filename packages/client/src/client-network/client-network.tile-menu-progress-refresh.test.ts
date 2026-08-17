@@ -31,7 +31,6 @@ const createState = (renderHud: () => void, tileActionMenu: { visible: boolean; 
   ({
     authSessionReady: true,
     selected: { x: 79, y: 240 },
-    pendingCollectVisibleKeys: new Set<string>(),
     tiles: new Map([
       [
         "79,240",
@@ -88,7 +87,6 @@ const bind = (state: any, ws: FakeWebSocket, renderHud: () => void): void => {
     authProfileNameEl: { value: "" },
     authProfileColorEl: { value: "" },
     defensibilityPctFromTE: vi.fn(() => 0),
-    clearPendingCollectVisibleDelta: vi.fn(),
     seedProfileSetupFields: vi.fn(),
     resetStrategicReplayState: vi.fn(),
     setWorldSeed: vi.fn(),
@@ -112,10 +110,8 @@ const bind = (state: any, ws: FakeWebSocket, renderHud: () => void): void => {
     explainActionFailure: vi.fn((code: string, message: string) => `${code}:${message}`),
     notifyInsufficientGoldForFrontierAction: vi.fn(),
     clearSettlementProgressByKey: vi.fn(),
-    showCollectVisibleCooldownAlert: vi.fn(),
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue: vi.fn(),
-    revertOptimisticVisibleCollectDelta: vi.fn(),
     revertOptimisticTileCollectDelta: vi.fn(),
     clearPendingCollectTileDelta: vi.fn(),
     playerNameForOwner: vi.fn(),

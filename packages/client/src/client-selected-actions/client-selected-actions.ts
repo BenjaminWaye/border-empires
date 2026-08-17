@@ -1,4 +1,3 @@
-import { COLLECT_VISIBLE_COOLDOWN_MS } from "../client-constants.js";
 import { cancelUnsentMusterTransits } from "../client-muster-transit/client-muster-transit.js";
 import { gatewayBuildWirePayload } from "../client-queue-logic/client-queue-logic.js";
 import { visibleShardSiteForTile } from "../client-shard-rain-pings/client-shard-rain-pings.js";
@@ -176,30 +175,6 @@ export const dismissOngoingCapture = (
     return;
   }
   state.dismissedCaptureStartAt = state.capture?.startAt;
-};
-
-export const collectVisibleYield = (
-  state: Pick<ClientState, "collectVisibleCooldownUntil">,
-  deps: {
-    formatCooldownShort: (ms: number) => string;
-    showCollectVisibleCooldownAlert: () => void;
-    pushFeed: (message: string, type?: "combat" | "mission" | "error" | "info" | "alliance" | "tech", severity?: "info" | "success" | "warn" | "error") => void;
-    renderHud: () => void;
-    applyOptimisticVisibleCollect: () => number;
-    sendGameMessage: (payload: unknown) => boolean;
-  }
-): void => {
-  const remaining = state.collectVisibleCooldownUntil - Date.now();
-  if (remaining > 0) {
-    deps.showCollectVisibleCooldownAlert();
-    deps.pushFeed(`Collect visible cooling down for ${deps.formatCooldownShort(remaining)}.`, "info", "warn");
-    deps.renderHud();
-    return;
-  }
-  state.collectVisibleCooldownUntil = Date.now() + COLLECT_VISIBLE_COOLDOWN_MS;
-  deps.applyOptimisticVisibleCollect();
-  deps.renderHud();
-  deps.sendGameMessage({ type: "COLLECT_VISIBLE" });
 };
 
 export const collectSelectedYield = (
