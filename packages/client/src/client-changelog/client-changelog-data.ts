@@ -23,6 +23,17 @@ export type ClientChangelogEntry = {
 // matter; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1786960037000, // 2026.08.17.1
+    introducedIn: "2026.08.17.1",
+    title: "World Engine strikes now shake the map and broadcast to everyone",
+    why: "Firing the World Engine used to be a private moment — only the caster's own client got any indication a city had been leveled, via a local pulse effect that never reached anyone else, including the city's owner. A strike that levels a city and costs real population is exactly the kind of moment every empire should hear about, not just the two sides involved.",
+    changes: [
+      "Landing a World Engine strike on an enemy city now shakes the map once, live, for every connected player — not just the caster.",
+      "A new destruction-themed popup announces who fired it, what city was hit, how many lives were lost, and who owned the town.",
+      "That announcement stays visible in the Activity Feed's new \"World Events\" section for 12 hours, so logging in after the fact still tells you what happened."
+    ]
+  },
+  {
     createdAt: 1786910628146, // 2026.08.16.1
     introducedIn: "2026.08.16.1",
     title: "Swapped the waypoint and mustering flag overlays",
@@ -404,66 +415,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Fixed queued SETTLE commands disappearing entirely after a page refresh (the restore step was wiping them before the map's first tile snapshot arrived).",
       "Settling Hills/Forest tiles now takes 1.5x as long, matching the claim-time penalty (was a flat 2x that never got updated).",
       "Frontier expand/claim no longer runs a gold-affordability check for a 0-gold action."
-    ]
-  },
-  {
-    createdAt: 1786441940000, // 2026.08.11.2
-    introducedIn: "2026.08.11.2",
-    title: "Tier 2-5 domain rework",
-    why: "Several domains gave a bonus that wasn't actually wired into gameplay (Stone Curtain's fort-area defense, Merchant Houses' mintworks/granary bonuses, Hidden Hand's ability cooldown) while others duplicated an earlier tier's identity almost exactly. Every domain from tier 2 up now grants a real, distinct effect.",
-    changes: [
-      "Frontier Doctrine now unlocks off Supply Directorate (tier-1 manpower) instead of the unrelated tier-2 Kiln Craft.",
-      "Stone Curtain is now Garrison Doctrine: forts you control fight with +50% defense (was a defense bonus that never applied in combat).",
-      "Titanium Vanguard is now Steam Vanguard: attacks resolve 5s faster and you can hold one more muster flag.",
-      "Merchant Houses now pays more the bigger your connected dock network gets, plus a first-three-towns gold bonus, instead of two bonuses that never applied and a flat dock-cap boost.",
-      "Reworked Provincial Governors, War Foundries, Supply State, and Provincial Nurseries (tier 3) to stop overlapping each other and grant bonuses that actually apply in combat/economy.",
-      "Reworked Imperial Roads, Signal Bastions (formerly Fortress Realm), Siege State, Treasury State, and Hidden Hand (tier 4) — Treasury State now waives food for your first three towns, Hidden Hand halves observatory ability cooldowns.",
-      "Reworked all five tier-5 capstone domains (Imperial Expansion, Titanium Dominion, Enduring Realm, Golden Hegemony, Oracle State) to be clearly stronger, distinct versions of earlier-tier identities."
-    ]
-  },
-  {
-    createdAt: 1786423606364, // 2026.08.11.1
-    introducedIn: "2026.08.11.1",
-    title: "Granary build/modifier text no longer promises a stale ongoing growth bonus",
-    why: "A plain Granary (Incubation Engine) only grants an instant one-time population burst on completion — the old ongoing +15% growth bonus was removed server-side, but the build-menu hint and the town-tile overview modifier line still advertised it, so the client was quietly promising a bonus the town was no longer getting.",
-    changes: [
-      "The Granary build option now describes its real effect: an instant +10,000 population burst on completion.",
-      "The town-tile overview no longer shows a \"+15% population growth\" line for a plain Granary — only an active Seed Granary (or a Granary inside its buffed radius) still shows an ongoing growth bonus."
-    ]
-  },
-  {
-    createdAt: 1786413600000, // 2026.08.10.3
-    introducedIn: "2026.08.10.3",
-    title: "New 3D Umbrite Extraction Rig",
-    why: "The Umbrite Extraction Rig — a heavy industrial machine that drills into exposed Umbrite veins and contains their volatile stored energy — now has a full 3D model, ready to be placed on the map as part of the Umbrite gameplay.",
-    changes: [
-      "Added a low-poly 3D Umbrite Extraction Rig: squat iron base, reinforced drilling column with brass bands, a rotating drill descending into the ground, angled brass support struts, and anchor feet.",
-      "The drill visibly penetrates an exposed violet-black Umbrite vein, with a containment collar leaking a small, restrained amount of orange containment energy.",
-      "A brass-banded pressure vessel with an ember inspection window receives the extracted Umbrite through chunky industrial pipes with coupling joints and valves."
-    ]
-  },
-  {
-    createdAt: 1786417200000, // 2026.08.10.4
-    introducedIn: "2026.08.10.4",
-    title: "Weapons Workshop split into Titanium and Umbrite Weapons Factories",
-    why: "Weapons Workshop forged both Titanium and Umbrite into the same flat empire-wide attack/defense boost, giving the two resources no distinct identity in the War branch. It's retired and replaced with two resource-specific factories that reward a real strategic choice: mass-produce anywhere, or cluster into one connected industrial network for a bigger payoff — and skipping both leaves your empire exposed.",
-    changes: [
-      "Titanium Weapons Factory (unlocked by Titanium-Clad Masonry): an uncapped Titanium sink granting +1.5% attack / +3% defense per copy — armor doctrine.",
-      "Umbrite Weapons Factory (unlocked by Rigging Works): an uncapped Umbrite sink granting +3% attack / +1.5% defense per copy — raiding doctrine.",
-      "Both buildings' bonus is scoped to the connected-town network relevant to each fight, not a flat empire-wide sum — clustering many together in one connected region pays off more than scattering them.",
-      "Each additional copy of either factory costs more manpower than the last.",
-      "Owning zero Titanium Weapons Factories or zero Umbrite Weapons Factories anywhere in your empire leaves you markedly easier to attack.",
-      "Weapons Workshop can no longer be newly built; any copies you already own keep working as before."
-    ]
-  },
-  {
-    createdAt: 1786413600000, // 2026.08.10.3
-    introducedIn: "2026.08.10.3",
-    title: "Queue expansions ahead of your frontier",
-    why: "You could only queue an expansion onto a tile that already touched your territory, so planning a route deep into neutral land meant clicking one tile at a time and waiting for each to finish before the next could even be queued.",
-    changes: [
-      "You can now queue an expansion onto a neutral tile that only borders another tile you've already queued or are currently claiming — the new claim waits for the earlier one to finish, then launches from it automatically.",
-      "Chains can go several tiles deep, so a whole planned route can be queued up in one pass instead of one click at a time."
     ]
   },
   {

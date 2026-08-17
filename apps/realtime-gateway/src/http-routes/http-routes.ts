@@ -20,9 +20,11 @@ import {
 } from "../rally-link-store/rally-link-store.js";
 import { registerGalaxyRoutes } from "../galaxy-routes/galaxy-routes.js";
 import { registerGalaxyEndorsementRoutes } from "../galaxy-endorsement-routes/galaxy-endorsement-routes.js";
+import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
+import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
 
 export type GatewayDebugEvent = {
   at: number;
@@ -99,6 +101,7 @@ export type RegisterGatewayHttpRoutesDeps = {
   galaxyPlanetStore?: GalaxyPlanetStore;
   galaxyEndorsementStore?: GalaxyEndorsementStore;
   authBindingStore?: GatewayAuthBindingStore;
+  worldEngineStrikeStore?: WorldEngineStrikeStore;
 };
 
 const addCorsHeaders = (app: FastifyInstance): void => {
@@ -549,6 +552,10 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
     ...(deps.galaxyEndorsementStore ? { endorsementStore: deps.galaxyEndorsementStore } : {}),
     ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {})
+  });
+
+  registerWorldEngineStrikeRoutes(app, {
+    ...(deps.worldEngineStrikeStore ? { worldEngineStrikeStore: deps.worldEngineStrikeStore } : {})
   });
 };
   const forceRequested = (value: unknown): boolean =>
