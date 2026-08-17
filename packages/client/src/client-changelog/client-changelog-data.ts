@@ -1,16 +1,8 @@
-// Changelog entry data only, split out from client-changelog.ts to keep that
-// file (rendering/visibility logic) under the repo's 500-line file cap. This
-// file grows by ~1 entry per user-visible change; the oldest entries live in
-// client-changelog-data-earlier.ts (same split, same rules) once this file
-// approaches the cap — extract more of the tail there before adding new
-// entries rather than letting this file keep growing.
-//
-// Entries are unordered here — append new ones anywhere (the end is
-// easiest) instead of inserting at the top. client-changelog.ts sorts by
-// createdAt before rendering, so there is no shared "top of list" or
-// version field for parallel branches to collide on.
+// Changelog entry data only, split out from client-changelog.ts (rendering/
+// visibility) to keep that file under the 500-line cap. Entries are unordered —
+// client-changelog.ts sorts by createdAt. Move old entries to
+// client-changelog-data-earlier.ts when this file approaches the cap.
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER } from "./client-changelog-data-earlier.js";
-
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use Date.now() when authoring a new entry.
   introducedIn: string;
@@ -18,9 +10,7 @@ export type ClientChangelogEntry = {
   why: string;
   changes: string[];
 };
-
-// Add a new entry for every user-facing client release. Order doesn't
-// matter; client-changelog.ts sorts by createdAt.
+// Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1786910628146, // 2026.08.16.1
@@ -418,9 +408,19 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "METROPOLIS — Wonder of the World: the central Monument is now much taller and grander, with extra stepped brass shafts, integrated gear decks and a soaring needle crowned by a luminous aether orb.",
       "The 2D metropolis icon was redrawn to match the taller Monument, and everything remains mechanically unchanged."
     ]
+  },
+  {
+    createdAt: 1786905792661, // 2026.08.16
+    introducedIn: "2026.08.16",
+    title: "The Caravanary is now the Trade Nexus, with a new commercial-hub look",
+    why: "The Caravanary still read as a humble road-station courtyard, while the trade network needed to sell concentrated wealth — a grand exchange hall where trade routes converge, with cargo and brass machinery at work. Renamed the building to Trade Nexus and gave it a look to match; the underlying road-network mechanics are unchanged.",
+    changes: [
+      "The Caravanary structure is renamed Trade Nexus everywhere in the UI (build menu, tile info, tech tree). Its behavior — enabling the connected-town road network and income bonus — is unchanged.",
+      "New 3D overlay: a grand domed trading hall on an octagonal stone plinth, ringed by six converging trade roads, merchants' warehouses, stacked cargo, brass jib cranes, feed pipes, warm hanging lamps and a slowly winding brass clockwork seal atop the dome — replacing the old fortified-inn look.",
+      "A matching flat-color 2D icon (trading hall, converging routes, cargo and brass machinery) accompanies the 3D asset."
+    ]
   }
 ];
-
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER
