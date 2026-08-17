@@ -6247,14 +6247,17 @@ button:disabled,
   display: flex;
   flex-direction: column;
   padding: 26px clamp(16px, 4vw, 40px) 0;
-}
-.se-tab-panels {
-  flex: 1;
-  min-height: 0;
+  /* The whole body (header, victor medallion, tabs, panel content) scrolls
+     as one unit -- on short viewports the medallion alone can exceed the
+     available height, so it must not be a fixed, unscrollable block above a
+     separately-scrolling tab area. */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   touch-action: pan-y;
+}
+.se-tab-panels {
+  flex: 0 0 auto;
 }
 .se-scroll-footer {
   flex-shrink: 0;
@@ -6382,6 +6385,8 @@ button:disabled,
 }
 .se-rank-row.is-self { border-color: rgba(95, 174, 125, 0.55); box-shadow: 0 0 14px rgba(95, 174, 125, 0.18); }
 .se-rank-row.is-detached { margin-top: 4px; opacity: 0.92; }
+.se-rank-row.is-winner { border-color: rgba(255, 215, 110, 0.55); box-shadow: 0 0 14px rgba(255, 215, 110, 0.16); }
+.se-rank-crown { color: var(--se-brass-hi); margin-right: 6px; text-shadow: 0 0 8px rgba(255, 215, 110, 0.6); }
 .se-rank-medal {
   display: grid;
   place-items: center;
