@@ -3331,13 +3331,6 @@ body {
   gap: 10px;
 }
 
-.client-build-version {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: rgba(162, 212, 255, 0.86);
-}
-
 .auth-map-reveal {
   display: grid;
   gap: 6px;
