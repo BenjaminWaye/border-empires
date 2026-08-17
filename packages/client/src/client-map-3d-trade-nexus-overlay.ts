@@ -101,10 +101,10 @@ export const createTradeNexusOverlay = (scene: Scene, maxTiles: number): TradeNe
   const C = maxTiles;
 
   // ─── Materials (shared by piece type) ───────────────────────────────
-  const plazaMaterial = makeMat("#7d7468", 0.9, 0.05);
+  const plazaMaterial = makeMat("#6b6152", 0.92, 0.05);
   const roadMaterial = makeMat("#3c3a38", 0.85, 0.12);
-  const stoneMaterial = makeMat("#c9bda4", 0.88, 0);
-  const stoneDarkMaterial = makeMat("#948a78", 0.9, 0);
+  const stoneMaterial = makeMat("#a99b84", 0.9, 0);
+  const stoneDarkMaterial = makeMat("#827763", 0.92, 0);
   const ironMaterial = makeMat("#2c2e34", 0.55, 0.55);
   const brassMaterial = makeMat("#8a6b3c", 0.42, 0.85);
   const brassBrightMaterial = makeMat("#a5864d", 0.3, 0.92);
