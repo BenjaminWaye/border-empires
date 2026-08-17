@@ -23,6 +23,7 @@ import {
 } from "../client-diplomacy-notifications.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
+import { clearStoredDiscoveredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
 // handler (that file is well over the repo's 500-line cap and may not grow),
@@ -139,6 +140,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   ) {
     clearCameraLocation();
     state.cameraRestoredFromStorage = false;
+    clearStoredDiscoveredTiles();
   }
   state.fogDisabled = Boolean(incomingConfig.fogDisabled);
   state.serverSupportedMessageTypes = new Set(
@@ -228,6 +230,16 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   if (!preserveDiscoveredTilesOnReconnect) {
     state.discoveredTiles.clear();
     state.discoveredDockTiles.clear();
+    // In-session reconnect kept the Set alive above; a hard page refresh
+    // starts from an empty Set (see createInitialState() in client-state.ts),
+    // so restore whatever was persisted to localStorage on the previous
+    // page's unload -- otherwise every explored tile outside the current
+    // view radius renders "unexplored" until the player scrolls back to it.
+    const restored = readStoredDiscoveredTiles(incomingSeason?.seasonId, incomingPlayerId);
+    if (restored) {
+      for (const key of restored.discoveredTiles) state.discoveredTiles.add(key);
+      for (const key of restored.discoveredDockTiles) state.discoveredDockTiles.add(key);
+    }
   }
   state.manpowerBreakdown = (player.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
   applyPendingSettlementsFromServer(

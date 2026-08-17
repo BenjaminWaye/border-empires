@@ -178,12 +178,11 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     if (terrainAt(x, y) !== "LAND") return false;
     const biome = landBiomeAt(x, y);
     const shade = grassShadeAt(x, y);
-    const region = regionTypeAtLocal(x, y);
     if (resource === "FISH") return biome === "COASTAL_SAND";
     if (resource === "TITANIUM") return (biome === "SAND" && isNearMountain(x, y, 4)) || isGrassTitaniumTile(x, y);
     if (resource === "GEMS") return biome === "SAND";
     if (resource === "FARM") return biome === "GRASS" && shade === "LIGHT";
-    if (resource === "UMBRITE") return !isCoastalLand(x, y) && ((biome === "GRASS" && shade === "DARK" && region === "DEEP_FOREST") || biome === "SAND");
+    if (resource === "UMBRITE") return !isCoastalLand(x, y) && ((biome === "GRASS" && shade === "DARK") || biome === "SAND");
     return false;
   };
 
