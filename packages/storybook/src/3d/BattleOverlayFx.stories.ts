@@ -2,6 +2,8 @@ import type { Meta, StoryObj } from "@storybook/html-vite";
 import { Mesh, MeshStandardMaterial, PlaneGeometry } from "three";
 import {
   createBattleOverlayFx,
+  LINEUP_MS,
+  MARCH_MS,
   APPROACH_MS,
   CLASH_MS,
   ROUT_MS,
@@ -319,19 +321,22 @@ export const FullAttackLifecycle: StoryObj<LifecycleArgs> = {
 
     const phaseAt = (t: number): { name: string; detail: string } => {
       if (t < args.siegeDurationMs) {
+        if (t < LINEUP_MS) {
+          return { name: "SKIRMISH · lineup", detail: `${t.toFixed(0)} / ${LINEUP_MS}ms — both sides forming up at their own edge` };
+        }
         if (t < APPROACH_MS) {
-          return { name: "SKIRMISH · approach", detail: `${t.toFixed(0)} / ${APPROACH_MS}ms — both sides converging on the tile center` };
+          return { name: "SKIRMISH · march", detail: `${(t - LINEUP_MS).toFixed(0)} / ${MARCH_MS}ms — both sides advancing on the tile center` };
         }
         return {
           name: "SKIRMISH · clash loop",
-          detail: `${(t / 1000).toFixed(1)}s / ${(args.siegeDurationMs / 1000).toFixed(1)}s countdown — oscillating melee, outcome not yet known to the player`
+          detail: `${(t / 1000).toFixed(1)}s / ${(args.siegeDurationMs / 1000).toFixed(1)}s countdown — oscillating melee, outcome not yet known, no casualties yet`
         };
       }
       if (t < clashAt) {
-        return { name: "RESOLVED · finishing approach", detail: `${(t - startAt).toFixed(0)} / ${APPROACH_MS}ms — broadcast landed before the skirmish's own approach finished` };
+        return { name: "RESOLVED · finishing lineup/march", detail: `${(t - startAt).toFixed(0)} / ${APPROACH_MS}ms — broadcast landed before the skirmish's own lineup/march finished` };
       }
       if (t < clashAt + CLASH_MS) {
-        return { name: "RESOLVED · clash + glyph bursts", detail: `${(t - clashAt).toFixed(0)} / ${CLASH_MS}ms` };
+        return { name: "RESOLVED · clash + glyph bursts + casualties", detail: `${(t - clashAt).toFixed(0)} / ${CLASH_MS}ms — outcome now known, some dots start falling` };
       }
       if (t < endAt) {
         return {
@@ -396,7 +401,8 @@ export const FullAttackLifecycle: StoryObj<LifecycleArgs> = {
     };
     const jumps: Array<[string, number]> = [
       ["0s", 0],
-      ["Approach end", APPROACH_MS],
+      ["Lineup end", LINEUP_MS],
+      ["March end", APPROACH_MS],
       ["Resolve", args.siegeDurationMs],
       ["Clash end", clashAt + CLASH_MS],
       ["Rout end", endAt]
