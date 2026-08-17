@@ -18,7 +18,6 @@ import {
   terrainAt
 } from "@border-empires/shared";
 import {
-  COLLECT_VISIBLE_COOLDOWN_MS,
   GUIDE_AUTO_OPEN_STORAGE_KEY,
   GUIDE_STORAGE_KEY,
   canAffordCost,
@@ -205,12 +204,8 @@ const { ownedSpecialSiteCount, wrappedTileDistance, toroidDelta, worldToScreen, 
 
 const {
   hasCollectableYield,
-  visibleCollectSummary,
-  clearPendingCollectVisibleDelta,
   clearPendingCollectTileDelta,
-  revertOptimisticVisibleCollectDelta,
   revertOptimisticTileCollectDelta,
-  applyOptimisticVisibleCollect,
   applyOptimisticTileCollect
 } = createClientCollectSupport({
   state,
@@ -227,7 +222,6 @@ const {
   hideShardAlert,
   showCaptureAlert,
   notifyInsufficientGoldForFrontierAction,
-  showCollectVisibleCooldownAlert,
   centerOnOwnedTile,
   requestViewRefresh,
   maybeRefreshForCamera,
@@ -241,8 +235,7 @@ const {
   state,
   dom,
   ws,
-  fullMapChunkRadius: FULL_MAP_CHUNK_RADIUS,
-  formatCooldownShort
+  fullMapChunkRadius: FULL_MAP_CHUNK_RADIUS
 });
 
 const openEconomyPanel = (focus: EconomyFocusKey = "ALL"): void => {
@@ -338,7 +331,6 @@ bootstrapClientApp({
   firebaseAuth,
   googleProvider,
   storageSet,
-  visibleCollectSummary,
   isMobile,
   rateToneClass,
   formatGoldAmount,
@@ -421,7 +413,6 @@ bootstrapClientApp({
   maybeAnnounceShardSite,
   markDockDiscovered,
   centerOnOwnedTile,
-  clearPendingCollectVisibleDelta,
   resetStrategicReplayState,
   setWorldSeed,
   clearRenderCaches,
@@ -433,9 +424,7 @@ bootstrapClientApp({
   showCaptureAlert,
   notifyInsufficientGoldForFrontierAction,
   clearPendingCollectTileDelta,
-  revertOptimisticVisibleCollectDelta,
   revertOptimisticTileCollectDelta,
-  applyOptimisticVisibleCollect,
   applyOptimisticTileCollect,
   applyOptimisticTileState,
   applyOptimisticStructureBuild,
@@ -470,8 +459,6 @@ bootstrapClientApp({
   mobileTechChooseBtn: dom.mobileTechChooseBtn,
   centerMeBtn: dom.centerMeBtn,
   centerMeDesktopBtn: dom.centerMeDesktopBtn,
-  collectVisibleDesktopBtn: dom.collectVisibleDesktopBtn,
-  collectVisibleMobileBtn: dom.collectVisibleMobileBtn,
   captureCancelBtn: dom.captureCancelBtn,
   captureCloseBtn: dom.captureCloseBtn,
   captureTimeEl: dom.captureTimeEl,
@@ -489,8 +476,6 @@ bootstrapClientApp({
   displayTownGoldPerMinute,
   tileHistoryLines,
   hideShardAlert,
-  showCollectVisibleCooldownAlert,
   drawBarbarianSkullOverlay,
-  drawIncomingAttackOverlay,
-  COLLECT_VISIBLE_COOLDOWN_MS
+  drawIncomingAttackOverlay
 });

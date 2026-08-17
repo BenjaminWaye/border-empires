@@ -88,7 +88,7 @@ export type GatewayTileUpdate = {
 };
 
 type GatewayTileSyncDeps = {
-  state: Pick<ClientState, "tiles" | "tilesRevision" | "incomingAttacksByTile" | "pendingCollectVisibleKeys" | "discoveredTiles"> & {
+  state: Pick<ClientState, "tiles" | "tilesRevision" | "incomingAttacksByTile" | "discoveredTiles"> & {
     me?: string | undefined;
     mods?: Partial<ClientState["mods"]>;
     upkeepLastTick: { foodCoverage?: number };
@@ -327,7 +327,6 @@ export const refreshGatewayDerivedTownSummariesAroundTile = (
 
 const applyGatewayTileUpdate = (deps: GatewayTileSyncDeps, update: GatewayTileUpdate, skipRevision = false): boolean => {
   const tileKey = deps.keyFor(update.x, update.y);
-  deps.state.pendingCollectVisibleKeys.delete(tileKey);
   const existing = deps.state.tiles.get(tileKey);
   clearResolvedIncomingAttack(deps.state, tileKey, update, existing);
 
@@ -493,11 +492,9 @@ export const applyGatewayInitialState = (
       });
     }
     deps.state.incomingAttacksByTile.clear();
-    deps.state.pendingCollectVisibleKeys.clear();
   } else {
     deps.state.tiles.clear();
     deps.state.incomingAttacksByTile.clear();
-    deps.state.pendingCollectVisibleKeys.clear();
     deps.state.discoveredTiles.clear();
   }
   deps.state.tilesRevision += 1; // single bump for the whole batch

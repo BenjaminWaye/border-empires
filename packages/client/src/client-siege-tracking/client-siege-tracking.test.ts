@@ -122,7 +122,6 @@ describe("gateway tile-delta path", () => {
         tiles: new Map<string, Tile>([["4,7", besiegedTile]]),
         tilesRevision: 0,
         ...siegeState(),
-        pendingCollectVisibleKeys: new Set<string>(),
         discoveredTiles: new Set<string>(["4,7"]),
         upkeepLastTick: { foodCoverage: 1 },
         mods: { income: 1 }

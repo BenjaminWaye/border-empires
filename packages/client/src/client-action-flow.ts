@@ -70,7 +70,6 @@ import {
   cancelOngoingCapture as cancelOngoingCaptureFromModule,
   collectSelectedShard as collectSelectedShardFromModule,
   collectSelectedYield as collectSelectedYieldFromModule,
-  collectVisibleYield as collectVisibleYieldFromModule,
   hideTileActionMenu as hideTileActionMenuFromModule,
   settleSelected as settleSelectedFromModule,
   uncaptureSelected as uncaptureSelectedFromModule
@@ -223,7 +222,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     worldTileRawFromPointer,
     computeDragPreview,
     showCaptureAlert,
-    showCollectVisibleCooldownAlert,
     notifyInsufficientGoldForFrontierAction,
     isMobile,
     supportedOwnedTownsForTile,
@@ -263,7 +261,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "CANCEL_CAPTURE",
     "UNCAPTURE_TILE",
     "COLLECT_TILE",
-    "COLLECT_VISIBLE",
     "CHOOSE_TECH",
     "CHOOSE_DOMAIN",
     "SET_CONVERTER_STRUCTURE_ENABLED",
@@ -813,15 +810,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const buildSiegeOutpostOnSelected = (): void => buildSiegeOutpostOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage);
-  const collectVisibleYield = (): void =>
-    collectVisibleYieldFromModule(state, {
-      formatCooldownShort,
-      showCollectVisibleCooldownAlert,
-      pushFeed,
-      renderHud,
-      applyOptimisticVisibleCollect: deps.applyOptimisticVisibleCollect,
-      sendGameMessage
-    });
   const collectSelectedYield = (): void =>
     collectSelectedYieldFromModule(state, {
       keyFor,
@@ -1405,7 +1393,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           const out = queueSpecificTargets([k]);
           if (out.queued > 0) {
             processActionQueue();
-            pushFeed(`Queued frontier capture at (${selected.x}, ${selected.y}).`, "combat", "info");
           } else {
             showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
           }
@@ -1738,7 +1725,47 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
+    // Shared with the "visible" neutral-adjacent click path below: claims an
+    // adjacent-reachable tile immediately instead of opening a menu. Lifted
+    // out so fogged/unexplored tiles adjacent to owned territory can also
+    // start a frontier expand directly, rather than only ever showing a
+    // description popup (or, for unexplored tiles, nothing at all) just
+    // because their true terrain/ownership isn't confirmed yet -- the queue
+    // already tolerates a claim against a stale/wrong guess via
+    // frontierSyncWaitUntilByTarget, the same as any other rejected attempt.
+    const queueAdjacentExpandClaim = (x: number, y: number): void => {
+      const isAlreadyQueued = actionQueueIndexForTileFromModule(state, x, y) >= 0;
+      const isActiveCapture = Boolean(state.capture && state.capture.target.x === x && state.capture.target.y === y);
+      if (isAlreadyQueued || isActiveCapture) {
+        const activeTile = state.tiles.get(keyFor(x, y));
+        if (activeTile) openSingleTileActionMenu(activeTile, clientX, clientY, isActiveCapture ? { openTab: "buildings" } : undefined);
+        requestAttackPreviewForHover();
+        renderHud();
+        return;
+      }
+      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
+        notifyInsufficientGoldForFrontierAction("claim");
+        requestAttackPreviewForHover();
+        renderHud();
+        return;
+      }
+      if (enqueueTarget(x, y)) {
+        processActionQueue();
+        if (state.capture && state.capture.target.x === x && state.capture.target.y === y) {
+          state.capture.silent = false;
+        }
+      }
+      requestAttackPreviewForHover();
+      renderHud();
+    };
     if (vis === "unexplored") {
+      const frontierOrigin = pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true);
+      if (frontierOrigin) {
+        state.selected = { x: wx, y: wy };
+        resetAttackPreviewState(state);
+        queueAdjacentExpandClaim(wx, wy);
+        return;
+      }
       openUnexploredTileActionMenu(state, wx, wy, clientX, clientY, { keyFor, pickOriginForTarget, renderTileActionMenu, resetAttackPreviewState });
       renderHud();
       return;
@@ -1746,6 +1773,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (vis === "fogged") {
       state.selected = { x: wx, y: wy };
       resetAttackPreviewState(state);
+      const isLand = clicked?.terrain === "LAND";
+      const isNeutral = !clicked?.ownerId;
+      const frontierOrigin = isLand && isNeutral ? (pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true)) : undefined;
+      if (frontierOrigin) {
+        queueAdjacentExpandClaim(wx, wy);
+        return;
+      }
       if (clicked) openSingleTileActionMenu(clicked, clientX, clientY);
       renderHud();
       return;
@@ -1780,38 +1814,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       // active claim was already spent (a since-drained wallet must never
       // block re-viewing it), and enqueueTarget silently no-ops on an
       // already-queued target, which would otherwise leave the click with
-      // no menu and no feedback.
-      const isAlreadyQueued = actionQueueIndexForTileFromModule(state, to.x, to.y) >= 0;
-      const isActiveCapture = Boolean(state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y);
-      if (isAlreadyQueued || isActiveCapture) {
-        // Re-pressing a tile mid-frontier-expansion should jump straight to
-        // the buildings tab so a settle + building can be queued to fire
-        // the moment the expansion finishes, instead of defaulting to the
-        // progress tab the player has already seen.
-        openSingleTileActionMenu(to, clientX, clientY, isActiveCapture ? { openTab: "buildings" } : undefined);
-        requestAttackPreviewForHover();
-        renderHud();
-        return;
-      }
-      if (!canAffordCost(state.gold, FRONTIER_CLAIM_COST)) {
-        notifyInsufficientGoldForFrontierAction("claim");
-        requestAttackPreviewForHover();
-        renderHud();
-        return;
-      }
-      if (enqueueTarget(to.x, to.y)) {
-        processActionQueue();
-        // A neutral EXPAND is silent by default (see processActionQueue) —
-        // flip it back on for this one case: a plain manual tap that became
-        // the active capture immediately. That's the overlay's only
-        // feedback signal now that the tile menu doesn't auto-open for it.
-        if (state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y) {
-          state.capture.silent = false;
-        }
-        pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
-      }
-      requestAttackPreviewForHover();
-      renderHud();
+      // no menu and no feedback. (queueAdjacentExpandClaim handles this.)
+      queueAdjacentExpandClaim(to.x, to.y);
       return;
     }
     if (to.terrain === "LAND" && !to.fogged) {
@@ -1862,7 +1866,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     buildSiegeOutpostOnSelected,
     uncaptureSelected,
     cancelOngoingCapture,
-    collectVisibleYield,
     collectSelectedYield,
     collectSelectedShard,
     hideTileActionMenu,

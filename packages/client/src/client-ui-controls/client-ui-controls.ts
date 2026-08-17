@@ -18,8 +18,6 @@ type UiControlsDeps = {
   mobileTechPickEl: ClientDom["mobileTechPickEl"];
   centerMeBtn: ClientDom["centerMeBtn"];
   centerMeDesktopBtn: ClientDom["centerMeDesktopBtn"];
-  collectVisibleDesktopBtn: ClientDom["collectVisibleDesktopBtn"];
-  collectVisibleMobileBtn: ClientDom["collectVisibleMobileBtn"];
   captureCancelBtn: ClientDom["captureCancelBtn"];
   captureDismissBtn: ClientDom["captureDismissBtn"];
   captureCloseBtn: ClientDom["captureCloseBtn"];
@@ -44,7 +42,6 @@ type UiControlsDeps = {
   renderHud: () => void;
   centerOnOwnedTile: () => void;
   requestViewRefresh: (priorityBoost?: number, immediate?: boolean) => void;
-  collectVisibleYield: () => void;
   cancelOngoingCapture: () => void;
   confirmBuildingPlacement: () => void;
   cancelBuildingPlacement: () => void;
@@ -72,8 +69,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     mobileTechPickEl,
     centerMeBtn,
     centerMeDesktopBtn,
-    collectVisibleDesktopBtn,
-    collectVisibleMobileBtn,
     captureCancelBtn,
     captureDismissBtn,
     captureCloseBtn,
@@ -97,7 +92,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
     renderHud,
     centerOnOwnedTile,
     requestViewRefresh,
-    collectVisibleYield,
     cancelOngoingCapture,
     confirmBuildingPlacement,
     cancelBuildingPlacement,
@@ -140,12 +134,6 @@ export const bindClientUiControls = (deps: UiControlsDeps): void => {
   centerMeDesktopBtn.onclick = () => {
     centerOnOwnedTile();
     requestViewRefresh(2, true);
-  };
-  collectVisibleDesktopBtn.onclick = () => {
-    collectVisibleYield();
-  };
-  collectVisibleMobileBtn.onclick = () => {
-    collectVisibleYield();
   };
   captureCancelBtn.onclick = () => cancelOngoingCapture();
   captureDismissBtn.onclick = () => {

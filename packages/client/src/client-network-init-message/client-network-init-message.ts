@@ -23,6 +23,7 @@ import {
 } from "../client-diplomacy-notifications.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
+import { clearStoredDiscoveredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 
 // Extracted out of client-network.ts's single ~2000-line WebSocket message
 // handler (that file is well over the repo's 500-line cap and may not grow),
@@ -139,6 +140,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   ) {
     clearCameraLocation();
     state.cameraRestoredFromStorage = false;
+    clearStoredDiscoveredTiles();
   }
   state.fogDisabled = Boolean(incomingConfig.fogDisabled);
   state.serverSupportedMessageTypes = new Set(
@@ -228,6 +230,16 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   if (!preserveDiscoveredTilesOnReconnect) {
     state.discoveredTiles.clear();
     state.discoveredDockTiles.clear();
+    // In-session reconnect kept the Set alive above; a hard page refresh
+    // starts from an empty Set (see createInitialState() in client-state.ts),
+    // so restore whatever was persisted to localStorage on the previous
+    // page's unload -- otherwise every explored tile outside the current
+    // view radius renders "unexplored" until the player scrolls back to it.
+    const restored = readStoredDiscoveredTiles(incomingSeason?.seasonId, incomingPlayerId);
+    if (restored) {
+      for (const key of restored.discoveredTiles) state.discoveredTiles.add(key);
+      for (const key of restored.discoveredDockTiles) state.discoveredDockTiles.add(key);
+    }
   }
   state.manpowerBreakdown = (player.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
   applyPendingSettlementsFromServer(
@@ -419,7 +431,14 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   applyIncomingRespawnNotice(player.respawnNotice);
   state.dockPairs = mapMeta.dockPairs ?? [];
   state.dockRouteCache.clear();
-  pushFeed(`Spawned. ${incomingSeason?.seasonId ? `Season ${incomingSeason.seasonId}.` : ""} Your tile is centered.`, "info", "success");
+  const spawnSeasonId = incomingSeason?.seasonId ?? "";
+  if (state.spawnFeedShownSeasonId !== spawnSeasonId) {
+    // INIT is resent on every reconnect, not just on a fresh spawn; without this
+    // guard each reconnect would re-push "Spawned..." with a fresh timestamp,
+    // making a spawn from an hour ago look like it just happened.
+    state.spawnFeedShownSeasonId = spawnSeasonId;
+    pushFeed(`Spawned. ${spawnSeasonId ? `Season ${spawnSeasonId}.` : ""} Your tile is centered.`, "info", "success");
+  }
   if (incomingConfig.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
   if (offlineActivity.length > 0) {
     for (let index = offlineActivity.length - 1; index >= 0; index -= 1) {

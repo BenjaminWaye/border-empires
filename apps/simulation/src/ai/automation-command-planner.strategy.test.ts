@@ -413,7 +413,9 @@ describe("automation command planner strategic parity", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      manpower: EXPAND_MANPOWER_COST, // enough to EXPAND, still below ATTACK_MANPOWER_MIN
+      // Must cover FORT_TIER_LADDER.FORT's 300 manpower, or the fort is not a
+      // candidate at all (structure-command-planner's affordability gate).
+      manpower: 300,
       techIds: ["masonry"],
       strategicResources: { TITANIUM: 60 },
       settledTileCount: 5,
@@ -430,6 +432,10 @@ describe("automation command planner strategic parity", () => {
         ["2,0", neutral]
       ]),
       previousVictoryPath: "TOWN_CONTROL",
+      // At fort-affording manpower MUSTER would otherwise outrank
+      // BUILD_DEFENSE on this weak enemy border — see the niche note in
+      // automation-command-planner.test.ts's fort case.
+      attackStalemateTargetTileKeys: new Set(["1,1"]),
       clientSeq: 25,
       issuedAt: 1000,
       sessionPrefix: "ai-runtime"

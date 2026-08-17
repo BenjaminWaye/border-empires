@@ -44,6 +44,7 @@ import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
 import { handleTileDeltaBatchMessage } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
+import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
 import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js";
@@ -80,7 +81,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     authProfileNameEl,
     authProfileColorEl,
     defensibilityPctFromTE,
-    clearPendingCollectVisibleDelta,
     seedProfileSetupFields,
     resetStrategicReplayState,
     setWorldSeed,
@@ -103,10 +103,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     explainActionFailure,
     notifyInsufficientGoldForFrontierAction,
     clearSettlementProgressByKey,
-    showCollectVisibleCooldownAlert,
     formatCooldownShort,
     reconcileActionQueue,
-    revertOptimisticVisibleCollectDelta,
     revertOptimisticTileCollectDelta,
     clearPendingCollectTileDelta,
     playerNameForOwner,
@@ -1270,6 +1268,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         clearQueuedDevelopmentDispatchPending,
         appendFeedEntry
       });
+      backfillWorldEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
       return;
     }
 
@@ -1358,7 +1357,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       state.incomingAllianceRequests = (msg.incomingAllianceRequests as any[] | undefined) ?? state.incomingAllianceRequests;
       state.outgoingAllianceRequests = (msg.outgoingAllianceRequests as any[] | undefined) ?? state.outgoingAllianceRequests;
-      clearPendingCollectVisibleDelta();
       if (state.upkeepLastTick.foodCoverage < 0.999 && !state.foodCoverageWarned) {
         pushFeed(
           `Town support underfed: FOOD upkeep coverage ${(state.upkeepLastTick.foodCoverage * 100).toFixed(0)}%. Unfed towns stop producing gold.`,
@@ -1790,6 +1788,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "RAID_RESULT") { appendFeedEntry(raidResultFeedEntry(msg, { playerNameForOwner })); renderHud(); return; }
+    if (msg.type === "WORLD_ENGINE_STRIKE_ANNOUNCEMENT") {
+      applyWorldEngineStrikeAnnouncement(msg as Record<string, unknown>, { state, appendFeedEntry, requestViewRefresh });
+      renderHud();
+      return;
+    }
     if (msg.type === "AIRPORT_BOMBARD_RESULT") {
       const targetableTiles = Number(msg.targetableTiles ?? 0);
       const hitTiles = Number(msg.hitTiles ?? 0);
@@ -1996,7 +1999,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         const normalizedUpdate = { ...update };
         Object.assign(normalizedUpdate, gatewayNormalizedUpdate);
         const updateKey = keyFor(update.x, update.y);
-        state.pendingCollectVisibleKeys.delete(keyFor(update.x, update.y));
         const existing = state.tiles.get(keyFor(update.x, update.y));
         clearResolvedIncomingAttack(state, updateKey, normalizedUpdate, existing);
         const previousTerrain = existing?.terrain;
@@ -2409,8 +2411,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         return;
       }
       clearAuthInFlight?.(); if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
-        state.pendingCollectVisibleKeys.clear();
-        revertOptimisticVisibleCollectDelta();
         const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : "";
         if (collectTileKey) revertOptimisticTileCollectDelta(collectTileKey);
         const pending = state.pendingShardCollect;
@@ -2751,10 +2751,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       if (errorCode === "COLLECT_EMPTY") {
         pushFeedSafely(`Nothing to collect on this tile yet: ${errorMessage}.`, "info", "warn");
-      } else if (errorCode === "COLLECT_COOLDOWN") {
-        if (state.collectVisibleCooldownUntil <= Date.now()) state.collectVisibleCooldownUntil = Date.now() + deps.COLLECT_VISIBLE_COOLDOWN_MS;
-        showCollectVisibleCooldownAlert();
-        pushFeedSafely(`Collect visible cooling down for ${formatCooldownShort(state.collectVisibleCooldownUntil - Date.now())}.`, "info", "warn");
       } else if (notificationCategory === "persistent_alert") {
         // Persistent world issues stay on the map until fixed; the feed remains history-only.
       } else {
@@ -2904,9 +2900,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "COLLECT_RESULT") {
-      state.pendingCollectVisibleKeys.clear();
       state.pendingShardCollect = undefined;
-      if ((msg.mode as string | undefined) === "visible") clearPendingCollectVisibleDelta();
       if ((msg.mode as string | undefined) === "tile" && typeof msg.x === "number" && typeof msg.y === "number") {
         clearPendingCollectTileDelta(keyFor(Number(msg.x), Number(msg.y)));
       }

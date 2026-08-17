@@ -12,6 +12,7 @@ import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
+import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
 import type { SimulationSeedProfile } from "../seed-fallback.js";
 import type { createSimulationClient } from "../sim-client/sim-client.js";
 import type { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
@@ -51,6 +52,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   galaxyPlanetStore: GalaxyPlanetStore;
   galaxyEndorsementStore: GalaxyEndorsementStore;
   authBindingStore: GatewayAuthBindingStore;
+  worldEngineStrikeStore: WorldEngineStrikeStore;
   adminApiToken?: string;
   alertPlayerBugReport?: (report: BugReportInput) => void;
   alertSeasonStarted?: (seasonId: string, force: boolean) => void;
@@ -127,6 +129,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.adminApiToken ? { adminApiToken: ctx.adminApiToken } : {}),
     galaxyPlanetStore: ctx.galaxyPlanetStore,
     galaxyEndorsementStore: ctx.galaxyEndorsementStore,
-    authBindingStore: ctx.authBindingStore
+    authBindingStore: ctx.authBindingStore,
+    worldEngineStrikeStore: ctx.worldEngineStrikeStore
   };
 };

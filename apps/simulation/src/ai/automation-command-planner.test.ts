@@ -259,43 +259,6 @@ describe("automation command planner", () => {
     });
   });
 
-  it("builds a fort on an exposed settled core tile when enemies crowd the frontier", () => {
-    const town = makeTile(8, 8, {
-      ownerId: "ai-1",
-      ownershipState: "SETTLED",
-      town: { type: "FARMING", name: "Town", populationTier: "TOWN" }
-    });
-    const enemyA = makeTile(9, 8, { ownerId: "enemy-1" });
-    const enemyB = makeTile(8, 9, { ownerId: "enemy-2" });
-    const result = planAutomationCommand({
-      playerId: "ai-1",
-      points: 5_000,
-      manpower: 10,
-      techIds: ["masonry"],
-      strategicResources: { TITANIUM: 60 },
-      settledTileCount: 3,
-      townCount: 1,
-      incomePerMinute: 6,
-      hasActiveLock: false,
-      activeDevelopmentProcessCount: 0,
-      frontierTiles: [],
-      ownedTiles: [town],
-      tilesByKey: new Map([
-        ["8,8", town],
-        ["9,8", enemyA],
-        ["8,9", enemyB]
-      ]),
-      clientSeq: 4,
-      issuedAt: 1000,
-      sessionPrefix: "ai-runtime"
-    });
-
-    expect(result.command).toMatchObject({
-      type: "BUILD_FORT",
-      payloadJson: JSON.stringify({ x: 8, y: 8 })
-    });
-  });
-
   it("suppresses non-directed expansion onto plain tiles when no expansion objective is set", () => {
     // Plain tiles (no resource/town/dock) should not be expanded unless there is an
     // expansionObjective pointing toward them. Frontier tiles decay in ~10 min so
