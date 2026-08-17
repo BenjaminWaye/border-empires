@@ -3,6 +3,7 @@ import {
   bestFortTierForTech,
   bestSiegeTierForTech,
   structureBuildGoldCost,
+  structureBuildManpowerCostScaled,
   structureCostDefinition,
   structureShowsOnTile,
   type EconomicStructureType,
@@ -147,6 +148,27 @@ const playerTechSet = (player: StructurePlannerPlayer): ReadonlySet<string> => n
 
 const canAffordGold = (player: StructurePlannerPlayer, goldCost: number): boolean => player.points >= goldCost;
 
+// Build gold costs are globally zeroed (structure-costs.ts's
+// STRUCTURE_COST_DEFINITIONS header, manpower-economy-rewrite-plan.md §12) —
+// manpower is the real build cost, so canAffordGold above is now a no-op gate
+// and this is the one that decides affordability. Without it every selector in
+// this file happily proposed builds the player could not pay for, which the
+// runtime then rejected with INSUFFICIENT_MANPOWER
+// (runtime-structure-command-handlers.ts's manpower check), burning the tick's
+// action budget and a rejection cooldown on every cycle. Mirrors the
+// "authoritative gate" fix already applied to EXPAND/ATTACK — see
+// hasAnyExpandCandidate / hasAnyAttackCandidate in ai/utility/decisions.ts.
+//
+// Deliberately compares against the UNDISCOUNTED cost: the runtime applies
+// Quartermaster's Office's 0.67x war-structure discount by proximity, which
+// isn't resolvable from planner state. Over-charging here can only skip a build
+// that was affordable (safe), whereas under-charging would reintroduce exactly
+// the reject loop this gate exists to close. Moot for AI players today in any
+// case — nothing in the planner can propose a QUARTERMASTERS_OFFICE, so no AI
+// ever owns one (see docs/ai-structure-building-rewrite-plan.md §1.1).
+const canAffordManpower = (player: StructurePlannerPlayer, manpowerCost: number): boolean =>
+  (player.manpower ?? 0) >= manpowerCost;
+
 const canAffordStructure = (
   player: StructurePlannerPlayer,
   techSet: ReadonlySet<string>,
@@ -163,6 +185,10 @@ const canAffordStructure = (
   const requiredTechId = requiredTech[structureType];
   if (requiredTechId && !techSet.has(requiredTechId)) return false;
   if (!canAffordGold(player, structureBuildGoldCost(structureType, existingOwnedCount))) return false;
+  // Same existingOwnedCount the runtime scales by (it passes
+  // ownedStructureCountForPlayer into structureBuildManpowerCostScaled), so the
+  // escalating Titanium/Umbrite Weapons Factory costs stay in lockstep here.
+  if (!canAffordManpower(player, structureBuildManpowerCostScaled(structureType, existingOwnedCount))) return false;
   const resourceCost = structureCostDefinition(structureType).resourceCost;
   if (!resourceCost) return true;
   return resourceStock(player, resourceCost.resource) >= resourceCost.amount;
@@ -268,6 +294,10 @@ export const chooseBestFortBuild = (
   const fortTier = bestFortTierForTech((id) => playerTechSet(player).has(id));
   if (resourceStock(player, "TITANIUM") < fortTier.titanium) return undefined;
   if (!canAffordGold(player, fortTier.gold)) return undefined;
+  // Tier-aware for the same reason the titanium/gold checks above are: the
+  // runtime charges the resolved tier's manpower (fortTier.manpower), not a
+  // flat base-FORT figure.
+  if (!canAffordManpower(player, fortTier.manpower)) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {
@@ -310,6 +340,7 @@ export const chooseBestSiegeOutpostBuild = (
   if (resourceStock(player, "UMBRITE") < siegeTier.umbrite) return undefined;
   if (siegeTier.titanium > 0 && resourceStock(player, "TITANIUM") < siegeTier.titanium) return undefined;
   if (!canAffordGold(player, siegeTier.gold)) return undefined;
+  if (!canAffordManpower(player, siegeTier.manpower)) return undefined;
 
   let best: { tile: StructurePlannerTile; score: number } | undefined;
   for (const tile of candidateTiles) {

@@ -565,7 +565,7 @@ Sequenced so each phase is independently shippable and observable.
 
 | Phase | Content | Ships behind |
 | --- | --- | --- |
-| **0** | Fix §1.2 in place: manpower gate in `canAffordStructure`, `chooseBestFortBuild`, `chooseBestSiegeOutpostBuild`. Stops the reject loop immediately; ~20 lines. | no flag |
+| **0** | ✅ **Landed.** Fix §1.2 in place: manpower gate in `canAffordStructure`, `chooseBestFortBuild`, `chooseBestSiegeOutpostBuild`. Stops the reject loop immediately. Note it does **not** by itself make the AI build more — it makes it stop proposing builds it cannot pay for, which is a waste fix, not a behaviour fix. §13.6 records what landing it revealed. | no flag |
 | **1** | §9 plumbing + §10.1 diagnostics. Compute and *report* the need vector without acting on it. Validates the model against live AIs before changing behaviour. | no flag (read-only) |
 | **2** | §5 catalog + §6 scoring, replacing `chooseBestEconomicBuild`'s internals. Selection changes; savings not yet active. | `AI_BUILD_CATALOG_ENABLED` |
 | **3** | §3 savings + §8.3 EXPAND veto. The behavioural core. | `AI_BUILD_SAVINGS_ENABLED` |
@@ -727,6 +727,57 @@ AI players bank thousands of gold against a 45 000 cap with few sinks
 highest-value manpower lever in the game. The AI does not emit
 `UPGRADE_TOWN_TIER` at all — see §15.2, which this finding promotes from an open
 question to the plan's most likely highest-ROI follow-up.
+
+### §13.6 Both BUILD classes are structurally unreachable, independently of cost
+
+Surfaced while landing Phase 0 (§11): adding the manpower gate broke six
+existing tests, and every one broke for a reason more interesting than a stale
+fixture. Each had been passing *only* because the gate was missing.
+
+**BUILD_DEFENSE is preempted by MUSTER in exactly its own trigger conditions.**
+`scoreBuildDefense` (`decisions.ts:192-199`) requires `frontierEnemyCount > 0`.
+But a FORT costs 300 manpower while MUSTER needs only `ATTACK_MANPOWER_MIN`
+(60), and `scoreMuster` outranks `scoreBuildDefense`'s pressure logistic
+whenever a weak enemy border exists. So:
+
+- manpower < 300 → fort unaffordable, BUILD_DEFENSE cannot execute;
+- manpower ≥ 300 → MUSTER is also available and wins.
+
+There is **no manpower value at which BUILD_DEFENSE beats MUSTER on a live
+front.** It is reachable only when every enemy target is stalemated (clearing
+`hasWeakEnemyBorder`, vetoing MUSTER) — verified by
+`automation-command-planner-build-defense.test.ts`, which has to stalemate both
+enemy tiles to observe a fort at all. "Fortify what you cannot break through" is
+a defensible niche, but it is far narrower than the class appears to describe,
+and it means the AI never fortifies *pre-emptively*.
+
+**BUILD_ECONOMY's trigger and its affordability window barely overlap.**
+`scoreBuildEconomy` only scores meaningfully while `needsEconomy` holds, i.e.
+`manpower < max(40, settledTileCount × 6)` (`ai-economic-heuristics.ts:27-28`).
+Affording the structure needs `manpower ≥ cost`. Both hold only when
+`settledTileCount × 6 > cost`:
+
+| Structure | Manpower | Minimum settled tiles for the window to exist |
+| --- | --- | --- |
+| `GRANARY` | 80 | > 13 |
+| `MINTWORKS` | 150 | > 25 |
+| `FOUNDRY` / `RAIL_DEPOT` | 300 | > 50 |
+
+Below those sizes the two conditions are **mutually exclusive** — the AI is
+either too rich to want the building or too poor to buy it. Three separate test
+fixtures modelling 6-settled-tile empires had to be rebuilt at 30 tiles to
+observe a build at all. This is §1.3's inversion stated exactly: it is not that
+building is deprioritised at small scale, it is unrepresentable.
+
+Both findings are fixed by the same §3/§4/§6 work — a savings pool decouples
+"want" from "afford", and a need-weighted ROI decouples "build" from "cannot
+attack". Neither is fixable by tuning the existing scores.
+
+One benign behaviour to preserve: because the gate is applied per candidate
+*before* the best-score pick, a player who can afford `GRANARY` (80) but not
+`MINTWORKS` (150) now proposes the Granary rather than nothing. Graceful
+degradation is the desired shape and is pinned by
+`structure-command-planner.test.ts`.
 
 ---
 

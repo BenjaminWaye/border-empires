@@ -41,10 +41,15 @@ describe("automation planner economy gate", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      manpower: 10,
+      // MINTWORKS costs 150 manpower, and scoreBuildEconomy only scores
+      // meaningfully while needsEconomy holds — manpower < max(40,
+      // settledTileCount * 6). Those overlap only above ~25 settled tiles, so
+      // this models that empire. See
+      // docs/ai-structure-building-rewrite-plan.md §13.6.
+      manpower: 150,
       techIds: ["trade"],
       strategicResources: { FOOD: 60 },
-      settledTileCount: 6,
+      settledTileCount: 30,
       townCount: 1,
       incomePerMinute: 0,
       hasActiveLock: false,
@@ -75,10 +80,15 @@ describe("automation planner economy gate", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      manpower: 10,
+      // MINTWORKS costs 150 manpower, and scoreBuildEconomy only scores
+      // meaningfully while needsEconomy holds — manpower < max(40,
+      // settledTileCount * 6). Those overlap only above ~25 settled tiles, so
+      // this models that empire. See
+      // docs/ai-structure-building-rewrite-plan.md §13.6.
+      manpower: 150,
       techIds: ["trade"],
       strategicResources: { FOOD: 60 },
-      settledTileCount: 6,
+      settledTileCount: 30,
       townCount: 1,
       incomePerMinute: 0,
       hasActiveLock: false,
@@ -105,10 +115,15 @@ describe("automation planner economy gate", () => {
     const result = planAutomationCommand({
       playerId: "ai-1",
       points: 5_000,
-      manpower: 10,
+      // MINTWORKS costs 150 manpower, and scoreBuildEconomy only scores
+      // meaningfully while needsEconomy holds — manpower < max(40,
+      // settledTileCount * 6). Those overlap only above ~25 settled tiles, so
+      // this models that empire. See
+      // docs/ai-structure-building-rewrite-plan.md §13.6.
+      manpower: 150,
       techIds: ["trade"],
       strategicResources: { FOOD: 60 },
-      settledTileCount: 6,
+      settledTileCount: 30,
       townCount: 1,
       incomePerMinute: 0,
       hasActiveLock: false,
