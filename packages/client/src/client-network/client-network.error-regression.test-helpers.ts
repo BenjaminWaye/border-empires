@@ -25,7 +25,6 @@ export class FakeWebSocket {
 
 export const createState = () =>
   ({
-    pendingCollectVisibleKeys: new Set<string>(),
     actionTargetKey: "60,302",
     actionQueue: [],
     queuedTargetKeys: new Set<string>(),
@@ -39,7 +38,6 @@ export const createState = () =>
     authRetrying: false,
     authBusyTitle: "",
     authBusyDetail: "",
-    collectVisibleCooldownUntil: 0,
     actionInFlight: true,
     capture: { startAt: 1, resolvesAt: 2, target: { x: 60, y: 302 } },
     pendingCombatReveal: undefined,
@@ -189,7 +187,6 @@ export const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<st
     authProfileNameEl: { value: "" },
     authProfileColorEl: { value: "" },
     defensibilityPctFromTE: vi.fn(() => 0),
-    clearPendingCollectVisibleDelta: vi.fn(),
     seedProfileSetupFields: vi.fn(),
     resetStrategicReplayState: vi.fn(),
     setWorldSeed: vi.fn(),
@@ -213,15 +210,12 @@ export const bindWithDeps = (state: any, ws: FakeWebSocket, overrides: Record<st
     explainActionFailure: vi.fn((code: string, message: string) => `${code}:${message}`),
     notifyInsufficientGoldForFrontierAction: vi.fn(),
     clearSettlementProgressByKey,
-    showCollectVisibleCooldownAlert: vi.fn(),
     formatCooldownShort: vi.fn(() => "1s"),
     reconcileActionQueue,
-    revertOptimisticVisibleCollectDelta: vi.fn(),
     revertOptimisticTileCollectDelta: vi.fn(),
     clearPendingCollectTileDelta: vi.fn(),
     playerNameForOwner: vi.fn(),
     settlementProgressForTile: vi.fn(() => undefined),
-    COLLECT_VISIBLE_COOLDOWN_MS: 1_000,
     ...overrides
   } as any);
 

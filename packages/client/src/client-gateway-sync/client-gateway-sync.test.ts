@@ -10,7 +10,6 @@ const createDeps = (overrides?: { me?: string; mods?: { income?: number }; realM
       tiles: new Map<string, Tile>(),
       tilesRevision: 0,
       incomingAttacksByTile: new Map<string, { attackerName: string; resolvesAt: number }>(),
-      pendingCollectVisibleKeys: new Set<string>(),
       discoveredTiles: new Set<string>(),
       upkeepLastTick: { foodCoverage: 1 },
       mods: overrides?.mods ?? { income: 1.0 }
@@ -104,7 +103,6 @@ describe("client gateway sync", () => {
     });
     deps.state.discoveredTiles.add("9,9");
     deps.state.incomingAttacksByTile.set("9,9", { attackerName: "AI 1", resolvesAt: 123 });
-    deps.state.pendingCollectVisibleKeys.add("9,9");
 
     applyGatewayInitialState(deps, {
       tiles: [
@@ -131,7 +129,6 @@ describe("client gateway sync", () => {
     expect(deps.state.discoveredTiles.has("9,9")).toBe(false);
     expect(deps.state.discoveredTiles.has("10,12")).toBe(true);
     expect(deps.state.incomingAttacksByTile.size).toBe(0);
-    expect(deps.state.pendingCollectVisibleKeys.size).toBe(0);
   });
 
   it("preserves yield fields from gateway initial state and later tile deltas", () => {
