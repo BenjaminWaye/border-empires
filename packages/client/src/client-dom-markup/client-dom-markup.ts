@@ -19,10 +19,6 @@ export const hudMarkup = `
         <span class="utility-btn-icon" aria-hidden="true">◎</span>
         <span class="utility-btn-copy"><strong>Center</strong><small>Jump to your banner</small></span>
       </button>
-      <button id="collect-visible-desktop" class="panel-btn utility-btn utility-btn-collect" type="button">
-        <span class="utility-btn-icon" aria-hidden="true">✦</span>
-        <span class="utility-btn-copy"><strong>Collect</strong><small id="collect-visible-desktop-meta">Gather visible yield</small></span>
-      </button>
     </div>
   </div>
 
@@ -236,10 +232,6 @@ export const hudMarkup = `
       <button id="center-me" class="panel-btn utility-btn utility-btn-mobile" type="button">
         <span class="utility-btn-icon" aria-hidden="true">◎</span>
         <span class="utility-btn-copy"><strong>Center</strong><small>Own tile</small></span>
-      </button>
-      <button id="collect-visible-mobile" class="panel-btn utility-btn utility-btn-collect utility-btn-mobile" type="button">
-        <span class="utility-btn-icon" aria-hidden="true">✦</span>
-        <span class="utility-btn-copy"><strong>Collect</strong><small id="collect-visible-mobile-meta">Visible yield</small></span>
       </button>
     </div>
   </div>

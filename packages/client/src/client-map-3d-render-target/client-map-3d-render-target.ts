@@ -117,7 +117,10 @@ export const createThreeRenderTarget = (
   // their own construction site so this doesn't touch them.
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
+  // Paired with the hemi/fill boost in client-map-3d-atmosphere.ts: a small
+  // overall lift so structure overlays' shadow-facing surfaces stop reading
+  // as near-black and different buildings are distinguishable again.
+  renderer.toneMappingExposure = 1.1;
 
   return { glCanvas, renderer, contextGuard: installWebGLContextGuard(glCanvas, onContextLost) };
 };

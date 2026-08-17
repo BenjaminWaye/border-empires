@@ -359,10 +359,10 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
     if (target.town && (target.ownershipState === "SETTLED" || target.ownershipState === "FRONTIER") && target.ownerId !== actor.id) {
       const pop = typeof target.town.population === "number" ? target.town.population : 0;
       const loss = Math.floor(pop * WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO);
+      let nextTier = updated.town!.populationTier;
       if (loss > 0) {
         const newPop = Math.max(1, pop - loss);
         const currentTier = updated.town!.populationTier;
-        let nextTier = currentTier;
         if (currentTier !== "SETTLEMENT") {
           if (newPop >= 5_000_000) nextTier = "METROPOLIS";
           else if (newPop >= 1_000_000) nextTier = "GREAT_CITY";
@@ -371,6 +371,27 @@ export function handleWorldEngineStrikeCommand(context: RuntimeMapCommandContext
         }
         updated = { ...updated, town: { ...updated.town!, population: newPop, populationTier: nextTier } };
       }
+      // Tell every connected player a World Engine leveled a city, regardless
+      // of their fog-of-war visibility — this bypasses normal per-player
+      // TILE_DELTA_BATCH visibility filtering via the "__broadcast__" sentinel
+      // (same mechanism handleSetMusterCommand uses in
+      // runtime-structure-lifecycle-command-handlers.ts).
+      const townOwner = target.ownerId ? context.players.get(target.ownerId) : undefined;
+      context.emitPlayerMessage(
+        { commandId: `${command.commandId}:bc`, playerId: "__broadcast__" },
+        {
+          type: "WORLD_ENGINE_STRIKE_ANNOUNCEMENT",
+          strikeId: `${command.commandId}:bc`,
+          occurredAt: now,
+          casterName: actor.name ?? actor.id,
+          targetX: payload.toX,
+          targetY: payload.toY,
+          townName: target.town.name ?? "",
+          populationTier: nextTier,
+          populationLost: loss,
+          targetOwnerName: townOwner?.name ?? target.ownerId ?? "unknown"
+        }
+      );
     }
     if (updated !== target) {
       context.replaceTileState(targetKey, updated, command.commandId);

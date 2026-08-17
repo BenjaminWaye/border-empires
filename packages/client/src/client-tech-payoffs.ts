@@ -18,7 +18,7 @@ const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
   unlockGranary: "Granary",
   unlockCensusHall: "Census Hall",
   unlockClearingHouse: "Clearing House",
-  unlockCaravanary: "Caravanary",
+  unlockCaravanary: "Trade Nexus",
   unlockUmbriteSynthesizer: "Umbrite Synth",
   unlockTitaniumWorks: "Titanium Works",
   unlockCrystalSynthesizer: "Aether Condenser",

@@ -1237,6 +1237,21 @@ body {
   gap: 6px;
 }
 
+/* The row is a grid item and stretches to #floating-info's full width by
+   default (justify-items: stretch), but it only wraps a single left-aligned
+   button (see client-dom-markup.ts). Since the row itself has no
+   background (transparent), that stretched-but-empty area would otherwise
+   sit over the map and swallow clicks meant for the canvas underneath.
+   Disable pointer events on the row's own box and re-enable them on the
+   button so only the visible control stays clickable. */
+#floating-info > .row {
+  pointer-events: none;
+}
+
+#floating-info > .row > .utility-btn {
+  pointer-events: auto;
+}
+
 #mini-map-wrap {
   position: fixed;
   right: 12px;
@@ -4753,6 +4768,15 @@ body {
   gap: 8px;
 }
 
+.feed-section-heading {
+  margin: 14px 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(233, 242, 255, 0.55);
+}
+
 .feed-card span {
   display: block;
   font-size: 11px;
@@ -5276,18 +5300,6 @@ button:disabled,
     0 4px 10px rgba(3, 7, 18, 0.22);
 }
 
-.utility-btn-collect {
-  border-color: rgba(233, 189, 95, 0.36);
-  background:
-    linear-gradient(180deg, rgba(70, 53, 24, 0.9), rgba(44, 35, 17, 0.94));
-}
-
-.utility-btn-collect:hover:not(:disabled) {
-  border-color: rgba(255, 214, 122, 0.56);
-  background:
-    linear-gradient(180deg, rgba(84, 63, 28, 0.94), rgba(53, 41, 18, 0.97));
-}
-
 .utility-btn-icon {
   width: 28px;
   height: 28px;
@@ -5300,11 +5312,6 @@ button:disabled,
   font-size: 14px;
   line-height: 1;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-.utility-btn-collect .utility-btn-icon {
-  color: #ffd976;
-  background: rgba(255, 217, 118, 0.1);
 }
 
 .utility-btn-copy {
@@ -6068,6 +6075,22 @@ button:disabled,
     font-size: 11px;
   }
 
+  /* .mobile-utility-row reserves a fixed 4-column grid, but since the
+     Collect button was removed it now only holds "center-me" (1 of 4
+     cells). The row itself has no background, so the empty reserved
+     cells would otherwise sit over the map (this container opts into
+     pointer-events: auto via the #hud allowlist) and swallow taps meant
+     for the canvas. Disable pointer events on the row's own box and
+     re-enable them on the button so only the visible control is
+     tappable. */
+  .mobile-utility-row {
+    pointer-events: none;
+  }
+
+  .mobile-utility-row .panel-btn {
+    pointer-events: auto;
+  }
+
   .mobile-utility-row .utility-btn {
     min-height: 48px;
     gap: 8px;
@@ -6247,14 +6270,17 @@ button:disabled,
   display: flex;
   flex-direction: column;
   padding: 26px clamp(16px, 4vw, 40px) 0;
-}
-.se-tab-panels {
-  flex: 1;
-  min-height: 0;
+  /* The whole body (header, victor medallion, tabs, panel content) scrolls
+     as one unit -- on short viewports the medallion alone can exceed the
+     available height, so it must not be a fixed, unscrollable block above a
+     separately-scrolling tab area. */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   touch-action: pan-y;
+}
+.se-tab-panels {
+  flex: 0 0 auto;
 }
 .se-scroll-footer {
   flex-shrink: 0;
@@ -6382,6 +6408,8 @@ button:disabled,
 }
 .se-rank-row.is-self { border-color: rgba(95, 174, 125, 0.55); box-shadow: 0 0 14px rgba(95, 174, 125, 0.18); }
 .se-rank-row.is-detached { margin-top: 4px; opacity: 0.92; }
+.se-rank-row.is-winner { border-color: rgba(255, 215, 110, 0.55); box-shadow: 0 0 14px rgba(255, 215, 110, 0.16); }
+.se-rank-crown { color: var(--se-brass-hi); margin-right: 6px; text-shadow: 0 0 8px rgba(255, 215, 110, 0.6); }
 .se-rank-medal {
   display: grid;
   place-items: center;

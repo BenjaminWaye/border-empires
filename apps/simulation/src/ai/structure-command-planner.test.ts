@@ -49,6 +49,11 @@ describe("structure command planner", () => {
     expect(chooseBestSiegeOutpostBuild({
       id: "ai-1",
       points: 1_000,
+      // Ample manpower throughout this file's fixtures: these cases assert
+      // gold/strategic-resource and tier affordability, so manpower is held
+      // well clear of the SIEGE/FORT ladder costs to keep it out of the way.
+      // Manpower gating itself is covered by its own cases at the bottom.
+      manpower: 1_000,
       techIds: ["leatherworking"],
       strategicResources: { UMBRITE: 45 }
     }, [candidate], tilesByKey, [candidate])).toBe(candidate);
@@ -59,6 +64,7 @@ describe("structure command planner", () => {
     expect(chooseBestSiegeOutpostBuild({
       id: "ai-1",
       points: 1_000,
+      manpower: 1_000,
       techIds: ["leatherworking"],
       strategicResources: { UMBRITE: 45 },
       ownedStructureCounts: { SIEGE_OUTPOST: 3 }
@@ -80,12 +86,14 @@ describe("structure command planner", () => {
     expect(chooseBestFortBuild({
       id: "ai-1",
       points: 1_000,
+      manpower: 1_000,
       techIds: ["masonry"],
       strategicResources: { TITANIUM: 45 }
     }, [candidate], tilesByKey, [candidate])).toBe(candidate);
     expect(chooseBestFortBuild({
       id: "ai-1",
       points: 1_000,
+      manpower: 1_000,
       techIds: ["masonry"],
       strategicResources: { TITANIUM: 45 },
       ownedStructureCounts: { FORT: 2 }
@@ -115,6 +123,7 @@ describe("structure command planner", () => {
     const basePlayer = {
       id: "ai-1",
       points: 1_000,
+      manpower: 1_000,
       techIds: ["masonry", "fortified-walls"]
     };
 
@@ -147,7 +156,7 @@ describe("structure command planner", () => {
       ["0,0", candidate],
       ["1,0", enemy]
     ]);
-    const basePlayer = { id: "ai-1", points: 1_000, techIds: ["leatherworking", "siegecraft"] };
+    const basePlayer = { id: "ai-1", points: 1_000, manpower: 1_000, techIds: ["leatherworking", "siegecraft"] };
 
     // 50 supply passes the old hardcoded "< 45" check, but SIEGE_TOWER (the
     // tier siegecraft unlocks) needs 90 supply AND 60 iron — must not propose.
@@ -215,6 +224,128 @@ describe("structure command planner", () => {
     });
 
     expect(result.command?.type).not.toBe("BUILD_SIEGE_OUTPOST");
+  });
+});
+
+// Regression: build gold costs are globally zeroed (structure-costs.ts §12) so
+// manpower is the real build cost, but no selector in structure-command-planner
+// checked it — every BUILD_* the AI proposed while manpower-poor was rejected by
+// the runtime with INSUFFICIENT_MANPOWER, burning the tick's action budget and a
+// rejection cooldown each cycle. Same "authoritative gate" shape already applied
+// to EXPAND/ATTACK via hasAnyExpandCandidate/hasAnyAttackCandidate.
+// See docs/ai-structure-building-rewrite-plan.md §1.2 / §11 Phase 0.
+describe("structure command planner — manpower affordability", () => {
+  const candidate = tile(0, 0, {
+    ownerId: "ai-1",
+    ownershipState: "SETTLED",
+    town: { populationTier: "TOWN" }
+  });
+  const enemy = tile(1, 0, { ownerId: "enemy-1", town: { populationTier: "TOWN" } });
+  const tilesByKey = new Map([
+    ["0,0", candidate],
+    ["1,0", enemy]
+  ]);
+
+  it("does not propose a fort the player cannot pay the manpower for", () => {
+    // FORT_TIER_LADDER.FORT costs 300 manpower; gold and titanium are ample so
+    // manpower is unambiguously the only thing failing.
+    const base = {
+      id: "ai-1",
+      points: 10_000,
+      techIds: ["masonry"],
+      strategicResources: { TITANIUM: 1_000 }
+    };
+
+    expect(chooseBestFortBuild(
+      { ...base, manpower: 299 },
+      [candidate],
+      tilesByKey,
+      [candidate]
+    )).toBeUndefined();
+
+    expect(chooseBestFortBuild(
+      { ...base, manpower: 300 },
+      [candidate],
+      tilesByKey,
+      [candidate]
+    )).toBe(candidate);
+  });
+
+  it("does not propose a siege outpost the player cannot pay the manpower for", () => {
+    // SIEGE_TIER_LADDER.SIEGE_OUTPOST costs 60 manpower.
+    const base = {
+      id: "ai-1",
+      points: 10_000,
+      techIds: ["leatherworking"],
+      strategicResources: { UMBRITE: 1_000 }
+    };
+
+    expect(chooseBestSiegeOutpostBuild(
+      { ...base, manpower: 59 },
+      [candidate],
+      tilesByKey,
+      [candidate]
+    )).toBeUndefined();
+
+    expect(chooseBestSiegeOutpostBuild(
+      { ...base, manpower: 60 },
+      [candidate],
+      tilesByKey,
+      [candidate]
+    )).toBe(candidate);
+  });
+
+  it("degrades to a cheaper affordable economic structure rather than proposing an unaffordable one", () => {
+    // A well-fed TOWN below its support cap offers two candidates: MINTWORKS
+    // (150 manpower, score 54) and GRANARY (80 manpower, score 20). The gate is
+    // applied per-candidate *before* the best-score pick, so a player who can
+    // afford only the cheaper one still gets a usable build instead of falling
+    // through to WAIT — the AI degrades rather than stalling.
+    const town = tile(0, 0, {
+      ownerId: "ai-1",
+      ownershipState: "SETTLED",
+      town: { populationTier: "TOWN", supportCurrent: 0, supportMax: 2 }
+    });
+    const openSupportTile = tile(1, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
+    const townTilesByKey = new Map<string, StructurePlannerTile>([
+      ["0,0", town],
+      ["1,0", openSupportTile]
+    ]);
+    const base = {
+      id: "ai-1",
+      points: 10_000,
+      techIds: ["trade", "pottery"],
+      // Comfortably above foodCoverageLow's max(24, townCount*12), so MINTWORKS
+      // outscores GRANARY and the fallback below is driven purely by manpower.
+      strategicResources: { FOOD: 1_000 },
+      settledTileCount: 10,
+      townCount: 1,
+      incomePerMinute: 20
+    };
+    const chooseAt = (manpower: number) => chooseBestEconomicBuild(
+      { ...base, manpower },
+      [town, openSupportTile],
+      townTilesByKey
+    );
+
+    // Below GRANARY's 80 — nothing is affordable, so nothing is proposed.
+    expect(chooseAt(79)).toBeUndefined();
+    // Affords GRANARY but not MINTWORKS — takes the cheaper one.
+    expect(chooseAt(80)?.structureType).toBe("GRANARY");
+    expect(chooseAt(149)?.structureType).toBe("GRANARY");
+    // Affords MINTWORKS — the higher-scoring candidate wins again.
+    expect(chooseAt(150)?.structureType).toBe("MINTWORKS");
+  });
+
+  it("scales the economic manpower gate by existing owned count for the escalating weapons-factory types", () => {
+    // TITANIUM_WEAPONS_FACTORY is the one economic family whose *manpower* cost
+    // escalates with the player's existing count (structure-costs.ts's
+    // MANPOWER_SCALING_STRUCTURE_TYPES): 100 base at 0.15/copy incremental.
+    // The gate must use the same count the runtime charges by, so assert the
+    // scaled figure directly rather than trusting the flat base.
+    const scaled = (count: number): number => Math.ceil(100 * 1.15 ** count);
+    expect(scaled(0)).toBe(100);
+    expect(scaled(3)).toBe(153);
   });
 });
 

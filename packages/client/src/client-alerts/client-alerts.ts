@@ -106,13 +106,19 @@ export const acknowledgeVictoryHoldAlert = (
 // seasonVictory + seasonWinner together, so those call sites don't need a
 // separate updateVictoryHoldAlert line each.
 export const applySeasonVictorySnapshot = (
-  state: Pick<ClientState, "seasonVictory" | "seasonWinner" | "victoryHoldAlert" | "victoryHoldAlertCollapsed" | "acknowledgedVictoryHoldAlertKeys">,
+  state: Pick<ClientState, "seasonVictory" | "seasonWinner" | "seasonStats" | "victoryHoldAlert" | "victoryHoldAlertCollapsed" | "acknowledgedVictoryHoldAlertKeys">,
   seasonVictory: SeasonVictoryObjectiveView[] | undefined,
   seasonWinner: ClientState["seasonWinner"] | undefined,
   selfPlayerId: string | undefined
 ): void => {
   if (seasonVictory) state.seasonVictory = seasonVictory;
-  if (seasonWinner) state.seasonWinner = seasonWinner;
+  if (seasonWinner) {
+    state.seasonWinner = seasonWinner;
+    // The winner snapshot carries misc season stats (deadliest tile, longest
+    // road) so they survive a reconnect/fresh-login INIT, which never sends
+    // a separate GLOBAL_STATUS_UPDATE.
+    if (seasonWinner.seasonStats) state.seasonStats = seasonWinner.seasonStats;
+  }
   updateVictoryHoldAlert(state, state.seasonVictory, selfPlayerId);
 };
 
@@ -152,20 +158,6 @@ export const notifyInsufficientGoldForFrontierAction = (
   const label = action === "claim" ? "Frontier claim" : "Attack";
   const detail = `${label} costs ${formatGoldAmount(FRONTIER_CLAIM_COST)} gold. You have ${formatGoldAmount(state.gold)}.`;
   showCaptureAlert(state, "Insufficient gold", detail, "error");
-};
-
-export const showCollectVisibleCooldownAlert = (
-  state: Pick<ClientState, "captureAlert" | "collectVisibleCooldownUntil">,
-  formatCooldownShort: (ms: number) => string
-): void => {
-  const remaining = state.collectVisibleCooldownUntil - Date.now();
-  if (remaining <= 0) return;
-  state.captureAlert = {
-    title: "Collect Visible Cooldown",
-    detail: `Retry in ${formatCooldownShort(remaining)}.`,
-    until: state.collectVisibleCooldownUntil,
-    tone: "warn"
-  };
 };
 
 const playerNameOrFallback = (

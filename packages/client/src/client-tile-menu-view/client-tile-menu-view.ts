@@ -133,7 +133,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   if (actionId === "build_airport") return "Build a Sky Dock on empty settled land. Bombard enemy tiles within 30 tiles for crystal.";
   if (actionId === "build_aether_tower") return "Late-game power node. Sky and monument structures in its radius stay online.";
   if (actionId === "build_caravanary") {
-    return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Caravanary built.`;
+    return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Trade Nexus built.`;
   }
   if (actionId === "build_waterworks") {
     return `Build on this support tile for ${supportedTownLabel}. Boosts food production on every Farmstead within 10 tiles by +100% and adds +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots to each one boosted.`;
