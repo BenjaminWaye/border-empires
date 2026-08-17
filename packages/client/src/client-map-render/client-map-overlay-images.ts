@@ -50,7 +50,7 @@ export const structureOverlayImages = {
   ADVANCED_TITANIUM_WORKS: loadOverlayImage("advanced-titanium-works-overlay.svg"),
   CRYSTAL_SYNTHESIZER: loadOverlayImage("crystal-synthesizer-overlay.svg"),
   ADVANCED_CRYSTAL_SYNTHESIZER: loadOverlayImage("advanced-crystal-synthesizer-overlay.svg"),
-  CARAVANARY: loadOverlayImage("caravanary-overlay.svg"),
+  CARAVANARY: loadOverlayImage("trade-nexus-overlay.svg"),
   FOUNDRY: loadOverlayImage("foundry-overlay.svg"),
   GARRISON_HALL: loadOverlayImage("ancillary-factory-overlay.svg"),
   CUSTOMS_HOUSE: loadOverlayImage("customs-house-overlay.svg"),

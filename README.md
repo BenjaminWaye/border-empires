@@ -41,7 +41,7 @@ Each player controls a civilization that starts from a single land tile, expands
 ### Structures
 
 - One structure per tile, placed only on settled owned land, paid for in manpower plus a resource-slot requirement (not a resource stockpile).
-- **Economic**: Farmstead, Umbrite Rig, Mine, Granary, Market, Bank, Synthesizers, Fuel Plant, Caravanary, Foundry, Governance structures.
+- **Economic**: Farmstead, Umbrite Rig, Mine, Granary, Market, Bank, Synthesizers, Fuel Plant, Trade Nexus, Foundry, Governance structures.
 - **Military**: Fort, Siege Outpost, Observatory (extends vision and provides protection against aether abilities).
 - **Monuments** (late-game, four-stage builds costing Shards): Imperial Exchange, World Engine, Aegis Dome, Astral Dock. Each monument type is globally unique — only one can ever be active, world-wide, at a time. If two players finish a race for the same monument within moments of each other, the loser's investment is refunded rather than silently wasted.
 - Structure unlocks are tech-gated. Costs scale with how many of that type you already own.

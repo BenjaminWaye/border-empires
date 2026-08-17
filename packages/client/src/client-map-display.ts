@@ -209,7 +209,7 @@ export const economicStructureName = (type: EconomicStructureType | StructureInf
   if (kind === "AETHER_TOWER") return "Ambaric Tower";
   if (kind === "WOODEN_FORT") return "Palisade";
   if (kind === "RELAY_BEACON") return "Relay Beacon";
-  if (kind === "CARAVANARY") return "Caravanary";
+  if (kind === "CARAVANARY") return "Trade Nexus";
   // converter-mode-flip plan §Phase 6: these buildings now run either
   // direction (Refine gold->resource, or Sell off resource->gold), so the
   // display name is direction-neutral. The underlying type constants
@@ -271,7 +271,7 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "AETHER_TOWER") return "Powers nearby late-game sky and monument structures.";
   if (kind === "WOODEN_FORT") return "Provides a lighter fortified defense on this owned border tile.";
   if (kind === "RELAY_BEACON") return "Provides a lighter attack bonus from this owned border tile.";
-  if (kind === "CARAVANARY") return "Builds the road network itself — towns only share their connected-town income bonus if at least one has a Caravanary.";
+  if (kind === "CARAVANARY") return "Builds the road network itself — towns only share their connected-town income bonus if at least one has a Trade Nexus.";
   // converter-mode-flip plan §Phase 6: this building can run either
   // direction now — mode-neutral summary with both figures, since a
   // one-directional description is simply false half the time.
@@ -494,7 +494,7 @@ export const structureInfoForKey = (
     if (key === "GRANARY") return "/overlays/incubation-engine-overlay.svg";
     if (key === "CENSUS_HALL") return "/overlays/census-hall-overlay.svg";
     if (key === "OBSERVATORY") return "/overlays/observatory-overlay.svg";
-    if (key === "CARAVANARY") return "/overlays/caravanary-overlay.svg";
+    if (key === "CARAVANARY") return "/overlays/trade-nexus-overlay.svg";
     if (key === "UMBRITE_SYNTHESIZER") return "/overlays/umbrite-synthesizer-overlay.svg";
     if (key === "ADVANCED_UMBRITE_SYNTHESIZER") return "/overlays/advanced-umbrite-synthesizer-overlay.svg";
     if (key === "TITANIUM_WORKS") return "/overlays/titanium-works-overlay.svg";
@@ -679,9 +679,9 @@ export const structureInfoForKey = (
   }
   if (type === "CARAVANARY") {
     return structure({
-      title: "Caravanary",
-      detail: "Caravanaries are built on a town support tile. Towns only get a road connection (and its income bonus) to each other if at least one town in the network has a Caravanary.",
-      glyph: "🐪",
+      title: "Trade Nexus",
+      detail: "Trade Nexuses are built on a town support tile. Towns only get a road connection (and its income bonus) to each other if at least one town in the network has a Trade Nexus.",
+      glyph: "⚖",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
