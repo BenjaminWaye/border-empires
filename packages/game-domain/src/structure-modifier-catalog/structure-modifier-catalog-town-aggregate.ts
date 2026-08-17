@@ -1,6 +1,7 @@
 // Single source of truth for turning "how many active copies of each
 // support-tile building sit in this town's support ring" into the town's
-// combined Modifier totals (e.g. 3 Garrison Halls -> "Manpower cap: +450").
+// combined Modifier totals, grouped per building type (e.g. "3 Garrison
+// Halls" -> Manpower cap: +450).
 //
 // This used to be reimplemented independently in two places —
 // apps/simulation/src/live-town-summary.ts (the main live-snapshot path)
@@ -15,6 +16,15 @@
 // any player, including a town's own owner. Centralizing the bucketing math
 // here means both callers only need to supply their own locally-derived
 // per-type counts; the actual aggregation logic can't drift apart again.
+//
+// Groups are per BUILDING TYPE, not merged across types that happen to feed
+// the same stat name — e.g. Weapons Workshop and Titanium Weapons Factory
+// both feed "Empire attack", but each now gets its own "N <Building>"
+// heading with its own total rather than one combined, unlabeled number.
+// That used to read as ambiguous/duplicated info in the tile overview (two
+// "Gold production" lines with different percentages, no indication of
+// which building either one came from) — a heading per building fixes that
+// at the source instead of leaving the client to guess.
 import { structureModifiersFor } from "./structure-modifier-catalog-core.js";
 import { percentLabel, type ModifierStructureType, type TownModifierTotal } from "./structure-modifier-catalog-types.js";
 
@@ -29,11 +39,20 @@ export const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
   "WEAPONS_WORKSHOP", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"
 ];
 
+const TOWN_MODIFIER_AGGREGATE_LABELS: Partial<Record<ModifierStructureType, { singular: string; plural: string }>> = {
+  GARRISON_HALL: { singular: "Garrison Hall", plural: "Garrison Halls" },
+  LOGISTICS_GUILD: { singular: "Logistics Guild", plural: "Logistics Guilds" },
+  MINTWORKS: { singular: "Mintworks", plural: "Mintworks" },
+  WEAPONS_WORKSHOP: { singular: "Weapons Workshop", plural: "Weapons Workshops" },
+  TITANIUM_WEAPONS_FACTORY: { singular: "Titanium Weapons Factory", plural: "Titanium Weapons Factories" },
+  UMBRITE_WEAPONS_FACTORY: { singular: "Umbrite Weapons Factory", plural: "Umbrite Weapons Factories" }
+};
+
 export const townModifierTotalsFromCounts = (
   countsByType: Partial<Record<ModifierStructureType, number>>,
   ctx: { clearingHouseActive?: boolean } = {}
 ): TownModifierTotal[] => {
-  const buckets = new Map<string, { total: number; tone: "positive" | "negative" | "neutral"; unit: "flat" | "percent" }>();
+  const groups: TownModifierTotal[] = [];
   for (const type of TOWN_MODIFIER_AGGREGATE_TYPES) {
     const count = countsByType[type] ?? 0;
     if (count <= 0) continue;
@@ -44,21 +63,19 @@ export const townModifierTotalsFromCounts = (
     const modifierCtx = type === "MINTWORKS"
       ? { tile: { town: { mintworksCount: count, clearingHouseActive: Boolean(ctx.clearingHouseActive) } } }
       : {};
+    const modifiers: Array<{ statLabel: string; valueText: string; tone: "positive" | "negative" | "neutral" }> = [];
     for (const modifier of structureModifiersFor(type, modifierCtx)) {
       if (!modifier.isTownWide || typeof modifier.rawValue !== "number") continue;
-      const contribution = modifier.alreadyAggregated ? modifier.rawValue : modifier.rawValue * count;
-      const existing = buckets.get(modifier.statLabel);
-      buckets.set(modifier.statLabel, {
-        total: Number(((existing?.total ?? 0) + contribution).toFixed(4)),
-        tone: modifier.tone,
-        unit: modifier.unit ?? "flat"
+      const total = Number((modifier.alreadyAggregated ? modifier.rawValue : modifier.rawValue * count).toFixed(4));
+      modifiers.push({
+        statLabel: modifier.statLabel,
+        valueText: modifier.unit === "percent" ? percentLabel(total) : `+${total}`,
+        tone: modifier.tone
       });
     }
+    if (modifiers.length === 0) continue;
+    const label = TOWN_MODIFIER_AGGREGATE_LABELS[type] ?? { singular: type, plural: type };
+    groups.push({ heading: `${count} ${count === 1 ? label.singular : label.plural}`, modifiers });
   }
-  return [...buckets.entries()].map(([statLabel, bucket]) => ({
-    statLabel,
-    total: bucket.total,
-    valueText: bucket.unit === "percent" ? percentLabel(bucket.total) : `+${bucket.total}`,
-    tone: bucket.tone
-  }));
+  return groups;
 };

@@ -142,13 +142,18 @@ export type Tile = {
       goldCost: number;
       available: boolean;
     };
-    // Unified building modifier display (stage 2): every numeric stat this
-    // town's support-ring buildings contribute, combined across all active
-    // copies and across every building type that feeds the same stat (e.g.
-    // Weapons Workshop + Titanium Weapons Factory both feed "Empire
-    // attack"). See packages/shared/src/types.ts's matching field for the
+    // Unified building modifier display (stage 3): one group per building
+    // type with active copies in this town's support ring, each carrying a
+    // "<count> <Building>" heading and every stat that building contributes,
+    // summed across its own copies only — never merged across building
+    // types that happen to feed the same stat name (e.g. Weapons Workshop +
+    // Titanium Weapons Factory both feed "Empire attack" but get separate
+    // headings). See packages/shared/src/types.ts's matching field for the
     // full contract.
-    townModifierTotals?: Array<{ statLabel: string; total: number; valueText: string; tone: "positive" | "negative" | "neutral" }>;
+    townModifierTotals?: Array<{
+      heading: string;
+      modifiers: Array<{ statLabel: string; valueText: string; tone: "positive" | "negative" | "neutral" }>;
+    }>;
   };
   fort?: {
     ownerId: string;
@@ -759,7 +764,10 @@ export type TileMenuProgressView = {
 
 export type TileOverviewLine = {
   html: string;
-  kind?: "effect" | "section" | "loading";
+  kind?: "effect" | "section" | "loading" | "group";
+  // Indents an "effect" line under the "group" heading immediately above it
+  // (e.g. a Mintworks stat line nested under "6 Mintworks").
+  nested?: boolean;
 };
 
 // The full "verify the math" breakdown for a pending Launch Attack action:

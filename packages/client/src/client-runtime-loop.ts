@@ -1,4 +1,5 @@
 import { isForestTile } from "./client-constants.js";
+import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
@@ -1764,6 +1765,12 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.actionTargetKey = "";
         state.actionCurrent = undefined;
         if (currentKey) deps.clearOptimisticTileState(currentKey, true);
+        // The tile's optimistic state was just reverted — it will never
+        // reach owned/FRONTIER via this action, so any settle+build queued
+        // against it (handleBuildAction's capture-target path) would
+        // otherwise sit forever, permanently blocking a re-queue with
+        // "Build already queued".
+        if (currentKey) { state.autoSettleTargets.delete(currentKey); state.autoBuildTargets.delete(currentKey); }
         deps.showCaptureAlert("Attack sync delayed", "No server acceptance arrived within 2 seconds. Refreshing nearby tiles to resync.", "warn");
         deps.requestViewRefresh(1, true);
         deps.pushFeed("No server acceptance within 2s; skipping queued action.", "combat", "warn");
@@ -1815,6 +1822,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         state.queuedTargetKeys.delete(timedOutCurrentKey);
         deps.requestViewRefresh(1, true);
       } else {
+        // As above: optimistic tile state was cleared and won't be
+        // reconciled by a later frontier sync, so drop any queued
+        // settle+build for this tile rather than leaving it orphaned.
+        if (timedOutCurrentKey) { state.autoSettleTargets.delete(timedOutCurrentKey); state.autoBuildTargets.delete(timedOutCurrentKey); }
         deps.showCaptureAlert("Combat result delayed", "Refreshing nearby tiles because the server result did not arrive in time.", "warn");
         deps.requestViewRefresh(1, true);
       }
@@ -1823,6 +1834,17 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       deps.renderHud();
     }
   }, 300);
+
+  setInterval(() => {
+    updateMusicForGameState({
+      combat: state.activeBattles.size > 0,
+      tension:
+        state.incomingAttacksByTile.size > 0 ||
+        state.musterTransitByTile.size > 0 ||
+        state.deferredAttackByTile.size > 0 ||
+        state.pendingMusterAttacks.length > 0
+    });
+  }, 500);
 
   setInterval(() => {
     if (state.connection !== "initialized") return;

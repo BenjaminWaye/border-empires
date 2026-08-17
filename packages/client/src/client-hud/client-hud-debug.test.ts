@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
 import { createInitialState } from "../client-state/client-state.js";
-import { authDebugCopyPayload, authDebugHtml, authDebugSnapshot, type AuthDebugState } from "./client-hud-debug.js";
+import { authDebugCopyPayload, authDebugHtml, authDebugSnapshot, bindAuthDebugCopyButton, type AuthDebugState } from "./client-hud-debug.js";
 
 const buildAuthDebugState = (zoom: number): AuthDebugState => {
   const state = createInitialState();
@@ -41,5 +41,76 @@ describe("authDebugSnapshot zoom reporting", () => {
     const payload = decodeURIComponent(authDebugCopyPayload(state, snapshot));
 
     expect(payload).toContain(`Zoom 80 (range ${MIN_ZOOM}–${MAX_ZOOM})`);
+  });
+});
+
+describe("authDebugHtml merged card", () => {
+  it("renders one card with both connection-status and account debug fields, and a single Copy button", () => {
+    const state = buildAuthDebugState(30);
+    state.activeBackend = "gateway";
+    state.bridgeDebugMode = "rewrite-gateway";
+    state.bridgeDebugServerBuildSha = "deadbeef";
+    const html = authDebugHtml(authDebugSnapshot(state, "wss://example.test/ws", undefined));
+
+    // One card, one Copy button — not two separate cards each with their own.
+    expect((html.match(/class="bridge-debug-status"/g) ?? []).length).toBe(1);
+    expect((html.match(/data-copy-auth-debug/g) ?? []).length).toBe(1);
+    expect(html).toContain("<strong>Backend</strong> gateway");
+    expect(html).toContain("<strong>Bridge</strong> rewrite-gateway");
+    expect(html).toContain("<strong>Server build</strong>");
+    expect(html).toContain("<strong>UID</strong>");
+    expect(html).toContain("<strong>Render FPS</strong>");
+  });
+});
+
+describe("bindAuthDebugCopyButton", () => {
+  const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+  const mount = (state: AuthDebugState, pushFeed: ReturnType<typeof vi.fn>, onCopied: ReturnType<typeof vi.fn>) => {
+    const root = document.createElement("div");
+    root.innerHTML = authDebugHtml(authDebugSnapshot(state, "wss://example.test/ws", undefined));
+    bindAuthDebugCopyButton(root, { state, wsUrl: "wss://example.test/ws", firebaseAuth: undefined, pushFeed, onCopied });
+    return root;
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("copies the full combined debug payload to the clipboard and reports success", async () => {
+    const state = buildAuthDebugState(50);
+    state.activeBackend = "gateway";
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const pushFeed = vi.fn();
+    const onCopied = vi.fn();
+    const root = mount(state, pushFeed, onCopied);
+    const button = root.querySelector<HTMLButtonElement>("[data-copy-auth-debug]")!;
+
+    button.click();
+    await flush();
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const copiedText = writeText.mock.calls[0]![0] as string;
+    expect(copiedText).toContain("Backend gateway");
+    expect(copiedText).toContain("Zoom 50");
+    expect(pushFeed).toHaveBeenCalledWith("Debug info copied.", "info", "success");
+    expect(onCopied).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports failure (but still hands control back) when the clipboard write rejects", async () => {
+    const state = buildAuthDebugState(50);
+    const writeText = vi.fn().mockRejectedValue(new Error("clipboard denied"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    const pushFeed = vi.fn();
+    const onCopied = vi.fn();
+    const root = mount(state, pushFeed, onCopied);
+    const button = root.querySelector<HTMLButtonElement>("[data-copy-auth-debug]")!;
+
+    button.click();
+    await flush();
+
+    expect(pushFeed).toHaveBeenCalledWith("Could not copy debug info.", "error", "warn");
+    expect(onCopied).toHaveBeenCalledTimes(1);
   });
 });

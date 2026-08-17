@@ -18,14 +18,14 @@ import { renderDevelopmentPanelHtml, deriveDevelopmentPanelData } from "../clien
 import { buildDiagnosticsBundle, downloadDiagnosticsBundle } from "../client-diagnostics.js";
 import { buildDisconnectHistoryBundle } from "../client-connection-diagnostics/client-connection-diagnostics.js";
 import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-hud.js";
-import { buildMapLoadingView } from "../client-map-loading-view/client-map-loading-view.js";
+import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
 import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 import { setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { hasSustainedLowFps } from "../client-fps-monitor/client-fps-monitor.js";
-import { authDebugSnapshot, authDebugCopyPayload } from "./client-hud-debug.js";
+import { bindAuthDebugCopyButton } from "./client-hud-debug.js";
 import { settingsPanelHtml } from "./client-hud-settings-panel.js";
 import { renderProfileEditOverlay } from "./client-hud-profile-edit-overlay.js";
 import { bindAudioSettingsControls } from "../client-audio/client-audio-settings-ui.js";
@@ -451,7 +451,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   state.replayPlaying = false;
   dom.miniMapLabelEl.innerHTML = replayToolbarHtml();
   deps.miniMapReplayEl.innerHTML = replayPanelHtml();
-  const loadingActive = state.connection !== "initialized" || state.firstChunkAt === 0;
+  const loadingActive = isMapLoadingOverlayActive(state);
   if (loadingActive) {
     const loadingView = buildMapLoadingView(state, wsUrl);
     dom.mapLoadingOverlayEl.style.display = "grid";
@@ -784,32 +784,9 @@ export const renderClientHud = (deps: HudDeps): void => {
     }
   );
   dom.mobileAllianceRequestsEl.innerHTML = dom.allianceRequestsEl.innerHTML;
-  const bridgeDebugCopyButtons = dom.hud.querySelectorAll("[data-copy-bridge-debug]") as NodeListOf<HTMLButtonElement>;
-  bridgeDebugCopyButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = async () => {
-      const encoded = btn.dataset.copyBridgeDebug;
-      if (!encoded) return;
-      try {
-        await navigator.clipboard.writeText(decodeURIComponent(encoded));
-        pushFeed("Bridge debug copied.", "info", "success");
-      } catch {
-        pushFeed("Could not copy bridge debug.", "error", "warn");
-      }
-      renderClientHud(deps);
-    };
-  });
-  const authDebugCopyButtons = dom.hud.querySelectorAll("[data-copy-auth-debug]") as NodeListOf<HTMLButtonElement>;
-  authDebugCopyButtons.forEach((btn: HTMLButtonElement) => {
-    btn.onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(decodeURIComponent(authDebugCopyPayload(state, authDebugSnapshot(state, wsUrl, firebaseAuth))));
-        pushFeed("Auth debug copied.", "info", "success");
-      } catch {
-        pushFeed("Could not copy auth debug.", "error", "warn");
-      }
-      renderClientHud(deps);
-    };
-  });
+  // Single Copy button for the merged connection + account debug card (was
+  // two separate cards each with their own Copy button/payload).
+  bindAuthDebugCopyButton(dom.hud, { state, wsUrl, firebaseAuth, pushFeed, onCopied: () => renderClientHud(deps) });
   const socialInspectCardHtml = safeValue("renderSocialInspectCardHtml", "", () =>
     renderSocialInspectCardHtml({
       socialInspectPlayerId: state.socialInspectPlayerId,

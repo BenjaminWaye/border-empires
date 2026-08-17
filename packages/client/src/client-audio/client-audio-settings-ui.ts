@@ -6,7 +6,7 @@ import { getAmbientAudioVolume, isAmbientAudioMuted, setAmbientAudioMuted, setAm
 export const audioSettingsFieldHtml = (): string => `
         <div class="settings-audio-field">
           <label>
-            <p>Ambient Sound</p>
+            <p>Background Music</p>
             <div class="row settings-audio-row">
               <input type="checkbox" data-settings-audio-enabled ${isAmbientAudioMuted() ? "" : "checked"} />
               <input type="range" min="0" max="100" step="5" value="${Math.round(getAmbientAudioVolume() * 100)}" ${isAmbientAudioMuted() ? "disabled" : ""} data-settings-audio-volume />

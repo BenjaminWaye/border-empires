@@ -5,6 +5,7 @@ import { ensureTileYield } from "../yield-derivation/yield-derivation.js";
 import { applyCommonTileFields } from "../client-tile-merge/client-tile-merge.js";
 import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDebugKey } from "../client-debug/client-debug.js";
 import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js"; import { unlockMusterOnEnemyContact } from "../client-muster-unlock/client-muster-unlock.js";
+import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
 import { clearResolvedIncomingAttack } from "../client-siege-tracking/client-siege-tracking.js";
 
 // Logs every real ownerId/ownershipState change, gated only by the account-level debugTileLoggingEnabled flag (not a specific watched tile).
@@ -501,8 +502,21 @@ export const applyGatewayInitialState = (
   }
   deps.state.tilesRevision += 1; // single bump for the whole batch
   let invalidatedTerrainCache = false;
+  // Re-derive the muster unlock from the bootstrap snapshot too: a fresh
+  // device has no localStorage flag, and without this an already-visible
+  // rival tile in the initial load would leave mustering hidden until some
+  // later delta happened to touch an enemy tile. This also enqueues the
+  // ENEMY_EMPIRE discovery tip on that first-ever contact, same as the live
+  // delta path. `musterUnlockPending` stops the per-tile localStorage check
+  // once unlocked instead of re-reading storage for every remaining tile.
+  let musterUnlockPending = !isMusterUnlocked(deps.state.authEmail);
   for (const tile of tiles) {
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, tile, true) || invalidatedTerrainCache;
+    if (musterUnlockPending) {
+      const seenTile = deps.state.tiles.get(deps.keyFor(tile.x, tile.y));
+      unlockMusterOnEnemyContact(seenTile, deps.state.me, deps.state.authEmail, deps.state.discoveryTipQueue);
+      musterUnlockPending = !isMusterUnlocked(deps.state.authEmail);
+    }
   }
   if (invalidatedTerrainCache) {
     deps.clearRenderCaches?.();
@@ -518,7 +532,7 @@ export const applyGatewayTileDeltaBatch = (
   if (!Array.isArray(updates) || updates.length === 0) return;
   let invalidatedTerrainCache = false;
   for (const update of updates) {
-    // Live deltas only (never the initial bootstrap) — "newly seen" gates first-discovery tips (first town/resource of a kind).
+    // "Newly seen" gates first-discovery tips (first town/resource of a kind) to live deltas only, to avoid spamming them all at once on load — the initial bootstrap has its own muster-unlock pass above, which can still enqueue the one-off ENEMY_EMPIRE tip on first contact.
     const tileKey = deps.keyFor(update.x, update.y);
     const wasKnown = deps.state.tiles.has(tileKey); const priorOwnerId = deps.state.tiles.get(tileKey)?.ownerId; // priorOwnerId: read before the merge, so an ownership FLIP (not just a first sighting) can also unlock mustering
     invalidatedTerrainCache = applyGatewayTileUpdate(deps, update) || invalidatedTerrainCache; const seenTile = deps.state.tiles.get(tileKey);

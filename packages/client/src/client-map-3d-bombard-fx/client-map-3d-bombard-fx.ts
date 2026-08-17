@@ -65,10 +65,10 @@ export const createBombardFxLayer = (scene: Scene): BombardFxLayer => {
   const entries: BombardEntry[] = [];
 
   const makeImpactMaterial = (color: string, opacity: number): MeshBasicMaterial =>
-    new MeshBasicMaterial({ color, transparent: true, opacity, blending: AdditiveBlending, depthWrite: false });
+    new MeshBasicMaterial({ toneMapped: false, color, transparent: true, opacity, blending: AdditiveBlending, depthWrite: false });
 
   const makeSmokeMaterial = (): MeshBasicMaterial =>
-    new MeshBasicMaterial({ color: "#9a9a92", transparent: true, opacity: 0, blending: NormalBlending, depthWrite: false });
+    new MeshBasicMaterial({ toneMapped: false, color: "#9a9a92", transparent: true, opacity: 0, blending: NormalBlending, depthWrite: false });
 
   const spawn = (sceneX: number, sceneZ: number, surfaceY: number, tiles: BombardTileOutcome[]): void => {
     const entryGroup = new Group();

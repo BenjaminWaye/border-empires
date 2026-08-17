@@ -187,7 +187,7 @@ export const createTownSupportCoinLayer = (scene: Scene): TownSupportCoinLayer =
   const shadowTexture = buildShadowTexture();
   const shadowGeometry = new PlaneGeometry(1, 1);
   const slots = Array.from({ length: COIN_POOL_SIZE }, () => {
-    const material = new SpriteMaterial({
+    const material = new SpriteMaterial({ toneMapped: false,
       map: goldTexture,
       transparent: true,
       depthWrite: false,
@@ -200,7 +200,7 @@ export const createTownSupportCoinLayer = (scene: Scene): TownSupportCoinLayer =
     sprite.visible = false;
     scene.add(sprite);
 
-    const shadowMaterial = new MeshBasicMaterial({
+    const shadowMaterial = new MeshBasicMaterial({ toneMapped: false,
       map: shadowTexture,
       transparent: true,
       depthWrite: false,

@@ -10,6 +10,21 @@ import {
   SphereGeometry
 } from "three";
 
+// These are black on purpose, and only one of them is ever drawn.
+//
+// Note the sky shader's naming is misleading: `midColor` is the color *at* the
+// horizon line, `topColor` is the zenith, and `horizonColor` is what's drawn
+// *below* the horizon — the void the world sits in.
+//
+// The map camera has a fixed tilt (PERSPECTIVE_TILT_RADIANS = 0.6) and a 45°
+// FOV, which puts its topmost ray ~33° below horizontal. Every visible sky
+// fragment therefore has h <= -0.546, past the end of the shader's
+// smoothstep(0.0, -0.5, h) — so the whole screen resolves to `horizonColor`
+// and `midColor`/`topColor` never render at all.
+//
+// Consequence: giving these a daylight gradient does nothing except repaint
+// the entire unexplored void, which is what reads as fog-of-war in the
+// current art direction. Changing them is a camera change, not a color one.
 export const SKY_TOP_COLOR = "#000000";
 export const SKY_MID_COLOR = "#000000";
 export const SKY_HORIZON_COLOR = "#000000";

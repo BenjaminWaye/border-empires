@@ -64,6 +64,12 @@ import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resou
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import {
+  createContactShadowOverlay,
+  DEFAULT_CONTACT_SHADOW_RADIUS_TILES,
+  LARGE_CONTACT_SHADOW_RADIUS_TILES,
+  SMALL_CONTACT_SHADOW_RADIUS_TILES
+} from "../client-map-3d-contact-shadow/client-map-3d-contact-shadow.js";
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
@@ -176,7 +182,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const resourceOverlay = createResourceOverlay(scene, MAX_VISIBLE_TILES); const barleyFieldOverlay = createBarleyFieldOverlay(scene, MAX_VISIBLE_TILES); const titaniumDepositOverlay = createTitaniumDepositOverlay(scene, MAX_VISIBLE_TILES); const umbriteDepositOverlay = createUmbriteDepositOverlay(scene, MAX_VISIBLE_TILES); const umbriteExtractionRigOverlay = createUmbriteExtractionRigOverlay(scene, MAX_VISIBLE_TILES); const umbriteWeaponsFactoryOverlay = createUmbriteWeaponsFactoryOverlay(scene, MAX_VISIBLE_TILES);
   const attackOverlay = createAttackOverlay(scene, MAX_VISIBLE_TILES);
   const settleOverlay = createSettleOverlay(scene, MAX_VISIBLE_TILES);
-  const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES);
+  // Shared across every ground occupant below (structures, towns,
+  // watchtowers, resources, deposits) rather than one per overlay module —
+  // see the comment in client-map-3d-contact-shadow.ts.
+  const contactShadowOverlay = createContactShadowOverlay(scene, MAX_VISIBLE_TILES);
+  const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES, contactShadowOverlay);
   const defensibilityOverlay = createDefensibilityOverlay(scene, MAX_VISIBLE_TILES);
 
   // Visual-only demo: ?towndemo=1 fakes a row of 5 tiers near (camX, camY)
@@ -379,7 +389,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // tile filling in with their color instead.
   const frontierClaimPlateGeometry = new PlaneGeometry(0.94, 0.94);
   frontierClaimPlateGeometry.rotateX(-Math.PI * 0.5);
-  const frontierClaimPlateMaterial = new MeshBasicMaterial({
+  const frontierClaimPlateMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#ffffff",
     transparent: true,
     opacity: 0,
@@ -414,7 +424,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     depthTest: false,
     depthWrite: false
   });
-  const observatoryRangeFillMaterial = new MeshBasicMaterial({
+  const observatoryRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#6ab4ff",
     transparent: true,
     opacity: 0.10,
@@ -437,7 +447,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     depthTest: false,
     depthWrite: false
   });
-  const sweepRangeFillMaterial = new MeshBasicMaterial({
+  const sweepRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#ff8c42",
     transparent: true,
     opacity: 0.10,
@@ -460,7 +470,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     depthTest: false,
     depthWrite: false
   });
-  const waterworksRangeFillMaterial = new MeshBasicMaterial({
+  const waterworksRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#4caf74",
     transparent: true,
     opacity: 0.10,
@@ -483,7 +493,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     depthTest: false,
     depthWrite: false
   });
-  const airportRangeFillMaterial = new MeshBasicMaterial({
+  const airportRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#ff4444",
     transparent: true,
     opacity: 0.10,
@@ -1308,6 +1318,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     barleyFieldOverlay.setDetailEnabled(deps.state.zoom >= BARLEY_DETAIL_MIN_ZOOM);
     attackOverlay.clear();
     settleOverlay.clear();
+    // Cleared before any addInstance/addShadow call below can run this
+    // rebuild, and committed/disposed alongside structureOverlay — see the
+    // shared-ownership comment where contactShadowOverlay is constructed.
+    contactShadowOverlay.clear();
     structureOverlay.clear();
     defensibilityOverlay.clear();
     // Build the dock-endpoint key set the same way the 2D runtime loop
@@ -1402,6 +1416,34 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // of their last-witnessed owner -- no roads, structures, units,
           // or FX, since we no longer have live data for any of that. This
           // mirrors the 2D canvas renderer's fog rules (client-runtime-loop.ts).
+          //
+          // SEA/COASTAL_SEA is a special case: sea tiles are never part of
+          // the heightfield mesh (client-map-3d-heightfield.ts skips them,
+          // leaving a hole for the live water plane to sit over), so unlike
+          // LAND there is no "frozen remembered terrain" underneath for the
+          // darken overlay below to tint -- it would just paint a black quad
+          // over an empty hole, on top of the scene's own black background
+          // (FOG_COLOR), reading as a solid black void. Draw the same live
+          // water quad visible sea gets instead, so fogged sea reads as
+          // remembered ocean rather than a hole. Not dimmed relative to
+          // live-visible water (the water-surface module has no "dimmed"
+          // vertex-color variant to plumb through) -- undimmed water is a
+          // solid improvement over a black hole and isn't worth a bigger
+          // change to add that distinction.
+          if (terrain === "SEA" || terrain === "COASTAL_SEA") {
+            let shallow = false;
+            for (let nz = -2; nz <= 2 && !shallow; nz += 1) {
+              for (let nx = -2; nx <= 2 && !shallow; nx += 1) {
+                if (nx === 0 && nz === 0) continue;
+                const nwx = deps.wrapX(wx + nx);
+                const nwy = deps.wrapY(wy + nz);
+                const nt = terrainForWorldTile(nwx, nwy);
+                if (nt === "LAND" || nt === "MOUNTAIN") shallow = true;
+              }
+            }
+            waterSurface.addTile(x, z, shallow);
+            continue;
+          }
           const fogIsHill = isHillsTile(wx, wy);
           const fogCorner00Y = heightfield.cornerYAt(wx, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
           const fogCorner10Y = heightfield.cornerYAt(wxNext, wy) + OWNERSHIP_RISE_ABOVE_HEIGHTFIELD;
@@ -1485,17 +1527,26 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           }
           const dockSurfaceY = Math.max(heightfield.elevationAt(wx, wy), -0.04) + 0.02;
           dockOverlay.addInstance(x, z, dockSurfaceY, dockRotation, wx, wy);
+          contactShadowOverlay.addShadow(x, z, dockSurfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
         }
         if (terrain === "MOUNTAIN") {
           mountainMassifs.addInstance(x, z, surfaceY);
           continue;
         }
-        if (forestTile) forest.addInstance(x, z, surfaceY);
+        if (forestTile) {
+          forest.addInstance(x, z, surfaceY);
+          contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
+        }
         const realTier = tile?.town?.populationTier;
         const demoTier = isTownDemoTile(wx, wy);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
         if (renderedTier && terrain === "LAND") {
           townOverlay.addInstance(x, z, surfaceY, renderedTier);
+          // LARGE, not DEFAULT: a town's own foundation slab runs up to 0.92
+          // tiles wide (see the radius comments in
+          // client-map-3d-contact-shadow.ts) — DEFAULT's 0.84 diameter was
+          // fully hidden underneath it, which is why towns showed no shadow.
+          contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
           const tileSeed = wx * 17 + wy * 31;
           if (tile && shouldShowTownSmoke(tile)) {
             // Pale owned-village smoke marks active settled town growth. Capital banners stay
@@ -1545,10 +1596,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
         if (tile && ownerId === "barbarian-1" && terrain === "LAND") {
           barbarianOverlay.addInstance(x, z, surfaceY);
+          contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
         }
         if (tile?.shardSite && terrain === "LAND" && visibility === "visible") {
           shardOverlay.addInstance(x, z, surfaceY, wx, wy);
-        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy); }
+          contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
+        } if (tile?.watchtower && terrain === "LAND" && visibility === "visible") { watchtowerOverlay.addInstance(x, z, surfaceY, wx, wy, tile.watchtower); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } if (tile?.naturalWonder && terrain === "LAND" && visibility === "visible") { naturalWonderOverlays.addInstance(tile.naturalWonder.type, x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES); }
         // Resolve the underlying resource once per tile — used by the
         // resource overlay (for the icon) AND by the structure overlay
         // (so a MINE on a GEMS tile loads its cart with blue crystals
@@ -1566,6 +1619,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             if ((validResources as ReadonlyArray<string>).includes(resolvedResource)) {
               tileResource = resolvedResource as ResourceType;
               if (tileResource === "FARM") { barleyFieldOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "TITANIUM") { titaniumDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else if (tileResource === "UMBRITE") { umbriteDepositOverlay.addInstance(x, z, surfaceY, wx, wy); } else { resourceOverlay.addInstance(x, z, surfaceY, tileResource, wx, wy); }
+              contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
             }
           }
         }
@@ -1577,8 +1631,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const structureType = tile.economicStructure.type as string;
           if (structureType === "UMBRITE_RIG") {
             umbriteExtractionRigOverlay.addInstance(x, z, surfaceY, wx, wy);
+            contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
           } else if (structureType === "UMBRITE_WEAPONS_FACTORY") {
             umbriteWeaponsFactoryOverlay.addInstance(x, z, surfaceY, wx, wy);
+            contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
           } else if (STRUCTURE_KINDS_HANDLED_BY_3D.has(structureType as StructureKind)) {
             const mineResourceHint =
               structureType === "MINE" && (tileResource === "TITANIUM" || tileResource === "GEMS")
@@ -1651,6 +1707,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const fortKind = fortificationOverlayKindForTile(tile);
           if (fortKind === "RELAY_BEACON") {
             relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy);
+            contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES);
           } else if (fortKind) {
             const opening = fortificationOpeningForTile(tile, {
               tiles: deps.state.tiles,
@@ -1659,6 +1716,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
               wrapY: deps.wrapY
             });
             fortOverlay.addInstance(x, z, surfaceY, fortKind, opening);
+            // LARGE: fort walls run WALL_LENGTH = 0.86 tiles
+            // (client-map-3d-fort-overlay.ts) — same reasoning as towns.
+            contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
           }
         }
         const demoFort = fortDemoSpec(wx, wy);
@@ -1784,6 +1844,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.commit();
     settleOverlay.commit();
     structureOverlay.commit();
+    contactShadowOverlay.commit();
     defensibilityOverlay.commit();
     const commitMs = performance.now() - commitStartAt;
 
@@ -1992,6 +2053,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.dispose();
     settleOverlay.dispose();
     structureOverlay.dispose();
+    contactShadowOverlay.dispose();
     defensibilityOverlay.dispose();
     forest.dispose();
     villageEffects.dispose();

@@ -42,6 +42,16 @@ export const COLLECT_VISIBLE_COOLDOWN_MS = 20_000;
 // or reload (see ACTION_AFFORDANCE_THRESHOLD_MS in client-map-loading-view.ts).
 export const AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS = 8_000;
 
+// A backgrounded tab's socket getting dropped and reconnected (Chrome
+// suspends/throttles hidden tabs) is the single most common reason
+// state.connection briefly leaves "initialized". Reconnecting in place
+// usually finishes well under a second, so blocking the whole game with the
+// full map-loading overlay for every one of those blips is worse than the
+// disconnect itself. This grace window lets client-hud.ts hold off showing
+// that overlay until a disconnect has actually outlasted a normal in-place
+// reconnect — see state.disconnectedSince in client-state.ts.
+export const RECONNECT_OVERLAY_GRACE_MS = 1_200;
+
 export const guideSteps: GuideStep[] = [
   {
     title: "Welcome to Border Empires",

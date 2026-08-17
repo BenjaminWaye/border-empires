@@ -11,7 +11,11 @@ describe("buildPlayerSubscriptionSnapshot", () => {
         "player-1",
         { tiles: [], players: [], pendingSettlements: [], activeLocks: [] },
         [
-          { x: 10, y: 10, terrain: "LAND", resource: "FARM", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Nauticus" } },
+          // SETTLED (not FRONTIER) so the fallback-tiles vision dilation below
+          // reaches the neighboring SEA tile — a FRONTIER claim holds no
+          // standing vision beyond itself, so this fixture would otherwise
+          // only prove the anchor tile's own fields pass through.
+          { x: 10, y: 10, terrain: "LAND", resource: "FARM", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Nauticus" } },
           { x: 10, y: 11, terrain: "SEA" }
         ]
       )
@@ -25,7 +29,7 @@ describe("buildPlayerSubscriptionSnapshot", () => {
             terrain: "LAND",
             resource: "FARM",
             ownerId: "player-1",
-            ownershipState: "FRONTIER",
+            ownershipState: "SETTLED",
             townType: "FARMING",
             townName: "Nauticus",
             townPopulationTier: "SETTLEMENT"

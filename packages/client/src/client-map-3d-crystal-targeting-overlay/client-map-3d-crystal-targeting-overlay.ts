@@ -86,7 +86,7 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
 
   const fillGeometry = new PlaneGeometry(0.96, 0.96);
   fillGeometry.rotateX(-Math.PI * 0.5);
-  const fillMaterial = new MeshBasicMaterial({
+  const fillMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: TONE_COLORS.red.fill,
     transparent: true,
     opacity: 0.30,

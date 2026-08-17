@@ -344,11 +344,26 @@ export const queueDevelopmentAction = (
 type QueueRestoreTileLike = {
   ownerId?: string;
   ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
+  fort?: { status?: string };
+  observatory?: { status?: string };
+  siegeOutpost?: { status?: string };
+  economicStructure?: { type?: string; status?: string };
+};
+
+/** True once `tile` already carries the structure a queued BUILD_STRUCTURE
+ * entry is asking for -- redispatching in that case just earns another
+ * server-side BUILD_INVALID "tile already has structure" rejection. */
+const tileAlreadyHasBuildStructure = (tile: QueueRestoreTileLike, structureType: string): boolean => {
+  if (structureType === "FORT") return Boolean(tile.fort);
+  if (structureType === "OBSERVATORY") return Boolean(tile.observatory);
+  if (structureType === "SIEGE_OUTPOST") return Boolean(tile.siegeOutpost);
+  return tile.economicStructure?.type === structureType;
 };
 
 /** True if `entry` still describes something worth dispatching -- false once the
- * tile has moved past it (e.g. a SETTLE whose tile already settled, or a BUILD
- * whose tile is no longer owned/settled). Used both to prune stale sessionStorage
+ * tile has moved past it (e.g. a SETTLE whose tile already settled, a BUILD
+ * whose tile is no longer owned/settled, or a BUILD whose target structure
+ * already exists on the tile). Used both to prune stale sessionStorage
  * entries on restore and to catch entries a durable server-side auto-drain
  * (tryDrainDevQueue) already resolved while this client was disconnected --
  * those never make it into a reconnect's serverDevQueue, so
@@ -365,7 +380,9 @@ export const isQueuedDevelopmentActionStillValid = (
   if (entry.kind === "SETTLE") {
     return tile.ownershipState === "FRONTIER" && !pendingSettlementTileKeys.has(entry.tileKey);
   }
-  return tile.ownershipState === "SETTLED";
+  if (tile.ownershipState !== "SETTLED") return false;
+  if (entry.payload.type === "REMOVE_STRUCTURE") return true;
+  return !tileAlreadyHasBuildStructure(tile, entry.payload.structureType);
 };
 
 export const restorePersistedDevelopmentQueueForPlayer = (
