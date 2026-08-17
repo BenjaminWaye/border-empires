@@ -54,15 +54,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786399200000, // 2026-08-09
-    introducedIn: "fix-dev-slot-busy-queue-sync",
-    title: "Fixed a build getting rejected with \"development slots are busy\" instead of auto-queuing",
-    why: "The server has only ever sent the plain message \"development slots are busy\", but the client was matching against \"all N development slots are busy\" (a format the server never sends) to learn its slot count was out of date. Since that match never fired, a stale local slot count kept letting the client try to build/expand directly instead of routing the action into the development queue, so players occasionally saw a hard rejection where the action should have queued.",
-    changes: [
-      "Any \"development slots are busy\" rejection now immediately marks all development slots as busy locally, so the next build/settle attempt queues instead of repeating the same failed request."
-    ]
-  },
-  {
     createdAt: 1786413600000, // 2026.08.10.2
     introducedIn: "umbrite-deposit-overlay",
     title: "New Umbrite deposit overlay for the 3D map",

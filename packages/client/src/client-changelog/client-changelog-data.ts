@@ -494,12 +494,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1786905792661, // 2026.08.16
     introducedIn: "2026.08.16",
-    title: "A Trade Nexus overlay asset previews the commercial hub that will one day replace the Caravanary",
-    why: "The Caravanary still reads as a humble road-station courtyard, while the next step for the trade network needs to sell concentrated wealth — a grand exchange hall where trade routes converge, with cargo and brass machinery at work. This adds the Trade Nexus as a standalone visual overlay for now; build wiring and the connected-towns economy bonuses come later.",
+    title: "The Caravanary is now the Trade Nexus, with a new commercial-hub look",
+    why: "The Caravanary still read as a humble road-station courtyard, while the trade network needed to sell concentrated wealth — a grand exchange hall where trade routes converge, with cargo and brass machinery at work. Renamed the building to Trade Nexus and gave it a look to match; the underlying road-network mechanics are unchanged.",
     changes: [
-      "New Trade Nexus overlay: a grand domed trading hall on an octagonal stone plinth, ringed by six converging trade roads, merchants' warehouses, stacked cargo, brass jib cranes, feed pipes, warm hanging lamps and a slowly winding brass clockwork seal atop the dome.",
-      "A matching flat-color 2D icon (trading hall, converging routes, cargo and brass machinery) accompanies the 3D asset.",
-      "Not yet wired into gameplay — the Caravanary remains the active road-network building for now."
+      "The Caravanary structure is renamed Trade Nexus everywhere in the UI (build menu, tile info, tech tree). Its behavior — enabling the connected-town road network and income bonus — is unchanged.",
+      "New 3D overlay: a grand domed trading hall on an octagonal stone plinth, ringed by six converging trade roads, merchants' warehouses, stacked cargo, brass jib cranes, feed pipes, warm hanging lamps and a slowly winding brass clockwork seal atop the dome — replacing the old fortified-inn look.",
+      "A matching flat-color 2D icon (trading hall, converging routes, cargo and brass machinery) accompanies the 3D asset."
     ]
   }
 ];
