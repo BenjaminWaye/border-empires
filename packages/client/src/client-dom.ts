@@ -129,11 +129,7 @@ export const initClientDom = () => {
   const mobileAlliesListEl = requireElement<HTMLDivElement>("#mobile-allies-list");
   const mobileAlliancePlayerInspectEl = requireElement<HTMLDivElement>("#mobile-alliance-player-inspect");
   const centerMeBtn = requireElement<HTMLButtonElement>("#center-me");
-  const collectVisibleMobileBtn = requireElement<HTMLButtonElement>("#collect-visible-mobile");
   const centerMeDesktopBtn = requireElement<HTMLButtonElement>("#center-me-desktop");
-  const collectVisibleDesktopBtn = requireElement<HTMLButtonElement>("#collect-visible-desktop");
-  const collectVisibleDesktopMetaEl = requireElement<HTMLSpanElement>("#collect-visible-desktop-meta");
-  const collectVisibleMobileMetaEl = requireElement<HTMLSpanElement>("#collect-visible-mobile-meta");
   const changelogOverlayEl = requireElement<HTMLDivElement>("#changelog-overlay");
   const guideOverlayEl = requireElement<HTMLDivElement>("#guide-overlay");
   const respawnOverlayEl = requireElement<HTMLDivElement>("#respawn-overlay");
@@ -192,10 +188,6 @@ export const initClientDom = () => {
     centerMeBtn,
     centerMeDesktopBtn,
     changelogOverlayEl,
-    collectVisibleDesktopBtn,
-    collectVisibleDesktopMetaEl,
-    collectVisibleMobileBtn,
-    collectVisibleMobileMetaEl,
     ctx,
     feedEl,
     guideOverlayEl,

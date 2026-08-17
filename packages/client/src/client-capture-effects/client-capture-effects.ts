@@ -45,7 +45,6 @@ export const renderCaptureProgress = (
   state: Pick<
     ClientState,
     | "captureAlert"
-    | "collectVisibleCooldownUntil"
     | "capture"
     | "tiles"
     | "me"
@@ -73,13 +72,6 @@ export const renderCaptureProgress = (
   }
 ): void => {
   const RESULT_WAIT_DEBUG_THRESHOLD_MS = 4000;
-  if (state.captureAlert && state.captureAlert.until > Date.now()) {
-    if (state.captureAlert.title === "Collect Visible Cooldown") {
-      const remaining = state.collectVisibleCooldownUntil - Date.now();
-      if (remaining > 0) state.captureAlert.detail = `Retry in ${deps.formatCooldownShort(remaining)}.`;
-      else state.captureAlert = undefined;
-    }
-  }
   if (state.captureAlert && state.captureAlert.until > Date.now()) {
     deps.captureCardEl.dataset.state = state.captureAlert.tone;
     deps.captureCardEl.style.display = "grid";

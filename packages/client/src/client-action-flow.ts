@@ -70,7 +70,6 @@ import {
   cancelOngoingCapture as cancelOngoingCaptureFromModule,
   collectSelectedShard as collectSelectedShardFromModule,
   collectSelectedYield as collectSelectedYieldFromModule,
-  collectVisibleYield as collectVisibleYieldFromModule,
   hideTileActionMenu as hideTileActionMenuFromModule,
   settleSelected as settleSelectedFromModule,
   uncaptureSelected as uncaptureSelectedFromModule
@@ -223,7 +222,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     worldTileRawFromPointer,
     computeDragPreview,
     showCaptureAlert,
-    showCollectVisibleCooldownAlert,
     notifyInsufficientGoldForFrontierAction,
     isMobile,
     supportedOwnedTownsForTile,
@@ -263,7 +261,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     "CANCEL_CAPTURE",
     "UNCAPTURE_TILE",
     "COLLECT_TILE",
-    "COLLECT_VISIBLE",
     "CHOOSE_TECH",
     "CHOOSE_DOMAIN",
     "SET_CONVERTER_STRUCTURE_ENABLED",
@@ -813,15 +810,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const buildSiegeOutpostOnSelected = (): void => buildSiegeOutpostOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const uncaptureSelected = (): void => uncaptureSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const cancelOngoingCapture = (): void => cancelOngoingCaptureFromModule(state, sendGameMessage);
-  const collectVisibleYield = (): void =>
-    collectVisibleYieldFromModule(state, {
-      formatCooldownShort,
-      showCollectVisibleCooldownAlert,
-      pushFeed,
-      renderHud,
-      applyOptimisticVisibleCollect: deps.applyOptimisticVisibleCollect,
-      sendGameMessage
-    });
   const collectSelectedYield = (): void =>
     collectSelectedYieldFromModule(state, {
       keyFor,
@@ -1860,7 +1848,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     buildSiegeOutpostOnSelected,
     uncaptureSelected,
     cancelOngoingCapture,
-    collectVisibleYield,
     collectSelectedYield,
     collectSelectedShard,
     hideTileActionMenu,

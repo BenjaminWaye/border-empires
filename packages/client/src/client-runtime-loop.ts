@@ -1651,7 +1651,6 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   setInterval(deps.renderCaptureProgress, 100);
   setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000);
   setInterval(() => {
-    if (state.collectVisibleCooldownUntil > Date.now()) deps.renderHud();
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
     if (state.autoSettleTargets.size > 0) deps.processAutoSettleTargets();
