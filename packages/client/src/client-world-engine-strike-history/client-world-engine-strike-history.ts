@@ -13,6 +13,15 @@ export type WorldEngineStrikeHistoryRecord = {
   targetOwnerName: string;
 };
 
+// Matches WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS in the gateway's
+// world-engine-strike-store.ts. Live-received strikes are pushed straight
+// into state.worldEngineStrikeAnnouncements (client-world-engine-strike-network.ts)
+// and never expired locally, so a client connected for longer than this
+// window without a reconnect would otherwise keep showing strikes older than
+// "last 12h" — filter by age at render time (client-hud.ts) instead of
+// relying only on the server-side history fetch to keep the list bounded.
+export const WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS = 12 * 60 * 60_000;
+
 // Backfills up to the last 12h of World Engine strikes for a client that
 // connects/reconnects after missing the live broadcast (gateway-app.ts's
 // __broadcast__ PLAYER_MESSAGE fan-out). Public/unauthenticated — see
