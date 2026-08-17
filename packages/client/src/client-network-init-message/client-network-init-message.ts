@@ -419,7 +419,14 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   applyIncomingRespawnNotice(player.respawnNotice);
   state.dockPairs = mapMeta.dockPairs ?? [];
   state.dockRouteCache.clear();
-  pushFeed(`Spawned. ${incomingSeason?.seasonId ? `Season ${incomingSeason.seasonId}.` : ""} Your tile is centered.`, "info", "success");
+  const spawnSeasonId = incomingSeason?.seasonId ?? "";
+  if (state.spawnFeedShownSeasonId !== spawnSeasonId) {
+    // INIT is resent on every reconnect, not just on a fresh spawn; without this
+    // guard each reconnect would re-push "Spawned..." with a fresh timestamp,
+    // making a spawn from an hour ago look like it just happened.
+    state.spawnFeedShownSeasonId = spawnSeasonId;
+    pushFeed(`Spawned. ${spawnSeasonId ? `Season ${spawnSeasonId}.` : ""} Your tile is centered.`, "info", "success");
+  }
   if (incomingConfig.fogDisabled) pushFeed("Fog of war is disabled for this server session.", "info", "warn");
   if (offlineActivity.length > 0) {
     for (let index = offlineActivity.length - 1; index >= 0; index -= 1) {

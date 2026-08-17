@@ -1405,7 +1405,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           const out = queueSpecificTargets([k]);
           if (out.queued > 0) {
             processActionQueue();
-            pushFeed(`Queued frontier capture at (${selected.x}, ${selected.y}).`, "combat", "info");
           } else {
             showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
           }
@@ -1808,7 +1807,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         if (state.capture && state.capture.target.x === to.x && state.capture.target.y === to.y) {
           state.capture.silent = false;
         }
-        pushFeed(`Queued frontier capture (${to.x}, ${to.y}).`, "combat", "info");
       }
       requestAttackPreviewForHover();
       renderHud();

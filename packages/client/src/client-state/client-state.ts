@@ -297,6 +297,7 @@ export const createInitialState = () => ({
   socialInspectPlayerId: "" as string,
   feed: [] as FeedEntry[],
   feedUnreadCount: 0,
+  spawnFeedShownSeasonId: "" as string,
   feedAttentionUntil: 0,
   persistentAlertLocators: [] as Array<{
     id: string;
