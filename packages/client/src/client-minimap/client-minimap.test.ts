@@ -438,4 +438,17 @@ describe("drawMiniMap shard rain ping rendering", () => {
     expect(contentCtx.translateCalls[0]!.x).toBeLessThanOrEqual(100);
     expect(contentCtx.translateCalls[0]!.y).toBeLessThanOrEqual(100);
   });
+
+  it("points the arrow the short way around the toroidal world instead of the long raw-coordinate way", () => {
+    // Explored territory sits near the world's east edge (x=440 of 450); the view box ends up
+    // roughly x:[400,450). A ping at x=10 is only ~20 tiles away going east across the world
+    // seam, but ~390 tiles away in raw (non-wrapping) coordinates.
+    const tiles = new Map<string, Tile>([["440,5", { x: 440, y: 5, terrain: "LAND" }]]);
+    const contentCtx = drawWithPing({ ping: { x: 10, y: 5, createdAt: 0, activateAt: 0 }, fogDisabled: false, tiles });
+    expect(contentCtx.translateCalls).toHaveLength(1);
+    // The short way is east: the arrow should clamp to the canvas's right edge (x close to
+    // 100), not the left edge (x close to 0) that the raw, non-wrapping pixel position would
+    // clamp to.
+    expect(contentCtx.translateCalls[0]!.x).toBeGreaterThan(50);
+  });
 });

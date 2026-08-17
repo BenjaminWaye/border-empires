@@ -7509,6 +7509,53 @@ describe("simulation runtime — shard rain", () => {
     );
   });
 
+  it("scales the site count up with the number of eligible (human, non-barbarian) players", () => {
+    // 8 eligible human players -> bonus = floor(8 * SHARD_RAIN_SITES_PER_PLAYER=0.25) = 2,
+    // so count = SHARD_RAIN_SITE_MIN(3) + 2 = 5 sites, above the un-scaled 3-6 range.
+    const tiles = Array.from({ length: 5 }, (_, i) => ({ x: i, y: 0, terrain: "LAND" as const }));
+    const players = new Map<string, ReturnType<typeof humanPlayer>>();
+    for (let i = 1; i <= 8; i += 1) players.set(`human-${i}`, humanPlayer(`human-${i}`));
+    // A barbarian (isAi: false, but id-prefixed) and an AI player must not count toward the bonus.
+    players.set("barbarian-1", humanPlayer("barbarian-1"));
+    players.set("ai-1", aiPlayer("ai-1"));
+
+    const runtime = new SimulationRuntime({
+      now: () => localTime(8, 0),
+      initialPlayers: players,
+      seedTiles: new Map(),
+      initialState: { tiles, activeLocks: [] }
+    });
+    const seen = collectEvents(runtime);
+
+    const randomValues = [
+      0, // count -> min of the scaled range (5)
+      0, 0, 0.5, // attempt 1: x=0, y=0, amount=1
+      1 / 450, 0, 0.5, // attempt 2: x=1, y=0, amount=1
+      2 / 450, 0, 0.5, // attempt 3: x=2, y=0, amount=1
+      3 / 450, 0, 0.5, // attempt 4: x=3, y=0, amount=1
+      4 / 450, 0, 0.5 // attempt 5: x=4, y=0, amount=1
+    ];
+    let cursor = 0;
+    const randomSpy = vi.spyOn(Math, "random").mockImplementation(() => {
+      const value = randomValues[cursor] ?? 0;
+      cursor += 1;
+      return value;
+    });
+
+    try {
+      runtime.tickShardRain(localTime(8, 0));
+    } finally {
+      randomSpy.mockRestore();
+    }
+
+    const batches = seen.filter(
+      (event): event is Extract<SimulationEvent, { eventType: "TILE_DELTA_BATCH" }> =>
+        event.eventType === "TILE_DELTA_BATCH"
+    );
+    expect(batches).toHaveLength(1);
+    expect(batches[0]!.tileDeltas).toHaveLength(5);
+  });
+
   it("does not double-spawn when ticked twice in the same slot", () => {
     const runtime = new SimulationRuntime({
       now: () => localTime(8, 0),

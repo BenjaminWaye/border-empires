@@ -1,4 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import { isAiControlledActor } from "./runtime-player-factory.js";
 
 // Two rains/day (user decision): 08:00 and 21:00 UTC, aimed at commute-time
 // and evening play windows respectively. Container has no TZ override, so
@@ -18,7 +19,7 @@ export const SHARD_RAIN_COMMAND_ID_PREFIX = "system-shard-rain";
 export const SHARD_RAIN_SYSTEM_PLAYER_ID = "system-shard-rain";
 
 export const isEligibleShardRainPlayer = (player: { id: string; isAi?: boolean }): boolean =>
-  player.id !== SHARD_RAIN_SYSTEM_PLAYER_ID && !player.id.startsWith("barbarian-") && !player.isAi;
+  player.id !== SHARD_RAIN_SYSTEM_PLAYER_ID && !isAiControlledActor(player.id, player.isAi);
 
 export const shardRainSiteCountRange = (eligiblePlayerCount: number): { min: number; max: number } => {
   const bonus = Math.floor(Math.max(0, eligiblePlayerCount) * SHARD_RAIN_SITES_PER_PLAYER);
