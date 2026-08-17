@@ -550,17 +550,21 @@ export type PendingResearch = {
 export type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number; rank: number };
 export type LeaderboardMetricEntry = { id: string; name: string; value: number; rank: number };
 
+export type SeasonStatsView = {
+  mostDeadlyTile?: { x: number; y: number; manpowerLost: number };
+  longestRoad?: { tileCount: number };
+};
+
 export type SeasonWinnerView = {
   playerId: string;
   playerName: string;
   crownedAt: number;
   objectiveId: "TOWN_CONTROL" | "ECONOMIC_HEGEMONY" | "RESOURCE_MONOPOLY" | "MARITIME_SUPREMACY" | "DIPLOMATIC_DOMINANCE";
   objectiveName: string;
-};
-
-export type SeasonStatsView = {
-  mostDeadlyTile?: { x: number; y: number; manpowerLost: number };
-  longestRoad?: { tileCount: number };
+  // Persisted with the winner so a client that connects after crowning
+  // (fresh login, reconnect) still gets these via INIT, not just the one-off
+  // GLOBAL_STATUS_UPDATE broadcast at the moment of crowning.
+  seasonStats?: SeasonStatsView;
 };
 
 export type MissionState = {

@@ -75,6 +75,7 @@ import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "../season-lifecycle.js";
 import { computeSeasonWinnerStats } from "../season-winner-stats.js";
+import { computeLongestRoad, findMostDeadlyTile } from "../season-stats/season-stats.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
@@ -1456,11 +1457,18 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     // (see galaxy-routes.ts). Guarded so a season sitting on "ended" doesn't
     // re-scan tiles on every subsequent recompute.
     if (trackerResult.crownedWinner && currentSeasonState.winner && !currentSeasonState.winner.stats) {
+      const mostDeadlyTile = findMostDeadlyTile(runtime.manpowerLossByTileKey);
+      const longestRoad = computeLongestRoad(runtimeState.tiles);
       currentSeasonState = {
         ...currentSeasonState,
         winner: {
           ...currentSeasonState.winner,
-          stats: computeSeasonWinnerStats(runtimeState, currentSeasonState.winner.playerId)
+          stats: computeSeasonWinnerStats(runtimeState, currentSeasonState.winner.playerId),
+          // Persist alongside the winner (not just the ephemeral summary) so
+          // it survives a reconnect/fresh-login INIT — see SeasonWinnerSnapshot.
+          ...((mostDeadlyTile || longestRoad)
+            ? { seasonStats: { ...(mostDeadlyTile ? { mostDeadlyTile } : {}), ...(longestRoad ? { longestRoad } : {}) } }
+            : {})
         }
       };
     }

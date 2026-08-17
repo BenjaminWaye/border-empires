@@ -106,13 +106,19 @@ export const acknowledgeVictoryHoldAlert = (
 // seasonVictory + seasonWinner together, so those call sites don't need a
 // separate updateVictoryHoldAlert line each.
 export const applySeasonVictorySnapshot = (
-  state: Pick<ClientState, "seasonVictory" | "seasonWinner" | "victoryHoldAlert" | "victoryHoldAlertCollapsed" | "acknowledgedVictoryHoldAlertKeys">,
+  state: Pick<ClientState, "seasonVictory" | "seasonWinner" | "seasonStats" | "victoryHoldAlert" | "victoryHoldAlertCollapsed" | "acknowledgedVictoryHoldAlertKeys">,
   seasonVictory: SeasonVictoryObjectiveView[] | undefined,
   seasonWinner: ClientState["seasonWinner"] | undefined,
   selfPlayerId: string | undefined
 ): void => {
   if (seasonVictory) state.seasonVictory = seasonVictory;
-  if (seasonWinner) state.seasonWinner = seasonWinner;
+  if (seasonWinner) {
+    state.seasonWinner = seasonWinner;
+    // The winner snapshot carries misc season stats (deadliest tile, longest
+    // road) so they survive a reconnect/fresh-login INIT, which never sends
+    // a separate GLOBAL_STATUS_UPDATE.
+    if (seasonWinner.seasonStats) state.seasonStats = seasonWinner.seasonStats;
+  }
   updateVictoryHoldAlert(state, state.seasonVictory, selfPlayerId);
 };
 
