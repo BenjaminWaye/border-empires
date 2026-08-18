@@ -366,8 +366,6 @@ export const menuOverviewForTile = (
     townNextGrowthEtaLabel: (town: NonNullable<Tile["town"]>, options?: { explainUnfed?: boolean }) => string;
     supportedOwnedTownsForTile: (tile: Tile) => Tile[];
     connectedDockCountForTile: (tile: Tile) => number;
-    currentManpower: number;
-    currentManpowerCap: number;
     hostileObservatoryProtectingTile: (tile: Tile) => unknown;
     constructionCountdownLineForTile: (tile: Tile) => string;
     tileHistoryLines: (tile: Tile) => string[];
