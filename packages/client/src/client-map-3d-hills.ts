@@ -388,26 +388,47 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
 
     accumulateHeightfieldNormals(positions, indices, idxCount, normals, vertCount);
 
-    const posAttr = geometry.getAttribute("position");
-    const colorAttr = geometry.getAttribute("color");
-    const uvAttr = geometry.getAttribute("uv");
-    const normalAttr = geometry.getAttribute("normal");
-    if (posAttr) (posAttr as BufferAttribute).needsUpdate = true;
-    if (colorAttr) (colorAttr as BufferAttribute).needsUpdate = true;
-    if (uvAttr) (uvAttr as BufferAttribute).needsUpdate = true;
-    if (normalAttr) (normalAttr as BufferAttribute).needsUpdate = true;
+    // Ranged upload: this dome buffer is sized for maxHillTiles (the worst
+    // case of every visible tile being a hill), but only vertCount/idxCount
+    // of it was actually written this rebuild. An unranged needsUpdate here
+    // reuploads the whole preallocated buffer via bufferSubData every
+    // rebuild — which fires on every frame of a zoom gesture as the visible
+    // tile set changes — regardless of how few hill tiles are actually in
+    // view. Same cost pattern the skirt buffer below and
+    // client-map-3d-ownership-overlay.ts's commit() had to be scoped to
+    // avoid; profiling a zoom gesture showed bufferSubData dominating main
+    // thread time here too.
+    const posAttr = geometry.getAttribute("position") as BufferAttribute | undefined;
+    const colorAttr = geometry.getAttribute("color") as BufferAttribute | undefined;
+    const uvAttr = geometry.getAttribute("uv") as BufferAttribute | undefined;
+    const normalAttr = geometry.getAttribute("normal") as BufferAttribute | undefined;
     const indexAttr = geometry.index;
-    if (indexAttr) indexAttr.needsUpdate = true;
+    if (posAttr) {
+      posAttr.clearUpdateRanges();
+      posAttr.addUpdateRange(0, vertCount * 3);
+      posAttr.needsUpdate = true;
+    }
+    if (colorAttr) {
+      colorAttr.clearUpdateRanges();
+      colorAttr.addUpdateRange(0, vertCount * 3);
+      colorAttr.needsUpdate = true;
+    }
+    if (uvAttr) {
+      uvAttr.clearUpdateRanges();
+      uvAttr.addUpdateRange(0, vertCount * 2);
+      uvAttr.needsUpdate = true;
+    }
+    if (normalAttr) {
+      normalAttr.clearUpdateRanges();
+      normalAttr.addUpdateRange(0, vertCount * 3);
+      normalAttr.needsUpdate = true;
+    }
+    if (indexAttr) {
+      indexAttr.clearUpdateRanges();
+      indexAttr.addUpdateRange(0, idxCount);
+      indexAttr.needsUpdate = true;
+    }
     geometry.setDrawRange(0, idxCount);
-
-    // Ranged upload, unlike the dome buffers just above: this skirt buffer
-    // is sized for maxHillSkirtEdges (the worst case of every hill tile
-    // needing a wall on all 4 sides), but only skirtVertCount*3 of it was
-    // actually written this rebuild. An unranged needsUpdate here would
-    // reupload the whole preallocated buffer via bufferSubData every
-    // rebuild regardless of how few tiles actually border a hole — exactly
-    // the cost pattern client-map-3d-heightfield.ts's own skirt had to be
-    // fixed to avoid (see its comment on the same technique).
     const skirtItemCount = skirtVertCount * 3;
     const skirtPosAttr = skirtGeometry.getAttribute("position") as BufferAttribute | undefined;
     const skirtColorAttr = skirtGeometry.getAttribute("color") as BufferAttribute | undefined;
