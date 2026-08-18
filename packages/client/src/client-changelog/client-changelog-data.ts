@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787041917435, // 2026.08.17.3
+    introducedIn: "2026.08.17.3",
+    title: "Battle dots no longer pop when the clash hands off into rout",
+    why: "The clash phase sways each dot back and forth (spread + a forward jostle so the two lines press together instead of overlapping), but the instant rout began that whole oscillation was dropped in favor of a clean push-through/scatter position — a small but real positional snap right at the clash/rout boundary, on top of the exact same seam that was already fixed between the pre-resolution skirmish and the clash phase.",
+    changes: [
+      "Dots now settle out of the clash's sway over the first ~140ms of rout instead of dropping it instantly, so the clash and rout phases read as one continuous motion rather than two animations stitched together."
+    ]
+  },
+  {
     createdAt: 1786960037000, // 2026.08.17.1
     introducedIn: "2026.08.17.1",
     title: "World Engine strikes now shake the map and broadcast to everyone",
@@ -303,28 +312,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The total dev-queue cap exists as a defensive backstop, not something players are meant to actually hit in normal play — but the 'Development queue is full' Activity Feed warning fired as if it were a real, expected rejection, which read as broken rather than as the edge case it is.",
     changes: [
       "Queuing an action once the development queue is at its total cap no longer posts an Activity Feed warning — the action is silently dropped, matching how an already-queued action is already handled."
-    ]
-  },
-  {
-    createdAt: 1786519200000, // 2026.08.12.2
-    introducedIn: "2026.08.12.2",
-    title: "Titanium/Umbrite Weapons Factory attack/defense bonuses are now visible",
-    why: "The Weapons Factories were already granting real attack/defense multipliers server-side, but nothing in the client ever displayed that — a built factory looked like it did nothing, and the Tech tab's Attack/Defense chips never mentioned it either.",
-    changes: [
-      "A built, active Weapons Factory now shows its own per-copy attack/defense contribution in its tile overview.",
-      "A town's overview now shows the connected network's total Titanium and Umbrite Weapons Factory count and combined attack/defense bonus.",
-      "The Tech tab's Attack/Defense chips now list your empire's Weapons Factory count as an inspectable bonus source (labeled as the network-connected maximum, since the real bonus is scoped per attack to the connected town network involved)."
-    ]
-  },
-  {
-    createdAt: 1786510994546, // 2026.08.12.1
-    introducedIn: "2026.08.12.1",
-    title: "Merged the Shard tab's Recent Events into the Activity Feed, and dropped noisy self-action entries",
-    why: "The Shard tab had its own 'Recent Events' panel (town captures, levy hits, monument/wonder claims) that duplicated the Activity Feed instead of feeding it, so players had two places to check. Separately, several self-initiated, non-war actions — choosing a domain, a redundant 'already sending' guard, and every development-queue enqueue — were pushing feed entries that told the player nothing they didn't already see happen on their own screen.",
-    changes: [
-      "The Shard tab no longer has its own 'Recent Events' card; all server-pushed events (town losses, Imperial Exchange Levy hits/casts, monument and natural wonder claims) now appear in the Activity Feed instead.",
-      "Removed the 'Domain chosen: ...', 'Already sending a domain choice...', '... is already queued.', and '... queued. It will start when a development slot frees up.' Activity Feed entries — they fired on your own clicks and added no information beyond what was already visible.",
-      "Tile-scoped events echoed into the Activity Feed (town losses, monument/wonder claims, levy hits) now carry a 'Go to tile' button when the server supplies coordinates, matching combat alerts."
     ]
   },
   {
