@@ -389,6 +389,12 @@ export const createInitialState = () => ({
   mobilePanel: "core" as "core" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings",
   activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings" | null,
   showWeakDefensibility: false,
+  // Fixed-borders-via-reach overlay. `undefined` means "not computed for this
+  // frame yet" (client-runtime-loop.ts lazily fills it from
+  // computeLocalReachSet, see client-reach-overlay.ts's MOCK-DATA SEAM
+  // comment for how this gets replaced by live server-pushed reach data).
+  myReach: undefined as Set<string> | undefined,
+  myReachRevisionAtCompute: -1,
   shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,
   shardAlert: undefined as ClientShardRainAlert | undefined, shardRainStatus: undefined as ClientShardRainAlert | undefined, // shardRainStatus survives toast dismissal, unlike shardAlert

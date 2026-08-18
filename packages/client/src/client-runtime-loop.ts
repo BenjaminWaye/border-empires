@@ -26,6 +26,13 @@ import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
+import {
+  computeLocalReachSet,
+  drawDormantFrontierTreatment,
+  drawOutOfReachDimming,
+  drawReachBoundaryLine,
+  isDormantFrontierTile
+} from "./client-reach-overlay/client-reach-overlay.js";
 import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
@@ -257,6 +264,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
       dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
     }
+    // Reach overlay: recompute only when the tile set has actually changed
+    // (tilesRevision bump), not every frame. See client-reach-overlay.ts's
+    // MOCK-DATA SEAM comment — this is a client-local approximation until
+    // the server pushes real reach data.
+    if (!isTrue3DRendererActive() && state.myReachRevisionAtCompute !== state.tilesRevision) {
+      state.myReach = computeLocalReachSet(state.tiles, state.me);
+      state.myReachRevisionAtCompute = state.tilesRevision;
+    }
+    const myReach = state.myReach;
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -636,6 +652,25 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         wrapX: deps.wrapX,
         wrapY: deps.wrapY
       });
+
+      // Fixed-borders-via-reach overlay (dormant-frontier fill, out-of-reach
+      // dimming, reach boundary line). See client-reach-overlay.ts.
+      if (!isTrue3DRendererActive() && myReach && t && vis === "visible") {
+        if (t.ownerId === state.me && isDormantFrontierTile(t)) {
+          drawDormantFrontierTreatment(deps.ctx, px, py, size);
+        }
+        if (t.ownerId && t.ownerId !== state.me && t.ownerId !== "barbarian" && !myReach.has(wk)) {
+          drawOutOfReachDimming(deps.ctx, px, py, size);
+        }
+        if (t.ownerId === state.me) {
+          drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, {
+            tiles: state.tiles,
+            keyFor: deps.keyFor,
+            wrapX: deps.wrapX,
+            wrapY: deps.wrapY
+          });
+        }
+      }
       if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
         const exposedSides = exposedSidesForTile(t, {
           tiles: state.tiles,
@@ -1147,6 +1182,24 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           wrapX: deps.wrapX,
           wrapY: deps.wrapY
         });
+
+        // Fixed-borders-via-reach overlay — see client-reach-overlay.ts.
+        if (!isTrue3DRendererActive() && myReach && t && vis === "visible") {
+          if (t.ownerId === state.me && isDormantFrontierTile(t)) {
+            drawDormantFrontierTreatment(deps.ctx, px, py, size);
+          }
+          if (t.ownerId && t.ownerId !== state.me && t.ownerId !== "barbarian" && !myReach.has(wk)) {
+            drawOutOfReachDimming(deps.ctx, px, py, size);
+          }
+          if (t.ownerId === state.me) {
+            drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, {
+              tiles: state.tiles,
+              keyFor: deps.keyFor,
+              wrapX: deps.wrapX,
+              wrapY: deps.wrapY
+            });
+          }
+        }
         if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
           const exposedSides = exposedSidesForTile(t, {
             tiles: state.tiles,

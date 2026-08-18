@@ -21,6 +21,7 @@ import { tileKeyOf } from "../frontier-scoring.js";
 import type {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
+  chooseBestRelayBeaconBuild,
   chooseBestSiegeOutpostBuild
 } from "../structure-command-planner.js";
 import type { DecisionClass, DecisionInputs } from "./decisions.js";
@@ -40,6 +41,10 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
   fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
   siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
+  /** Best RELAY_BEACON placement candidate (fixed-borders-via-reach plan). */
+  relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
+  /** True when reach-filtered EXPAND candidates are scarce despite a strong economy — see ai-economic-heuristics.ts's isReachStarved. */
+  reachStarved: boolean;
   attackStalemateTargetTileKeys: ReadonlySet<string> | undefined;
   expansionObjective: { x: number; y: number; kind: "neutral_value" | "enemy" } | undefined;
   points: number;
@@ -133,6 +138,8 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     hasEconomicBuild: Boolean(state.economicBuild),
     hasFortBuild: Boolean(state.fortBuild),
     hasSiegeOutpost: Boolean(state.siegeOutpostBuild),
+    hasRelayBeaconBuild: Boolean(state.relayBeaconBuild),
+    reachStarved: state.reachStarved,
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},
@@ -224,6 +231,18 @@ const executeClass = <TTile extends AutomationPlannerTile>(
       return undefined;
 
     case "BUILD_ECONOMY":
+      // Reach-starved: prefer growing the border (relay beacon) over a plain
+      // economic structure — a beacon unlocks further EXPAND/SETTLE
+      // candidates, which a farmstead/mine does not. Falls back to the
+      // normal economic build when no beacon site scores, or when not
+      // reach-starved (keeps today's behavior unchanged in the common case).
+      if (state.reachStarved && state.relayBeaconBuild) {
+        return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
+          x: state.relayBeaconBuild.x,
+          y: state.relayBeaconBuild.y,
+          structureType: "RELAY_BEACON"
+        });
+      }
       if (state.economicBuild) {
         return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
           x: state.economicBuild.tile.x,

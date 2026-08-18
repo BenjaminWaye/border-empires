@@ -15,6 +15,7 @@ import type { NeedVector } from "./build/build-need-vector.js";
 import type { AutomationStrategicSnapshot, AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
+import type { ReachLookup } from "./frontier-command-planner.js";
 
 // Consecutive planner ticks an AI may spend with its narrow/hot-frontier
 // scan alone actionable (broadFallbackSkipped: true — see
@@ -139,6 +140,13 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   // broad-fallback sweep below to run even though the narrow scan alone is
   // actionable, so a persistent skirmish can't hide the rest of the frontier.
   forceBroadFrontierScan?: boolean;
+  /**
+   * Reach lookup for fixed-border EXPAND gating (see frontier-command-planner.ts's
+   * ReachLookup doc). Wired from SimulationRuntime.isPlayerTileInReach via
+   * runtime.ts's planAutomationCommand call site. Optional so test inputs
+   * and the no-AI system planner keep working unfiltered when omitted.
+   */
+  reachLookup?: ReachLookup;
   // Phase 1 (docs/ai-structure-building-rewrite-plan.md §9): diagnostic-only
   // needVector inputs — see needVectorFromPlannerInput's doc comment
   // (build/build-need-vector.ts) for the all-four-or-none gate.

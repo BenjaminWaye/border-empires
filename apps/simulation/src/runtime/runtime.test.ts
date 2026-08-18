@@ -1405,7 +1405,17 @@ describe("simulation runtime", () => {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
             { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
-            { x: 51, y: 50, terrain: "LAND" }
+            { x: 51, y: 50, terrain: "LAND" },
+            // Dock-crossing EXPAND is still reach-gated on the target, so give
+            // player-1 a second reach anchor (town) right by the linked dock.
+            {
+              x: 49,
+              y: 50,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Harbor", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
           ],
           docks: [
             { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
@@ -1897,6 +1907,15 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", dockId: "dock-a", town: { name: "Spawn", type: "FARMING", populationTier: "SETTLEMENT" } },
+          // Fixed-border reach: dock-crossing still extends the *origin*
+          // (10,10) -> (50,50) unchanged, but the *target* now also needs to
+          // be inside the actor's reach independently — a dock crossing
+          // alone can no longer leapfrog reach itself (that's the whole
+          // point of the fixed-border plan). Give ai-1 a second reach
+          // anchor near the far island so this test still exercises real
+          // dock-crossing discovery rather than something reach would have
+          // allowed anyway from (10,10).
+          { x: 48, y: 50, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", town: { name: "Outpost", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
           { x: 51, y: 50, terrain: "LAND", resource: "FARM" }
         ],
@@ -1983,6 +2002,7 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 11, y: 10, terrain: "LAND" }
           ],
           activeLocks: []
@@ -2025,6 +2045,7 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 11, y: 10, terrain: "LAND", shardSite: { kind: "CACHE", amount: 3 } }
           ],
           activeLocks: []
@@ -2066,6 +2087,7 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 11, y: 10, terrain: "LAND" }
         ],
         activeLocks: []
@@ -2124,6 +2146,7 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 11, y: 10, terrain: "LAND" }
         ],
         activeLocks: []
@@ -2200,6 +2223,7 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 7, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 11, y: 10, terrain: "LAND" },
             { x: 9, y: 9, terrain: "LAND" }
           ],
@@ -2377,6 +2401,7 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 11, y: 10, terrain: "LAND" }
           ],
           activeLocks: []
@@ -4779,6 +4804,7 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "ai-1", ownershipState: "FRONTIER" },
+            { x: 10, y: 8, terrain: "LAND", ownerId: "ai-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 10, y: 11, terrain: "LAND" },
             { x: 9, y: 11, terrain: "LAND" }
           ],
@@ -4898,7 +4924,17 @@ describe("simulation runtime", () => {
         scheduledTasks.push({ delayMs, task });
       },
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          {
+            x: 10,
+            y: 9,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+          }
+        ],
         activeLocks: []
       }
     });
@@ -4966,7 +5002,14 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             // Settled anchor so recaptured tiles are connected and won't encirclement-expire.
-            { x: 10, y: 8, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            {
+              x: 10,
+              y: 8,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            },
             {
               x: 10,
               y: 9,
@@ -5065,7 +5108,14 @@ describe("simulation runtime", () => {
         initialState: {
           tiles: [
             // Settled anchor so frontier tiles are connected and won't encirclement-expire.
-            { x: 10, y: 8, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            {
+              x: 10,
+              y: 8,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            },
             {
               x: 10,
               y: 9,
@@ -5428,6 +5478,7 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          { x: 10, y: 9, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 13, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
@@ -6086,7 +6137,7 @@ describe("simulation runtime", () => {
       ]),
       initialState: {
         tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" }, town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
           { x: 0, y: 3, terrain: "LAND" },
@@ -6157,7 +6208,7 @@ describe("simulation runtime", () => {
       ]),
       initialState: {
         tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" }, town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
           { x: 0, y: 3, terrain: "LAND" },
@@ -6251,11 +6302,23 @@ describe("simulation runtime", () => {
       ]),
       initialState: {
         tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" }, town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
           { x: 0, y: 1, terrain: "SEA" },
           { x: 0, y: 2, terrain: "SEA" },
           { x: 0, y: 3, terrain: "LAND" },
           { x: 0, y: 4, terrain: "LAND" },
+          // Second reach anchor near the non-bridged target so this test
+          // exercises the NOT_ADJACENT rejection path itself rather than
+          // failing earlier on OUT_OF_REACH (target (0,4) is 4 tiles from
+          // the (0,0) town, just outside TOWN_REACH_RADIUS).
+          {
+            x: 0,
+            y: 7,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Outpost", type: "FARMING", populationTier: "SETTLEMENT" }
+          },
           // §5.4: CRYSTAL supply so the Observatory isn't dormant.
           { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", resource: "GEMS" }
         ],
