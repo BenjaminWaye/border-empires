@@ -24,6 +24,7 @@ import { displayTownPopulationTierLabel } from "../client-town-growth/client-tow
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
 import { captureRecoveryRemainingMsForTile, isFrontierNaturallyDecaying, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
+import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 
@@ -318,6 +319,11 @@ export const menuOverviewForTile = (
       html: tileTownPartialLoadingRowHtml(ownTownLoadingTileKey, label, ownTownLoadingSince)
     });
   };
+  // Set true when the town's Population/Gold/Manpower(/Support/Food) render
+  // as the unified stat grid below instead of individual prose lines — the
+  // later Production-line push (after the dock section) checks this so it
+  // doesn't duplicate the grid's own Gold card for the same tile.
+  let showsTownStatGrid = false;
   if (tile.town) {
     // Foreign towns under satellite reveal carry only public fields
     // (type/tier/population/maxPopulation/connected*). When the owner-only
@@ -343,14 +349,10 @@ export const menuOverviewForTile = (
     if (hasOwnedLandState && isSettled && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus gold production.");
     }
-    if (hasOwnedLandState && isSettled && hasOwnerEconomyData && tile.town.populationTier !== "SETTLEMENT") {
+    showsTownStatGrid = hasOwnedLandState && isSettled && hasOwnerEconomyData;
+    if (showsTownStatGrid) {
       const supportCurrent = Number.isFinite(tile.town.supportCurrent) ? tile.town.supportCurrent : 0;
       const supportMax = Number.isFinite(tile.town.supportMax) ? tile.town.supportMax : 0;
-      pushLine(`Support ${supportCurrent}/${supportMax}`);
-    } else if (ownTownEconomyPartial) {
-      pushOwnTownLoadingRow("Support");
-    }
-    if (hasOwnedLandState && isSettled && hasOwnerEconomyData) {
       // FOOD slot demand is what actually gates a town's isFed state (see
       // resource-slot-view.ts's per-town FOOD contributor) — allocation is
       // all-or-nothing per town, so "satisfied" is either the full demand
@@ -359,34 +361,44 @@ export const menuOverviewForTile = (
       // that isn't visible client-side, so a fed Governor's-Office town may
       // show a demand slightly higher than what it's actually clearing.
       const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
-      if (foodDemand > 0) {
-        const foodSatisfied = tile.town.isFed ? foodDemand : 0;
-        pushLine(`Food ${foodSatisfied}/${foodDemand} slots`);
-      }
-    } else if (ownTownEconomyPartial) {
-      pushOwnTownLoadingRow("Food");
-    }
-    pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
-    if (isSettled && hasOwnerEconomyData) {
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
-      pushLine(`Growth ${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)}`);
-      pushLine(`Next size: ${deps.townNextGrowthEtaLabel(townForGrowth, { explainUnfed: tile.ownerId === deps.state.me })}.`);
-    } else if (ownTownEconomyPartial) {
-      pushOwnTownLoadingRow("Growth");
-    }
-    if (isSettled && hasOwnerEconomyData) {
+      const effectiveFed = Boolean(townForGrowth.isFed);
       // Base manpower cap/regen this town's tier grants the empire (before
       // Garrison Hall/Assembly Works cap bonuses, which surface separately
       // via townModifierTotals below, and before the settle-order regen
       // scaling in manpowerRegenWeightForSettlementIndex — that weight
       // depends on this town's rank among all owned towns, which isn't
-      // available on the client, so this line shows the unscaled base only).
+      // available on the client, so this shows the unscaled base only).
       const tierManpower = TOWN_MANPOWER_BY_TIER[tile.town.populationTier];
-      if (tierManpower) {
-        pushLine(`Manpower: +${tierManpower.cap.toLocaleString()} cap, +${tierManpower.regenPerMinute.toFixed(2)}/min base regen`);
-      }
+      // Matches tileProductionHtml's own gold math exactly (same
+      // tile.yieldRate.goldPerMinute * 1440 source) so this card's number
+      // never disagrees with any other gold/day figure shown elsewhere.
+      const goldPerDay = (tile.yieldRate?.goldPerMinute ?? 0) * 1440;
+      lines.push({
+        kind: "statgrid",
+        html: townStatGridHtml({
+          population: Math.round(tile.town.population),
+          maxPopulation: Math.round(tile.town.maxPopulation),
+          populationTierLabel: displayTownPopulationTierLabel(tile.town.populationTier),
+          growthText: effectiveFed
+            ? `${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)} — ${deps.townNextGrowthEtaLabel(townForGrowth, { explainUnfed: tile.ownerId === deps.state.me })}`
+            : "Growth paused — town is unfed",
+          growthTone: effectiveFed ? "positive" : "warn",
+          goldPerDayLabel: goldPerDay.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+          manpowerCapLabel: tierManpower ? tierManpower.cap.toLocaleString() : "0",
+          manpowerRegenLabel: tierManpower ? `+${tierManpower.regenPerMinute.toFixed(2)}/min base regen` : "",
+          ...(tile.town.populationTier !== "SETTLEMENT" ? { support: { current: supportCurrent, max: supportMax } } : {}),
+          ...(foodDemand > 0 ? { food: { satisfied: tile.town.isFed ? foodDemand : 0, demand: foodDemand, fed: Boolean(tile.town.isFed) } } : {})
+        })
+      });
     } else if (ownTownEconomyPartial) {
+      pushOwnTownLoadingRow("Support");
+      pushOwnTownLoadingRow("Food");
+      pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
+      pushOwnTownLoadingRow("Growth");
       pushOwnTownLoadingRow("Manpower");
+    } else {
+      pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
     }
     // Unified building modifier display (stage 3): one "<count> <Building>"
     // heading per support-ring building type, with that building's own
@@ -437,7 +449,11 @@ export const menuOverviewForTile = (
   }
   if (ownTownEconomyPartial) {
     pushOwnTownLoadingRow("Production");
-  } else if (productionHtml && hasOwnedLandState && isSettled) {
+  } else if (productionHtml && hasOwnedLandState && isSettled && !showsTownStatGrid) {
+    // The stat grid's own Gold card already covers this for a town tile
+    // with full owner-economy data — this line stays for everything else
+    // (resource-producing non-town tiles, docks-in-progress, partial
+    // foreign-town public views, etc.).
     pushLine(`Production: ${productionHtml}`);
   }
   if (ownTownEconomyPartial) {
