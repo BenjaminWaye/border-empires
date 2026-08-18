@@ -60,6 +60,7 @@ import { ownObservatoryRange } from "../client-observatory-rules/client-observat
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
+import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -773,7 +774,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const exploreHasManpower = state.manpower >= totalExploreManpower;
 
     const out: TileActionDef[] = [];
-    if (isAdjacentToUnexplored(state, tile.x, tile.y, deps)) {
+    // Gate on real buildability (an adjacent/dock/bridge origin exists AND
+    // the target is inside the fixed-border reach EXPAND will actually
+    // require server-side), not fog exploration -- isAdjacentToUnexplored
+    // predates the reach feature and checks something unrelated (does this
+    // tile border unexplored fog), which only incidentally correlated with
+    // the border/reach edge. That's what made this button show up only on
+    // border/out-of-reach tiles and never on ordinary in-reach ground.
+    const targetInReach = computeLocalReachSet(state.tiles, state.me).has(deps.keyFor(tile.x, tile.y));
+    if (reachable && targetInReach) {
       const exploreEnabled = exploreHasGold && exploreHasManpower && hasFreeResourceSlotsForRelayBeacon(state);
       out.push({
         id: "build_relay_beacon_frontier" as TileActionDef["id"],
