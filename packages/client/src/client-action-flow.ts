@@ -1012,20 +1012,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     return state.dormantStructures.find((entry) => entry.key === key)?.resources;
   };
 
-  const computeDisplayManpower = (): number => {
-    let reserved = 0;
-    if (state.actionCurrent?.actionType === "EXPAND") {
-      reserved += EXPAND_MANPOWER_COST;
-    }
-    for (const action of state.actionQueue) {
-      const tile = state.tiles.get(keyFor(action.x, action.y));
-      if (tile && !tile.ownerId) {
-        reserved += EXPAND_MANPOWER_COST;
-      }
-    }
-    return Math.max(0, state.manpower - reserved);
-  };
-
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
       const tileKey = `${tile.x},${tile.y}`;
@@ -1051,8 +1037,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
                 (pair.bx === dockTile.x && pair.by === dockTile.y)
             ).length
           : 0,
-      currentManpower: computeDisplayManpower(),
-      currentManpowerCap: state.manpowerCap,
       hostileObservatoryProtectingTile,
       constructionCountdownLineForTile,
       tileHistoryLines,
