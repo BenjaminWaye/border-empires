@@ -131,6 +131,38 @@ describe("recordAiDecisionDiagnosticFromPlanner — economicBuildCandidate", () 
   });
 });
 
+// Same allowlist-mapping regression as economicBuildCandidate above, for
+// Phase 1's needVector (docs/ai-structure-building-rewrite-plan.md §9/§10.1).
+describe("recordAiDecisionDiagnosticFromPlanner — needVector", () => {
+  it("carries the need vector through from the planner diagnostic", () => {
+    const needVector = {
+      MANPOWER_THROUGHPUT: 0.1,
+      MANPOWER_CEILING: 0.2,
+      FOOD_SLOTS: 0.3,
+      TITANIUM_SLOTS: 0.4,
+      UMBRITE_SLOTS: 0.5,
+      CRYSTAL_SLOTS: 0.6,
+      GOLD: 0.7,
+      DEFENSE: 0.8,
+      OFFENSE: 0.9,
+      VICTORY: 1.0
+    };
+    recordAiDecisionDiagnosticFromPlanner(
+      baseDiagnostic({ playerId: "ai-decision-diag-test-needvector-1", needVector })
+    );
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-needvector-1");
+    expect(recorded.needVector).toEqual(needVector);
+  });
+
+  it("is undefined when the planner diagnostic has no need vector (the common case until runtime.ts is wired)", () => {
+    recordAiDecisionDiagnosticFromPlanner(baseDiagnostic({ playerId: "ai-decision-diag-test-needvector-2" }));
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-needvector-2");
+    expect(recorded.needVector).toBeUndefined();
+  });
+});
+
 describe("recordAiCommandRejectionMessage", () => {
   // Most command rejections collapse to the same generic "BUILD_INVALID"
   // code (see sim_ai_command_rejected_code_total) — the message is what

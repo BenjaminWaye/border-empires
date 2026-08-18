@@ -234,6 +234,16 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
       ...(player.expansionObjective ? { expansionObjective: player.expansionObjective } : {}),
       ...(typeof player.activeMusterCount === "number" ? { activeMusterCount: player.activeMusterCount } : {}),
       ...(player.musterTileKeys ? { musterTileKeys: new Set(player.musterTileKeys) } : {}),
+      // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): pass
+      // through only if the sync_players payload actually carried them (see
+      // PlannerPlayerView's doc comment) — planAutomationCommand's needVector
+      // gate requires all four or none.
+      ...(typeof player.manpowerCapacity === "number" ? { manpowerCapacity: player.manpowerCapacity } : {}),
+      ...(typeof player.manpowerRegenPerMinute === "number"
+        ? { manpowerRegenPerMinute: player.manpowerRegenPerMinute }
+        : {}),
+      ...(player.slotSupplyByResource ? { slotSupplyByResource: player.slotSupplyByResource } : {}),
+      ...(player.slotDemandByResource ? { slotDemandByResource: player.slotDemandByResource } : {}),
       clientSeq,
       issuedAt,
       sessionPrefix: "ai-runtime",
