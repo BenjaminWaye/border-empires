@@ -56,6 +56,10 @@ const DOT_RADIUS = 0.045;
 const DOT_Y_OFFSET = 0.07;
 const PUSH_THROUGH_FRACTION = 0.3;
 const RETREAT_FRACTION = 0.34;
+// Fraction of ROUT_MS spent blending out of the clash's oscillating jostle
+// (see clashLocalXZ) rather than dropping it the instant rout begins — see
+// where it's used below.
+const ROUT_SETTLE_T = 0.15;
 const SHARD_Y_OFFSET = 0.14;
 const SHARD_SIZE = 0.055;
 const UP_AXIS = new Vector3(0, 1, 0);
@@ -389,16 +393,33 @@ export function createBattleOverlayFx(scene: Scene) {
             scale = 0;
           } else {
             const routT = clamp01(routElapsed / ROUT_MS);
+            let routLx: number;
+            let routLz: number;
             if (winning) {
               const push = routT * PUSH_THROUGH_FRACTION;
-              lx = fwdX * push + perpX * kit.perpPos;
-              lz = fwdZ * push + perpZ * kit.perpPos;
+              routLx = fwdX * push + perpX * kit.perpPos;
+              routLz = fwdZ * push + perpZ * kit.perpPos;
             } else {
               const retreat = routT * RETREAT_FRACTION;
               const scatter = 1 + routT * 1.6;
-              lx = entryLocalX - fwdX * retreat + perpX * kit.perpPos * scatter;
-              lz = entryLocalZ - fwdZ * retreat + perpZ * kit.perpPos * scatter;
+              routLx = entryLocalX - fwdX * retreat + perpX * kit.perpPos * scatter;
+              routLz = entryLocalZ - fwdZ * retreat + perpZ * kit.perpPos * scatter;
               scale = 1 - routT;
+            }
+            // The clash oscillation (spread + forward jostle) doesn't just
+            // vanish the instant rout starts: blend from wherever it was
+            // frozen at the exact clash/rout boundary into the clean rout
+            // trajectory above, over the first ROUT_SETTLE_T of rout. Without
+            // this a dot mid-sway at clashEndAt would visibly pop straight
+            // onto the rout line.
+            const settleT = clamp01(routT / ROUT_SETTLE_T);
+            if (settleT < 1) {
+              const [clashLx, clashLz] = clashLocalXZ(kit, clashEndAt, perpX, perpZ, fwdX, fwdZ);
+              lx = clashLx * (1 - settleT) + routLx * settleT;
+              lz = clashLz * (1 - settleT) + routLz * settleT;
+            } else {
+              lx = routLx;
+              lz = routLz;
             }
           }
 
