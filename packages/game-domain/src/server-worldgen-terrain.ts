@@ -174,12 +174,18 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
   const isGrassTitaniumTile = (x: number, y: number, relaxed = false): boolean =>
     terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && isNearMountain(x, y, relaxed ? 2 : 1);
 
+  // Tundra's only resource affinity — permafrost-near-rock veins, roughly as
+  // abundant as sand titanium (see clusterTileCountForResource/clusterRadiusForResource,
+  // which fall through to the shared TITANIUM default for any non-GRASS biome).
+  const isTundraTitaniumTile = (x: number, y: number, relaxed = false): boolean =>
+    terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "TUNDRA" && isNearMountain(x, y, relaxed ? 4 : 3);
+
   const clusterRuleMatch = (x: number, y: number, resource: ResourceType): boolean => {
     if (terrainAt(x, y) !== "LAND") return false;
     const biome = landBiomeAt(x, y);
     const shade = grassShadeAt(x, y);
     if (resource === "FISH") return biome === "COASTAL_SAND";
-    if (resource === "TITANIUM") return (biome === "SAND" && isNearMountain(x, y, 4)) || isGrassTitaniumTile(x, y);
+    if (resource === "TITANIUM") return (biome === "SAND" && isNearMountain(x, y, 4)) || isGrassTitaniumTile(x, y) || isTundraTitaniumTile(x, y);
     if (resource === "GEMS") return biome === "SAND";
     if (resource === "FARM") return biome === "GRASS" && shade === "LIGHT";
     if (resource === "UMBRITE") return !isCoastalLand(x, y) && ((biome === "GRASS" && shade === "DARK") || biome === "SAND");
@@ -191,7 +197,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     const biome = landBiomeAt(x, y);
     const shade = grassShadeAt(x, y);
     if (resource === "FISH") return biome === "COASTAL_SAND";
-    if (resource === "TITANIUM") return (biome === "SAND" && isNearMountain(x, y, 5)) || isGrassTitaniumTile(x, y, true);
+    if (resource === "TITANIUM") return (biome === "SAND" && isNearMountain(x, y, 5)) || isGrassTitaniumTile(x, y, true) || isTundraTitaniumTile(x, y, true);
     if (resource === "GEMS") return biome === "SAND";
     if (resource === "FARM") return biome === "GRASS";
     if (resource === "UMBRITE") return biome === "SAND" || (biome === "GRASS" && shade === "DARK");
