@@ -23,6 +23,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787083759893, // 2026.08.18.1
+    introducedIn: "2026.08.18.1",
+    title: "Town overview now shows manpower",
+    why: "The tile overview panel listed Population, Growth, Support, Production, and Upkeep for a settled town, but never said anything about the town's manpower contribution to your empire — a stat players had no way to see anywhere on the tile itself.",
+    changes: [
+      "A settled town's overview tab now shows its base manpower cap and regen contribution, right after Population and Growth."
+    ]
+  },
+  {
     createdAt: 1787041917435, // 2026.08.17.3
     introducedIn: "2026.08.17.3",
     title: "Battle dots no longer pop when the clash hands off into rout",

@@ -290,7 +290,7 @@ describe("menuOverviewForTile", () => {
       const match = /<strong>([^<]+):<\/strong>/.exec(line.html);
       return match ? match[1] : "";
     });
-    expect(loadingLabels).toEqual(["Support", "Growth", "Production", "Upkeep"]);
+    expect(loadingLabels).toEqual(["Support", "Growth", "Manpower", "Production", "Upkeep"]);
     expect(loadingLines.every((line) => line.html.includes(`data-loading-timer-since="${startedAt}"`))).toBe(true);
     expect(loadingLines.every((line) => line.html.includes('data-tile-debug-download="29,228"'))).toBe(true);
     // The misleading "Production: ◉ 0.00/m" row must not render under a partial payload.
