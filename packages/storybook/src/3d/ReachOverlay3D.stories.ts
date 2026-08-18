@@ -178,7 +178,6 @@ const render = (args: Args): HTMLElement => {
         segment.to.x - ORIGIN_X + to.dx,
         segment.to.y - ORIGIN_Y + to.dz,
         0,
-        nowMs,
         ownerColor
       );
     }

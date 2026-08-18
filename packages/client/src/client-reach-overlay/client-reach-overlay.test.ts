@@ -211,11 +211,15 @@ describe("reachEdgesForTile / pylonEdgeOffset", () => {
     expect(Math.abs(dz)).toBeLessThan(0.5);
   });
 
-  it("pylonEdgeOffset blends two active edges toward the tile's corner vertex", () => {
+  it("pylonEdgeOffset applies the full offset on EACH active axis independently for a corner, landing on the actual corner vertex rather than undershooting along a normalized diagonal", () => {
     const { dx, dz } = pylonEdgeOffset({ top: true, right: false, bottom: false, left: true });
     expect(dz).toBeLessThan(0);
     expect(dx).toBeLessThan(0);
-    expect(Math.hypot(dx, dz)).toBeCloseTo(0.42, 5);
+    // Same magnitude per axis as the single-edge case -- not divided down
+    // by sqrt(2) the way normalizing a combined vector would.
+    const { dz: singleAxisDz } = pylonEdgeOffset({ top: true, right: false, bottom: false, left: false });
+    expect(dz).toBeCloseTo(singleAxisDz, 10);
+    expect(dx).toBeCloseTo(singleAxisDz, 10); // same magnitude, both negative
   });
 
   it("pylonEdgeOffset is zero with no active edges", () => {
@@ -277,6 +281,28 @@ describe("filterReachToLand", () => {
 });
 
 describe("samplePerimeterPylons", () => {
+  it("rejects a segment between two walk-adjacent samples that are geometrically far apart, instead of drawing a line across the map", () => {
+    // Simulates traceReachBoundaryLoops's greedy walk hopping between two
+    // topologically distant boundary components (e.g. the outer edge of a
+    // territory and an unrelated hole's boundary, which filterReachToLand
+    // can introduce) -- a hand-built "loop" with one walk-adjacent pair
+    // that's actually very far apart on the map, even though every other
+    // step is a normal 1-tile move.
+    const loop: TileCoord[] = [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 2, y: 0 },
+      { x: 200, y: 200 }, // the "bad hop" -- far from its walk-neighbours
+      { x: 201, y: 200 },
+      { x: 202, y: 200 }
+    ];
+    const { segments } = samplePerimeterPylons([loop], 1);
+    for (const segment of segments[0]!) {
+      const dist = Math.max(Math.abs(segment.to.x - segment.from.x), Math.abs(segment.to.y - segment.from.y));
+      expect(dist).toBeLessThanOrEqual(3);
+    }
+  });
+
   it("always includes every true corner of a rectangular loop, even when spacing alone would skip it", () => {
     // A long thin rectangle: the top/bottom runs (20 tiles) are much longer
     // than the spacing (12), but the left/right runs (3 tiles) are much
