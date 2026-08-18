@@ -220,6 +220,8 @@ export type ReachOverlay3D = {
   /** Dims one visible-but-unreachable neutral/enemy tile. */
   readonly addOutOfReachTile: (x: number, z: number, surfaceY: number, size: number) => void;
   readonly commit: () => void;
+  /** Advances ring spin / core pulse / travelling-spark animation. Call every frame (unconditionally, not just when the visible-tile pass rebuilds). */
+  readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
 };
 
@@ -327,11 +329,19 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
 
   // Line segments: a thin cylinder per slot (oriented between two points)
   // plus a small travelling-pulse sphere, each with its own cloned
-  // material so it can be tinted per-owner.
+  // material so it can be tinted per-owner. p0/p1 are stored (mutable,
+  // reused objects) so `update()` can keep animating the travelling pulse
+  // every frame without needing the segment's endpoints re-supplied.
   const lineGeometry = new CylinderGeometry(LINE_RADIUS, LINE_RADIUS, 1, 5);
   const pulseGeometry = new SphereGeometry(PULSE_RADIUS, 6, 5);
-  const linePool: { readonly mesh: Mesh; readonly material: MeshBasicMaterial; readonly pulse: Mesh; readonly pulseMaterial: MeshBasicMaterial }[] =
-    Array.from({ length: maxSegments }, () => {
+  const linePool: {
+    readonly mesh: Mesh;
+    readonly material: MeshBasicMaterial;
+    readonly pulse: Mesh;
+    readonly pulseMaterial: MeshBasicMaterial;
+    readonly p0: { x: number; y: number; z: number };
+    readonly p1: { x: number; y: number; z: number };
+  }[] = Array.from({ length: maxSegments }, () => {
       const material = materials.line.clone() as MeshBasicMaterial;
       const mesh = new Mesh(lineGeometry, material);
       mesh.visible = false;
@@ -343,7 +353,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
       pulse.frustumCulled = false;
       pulse.renderOrder = 12;
       group.add(mesh, pulse);
-      return { mesh, material, pulse, pulseMaterial };
+      return { mesh, material, pulse, pulseMaterial, p0: { x: 0, y: 0, z: 0 }, p1: { x: 0, y: 0, z: 0 } };
     });
   let segmentCursor = 0;
 
@@ -418,6 +428,12 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     const slot = linePool[segmentCursor]!;
     const p0: Vec3Like = { x: x0, y: surfaceY0 + LINE_LIFT, z: z0 };
     const p1: Vec3Like = { x: x1, y: surfaceY1 + LINE_LIFT, z: z1 };
+    // Stored (not just used locally) so `update()` can keep animating the
+    // travelling pulse every frame without these endpoints being
+    // re-supplied -- addLineSegment only runs when the visible-tile pass
+    // rebuilds (camera move / reach change), not every frame.
+    slot.p0.x = p0.x; slot.p0.y = p0.y; slot.p0.z = p0.z;
+    slot.p1.x = p1.x; slot.p1.y = p1.y; slot.p1.z = p1.z;
     const dx = p1.x - p0.x;
     const dy = p1.y - p0.y;
     const dz = p1.z - p0.z;
@@ -433,7 +449,10 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     slot.material.color = new Color(normalizedColor);
     slot.mesh.visible = true;
 
-    // Occasional tiny pulse travelling from p0 to p1 along the line.
+    // Occasional tiny pulse travelling from p0 to p1 along the line. Initial
+    // placement here so it's not at a stale/zeroed position for the one
+    // frame between this call and the next update() tick; update() takes
+    // over the animation from here.
     const t = pulseT(nowMs + segmentCursor * (PULSE_PERIOD_MS / 3));
     const pulsePoint = lerpPoint(p0, p1, t);
     slot.pulse.position.set(pulsePoint.x, pulsePoint.y, pulsePoint.z);
@@ -441,6 +460,33 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     slot.pulse.visible = true;
 
     segmentCursor += 1;
+  };
+
+  // Animates rotation/pulse/travelling-spark state on already-placed
+  // instances every frame, independent of rebuildVisibleTerrain()'s
+  // camera-move/reach-change throttle -- addPylon/addLineSegment only run
+  // when that rebuild fires, so without this the ring/core/pulse only ever
+  // advanced when the camera moved. Matches the same per-frame `update()`
+  // pattern every other animated overlay in client-map-3d.ts already uses
+  // (relayBeaconOverlay.update(nowMs), watchtowerOverlay.update(nowMs), ...).
+  // Positions/visibility/ownerColor are untouched here -- those only change
+  // when the underlying reach data changes, which addPylon/addLineSegment
+  // already handle.
+  const update = (nowMs: number): void => {
+    for (let i = 0; i < liveCursor; i += 1) {
+      const pylon = livePool[i]!;
+      const phase = i * 0.9;
+      if (pylon.ring) pylon.ring.rotation.y = nowMs * RING_SPIN_SPEED + phase;
+      const pulse = Math.sin(nowMs / CORE_PULSE_PERIOD_MS + phase) * 0.5 + 0.5;
+      if (pylon.coreMaterial) pylon.coreMaterial.opacity = 0.6 + pulse * CORE_PULSE_AMPLITUDE;
+      if (pylon.core) pylon.core.scale.setScalar(1 + pulse * 0.1);
+    }
+    for (let i = 0; i < segmentCursor; i += 1) {
+      const slot = linePool[i]!;
+      const t = pulseT(nowMs + i * (PULSE_PERIOD_MS / 3));
+      const pulsePoint = lerpPoint(slot.p0, slot.p1, t);
+      slot.pulse.position.set(pulsePoint.x, pulsePoint.y, pulsePoint.z);
+    }
   };
 
   const commit = (): void => {
@@ -489,5 +535,5 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     }
   };
 
-  return { group, clear, addPylon, addLineSegment, addDormantFrontierTile, addOutOfReachTile, commit, dispose };
+  return { group, clear, addPylon, addLineSegment, addDormantFrontierTile, addOutOfReachTile, commit, update, dispose };
 };
