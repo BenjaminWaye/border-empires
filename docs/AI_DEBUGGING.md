@@ -86,8 +86,22 @@ Returns detailed decision-scoring history for debugging wait_and_recover loops:
   command from this player (e.g. `BUILD_ECONOMIC_STRUCTURE` rejected with "town already has
   granary"). Use this to catch propose-then-reject loops that burn planner cycles without
   producing accepted commands.
+- `needVector` – **Diagnostic-only, Phase 1 of `docs/ai-structure-building-rewrite-plan.md`.
+  Currently always `undefined` in this deployment** — see below.
+  Ten measured deficits in `[0, 1]` (`MANPOWER_THROUGHPUT`, `MANPOWER_CEILING`, `FOOD_SLOTS`,
+  `TITANIUM_SLOTS`, `UMBRITE_SLOTS`, `CRYSTAL_SLOTS`, `GOLD`, `DEFENSE`, `OFFENSE`, `VICTORY`).
+  Nothing in the planner scores or acts on these yet — this is purely "how starved is this AI
+  on each axis right now," for validating the need model against live data before it's wired
+  into build selection. Omitted (`undefined`, not zeros) unless the planner call supplies all
+  four inputs it needs (manpower cap, manpower regen/min, resource-slot supply, resource-slot
+  demand) — `runtime.ts` doesn't supply them yet (deliberately deferred; see the plan's Phase 1
+  entry for why — the file is already over the repo's line-limit cap), so **every** real
+  diagnostic shows `undefined` today, not just `system-runtime`/test ones. The four-input
+  plumbing itself is fully built and unit-tested (`build/build-need-vector.test.ts`,
+  `automation-command-planner-need-vector.test.ts`); only the final `runtime.ts` wiring step
+  is outstanding.
 
-**Use when**: AI is stuck in wait_and_recover with no commands. Shows exactly which decision classes scored 0 and why.
+**Use when**: AI is stuck in wait_and_recover with no commands. Shows exactly which decision classes scored 0 and why. `needVector` will show which axis (manpower throughput, a specific resource slot, gold, defense, offense, or victory-path progress) is actually starving the AI, independent of what it's currently doing about it — once `runtime.ts` is wired to populate it (see above).
 
 Example: If `canExpand: false` and all EXPAND-related conditions zero, you'll see why expansion is blocked.
 

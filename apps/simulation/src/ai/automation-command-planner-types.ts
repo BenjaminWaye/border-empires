@@ -8,9 +8,13 @@
 
 import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import { type EconomicStructureType, type Terrain } from "@border-empires/shared";
+import { type EconomicStructureType, type SlotResource, type Terrain } from "@border-empires/shared";
 import type { DecisionClass } from "./utility/decisions.js";
 import type { FrontierOriginExplanation } from "./planner-candidate-index.js";
+import type { NeedVector } from "./build/build-need-vector.js";
+import type { AutomationStrategicSnapshot, AutomationVictoryPath } from "./automation-strategic-snapshot.js";
+import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
+import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
 
 // Consecutive planner ticks an AI may spend with its narrow/hot-frontier
 // scan alone actionable (broadFallbackSkipped: true — see
@@ -77,6 +81,71 @@ export type AutomationPlannerTile = {
   observatory?: { ownerId?: string; status?: string } | null | undefined;
   siegeOutpost?: { ownerId?: string; status?: string } | null | undefined;
   economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string } | null | undefined;
+};
+
+export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
+  playerId: string;
+  points: number;
+  manpower: number;
+  techIds?: readonly string[];
+  domainIds?: readonly string[];
+  strategicResources?: Partial<Record<DomainStrategicResourceKey, number>>;
+  settledTileCount?: number;
+  townCount?: number;
+  incomePerMinute?: number;
+  hasActiveLock: boolean;
+  activeDevelopmentProcessCount: number;
+  reservedDevelopmentSlots?: number;
+  frontierTiles: readonly TTile[];
+  hotFrontierTiles?: readonly TTile[];
+  strategicFrontierTiles?: readonly TTile[];
+  buildCandidateTiles?: readonly TTile[];
+  ownedTiles: readonly TTile[];
+  ownedStructureCounts?: PlannerOwnedStructureCounts;
+  tilesByKey: ReadonlyMap<string, TTile>;
+  dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
+  clientSeq: number;
+  issuedAt: number;
+  sessionPrefix: AutomationSessionPrefix;
+  playerScopeKeyCount?: number | undefined;
+  playerScopeTileCount?: number | undefined;
+  onPhaseTiming?: (sample: {
+    phase: AutomationPlannerPhase;
+    durationMs: number;
+  }) => void;
+  previousVictoryPath?: AutomationVictoryPath | undefined;
+  pathPopulationCounts?: Partial<Record<AutomationVictoryPath, number>> | undefined;
+  onStrategicSnapshot?: (snapshot: AutomationStrategicSnapshot) => void;
+  preplanProgressState?: AutomationPreplanProgressState | undefined;
+  // Tile keys this player has been pounding without breakthrough — the
+  // attack gates below skip targets in this set so the planner falls through
+  // to SETTLE/EXPAND/BUILD. See ai-attack-stalemate.ts for the policy.
+  attackStalemateTargetTileKeys?: ReadonlySet<string>;
+  /** Nearest high-value neutral or enemy tile (from main-thread beacon index). */
+  expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
+  /** Number of muster flags this player currently has active. */
+  activeMusterCount?: number;
+  /** Tile keys of this player's currently active muster flags. */ musterTileKeys?: ReadonlySet<string>;
+  /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
+  decisionCooldowns?: DecisionCooldownMap;
+  // Bounded BFS front of owned tile keys for this AI's current spatial focus.
+  // When provided, frontier candidate enumeration is restricted to origins
+  // inside this set, capping per-tick CPU regardless of empire size. See
+  // ai-spatial-focus.ts for selection. Optional so test inputs and the no-AI
+  // system planner keep working unchanged.
+  spatialFocusFront?: ReadonlySet<string>;
+  // Set by runtime.ts once AI_HOT_FRONTIER_MAX_STREAK_TICKS consecutive
+  // hot-only-actionable ticks pass (ai-hot-frontier-streak.ts). Forces the
+  // broad-fallback sweep below to run even though the narrow scan alone is
+  // actionable, so a persistent skirmish can't hide the rest of the frontier.
+  forceBroadFrontierScan?: boolean;
+  // Phase 1 (docs/ai-structure-building-rewrite-plan.md §9): diagnostic-only
+  // needVector inputs — see needVectorFromPlannerInput's doc comment
+  // (build/build-need-vector.ts) for the all-four-or-none gate.
+  manpowerCapacity?: number;
+  manpowerRegenPerMinute?: number;
+  slotSupplyByResource?: Partial<Record<SlotResource, number>>;
+  slotDemandByResource?: Partial<Record<SlotResource, number>>;
 };
 
 export type AutomationPlannerDiagnostic = {
@@ -153,6 +222,15 @@ export type AutomationPlannerDiagnostic = {
     stalemated: boolean;
     pressureAttackScore: number;
   };
+  /** Phase 1 of docs/ai-structure-building-rewrite-plan.md (§4/§9/§10.1):
+   *  measured need deficits, reported for diagnostics only — nothing in the
+   *  planner scores or acts on this yet. Undefined when the caller didn't
+   *  supply the four optional AutomationPlannerInput fields it needs
+   *  (manpowerCapacity, manpowerRegenPerMinute, slotSupplyByResource,
+   *  slotDemandByResource). As of Phase 1 landing, runtime.ts's real
+   *  ai-runtime call sites don't supply them yet either (deferred — see the
+   *  plan's Phase 1 entry), so this is undefined on every current caller. */
+  needVector?: NeedVector;
 };
 
 export type AutomationPlannerPhase =
