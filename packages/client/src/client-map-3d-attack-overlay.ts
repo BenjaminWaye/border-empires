@@ -100,8 +100,14 @@ export const createAttackOverlay = (scene: Scene, maxTiles: number): AttackOverl
     plateMesh.count = count;
     barAMesh.count = count;
     barBMesh.count = count;
+    plateMesh.instanceMatrix.clearUpdateRanges();
+    plateMesh.instanceMatrix.addUpdateRange(0, plateMesh.count * 16);
     plateMesh.instanceMatrix.needsUpdate = true;
+    barAMesh.instanceMatrix.clearUpdateRanges();
+    barAMesh.instanceMatrix.addUpdateRange(0, barAMesh.count * 16);
     barAMesh.instanceMatrix.needsUpdate = true;
+    barBMesh.instanceMatrix.clearUpdateRanges();
+    barBMesh.instanceMatrix.addUpdateRange(0, barBMesh.count * 16);
     barBMesh.instanceMatrix.needsUpdate = true;
   };
 

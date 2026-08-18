@@ -202,6 +202,8 @@ export const createContactShadowOverlay = (scene: Scene, maxTiles: number): Cont
 
   const commit = (): void => {
     mesh.count = count;
+    mesh.instanceMatrix.clearUpdateRanges();
+    mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
     mesh.instanceMatrix.needsUpdate = true;
   };
 

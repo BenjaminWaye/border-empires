@@ -156,7 +156,11 @@ export const createShardOverlay = (scene: Scene, maxTiles: number): ShardOverlay
       shimmerMesh.setMatrixAt(i, m);
     }
 
+    shardMesh.instanceMatrix.clearUpdateRanges();
+    shardMesh.instanceMatrix.addUpdateRange(0, shardMesh.count * 16);
     shardMesh.instanceMatrix.needsUpdate = true;
+    shimmerMesh.instanceMatrix.clearUpdateRanges();
+    shimmerMesh.instanceMatrix.addUpdateRange(0, shimmerMesh.count * 16);
     shimmerMesh.instanceMatrix.needsUpdate = true;
   };
 

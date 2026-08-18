@@ -115,9 +115,17 @@ export const createDefensibilityOverlay = (scene: Scene, maxTiles: number): Defe
     warningPipMesh.count = warningCount;
     criticalPlaneMesh.count = criticalCount;
     criticalPipMesh.count = criticalCount;
+    warningPlaneMesh.instanceMatrix.clearUpdateRanges();
+    warningPlaneMesh.instanceMatrix.addUpdateRange(0, warningPlaneMesh.count * 16);
     warningPlaneMesh.instanceMatrix.needsUpdate = true;
+    warningPipMesh.instanceMatrix.clearUpdateRanges();
+    warningPipMesh.instanceMatrix.addUpdateRange(0, warningPipMesh.count * 16);
     warningPipMesh.instanceMatrix.needsUpdate = true;
+    criticalPlaneMesh.instanceMatrix.clearUpdateRanges();
+    criticalPlaneMesh.instanceMatrix.addUpdateRange(0, criticalPlaneMesh.count * 16);
     criticalPlaneMesh.instanceMatrix.needsUpdate = true;
+    criticalPipMesh.instanceMatrix.clearUpdateRanges();
+    criticalPipMesh.instanceMatrix.addUpdateRange(0, criticalPipMesh.count * 16);
     criticalPipMesh.instanceMatrix.needsUpdate = true;
   };
 
