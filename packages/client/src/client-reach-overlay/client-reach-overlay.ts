@@ -1,4 +1,4 @@
-import { tileKey, WORLD_HEIGHT, WORLD_WIDTH, type ReachAnchorKind } from "@border-empires/shared";
+import { isSeaTerrain, tileKey, WORLD_HEIGHT, WORLD_WIDTH, type ReachAnchorKind } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 // Fixed-borders-via-reach client overlay. Renders the boundary of the local
@@ -118,7 +118,7 @@ export const filterReachToLand = (
   for (const tile of tiles.values()) {
     const key = keyFor(tile.x, tile.y);
     if (!reach.has(key)) continue;
-    if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA") continue;
+    if (isSeaTerrain(tile.terrain)) continue;
     filtered.add(key);
   }
   return filtered;
@@ -199,15 +199,18 @@ const PYLON_EDGE_OFFSET_AMOUNT = 0.42;
  * two real, distinct claims facing off, not two rows merged into one.
  */
 export const pylonEdgeOffset = (edges: ReachEdges): { readonly dx: number; readonly dz: number } => {
+  // Applied independently per axis (not a combined vector normalized to a
+  // fixed length) so a corner tile actually lands on the tile's corner
+  // vertex: normalizing a 2-edge diagonal to PYLON_EDGE_OFFSET_AMOUNT would
+  // only reach ~0.3 units per axis (0.42/sqrt(2)) instead of the ~0.42 each
+  // axis gets here, visibly undershooting the real corner.
   let dx = 0;
   let dz = 0;
-  if (edges.top) dz -= 1; // north neighbour is out of reach -> push north (-z), onto that edge
-  if (edges.bottom) dz += 1;
-  if (edges.left) dx -= 1; // west neighbour is out of reach -> push west (-x), onto that edge
-  if (edges.right) dx += 1;
-  const len = Math.hypot(dx, dz);
-  if (len === 0) return { dx: 0, dz: 0 };
-  return { dx: (dx / len) * PYLON_EDGE_OFFSET_AMOUNT, dz: (dz / len) * PYLON_EDGE_OFFSET_AMOUNT };
+  if (edges.top) dz -= PYLON_EDGE_OFFSET_AMOUNT; // north neighbour is out of reach -> push north (-z), onto that edge
+  if (edges.bottom) dz += PYLON_EDGE_OFFSET_AMOUNT;
+  if (edges.left) dx -= PYLON_EDGE_OFFSET_AMOUNT; // west neighbour is out of reach -> push west (-x), onto that edge
+  if (edges.right) dx += PYLON_EDGE_OFFSET_AMOUNT;
+  return { dx, dz };
 };
 
 const REACH_BOUNDARY_COLOR = "rgba(255, 245, 190, 0.85)";
@@ -500,7 +503,24 @@ export const samplePerimeterPylons = (
     const loopSegments: PylonSegment[] = [];
     if (samples.length > 1) {
       for (let i = 0; i < samples.length; i += 1) {
-        loopSegments.push({ from: samples[i]!, to: samples[(i + 1) % samples.length]! });
+        const from = samples[i]!;
+        const to = samples[(i + 1) % samples.length]!;
+        // Sanity cap on real geometric distance, independent of the walk's
+        // own index spacing: traceReachBoundaryLoops's walk is a documented
+        // greedy approximation (not exact Moore-neighbour contour tracing),
+        // and a reach shape with a hole in it (e.g. a lake/river carved out
+        // by filterReachToLand) can have its outer boundary pass close to
+        // an inner hole's boundary -- the walk can hop onto the wrong
+        // component there, producing two walk-adjacent samples that are
+        // actually far apart on the map. Two consecutive samples along a
+        // clean simple contour are never farther apart (Chebyshev) than
+        // their walk-index gap, which is capped at `step`; a real corner-
+        // to-corner or spacing-filled run should never exceed that by more
+        // than a small constant factor, so reject anything past a generous
+        // multiple of it rather than draw a line across half the map.
+        const dist = Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y));
+        if (dist > step * 3) continue;
+        loopSegments.push({ from, to });
       }
     }
     segments.push(loopSegments);

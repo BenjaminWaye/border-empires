@@ -1946,7 +1946,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           sx1,
           sz1,
           surfaceYForTile(segment.to.x, segment.to.y),
-          reach3DNowMs,
           myColor
         );
       }
