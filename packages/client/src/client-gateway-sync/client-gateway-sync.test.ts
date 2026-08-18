@@ -492,7 +492,6 @@ describe("client gateway sync", () => {
             isFed: true,
             connectedTownCount: 0,
             connectedTownBonus: 0,
-            goldIncomePausedReason: "MANPOWER_NOT_FULL",
             manpowerCurrent: 80,
             manpowerCap: 100,
             hasMintworks: false,
@@ -551,7 +550,6 @@ describe("client gateway sync", () => {
         mintworksActive: true
       })
     );
-    expect(deps.state.tiles.get("40,18")?.town?.goldIncomePausedReason).toBeUndefined();
     expect(deps.state.tiles.get("40,18")?.town?.manpowerCurrent).toBeUndefined();
     expect(deps.state.tiles.get("40,18")?.town?.manpowerCap).toBeUndefined();
     expect(deps.state.tiles.get("40,18")?.town?.nextPopulationTierUpgrade).toBeUndefined();

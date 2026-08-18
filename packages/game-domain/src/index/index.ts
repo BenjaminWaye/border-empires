@@ -173,7 +173,6 @@ export type DomainTileState = {
             | "connectedTownNames"
             | "connectedTitaniumWeaponsFactoryCount"
             | "connectedUmbriteWeaponsFactoryCount"
-            | "goldIncomePausedReason"
             | "manpowerCurrent"
             | "manpowerCap"
             | "hasMintworks"
