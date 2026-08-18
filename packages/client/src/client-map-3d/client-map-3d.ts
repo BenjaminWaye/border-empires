@@ -74,10 +74,12 @@ import {
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
+import { createReachOverlay3D } from "../client-map-3d-reach-overlay/client-map-3d-reach-overlay.js";
+import { computeLocalReachSet, isDormantFrontierTile, isReachBoundaryTile } from "../client-reach-overlay/client-reach-overlay.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
-import { revealWholeMapInTrue3DMode } from "../client-renderer-mode.js";
+import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
@@ -151,6 +153,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 });
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
+  const reachOverlay3D = createReachOverlay3D(scene, MAX_VISIBLE_TILES);
+  // Cache of the client-local reach approximation, recomputed only when
+  // tiles actually changed (same revision-gated pattern as the 2D path's
+  // state.myReach in client-runtime-loop.ts). Kept as a local rather than
+  // on ClientState since the 2D path guards its own state.myReach update
+  // with !isTrue3DRendererActive() and only one renderer is ever active.
+  let reach3DCache: Set<string> | undefined;
+  let reach3DCacheRevision = -1;
   // §21.1: one badge overlay per resource icon, so a dormant Fort missing TITANIUM gets ⛏ while an unfed town still gets 🍞.
   const RESOURCE_BADGE_ICON: Record<SlotResource, string> = { FOOD: "🍞", TITANIUM: "⛏", CRYSTAL: "💎", UMBRITE: "🟣" };
   const resourceBadgeOverlays: Record<SlotResource, ResourceBadgeOverlay> = {
@@ -1294,6 +1304,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     fogOwnershipOverlay.clear();
     townOverlay.clear();
     roadOverlay.clear();
+    reachOverlay3D.clear();
     const roadNetworkStartAt = performance.now();
     const roadNetwork = buildRoadNetwork({
       tiles: deps.state.tiles,
@@ -1342,6 +1353,23 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     const selectedCoord = deps.state.selected;
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
+
+    // Fixed-borders-via-reach 3D overlay data source. Reuses the exact same
+    // pure computeLocalReachSet/isDormantFrontierTile/isReachBoundaryTile
+    // helpers the 2D canvas path uses (client-reach-overlay.ts) so both
+    // renderers always agree on what's in reach. Only computed while the
+    // true-3D renderer is actually active.
+    const reach3DActive = isTrue3DRendererActive();
+    if (reach3DActive) {
+      if (reach3DCacheRevision !== deps.state.tilesRevision) {
+        reach3DCache = computeLocalReachSet(deps.state.tiles, deps.state.me);
+        reach3DCacheRevision = deps.state.tilesRevision;
+      }
+    } else {
+      reach3DCache = undefined;
+      reach3DCacheRevision = -1;
+    }
+    const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
 
     const perTileLoopStartAt = performance.now();
     for (let dy = -halfH - 1; dy <= halfH + 1; dy += 1) {
@@ -1799,6 +1827,26 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             };
           }
         }
+        // Fixed-borders-via-reach 3D overlay (dormant-frontier fill,
+        // out-of-reach dimming, reach boundary energy-fence). Mirrors the
+        // 2D path's conditions in client-runtime-loop.ts exactly.
+        if (reach3DActive && reach3DCache && tile && visibility === "visible") {
+          if (tile.ownerId === deps.state.me && isDormantFrontierTile(tile)) {
+            reachOverlay3D.addDormantFrontierTile(x, z, surfaceY, 1);
+          }
+          if (tile.ownerId && tile.ownerId !== deps.state.me && tile.ownerId !== "barbarian" && !reach3DCache.has(tileKey)) {
+            reachOverlay3D.addOutOfReachTile(x, z, surfaceY, 1);
+          }
+          if (tile.ownerId === deps.state.me && isReachBoundaryTile(wx, wy, reach3DCache, reach3DDeps)) {
+            const edges = {
+              top: !reach3DCache.has(deps.keyFor(deps.wrapX(wx), deps.wrapY(wy - 1))),
+              right: !reach3DCache.has(deps.keyFor(deps.wrapX(wx + 1), deps.wrapY(wy))),
+              bottom: !reach3DCache.has(deps.keyFor(deps.wrapX(wx), deps.wrapY(wy + 1))),
+              left: !reach3DCache.has(deps.keyFor(deps.wrapX(wx - 1), deps.wrapY(wy)))
+            };
+            reachOverlay3D.addBoundaryTile(x, z, surfaceY, 1, edges);
+          }
+        }
         if (deps.state.showWeakDefensibility && isOwnedSettledLandTile(tile, deps.state.me)) {
           const exposedSides = exposedSidesForTile(tile, {
             tiles: deps.state.tiles,
@@ -1831,6 +1879,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     fogOwnershipOverlay.commit();
     townOverlay.commit();
     roadOverlay.commit();
+    reachOverlay3D.commit();
     for (const overlay of Object.values(resourceBadgeOverlays)) overlay.commit();
     observatoryCooldownBadgeOverlay.commit();
     upgradeReadyBadgeOverlay.commit();
@@ -2036,6 +2085,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     frontierClaimPlateMaterial.dispose();
     townOverlay.dispose();
     roadOverlay.dispose();
+    reachOverlay3D.dispose();
     for (const overlay of Object.values(resourceBadgeOverlays)) overlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
     upgradeReadyBadgeOverlay.dispose();
