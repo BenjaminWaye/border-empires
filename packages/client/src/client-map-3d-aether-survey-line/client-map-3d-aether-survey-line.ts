@@ -90,8 +90,6 @@ const LINE_LIFT = RING_HEIGHT;
 // per-owner glow color to actually be visible at normal camera distance
 // instead of anti-aliasing away to a pale gray thread.
 const LINE_RADIUS = 0.026;
-const PULSE_PERIOD_MS = 2600;
-const PULSE_RADIUS = 0.045;
 
 // --- Tile-fill overlays (out-of-reach dimming, dormant-frontier fill) -----
 // Unchanged in concept from prior rounds: flat instanced quads, cheap,
@@ -163,12 +161,6 @@ export const tileQuadCorners = (
   return { x0: x - half, x1: x + half, z0: z - half, z1: z + half };
 };
 
-/** Loops nowMs into a [0, 1) progress fraction for a travelling pulse, given its period. */
-export const pulseT = (nowMs: number, periodMs: number = PULSE_PERIOD_MS): number => {
-  const wrapped = nowMs % periodMs;
-  return (wrapped < 0 ? wrapped + periodMs : wrapped) / periodMs;
-};
-
 /** Linear interpolation of a point at parameter t in [0, 1] between p0 and p1 -- a straight chord, per the brief. */
 export type Vec3Like = { readonly x: number; readonly y: number; readonly z: number };
 export const lerpPoint = (p0: Vec3Like, p1: Vec3Like, t: number): Vec3Like => ({
@@ -195,8 +187,7 @@ const makeMaterials = () => ({
   iron: new MeshStandardMaterial({ color: IRON, metalness: 0.6, roughness: 0.45 }),
   core: new MeshBasicMaterial({ toneMapped: false, color: AETHER_CORE, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false }),
   deadMetal: new MeshStandardMaterial({ color: DEAD_METAL, metalness: 0.3, roughness: 0.85, flatShading: true }),
-  line: new MeshBasicMaterial({ toneMapped: false, color: AETHER_LINE, transparent: true, opacity: 0.8, blending: AdditiveBlending, depthWrite: false }),
-  pulse: new MeshBasicMaterial({ toneMapped: false, color: AETHER_CORE, transparent: true, opacity: 0.95, blending: AdditiveBlending, depthWrite: false })
+  line: new MeshBasicMaterial({ toneMapped: false, color: AETHER_LINE, transparent: true, opacity: 0.8, blending: AdditiveBlending, depthWrite: false })
 });
 
 export type ReachOverlay3D = {
@@ -204,7 +195,7 @@ export type ReachOverlay3D = {
   readonly clear: () => void;
   /** Adds a live survey pylon at a sampled perimeter point. `ownerColor` tints the glow point so adjacent empires' lines stay distinguishable. */
   readonly addPylon: (x: number, z: number, surfaceY: number, size: number, nowMs: number, ownerColor: string) => void;
-  /** Adds the thin glowing chord + travelling pulse between two consecutive pylon points. */
+  /** Adds the thin glowing chord between two consecutive pylon points. */
   readonly addLineSegment: (
     x0: number,
     z0: number,
@@ -212,7 +203,6 @@ export type ReachOverlay3D = {
     x1: number,
     z1: number,
     surfaceY1: number,
-    nowMs: number,
     ownerColor: string
   ) => void;
   /** Adds a "this used to be surveyed, now abandoned" dim/dark pylon stub -- no glow, no ring, no line. */
@@ -220,7 +210,7 @@ export type ReachOverlay3D = {
   /** Dims one visible-but-unreachable neutral/enemy tile. */
   readonly addOutOfReachTile: (x: number, z: number, surfaceY: number, size: number) => void;
   readonly commit: () => void;
-  /** Advances ring spin / core pulse / travelling-spark animation. Call every frame (unconditionally, not just when the visible-tile pass rebuilds). */
+  /** Advances ring spin / core pulse animation. Call every frame (unconditionally, not just when the visible-tile pass rebuilds). */
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
 };
@@ -327,33 +317,22 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
   let liveCursor = 0;
   let deadCursor = 0;
 
-  // Line segments: a thin cylinder per slot (oriented between two points)
-  // plus a small travelling-pulse sphere, each with its own cloned
-  // material so it can be tinted per-owner. p0/p1 are stored (mutable,
-  // reused objects) so `update()` can keep animating the travelling pulse
-  // every frame without needing the segment's endpoints re-supplied.
+  // Line segments: a thin cylinder per slot (oriented between two points),
+  // each with its own cloned material so it can be tinted per-owner. No
+  // travelling pulse -- removed per review, it read as distracting bubbles
+  // rather than a subtle detail.
   const lineGeometry = new CylinderGeometry(LINE_RADIUS, LINE_RADIUS, 1, 5);
-  const pulseGeometry = new SphereGeometry(PULSE_RADIUS, 6, 5);
   const linePool: {
     readonly mesh: Mesh;
     readonly material: MeshBasicMaterial;
-    readonly pulse: Mesh;
-    readonly pulseMaterial: MeshBasicMaterial;
-    readonly p0: { x: number; y: number; z: number };
-    readonly p1: { x: number; y: number; z: number };
   }[] = Array.from({ length: maxSegments }, () => {
       const material = materials.line.clone() as MeshBasicMaterial;
       const mesh = new Mesh(lineGeometry, material);
       mesh.visible = false;
       mesh.frustumCulled = false;
       mesh.renderOrder = 11;
-      const pulseMaterial = materials.pulse.clone() as MeshBasicMaterial;
-      const pulse = new Mesh(pulseGeometry, pulseMaterial);
-      pulse.visible = false;
-      pulse.frustumCulled = false;
-      pulse.renderOrder = 12;
-      group.add(mesh, pulse);
-      return { mesh, material, pulse, pulseMaterial, p0: { x: 0, y: 0, z: 0 }, p1: { x: 0, y: 0, z: 0 } };
+      group.add(mesh);
+      return { mesh, material };
     });
   let segmentCursor = 0;
 
@@ -421,19 +400,12 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     x1: number,
     z1: number,
     surfaceY1: number,
-    nowMs: number,
     ownerColor: string
   ): void => {
     if (segmentCursor >= linePool.length) return;
     const slot = linePool[segmentCursor]!;
     const p0: Vec3Like = { x: x0, y: surfaceY0 + LINE_LIFT, z: z0 };
     const p1: Vec3Like = { x: x1, y: surfaceY1 + LINE_LIFT, z: z1 };
-    // Stored (not just used locally) so `update()` can keep animating the
-    // travelling pulse every frame without these endpoints being
-    // re-supplied -- addLineSegment only runs when the visible-tile pass
-    // rebuilds (camera move / reach change), not every frame.
-    slot.p0.x = p0.x; slot.p0.y = p0.y; slot.p0.z = p0.z;
-    slot.p1.x = p1.x; slot.p1.y = p1.y; slot.p1.z = p1.z;
     const dx = p1.x - p0.x;
     const dy = p1.y - p0.y;
     const dz = p1.z - p0.z;
@@ -445,33 +417,23 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     slot.mesh.lookAt(p1.x, p1.y, p1.z);
     slot.mesh.rotateX(Math.PI / 2);
     slot.mesh.scale.set(1, length, 1);
-    const normalizedColor = normalizeColorForThree(ownerColor);
-    slot.material.color = new Color(normalizedColor);
+    slot.material.color = new Color(normalizeColorForThree(ownerColor));
     slot.mesh.visible = true;
-
-    // Occasional tiny pulse travelling from p0 to p1 along the line. Initial
-    // placement here so it's not at a stale/zeroed position for the one
-    // frame between this call and the next update() tick; update() takes
-    // over the animation from here.
-    const t = pulseT(nowMs + segmentCursor * (PULSE_PERIOD_MS / 3));
-    const pulsePoint = lerpPoint(p0, p1, t);
-    slot.pulse.position.set(pulsePoint.x, pulsePoint.y, pulsePoint.z);
-    slot.pulseMaterial.color = new Color(normalizedColor);
-    slot.pulse.visible = true;
 
     segmentCursor += 1;
   };
 
-  // Animates rotation/pulse/travelling-spark state on already-placed
-  // instances every frame, independent of rebuildVisibleTerrain()'s
-  // camera-move/reach-change throttle -- addPylon/addLineSegment only run
-  // when that rebuild fires, so without this the ring/core/pulse only ever
-  // advanced when the camera moved. Matches the same per-frame `update()`
-  // pattern every other animated overlay in client-map-3d.ts already uses
+  // Animates rotation/core-pulse state on already-placed pylons every
+  // frame, independent of rebuildVisibleTerrain()'s camera-move/reach-
+  // change throttle -- addPylon/addLineSegment only run when that rebuild
+  // fires, so without this the ring/core only ever advanced when the
+  // camera moved. Matches the same per-frame `update()` pattern every other
+  // animated overlay in client-map-3d.ts already uses
   // (relayBeaconOverlay.update(nowMs), watchtowerOverlay.update(nowMs), ...).
   // Positions/visibility/ownerColor are untouched here -- those only change
   // when the underlying reach data changes, which addPylon/addLineSegment
-  // already handle.
+  // already handle. Line segments have no animated state of their own
+  // (no travelling pulse -- removed per review), so nothing to do for them.
   const update = (nowMs: number): void => {
     for (let i = 0; i < liveCursor; i += 1) {
       const pylon = livePool[i]!;
@@ -481,21 +443,12 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
       if (pylon.coreMaterial) pylon.coreMaterial.opacity = 0.6 + pulse * CORE_PULSE_AMPLITUDE;
       if (pylon.core) pylon.core.scale.setScalar(1 + pulse * 0.1);
     }
-    for (let i = 0; i < segmentCursor; i += 1) {
-      const slot = linePool[i]!;
-      const t = pulseT(nowMs + i * (PULSE_PERIOD_MS / 3));
-      const pulsePoint = lerpPoint(slot.p0, slot.p1, t);
-      slot.pulse.position.set(pulsePoint.x, pulsePoint.y, pulsePoint.z);
-    }
   };
 
   const commit = (): void => {
     for (let i = liveCursor; i < livePool.length; i += 1) livePool[i]!.group.visible = false;
     for (let i = deadCursor; i < deadPool.length; i += 1) deadPool[i]!.group.visible = false;
-    for (let i = segmentCursor; i < linePool.length; i += 1) {
-      linePool[i]!.mesh.visible = false;
-      linePool[i]!.pulse.visible = false;
-    }
+    for (let i = segmentCursor; i < linePool.length; i += 1) linePool[i]!.mesh.visible = false;
 
     (dormant.geometry.getAttribute("position") as BufferAttribute).needsUpdate = true;
     (dormant.geometry.getIndex() as BufferAttribute).needsUpdate = true;
@@ -517,7 +470,6 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     coreGeometry.dispose();
     deadPostGeometry.dispose();
     lineGeometry.dispose();
-    pulseGeometry.dispose();
     dormant.geometry.dispose();
     dormant.material.dispose();
     outOfReach.geometry.dispose();
@@ -527,12 +479,8 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     materials.core.dispose();
     materials.deadMetal.dispose();
     materials.line.dispose();
-    materials.pulse.dispose();
     for (const pylon of livePool) pylon.coreMaterial?.dispose();
-    for (const slot of linePool) {
-      slot.material.dispose();
-      slot.pulseMaterial.dispose();
-    }
+    for (const slot of linePool) slot.material.dispose();
   };
 
   return { group, clear, addPylon, addLineSegment, addDormantFrontierTile, addOutOfReachTile, commit, update, dispose };
