@@ -78,6 +78,8 @@ import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client
 import {
   computeLocalReachSet,
   isDormantFrontierTile,
+  pylonEdgeOffset,
+  reachEdgesForTile,
   samplePerimeterPylons,
   traceReachBoundaryLoops
 } from "../client-reach-overlay/client-reach-overlay.js";
@@ -1910,18 +1912,27 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const v = deps.tileVisibilityStateAt(wx, wy, t);
         return v === "visible" || (v === "unexplored" && revealWholeMapInTrue3DMode);
       };
+      // A survey point should stand on the actual line between owned and
+      // out-of-reach ground, not the tile's center -- pylonEdgeOffset
+      // (client-reach-overlay.ts) pushes it ~0.42 units toward whichever
+      // edge(s) made this tile a boundary tile in the first place.
+      const edgeOffsetFor = (wx: number, wy: number): { dx: number; dz: number } =>
+        pylonEdgeOffset(reachEdgesForTile(wx, wy, reach3DCache!, reach3DDeps));
       for (const point of reach3DPylons) {
         if (!isPointVisible(point.x, point.y)) continue;
-        const sx = toroidDelta(deps.state.camX, point.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-        const sz = toroidDelta(deps.state.camY, point.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+        const { dx, dz } = edgeOffsetFor(point.x, point.y);
+        const sx = toroidDelta(deps.state.camX, point.x, WORLD_WIDTH) + TILE_CENTER_OFFSET + dx;
+        const sz = toroidDelta(deps.state.camY, point.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET + dz;
         reachOverlay3D.addPylon(sx, sz, surfaceYForTile(point.x, point.y), 1, reach3DNowMs, myColor);
       }
       for (const segment of reach3DSegments) {
         if (!isPointVisible(segment.from.x, segment.from.y) && !isPointVisible(segment.to.x, segment.to.y)) continue;
-        const sx0 = toroidDelta(deps.state.camX, segment.from.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-        const sz0 = toroidDelta(deps.state.camY, segment.from.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-        const sx1 = toroidDelta(deps.state.camX, segment.to.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-        const sz1 = toroidDelta(deps.state.camY, segment.to.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+        const from = edgeOffsetFor(segment.from.x, segment.from.y);
+        const to = edgeOffsetFor(segment.to.x, segment.to.y);
+        const sx0 = toroidDelta(deps.state.camX, segment.from.x, WORLD_WIDTH) + TILE_CENTER_OFFSET + from.dx;
+        const sz0 = toroidDelta(deps.state.camY, segment.from.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET + from.dz;
+        const sx1 = toroidDelta(deps.state.camX, segment.to.x, WORLD_WIDTH) + TILE_CENTER_OFFSET + to.dx;
+        const sz1 = toroidDelta(deps.state.camY, segment.to.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET + to.dz;
         reachOverlay3D.addLineSegment(
           sx0,
           sz0,

@@ -3,6 +3,8 @@ import { createReachOverlay3D } from "@client/client-map-3d-aether-survey-line/c
 import {
   computeLocalReachSet,
   isDormantFrontierTile,
+  pylonEdgeOffset,
+  reachEdgesForTile,
   samplePerimeterPylons,
   traceReachBoundaryLoops
 } from "@client/client-reach-overlay/client-reach-overlay.js";
@@ -147,16 +149,23 @@ const render = (args: Args): HTMLElement => {
     const ownerColor = effectiveOverlayColor(ownerId);
     const loops = traceReachBoundaryLoops(reach, reachDeps);
     const { pylons, segments } = samplePerimeterPylons(loops);
+    // A survey point stands on the actual boundary line, not the tile
+    // center -- see pylonEdgeOffset's doc comment.
+    const edgeOffsetFor = (x: number, y: number): { dx: number; dz: number } =>
+      pylonEdgeOffset(reachEdgesForTile(x, y, reach, reachDeps));
     for (const point of pylons.flat()) {
-      overlay.addPylon(point.x - ORIGIN_X, point.y - ORIGIN_Y, 0, 1, nowMs, ownerColor);
+      const { dx, dz } = edgeOffsetFor(point.x, point.y);
+      overlay.addPylon(point.x - ORIGIN_X + dx, point.y - ORIGIN_Y + dz, 0, 1, nowMs, ownerColor);
     }
     for (const segment of segments.flat()) {
+      const from = edgeOffsetFor(segment.from.x, segment.from.y);
+      const to = edgeOffsetFor(segment.to.x, segment.to.y);
       overlay.addLineSegment(
-        segment.from.x - ORIGIN_X,
-        segment.from.y - ORIGIN_Y,
+        segment.from.x - ORIGIN_X + from.dx,
+        segment.from.y - ORIGIN_Y + from.dz,
         0,
-        segment.to.x - ORIGIN_X,
-        segment.to.y - ORIGIN_Y,
+        segment.to.x - ORIGIN_X + to.dx,
+        segment.to.y - ORIGIN_Y + to.dz,
         0,
         nowMs,
         ownerColor
