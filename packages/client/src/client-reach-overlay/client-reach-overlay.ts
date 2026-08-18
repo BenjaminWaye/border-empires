@@ -234,6 +234,152 @@ export const drawDormantFrontierTreatment = (
   ctx.restore();
 };
 
+// --- Perimeter walk (sparse pylon placement) ---------------------------
+//
+// The Aether Survey Line places pylons only every ~10-15 tiles along the
+// boundary, connected by chords -- not one marker per boundary tile. That
+// requires an ORDERED walk of the boundary (a "trace the perimeter" /
+// marching-squares-adjacent problem), which isReachBoundaryTile alone
+// doesn't give: it can only say a tile IS on the boundary, not what order
+// to visit boundary tiles in to draw a coherent line around the territory.
+//
+// Algorithm (greedy 8-connected walk, documented approximation):
+// 1. Collect every boundary tile (via isReachBoundaryTile) from the tiles
+//    currently known to the client.
+// 2. Repeatedly pick an unvisited boundary tile as the start of a new loop,
+//    then walk: from the current tile, scan its 8 neighbours in a fixed
+//    clockwise order and step to the first unvisited boundary neighbour
+//    found. Mark every tile visited as it's added to the loop. When no
+//    unvisited boundary neighbour remains, that loop ends.
+// 3. Repeat until every boundary tile has been visited, yielding one loop
+//    per connected boundary component (so multiple disconnected owned
+//    regions, or a region with a hole, naturally produce multiple loops).
+//
+// This is a greedy nearest-neighbour trace, not a topologically exact
+// contour-following algorithm (e.g. Moore-neighbour boundary tracing with
+// proper "came from" bookkeeping) -- it can occasionally take a locally
+// reasonable but globally sub-optimal step around a sharp notch. That's an
+// acceptable trade at this scale: every boundary tile is still visited
+// exactly once, the walk always terminates (visited-set + hard iteration
+// cap prevent any infinite loop), and consecutive tiles in the resulting
+// loop are always adjacent (4- or 8-connected), so a sampled polyline
+// through it still reads as "roughly the boundary shape" even on an
+// irregular/notched territory. See client-reach-overlay.test.ts for
+// coverage of a square, a notched shape, and two disconnected regions.
+export type TileCoord = { readonly x: number; readonly y: number };
+
+// Clockwise starting from north, so straight runs get walked in a
+// consistent rotational preference rather than zig-zagging.
+const BOUNDARY_WALK_NEIGHBOURS: ReadonlyArray<TileCoord> = [
+  { x: 0, y: -1 },
+  { x: 1, y: -1 },
+  { x: 1, y: 0 },
+  { x: 1, y: 1 },
+  { x: 0, y: 1 },
+  { x: -1, y: 1 },
+  { x: -1, y: 0 },
+  { x: -1, y: -1 }
+];
+
+/**
+ * Traces the local player's reach boundary as one or more ordered loops
+ * (polylines) of tile coordinates, one loop per connected boundary
+ * component. See the algorithm comment above for the walk strategy and its
+ * documented limitations.
+ */
+export const traceReachBoundaryLoops = (
+  reach: ReadonlySet<string>,
+  deps: ReachBoundaryDeps
+): TileCoord[][] => {
+  const byKey = new Map<string, TileCoord>();
+  for (const tile of deps.tiles.values()) {
+    if (!isReachBoundaryTile(tile.x, tile.y, reach, deps)) continue;
+    const key = deps.keyFor(tile.x, tile.y);
+    if (!byKey.has(key)) byKey.set(key, { x: tile.x, y: tile.y });
+  }
+
+  const visited = new Set<string>();
+  const loops: TileCoord[][] = [];
+  // Hard cap on total steps across the whole trace (not per-loop) so a
+  // pathological/corrupt reach set can never spin this forever -- every
+  // real step marks a previously-unvisited tile visited, so this is a very
+  // generous upper bound, not something normal input should approach.
+  const maxTotalSteps = byKey.size * 2 + 4;
+  let totalSteps = 0;
+
+  for (const start of byKey.values()) {
+    const startKey = deps.keyFor(start.x, start.y);
+    if (visited.has(startKey)) continue;
+    const loop: TileCoord[] = [];
+    let current: TileCoord | undefined = start;
+    while (current && totalSteps <= maxTotalSteps) {
+      totalSteps += 1;
+      const currentKey = deps.keyFor(current.x, current.y);
+      if (visited.has(currentKey)) break;
+      visited.add(currentKey);
+      loop.push(current);
+      let next: TileCoord | undefined;
+      for (const offset of BOUNDARY_WALK_NEIGHBOURS) {
+        const nx = deps.wrapX(current.x + offset.x);
+        const ny = deps.wrapY(current.y + offset.y);
+        const nKey = deps.keyFor(nx, ny);
+        const candidate = byKey.get(nKey);
+        if (candidate && !visited.has(nKey)) {
+          next = candidate;
+          break;
+        }
+      }
+      current = next;
+    }
+    if (loop.length > 0) loops.push(loop);
+  }
+  return loops;
+};
+
+/** A straight chord connecting two consecutive sampled pylon points along a traced loop. */
+export type PylonSegment = { readonly from: TileCoord; readonly to: TileCoord };
+
+// Within the brief's "every 10-15 tiles" range. Documented approximation
+// (see the brief): this samples every Nth boundary tile in WALK order, not
+// true arc length -- an acceptable stand-in at this scale, since consecutive
+// walked tiles are always 4- or 8-adjacent (distance 1 or ~1.41), so walk-
+// order spacing and arc-length spacing stay close for the gently curved/
+// mostly-straight runs this overlay is meant to draw.
+export const DEFAULT_PYLON_SPACING_TILES = 12;
+
+/**
+ * Samples each traced boundary loop at ~`spacingTiles`-tile intervals
+ * (walk order, see DEFAULT_PYLON_SPACING_TILES) to get sparse pylon
+ * placement points, plus the chord segments connecting consecutive samples
+ * -- including a closing chord from the last sample back to the first,
+ * since a traced boundary loop is conceptually a closed ring even though
+ * the walk itself stops just short of re-visiting its own start tile.
+ * A loop with only one sample (tiny/short boundary) yields that single
+ * pylon with no segments -- nothing to connect it to.
+ */
+export const samplePerimeterPylons = (
+  loops: ReadonlyArray<ReadonlyArray<TileCoord>>,
+  spacingTiles: number = DEFAULT_PYLON_SPACING_TILES
+): { pylons: TileCoord[][]; segments: PylonSegment[][] } => {
+  const step = Math.max(1, Math.floor(spacingTiles));
+  const pylons: TileCoord[][] = [];
+  const segments: PylonSegment[][] = [];
+  for (const loop of loops) {
+    if (loop.length === 0) continue;
+    const samples: TileCoord[] = [];
+    for (let i = 0; i < loop.length; i += step) samples.push(loop[i]!);
+    pylons.push(samples);
+    const loopSegments: PylonSegment[] = [];
+    if (samples.length > 1) {
+      for (let i = 0; i < samples.length; i += 1) {
+        loopSegments.push({ from: samples[i]!, to: samples[(i + 1) % samples.length]! });
+      }
+    }
+    segments.push(loopSegments);
+  }
+  return { pylons, segments };
+};
+
 // --- Beacon-placement reach preview ------------------------------------
 
 /**
