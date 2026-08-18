@@ -12,7 +12,17 @@ describe("CANCEL_SETTLE", () => {
         now: () => 1_000,
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500 })]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
+          ],
           activeLocks: []
         }
       });
@@ -163,7 +173,17 @@ describe("CANCEL_SETTLE", () => {
         now: () => nowMs,
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000 })]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
+          ],
           activeLocks: []
         }
       });

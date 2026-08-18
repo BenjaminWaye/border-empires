@@ -289,6 +289,16 @@ export type ValidateFrontierCommandInput = {
   originMuster?: number | undefined;
   /** Required muster for this attack (defaults to MUSTER_ATTACK_COST). */
   requiredMuster?: number | undefined;
+  /**
+   * Fixed-border reach (packages/shared/src/reach/reach.ts): whether `to` is
+   * inside the actor's resolved reach set. Checked for EXPAND only (ATTACK
+   * deliberately ignores it). Optional so callers/tests that predate reach
+   * gating keep compiling unchanged — the check only fires when this field
+   * is explicitly supplied as `true` or `false`; omitting it skips the gate
+   * entirely. Production's only caller (runtime-frontier-command.ts) always
+   * supplies it.
+   */
+  isInReach?: boolean | undefined;
 };
 
 export type ValidateFrontierCommandResult =
@@ -342,6 +352,9 @@ export const validateFrontierCommand = (
   const manpowerCost = musterAttack ? effectiveCost : legacy.manpowerCost;
   if (input.actionType === "EXPAND" && input.to.ownerId) {
     return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
+  }
+  if (input.actionType === "EXPAND" && typeof input.isInReach === "boolean" && !input.isInReach) {
+    return { ok: false, code: "OUT_OF_REACH", message: "target is outside your reach" };
   }
   if (input.actionType === "ATTACK" && (!input.to.ownerId || input.to.ownerId === input.actor.id)) {
     return { ok: false, code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" };

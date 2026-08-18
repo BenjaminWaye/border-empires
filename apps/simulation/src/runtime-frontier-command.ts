@@ -75,6 +75,10 @@ export type RuntimeFrontierCommandContext = {
   resolveMusterSource: (playerId: string, originKey: string, required: number, preferred?: string) => MusterSourceResult | undefined;
   requiredMusterForTarget: (target: DomainTileState) => number;
   buildLockedCombatResolution: (lock: LockedCombatInput) => LockedCombatResolution | undefined;
+  // Fixed-border reach (packages/shared/src/reach/reach.ts): true if (x, y)
+  // is inside playerId's resolved reach set. EXPAND requires this; ATTACK
+  // deliberately does not consult it.
+  isInReach: (playerId: string, x: number, y: number) => boolean;
 };
 
 export const handleFrontierCommandImpl = (
@@ -157,7 +161,8 @@ export const handleFrontierCommandImpl = (
     defenderIsAlliedOrTruced: Boolean(to.ownerId && isAlliedOrTruced(actor, to.ownerId)),
     expandClaimDurationMs,
     originMuster: musterSource?.available ?? (from.muster?.ownerId === actor.id ? from.muster.amount : 0),
-    requiredMuster
+    requiredMuster,
+    isInReach: ctx.isInReach(actor.id, to.x, to.y)
   });
 
   if (!validation.ok) {
