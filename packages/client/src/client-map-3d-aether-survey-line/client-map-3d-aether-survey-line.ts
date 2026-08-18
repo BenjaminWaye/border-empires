@@ -187,8 +187,12 @@ type Pylon = {
 };
 
 const makeMaterials = () => ({
-  brass: new MeshStandardMaterial({ color: BRASS, metalness: 0.55, roughness: 0.4, flatShading: true }),
-  iron: new MeshStandardMaterial({ color: IRON, metalness: 0.5, roughness: 0.6, flatShading: true }),
+  // Smooth shading (not flat) so a low-poly metal surface still reads as a
+  // curved, polished object catching light gradients instead of a faceted
+  // plastic placeholder -- the single biggest lever for a small object like
+  // this to read as a real finished asset rather than a primitive stand-in.
+  brass: new MeshStandardMaterial({ color: BRASS, metalness: 0.75, roughness: 0.28 }),
+  iron: new MeshStandardMaterial({ color: IRON, metalness: 0.6, roughness: 0.45 }),
   core: new MeshBasicMaterial({ toneMapped: false, color: AETHER_CORE, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false }),
   deadMetal: new MeshStandardMaterial({ color: DEAD_METAL, metalness: 0.3, roughness: 0.85, flatShading: true }),
   line: new MeshBasicMaterial({ toneMapped: false, color: AETHER_LINE, transparent: true, opacity: 0.8, blending: AdditiveBlending, depthWrite: false }),
@@ -236,18 +240,29 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
   // "minimal footprint" describes the pylon's silhouette relative to a
   // fort/wall, not its literal on-screen size). Only the connecting LINE
   // (see LINE_RADIUS below) is the deliberately hair-thin element.
-  const footGeometry = new CylinderGeometry(0.075 * PYLON_SCALE, 0.09 * PYLON_SCALE, 0.06 * PYLON_SCALE, 6);
-  const postGeometry = new CylinderGeometry(0.032 * PYLON_SCALE, 0.05 * PYLON_SCALE, 0.55 * PYLON_SCALE, 6);
+  // Higher segment counts than the first pass (was 5-6) so smooth shading
+  // (above) actually has enough geometry to interpolate across -- a smooth
+  // material on a 6-sided cylinder still reads faceted from any distance
+  // that resolves individual faces.
+  const baseGeometry = new CylinderGeometry(0.1 * PYLON_SCALE, 0.115 * PYLON_SCALE, 0.03 * PYLON_SCALE, 14);
+  const footGeometry = new CylinderGeometry(0.075 * PYLON_SCALE, 0.09 * PYLON_SCALE, 0.06 * PYLON_SCALE, 12);
+  const postGeometry = new CylinderGeometry(0.032 * PYLON_SCALE, 0.05 * PYLON_SCALE, 0.55 * PYLON_SCALE, 12);
+  // A brass collar band partway up the post -- a real design detail (echoes
+  // the beacon's banded brass feed pipes) rather than a bare uniform shaft.
+  const collarGeometry = new CylinderGeometry(0.058 * PYLON_SCALE, 0.058 * PYLON_SCALE, 0.03 * PYLON_SCALE, 12);
   const emitterGeometry = new OctahedronGeometry(0.075 * PYLON_SCALE, 0);
-  const ringGeometry = new TorusGeometry(0.11 * PYLON_SCALE, 0.014 * PYLON_SCALE, 5, 14);
-  const coreGeometry = new SphereGeometry(0.045 * PYLON_SCALE, 8, 7);
-  const deadPostGeometry = new CylinderGeometry(0.032 * PYLON_SCALE, 0.05 * PYLON_SCALE, 0.32 * PYLON_SCALE, 6);
+  const ringGeometry = new TorusGeometry(0.11 * PYLON_SCALE, 0.014 * PYLON_SCALE, 8, 24);
+  const coreGeometry = new SphereGeometry(0.045 * PYLON_SCALE, 12, 10);
+  const deadPostGeometry = new CylinderGeometry(0.032 * PYLON_SCALE, 0.05 * PYLON_SCALE, 0.32 * PYLON_SCALE, 12);
 
   const buildPylon = (dead: boolean): Pylon => {
     const pylonGroup = new Group();
     if (dead) {
       // Dormant treatment: a single dim/dark stub -- no emitter, no ring,
       // no core glow, per the brief's "powered down, abandoned survey post".
+      const base = new Mesh(baseGeometry, materials.deadMetal);
+      base.position.y = 0.015 * PYLON_SCALE;
+      pylonGroup.add(base);
       const foot = new Mesh(footGeometry, materials.deadMetal);
       foot.position.y = 0.022 * PYLON_SCALE;
       pylonGroup.add(foot);
@@ -259,6 +274,13 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
       return { group: pylonGroup, ring: null, core: null, coreMaterial: null };
     }
 
+    // Wide, flat iron base plate the whole post stands on -- gives the
+    // pylon a grounded, "actually installed" silhouette instead of a stick
+    // planted directly in the terrain.
+    const base = new Mesh(baseGeometry, materials.iron);
+    base.position.y = 0.015 * PYLON_SCALE;
+    pylonGroup.add(base);
+
     const foot = new Mesh(footGeometry, materials.iron);
     foot.position.y = 0.022 * PYLON_SCALE;
     pylonGroup.add(foot);
@@ -266,6 +288,12 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     const post = new Mesh(postGeometry, materials.brass);
     post.position.y = POST_HEIGHT / 2 + POST_BASE_LIFT;
     pylonGroup.add(post);
+
+    // A collar band partway up the shaft -- breaks up the plain cylinder
+    // silhouette with a real design detail instead of a bare uniform post.
+    const collar = new Mesh(collarGeometry, materials.iron);
+    collar.position.y = POST_BASE_LIFT + POST_HEIGHT * 0.62;
+    pylonGroup.add(collar);
 
     // RING_HEIGHT (module-level) is where the emitter/ring/core sit, and
     // exactly where LINE_LIFT places the connecting line too -- so the
@@ -434,8 +462,10 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
 
   const dispose = (): void => {
     scene.remove(group);
+    baseGeometry.dispose();
     footGeometry.dispose();
     postGeometry.dispose();
+    collarGeometry.dispose();
     emitterGeometry.dispose();
     ringGeometry.dispose();
     coreGeometry.dispose();
