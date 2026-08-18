@@ -3,6 +3,8 @@ import type { Tile } from "../client-types.js";
 import {
   DEFAULT_PYLON_SPACING_TILES,
   isCornerAt,
+  pylonEdgeOffset,
+  reachEdgesForTile,
   samplePerimeterPylons,
   traceReachBoundaryLoops,
   type ReachBoundaryDeps,
@@ -182,6 +184,48 @@ describe("isCornerAt", () => {
 
   it("is false for loops shorter than 3 tiles (no meaningful direction to compare)", () => {
     expect(isCornerAt([{ x: 0, y: 0 }, { x: 1, y: 0 }], 0)).toBe(false);
+  });
+});
+
+describe("reachEdgesForTile / pylonEdgeOffset", () => {
+  it("reports only the top edge for a tile on the north side of a square, mid-run", () => {
+    const reach = toReach(rect(0, 0, 10, 10));
+    const deps = buildDeps(rect(0, 0, 10, 10));
+    const edges = reachEdgesForTile(5, 0, reach, deps);
+    expect(edges).toEqual({ top: true, right: false, bottom: false, left: false });
+  });
+
+  it("reports two edges for a corner tile", () => {
+    const reach = toReach(rect(0, 0, 10, 10));
+    const deps = buildDeps(rect(0, 0, 10, 10));
+    const edges = reachEdgesForTile(0, 0, reach, deps);
+    expect(edges).toEqual({ top: true, right: false, bottom: false, left: true });
+  });
+
+  it("pylonEdgeOffset pushes onto a single active edge, landing near a half-tile away", () => {
+    const { dx, dz } = pylonEdgeOffset({ top: true, right: false, bottom: false, left: false });
+    expect(dx).toBeCloseTo(0);
+    expect(dz).toBeLessThan(0);
+    expect(Math.abs(dz)).toBeGreaterThan(0.35);
+    expect(Math.abs(dz)).toBeLessThan(0.5);
+  });
+
+  it("pylonEdgeOffset blends two active edges toward the tile's corner vertex", () => {
+    const { dx, dz } = pylonEdgeOffset({ top: true, right: false, bottom: false, left: true });
+    expect(dz).toBeLessThan(0);
+    expect(dx).toBeLessThan(0);
+    expect(Math.hypot(dx, dz)).toBeCloseTo(0.42, 5);
+  });
+
+  it("pylonEdgeOffset is zero with no active edges", () => {
+    expect(pylonEdgeOffset({ top: false, right: false, bottom: false, left: false })).toEqual({ dx: 0, dz: 0 });
+  });
+
+  it("an interior (non-boundary) tile has no active edges, so its offset is zero", () => {
+    const reach = toReach(rect(0, 0, 10, 10));
+    const deps = buildDeps(rect(0, 0, 10, 10));
+    const edges = reachEdgesForTile(5, 5, reach, deps);
+    expect(pylonEdgeOffset(edges)).toEqual({ dx: 0, dz: 0 });
   });
 });
 

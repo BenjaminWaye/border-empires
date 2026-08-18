@@ -134,6 +134,55 @@ export const isReachBoundaryTile = (
   return neighbours.some((key) => !reach.has(key));
 };
 
+/** Which of a boundary tile's 4 cardinal neighbours are themselves out of reach. */
+export type ReachEdges = {
+  readonly top: boolean;
+  readonly right: boolean;
+  readonly bottom: boolean;
+  readonly left: boolean;
+};
+
+/** Computes a tile's `ReachEdges` against the given reach set. */
+export const reachEdgesForTile = (x: number, y: number, reach: ReadonlySet<string>, deps: ReachBoundaryDeps): ReachEdges => ({
+  top: !reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1))),
+  right: !reach.has(deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y))),
+  bottom: !reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1))),
+  left: !reach.has(deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y)))
+});
+
+// Just shy of a full half-tile (0.5) so a marker sits right on the tile
+// boundary line itself without its base geometry clipping through the
+// neighbouring tile's ground plane.
+const PYLON_EDGE_OFFSET_AMOUNT = 0.42;
+
+/**
+ * A border marker (pylon, sentry, whatever the current 3D overlay design
+ * calls it) should stand on the line between the owned tile and its
+ * out-of-reach neighbour, the way a real border post stands on the border,
+ * not in the middle of a field. Pure function: sums an outward unit push
+ * toward every active edge and returns the (unnormalized) offset to add to
+ * the tile-center position, landing the marker almost exactly on that edge
+ * (or, for a corner tile with two active edges, on the tile's corner
+ * vertex where both edges meet).
+ *
+ * Reach borders never overlap between players (each tile is clipped to at
+ * most one owner), so an enemy's boundary markers can sit on the tile
+ * directly across the line from yours -- each side's posts standing right
+ * at their own edge is exactly what should make a contested border read as
+ * two real, distinct claims facing off, not two rows merged into one.
+ */
+export const pylonEdgeOffset = (edges: ReachEdges): { readonly dx: number; readonly dz: number } => {
+  let dx = 0;
+  let dz = 0;
+  if (edges.top) dz -= 1; // north neighbour is out of reach -> push north (-z), onto that edge
+  if (edges.bottom) dz += 1;
+  if (edges.left) dx -= 1; // west neighbour is out of reach -> push west (-x), onto that edge
+  if (edges.right) dx += 1;
+  const len = Math.hypot(dx, dz);
+  if (len === 0) return { dx: 0, dz: 0 };
+  return { dx: (dx / len) * PYLON_EDGE_OFFSET_AMOUNT, dz: (dz / len) * PYLON_EDGE_OFFSET_AMOUNT };
+};
+
 const REACH_BOUNDARY_COLOR = "rgba(255, 245, 190, 0.85)";
 const REACH_BOUNDARY_DASH: [number, number] = [4, 3];
 const OUT_OF_REACH_HATCH_COLOR = "rgba(10, 12, 18, 0.28)";
