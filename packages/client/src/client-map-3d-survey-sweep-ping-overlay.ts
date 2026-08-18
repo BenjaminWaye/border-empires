@@ -105,9 +105,17 @@ export const createSurveySweepPingOverlay = (scene: Scene): SurveySweepPingOverl
     townMesh.count = townCount;
     resourceRingMesh.count = resourceCount;
     townRingMesh.count = townCount;
+    resourceMesh.instanceMatrix.clearUpdateRanges();
+    resourceMesh.instanceMatrix.addUpdateRange(0, resourceMesh.count * 16);
     resourceMesh.instanceMatrix.needsUpdate = true;
+    townMesh.instanceMatrix.clearUpdateRanges();
+    townMesh.instanceMatrix.addUpdateRange(0, townMesh.count * 16);
     townMesh.instanceMatrix.needsUpdate = true;
+    resourceRingMesh.instanceMatrix.clearUpdateRanges();
+    resourceRingMesh.instanceMatrix.addUpdateRange(0, resourceRingMesh.count * 16);
     resourceRingMesh.instanceMatrix.needsUpdate = true;
+    townRingMesh.instanceMatrix.clearUpdateRanges();
+    townRingMesh.instanceMatrix.addUpdateRange(0, townRingMesh.count * 16);
     townRingMesh.instanceMatrix.needsUpdate = true;
   };
 

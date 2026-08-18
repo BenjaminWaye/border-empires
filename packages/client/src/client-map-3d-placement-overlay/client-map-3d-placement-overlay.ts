@@ -122,7 +122,11 @@ export const createPlacementRangeOverlay = (scene: Scene): PlacementRangeOverlay
     }
     benefitFill.count = count;
     benefitFill.visible = count > 0;
-    if (count > 0) benefitFill.instanceMatrix.needsUpdate = true;
+    if (count > 0) {
+      benefitFill.instanceMatrix.clearUpdateRanges();
+      benefitFill.instanceMatrix.addUpdateRange(0, benefitFill.count * 16);
+      benefitFill.instanceMatrix.needsUpdate = true;
+    }
   };
 
   const sync = (deps: PlacementOverlaySyncDeps): void => {

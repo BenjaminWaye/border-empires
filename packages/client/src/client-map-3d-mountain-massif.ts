@@ -103,8 +103,14 @@ export const createMountainMassifs = (scene: Scene, maxInstances: number): Mount
     rockBaseMesh.count = count;
     peakMesh.count = count;
     snowCapMesh.count = count;
+    rockBaseMesh.instanceMatrix.clearUpdateRanges();
+    rockBaseMesh.instanceMatrix.addUpdateRange(0, rockBaseMesh.count * 16);
     rockBaseMesh.instanceMatrix.needsUpdate = true;
+    peakMesh.instanceMatrix.clearUpdateRanges();
+    peakMesh.instanceMatrix.addUpdateRange(0, peakMesh.count * 16);
     peakMesh.instanceMatrix.needsUpdate = true;
+    snowCapMesh.instanceMatrix.clearUpdateRanges();
+    snowCapMesh.instanceMatrix.addUpdateRange(0, snowCapMesh.count * 16);
     snowCapMesh.instanceMatrix.needsUpdate = true;
   };
 

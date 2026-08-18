@@ -200,6 +200,8 @@ export const createResourceBadgeOverlay = (scene: Scene, maxTiles: number, icon:
 
   const commit = (): void => {
     mesh.count = count;
+    mesh.instanceMatrix.clearUpdateRanges();
+    mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
     mesh.instanceMatrix.needsUpdate = true;
   };
 
@@ -209,6 +211,8 @@ export const createResourceBadgeOverlay = (scene: Scene, maxTiles: number, icon:
     for (let i = 0; i < count; i += 1) {
       applyMatrix(i, xs[i]!, ys[i]!, zs[i]!, lastBobPhase);
     }
+    mesh.instanceMatrix.clearUpdateRanges();
+    mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
     mesh.instanceMatrix.needsUpdate = true;
   };
 

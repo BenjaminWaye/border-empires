@@ -353,9 +353,17 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
       tmpFrameMatrix.makeTranslation(e.sceneX - FRAME_HALF, e.surfaceY + FRAME_Y, e.sceneZ).multiply(rotateY90);
       frameWMesh.setMatrixAt(i, tmpFrameMatrix);
     }
+    frameNMesh.instanceMatrix.clearUpdateRanges();
+    frameNMesh.instanceMatrix.addUpdateRange(0, frameNMesh.count * 16);
     frameNMesh.instanceMatrix.needsUpdate = true;
+    frameSMesh.instanceMatrix.clearUpdateRanges();
+    frameSMesh.instanceMatrix.addUpdateRange(0, frameSMesh.count * 16);
     frameSMesh.instanceMatrix.needsUpdate = true;
+    frameEMesh.instanceMatrix.clearUpdateRanges();
+    frameEMesh.instanceMatrix.addUpdateRange(0, frameEMesh.count * 16);
     frameEMesh.instanceMatrix.needsUpdate = true;
+    frameWMesh.instanceMatrix.clearUpdateRanges();
+    frameWMesh.instanceMatrix.addUpdateRange(0, frameWMesh.count * 16);
     frameWMesh.instanceMatrix.needsUpdate = true;
 
     if (hillTintCount > 0) {
@@ -431,7 +439,11 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
       }
     }
     peopleMesh.count = writeIdx;
+    peopleMesh.instanceMatrix.clearUpdateRanges();
+    peopleMesh.instanceMatrix.addUpdateRange(0, peopleMesh.count * 16);
     peopleMesh.instanceMatrix.needsUpdate = true;
+    tintMesh.instanceMatrix.clearUpdateRanges();
+    tintMesh.instanceMatrix.addUpdateRange(0, tintMesh.count * 16);
     tintMesh.instanceMatrix.needsUpdate = true;
 
     // Pulse the frame brightness so the tile reads as "in progress".

@@ -153,10 +153,20 @@ export const createWatchtowerOverlay = (scene: Scene, maxTiles: number): Watchto
       }
     }
 
+    towerMesh.instanceMatrix.clearUpdateRanges();
+    towerMesh.instanceMatrix.addUpdateRange(0, towerMesh.count * 16);
     towerMesh.instanceMatrix.needsUpdate = true;
+    bandMesh.instanceMatrix.clearUpdateRanges();
+    bandMesh.instanceMatrix.addUpdateRange(0, bandMesh.count * 16);
     bandMesh.instanceMatrix.needsUpdate = true;
+    gearMesh.instanceMatrix.clearUpdateRanges();
+    gearMesh.instanceMatrix.addUpdateRange(0, gearMesh.count * 16);
     gearMesh.instanceMatrix.needsUpdate = true;
+    lanternMesh.instanceMatrix.clearUpdateRanges();
+    lanternMesh.instanceMatrix.addUpdateRange(0, lanternMesh.count * 16);
     lanternMesh.instanceMatrix.needsUpdate = true;
+    ringMesh.instanceMatrix.clearUpdateRanges();
+    ringMesh.instanceMatrix.addUpdateRange(0, ringMesh.count * 16);
     ringMesh.instanceMatrix.needsUpdate = true;
   };
 
