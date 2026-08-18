@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
 import {
   DEFAULT_PYLON_SPACING_TILES,
+  filterReachToLand,
   isCornerAt,
   pylonEdgeOffset,
   reachEdgesForTile,
@@ -226,6 +227,52 @@ describe("reachEdgesForTile / pylonEdgeOffset", () => {
     const deps = buildDeps(rect(0, 0, 10, 10));
     const edges = reachEdgesForTile(5, 5, reach, deps);
     expect(pylonEdgeOffset(edges)).toEqual({ dx: 0, dz: 0 });
+  });
+});
+
+describe("filterReachToLand", () => {
+  const makeTerrainTile = (x: number, y: number, terrain: "LAND" | "SEA" | "COASTAL_SEA"): Tile =>
+    ({ x, y, terrain }) as unknown as Tile;
+
+  it("drops SEA and COASTAL_SEA tiles from the reach set", () => {
+    const coords = rect(0, 0, 4, 4);
+    const tiles = new Map<string, Tile>();
+    for (const { x, y } of coords) {
+      const terrain = x === 4 ? "SEA" : y === 4 ? "COASTAL_SEA" : "LAND";
+      tiles.set(keyFor(x, y), makeTerrainTile(x, y, terrain));
+    }
+    const reach = toReach(coords);
+    const filtered = filterReachToLand(reach, tiles, keyFor);
+    for (const { x, y } of coords) {
+      const isWater = x === 4 || y === 4;
+      expect(filtered.has(keyFor(x, y))).toBe(!isWater);
+    }
+  });
+
+  it("keeps a tile that was never a water tile", () => {
+    const coords = rect(0, 0, 2, 2);
+    const tiles = new Map<string, Tile>();
+    for (const { x, y } of coords) tiles.set(keyFor(x, y), makeTerrainTile(x, y, "LAND"));
+    const reach = toReach(coords);
+    const filtered = filterReachToLand(reach, tiles, keyFor);
+    expect(filtered.size).toBe(coords.length);
+  });
+
+  it("a coastal reach square's traced boundary hugs the shoreline instead of the raw disk edge", () => {
+    // A 0..6 square where the entire southern half (y >= 4) is open sea --
+    // simulates a coastal town whose reach radius geometrically extends
+    // past the shore. Without filtering, the traced loop would run along
+    // y=6 (the raw edge of the reach disk, out over open water); filtered,
+    // it should hug y=3/4 (the actual coastline) instead.
+    const coords = rect(0, 0, 6, 6);
+    const tiles = new Map<string, Tile>();
+    for (const { x, y } of coords) tiles.set(keyFor(x, y), makeTerrainTile(x, y, y >= 4 ? "SEA" : "LAND"));
+    const reach = toReach(coords);
+    const filtered = filterReachToLand(reach, tiles, keyFor);
+    const deps: ReachBoundaryDeps = { tiles, keyFor, wrapX: wrap, wrapY: wrap };
+    const loops = traceReachBoundaryLoops(filtered, deps);
+    const allY = loops.flat().map((c) => c.y);
+    expect(Math.max(...allY)).toBeLessThan(4);
   });
 });
 

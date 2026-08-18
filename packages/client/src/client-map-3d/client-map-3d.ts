@@ -77,6 +77,7 @@ import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-r
 import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import {
   computeLocalReachSet,
+  filterReachToLand,
   isDormantFrontierTile,
   pylonEdgeOffset,
   reachEdgesForTile,
@@ -1377,7 +1378,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
     if (reach3DActive) {
       if (reach3DCacheRevision !== deps.state.tilesRevision) {
-        reach3DCache = computeLocalReachSet(deps.state.tiles, deps.state.me);
+        // Land-only: reach is a purely geometric radius (no terrain
+        // awareness), so a coastal anchor's disk legitimately extends over
+        // open water -- filtered here so the boundary trace/pylons never
+        // draw out into the sea. Gameplay legality (EXPAND requiring LAND
+        // terrain) is unaffected; this only trims the visual reach set.
+        reach3DCache = filterReachToLand(computeLocalReachSet(deps.state.tiles, deps.state.me), deps.state.tiles, deps.keyFor);
         reach3DCacheRevision = deps.state.tilesRevision;
         const loops = traceReachBoundaryLoops(reach3DCache, reach3DDeps);
         const { pylons, segments } = samplePerimeterPylons(loops);
@@ -2080,7 +2086,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       toroidDelta
     });
     villageEffects.update(nowMs);
-    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs);
+    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs);
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
     siphonFx.update(nowMs);
