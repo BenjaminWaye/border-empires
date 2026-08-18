@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createReachOverlay3D } from "@client/client-map-3d-reach-overlay/client-map-3d-reach-overlay.js";
+import { createReachOverlay3D } from "@client/client-map-3d-aether-sentry-lattice/client-map-3d-aether-sentry-lattice.js";
 import {
   computeLocalReachSet,
   isDormantFrontierTile,
@@ -9,19 +9,44 @@ import type { Tile } from "@client/client-types.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
 
 /**
- * The real 3D fixed-borders-via-reach overlay (client-map-3d-reach-overlay.ts)
- * rendered in an actual Three.js scene -- the proof the "wrong renderer" bug
- * is fixed: this is the module that now runs when isTrue3DRendererActive()
- * is true, not a flat Canvas2D mockup. Reuses the exact same pure
+ * The Aether Sentry Lattice -- the real 3D fixed-borders-via-reach overlay
+ * (client-map-3d-aether-sentry-lattice.ts) rendered in an actual Three.js
+ * scene: a chain of small automated sentry pylons (spinning gyroscopic ring
+ * cradling a hovering aether-core orb) along the edge of the player's
+ * reach, taller ornate corner pylons with a rotating beacon lens where the
+ * boundary turns, sagging catenary energy tethers with a travelling spark
+ * linking pylons along a straight run, and a "dead" powered-down sentry on
+ * a dormant-frontier tile. Reuses the exact same pure
  * computeLocalReachSet/isDormantFrontierTile/isReachBoundaryTile helpers the
  * 2D canvas path uses (see HUD/Reach Border Overlay for that story), so this
  * is only exercising new *rendering* code on top of already-correct logic.
+ *
+ * This story deliberately renders TWO adjacent, non-overlapping empires
+ * (see MY_TOWN/ENEMY_TOWN below, placed exactly 7 tiles apart so their
+ * radius-3 reach squares touch edge-to-edge with neither gap nor overlap,
+ * matching the game's "borders may never overlap" rule) so the two
+ * requirements that mattered most in review are actually demonstrated, not
+ * just implemented: each empire's sentries/tethers are tinted in that
+ * empire's own color (via effectiveOverlayColor), and the two facing rows
+ * of pylons along the contested edge read as clearly separate without
+ * visually merging.
  */
 
 const ME = "player-1";
 const ENEMY = "player-2";
-const GRID = 15;
-const CENTER = Math.floor(GRID / 2);
+const GRID = 26;
+const MY_TOWN = { x: 8, y: 13 };
+// Exactly 7 tiles east of MY_TOWN: with TOWN_REACH_RADIUS = 3 both squares
+// touch at the x=11 (mine) / x=12 (enemy) edge -- adjacent, not overlapping.
+const ENEMY_TOWN = { x: 15, y: 13 };
+const ORIGIN_X = Math.round((MY_TOWN.x + ENEMY_TOWN.x) / 2);
+const ORIGIN_Y = MY_TOWN.y;
+
+const PLAYER_COLORS = new Map<string, string>([
+  [ME, "#5ec9ff"],
+  [ENEMY, "#ff6b6b"]
+]);
+const effectiveOverlayColor = (ownerId: string): string => PLAYER_COLORS.get(ownerId) ?? "#bdf3ff";
 
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 const wrap = (v: number): number => ((v % GRID) + GRID) % GRID;
@@ -35,29 +60,50 @@ const buildWorld = (): Map<string, Tile> => {
     for (let x = 0; x < GRID; x += 1) tiles.set(keyFor(x, y), makeTile({ x, y }));
   }
 
-  // My town at the center -- radius-3 reach anchor.
   tiles.set(
-    keyFor(CENTER, CENTER),
+    keyFor(MY_TOWN.x, MY_TOWN.y),
     makeTile({
-      x: CENTER,
-      y: CENTER,
+      x: MY_TOWN.x,
+      y: MY_TOWN.y,
       ownerId: ME,
       ownershipState: "SETTLED",
       town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
     })
   );
+  tiles.set(
+    keyFor(ENEMY_TOWN.x, ENEMY_TOWN.y),
+    makeTile({
+      x: ENEMY_TOWN.x,
+      y: ENEMY_TOWN.y,
+      ownerId: ENEMY,
+      ownershipState: "SETTLED",
+      town: { name: "Rival Capital", type: "FARMING", populationTier: "SETTLEMENT" }
+    })
+  );
 
-  // A short owned arm so the reach boundary has an interesting shape rather
-  // than one clean disk.
-  for (let x = CENTER - 3; x <= CENTER + 3; x += 1) {
-    if (x === CENTER) continue;
-    tiles.set(keyFor(x, CENTER), makeTile({ x, y: CENTER, ownerId: ME, ownershipState: "SETTLED" }));
-  }
+  // Fully settle both empires' entire radius-3 reach squares (not just the
+  // town tile) so each empire's *complete* boundary perimeter renders as a
+  // ring of sentries -- this is what actually demonstrates two adjacent,
+  // differently-colored borders sitting right next to each other along
+  // their shared edge, rather than a couple of isolated posts.
+  const settleSquare = (owner: string, center: { x: number; y: number }): void => {
+    for (let dy = -3; dy <= 3; dy += 1) {
+      for (let dx = -3; dx <= 3; dx += 1) {
+        const x = center.x + dx;
+        const y = center.y + dy;
+        if (x === center.x && y === center.y) continue; // town tile already set above
+        tiles.set(keyFor(x, y), makeTile({ x, y, ownerId: owner, ownershipState: "SETTLED" }));
+      }
+    }
+  };
+  settleSquare(ME, MY_TOWN);
+  settleSquare(ENEMY, ENEMY_TOWN);
 
   // Dormant-frontier tile: mine, FRONTIER, still holding a leftover
-  // structure from before it was unsettled.
-  const dormantX = CENTER - 3;
-  const dormantY = CENTER - 3;
+  // structure from before it was unsettled -- renders as a "dead" sentry
+  // with a stopped gyroscope ring and unlit core, no outgoing tether.
+  const dormantX = MY_TOWN.x - 3;
+  const dormantY = MY_TOWN.y - 3;
   tiles.set(
     keyFor(dormantX, dormantY),
     makeTile({
@@ -68,15 +114,6 @@ const buildWorld = (): Map<string, Tile> => {
       economicStructure: { ownerId: ME, type: "RELAY_BEACON", status: "active" }
     })
   );
-
-  // Enemy pocket to the south -- visible, but outside my reach.
-  for (let dx = -1; dx <= 1; dx += 1) {
-    for (let dy = 0; dy <= 1; dy += 1) {
-      const x = CENTER + dx;
-      const y = CENTER + 4 + dy;
-      tiles.set(keyFor(x, y), makeTile({ x, y, ownerId: ENEMY, ownershipState: "SETTLED" }));
-    }
-  }
 
   return tiles;
 };
@@ -89,31 +126,52 @@ const render = (args: Args): HTMLElement => {
   stage.scene.add(ground.group);
 
   const tiles = buildWorld();
-  const reach = computeLocalReachSet(tiles, ME);
+  const myReach = computeLocalReachSet(tiles, ME);
+  const enemyReach = computeLocalReachSet(tiles, ENEMY);
   const overlay = createReachOverlay3D(stage.scene, GRID * GRID);
   const reachDeps = { tiles, keyFor, wrapX: wrap, wrapY: wrap };
+  const nowMs = performance.now();
 
-  overlay.clear();
-  for (const tile of tiles.values()) {
-    const x = tile.x - CENTER;
-    const z = tile.y - CENTER;
-    const surfaceY = 0;
-    if (tile.ownerId === ME && isDormantFrontierTile(tile)) {
-      overlay.addDormantFrontierTile(x, z, surfaceY, 1);
-    }
-    if (tile.ownerId && tile.ownerId !== ME && !reach.has(keyFor(tile.x, tile.y))) {
-      overlay.addOutOfReachTile(x, z, surfaceY, 1);
-    }
-    if (tile.ownerId === ME && isReachBoundaryTile(tile.x, tile.y, reach, reachDeps)) {
+  const addEmpireBoundary = (ownerId: string, reach: ReadonlySet<string>): void => {
+    const ownerColor = effectiveOverlayColor(ownerId);
+    for (const tile of tiles.values()) {
+      if (tile.ownerId !== ownerId) continue;
+      const x = tile.x - ORIGIN_X;
+      const z = tile.y - ORIGIN_Y;
+      const surfaceY = 0;
+      if (isDormantFrontierTile(tile)) {
+        overlay.addDormantFrontierTile(x, z, surfaceY, 1);
+        continue;
+      }
+      if (!isReachBoundaryTile(tile.x, tile.y, reach, reachDeps)) continue;
       const edges = {
         top: !reach.has(keyFor(wrap(tile.x), wrap(tile.y - 1))),
         right: !reach.has(keyFor(wrap(tile.x + 1), wrap(tile.y))),
         bottom: !reach.has(keyFor(wrap(tile.x), wrap(tile.y + 1))),
         left: !reach.has(keyFor(wrap(tile.x - 1), wrap(tile.y)))
       };
-      overlay.addBoundaryTile(x, z, surfaceY, 1, edges);
+      overlay.addBoundaryTile(x, z, surfaceY, 1, edges, nowMs, ownerColor);
+      const rightTile = tiles.get(keyFor(wrap(tile.x + 1), tile.y));
+      if (rightTile?.ownerId === ownerId && isReachBoundaryTile(wrap(tile.x + 1), tile.y, reach, reachDeps)) {
+        overlay.addTether(x, z, surfaceY, x + 1, z, surfaceY, nowMs, ownerColor);
+      }
+      const bottomTile = tiles.get(keyFor(tile.x, wrap(tile.y + 1)));
+      if (bottomTile?.ownerId === ownerId && isReachBoundaryTile(tile.x, wrap(tile.y + 1), reach, reachDeps)) {
+        overlay.addTether(x, z, surfaceY, x, z + 1, surfaceY, nowMs, ownerColor);
+      }
+    }
+  };
+
+  overlay.clear();
+  // Out-of-reach dimming: any tile visible-but-unreachable from MY
+  // perspective (the enemy's inner tiles, from my point of view).
+  for (const tile of tiles.values()) {
+    if (tile.ownerId === ENEMY && !myReach.has(keyFor(tile.x, tile.y))) {
+      overlay.addOutOfReachTile(tile.x - ORIGIN_X, tile.y - ORIGIN_Y, 0, 1);
     }
   }
+  addEmpireBoundary(ME, myReach);
+  addEmpireBoundary(ENEMY, enemyReach);
   overlay.commit();
 
   return wrapWithCleanup(stage, [overlay.dispose, ground.dispose]);
@@ -130,4 +188,4 @@ const meta: Meta<Args> = {
 
 export default meta;
 type Story = StoryObj<Args>;
-export const ReachAndDormantFrontier3D: Story = {};
+export const AetherSentryLattice3D: Story = {};
