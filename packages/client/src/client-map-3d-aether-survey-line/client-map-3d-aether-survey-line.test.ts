@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lerpPoint, pulseT, tileQuadCorners } from "./client-map-3d-aether-survey-line.js";
+import { lerpPoint, tileQuadCorners } from "./client-map-3d-aether-survey-line.js";
 
 describe("tileQuadCorners", () => {
   it("returns the 4 corners of a unit tile centered at (x, z)", () => {
@@ -23,21 +23,5 @@ describe("lerpPoint", () => {
     const p0 = { x: 0, y: 0, z: 0 };
     const p1 = { x: 10, y: 4, z: -2 };
     expect(lerpPoint(p0, p1, 0.5)).toEqual({ x: 5, y: 2, z: -1 });
-  });
-});
-
-describe("pulseT", () => {
-  it("loops into [0, 1)", () => {
-    expect(pulseT(0, 1000)).toBe(0);
-    expect(pulseT(500, 1000)).toBe(0.5);
-    expect(pulseT(1000, 1000)).toBe(0);
-    expect(pulseT(1500, 1000)).toBe(0.5);
-  });
-
-  it("handles negative time (wraps forward instead of going negative)", () => {
-    const t = pulseT(-250, 1000);
-    expect(t).toBeGreaterThanOrEqual(0);
-    expect(t).toBeLessThan(1);
-    expect(t).toBeCloseTo(0.75);
   });
 });
