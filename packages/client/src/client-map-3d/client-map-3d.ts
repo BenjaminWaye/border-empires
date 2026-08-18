@@ -74,7 +74,7 @@ import {
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
-import { createReachOverlay3D } from "../client-map-3d-aether-sentry-lattice/client-map-3d-aether-sentry-lattice.js";
+import { createReachOverlay3D, pylonEdgeOffset } from "../client-map-3d-aether-sentry-lattice/client-map-3d-aether-sentry-lattice.js";
 import { computeLocalReachSet, isDormantFrontierTile, isReachBoundaryTile } from "../client-reach-overlay/client-reach-overlay.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
@@ -1851,6 +1851,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             };
             const ownerColor = deps.effectiveOverlayColor(tile.ownerId);
             reachOverlay3D.addBoundaryTile(x, z, surfaceY, 1, edges, reach3DNowMs, ownerColor);
+            // Tether endpoints must land where the pylons actually stand
+            // (on their own edge, via pylonEdgeOffset -- see
+            // addBoundaryTile), not at raw tile centers, or the tether
+            // would visually disconnect from the posts it's meant to link.
+            const { dx: dx0, dz: dz0 } = pylonEdgeOffset(edges);
             // Tethers to the right/bottom neighbour only (each edge drawn
             // once) when that neighbour tile is also this same player's
             // reach-boundary tile -- chains the pylons along a straight run
@@ -1861,7 +1866,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
               rightTile?.ownerId === deps.state.me &&
               isReachBoundaryTile(deps.wrapX(wx + 1), wy, reach3DCache, reach3DDeps)
             ) {
-              reachOverlay3D.addTether(x, z, surfaceY, x + 1, z, surfaceY, reach3DNowMs, ownerColor);
+              const rightEdges = {
+                top: !reach3DCache.has(deps.keyFor(deps.wrapX(wx + 1), deps.wrapY(wy - 1))),
+                right: !reach3DCache.has(deps.keyFor(deps.wrapX(wx + 2), deps.wrapY(wy))),
+                bottom: !reach3DCache.has(deps.keyFor(deps.wrapX(wx + 1), deps.wrapY(wy + 1))),
+                left: !reach3DCache.has(deps.keyFor(deps.wrapX(wx), deps.wrapY(wy)))
+              };
+              const { dx: dx1, dz: dz1 } = pylonEdgeOffset(rightEdges);
+              reachOverlay3D.addTether(x + dx0, z + dz0, surfaceY, x + 1 + dx1, z + dz1, surfaceY, reach3DNowMs, ownerColor);
             }
             const bottomKey = deps.keyFor(wx, deps.wrapY(wy + 1));
             const bottomTile = deps.state.tiles.get(bottomKey);
@@ -1869,7 +1881,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
               bottomTile?.ownerId === deps.state.me &&
               isReachBoundaryTile(wx, deps.wrapY(wy + 1), reach3DCache, reach3DDeps)
             ) {
-              reachOverlay3D.addTether(x, z, surfaceY, x, z + 1, surfaceY, reach3DNowMs, ownerColor);
+              const bottomEdges = {
+                top: !reach3DCache.has(deps.keyFor(deps.wrapX(wx), deps.wrapY(wy))),
+                right: !reach3DCache.has(deps.keyFor(deps.wrapX(wx + 1), deps.wrapY(wy + 1))),
+                bottom: !reach3DCache.has(deps.keyFor(deps.wrapX(wx), deps.wrapY(wy + 2))),
+                left: !reach3DCache.has(deps.keyFor(deps.wrapX(wx - 1), deps.wrapY(wy + 1)))
+              };
+              const { dx: dx1, dz: dz1 } = pylonEdgeOffset(bottomEdges);
+              reachOverlay3D.addTether(x + dx0, z + dz0, surfaceY, x + dx1, z + 1 + dz1, surfaceY, reach3DNowMs, ownerColor);
             }
           }
         }

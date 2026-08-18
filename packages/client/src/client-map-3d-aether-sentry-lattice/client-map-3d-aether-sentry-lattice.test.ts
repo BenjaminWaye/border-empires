@@ -3,7 +3,7 @@ import {
   catenaryPoint,
   hasAnyEdge,
   isCornerPylon,
-  pylonInsetOffset,
+  pylonEdgeOffset,
   tetherSparkT,
   tileQuadCorners
 } from "./client-map-3d-aether-sentry-lattice.js";
@@ -52,37 +52,43 @@ describe("isCornerPylon", () => {
   });
 });
 
-describe("pylonInsetOffset", () => {
+describe("pylonEdgeOffset", () => {
   it("is zero with no active edges", () => {
-    expect(pylonInsetOffset(NO_EDGES)).toEqual({ dx: 0, dz: 0 });
+    expect(pylonEdgeOffset(NO_EDGES)).toEqual({ dx: 0, dz: 0 });
   });
 
-  it("pushes south (+z) away from a top edge", () => {
-    const { dx, dz } = pylonInsetOffset({ ...NO_EDGES, top: true });
+  it("pushes north (-z) onto a top edge", () => {
+    const { dx, dz } = pylonEdgeOffset({ ...NO_EDGES, top: true });
     expect(dx).toBeCloseTo(0);
-    expect(dz).toBeGreaterThan(0);
-  });
-
-  it("pushes north (-z) away from a bottom edge", () => {
-    const { dz } = pylonInsetOffset({ ...NO_EDGES, bottom: true });
     expect(dz).toBeLessThan(0);
   });
 
-  it("pushes east (+x) away from a left edge", () => {
-    const { dx } = pylonInsetOffset({ ...NO_EDGES, left: true });
+  it("pushes south (+z) onto a bottom edge", () => {
+    const { dz } = pylonEdgeOffset({ ...NO_EDGES, bottom: true });
+    expect(dz).toBeGreaterThan(0);
+  });
+
+  it("pushes west (-x) onto a left edge", () => {
+    const { dx } = pylonEdgeOffset({ ...NO_EDGES, left: true });
+    expect(dx).toBeLessThan(0);
+  });
+
+  it("pushes east (+x) onto a right edge", () => {
+    const { dx } = pylonEdgeOffset({ ...NO_EDGES, right: true });
     expect(dx).toBeGreaterThan(0);
   });
 
-  it("pushes west (-x) away from a right edge", () => {
-    const { dx } = pylonInsetOffset({ ...NO_EDGES, right: true });
-    expect(dx).toBeLessThan(0);
+  it("blends both axes for a corner, landing near the tile's corner vertex", () => {
+    const { dx, dz } = pylonEdgeOffset({ top: true, right: true, bottom: false, left: false });
+    expect(dz).toBeLessThan(0);
+    expect(dx).toBeGreaterThan(0);
+    expect(Math.hypot(dx, dz)).toBeCloseTo(0.42, 5);
   });
 
-  it("blends both axes for a corner and stays a bounded-length offset", () => {
-    const { dx, dz } = pylonInsetOffset({ top: true, right: true, bottom: false, left: false });
-    expect(dz).toBeGreaterThan(0);
-    expect(dx).toBeLessThan(0);
-    expect(Math.hypot(dx, dz)).toBeCloseTo(0.12, 5);
+  it("lands close to a half-tile away, on the edge itself rather than the tile center", () => {
+    const { dz } = pylonEdgeOffset({ ...NO_EDGES, top: true });
+    expect(Math.abs(dz)).toBeGreaterThan(0.35);
+    expect(Math.abs(dz)).toBeLessThan(0.5);
   });
 });
 
