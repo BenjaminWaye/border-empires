@@ -91,28 +91,36 @@ export const hasAnyEdge = (edges: ReachEdges): boolean => edges.top || edges.rig
  */
 export const isCornerPylon = (edges: ReachEdges): boolean => (edges.top || edges.bottom) && (edges.left || edges.right);
 
-const PYLON_INSET_AMOUNT = 0.12;
+// Just shy of a full half-tile (0.5) so the pylon sits right on the tile
+// boundary line itself without its base geometry clipping through the
+// neighbouring tile's ground plane.
+const PYLON_EDGE_OFFSET_AMOUNT = 0.42;
 
 /**
+ * A sentry pylon marks a boundary EDGE, not a tile center -- it should
+ * stand on the line between the owned tile and its out-of-reach neighbour,
+ * the way a real border post stands on the border, not in the middle of a
+ * field. Pure function: sums an outward unit push toward every active edge
+ * and returns the (unnormalized) offset to add to the tile-center position,
+ * landing the pylon almost exactly on that edge (or, for a corner tile with
+ * two active edges, on the tile's corner vertex where both edges meet).
+ *
  * Reach borders never overlap between players (each tile is clipped to at
- * most one owner), so an enemy's boundary pylons can sit on tiles directly
- * adjacent to yours along a contested front. Nudging each pylon a little
- * toward the interior of its own tile (away from the out-of-reach edges
- * that made it a boundary tile in the first place) keeps two facing rows of
- * posts from visually merging into one line from a normal play-camera
- * angle. Pure function: sums an inward unit push for every active edge and
- * returns the (unnormalized) offset to add to the tile-center position.
+ * most one owner), so an enemy's boundary pylons can sit on the tile
+ * directly across the line from yours -- each side's posts standing right
+ * at their own edge is exactly what should make a contested border read as
+ * two real fortifications facing off, not two rows merged into one.
  */
-export const pylonInsetOffset = (edges: ReachEdges): { readonly dx: number; readonly dz: number } => {
+export const pylonEdgeOffset = (edges: ReachEdges): { readonly dx: number; readonly dz: number } => {
   let dx = 0;
   let dz = 0;
-  if (edges.top) dz += 1; // north neighbour is out of reach -> nudge south (+z), into own tile
-  if (edges.bottom) dz -= 1;
-  if (edges.left) dx += 1; // west neighbour is out of reach -> nudge east (+x), into own tile
-  if (edges.right) dx -= 1;
+  if (edges.top) dz -= 1; // north neighbour is out of reach -> push north (-z), onto that edge
+  if (edges.bottom) dz += 1;
+  if (edges.left) dx -= 1; // west neighbour is out of reach -> push west (-x), onto that edge
+  if (edges.right) dx += 1;
   const len = Math.hypot(dx, dz);
   if (len === 0) return { dx: 0, dz: 0 };
-  return { dx: (dx / len) * PYLON_INSET_AMOUNT, dz: (dz / len) * PYLON_INSET_AMOUNT };
+  return { dx: (dx / len) * PYLON_EDGE_OFFSET_AMOUNT, dz: (dz / len) * PYLON_EDGE_OFFSET_AMOUNT };
 };
 
 export type Vec3Like = { readonly x: number; readonly y: number; readonly z: number };
@@ -405,7 +413,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     const cursor = corner ? cornerCursor : straightCursor;
     if (cursor >= pool.length) return;
     const sentry = pool[cursor]!;
-    const { dx, dz } = pylonInsetOffset(edges);
+    const { dx, dz } = pylonEdgeOffset(edges);
     sentry.group.position.set(x + dx * size, surfaceY + PYLON_LIFT, z + dz * size);
     sentry.group.scale.setScalar(size);
     if (sentry.coreMaterial) sentry.coreMaterial.color = new Color(normalizeColorForThree(ownerColor));

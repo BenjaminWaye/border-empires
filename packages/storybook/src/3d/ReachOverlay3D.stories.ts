@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/html-vite";
-import { createReachOverlay3D } from "@client/client-map-3d-aether-sentry-lattice/client-map-3d-aether-sentry-lattice.js";
+import { createReachOverlay3D, pylonEdgeOffset } from "@client/client-map-3d-aether-sentry-lattice/client-map-3d-aether-sentry-lattice.js";
 import {
   computeLocalReachSet,
   isDormantFrontierTile,
@@ -151,13 +151,31 @@ const render = (args: Args): HTMLElement => {
         left: !reach.has(keyFor(wrap(tile.x - 1), wrap(tile.y)))
       };
       overlay.addBoundaryTile(x, z, surfaceY, 1, edges, nowMs, ownerColor);
+      // Tether endpoints must land on the pylons' actual edge positions
+      // (via pylonEdgeOffset, same as addBoundaryTile), not raw tile
+      // centers, or the tether would visually disconnect from the posts.
+      const { dx: dx0, dz: dz0 } = pylonEdgeOffset(edges);
       const rightTile = tiles.get(keyFor(wrap(tile.x + 1), tile.y));
       if (rightTile?.ownerId === ownerId && isReachBoundaryTile(wrap(tile.x + 1), tile.y, reach, reachDeps)) {
-        overlay.addTether(x, z, surfaceY, x + 1, z, surfaceY, nowMs, ownerColor);
+        const rightEdges = {
+          top: !reach.has(keyFor(wrap(tile.x + 1), wrap(tile.y - 1))),
+          right: !reach.has(keyFor(wrap(tile.x + 2), wrap(tile.y))),
+          bottom: !reach.has(keyFor(wrap(tile.x + 1), wrap(tile.y + 1))),
+          left: !reach.has(keyFor(wrap(tile.x), wrap(tile.y)))
+        };
+        const { dx: dx1, dz: dz1 } = pylonEdgeOffset(rightEdges);
+        overlay.addTether(x + dx0, z + dz0, surfaceY, x + 1 + dx1, z + dz1, surfaceY, nowMs, ownerColor);
       }
       const bottomTile = tiles.get(keyFor(tile.x, wrap(tile.y + 1)));
       if (bottomTile?.ownerId === ownerId && isReachBoundaryTile(tile.x, wrap(tile.y + 1), reach, reachDeps)) {
-        overlay.addTether(x, z, surfaceY, x, z + 1, surfaceY, nowMs, ownerColor);
+        const bottomEdges = {
+          top: !reach.has(keyFor(wrap(tile.x), wrap(tile.y))),
+          right: !reach.has(keyFor(wrap(tile.x + 1), wrap(tile.y + 1))),
+          bottom: !reach.has(keyFor(wrap(tile.x), wrap(tile.y + 2))),
+          left: !reach.has(keyFor(wrap(tile.x - 1), wrap(tile.y + 1)))
+        };
+        const { dx: dx1, dz: dz1 } = pylonEdgeOffset(bottomEdges);
+        overlay.addTether(x + dx0, z + dz0, surfaceY, x + dx1, z + 1 + dz1, surfaceY, nowMs, ownerColor);
       }
     }
   };
