@@ -239,20 +239,18 @@ jobs:
             exit 0
           fi
 
-          # docs/load-results/ is gitignored by default (agents historically
-          # dumped scratch output there); force-add just the dated result file.
-          git add -f "${RESULT_FILE}"
-          git diff --cached --quiet && echo "Nothing to commit." && exit 0
-
           GATE_STATUS="PASS"
           if [ "${{ steps.gate-check.outcome }}" != "success" ]; then
             GATE_STATUS="FAIL"
           fi
-
           COMMIT_MSG=$'ci: load harness '"${DATE}"$' — gates '"${GATE_STATUS}"$'\n\nAuto-committed by nightly-load-harness workflow (local fixture run).\nRun: '"${{ github.run_id }}"
-          git commit -m "${COMMIT_MSG}"
 
           if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            # docs/load-results/ is gitignored by default (agents historically
+            # dumped scratch output there); force-add just the dated result file.
+            git add -f "${RESULT_FILE}"
+            git diff --cached --quiet && echo "Nothing to commit." && exit 0
+            git commit -m "${COMMIT_MSG}"
             echo "Not on main (ref=${GITHUB_REF}) — skipping push to avoid fast-forwarding main from a feature branch."
             exit 0
           fi
@@ -262,8 +260,23 @@ jobs:
           # it via an auto-merged PR instead of `git push origin HEAD:main`.
           # --admin bypasses any review requirement so a results-only commit
           # doesn't need a human to babysit it every night.
+          #
+          # Create+checkout the branch BEFORE committing, so local `main`'s
+          # ref is never advanced past whatever origin/main was at checkout.
+          # Committing on main first (then branching off it) left local main
+          # one commit ahead of origin/main for the rest of the job; if
+          # another PR merged into main mid-run, local main genuinely
+          # diverged from origin/main by the time `gh pr create` ran (it
+          # does an internal fast-forward sync of the local base branch),
+          # and that sync fatally failed, aborting the whole step before the
+          # create/merge retry loop below was ever reached.
           RESULT_BRANCH="ci/load-harness-results-${DATE}-${{ github.run_id }}"
           git checkout -b "${RESULT_BRANCH}"
+
+          git add -f "${RESULT_FILE}"
+          git diff --cached --quiet && echo "Nothing to commit." && exit 0
+          git commit -m "${COMMIT_MSG}"
+
           git push origin "${RESULT_BRANCH}"
 
           # gh pr create/merge occasionally hit a transient GitHub API error
