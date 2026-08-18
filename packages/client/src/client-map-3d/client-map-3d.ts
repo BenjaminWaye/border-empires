@@ -74,7 +74,7 @@ import {
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
-import { createReachOverlay3D } from "../client-map-3d-reach-overlay/client-map-3d-reach-overlay.js";
+import { createReachOverlay3D } from "../client-map-3d-aether-sentry-lattice/client-map-3d-aether-sentry-lattice.js";
 import { computeLocalReachSet, isDormantFrontierTile, isReachBoundaryTile } from "../client-reach-overlay/client-reach-overlay.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
@@ -1370,6 +1370,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       reach3DCacheRevision = -1;
     }
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
+    const reach3DNowMs = performance.now();
 
     const perTileLoopStartAt = performance.now();
     for (let dy = -halfH - 1; dy <= halfH + 1; dy += 1) {
@@ -1827,9 +1828,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             };
           }
         }
-        // Fixed-borders-via-reach 3D overlay (dormant-frontier fill,
-        // out-of-reach dimming, reach boundary energy-fence). Mirrors the
-        // 2D path's conditions in client-runtime-loop.ts exactly.
+        // Aether Sentry Lattice 3D overlay (dormant-frontier fill,
+        // out-of-reach dimming, reach-boundary sentry pylons + tethers).
+        // Mirrors the 2D path's conditions in client-runtime-loop.ts
+        // exactly. All boundary tiles here are the local player's own
+        // (tile.ownerId === deps.state.me) -- computeLocalReachSet is
+        // scoped per-player, so tethers only ever connect same-owner
+        // pylons, never bridge across an ownership boundary.
         if (reach3DActive && reach3DCache && tile && visibility === "visible") {
           if (tile.ownerId === deps.state.me && isDormantFrontierTile(tile)) {
             reachOverlay3D.addDormantFrontierTile(x, z, surfaceY, 1);
@@ -1844,7 +1849,28 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
               bottom: !reach3DCache.has(deps.keyFor(deps.wrapX(wx), deps.wrapY(wy + 1))),
               left: !reach3DCache.has(deps.keyFor(deps.wrapX(wx - 1), deps.wrapY(wy)))
             };
-            reachOverlay3D.addBoundaryTile(x, z, surfaceY, 1, edges);
+            const ownerColor = deps.effectiveOverlayColor(tile.ownerId);
+            reachOverlay3D.addBoundaryTile(x, z, surfaceY, 1, edges, reach3DNowMs, ownerColor);
+            // Tethers to the right/bottom neighbour only (each edge drawn
+            // once) when that neighbour tile is also this same player's
+            // reach-boundary tile -- chains the pylons along a straight run
+            // without ever bridging a tile owned by someone else.
+            const rightKey = deps.keyFor(deps.wrapX(wx + 1), deps.wrapY(wy));
+            const rightTile = deps.state.tiles.get(rightKey);
+            if (
+              rightTile?.ownerId === deps.state.me &&
+              isReachBoundaryTile(deps.wrapX(wx + 1), wy, reach3DCache, reach3DDeps)
+            ) {
+              reachOverlay3D.addTether(x, z, surfaceY, x + 1, z, surfaceY, reach3DNowMs, ownerColor);
+            }
+            const bottomKey = deps.keyFor(wx, deps.wrapY(wy + 1));
+            const bottomTile = deps.state.tiles.get(bottomKey);
+            if (
+              bottomTile?.ownerId === deps.state.me &&
+              isReachBoundaryTile(wx, deps.wrapY(wy + 1), reach3DCache, reach3DDeps)
+            ) {
+              reachOverlay3D.addTether(x, z, surfaceY, x, z + 1, surfaceY, reach3DNowMs, ownerColor);
+            }
           }
         }
         if (deps.state.showWeakDefensibility && isOwnedSettledLandTile(tile, deps.state.me)) {
