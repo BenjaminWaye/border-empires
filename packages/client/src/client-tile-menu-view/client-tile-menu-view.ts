@@ -366,8 +366,6 @@ export const menuOverviewForTile = (
     townNextGrowthEtaLabel: (town: NonNullable<Tile["town"]>, options?: { explainUnfed?: boolean }) => string;
     supportedOwnedTownsForTile: (tile: Tile) => Tile[];
     connectedDockCountForTile: (tile: Tile) => number;
-    currentManpower: number;
-    currentManpowerCap: number;
     hostileObservatoryProtectingTile: (tile: Tile) => unknown;
     constructionCountdownLineForTile: (tile: Tile) => string;
     tileHistoryLines: (tile: Tile) => string[];
@@ -477,11 +475,6 @@ export const menuOverviewForTile = (
       (tile.town.populationGrowthPerMinute ?? 0) <= 0.001
     ) {
       pushLine("Town is unfed. Add more FOOD upkeep coverage or settle nearby fish or grain.");
-    } else if (
-      tile.town.goldIncomePausedReason === "MANPOWER_NOT_FULL" &&
-      deps.currentManpower + 0.001 < deps.currentManpowerCap
-    ) {
-      pushLine("Town is fed but gold is paused until your empire manpower is full.");
     }
     if (hasOwnedLandState && isSettled && tile.town.connectedTownCount === 0 && tile.town.populationTier !== "SETTLEMENT") {
       pushLine("Connect this town to other towns to gain bonus gold production.");

@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787084630235, // 2026.08.18
+    introducedIn: "2026.08.18",
+    title: "Removed a stale \"gold paused until manpower is full\" message that could no longer appear",
+    why: "The town info panel had leftover copy and a data field for a gold-pause condition the server never actually sends, so it was permanently dead code. Removed it to keep the panel's messaging accurate to what the server can report.",
+    changes: [
+      "The tile info panel no longer has an unreachable \"Town is fed but gold is paused until your empire manpower is full\" line.",
+      "No mechanical change — this condition was never triggered by the server."
+    ]
+  },
+  {
     createdAt: 1787041917435, // 2026.08.17.3
     introducedIn: "2026.08.17.3",
     title: "Battle dots no longer pop when the clash hands off into rout",
@@ -222,106 +232,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "A ready flag now only fires an attack directly when it's actually adjacent to the target (or a valid dock crossing).",
       "A ready flag that's in range but not adjacent stages/parks as before, so it can march into position instead of being rejected."
-    ]
-  },
-  {
-    createdAt: 1786550100000, // 2026.08.12.11
-    introducedIn: "2026.08.12.11",
-    title: "Fixed: manually targeted attacks from a ready muster flag never fired",
-    why: "Steering an attack onto a specific enemy tile — rather than letting a flag's ADVANCE mode auto-pick a target — silently re-queued the attack forever instead of sending it, even once the flag held well over the required manpower. The flag would just sit there fully mustered and nothing would happen.",
-    changes: [
-      "Manually targeting an attack now fires immediately once a muster flag in range already has enough manpower staged, instead of endlessly re-parking the attack.",
-      "Applies to both close-range flags and flags reached via a dock sea crossing."
-    ]
-  },
-  {
-    createdAt: 1786546500000, // 2026.08.12.10
-    introducedIn: "2026.08.12.10",
-    title: "Market renamed to Mintworks, with a new 3D overlay and icon",
-    why: "\"Market\" read as a trading post, which isn't what the building does — it's the empire's gold-minting workshop, easy to confuse with the unrelated Market town archetype. Renamed the structure to Mintworks (town archetype naming is unaffected) and gave it a dedicated look worthy of the name: a giant mechanical coin press instead of the old fruit-stall-with-an-awning placeholder.",
-    changes: [
-      "The Market structure is now called Mintworks everywhere — build menu, tile info, tooltips, and the Development queue.",
-      "Added a dedicated 3D overlay for Mintworks: a dark-iron industrial hall with a giant brass coin press, flywheel, gear train, rear furnace, ingot stocks, coin trays, and coin crates.",
-      "Added a matching 2D flat-color Mintworks icon for the overlay gallery.",
-      "Existing Market structures on the map keep working under the new name — no rebuild needed."
-    ]
-  },
-  {
-    createdAt: 1786545979000, // 2026.08.12.9
-    introducedIn: "2026.08.12.9",
-    title: "Fixed: Titanium/Umbrite Weapons Factory bonus was silently scoped to a single town network instead of empire-wide",
-    why: "Titanium/Umbrite Weapons Factories were combat-relevant only if they happened to sit in the connected-town network nearest whichever tile was attacking or defending — build one at a second, disconnected town and it contributed nothing to a fight fought elsewhere. Nothing in the game ever told players this; the build tooltip and structure-info text actually claimed the opposite ('scoped to this town's connected network' read as intentional, not as a gotcha), and the just-added combat breakdown panel would have shown a number that quietly changed depending on which tile you attacked from. Weapons Workshop, the structure these replaced, was always empire-wide — this brings Weapons Factories in line with it.",
-    changes: [
-      "Titanium/Umbrite Weapons Factory attack/defense bonuses are now empire-wide: every active copy you own counts toward every fight, regardless of which town network it's connected to or how far it is from the battle.",
-      "Build tooltips and structure-info text for both factories updated to say 'empire-wide' instead of the old (now incorrect) 'scoped to this town's connected network' claim.",
-      "The live Launch Attack preview now actually includes Weapons Workshop/Weapons Factory bonuses and the 'no war industry' vulnerability penalty in its win-chance number — previously the preview omitted all three and only the resolved combat applied them, so the number shown before committing to an attack could be meaningfully wrong."
-    ]
-  },
-  {
-    createdAt: 1786543467000, // 2026.08.12.8
-    introducedIn: "2026.08.12.8",
-    title: "Added: a full \"show your work\" breakdown for combat power and win chance",
-    why: "Win chance showed up as a single percentage with no way to see what produced it, and the Attack/Defense stats in the tech tab were shown as vague % deltas that didn't even correspond to the numbers combat actually used — worse, a couple of domains (Titanium Dominion, War Foundries) promised a flat attack/defense bonus in their description that silently never applied to any fight. Both are now the same real numbers: BASE_COMBAT_POWER x persistent infrastructure x this-battle modifiers.",
-    changes: [
-      "Tech tab's Attack/Defense stats now show the actual effective combat-power number (e.g. \"11.8\") instead of a % delta — press either stat to inspect every contributing multiplier.",
-      "The Launch Attack button now shows a breakdown panel: each side's calculated base power (the same number the tech tab shows), the modifiers specific to this fight as a signed %, the resulting effective attack/defense, and the win-chance formula itself.",
-      "Fixed: tech/domain flat attack/defense bonuses (e.g. Titanium Dominion's +18%/+18%, War Foundries' +8% attack) now actually apply to combat instead of only being displayed."
-    ]
-  },
-  {
-    createdAt: 1786536900000, // 2026.08.12.7
-    introducedIn: "2026.08.12.7",
-    title: "Fixed: Aether Purge (and other Observatory abilities) still asking for gold/crystal",
-    why: "An earlier release dropped the stale price tags from the ability info panel, but the tile-targeting menu — the button you actually click to cast — had its own separate gold/crystal checks that were never touched, so Aether Purge still refused to fire below 3,000 gold. Aether EMP, Retort Recast, Create/Remove Mountain, and Launch Satellite had the same leftover checks.",
-    changes: [
-      "Removed the stale client-side gold/crystal gates on Aether Purge, Aether EMP, Retort Recast, Create Mountain, Remove Mountain, and Launch Satellite — casting them no longer requires resources they don't actually cost."
-    ]
-  },
-  {
-    createdAt: 1786533000000, // 2026.08.12.6
-    introducedIn: "2026.08.12.6",
-    title: "Fixed: zoom/pan stutter from the ownership tint overlay",
-    why: "A CPU profile taken mid-zoom showed bufferSubData eating 65% of main-thread time. The ownership overlay's commit() set needsUpdate on its position/color/index buffers without scoping the upload range, so every terrain rebuild reuploaded the full worst-case buffer (sized for the whole tile budget across 4 mesh targets) instead of just the tiles actually written that frame — the same bug class as the heightfield skirt-buffer fix, in a different overlay.",
-    changes: [
-      "Ownership overlay buffer uploads are now scoped to the written tile range instead of reuploading the whole allocation on every rebuild, cutting zoom/pan jank."
-    ]
-  },
-  {
-    createdAt: 1786530294000, // 2026.08.12.5
-    introducedIn: "2026.08.12.5",
-    title: "Fixed: Activity Feed timestamps stuck showing raw minutes forever",
-    why: "Feed entries persist for a session, so their age can run from seconds to months, but the timestamp label only ever scaled up to whole minutes — an entry from 14 hours ago read as '833m ago' instead of converting to hours, days, weeks, or months.",
-    changes: [
-      "Activity Feed timestamps now scale through s/m/h/d/w/mo depending on age, instead of showing raw minutes no matter how old the entry is."
-    ]
-  },
-  {
-    createdAt: 1786528967000, // 2026.08.12.4
-    introducedIn: "2026.08.12.4",
-    title: "Fixed: attack outcomes (manpower spent, gold/resources plundered) never actually reached the Activity Feed",
-    why: "The simulation computed a full combat outcome for every resolved attack — manpower spent, gold and resources plundered — but the gateway never forwarded that event to the attacker. combatResolutionAlert() and the client's COMBAT_RESULT listener had been dead code on the wire since the rewrite-stack gateway shipped; the only feedback an attacker ever got was the tile silently changing hands.",
-    changes: [
-      "Attack results now post a real Activity Feed entry naming manpower lost and, on a win, gold/resources plundered — not just a tile flip.",
-      "The player being raided now also gets their own Activity Feed entry (with a Go to tile button) naming the attacker and what was pillaged from them — previously they got nothing beyond the pre-resolution 'under attack' alert."
-    ]
-  },
-  {
-    createdAt: 1786526599000, // 2026.08.12.3
-    introducedIn: "2026.08.12.3",
-    title: "Development queue now fills silently once it hits its total cap",
-    why: "The total dev-queue cap exists as a defensive backstop, not something players are meant to actually hit in normal play — but the 'Development queue is full' Activity Feed warning fired as if it were a real, expected rejection, which read as broken rather than as the edge case it is.",
-    changes: [
-      "Queuing an action once the development queue is at its total cap no longer posts an Activity Feed warning — the action is silently dropped, matching how an already-queued action is already handled."
-    ]
-  },
-  {
-    createdAt: 1786528000000, // 2026.08.12.1
-    introducedIn: "2026.08.12.1",
-    title: "Aether abilities are now free of gold and crystal cost",
-    why: "Most Observatory aether abilities were already free server-side, but the info panel still showed stale gold/crystal price tags. A few abilities (mountain shaping, satellite launch) did charge real gold. Both are now free, and the panel no longer shows a Cost row for any ability.",
-    changes: [
-      "Removed the gold cost checks for Create Mountain, Remove Mountain, and Launch Satellite — they're free to cast now.",
-      "The ability info panel no longer shows a Cost row for any Observatory ability."
     ]
   },
   {
