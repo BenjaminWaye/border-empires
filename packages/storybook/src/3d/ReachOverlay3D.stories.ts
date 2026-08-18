@@ -4,10 +4,8 @@ import {
   computeLocalReachSet,
   filterReachToLand,
   isDormantFrontierTile,
-  pylonEdgeOffset,
-  reachEdgesForTile,
   samplePerimeterPylons,
-  traceReachBoundaryLoops
+  traceReachBoundaryEdgeLoops
 } from "@client/client-reach-overlay/client-reach-overlay.js";
 import type { Tile } from "@client/client-types.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
@@ -17,10 +15,10 @@ import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.
  * (client-map-3d-aether-survey-line.ts) rendered in an actual Three.js
  * scene: sparse brass survey pylons placed only every ~10-15 tiles along
  * the traced reach-boundary perimeter (see client-reach-overlay.ts's
- * traceReachBoundaryLoops/samplePerimeterPylons), connected by hair-thin
+ * traceReachBoundaryEdgeLoops/samplePerimeterPylons), connected by hair-thin
  * glowing aether chords with an occasional travelling pulse, plus a "dead"
  * powered-down pylon stub on a dormant-frontier tile. Reuses the exact same
- * pure computeLocalReachSet/isDormantFrontierTile/traceReachBoundaryLoops/
+ * pure computeLocalReachSet/isDormantFrontierTile/traceReachBoundaryEdgeLoops/
  * samplePerimeterPylons helpers the 2D canvas path and client-map-3d.ts use,
  * so this is only exercising new *rendering* code on top of already-correct
  * logic.
@@ -158,25 +156,21 @@ const render = (args: Args): HTMLElement => {
 
   const addEmpireBoundary = (ownerId: string, reach: ReadonlySet<string>): void => {
     const ownerColor = effectiveOverlayColor(ownerId);
-    const loops = traceReachBoundaryLoops(reach, reachDeps);
+    const loops = traceReachBoundaryEdgeLoops(reach, reachDeps);
     const { pylons, segments } = samplePerimeterPylons(loops);
-    // A survey point stands on the actual boundary line, not the tile
-    // center -- see pylonEdgeOffset's doc comment.
-    const edgeOffsetFor = (x: number, y: number): { dx: number; dz: number } =>
-      pylonEdgeOffset(reachEdgesForTile(x, y, reach, reachDeps));
+    // pylons/segments are grid CORNERS now -- already exactly on the
+    // boundary line, so no edge-offset nudge needed the way the old
+    // tile-based trace required.
     for (const point of pylons.flat()) {
-      const { dx, dz } = edgeOffsetFor(point.x, point.y);
-      overlay.addPylon(point.x - ORIGIN_X + dx, point.y - ORIGIN_Y + dz, 0, 1, nowMs, ownerColor);
+      overlay.addPylon(point.x - ORIGIN_X, point.y - ORIGIN_Y, 0, 1, nowMs, ownerColor);
     }
     for (const segment of segments.flat()) {
-      const from = edgeOffsetFor(segment.from.x, segment.from.y);
-      const to = edgeOffsetFor(segment.to.x, segment.to.y);
       overlay.addLineSegment(
-        segment.from.x - ORIGIN_X + from.dx,
-        segment.from.y - ORIGIN_Y + from.dz,
+        segment.from.x - ORIGIN_X,
+        segment.from.y - ORIGIN_Y,
         0,
-        segment.to.x - ORIGIN_X + to.dx,
-        segment.to.y - ORIGIN_Y + to.dz,
+        segment.to.x - ORIGIN_X,
+        segment.to.y - ORIGIN_Y,
         0,
         ownerColor
       );

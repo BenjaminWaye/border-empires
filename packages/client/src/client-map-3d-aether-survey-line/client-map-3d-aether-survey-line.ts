@@ -6,7 +6,7 @@
 // Unlike the last two rounds (a pylon/effect on every single boundary
 // tile), this design places pylons only every ~10-15 tiles along the
 // player's reach boundary (see client-reach-overlay.ts's
-// traceReachBoundaryLoops/samplePerimeterPylons for the perimeter-walk and
+// traceReachBoundaryEdgeLoops/samplePerimeterPylons for the perimeter-walk and
 // sampling logic that decides WHERE pylons go -- this module only turns
 // "put a pylon here" / "connect these two pylon points" / "this tile is
 // dormant-frontier" / "this tile is out-of-reach" into 3D geometry). The
