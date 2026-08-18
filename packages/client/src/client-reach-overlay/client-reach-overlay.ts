@@ -313,104 +313,141 @@ export const drawDormantFrontierTreatment = (
   ctx.restore();
 };
 
-// --- Perimeter walk (sparse pylon placement) ---------------------------
+// --- Perimeter trace (sparse pylon placement) ---------------------------
 //
 // The Aether Survey Line places pylons only every ~10-15 tiles along the
 // boundary, connected by chords -- not one marker per boundary tile. That
-// requires an ORDERED walk of the boundary (a "trace the perimeter" /
-// marching-squares-adjacent problem), which isReachBoundaryTile alone
-// doesn't give: it can only say a tile IS on the boundary, not what order
-// to visit boundary tiles in to draw a coherent line around the territory.
+// requires an ORDERED walk of the boundary, which isReachBoundaryTile alone
+// doesn't give: it can only say a tile IS on the boundary, not what order to
+// visit boundary points in to draw a coherent line around the territory.
 //
-// Algorithm (greedy 8-connected walk, documented approximation):
-// 1. Collect every boundary tile (via isReachBoundaryTile) from the tiles
-//    currently known to the client.
-// 2. Repeatedly pick an unvisited boundary tile as the start of a new loop,
-//    then walk: from the current tile, scan its 8 neighbours in a fixed
-//    clockwise order and step to the first unvisited boundary neighbour
-//    found. Mark every tile visited as it's added to the loop. When no
-//    unvisited boundary neighbour remains, that loop ends.
-// 3. Repeat until every boundary tile has been visited, yielding one loop
-//    per connected boundary component (so multiple disconnected owned
-//    regions, or a region with a hole, naturally produce multiple loops).
+// This is an EDGE-based (corner/contour) tracer, not a tile-adjacency walk.
+// A tile-adjacency walk (the original implementation here) picks the
+// "nearest" unvisited boundary TILE as its next step -- for a region with a
+// hole in it (e.g. a lake or mountain carved out of otherwise-contiguous
+// reach by filterReachToLand), the outer boundary can pass close enough to
+// an unrelated inner hole's boundary that the walk hops from one component
+// onto the other, producing a chord that cuts straight across the map. That
+// bug is structurally impossible here, because this tracer never asks "what
+// tile is near me" -- it only ever follows a literal, real tile-edge that
+// exists because one specific tile is in reach and its one specific
+// neighbour isn't. Every step is exactly one grid unit long.
 //
-// This is a greedy nearest-neighbour trace, not a topologically exact
-// contour-following algorithm (e.g. Moore-neighbour boundary tracing with
-// proper "came from" bookkeeping) -- it can occasionally take a locally
-// reasonable but globally sub-optimal step around a sharp notch. That's an
-// acceptable trade at this scale: every boundary tile is still visited
-// exactly once, the walk always terminates (visited-set + hard iteration
-// cap prevent any infinite loop), and consecutive tiles in the resulting
-// loop are always adjacent (4- or 8-connected), so a sampled polyline
-// through it still reads as "roughly the boundary shape" even on an
-// irregular/notched territory. See client-reach-overlay.test.ts for
-// coverage of a square, a notched shape, and two disconnected regions.
+// Algorithm (standard contour/boundary tracing over grid *corners*, not
+// tile centers):
+// 1. A tile (x,y) occupies the four corners (x,y), (x+1,y), (x+1,y+1),
+//    (x,y+1) -- "corner (x,y)" is tile (x,y)'s top-left grid intersection.
+// 2. For every in-reach tile, emit one directed unit edge per out-of-reach
+//    cardinal neighbour, in a fixed clockwise convention (reach is always
+//    on the right-hand side of the direction of travel):
+//      north neighbour out -> edge (x,y) -> (x+1,y)
+//      east  neighbour out -> edge (x+1,y) -> (x+1,y+1)
+//      south neighbour out -> edge (x+1,y+1) -> (x,y+1)
+//      west  neighbour out -> edge (x,y+1) -> (x,y)
+// 3. This produces a directed graph over corners where every node's
+//    in-degree equals its out-degree (each edge is paired with the tile
+//    that emitted it, and the region's boundary is a closed curve by
+//    construction), so following "the edge that starts where the previous
+//    edge ended" always traces out complete closed loops -- one per
+//    connected boundary component, correctly separating an outer boundary
+//    from an inner hole's boundary since they never share a directed edge.
+// See client-reach-overlay.test.ts for coverage of a square, a notched
+// shape, a region with a genuine hole, and two disconnected regions.
 export type TileCoord = { readonly x: number; readonly y: number };
 
-// Clockwise starting from north, so straight runs get walked in a
-// consistent rotational preference rather than zig-zagging.
-const BOUNDARY_WALK_NEIGHBOURS: ReadonlyArray<TileCoord> = [
-  { x: 0, y: -1 },
-  { x: 1, y: -1 },
-  { x: 1, y: 0 },
-  { x: 1, y: 1 },
-  { x: 0, y: 1 },
-  { x: -1, y: 1 },
-  { x: -1, y: 0 },
-  { x: -1, y: -1 }
-];
+/** A grid intersection: corner (x,y) is tile (x,y)'s top-left corner. */
+export type CornerCoord = TileCoord;
+
+type DirectedEdge = { readonly from: CornerCoord; readonly to: CornerCoord };
 
 /**
  * Traces the local player's reach boundary as one or more ordered loops
- * (polylines) of tile coordinates, one loop per connected boundary
- * component. See the algorithm comment above for the walk strategy and its
- * documented limitations.
+ * (polylines) of grid-corner coordinates, one loop per connected boundary
+ * component. See the algorithm comment above. Corner coordinates are the
+ * exact position a border marker should stand at -- no edge-offset nudge
+ * needed afterward, unlike the old tile-based trace.
  */
-export const traceReachBoundaryLoops = (
+export const traceReachBoundaryEdgeLoops = (
   reach: ReadonlySet<string>,
   deps: ReachBoundaryDeps
-): TileCoord[][] => {
-  const byKey = new Map<string, TileCoord>();
+): CornerCoord[][] => {
+  const cornerKey = (c: CornerCoord): string => `${deps.wrapX(c.x)},${deps.wrapY(c.y)}`;
+  const outgoingByCorner = new Map<string, DirectedEdge[]>();
+  const pushEdge = (from: CornerCoord, to: CornerCoord): void => {
+    const key = cornerKey(from);
+    const list = outgoingByCorner.get(key);
+    const edge = { from, to };
+    if (list) list.push(edge);
+    else outgoingByCorner.set(key, [edge]);
+  };
+
+  let totalEdges = 0;
   for (const tile of deps.tiles.values()) {
-    if (!isReachBoundaryTile(tile.x, tile.y, reach, deps)) continue;
-    const key = deps.keyFor(tile.x, tile.y);
-    if (!byKey.has(key)) byKey.set(key, { x: tile.x, y: tile.y });
+    const { x, y } = tile;
+    if (!reach.has(deps.keyFor(x, y))) continue;
+    const north = reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1)));
+    const east = reach.has(deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y)));
+    const south = reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1)));
+    const west = reach.has(deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y)));
+    if (!north) {
+      pushEdge({ x, y }, { x: x + 1, y });
+      totalEdges += 1;
+    }
+    if (!east) {
+      pushEdge({ x: x + 1, y }, { x: x + 1, y: y + 1 });
+      totalEdges += 1;
+    }
+    if (!south) {
+      pushEdge({ x: x + 1, y: y + 1 }, { x, y: y + 1 });
+      totalEdges += 1;
+    }
+    if (!west) {
+      pushEdge({ x, y: y + 1 }, { x, y });
+      totalEdges += 1;
+    }
   }
 
-  const visited = new Set<string>();
-  const loops: TileCoord[][] = [];
-  // Hard cap on total steps across the whole trace (not per-loop) so a
-  // pathological/corrupt reach set can never spin this forever -- every
-  // real step marks a previously-unvisited tile visited, so this is a very
-  // generous upper bound, not something normal input should approach.
-  const maxTotalSteps = byKey.size * 2 + 4;
+  const cursorByCorner = new Map<string, number>();
+  const nextEdgeFrom = (corner: CornerCoord): DirectedEdge | undefined => {
+    const key = cornerKey(corner);
+    const list = outgoingByCorner.get(key);
+    if (!list) return undefined;
+    const cursor = cursorByCorner.get(key) ?? 0;
+    if (cursor >= list.length) return undefined;
+    cursorByCorner.set(key, cursor + 1);
+    return list[cursor];
+  };
+
+  const loops: CornerCoord[][] = [];
+  // Hard cap on total steps across the whole trace so a pathological/
+  // corrupt reach set can never spin this forever -- every real step
+  // consumes one previously-unconsumed edge, so this is a generous upper
+  // bound, not something normal input should approach.
+  const maxTotalSteps = totalEdges * 2 + 4;
   let totalSteps = 0;
 
-  for (const start of byKey.values()) {
-    const startKey = deps.keyFor(start.x, start.y);
-    if (visited.has(startKey)) continue;
-    const loop: TileCoord[] = [];
-    let current: TileCoord | undefined = start;
-    while (current && totalSteps <= maxTotalSteps) {
-      totalSteps += 1;
-      const currentKey = deps.keyFor(current.x, current.y);
-      if (visited.has(currentKey)) break;
-      visited.add(currentKey);
+  for (const [startKey, list] of outgoingByCorner) {
+    while ((cursorByCorner.get(startKey) ?? 0) < list.length && totalSteps <= maxTotalSteps) {
+      const first = nextEdgeFrom(list[0]!.from);
+      if (!first) break;
+      const loop: CornerCoord[] = [first.from];
+      let current = first.to;
       loop.push(current);
-      let next: TileCoord | undefined;
-      for (const offset of BOUNDARY_WALK_NEIGHBOURS) {
-        const nx = deps.wrapX(current.x + offset.x);
-        const ny = deps.wrapY(current.y + offset.y);
-        const nKey = deps.keyFor(nx, ny);
-        const candidate = byKey.get(nKey);
-        if (candidate && !visited.has(nKey)) {
-          next = candidate;
-          break;
-        }
+      totalSteps += 1;
+      while (totalSteps <= maxTotalSteps) {
+        totalSteps += 1;
+        if (cornerKey(current) === cornerKey(first.from)) break;
+        const edge = nextEdgeFrom(current);
+        if (!edge) break;
+        current = edge.to;
+        loop.push(current);
       }
-      current = next;
+      // Drop the closing vertex (same corner as loop[0]) so downstream
+      // consumers see the same "stops just short of repeating the start"
+      // shape the old tile-based walk produced.
+      if (loop.length > 1 && cornerKey(loop[loop.length - 1]!) === cornerKey(loop[0]!)) loop.pop();
+      if (loop.length > 0) loops.push(loop);
     }
-    if (loop.length > 0) loops.push(loop);
   }
   return loops;
 };

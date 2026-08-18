@@ -79,10 +79,8 @@ import {
   computeLocalReachSet,
   filterReachToLand,
   isDormantFrontierTile,
-  pylonEdgeOffset,
-  reachEdgesForTile,
   samplePerimeterPylons,
-  traceReachBoundaryLoops
+  traceReachBoundaryEdgeLoops
 } from "../client-reach-overlay/client-reach-overlay.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
@@ -171,7 +169,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   let reach3DCacheRevision = -1;
   // Sparse pylon placement points + connecting chords, sampled from the
   // traced reach-boundary perimeter (see client-reach-overlay.ts's
-  // traceReachBoundaryLoops/samplePerimeterPylons). Recomputed only when
+  // traceReachBoundaryEdgeLoops/samplePerimeterPylons). Recomputed only when
   // reach3DCache itself is recomputed -- the perimeter walk is more work
   // than a per-tile boundary check, so it must not run every frame.
   let reach3DPylons: { x: number; y: number }[] = [];
@@ -1385,7 +1383,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // terrain) is unaffected; this only trims the visual reach set.
         reach3DCache = filterReachToLand(computeLocalReachSet(deps.state.tiles, deps.state.me), deps.state.tiles, deps.keyFor);
         reach3DCacheRevision = deps.state.tilesRevision;
-        const loops = traceReachBoundaryLoops(reach3DCache, reach3DDeps);
+        const loops = traceReachBoundaryEdgeLoops(reach3DCache, reach3DDeps);
         const { pylons, segments } = samplePerimeterPylons(loops);
         reach3DPylons = pylons.flat();
         reach3DSegments = segments.flat();
@@ -1900,52 +1898,50 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     // out-of-reach gating above.
     if (reach3DActive && reach3DCache && (reach3DPylons.length > 0 || reach3DSegments.length > 0)) {
       const myColor = deps.effectiveOverlayColor(deps.state.me);
-      const surfaceYForTile = (wx: number, wy: number): number => {
-        const wxNext = deps.wrapX(wx + 1);
-        const wyNext = deps.wrapY(wy + 1);
-        return (
-          Math.max(
-            heightfield.elevationAt(wx, wy),
-            heightfield.cornerYAt(wx, wy),
-            heightfield.cornerYAt(wxNext, wy),
-            heightfield.cornerYAt(wx, wyNext),
-            heightfield.cornerYAt(wxNext, wyNext)
-          ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD
-        );
+      // Pylon/segment points are now grid CORNERS (traceReachBoundaryEdgeLoops),
+      // not tile centers -- a corner is already exactly on the boundary line
+      // between owned and out-of-reach ground, so no edge-offset nudge is
+      // needed the way the old tile-based trace required.
+      const surfaceYForCorner = (cx: number, cy: number): number =>
+        heightfield.cornerYAt(deps.wrapX(cx), deps.wrapY(cy)) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+      const isCornerVisible = (cx: number, cy: number): boolean => {
+        // A corner touches up to 4 tiles; treat it visible if any of them is.
+        const candidates: Array<[number, number]> = [
+          [cx, cy],
+          [cx - 1, cy],
+          [cx, cy - 1],
+          [cx - 1, cy - 1]
+        ];
+        return candidates.some(([tx, ty]) => {
+          const wx = deps.wrapX(tx);
+          const wy = deps.wrapY(ty);
+          const t = deps.state.tiles.get(deps.keyFor(wx, wy));
+          const v = deps.tileVisibilityStateAt(wx, wy, t);
+          return v === "visible" || (v === "unexplored" && revealWholeMapInTrue3DMode);
+        });
       };
-      const isPointVisible = (wx: number, wy: number): boolean => {
-        const t = deps.state.tiles.get(deps.keyFor(wx, wy));
-        const v = deps.tileVisibilityStateAt(wx, wy, t);
-        return v === "visible" || (v === "unexplored" && revealWholeMapInTrue3DMode);
-      };
-      // A survey point should stand on the actual line between owned and
-      // out-of-reach ground, not the tile's center -- pylonEdgeOffset
-      // (client-reach-overlay.ts) pushes it ~0.42 units toward whichever
-      // edge(s) made this tile a boundary tile in the first place.
-      const edgeOffsetFor = (wx: number, wy: number): { dx: number; dz: number } =>
-        pylonEdgeOffset(reachEdgesForTile(wx, wy, reach3DCache!, reach3DDeps));
+      // NOTE: corners sit at raw integer grid positions (tile (x,y)'s center
+      // is at grid position x+TILE_CENTER_OFFSET, but its top-left corner is
+      // at grid position x exactly) -- no TILE_CENTER_OFFSET added here.
       for (const point of reach3DPylons) {
-        if (!isPointVisible(point.x, point.y)) continue;
-        const { dx, dz } = edgeOffsetFor(point.x, point.y);
-        const sx = toroidDelta(deps.state.camX, point.x, WORLD_WIDTH) + TILE_CENTER_OFFSET + dx;
-        const sz = toroidDelta(deps.state.camY, point.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET + dz;
-        reachOverlay3D.addPylon(sx, sz, surfaceYForTile(point.x, point.y), 1, reach3DNowMs, myColor);
+        if (!isCornerVisible(point.x, point.y)) continue;
+        const sx = toroidDelta(deps.state.camX, point.x, WORLD_WIDTH);
+        const sz = toroidDelta(deps.state.camY, point.y, WORLD_HEIGHT);
+        reachOverlay3D.addPylon(sx, sz, surfaceYForCorner(point.x, point.y), 1, reach3DNowMs, myColor);
       }
       for (const segment of reach3DSegments) {
-        if (!isPointVisible(segment.from.x, segment.from.y) && !isPointVisible(segment.to.x, segment.to.y)) continue;
-        const from = edgeOffsetFor(segment.from.x, segment.from.y);
-        const to = edgeOffsetFor(segment.to.x, segment.to.y);
-        const sx0 = toroidDelta(deps.state.camX, segment.from.x, WORLD_WIDTH) + TILE_CENTER_OFFSET + from.dx;
-        const sz0 = toroidDelta(deps.state.camY, segment.from.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET + from.dz;
-        const sx1 = toroidDelta(deps.state.camX, segment.to.x, WORLD_WIDTH) + TILE_CENTER_OFFSET + to.dx;
-        const sz1 = toroidDelta(deps.state.camY, segment.to.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET + to.dz;
+        if (!isCornerVisible(segment.from.x, segment.from.y) && !isCornerVisible(segment.to.x, segment.to.y)) continue;
+        const sx0 = toroidDelta(deps.state.camX, segment.from.x, WORLD_WIDTH);
+        const sz0 = toroidDelta(deps.state.camY, segment.from.y, WORLD_HEIGHT);
+        const sx1 = toroidDelta(deps.state.camX, segment.to.x, WORLD_WIDTH);
+        const sz1 = toroidDelta(deps.state.camY, segment.to.y, WORLD_HEIGHT);
         reachOverlay3D.addLineSegment(
           sx0,
           sz0,
-          surfaceYForTile(segment.from.x, segment.from.y),
+          surfaceYForCorner(segment.from.x, segment.from.y),
           sx1,
           sz1,
-          surfaceYForTile(segment.to.x, segment.to.y),
+          surfaceYForCorner(segment.to.x, segment.to.y),
           myColor
         );
       }
