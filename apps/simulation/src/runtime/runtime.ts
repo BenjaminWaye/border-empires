@@ -2791,12 +2791,12 @@ export class SimulationRuntime {
       plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
       ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
       estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
-      neutralBeaconTileKeys: this.neutralBeaconTileKeys,
-      beaconGeneration: this.beaconGeneration,
-      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
-      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer,
-      musterTilesByOwner: this.musterTilesByOwner,
-      ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
+      neutralBeaconTileKeys: this.neutralBeaconTileKeys, beaconGeneration: this.beaconGeneration, yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
+      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer, musterTilesByOwner: this.musterTilesByOwner,
+      playerManpowerCap: (playerId) => { const player = this.players.get(playerId); return player ? this.playerManpowerCap(player) : 0; }, // §9 (see PlannerExportInput's doc comments)
+      playerManpowerRegenPerMinute: (playerId) => { const player = this.players.get(playerId); return player ? this.playerManpowerRegenPerMinute(player) : 0; },
+      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId), ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
     });
   }
 
