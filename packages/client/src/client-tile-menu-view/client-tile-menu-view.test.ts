@@ -47,8 +47,6 @@ const deps = {
   townNextGrowthEtaLabel: () => "never",
   supportedOwnedTownsForTile: () => [] as Tile[],
   connectedDockCountForTile: () => 0,
-  currentManpower: 100,
-  currentManpowerCap: 100,
   hostileObservatoryProtectingTile: () => undefined,
   constructionCountdownLineForTile: () => "",
   tileHistoryLines: () => [] as string[],
@@ -571,8 +569,6 @@ describe("menuOverviewForTile", () => {
       },
       {
         ...deps,
-        currentManpower: 8,
-        currentManpowerCap: 3_150,
         populationPerMinuteLabel: () => "+16.7/m",
         townNextGrowthEtaLabel: () => "City in ~4d"
       }
