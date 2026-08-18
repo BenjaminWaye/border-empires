@@ -50,6 +50,11 @@ export type AutomationFrontPosture = "BREAK" | "CONTAIN" | "TRUCE";
 
 export type AutomationStrategicSnapshot = {
   primaryVictoryPath: AutomationVictoryPath;
+  /** Progress ratio for primaryVictoryPath specifically — see VictoryPathScore.progress.
+   *  Feeds build-need-vector.ts's VICTORY need (§7.2 of
+   *  docs/ai-structure-building-rewrite-plan.md); not otherwise consumed by
+   *  the planner today. */
+  primaryVictoryPathProgress: number;
   strategicFocus: AutomationStrategicFocus;
   frontPosture: AutomationFrontPosture;
   underThreat: boolean;
@@ -75,6 +80,13 @@ type VictoryPathScore = {
   score: number;
   contender: boolean;
   softContender: boolean;
+  /** Progress ratio toward that path's contender threshold (§7.2 of
+   *  docs/ai-structure-building-rewrite-plan.md) — the same ratio that
+   *  produces `contender`/`softContender` above, exported so callers don't
+   *  have to re-derive it. Not clamped to [0, 1]: a dominant empire can run
+   *  well past 1, and a caller wanting a deficit should clamp itself (see
+   *  build-need-vector.ts's VICTORY need). */
+  progress: number;
 };
 
 type StrategicSnapshotInput<TTile extends StrategicTile> = {
@@ -261,48 +273,59 @@ const scoreVictoryPaths = <TTile extends StrategicTile>(
     TOWN_CONTROL: {
       score: townControlScore - crowdingPenalty("TOWN_CONTROL", townControlContender, townControlSoftContender),
       contender: townControlContender,
-      softContender: townControlSoftContender
+      softContender: townControlSoftContender,
+      progress: townProgress
     },
     ECONOMIC_HEGEMONY: {
       score: economicHegemonyScore - crowdingPenalty("ECONOMIC_HEGEMONY", economicContender, economicSoftContender),
       contender: economicContender,
-      softContender: economicSoftContender
+      softContender: economicSoftContender,
+      progress: economyProgress
     },
     RESOURCE_MONOPOLY: {
       score: resourceMonopolyScore - crowdingPenalty("RESOURCE_MONOPOLY", resourceMonopolyContender, resourceMonopolySoftContender),
       contender: resourceMonopolyContender,
-      softContender: resourceMonopolySoftContender
+      softContender: resourceMonopolySoftContender,
+      progress: resourceMonopolyProgress
     },
     MARITIME_SUPREMACY: {
       score: maritimeSupremacyScore - crowdingPenalty("MARITIME_SUPREMACY", maritimeSupremacyContender, maritimeSupremacySoftContender),
       contender: maritimeSupremacyContender,
-      softContender: maritimeSupremacySoftContender
+      softContender: maritimeSupremacySoftContender,
+      progress: maritimeSupremacyProgress
     },
     DIPLOMATIC_DOMINANCE: {
       score: diplomaticDominanceScore - crowdingPenalty("DIPLOMATIC_DOMINANCE", diplomaticDominanceContender, diplomaticDominanceSoftContender),
       contender: diplomaticDominanceContender,
-      softContender: diplomaticDominanceSoftContender
+      softContender: diplomaticDominanceSoftContender,
+      progress: diplomaticControlProgress
     }
   };
 };
 
-const chooseVictoryPath = <TTile extends StrategicTile>(input: StrategicSnapshotInput<TTile>): AutomationVictoryPath => {
+const chooseVictoryPath = <TTile extends StrategicTile>(
+  input: StrategicSnapshotInput<TTile>
+): { path: AutomationVictoryPath; progress: number } => {
   const scores = scoreVictoryPaths(input);
+  const withProgress = (path: AutomationVictoryPath): { path: AutomationVictoryPath; progress: number } => ({
+    path,
+    progress: scores[path].progress
+  });
   const best = (Object.entries(scores) as Array<[AutomationVictoryPath, VictoryPathScore]>).sort(
     (left, right) => right[1].score - left[1].score
   )[0];
   const previous = input.previousVictoryPath;
-  if (!previous) return best?.[0] ?? "DIPLOMATIC_DOMINANCE";
+  if (!previous) return withProgress(best?.[0] ?? "DIPLOMATIC_DOMINANCE");
 
   const previousScore = scores[previous];
-  if (previousScore.contender) return previous;
-  if (!best) return previous;
-  if (best[0] === previous) return previous;
+  if (previousScore.contender) return withProgress(previous);
+  if (!best) return withProgress(previous);
+  if (best[0] === previous) return withProgress(previous);
   if (previousScore.softContender && best[1].score < previousScore.score + VICTORY_PATH_EMERGENCY_REPIVOT_MARGIN) {
-    return previous;
+    return withProgress(previous);
   }
-  if (best[1].score < previousScore.score + VICTORY_PATH_REPIVOT_MARGIN) return previous;
-  return best[0];
+  if (best[1].score < previousScore.score + VICTORY_PATH_REPIVOT_MARGIN) return withProgress(previous);
+  return withProgress(best[0]);
 };
 
 export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
@@ -345,7 +368,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
       pressureAttackScore >= 350 ||
       input.frontierAnalysis.frontierEnemyTargetCount >= Math.max(2, input.frontierAnalysis.frontierNeutralTargetCount + 1)
     );
-  const primaryVictoryPath = chooseVictoryPath(input);
+  const { path: primaryVictoryPath, progress: primaryVictoryPathProgress } = chooseVictoryPath(input);
   // §24.5: kept as an income/tempo signal (not swapped to manpower) per the
   // plan's own reasoning — this gates willingness to break for combat on
   // "is the economy already earning well," which is what gold income
@@ -436,6 +459,7 @@ export const buildAutomationStrategicSnapshot = <TTile extends StrategicTile>(
 
   return {
     primaryVictoryPath,
+    primaryVictoryPathProgress,
     strategicFocus,
     frontPosture,
     underThreat,

@@ -8,7 +8,7 @@ import type { StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-import type { Terrain } from "@border-empires/shared";
+import type { SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
@@ -324,6 +324,16 @@ type PlannerExportInput = {
   plannerPlayerTileKeys: (playerId: string, summary: PlayerRuntimeSummary) => PlannerTileKeys;
   ownedStructureCountsForPlayer: (playerId: string) => PlannerOwnedStructureCounts;
   estimatedIncomePerMinuteForPlayer: (playerId: string) => number;
+  // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): feed the
+  // planner's diagnostic-only needVector. Optional so callers that don't care
+  // about it (tests building a PlannerExportInput by hand) don't need to wire
+  // four more closures — buildRuntimePlannerPlayerViews degrades to omitting
+  // the corresponding PlannerPlayerView fields, and the planner then omits
+  // needVector entirely (see automation-command-planner.ts's needVector gate).
+  playerManpowerCap?: (playerId: string) => number;
+  playerManpowerRegenPerMinute?: (playerId: string) => number;
+  resourceSlotSupplyForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
+  resourceSlotDemandForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
   neutralBeaconTileKeys: ReadonlySet<string>;
   beaconGeneration: number;
   yieldBearingTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
@@ -432,7 +442,17 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         activeMusterCount: input.musterTilesByOwner.get(playerId)?.size ?? 0,
         musterTileKeys: [...(input.musterTilesByOwner.get(playerId) ?? [])],
         ownedTileCount,
-        frontierTileCount
+        frontierTileCount,
+        ...(input.playerManpowerCap ? { manpowerCapacity: input.playerManpowerCap(playerId) } : {}),
+        ...(input.playerManpowerRegenPerMinute
+          ? { manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(playerId) }
+          : {}),
+        ...(input.resourceSlotSupplyForPlayer
+          ? { slotSupplyByResource: input.resourceSlotSupplyForPlayer(playerId) }
+          : {}),
+        ...(input.resourceSlotDemandForPlayer
+          ? { slotDemandByResource: input.resourceSlotDemandForPlayer(playerId) }
+          : {})
       });
     });
   }

@@ -1,5 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import type { EconomicStructureType, Terrain } from "@border-empires/shared";
+import type { EconomicStructureType, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
 /**
@@ -95,6 +95,15 @@ export type PlannerPlayerView = {
   ownedTileCount: number;
   /** Total frontier tiles (frontierTileKeys.length). */
   frontierTileCount: number;
+  // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): diagnostic-only
+  // — feeds automation-command-planner.ts's needVector reporting, nothing
+  // reads these for scoring yet. All optional so a stale/older main-thread
+  // build (or a test fixture) omitting them degrades to "no needVector" rather
+  // than a type error or bad deficit math — see that file's needVector gate.
+  manpowerCapacity?: number;
+  manpowerRegenPerMinute?: number;
+  slotSupplyByResource?: Partial<Record<SlotResource, number>>;
+  slotDemandByResource?: Partial<Record<SlotResource, number>>;
 };
 
 // ─── World view ───────────────────────────────────────────────────────────────

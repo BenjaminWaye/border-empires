@@ -14,6 +14,7 @@
 
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner-types.js";
 import type { FrontierOriginExplanation } from "./planner-candidate-index.js";
+import type { NeedVector } from "./build/build-need-vector.js";
 
 export type AiDecisionDiagnostic = {
   playerId: string;
@@ -70,6 +71,10 @@ export type AiDecisionDiagnostic = {
    *  disambiguates "tile already has structure" from "needs an open
    *  support tile" etc. */
   lastRejection: { commandType: string; code: string; message: string; at: number } | undefined;
+  /** Phase 1 of docs/ai-structure-building-rewrite-plan.md (§4/§9/§10.1):
+   *  measured need deficits, diagnostic-only — see AutomationPlannerDiagnostic's
+   *  needVector doc comment for when this is undefined. */
+  needVector: NeedVector | undefined;
 };
 
 const recentDiagnostics = new Map<string, AiDecisionDiagnostic[]>();
@@ -133,7 +138,8 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     noCommandReason: diagnostic.noCommandReason,
     gates: diagnostic.utilityGates,
     economicBuildCandidate: diagnostic.economicBuildCandidate,
-    lastRejection: lastRejectionByPlayer.get(diagnostic.playerId)
+    lastRejection: lastRejectionByPlayer.get(diagnostic.playerId),
+    needVector: diagnostic.needVector
   });
 };
 
