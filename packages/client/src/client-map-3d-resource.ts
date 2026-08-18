@@ -81,10 +81,20 @@ export const createClientThreeResourceLayer = (scene: Scene, maxVisibleTiles: nu
     furMesh.count = furCount;
     ironMesh.count = ironCount;
     gemsMesh.count = gemsCount;
+    farmMesh.instanceMatrix.clearUpdateRanges();
+    farmMesh.instanceMatrix.addUpdateRange(0, farmMesh.count * 16);
     farmMesh.instanceMatrix.needsUpdate = true;
+    fishMesh.instanceMatrix.clearUpdateRanges();
+    fishMesh.instanceMatrix.addUpdateRange(0, fishMesh.count * 16);
     fishMesh.instanceMatrix.needsUpdate = true;
+    furMesh.instanceMatrix.clearUpdateRanges();
+    furMesh.instanceMatrix.addUpdateRange(0, furMesh.count * 16);
     furMesh.instanceMatrix.needsUpdate = true;
+    ironMesh.instanceMatrix.clearUpdateRanges();
+    ironMesh.instanceMatrix.addUpdateRange(0, ironMesh.count * 16);
     ironMesh.instanceMatrix.needsUpdate = true;
+    gemsMesh.instanceMatrix.clearUpdateRanges();
+    gemsMesh.instanceMatrix.addUpdateRange(0, gemsMesh.count * 16);
     gemsMesh.instanceMatrix.needsUpdate = true;
   };
 

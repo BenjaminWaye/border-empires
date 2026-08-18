@@ -129,7 +129,11 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
         const color = entries[i]!.tintColor;
         for (let sub = 0; sub < spec.subCount; sub++) mesh.setColorAt(i * spec.subCount + sub, color);
       }
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      if (mesh.instanceColor) {
+        mesh.instanceColor.clearUpdateRanges();
+        mesh.instanceColor.addUpdateRange(0, mesh.count * 3);
+        mesh.instanceColor.needsUpdate = true;
+      }
     }
   };
 
@@ -154,6 +158,8 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
           mesh.setMatrixAt(i * spec.subCount + sub, dummy.matrix);
         }
       }
+      mesh.instanceMatrix.clearUpdateRanges();
+      mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
       mesh.instanceMatrix.needsUpdate = true;
     }
   };
@@ -176,6 +182,8 @@ export const createMusterOverlay = (scene: Scene): MusterOverlay => {
       }
     }
     soldierMesh.count = writeIdx;
+    soldierMesh.instanceMatrix.clearUpdateRanges();
+    soldierMesh.instanceMatrix.addUpdateRange(0, soldierMesh.count * 16);
     soldierMesh.instanceMatrix.needsUpdate = true;
   };
 

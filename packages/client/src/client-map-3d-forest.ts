@@ -132,8 +132,14 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     pineCanopyMesh.count = pineCount;
     spruceCanopyMesh.count = spruceCount;
     trunkMesh.count = trunkCount;
+    pineCanopyMesh.instanceMatrix.clearUpdateRanges();
+    pineCanopyMesh.instanceMatrix.addUpdateRange(0, pineCanopyMesh.count * 16);
     pineCanopyMesh.instanceMatrix.needsUpdate = true;
+    spruceCanopyMesh.instanceMatrix.clearUpdateRanges();
+    spruceCanopyMesh.instanceMatrix.addUpdateRange(0, spruceCanopyMesh.count * 16);
     spruceCanopyMesh.instanceMatrix.needsUpdate = true;
+    trunkMesh.instanceMatrix.clearUpdateRanges();
+    trunkMesh.instanceMatrix.addUpdateRange(0, trunkMesh.count * 16);
     trunkMesh.instanceMatrix.needsUpdate = true;
   };
 

@@ -511,6 +511,8 @@ export const createResourceOverlay = (scene: Scene, maxTiles: number): ResourceO
   const commit = (): void => {
     for (const slot of slots.values()) {
       slot.mesh.count = slot.count;
+      slot.mesh.instanceMatrix.clearUpdateRanges();
+      slot.mesh.instanceMatrix.addUpdateRange(0, slot.mesh.count * 16);
       slot.mesh.instanceMatrix.needsUpdate = true;
     }
   };

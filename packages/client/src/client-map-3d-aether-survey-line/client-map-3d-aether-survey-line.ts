@@ -450,12 +450,29 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     for (let i = deadCursor; i < deadPool.length; i += 1) deadPool[i]!.group.visible = false;
     for (let i = segmentCursor; i < linePool.length; i += 1) linePool[i]!.mesh.visible = false;
 
-    (dormant.geometry.getAttribute("position") as BufferAttribute).needsUpdate = true;
-    (dormant.geometry.getIndex() as BufferAttribute).needsUpdate = true;
+    // Ranged upload: these buffers are sized for maxTiles (worst case),
+    // but only *VertCount/*IndexCount of each was written this rebuild.
+    // An unranged needsUpdate reuploads the whole preallocated buffer via
+    // bufferSubData every rebuild — same cost pattern fixed elsewhere
+    // (client-map-3d-hills.ts, client-map-3d-ownership-overlay.ts).
+    const dormantPos = dormant.geometry.getAttribute("position") as BufferAttribute;
+    const dormantIndex = dormant.geometry.getIndex() as BufferAttribute;
+    dormantPos.clearUpdateRanges();
+    dormantPos.addUpdateRange(0, dormantVertCount * 3);
+    dormantPos.needsUpdate = true;
+    dormantIndex.clearUpdateRanges();
+    dormantIndex.addUpdateRange(0, dormantIndexCount);
+    dormantIndex.needsUpdate = true;
     dormant.geometry.setDrawRange(0, dormantIndexCount);
 
-    (outOfReach.geometry.getAttribute("position") as BufferAttribute).needsUpdate = true;
-    (outOfReach.geometry.getIndex() as BufferAttribute).needsUpdate = true;
+    const outOfReachPos = outOfReach.geometry.getAttribute("position") as BufferAttribute;
+    const outOfReachIndex = outOfReach.geometry.getIndex() as BufferAttribute;
+    outOfReachPos.clearUpdateRanges();
+    outOfReachPos.addUpdateRange(0, outOfReachVertCount * 3);
+    outOfReachPos.needsUpdate = true;
+    outOfReachIndex.clearUpdateRanges();
+    outOfReachIndex.addUpdateRange(0, outOfReachIndexCount);
+    outOfReachIndex.needsUpdate = true;
     outOfReach.geometry.setDrawRange(0, outOfReachIndexCount);
   };
 
