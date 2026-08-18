@@ -348,14 +348,42 @@ export type PylonSegment = { readonly from: TileCoord; readonly to: TileCoord };
 export const DEFAULT_PYLON_SPACING_TILES = 12;
 
 /**
- * Samples each traced boundary loop at ~`spacingTiles`-tile intervals
- * (walk order, see DEFAULT_PYLON_SPACING_TILES) to get sparse pylon
- * placement points, plus the chord segments connecting consecutive samples
- * -- including a closing chord from the last sample back to the first,
- * since a traced boundary loop is conceptually a closed ring even though
- * the walk itself stops just short of re-visiting its own start tile.
- * A loop with only one sample (tiny/short boundary) yields that single
- * pylon with no segments -- nothing to connect it to.
+ * True if the walk direction changes between the tile before and the tile
+ * after `loop[i]` -- i.e. `loop[i]` is a corner where the boundary turns.
+ * A traced loop is a closed ring, so this wraps around at both ends.
+ */
+export const isCornerAt = (loop: ReadonlyArray<TileCoord>, i: number): boolean => {
+  const n = loop.length;
+  if (n < 3) return false;
+  const prev = loop[(i - 1 + n) % n]!;
+  const cur = loop[i]!;
+  const next = loop[(i + 1) % n]!;
+  return cur.x - prev.x !== next.x - cur.x || cur.y - prev.y !== next.y - cur.y;
+};
+
+/**
+ * Samples each traced boundary loop into sparse pylon placement points, plus
+ * the chord segments connecting consecutive samples (including a closing
+ * chord from the last sample back to the first, since a traced loop is
+ * conceptually a closed ring even though the walk itself stops just short
+ * of re-visiting its own start tile).
+ *
+ * Every corner tile (`isCornerAt`) is a MANDATORY sample, not just an
+ * evenly-spaced one: fixed-interval sampling alone can straddle a notch --
+ * e.g. where a town's radius-3 square and a beacon's radius-5 square
+ * combine into a concave shape -- and draw a straight chord that cuts
+ * across land outside the actual reach, misrepresenting the border. Since
+ * the boundary never changes direction *between* two consecutive corners,
+ * a chord between them is always an exact match for the true edge there,
+ * not an approximation. Long straight runs between corners (more than
+ * `spacingTiles` tiles apart) still get extra evenly-spaced pylons filled
+ * in, so a long straight edge doesn't go unmarked for a long stretch --
+ * this is where the "~10-15 tiles" spacing from the brief actually applies.
+ * A loop with no corners at all (a perfectly straight closed ring --
+ * geometrically unusual, but not impossible for a tiny/degenerate reach
+ * shape) falls back to plain even sampling. A loop with only one sample
+ * (tiny/short boundary) yields that single pylon with no segments --
+ * nothing to connect it to.
  */
 export const samplePerimeterPylons = (
   loops: ReadonlyArray<ReadonlyArray<TileCoord>>,
@@ -365,9 +393,33 @@ export const samplePerimeterPylons = (
   const pylons: TileCoord[][] = [];
   const segments: PylonSegment[][] = [];
   for (const loop of loops) {
-    if (loop.length === 0) continue;
-    const samples: TileCoord[] = [];
-    for (let i = 0; i < loop.length; i += step) samples.push(loop[i]!);
+    const n = loop.length;
+    if (n === 0) continue;
+
+    const cornerIndices: number[] = [];
+    for (let i = 0; i < n; i += 1) if (isCornerAt(loop, i)) cornerIndices.push(i);
+
+    let sampleIndices: number[];
+    if (cornerIndices.length === 0) {
+      sampleIndices = [];
+      for (let i = 0; i < n; i += step) sampleIndices.push(i);
+    } else {
+      const chosen = new Set<number>(cornerIndices);
+      for (let k = 0; k < cornerIndices.length; k += 1) {
+        const a = cornerIndices[k]!;
+        const b = cornerIndices[(k + 1) % cornerIndices.length]!;
+        const runLength = b > a ? b - a : n - a + b;
+        if (runLength <= step) continue;
+        const extraCount = Math.floor(runLength / step);
+        for (let e = 1; e <= extraCount; e += 1) {
+          const idx = (a + e * step) % n;
+          if (idx !== b) chosen.add(idx);
+        }
+      }
+      sampleIndices = Array.from(chosen).sort((x, y) => x - y);
+    }
+
+    const samples = sampleIndices.map((i) => loop[i]!);
     pylons.push(samples);
     const loopSegments: PylonSegment[] = [];
     if (samples.length > 1) {

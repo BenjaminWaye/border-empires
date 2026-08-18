@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
 import {
   DEFAULT_PYLON_SPACING_TILES,
+  isCornerAt,
   samplePerimeterPylons,
   traceReachBoundaryLoops,
   type ReachBoundaryDeps,
@@ -11,6 +12,23 @@ import {
 const GRID = 40;
 const keyFor = (x: number, y: number): string => `${x},${y}`;
 const wrap = (v: number): number => ((v % GRID) + GRID) % GRID;
+
+/**
+ * Builds a proper closed rectangle-outline loop (clockwise from top-left):
+ * consecutive tiles are always exactly one step apart, including the wrap
+ * from the last tile back to the first -- matching the shape a real
+ * `traceReachBoundaryLoops` result has, unlike a plain straight line
+ * (which isn't actually closed and produces a spurious "corner" purely
+ * from the artificial jump back to its start).
+ */
+const rectLoop = (x0: number, y0: number, x1: number, y1: number): TileCoord[] => {
+  const loop: TileCoord[] = [];
+  for (let x = x0; x < x1; x += 1) loop.push({ x, y: y0 });
+  for (let y = y0; y < y1; y += 1) loop.push({ x: x1, y });
+  for (let x = x1; x > x0; x -= 1) loop.push({ x, y: y1 });
+  for (let y = y1; y > y0; y -= 1) loop.push({ x: x0, y });
+  return loop;
+};
 
 const makeTile = (x: number, y: number): Tile => ({ x, y, terrain: "LAND" }) as unknown as Tile;
 
@@ -143,16 +161,69 @@ describe("traceReachBoundaryLoops", () => {
   });
 });
 
+describe("isCornerAt", () => {
+  it("is false along a straight run", () => {
+    const loop = rectLoop(0, 0, 10, 10);
+    // Somewhere in the middle of the top edge, away from any corner.
+    expect(isCornerAt(loop, 5)).toBe(false);
+  });
+
+  it("is true exactly at a rectangle's 4 corners", () => {
+    const x0 = 0, y0 = 0, x1 = 8, y1 = 5;
+    const loop = rectLoop(x0, y0, x1, y1);
+    const topLen = x1 - x0;
+    const rightLen = y1 - y0;
+    const bottomLen = x1 - x0;
+    const cornerIndices = [0, topLen, topLen + rightLen, topLen + rightLen + bottomLen];
+    for (let i = 0; i < loop.length; i += 1) {
+      expect(isCornerAt(loop, i)).toBe(cornerIndices.includes(i));
+    }
+  });
+
+  it("is false for loops shorter than 3 tiles (no meaningful direction to compare)", () => {
+    expect(isCornerAt([{ x: 0, y: 0 }, { x: 1, y: 0 }], 0)).toBe(false);
+  });
+});
+
 describe("samplePerimeterPylons", () => {
-  it("samples every Nth tile per loop and connects consecutive samples, closing back to the first", () => {
-    const loop: TileCoord[] = Array.from({ length: 30 }, (_, i) => ({ x: i, y: 0 }));
-    const { pylons, segments } = samplePerimeterPylons([loop], 10);
-    expect(pylons).toEqual([[{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }]]);
-    expect(segments[0]).toEqual([
-      { from: { x: 0, y: 0 }, to: { x: 10, y: 0 } },
-      { from: { x: 10, y: 0 }, to: { x: 20, y: 0 } },
-      { from: { x: 20, y: 0 }, to: { x: 0, y: 0 } }
-    ]);
+  it("always includes every true corner of a rectangular loop, even when spacing alone would skip it", () => {
+    // A long thin rectangle: the top/bottom runs (20 tiles) are much longer
+    // than the spacing (12), but the left/right runs (3 tiles) are much
+    // shorter -- fixed-interval sampling alone could easily land its
+    // periodic samples on the long runs and skip a short-run corner
+    // entirely, which is exactly the bug being fixed here.
+    const x0 = 0, y0 = 0, x1 = 20, y1 = 3;
+    const loop = rectLoop(x0, y0, x1, y1);
+    const topLen = x1 - x0;
+    const rightLen = y1 - y0;
+    const bottomLen = x1 - x0;
+    const cornerIndices = [0, topLen, topLen + rightLen, topLen + rightLen + bottomLen];
+    const expectedCorners = cornerIndices.map((i) => loop[i]!);
+    const { pylons, segments } = samplePerimeterPylons([loop], 12);
+    for (const corner of expectedCorners) {
+      expect(pylons[0]).toContainEqual(corner);
+    }
+    // Every sample must connect to exactly one "next" segment (closed ring).
+    expect(segments[0]!.length).toBe(pylons[0]!.length);
+  });
+
+  it("fills long straight runs between corners with extra evenly-spaced pylons, not just the corners", () => {
+    // Top/bottom runs are 30 tiles, well past the 10-tile spacing -- each
+    // must get interior pylons beyond its 2 corner endpoints.
+    const loop = rectLoop(0, 0, 30, 2);
+    const { pylons } = samplePerimeterPylons([loop], 10);
+    const topRowPylons = pylons[0]!.filter((p) => p.y === 0);
+    expect(topRowPylons.length).toBeGreaterThan(2);
+  });
+
+  it("never places two samples farther apart (in walk order) than the spacing, except across a short corner-to-corner run", () => {
+    const loop = rectLoop(0, 0, 25, 25);
+    const { pylons } = samplePerimeterPylons([loop], 12);
+    const indices = pylons[0]!.map((p) => loop.findIndex((t) => t.x === p.x && t.y === p.y)).sort((a, b) => a - b);
+    for (let i = 0; i < indices.length; i += 1) {
+      const gap = i + 1 < indices.length ? indices[i + 1]! - indices[i]! : loop.length - indices[i]! + indices[0]!;
+      expect(gap).toBeLessThanOrEqual(12);
+    }
   });
 
   it("uses the default spacing within the brief's 10-15 tile range", () => {
@@ -168,11 +239,13 @@ describe("samplePerimeterPylons", () => {
   });
 
   it("handles multiple loops independently", () => {
-    const loopA: TileCoord[] = Array.from({ length: 24 }, (_, i) => ({ x: i, y: 0 }));
-    const loopB: TileCoord[] = Array.from({ length: 24 }, (_, i) => ({ x: i, y: 100 }));
+    const loopA = rectLoop(0, 0, 6, 6);
+    const loopB = rectLoop(0, 100, 6, 106);
     const { pylons } = samplePerimeterPylons([loopA, loopB], 12);
     expect(pylons.length).toBe(2);
-    expect(pylons[0]!.length).toBe(2);
-    expect(pylons[1]!.length).toBe(2);
+    // Each side of a 6x6 square is well under the 12-tile spacing, so only
+    // the 4 mandatory corners should appear, nothing extra.
+    expect(pylons[0]!.length).toBe(4);
+    expect(pylons[1]!.length).toBe(4);
   });
 });
