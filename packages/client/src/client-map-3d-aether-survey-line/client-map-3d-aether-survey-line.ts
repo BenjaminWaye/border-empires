@@ -73,7 +73,18 @@ const CORE_PULSE_AMPLITUDE = 0.15;
 // truncating gracefully rather than growing unbounded draw calls.
 const MAX_PYLONS_HARD_CAP = 96;
 const MAX_SEGMENTS_HARD_CAP = 96;
-const LINE_LIFT = 0.12;
+
+// Pylon scale: the whole post/ring/emitter/core assembly at 1/4 its
+// original size, so the ring sits low enough for the connecting line
+// (LINE_LIFT, derived below) to pass right through its loop rather than
+// floating well below a much taller post.
+const PYLON_SCALE = 0.25;
+const POST_HEIGHT = 0.5 * PYLON_SCALE;
+const POST_BASE_LIFT = 0.045 * PYLON_SCALE;
+// Where the emitter/ring/core sit -- and, matched exactly, where the
+// connecting line sits too, so it visibly threads through the ring loop.
+const RING_HEIGHT = POST_HEIGHT + POST_BASE_LIFT;
+const LINE_LIFT = RING_HEIGHT;
 // Deliberately much thinner than the pylon post (postGeometry above) so it
 // still reads as "hair-thin" per the brief, but large enough for its
 // per-owner glow color to actually be visible at normal camera distance
@@ -225,12 +236,12 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
   // "minimal footprint" describes the pylon's silhouette relative to a
   // fort/wall, not its literal on-screen size). Only the connecting LINE
   // (see LINE_RADIUS below) is the deliberately hair-thin element.
-  const footGeometry = new CylinderGeometry(0.075, 0.09, 0.06, 6);
-  const postGeometry = new CylinderGeometry(0.032, 0.05, 0.55, 6);
-  const emitterGeometry = new OctahedronGeometry(0.075, 0);
-  const ringGeometry = new TorusGeometry(0.11, 0.014, 5, 14);
-  const coreGeometry = new SphereGeometry(0.045, 8, 7);
-  const deadPostGeometry = new CylinderGeometry(0.032, 0.05, 0.32, 6);
+  const footGeometry = new CylinderGeometry(0.075 * PYLON_SCALE, 0.09 * PYLON_SCALE, 0.06 * PYLON_SCALE, 6);
+  const postGeometry = new CylinderGeometry(0.032 * PYLON_SCALE, 0.05 * PYLON_SCALE, 0.55 * PYLON_SCALE, 6);
+  const emitterGeometry = new OctahedronGeometry(0.075 * PYLON_SCALE, 0);
+  const ringGeometry = new TorusGeometry(0.11 * PYLON_SCALE, 0.014 * PYLON_SCALE, 5, 14);
+  const coreGeometry = new SphereGeometry(0.045 * PYLON_SCALE, 8, 7);
+  const deadPostGeometry = new CylinderGeometry(0.032 * PYLON_SCALE, 0.05 * PYLON_SCALE, 0.32 * PYLON_SCALE, 6);
 
   const buildPylon = (dead: boolean): Pylon => {
     const pylonGroup = new Group();
@@ -238,10 +249,10 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
       // Dormant treatment: a single dim/dark stub -- no emitter, no ring,
       // no core glow, per the brief's "powered down, abandoned survey post".
       const foot = new Mesh(footGeometry, materials.deadMetal);
-      foot.position.y = 0.022;
+      foot.position.y = 0.022 * PYLON_SCALE;
       pylonGroup.add(foot);
       const post = new Mesh(deadPostGeometry, materials.deadMetal);
-      post.position.y = 0.16;
+      post.position.y = 0.16 * PYLON_SCALE;
       pylonGroup.add(post);
       pylonGroup.visible = false;
       group.add(pylonGroup);
@@ -249,21 +260,23 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     }
 
     const foot = new Mesh(footGeometry, materials.iron);
-    foot.position.y = 0.022;
+    foot.position.y = 0.022 * PYLON_SCALE;
     pylonGroup.add(foot);
 
-    const postHeight = 0.5;
     const post = new Mesh(postGeometry, materials.brass);
-    post.position.y = postHeight / 2 + 0.045;
+    post.position.y = POST_HEIGHT / 2 + POST_BASE_LIFT;
     pylonGroup.add(post);
 
-    const topY = postHeight + 0.045;
+    // RING_HEIGHT (module-level) is where the emitter/ring/core sit, and
+    // exactly where LINE_LIFT places the connecting line too -- so the
+    // line visibly threads through the ring loop instead of floating
+    // below or above it.
     const emitter = new Mesh(emitterGeometry, materials.brass);
-    emitter.position.y = topY;
+    emitter.position.y = RING_HEIGHT;
     pylonGroup.add(emitter);
 
     const ring = new Mesh(ringGeometry, materials.iron);
-    ring.position.y = topY;
+    ring.position.y = RING_HEIGHT;
     ring.rotation.x = Math.PI / 2;
     pylonGroup.add(ring);
 
@@ -271,7 +284,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     // addPylon call (pool items are reused across owners frame to frame).
     const coreMat = materials.core.clone() as MeshBasicMaterial;
     const core = new Mesh(coreGeometry, coreMat);
-    core.position.y = topY;
+    core.position.y = RING_HEIGHT;
     pylonGroup.add(core);
 
     pylonGroup.visible = false;
