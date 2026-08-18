@@ -47,6 +47,14 @@ describe("development slot capacity bonuses (developmentProcessCapacityAdd)", ()
       scheduleAfter: () => {},
       initialState: {
         tiles: [
+          {
+            x: 11,
+            y: 9,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+          },
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 12, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },

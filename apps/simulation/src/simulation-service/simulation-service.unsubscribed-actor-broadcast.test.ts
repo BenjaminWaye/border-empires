@@ -146,54 +146,71 @@ describe("simulation streams TILE_DELTA_BATCH per subscribed player with visibil
     const client = createRawSimulationClient(started.address);
 
     // The default seed pre-populates a couple of AI-style players (player-1,
-    // player-2). Pick whichever has an unowned land neighbor so we can drive
-    // a successful EXPAND from a never-subscribed playerId — exactly the
-    // production setup that triggered the desync the gateway was missing.
+    // player-2) as adjacent land owners. Drive a real ATTACK between them —
+    // exactly the production setup that triggered the desync the gateway
+    // was missing, but using ATTACK (rather than EXPAND) since ATTACK is
+    // deliberately not reach-gated (see packages/shared/src/reach/reach.ts),
+    // so it doesn't depend on either seeded player having a nearby town.
     const exportedTiles = service.runtime.exportState().tiles;
     const tileByKey = new Map(exportedTiles.map((tile) => [`${tile.x},${tile.y}`, tile]));
-    const ownedTilesByPlayer = new Map<string, typeof exportedTiles>();
-    for (const tile of exportedTiles) {
-      if (!tile.ownerId) continue;
-      const list = ownedTilesByPlayer.get(tile.ownerId) ?? [];
-      list.push(tile);
-      ownedTilesByPlayer.set(tile.ownerId, list);
-    }
-
+    const ownedNeighborOffsets: Array<{ dx: number; dy: number }> = [
+      { dx: 0, dy: -1 },
+      { dx: 1, dy: 0 },
+      { dx: 0, dy: 1 },
+      { dx: -1, dy: 0 },
+      { dx: -1, dy: -1 },
+      { dx: 1, dy: -1 },
+      { dx: 1, dy: 1 },
+      { dx: -1, dy: 1 }
+    ];
     let actorId: string | undefined;
     let ownedOrigin: (typeof exportedTiles)[number] | undefined;
-    let expandTarget: (typeof exportedTiles)[number] | undefined;
-    for (const [candidateId, candidateOwnedTiles] of ownedTilesByPlayer) {
-      for (const owned of candidateOwnedTiles) {
-        for (let dy = -1; dy <= 1; dy += 1) {
-          for (let dx = -1; dx <= 1; dx += 1) {
-            if (dx === 0 && dy === 0) continue;
-            const neighbor = tileByKey.get(`${owned.x + dx},${owned.y + dy}`);
-            if (neighbor && neighbor.terrain === "LAND" && !neighbor.ownerId) {
-              actorId = candidateId;
-              ownedOrigin = owned;
-              expandTarget = neighbor;
-              break;
-            }
-          }
-          if (expandTarget) break;
+    let attackTarget: (typeof exportedTiles)[number] | undefined;
+    for (const tile of exportedTiles) {
+      if (!tile.ownerId) continue;
+      for (const { dx, dy } of ownedNeighborOffsets) {
+        const neighbor = tileByKey.get(`${tile.x + dx},${tile.y + dy}`);
+        if (
+          neighbor &&
+          neighbor.terrain === "LAND" &&
+          neighbor.ownerId &&
+          neighbor.ownerId !== tile.ownerId
+        ) {
+          actorId = tile.ownerId;
+          ownedOrigin = tile;
+          attackTarget = neighbor;
+          break;
         }
-        if (expandTarget) break;
       }
-      if (expandTarget) break;
+      if (attackTarget) break;
     }
-    expect(actorId, "expected a seeded player with an unowned LAND neighbor").toBeDefined();
+    expect(actorId, "expected a seeded attacker with an enemy-owned neighbor").toBeDefined();
     expect(ownedOrigin, "expected an owned origin tile for the chosen actor").toBeDefined();
-    expect(expandTarget, "expected an unowned LAND target adjacent to the actor's tile").toBeDefined();
-    if (!actorId || !ownedOrigin || !expandTarget) return;
+    expect(attackTarget, "expected an enemy-owned target tile adjacent to the actor's tile").toBeDefined();
+    if (!actorId || !ownedOrigin || !attackTarget) return;
 
     // Per-player visibility means the simulation only emits a TILE_DELTA_BATCH
     // for subscribed players whose visible-tile set includes the flipped tile.
     // Subscribe the actor so we can assert they receive their own flip.
     await subscribePlayer(client, actorId);
 
+    // Muster is unconditionally required to attack — stage it on the
+    // attacker's origin tile directly (rather than waiting real wall-clock
+    // seconds for it to accumulate via the muster tick).
+    await submitCommand(client, {
+      command_id: "stage-muster-for-self-visible-attack",
+      session_id: "session-unsub-broadcast",
+      player_id: actorId,
+      client_seq: 0,
+      issued_at: Date.now(),
+      type: "SET_MUSTER",
+      payload_json: JSON.stringify({ x: ownedOrigin.x, y: ownedOrigin.y, mode: "HOLD" })
+    });
+    service.runtime.tickMuster(service.runtime.now() + 7_000);
+
     const commandId = "actor-expand-self-visible";
-    // EXPAND can take up to FRONTIER_CLAIM_MS * 2 (forest/hills) to resolve —
-    // give the real-timers wait enough headroom.
+    // ATTACK can take a while to resolve (COMBAT_LOCK_MS) — give the
+    // real-timers wait enough headroom.
     const tileFlipped = waitForStreamEvent(
       client,
       (event) => event.event_type === "TILE_DELTA_BATCH" && event.command_id === commandId && event.player_id === actorId,
@@ -206,12 +223,12 @@ describe("simulation streams TILE_DELTA_BATCH per subscribed player with visibil
       player_id: actorId,
       client_seq: 1,
       issued_at: Date.now(),
-      type: "EXPAND",
+      type: "ATTACK",
       payload_json: JSON.stringify({
         fromX: ownedOrigin.x,
         fromY: ownedOrigin.y,
-        toX: expandTarget.x,
-        toY: expandTarget.y
+        toX: attackTarget.x,
+        toY: attackTarget.y
       })
     });
 

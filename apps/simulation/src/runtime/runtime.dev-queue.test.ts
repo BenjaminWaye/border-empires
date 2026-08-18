@@ -13,7 +13,17 @@ describe("dev queue (server-durable)", () => {
         scheduledTasks.push({ delayMs, task });
       },
       initialState: {
-        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          {
+            x: 10,
+            y: 9,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+          }
+        ],
         activeLocks: []
       }
     });
@@ -49,7 +59,17 @@ describe("dev queue (server-durable)", () => {
       now: () => 1_000,
       scheduleAfter: () => {},
       initialState: {
-        tiles: [1, 2, 3].map((x) => ({ x, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "FRONTIER" as const })),
+        tiles: [
+          ...[1, 2, 3].map((x) => ({ x, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "FRONTIER" as const })),
+          {
+            x: 2,
+            y: 1,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const,
+            town: { name: "Home", type: "FARMING" as const, populationTier: "SETTLEMENT" as const }
+          }
+        ],
         activeLocks: []
       }
     });
@@ -97,7 +117,15 @@ describe("dev queue (server-durable)", () => {
           { x: 1, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 2, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 3, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-          { x: 4, y: 4, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
+          { x: 4, y: 4, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          {
+            x: 2,
+            y: 2,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+          }
         ],
         activeLocks: []
       }

@@ -184,6 +184,16 @@ export const SIEGE_TOWER_ATTACK_MULT = 1.8;
 export const DREAD_TOWER_ATTACK_MULT = 2.0;
 export const OUTPOST_ATTACK_REACH = 2;
 
+// Fixed-border reach: the radius (Chebyshev, toroidal) within which EXPAND
+// and SETTLE are legal, projected from each anchor type. ATTACK is
+// deliberately not reach-gated. See packages/shared/src/reach/reach.ts.
+export const TOWN_REACH_RADIUS = 3;
+// Reuses OUTPOST_AURA_RADIUS's value for all four outpost-family variants
+// (RELAY_BEACON, SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER) but kept as its own
+// named constant so reach and the combat aura can be tuned independently.
+export const OUTPOST_REACH_RADIUS = 5;
+export const DOCK_REACH_RADIUS = 1;
+
 export const DOCK_DEFENSE_MULT = 1.5;
 export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
 export const DOCK_PAIRS_MIN = 15;

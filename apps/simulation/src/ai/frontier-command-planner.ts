@@ -27,12 +27,37 @@ import {
 
 export type { FrontierClass } from "./frontier-scoring.js";
 
+/**
+ * Minimal reach-lookup surface the frontier planner needs — deliberately not
+ * tied to any concrete SimulationRuntime method name. The runtime is gaining
+ * a cached per-player reach ownership map (see
+ * packages/shared/src/reach/reach.ts's resolveReachOwnership/isInReach) in a
+ * parallel change; once it exposes a method matching this shape (or a thin
+ * adapter around it), wire it in as `affordability.reachLookup` from
+ * automation-command-planner.ts's caller. Until then, omitting this field
+ * leaves EXPAND candidate enumeration unfiltered (today's unlimited-adjacency
+ * behavior), so this composes safely with either landing order.
+ */
+export interface ReachLookup {
+  isInReach(playerId: string, x: number, y: number): boolean;
+}
+
 type FrontierAffordability = {
   canAttack?: boolean;
   canExpand?: boolean;
   needsFood?: boolean;
   dockLinksByDockTileKey?: ReadonlyMap<string, readonly string[]>;
   onEvaluateNeutralTarget?: (targetKey: string) => void;
+  /**
+   * When provided, EXPAND-family candidates (plain/economic/directed/
+   * townSupport/scaffold/scout expand — everything that flows through the
+   * "neutral target" branch below) are filtered to tiles inside the actor's
+   * reach. ATTACK candidates are untouched — ATTACK is not reach-gated per
+   * the fixed-borders-via-reach plan. Optional so existing callers (system
+   * job / barbarian planners, tests) keep today's unlimited-adjacency
+   * behavior until the real runtime-backed lookup is wired in.
+   */
+  reachLookup?: ReachLookup;
   /** When set, adds a directional bias toward this tile when scoring neutral expand candidates. */
   expansionObjective?: { x: number; y: number; kind: "neutral_value" | "enemy" };
   /** PR 1 measurement callback — emits per-phase durations from inside
@@ -98,6 +123,7 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
   const canExpand = affordability.canExpand ?? true;
   const needsFood = affordability.needsFood ?? false;
   const dockLinksByDockTileKey = affordability.dockLinksByDockTileKey;
+  const reachLookup = affordability.reachLookup;
   const expansionObjective = affordability.expansionObjective;
   const emitTiming = affordability.onAnalyzeTiming;
   const preferFogEfficientExpansion = affordability.preferFogEfficientExpansion ?? false;
@@ -230,6 +256,14 @@ export const analyzeOwnedFrontierTargetsFromLookup = (
         !isFrontierAdjacent(from.x, from.y, target.x, target.y) &&
         !(from.dockId && dockLinksByDockTileKey?.get(tileKeyOf(from.x, from.y))?.includes(targetKey))
       ) {
+        continue;
+      }
+
+      // Reach gating (EXPAND-family only — ATTACK above is unaffected).
+      // A tile that fails adjacency/dock-crossing above never reaches here,
+      // so this only prunes candidates that were otherwise legal by today's
+      // rule but fall outside the actor's fixed-border reach.
+      if (reachLookup && !reachLookup.isInReach(playerId, target.x, target.y)) {
         continue;
       }
 
