@@ -4,10 +4,9 @@ import {
   DEFAULT_PYLON_SPACING_TILES,
   filterReachToLand,
   isCornerAt,
-  pylonEdgeOffset,
-  reachEdgesForTile,
   samplePerimeterPylons,
-  traceReachBoundaryLoops,
+  traceReachBoundaryEdgeLoops,
+  type CornerCoord,
   type ReachBoundaryDeps,
   type TileCoord
 } from "./client-reach-overlay.js";
@@ -20,7 +19,7 @@ const wrap = (v: number): number => ((v % GRID) + GRID) % GRID;
  * Builds a proper closed rectangle-outline loop (clockwise from top-left):
  * consecutive tiles are always exactly one step apart, including the wrap
  * from the last tile back to the first -- matching the shape a real
- * `traceReachBoundaryLoops` result has, unlike a plain straight line
+ * `traceReachBoundaryEdgeLoops` result has, unlike a plain straight line
  * (which isn't actually closed and produces a spurious "corner" purely
  * from the artificial jump back to its start).
  */
@@ -52,46 +51,52 @@ const rect = (x0: number, y0: number, x1: number, y1: number): TileCoord[] => {
 
 const toReach = (coords: TileCoord[]): Set<string> => new Set(coords.map((c) => keyFor(c.x, c.y)));
 
-const allTilesVisited = (loops: TileCoord[][], expected: TileCoord[]): boolean => {
-  const seen = new Set<string>();
-  for (const loop of loops) for (const c of loop) seen.add(keyFor(c.x, c.y));
-  return expected.every((c) => seen.has(keyFor(c.x, c.y))) && seen.size === expected.length;
-};
-
-const consecutiveTilesAreAdjacent = (loop: TileCoord[]): boolean => {
-  for (let i = 1; i < loop.length; i += 1) {
-    const a = loop[i - 1]!;
-    const b = loop[i]!;
+/** Every consecutive pair of corners (including the wrap back to the first) is a real unit grid step. */
+const consecutiveCornersAreUnitSteps = (loop: CornerCoord[]): boolean => {
+  for (let i = 0; i < loop.length; i += 1) {
+    const a = loop[i]!;
+    const b = loop[(i + 1) % loop.length]!;
     const dx = Math.abs(a.x - b.x);
     const dy = Math.abs(a.y - b.y);
-    if (dx > 1 || dy > 1 || (dx === 0 && dy === 0)) return false;
+    const isUnitStep = (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+    if (!isUnitStep) return false;
   }
   return true;
 };
 
-describe("traceReachBoundaryLoops", () => {
-  it("traces a single loop around a plain square region, visiting every boundary tile exactly once", () => {
-    const region = rect(10, 10, 19, 19); // 10x10 square
+describe("traceReachBoundaryEdgeLoops", () => {
+  it("traces a single closed loop of unit grid-edges around a plain square region", () => {
+    const region = rect(10, 10, 19, 19); // 10x10 square of tiles
     const deps = buildDeps(region);
     const reach = toReach(region);
-    const loops = traceReachBoundaryLoops(reach, deps);
+    const loops = traceReachBoundaryEdgeLoops(reach, deps);
 
     expect(loops.length).toBe(1);
     const loop = loops[0]!;
-    // A 10x10 square's boundary ring is its outer 1-tile-thick perimeter.
-    const expectedBoundary = region.filter((c) => c.x === 10 || c.x === 19 || c.y === 10 || c.y === 19);
-    expect(allTilesVisited(loops, expectedBoundary)).toBe(true);
-    expect(consecutiveTilesAreAdjacent(loop)).toBe(true);
-    // No duplicate visits within the loop.
+    // Every step in the traced loop is a real, literal 1-unit grid edge --
+    // this is what makes the "jump between unrelated components" bug the
+    // old tile-walk had structurally impossible.
+    expect(consecutiveCornersAreUnitSteps(loop)).toBe(true);
     expect(new Set(loop.map((c) => keyFor(c.x, c.y))).size).toBe(loop.length);
+    // The four outer corners of the region (tile 19's far corner is at
+    // grid position 20) must all appear.
+    for (const corner of [{ x: 10, y: 10 }, { x: 20, y: 10 }, { x: 20, y: 20 }, { x: 10, y: 20 }]) {
+      expect(loop).toContainEqual(corner);
+    }
   });
 
-  it("handles a single-tile boundary without error", () => {
+  it("traces the exact 4-corner unit square for a single-tile boundary", () => {
     const region: TileCoord[] = [{ x: 5, y: 5 }];
     const deps = buildDeps(region);
     const reach = toReach(region);
-    const loops = traceReachBoundaryLoops(reach, deps);
-    expect(loops).toEqual([[{ x: 5, y: 5 }]]);
+    const loops = traceReachBoundaryEdgeLoops(reach, deps);
+    expect(loops.length).toBe(1);
+    const loop = loops[0]!;
+    expect(loop.length).toBe(4);
+    expect(consecutiveCornersAreUnitSteps(loop)).toBe(true);
+    for (const corner of [{ x: 5, y: 5 }, { x: 6, y: 5 }, { x: 6, y: 6 }, { x: 5, y: 6 }]) {
+      expect(loop).toContainEqual(corner);
+    }
   });
 
   it("traces an irregular/notched boundary (an L-shaped region) fully, with no infinite loop", () => {
@@ -102,28 +107,11 @@ describe("traceReachBoundaryLoops", () => {
     const deps = buildDeps(region);
     const reach = toReach(region);
 
-    const loops = traceReachBoundaryLoops(reach, deps);
+    const loops = traceReachBoundaryEdgeLoops(reach, deps);
     expect(loops.length).toBe(1);
     const loop = loops[0]!;
-    expect(consecutiveTilesAreAdjacent(loop)).toBe(true);
+    expect(consecutiveCornersAreUnitSteps(loop)).toBe(true);
     expect(new Set(loop.map((c) => keyFor(c.x, c.y))).size).toBe(loop.length);
-    // Every tile in the notched region that is actually a boundary tile
-    // must show up somewhere in the trace.
-    const boundaryTileKeys = new Set(
-      region
-        .filter((c) => {
-          const neighbours = [
-            keyFor(wrap(c.x), wrap(c.y - 1)),
-            keyFor(wrap(c.x + 1), wrap(c.y)),
-            keyFor(wrap(c.x), wrap(c.y + 1)),
-            keyFor(wrap(c.x - 1), wrap(c.y))
-          ];
-          return neighbours.some((k) => !reach.has(k));
-        })
-        .map((c) => keyFor(c.x, c.y))
-    );
-    const tracedKeys = new Set(loop.map((c) => keyFor(c.x, c.y)));
-    expect(tracedKeys).toEqual(boundaryTileKeys);
   });
 
   it("produces one loop per disconnected owned region", () => {
@@ -133,34 +121,51 @@ describe("traceReachBoundaryLoops", () => {
     const deps = buildDeps(region);
     const reach = toReach(region);
 
-    const loops = traceReachBoundaryLoops(reach, deps);
+    const loops = traceReachBoundaryEdgeLoops(reach, deps);
     expect(loops.length).toBe(2);
-    // Each loop should be confined to one region (no loop mixes tiles from
-    // both regions), and together they cover every boundary tile exactly
-    // once with no infinite/hanging walk.
     for (const loop of loops) {
-      expect(consecutiveTilesAreAdjacent(loop)).toBe(true);
+      expect(consecutiveCornersAreUnitSteps(loop)).toBe(true);
       const xs = loop.map((c) => c.x);
-      const allInA = xs.every((x) => x <= 5);
+      const allInA = xs.every((x) => x <= 6);
       const allInB = xs.every((x) => x >= 20);
       expect(allInA || allInB).toBe(true);
     }
-    const totalTraced = loops.reduce((n, l) => n + l.length, 0);
-    const totalBoundary = region.filter((c) => {
-      const neighbours = [
-        keyFor(wrap(c.x), wrap(c.y - 1)),
-        keyFor(wrap(c.x + 1), wrap(c.y)),
-        keyFor(wrap(c.x), wrap(c.y + 1)),
-        keyFor(wrap(c.x - 1), wrap(c.y))
-      ];
-      return neighbours.some((k) => !reach.has(k));
-    }).length;
-    expect(totalTraced).toBe(totalBoundary);
+  });
+
+  it("separates an outer boundary from an inner hole's boundary into two distinct loops -- the case the old tile-walk got wrong", () => {
+    // A 12x12 block with a 2x2 hole cut clean out of the middle (not
+    // touching any outer edge) -- e.g. a lake/mountain carved out by
+    // filterReachToLand. The old tile-adjacency walk could hop between the
+    // outer boundary and this inner hole's boundary when they passed close
+    // together, producing a chord straight across the interior. This
+    // tracer can't do that: every edge it emits is a literal tile-to-
+    // neighbour boundary, so the outer ring and the hole's ring never share
+    // an edge and always come out as two separate small loops.
+    const block = rect(0, 0, 11, 11);
+    const hole = new Set(rect(5, 5, 6, 6).map((c) => keyFor(c.x, c.y)));
+    const region = block.filter((c) => !hole.has(keyFor(c.x, c.y)));
+    const deps = buildDeps(region);
+    const reach = toReach(region);
+
+    const loops = traceReachBoundaryEdgeLoops(reach, deps);
+    expect(loops.length).toBe(2);
+    for (const loop of loops) expect(consecutiveCornersAreUnitSteps(loop)).toBe(true);
+    // One loop is the small hole ring (its corners span exactly 5..7), the
+    // other is the large outer ring (spans the full 0..12 block) -- neither
+    // loop should contain points from both scales, which is exactly what a
+    // bad cross-component hop would produce.
+    const spans = loops.map((loop) => {
+      const xs = loop.map((c) => c.x);
+      return Math.max(...xs) - Math.min(...xs);
+    });
+    spans.sort((a, b) => a - b);
+    expect(spans[0]).toBe(2); // the hole ring: corners 5..7
+    expect(spans[1]).toBe(12); // the outer ring: corners 0..12
   });
 
   it("returns no loops when the reach set is empty", () => {
     const deps = buildDeps([]);
-    expect(traceReachBoundaryLoops(new Set(), deps)).toEqual([]);
+    expect(traceReachBoundaryEdgeLoops(new Set(), deps)).toEqual([]);
   });
 });
 
@@ -185,52 +190,6 @@ describe("isCornerAt", () => {
 
   it("is false for loops shorter than 3 tiles (no meaningful direction to compare)", () => {
     expect(isCornerAt([{ x: 0, y: 0 }, { x: 1, y: 0 }], 0)).toBe(false);
-  });
-});
-
-describe("reachEdgesForTile / pylonEdgeOffset", () => {
-  it("reports only the top edge for a tile on the north side of a square, mid-run", () => {
-    const reach = toReach(rect(0, 0, 10, 10));
-    const deps = buildDeps(rect(0, 0, 10, 10));
-    const edges = reachEdgesForTile(5, 0, reach, deps);
-    expect(edges).toEqual({ top: true, right: false, bottom: false, left: false });
-  });
-
-  it("reports two edges for a corner tile", () => {
-    const reach = toReach(rect(0, 0, 10, 10));
-    const deps = buildDeps(rect(0, 0, 10, 10));
-    const edges = reachEdgesForTile(0, 0, reach, deps);
-    expect(edges).toEqual({ top: true, right: false, bottom: false, left: true });
-  });
-
-  it("pylonEdgeOffset pushes onto a single active edge, landing near a half-tile away", () => {
-    const { dx, dz } = pylonEdgeOffset({ top: true, right: false, bottom: false, left: false });
-    expect(dx).toBeCloseTo(0);
-    expect(dz).toBeLessThan(0);
-    expect(Math.abs(dz)).toBeGreaterThan(0.35);
-    expect(Math.abs(dz)).toBeLessThan(0.5);
-  });
-
-  it("pylonEdgeOffset applies the full offset on EACH active axis independently for a corner, landing on the actual corner vertex rather than undershooting along a normalized diagonal", () => {
-    const { dx, dz } = pylonEdgeOffset({ top: true, right: false, bottom: false, left: true });
-    expect(dz).toBeLessThan(0);
-    expect(dx).toBeLessThan(0);
-    // Same magnitude per axis as the single-edge case -- not divided down
-    // by sqrt(2) the way normalizing a combined vector would.
-    const { dz: singleAxisDz } = pylonEdgeOffset({ top: true, right: false, bottom: false, left: false });
-    expect(dz).toBeCloseTo(singleAxisDz, 10);
-    expect(dx).toBeCloseTo(singleAxisDz, 10); // same magnitude, both negative
-  });
-
-  it("pylonEdgeOffset is zero with no active edges", () => {
-    expect(pylonEdgeOffset({ top: false, right: false, bottom: false, left: false })).toEqual({ dx: 0, dz: 0 });
-  });
-
-  it("an interior (non-boundary) tile has no active edges, so its offset is zero", () => {
-    const reach = toReach(rect(0, 0, 10, 10));
-    const deps = buildDeps(rect(0, 0, 10, 10));
-    const edges = reachEdgesForTile(5, 5, reach, deps);
-    expect(pylonEdgeOffset(edges)).toEqual({ dx: 0, dz: 0 });
   });
 });
 
@@ -266,28 +225,30 @@ describe("filterReachToLand", () => {
     // A 0..6 square where the entire southern half (y >= 4) is open sea --
     // simulates a coastal town whose reach radius geometrically extends
     // past the shore. Without filtering, the traced loop would run along
-    // y=6 (the raw edge of the reach disk, out over open water); filtered,
-    // it should hug y=3/4 (the actual coastline) instead.
+    // grid line y=7 (the raw edge of the reach disk, out over open water);
+    // filtered, it should hug the y=4 grid line (the actual coastline)
+    // instead -- the corner sitting exactly on the land/sea edge, not out
+    // over the water tiles themselves.
     const coords = rect(0, 0, 6, 6);
     const tiles = new Map<string, Tile>();
     for (const { x, y } of coords) tiles.set(keyFor(x, y), makeTerrainTile(x, y, y >= 4 ? "SEA" : "LAND"));
     const reach = toReach(coords);
     const filtered = filterReachToLand(reach, tiles, keyFor);
     const deps: ReachBoundaryDeps = { tiles, keyFor, wrapX: wrap, wrapY: wrap };
-    const loops = traceReachBoundaryLoops(filtered, deps);
+    const loops = traceReachBoundaryEdgeLoops(filtered, deps);
     const allY = loops.flat().map((c) => c.y);
-    expect(Math.max(...allY)).toBeLessThan(4);
+    expect(Math.max(...allY)).toBeLessThanOrEqual(4);
   });
 });
 
 describe("samplePerimeterPylons", () => {
   it("rejects a segment between two walk-adjacent samples that are geometrically far apart, instead of drawing a line across the map", () => {
-    // Simulates traceReachBoundaryLoops's greedy walk hopping between two
-    // topologically distant boundary components (e.g. the outer edge of a
-    // territory and an unrelated hole's boundary, which filterReachToLand
-    // can introduce) -- a hand-built "loop" with one walk-adjacent pair
-    // that's actually very far apart on the map, even though every other
-    // step is a normal 1-tile move.
+    // Defensive backstop, kept even though traceReachBoundaryEdgeLoops can no
+    // longer produce this shape by construction (every edge it emits is a
+    // real 1-unit grid step) -- a hand-built "loop" with one walk-adjacent
+    // pair that's actually very far apart on the map, even though every
+    // other step is a normal 1-tile move, to prove samplePerimeterPylons
+    // itself never draws a chord across such a gap regardless of input.
     const loop: TileCoord[] = [
       { x: 0, y: 0 },
       { x: 1, y: 0 },
