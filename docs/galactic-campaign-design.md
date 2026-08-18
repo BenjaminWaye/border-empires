@@ -1,9 +1,10 @@
 # Galactic Campaign — Design Doc (draft)
 
 Status: **concept / not implemented.** This is the output of a design discussion,
-not a build plan. Numbers throughout are placeholders for a later balance pass —
-the point of this doc is the shape of the systems and how they connect, not the
-constants.
+not a build plan. The point of this doc is the shape of the systems and how they
+connect. A first-pass set of balance numbers lives in §13 — internally consistent
+and checked against each other, but not playtested; treat them as a starting
+point for tuning, not as settled constants.
 
 ## 1. What this is
 
@@ -71,11 +72,14 @@ proportional to how far a player got on the Diplomatic Dominance /
 Economic Hegemony tracks, even without winning outright — so Influence
 flows from ordinary seasons, not only wins.
 
-**Upkeep:** every held Planet/Outpost costs a small Influence upkeep,
-scaling with how much territory an empire holds (Stellaris admin-cap
-logic). Spread wide without enough Trade/Capital income to back it, and
-upkeep exceeds generation — that's an **Influence deficit**, one of the
-three paths into contestation (§7).
+**Upkeep:** every held **Planet** costs an Influence upkeep that scales
+with how much territory an empire holds (Stellaris admin-cap logic).
+Spread wide without enough Trade/Capital income to back it, and upkeep
+exceeds generation — that's an **Influence deficit**, one of the three
+paths into contestation (§7). **Outposts carry no upkeep at all**: they
+are the cheap bottom rung of the ladder and the default reward for
+new/emerging empires (§3), so charging them upkeep would hand exactly
+those players a holding that bleeds them toward deficit. Rates in §13.
 
 **Spends — kept deliberately short.** Three Senate action *categories*,
 nothing more: Sanction, Contest, and the next-Sector terrain vote.
@@ -92,7 +96,11 @@ to justify the client/balance surface.
   weighted bloc (§8), so organizing carries real Senate weight.
 - A proposal resolves at the next Cycle tick if it clears quorum (a
   percentage of total galaxy voting weight, not a fixed head count — so
-  quorum stays meaningful as the playerbase grows or shrinks).
+  quorum stays meaningful as the playerbase grows or shrinks), **and**
+  carries votes from at least 3 distinct voting entities. The
+  distinct-voter floor is the guard against a single mid-sized Bloc
+  clearing a weight-only quorum by itself and then piling into the open
+  Defense Campaign its own Contest vote just triggered (§7).
 - Every sanction and Contest vote has a **cooldown per target**: once
   resolved (pass or fail), the same empire can't be re-targeted by the
   same action for the rest of the current Cycle. This is the guardrail
@@ -158,10 +166,21 @@ Production has a use beyond funding aggression:
 | **Aegis Relay** | High | Passive Stability regeneration bonus across all of the owner's held Sectors — the defensive answer to raids and deficit |
 | **The Long Signal** | Medium | Grants the owner an extra Contest-vote token per Cycle — Production buying political leverage, not just economic or military edge |
 
-**Flag, not yet resolved:** Aegis Relay stacked with Bloc mutual defense
-(§8) is the same anti-snowball risk called out there — a Bloc that holds
-both becomes very hard to dislodge. Whatever brake Blocs get needs to
-account for Aegis Relay too, not just treasury pooling.
+### Supersession
+
+When a rival's committed Production passes the current owner's on a
+Wonder, the owner gets a **one-Cycle grace period** before the effect
+transfers — no jarring mid-Cycle flip, and one last Cycle to re-commit
+Production and hold it. If the transfer completes, the losing owner is
+refunded **50% of their invested Production**, which reuses the same
+softened-loss logic as the Stipend tier (§3) so losing a Wonder race
+isn't a total wipe.
+
+**Aegis Relay + Bloc mutual defense:** these do not stack. A Sector can
+draw on one defensive backup source per Cycle — Aegis Relay's passive
+regen *or* a Bloc-mate's reinforcement (§8), not both. Without this,
+a Bloc holding Aegis Relay compounds the anti-snowball risk §8 already
+carries.
 
 ## 6. Fleets
 
@@ -255,6 +274,23 @@ Sending a fleet is one screen, not a session:
   vs-quality is the actual decision, not a stat comparison (this is the
   one idea worth keeping from NEBULOUS: Fleet Command's editor — the
   budget-across-a-task-force part, not the editor itself).
+
+  Because raid damage is dealt at 1:1 with committed Production (§13),
+  cost and combat value collapse into one number per hull — which is
+  the cleanest way to express hull identity in a budget model:
+
+  | Class | Prod cost | Damage delivered | Travel |
+  |---|---:|---:|---|
+  | Scout | 25 | — (reveals target Garrison) | fastest |
+  | Raider | 80 | 50 (can plunder without breaking Stability) | fast |
+  | Battleline | 200 | 200 | medium |
+  | Dreadnought | 500 | 600 | slowest |
+  | Tanker | 60 | — (extends fleet range) | slow |
+
+  The Dreadnought is the only hull that returns more damage than it
+  costs. That over-delivery *is* its identity, and it's paid for in
+  travel time — the same trade-off the relative-stat table above
+  describes, priced.
 - **Weapon emphasis is one choice per fleet** (kinetic / energy / missile
   leaning), not a per-hull loadout screen — enough to make the
   rock-paper-scissors counters in the weapons list above matter, without
@@ -297,11 +333,35 @@ ways to drain it to zero, all converging on the same outcome:
 3. **Senate Contest vote** — a political majority forces it open regardless
    of current Stability (§4).
 
-Stability hitting zero opens a **Defense Campaign**: a Sector campaign
-season scoped to the defender plus challenger(s), not the full
-playerbase. Garrisons (Production), the defender's standing Defense
-posture (§6), and Bloc mutual defense (§8) restore or protect Stability
-before it breaks.
+**Deficit drains one Sector at a time, not all of them.** While an
+empire's net Influence is negative, the drain applies only to its
+*single lowest-Stability* held Sector; everything else holds. Draining
+every Sector uniformly would mean they all start at full and all hit
+zero on the same Cycle — one bad Cycle would dump an empire's entire
+holdings into the Defense Campaign queue at once, which at observed
+season lengths is a multi-week backlog from a single player. Staggering
+it keeps the same total pressure, and reads better besides: the frontier
+crumbles first, not the whole empire simultaneously.
+
+Stability hitting zero opens a **Defense Campaign**: a full Sector
+campaign season, **open to anyone**, not a defender-vs-challenger duel.
+The former owner gets a one-time starting bonus scaled to their sunk
+Garrison Production (extra starting manpower or a pre-settled tile) —
+real, but not an unbeatable head start. Everyone else can enter,
+including empires with no hand in weakening the Sector.
+
+Two things make open-to-anyone the better call than a scoped duel.
+It sharpens the anti-snowball intent — a large empire that slips into
+deficit or eats a raid can lose the Planet to a rival who never fired a
+shot, so weakness draws a crowd. And it's *less* infrastructure, not
+more: a Defense Campaign becomes structurally identical to a Frontier
+campaign, differing only in the prize and the incumbent's head start.
+One campaign type, two prize configurations — reusing existing
+open-campaign matchmaking rather than building a bespoke lobby.
+
+Garrisons (Production), the defender's standing Defense posture (§6),
+and Bloc mutual defense (§8) restore or protect Stability before it
+breaks.
 
 **Battle log:** every raid resolution posts to a galaxy-wide public log
 on the map — attacker, defender, outcome, nothing hidden. Cheap to build
@@ -336,11 +396,20 @@ replacing it:
   strips Senate vote weight, extending the existing truce-break lockout
   concept upward instead of leaving consequences purely in-season.
 
-**Open risk, unresolved:** pooled treasury + mutual defense could make a
-top Bloc progressively harder to raid or destabilize the larger it gets —
-which undermines the exact anti-snowball effect Stability is there to
-provide. If Blocs ship, they need their own brake (e.g. Influence upkeep
-that scales with member count) so blobbing isn't free.
+### The brake: Bloc Sprawl Upkeep
+
+Pooled treasury + mutual defense would otherwise make a top Bloc
+progressively *harder* to dislodge the larger it gets — undermining the
+exact anti-snowball pressure Stability exists to apply. The brake reuses
+the lever the rest of the doc already uses rather than inventing a new
+one: the shared treasury pays its own **Influence upkeep scaling with
+(member count × combined Planets)**, drawn automatically each Cycle.
+Growing the Bloc costs the Bloc, by the same mechanic players already
+understand at the empire level (§4). Rate in §13.
+
+The second half of the brake is the Aegis Relay non-stacking rule in §5:
+a Sector draws on one defensive backup per Cycle, never both a Wonder
+and a Bloc-mate.
 
 ## 9. Pacing
 
@@ -374,7 +443,7 @@ growth path is contesting existing territory (raids, Senate Contest
 votes, waiting out a rival's deficit) rather than endless free land
 grabs. Outposts (§3) are the natural starting rung on this ladder.
 
-## 11. Architecture notes (from earlier discussion, unchanged)
+## 11. Architecture and scheduling
 
 - The galactic Empire record must be its own persistent store keyed by
   account (`galacticEmpireId`), **not** embedded in `SimulationRuntime` or
@@ -391,6 +460,28 @@ grabs. Outposts (§3) are the natural starting rung on this ladder.
   single-stream queue) before concurrency exists at all; that scheduler is
   part of the v0 scope, concurrency isn't.
 
+### Scheduler policy (single-stream)
+
+With one season running at a time, something has to decide what runs
+next. The policy:
+
+- **Defense Campaigns take priority** over fresh Frontier campaigns, so a
+  contested Sector's limbo is bounded by the currently-running season
+  rather than an arbitrary backlog.
+- **Within the Defense tier, oldest-contested-first**, so no single
+  Sector can be perpetually skipped.
+- **Every third campaign slot is reserved for a Frontier campaign**,
+  regardless of Defense backlog. Strict priority alone would starve the
+  Frontier queue — and since Frontier Sectors are how new and
+  planet-less empires get on the board at all (§10), an unbroken run of
+  Defense Campaigns would silently switch off the entire catch-up path.
+  The reserved slot is what keeps that on-ramp open.
+
+**Limbo handling:** a Sector whose Stability has hit zero has its
+trickle **paused, not decayed**, until its Defense Campaign runs. A
+decay penalty was considered and cut — it's another number to balance
+for little gain once priority scheduling already bounds the wait.
+
 ## 12. Recommended build order
 
 Don't build all of this at once — the point of phasing is to answer "is
@@ -403,21 +494,131 @@ the core hook fun" before spending budget on the rest.
 - **v1** — Influence, upkeep, Stability, Senate's three actions. This is
   where contestation and the anti-snowball pressure come online.
 - **v2** — Fleets and raids (needs Stability from v1). Alliance Blocs
-  (needs raids to exist to matter, and needs its own anti-snowball brake
-  designed before it ships — §8).
+  (needs raids to exist to matter; their anti-snowball brake is specified
+  in §8 and priced in §13, so this no longer blocks the phase).
 
-## 13. Open questions before implementation
+## 13. Balance numbers (first pass)
 
-- Actual numbers: upkeep rates, trickle rates, Stability thresholds, raid
-  resolution formula, Outpost/Stipend scaling. None of this doc's numbers
-  are load-bearing yet.
-- Defense Campaign scoping: exactly who's eligible to join one (defender +
-  raider only? Bloc members? anyone?).
-- What happens to a Sector's yield during the gap between Stability
-  hitting zero and the Defense Campaign season actually being scheduled,
-  in a single-stream (no concurrency) launch.
-- Bloc anti-snowball brake (§8) needs a concrete mechanism before v2 —
-  and needs to cover Aegis Relay (§5), not just treasury pooling.
-- Wonder supersession: what actually happens to an owner's standing
-  effect the moment a rival out-produces and takes a Wonder from them —
-  instant cutover, a grace period, partial refund of invested Production?
+Every number here is a starting point for playtesting, not a claim about
+what's correct. They are collected in one section on purpose: a balance
+pass should be able to retune the whole economy from one place, and the
+prose above should never hardcode a value that also lives here.
+
+Two units: **Inf** (Influence) and **Prod** (Production), both per Cycle
+unless stated otherwise.
+
+### Trickle
+
+| Specialization | Planet Inf / Prod | Outpost Inf / Prod |
+|---|---:|---:|
+| Capital, Trade | 6 / 8 | 2 / 3 |
+| Industrial, Extraction | 2 / 24 | 1 / 8 |
+| Logistics | 4 / 16 | 1 / 5 |
+
+### Influence upkeep
+
+- **Planets:** 3 Inf each for the 1st–3rd, then +1 per additional Planet
+  (4th costs 4, 5th costs 5, and so on).
+- **Outposts:** 0. See §4 for why.
+
+Two worked examples showing the intended pressure:
+
+- **2 balanced Planets** (1 Capital + 1 Industrial): 8 Inf trickle − 6
+  upkeep = **+2 Inf**. Healthy.
+- **5 Planets, none Capital/Trade:** 10 Inf trickle − 18 upkeep =
+  **−8 Inf**. A real deficit — this is the "spread wide without
+  Trade/Capital backing" pressure from §4 doing its job.
+
+**Consequence worth stating out loud:** this curve puts the break-even
+point around 3–4 Planets for a mixed empire, which makes §10's
+"Dominant" tier a precarious position rather than a comfortable one —
+any shock (an Embargo, a lost Trade Planet) tips a large empire
+negative. That's treated here as intended, since anti-snowball pressure
+is the doc's stated goal, but it is a design choice and not a
+side-effect: soften the curve if playtesting shows the top of the ladder
+is unreachable rather than merely precarious.
+
+### Stability
+
+- Range 0–100 per Sector.
+- **Deficit drain:** −8/Cycle, applied to the empire's single
+  lowest-Stability Sector only (§7).
+- **Recovery:** +15/Cycle to all held Sectors while net Influence is
+  positive, capped at 100.
+- **Raid damage:** equal to the attacking fleet's delivered damage (§6),
+  1:1 with committed Production. No divisor — an earlier draft's ÷8 put
+  raid costs roughly 30× out of reach of the Production economy, which
+  would have quietly deleted raiding altogether.
+- **Garrison:** cancels incoming raid damage 1:1 up to its own Production
+  value. So breaking a full-health Sector needs damage exceeding
+  (Stability + Garrison) — 200 against a 100/100 Sector, which is exactly
+  one Battleline.
+
+### Fleets
+
+Costs and delivered damage are in the §6 hull table. For scale: an
+empire holding 4 Extraction Planets banks 96 Prod/Cycle, so a 200-Prod
+Battleline raid is ~2 Cycles of saving and a 500-Prod Dreadnought is
+~5. That's the intended raid cadence — frequent enough to be a live
+threat, slow enough that each one is a real commitment.
+
+### Wonders
+
+- **High tier** (Dyson Array, Orbital Shipyards, Aegis Relay): 700 Prod.
+- **Medium tier** (Grand Exchange, Deep Sensor Array, The Long Signal):
+  350 Prod.
+- Supersession refund: 50% of invested Production (§5).
+
+At 96 Prod/Cycle a committed empire reaches a High-tier Wonder in
+roughly 7 Cycles — deliberately competing for the same Production that
+funds raids and Garrisons.
+
+### Senate
+
+| Action | Cost | Quorum | Duration | Cooldown per target |
+|---|---:|---:|---|---|
+| Sanction | 15 Inf | 25% | 2 Cycles | 1 Cycle |
+| Contest | 40 Inf | 40% | — | 2 Cycles |
+| Terrain vote | 10 Inf | 20% | — | none |
+
+All quorums additionally require **≥3 distinct voting entities** (§4).
+
+### Blocs
+
+**Bloc Sprawl Upkeep:** 0.1 Inf per member-planet, where member-planets
+= (member count × combined Planets), drawn from the shared treasury each
+Cycle. A 5-member Bloc holding 20 Planets between them pays 10 Inf/Cycle;
+an 8-member Bloc holding 32 pays ~26.
+
+The rate matters more than it looks. An earlier figure of 0.5 was
+checked against treasury income and turned out insolvent — because the
+treasury holds only a *fraction* of members' pooled Influence, a
+multiplicative upkeep at that rate costs a large Bloc more than the
+treasury ever collects, making Blocs impossible rather than merely
+expensive. 0.1 bites without being fatal; any retune should be
+re-checked against the pooling percentage, not against members' gross
+income.
+
+### Stipend
+
+`(10 × progress)` Inf + `(40 × progress)` Prod, where `progress` is the
+player's best-path completion fraction at season end. A near-miss (0.9)
+pays 9 Inf + 36 Prod — roughly a Cycle and a half of a small empire's
+income, meaningful as a consolation without rivalling a Planet.
+
+## 14. Open questions before implementation
+
+- **The numbers in §13 have not been playtested.** They are internally
+  consistent — trickle, upkeep, raid costs, and Wonder prices were
+  checked against each other — but internal consistency is not balance.
+- **Defense Campaign entry conditions in practice:** §7 settles that
+  they're open to anyone, but not the minimum viable entrant count, or
+  what happens if nobody challenges an incumbent at all.
+- **Convergence reachability:** §9 triggers Convergence on ≥90% of
+  Sectors claimed *and broadly stable*. If the §13 upkeep curve keeps
+  large empires permanently near break-even, "broadly stable" may be
+  harder to reach than intended — worth simulating before committing to
+  the saturation trigger.
+- **Blueprint sharing scope** (§6): Bloc-wide only, or galaxy-wide
+  publishing? The latter is a real community feature but also a
+  homogenizing force on fleet composition.
