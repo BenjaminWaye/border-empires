@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/html-vite";
 import { createReachOverlay3D } from "@client/client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
 import {
   computeLocalReachSet,
+  filterReachToLand,
   isDormantFrontierTile,
   pylonEdgeOffset,
   reachEdgesForTile,
@@ -95,10 +96,9 @@ const buildWorld = (): Map<string, Tile> => {
     })
   );
 
-  // Fully settle both empires' entire enlarged square (not just the town
-  // tile) so each empire's *complete* boundary perimeter renders -- long
-  // enough at SETTLED_RADIUS=9 to demonstrate several sparse pylons per
-  // side, not just 1-2 isolated posts.
+  // Fully settle both empires' entire radius-3 (SETTLED_RADIUS) square so
+  // each empire's complete boundary perimeter renders, not just 1-2
+  // isolated posts.
   const settleSquare = (owner: string, center: { x: number; y: number }): void => {
     for (let dy = -SETTLED_RADIUS; dy <= SETTLED_RADIUS; dy += 1) {
       for (let dx = -SETTLED_RADIUS; dx <= SETTLED_RADIUS; dx += 1) {
@@ -111,6 +111,17 @@ const buildWorld = (): Map<string, Tile> => {
   };
   settleSquare(ME, MY_TOWN);
   settleSquare(ENEMY, ENEMY_TOWN);
+
+  // A body of water along my empire's southern edge -- inside my reach
+  // radius (reach is a purely geometric disk, terrain-blind) but never
+  // ownable. Demonstrates filterReachToLand clipping the boundary trace to
+  // the coastline instead of following the raw reach disk out over open
+  // water. Overwrites the two southernmost rows that settleSquare just set.
+  for (let x = MY_TOWN.x - SETTLED_RADIUS; x <= MY_TOWN.x + SETTLED_RADIUS; x += 1) {
+    for (let y = MY_TOWN.y + SETTLED_RADIUS - 1; y <= MY_TOWN.y + SETTLED_RADIUS; y += 1) {
+      tiles.set(keyFor(x, y), makeTile({ x, y, terrain: "SEA" }));
+    }
+  }
 
   // Dormant-frontier tile: mine, FRONTIER, still holding a leftover
   // structure from before it was unsettled -- renders as a "dead" pylon
@@ -139,8 +150,8 @@ const render = (args: Args): HTMLElement => {
   stage.scene.add(ground.group);
 
   const tiles = buildWorld();
-  const myReach = computeLocalReachSet(tiles, ME);
-  const enemyReach = computeLocalReachSet(tiles, ENEMY);
+  const myReach = filterReachToLand(computeLocalReachSet(tiles, ME), tiles, keyFor);
+  const enemyReach = filterReachToLand(computeLocalReachSet(tiles, ENEMY), tiles, keyFor);
   const overlay = createReachOverlay3D(stage.scene, GRID * GRID);
   const reachDeps = { tiles, keyFor, wrapX: wrap, wrapY: wrap };
   const nowMs = performance.now();
@@ -191,7 +202,18 @@ const render = (args: Args): HTMLElement => {
   addEmpireBoundary(ENEMY, enemyReach);
   overlay.commit();
 
-  return wrapWithCleanup(stage, [overlay.dispose, ground.dispose]);
+  // Ring spin / core pulse / travelling spark animate via their own
+  // per-frame update(), independent of the (one-time, in this static demo)
+  // placement pass above -- matches how client-map-3d.ts drives it every
+  // frame in the live game, not just when the camera moves.
+  let animId = 0;
+  const animate = (): void => {
+    overlay.update(performance.now());
+    animId = requestAnimationFrame(animate);
+  };
+  animate();
+
+  return wrapWithCleanup(stage, [() => cancelAnimationFrame(animId), overlay.dispose, ground.dispose]);
 };
 
 const meta: Meta<Args> = {

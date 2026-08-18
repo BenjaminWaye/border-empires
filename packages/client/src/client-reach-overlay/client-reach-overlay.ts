@@ -98,6 +98,33 @@ export const computeLocalReachSet = (tiles: ReachOverlayTileMap, me: string): Se
 };
 
 /**
+ * Excludes water tiles (SEA/COASTAL_SEA) from a reach set. Reach itself is a
+ * purely geometric radius (see `computeLocalReachSet` above) with no
+ * terrain awareness -- a coastal town/beacon's radius disk legitimately
+ * extends out over open water. That's fine for the underlying permission
+ * (you still can't EXPAND onto a sea tile; that's a separate, existing
+ * terrain check in validateFrontierCommand server-side), but a border
+ * boundary trace or a row of survey pylons drawn out into the sea reads as
+ * a bug, not a design choice. Apply this to whatever reach set feeds the
+ * VISUAL boundary (traceReachBoundaryLoops / the reach-boundary line), not
+ * to gameplay legality checks.
+ */
+export const filterReachToLand = (
+  reach: ReadonlySet<string>,
+  tiles: ReachOverlayTileMap,
+  keyFor: (x: number, y: number) => string
+): Set<string> => {
+  const filtered = new Set<string>();
+  for (const tile of tiles.values()) {
+    const key = keyFor(tile.x, tile.y);
+    if (!reach.has(key)) continue;
+    if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA") continue;
+    filtered.add(key);
+  }
+  return filtered;
+};
+
+/**
  * True for a FRONTIER tile that still carries a leftover structure from
  * before it was unsettled (destroyed/captured beacon etc. — see the reach
  * plan's unsettle transition). Distinguishes "previously mine, still has a
