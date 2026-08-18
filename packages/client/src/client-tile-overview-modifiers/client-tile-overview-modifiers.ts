@@ -119,11 +119,43 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
         tone: "negative"
       });
     }
-    if (tile.town.populationTier !== "SETTLEMENT" && tile.town.connectedTownCount > 0 && tile.town.connectedTownBonus !== 0) {
+    if (tile.town.populationTier !== "SETTLEMENT" && tile.town.connectedTownCount > 0) {
+      // connectedTownBonus is 0 whenever no town in this network has a
+      // built Caravanary yet (networkHasCaravanary gate,
+      // apps/simulation/src/economy-network/economy-network.ts) — the
+      // network still exists (connectedTownCount > 0) but pays nothing.
+      // Surfacing that as its own neutral line, instead of staying silent,
+      // is the whole point: a 0% row here is the answer to "why isn't my
+      // connected-town bonus doing anything."
+      modifiers.push(
+        tile.town.connectedTownBonus !== 0
+          ? {
+              reason: connectedLabel(tile.town.connectedTownCount),
+              effect: `${percentLabel(tile.town.connectedTownBonus * 100)} gold production`,
+              tone: tile.town.connectedTownBonus > 0 ? "positive" : "negative"
+            }
+          : {
+              reason: connectedLabel(tile.town.connectedTownCount),
+              effect: "+0% gold production — build a Trade Nexus to enable",
+              tone: "neutral"
+            }
+      );
+    }
+    // Support ring below full strength directly scales down town gold
+    // production (supportRatio multiplier, apps/simulation/src/
+    // live-town-summary.ts) — real and worth naming, not cosmetic.
+    if (
+      tile.town.populationTier !== "SETTLEMENT" &&
+      Number.isFinite(tile.town.supportMax) &&
+      tile.town.supportMax > 0 &&
+      Number.isFinite(tile.town.supportCurrent) &&
+      tile.town.supportCurrent < tile.town.supportMax
+    ) {
+      const supportRatio = tile.town.supportCurrent / tile.town.supportMax;
       modifiers.push({
-        reason: connectedLabel(tile.town.connectedTownCount),
-        effect: `${percentLabel(tile.town.connectedTownBonus * 100)} gold production`,
-        tone: tile.town.connectedTownBonus > 0 ? "positive" : "negative"
+        reason: `Support ${tile.town.supportCurrent}/${tile.town.supportMax}`,
+        effect: `${percentLabel((supportRatio - 1) * 100)} gold production`,
+        tone: "negative"
       });
     }
     for (const growth of tile.town.growthModifiers ?? []) {

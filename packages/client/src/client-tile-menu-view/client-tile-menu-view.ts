@@ -11,6 +11,7 @@ import {
   structureBuildManpowerCost,
   structureSlotRequirements,
   TOWN_MANPOWER_BY_TIER,
+  townFoodSlotDemandForTier,
   type SlotResource,
   type SlotStructureType
 } from "@border-empires/shared";
@@ -348,6 +349,22 @@ export const menuOverviewForTile = (
       pushLine(`Support ${supportCurrent}/${supportMax}`);
     } else if (ownTownEconomyPartial) {
       pushOwnTownLoadingRow("Support");
+    }
+    if (hasOwnedLandState && isSettled && hasOwnerEconomyData) {
+      // FOOD slot demand is what actually gates a town's isFed state (see
+      // resource-slot-view.ts's per-town FOOD contributor) — allocation is
+      // all-or-nothing per town, so "satisfied" is either the full demand
+      // (fed) or 0 (unfed), never a partial count. This is the pre-waiver
+      // base demand — a nearby Governor's Office can reduce it further, but
+      // that isn't visible client-side, so a fed Governor's-Office town may
+      // show a demand slightly higher than what it's actually clearing.
+      const foodDemand = townFoodSlotDemandForTier(tile.town.populationTier);
+      if (foodDemand > 0) {
+        const foodSatisfied = tile.town.isFed ? foodDemand : 0;
+        pushLine(`Food ${foodSatisfied}/${foodDemand} slots`);
+      }
+    } else if (ownTownEconomyPartial) {
+      pushOwnTownLoadingRow("Food");
     }
     pushLine(`Population ${Math.round(tile.town.population).toLocaleString()} • ${displayTownPopulationTierLabel(tile.town.populationTier)}`);
     if (isSettled && hasOwnerEconomyData) {
