@@ -2,10 +2,15 @@ import type { DomainStrategicResourceKey, DomainTileState } from "@border-empire
 import {
   bestFortTierForTech,
   bestSiegeTierForTech,
+  OUTPOST_REACH_RADIUS,
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
   structureShowsOnTile,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  wrapX,
+  wrapY,
   type EconomicStructureType,
   type Terrain
 } from "@border-empires/shared";
@@ -364,4 +369,82 @@ export const chooseBestSiegeOutpostBuild = (
     if (!best || score > best.score) best = { tile, score };
   }
   return best && best.score >= 180 ? best.tile : undefined;
+};
+
+// Reach-frontier sample cap for chooseBestRelayBeaconBuild's new-area
+// estimate below — keeps the per-candidate radius scan bounded regardless of
+// OUTPOST_REACH_RADIUS, per AGENTS.md's AI CPU Guardrails (no O(owned tiles
+// x world) scans from planner-static builders). At radius 5 the full box is
+// 121 cells; this only matters if the radius constant grows later.
+const RELAY_BEACON_REACH_SAMPLE_CAP = 150;
+
+/**
+ * Cheap approximation of "how much currently-unreachable land would a beacon
+ * here newly cover" — counts unowned-by-this-player LAND tiles (neutral or
+ * enemy frontier) within OUTPOST_REACH_RADIUS of the candidate, toroidally
+ * wrapped. This deliberately does NOT consult the real reach map (not always
+ * available to this planner-static builder) — it's a proxy for "is this
+ * candidate near unclaimed territory", which is what actually matters for
+ * siting a beacon to grow reach. Bounded to a fixed-size box scan per
+ * candidate, not a world scan.
+ */
+const estimateNewReachCoverage = (
+  playerId: string,
+  tile: StructurePlannerTile,
+  tilesByKey: TileLookup
+): number => {
+  let covered = 0;
+  let scanned = 0;
+  outer: for (let dy = -OUTPOST_REACH_RADIUS; dy <= OUTPOST_REACH_RADIUS; dy += 1) {
+    for (let dx = -OUTPOST_REACH_RADIUS; dx <= OUTPOST_REACH_RADIUS; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      scanned += 1;
+      if (scanned > RELAY_BEACON_REACH_SAMPLE_CAP) break outer;
+      const nx = wrapX(tile.x + dx, WORLD_WIDTH);
+      const ny = wrapY(tile.y + dy, WORLD_HEIGHT);
+      const neighbor = tilesByKey.get(tileKeyOf(nx, ny));
+      if (!neighbor || neighbor.terrain !== "LAND") continue;
+      if (neighbor.ownerId === playerId) continue;
+      covered += 1;
+    }
+  }
+  return covered;
+};
+
+/**
+ * AI placement scoring for RELAY_BEACON (the reach-projection outpost —
+ * fixed-borders-via-reach plan). RELAY_BEACON is an EconomicStructureType
+ * that lives on `economicStructure` (Phase 1 debt, see
+ * packages/shared/src/structure-registry-outpost.ts), so this mirrors
+ * chooseBestEconomicBuild's candidate shape, not chooseBestSiegeOutpostBuild's
+ * — but the *placement rule* (owned + SETTLED, no tech gate) and *scoring
+ * approach* (score candidates by new-territory coverage near the reach
+ * frontier) follow the plan's "build_siege_outpost-style action" template.
+ * Candidates must already be owned+SETTLED — RELAY_BEACON_SPEC's placement
+ * list (tileIsSettled + ownerOwnsTile, structure-registry-outpost.ts:67-94)
+ * enforces this at the runtime; mirrored here so the AI doesn't repeatedly
+ * propose builds the runtime will reject.
+ */
+export const chooseBestRelayBeaconBuild = (
+  player: StructurePlannerPlayer,
+  ownedTiles: readonly StructurePlannerTile[],
+  tilesByKey: TileLookup,
+  candidateTiles: readonly StructurePlannerTile[] = ownedTiles
+): StructurePlannerTile | undefined => {
+  const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
+  const existingOwnedCount = plannedOwnedStructureCount(player, counts, "RELAY_BEACON");
+  if (!canAffordStructure(player, playerTechSet(player), "RELAY_BEACON", existingOwnedCount)) return undefined;
+
+  let best: { tile: StructurePlannerTile; score: number } | undefined;
+  for (const tile of candidateTiles) {
+    if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
+    if (!tileOpenForStructure(tile)) continue;
+    if (!structureVisibleOnTile("RELAY_BEACON", player.id, tile, tilesByKey)) continue;
+    const newCoverage = estimateNewReachCoverage(player.id, tile, tilesByKey);
+    if (newCoverage <= 0) continue;
+    let score = newCoverage * 10;
+    if (tile.dockId) score += 30; // cross-island reach floor per plan's DOCK_REACH_RADIUS note
+    if (!best || score > best.score) best = { tile, score };
+  }
+  return best?.tile;
 };

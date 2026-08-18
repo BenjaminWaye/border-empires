@@ -20,6 +20,14 @@ describe("onOwnershipChange townLost signal", () => {
         initialState: {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            },
             // Neutral town: has a town but no owner, matching worldgen-seeded
             // neutral towns. A TOWN-tier town survives capture (only
             // SETTLEMENT tier is razed), so this must NOT be townLost.

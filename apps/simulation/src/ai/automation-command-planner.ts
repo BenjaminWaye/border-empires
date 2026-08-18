@@ -10,9 +10,10 @@ import { computeTownSupport } from "../town-support.js";
 import {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
+  chooseBestRelayBeaconBuild,
   chooseBestSiegeOutpostBuild
 } from "./structure-command-planner.js";
-import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
+import { economyWeak, foodCoverageLow, isReachStarved } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationPlannerDecisionContext } from "./automation-command-planner-helpers.js";
 import { runUtilityPolicy } from "./utility/utility-dispatch.js";
@@ -232,6 +233,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           preferFogEfficientExpansion: true,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
+          ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -267,6 +269,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           preferFogEfficientExpansion: true,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
+          ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -285,6 +288,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   let economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
   let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
   let siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
+  let relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
   if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
     const structurePlayer = {
       id: input.playerId,
@@ -306,7 +310,21 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    relayBeaconBuild = chooseBestRelayBeaconBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
   }
+  // Reach-starved: reach-filtered EXPAND candidates have dried up (via
+  // frontierAnalysis.frontierNeutralTargetCount, filtered by reachLookup
+  // above once wired) while the player is otherwise strong enough to want
+  // more land. Precondition for preferring a relay-beacon build over a plain
+  // economic build below — see ai-economic-heuristics.ts's isReachStarved.
+  const reachStarved = isReachStarved({
+    reachLimitedNeutralTargetCount: frontierAnalysis.frontierNeutralTargetCount,
+    townCount,
+    manpower: input.manpower,
+    needsFood,
+    needsEconomy,
+    frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount
+  });
 
   // Debug-only bridge from the generic TTile scan to explainFrontierOriginTile's
   // concrete DomainTileState signature (same cast pattern as
@@ -442,6 +460,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     economicBuild,
     fortBuild,
     siegeOutpostBuild,
+    relayBeaconBuild,
+    reachStarved,
     attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
     expansionObjective: input.expansionObjective,
     points: input.points,

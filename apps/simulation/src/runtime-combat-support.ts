@@ -232,6 +232,9 @@ export const attackerOutpostMult = (ctx: RuntimeCombatSupportContext, playerId: 
   for (const tileKey of summary.territoryTileKeys) {
     const tile = ctx.tiles.get(tileKey);
     if (!tile) continue;
+    // Fixed-border reach: an unsettled (dormant) tile's structures don't
+    // project an aura, even if the structure fields are still present.
+    if (tile.ownershipState !== "SETTLED") continue;
     if (
       tile.siegeOutpost?.ownerId === playerId &&
       tile.siegeOutpost.status === "active" &&

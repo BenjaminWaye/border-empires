@@ -74,10 +74,19 @@ import {
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
+import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
+import {
+  computeLocalReachSet,
+  isDormantFrontierTile,
+  pylonEdgeOffset,
+  reachEdgesForTile,
+  samplePerimeterPylons,
+  traceReachBoundaryLoops
+} from "../client-reach-overlay/client-reach-overlay.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
-import { revealWholeMapInTrue3DMode } from "../client-renderer-mode.js";
+import { revealWholeMapInTrue3DMode, isTrue3DRendererActive } from "../client-renderer-mode.js";
 import { recordTerrainRebuildSample } from "../client-performance-metrics/client-performance-metrics.js";
 import { fortificationOpeningForTile, fortificationOverlayKindForTile, type FortificationOpening, type FortificationOverlayKind } from "../client-fortification-overlays/client-fortification-overlays.js";
 import { normalizeColorForThree } from "../client-three-color/client-three-color.js";
@@ -151,6 +160,21 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 });
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
+  const reachOverlay3D = createReachOverlay3D(scene, MAX_VISIBLE_TILES);
+  // Cache of the client-local reach approximation, recomputed only when
+  // tiles actually changed (same revision-gated pattern as the 2D path's
+  // state.myReach in client-runtime-loop.ts). Kept as a local rather than
+  // on ClientState since the 2D path guards its own state.myReach update
+  // with !isTrue3DRendererActive() and only one renderer is ever active.
+  let reach3DCache: Set<string> | undefined;
+  let reach3DCacheRevision = -1;
+  // Sparse pylon placement points + connecting chords, sampled from the
+  // traced reach-boundary perimeter (see client-reach-overlay.ts's
+  // traceReachBoundaryLoops/samplePerimeterPylons). Recomputed only when
+  // reach3DCache itself is recomputed -- the perimeter walk is more work
+  // than a per-tile boundary check, so it must not run every frame.
+  let reach3DPylons: { x: number; y: number }[] = [];
+  let reach3DSegments: { from: { x: number; y: number }; to: { x: number; y: number } }[] = [];
   // §21.1: one badge overlay per resource icon, so a dormant Fort missing TITANIUM gets ⛏ while an unfed town still gets 🍞.
   const RESOURCE_BADGE_ICON: Record<SlotResource, string> = { FOOD: "🍞", TITANIUM: "⛏", CRYSTAL: "💎", UMBRITE: "🟣" };
   const resourceBadgeOverlays: Record<SlotResource, ResourceBadgeOverlay> = {
@@ -1294,6 +1318,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     fogOwnershipOverlay.clear();
     townOverlay.clear();
     roadOverlay.clear();
+    reachOverlay3D.clear();
     const roadNetworkStartAt = performance.now();
     const roadNetwork = buildRoadNetwork({
       tiles: deps.state.tiles,
@@ -1342,6 +1367,30 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     const selectedCoord = deps.state.selected;
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
+
+    // Fixed-borders-via-reach 3D overlay data source. Reuses the exact same
+    // pure computeLocalReachSet/isDormantFrontierTile/isReachBoundaryTile
+    // helpers the 2D canvas path uses (client-reach-overlay.ts) so both
+    // renderers always agree on what's in reach. Only computed while the
+    // true-3D renderer is actually active.
+    const reach3DActive = isTrue3DRendererActive();
+    const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
+    if (reach3DActive) {
+      if (reach3DCacheRevision !== deps.state.tilesRevision) {
+        reach3DCache = computeLocalReachSet(deps.state.tiles, deps.state.me);
+        reach3DCacheRevision = deps.state.tilesRevision;
+        const loops = traceReachBoundaryLoops(reach3DCache, reach3DDeps);
+        const { pylons, segments } = samplePerimeterPylons(loops);
+        reach3DPylons = pylons.flat();
+        reach3DSegments = segments.flat();
+      }
+    } else {
+      reach3DCache = undefined;
+      reach3DCacheRevision = -1;
+      reach3DPylons = [];
+      reach3DSegments = [];
+    }
+    const reach3DNowMs = performance.now();
 
     const perTileLoopStartAt = performance.now();
     for (let dy = -halfH - 1; dy <= halfH + 1; dy += 1) {
@@ -1799,6 +1848,22 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             };
           }
         }
+        // Aether Survey Line 3D overlay: dormant-frontier fill and
+        // out-of-reach dimming are still per-tile (mirrors the 2D path's
+        // conditions in client-runtime-loop.ts exactly). The sparse
+        // pylons + connecting chords themselves are NOT rendered per-tile
+        // here -- they're placed once per reach-cache revision from
+        // reach3DPylons/reach3DSegments below the main tile loop, since a
+        // pylon only exists every ~10-15 boundary tiles and iterating the
+        // full visible-tile grid is the wrong loop shape for that.
+        if (reach3DActive && reach3DCache && tile && visibility === "visible") {
+          if (tile.ownerId === deps.state.me && isDormantFrontierTile(tile)) {
+            reachOverlay3D.addDormantFrontierTile(x, z, surfaceY, 1);
+          }
+          if (tile.ownerId && tile.ownerId !== deps.state.me && tile.ownerId !== "barbarian" && !reach3DCache.has(tileKey)) {
+            reachOverlay3D.addOutOfReachTile(x, z, surfaceY, 1);
+          }
+        }
         if (deps.state.showWeakDefensibility && isOwnedSettledLandTile(tile, deps.state.me)) {
           const exposedSides = exposedSidesForTile(tile, {
             tiles: deps.state.tiles,
@@ -1819,6 +1884,68 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     const perTileLoopMs = performance.now() - perTileLoopStartAt;
 
+    // Aether Survey Line sparse pylons + connecting chords: placed once per
+    // reach-cache revision (reach3DPylons/reach3DSegments), converted to
+    // scene coordinates against the *current* camera position every frame
+    // (camera can move between cache recomputes). Gated on the local
+    // player's own reach (this overlay is always "my" border, matching
+    // computeLocalReachSet's per-player scoping) and on the survey point's
+    // tile currently being explored/visible, mirroring the dormant/
+    // out-of-reach gating above.
+    if (reach3DActive && reach3DCache && (reach3DPylons.length > 0 || reach3DSegments.length > 0)) {
+      const myColor = deps.effectiveOverlayColor(deps.state.me);
+      const surfaceYForTile = (wx: number, wy: number): number => {
+        const wxNext = deps.wrapX(wx + 1);
+        const wyNext = deps.wrapY(wy + 1);
+        return (
+          Math.max(
+            heightfield.elevationAt(wx, wy),
+            heightfield.cornerYAt(wx, wy),
+            heightfield.cornerYAt(wxNext, wy),
+            heightfield.cornerYAt(wx, wyNext),
+            heightfield.cornerYAt(wxNext, wyNext)
+          ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD
+        );
+      };
+      const isPointVisible = (wx: number, wy: number): boolean => {
+        const t = deps.state.tiles.get(deps.keyFor(wx, wy));
+        const v = deps.tileVisibilityStateAt(wx, wy, t);
+        return v === "visible" || (v === "unexplored" && revealWholeMapInTrue3DMode);
+      };
+      // A survey point should stand on the actual line between owned and
+      // out-of-reach ground, not the tile's center -- pylonEdgeOffset
+      // (client-reach-overlay.ts) pushes it ~0.42 units toward whichever
+      // edge(s) made this tile a boundary tile in the first place.
+      const edgeOffsetFor = (wx: number, wy: number): { dx: number; dz: number } =>
+        pylonEdgeOffset(reachEdgesForTile(wx, wy, reach3DCache!, reach3DDeps));
+      for (const point of reach3DPylons) {
+        if (!isPointVisible(point.x, point.y)) continue;
+        const { dx, dz } = edgeOffsetFor(point.x, point.y);
+        const sx = toroidDelta(deps.state.camX, point.x, WORLD_WIDTH) + TILE_CENTER_OFFSET + dx;
+        const sz = toroidDelta(deps.state.camY, point.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET + dz;
+        reachOverlay3D.addPylon(sx, sz, surfaceYForTile(point.x, point.y), 1, reach3DNowMs, myColor);
+      }
+      for (const segment of reach3DSegments) {
+        if (!isPointVisible(segment.from.x, segment.from.y) && !isPointVisible(segment.to.x, segment.to.y)) continue;
+        const from = edgeOffsetFor(segment.from.x, segment.from.y);
+        const to = edgeOffsetFor(segment.to.x, segment.to.y);
+        const sx0 = toroidDelta(deps.state.camX, segment.from.x, WORLD_WIDTH) + TILE_CENTER_OFFSET + from.dx;
+        const sz0 = toroidDelta(deps.state.camY, segment.from.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET + from.dz;
+        const sx1 = toroidDelta(deps.state.camX, segment.to.x, WORLD_WIDTH) + TILE_CENTER_OFFSET + to.dx;
+        const sz1 = toroidDelta(deps.state.camY, segment.to.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET + to.dz;
+        reachOverlay3D.addLineSegment(
+          sx0,
+          sz0,
+          surfaceYForTile(segment.from.x, segment.from.y),
+          sx1,
+          sz1,
+          surfaceYForTile(segment.to.x, segment.to.y),
+          reach3DNowMs,
+          myColor
+        );
+      }
+    }
+
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
     const commitStartAt = performance.now();
@@ -1831,6 +1958,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     fogOwnershipOverlay.commit();
     townOverlay.commit();
     roadOverlay.commit();
+    reachOverlay3D.commit();
     for (const overlay of Object.values(resourceBadgeOverlays)) overlay.commit();
     observatoryCooldownBadgeOverlay.commit();
     upgradeReadyBadgeOverlay.commit();
@@ -2036,6 +2164,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     frontierClaimPlateMaterial.dispose();
     townOverlay.dispose();
     roadOverlay.dispose();
+    reachOverlay3D.dispose();
     for (const overlay of Object.values(resourceBadgeOverlays)) overlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
     upgradeReadyBadgeOverlay.dispose();

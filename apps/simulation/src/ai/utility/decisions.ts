@@ -95,6 +95,11 @@ export type DecisionInputs = {
   hasEconomicBuild: boolean;
   hasFortBuild: boolean;
   hasSiegeOutpost: boolean;
+  // Fixed-borders-via-reach plan: best RELAY_BEACON site available.
+  hasRelayBeaconBuild: boolean;
+  // True when reach-filtered EXPAND candidates are scarce despite a strong
+  // economy — see ai-economic-heuristics.ts's isReachStarved.
+  reachStarved: boolean;
   // Tech
   techAffordable: boolean;
   // Anti-thrash: momentum ticks accrued since last class switch (0–N).
@@ -200,7 +205,13 @@ const scoreBuildDefense = (inp: DecisionInputs): number =>
 
 const scoreBuildEconomy = (inp: DecisionInputs): number =>
   scoreConsiderations([
-    boolVeto(inp.hasEconomicBuild),
+    // Relay beacon only substitutes for a plain economic build when actually
+    // reach-starved (isReachStarved) — a beacon site scoring positively on
+    // its own (e.g. any owned tile adjacent to unowned land) is not by
+    // itself a reason to build one; that would let BUILD_ECONOMY fire in
+    // scenarios (e.g. under attack pressure) where it previously correctly
+    // deferred to ATTACK/MUSTER.
+    boolVeto(inp.hasEconomicBuild || (inp.reachStarved && inp.hasRelayBeaconBuild)),
     boolVeto(inp.devSlotAvailable),
     // Economy build is unattractive while expansion / attack is available.
     // Includes frontier enemy count so that ANY enemy at the gate naturally
@@ -209,10 +220,23 @@ const scoreBuildEconomy = (inp: DecisionInputs): number =>
     // Uses nonWasteExpansionOpportunityCount, NOT expansionOpportunityCount:
     // waste-only neutrals are not real "expansion available" (EXPAND itself
     // refuses them), so they must not suppress economy building either.
-    1 - linear(inp.nonWasteExpansionOpportunityCount + inp.frontierEnemyCount, 0, 1.5),
-    // Scales up when income is genuinely weak; midpoint 0.7 ensures
-    // SETTLE/EXPAND/ATTACK (all scoring ~1.0) outrank economy builds.
-    logistic(inp.needsEconomy ? 1 : inp.needsFood ? 0.6 : 0.2, 0.7, 6)
+    // Reach-starved is the exception: when EXPAND itself is what's
+    // vetoed/starved (reach, not opportunity), a relay beacon is the ONLY
+    // way to unstick it, so this suppression term is skipped entirely —
+    // otherwise a reach-starved AI with nonzero (but out-of-reach, still
+    // counted pre-filter here) neutral opportunity could perpetually
+    // suppress the one build that would fix its EXPAND drought.
+    inp.reachStarved && inp.hasRelayBeaconBuild
+      ? 1
+      : 1 - linear(inp.nonWasteExpansionOpportunityCount + inp.frontierEnemyCount, 0, 1.5),
+    // Scales up when income is genuinely weak, OR when reach-starved with a
+    // beacon site ready — a reach-starved AI is by definition not
+    // economically weak (see isReachStarved's !needsEconomy gate), so
+    // without this branch the logistic curve alone would keep BUILD_ECONOMY
+    // scoring low and WAIT would win instead of building the beacon.
+    inp.reachStarved && inp.hasRelayBeaconBuild
+      ? 1
+      : logistic(inp.needsEconomy ? 1 : inp.needsFood ? 0.6 : 0.2, 0.7, 6)
   ]);
 
 const scoreChooseTech = (inp: DecisionInputs): number =>
