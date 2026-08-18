@@ -74,8 +74,13 @@ import {
 import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-3d-population.js";
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
-import { createReachOverlay3D, pylonEdgeOffset } from "../client-map-3d-aether-sentry-lattice/client-map-3d-aether-sentry-lattice.js";
-import { computeLocalReachSet, isDormantFrontierTile, isReachBoundaryTile } from "../client-reach-overlay/client-reach-overlay.js";
+import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
+import {
+  computeLocalReachSet,
+  isDormantFrontierTile,
+  samplePerimeterPylons,
+  traceReachBoundaryLoops
+} from "../client-reach-overlay/client-reach-overlay.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
@@ -161,6 +166,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // with !isTrue3DRendererActive() and only one renderer is ever active.
   let reach3DCache: Set<string> | undefined;
   let reach3DCacheRevision = -1;
+  // Sparse pylon placement points + connecting chords, sampled from the
+  // traced reach-boundary perimeter (see client-reach-overlay.ts's
+  // traceReachBoundaryLoops/samplePerimeterPylons). Recomputed only when
+  // reach3DCache itself is recomputed -- the perimeter walk is more work
+  // than a per-tile boundary check, so it must not run every frame.
+  let reach3DPylons: { x: number; y: number }[] = [];
+  let reach3DSegments: { from: { x: number; y: number }; to: { x: number; y: number } }[] = [];
   // §21.1: one badge overlay per resource icon, so a dormant Fort missing TITANIUM gets ⛏ while an unfed town still gets 🍞.
   const RESOURCE_BADGE_ICON: Record<SlotResource, string> = { FOOD: "🍞", TITANIUM: "⛏", CRYSTAL: "💎", UMBRITE: "🟣" };
   const resourceBadgeOverlays: Record<SlotResource, ResourceBadgeOverlay> = {
@@ -1360,16 +1372,22 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     // renderers always agree on what's in reach. Only computed while the
     // true-3D renderer is actually active.
     const reach3DActive = isTrue3DRendererActive();
+    const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
     if (reach3DActive) {
       if (reach3DCacheRevision !== deps.state.tilesRevision) {
         reach3DCache = computeLocalReachSet(deps.state.tiles, deps.state.me);
         reach3DCacheRevision = deps.state.tilesRevision;
+        const loops = traceReachBoundaryLoops(reach3DCache, reach3DDeps);
+        const { pylons, segments } = samplePerimeterPylons(loops);
+        reach3DPylons = pylons.flat();
+        reach3DSegments = segments.flat();
       }
     } else {
       reach3DCache = undefined;
       reach3DCacheRevision = -1;
+      reach3DPylons = [];
+      reach3DSegments = [];
     }
-    const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
     const reach3DNowMs = performance.now();
 
     const perTileLoopStartAt = performance.now();
@@ -1828,68 +1846,20 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             };
           }
         }
-        // Aether Sentry Lattice 3D overlay (dormant-frontier fill,
-        // out-of-reach dimming, reach-boundary sentry pylons + tethers).
-        // Mirrors the 2D path's conditions in client-runtime-loop.ts
-        // exactly. All boundary tiles here are the local player's own
-        // (tile.ownerId === deps.state.me) -- computeLocalReachSet is
-        // scoped per-player, so tethers only ever connect same-owner
-        // pylons, never bridge across an ownership boundary.
+        // Aether Survey Line 3D overlay: dormant-frontier fill and
+        // out-of-reach dimming are still per-tile (mirrors the 2D path's
+        // conditions in client-runtime-loop.ts exactly). The sparse
+        // pylons + connecting chords themselves are NOT rendered per-tile
+        // here -- they're placed once per reach-cache revision from
+        // reach3DPylons/reach3DSegments below the main tile loop, since a
+        // pylon only exists every ~10-15 boundary tiles and iterating the
+        // full visible-tile grid is the wrong loop shape for that.
         if (reach3DActive && reach3DCache && tile && visibility === "visible") {
           if (tile.ownerId === deps.state.me && isDormantFrontierTile(tile)) {
             reachOverlay3D.addDormantFrontierTile(x, z, surfaceY, 1);
           }
           if (tile.ownerId && tile.ownerId !== deps.state.me && tile.ownerId !== "barbarian" && !reach3DCache.has(tileKey)) {
             reachOverlay3D.addOutOfReachTile(x, z, surfaceY, 1);
-          }
-          if (tile.ownerId === deps.state.me && isReachBoundaryTile(wx, wy, reach3DCache, reach3DDeps)) {
-            const edges = {
-              top: !reach3DCache.has(deps.keyFor(deps.wrapX(wx), deps.wrapY(wy - 1))),
-              right: !reach3DCache.has(deps.keyFor(deps.wrapX(wx + 1), deps.wrapY(wy))),
-              bottom: !reach3DCache.has(deps.keyFor(deps.wrapX(wx), deps.wrapY(wy + 1))),
-              left: !reach3DCache.has(deps.keyFor(deps.wrapX(wx - 1), deps.wrapY(wy)))
-            };
-            const ownerColor = deps.effectiveOverlayColor(tile.ownerId);
-            reachOverlay3D.addBoundaryTile(x, z, surfaceY, 1, edges, reach3DNowMs, ownerColor);
-            // Tether endpoints must land where the pylons actually stand
-            // (on their own edge, via pylonEdgeOffset -- see
-            // addBoundaryTile), not at raw tile centers, or the tether
-            // would visually disconnect from the posts it's meant to link.
-            const { dx: dx0, dz: dz0 } = pylonEdgeOffset(edges);
-            // Tethers to the right/bottom neighbour only (each edge drawn
-            // once) when that neighbour tile is also this same player's
-            // reach-boundary tile -- chains the pylons along a straight run
-            // without ever bridging a tile owned by someone else.
-            const rightKey = deps.keyFor(deps.wrapX(wx + 1), deps.wrapY(wy));
-            const rightTile = deps.state.tiles.get(rightKey);
-            if (
-              rightTile?.ownerId === deps.state.me &&
-              isReachBoundaryTile(deps.wrapX(wx + 1), wy, reach3DCache, reach3DDeps)
-            ) {
-              const rightEdges = {
-                top: !reach3DCache.has(deps.keyFor(deps.wrapX(wx + 1), deps.wrapY(wy - 1))),
-                right: !reach3DCache.has(deps.keyFor(deps.wrapX(wx + 2), deps.wrapY(wy))),
-                bottom: !reach3DCache.has(deps.keyFor(deps.wrapX(wx + 1), deps.wrapY(wy + 1))),
-                left: !reach3DCache.has(deps.keyFor(deps.wrapX(wx), deps.wrapY(wy)))
-              };
-              const { dx: dx1, dz: dz1 } = pylonEdgeOffset(rightEdges);
-              reachOverlay3D.addTether(x + dx0, z + dz0, surfaceY, x + 1 + dx1, z + dz1, surfaceY, reach3DNowMs, ownerColor);
-            }
-            const bottomKey = deps.keyFor(wx, deps.wrapY(wy + 1));
-            const bottomTile = deps.state.tiles.get(bottomKey);
-            if (
-              bottomTile?.ownerId === deps.state.me &&
-              isReachBoundaryTile(wx, deps.wrapY(wy + 1), reach3DCache, reach3DDeps)
-            ) {
-              const bottomEdges = {
-                top: !reach3DCache.has(deps.keyFor(deps.wrapX(wx), deps.wrapY(wy))),
-                right: !reach3DCache.has(deps.keyFor(deps.wrapX(wx + 1), deps.wrapY(wy + 1))),
-                bottom: !reach3DCache.has(deps.keyFor(deps.wrapX(wx), deps.wrapY(wy + 2))),
-                left: !reach3DCache.has(deps.keyFor(deps.wrapX(wx - 1), deps.wrapY(wy + 1)))
-              };
-              const { dx: dx1, dz: dz1 } = pylonEdgeOffset(bottomEdges);
-              reachOverlay3D.addTether(x + dx0, z + dz0, surfaceY, x + dx1, z + 1 + dz1, surfaceY, reach3DNowMs, ownerColor);
-            }
           }
         }
         if (deps.state.showWeakDefensibility && isOwnedSettledLandTile(tile, deps.state.me)) {
@@ -1911,6 +1881,59 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
 
     const perTileLoopMs = performance.now() - perTileLoopStartAt;
+
+    // Aether Survey Line sparse pylons + connecting chords: placed once per
+    // reach-cache revision (reach3DPylons/reach3DSegments), converted to
+    // scene coordinates against the *current* camera position every frame
+    // (camera can move between cache recomputes). Gated on the local
+    // player's own reach (this overlay is always "my" border, matching
+    // computeLocalReachSet's per-player scoping) and on the survey point's
+    // tile currently being explored/visible, mirroring the dormant/
+    // out-of-reach gating above.
+    if (reach3DActive && reach3DCache && (reach3DPylons.length > 0 || reach3DSegments.length > 0)) {
+      const myColor = deps.effectiveOverlayColor(deps.state.me);
+      const surfaceYForTile = (wx: number, wy: number): number => {
+        const wxNext = deps.wrapX(wx + 1);
+        const wyNext = deps.wrapY(wy + 1);
+        return (
+          Math.max(
+            heightfield.elevationAt(wx, wy),
+            heightfield.cornerYAt(wx, wy),
+            heightfield.cornerYAt(wxNext, wy),
+            heightfield.cornerYAt(wx, wyNext),
+            heightfield.cornerYAt(wxNext, wyNext)
+          ) + OVERLAY_RISE_ABOVE_HEIGHTFIELD
+        );
+      };
+      const isPointVisible = (wx: number, wy: number): boolean => {
+        const t = deps.state.tiles.get(deps.keyFor(wx, wy));
+        const v = deps.tileVisibilityStateAt(wx, wy, t);
+        return v === "visible" || (v === "unexplored" && revealWholeMapInTrue3DMode);
+      };
+      for (const point of reach3DPylons) {
+        if (!isPointVisible(point.x, point.y)) continue;
+        const sx = toroidDelta(deps.state.camX, point.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+        const sz = toroidDelta(deps.state.camY, point.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+        reachOverlay3D.addPylon(sx, sz, surfaceYForTile(point.x, point.y), 1, reach3DNowMs, myColor);
+      }
+      for (const segment of reach3DSegments) {
+        if (!isPointVisible(segment.from.x, segment.from.y) && !isPointVisible(segment.to.x, segment.to.y)) continue;
+        const sx0 = toroidDelta(deps.state.camX, segment.from.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+        const sz0 = toroidDelta(deps.state.camY, segment.from.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+        const sx1 = toroidDelta(deps.state.camX, segment.to.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+        const sz1 = toroidDelta(deps.state.camY, segment.to.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+        reachOverlay3D.addLineSegment(
+          sx0,
+          sz0,
+          surfaceYForTile(segment.from.x, segment.from.y),
+          sx1,
+          sz1,
+          surfaceYForTile(segment.to.x, segment.to.y),
+          reach3DNowMs,
+          myColor
+        );
+      }
+    }
 
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
