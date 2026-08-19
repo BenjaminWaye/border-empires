@@ -1,4 +1,5 @@
 import { isSeaTerrain, tileKey, WORLD_HEIGHT, WORLD_WIDTH, type ReachAnchorKind } from "@border-empires/shared";
+import { tileHasTownIdentity } from "../client-town-identity.js";
 import type { Tile } from "../client-types.js";
 
 // Fixed-borders-via-reach client overlay. Renders the boundary of the local
@@ -78,7 +79,16 @@ export const computeLocalReachSet = (tiles: ReachOverlayTileMap, me: string): Se
     // would overstate reach for previously-overtaken ground. Docks are
     // deliberately left ungated, same rationale as server-side.
     const isSettled = tile.ownershipState === "SETTLED";
-    if (isSettled && tile.town) anchors.push({ x: tile.x, y: tile.y, kind: "TOWN" });
+    // Same detail-payload-vs-lightweight-reference bug the dock anchor had:
+    // `tile.town` is the heavy detail object (goldPerMinute, population,
+    // etc.), only populated once the client has fetched full detail for
+    // that specific tile -- most map tiles never do, including a player's
+    // own town if it hasn't been recently viewed. `townType` is the
+    // lightweight reference always present regardless of detail level
+    // (same convention client-town-identity.ts's townIdentityForTile
+    // already uses) -- gating on `tile.town` alone silently zeroed out the
+    // single most common reach anchor for smaller empires.
+    if (isSettled && tileHasTownIdentity(tile)) anchors.push({ x: tile.x, y: tile.y, kind: "TOWN" });
     // Server-side (runtime.ts's gatherReachAnchors) a dock anchor only ever
     // needs the tile to be an owned dock tile (from the docks registry) --
     // it doesn't require the tile's full economic-detail payload. `tile.dock`
