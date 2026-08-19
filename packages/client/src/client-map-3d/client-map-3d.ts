@@ -82,6 +82,7 @@ import {
   samplePerimeterPylons,
   traceReachBoundaryEdgeLoops
 } from "../client-reach-overlay/client-reach-overlay.js";
+import { createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
@@ -174,6 +175,16 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // than a per-tile boundary check, so it must not run every frame.
   let reach3DPylons: { x: number; y: number }[] = [];
   let reach3DSegments: { from: { x: number; y: number }; to: { x: number; y: number } }[] = [];
+  // Border-transition animation state (client-reach-overlay-transitions.ts),
+  // persisted across frames -- a pylon/segment that drops out of
+  // reach3DPylons/reach3DSegments keeps rendering here (sinking) until its
+  // retirement finishes; a new one rises in. Corner-position keyed for
+  // pylons, "fromKey|toKey" for segments. Updated every frame in the
+  // unconditional renderReachOverlay3DPylons(), independent of
+  // rebuildVisibleTerrain()'s camera-move/reach-change throttle, or the
+  // animation would freeze whenever the camera stops moving mid-transition.
+  const reach3DPylonTracker = createTransitionTracker<{ x: number; y: number }>();
+  const reach3DSegmentTracker = createTransitionTracker<{ fx: number; fy: number; tx: number; ty: number }>();
   // §21.1: one badge overlay per resource icon, so a dormant Fort missing TITANIUM gets ⛏ while an unfed town still gets 🍞.
   const RESOURCE_BADGE_ICON: Record<SlotResource, string> = { FOOD: "🍞", TITANIUM: "⛏", CRYSTAL: "💎", UMBRITE: "🟣" };
   const resourceBadgeOverlays: Record<SlotResource, ResourceBadgeOverlay> = {
@@ -1317,7 +1328,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     fogOwnershipOverlay.clear();
     townOverlay.clear();
     roadOverlay.clear();
-    reachOverlay3D.clear();
+    // Live pylon/line pool is cleared+rebuilt every frame instead (see the
+    // unconditional per-frame section below) so its border-transition
+    // animation stays smooth regardless of camera movement -- only the
+    // static dead-pylon/dormant/out-of-reach tile overlays reset here.
+    reachOverlay3D.clearTileOverlays();
     const roadNetworkStartAt = performance.now();
     const roadNetwork = buildRoadNetwork({
       tiles: deps.state.tiles,
@@ -1394,7 +1409,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       reach3DPylons = [];
       reach3DSegments = [];
     }
-    const reach3DNowMs = performance.now();
 
     const perTileLoopStartAt = performance.now();
     for (let dy = -halfH - 1; dy <= halfH + 1; dy += 1) {
@@ -1888,64 +1902,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     const perTileLoopMs = performance.now() - perTileLoopStartAt;
 
-    // Aether Survey Line sparse pylons + connecting chords: placed once per
-    // reach-cache revision (reach3DPylons/reach3DSegments), converted to
-    // scene coordinates against the *current* camera position every frame
-    // (camera can move between cache recomputes). Gated on the local
-    // player's own reach (this overlay is always "my" border, matching
-    // computeLocalReachSet's per-player scoping) and on the survey point's
-    // tile currently being explored/visible, mirroring the dormant/
-    // out-of-reach gating above.
-    if (reach3DActive && reach3DCache && (reach3DPylons.length > 0 || reach3DSegments.length > 0)) {
-      const myColor = deps.effectiveOverlayColor(deps.state.me);
-      // Pylon/segment points are now grid CORNERS (traceReachBoundaryEdgeLoops),
-      // not tile centers -- a corner is already exactly on the boundary line
-      // between owned and out-of-reach ground, so no edge-offset nudge is
-      // needed the way the old tile-based trace required.
-      const surfaceYForCorner = (cx: number, cy: number): number =>
-        heightfield.cornerYAt(deps.wrapX(cx), deps.wrapY(cy)) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
-      const isCornerVisible = (cx: number, cy: number): boolean => {
-        // A corner touches up to 4 tiles; treat it visible if any of them is.
-        const candidates: Array<[number, number]> = [
-          [cx, cy],
-          [cx - 1, cy],
-          [cx, cy - 1],
-          [cx - 1, cy - 1]
-        ];
-        return candidates.some(([tx, ty]) => {
-          const wx = deps.wrapX(tx);
-          const wy = deps.wrapY(ty);
-          const t = deps.state.tiles.get(deps.keyFor(wx, wy));
-          const v = deps.tileVisibilityStateAt(wx, wy, t);
-          return v === "visible" || (v === "unexplored" && revealWholeMapInTrue3DMode);
-        });
-      };
-      // NOTE: corners sit at raw integer grid positions (tile (x,y)'s center
-      // is at grid position x+TILE_CENTER_OFFSET, but its top-left corner is
-      // at grid position x exactly) -- no TILE_CENTER_OFFSET added here.
-      for (const point of reach3DPylons) {
-        if (!isCornerVisible(point.x, point.y)) continue;
-        const sx = toroidDelta(deps.state.camX, point.x, WORLD_WIDTH);
-        const sz = toroidDelta(deps.state.camY, point.y, WORLD_HEIGHT);
-        reachOverlay3D.addPylon(sx, sz, surfaceYForCorner(point.x, point.y), 1, reach3DNowMs, myColor);
-      }
-      for (const segment of reach3DSegments) {
-        if (!isCornerVisible(segment.from.x, segment.from.y) && !isCornerVisible(segment.to.x, segment.to.y)) continue;
-        const sx0 = toroidDelta(deps.state.camX, segment.from.x, WORLD_WIDTH);
-        const sz0 = toroidDelta(deps.state.camY, segment.from.y, WORLD_HEIGHT);
-        const sx1 = toroidDelta(deps.state.camX, segment.to.x, WORLD_WIDTH);
-        const sz1 = toroidDelta(deps.state.camY, segment.to.y, WORLD_HEIGHT);
-        reachOverlay3D.addLineSegment(
-          sx0,
-          sz0,
-          surfaceYForCorner(segment.from.x, segment.from.y),
-          sx1,
-          sz1,
-          surfaceYForCorner(segment.to.x, segment.to.y),
-          myColor
-        );
-      }
-    }
+    // Aether Survey Line live pylons/segments are placed every frame now
+    // (see renderReachOverlay3DPylons, called unconditionally from
+    // renderLoop) so their border-transition animation stays smooth
+    // regardless of camera movement -- reach3DCache/reach3DPylons/
+    // reach3DSegments computed above are the throttled DATA source it
+    // reads from, not the placement itself.
 
     if (selectedOwnershipDebug) emitOwnershipDebug(selectedOwnershipDebug);
 
@@ -1959,7 +1921,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     fogOwnershipOverlay.commit();
     townOverlay.commit();
     roadOverlay.commit();
-    reachOverlay3D.commit();
+    reachOverlay3D.commitTileOverlays();
     for (const overlay of Object.values(resourceBadgeOverlays)) overlay.commit();
     observatoryCooldownBadgeOverlay.commit();
     upgradeReadyBadgeOverlay.commit();
@@ -2006,6 +1968,93 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // the dirty flag. Worst case the terrain lags the camera by one floor window, then snaps
   // correct — a large improvement over the previous every-single-frame full rebuild.
   const REBUILD_MIN_INTERVAL_MS = 48;
+
+  // Places this frame's live Aether Survey Line pylons/segments, animating
+  // the border-transition (rise/sink, laser on/off -- see
+  // client-reach-overlay-transitions.ts) via reach3DPylonTracker/
+  // reach3DSegmentTracker, which persist across calls. Called
+  // unconditionally every frame from renderLoop (NOT gated behind
+  // maybeRebuild's camera-move/reach-change throttle, or the animation
+  // would freeze whenever the camera stops moving mid-transition) -- the
+  // underlying reach3DPylons/reach3DSegments DATA is still only recomputed
+  // on that throttle (the perimeter walk itself is real work and doesn't
+  // need to happen every frame; only the placement/animation does).
+  const renderReachOverlay3DPylons = (nowMs: number): void => {
+    reachOverlay3D.clearPylons();
+    if (isTrue3DRendererActive() && reach3DCache) {
+      const myColor = deps.effectiveOverlayColor(deps.state.me);
+      // Pylon/segment points are grid CORNERS (traceReachBoundaryEdgeLoops),
+      // not tile centers -- a corner is already exactly on the boundary
+      // line between owned and out-of-reach ground, so no edge-offset
+      // nudge is needed the way the old tile-based trace required.
+      const surfaceYForCorner = (cx: number, cy: number): number =>
+        heightfield.cornerYAt(deps.wrapX(cx), deps.wrapY(cy)) + OVERLAY_RISE_ABOVE_HEIGHTFIELD;
+      const isCornerVisible = (cx: number, cy: number): boolean => {
+        // A corner touches up to 4 tiles; treat it visible if any of them is.
+        const candidates: Array<[number, number]> = [
+          [cx, cy],
+          [cx - 1, cy],
+          [cx, cy - 1],
+          [cx - 1, cy - 1]
+        ];
+        return candidates.some(([tx, ty]) => {
+          const wx = deps.wrapX(tx);
+          const wy = deps.wrapY(ty);
+          const t = deps.state.tiles.get(deps.keyFor(wx, wy));
+          const v = deps.tileVisibilityStateAt(wx, wy, t);
+          return v === "visible" || (v === "unexplored" && revealWholeMapInTrue3DMode);
+        });
+      };
+
+      const currentPylons = new Map<string, { x: number; y: number }>();
+      for (const point of reach3DPylons) {
+        if (!isCornerVisible(point.x, point.y)) continue;
+        currentPylons.set(`${point.x},${point.y}`, point);
+      }
+      const currentSegments = new Map<string, { fx: number; fy: number; tx: number; ty: number }>();
+      for (const segment of reach3DSegments) {
+        if (!isCornerVisible(segment.from.x, segment.from.y) && !isCornerVisible(segment.to.x, segment.to.y)) continue;
+        currentSegments.set(`${segment.from.x},${segment.from.y}|${segment.to.x},${segment.to.y}`, {
+          fx: segment.from.x,
+          fy: segment.from.y,
+          tx: segment.to.x,
+          ty: segment.to.y
+        });
+      }
+
+      const pylonFrames = diffTransitions(currentPylons, reach3DPylonTracker, nowMs, { animateInitial: false });
+      const segmentFrames = diffTransitions(currentSegments, reach3DSegmentTracker, nowMs, { animateInitial: false });
+
+      // NOTE: corners sit at raw integer grid positions (tile (x,y)'s
+      // center is at grid position x+TILE_CENTER_OFFSET, but its top-left
+      // corner is at grid position x exactly) -- no TILE_CENTER_OFFSET
+      // added here.
+      for (const pf of pylonFrames.values()) {
+        const sx = toroidDelta(deps.state.camX, pf.x, WORLD_WIDTH);
+        const sz = toroidDelta(deps.state.camY, pf.y, WORLD_HEIGHT);
+        reachOverlay3D.addPylon(sx, sz, surfaceYForCorner(pf.x, pf.y), 1, nowMs, myColor, pf.riseFraction, pf.laserFraction);
+      }
+      for (const sf of segmentFrames.values()) {
+        const sx0 = toroidDelta(deps.state.camX, sf.fx, WORLD_WIDTH);
+        const sz0 = toroidDelta(deps.state.camY, sf.fy, WORLD_HEIGHT);
+        const sx1 = toroidDelta(deps.state.camX, sf.tx, WORLD_WIDTH);
+        const sz1 = toroidDelta(deps.state.camY, sf.ty, WORLD_HEIGHT);
+        reachOverlay3D.addLineSegment(
+          sx0,
+          sz0,
+          surfaceYForCorner(sf.fx, sf.fy),
+          sx1,
+          sz1,
+          surfaceYForCorner(sf.tx, sf.ty),
+          myColor,
+          sf.laserFraction,
+          sf.riseFraction,
+          sf.riseFraction
+        );
+      }
+    }
+    reachOverlay3D.commitPylons();
+  };
 
   const maybeRebuild = (nowMs: number): void => {
     const width = deps.canvas.width;
@@ -2082,6 +2131,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     });
     villageEffects.update(nowMs);
     shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs);
+    renderReachOverlay3DPylons(nowMs);
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
     siphonFx.update(nowMs);
