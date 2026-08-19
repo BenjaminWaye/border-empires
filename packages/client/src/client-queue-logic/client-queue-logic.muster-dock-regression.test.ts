@@ -10,7 +10,7 @@ vi.hoisted(() => {
 import { MUSTER_ATTACK_COST } from "@border-empires/shared";
 import { MUSTER_FLAG_REQUEST_TIMEOUT_MS } from "../client-constants.js";
 import { createInitialState } from "../client-state/client-state.js";
-import { processActionQueue, processPendingMusterAttacks } from "./client-queue-logic.js";
+import { processActionQueue, processPendingMusterAttacks, queueSpecificTargets } from "./client-queue-logic.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import type { Tile } from "../client-types.js";
 
@@ -450,6 +450,43 @@ describe("processActionQueue muster gating for dock-connected attacks", () => {
     });
 
     expect(sendGameMessage).toHaveBeenCalledWith({ type: "WATCH_MUSTER", x: 4, y: 0 });
+  });
+
+  // Regression for: manually launching an attack on a dock target that is
+  // merely adjacent to (not exactly) a paired dock — e.g. a second dock on
+  // a multi-dock island, reached via bulk/region selection which bypasses
+  // the per-tile Launch Attack button's own (already-strict) reachability
+  // gate — used to queue successfully (queueSpecificTargets's origin check
+  // defaulted to the permissive allowAdjacentToDock: true) and then get
+  // silently dropped one tick later by processActionQueue's real dispatch
+  // origin check (allowAdjacentToDock: false), with zero feedback: no
+  // attack, no error, and no Mustering overlay. queueSpecificTargets must
+  // use the same strict check so a target it can't actually dispatch is
+  // never queued in the first place.
+  it("does not queue an attack on a dock target only adjacent to (not exactly) a linked dock", () => {
+    const state = createInitialState();
+    state.me = "me";
+    const enemyDockTarget = makeTile({ x: 10, y: 10, dockId: "dockB", ownerId: "enemy", ownershipState: "SETTLED" });
+    state.tiles.set("10,10", enemyDockTarget);
+
+    // pickOriginForTarget mirrors client-origin-selection's real contract:
+    // an origin resolves only when allowAdjacentToDock is left permissive
+    // (true/omitted) — never when explicitly strict (false), exactly like a
+    // target adjacent to, but not equal to, the actual paired dock.
+    const pickOriginForTarget = (_x: number, _y: number, allowAdjacentToDock?: boolean): Tile | undefined =>
+      allowAdjacentToDock === false ? undefined : makeTile({ x: 5, y: 5, ownerId: "me", ownershipState: "SETTLED" });
+
+    const result = queueSpecificTargets(state, ["10,10"], {
+      parseKey: (key) => { const [x, y] = key.split(",").map(Number); return { x: x!, y: y! }; },
+      keyFor: (x, y) => `${x},${y}`,
+      isTileOwnedByAlly: () => false,
+      pickOriginForTarget,
+      enqueueTarget: vi.fn(() => true),
+      buildFrontierQueue: () => ({ queued: 0, skipped: 0, queuedKeys: [] })
+    });
+
+    expect(result.queued).toBe(0);
+    expect(result.skipped).toBe(1);
   });
 
   it("does not stamp musterRequestedAt when the origin tile already has a muster flag", () => {

@@ -1011,7 +1011,7 @@ export const queueSpecificTargets = (
     parseKey: (key: string) => { x: number; y: number };
     keyFor: (x: number, y: number) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
-    pickOriginForTarget: (x: number, y: number) => Tile | undefined;
+    pickOriginForTarget: (x: number, y: number, allowAdjacentToDock?: boolean) => Tile | undefined;
     enqueueTarget: (x: number, y: number) => boolean;
     buildFrontierQueue: (candidates: string[], enqueue: (x: number, y: number) => boolean) => { queued: number; skipped: number; queuedKeys: string[] };
   }
@@ -1037,7 +1037,16 @@ export const queueSpecificTargets = (
       continue;
     }
     const { x, y } = deps.parseKey(targetKey);
-    if (!deps.pickOriginForTarget(x, y)) {
+    // Must match processActionQueue's real dispatch origin check (also
+    // allowAdjacentToDock: false) — a target this gate lets through but the
+    // real dispatch can't resolve an origin for gets queued, silently
+    // dropped one tick later by the "no dock origin" branch there, and
+    // never shows any feedback (including the Mustering overlay). This
+    // happens for a dock target merely adjacent to — but not exactly — the
+    // paired dock destination, e.g. a second dock on a multi-dock island
+    // reached via bulk/region selection, which skips the per-tile button's
+    // own (already-strict) reachability gate.
+    if (!deps.pickOriginForTarget(x, y, false)) {
       skipped += 1;
       continue;
     }
@@ -1057,12 +1066,13 @@ export const attackQueueFailureReason = (
   tile: Tile,
   deps: {
     ownerSpawnShieldActive: (ownerId: string) => boolean;
-    pickOriginForTarget: (x: number, y: number) => Tile | undefined;
+    pickOriginForTarget: (x: number, y: number, allowAdjacentToDock?: boolean) => Tile | undefined;
   }
 ): string => {
   if (tile.ownerId && tile.ownerId !== state.me && deps.ownerSpawnShieldActive(tile.ownerId)) return "That empire is still under spawn protection.";
   if (state.gold < FRONTIER_CLAIM_COST) return `Need ${FRONTIER_CLAIM_COST} gold.`;
-  if (!deps.pickOriginForTarget(tile.x, tile.y)) {
+  // Match processActionQueue's real dispatch origin check (allowAdjacentToDock: false) so this reason lines up with why the attack actually failed.
+  if (!deps.pickOriginForTarget(tile.x, tile.y, false)) {
     return tile.dockId ? "No owned linked dock can reach this target." : "Target must border your territory or a linked dock.";
   }
   return "Action could not be queued.";
