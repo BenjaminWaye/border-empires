@@ -2,28 +2,15 @@ import { describe, expect, it } from "vitest";
 import { neutralTileClickOutcome } from "./client-tile-interaction.js";
 
 describe("neutralTileClickOutcome", () => {
-  it("queues adjacent neutral land outside reach (no relay-beacon choice to show)", () => {
+  it("queues adjacent neutral land", () => {
     expect(
       neutralTileClickOutcome({
         isLand: true,
         isFogged: false,
         hasFrontierOrigin: true,
-        isNeutral: true,
-        targetInReach: false
+        isNeutral: true
       })
     ).toBe("queue-adjacent-neutral");
-  });
-
-  it("opens the menu for adjacent neutral land inside reach, so the Build Relay Beacon choice is visible instead of silently auto-claiming", () => {
-    expect(
-      neutralTileClickOutcome({
-        isLand: true,
-        isFogged: false,
-        hasFrontierOrigin: true,
-        isNeutral: true,
-        targetInReach: true
-      })
-    ).toBe("open-menu");
   });
 
   it("opens the menu for non-adjacent visible neutral land", () => {
@@ -32,8 +19,7 @@ describe("neutralTileClickOutcome", () => {
         isLand: true,
         isFogged: false,
         hasFrontierOrigin: false,
-        isNeutral: true,
-        targetInReach: false
+        isNeutral: true
       })
     ).toBe("open-menu");
   });
@@ -44,8 +30,7 @@ describe("neutralTileClickOutcome", () => {
         isLand: true,
         isFogged: false,
         hasFrontierOrigin: false,
-        isNeutral: false,
-        targetInReach: false
+        isNeutral: false
       })
     ).toBe("open-menu");
   });
@@ -56,8 +41,7 @@ describe("neutralTileClickOutcome", () => {
         isLand: true,
         isFogged: false,
         hasFrontierOrigin: false,
-        isNeutral: false,
-        targetInReach: false
+        isNeutral: false
       })
     ).toBe("open-menu");
   });
