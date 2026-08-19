@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787132874001, // 2026.08.19
+    introducedIn: "2026.08.19",
+    title: "Town gold production now includes each Mintworks' flat bonus, and settled-town copy cleaned up",
+    why: "A town's displayed gold production silently dropped each active Mintworks' flat +1 gold/day-per-copy bonus — the town-summary formula that feeds the client only applied Mintworks' % production multiplier, duplicating (and drifting from) the authoritative formula used elsewhere in the sim, which always included the flat bonus. Separately, a settled town's overview always opened with a generic \"Settled land is defended and fully part of your empire\" line even though the stat grid right below it already says everything that line does.",
+    changes: [
+      "Town gold production now correctly includes every active Mintworks' flat gold bonus, not just its production-percentage multiplier.",
+      "A settled town's overview no longer shows the generic \"Settled land is defended...\" line — plain settled land with no town still does."
+    ]
+  },
+  {
     createdAt: 1787084630235, // 2026.08.18
     introducedIn: "2026.08.18",
     title: "Removed a stale \"gold paused until manpower is full\" message that could no longer appear",
@@ -197,61 +207,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Cancel during mustering now just drops that queued target, leaving the flag and its staged manpower in place for another attack.",
       "Dismiss is also available during mustering, hiding the overlay while the flag keeps filling in the background — same as it already worked for the Capturing phase.",
       "Fixed: a muster flag could be judged ready off a flat 60-manpower threshold and fire early against a garrisoned fort, getting rejected by the server instead of waiting for the fort's real requirement."
-    ]
-  },
-  {
-    createdAt: 1786582800000, // 2026.08.13.2
-    introducedIn: "2026.08.13.2",
-    title: "Fixed: a town's Modifier totals never actually reached the tile popup",
-    why: "The unified modifier catalog computed a town's combined stat totals (e.g. 3 Garrison Halls -> \"Manpower cap: +450\") correctly on the server, but the tile popup (REQUEST_TILE_DETAIL) is served by a separate gateway code path that reconstructs the town object from a persisted, redacted copy stripped down to 8 basic fields — townModifierTotals was never one of them, and this path never recomputed it the way it already does for support/gold/population numbers. The totals silently never reached any player's tile popup, including a town's own owner. Also found while fixing this: a stray non-numeric \"higher production raises gold cap\" line sitting inside the Modifiers list, and an old hand-written paragraph under Upkeep that restated the same Mintworks/Granary/Clearing House numbers the new Modifiers section already shows.",
-    changes: [
-      "A town's Modifier totals (manpower cap, gold, empire attack/defense, etc. from its support-ring buildings) now actually show on the tile popup.",
-      "The aggregation math itself moved into the shared catalog so the simulation and the tile-popup path can't compute it two different (and driftable) ways again.",
-      "Removed a non-numeric line that was sitting inside Mintworks's Modifiers list instead of being a real stat.",
-      "Removed a duplicate paragraph under Upkeep that restated numbers the Modifiers section already shows for Mintworks, Granary, and Clearing House."
-    ]
-  },
-  {
-    createdAt: 1786579200000, // 2026.08.13.1
-    introducedIn: "2026.08.13.1",
-    title: "Fixed: most buildings still showed no Modifier section on their own tile",
-    why: "The unified modifier catalog (2026.08.12.14) was reachable from the tech-tree/build-menu info panel for every building, but the tile-overview popup you get from clicking a built tile in-game still gated behind a small hardcoded allowlist of 8 building types left over from before the catalog existed — so most buildings (Garrison Hall, Census Hall, Foundry, Governor's Office, the Weapons Workshop family, synthesizers, Airport, Ambaric Tower, Resonance Grid, and more) showed an empty Modifier section when checked the normal way, in-game.",
-    changes: [
-      "Clicking any built structure's own tile now shows its full Modifier section, not just the small set of buildings that happened to be allowlisted before.",
-      "Observatory tiles were never checked at all by the tile popup — its vision and crystal-range modifiers now show correctly.",
-      "Relay Beacon was missing its vision bonus from the catalog (only offense showed) — both now show."
-    ]
-  },
-  {
-    createdAt: 1786575600000, // 2026.08.12.14
-    introducedIn: "2026.08.12.14",
-    title: "Unified building modifier display across tile popup and tech tree",
-    why: "Building effect numbers (\"Manpower +150\", \"+50% farm food\", etc.) were hand-written in up to three separate places with no shared source of truth, so the tile-detail popup, the tech-tree structure panel, and the town summary could each show slightly different or missing numbers for the same building.",
-    changes: [
-      "Every building's tile-overview popup now shows a Modifiers section with the same white-label/green-value styling for every structure, not just the ~15 that used to be covered.",
-      "The structure-info panel (opened from the build menu or tech tree) now shows the exact same modifier numbers in the same style, instead of separately hand-written prose.",
-      "A town's support-ring buildings that stack across the whole town (e.g. multiple Garrison Halls) now show their combined total next to the town's Support/Population/Growth summary — widened to cover every stat a support building contributes, including Mintworks gold production and the Weapons Workshop family's empire attack/defense, combined across every building that feeds the same stat.",
-      "Fort and Siege Outpost defense/offense lines now use the same \"stat: value\" format as every other modifier (e.g. \"Defense: 2.5x\") instead of folding the stat name into the colored value text."
-    ]
-  },
-  {
-    createdAt: 1786572000000, // 2026.08.12.13
-    introducedIn: "2026.08.12.13",
-    title: "Fixed: manual attack could stay queued forever behind a non-adjacent muster flag",
-    why: "The NOT_ADJACENT fix (2026.08.12.12) made processActionQueue require a ready flag to actually be adjacent before firing, but the queue-promotion step that runs beforehand didn't check adjacency at all. Whenever the only fully-mustered flag near a target wasn't adjacent to it, the attack got promoted, rejected, and re-parked in an endless loop — the exact \"stuck forever\" symptom the original fix was meant to resolve.",
-    changes: [
-      "A pending muster attack now only promotes to fire once its funded flag is actually adjacent to the target (or a valid dock crossing), matching the check that decides whether it's allowed to fire.",
-      "A funded-but-not-adjacent flag keeps the attack parked instead of bouncing it between the queues."
-    ]
-  },
-  {
-    createdAt: 1786568215911, // 2026.08.12.12
-    introducedIn: "2026.08.12.12",
-    title: "Fixed: manually targeted attacks rejected as NOT_ADJACENT from a ready flag",
-    why: "The previous fix for stuck manual attacks (2026.08.12.11) made a fully mustered flag fire immediately whenever it was merely \"in range\" of the target (up to 20 tiles), not actually next to it. The server correctly rejects a non-adjacent attack, so those attacks failed outright instead of firing.",
-    changes: [
-      "A ready flag now only fires an attack directly when it's actually adjacent to the target (or a valid dock crossing).",
-      "A ready flag that's in range but not adjacent stages/parks as before, so it can march into position instead of being rejected."
     ]
   },
   {

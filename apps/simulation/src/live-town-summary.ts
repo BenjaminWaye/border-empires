@@ -1,6 +1,7 @@
 import {
   LONG_PEACE_GROWTH_MULT,
   LONG_PEACE_MS,
+  MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
   mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
@@ -286,7 +287,7 @@ export const buildTownSummary = (
               firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
-            );
+            ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * mintworksCount;
   const populationView = resolvedTownPopulation(townPartial, tile.x, tile.y, populationTier);
   if (!populationView && !hasCompleteAuthoritativeTown) return undefined;
   const population = populationView?.population ?? townPartial.population!;

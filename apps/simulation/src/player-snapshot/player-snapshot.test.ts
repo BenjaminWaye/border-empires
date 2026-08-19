@@ -748,10 +748,10 @@ describe("buildPlayerSubscriptionSnapshot", () => {
     // a live recompute instead of short-circuiting on the canned "complete"
     // JSON, which in turn recomputes connectedTownCount/connectedTownBonus
     // from the real (single-town, no network) tile set instead of trusting
-    // the fixture's inconsistent stored values. The new figure reflects 1
-    // active Mintworks with an active Clearing House (mintworksGoldProductionMultiplier(1, true) = 1.35),
-    // no connected-town bonus (only one town in this fixture).
-    expect(town?.goldPerMinute).toBeCloseTo(0.0094, 4);
+    // the fixture's inconsistent stored values. 1 active Mintworks with an
+    // active Clearing House: 0.006944 * 1.35 + flat bonus 1/1440 (see the
+    // live-town-summary.ts duplicate-formula fix).
+    expect(town?.goldPerMinute).toBeCloseTo(0.010069, 4);
     expect(snapshot.player).toEqual(
       expect.objectContaining({
         economyBreakdown: expect.objectContaining({
