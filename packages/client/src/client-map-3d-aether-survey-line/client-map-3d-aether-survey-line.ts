@@ -200,7 +200,10 @@ const makeMaterials = () => ({
 
 export type ReachOverlay3D = {
   readonly group: Group;
-  readonly clear: () => void;
+  /** Resets the live pylon/line pool -- call every frame, right before re-adding this frame's pylons/segments, so the border-transition animation stays smooth regardless of camera movement. */
+  readonly clearPylons: () => void;
+  /** Resets the dead-pylon/dormant-frontier/out-of-reach tile overlays -- these don't animate, so only call this from the throttled camera-move/reach-change rebuild, not every frame. */
+  readonly clearTileOverlays: () => void;
   /**
    * Adds a live survey pylon at a sampled perimeter point. `ownerColor`
    * tints the glow point so adjacent empires' lines stay distinguishable.
@@ -247,7 +250,10 @@ export type ReachOverlay3D = {
   readonly addDormantFrontierTile: (x: number, z: number, surfaceY: number, size: number) => void;
   /** Dims one visible-but-unreachable neutral/enemy tile. */
   readonly addOutOfReachTile: (x: number, z: number, surfaceY: number, size: number) => void;
-  readonly commit: () => void;
+  /** Uploads this frame's live pylon/line pool. Call every frame, paired with clearPylons. */
+  readonly commitPylons: () => void;
+  /** Uploads the dead-pylon/dormant-frontier/out-of-reach tile overlays. Call only from the throttled rebuild, paired with clearTileOverlays. */
+  readonly commitTileOverlays: () => void;
   /** Advances ring spin / core pulse animation. Call every frame (unconditionally, not just when the visible-tile pass rebuilds). */
   readonly update: (nowMs: number) => void;
   readonly dispose: () => void;
@@ -390,10 +396,22 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
   let outOfReachVertCount = 0;
   let outOfReachIndexCount = 0;
 
-  const clear = (): void => {
+  // Split in two so the live pylon/line pool -- which needs a full
+  // clear+re-add+commit every frame to animate the rise/sink/laser
+  // transition smoothly regardless of camera movement -- doesn't force the
+  // dead-pylon/dormant/out-of-reach tile overlays (cheap to compute but
+  // pointless to redo every frame; they don't animate at all) to redo their
+  // own work at the same cadence. client-map-3d.ts calls clearPylons/
+  // commitPylons unconditionally every frame, and clearTileOverlays/
+  // commitTileOverlays only from the throttled camera-move/reach-change
+  // rebuild, same as before this split existed.
+  const clearPylons = (): void => {
     liveCursor = 0;
-    deadCursor = 0;
     segmentCursor = 0;
+  };
+
+  const clearTileOverlays = (): void => {
+    deadCursor = 0;
     dormantVertCount = 0;
     dormantIndexCount = 0;
     outOfReachVertCount = 0;
@@ -505,10 +523,13 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     }
   };
 
-  const commit = (): void => {
+  const commitPylons = (): void => {
     for (let i = liveCursor; i < livePool.length; i += 1) livePool[i]!.group.visible = false;
-    for (let i = deadCursor; i < deadPool.length; i += 1) deadPool[i]!.group.visible = false;
     for (let i = segmentCursor; i < linePool.length; i += 1) linePool[i]!.mesh.visible = false;
+  };
+
+  const commitTileOverlays = (): void => {
+    for (let i = deadCursor; i < deadPool.length; i += 1) deadPool[i]!.group.visible = false;
 
     // Ranged upload: these buffers are sized for maxTiles (worst case),
     // but only *VertCount/*IndexCount of each was written this rebuild.
@@ -560,5 +581,17 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     for (const slot of linePool) slot.material.dispose();
   };
 
-  return { group, clear, addPylon, addLineSegment, addDormantFrontierTile, addOutOfReachTile, commit, update, dispose };
+  return {
+    group,
+    clearPylons,
+    clearTileOverlays,
+    addPylon,
+    addLineSegment,
+    addDormantFrontierTile,
+    addOutOfReachTile,
+    commitPylons,
+    commitTileOverlays,
+    update,
+    dispose
+  };
 };

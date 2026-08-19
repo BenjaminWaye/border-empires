@@ -184,7 +184,8 @@ const render = (args: Args): HTMLElement => {
     }
   };
 
-  overlay.clear();
+  overlay.clearPylons();
+  overlay.clearTileOverlays();
   // Out-of-reach dimming: any tile visible-but-unreachable from MY
   // perspective (the enemy's inner tiles, from my point of view).
   for (const tile of tiles.values()) {
@@ -194,7 +195,8 @@ const render = (args: Args): HTMLElement => {
   }
   addEmpireBoundary(ME, myReach);
   addEmpireBoundary(ENEMY, enemyReach);
-  overlay.commit();
+  overlay.commitPylons();
+  overlay.commitTileOverlays();
 
   // Ring spin / core pulse / travelling spark animate via their own
   // per-frame update(), independent of the (one-time, in this static demo)
@@ -328,7 +330,7 @@ const renderTransitionDemo = (args: Args): HTMLElement => {
     }
     const segmentFrames = diffTransitions(currentSegments, segmentTracker, nowMs);
 
-    overlay.clear();
+    overlay.clearPylons();
     for (const pf of pylonFrames.values()) {
       overlay.addPylon(pf.x - originX, pf.y - originY, 0, 1, nowMs, ownerColor, pf.riseFraction, pf.laserFraction);
     }
@@ -346,7 +348,7 @@ const renderTransitionDemo = (args: Args): HTMLElement => {
         sf.riseFraction
       );
     }
-    overlay.commit();
+    overlay.commitPylons();
     overlay.update(nowMs);
     animId = requestAnimationFrame(frame);
   };
