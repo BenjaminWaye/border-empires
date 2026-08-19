@@ -9,6 +9,7 @@ import {
   liveReachForOwner,
   reachRadiusForKind,
   reachSetForPlayer,
+  reassessBorderOnAnchorDeactivation,
   tileKey,
   tileKeysInReach,
   type ReachAnchor
@@ -153,6 +154,78 @@ describe("applyAnchorEvents — sticky border scenarios", () => {
     ]);
     expect(border.get(tileKey(300, 300))).toBe("ally-2");
     expect(overtaken.some((t) => t.toOwnerId === "ally-2")).toBe(true);
+  });
+});
+
+describe("reassessBorderOnAnchorDeactivation", () => {
+  it("does nothing when no rival currently covers the vacated ground (stays sticky)", () => {
+    const beacon: ReachAnchor = { x: 200, y: 200, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    const existing = new Map([[tileKey(200, 200), "p1"]]);
+    const { border, overtaken } = reassessBorderOnAnchorDeactivation(
+      existing,
+      beacon,
+      new Set(), // p1 has no other coverage left here
+      () => new Set(), // no rival covers it either
+      ["p2"]
+    );
+    expect(border.get(tileKey(200, 200))).toBe("p1");
+    expect(overtaken).toEqual([]);
+  });
+
+  it("does nothing when the owner still has other live coverage over the tile", () => {
+    const beacon: ReachAnchor = { x: 200, y: 200, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    const existing = new Map([[tileKey(200, 200), "p1"]]);
+    const { border, overtaken } = reassessBorderOnAnchorDeactivation(
+      existing,
+      beacon,
+      new Set([tileKey(200, 200)]), // p1's town still covers it
+      (rivalId) => (rivalId === "p2" ? new Set([tileKey(200, 200)]) : new Set()), // rival is even sitting right there
+      ["p2"]
+    );
+    expect(border.get(tileKey(200, 200))).toBe("p1");
+    expect(overtaken).toEqual([]);
+  });
+
+  it("transfers the tile to a rival whose live reach already covers it", () => {
+    const beacon: ReachAnchor = { x: 200, y: 200, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    const existing = new Map([[tileKey(200, 200), "p1"]]);
+    const { border, overtaken } = reassessBorderOnAnchorDeactivation(
+      existing,
+      beacon,
+      new Set(), // p1 has nothing left defending it
+      (rivalId) => (rivalId === "p2" ? new Set([tileKey(200, 200)]) : new Set()),
+      ["p2"]
+    );
+    expect(border.get(tileKey(200, 200))).toBe("p2");
+    expect(overtaken).toEqual([{ tileKey: tileKey(200, 200), fromOwnerId: "p1", toOwnerId: "p2" }]);
+  });
+
+  it("leaves tiles alone that already changed hands for an unrelated reason", () => {
+    const beacon: ReachAnchor = { x: 200, y: 200, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    const existing = new Map([[tileKey(200, 200), "p3"]]); // no longer p1's in the border at all
+    const { border, overtaken } = reassessBorderOnAnchorDeactivation(
+      existing,
+      beacon,
+      new Set(),
+      (rivalId) => (rivalId === "p2" ? new Set([tileKey(200, 200)]) : new Set()),
+      ["p2"]
+    );
+    expect(border.get(tileKey(200, 200))).toBe("p3");
+    expect(overtaken).toEqual([]);
+  });
+
+  it("first rival in the ordered list wins when multiple rivals cover the tile", () => {
+    const beacon: ReachAnchor = { x: 200, y: 200, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    const existing = new Map([[tileKey(200, 200), "p1"]]);
+    const { border, overtaken } = reassessBorderOnAnchorDeactivation(
+      existing,
+      beacon,
+      new Set(),
+      () => new Set([tileKey(200, 200)]), // every rival covers it
+      ["p2", "p3"]
+    );
+    expect(border.get(tileKey(200, 200))).toBe("p2");
+    expect(overtaken).toEqual([{ tileKey: tileKey(200, 200), fromOwnerId: "p1", toOwnerId: "p2" }]);
   });
 });
 
