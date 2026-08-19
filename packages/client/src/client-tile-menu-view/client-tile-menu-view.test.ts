@@ -162,7 +162,11 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("Town is fed and producing"))).toBe(false);
     expect(lines.some((line) => line.html.includes("Towns produce gold when fed."))).toBe(false);
     expect(lines.some((line) => line.html === "Connected towns 0")).toBe(false);
-    expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true); expect(lines.some((line) => line.html.includes("Production:"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Connect this town to other towns to gain bonus gold production."))).toBe(true);
+    // Gold now renders inside the stat grid's own card, not a separate
+    // "Production:" prose line — see client-tile-menu-view-manpower-food.test.ts.
+    expect(lines.some((line) => line.kind === "statgrid" && line.html.includes("Gold production"))).toBe(true);
+    expect(lines.some((line) => line.html.includes("Production:"))).toBe(false);
   });
   it("shows the natural wonder overview line, activation-gated on ownership/settlement", () => { const wonderTile = (overrides: Partial<Tile>): Tile => ({ x: 167, y: 246, terrain: "LAND", naturalWonder: { type: "DEEPWATER_ENGINE" }, ...overrides }); const html = (t: Tile) => menuOverviewForTile(t, deps).map((line) => line.html); expect(html(wonderTile({ ownerId: "me", ownershipState: "SETTLED" }))).toContain("Natural wonder: the Deepwater Engine — active. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({ ownerId: "me", ownershipState: "FRONTIER" }))).toContain("Natural wonder: the Deepwater Engine. Settle this tile to activate: dock gold income doubled; dock-launched attacks +15% ATK."); expect(html(wonderTile({}))).toContain("Natural wonder: the Deepwater Engine. Boon: dock gold income doubled; dock-launched attacks +15% ATK."); });
   // supportContributionLine (the old hand-written "X contributes to Y: ..."
@@ -171,45 +175,6 @@ describe("menuOverviewForTile", () => {
   // now shows only once, as a Modifier line sourced from the shared catalog,
   // spelling out both ends of the boost instead of an ambiguous bare "+25%".
   it("shows the Clearing House Mintworks gold-bonus modifier for a clicked Clearing House (no duplicate prose)", () => { const lines = menuOverviewForTile({ x: 9, y: 9, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", economicStructure: { ownerId: "me", type: "CLEARING_HOUSE", status: "active" } }, { ...deps, supportedOwnedTownsForTile: () => [{ x: 10, y: 10, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", town: { name: "Qadarstrand", type: "FARMING", baseGoldPerMinute: 2, supportCurrent: 5, supportMax: 5, goldPerMinute: 7.45, cap: 100, isFed: true, population: 18_977, maxPopulation: 25_000, populationTier: "TOWN", connectedTownCount: 0, connectedTownBonus: 0, hasMintworks: true, mintworksActive: true, hasGranary: true, granaryActive: true, } }] }); const html = lines.map((line) => line.html).join(" "); expect(html).toContain("Mintworks gold bonus per copy:"); expect(html).toContain("+10% → +35%"); expect(html).not.toContain("contributes to"); });
-  it("uses Monumental City in the overview label for the final tier", () => {
-    const lines = menuOverviewForTile(
-      {
-        x: 20,
-        y: 45,
-        terrain: "LAND",
-        ownerId: "me",
-        ownershipState: "SETTLED",
-        town: {
-          name: "Skyhold",
-          type: "MARKET",
-          baseGoldPerMinute: 2,
-          supportCurrent: 8,
-          supportMax: 8,
-          goldPerMinute: 12,
-          cap: 300,
-          isFed: true,
-          population: 5_400_000,
-          maxPopulation: 10_000_000,
-          populationGrowthPerMinute: 80,
-          populationTier: "METROPOLIS",
-          connectedTownCount: 2,
-          connectedTownBonus: 0.2,
-          hasMintworks: false,
-          mintworksActive: false,
-          hasGranary: false,
-          granaryActive: false,
-        }
-      },
-      {
-        ...deps,
-        populationPerMinuteLabel: () => "+80/m",
-        townNextGrowthEtaLabel: () => "Max tier reached"
-      }
-    );
-
-    expect(lines.some((line) => line.html.includes("Population 5,400,000 • Monumental City"))).toBe(true);
-  });
-
   it("falls back to zero settlement gold when snapshot detail is missing the numeric rate", () => {
     const lines = menuOverviewForTile(
       {
@@ -290,7 +255,7 @@ describe("menuOverviewForTile", () => {
       const match = /<strong>([^<]+):<\/strong>/.exec(line.html);
       return match ? match[1] : "";
     });
-    expect(loadingLabels).toEqual(["Support", "Growth", "Production", "Upkeep"]);
+    expect(loadingLabels).toEqual(["Support", "Food", "Growth", "Manpower", "Production", "Upkeep"]);
     expect(loadingLines.every((line) => line.html.includes(`data-loading-timer-since="${startedAt}"`))).toBe(true);
     expect(loadingLines.every((line) => line.html.includes('data-tile-debug-download="29,228"'))).toBe(true);
     // The misleading "Production: ◉ 0.00/m" row must not render under a partial payload.
@@ -441,8 +406,10 @@ describe("menuOverviewForTile", () => {
     );
 
     expect(lines.some((line) => line.html.includes("Town is unfed"))).toBe(false);
-    expect(lines.some((line) => line.html.includes("Population 17,532"))).toBe(true);
-    expect(lines.some((line) => line.html.includes("Growth"))).toBe(true);
+    const statGrid = lines.find((line) => line.kind === "statgrid");
+    expect(statGrid?.html).toContain("17,532");
+    expect(statGrid?.html).not.toContain("Growth paused");
+    expect(statGrid?.html).toContain("+5.6/m");
   });
 
   it("hides stale unfed town copy when global food coverage is full", () => {

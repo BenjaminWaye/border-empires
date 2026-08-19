@@ -1,0 +1,106 @@
+/* Town overview stat grid (client-town-stat-grid.ts) — Population/Gold/
+   Manpower as scannable full-width cards, Support/Food as a compact row
+   below (usually just "full", so they don't need card-sized real estate).
+   Split out from style.css, which is already over the repo's 500-line file
+   cap, matching the existing split-stylesheet convention (see main.ts's
+   other client-*-style.css imports). */
+.tile-overview-line-statgrid {
+  margin: 0;
+  display: grid;
+  gap: 9px;
+}
+.tile-stat-grid {
+  display: grid;
+  gap: 8px;
+}
+.tile-stat {
+  background: rgba(12, 21, 32, 0.72);
+  border: 1px solid rgba(123, 163, 222, 0.18);
+  border-radius: 10px;
+  padding: 9px 10px;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.tile-stat-span2 {
+  grid-column: 1 / -1;
+}
+.tile-stat-label {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(159, 178, 204, 0.5);
+}
+.tile-stat-value {
+  font-size: 17px;
+  font-weight: 800;
+  color: #f3f8ff;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.tile-stat-unit {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: rgba(159, 178, 204, 0.5);
+}
+.tile-stat-sub {
+  font-size: 10.5px;
+  color: rgba(182, 204, 230, 0.72);
+  font-variant-numeric: tabular-nums;
+}
+.tile-stat-sub.is-positive {
+  color: #7ef0aa;
+}
+.tile-stat-sub.is-warn {
+  color: #ff9b9b;
+}
+.tile-stat-meter {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-top: 2px;
+}
+.tile-stat-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c9a24b, #ffd166);
+}
+.tile-stat-mini-row {
+  display: flex;
+  gap: 8px;
+}
+.tile-stat-mini {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: rgba(12, 21, 32, 0.72);
+  border: 1px solid rgba(123, 163, 222, 0.18);
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-width: 0;
+}
+.tile-stat-mini-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(159, 178, 204, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tile-stat-mini-value {
+  font-size: 12px;
+  font-weight: 800;
+  color: #eef4ff;
+  font-variant-numeric: tabular-nums;
+}
+.tile-stat-mini-value.is-attn {
+  color: #9fd9f6;
+}

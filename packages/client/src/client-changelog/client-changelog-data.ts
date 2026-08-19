@@ -23,6 +23,26 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787085726552, // 2026.08.18.2
+    introducedIn: "2026.08.18.2",
+    title: "Town overview now explains partial support and unbuilt Trade Nexuses",
+    why: "Two real gold-production penalties were invisible on the tile panel: a town under-full on Support silently produces less gold (supportRatio is a direct multiplier in the sim), and a connected-town network with no Caravanary anywhere in it pays a flat +0% bonus — but the panel said nothing in either case, so there was no way to tell why gold looked low. The panel also never showed a town's FOOD slot count, only a prose warning once it was already unfed.",
+    changes: [
+      "Partial Support (e.g. 7/8) now shows its real gold-production cost as a Modifiers line instead of staying silent.",
+      "A connected-town network with no built Trade Nexus (Caravanary) now shows a neutral +0% line explaining why the connection bonus isn't paying out, instead of nothing at all.",
+      "A settled town's overview tab now shows its FOOD slot count (e.g. \"Food 4/4 slots\") next to Support."
+    ]
+  },
+  {
+    createdAt: 1787083759893, // 2026.08.18.1
+    introducedIn: "2026.08.18.1",
+    title: "Town overview now shows manpower",
+    why: "The tile overview panel listed Population, Growth, Support, Production, and Upkeep for a settled town, but never said anything about the town's manpower contribution to your empire — a stat players had no way to see anywhere on the tile itself.",
+    changes: [
+      "A settled town's overview tab now shows its base manpower cap and regen contribution, right after Population and Growth."
+    ]
+  },
+  {
     createdAt: 1787041917435, // 2026.08.17.3
     introducedIn: "2026.08.17.3",
     title: "Battle dots no longer pop when the clash hands off into rout",
