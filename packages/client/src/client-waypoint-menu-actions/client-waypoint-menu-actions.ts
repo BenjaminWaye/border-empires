@@ -1,5 +1,5 @@
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
-import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
+import { localReachIsInReach } from "../client-reach-overlay/client-reach-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -50,16 +50,23 @@ const waypointPlanForTile = (
     deps.pickOriginForTarget(tile.x, tile.y, false) ??
     deps.pickOriginForTarget(tile.x, tile.y, false, true);
   if (adjacentOrigin) return;
+  const isInReach = localReachIsInReach(state.tiles, state.me, deps.keyFor);
   // ATTACK is deliberately not reach-gated (see the fixed-borders-via-reach
-  // plan), so an enemy-owned target skips the reach check entirely. The
-  // only neutral case that still reaches here is a genuinely-unexplored
-  // target (no confirmed tile data at all -- a known neutral tile already
-  // returned above, since Settle Land handles it instead): that EXPAND
-  // claim still needs to land inside the player's reach, so it gets the
-  // same check Settle Land itself uses, computed purely from the player's
-  // own tiles (reach never depends on the unexplored target's own data).
-  if (!tile.ownerId && !computeLocalReachSet(state.tiles, state.me).has(deps.keyFor(tile.x, tile.y))) return;
-  const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor });
+  // plan), so an enemy-owned target skips the reach pre-check entirely (the
+  // FINAL-target check below). The only neutral case that still reaches
+  // here is a genuinely-unexplored target (no confirmed tile data at all --
+  // a known neutral tile already returned above, since Settle Land handles
+  // it instead): that EXPAND claim still needs to land inside the player's
+  // reach, so it gets the same check Settle Land itself uses, computed
+  // purely from the player's own tiles (reach never depends on the
+  // unexplored target's own data).
+  if (!tile.ownerId && !isInReach(tile.x, tile.y)) return;
+  // isInReach also threads into the planner itself so every INTERMEDIATE
+  // EXPAND step along the path is reach-checked too, not just the final
+  // target -- a multi-hop chain toward an in-reach destination can still
+  // pass through out-of-reach ground if the player's reach shape has a
+  // notch (e.g. two separate anchors with a gap between their disks).
+  const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor, isInReach });
   return plan.reachable ? plan : undefined;
 };
 

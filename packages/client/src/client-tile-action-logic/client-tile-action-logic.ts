@@ -60,7 +60,7 @@ import { ownObservatoryRange } from "../client-observatory-rules/client-observat
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
-import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
+import { localReachIsInReach } from "../client-reach-overlay/client-reach-overlay.js";
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import { formatWaypointSummary } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 
@@ -766,7 +766,8 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   }
   if (!tile.ownerId) {
     const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false));
-    const targetInReach = computeLocalReachSet(state.tiles, state.me).has(deps.keyFor(tile.x, tile.y));
+    const isInReach = localReachIsInReach(state.tiles, state.me, deps.keyFor);
+    const targetInReach = isInReach(tile.x, tile.y);
 
     const out: TileActionDef[] = [];
     // Build Relay Beacon does NOT require adjacency: its handler
@@ -822,7 +823,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
     } else if (targetInReach) {
-      const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor });
+      const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor, isInReach });
       if (plan.reachable) {
         out.push({
           id: "settle_land",

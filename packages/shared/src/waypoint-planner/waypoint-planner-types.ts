@@ -83,6 +83,14 @@ export type WaypointPlannerDeps = {
   expandDurationMsAt?: (x: number, y: number) => number;
   // Test override; defaults to Date.now for truce expiry checks.
   now?: number;
+  // Fixed-borders-via-reach gate for EXPAND-type steps specifically (a
+  // NEUTRAL tile the search would otherwise walk through). Omitted =
+  // reach-blind (every caller must supply this to get a reach-correct
+  // plan; there is no safe default since reach is caller/player-specific).
+  // ATTACK-type steps (ENEMY tiles) are deliberately never checked against
+  // this -- ATTACK is not reach-gated, matching the fixed-borders-via-reach
+  // plan and validateFrontierCommand's own EXPAND-only reach requirement.
+  isInReach?: (x: number, y: number) => boolean;
 };
 
 // Must match ENCIRCLEMENT_DECAY_MS in apps/simulation/src/encirclement.ts.
