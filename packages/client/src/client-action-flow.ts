@@ -2,7 +2,7 @@ import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, 
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
-import { computeLocalReachSet } from "./client-reach-overlay/client-reach-overlay.js";
+import { computeLocalReachSet, localReachIsInReach } from "./client-reach-overlay/client-reach-overlay.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
@@ -1484,7 +1484,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (actionId === "build_relay_beacon_frontier") {
       if (selected && !selected.ownerId) {
-        const plan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
+        const plan = planWaypoint(
+          { x: selected.x, y: selected.y },
+          { state, keyFor, isInReach: localReachIsInReach(state.tiles, state.me, keyFor) }
+        );
         if (!plan.reachable) {
           showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Relay Beacon unreachable", "No expansion path to that tile.");
         } else {
