@@ -15,6 +15,9 @@ export type PlannerTileView = {
   terrain: Terrain;
   resource?: DomainTileState["resource"];
   dockId?: string;
+  /** True when the tile carries a natural wonder. Presence-only — the AI planner's
+   *  reach/frontier scoring only needs "is this a wonder tile", not the wonder's type. */
+  naturalWonder?: boolean;
   ownerId?: string;
   ownershipState?: DomainTileState["ownershipState"];
   /** Minimal town info needed to score settlement priority. */
