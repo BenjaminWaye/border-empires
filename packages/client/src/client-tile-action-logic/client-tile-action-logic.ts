@@ -795,16 +795,23 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
     }
-    out.push({
-        id: "settle_land",
-        label: "Settle Land",
-        ...tileActionAvailability(
-          reachable && hasGold && hasManpower,
-          !reachable ? "Must touch your territory" : !hasManpower ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
-          frontierCostLabel
-        )
-      }
-    );
+    // Only offered inside the fixed-border reach -- outside it, EXPAND is
+    // rejected server-side (OUT_OF_REACH) regardless of adjacency/gold, so
+    // showing it (even disabled) would just misrepresent this tile as
+    // reachable-but-blocked-by-cost. Matches the "just don't show it"
+    // policy already applied to the relay-beacon button above.
+    if (targetInReach) {
+      out.push({
+          id: "settle_land",
+          label: "Settle Land",
+          ...tileActionAvailability(
+            reachable && hasGold && hasManpower,
+            !reachable ? "Must touch your territory" : !hasManpower ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
+            frontierCostLabel
+          )
+        }
+      );
+    }
     out.push({
       id: "build_foundry",
       label: "Build Foundry",
