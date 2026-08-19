@@ -8,6 +8,7 @@ import {
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
+  MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
   mintworksGoldProductionMultiplier,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
@@ -52,12 +53,14 @@ const fallbackTownGoldPerMinute = (input: {
   if (!input.isFed) return 0;
   const supportRatio = input.supportMax <= 0 ? 1 : input.supportCurrent / input.supportMax;
   return (
-    TOWN_BASE_GOLD_PER_MIN *
-    supportRatio *
-    townPopulationMultiplier(input.populationTier) *
-    (1 + input.connectedTownBonus) *
-    mintworksGoldProductionMultiplier(input.mintworksCount, input.clearingHouseActive) *
-    PASSIVE_INCOME_MULT
+    (
+      TOWN_BASE_GOLD_PER_MIN *
+      supportRatio *
+      townPopulationMultiplier(input.populationTier) *
+      (1 + input.connectedTownBonus) *
+      mintworksGoldProductionMultiplier(input.mintworksCount, input.clearingHouseActive) *
+      PASSIVE_INCOME_MULT
+    ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * input.mintworksCount
   );
 };
 
