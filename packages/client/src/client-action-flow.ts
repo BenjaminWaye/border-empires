@@ -2,6 +2,7 @@ import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, 
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
+import { computeLocalReachSet } from "./client-reach-overlay/client-reach-overlay.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
@@ -1709,6 +1710,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
+    // True when (x,y) falls inside the local player's fixed-border reach --
+    // see client-reach-overlay.ts's MOCK-DATA SEAM comment for why this is a
+    // client-local approximation of the server's authoritative reach, not
+    // fog/vision-gated (a tile can be in reach long before it's ever been
+    // seen). Used below to decide whether an adjacent-neutral click should
+    // still auto-queue a bare EXPAND, or instead open the tile menu so the
+    // richer "Build Relay Beacon" (expand+settle+build) choice -- which only
+    // ever appears inside that menu -- actually has a chance to be seen.
+    const isTargetInLocalReach = (x: number, y: number): boolean =>
+      computeLocalReachSet(state.tiles, state.me).has(keyFor(x, y));
     // Shared with the "visible" neutral-adjacent click path below: claims an
     // adjacent-reachable tile immediately instead of opening a menu. Lifted
     // out so fogged/unexplored tiles adjacent to owned territory can also
@@ -1744,6 +1755,23 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     };
     if (vis === "unexplored") {
       const frontierOrigin = pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true);
+      // A reachable target also qualifies for the "Build Relay Beacon"
+      // combo -- that choice only ever surfaces inside the real tile menu
+      // (menuActionsForSingleTile), so an in-reach tile must open THAT menu
+      // instead of either silently auto-claiming a bare EXPAND or falling
+      // into openUnexploredTileActionMenu (which only ever offers "Add
+      // Waypoint" and has no reach/beacon awareness at all), or the option
+      // can never be seen. openSingleTileActionMenu already tolerates a
+      // placeholder tile the same way the reveal-whole-map branch below
+      // does.
+      if (frontierOrigin && isTargetInLocalReach(wx, wy)) {
+        state.selected = { x: wx, y: wy };
+        resetAttackPreviewState(state);
+        const placeholder: Tile = { x: wx, y: wy, terrain: "LAND", fogged: false };
+        openSingleTileActionMenu(placeholder, clientX, clientY);
+        renderHud();
+        return;
+      }
       if (frontierOrigin) {
         state.selected = { x: wx, y: wy };
         resetAttackPreviewState(state);
@@ -1760,7 +1788,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       const isLand = clicked?.terrain === "LAND";
       const isNeutral = !clicked?.ownerId;
       const frontierOrigin = isLand && isNeutral ? (pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true)) : undefined;
-      if (frontierOrigin) {
+      if (frontierOrigin && !isTargetInLocalReach(wx, wy)) {
         queueAdjacentExpandClaim(wx, wy);
         return;
       }
@@ -1788,7 +1816,12 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),
       hasFrontierOrigin: Boolean(frontierOrigin),
-      isNeutral: !to.ownerId
+      isNeutral: !to.ownerId,
+      // In-reach targets also qualify for the "Build Relay Beacon" combo,
+      // which only ever surfaces inside the tile menu -- force the menu
+      // open rather than auto-claiming a bare EXPAND, or that option can
+      // never be seen.
+      targetInReach: isTargetInLocalReach(to.x, to.y)
     });
     if (clickOutcome === "queue-adjacent-neutral") {
       // Re-clicking a tile that's already sitting in the action queue

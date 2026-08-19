@@ -89,6 +89,26 @@ describe("client action flow regressions", () => {
       0,
       source.indexOf("openUnexploredTileActionMenu(state, wx, wy, clientX, clientY,")
     );
-    expect(unexploredBranch.slice(-400)).toContain("queueAdjacentExpandClaim(wx, wy);");
+    expect(unexploredBranch.slice(-600)).toContain("queueAdjacentExpandClaim(wx, wy);");
+  });
+
+  it("opens the tile menu instead of auto-claiming when an adjacent target also falls inside reach, so Build Relay Beacon is reachable", () => {
+    const source = actionFlowSource();
+
+    // The instant "quick claim" shortcuts (unexplored, fogged, and visible
+    // neutral-land paths) used to fire for ANY adjacent unowned tile,
+    // regardless of reach -- which meant menuActionsForSingleTile's
+    // reach-gated "Build Relay Beacon" action (client-tile-action-logic.ts)
+    // could never actually be shown to the player: any tile that passed its
+    // own visibility gate (adjacent AND in reach) was always intercepted
+    // before the menu ever opened. isTargetInLocalReach must gate all three
+    // shortcut call sites so an in-reach adjacent tile opens the real menu
+    // instead.
+    expect(source).toContain(
+      "const isTargetInLocalReach = (x: number, y: number): boolean =>\n      computeLocalReachSet(state.tiles, state.me).has(keyFor(x, y));"
+    );
+    expect(source).toContain("if (frontierOrigin && isTargetInLocalReach(wx, wy)) {");
+    expect(source).toContain("if (frontierOrigin && !isTargetInLocalReach(wx, wy)) {");
+    expect(source).toContain("targetInReach: isTargetInLocalReach(to.x, to.y)");
   });
 });
