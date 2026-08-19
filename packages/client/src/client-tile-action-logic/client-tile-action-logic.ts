@@ -769,11 +769,16 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const targetInReach = computeLocalReachSet(state.tiles, state.me).has(deps.keyFor(tile.x, tile.y));
 
     const out: TileActionDef[] = [];
-    // Build Relay Beacon is a single-shot expand+settle+build combo -- it
-    // still needs a real adjacent origin to EXPAND from (there's no "walk
-    // there first, then build" version of this action). Hidden outside
-    // reach too, same "just don't show it" policy as everything below.
-    if (reachable && targetInReach) {
+    // Build Relay Beacon does NOT require adjacency: its handler
+    // (client-action-flow.ts, actionId === "build_relay_beacon_frontier")
+    // already drives a non-adjacent target over via the same waypoint
+    // mechanism "Expand Here" uses, then auto-settles and auto-builds once
+    // ownership lands (state.autoSettleTargets/autoBuildTargets) -- that's
+    // pre-existing, unrelated to reach, and was never broken. The only real
+    // gate here is reach itself (an EXPAND landing outside it is rejected
+    // server-side regardless of path); "just don't show it" outside reach,
+    // same policy as everything below.
+    if (targetInReach) {
       const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
       const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
       const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
