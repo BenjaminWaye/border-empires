@@ -764,53 +764,50 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   }
   if (!tile.ownerId) {
     const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false));
-    const hasGold = state.gold >= FRONTIER_CLAIM_COST; const hasManpower = state.manpower >= EXPAND_MANPOWER_COST;
-    const frontierCostLabel = frontierClaimCostLabelForTile(tile.x, tile.y);
-
-    const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
-    const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
-    const exploreHasGold = canAffordCost(state.gold, totalExploreGold);
-    const exploreHasManpower = state.manpower >= totalExploreManpower;
+    // A neutral tile only offers Build Relay Beacon / Settle Land once it's
+    // an actual frontier of the player's territory -- adjacent to a tile
+    // they hold (or a dock/bridge origin) AND inside the fixed-border reach
+    // EXPAND will require server-side. Anything short of that (distant
+    // reach-radius ground you haven't walked to yet, or ground outside
+    // reach entirely) shows neither -- Add Waypoint
+    // (client-waypoint-menu-actions.ts) is the only offer for the former,
+    // and nothing is offered for the latter. One gate for both actions
+    // below, instead of each button separately re-deriving its own
+    // visibility/disabled-reason story.
+    const isFrontierActionable = reachable && computeLocalReachSet(state.tiles, state.me).has(deps.keyFor(tile.x, tile.y));
 
     const out: TileActionDef[] = [];
-    // Gate on real buildability (an adjacent/dock/bridge origin exists AND
-    // the target is inside the fixed-border reach EXPAND will actually
-    // require server-side), not fog exploration -- isAdjacentToUnexplored
-    // predates the reach feature and checks something unrelated (does this
-    // tile border unexplored fog), which only incidentally correlated with
-    // the border/reach edge. That's what made this button show up only on
-    // border/out-of-reach tiles and never on ordinary in-reach ground.
-    const targetInReach = computeLocalReachSet(state.tiles, state.me).has(deps.keyFor(tile.x, tile.y));
-    if (reachable && targetInReach) {
-      const exploreEnabled = exploreHasGold && exploreHasManpower && hasFreeResourceSlotsForRelayBeacon(state);
+    if (isFrontierActionable) {
+      const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
+      const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
+      const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
+      const exploreEnabled =
+        canAffordCost(state.gold, totalExploreGold) &&
+        state.manpower >= totalExploreManpower &&
+        hasFreeResourceSlotsForRelayBeacon(state);
       out.push({
         id: "build_relay_beacon_frontier" as TileActionDef["id"],
         label: "Build Relay Beacon",
         detail: `Push into the unknown • expand + settle + build • +${RELAY_BEACON_VISION_BONUS} vision`,
         ...tileActionAvailability(
           exploreEnabled,
-          !exploreHasManpower ? `Need ${totalExploreManpower} manpower` : !exploreHasGold ? `Need ${totalExploreGold} gold` : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
+          state.manpower < totalExploreManpower
+            ? `Need ${totalExploreManpower} manpower`
+            : !canAffordCost(state.gold, totalExploreGold)
+              ? `Need ${totalExploreGold} gold`
+              : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
           `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
         )
       });
-    }
-    // Only offered inside the fixed-border reach -- outside it, EXPAND is
-    // rejected server-side (OUT_OF_REACH) regardless of adjacency/gold, so
-    // showing it (even disabled) would just misrepresent this tile as
-    // reachable-but-blocked-by-cost. Matches the "just don't show it"
-    // policy already applied to the relay-beacon button above.
-    if (targetInReach) {
       out.push({
-          id: "settle_land",
-          label: "Settle Land",
-          ...tileActionAvailability(
-            reachable && hasGold && hasManpower,
-            !reachable ? "Must touch your territory" : !hasManpower ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
-            frontierCostLabel
-          )
-        }
-      );
+        id: "settle_land",
+        label: "Settle Land",
+        ...tileActionAvailability(
+          state.gold >= FRONTIER_CLAIM_COST && state.manpower >= EXPAND_MANPOWER_COST,
+          state.manpower < EXPAND_MANPOWER_COST ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
+          frontierClaimCostLabelForTile(tile.x, tile.y)
+        )
+      });
     }
     out.push({
       id: "build_foundry",
