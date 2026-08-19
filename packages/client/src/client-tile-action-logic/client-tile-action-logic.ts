@@ -802,7 +802,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
     }
-    // Settle Land claims any tile inside reach, adjacent or not -- if it's
+    // "Expand To" claims any tile inside reach, adjacent or not -- if it's
     // already adjacent that's a direct EXPAND; otherwise it walks there
     // first via the exact same multi-step waypoint chain Add Waypoint used
     // to offer as a SEPARATE button for this case (client-action-flow.ts
@@ -812,10 +812,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     // separately notice for near vs. far reach ground. Hidden entirely
     // when out of reach (server would reject as OUT_OF_REACH regardless of
     // cost) or when no path exists at all (planWaypoint's own check).
+    // Labeled "Expand To" rather than "Settle Land" -- this claims neutral
+    // ground (an EXPAND, possibly via a waypoint chain), it doesn't settle
+    // it; "Settle Land" is reserved for the real settle action on a tile
+    // already owned as FRONTIER (further below), which is a genuinely
+    // different action (pays SETTLE_COST, converts FRONTIER -> SETTLED).
     if (reachable && targetInReach) {
       out.push({
         id: "settle_land",
-        label: "Settle Land",
+        label: "Expand To",
         ...tileActionAvailability(
           state.gold >= FRONTIER_CLAIM_COST && state.manpower >= EXPAND_MANPOWER_COST,
           state.manpower < EXPAND_MANPOWER_COST ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
@@ -827,7 +832,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       if (plan.reachable) {
         out.push({
           id: "settle_land",
-          label: "Settle Land",
+          label: "Expand To",
           ...tileActionAvailability(
             canAffordCost(state.gold, plan.totalGold) && state.manpower >= plan.totalManpower,
             state.manpower < plan.totalManpower ? `Need ${plan.totalManpower} manpower` : `Need ${plan.totalGold} gold`,
