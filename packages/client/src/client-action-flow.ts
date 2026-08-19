@@ -1779,23 +1779,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     };
     if (vis === "unexplored") {
       const frontierOrigin = pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true);
-      // A reachable target also qualifies for the "Build Relay Beacon"
-      // combo -- that choice only ever surfaces inside the real tile menu
-      // (menuActionsForSingleTile), so an in-reach tile must open THAT menu
-      // instead of either silently auto-claiming a bare EXPAND or falling
-      // into openUnexploredTileActionMenu (which only ever offers "Add
-      // Waypoint" and has no reach/beacon awareness at all), or the option
-      // can never be seen. openSingleTileActionMenu already tolerates a
-      // placeholder tile the same way the reveal-whole-map branch below
-      // does.
-      if (frontierOrigin && isTargetInLocalReach(wx, wy)) {
-        state.selected = { x: wx, y: wy };
-        resetAttackPreviewState(state);
-        const placeholder: Tile = { x: wx, y: wy, terrain: "LAND", fogged: false };
-        openSingleTileActionMenu(placeholder, clientX, clientY);
-        renderHud();
-        return;
-      }
       if (frontierOrigin) {
         state.selected = { x: wx, y: wy };
         resetAttackPreviewState(state);
@@ -1812,7 +1795,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       const isLand = clicked?.terrain === "LAND";
       const isNeutral = !clicked?.ownerId;
       const frontierOrigin = isLand && isNeutral ? (pickOriginForTarget(wx, wy, false) ?? pickOriginForTarget(wx, wy, false, true)) : undefined;
-      if (frontierOrigin && !isTargetInLocalReach(wx, wy)) {
+      if (frontierOrigin) {
         queueAdjacentExpandClaim(wx, wy);
         return;
       }
@@ -1836,22 +1819,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (shouldRefreshTileDetailOnPress(to, vis)) requestTileDetailIfNeeded(to, { force: true });
     state.selected = { x: wx, y: wy };
     const frontierOrigin = pickOriginForTarget(to.x, to.y, false) ?? pickOriginForTarget(to.x, to.y, false, true);
-    const clickTargetInReach = isTargetInLocalReach(to.x, to.y);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),
       hasFrontierOrigin: Boolean(frontierOrigin),
-      isNeutral: !to.ownerId,
-      // In-reach targets also qualify for the "Build Relay Beacon" combo,
-      // which only ever surfaces inside the tile menu -- force the menu
-      // open rather than auto-claiming a bare EXPAND, or that option can
-      // never be seen.
-      targetInReach: clickTargetInReach
+      isNeutral: !to.ownerId
     });
     // Enable via localStorage.setItem("tile-sync-debug", "1") in the
-    // browser console, then click the tile in question -- prints exactly
-    // why a click did or didn't open the menu, without guessing from code
-    // review alone.
+    // browser console, then click a tile -- prints what the click decided.
     if (tileSyncDebugEnabled()) {
       console.log("[tile-click]", {
         x: to.x,
@@ -1860,7 +1835,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         terrain: to.terrain,
         fogged: Boolean(to.fogged),
         hasFrontierOrigin: Boolean(frontierOrigin),
-        targetInReach: clickTargetInReach,
+        targetInReach: isTargetInLocalReach(to.x, to.y),
         clickOutcome
       });
     }
