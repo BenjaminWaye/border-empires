@@ -13,6 +13,7 @@ import { createNextFrontierCommandIdentity } from "../client-frontier-command/cl
 import { dropStuckPendingMusterAttack, findClosestMuster, hasFundedMusterWithinRange, isDockCrossingBetween } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
+import { localReachIsInReach } from "../client-reach-overlay/client-reach-overlay.js";
 import {
   persistWaypointQueueForPlayer,
   syncWaypointQueueToServer,
@@ -845,7 +846,7 @@ export const topUpFromWaypoint = (
     }
   }
 
-  const plan = planWaypoint(target, { state, keyFor });
+  const plan = planWaypoint(target, { state, keyFor, isInReach: localReachIsInReach(state.tiles, state.me, keyFor) });
   waypoint.plan = plan;
   if (!plan.reachable) {
     const result = cancelWaypointOnBarrierBlock(state, plan, target, pushFeed);

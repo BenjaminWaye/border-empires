@@ -276,6 +276,14 @@ export const planWaypoint = (
       const neighborTile = state.tiles.get(keyFor(nx, ny));
       const classified = classifyForSearch(neighborTile, nx, ny);
       if (classified.kind === "IMPASSABLE") continue;
+      // A NEUTRAL tile becomes an EXPAND step, which requires the target to
+      // fall inside the fixed-border reach server-side -- ENEMY (ATTACK)
+      // and OWN steps are never gated by this. Treating an out-of-reach
+      // NEUTRAL tile as impassable makes the search route around it (or
+      // fail outright if reach is what's actually blocking every path),
+      // instead of producing a plan whose EXPAND steps the server would
+      // reject once the chain got there.
+      if (classified.kind === "NEUTRAL" && deps.isInReach && !deps.isInReach(nx, ny)) continue;
       const baseCost = classified.kind === "OWN" ? 0 : classified.durationMs;
       const turnPenalty = parentDir === NO_DIR || parentDir === dirIdx ? 0 : TURN_PENALTY_MS;
       const tentative = currentG + baseCost + turnPenalty;
@@ -301,6 +309,7 @@ export const planWaypoint = (
           const destTile = state.tiles.get(keyFor(dxw, dyw));
           const classified = classifyForSearch(destTile, dxw, dyw);
           if (classified.kind === "IMPASSABLE") continue;
+          if (classified.kind === "NEUTRAL" && deps.isInReach && !deps.isInReach(dxw, dyw)) continue;
           const stepCost = classified.kind === "OWN" ? 0 : classified.durationMs;
           const tentative = currentG + stepCost;
           const destState = encodeState(destIdx, NO_DIR);
