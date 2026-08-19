@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Tile } from "../client-types.js";
 import {
+  computeLocalReachSet,
   DEFAULT_PYLON_SPACING_TILES,
   filterReachToLand,
   isCornerAt,
@@ -63,6 +64,55 @@ const consecutiveCornersAreUnitSteps = (loop: CornerCoord[]): boolean => {
   }
   return true;
 };
+
+describe("computeLocalReachSet", () => {
+  it("projects a DOCK_REACH_RADIUS bubble around an owned dock tile using only dockId, not the heavy dock detail payload", () => {
+    // Mirrors the server's gatherReachAnchors (runtime.ts), which only ever
+    // checks that the tile is an owned dock-registry tile -- it has no
+    // concept of `tile.dock`'s full economic-detail payload
+    // (goldPerMinute/modifiers/etc.), which the client only populates once
+    // it's fetched full detail for that specific tile. Gating on that
+    // object instead of `dockId` silently dropped almost every real dock
+    // anchor, since most map tiles never get full detail fetched.
+    const tiles = new Map<string, Tile>([
+      [keyFor(5, 5), { x: 5, y: 5, terrain: "LAND", ownerId: "me", dockId: "dock-1" } as unknown as Tile]
+    ]);
+    const reach = computeLocalReachSet(tiles, "me");
+    // DOCK_REACH_RADIUS = 1 -- the dock tile itself plus its 8 neighbours.
+    expect(reach.has(keyFor(5, 5))).toBe(true);
+    expect(reach.has(keyFor(6, 5))).toBe(true);
+    expect(reach.has(keyFor(4, 4))).toBe(true);
+    expect(reach.has(keyFor(7, 5))).toBe(false);
+  });
+
+  it("does not require ownershipState SETTLED for a dock anchor (dock reach is deliberately ungated, matching the server)", () => {
+    const tiles = new Map<string, Tile>([
+      [keyFor(5, 5), { x: 5, y: 5, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", dockId: "dock-1" } as unknown as Tile]
+    ]);
+    const reach = computeLocalReachSet(tiles, "me");
+    expect(reach.has(keyFor(5, 5))).toBe(true);
+  });
+
+  it("projects a TOWN_REACH_RADIUS disk around a settled town tile", () => {
+    const tiles = new Map<string, Tile>([
+      [
+        keyFor(10, 10),
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
+        } as unknown as Tile
+      ]
+    ]);
+    const reach = computeLocalReachSet(tiles, "me");
+    // TOWN_REACH_RADIUS = 3
+    expect(reach.has(keyFor(13, 10))).toBe(true);
+    expect(reach.has(keyFor(14, 10))).toBe(false);
+  });
+});
 
 describe("traceReachBoundaryEdgeLoops", () => {
   it("traces a single closed loop of unit grid-edges around a plain square region", () => {
