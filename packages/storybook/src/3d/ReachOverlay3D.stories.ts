@@ -7,6 +7,7 @@ import {
   samplePerimeterPylons,
   traceReachBoundaryEdgeLoops
 } from "@client/client-reach-overlay/client-reach-overlay.js";
+import { createTransitionTracker, diffTransitions } from "@client/client-reach-overlay/client-reach-overlay-transitions.js";
 import type { Tile } from "@client/client-types.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
 
@@ -221,3 +222,140 @@ const meta: Meta<Args> = {
 export default meta;
 type Story = StoryObj<Args>;
 export const AetherSurveyLine3D: Story = {};
+
+// --- Border-expansion transition demo -------------------------------------
+//
+// Same pylon/line rendering as above, but driven every frame through
+// client-reach-overlay-transitions.ts's diffTransitions() instead of a
+// one-time placement pass: a single empire's reach radius auto-toggles
+// between 3 and 6 tiles (simulating a Relay Beacon just having pushed the
+// border outward, then being lost again) every few seconds, on a loop.
+// Pylons/segments that fall off the old boundary sink into the ground
+// (laser off first, then retract); ones on the new boundary rise up out of
+// the ground (then power their laser on). Watch it run -- no interaction
+// needed.
+const TRANSITION_TOWN = { x: 13, y: 13 };
+// Sitting exactly on the edge of the town's own radius-3 reach disk -- "I
+// built a beacon at my current border to push it further outward", the
+// real trigger for this whole feature. Its OUTPOST_REACH_RADIUS=5 disk,
+// unioned with the town's, bulges the boundary out asymmetrically on one
+// side rather than growing the whole square uniformly -- a much more
+// realistic (and more interesting, diff-wise) demo than just enlarging a
+// single radius: most of the loop stays idle while only the affected
+// stretch retires/arrives.
+const TRANSITION_BEACON = { x: TRANSITION_TOWN.x + 3, y: TRANSITION_TOWN.y };
+const TRANSITION_TOGGLE_INTERVAL_MS = 3500;
+
+// computeLocalReachSet derives reach purely from real anchors (town/
+// outpost/dock radii) -- NOT from however far land happens to be marked
+// SETTLED (see AetherSurveyLine3D's own doc comment above: an earlier
+// attempt tried enlarging the settled square instead and the boundary
+// never moved, since reach doesn't grow with settlement). The boundary
+// tracer itself only needs reach + terrain data for every candidate
+// coordinate (deps.tiles), not ownership, so the surrounding LAND doesn't
+// need to be owned/settled at all for its portion of the loop to trace
+// correctly -- keeping this demo's world to just the two anchor tiles.
+const buildTransitionWorld = (hasBeacon: boolean): Map<string, Tile> => {
+  const tiles = new Map<string, Tile>();
+  for (let y = 0; y < GRID; y += 1) {
+    for (let x = 0; x < GRID; x += 1) tiles.set(keyFor(x, y), makeTile({ x, y }));
+  }
+  tiles.set(
+    keyFor(TRANSITION_TOWN.x, TRANSITION_TOWN.y),
+    makeTile({
+      x: TRANSITION_TOWN.x,
+      y: TRANSITION_TOWN.y,
+      ownerId: ME,
+      ownershipState: "SETTLED",
+      town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
+    })
+  );
+  if (hasBeacon) {
+    tiles.set(
+      keyFor(TRANSITION_BEACON.x, TRANSITION_BEACON.y),
+      makeTile({
+        x: TRANSITION_BEACON.x,
+        y: TRANSITION_BEACON.y,
+        ownerId: ME,
+        ownershipState: "SETTLED",
+        economicStructure: { ownerId: ME, type: "RELAY_BEACON", status: "active" }
+      })
+    );
+  }
+  return tiles;
+};
+
+type PylonPoint = { x: number; y: number };
+type SegmentEndpoints = { fx: number; fy: number; tx: number; ty: number };
+
+const renderTransitionDemo = (args: Args): HTMLElement => {
+  const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: 0.85, background: "#0a0e14" });
+  const ground = createGrassGround(Math.floor(GRID / 2));
+  stage.scene.add(ground.group);
+
+  const overlay = createReachOverlay3D(stage.scene, GRID * GRID);
+  const pylonTracker = createTransitionTracker<PylonPoint>();
+  const segmentTracker = createTransitionTracker<SegmentEndpoints>();
+  const ownerColor = effectiveOverlayColor(ME);
+  const originX = TRANSITION_TOWN.x;
+  const originY = TRANSITION_TOWN.y;
+  const reachDeps = { keyFor, wrapX: wrap, wrapY: wrap };
+
+  let hasBeacon = false;
+  let tiles = buildTransitionWorld(hasBeacon);
+  let lastToggleAt = performance.now();
+
+  let animId = 0;
+  const frame = (): void => {
+    const nowMs = performance.now();
+    if (nowMs - lastToggleAt > TRANSITION_TOGGLE_INTERVAL_MS) {
+      hasBeacon = !hasBeacon;
+      tiles = buildTransitionWorld(hasBeacon);
+      lastToggleAt = nowMs;
+    }
+
+    const reach = filterReachToLand(computeLocalReachSet(tiles, ME), tiles, keyFor);
+    const loops = traceReachBoundaryEdgeLoops(reach, { tiles, ...reachDeps });
+    const { pylons, segments } = samplePerimeterPylons(loops);
+
+    const currentPylons = new Map<string, PylonPoint>();
+    for (const p of pylons.flat()) currentPylons.set(`${p.x},${p.y}`, { x: p.x, y: p.y });
+    const pylonFrames = diffTransitions(currentPylons, pylonTracker, nowMs);
+
+    const currentSegments = new Map<string, SegmentEndpoints>();
+    for (const s of segments.flat()) {
+      currentSegments.set(`${s.from.x},${s.from.y}|${s.to.x},${s.to.y}`, { fx: s.from.x, fy: s.from.y, tx: s.to.x, ty: s.to.y });
+    }
+    const segmentFrames = diffTransitions(currentSegments, segmentTracker, nowMs);
+
+    overlay.clear();
+    for (const pf of pylonFrames.values()) {
+      overlay.addPylon(pf.x - originX, pf.y - originY, 0, 1, nowMs, ownerColor, pf.riseFraction, pf.laserFraction);
+    }
+    for (const sf of segmentFrames.values()) {
+      overlay.addLineSegment(
+        sf.fx - originX,
+        sf.fy - originY,
+        0,
+        sf.tx - originX,
+        sf.ty - originY,
+        0,
+        ownerColor,
+        sf.laserFraction,
+        sf.riseFraction,
+        sf.riseFraction
+      );
+    }
+    overlay.commit();
+    overlay.update(nowMs);
+    animId = requestAnimationFrame(frame);
+  };
+  frame();
+
+  return wrapWithCleanup(stage, [() => cancelAnimationFrame(animId), overlay.dispose, ground.dispose]);
+};
+
+export const AetherSurveyLineBorderTransition3D: Story = {
+  args: { cameraDistance: 11 },
+  render: renderTransitionDemo
+};
