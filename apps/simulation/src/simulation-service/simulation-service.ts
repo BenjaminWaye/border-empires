@@ -1145,7 +1145,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (orphanLockSweepTicker) { clearInterval(orphanLockSweepTicker); orphanLockSweepTicker = undefined; }
     if (watchedMusterTicker) { clearInterval(watchedMusterTicker); watchedMusterTicker = undefined; }
     if (watchtowerRevealTicker) { clearInterval(watchtowerRevealTicker); watchtowerRevealTicker = undefined; }
-    if (expandRevealTicker) { clearInterval(expandRevealTicker); expandRevealTicker = undefined; }
     if (populationGrowthTicker) { clearInterval(populationGrowthTicker); populationGrowthTicker = undefined; }
     if (passiveIncomeTicker) { clearInterval(passiveIncomeTicker); passiveIncomeTicker = undefined; }
     log.info("season ended — gameplay tickers stopped");
@@ -1230,7 +1229,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
   let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
   let watchtowerRevealTicker: ReturnType<typeof setInterval> | undefined;
-  let expandRevealTicker: ReturnType<typeof setInterval> | undefined;
   let populationGrowthTicker: ReturnType<typeof setInterval> | undefined;
   let passiveIncomeTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
@@ -2910,10 +2908,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchtowerReveals(Date.now());
       }, 1_000);
-      expandRevealTicker = setInterval(() => {
-        if (currentSeasonState.status === "ended") return;
-        runtime.tickExpandReveals(Date.now());
-      }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
@@ -3180,7 +3174,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
       if (watchedMusterTicker) clearInterval(watchedMusterTicker);
       if (watchtowerRevealTicker) clearInterval(watchtowerRevealTicker);
-      if (expandRevealTicker) clearInterval(expandRevealTicker);
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
       if (passiveIncomeTicker) clearInterval(passiveIncomeTicker);
       gcObserver?.disconnect();
