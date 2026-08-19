@@ -1375,11 +1375,35 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       } else if (selected) {
         const k = keyFor(selected.x, selected.y);
         if (!selected.ownerId) {
-          const out = queueSpecificTargets([k]);
-          if (out.queued > 0) {
-            processActionQueue();
+          const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false) ?? pickOriginForTarget(selected.x, selected.y, false, true);
+          if (adjacentOrigin) {
+            const out = queueSpecificTargets([k]);
+            if (out.queued > 0) {
+              processActionQueue();
+            } else {
+              showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
+            }
           } else {
-            showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
+            // Not adjacent yet, but still inside reach (that's the only way
+            // this row is visible at all -- see the targetInReach gate on
+            // "settle_land" in client-tile-action-logic.ts). Walk there
+            // first via the exact same waypoint mechanism "Add Waypoint"
+            // used to offer as a separate button for this case -- one
+            // action that does the right thing regardless of distance,
+            // instead of forcing the player to notice two different buttons.
+            handleWaypointAction({
+              state,
+              selected,
+              actionId: "expand_here",
+              keyFor,
+              pushFeed,
+              renderHud,
+              hideTileActionMenu,
+              showCaptureAlert,
+              processActionQueue,
+              sendGameMessage
+            });
+            return;
           }
         } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
           requestSettlement(selected.x, selected.y);

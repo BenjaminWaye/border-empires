@@ -111,4 +111,21 @@ describe("client action flow regressions", () => {
     expect(source).toContain("if (frontierOrigin && !isTargetInLocalReach(wx, wy)) {");
     expect(source).toContain("targetInReach: isTargetInLocalReach(to.x, to.y)");
   });
+
+  it("delegates settle_land on a non-adjacent-but-in-reach neutral tile into the waypoint machinery instead of a doomed direct claim", () => {
+    const source = actionFlowSource();
+
+    // "Settle Land" is visible on any in-reach neutral tile now (see
+    // client-tile-action-logic.ts), adjacent or not -- clicking it on a
+    // tile with no adjacent origin must walk there first via the same
+    // handleWaypointAction("expand_here") flow "Add Waypoint" uses, not
+    // fall through to queueSpecificTargets, which requires an adjacent
+    // origin and would just fail.
+    expect(source).toContain(
+      "const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false) ?? pickOriginForTarget(selected.x, selected.y, false, true);"
+    );
+    const settleLandStart = source.indexOf('if (actionId === "settle_land") {');
+    const settleLandBranch = source.slice(settleLandStart, source.indexOf('if (actionId === "launch_attack") {', settleLandStart));
+    expect(settleLandBranch).toContain('actionId: "expand_here"');
+  });
 });
