@@ -47,7 +47,6 @@ export const isReachStarved = (input: {
   townCount: number;
   manpower: number;
   needsFood: boolean;
-  needsEconomy: boolean;
   // Excludes combat scenarios: an empty valuable-target count with an enemy
   // at the gate means "no room to expand because I'm boxed in by an enemy
   // this tick," not "reach is the bottleneck" — ATTACK/MUSTER should win
@@ -60,6 +59,19 @@ export const isReachStarved = (input: {
   input.frontierEnemyTargetCount === 0 &&
   input.townCount >= 1 &&
   !input.needsFood &&
-  !input.needsEconomy &&
   input.manpower >= Math.max(30, input.townCount * 15);
+
+// NOTE — deliberately NOT gated on economyWeak/`needsEconomy` (it used to be).
+// economyWeak scales its bar with SETTLED TILE COUNT (manpower < tiles * 6),
+// while manpower CAP scales with TOWNS (STARTING_CAPITAL_MANPOWER_CAP plus
+// TOWN_MANPOWER_BY_TIER per town). Those are different axes, so a wide empire
+// with few towns reads "economy weak" at a threshold it may not even be able
+// to reach — observed live: AI players with 122-264 settled tiles needed
+// 732-1,584 manpower to clear it. That permanently vetoed the beacon build,
+// which is precisely the action that unlocks a reach-locked empire — the AI
+// was weak *because* it was stuck, so blocking the fix on not-being-weak was
+// circular and deadlocked it into doing nothing at all. The explicit
+// `manpower >= max(30, townCount * 15)` floor above is the real
+// affordability guard; per-structure cost is separately enforced by
+// canAffordStructure inside chooseBestRelayBeaconBuild.
 
