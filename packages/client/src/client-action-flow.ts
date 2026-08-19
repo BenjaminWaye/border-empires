@@ -154,7 +154,7 @@ import type {
   TileTimedProgress,
   TileVisibilityState
 } from "./client-types.js";
-import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
+import { debugTileLog, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
 
 type ActionFlowDeps = Record<string, any> & {
@@ -1836,6 +1836,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     if (shouldRefreshTileDetailOnPress(to, vis)) requestTileDetailIfNeeded(to, { force: true });
     state.selected = { x: wx, y: wy };
     const frontierOrigin = pickOriginForTarget(to.x, to.y, false) ?? pickOriginForTarget(to.x, to.y, false, true);
+    const clickTargetInReach = isTargetInLocalReach(to.x, to.y);
     const clickOutcome = neutralTileClickOutcome({
       isLand: to.terrain === "LAND",
       isFogged: Boolean(to.fogged),
@@ -1845,8 +1846,24 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       // which only ever surfaces inside the tile menu -- force the menu
       // open rather than auto-claiming a bare EXPAND, or that option can
       // never be seen.
-      targetInReach: isTargetInLocalReach(to.x, to.y)
+      targetInReach: clickTargetInReach
     });
+    // Enable via localStorage.setItem("tile-sync-debug", "1") in the
+    // browser console, then click the tile in question -- prints exactly
+    // why a click did or didn't open the menu, without guessing from code
+    // review alone.
+    if (tileSyncDebugEnabled()) {
+      console.log("[tile-click]", {
+        x: to.x,
+        y: to.y,
+        ownerId: to.ownerId ?? null,
+        terrain: to.terrain,
+        fogged: Boolean(to.fogged),
+        hasFrontierOrigin: Boolean(frontierOrigin),
+        targetInReach: clickTargetInReach,
+        clickOutcome
+      });
+    }
     if (clickOutcome === "queue-adjacent-neutral") {
       // Re-clicking a tile that's already sitting in the action queue
       // behind the active capture, or a tile that's ALREADY the active
