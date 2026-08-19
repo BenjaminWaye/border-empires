@@ -85,11 +85,19 @@ const POST_BASE_LIFT = 0.045 * PYLON_SCALE;
 // connecting line sits too, so it visibly threads through the ring loop.
 const RING_HEIGHT = POST_HEIGHT + POST_BASE_LIFT;
 const LINE_LIFT = RING_HEIGHT;
+// How far a retiring pylon sinks below (and an arriving one rises from)
+// ground level -- its full standing height, so it visibly disappears into
+// / emerges from the terrain rather than just fading in place. Exported so
+// line-segment endpoints can apply the exact same offset their pylon does,
+// keeping the beam's retracting/extending endpoint glued to the physical
+// post instead of drifting apart from it.
+export const PYLON_SINK_DEPTH = RING_HEIGHT;
 // Deliberately much thinner than the pylon post (postGeometry above) so it
 // still reads as "hair-thin" per the brief, but large enough for its
 // per-owner glow color to actually be visible at normal camera distance
 // instead of anti-aliasing away to a pale gray thread.
 const LINE_RADIUS = 0.026;
+const LINE_BASE_OPACITY = 0.8;
 
 // --- Tile-fill overlays (out-of-reach dimming, dormant-frontier fill) -----
 // Unchanged in concept from prior rounds: flat instanced quads, cheap,
@@ -187,15 +195,42 @@ const makeMaterials = () => ({
   iron: new MeshStandardMaterial({ color: IRON, metalness: 0.6, roughness: 0.45 }),
   core: new MeshBasicMaterial({ toneMapped: false, color: AETHER_CORE, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false }),
   deadMetal: new MeshStandardMaterial({ color: DEAD_METAL, metalness: 0.3, roughness: 0.85, flatShading: true }),
-  line: new MeshBasicMaterial({ toneMapped: false, color: AETHER_LINE, transparent: true, opacity: 0.8, blending: AdditiveBlending, depthWrite: false })
+  line: new MeshBasicMaterial({ toneMapped: false, color: AETHER_LINE, transparent: true, opacity: LINE_BASE_OPACITY, blending: AdditiveBlending, depthWrite: false })
 });
 
 export type ReachOverlay3D = {
   readonly group: Group;
   readonly clear: () => void;
-  /** Adds a live survey pylon at a sampled perimeter point. `ownerColor` tints the glow point so adjacent empires' lines stay distinguishable. */
-  readonly addPylon: (x: number, z: number, surfaceY: number, size: number, nowMs: number, ownerColor: string) => void;
-  /** Adds the thin glowing chord between two consecutive pylon points. */
+  /**
+   * Adds a live survey pylon at a sampled perimeter point. `ownerColor`
+   * tints the glow point so adjacent empires' lines stay distinguishable.
+   * `riseFraction` (default 1 = fully risen) and `laserFraction` (default
+   * 1 = full glow) drive the border-expansion transition: a retiring
+   * pylon fades its laser out (laserFraction 1→0) then sinks into the
+   * ground (riseFraction 1→0); an arriving one rises first (riseFraction
+   * 0→1) then powers its laser on (laserFraction 0→1). See
+   * client-reach-overlay-transitions.ts for the timing/easing that
+   * produces these two fractions per frame.
+   */
+  readonly addPylon: (
+    x: number,
+    z: number,
+    surfaceY: number,
+    size: number,
+    nowMs: number,
+    ownerColor: string,
+    riseFraction?: number,
+    laserFraction?: number
+  ) => void;
+  /**
+   * Adds the thin glowing chord between two consecutive pylon points.
+   * `riseFraction0`/`riseFraction1` sink each endpoint by the same amount
+   * its own pylon does, so the beam stays glued to the physical post
+   * during a transition instead of drifting apart from it. `laserFraction`
+   * dims the whole chord (the weaker of its two endpoints' laser state,
+   * computed by the caller) rather than per-endpoint, since a half-lit
+   * beam doesn't read as a coherent lighting state.
+   */
   readonly addLineSegment: (
     x0: number,
     z0: number,
@@ -203,7 +238,10 @@ export type ReachOverlay3D = {
     x1: number,
     z1: number,
     surfaceY1: number,
-    ownerColor: string
+    ownerColor: string,
+    laserFraction?: number,
+    riseFraction0?: number,
+    riseFraction1?: number
   ) => void;
   /** Adds a "this used to be surveyed, now abandoned" dim/dark pylon stub -- no glow, no ring, no line. */
   readonly addDormantFrontierTile: (x: number, z: number, surfaceY: number, size: number) => void;
@@ -314,6 +352,11 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
 
   const livePool: Pylon[] = Array.from({ length: maxPylons }, () => buildPylon(false));
   const deadPool: Pylon[] = Array.from({ length: maxPylons }, () => buildPylon(true));
+  // Parallel to livePool -- each live pylon's current laserFraction, so the
+  // per-frame ring-spin/core-pulse update() (which recomputes core opacity
+  // from scratch every call) can multiply the pulse by it instead of
+  // clobbering whatever addPylon just set for a transitioning pylon.
+  const liveLaserFractions: number[] = new Array(maxPylons).fill(1);
   let liveCursor = 0;
   let deadCursor = 0;
 
@@ -357,20 +400,31 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     outOfReachIndexCount = 0;
   };
 
-  const addPylon = (x: number, z: number, surfaceY: number, size: number, nowMs: number, ownerColor: string): void => {
+  const addPylon = (
+    x: number,
+    z: number,
+    surfaceY: number,
+    size: number,
+    nowMs: number,
+    ownerColor: string,
+    riseFraction = 1,
+    laserFraction = 1
+  ): void => {
     if (liveCursor >= livePool.length) return;
     const pylon = livePool[liveCursor]!;
-    pylon.group.position.set(x, surfaceY + PYLON_LIFT, z);
+    const sunkOffset = (1 - riseFraction) * PYLON_SINK_DEPTH;
+    pylon.group.position.set(x, surfaceY + PYLON_LIFT - sunkOffset, z);
     pylon.group.scale.setScalar(size);
     const phase = liveCursor * 0.9;
     if (pylon.ring) pylon.ring.rotation.y = nowMs * RING_SPIN_SPEED + phase;
     const pulse = Math.sin(nowMs / CORE_PULSE_PERIOD_MS + phase) * 0.5 + 0.5;
     if (pylon.coreMaterial) {
       pylon.coreMaterial.color = new Color(normalizeColorForThree(ownerColor));
-      pylon.coreMaterial.opacity = 0.6 + pulse * CORE_PULSE_AMPLITUDE;
+      pylon.coreMaterial.opacity = (0.6 + pulse * CORE_PULSE_AMPLITUDE) * laserFraction;
     }
     if (pylon.core) pylon.core.scale.setScalar(1 + pulse * 0.1);
     pylon.group.visible = true;
+    liveLaserFractions[liveCursor] = laserFraction;
     liveCursor += 1;
   };
 
@@ -400,12 +454,17 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     x1: number,
     z1: number,
     surfaceY1: number,
-    ownerColor: string
+    ownerColor: string,
+    laserFraction = 1,
+    riseFraction0 = 1,
+    riseFraction1 = 1
   ): void => {
     if (segmentCursor >= linePool.length) return;
     const slot = linePool[segmentCursor]!;
-    const p0: Vec3Like = { x: x0, y: surfaceY0 + LINE_LIFT, z: z0 };
-    const p1: Vec3Like = { x: x1, y: surfaceY1 + LINE_LIFT, z: z1 };
+    const sunkOffset0 = (1 - riseFraction0) * PYLON_SINK_DEPTH;
+    const sunkOffset1 = (1 - riseFraction1) * PYLON_SINK_DEPTH;
+    const p0: Vec3Like = { x: x0, y: surfaceY0 + LINE_LIFT - sunkOffset0, z: z0 };
+    const p1: Vec3Like = { x: x1, y: surfaceY1 + LINE_LIFT - sunkOffset1, z: z1 };
     const dx = p1.x - p0.x;
     const dy = p1.y - p0.y;
     const dz = p1.z - p0.z;
@@ -418,7 +477,8 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     slot.mesh.rotateX(Math.PI / 2);
     slot.mesh.scale.set(1, length, 1);
     slot.material.color = new Color(normalizeColorForThree(ownerColor));
-    slot.mesh.visible = true;
+    slot.material.opacity = LINE_BASE_OPACITY * laserFraction;
+    slot.mesh.visible = laserFraction > 0.001;
 
     segmentCursor += 1;
   };
@@ -440,7 +500,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
       const phase = i * 0.9;
       if (pylon.ring) pylon.ring.rotation.y = nowMs * RING_SPIN_SPEED + phase;
       const pulse = Math.sin(nowMs / CORE_PULSE_PERIOD_MS + phase) * 0.5 + 0.5;
-      if (pylon.coreMaterial) pylon.coreMaterial.opacity = 0.6 + pulse * CORE_PULSE_AMPLITUDE;
+      if (pylon.coreMaterial) pylon.coreMaterial.opacity = (0.6 + pulse * CORE_PULSE_AMPLITUDE) * liveLaserFractions[i]!;
       if (pylon.core) pylon.core.scale.setScalar(1 + pulse * 0.1);
     }
   };
