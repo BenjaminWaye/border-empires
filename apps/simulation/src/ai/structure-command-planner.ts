@@ -46,6 +46,7 @@ export type StructurePlannerTile = {
   ownershipState?: DomainTileState["ownershipState"] | undefined;
   resource?: DomainTileState["resource"] | undefined;
   dockId?: string | undefined;
+  naturalWonder?: unknown;
   town?: {
     supportMax?: number | undefined;
     supportCurrent?: number | undefined;
@@ -380,20 +381,28 @@ const RELAY_BEACON_REACH_SAMPLE_CAP = 150;
 
 /**
  * Cheap approximation of "how much currently-unreachable land would a beacon
- * here newly cover" — counts unowned-by-this-player LAND tiles (neutral or
+ * here newly cover" — scans unowned-by-this-player LAND tiles (neutral or
  * enemy frontier) within OUTPOST_REACH_RADIUS of the candidate, toroidally
- * wrapped. This deliberately does NOT consult the real reach map (not always
- * available to this planner-static builder) — it's a proxy for "is this
- * candidate near unclaimed territory", which is what actually matters for
- * siting a beacon to grow reach. Bounded to a fixed-size box scan per
- * candidate, not a world scan.
+ * wrapped, and weights them by strategic value: a tile carrying a town/
+ * resource/dock/natural-wonder ("valuable", mirrors frontier-scoring.ts's
+ * "economic" class) counts far more than plain land, since the AI's
+ * reach-starved trigger (ai-economic-heuristics.ts's isReachStarved) only
+ * fires once valuables in reach are claimed out — a beacon exists to reach
+ * the *next* one, not to blindly grow the border into empty land. This
+ * deliberately does NOT consult the real reach map (not always available to
+ * this planner-static builder) — it's a proxy for "is this candidate near
+ * something worth claiming". Bounded to a fixed-size box scan per candidate,
+ * not a world scan.
  */
+const VALUABLE_TARGET_COVERAGE_WEIGHT = 8;
+
 const estimateNewReachCoverage = (
   playerId: string,
   tile: StructurePlannerTile,
   tilesByKey: TileLookup
-): number => {
+): { score: number; hasValuable: boolean } => {
   let covered = 0;
+  let hasValuable = false;
   let scanned = 0;
   outer: for (let dy = -OUTPOST_REACH_RADIUS; dy <= OUTPOST_REACH_RADIUS; dy += 1) {
     for (let dx = -OUTPOST_REACH_RADIUS; dx <= OUTPOST_REACH_RADIUS; dx += 1) {
@@ -405,10 +414,12 @@ const estimateNewReachCoverage = (
       const neighbor = tilesByKey.get(tileKeyOf(nx, ny));
       if (!neighbor || neighbor.terrain !== "LAND") continue;
       if (neighbor.ownerId === playerId) continue;
-      covered += 1;
+      const isValuable = Boolean(neighbor.town || neighbor.resource || neighbor.dockId || neighbor.naturalWonder);
+      if (isValuable) hasValuable = true;
+      covered += isValuable ? VALUABLE_TARGET_COVERAGE_WEIGHT : 1;
     }
   }
-  return covered;
+  return { score: covered, hasValuable };
 };
 
 /**
@@ -441,8 +452,12 @@ export const chooseBestRelayBeaconBuild = (
     if (!tileOpenForStructure(tile)) continue;
     if (!structureVisibleOnTile("RELAY_BEACON", player.id, tile, tilesByKey)) continue;
     const newCoverage = estimateNewReachCoverage(player.id, tile, tilesByKey);
-    if (newCoverage <= 0) continue;
-    let score = newCoverage * 10;
+    // A beacon only earns its keep by reaching an actual prize — plain empty
+    // land within reach doesn't need one (plain EXPAND already covers that;
+    // see isReachStarved's doc comment). Skip any site that doesn't put at
+    // least one town/resource/dock/wonder tile newly in reach.
+    if (!newCoverage.hasValuable) continue;
+    let score = newCoverage.score * 10;
     if (tile.dockId) score += 30; // cross-island reach floor per plan's DOCK_REACH_RADIUS note
     if (!best || score > best.score) best = { tile, score };
   }

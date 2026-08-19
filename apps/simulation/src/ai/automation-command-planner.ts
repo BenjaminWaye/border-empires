@@ -312,13 +312,14 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     relayBeaconBuild = chooseBestRelayBeaconBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
   }
-  // Reach-starved: reach-filtered EXPAND candidates have dried up (via
-  // frontierAnalysis.frontierNeutralTargetCount, filtered by reachLookup
-  // above once wired) while the player is otherwise strong enough to want
-  // more land. Precondition for preferring a relay-beacon build over a plain
-  // economic build below — see ai-economic-heuristics.ts's isReachStarved.
+  // Reach-starved: every reach-accessible VALUABLE target (town/resource/
+  // dock/wonder — frontierAnalysis.frontierOpportunityEconomic, already
+  // reach-filtered) has been claimed out, while the player is otherwise
+  // strong enough to want more land. Precondition for preferring a
+  // relay-beacon build over a plain economic build below — see
+  // ai-economic-heuristics.ts's isReachStarved.
   const reachStarved = isReachStarved({
-    reachLimitedNeutralTargetCount: frontierAnalysis.frontierNeutralTargetCount,
+    reachAccessibleValuableTargetCount: frontierAnalysis.frontierOpportunityEconomic,
     townCount,
     manpower: input.manpower,
     needsFood,

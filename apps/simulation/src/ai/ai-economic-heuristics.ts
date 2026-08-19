@@ -28,28 +28,35 @@ export const economyWeak = (manpower: number, settledTileCount: number): boolean
   manpower < Math.max(40, settledTileCount * 6);
 
 // Precondition for the reach-driven relay-beacon build (fixed-borders-via-reach
-// plan, "AI planner" section): fires when the reach-filtered EXPAND candidate
-// count has dropped to (near) zero while the player is otherwise strong
-// enough to want more land — i.e. reach, not economy/manpower/food, is the
-// actual bottleneck. Mirrors economyWeak/foodCoverageLow's shape (small, pure,
-// reused rather than recomputed inline) per docs/game-mechanics.md's guidance
-// to consume the existing strategic-snapshot-style heuristics.
+// plan, "AI planner" section): fires once every reach-accessible VALUABLE
+// EXPAND target (a tile carrying a town/resource/dock/natural-wonder —
+// frontier-scoring.ts's "economic" class, counted via
+// frontierAnalysis.frontierOpportunityEconomic, which is already
+// reach-filtered by the time it's tallied — see frontier-command-planner.ts's
+// reachLookup prune) has been claimed, while the player is otherwise strong
+// enough to want more land. Deliberately does NOT require plain/"waste" land
+// within reach to be exhausted too — an empire happily keeps grabbing scout/
+// scaffold tiles inside its own border in parallel; the beacon's only job is
+// reaching the next real prize once reach, not economy/manpower/food, is the
+// bottleneck on THAT. Mirrors economyWeak/foodCoverageLow's shape (small,
+// pure, reused rather than recomputed inline) per docs/game-mechanics.md's
+// guidance to consume the existing strategic-snapshot-style heuristics.
 export const isReachStarved = (input: {
-  /** Reach-filtered neutral EXPAND candidate count (frontierAnalysis.frontierNeutralTargetCount once reachLookup is wired — see frontier-command-planner.ts's ReachLookup). */
-  reachLimitedNeutralTargetCount: number;
+  /** Reach-filtered count of "economic" (town/resource/dock/wonder) EXPAND candidates — frontierAnalysis.frontierOpportunityEconomic. */
+  reachAccessibleValuableTargetCount: number;
   townCount: number;
   manpower: number;
   needsFood: boolean;
   needsEconomy: boolean;
-  // Excludes combat scenarios: an empty neutral-target count with an enemy
+  // Excludes combat scenarios: an empty valuable-target count with an enemy
   // at the gate means "no room to expand because I'm boxed in by an enemy
   // this tick," not "reach is the bottleneck" — ATTACK/MUSTER should win
   // those, not a beacon build. Without this, any small/contested frontier
-  // with zero neutral tiles (a common wartime state, not just a reach-gated
-  // one) reads as reach-starved.
+  // with zero claimable valuables (a common wartime state, not just a
+  // reach-gated one) reads as reach-starved.
   frontierEnemyTargetCount: number;
 }): boolean =>
-  input.reachLimitedNeutralTargetCount === 0 &&
+  input.reachAccessibleValuableTargetCount === 0 &&
   input.frontierEnemyTargetCount === 0 &&
   input.townCount >= 1 &&
   !input.needsFood &&
