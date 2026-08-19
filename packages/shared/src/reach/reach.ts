@@ -190,6 +190,60 @@ export const reassessBorderOnAnchorDeactivation = (
   return { border: next, overtaken };
 };
 
+/**
+ * Full reconciliation sweep over every currently SETTLED tile: if its owner
+ * has no live reach coverage there AND some OTHER (non-barbarian) player's
+ * live reach already covers it, the tile transfers (border ownership +
+ * `overtaken` entry, same shape as grantAnchorToBorder/
+ * reassessBorderOnAnchorDeactivation). Tiles nobody currently covers stay
+ * exactly where they are — untouched, sticky, no change — matching the same
+ * "no immediate downgrade from losing your own anchor in isolation" rule
+ * every other reach function in this module follows.
+ *
+ * Unlike grantAnchorToBorder (scoped to one activating anchor's disk) or
+ * reassessBorderOnAnchorDeactivation (scoped to one deactivating anchor's
+ * disk), this walks every settled tile regardless of what `border` currently
+ * says about it. That's specifically needed once, at process boot: a tile
+ * whose defending anchor was lost *before* the deactivation-reassessment
+ * mechanism existed will never get a DEACTIVATE event to react to
+ * retroactively, and a border rebuilt from scratch on every restart
+ * (`grantAnchorToBorder` only records a tile when *some* anchor's disk
+ * actually reaches it) can silently drop a tile's border entry entirely —
+ * with no `overtaken` event ever firing for it — if its own owner's anchor
+ * no longer covers it. This sweep is the general safety net that catches
+ * both cases. Not meant for a hot path — O(settled tiles).
+ */
+export const reconcileBorderAgainstLiveReach = (
+  border: ReadonlyMap<string, string>,
+  settledTiles: ReadonlyArray<{ tileKey: string; ownerId: string }>,
+  anchors: ReadonlyArray<ReachAnchor>,
+  ownerIds: ReadonlyArray<string>
+): { border: Map<string, string>; overtaken: OvertakenTile[] } => {
+  const next = new Map(border);
+  const overtaken: OvertakenTile[] = [];
+  const liveReachCache = new Map<string, ReadonlySet<string>>();
+  const liveReachForOwnerCached = (ownerId: string): ReadonlySet<string> => {
+    let set = liveReachCache.get(ownerId);
+    if (!set) {
+      set = liveReachForOwner(ownerId, anchors);
+      liveReachCache.set(ownerId, set);
+    }
+    return set;
+  };
+  for (const { tileKey: key, ownerId } of settledTiles) {
+    if (liveReachForOwnerCached(ownerId).has(key)) continue; // still defended by an anchor of their own
+    for (const rivalId of ownerIds) {
+      if (rivalId === ownerId) continue;
+      if (liveReachForOwnerCached(rivalId).has(key)) {
+        next.set(key, rivalId);
+        overtaken.push({ tileKey: key, fromOwnerId: ownerId, toOwnerId: rivalId });
+        break; // first rival in the given order wins, deterministic given caller's ordering
+      }
+    }
+  }
+  return { border: next, overtaken };
+};
+
 export type AnchorEvent =
   | { type: "ACTIVATE"; anchor: ReachAnchor }
   | { type: "DEACTIVATE"; anchor: ReachAnchor };

@@ -10,6 +10,7 @@ import {
   reachRadiusForKind,
   reachSetForPlayer,
   reassessBorderOnAnchorDeactivation,
+  reconcileBorderAgainstLiveReach,
   tileKey,
   tileKeysInReach,
   type ReachAnchor
@@ -223,6 +224,57 @@ describe("reassessBorderOnAnchorDeactivation", () => {
       new Set(),
       () => new Set([tileKey(200, 200)]), // every rival covers it
       ["p2", "p3"]
+    );
+    expect(border.get(tileKey(200, 200))).toBe("p2");
+    expect(overtaken).toEqual([{ tileKey: tileKey(200, 200), fromOwnerId: "p1", toOwnerId: "p2" }]);
+  });
+});
+
+describe("reconcileBorderAgainstLiveReach", () => {
+  it("leaves an already-correct border entry untouched when the owner still has live coverage", () => {
+    const anchor: ReachAnchor = { x: 200, y: 200, ownerId: "p1", activatedAt: 1, kind: "TOWN" };
+    const correctBorder = new Map([[tileKey(200, 200), "p1"]]); // grantAnchorToBorder already got this right
+    const { border, overtaken } = reconcileBorderAgainstLiveReach(
+      correctBorder,
+      [{ tileKey: tileKey(200, 200), ownerId: "p1" }],
+      [anchor],
+      ["p1", "p2"]
+    );
+    expect(border.get(tileKey(200, 200))).toBe("p1");
+    expect(overtaken).toEqual([]);
+  });
+
+  it("leaves a settled tile alone when nobody currently covers it (sticky, no downgrade)", () => {
+    const { border, overtaken } = reconcileBorderAgainstLiveReach(
+      new Map(),
+      [{ tileKey: tileKey(200, 200), ownerId: "p1" }],
+      [], // no anchors at all cover it
+      ["p1", "p2"]
+    );
+    expect(border.has(tileKey(200, 200))).toBe(false);
+    expect(overtaken).toEqual([]);
+  });
+
+  it("transfers a settled tile to a rival whose live reach covers it when the owner no longer does", () => {
+    const rivalAnchor: ReachAnchor = { x: 200, y: 200, ownerId: "p2", activatedAt: 1, kind: "TOWN" };
+    const staleBorder = new Map([[tileKey(200, 200), "p1"]]); // border still (wrongly) says p1
+    const { border, overtaken } = reconcileBorderAgainstLiveReach(
+      staleBorder,
+      [{ tileKey: tileKey(200, 200), ownerId: "p1" }], // but the tile is still SETTLED under p1 in the world
+      [rivalAnchor], // p1 has no anchor left covering it; p2 does
+      ["p1", "p2"]
+    );
+    expect(border.get(tileKey(200, 200))).toBe("p2");
+    expect(overtaken).toEqual([{ tileKey: tileKey(200, 200), fromOwnerId: "p1", toOwnerId: "p2" }]);
+  });
+
+  it("also transfers a tile that grantAnchorToBorder-style reseeding would have silently dropped (no border entry at all)", () => {
+    const rivalAnchor: ReachAnchor = { x: 200, y: 200, ownerId: "p2", activatedAt: 1, kind: "TOWN" };
+    const { border, overtaken } = reconcileBorderAgainstLiveReach(
+      new Map(), // no entry for this tile in border at all
+      [{ tileKey: tileKey(200, 200), ownerId: "p1" }],
+      [rivalAnchor],
+      ["p1", "p2"]
     );
     expect(border.get(tileKey(200, 200))).toBe("p2");
     expect(overtaken).toEqual([{ tileKey: tileKey(200, 200), fromOwnerId: "p1", toOwnerId: "p2" }]);
