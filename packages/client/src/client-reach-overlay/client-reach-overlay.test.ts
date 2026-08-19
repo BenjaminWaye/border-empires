@@ -112,6 +112,32 @@ describe("computeLocalReachSet", () => {
     expect(reach.has(keyFor(13, 10))).toBe(true);
     expect(reach.has(keyFor(14, 10))).toBe(false);
   });
+
+  it("projects a town anchor using only the lightweight townType field, not the heavy town detail payload", () => {
+    // Same detail-payload-vs-lightweight-reference bug the dock anchor had:
+    // `tile.town` (name/goldPerMinute/population/etc.) is only populated
+    // once the client fetches full detail for that specific tile -- most
+    // map tiles never do, including a player's own town if it hasn't been
+    // recently viewed. `townType` is the lightweight reference always
+    // present regardless of detail level. Gating on `tile.town` alone
+    // silently zeroed out the single most common reach anchor.
+    const tiles = new Map<string, Tile>([
+      [
+        keyFor(10, 10),
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          townType: "FARMING"
+        } as unknown as Tile
+      ]
+    ]);
+    const reach = computeLocalReachSet(tiles, "me");
+    expect(reach.has(keyFor(13, 10))).toBe(true);
+    expect(reach.has(keyFor(14, 10))).toBe(false);
+  });
 });
 
 describe("traceReachBoundaryEdgeLoops", () => {
