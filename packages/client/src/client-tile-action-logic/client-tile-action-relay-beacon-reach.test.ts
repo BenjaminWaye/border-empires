@@ -136,4 +136,20 @@ describe("settle_land — hidden (not just disabled) outside reach", () => {
     const actions = menuActionsForSingleTile(state, target, baseDeps as never);
     expect(findAction(actions, "settle_land")).toBeUndefined();
   });
+
+  it("hides Settle Land on a tile that's inside reach but NOT adjacent to owned territory, instead of showing it disabled with 'Must touch your territory'", () => {
+    // "Settle Land" (and Build Relay Beacon) only ever belong on a real
+    // frontier tile -- one the player can actually act on right now
+    // (adjacent AND in reach), not any tile merely inside the reach
+    // radius. A distant in-reach tile only ever offers "Add Waypoint"
+    // (client-waypoint-menu-actions.ts), which walks the player there.
+    const state = stateWithTown(0, 0); // TOWN_REACH_RADIUS = 3 covers (2,2)
+    const target: Tile = { x: 2, y: 2, terrain: "LAND" } as Tile;
+    state.tiles.set(keyFor(2, 2), target);
+    const notAdjacentDeps = { ...baseDeps, pickOriginForTarget: () => undefined };
+
+    const actions = menuActionsForSingleTile(state, target, notAdjacentDeps as never);
+    expect(findAction(actions, "settle_land")).toBeUndefined();
+    expect(findAction(actions, "build_relay_beacon_frontier" as TileActionDef["id"])).toBeUndefined();
+  });
 });
