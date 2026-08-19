@@ -1,4 +1,5 @@
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
+import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -38,6 +39,14 @@ const waypointPlanForTile = (
     deps.pickOriginForTarget(tile.x, tile.y, false) ??
     deps.pickOriginForTarget(tile.x, tile.y, false, true);
   if (adjacentOrigin) return;
+  // The planner itself is reach-blind -- it only checks that a chain of
+  // plain EXPANDs can physically walk to the target, not whether the FINAL
+  // claim would fall inside the fixed-border reach EXPAND actually requires
+  // server-side. Without this, a tile outside the player's reach disk
+  // entirely (no amount of walking closer fixes that -- it needs a new
+  // beacon/outpost pushed out first) still offered "Add Waypoint", which
+  // would just fail once the chain got there.
+  if (!computeLocalReachSet(state.tiles, state.me).has(deps.keyFor(tile.x, tile.y))) return;
   const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor });
   return plan.reachable ? plan : undefined;
 };
