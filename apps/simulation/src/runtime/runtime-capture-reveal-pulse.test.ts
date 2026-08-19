@@ -3,14 +3,14 @@ import { SimulationRuntime } from "./runtime.js";
 import { COMBAT_LOCK_MS } from "@border-empires/shared";
 import { buildPlayer } from "./runtime.test-helpers.js";
 
-// Coverage for the discovery-pulse reveal (runtime-expand-reveal-tick.ts):
-// every successful capture — EXPAND onto neutral land or ATTACK onto enemy
-// land — grants a temporary EXPAND_REVEAL_RADIUS (3) vision pulse around the
-// newly-owned tile. A captured tile always lands as FRONTIER for the new
-// owner, which carries only radius-0 (self-tile) standing vision, so a tile
-// 3 rows beyond the capture becoming visible can only be explained by the
-// pulse — neither the capturer's existing base-radius-1 territory nor the
-// captured tile's own standing vision reaches that far.
+// Coverage for FRONTIER_STANDING_VISION_RADIUS (visibility-coverage-cache.ts):
+// every FRONTIER tile — including one just captured via EXPAND or ATTACK —
+// carries a flat, permanent +1 standing vision radius, replacing the old
+// one-time discovery pulse (radius 3, 10s TTL) that snapped back to nothing
+// once it expired. A tile 1 row beyond the capture becoming (and staying)
+// visible can only be explained by the FRONTIER tile's own standing vision —
+// neither the capturer's existing base-radius-1 territory nor a temporary
+// pulse (removed) explains it.
 type StripTile = {
   x: number;
   y: number;
@@ -41,15 +41,15 @@ const buildStrip = (): StripTile[] => {
   // counter-capture of the origin (per the README), and losing (10,10) as
   // player-2's only tile would eliminate + auto-respawn them elsewhere in
   // this small test world -- shifting their vision unpredictably and
-  // defeating the "does the pulse leak vision" assertions below. Far enough
-  // from both the target (10,11) and the probed tile (10,14) that its own
-  // base-radius-1 vision can't overlap either.
+  // defeating the "does the FRONTIER tile leak vision" assertions below.
+  // Far enough from both the target (10,11) and the probed tile (10,12)
+  // that its own base-radius-1 vision can't overlap either.
   Object.assign(at(8, 7), { ownerId: "player-2", ownershipState: "SETTLED" });
   return tiles;
 };
 
-describe("simulation runtime — capture reveal pulse", () => {
-  it("a successful ATTACK reveals a tile 3 rows beyond the captured tile, temporarily", async () => {
+describe("simulation runtime — FRONTIER standing vision", () => {
+  it("a successful ATTACK grants the captured FRONTIER tile a permanent +1 standing vision radius, unaffected by time", async () => {
     vi.useFakeTimers();
     // randomValue=0 with a strong attacker guarantees attackerWon (winChance > 0).
     const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
@@ -79,31 +79,30 @@ describe("simulation runtime — capture reveal pulse", () => {
       expect(captured?.ownerId).toBe("player-2");
       expect(captured?.ownershipState).toBe("FRONTIER");
 
-      // (10,14): dy=3 from the captured tile (10,11) — only the pulse
-      // (radius 3) reaches it. Base territory (10,10) at radius 1 tops out
-      // at y=11; the captured FRONTIER tile itself contributes radius 0.
-      const pulsedTile = runtime.exportVisibleStateForPlayer("player-2").tiles.find((t) => t.x === 10 && t.y === 14);
-      expect(pulsedTile).toBeDefined();
+      // (10,12): dy=1 from the captured tile (10,11) -- only the FRONTIER
+      // tile's own standing vision (radius 1) reaches it. Base territory
+      // (10,10) at radius 1 tops out at y=11.
+      const nearbyTile = runtime.exportVisibleStateForPlayer("player-2").tiles.find((t) => t.x === 10 && t.y === 12);
+      expect(nearbyTile).toBeDefined();
 
-      // Past the pulse's 10s TTL, the tile drops out of live visibility again.
-      // tickExpandReveals is driven externally by a setInterval in
-      // simulation-service.ts (see runtime-expand-reveal-tick.ts), not by
-      // anything internal to SimulationRuntime -- vi.advanceTimersByTime
-      // alone doesn't process the expiry, so it has to be called directly.
-      // now: () => 1_000 above is a fixed stub (not tied to the fake-timer
-      // clock either), so the explicit nowMs argument here is what actually
-      // pushes the pulse's tracked expiresAt (computed off that same fixed
-      // 1_000) into the past.
-      runtime.tickExpandReveals(1_000 + 10_000 + 100);
-      const afterExpiry = runtime.exportVisibleStateForPlayer("player-2").tiles.find((t) => t.x === 10 && t.y === 14);
-      expect(afterExpiry).toBeUndefined();
+      // (10,13): dy=2 -- one tile past the FRONTIER standing radius, must
+      // stay out of vision.
+      const farTile = runtime.exportVisibleStateForPlayer("player-2").tiles.find((t) => t.x === 10 && t.y === 13);
+      expect(farTile).toBeUndefined();
+
+      // Unlike the old discovery pulse, this never expires -- advancing
+      // time alone (no TTL to drive) leaves the FRONTIER tile's standing
+      // vision exactly as it was.
+      vi.advanceTimersByTime(60_000);
+      const stillVisible = runtime.exportVisibleStateForPlayer("player-2").tiles.find((t) => t.x === 10 && t.y === 12);
+      expect(stillVisible).toBeDefined();
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();
     }
   });
 
-  it("a failed ATTACK does not grant a reveal pulse", async () => {
+  it("a failed ATTACK grants no vision at all around the (unchanged) target", async () => {
     vi.useFakeTimers();
     // randomValue=1 guarantees attackerWon=false whenever the defender has
     // any effective defense at all (winChance is always < 1 in that case).
@@ -140,8 +139,8 @@ describe("simulation runtime — capture reveal pulse", () => {
       const targetTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 11);
       expect(targetTile?.ownerId).toBe("player-1");
 
-      const notPulsed = runtime.exportVisibleStateForPlayer("player-2").tiles.find((t) => t.x === 10 && t.y === 14);
-      expect(notPulsed).toBeUndefined();
+      const notVisible = runtime.exportVisibleStateForPlayer("player-2").tiles.find((t) => t.x === 10 && t.y === 12);
+      expect(notVisible).toBeUndefined();
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

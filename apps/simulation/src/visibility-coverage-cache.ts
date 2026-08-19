@@ -19,6 +19,7 @@
  * every contributing source has released it.
  */
 
+import { FRONTIER_STANDING_VISION_RADIUS } from "@border-empires/shared";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { VisionFootprintTable } from "./vision-footprint-table.js";
 
@@ -251,15 +252,19 @@ export interface VisibilityCoverageTrackerDeps {
   readonly getPlayer: (playerId: string) => VisibilitySourcePlayer | undefined;
   readonly territoryTileKeysForPlayer: (playerId: string) => ReadonlySet<string>;
   // Same as territoryTileKeysForPlayer but excluding FRONTIER tiles — a
-  // FRONTIER claim holds no standing vision of its own (see
-  // tileOwnershipChanged's ownershipState gate below), so resyncVisionRadius
-  // must only touch the subset that actually contributed a footprint.
+  // FRONTIER claim's standing vision is a flat FRONTIER_STANDING_VISION_RADIUS,
+  // fixed regardless of the owner's effective vision radius (see
+  // tileOwnershipChanged's ownershipState gate below), so it never needs
+  // resyncing when tech/domain choices change that effective radius --
+  // resyncVisionRadius only touches the subset whose footprint actually
+  // varies with it.
   readonly settledTileKeysForPlayer: (playerId: string) => ReadonlySet<string>;
   // The complementary subset — FRONTIER-only tiles. syncAllianceChange needs
   // both subsets, since a new ally must be backfilled at the source's full
-  // radius over SETTLED tiles but only radius 0 (self-tile) over FRONTIER
-  // ones, matching what tileOwnershipChanged already grants the source
-  // itself and its allies going forward.
+  // (tech-scaled) radius over SETTLED tiles but only the flat
+  // FRONTIER_STANDING_VISION_RADIUS over FRONTIER ones, matching what
+  // tileOwnershipChanged already grants the source itself and its allies
+  // going forward.
   readonly frontierTileKeysForPlayer: (playerId: string) => ReadonlySet<string>;
 }
 
@@ -337,18 +342,15 @@ export class VisibilityCoverageTracker {
    * and applies the new owner's — O(radius²) total, the hot path this class
    * exists to protect.
    *
-   * A FRONTIER claim holds no standing halo beyond itself — it contributes a
-   * radius-0 (self-tile-only) footprint instead of the source's full vision
-   * radius, gated via `options.previousOwnershipState`/`nextOwnershipState`.
-   * You can still always see land you own, just not a ring around it; only a
-   * SETTLED tile (or a tile with no explicit ownershipState, e.g. legacy/
-   * barbarian data) projects the full radius. This is why callers must pass
-   * options whenever ownershipState is known: omitting them (as existing
-   * tests that predate this distinction do) preserves the old always-on
-   * full-radius behavior. EXPAND additionally grants a one-time discovery
-   * pulse via addTemporaryReveal (see runtime-expand-reveal-tick.ts) over a
-   * wider radius, so claiming still feels like exploring — it just doesn't
-   * linger once the pulse fades.
+   * A FRONTIER claim holds only a flat FRONTIER_STANDING_VISION_RADIUS halo
+   * (currently 1) instead of the source's full (tech-scaled) vision radius,
+   * gated via `options.previousOwnershipState`/`nextOwnershipState` — a
+   * fixed constant, not derived from `radiusForSource`, so it never varies
+   * with the owner's effective radius. Only a SETTLED tile (or a tile with
+   * no explicit ownershipState, e.g. legacy/barbarian data) projects the
+   * full radius. This is why callers must pass options whenever
+   * ownershipState is known: omitting them (as existing tests that predate
+   * this distinction do) preserves the old always-on full-radius behavior.
    */
   tileOwnershipChanged(
     previousOwnerId: string | undefined,
@@ -359,13 +361,13 @@ export class VisibilityCoverageTracker {
     options?: { previousOwnershipState?: string | undefined; nextOwnershipState?: string | undefined }
   ): void {
     if (previousOwnerId && !this.isBarbarian(previousOwnerId)) {
-      const radius = options?.previousOwnershipState === "FRONTIER" ? 0 : this.radiusForSource(previousOwnerId);
+      const radius = options?.previousOwnershipState === "FRONTIER" ? FRONTIER_STANDING_VISION_RADIUS : this.radiusForSource(previousOwnerId);
       for (const viewerId of this.viewersForSource(previousOwnerId)) {
         this.cache.removeFootprint(viewerId, x, y, radius, callbacks?.onLeave, this.territoryReason(previousOwnerId, viewerId));
       }
     }
     if (nextOwnerId && !this.isBarbarian(nextOwnerId)) {
-      const radius = options?.nextOwnershipState === "FRONTIER" ? 0 : this.radiusForSource(nextOwnerId);
+      const radius = options?.nextOwnershipState === "FRONTIER" ? FRONTIER_STANDING_VISION_RADIUS : this.radiusForSource(nextOwnerId);
       for (const viewerId of this.viewersForSource(nextOwnerId)) {
         this.cache.addFootprint(viewerId, x, y, radius, callbacks?.onEnter, this.territoryReason(nextOwnerId, viewerId));
       }
@@ -385,8 +387,9 @@ export class VisibilityCoverageTracker {
     if (oldRadius === newRadius) return;
     const viewers = this.viewersForSource(playerId);
     if (viewers.length > 0) {
-      // FRONTIER tiles never contributed a footprint (see tileOwnershipChanged),
-      // so only the settled subset needs resyncing to the new radius.
+      // FRONTIER tiles contribute a fixed FRONTIER_STANDING_VISION_RADIUS
+      // footprint that never varies with the owner's tech-scaled radius (see
+      // tileOwnershipChanged), so only the settled subset needs resyncing.
       const settledTileKeys = this.deps.settledTileKeysForPlayer(playerId);
       if (oldRadius !== undefined) {
         for (const viewerId of viewers) {
@@ -543,7 +546,8 @@ export class VisibilityCoverageTracker {
    * per-tile cost on the hot capture/loss path.
    *
    * Split into two contributions per side — SETTLED tiles at the source's
-   * full radius, FRONTIER tiles at radius 0 — mirroring the same gate
+   * full (tech-scaled) radius, FRONTIER tiles at the flat
+   * FRONTIER_STANDING_VISION_RADIUS — mirroring the same gate
    * tileOwnershipChanged applies on the hot path. Without this split a new
    * ally would get a full-radius halo around the source's FRONTIER claims
    * that the source itself can't see.
@@ -567,18 +571,18 @@ export class VisibilityCoverageTracker {
     const targetFrontier = this.deps.frontierTileKeysForPlayer(targetId);
     if (allied) {
       this.cache.addSourceContribution(targetId, actorSettled, actorRadius, callbacks?.onEnter, `radius:ally:${actorId}`);
-      this.cache.addSourceContribution(targetId, actorFrontier, 0, callbacks?.onEnter, `radius:ally:${actorId}`);
+      this.cache.addSourceContribution(targetId, actorFrontier, FRONTIER_STANDING_VISION_RADIUS, callbacks?.onEnter, `radius:ally:${actorId}`);
       this.cache.addSourceContribution(actorId, targetSettled, targetRadius, callbacks?.onEnter, `radius:ally:${targetId}`);
-      this.cache.addSourceContribution(actorId, targetFrontier, 0, callbacks?.onEnter, `radius:ally:${targetId}`);
+      this.cache.addSourceContribution(actorId, targetFrontier, FRONTIER_STANDING_VISION_RADIUS, callbacks?.onEnter, `radius:ally:${targetId}`);
       this.applyTownBonusesToViewer(actorId, targetId, callbacks?.onEnter);
       this.applyTownBonusesToViewer(targetId, actorId, callbacks?.onEnter);
       this.applyOutpostBonusesToViewer(actorId, targetId, callbacks?.onEnter);
       this.applyOutpostBonusesToViewer(targetId, actorId, callbacks?.onEnter);
     } else {
       this.cache.removeSourceContribution(targetId, actorSettled, actorRadius, callbacks?.onLeave, `radius:ally:${actorId}`);
-      this.cache.removeSourceContribution(targetId, actorFrontier, 0, callbacks?.onLeave, `radius:ally:${actorId}`);
+      this.cache.removeSourceContribution(targetId, actorFrontier, FRONTIER_STANDING_VISION_RADIUS, callbacks?.onLeave, `radius:ally:${actorId}`);
       this.cache.removeSourceContribution(actorId, targetSettled, targetRadius, callbacks?.onLeave, `radius:ally:${targetId}`);
-      this.cache.removeSourceContribution(actorId, targetFrontier, 0, callbacks?.onLeave, `radius:ally:${targetId}`);
+      this.cache.removeSourceContribution(actorId, targetFrontier, FRONTIER_STANDING_VISION_RADIUS, callbacks?.onLeave, `radius:ally:${targetId}`);
       this.applyTownBonusesToViewer(actorId, targetId, undefined, callbacks?.onLeave);
       this.applyTownBonusesToViewer(targetId, actorId, undefined, callbacks?.onLeave);
       this.applyOutpostBonusesToViewer(actorId, targetId, undefined, callbacks?.onLeave);

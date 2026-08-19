@@ -354,12 +354,6 @@ import {
   type PendingWatchtowerReveal,
   type WatchtowerRevealRuntimeInput
 } from "../runtime-watchtower-reveal-tick.js";
-import {
-  activateExpandRevealAt as activateExpandRevealAtImpl,
-  tickExpandReveals as tickExpandRevealsImpl,
-  type PendingExpandReveal,
-  type ExpandRevealRuntimeInput
-} from "../runtime-expand-reveal-tick.js";
 import { computeShardRainWelcomeNotice } from "../runtime-shard-rain-rules.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
 import {
@@ -524,8 +518,6 @@ export class SimulationRuntime {
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
   // Watchtower "flicker" reveals in flight — see runtime-watchtower-reveal-tick.ts. Self-draining, bounded, never persisted.
   private readonly pendingWatchtowerReveals: PendingWatchtowerReveal[] = [];
-  // EXPAND discovery-pulse reveals in flight — see runtime-expand-reveal-tick.ts. Self-draining, bounded, never persisted.
-  private readonly pendingExpandReveals: PendingExpandReveal[] = [];
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
@@ -1463,21 +1455,6 @@ export class SimulationRuntime {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
   }
 
-  private expandRevealContext(): ExpandRevealRuntimeInput {
-    return {
-      now: this.now,
-      pendingExpandReveals: this.pendingExpandReveals,
-      visibilityCoverage: this.visibilityCoverage,
-      visionTransitionCallbacks: this.visionTransitions.callbacks
-    };
-  }
-
-  private activateExpandRevealAt(x: number, y: number, playerId: string): void { activateExpandRevealAtImpl(this.expandRevealContext(), x, y, playerId); }
-
-  tickExpandReveals(nowMs: number = this.now()): void {
-    tickExpandRevealsImpl(this.expandRevealContext(), nowMs);
-  }
-
   async tickTerritoryAutomation(
     nowMs: number = this.now(),
     yieldToEventLoop?: () => Promise<void>
@@ -1717,7 +1694,6 @@ export class SimulationRuntime {
       respawnIfEliminated: (playerId, commandId) => this.respawnIfEliminated(playerId, commandId),
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId),
-      activateExpandReveal: (x, y, playerId) => this.activateExpandRevealAt(x, y, playerId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({
             capturedTile,

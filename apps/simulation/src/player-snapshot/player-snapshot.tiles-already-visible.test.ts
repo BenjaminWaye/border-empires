@@ -53,8 +53,9 @@ describe("buildPlayerSubscriptionSnapshot with tilesAlreadyVisible", () => {
           // Neutral tile inside vision radius (dx=1 from the SETTLED tile).
           { x: 9, y: 10, terrain: "LAND" as const },
           // Neutral tile just beyond the FRONTIER tile (dx=2 from the SETTLED
-          // tile) — a FRONTIER claim holds no standing vision of its own, so
-          // this must stay hidden despite being adjacent to owned land.
+          // tile, dx=1 from the FRONTIER tile) — a FRONTIER claim holds a
+          // flat FRONTIER_STANDING_VISION_RADIUS (1) of its own, so this
+          // tile IS visible despite being one tile past the SETTLED radius.
           { x: 12, y: 10, terrain: "LAND" as const },
           // Enemy territory far outside vision — must stay hidden on both paths.
           { x: 60, y: 60, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" as const },
@@ -91,7 +92,9 @@ describe("buildPlayerSubscriptionSnapshot with tilesAlreadyVisible", () => {
       expect(snapshot.tiles.some((tile) => tile.x === 61 && tile.y === 60)).toBe(false);
       expect(snapshot.tiles.some((tile) => tile.x === 10 && tile.y === 10)).toBe(true);
       expect(snapshot.tiles.some((tile) => tile.x === 9 && tile.y === 10)).toBe(true);
-      expect(snapshot.tiles.some((tile) => tile.x === 12 && tile.y === 10)).toBe(false);
+      // (12,10) is dx=1 from the FRONTIER tile at (11,10) -- covered by its
+      // flat FRONTIER_STANDING_VISION_RADIUS.
+      expect(snapshot.tiles.some((tile) => tile.x === 12 && tile.y === 10)).toBe(true);
     }
   });
 
