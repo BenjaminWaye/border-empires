@@ -61,6 +61,8 @@ import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { computeLocalReachSet } from "../client-reach-overlay/client-reach-overlay.js";
+import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
+import { formatWaypointSummary } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -764,20 +766,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   }
   if (!tile.ownerId) {
     const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false));
-    // A neutral tile only offers Build Relay Beacon / Settle Land once it's
-    // an actual frontier of the player's territory -- adjacent to a tile
-    // they hold (or a dock/bridge origin) AND inside the fixed-border reach
-    // EXPAND will require server-side. Anything short of that (distant
-    // reach-radius ground you haven't walked to yet, or ground outside
-    // reach entirely) shows neither -- Add Waypoint
-    // (client-waypoint-menu-actions.ts) is the only offer for the former,
-    // and nothing is offered for the latter. One gate for both actions
-    // below, instead of each button separately re-deriving its own
-    // visibility/disabled-reason story.
-    const isFrontierActionable = reachable && computeLocalReachSet(state.tiles, state.me).has(deps.keyFor(tile.x, tile.y));
+    const targetInReach = computeLocalReachSet(state.tiles, state.me).has(deps.keyFor(tile.x, tile.y));
 
     const out: TileActionDef[] = [];
-    if (isFrontierActionable) {
+    // Build Relay Beacon is a single-shot expand+settle+build combo -- it
+    // still needs a real adjacent origin to EXPAND from (there's no "walk
+    // there first, then build" version of this action). Hidden outside
+    // reach too, same "just don't show it" policy as everything below.
+    if (reachable && targetInReach) {
       const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
       const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
       const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
@@ -799,6 +795,18 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
         )
       });
+    }
+    // Settle Land claims any tile inside reach, adjacent or not -- if it's
+    // already adjacent that's a direct EXPAND; otherwise it walks there
+    // first via the exact same multi-step waypoint chain Add Waypoint used
+    // to offer as a SEPARATE button for this case (client-action-flow.ts
+    // dispatches "settle_land" on a non-adjacent target straight into
+    // handleWaypointAction). One button that does the right thing
+    // regardless of distance, instead of two buttons the player has to
+    // separately notice for near vs. far reach ground. Hidden entirely
+    // when out of reach (server would reject as OUT_OF_REACH regardless of
+    // cost) or when no path exists at all (planWaypoint's own check).
+    if (reachable && targetInReach) {
       out.push({
         id: "settle_land",
         label: "Settle Land",
@@ -808,6 +816,19 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           frontierClaimCostLabelForTile(tile.x, tile.y)
         )
       });
+    } else if (targetInReach) {
+      const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor });
+      if (plan.reachable) {
+        out.push({
+          id: "settle_land",
+          label: "Settle Land",
+          ...tileActionAvailability(
+            canAffordCost(state.gold, plan.totalGold) && state.manpower >= plan.totalManpower,
+            state.manpower < plan.totalManpower ? `Need ${plan.totalManpower} manpower` : `Need ${plan.totalGold} gold`,
+            formatWaypointSummary(plan)
+          )
+        });
+      }
     }
     out.push({
       id: "build_foundry",
