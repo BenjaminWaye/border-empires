@@ -138,6 +138,58 @@ export const grantAnchorToBorder = (
   return { border: next, overtaken };
 };
 
+/**
+ * Applies a deactivating `anchor` (structure destroyed, captured away, or
+ * downgraded to FRONTIER) to the persistent border. By itself this changes
+ * nothing — sticky territory, see the module doc comment — UNLESS some
+ * OTHER (rival) player's anchors are, right now, already covering a tile
+ * this anchor used to help defend and the border-owner can no longer defend
+ * it themselves. In that specific case the tile transfers immediately,
+ * rather than waiting for the rival to activate a brand-new anchor of their
+ * own later — their existing coverage was simply never re-checked against
+ * this border before, since the border previously only ever re-evaluated a
+ * tile at anchor-ACTIVATION time.
+ *
+ * Only re-examines the tiles the deactivating anchor itself used to cover
+ * (its own disk), and only tiles still owned in `border` by the SAME owner
+ * the anchor belonged to — a tile that already changed hands for an
+ * unrelated reason is left untouched.
+ *
+ * `ownerLiveReach` must be the anchor owner's live reach computed WITHOUT
+ * the deactivated anchor (i.e. their remaining coverage right now).
+ * `rivalLiveReachFor` is queried lazily, once per candidate rival, only for
+ * tiles that actually need re-resolution. `rivalOwnerIds` should list every
+ * other non-barbarian player to consider, in a deterministic order — the
+ * first rival found covering a given tile wins it.
+ *
+ * Pure — does not mutate `border`. Returns the same shape as
+ * `grantAnchorToBorder` so callers can drive the identical
+ * `SETTLED -> FRONTIER` downgrade on exactly the returned `overtaken` tiles.
+ */
+export const reassessBorderOnAnchorDeactivation = (
+  border: ReadonlyMap<string, string>,
+  deactivatedAnchor: ReachAnchor,
+  ownerLiveReach: ReadonlySet<string>,
+  rivalLiveReachFor: (rivalOwnerId: string) => ReadonlySet<string>,
+  rivalOwnerIds: ReadonlyArray<string>
+): { border: Map<string, string>; overtaken: OvertakenTile[] } => {
+  const next = new Map(border);
+  const overtaken: OvertakenTile[] = [];
+  for (const key of tileKeysInReach(deactivatedAnchor)) {
+    if (next.get(key) !== deactivatedAnchor.ownerId) continue; // not (still) mine in the border
+    if (ownerLiveReach.has(key)) continue; // still defended by another of my own anchors
+    for (const rivalId of rivalOwnerIds) {
+      if (rivalId === deactivatedAnchor.ownerId) continue;
+      if (rivalLiveReachFor(rivalId).has(key)) {
+        next.set(key, rivalId);
+        overtaken.push({ tileKey: key, fromOwnerId: deactivatedAnchor.ownerId, toOwnerId: rivalId });
+        break; // first rival wins ties, deterministic given caller's ordering
+      }
+    }
+  }
+  return { border: next, overtaken };
+};
+
 export type AnchorEvent =
   | { type: "ACTIVATE"; anchor: ReachAnchor }
   | { type: "DEACTIVATE"; anchor: ReachAnchor };
