@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787170756951, // 2026.08.19.2
+    introducedIn: "2026.08.19.2",
+    title: "Town gold production: fixed the Mintworks flat bonus for real this time",
+    why: "The previous fix for this (2026.08.19) only patched apps/simulation/src/live-town-summary.ts — but the tile-click popup is served by a separate gateway path (apps/realtime-gateway/src/tile-detail-snapshot.ts) whenever the cached snapshot's townJson doesn't carry a fresh goldPerMinute, and that path has its own independent copy of the same formula, explicitly commented 'keep in sync with buildTownSummary' — which still dropped each Mintworks' flat +1 gold/day-per-copy bonus. A live screenshot after the first fix still showed the old, wrong number, which is what surfaced this second copy.",
+    changes: [
+      "The gateway's tile-detail fallback gold calculation now includes each active Mintworks' flat gold bonus, matching the simulation's authoritative formula."
+    ]
+  },
+  {
     createdAt: 1787132874001, // 2026.08.19
     introducedIn: "2026.08.19",
     title: "Town gold production now includes each Mintworks' flat bonus, and settled-town copy cleaned up",
@@ -173,51 +182,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Attackers now see the fight on the tile they are attacking, not just defenders.",
       "An in-progress siege now ends only when the combat actually resolves or the tile changes hands — no longer cancelled by unrelated yield/population/muster updates on the same tile. The red under-attack cross also stays visible for the whole countdown.",
       "The under-attack cross now pulses faster as the attack becomes imminent, which it previously never did."
-    ]
-  },
-  {
-    createdAt: 1786647377657, // 2026.08.13.4
-    introducedIn: "2026.08.13.4",
-    title: "Fixed a manual attack permanently stuck showing only a queue-position badge",
-    why: "A dead local variable (`allowOptimisticOrigin`, computed but never passed) meant every queued attack — not just EXPANDs — always looked up its origin with confirmed-ownership-only rules, even though attacks were always meant to allow an optimistic (not-yet-acked) origin. When the only adjacent origin tile was itself still an unconfirmed optimistic claim, the queue entry could never resolve an origin: it just re-armed a 900ms wait and requeued itself forever, with no cap. Because the promotion out of \"Mustering...\" happens before that wait loop is reached, the capture overlay had already disappeared, leaving only the small numeric queue-position badge (e.g. \"1\") with nothing visibly ahead of it — looking permanently stuck. Separately, the \"Mustering...\" progress bar itself only updates when a server tile delta lands, and muster accumulation only ticks server-side once per 30s, so the displayed percentage held flat for up to 30s and then jumped instead of visibly progressing.",
-    changes: [
-      "Attacks (as opposed to EXPANDs onto a neutral tile) now correctly allow dispatching from an optimistic origin immediately, instead of always requiring a confirmed one.",
-      "As a backstop for any other case that could still stall this way: after ~13.5s of repeated waits for a confirmed origin, the queue falls back to the optimistic origin and dispatches rather than waiting indefinitely.",
-      "The \"Mustering...\" progress bar now linearly extrapolates between server ticks using the last observed accumulation rate, instead of holding flat and jumping once a delta arrives."
-    ]
-  },
-  {
-    createdAt: 1786633566657, // 2026.08.13.3
-    introducedIn: "2026.08.13.3",
-    title: "Manual attacks now reuse a nearby muster flag instead of demanding a new one",
-    why: "Launching a manual attack only ever considered a flag \"usable\" if it sat directly adjacent to the target — anything else, even a fully-funded flag two tiles away, was ignored, and the client auto-created a brand new flag right next to the target instead. With players already at the 3-muster-flag cap (e.g. mid an ADVANCE chain), that new flag request was silently rejected by the server (MUSTER_LIMIT), and the attack sat parked forever pointing at a flag that would never exist — the new \"Mustering...\" overlay (2026.08.13.2) stuck at 0 staged with no way to clear it short of reloading. The server, however, already auto-funds an attack from any owned flag within 10 tiles of wherever it's launched from (the same mechanism ADVANCE relies on) — the client just never used it for manual attacks.",
-    changes: [
-      "A manual attack now fires from the normal border tile and lets the server fund it remotely from any nearby flag with enough manpower, instead of requiring that exact flag to sit adjacent to the target — no more redundant flags for something an existing one already covers.",
-      "Falling back to auto-creating a new flag only happens when nothing nearby has the manpower to fund the attack at all.",
-      "As a safety net for the remaining case: a parked attack now gives up and cancels itself, with a feed message, if the flag it auto-requested still hasn't shown up a few seconds later — instead of sitting on a permanently stuck \"Mustering 0/N\" overlay."
-    ]
-  },
-  {
-    createdAt: 1786616905363, // 2026.08.13.2
-    introducedIn: "2026.08.13.2",
-    title: "Manual attacks now show a \"Mustering...\" overlay while manpower stages",
-    why: "Launching a manual attack against a target whose adjacent muster flag wasn't fully staged used to give almost no feedback — the big capture overlay only appeared once the attack actually fired, so the wait beforehand looked like nothing was happening. Fixing this also surfaced (and fixed) a related bug: the flag was judged \"ready\" using a flat 60-manpower threshold instead of the target's real requirement, so an attack on a garrisoned fort could fire early and get rejected by the server even with manpower still visibly staged.",
-    changes: [
-      "Launching a manual attack now immediately shows the capture overlay in a \"Mustering...\" state, with a bar that fills toward the actual manpower this target requires (higher for a garrisoned enemy fort) and hands off to \"Capturing Territory...\" the moment it fires — no more silent wait in between.",
-      "Cancel during mustering now just drops that queued target, leaving the flag and its staged manpower in place for another attack.",
-      "Dismiss is also available during mustering, hiding the overlay while the flag keeps filling in the background — same as it already worked for the Capturing phase.",
-      "Fixed: a muster flag could be judged ready off a flat 60-manpower threshold and fire early against a garrisoned fort, getting rejected by the server instead of waiting for the fort's real requirement."
-    ]
-  },
-  {
-    createdAt: 1786622000000, // 2026.08.13.3
-    introducedIn: "2026.08.13.3",
-    title: "Mintworks flywheels and Umbrite reactor cores now move",
-    why: "The relay beacon's slowly rotating mirror array reads beautifully on the landscape, but the other high-tier buildings sat perfectly still. The mintworks' brass flywheel and the Umbrite weapons factory's reactor core both deserved a small touch of the same idle motion, so the world keeps a consistent, living feel at gameplay distance.",
-    changes: [
-      "The Mintworks flywheel assembly (wheel, spokes, hub and rim) now spins slowly, like its drive machinery is running.",
-      "The Umbrite weapons factory's reactor core now gently pulses — the core, fissures and embers breathe in and out like contained power.",
-      "Every structure picks its own phase from its tile, so neighbouring buildings never pulse or spin in sync."
     ]
   },
   {
