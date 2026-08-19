@@ -92,25 +92,25 @@ describe("client action flow regressions", () => {
     expect(unexploredBranch.slice(-600)).toContain("queueAdjacentExpandClaim(wx, wy);");
   });
 
-  it("opens the tile menu instead of auto-claiming when an adjacent target also falls inside reach, so Build Relay Beacon is reachable", () => {
+  it("always auto-claims an adjacent unowned tile with a single click, regardless of reach -- no menu detour", () => {
     const source = actionFlowSource();
 
-    // The instant "quick claim" shortcuts (unexplored, fogged, and visible
-    // neutral-land paths) used to fire for ANY adjacent unowned tile,
-    // regardless of reach -- which meant menuActionsForSingleTile's
-    // reach-gated "Build Relay Beacon" action (client-tile-action-logic.ts)
-    // could never actually be shown to the player: any tile that passed its
-    // own visibility gate (adjacent AND in reach) was always intercepted
-    // before the menu ever opened. isTargetInLocalReach must gate all three
-    // shortcut call sites so an in-reach adjacent tile opens the real menu
-    // instead.
-    expect(source).toContain(
-      "const isTargetInLocalReach = (x: number, y: number): boolean =>\n      computeLocalReachSet(state.tiles, state.me).has(keyFor(x, y));"
+    // An earlier version of this file gated the quick-claim shortcuts on
+    // reach (isTargetInLocalReach) so the menu would open instead, purely
+    // to make the "Build Relay Beacon" combo action reachable via a single
+    // click. That traded away the fast one-click claim workflow for every
+    // ordinary adjacent tile, which is the wrong tradeoff -- reverted.
+    // Adjacent-tile clicks (fogged, unexplored, and visible) go straight to
+    // queueAdjacentExpandClaim again; reach only affects what's *visible*
+    // once a menu is actually opened some other way (e.g. re-clicking an
+    // already-queued tile), never whether the quick-claim fires.
+    expect(source).not.toContain("targetInReach: clickTargetInReach");
+    expect(source).not.toContain("if (frontierOrigin && isTargetInLocalReach(wx, wy)) {");
+    const visibleBranchStart = source.indexOf("const to = clicked;");
+    const visibleBranch = source.slice(visibleBranchStart, visibleBranchStart + 600);
+    expect(visibleBranch).toContain(
+      "const clickOutcome = neutralTileClickOutcome({\n      isLand: to.terrain === \"LAND\",\n      isFogged: Boolean(to.fogged),\n      hasFrontierOrigin: Boolean(frontierOrigin),\n      isNeutral: !to.ownerId\n    });"
     );
-    expect(source).toContain("if (frontierOrigin && isTargetInLocalReach(wx, wy)) {");
-    expect(source).toContain("if (frontierOrigin && !isTargetInLocalReach(wx, wy)) {");
-    expect(source).toContain("const clickTargetInReach = isTargetInLocalReach(to.x, to.y);");
-    expect(source).toContain("targetInReach: clickTargetInReach");
   });
 
   it("delegates settle_land on a non-adjacent-but-in-reach neutral tile into the waypoint machinery instead of a doomed direct claim", () => {
