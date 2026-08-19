@@ -137,19 +137,40 @@ describe("settle_land — hidden (not just disabled) outside reach", () => {
     expect(findAction(actions, "settle_land")).toBeUndefined();
   });
 
-  it("hides Settle Land on a tile that's inside reach but NOT adjacent to owned territory, instead of showing it disabled with 'Must touch your territory'", () => {
-    // "Settle Land" (and Build Relay Beacon) only ever belong on a real
-    // frontier tile -- one the player can actually act on right now
-    // (adjacent AND in reach), not any tile merely inside the reach
-    // radius. A distant in-reach tile only ever offers "Add Waypoint"
-    // (client-waypoint-menu-actions.ts), which walks the player there.
+  it("still offers Settle Land on a tile that's inside reach but NOT adjacent -- it walks there via a waypoint chain instead of a direct claim", () => {
+    // Build Relay Beacon stays adjacency-gated (it's a single-shot
+    // expand+settle+build combo with no "walk there first" version), but
+    // Settle Land itself no longer requires adjacency to even be offered:
+    // it now does the right thing regardless of distance -- direct EXPAND
+    // when adjacent, or walk there via the same waypoint machinery Add
+    // Waypoint uses when it's not. The player should never have to notice
+    // two different buttons depending on how far away the tile is.
     const state = stateWithTown(0, 0); // TOWN_REACH_RADIUS = 3 covers (2,2)
     const target: Tile = { x: 2, y: 2, terrain: "LAND" } as Tile;
     state.tiles.set(keyFor(2, 2), target);
     const notAdjacentDeps = { ...baseDeps, pickOriginForTarget: () => undefined };
 
     const actions = menuActionsForSingleTile(state, target, notAdjacentDeps as never);
-    expect(findAction(actions, "settle_land")).toBeUndefined();
+    const settleLand = findAction(actions, "settle_land");
+    expect(settleLand).toBeDefined();
+    expect(settleLand?.cost).toMatch(/expand/); // waypoint-style summary, not the flat frontier-claim cost label
     expect(findAction(actions, "build_relay_beacon_frontier" as TileActionDef["id"])).toBeUndefined();
+  });
+
+  it("hides Settle Land entirely on a tile that's neither adjacent nor reachable by any walkable path", () => {
+    const state = stateWithTown(0, 0);
+    // (2,2) inside TOWN_REACH_RADIUS but walled off by mountains on every side.
+    const target: Tile = { x: 2, y: 2, terrain: "LAND" } as Tile;
+    state.tiles.set(keyFor(2, 2), target);
+    for (let dx = -1; dx <= 1; dx += 1) {
+      for (let dy = -1; dy <= 1; dy += 1) {
+        if (dx === 0 && dy === 0) continue;
+        state.tiles.set(keyFor(2 + dx, 2 + dy), { x: 2 + dx, y: 2 + dy, terrain: "MOUNTAIN" } as Tile);
+      }
+    }
+    const notAdjacentDeps = { ...baseDeps, pickOriginForTarget: () => undefined };
+
+    const actions = menuActionsForSingleTile(state, target, notAdjacentDeps as never);
+    expect(findAction(actions, "settle_land")).toBeUndefined();
   });
 });
