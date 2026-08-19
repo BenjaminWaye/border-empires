@@ -71,6 +71,18 @@ const richState = (): ReturnType<typeof createInitialState> => {
   state.me = "me";
   state.gold = 10_000;
   state.manpower = 10_000;
+  // A settled town within TOWN_REACH_RADIUS (3) of the (3,3) target used
+  // below -- settle_land is now hidden entirely outside reach, so these
+  // gold/manpower-gate assertions need a real reach anchor to even see the
+  // action row at all.
+  state.tiles.set(keyFor(0, 0), {
+    x: 0,
+    y: 0,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
+  } as Tile);
   return state;
 };
 
