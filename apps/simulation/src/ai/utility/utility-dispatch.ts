@@ -237,9 +237,19 @@ const executeClass = <TTile extends AutomationPlannerTile>(
       // normal economic build when no beacon site scores, or when not
       // reach-starved (keeps today's behavior unchanged in the common case).
       if (state.reachStarved && state.relayBeaconBuild) {
+        const beaconSite = state.relayBeaconBuild.tile;
+        // A FRONTIER site must be SETTLED before RELAY_BEACON_SPEC's
+        // tileIsSettled placement check will accept it. Emit the SETTLE now;
+        // the planner re-runs every tick, so once the settlement lands this
+        // same branch re-selects the (now SETTLED) tile and emits the build.
+        // No multi-command sequencing machinery needed — re-planning is the
+        // sequencer, and each step is independently valid and idempotent.
+        if (state.relayBeaconBuild.needsSettle) {
+          return buildPlannerCommand(context, "SETTLE", { x: beaconSite.x, y: beaconSite.y });
+        }
         return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
-          x: state.relayBeaconBuild.x,
-          y: state.relayBeaconBuild.y,
+          x: beaconSite.x,
+          y: beaconSite.y,
           structureType: "RELAY_BEACON"
         });
       }

@@ -78,6 +78,10 @@ const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boolean =>
       analysis.townSupportExpand || analysis.scaffoldExpand || analysis.scoutExpand
   );
 
+// Bounded frontier sample considered as relay-beacon sites (each candidate
+// costs a box scan in estimateNewReachCoverage — see the call site).
+const RELAY_BEACON_FRONTIER_SAMPLE_CAP = 96;
+
 const dedupeTiles = <TTile extends AutomationPlannerTile>(
   tiles: Iterable<TTile>
 ): TTile[] => {
@@ -310,7 +314,29 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
-    relayBeaconBuild = chooseBestRelayBeaconBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    // The relay beacon is the one build that may target an owned FRONTIER
+    // tile (it settles it first — see chooseBestRelayBeaconBuild). The shared
+    // `buildCandidates` list can't supply those: isBuildCandidateTile requires
+    // ownershipState === "SETTLED", so a reach-locked AI whose only remaining
+    // ground is frontier would see zero beacon sites and stay locked forever.
+    // Give the beacon its own candidate list = settled build candidates plus a
+    // bounded, focus-restricted sample of owned frontier tiles. Sampled (not
+    // the full frontier set) because estimateNewReachCoverage box-scans up to
+    // RELAY_BEACON_REACH_SAMPLE_CAP cells per candidate, and a large empire's
+    // frontier runs to many hundreds of tiles — per AGENTS.md's AI CPU
+    // guardrails, planner-static builders must stay bounded.
+    const beaconFrontierCandidates = restrictToFocus(
+      strideSample(input.frontierTiles, RELAY_BEACON_FRONTIER_SAMPLE_CAP),
+      () => {
+        buildScanUsedFocusFallback = true;
+      }
+    );
+    relayBeaconBuild = chooseBestRelayBeaconBuild(
+      structurePlayer,
+      input.ownedTiles,
+      input.tilesByKey,
+      dedupeTiles([...buildCandidates, ...beaconFrontierCandidates])
+    );
   }
   // Reach-starved: every reach-accessible VALUABLE target (town/resource/
   // dock/wonder — frontierAnalysis.frontierOpportunityEconomic, already
@@ -323,7 +349,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     townCount,
     manpower: input.manpower,
     needsFood,
-    needsEconomy,
     frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount
   });
 

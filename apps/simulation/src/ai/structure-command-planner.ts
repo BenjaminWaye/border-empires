@@ -431,26 +431,53 @@ const estimateNewReachCoverage = (
  * — but the *placement rule* (owned + SETTLED, no tech gate) and *scoring
  * approach* (score candidates by new-territory coverage near the reach
  * frontier) follow the plan's "build_siege_outpost-style action" template.
- * Candidates must already be owned+SETTLED — RELAY_BEACON_SPEC's placement
- * list (tileIsSettled + ownerOwnsTile, structure-registry-outpost.ts:67-94)
- * enforces this at the runtime; mirrored here so the AI doesn't repeatedly
- * propose builds the runtime will reject.
+ *
+ * Candidates may be owned+SETTLED **or** owned+FRONTIER. RELAY_BEACON_SPEC's
+ * placement list requires SETTLED (tileIsSettled + ownerOwnsTile,
+ * structure-registry-outpost.ts:67-94), so a FRONTIER site can't be built on
+ * directly — the caller settles it first and builds on the next plan tick
+ * (`needsSettle` on the returned plan says which). Including FRONTIER sites
+ * is what unblocks a reach-locked AI: the AI has no standalone SETTLE
+ * decision at all (deliberately — a general settle-everything policy would
+ * change expansion balance everywhere), so before this its only legal beacon
+ * sites were tiles inside the settled core it was already reaching from, and
+ * a sprawling frontier could never be converted into new reach. Settling
+ * here is purposeful: it happens only to place a beacon that extends reach
+ * toward a real prize.
  */
+export type RelayBeaconBuildPlan = {
+  tile: StructurePlannerTile;
+  /** FRONTIER site — SETTLE it first; the beacon build follows once it lands. */
+  needsSettle: boolean;
+};
+
+// Tie-break penalty for a FRONTIER site over an equally-good SETTLED one: the
+// frontier route costs an extra SETTLE (manpower + a development slot + build
+// time) before the beacon can even start, so prefer ground already settled
+// when both reach the same prize.
+const FRONTIER_BEACON_SITE_PENALTY = 40;
+
 export const chooseBestRelayBeaconBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
   tilesByKey: TileLookup,
   candidateTiles: readonly StructurePlannerTile[] = ownedTiles
-): StructurePlannerTile | undefined => {
+): RelayBeaconBuildPlan | undefined => {
   const counts = player.ownedStructureCounts ? EMPTY_OWNED_STRUCTURE_COUNTS : tallyOwnedStructures(player.id, ownedTiles);
   const existingOwnedCount = plannedOwnedStructureCount(player, counts, "RELAY_BEACON");
   if (!canAffordStructure(player, playerTechSet(player), "RELAY_BEACON", existingOwnedCount)) return undefined;
 
-  let best: { tile: StructurePlannerTile; score: number } | undefined;
+  let best: { tile: StructurePlannerTile; score: number; needsSettle: boolean } | undefined;
   for (const tile of candidateTiles) {
-    if (tile.ownerId !== player.id || tile.ownershipState !== "SETTLED" || tile.terrain !== "LAND") continue;
+    if (tile.ownerId !== player.id || tile.terrain !== "LAND") continue;
+    const isSettled = tile.ownershipState === "SETTLED";
+    const needsSettle = tile.ownershipState === "FRONTIER";
+    if (!isSettled && !needsSettle) continue;
     if (!tileOpenForStructure(tile)) continue;
-    if (!structureVisibleOnTile("RELAY_BEACON", player.id, tile, tilesByKey)) continue;
+    // A FRONTIER site is judged as the SETTLED tile it's about to become —
+    // structureShowsOnTile keys off ownershipState, so checking it as-is
+    // would reject every frontier candidate on the state we're about to change.
+    if (!structureVisibleOnTile("RELAY_BEACON", player.id, needsSettle ? { ...tile, ownershipState: "SETTLED" } : tile, tilesByKey)) continue;
     const newCoverage = estimateNewReachCoverage(player.id, tile, tilesByKey);
     // A beacon only earns its keep by reaching an actual prize — plain empty
     // land within reach doesn't need one (plain EXPAND already covers that;
@@ -459,7 +486,8 @@ export const chooseBestRelayBeaconBuild = (
     if (!newCoverage.hasValuable) continue;
     let score = newCoverage.score * 10;
     if (tile.dockId) score += 30; // cross-island reach floor per plan's DOCK_REACH_RADIUS note
-    if (!best || score > best.score) best = { tile, score };
+    if (needsSettle) score -= FRONTIER_BEACON_SITE_PENALTY;
+    if (!best || score > best.score) best = { tile, score, needsSettle };
   }
-  return best?.tile;
+  return best ? { tile: best.tile, needsSettle: best.needsSettle } : undefined;
 };
