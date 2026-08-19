@@ -38,6 +38,17 @@ const stateWith = (tiles: Tile[], overrides: Partial<StateShape> = {}): StateSha
 
 const noAdjacentOrigin = () => undefined;
 
+// An owned, settled tile with an active RELAY_BEACON (OUTPOST_REACH_RADIUS =
+// 5) -- gives the intermediate EXPAND legs of a waypoint chain real reach
+// coverage. Every EXPAND step (including ones leading up to an ATTACK) now
+// requires this; only the final ATTACK step itself is reach-exempt.
+const beaconAnchor = (x: number, y: number): Tile =>
+  tile(x, y, {
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
+  });
+
 describe("injectWaypointActions", () => {
   // Intermediate explored neutral tiles so A* has a path to traverse.
   const explored = (xs: number[], y: number): Tile[] => xs.map((x) => tile(x, y));
@@ -51,7 +62,7 @@ describe("injectWaypointActions", () => {
   describe("enemy attack targets", () => {
     it("prepends Expand Here when the tile is a reachable distant enemy target", () => {
       const tiles = [
-        tile(3, 3, { ownerId: "me" }),
+        beaconAnchor(3, 3),
         ...explored([4, 5, 6, 7], 3),
         tile(8, 3, { ownerId: "enemy" })
       ];
@@ -66,14 +77,17 @@ describe("injectWaypointActions", () => {
       expect(v.tabs[0]).toBe("actions");
     });
 
-    it("is not reach-gated -- ATTACK is deliberately not limited by the fixed-border reach", () => {
-      // (3,3) owned with no reach anchor (no town, no active outpost-family
-      // structure) at all -- would be zero reach for an EXPAND target, but
-      // an enemy attack target must still offer a waypoint regardless.
-      const tiles = [tile(3, 3, { ownerId: "me" }), ...explored([4, 5, 6, 7], 3), tile(8, 3, { ownerId: "enemy" })];
+    it("is not reach-gated -- an enemy target itself may sit outside reach, as long as the EXPAND legs leading up to it don't", () => {
+      // beaconAnchor(3,3) covers up to x=8 (OUTPOST_REACH_RADIUS=5) -- the
+      // intermediate EXPAND hops at x=4..7 are all in reach, but the enemy
+      // target at x=9 sits one tile past the reach edge. The final ATTACK
+      // step is deliberately exempt from the reach check, so the plan must
+      // still succeed even though its destination itself is unreachable by
+      // EXPAND.
+      const tiles = [beaconAnchor(3, 3), ...explored([4, 5, 6, 7, 8], 3), tile(9, 3, { ownerId: "enemy" })];
       const state = stateWith(tiles);
       const v = view();
-      injectWaypointActions(v, tile(8, 3, { ownerId: "enemy" }), state, {
+      injectWaypointActions(v, tile(9, 3, { ownerId: "enemy" }), state, {
         keyFor,
         pickOriginForTarget: noAdjacentOrigin
       });
@@ -81,7 +95,7 @@ describe("injectWaypointActions", () => {
     });
 
     it("does not inject Expand Here when an adjacent origin exists", () => {
-      const tiles = [tile(3, 3, { ownerId: "me" }), ...explored([4, 5, 6, 7], 3), tile(8, 3, { ownerId: "enemy" })];
+      const tiles = [beaconAnchor(3, 3), ...explored([4, 5, 6, 7], 3), tile(8, 3, { ownerId: "enemy" })];
       const state = stateWith(tiles);
       const v = view();
       injectWaypointActions(v, tile(8, 3, { ownerId: "enemy" }), state, {
@@ -95,7 +109,7 @@ describe("injectWaypointActions", () => {
       // Fog only means "not currently visible", not "terrain unknown" -- a
       // previously-confirmed LAND tile that's now fogged should still be a
       // valid waypoint target, the same as a visible one.
-      const tiles = [tile(3, 3, { ownerId: "me" }), ...explored([4, 5, 6, 7], 3), tile(8, 3, { ownerId: "enemy", fogged: true })];
+      const tiles = [beaconAnchor(3, 3), ...explored([4, 5, 6, 7], 3), tile(8, 3, { ownerId: "enemy", fogged: true })];
       const state = stateWith(tiles);
       const v = view();
       injectWaypointActions(v, tile(8, 3, { ownerId: "enemy", fogged: true }), state, {
@@ -130,7 +144,10 @@ describe("injectWaypointActions", () => {
     });
 
     it("prepends Add Waypoint on a different enemy tile when a waypoint is already queued", () => {
-      const tiles = [tile(3, 3, { ownerId: "me" }), ...explored([4, 5, 6, 7, 9, 10, 11], 3), tile(8, 3, { ownerId: "enemy" }), tile(12, 3, { ownerId: "enemy" })];
+      // (9,3) is a beacon anchor (radius 5) rather than a plain explored
+      // tile, so the second target (12,3, distance 3 from the anchor) has
+      // real reach coverage along its approach.
+      const tiles = [beaconAnchor(3, 3), ...explored([4, 5, 6, 7, 10, 11], 3), beaconAnchor(9, 3), tile(8, 3, { ownerId: "enemy" }), tile(12, 3, { ownerId: "enemy" })];
       const state = stateWith(tiles, {
         waypoint: [{
           target: { x: 8, y: 3 },

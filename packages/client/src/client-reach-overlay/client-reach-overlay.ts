@@ -107,6 +107,21 @@ export const computeLocalReachSet = (tiles: ReachOverlayTileMap, me: string): Se
 };
 
 /**
+ * A cheap (single reach-set computation, then O(1) lookups) `isInReach`
+ * predicate for `planWaypoint`'s deps (packages/shared/src/waypoint-planner)
+ * -- the search calls it once per candidate EXPAND step, so computing the
+ * whole reach set fresh on every call would be far too slow.
+ */
+export const localReachIsInReach = (
+  tiles: ReachOverlayTileMap,
+  me: string,
+  keyFor: (x: number, y: number) => string
+): ((x: number, y: number) => boolean) => {
+  const reach = computeLocalReachSet(tiles, me);
+  return (x: number, y: number): boolean => reach.has(keyFor(x, y));
+};
+
+/**
  * Excludes water tiles (SEA/COASTAL_SEA) from a reach set. Reach itself is a
  * purely geometric radius (see `computeLocalReachSet` above) with no
  * terrain awareness -- a coastal town/beacon's radius disk legitimately
