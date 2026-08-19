@@ -137,14 +137,16 @@ describe("settle_land — hidden (not just disabled) outside reach", () => {
     expect(findAction(actions, "settle_land")).toBeUndefined();
   });
 
-  it("still offers Settle Land on a tile that's inside reach but NOT adjacent -- it walks there via a waypoint chain instead of a direct claim", () => {
-    // Build Relay Beacon stays adjacency-gated (it's a single-shot
-    // expand+settle+build combo with no "walk there first" version), but
-    // Settle Land itself no longer requires adjacency to even be offered:
-    // it now does the right thing regardless of distance -- direct EXPAND
-    // when adjacent, or walk there via the same waypoint machinery Add
-    // Waypoint uses when it's not. The player should never have to notice
-    // two different buttons depending on how far away the tile is.
+  it("still offers Settle Land AND Build Relay Beacon on a tile that's inside reach but NOT adjacent -- both walk there via a waypoint chain instead of requiring a direct claim", () => {
+    // Neither action requires adjacency: Settle Land walks there via the
+    // same waypoint machinery Add Waypoint uses (handleWaypointAction);
+    // Build Relay Beacon's own handler (client-action-flow.ts,
+    // actionId === "build_relay_beacon_frontier") has ALWAYS driven a
+    // non-adjacent target over via planWaypoint + autoSettleTargets +
+    // autoBuildTargets -- that's pre-existing and was never broken. Only
+    // its VISIBILITY gate was ever wrong (previously required adjacency
+    // the handler itself never needed). The player should never have to
+    // notice different buttons depending on how far away the tile is.
     const state = stateWithTown(0, 0); // TOWN_REACH_RADIUS = 3 covers (2,2)
     const target: Tile = { x: 2, y: 2, terrain: "LAND" } as Tile;
     state.tiles.set(keyFor(2, 2), target);
@@ -154,7 +156,7 @@ describe("settle_land — hidden (not just disabled) outside reach", () => {
     const settleLand = findAction(actions, "settle_land");
     expect(settleLand).toBeDefined();
     expect(settleLand?.cost).toMatch(/expand/); // waypoint-style summary, not the flat frontier-claim cost label
-    expect(findAction(actions, "build_relay_beacon_frontier" as TileActionDef["id"])).toBeUndefined();
+    expect(findAction(actions, "build_relay_beacon_frontier" as TileActionDef["id"])).toBeDefined();
   });
 
   it("hides Settle Land entirely on a tile that's neither adjacent nor reachable by any walkable path", () => {
