@@ -31,6 +31,7 @@ import {
   WORLD_HEIGHT,
   WORLD_WIDTH,
   grantAnchorToBorder,
+  reassessBorderOnAnchorDeactivation,
   liveReachForOwner,
   isInReach,
   type Terrain,
@@ -2333,6 +2334,12 @@ export class SimulationRuntime {
     for (const anchor of this.newlyActivatedReachAnchors(previous, tile)) {
       this.applyReachAnchorActivation(anchor, commandId);
     }
+    // Deactivation side: normally a no-op (sticky), but closes the gap where
+    // a rival's reach already covers ground this anchor stops defending —
+    // see applyReachAnchorDeactivation's doc comment.
+    for (const anchor of this.newlyDeactivatedReachAnchors(previous, tile)) {
+      this.applyReachAnchorDeactivation(anchor, commandId);
+    }
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -3130,6 +3137,48 @@ export class SimulationRuntime {
     return anchors;
   }
 
+  // Mirror of newlyActivatedReachAnchors, inverted: detects any reach anchor
+  // that just went INACTIVE on this tile as a result of `previous` -> `tile`
+  // (town lost/downgraded, an outpost-family structure destroyed/captured
+  // away, a dock tile losing its owner, or a SETTLED -> FRONTIER downgrade
+  // taking a TOWN/OUTPOST anchor down with it). Feeds
+  // applyReachAnchorDeactivation, which re-checks only the tiles this
+  // specific anchor used to help defend against rival coverage that already
+  // exists right now — see reassessBorderOnAnchorDeactivation's doc comment
+  // for why this is needed even though the border is otherwise sticky.
+  private newlyDeactivatedReachAnchors(previous: DomainTileState | undefined, tile: DomainTileState): ReachAnchor[] {
+    const anchors: ReachAnchor[] = [];
+    const wasSettled = previous?.ownershipState === "SETTLED";
+    const isSettled = tile.ownershipState === "SETTLED";
+
+    const wasActiveTown = wasSettled && previous?.town ? previous.ownerId : undefined;
+    const isActiveTown = isSettled && tile.town ? tile.ownerId : undefined;
+    if (wasActiveTown && wasActiveTown !== isActiveTown) {
+      anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveTown, activatedAt: this.now(), kind: "TOWN" });
+    }
+    const wasActiveSiege = wasSettled && previous?.siegeOutpost?.status === "active" ? previous.siegeOutpost.ownerId : undefined;
+    const isActiveSiege = isSettled && tile.siegeOutpost?.status === "active" ? tile.siegeOutpost.ownerId : undefined;
+    if (wasActiveSiege && wasActiveSiege !== isActiveSiege) {
+      anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveSiege, activatedAt: this.now(), kind: "OUTPOST" });
+    }
+    const wasActiveBeacon =
+      wasSettled && previous?.economicStructure?.status === "active" && previous.economicStructure.type === "RELAY_BEACON"
+        ? previous.economicStructure.ownerId
+        : undefined;
+    const isActiveBeacon =
+      isSettled && tile.economicStructure?.status === "active" && tile.economicStructure.type === "RELAY_BEACON"
+        ? tile.economicStructure.ownerId
+        : undefined;
+    if (wasActiveBeacon && wasActiveBeacon !== isActiveBeacon) {
+      anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveBeacon, activatedAt: this.now(), kind: "OUTPOST" });
+    }
+    // DOCK deliberately not gated on ownershipState — see gatherReachAnchors.
+    if (previous?.dockId && previous.ownerId && (!tile.dockId || tile.ownerId !== previous.ownerId)) {
+      anchors.push({ x: previous.x, y: previous.y, ownerId: previous.ownerId, activatedAt: this.now(), kind: "DOCK" });
+    }
+    return anchors;
+  }
+
   // Applies one anchor activation to the persistent reachBorder, downgrading
   // any tile it overtakes from a different (non-barbarian) owner from
   // SETTLED to FRONTIER, same owner, structures untouched — the unsettle
@@ -3151,6 +3200,42 @@ export class SimulationRuntime {
       return set;
     };
     const { border, overtaken } = grantAnchorToBorder(this.reachBorder, anchor, defenderLiveReach);
+    this.reachBorder = border;
+    for (const { tileKey, fromOwnerId } of overtaken) {
+      if (fromOwnerId.startsWith("barbarian-")) continue;
+      const t = this.tiles.get(tileKey);
+      if (!t || t.ownerId !== fromOwnerId || t.ownershipState !== "SETTLED") continue;
+      this.replaceTileState(tileKey, { ...t, ownershipState: "FRONTIER" }, `unsettle:${causeCommandId}:${tileKey}`);
+    }
+  }
+
+  // Applies one anchor DEACTIVATION to the persistent reachBorder. Sticky by
+  // default (does nothing) unless some rival's CURRENT live reach already
+  // covers ground this anchor used to help defend and the owner can no
+  // longer defend it themselves — see reassessBorderOnAnchorDeactivation's
+  // doc comment. Same barbarian exemption and replaceTileState downgrade
+  // path as applyReachAnchorActivation.
+  private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
+    const anchors = this.gatherReachAnchors(); // already reflects the deactivation (this.tiles was updated before this hook runs)
+    const liveReachCache = new Map<string, ReadonlySet<string>>();
+    const liveReachForOwnerCached = (ownerId: string): ReadonlySet<string> => {
+      let set = liveReachCache.get(ownerId);
+      if (!set) {
+        set = liveReachForOwner(ownerId, anchors);
+        liveReachCache.set(ownerId, set);
+      }
+      return set;
+    };
+    const rivalOwnerIds = [...this.playerSummaries.keys()]
+      .filter((id) => id !== anchor.ownerId && !id.startsWith("barbarian-"))
+      .sort();
+    const { border, overtaken } = reassessBorderOnAnchorDeactivation(
+      this.reachBorder,
+      anchor,
+      liveReachForOwnerCached(anchor.ownerId),
+      liveReachForOwnerCached,
+      rivalOwnerIds
+    );
     this.reachBorder = border;
     for (const { tileKey, fromOwnerId } of overtaken) {
       if (fromOwnerId.startsWith("barbarian-")) continue;
