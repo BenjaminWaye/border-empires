@@ -79,7 +79,16 @@ export const computeLocalReachSet = (tiles: ReachOverlayTileMap, me: string): Se
     // deliberately left ungated, same rationale as server-side.
     const isSettled = tile.ownershipState === "SETTLED";
     if (isSettled && tile.town) anchors.push({ x: tile.x, y: tile.y, kind: "TOWN" });
-    if (tile.dock) anchors.push({ x: tile.x, y: tile.y, kind: "DOCK" });
+    // Server-side (runtime.ts's gatherReachAnchors) a dock anchor only ever
+    // needs the tile to be an owned dock tile (from the docks registry) --
+    // it doesn't require the tile's full economic-detail payload. `tile.dock`
+    // is that heavy detail object (goldPerMinute, modifiers, etc.), only
+    // populated once the client has fetched full detail for that specific
+    // tile -- most map tiles never do, so gating on it here silently dropped
+    // almost every real dock anchor. `dockId` is the lightweight reference
+    // already present on any dock-linked tile regardless of detail level,
+    // matching what the server actually checks.
+    if (tile.dockId) anchors.push({ x: tile.x, y: tile.y, kind: "DOCK" });
     const outpostType = tile.economicStructure?.type;
     const isActiveOutpostEconomic =
       isSettled &&
