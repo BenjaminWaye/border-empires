@@ -109,7 +109,8 @@ describe("client action flow regressions", () => {
     );
     expect(source).toContain("if (frontierOrigin && isTargetInLocalReach(wx, wy)) {");
     expect(source).toContain("if (frontierOrigin && !isTargetInLocalReach(wx, wy)) {");
-    expect(source).toContain("targetInReach: isTargetInLocalReach(to.x, to.y)");
+    expect(source).toContain("const clickTargetInReach = isTargetInLocalReach(to.x, to.y);");
+    expect(source).toContain("targetInReach: clickTargetInReach");
   });
 
   it("delegates settle_land on a non-adjacent-but-in-reach neutral tile into the waypoint machinery instead of a doomed direct claim", () => {
