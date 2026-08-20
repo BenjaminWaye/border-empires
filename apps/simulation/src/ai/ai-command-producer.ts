@@ -90,7 +90,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
   const nextClientSeqByPlayer = new Map<string, number>(
     options.aiPlayerIds.map((playerId) => [playerId, options.startingClientSeqByPlayer?.[playerId] ?? 1] as const)
   );
-  const pendingCommandByPlayer = new Map<string, { commandId: string; commandType: CommandEnvelope["type"]; startedAt: number }>();
+  const pendingCommandByPlayer = new Map<string, { commandId: string; commandType: CommandEnvelope["type"]; payloadJson: string; startedAt: number }>();
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
@@ -165,7 +165,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
       }
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pendingCommand) {
         options.onRejectedCommand?.({ playerId: event.playerId, commandType: pendingCommand.commandType, rejectionCode: event.code, rejectionMessage: event.message });
-        recordRejectionCooldown(rejectionCooldowns, event.playerId, pendingCommand.commandType, now());
+        recordRejectionCooldown(rejectionCooldowns, event.playerId, { type: pendingCommand.commandType, payloadJson: pendingCommand.payloadJson }, now());
       }
       resolvePendingPreplanOutcome(
         event.commandId,
@@ -275,7 +275,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           if (isAutomationPreplanCommand(plan.command.type)) {
             try {
               trackedPreplanByCommandId.set(plan.command.commandId, { playerId, trackedAt: issuedAt });
-              pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, commandType: plan.command.type, startedAt: issuedAt });
+              pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, commandType: plan.command.type, payloadJson: plan.command.payloadJson, startedAt: issuedAt });
               await options.submitCommand(plan.command);
               nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
               options.onCommand?.({ playerId, commandType: plan.command.type });
@@ -306,7 +306,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
             // round-robin pick a different target next pass.
             break;
           }
-          pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, commandType: plan.command.type, startedAt: issuedAt });
+          pendingCommandByPlayer.set(playerId, { commandId: plan.command.commandId, commandType: plan.command.type, payloadJson: plan.command.payloadJson, startedAt: issuedAt });
           nextClientSeqByPlayer.set(playerId, nextClientSeq + 1);
           nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
           const wasUrgent = urgentByPlayerId.delete(playerId);
