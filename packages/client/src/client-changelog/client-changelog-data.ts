@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: Date.now(),
+    introducedIn: "2026.08.20",
+    title: "Rush-buy button is no longer a bare unstyled control, and its gold icon no longer looks like silver",
+    why: "The tile progress card's rush-buy button had no CSS at all, so it rendered as a plain browser-default button instead of matching the card's other pill-shaped controls. Its price label also used the 🪙 coin emoji, which renders as a plain silver/steel coin in most fonts and read as a different currency than gold.",
+    changes: [
+      "The rush-buy button now uses a gold-gradient pill style matching the rest of the tile progress card's buttons.",
+      "The rush-buy price label now uses 💰 instead of 🪙 so it reads unambiguously as gold."
+    ]
+  },
+  {
+    createdAt: 1787259991318,
     introducedIn: "2026.08.20.3",
     title: "Fixed a frame-rate drop from the survey-sweep ping overlay",
     why: "The 3D map's per-frame render loop re-uploaded the survey-sweep ping overlay's four GPU instance buffers every single frame, even on the vast majority of frames where no ping was active — a real WebGL bufferSubData call for zero visual change, 60 times a second. A capture from a live session showed WebGL buffer uploads consuming over 80% of total frame CPU time, with the game sustaining only ~11-12fps.",
