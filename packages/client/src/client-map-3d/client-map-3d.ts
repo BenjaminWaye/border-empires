@@ -1533,14 +1533,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           } else {
             fogDarkenOverlay.addTile(fx0, fogCorner00Y, fz0, fx1, fogCorner10Y, fz0, fx0, fogCorner01Y, fz1, fx1, fogCorner11Y, fz1, tmpBlack, false);
           }
-          if (terrain === "LAND" && ownerId) {
+          if (terrain === "LAND" && ownerId && ownershipState !== "FRONTIER") { // FRONTIER excluded: ephemeral claim, so tinting stale fog data as "still his" is misleading -- stacked on the black darken tint above it just read as a dark disconnected box
             const fogOwnerColor = tmpOwnerColor.set(normalizeColorForThree(deps.effectiveOverlayColor(ownerId)));
             if (fogIsHill) {
               fogOwnershipOverlay.addHillTile(
                 fx0, fx1, fz0, fz1,
                 fogCorner00Y, fogCorner10Y, fogCorner01Y, fogCorner11Y,
                 fogOwnerColor,
-                ownershipState === "FRONTIER"
+                false
               );
             } else {
               fogOwnershipOverlay.addTile(
@@ -1549,7 +1549,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
                 fx0, fogCorner01Y, fz1,
                 fx1, fogCorner11Y, fz1,
                 fogOwnerColor,
-                ownershipState === "FRONTIER"
+                false
               );
             }
           }
