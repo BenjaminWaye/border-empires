@@ -20,6 +20,11 @@ const ownedTile = (x: number, y: number, ownerId: string, partial?: Partial<Doma
   ...partial
 });
 
+// Used throughout for tests that aren't about reach at all — every tile counts
+// as in-reach, matching the shape of a normal fully-covered pocket. Reach
+// gating itself is covered separately in runtime-auto-fill-reach.test.ts.
+const alwaysInReach = (): boolean => true;
+
 describe("findEnclosedRegion", () => {
   it("seals a seam-straddling pocket by wrapping across the toroidal map edge", () => {
     // The world is a torus: (0,0)'s west/north neighbours wrap to
@@ -35,7 +40,7 @@ describe("findEnclosedRegion", () => {
     ]);
     // Sealed on all four sides by our own SETTLED tiles (two of them across the
     // seam), so the single interior tile forms a valid enclosed region.
-    expect(findEnclosedRegion(simulationTileKey(0, 0), tiles, "player-1")).toEqual(
+    expect(findEnclosedRegion(simulationTileKey(0, 0), tiles, "player-1", alwaysInReach)).toEqual(
       new Set([simulationTileKey(0, 0)])
     );
   });
@@ -44,14 +49,14 @@ describe("findEnclosedRegion", () => {
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(1, 1), ownedTile(1, 1, "player-1")]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("returns null for a non-LAND origin tile", () => {
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(1, 1), { x: 1, y: 1, terrain: "SEA" }]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("returns null if region size exceeds AUTO_FILL_MAX_REGION_SIZE", () => {
@@ -61,7 +66,7 @@ describe("findEnclosedRegion", () => {
     }
     tiles.set(simulationTileKey(599, 1), ownedTile(599, 1, "player-1"));
     tiles.set(simulationTileKey(0, 1), ownedTile(0, 1, "player-1"));
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("returns a 1-tile set for a single unowned tile enclosed on all 4 sides by player tiles", () => {
@@ -72,7 +77,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), ownedTile(1, 2, "player-1")],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(1);
     expect(region!.has(simulationTileKey(1, 1))).toBe(true);
@@ -93,7 +98,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), landTile(1, 2)],
       [simulationTileKey(2, 2), landTile(2, 2)]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(4);
   });
@@ -106,7 +111,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), { x: 1, y: 2, terrain: "SEA" }],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(1);
   });
@@ -122,7 +127,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), ownedTile(1, 2, "player-1")],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("treats the player's own FRONTIER as transparent interior, not a wall", () => {
@@ -139,7 +144,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), ownedTile(1, 2, "player-1")],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("traverses through an interior FRONTIER tile when the region is still sealed by SETTLED", () => {
@@ -157,7 +162,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 1), landTile(1, 1)],
       [simulationTileKey(2, 1), ownedTile(2, 1, "player-1", { ownershipState: "FRONTIER" })]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(2);
     expect(region!.has(simulationTileKey(2, 1))).toBe(true);
@@ -171,7 +176,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), { x: 1, y: 2, terrain: "MOUNTAIN" }],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(1);
   });
@@ -189,7 +194,7 @@ describe("findEnclosedRegion", () => {
       tiles.set(simulationTileKey(x, 0), { x, y: 0, terrain: "SEA" });
       tiles.set(simulationTileKey(x, 2), { x, y: 2, terrain: "SEA" });
     }
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("allows a pocket larger than 50 when sealed purely by the player's own SETTLED tiles", () => {
@@ -205,7 +210,7 @@ describe("findEnclosedRegion", () => {
       tiles.set(simulationTileKey(x, 0), ownedTile(x, 0, "player-1"));
       tiles.set(simulationTileKey(x, 2), ownedTile(x, 2, "player-1"));
     }
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(51);
   });
@@ -225,7 +230,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(west, 4), ownedTile(west, 4, "player-1")],
       [simulationTileKey(west, 6), ownedTile(west, 6, "player-1")]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(0, 5), tiles, "player-1")).toEqual(
+    expect(findEnclosedRegion(simulationTileKey(0, 5), tiles, "player-1", alwaysInReach)).toEqual(
       new Set([simulationTileKey(0, 5), simulationTileKey(west, 5)])
     );
   });
@@ -237,7 +242,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(5, 5), tile]
     ]);
-    expect(findEnclosedRegionsAdjacentTo(tile, tiles, "player-1")).toEqual([]);
+    expect(findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", alwaysInReach)).toEqual([]);
   });
 
   it("deduplicates: two cardinal neighbors in the same region returned as one Set", () => {
@@ -270,7 +275,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
       [simulationTileKey(3, 4), landTile(3, 4)],
       [simulationTileKey(4, 4), landTile(4, 4)],
     ]);
-    const regions = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1");
+    const regions = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", alwaysInReach);
     expect(regions.length).toBe(1);
     expect(regions[0].size).toBe(8);
   });
@@ -302,7 +307,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
       // Right pocket (1 tile)
       [simulationTileKey(3, 2), landTile(3, 2)],
     ]);
-    const regions = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1");
+    const regions = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", alwaysInReach);
     expect(regions.length).toBe(2);
     expect(regions[0].size).toBe(1);
     expect(regions[1].size).toBe(1);
@@ -324,7 +329,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     }
     const originCooldownUntil = new Map<string, number>();
 
-    const first = findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", {
+    const first = findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", alwaysInReach, {
       now: 1000,
       cooldownMs: 3000,
       originCooldownUntil
@@ -335,7 +340,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
 
     // Within the window the origin is skipped; past it, it is re-scanned (and
     // re-cached), so the guard is a bounded delay, never a permanent skip.
-    const within = findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", {
+    const within = findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", alwaysInReach, {
       now: 2000,
       cooldownMs: 3000,
       originCooldownUntil
@@ -343,7 +348,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     expect(within).toEqual([]);
     expect(originCooldownUntil.get(simulationTileKey(10, 10))).toBe(4000);
 
-    findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", {
+    findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", alwaysInReach, {
       now: 4001,
       cooldownMs: 3000,
       originCooldownUntil
@@ -369,7 +374,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     ]);
     const originCooldownUntil = new Map<string, number>();
 
-    const first = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", {
+    const first = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", alwaysInReach, {
       now: 1000,
       cooldownMs: 3000,
       originCooldownUntil
@@ -381,7 +386,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     // The player captures the leaking enemy tile, completing the seal. The next
     // settle (well inside the old cooldown window) must fill immediately.
     tiles.set(simulationTileKey(0, 2), ownedTile(0, 2, "player-1"));
-    const afterSeal = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", {
+    const afterSeal = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", alwaysInReach, {
       now: 1500,
       cooldownMs: 3000,
       originCooldownUntil
@@ -411,7 +416,7 @@ describe("applyAutoFill yield-anchor stamping", () => {
       ownerId: "player-1",
       tiles,
       replaceTileState: (k) => replaced.push(k),
-      isInReach: () => true,
+      isInReach: alwaysInReach,
       recordYieldAnchors: (keys) => anchorBatches.push([...keys])
     });
 
@@ -443,92 +448,12 @@ describe("applyAutoFill yield-anchor stamping", () => {
       ownerId: "player-1",
       tiles,
       replaceTileState: (k, tile) => replacedTiles.set(k, tile),
-      isInReach: () => true
+      isInReach: alwaysInReach
     });
 
     const settledKeys = settled.map((t) => simulationTileKey(t.x, t.y)).sort();
     expect(settledKeys).toEqual([simulationTileKey(1, 1), simulationTileKey(2, 1)].sort());
     expect(replacedTiles.get(simulationTileKey(2, 1))?.ownershipState).toBe("SETTLED");
     expect(replacedTiles.get(simulationTileKey(2, 1))?.ownerId).toBe("player-1");
-  });
-});
-
-describe("applyAutoFill reach gating", () => {
-  it("only claims the tiles inside the owner's reach, leaving out-of-reach tiles untouched", () => {
-    // (1,1) and (2,1) are both unowned interior land in the same sealed pocket,
-    // but only (1,1) is inside the owner's reach.
-    const capturedTile = ownedTile(1, 2, "player-1");
-    const tiles = new Map<string, DomainTileState>([
-      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
-      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
-      [simulationTileKey(1, 2), capturedTile],
-      [simulationTileKey(2, 0), ownedTile(2, 0, "player-1")],
-      [simulationTileKey(2, 2), ownedTile(2, 2, "player-1")],
-      [simulationTileKey(3, 1), ownedTile(3, 1, "player-1")],
-      [simulationTileKey(1, 1), landTile(1, 1)],
-      [simulationTileKey(2, 1), landTile(2, 1)]
-    ]);
-
-    const replacedTiles = new Map<string, DomainTileState>();
-    const anchorBatches: string[][] = [];
-    const settled = applyAutoFill({
-      capturedTile,
-      ownerId: "player-1",
-      tiles,
-      replaceTileState: (k, tile) => replacedTiles.set(k, tile),
-      isInReach: (x, y) => x === 1 && y === 1,
-      recordYieldAnchors: (keys) => anchorBatches.push([...keys])
-    });
-
-    expect(settled.map((t) => simulationTileKey(t.x, t.y))).toEqual([simulationTileKey(1, 1)]);
-    expect(replacedTiles.has(simulationTileKey(2, 1))).toBe(false);
-    expect(anchorBatches).toEqual([[simulationTileKey(1, 1)]]);
-  });
-
-  it("leaves the owner's own FRONTIER tile alone when it falls outside reach", () => {
-    const capturedTile = ownedTile(1, 2, "player-1");
-    const tiles = new Map<string, DomainTileState>([
-      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
-      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
-      [simulationTileKey(1, 2), capturedTile],
-      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1")],
-      [simulationTileKey(1, 1), ownedTile(1, 1, "player-1", { ownershipState: "FRONTIER" })]
-    ]);
-
-    const replacedTiles = new Map<string, DomainTileState>();
-    const settled = applyAutoFill({
-      capturedTile,
-      ownerId: "player-1",
-      tiles,
-      replaceTileState: (k, tile) => replacedTiles.set(k, tile),
-      isInReach: () => false
-    });
-
-    expect(settled).toEqual([]);
-    expect(replacedTiles.size).toBe(0);
-  });
-
-  it("fills nothing and skips the yield-anchor callback when the whole region is out of reach", () => {
-    const capturedTile = ownedTile(1, 2, "player-1");
-    const tiles = new Map<string, DomainTileState>([
-      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
-      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1")],
-      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
-      [simulationTileKey(1, 2), capturedTile],
-      [simulationTileKey(1, 1), landTile(1, 1)]
-    ]);
-
-    let anchorsCalled = false;
-    const settled = applyAutoFill({
-      capturedTile,
-      ownerId: "player-1",
-      tiles,
-      replaceTileState: () => { throw new Error("should not replace any tile"); },
-      isInReach: () => false,
-      recordYieldAnchors: () => { anchorsCalled = true; }
-    });
-
-    expect(settled).toEqual([]);
-    expect(anchorsCalled).toBe(false);
   });
 });
