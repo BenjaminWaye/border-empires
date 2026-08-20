@@ -65,8 +65,6 @@ export type AiDecisionDiagnostic = {
   noCommandReason: string | undefined;
   gates: AutomationPlannerDiagnostic["utilityGates"];
   economicBuildCandidate: string | undefined;
-  /** Debug-only: the two gates deciding whether BUILD_BEACON can fire — see decisions.ts's scoreBuildBeacon. */
-  reachStarved: boolean | undefined;
   relayBeaconBuildCandidate: string | undefined;
   /** Most recent COMMAND_REJECTED this player has seen, if any — most
    *  rejection reasons collapse to the same "BUILD_INVALID" code (see
@@ -141,7 +139,6 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     noCommandReason: diagnostic.noCommandReason,
     gates: diagnostic.utilityGates,
     economicBuildCandidate: diagnostic.economicBuildCandidate,
-    reachStarved: diagnostic.reachStarved,
     relayBeaconBuildCandidate: diagnostic.relayBeaconBuildCandidate,
     lastRejection: lastRejectionByPlayer.get(diagnostic.playerId),
     needVector: diagnostic.needVector
