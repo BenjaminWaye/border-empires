@@ -1,11 +1,12 @@
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { shouldShowTownUnfedWarning } from "../client-town-growth/client-town-growth.js";
 import type { ClientState } from "../client-state/client-state.js";
+import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
 import type { Tile } from "../client-types.js";
 
 export type NotificationCategory = "persistent_alert" | "action_feedback" | "history" | "debug";
 
-export type PersistentAlertKind = "town_unfed" | "muster_active" | "waypoint_manpower_paused";
+export type PersistentAlertKind = "town_unfed" | "muster_active" | "waypoint_manpower_paused" | "shard_rain";
 
 export type PersistentAlert = {
   id: string;
@@ -27,7 +28,9 @@ export type PersistentAlertLocator = {
   radius: number;
 };
 
-type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "waypoint" | "persistentAlertLocators">;
+type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "waypoint" | "persistentAlertLocators"> & {
+  shardAlert?: ClientState["shardAlert"] | undefined;
+};
 
 const townLabel = (tile: Tile): string => tile.town?.name || tile.townName || `Town ${tile.x}, ${tile.y}`;
 
@@ -62,7 +65,16 @@ export const notificationCategoryForServerError = (code: string): NotificationCa
   return "action_feedback";
 };
 
-export const persistentAlertsForState = (state: Pick<ClientState, "me" | "tiles" | "waypoint">): PersistentAlert[] => {
+const shardRainSiteLabel = (x: number, y: number): string => `A shard landed here at (${x}, ${y}). It may already be gone.`;
+
+// Shard rain sites are shown for the full life of the event (alert.expiresAt,
+// ~30 minutes) rather than the short client-shard-rain-pings reveal window:
+// this is a "something landed here" locator, independent of whether the
+// player has since explored/fogged the tile or collected the shard.
+export const persistentAlertsForState = (
+  state: Pick<ClientState, "me" | "tiles" | "waypoint"> & { shardAlert?: ClientShardRainAlert | undefined },
+  nowMs: number = Date.now()
+): PersistentAlert[] => {
   const alerts: PersistentAlert[] = [];
   for (const tile of state.tiles.values()) {
     if (tile.ownerId === state.me && shouldShowTownUnfedWarning(tile)) {
@@ -100,6 +112,20 @@ export const persistentAlertsForState = (state: Pick<ClientState, "me" | "tiles"
       y: origin.y,
       severity: "warn"
     });
+  }
+  const shardAlert = state.shardAlert;
+  if (shardAlert?.phase === "started" && shardAlert.sites && nowMs < shardAlert.expiresAt) {
+    for (const site of shardAlert.sites) {
+      alerts.push({
+        id: `shard_rain:${site.x},${site.y}`,
+        kind: "shard_rain",
+        title: "Shard rain",
+        detail: shardRainSiteLabel(site.x, site.y),
+        x: site.x,
+        y: site.y,
+        severity: "warn"
+      });
+    }
   }
   return alerts;
 };
@@ -205,6 +231,60 @@ const drawCrossedSwordsGlyph = (ctx: CanvasRenderingContext2D, size: number): vo
   ctx.restore();
 };
 
+const drawShardGlyph = (ctx: CanvasRenderingContext2D, size: number): void => {
+  ctx.save();
+  ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.lineTo(size * 0.62, 0);
+  ctx.lineTo(0, size);
+  ctx.lineTo(-size * 0.62, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.translate(-size * 0.08, -size * 0.08);
+  ctx.fillStyle = "#bdf3ff";
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.lineTo(size * 0.62, 0);
+  ctx.lineTo(0, size);
+  ctx.lineTo(-size * 0.62, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+};
+
+// Toast anchored over the exact impact tile once it's scrolled on-screen —
+// a positional blip only, deliberately silent on whether the shard is still
+// there (the tile may still be unexplored/fogged, or already collected).
+const drawShardRainToast = (ctx: CanvasRenderingContext2D, point: { x: number; y: number }, label: string): void => {
+  ctx.save();
+  ctx.font = "600 12px system-ui";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const paddingX = 10;
+  const paddingY = 6;
+  const textWidth = ctx.measureText(label).width;
+  const boxWidth = textWidth + paddingX * 2;
+  const boxHeight = 14 + paddingY * 2;
+  const boxX = point.x - boxWidth / 2;
+  const tileClearance = 28;
+  const boxY = point.y - tileClearance - boxHeight;
+  ctx.fillStyle = "rgba(17, 23, 34, 0.92)";
+  ctx.strokeStyle = "rgba(102, 224, 255, 0.9)";
+  ctx.lineWidth = 1.5;
+  ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+  ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+  ctx.beginPath();
+  ctx.moveTo(point.x - 6, boxY + boxHeight);
+  ctx.lineTo(point.x + 6, boxY + boxHeight);
+  ctx.lineTo(point.x, boxY + boxHeight + 8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#bdf3ff";
+  ctx.fillText(label, point.x, boxY + boxHeight / 2);
+  ctx.restore();
+};
+
 export const drawPersistentAlertLocators = (
   state: PersistentAlertState & Pick<ClientState, "camX" | "camY">,
   deps: {
@@ -234,10 +314,17 @@ export const drawPersistentAlertLocators = (
   const inset = 30;
   ctx.save();
   let drawnCount = 0;
+  let toastCount = 0;
   for (const alert of alerts) {
-    if (drawnCount >= 3) break;
     const projected = deps.worldToScreen(alert.x, alert.y, deps.size, deps.halfW, deps.halfH);
-    if (isOnScreen(projected, canvas, margin)) continue;
+    if (isOnScreen(projected, canvas, margin)) {
+      if (alert.kind === "shard_rain" && toastCount < 3) {
+        drawShardRainToast(ctx, { x: projected.sx, y: projected.sy }, "Shard landed here");
+        toastCount += 1;
+      }
+      continue;
+    }
+    if (drawnCount >= 3) continue;
     const edge = locatorEdgePoint(projected, canvas, inset);
     const pulse = 0.78 + Math.sin(deps.nowMs / 260) * 0.12;
     const radius = 26;
@@ -272,6 +359,8 @@ export const drawPersistentAlertLocators = (
     ctx.rotate(-edge.angle);
     if (alert.kind === "muster_active") {
       drawCrossedSwordsGlyph(ctx, radius * 0.55);
+    } else if (alert.kind === "shard_rain") {
+      drawShardGlyph(ctx, radius * 0.55);
     } else {
       ctx.font = `700 ${radius * 1.3}px system-ui`;
       ctx.textAlign = "center";

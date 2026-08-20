@@ -192,6 +192,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "New 3D overlay: a grand domed trading hall on an octagonal stone plinth, ringed by six converging trade roads, merchants' warehouses, stacked cargo, brass jib cranes, feed pipes, warm hanging lamps and a slowly winding brass clockwork seal atop the dome — replacing the old fortified-inn look.",
       "A matching flat-color 2D icon (trading hall, converging routes, cargo and brass machinery) accompanies the 3D asset."
     ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.08.21",
+    title: "Shard rain impact sites now show on the map, even before you've explored them",
+    why: "A shard rain event's landing sites were previously only ever shown as a text notice (\"Nearest site is ~N tiles NE\") or as an in-tile icon once you'd actually explored that tile. There was no way to see where the other sites were at a glance, or to navigate straight to one.",
+    changes: [
+      "Every active shard rain site now shows as an arrow badge pointing off-screen toward it, the same way muster flags do — click the badge to jump the camera there.",
+      "Once you scroll a site on-screen, a toast hovers over that exact tile marking where the shard landed. This is just a positional blip from the event broadcast — it doesn't confirm the shard is still there, especially on a tile you haven't explored yet.",
+      "Both the badge and the toast stay up for the full ~30-minute life of the shard rain event, not just the first moments after landing."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
