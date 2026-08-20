@@ -27,13 +27,19 @@ Those apps no longer exist; everything below targets the combined app.
 - `GET /admin/players` — per-player stats including gold, which
   `/hq/summary` doesn't expose: `{ id, name, isAi, gold, settledTiles,
   ownedTiles, incomePerMinute, techs, manpower, food, iron, crystal,
-  supply }`, for every player (including barbarians, not just competitive
-  players). `settledTiles` counts `SETTLED`-state tiles only; `ownedTiles`
-  also counts `FRONTIER`-state tiles. `food`/`iron`/`crystal`/`supply` are
+  supply, reachTiles, frontierTiles }`, for every player (including
+  barbarians, not just competitive players). `settledTiles` counts
+  `SETTLED`-state tiles only; `ownedTiles` also counts `FRONTIER`-state
+  tiles; `frontierTiles` is `ownedTiles - settledTiles`. `reachTiles` is
+  the size of the player's persistent reach border (packages/shared/src/reach/reach.ts)
+  — NOT the same as `ownedTiles`, since a player's granted reach can extend
+  into ground they haven't claimed yet; `frontierTiles / reachTiles` is the
+  real "how much of my reach is still unsettled" ratio (frontier tiles are
+  always ⊆ owned tiles ⊆ reach). `food`/`iron`/`crystal`/`supply` are
   current strategic-resource stockpiles (SHARD is tracked separately and
-  not included here). Source: `runtime.exportPlayerDebugSnapshot()`, the
-  same cheap per-player summary path `/hq/summary` uses — no full tile
-  export.
+  not included here). Source: `runtime.exportPlayerDebugSnapshot()` plus
+  `runtime.reachTileCountForPlayer()` (O(reach size), diagnostic-only, not
+  on any hot path) — no full tile export.
 
 All three require either:
 
