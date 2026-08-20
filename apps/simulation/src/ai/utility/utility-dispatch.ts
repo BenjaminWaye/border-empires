@@ -43,8 +43,6 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
   /** Best RELAY_BEACON placement candidate (fixed-borders-via-reach plan). */
   relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
-  /** True when reach-filtered EXPAND candidates are scarce despite a strong economy — see ai-economic-heuristics.ts's isReachStarved. */
-  reachStarved: boolean;
   attackStalemateTargetTileKeys: ReadonlySet<string> | undefined;
   expansionObjective: { x: number; y: number; kind: "neutral_value" | "enemy" } | undefined;
   points: number;
@@ -139,7 +137,6 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     hasFortBuild: Boolean(state.fortBuild),
     hasSiegeOutpost: Boolean(state.siegeOutpostBuild),
     hasRelayBeaconBuild: Boolean(state.relayBeaconBuild),
-    reachStarved: state.reachStarved,
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { isReachStarved } from "./ai-economic-heuristics.js";
 import { chooseBestRelayBeaconBuild, type StructurePlannerTile } from "./structure-command-planner.js";
 
 /**
@@ -8,11 +7,16 @@ import { chooseBestRelayBeaconBuild, type StructurePlannerTile } from "./structu
  * players sat completely idle for 15+ minutes, having claimed every tile
  * inside their reach and holding hundreds of FRONTIER tiles they could never
  * convert. The AI has no standalone SETTLE decision (deliberate), so its only
- * escape is a RELAY_BEACON — and both halves of that escape were blocked:
- *   1. beacon sites were restricted to already-SETTLED tiles, and
- *   2. isReachStarved required !economyWeak, a bar that scales with settled
- *      tile count (x6) while manpower cap scales with towns.
- * These two tests pin the exact live numbers that produced the deadlock.
+ * escape is a RELAY_BEACON — and it was blocked: beacon sites were
+ * restricted to already-SETTLED tiles, so a reach-locked AI (whose remaining
+ * ground was all FRONTIER) found no beacon site at all.
+ *
+ * (The build's other precondition, isReachStarved, was later removed
+ * entirely — decisions.ts's scoreBuildBeacon now gates on the same three
+ * plain fields BUILD_BEACON always needed: a site exists, a dev slot is
+ * free, and no enemy is at the frontier right now. See decisions.ts's
+ * scoreBuildBeacon doc comment for why the bundled precondition function
+ * was replaced with direct, individually-understandable checks.)
  */
 
 const tile = (over: Partial<StructurePlannerTile> = {}): StructurePlannerTile => ({
@@ -66,37 +70,6 @@ describe("relay beacon unlocks a reach-locked AI", () => {
 
     expect(plan?.needsSettle).toBe(false);
     expect(plan?.tile.y).toBe(102);
-  });
-
-  it("fires for the live staging empire that economyWeak used to veto forever", () => {
-    // ai-1 as observed: 122 settled tiles => economyWeak demanded 122*6 = 732
-    // manpower, above what its town-scaled cap could sustain, so the beacon
-    // was permanently vetoed. With 400 manpower it must now read reach-starved.
-    expect(
-      isReachStarved({
-        reachAccessibleValuableTargetCount: 0,
-        townCount: 3,
-        manpower: 400,
-        needsFood: false,
-        frontierEnemyTargetCount: 0
-      })
-    ).toBe(true);
-  });
-
-  it("still refuses when a real affordability floor or a live enemy front says no", () => {
-    const base = {
-      reachAccessibleValuableTargetCount: 0,
-      townCount: 3,
-      manpower: 400,
-      needsFood: false,
-      frontierEnemyTargetCount: 0
-    };
-    // Below the explicit manpower floor (townCount * 15 = 45).
-    expect(isReachStarved({ ...base, manpower: 20 })).toBe(false);
-    // Enemy at the frontier — fight, don't build.
-    expect(isReachStarved({ ...base, frontierEnemyTargetCount: 4 })).toBe(false);
-    // Still has valuable ground it can simply EXPAND onto.
-    expect(isReachStarved({ ...base, reachAccessibleValuableTargetCount: 7 })).toBe(false);
   });
 });
 
