@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787259991316, // 2026.08.20
+    introducedIn: "2026.08.20",
+    title: "Auto-fill now respects your reach/border",
+    why: "Sealing off a pocket of land used to auto-settle it regardless of whether your empire's reach actually extended there — you could end up with settled tiles outside your reach, or see a burst of unrelated-looking tiles suddenly fill in when your reach shifted somewhere else entirely. Auto-fill now only settles a pocket once its entire boundary — not just the land inside it — is within your reach, so it only ever triggers from something happening near that pocket's own edge.",
+    changes: [
+      "Auto-fill no longer settles tiles outside your reach/border.",
+      "A pocket only auto-fills once every part of its sealing boundary (your own territory and/or coastline/mountains) is within your reach — a boundary tile that's still out of reach means the whole pocket waits, rather than filling in partially."
+    ]
+  },
+  {
     createdAt: 1787170756951, // 2026.08.19.2
     introducedIn: "2026.08.19.2",
     title: "Town gold production: fixed the Mintworks flat bonus for real this time",
@@ -170,42 +180,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "A parked attack now cancels itself with a feed message if it hasn't staged enough manpower within 5 minutes, regardless of why it stalled — instead of sitting frozen forever.",
       "Fixed: the staged/required number on the Mustering overlay was rendered in near-black text on a dark blue background, making it unreadable."
-    ]
-  },
-  {
-    createdAt: 1786710132407, // 2026.08.14.1
-    introducedIn: "2026.08.14.1",
-    title: "Battle dots now animate for the whole attack, not just its last two seconds",
-    why: "The pre-resolution skirmish animation added in 2026.08.11 was effectively never visible to anyone. Two independent bugs killed it. First, the client tracked an in-progress siege in a map that was wiped by *any* tile delta touching that tile — and a tile under attack keeps receiving routine yield, population, and muster tick deltas throughout its ~30s countdown, so the siege was usually evicted seconds after it registered, taking the dots and the red under-attack cross with it. Second, the attacker never had a siege entry to begin with: the server addresses its attack alert to the defender only, which is correct for an \"under attack\" warning but left the attacking player's own fight with nothing to render until the outcome broadcast arrived. What survived both was the ~2.3s resolution flourish, which is driven separately — so an attack looked like it only animated at the very end.",
-    changes: [
-      "Battle dots now animate for the full duration of an attack instead of only the final ~2.3s resolution flourish.",
-      "Attackers now see the fight on the tile they are attacking, not just defenders.",
-      "An in-progress siege now ends only when the combat actually resolves or the tile changes hands — no longer cancelled by unrelated yield/population/muster updates on the same tile. The red under-attack cross also stays visible for the whole countdown.",
-      "The under-attack cross now pulses faster as the attack becomes imminent, which it previously never did."
-    ]
-  },
-  {
-    createdAt: 1786723412408, // 2026.08.14
-    introducedIn: "2026.08.14",
-    title: "Towns now grow from a frontier settlement into a magnificent steampunk metropolis",
-    why: "Towns all shared one generic hut-cluster look, so the biggest, most important settlements on the map were visually indistinguishable from the smallest. Each tier of your civilization is now a cohesive miniature city built in a single evolving steampunk style — dark iron, weathered brass, timber, stone, warm amber lamps and glowing aether machinery — from a frontier aether workshop up to a colossal three-part wonder.",
-    changes: [
-      "SETTLEMENT — Frontier Spark: a compact aether-powered workshop with a glowing aether core, brass machinery, pressure tanks, timber cottages and warm lamps.",
-      "TOWN — Growing Industry: a clockwork aether hall with turret, mechanical crane, elevated walkway and expanding pipe networks.",
-      "CITY — Industrial Metropolis: a dense civic engine with factories, brass towers, elevated bridges and steam vents.",
-      "GREAT_CITY — Imperial Powerhouse: a domed civic complex with an elevated transit loop, gear spire, beacon and clock tower.",
-      "METROPOLIS — Wonder of the World: the colossal three-part Monument towers over dense districts, transit bridges and glowing aether conduits.",
-      "The 2D town icons match the new 3D look tier-for-tier, and settlement growth is otherwise mechanically unchanged."
-    ]
-  },
-  {
-    createdAt: 1786739629437, // 2026.08.14
-    introducedIn: "2026.08.14",
-    title: "The Monumental City now truly towers over the map as a wonder of the world",
-    why: "The top-tier Monumental City was impressive but not dramatic enough to feel like a wonder of the world. The Monument now rises far above the skyline as an unmistakable three-part wonder, dwarfing the Great City below it.",
-    changes: [
-      "METROPOLIS — Wonder of the World: the central Monument is now much taller and grander, with extra stepped brass shafts, integrated gear decks and a soaring needle crowned by a luminous aether orb.",
-      "The 2D metropolis icon was redrawn to match the taller Monument, and everything remains mechanically unchanged."
     ]
   },
   {
