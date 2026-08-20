@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: Date.now(),
+    introducedIn: "2026.08.21.1",
+    title: "Fixed research (tech/domain) picks being lost on server restart or deploy",
+    why: "On startup, the simulation server rebuilds state from the latest checkpoint snapshot and then replays any events recorded after that checkpoint. That replay step had no handler for tech or domain research events, so a research pick made after the last checkpoint but before a restart or deploy was silently dropped instead of being reapplied — the player would come back with an earlier set of researched techs/domains than they actually had.",
+    changes: [
+      "Tech and domain research chosen shortly before a server restart or deploy is now correctly preserved instead of sometimes reverting to an earlier state."
+    ]
+  },
+  {
+    createdAt: 1787345991317,
     introducedIn: "2026.08.21",
     title: "Border-expansion pylon animation is slower and more dramatic",
     why: "The survey pylon rise/sink and laser on/off animation that plays when your border expands or contracts was over in about 1.3 seconds per pylon, which made it easy to miss entirely.",
