@@ -295,4 +295,97 @@ describe("persistent alerts", () => {
 
     expect(state.persistentAlertLocators.map((locator) => locator.id)).toEqual(["muster_active:5,5"]);
   });
+
+  it("creates a shard rain locator for every landed site while the event is active", () => {
+    const state = {
+      me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
+      tiles: new Map<string, Tile>(),
+      shardAlert: {
+        key: "rain-1",
+        phase: "started" as const,
+        startsAt: 0,
+        expiresAt: 1_800_000,
+        siteCount: 2,
+        sites: [
+          { x: 5, y: 5 },
+          { x: 60, y: 60 }
+        ]
+      }
+    };
+
+    const alerts = persistentAlertsForState(state, 900_000);
+    expect(alerts.map((alert) => alert.id).sort()).toEqual(["shard_rain:5,5", "shard_rain:60,60"]);
+  });
+
+  it("stops surfacing shard rain sites once the event has expired", () => {
+    const state = {
+      me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
+      tiles: new Map<string, Tile>(),
+      shardAlert: {
+        key: "rain-1",
+        phase: "started" as const,
+        startsAt: 0,
+        expiresAt: 1_800_000,
+        siteCount: 1,
+        sites: [{ x: 5, y: 5 }]
+      }
+    };
+
+    expect(persistentAlertsForState(state, 1_800_001)).toEqual([]);
+  });
+
+  it("draws an on-screen shard rain toast instead of an off-screen arrow badge", () => {
+    const state = {
+      me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
+      camX: 10,
+      camY: 10,
+      persistentAlertLocators: [] as PersistentAlertLocator[],
+      tiles: new Map<string, Tile>(),
+      shardAlert: {
+        key: "rain-1",
+        phase: "started" as const,
+        startsAt: 0,
+        expiresAt: Date.now() + 1_800_000,
+        siteCount: 1,
+        sites: [{ x: 10, y: 10 }]
+      }
+    };
+    const fillRectCalls: Array<[number, number, number, number]> = [];
+    const fillTextCalls: string[] = [];
+    const ctx = {
+      save: () => undefined,
+      restore: () => undefined,
+      translate: () => undefined,
+      beginPath: () => undefined,
+      arc: () => undefined,
+      fill: () => undefined,
+      stroke: () => undefined,
+      rotate: () => undefined,
+      moveTo: () => undefined,
+      lineTo: () => undefined,
+      closePath: () => undefined,
+      fillRect: (x: number, y: number, w: number, h: number) => fillRectCalls.push([x, y, w, h]),
+      strokeRect: () => undefined,
+      measureText: () => ({ width: 80 }) as TextMetrics,
+      fillText: (text: string) => fillTextCalls.push(text)
+    } as unknown as CanvasRenderingContext2D;
+
+    drawPersistentAlertLocators(state, {
+      ctx,
+      canvas: { width: 100, height: 100 } as HTMLCanvasElement,
+      worldToScreen: () => ({ sx: 50, sy: 50 }),
+      toroidDelta: (from, to) => to - from,
+      size: 1,
+      halfW: 0,
+      halfH: 0,
+      nowMs: 0
+    });
+
+    expect(state.persistentAlertLocators).toEqual([]);
+    expect(fillRectCalls.length).toBe(1);
+    expect(fillTextCalls).toEqual(["Shard landed here"]);
+  });
 });
