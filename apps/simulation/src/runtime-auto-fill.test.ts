@@ -20,6 +20,10 @@ const ownedTile = (x: number, y: number, ownerId: string, partial?: Partial<Doma
   ...partial
 });
 
+// Used throughout for tests that aren't about reach at all — every tile counts
+// as in-reach, matching the shape of a normal fully-covered pocket.
+const alwaysInReach = (): boolean => true;
+
 describe("findEnclosedRegion", () => {
   it("seals a seam-straddling pocket by wrapping across the toroidal map edge", () => {
     // The world is a torus: (0,0)'s west/north neighbours wrap to
@@ -35,7 +39,7 @@ describe("findEnclosedRegion", () => {
     ]);
     // Sealed on all four sides by our own SETTLED tiles (two of them across the
     // seam), so the single interior tile forms a valid enclosed region.
-    expect(findEnclosedRegion(simulationTileKey(0, 0), tiles, "player-1")).toEqual(
+    expect(findEnclosedRegion(simulationTileKey(0, 0), tiles, "player-1", alwaysInReach)).toEqual(
       new Set([simulationTileKey(0, 0)])
     );
   });
@@ -44,14 +48,14 @@ describe("findEnclosedRegion", () => {
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(1, 1), ownedTile(1, 1, "player-1")]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("returns null for a non-LAND origin tile", () => {
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(1, 1), { x: 1, y: 1, terrain: "SEA" }]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("returns null if region size exceeds AUTO_FILL_MAX_REGION_SIZE", () => {
@@ -61,7 +65,7 @@ describe("findEnclosedRegion", () => {
     }
     tiles.set(simulationTileKey(599, 1), ownedTile(599, 1, "player-1"));
     tiles.set(simulationTileKey(0, 1), ownedTile(0, 1, "player-1"));
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("returns a 1-tile set for a single unowned tile enclosed on all 4 sides by player tiles", () => {
@@ -72,7 +76,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), ownedTile(1, 2, "player-1")],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(1);
     expect(region!.has(simulationTileKey(1, 1))).toBe(true);
@@ -93,7 +97,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), landTile(1, 2)],
       [simulationTileKey(2, 2), landTile(2, 2)]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(4);
   });
@@ -106,7 +110,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), { x: 1, y: 2, terrain: "SEA" }],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(1);
   });
@@ -122,7 +126,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), ownedTile(1, 2, "player-1")],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("treats the player's own FRONTIER as transparent interior, not a wall", () => {
@@ -139,7 +143,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), ownedTile(1, 2, "player-1")],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("traverses through an interior FRONTIER tile when the region is still sealed by SETTLED", () => {
@@ -157,7 +161,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 1), landTile(1, 1)],
       [simulationTileKey(2, 1), ownedTile(2, 1, "player-1", { ownershipState: "FRONTIER" })]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(2);
     expect(region!.has(simulationTileKey(2, 1))).toBe(true);
@@ -171,7 +175,7 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(1, 2), { x: 1, y: 2, terrain: "MOUNTAIN" }],
       [simulationTileKey(1, 1), landTile(1, 1)]
     ]);
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(1);
   });
@@ -189,7 +193,7 @@ describe("findEnclosedRegion", () => {
       tiles.set(simulationTileKey(x, 0), { x, y: 0, terrain: "SEA" });
       tiles.set(simulationTileKey(x, 2), { x, y: 2, terrain: "SEA" });
     }
-    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1")).toBeNull();
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach)).toBeNull();
   });
 
   it("allows a pocket larger than 50 when sealed purely by the player's own SETTLED tiles", () => {
@@ -205,7 +209,7 @@ describe("findEnclosedRegion", () => {
       tiles.set(simulationTileKey(x, 0), ownedTile(x, 0, "player-1"));
       tiles.set(simulationTileKey(x, 2), ownedTile(x, 2, "player-1"));
     }
-    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1");
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", alwaysInReach);
     expect(region).not.toBeNull();
     expect(region!.size).toBe(51);
   });
@@ -225,9 +229,61 @@ describe("findEnclosedRegion", () => {
       [simulationTileKey(west, 4), ownedTile(west, 4, "player-1")],
       [simulationTileKey(west, 6), ownedTile(west, 6, "player-1")]
     ]);
-    expect(findEnclosedRegion(simulationTileKey(0, 5), tiles, "player-1")).toEqual(
+    expect(findEnclosedRegion(simulationTileKey(0, 5), tiles, "player-1", alwaysInReach)).toEqual(
       new Set([simulationTileKey(0, 5), simulationTileKey(west, 5)])
     );
+  });
+});
+
+describe("findEnclosedRegion reach gating on walls", () => {
+  it("returns null when a would-be SETTLED wall lies outside the enclosing player's reach", () => {
+    // Same 1-tile pocket as the baseline enclosed-by-SETTLED-walls case, but
+    // the reach predicate excludes one wall tile (2,1): the seal isn't backed
+    // by the player's live reach, so the whole scan fails — the same as
+    // leaking to an enemy tile — even though every OTHER wall (and the
+    // interior tile itself) is in reach.
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1")],
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(1, 2), ownedTile(1, 2, "player-1")],
+      [simulationTileKey(1, 1), landTile(1, 1)]
+    ]);
+    const isInReach = (x: number, y: number): boolean => !(x === 2 && y === 1);
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", isInReach)).toBeNull();
+  });
+
+  it("returns null when a would-be natural-barrier (sea/mountain) wall lies outside reach", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(2, 1), { x: 2, y: 1, terrain: "SEA" }],
+      [simulationTileKey(1, 2), { x: 1, y: 2, terrain: "SEA" }],
+      [simulationTileKey(1, 1), landTile(1, 1)]
+    ]);
+    // The (1,2) sea tile is out of reach; the (2,1) sea tile is in reach.
+    const isInReach = (x: number, y: number): boolean => !(x === 1 && y === 2);
+    expect(findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", isInReach)).toBeNull();
+  });
+
+  it("seals normally when every wall tile is individually confirmed in reach, not just true-for-everything", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1")],
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(1, 2), ownedTile(1, 2, "player-1")],
+      [simulationTileKey(1, 1), landTile(1, 1)]
+    ]);
+    const reachCovered = new Set([
+      simulationTileKey(1, 1),
+      simulationTileKey(2, 1),
+      simulationTileKey(0, 1),
+      simulationTileKey(1, 0),
+      simulationTileKey(1, 2)
+    ]);
+    const isInReach = (x: number, y: number): boolean => reachCovered.has(simulationTileKey(x, y));
+    const region = findEnclosedRegion(simulationTileKey(1, 1), tiles, "player-1", isInReach);
+    expect(region).toEqual(new Set([simulationTileKey(1, 1)]));
   });
 });
 
@@ -237,7 +293,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(5, 5), tile]
     ]);
-    expect(findEnclosedRegionsAdjacentTo(tile, tiles, "player-1")).toEqual([]);
+    expect(findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", alwaysInReach)).toEqual([]);
   });
 
   it("deduplicates: two cardinal neighbors in the same region returned as one Set", () => {
@@ -270,7 +326,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
       [simulationTileKey(3, 4), landTile(3, 4)],
       [simulationTileKey(4, 4), landTile(4, 4)],
     ]);
-    const regions = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1");
+    const regions = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", alwaysInReach);
     expect(regions.length).toBe(1);
     expect(regions[0].size).toBe(8);
   });
@@ -302,7 +358,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
       // Right pocket (1 tile)
       [simulationTileKey(3, 2), landTile(3, 2)],
     ]);
-    const regions = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1");
+    const regions = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", alwaysInReach);
     expect(regions.length).toBe(2);
     expect(regions[0].size).toBe(1);
     expect(regions[1].size).toBe(1);
@@ -324,7 +380,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     }
     const originCooldownUntil = new Map<string, number>();
 
-    const first = findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", {
+    const first = findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", alwaysInReach, {
       now: 1000,
       cooldownMs: 3000,
       originCooldownUntil
@@ -335,7 +391,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
 
     // Within the window the origin is skipped; past it, it is re-scanned (and
     // re-cached), so the guard is a bounded delay, never a permanent skip.
-    const within = findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", {
+    const within = findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", alwaysInReach, {
       now: 2000,
       cooldownMs: 3000,
       originCooldownUntil
@@ -343,7 +399,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     expect(within).toEqual([]);
     expect(originCooldownUntil.get(simulationTileKey(10, 10))).toBe(4000);
 
-    findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", {
+    findEnclosedRegionsAdjacentTo(captured, tiles, "player-1", alwaysInReach, {
       now: 4001,
       cooldownMs: 3000,
       originCooldownUntil
@@ -369,7 +425,7 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     ]);
     const originCooldownUntil = new Map<string, number>();
 
-    const first = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", {
+    const first = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", alwaysInReach, {
       now: 1000,
       cooldownMs: 3000,
       originCooldownUntil
@@ -381,13 +437,52 @@ describe("findEnclosedRegionsAdjacentTo", () => {
     // The player captures the leaking enemy tile, completing the seal. The next
     // settle (well inside the old cooldown window) must fill immediately.
     tiles.set(simulationTileKey(0, 2), ownedTile(0, 2, "player-1"));
-    const afterSeal = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", {
+    const afterSeal = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", alwaysInReach, {
       now: 1500,
       cooldownMs: 3000,
       originCooldownUntil
     });
     expect(afterSeal.length).toBe(1);
     expect(afterSeal[0]).toEqual(new Set([simulationTileKey(1, 2)]));
+  });
+
+  it("scanCooldown: does NOT cache a wall-out-of-reach failure, so reach catching up seals immediately", () => {
+    // Mirrors the enemy-leak case above: a wall outside reach fails the scan
+    // the same `return null` way a leak does, and must stay eagerly
+    // re-scanned too — reach can grow (a new outpost, a captured dock)
+    // independently of any settle near this origin, so caching the failure
+    // could delay sealing a pocket well past when reach actually caught up.
+    const tile = ownedTile(2, 2, "player-1");
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(2, 2), tile],
+      [simulationTileKey(1, 2), landTile(1, 2)],
+      [simulationTileKey(1, 1), ownedTile(1, 1, "player-1")],
+      [simulationTileKey(1, 3), ownedTile(1, 3, "player-1")],
+      [simulationTileKey(0, 2), ownedTile(0, 2, "player-1")]
+    ]);
+    const originCooldownUntil = new Map<string, number>();
+    let reachCoversFarWall = false;
+    const isInReach = (x: number, y: number): boolean => !(x === 0 && y === 2) || reachCoversFarWall;
+
+    const first = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", isInReach, {
+      now: 1000,
+      cooldownMs: 3000,
+      originCooldownUntil
+    });
+    expect(first).toEqual([]);
+    // Out-of-reach-wall failure — must NOT be cached, same as a leak.
+    expect(originCooldownUntil.has(simulationTileKey(1, 2))).toBe(false);
+
+    // Reach catches up to the far wall (e.g. a new outpost). The next scan,
+    // well inside the old cooldown window, must fill immediately.
+    reachCoversFarWall = true;
+    const afterReach = findEnclosedRegionsAdjacentTo(tile, tiles, "player-1", isInReach, {
+      now: 1500,
+      cooldownMs: 3000,
+      originCooldownUntil
+    });
+    expect(afterReach.length).toBe(1);
+    expect(afterReach[0]).toEqual(new Set([simulationTileKey(1, 2)]));
   });
 });
 
@@ -411,7 +506,7 @@ describe("applyAutoFill yield-anchor stamping", () => {
       ownerId: "player-1",
       tiles,
       replaceTileState: (k) => replaced.push(k),
-      isInReach: () => true,
+      isInReach: alwaysInReach,
       recordYieldAnchors: (keys) => anchorBatches.push([...keys])
     });
 
@@ -443,7 +538,7 @@ describe("applyAutoFill yield-anchor stamping", () => {
       ownerId: "player-1",
       tiles,
       replaceTileState: (k, tile) => replacedTiles.set(k, tile),
-      isInReach: () => true
+      isInReach: alwaysInReach
     });
 
     const settledKeys = settled.map((t) => simulationTileKey(t.x, t.y)).sort();
@@ -454,9 +549,11 @@ describe("applyAutoFill yield-anchor stamping", () => {
 });
 
 describe("applyAutoFill reach gating", () => {
-  it("only claims the tiles inside the owner's reach, leaving out-of-reach tiles untouched", () => {
-    // (1,1) and (2,1) are both unowned interior land in the same sealed pocket,
-    // but only (1,1) is inside the owner's reach.
+  it("does not auto-fill anything when even one sealing wall is outside reach, even though the interior tiles themselves are", () => {
+    // Every tile here is "in reach" except the (3,1) wall. Even though the
+    // whole interior is technically within reach, the seal itself isn't fully
+    // backed by reach — the pocket doesn't count as enclosed yet, and nothing
+    // is claimed until reach reaches (3,1) too.
     const capturedTile = ownedTile(1, 2, "player-1");
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
@@ -468,6 +565,40 @@ describe("applyAutoFill reach gating", () => {
       [simulationTileKey(1, 1), landTile(1, 1)],
       [simulationTileKey(2, 1), landTile(2, 1)]
     ]);
+    const isInReach = (x: number, y: number): boolean => !(x === 3 && y === 1);
+
+    const replacedTiles = new Map<string, DomainTileState>();
+    const settled = applyAutoFill({
+      capturedTile,
+      ownerId: "player-1",
+      tiles,
+      replaceTileState: (k, tile) => replacedTiles.set(k, tile),
+      isInReach
+    });
+
+    expect(settled).toEqual([]);
+    expect(replacedTiles.size).toBe(0);
+  });
+
+  it("still leaves an individual unowned interior tile unclaimed if it alone falls outside reach, even though every wall does not", () => {
+    // Every wall (and the OTHER interior tile) passes isInReach, so the BFS
+    // itself successfully seals the pocket — but (2,1) specifically is carved
+    // out of reach by the predicate. A real reach disk can't produce this
+    // exact shape, but the per-tile claim check in applyAutoFill is a
+    // deliberate belt-and-suspenders guard independent of the BFS wall gate,
+    // and this proves it still works on its own.
+    const capturedTile = ownedTile(1, 2, "player-1");
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(1, 2), capturedTile],
+      [simulationTileKey(2, 0), ownedTile(2, 0, "player-1")],
+      [simulationTileKey(2, 2), ownedTile(2, 2, "player-1")],
+      [simulationTileKey(3, 1), ownedTile(3, 1, "player-1")],
+      [simulationTileKey(1, 1), landTile(1, 1)],
+      [simulationTileKey(2, 1), landTile(2, 1)]
+    ]);
+    const isInReach = (x: number, y: number): boolean => !(x === 2 && y === 1);
 
     const replacedTiles = new Map<string, DomainTileState>();
     const anchorBatches: string[][] = [];
@@ -476,7 +607,7 @@ describe("applyAutoFill reach gating", () => {
       ownerId: "player-1",
       tiles,
       replaceTileState: (k, tile) => replacedTiles.set(k, tile),
-      isInReach: (x, y) => x === 1 && y === 1,
+      isInReach,
       recordYieldAnchors: (keys) => anchorBatches.push([...keys])
     });
 
@@ -485,7 +616,7 @@ describe("applyAutoFill reach gating", () => {
     expect(anchorBatches).toEqual([[simulationTileKey(1, 1)]]);
   });
 
-  it("leaves the owner's own FRONTIER tile alone when it falls outside reach", () => {
+  it("still leaves the owner's own FRONTIER tile unclaimed if it alone falls outside reach", () => {
     const capturedTile = ownedTile(1, 2, "player-1");
     const tiles = new Map<string, DomainTileState>([
       [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
@@ -494,6 +625,9 @@ describe("applyAutoFill reach gating", () => {
       [simulationTileKey(2, 1), ownedTile(2, 1, "player-1")],
       [simulationTileKey(1, 1), ownedTile(1, 1, "player-1", { ownershipState: "FRONTIER" })]
     ]);
+    // Every wall (0,1)/(1,0)/(1,2)/(2,1) is in reach; only the FRONTIER
+    // interior tile itself is carved out.
+    const isInReach = (x: number, y: number): boolean => !(x === 1 && y === 1);
 
     const replacedTiles = new Map<string, DomainTileState>();
     const settled = applyAutoFill({
@@ -501,7 +635,7 @@ describe("applyAutoFill reach gating", () => {
       ownerId: "player-1",
       tiles,
       replaceTileState: (k, tile) => replacedTiles.set(k, tile),
-      isInReach: () => false
+      isInReach
     });
 
     expect(settled).toEqual([]);
