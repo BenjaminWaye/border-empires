@@ -44,12 +44,17 @@ const showDiscoveryTipToast = (def: DiscoveryTipDef, onDismiss: (mute: boolean) 
  * front of the queue if not already showing one for that id (and the player
  * hasn't checked "Don't show tooltips"); no-ops otherwise. `onDismiss` is
  * invoked after the dismissed tip is popped and persisted, so callers can
- * trigger a re-render for the next item.
+ * trigger a re-render for the next item. `onShow`, if given, fires once when
+ * a tip is first displayed (not on every re-render) — callers use this to
+ * also record the tip into the Activity Feed, so the player can scroll back
+ * and re-read it after the toast is gone, instead of it being lost the
+ * moment it's dismissed.
  */
 export const renderDiscoveryTipOverlay = (
   queue: DiscoveryTipId[],
   authEmail: string | null | undefined,
-  onDismiss: () => void
+  onDismiss: () => void,
+  onShow?: (def: DiscoveryTipDef) => void
 ): void => {
   const nextId = queue[0];
   if (!nextId || isDiscoveryTipsMuted(authEmail)) {
@@ -61,7 +66,9 @@ export const renderDiscoveryTipOverlay = (
   }
   if (currentOverlayTipId === nextId) return;
   currentOverlayTipId = nextId;
-  showDiscoveryTipToast(DISCOVERY_TIPS[nextId], (mute) => {
+  const def = DISCOVERY_TIPS[nextId];
+  onShow?.(def);
+  showDiscoveryTipToast(def, (mute) => {
     dismissActiveDiscoveryTip(queue, authEmail, mute);
     currentOverlayTipId = null;
     onDismiss();
@@ -69,8 +76,14 @@ export const renderDiscoveryTipOverlay = (
 };
 
 /** Enqueues a tip triggered by a player action (rather than a newly-seen tile) and renders it immediately, instead of waiting for the next tile-delta batch to trigger a render. */
-export const announceDiscoveryTip = (queue: DiscoveryTipId[], id: DiscoveryTipId, authEmail: string | null | undefined, onDismiss: () => void): void => {
-  if (enqueueDiscoveryTip(queue, id, authEmail)) renderDiscoveryTipOverlay(queue, authEmail, onDismiss);
+export const announceDiscoveryTip = (
+  queue: DiscoveryTipId[],
+  id: DiscoveryTipId,
+  authEmail: string | null | undefined,
+  onDismiss: () => void,
+  onShow?: (def: DiscoveryTipDef) => void
+): void => {
+  if (enqueueDiscoveryTip(queue, id, authEmail)) renderDiscoveryTipOverlay(queue, authEmail, onDismiss, onShow);
 };
 
 const escapeHtml = (value: string): string =>
