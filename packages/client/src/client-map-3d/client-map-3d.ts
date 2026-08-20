@@ -1868,20 +1868,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             };
           }
         }
-        // Aether Survey Line 3D overlay: dormant-frontier fill and
-        // out-of-reach dimming are still per-tile (mirrors the 2D path's
-        // conditions in client-runtime-loop.ts exactly). The sparse
-        // pylons + connecting chords themselves are NOT rendered per-tile
-        // here -- they're placed once per reach-cache revision from
+        // Aether Survey Line 3D overlay: dormant-frontier fill is still
+        // per-tile (mirrors the 2D path's conditions in
+        // client-runtime-loop.ts exactly). The sparse pylons + connecting
+        // chords themselves are NOT rendered per-tile here -- they're
+        // placed once per reach-cache revision from
         // reach3DPylons/reach3DSegments below the main tile loop, since a
         // pylon only exists every ~10-15 boundary tiles and iterating the
         // full visible-tile grid is the wrong loop shape for that.
         if (reach3DActive && reach3DCache && tile && visibility === "visible") {
           if (tile.ownerId === deps.state.me && isDormantFrontierTile(tile)) {
             reachOverlay3D.addDormantFrontierTile(x, z, surfaceY, 1);
-          }
-          if (tile.ownerId && tile.ownerId !== deps.state.me && tile.ownerId !== "barbarian" && !reach3DCache.has(tileKey)) {
-            reachOverlay3D.addOutOfReachTile(x, z, surfaceY, 1);
           }
         }
         if (deps.state.showWeakDefensibility && isOwnedSettledLandTile(tile, deps.state.me)) {
