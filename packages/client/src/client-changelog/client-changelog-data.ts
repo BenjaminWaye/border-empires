@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: Date.now(),
+    introducedIn: "2026.08.21",
+    title: "Border-expansion pylon animation is slower and more dramatic",
+    why: "The survey pylon rise/sink and laser on/off animation that plays when your border expands or contracts was over in about 1.3 seconds per pylon, which made it easy to miss entirely.",
+    changes: [
+      "Retiring pylons now take about 3 seconds to fade their laser and sink into the ground, and arriving pylons take about 3.2 seconds to rise and power their laser on.",
+      "New pylons/lasers along an expanding border now stagger in more visibly, one at a time, instead of all rising together."
+    ]
+  },
+  {
+    createdAt: 1787259991319,
     introducedIn: "2026.08.20",
     title: "Rush-buy button is no longer a bare unstyled control, and its gold icon no longer looks like silver",
     why: "The tile progress card's rush-buy button had no CSS at all, so it rendered as a plain browser-default button instead of matching the card's other pill-shaped controls. Its price label also used the 🪙 coin emoji, which renders as a plain silver/steel coin in most fonts and read as a different currency than gold.",
