@@ -770,38 +770,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const targetInReach = isInReach(tile.x, tile.y);
 
     const out: TileActionDef[] = [];
-    // Build Relay Beacon does NOT require adjacency: its handler
-    // (client-action-flow.ts, actionId === "build_relay_beacon_frontier")
-    // already drives a non-adjacent target over via the same waypoint
-    // mechanism "Expand Here" uses, then auto-settles and auto-builds once
-    // ownership lands (state.autoSettleTargets/autoBuildTargets) -- that's
-    // pre-existing, unrelated to reach, and was never broken. The only real
-    // gate here is reach itself (an EXPAND landing outside it is rejected
-    // server-side regardless of path); "just don't show it" outside reach,
-    // same policy as everything below.
-    if (targetInReach) {
-      const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-      const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
-      const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
-      const exploreEnabled =
-        canAffordCost(state.gold, totalExploreGold) &&
-        state.manpower >= totalExploreManpower &&
-        hasFreeResourceSlotsForRelayBeacon(state);
-      out.push({
-        id: "build_relay_beacon_frontier" as TileActionDef["id"],
-        label: "Build Relay Beacon",
-        detail: `Push into the unknown • expand + settle + build • +${RELAY_BEACON_VISION_BONUS} vision`,
-        ...tileActionAvailability(
-          exploreEnabled,
-          state.manpower < totalExploreManpower
-            ? `Need ${totalExploreManpower} manpower`
-            : !canAffordCost(state.gold, totalExploreGold)
-              ? `Need ${totalExploreGold} gold`
-              : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
-          `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
-        )
-      });
-    }
     // "Expand To" claims any tile inside reach, adjacent or not -- if it's
     // already adjacent that's a direct EXPAND; otherwise it walks there
     // first via the exact same multi-step waypoint chain Add Waypoint used
@@ -840,6 +808,38 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           )
         });
       }
+    }
+    // Build Relay Beacon does NOT require adjacency: its handler
+    // (client-action-flow.ts, actionId === "build_relay_beacon_frontier")
+    // already drives a non-adjacent target over via the same waypoint
+    // mechanism "Expand Here" uses, then auto-settles and auto-builds once
+    // ownership lands (state.autoSettleTargets/autoBuildTargets) -- that's
+    // pre-existing, unrelated to reach, and was never broken. The only real
+    // gate here is reach itself (an EXPAND landing outside it is rejected
+    // server-side regardless of path); "just don't show it" outside reach,
+    // same policy as everything below.
+    if (targetInReach) {
+      const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
+      const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
+      const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
+      const exploreEnabled =
+        canAffordCost(state.gold, totalExploreGold) &&
+        state.manpower >= totalExploreManpower &&
+        hasFreeResourceSlotsForRelayBeacon(state);
+      out.push({
+        id: "build_relay_beacon_frontier" as TileActionDef["id"],
+        label: "Build Relay Beacon",
+        detail: `Push into the unknown • expand + settle + build • +${RELAY_BEACON_VISION_BONUS} vision`,
+        ...tileActionAvailability(
+          exploreEnabled,
+          state.manpower < totalExploreManpower
+            ? `Need ${totalExploreManpower} manpower`
+            : !canAffordCost(state.gold, totalExploreGold)
+              ? `Need ${totalExploreGold} gold`
+              : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
+          `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
+        )
+      });
     }
     out.push({
       id: "build_foundry",
