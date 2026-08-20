@@ -14,6 +14,12 @@ import { scoreDecision, type DecisionInputs } from "./decisions.js";
  * valuable remains — so a reach-starved AI with an affordable beacon site
  * could still keep grabbing plain scout-value land instead of decisively
  * switching to the beacon that actually fixes the reach lock.
+ *
+ * hasOnlyScoutExpand no longer unlocks EXPAND at all (see the "AI over-
+ * claims low-value land" fix — scoreExpand's veto now requires
+ * hasActionableNonWasteExpand or an expansion objective), so these fixtures
+ * use a genuine non-waste candidate (hasActionableNonWasteExpand) instead of
+ * scout-only land to exercise "EXPAND should still fire" scenarios.
  */
 
 const baseInputs: DecisionInputs = {
@@ -28,7 +34,7 @@ const baseInputs: DecisionInputs = {
   nonWasteExpansionOpportunityCount: 0,
   hasActionableNonWasteExpand: false,
   hasExpansionObjective: false,
-  hasOnlyScoutExpand: true, // the loophole: plain scout-value land still nearby
+  hasOnlyScoutExpand: false,
   hasWeakEnemyBorder: false,
   hasBarbTarget: false,
   hasAnyExpandCandidate: true,
@@ -54,18 +60,44 @@ const baseInputs: DecisionInputs = {
 };
 
 describe("scoreExpand — reach-starved hard override", () => {
-  it("vetoes EXPAND outright once reach-starved with a beacon site ready, even with scout-value land still nearby", () => {
+  it("vetoes EXPAND outright once reach-starved with a beacon site ready", () => {
     expect(scoreDecision("EXPAND", baseInputs)).toBe(0);
   });
 
-  it("still scores EXPAND normally when NOT reach-starved (baseline unaffected)", () => {
-    const notStarved: DecisionInputs = { ...baseInputs, reachStarved: false };
+  it("still scores EXPAND normally when NOT reach-starved and a genuine target exists (baseline unaffected)", () => {
+    const notStarved: DecisionInputs = {
+      ...baseInputs,
+      reachStarved: false,
+      hasActionableNonWasteExpand: true,
+      nonWasteExpansionOpportunityCount: 1
+    };
     expect(scoreDecision("EXPAND", notStarved)).toBeGreaterThan(0);
   });
 
-  it("still scores EXPAND normally when reach-starved but no beacon site exists yet (nothing to switch to)", () => {
-    const noBeaconSite: DecisionInputs = { ...baseInputs, hasRelayBeaconBuild: false };
+  it("still scores EXPAND normally when reach-starved but no beacon site exists yet, as long as a genuine target exists", () => {
+    const noBeaconSite: DecisionInputs = {
+      ...baseInputs,
+      hasRelayBeaconBuild: false,
+      hasActionableNonWasteExpand: true,
+      nonWasteExpansionOpportunityCount: 1
+    };
     expect(scoreDecision("EXPAND", noBeaconSite)).toBeGreaterThan(0);
+  });
+
+  it("plain scout-value land (fog-reveal only, no real prize) no longer unlocks EXPAND at all", () => {
+    // The actual bug this whole investigation started from: a tile that
+    // only reveals some fog (scoutScore >= 30, trivially cleared by almost
+    // any border-edge tile) used to be enough to let EXPAND fire and claim
+    // it, which is why AI empires were observed claiming 92-96% of their
+    // reach circle instead of the ~5% that's actually valuable.
+    const scoutOnly: DecisionInputs = {
+      ...baseInputs,
+      reachStarved: false,
+      hasOnlyScoutExpand: true,
+      hasActionableNonWasteExpand: false,
+      hasExpansionObjective: false
+    };
+    expect(scoreDecision("EXPAND", scoutOnly)).toBe(0);
   });
 
   it("BUILD_BEACON (not BUILD_ECONOMY) scores positively in the exact same reach-starved state EXPAND is vetoed in", () => {
