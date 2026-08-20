@@ -7,7 +7,11 @@ import {
   samplePerimeterPylons,
   traceReachBoundaryEdgeLoops
 } from "@client/client-reach-overlay/client-reach-overlay.js";
-import { createTransitionTracker, diffTransitions } from "@client/client-reach-overlay/client-reach-overlay-transitions.js";
+import {
+  ARRIVE_STAGGER_MS,
+  createTransitionTracker,
+  diffTransitions
+} from "@client/client-reach-overlay/client-reach-overlay-transitions.js";
 import type { Tile } from "@client/client-types.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
 
@@ -322,13 +326,13 @@ const renderTransitionDemo = (args: Args): HTMLElement => {
 
     const currentPylons = new Map<string, PylonPoint>();
     for (const p of pylons.flat()) currentPylons.set(`${p.x},${p.y}`, { x: p.x, y: p.y });
-    const pylonFrames = diffTransitions(currentPylons, pylonTracker, nowMs);
+    const pylonFrames = diffTransitions(currentPylons, pylonTracker, nowMs, { arriveStaggerMs: ARRIVE_STAGGER_MS });
 
     const currentSegments = new Map<string, SegmentEndpoints>();
     for (const s of segments.flat()) {
       currentSegments.set(`${s.from.x},${s.from.y}|${s.to.x},${s.to.y}`, { fx: s.from.x, fy: s.from.y, tx: s.to.x, ty: s.to.y });
     }
-    const segmentFrames = diffTransitions(currentSegments, segmentTracker, nowMs);
+    const segmentFrames = diffTransitions(currentSegments, segmentTracker, nowMs, { arriveStaggerMs: ARRIVE_STAGGER_MS });
 
     overlay.clearPylons();
     for (const pf of pylonFrames.values()) {
