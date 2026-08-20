@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: Date.now(),
+    introducedIn: "2026.08.20.2",
+    title: "Removed the out-of-reach dim overlay on rival tiles",
+    why: "Rival-owned tiles that were visible but outside your reach radius were darkened with a dimming/hatch treatment (the Aether Survey Line's out-of-reach indicator). We decided this visual signal wasn't pulling its weight and removed it, in both the 2D and 3D map renderers.",
+    changes: [
+      "Removed the out-of-reach dim overlay on rival tiles that used to darken visible-but-unreachable enemy/neutral territory. Reach itself, dormant-frontier tiles, and the reach boundary line are unaffected."
+    ]
+  },
+  {
     createdAt: 1787259991316, // 2026.08.20
     introducedIn: "2026.08.20",
     title: "Auto-fill now respects your reach/border",

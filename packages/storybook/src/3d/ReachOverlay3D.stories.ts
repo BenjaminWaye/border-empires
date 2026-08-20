@@ -190,13 +190,6 @@ const render = (args: Args): HTMLElement => {
 
   overlay.clearPylons();
   overlay.clearTileOverlays();
-  // Out-of-reach dimming: any tile visible-but-unreachable from MY
-  // perspective (the enemy's inner tiles, from my point of view).
-  for (const tile of tiles.values()) {
-    if (tile.ownerId === ENEMY && !myReach.has(keyFor(tile.x, tile.y))) {
-      overlay.addOutOfReachTile(tile.x - ORIGIN_X, tile.y - ORIGIN_Y, 0, 1);
-    }
-  }
   addEmpireBoundary(ME, myReach);
   addEmpireBoundary(ENEMY, enemyReach);
   overlay.commitPylons();
