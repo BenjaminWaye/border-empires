@@ -209,7 +209,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     options.aiPlayerIds.map((id) => [id, options.startingClientSeqByPlayer?.[id] ?? 1])
   );
   const lastCommandAtByPlayer = new Map<string, number>();
-  const pendingCommandByPlayer = new Map<string, { commandId: string; commandType: CommandEnvelope["type"]; startedAt: number }>();
+  const pendingCommandByPlayer = new Map<string, { commandId: string; commandType: CommandEnvelope["type"]; payloadJson: string; startedAt: number }>();
   const pendingPreplanOutcomeByCommandId = new Map<string, { resolve: (outcome: PreplanOutcome) => void; timeoutHandle: ReturnType<typeof setTimeout> }>();
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
@@ -685,7 +685,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       return "skipped";
     }
     trackedPreplanByCommandId.set(command.commandId, { playerId, trackedAt: issuedAt });
-    pendingCommandByPlayer.set(playerId, { commandId: command.commandId, commandType: command.type, startedAt: issuedAt });
+    pendingCommandByPlayer.set(playerId, { commandId: command.commandId, commandType: command.type, payloadJson: command.payloadJson, startedAt: issuedAt });
     nextClientSeqByPlayer.set(playerId, clientSeq + 1);
     // Register before submit to avoid the race where the server confirms
     // before the outcome listener is set up.
@@ -720,7 +720,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     if (intentKind && targetTileKey && reservationHeldByOtherAi(intentLatchState, playerId, targetTileKey, issuedAt)) {
       return;
     }
-    pendingCommandByPlayer.set(playerId, { commandId: command.commandId, commandType: command.type, startedAt: issuedAt });
+    pendingCommandByPlayer.set(playerId, { commandId: command.commandId, commandType: command.type, payloadJson: command.payloadJson, startedAt: issuedAt });
     nextClientSeqByPlayer.set(playerId, clientSeq + 1);
     nextPlayerIndex = (playerIndex + 1) % options.aiPlayerIds.length;
     const wasUrgent = urgentByPlayerId.delete(playerId);
@@ -868,7 +868,7 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
       }
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pending) {
         options.onRejectedCommand?.({ playerId: event.playerId, commandType: pending.commandType, rejectionCode: event.code, rejectionMessage: event.message });
-        recordRejectionCooldown(rejectionCooldowns, event.playerId, pending.commandType, now());
+        recordRejectionCooldown(rejectionCooldowns, event.playerId, { type: pending.commandType, payloadJson: pending.payloadJson }, now());
       }
       if (trackedPreplanMatches && event.eventType !== "COMMAND_REJECTED") {
         syncPlannerStateImmediately(event.playerId);

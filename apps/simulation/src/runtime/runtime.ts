@@ -3253,13 +3253,29 @@ export class SimulationRuntime {
   }
 
   // Diagnostic-only (admin debug surface): size of the persistent reach
-  // border currently granted to a player — the "reachTiles" answer to
-  // "how much of their reach is frontier" questions, which owned/settled
-  // tile counts alone can't answer (owned tiles are always a SUBSET of
-  // granted reach — a player's border can extend into ground they haven't
-  // claimed yet). O(border size), not called from any hot path.
+  // border currently granted to a player, LAND-ONLY — the "reachTiles"
+  // answer to "how much of their reach is frontier / still usable" (owned
+  // tiles are always a SUBSET of granted reach — a border can extend into
+  // ground not yet claimed). The border itself is purely geometric (a
+  // radius disk with no terrain awareness — same as the client's
+  // computeLocalReachSet), so a coastal or island anchor's disk routinely
+  // covers SEA/COASTAL_SEA/MOUNTAIN tiles that can never actually be
+  // EXPANDed onto (handleFrontierCommandImpl requires terrain === "LAND").
+  // Reporting the raw geometric size overstated how much room a player
+  // actually has — an island empire could read as having plenty of "reach"
+  // left when most of that disk was open water. Filtered here, not on
+  // reachTileKeysForPlayer below: that one feeds the AI planner's actual
+  // legality lookup and must stay exactly geometric to match the server's
+  // authoritative isInReach check bit-for-bit (filtering there would be
+  // harmless for legality — EXPAND already separately requires LAND — but
+  // needlessly risks drifting from the ground truth it's meant to mirror).
+  // O(border size), not called from any hot path.
   reachTileCountForPlayer(playerId: string): number {
-    return reachSetForPlayer(playerId, this.reachBorder).size;
+    let count = 0;
+    for (const tileKey of reachSetForPlayer(playerId, this.reachBorder)) {
+      if (this.tiles.get(tileKey)?.terrain === "LAND") count += 1;
+    }
+    return count;
   }
 
   // Real (non-diagnostic) accessor: the full key set the AI planner needs to

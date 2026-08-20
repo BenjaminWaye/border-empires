@@ -68,7 +68,10 @@ describe("scoreExpand — reach-starved hard override", () => {
     expect(scoreDecision("EXPAND", noBeaconSite)).toBeGreaterThan(0);
   });
 
-  it("BUILD_ECONOMY scores positively in the exact same reach-starved state EXPAND is vetoed in", () => {
-    expect(scoreDecision("BUILD_ECONOMY", baseInputs)).toBeGreaterThan(0);
+  it("BUILD_BEACON (not BUILD_ECONOMY) scores positively in the exact same reach-starved state EXPAND is vetoed in", () => {
+    // Relay beacon is reach infrastructure, its own decision class, not a
+    // BUILD_ECONOMY sub-case — see decisions.ts's scoreBuildBeacon.
+    expect(scoreDecision("BUILD_BEACON", baseInputs)).toBeGreaterThan(0);
+    expect(scoreDecision("BUILD_ECONOMY", baseInputs)).toBe(0);
   });
 });
