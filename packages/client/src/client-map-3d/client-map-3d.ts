@@ -82,7 +82,7 @@ import {
   samplePerimeterPylons,
   traceReachBoundaryEdgeLoops
 } from "../client-reach-overlay/client-reach-overlay.js";
-import { createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
+import { ARRIVE_STAGGER_MS, createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
 import { computeOtherOwnersReachPylons, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
@@ -2022,8 +2022,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         });
       }
 
-      const pylonFrames = diffTransitions(currentPylons, reach3DPylonTracker, nowMs, { animateInitial: false });
-      const segmentFrames = diffTransitions(currentSegments, reach3DSegmentTracker, nowMs, { animateInitial: false });
+      const pylonFrames = diffTransitions(currentPylons, reach3DPylonTracker, nowMs, {
+        animateInitial: false,
+        arriveStaggerMs: ARRIVE_STAGGER_MS
+      });
+      const segmentFrames = diffTransitions(currentSegments, reach3DSegmentTracker, nowMs, {
+        animateInitial: false,
+        arriveStaggerMs: ARRIVE_STAGGER_MS
+      });
 
       // NOTE: corners sit at raw integer grid positions (tile (x,y)'s
       // center is at grid position x+TILE_CENTER_OFFSET, but its top-left
