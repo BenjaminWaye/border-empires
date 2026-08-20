@@ -231,28 +231,6 @@ const executeClass = <TTile extends AutomationPlannerTile>(
       return undefined;
 
     case "BUILD_ECONOMY":
-      // Reach-starved: prefer growing the border (relay beacon) over a plain
-      // economic structure — a beacon unlocks further EXPAND/SETTLE
-      // candidates, which a farmstead/mine does not. Falls back to the
-      // normal economic build when no beacon site scores, or when not
-      // reach-starved (keeps today's behavior unchanged in the common case).
-      if (state.reachStarved && state.relayBeaconBuild) {
-        const beaconSite = state.relayBeaconBuild.tile;
-        // A FRONTIER site must be SETTLED before RELAY_BEACON_SPEC's
-        // tileIsSettled placement check will accept it. Emit the SETTLE now;
-        // the planner re-runs every tick, so once the settlement lands this
-        // same branch re-selects the (now SETTLED) tile and emits the build.
-        // No multi-command sequencing machinery needed — re-planning is the
-        // sequencer, and each step is independently valid and idempotent.
-        if (state.relayBeaconBuild.needsSettle) {
-          return buildPlannerCommand(context, "SETTLE", { x: beaconSite.x, y: beaconSite.y });
-        }
-        return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
-          x: beaconSite.x,
-          y: beaconSite.y,
-          structureType: "RELAY_BEACON"
-        });
-      }
       if (state.economicBuild) {
         return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
           x: state.economicBuild.tile.x,
@@ -261,6 +239,28 @@ const executeClass = <TTile extends AutomationPlannerTile>(
         });
       }
       return undefined;
+
+    case "BUILD_BEACON": {
+      // Reach infrastructure, not economy — see decisions.ts's
+      // scoreBuildBeacon doc comment for why this is its own class rather
+      // than a BUILD_ECONOMY sub-case.
+      if (!state.relayBeaconBuild) return undefined;
+      const beaconSite = state.relayBeaconBuild.tile;
+      // A FRONTIER site must be SETTLED before RELAY_BEACON_SPEC's
+      // tileIsSettled placement check will accept it. Emit the SETTLE now;
+      // the planner re-runs every tick, so once the settlement lands this
+      // same branch re-selects the (now SETTLED) tile and emits the build.
+      // No multi-command sequencing machinery needed — re-planning is the
+      // sequencer, and each step is independently valid and idempotent.
+      if (state.relayBeaconBuild.needsSettle) {
+        return buildPlannerCommand(context, "SETTLE", { x: beaconSite.x, y: beaconSite.y });
+      }
+      return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
+        x: beaconSite.x,
+        y: beaconSite.y,
+        structureType: "RELAY_BEACON"
+      });
+    }
 
     case "CHOOSE_TECH":
       return undefined; // handled by preplan
