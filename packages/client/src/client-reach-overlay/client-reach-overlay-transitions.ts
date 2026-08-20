@@ -10,22 +10,28 @@
 // returned frames (each carrying riseFraction/laserFraction) into
 // ReachOverlay3D's addPylon/addLineSegment.
 
-/** How long a retiring pylon's laser takes to fade out before it starts sinking. */
-export const RETIRE_LASER_FADE_MS = 450;
+/**
+ * How long a retiring pylon's laser takes to fade out before it starts
+ * sinking. Deliberately slow and dramatic (a viewer should be able to watch
+ * a whole border-change animation for ~5s+, not blink and miss it) -- see
+ * ARRIVE_STAGGER_MS below for how a multi-pylon batch stretches even further.
+ */
+export const RETIRE_LASER_FADE_MS = 800;
 /** How long a retiring pylon takes to sink into the ground once its laser is off. */
-export const RETIRE_SINK_MS = 900;
+export const RETIRE_SINK_MS = 2200;
 /** How long an arriving pylon takes to rise out of the ground before its laser turns on. */
-export const ARRIVE_RISE_MS = 900;
+export const ARRIVE_RISE_MS = 2200;
 /** How long an arriving pylon's laser takes to power on once it's fully risen. */
-export const ARRIVE_LASER_ON_MS = 450;
+export const ARRIVE_LASER_ON_MS = 1000;
 /**
  * Default stagger between consecutively-arriving pylons/segments in the same
  * diffTransitions() call -- see `arriveStaggerMs` below. Retiring items get
  * no such delay (they all start sinking together, same instant); this is
- * purely so a batch of brand-new boundary corners rises as a 1-2-3 wave
- * along the perimeter instead of popping up all at once.
+ * purely so a batch of brand-new boundary corners rises -- and powers its
+ * laser on -- as a one-at-a-time wave along the perimeter instead of popping
+ * up all at once.
  */
-export const ARRIVE_STAGGER_MS = 350;
+export const ARRIVE_STAGGER_MS = 450;
 /**
  * Caps how many items into a single arriving batch the stagger keeps
  * delaying further -- beyond this many, additional items in the same batch

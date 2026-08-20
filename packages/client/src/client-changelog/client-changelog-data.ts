@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: Date.now(),
+    introducedIn: "2026.08.21",
+    title: "Border-expansion pylon animation is slower and more dramatic",
+    why: "The survey pylon rise/sink and laser on/off animation that plays when your border expands or contracts was over in about 1.3 seconds per pylon, which made it easy to miss entirely.",
+    changes: [
+      "Retiring pylons now take about 3 seconds to fade their laser and sink into the ground, and arriving pylons take about 3.2 seconds to rise and power their laser on.",
+      "New pylons/lasers along an expanding border now stagger in more visibly, one at a time, instead of all rising together."
+    ]
+  },
+  {
+    createdAt: 1787259991318,
     introducedIn: "2026.08.20.3",
     title: "Fixed a frame-rate drop from the survey-sweep ping overlay",
     why: "The 3D map's per-frame render loop re-uploaded the survey-sweep ping overlay's four GPU instance buffers every single frame, even on the vast majority of frames where no ping was active — a real WebGL bufferSubData call for zero visual change, 60 times a second. A capture from a live session showed WebGL buffer uploads consuming over 80% of total frame CPU time, with the game sustaining only ~11-12fps.",
