@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787275562000, // 2026.08.20
+    introducedIn: "2026.08.20",
+    title: "Fixed manual attacks on some dock targets silently vanishing",
+    why: "Manually launching an attack on a dock target that was only adjacent to (not exactly) a paired dock — e.g. a second dock on a multi-dock island reached via bulk/region selection — could get queued and then be silently dropped a tick later with no attack, no error, and no Mustering overlay. The queue gate now uses the same strict reachability check as real dispatch, so an unreachable dock target is rejected up front with the existing \"Attack failed\" feedback instead of vanishing.",
+    changes: [
+      "Manually queuing an attack on a dock target now uses the same strict reachability check as actually launching it, so unreachable dock targets are rejected immediately with feedback instead of silently disappearing after being queued."
+    ]
+  },
+  {
     createdAt: 1787084630235, // 2026.08.18
     introducedIn: "2026.08.18",
     title: "Removed a stale \"gold paused until manpower is full\" message that could no longer appear",
