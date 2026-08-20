@@ -41,16 +41,6 @@ const feedIcon = (type: FeedType): string => {
   return "i";
 };
 
-// Human-readable label for the feed-icon tooltip, e.g. hovering ⚔ shows "Combat".
-const feedTypeLabel = (type: FeedType): string => {
-  if (type === "combat") return "Combat";
-  if (type === "mission") return "Mission";
-  if (type === "alliance") return "Alliance";
-  if (type === "tech") return "Tech";
-  if (type === "error") return "Error";
-  return "Info";
-};
-
 type FeedDebugControls = {
   visible: boolean;
   enabled: boolean;
@@ -99,16 +89,15 @@ export const feedHtml = (feed: FeedEntry[], debugControls?: FeedDebugControls): 
   if (feed.length === 0) return `${debugCard}<article class="card"><p>No activity yet.</p></article>`;
   return `${debugCard}${feed
     .map((entry) => {
-      const absoluteAt = new Date(entry.at).toLocaleString();
       return `<article class="card feed-card severity-${entry.severity}">
-        <div class="feed-icon" title="${feedTypeLabel(entry.type)}">${feedIcon(entry.type)}</div>
+        <div class="feed-icon">${feedIcon(entry.type)}</div>
         <div>
           ${entry.title ? `<strong>${entry.title}</strong>` : ""}
           <div>${entry.text}</div>
-          <span title="${absoluteAt}">${feedAgeLabel(entry.at, Date.now())} ago</span>
+          <span>${feedAgeLabel(entry.at, Date.now())} ago</span>
           ${
             typeof entry.focusX === "number" && typeof entry.focusY === "number"
-              ? `<div><button class="panel-btn" type="button" data-feed-focus-x="${entry.focusX}" data-feed-focus-y="${entry.focusY}" title="Center map on tile (${entry.focusX}, ${entry.focusY})">${entry.actionLabel ?? "Center"}</button></div>`
+              ? `<div><button class="panel-btn" type="button" data-feed-focus-x="${entry.focusX}" data-feed-focus-y="${entry.focusY}">${entry.actionLabel ?? "Center"}</button></div>`
               : ""
           }
         </div>

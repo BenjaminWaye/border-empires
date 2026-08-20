@@ -75,22 +75,6 @@ describe("feedHtml", () => {
     expect(html).toContain('data-feed-focus-x="18"');
     expect(html).toContain('data-feed-focus-y="42"');
     expect(html).toContain(">Center<");
-    expect(html).toContain('title="Combat"');
-    expect(html).toContain('title="Center map on tile (18, 42)"');
-  });
-
-  it("shows an absolute timestamp tooltip on the relative age label", () => {
-    const at = new Date("2024-03-01T12:00:00Z").getTime();
-    const html = feedHtml([
-      {
-        text: "Aetherwick grew by 200 population.",
-        type: "info",
-        severity: "info",
-        at
-      }
-    ]);
-
-    expect(html).toContain(`title="${new Date(at).toLocaleString()}"`);
   });
 
   it("renders admin tile debug controls when enabled for the viewer", () => {
