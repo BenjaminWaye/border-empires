@@ -226,5 +226,58 @@ describe("diffTransitions", () => {
       expect(between.get("a")!.riseFraction).toBeGreaterThan(0);
       expect(between.get("b")!.riseFraction).toBe(0);
     });
+
+    it("does not pop a staggered item to full height if it drops out again before its own delay elapses", () => {
+      const tracker = createTransitionTracker<Point>();
+      const current = new Map([
+        ["a", { x: 0, y: 0 }],
+        ["b", { x: 1, y: 0 }]
+      ]);
+      // "b" is the 2nd arrival -- its startedAt is STAGGER_MS in the future,
+      // so at nowMs=0 it hasn't started rising at all yet.
+      diffTransitions(current, tracker, 0, { arriveStaggerMs: STAGGER_MS });
+
+      // "b" drops out well before its own stagger delay would have elapsed.
+      const empty = new Map<string, Point>();
+      const justRetiring = diffTransitions(empty, tracker, 1).get("b")!;
+      // Must ease down from where it actually was (still fully sunk), never
+      // pop to riseFraction 1 first.
+      expect(justRetiring.riseFraction).toBe(0);
+      expect(justRetiring.laserFraction).toBe(0);
+
+      // And it stays at (or below) that -- no bounce up -- through the rest
+      // of its retirement.
+      const midSink = diffTransitions(empty, tracker, RETIRE_LASER_FADE_MS + RETIRE_SINK_MS / 2).get("b")!;
+      expect(midSink.riseFraction).toBe(0);
+    });
+
+    it("eases down from a mid-rise (not-yet-lit) point instead of popping to full height when a genuinely mid-arrival item retires", () => {
+      const tracker = createTransitionTracker<Point>();
+      const current = new Map([["a", { x: 0, y: 0 }]]);
+      diffTransitions(current, tracker, 0);
+      const midRiseAt = ARRIVE_RISE_MS / 2;
+      const midRise = diffTransitions(current, tracker, midRiseAt).get("a")!;
+      expect(midRise.riseFraction).toBeGreaterThan(0);
+      expect(midRise.riseFraction).toBeLessThan(1);
+
+      const empty = new Map<string, Point>();
+      const justRetiring = diffTransitions(empty, tracker, midRiseAt).get("a")!;
+      // Eases down from wherever it actually was, not from 1.
+      expect(justRetiring.riseFraction).toBeCloseTo(midRise.riseFraction, 5);
+      expect(justRetiring.riseFraction).toBeLessThan(1);
+    });
+
+    it("caps the stagger delay so a large batch's tail items don't wait unboundedly", () => {
+      const tracker = createTransitionTracker<Point>();
+      const many = new Map<string, Point>();
+      for (let i = 0; i < 40; i += 1) many.set(`k${i}`, { x: i, y: 0 });
+      diffTransitions(many, tracker, 0, { arriveStaggerMs: STAGGER_MS });
+
+      // Even the very last item in a 40-item batch must have started rising
+      // well before 40 * STAGGER_MS -- the cap keeps the wave a fixed, short
+      // length regardless of batch size.
+      const soonAfterCap = diffTransitions(many, tracker, 10 * STAGGER_MS + 1, { arriveStaggerMs: STAGGER_MS });
+      expect(soonAfterCap.get("k39")!.riseFraction).toBeGreaterThan(0);
+    });
   });
 });
