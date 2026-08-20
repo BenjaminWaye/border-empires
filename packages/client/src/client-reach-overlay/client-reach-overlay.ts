@@ -249,7 +249,6 @@ export const pylonEdgeOffset = (edges: ReachEdges): { readonly dx: number; reado
 
 const REACH_BOUNDARY_COLOR = "rgba(255, 245, 190, 0.85)";
 const REACH_BOUNDARY_DASH: [number, number] = [4, 3];
-const OUT_OF_REACH_HATCH_COLOR = "rgba(10, 12, 18, 0.28)";
 const DORMANT_FRONTIER_FILL = "rgba(120, 96, 58, 0.22)";
 const DORMANT_FRONTIER_STROKE = "rgba(214, 178, 110, 0.6)";
 
@@ -299,33 +298,6 @@ export const drawReachBoundaryLine = (
     ctx.moveTo(x1, y2);
     ctx.lineTo(x1, y1);
   }
-  ctx.stroke();
-  ctx.restore();
-};
-
-/**
- * Dims/hatches a visible tile that lies outside the player's reach — reads
- * as "you can see this, but EXPAND/SETTLE would fail here" before the
- * player even attempts the action.
- */
-export const drawOutOfReachDimming = (
-  ctx: CanvasRenderingContext2D,
-  px: number,
-  py: number,
-  size: number
-): void => {
-  ctx.save();
-  ctx.fillStyle = OUT_OF_REACH_HATCH_COLOR;
-  ctx.fillRect(px, py, size, size);
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
-  ctx.lineWidth = 1;
-  const step = Math.max(4, size / 4);
-  ctx.beginPath();
-  for (let offset = -size; offset < size * 2; offset += step) {
-    ctx.moveTo(px + offset, py + size);
-    ctx.lineTo(px + offset + size, py);
-  }
-  ctx.clip(new Path2D(`M${px} ${py} h${size} v${size} h${-size} Z`));
   ctx.stroke();
   ctx.restore();
 };
