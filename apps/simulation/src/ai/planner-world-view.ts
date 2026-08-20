@@ -74,6 +74,15 @@ export type PlannerPlayerView = {
   /** Whether this player currently holds any combat lock (origin or target). */
   hasActiveLock: boolean;
   territoryTileKeys: string[];
+  /**
+   * Tile keys inside this player's persistent reach border (see
+   * packages/shared/src/reach/reach.ts). Required for EXPAND-family
+   * candidate filtering — without it the planner (worker or in-process) has
+   * no way to know a target is actually reachable and proposes commands the
+   * server rejects OUT_OF_REACH. See automation-command-planner.ts's
+   * reachLookup wiring, which builds a lookup closure from this set.
+   */
+  reachTileKeys: string[];
   frontierTileKeys: string[];
   hotFrontierTileKeys: string[];
   strategicFrontierTileKeys: string[];

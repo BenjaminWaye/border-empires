@@ -530,6 +530,19 @@ export const createWorkerAiCommandProducer = (options: WorkerAiCommandProducerOp
     // postMessage payload. The worker merges with its cached player state,
     // saving ~140KB of structured-clone per sync → reduces sync_players_post
     // from 80ms p99 to <5ms for the common (no ownership-change) case.
+    //
+    // reachTileKeys is deliberately NOT in this omission list, unlike the
+    // other tile-key arrays: reach can change independent of THIS player's
+    // own topologyDirtyTileKeys (e.g. a rival's anchor contests a border
+    // tile, or one of this player's own anchors elsewhere deactivates —
+    // reassessBorderOnAnchorDeactivation in runtime.ts), so there's no
+    // existing per-player "reach changed" signal to gate on the way
+    // topologyVersion gates the others. Sending it fresh every sync is a
+    // real, accepted cost (comparable in size to territoryTileKeys) rather
+    // than risk silently stale reach data reintroducing the exact
+    // OUT_OF_REACH deadlock this field exists to fix. If reach-set sizes
+    // grow large enough for this to matter, the fix is a reachVersion
+    // counter mirroring topologyVersion, not omitting the field.
     const playersForPost = players.map((p) => {
       if ((p.topologyDirtyTileKeys?.length ?? 0) === 0) {
         const { territoryTileKeys: _t, frontierTileKeys: _f, hotFrontierTileKeys: _h,
