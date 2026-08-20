@@ -615,6 +615,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
     return biome === "SAND" || biome === "COASTAL_SAND";
   };
+  const isTundraTile = (wx: number, wy: number): boolean => {
+    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+    const terrain = tile?.terrain ?? terrainForWorldTile(wx, wy);
+    if (terrain !== "LAND") return false;
+    const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
+    return biome === "TUNDRA";
+  };
   const heightfieldKindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
     const terrain = terrainForWorldTile(wx, wy);
     if (terrain === "SEA" || terrain === "COASTAL_SEA") {
@@ -623,6 +630,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     if (terrain === "MOUNTAIN") return "MOUNTAIN";
     if (isSandTile(wx, wy)) return "SAND";
+    if (isTundraTile(wx, wy)) return "TUNDRA";
     return "GRASS";
   };
   const syncHighlightMarker = (

@@ -79,7 +79,7 @@ export type Tile = {
   frontierDecayKind?: FrontierDecayKind;
   clusterId?: string;
   clusterType?: string;
-  landBiome?: "GRASS" | "SAND" | "COASTAL_SAND";
+  landBiome?: "GRASS" | "SAND" | "COASTAL_SAND" | "TUNDRA";
   regionType?: "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
   dockId?: string;
   townType?: "MARKET" | "FARMING";
@@ -618,7 +618,8 @@ export type TerrainTextureId =
   | "SAND"
   | "GRASS_LIGHT"
   | "GRASS_DARK"
-  | "MOUNTAIN";
+  | "MOUNTAIN"
+  | "TUNDRA";
 
 export type TileActionDef = {
   id:

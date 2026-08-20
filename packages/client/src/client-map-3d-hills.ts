@@ -178,7 +178,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
       if (!exploredAt(nwx, nwy)) return false;
       const nk = tileKindAt(nwx, nwy);
       if (nk === "SEA" || nk === "COASTAL_SEA") return false;
-      if ((nk === "GRASS" || nk === "SAND") && isHillsAt(nwx, nwy)) return false;
+      if ((nk === "GRASS" || nk === "SAND" || nk === "TUNDRA") && isHillsAt(nwx, nwy)) return false;
       return true;
     };
     // Real ground elevation/colour at world grid corner (cx, cz), averaged

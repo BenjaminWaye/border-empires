@@ -19,7 +19,7 @@ import type { EmpireVisualStyle, Tile } from "../client-types.js";
 export { dockOverlayVariants, structureOverlayImages } from "./client-map-overlay-images.js";
 
 type TileMap = Map<string, Tile>;
-type TerrainTextureId = "SEA_DEEP" | "SEA_COAST" | "SAND" | "GRASS_LIGHT" | "GRASS_DARK" | "MOUNTAIN";
+type TerrainTextureId = "SEA_DEEP" | "SEA_COAST" | "SAND" | "GRASS_LIGHT" | "GRASS_DARK" | "MOUNTAIN" | "TUNDRA";
 
 const TERRAIN_TEXTURE_SIZE = 64;
 export const useTerrainReliefRenderer = isCanvasReliefRendererMode;
@@ -278,6 +278,7 @@ export const initTerrainTextures = (): void => {
   terrainTextures.set("SEA_DEEP", makeTerrainTexture([71, 128, 158], { grain: 9, waveA: 0.34, waveB: 0.28 }));
   terrainTextures.set("SEA_COAST", makeTerrainTexture([103, 154, 182], { grain: 8, waveA: 0.31, waveB: 0.26 }));
   terrainTextures.set("SAND", makeTerrainTexture([214, 184, 135], { grain: 11, waveA: 0.18, waveB: 0.14 }));
+  terrainTextures.set("TUNDRA", makeTerrainTexture([172, 188, 182], { grain: 9, waveA: 0.10, waveB: 0.08 }));
   terrainTextures.set("GRASS_LIGHT", makeTerrainTexture([119, 142, 66], { grain: 10, grass: true }));
   terrainTextures.set("GRASS_DARK", makeTerrainTexture([94, 124, 48], { grain: 10, grass: true }));
   const mountain = makeTerrainTexture([126, 126, 129], { grain: 9, crack: 8, rock: true });
@@ -440,6 +441,7 @@ const terrainTextureIdAt = (
   if (terrain === "MOUNTAIN") return "MOUNTAIN";
   const biome = visibleLandBiome ?? landBiomeAt(x, y);
   if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
+  if (biome === "TUNDRA") return "TUNDRA";
   return grassShadeAt(x, y) === "DARK" ? "GRASS_DARK" : "GRASS_LIGHT";
 };
 
