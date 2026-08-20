@@ -5,6 +5,7 @@ import {
   type PendingRespawnNoticeContext
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
+import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
 import {
   appendPlayerEventLogEntry,
   CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
@@ -4219,15 +4220,13 @@ export class SimulationRuntime {
       revealCapacityForPlayer: (player) => this.revealCapacityForPlayer(player),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       pickReadyOwnedObservatoryAny: (playerId, now) => this.pickReadyOwnedObservatoryAny(playerId, now),
-      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) =>
-        this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
+      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) => this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
       stampObservatoryCooldown: (tileKey, durationMs, now, commandId, playerId) =>
         this.stampObservatoryCooldown(tileKey, durationMs, now, commandId, playerId),
       buildRevealEmpireStats: (target) => this.buildRevealEmpireStats(target),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       filterTileDeltasForPlayer: (tileDeltas, playerId) => this.filterTileDeltasForPlayer(tileDeltas, playerId),
-      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
-        this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       isCoastalLand: (x, y) => this.isCoastalLand(x, y),
@@ -4237,7 +4236,9 @@ export class SimulationRuntime {
       activeAetherBridgesForPlayer: (playerId) => this.activeAetherBridgesForPlayer(playerId),
       activeAetherWallsForPlayer: (playerId) => this.activeAetherWallsForPlayer(playerId),
       crossingBlockedByAetherWall: (fromX, fromY, toX, toY) =>
-        this.crossingBlockedByAetherWall(fromX, fromY, toX, toY)
+        this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
+      reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
+      grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId)
     };
   }
 
@@ -4264,8 +4265,7 @@ export class SimulationRuntime {
       now: this.now,
       emitEvent: (event) => this.emitEvent(event),
       ownedLandWithinRange: (playerId, x, y, range) => this.ownedLandWithinRange(playerId, x, y, range),
-      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) =>
-        this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
+      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) => this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
       stampObservatoryCooldown: (tileKey, durationMs, now, commandId, playerId) =>
         this.stampObservatoryCooldown(tileKey, durationMs, now, commandId, playerId),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
@@ -4273,8 +4273,7 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
-      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
-        this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
       isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
         this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>
