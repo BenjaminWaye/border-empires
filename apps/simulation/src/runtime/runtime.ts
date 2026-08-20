@@ -1713,6 +1713,7 @@ export class SimulationRuntime {
       {
         tiles: this.tiles,
         replaceTileState: (k, t) => this.replaceTileState(k, t),
+        isInReach: (x, y) => this.isPlayerTileInReach(ownerId, x, y),
         onAutoFillTiles: this.onAutoFillTiles,
         autoFillOriginCooldownUntil: this.autoFillOriginCooldownUntil,
         now: this.now,

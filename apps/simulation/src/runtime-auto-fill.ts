@@ -148,7 +148,11 @@ export const findEnclosedRegionsAdjacentTo = (
  * toward the seal, but a pocket that leans on them is capped at
  * AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE; a pocket walled purely by the
  * player's own SETTLED tiles may grow to AUTO_FILL_MAX_REGION_SIZE. Pockets
- * bordering enemy territory are left alone. Returns the newly-settled tiles.
+ * bordering enemy territory are left alone. Only tiles inside `ownerId`'s
+ * fixed-border reach (`isInReach`) are actually claimed — the same
+ * OUT_OF_REACH gate manual SETTLE and EXPAND apply — so a tile inside an
+ * otherwise-eligible pocket but outside the player's reach is left unclaimed
+ * rather than settled. Returns the newly-settled tiles.
  *
  * `recordYieldAnchors` is invoked once with every newly-settled tile key so the
  * caller can stamp their yield-collection baseline in a single batch, matching
@@ -162,6 +166,12 @@ export const applyAutoFill = (input: {
   ownerId: string;
   tiles: ReadonlyMap<string, DomainTileState>;
   replaceTileState: (key: string, tile: DomainTileState) => void;
+  // Fixed-border reach gate: same check EXPAND and manual SETTLE apply
+  // (packages/shared/src/reach/reach.ts) — a tile only auto-fills if it's
+  // inside `ownerId`'s reach border. The BFS above still treats the tile as
+  // ordinary enclosed interior either way (a hole in reach isn't a wall or a
+  // leak); this only decides whether the discovered tile gets claimed.
+  isInReach: (x: number, y: number) => boolean;
   onAutoFillTiles?: ((count: number) => void) | undefined;
   recordYieldAnchors?: ((keys: readonly string[]) => void) | undefined;
   scanCooldown?: {
@@ -170,7 +180,7 @@ export const applyAutoFill = (input: {
     originCooldownUntil: Map<string, number>;
   };
 }): DomainTileState[] => {
-  const { capturedTile, ownerId, tiles, replaceTileState, onAutoFillTiles, recordYieldAnchors, scanCooldown } = input;
+  const { capturedTile, ownerId, tiles, replaceTileState, isInReach, onAutoFillTiles, recordYieldAnchors, scanCooldown } = input;
   const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId, scanCooldown);
   const settled: DomainTileState[] = [];
   const settledKeys: string[] = [];
@@ -184,6 +194,10 @@ export const applyAutoFill = (input: {
       const isUnowned = !existing.ownerId;
       const isOwnFrontier = existing.ownerId === ownerId && existing.ownershipState === "FRONTIER";
       if (!isUnowned && !isOwnFrontier) continue;
+      // Outside the owner's reach border: leave it as-is rather than claiming
+      // it. The rest of the pocket that IS in reach still auto-fills — an
+      // out-of-reach tile isn't treated as a leak.
+      if (!isInReach(existing.x, existing.y)) continue;
       const filledTile: DomainTileState = {
         ...existing,
         ownerId,
@@ -214,6 +228,7 @@ export const emitAutoFillForSettlement = (
   input: {
     tiles: ReadonlyMap<string, DomainTileState>;
     replaceTileState: (key: string, tile: DomainTileState) => void;
+    isInReach: (x: number, y: number) => boolean;
     onAutoFillTiles: ((count: number) => void) | undefined;
     autoFillOriginCooldownUntil: Map<string, number>;
     now: () => number;
@@ -232,6 +247,7 @@ export const emitAutoFillForSettlement = (
     ownerId,
     tiles: input.tiles,
     replaceTileState: input.replaceTileState,
+    isInReach: input.isInReach,
     onAutoFillTiles: input.onAutoFillTiles,
     scanCooldown: { now: input.now(), cooldownMs: AUTO_FILL_SCAN_COOLDOWN_MS, originCooldownUntil: input.autoFillOriginCooldownUntil },
     recordYieldAnchors: (keys) => {

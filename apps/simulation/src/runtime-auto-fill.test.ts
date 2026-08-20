@@ -411,6 +411,7 @@ describe("applyAutoFill yield-anchor stamping", () => {
       ownerId: "player-1",
       tiles,
       replaceTileState: (k) => replaced.push(k),
+      isInReach: () => true,
       recordYieldAnchors: (keys) => anchorBatches.push([...keys])
     });
 
@@ -441,12 +442,93 @@ describe("applyAutoFill yield-anchor stamping", () => {
       capturedTile,
       ownerId: "player-1",
       tiles,
-      replaceTileState: (k, tile) => replacedTiles.set(k, tile)
+      replaceTileState: (k, tile) => replacedTiles.set(k, tile),
+      isInReach: () => true
     });
 
     const settledKeys = settled.map((t) => simulationTileKey(t.x, t.y)).sort();
     expect(settledKeys).toEqual([simulationTileKey(1, 1), simulationTileKey(2, 1)].sort());
     expect(replacedTiles.get(simulationTileKey(2, 1))?.ownershipState).toBe("SETTLED");
     expect(replacedTiles.get(simulationTileKey(2, 1))?.ownerId).toBe("player-1");
+  });
+});
+
+describe("applyAutoFill reach gating", () => {
+  it("only claims the tiles inside the owner's reach, leaving out-of-reach tiles untouched", () => {
+    // (1,1) and (2,1) are both unowned interior land in the same sealed pocket,
+    // but only (1,1) is inside the owner's reach.
+    const capturedTile = ownedTile(1, 2, "player-1");
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(1, 2), capturedTile],
+      [simulationTileKey(2, 0), ownedTile(2, 0, "player-1")],
+      [simulationTileKey(2, 2), ownedTile(2, 2, "player-1")],
+      [simulationTileKey(3, 1), ownedTile(3, 1, "player-1")],
+      [simulationTileKey(1, 1), landTile(1, 1)],
+      [simulationTileKey(2, 1), landTile(2, 1)]
+    ]);
+
+    const replacedTiles = new Map<string, DomainTileState>();
+    const anchorBatches: string[][] = [];
+    const settled = applyAutoFill({
+      capturedTile,
+      ownerId: "player-1",
+      tiles,
+      replaceTileState: (k, tile) => replacedTiles.set(k, tile),
+      isInReach: (x, y) => x === 1 && y === 1,
+      recordYieldAnchors: (keys) => anchorBatches.push([...keys])
+    });
+
+    expect(settled.map((t) => simulationTileKey(t.x, t.y))).toEqual([simulationTileKey(1, 1)]);
+    expect(replacedTiles.has(simulationTileKey(2, 1))).toBe(false);
+    expect(anchorBatches).toEqual([[simulationTileKey(1, 1)]]);
+  });
+
+  it("leaves the owner's own FRONTIER tile alone when it falls outside reach", () => {
+    const capturedTile = ownedTile(1, 2, "player-1");
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(1, 2), capturedTile],
+      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1")],
+      [simulationTileKey(1, 1), ownedTile(1, 1, "player-1", { ownershipState: "FRONTIER" })]
+    ]);
+
+    const replacedTiles = new Map<string, DomainTileState>();
+    const settled = applyAutoFill({
+      capturedTile,
+      ownerId: "player-1",
+      tiles,
+      replaceTileState: (k, tile) => replacedTiles.set(k, tile),
+      isInReach: () => false
+    });
+
+    expect(settled).toEqual([]);
+    expect(replacedTiles.size).toBe(0);
+  });
+
+  it("fills nothing and skips the yield-anchor callback when the whole region is out of reach", () => {
+    const capturedTile = ownedTile(1, 2, "player-1");
+    const tiles = new Map<string, DomainTileState>([
+      [simulationTileKey(0, 1), ownedTile(0, 1, "player-1")],
+      [simulationTileKey(2, 1), ownedTile(2, 1, "player-1")],
+      [simulationTileKey(1, 0), ownedTile(1, 0, "player-1")],
+      [simulationTileKey(1, 2), capturedTile],
+      [simulationTileKey(1, 1), landTile(1, 1)]
+    ]);
+
+    let anchorsCalled = false;
+    const settled = applyAutoFill({
+      capturedTile,
+      ownerId: "player-1",
+      tiles,
+      replaceTileState: () => { throw new Error("should not replace any tile"); },
+      isInReach: () => false,
+      recordYieldAnchors: () => { anchorsCalled = true; }
+    });
+
+    expect(settled).toEqual([]);
+    expect(anchorsCalled).toBe(false);
   });
 });

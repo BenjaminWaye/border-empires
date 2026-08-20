@@ -9114,3 +9114,69 @@ describe("simulation runtime — exportTilesInAreaForPlayer", () => {
     }
   });
 });
+
+describe("simulation runtime — auto-fill reach gating", () => {
+  it("only auto-fills the portion of a sealed pocket inside the settling player's reach", async () => {
+    vi.useFakeTimers();
+    try {
+      // Town at (0,0) seeds a reachBorder disk out to TOWN_REACH_RADIUS (3)
+      // tiles in every direction. A corridor of unowned LAND runs along
+      // y=0 from x=1 to x=6: (1,0) is player-1's FRONTIER tile (distance 1,
+      // in reach); (2,0)/(3,0) are in reach (distance 2/3); (4,0)-(6,0) sit
+      // outside it (distance 4-6). Every other neighboring coordinate is
+      // left unspecified, so it's a missing tile — a natural barrier that
+      // seals the corridor without needing an explicit wall on every side.
+      const runtime = new SimulationRuntime({
+        now: () => 1_000,
+        initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000 })]]),
+        initialState: {
+          tiles: [
+            {
+              x: 0,
+              y: 0,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            },
+            { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            { x: 2, y: 0, terrain: "LAND" },
+            { x: 3, y: 0, terrain: "LAND" },
+            { x: 4, y: 0, terrain: "LAND" },
+            { x: 5, y: 0, terrain: "LAND" },
+            { x: 6, y: 0, terrain: "LAND" }
+          ],
+          activeLocks: []
+        }
+      });
+
+      runtime.submitCommand({
+        commandId: "settle-1", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: 1_000,
+        type: "SETTLE", payloadJson: JSON.stringify({ x: 1, y: 0 })
+      });
+      await Promise.resolve();
+      // Rush-complete the settlement immediately so auto-fill runs without
+      // needing to model the settlement-duration timer.
+      runtime.submitCommand({
+        commandId: "rush-1", sessionId: "session-1", playerId: "player-1", clientSeq: 2, issuedAt: 1_000,
+        type: "RUSH_BUY", payloadJson: JSON.stringify({ x: 1, y: 0 })
+      });
+      await Promise.resolve();
+
+      const tiles = runtime.exportState().tiles;
+      const at = (x: number, y: number) => tiles.find((t) => t.x === x && t.y === y);
+
+      expect(at(1, 0)).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "SETTLED" }));
+      // In reach (distance 2 and 3, inclusive of the radius): auto-filled.
+      expect(at(2, 0)).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "SETTLED" }));
+      expect(at(3, 0)).toEqual(expect.objectContaining({ ownerId: "player-1", ownershipState: "SETTLED" }));
+      // Outside reach (distance 4-6): left unowned even though they're part
+      // of the same sealed pocket.
+      expect(at(4, 0)?.ownerId).toBeFalsy();
+      expect(at(5, 0)?.ownerId).toBeFalsy();
+      expect(at(6, 0)?.ownerId).toBeFalsy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
