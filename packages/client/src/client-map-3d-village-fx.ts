@@ -4,6 +4,7 @@ import {
   Color,
   CylinderGeometry,
   DoubleSide,
+  InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
   MeshBasicMaterial,
@@ -90,14 +91,124 @@ type BannerRecord = {
   seed: number;
 };
 
+// Smoke puffs used to be animated on the CPU: every frame, every puff's rise/
+// drift/scale/fade was recomputed from `phase = f(nowMs, seed)` and written
+// into instanceMatrix + instanceColor, then the *entire* buffer was
+// re-uploaded to the GPU via bufferSubData — for up to ~7,000 combined
+// instances, 60 times a second, regardless of whether the camera or game
+// state had changed at all. A CPU trace confirmed WebGL buffer uploads as
+// the dominant per-frame cost across the 3D renderer.
+//
+// Puff animation is now GPU-driven: each puff's *base* world position and a
+// per-instance phase offset/seed are written once, only when the underlying
+// village/captured-town list changes (i.e. from `commit()`, called from the
+// throttled terrain rebuild — not every animation frame). A vertex shader
+// injected via `onBeforeCompile` computes rise/drift/scale/fade from a single
+// `uTime` uniform every frame instead. Advancing that uniform is one JS
+// number write per material per frame — no per-instance loop, no
+// bufferSubData at all on an idle-camera frame.
+type SmokeAnimUniforms = {
+  uTime: { value: number };
+};
+
+type SmokeAnimConfig = {
+  cycleMs: number;
+  riseHeight: number;
+  driftXAmp: number;
+  driftZAmp: number;
+  scaleBase: number;
+  scaleAmp: number;
+  fadeMul: number;
+  fadeAlphaScale: number;
+  fadeAdd: number;
+};
+
+// Injects the puff rise/drift/scale/fade math into an unlit MeshBasicMaterial's
+// shader. Reproduces the original CPU formulas exactly:
+//   phase   = ((nowMs + phaseOffset) % cycleMs) / cycleMs
+//   rise    = phase * riseHeight
+//   drift   = sin(phase*2pi + seed) * driftXAmp * phase
+//   driftZ  = cos(phase*2pi + seed*1.7) * driftZAmp * phase
+//   scale   = scaleBase + phase * scaleAmp
+//   fade    = fadeMul * (1 - phase*fadeAlphaScale) + fadeAdd
+// `fade` multiplies the fragment's RGB (matching the original's per-instance
+// `color.multiplyScalar(fade)` via instanceColor) rather than alpha, so the
+// blended-pixel output is identical under both AdditiveBlending and
+// NormalBlending.
+const attachSmokeAnimation = (
+  material: MeshBasicMaterial,
+  config: SmokeAnimConfig
+): SmokeAnimUniforms => {
+  const uniforms: SmokeAnimUniforms = { uTime: { value: 0 } };
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        "#include <common>",
+        `#include <common>
+attribute float aPhaseOffset;
+attribute float aSeedX;
+attribute float aSeedZ;
+uniform float uTime;
+varying float vFade;`
+      )
+      .replace(
+        "#include <project_vertex>",
+        `float phase = mod( uTime + aPhaseOffset, ${config.cycleMs.toFixed(1)} ) / ${config.cycleMs.toFixed(1)};
+float rise = phase * ${config.riseHeight.toFixed(4)};
+float drift = sin( phase * 6.283185307 + aSeedX ) * ${config.driftXAmp.toFixed(4)} * phase;
+float driftZ = cos( phase * 6.283185307 + aSeedZ ) * ${config.driftZAmp.toFixed(4)} * phase;
+float puffScale = ${config.scaleBase.toFixed(4)} + phase * ${config.scaleAmp.toFixed(4)};
+vFade = ${config.fadeMul.toFixed(4)} * ( 1.0 - phase * ${config.fadeAlphaScale.toFixed(4)} ) + ${config.fadeAdd.toFixed(4)};
+vec4 mvPosition = vec4( transformed * puffScale, 1.0 );
+#ifdef USE_INSTANCING
+	mvPosition = instanceMatrix * mvPosition;
+#endif
+mvPosition.xyz += vec3( drift, rise, driftZ );
+mvPosition = modelViewMatrix * mvPosition;
+gl_Position = projectionMatrix * mvPosition;`
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        "#include <common>",
+        `#include <common>
+varying float vFade;`
+      )
+      .replace(
+        "#include <color_fragment>",
+        `#include <color_fragment>
+diffuseColor.rgb *= vFade;`
+      );
+  };
+  // Distinguishes this material's compiled program from a plain
+  // MeshBasicMaterial's — onBeforeCompile alone isn't part of three's
+  // program cache key.
+  material.customProgramCacheKey = () => "village-fx-smoke-anim";
+  return uniforms;
+};
+
 export const createVillageEffects = (scene: Scene): VillageEffects => {
   const smokeGeometry = new SphereGeometry(SMOKE_PUFF_RADIUS, 8, 6);
+  smokeGeometry.setAttribute("aPhaseOffset", new InstancedBufferAttribute(new Float32Array(MAX_SMOKE_PUFFS), 1));
+  smokeGeometry.setAttribute("aSeedX", new InstancedBufferAttribute(new Float32Array(MAX_SMOKE_PUFFS), 1));
+  smokeGeometry.setAttribute("aSeedZ", new InstancedBufferAttribute(new Float32Array(MAX_SMOKE_PUFFS), 1));
   const smokeMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#d8d3c4",
     transparent: true,
     opacity: 0.32,
     blending: AdditiveBlending,
     depthWrite: false
+  });
+  const smokeUniforms = attachSmokeAnimation(smokeMaterial, {
+    cycleMs: SMOKE_CYCLE_MS,
+    riseHeight: SMOKE_RISE_HEIGHT,
+    driftXAmp: 0.18,
+    driftZAmp: 0.12,
+    scaleBase: 0.6,
+    scaleAmp: 1.6,
+    fadeMul: 0.55,
+    fadeAlphaScale: 1,
+    fadeAdd: 0.18
   });
   const smokeMesh = new InstancedMesh(smokeGeometry, smokeMaterial, MAX_SMOKE_PUFFS);
   smokeMesh.frustumCulled = false;
@@ -106,11 +217,34 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
   // Captured-town smoke: darker, more opaque, no additive blend so columns
   // read as solid soot against the sky rather than the wispy pale puffs above.
   const capturedSmokeGeometry = new SphereGeometry(CAPTURED_PUFF_RADIUS, 8, 6);
+  capturedSmokeGeometry.setAttribute(
+    "aPhaseOffset",
+    new InstancedBufferAttribute(new Float32Array(MAX_CAPTURED_PUFFS), 1)
+  );
+  capturedSmokeGeometry.setAttribute(
+    "aSeedX",
+    new InstancedBufferAttribute(new Float32Array(MAX_CAPTURED_PUFFS), 1)
+  );
+  capturedSmokeGeometry.setAttribute(
+    "aSeedZ",
+    new InstancedBufferAttribute(new Float32Array(MAX_CAPTURED_PUFFS), 1)
+  );
   const capturedSmokeMaterial = new MeshBasicMaterial({ toneMapped: false,
     color: "#3a3a3a",
     transparent: true,
     opacity: 0.7,
     depthWrite: false
+  });
+  const capturedSmokeUniforms = attachSmokeAnimation(capturedSmokeMaterial, {
+    cycleMs: CAPTURED_CYCLE_MS,
+    riseHeight: CAPTURED_RISE_HEIGHT,
+    driftXAmp: 0.12,
+    driftZAmp: 0.1,
+    scaleBase: 0.7,
+    scaleAmp: 1.4,
+    fadeMul: 0.85,
+    fadeAlphaScale: 0.7,
+    fadeAdd: 0
   });
   const capturedSmokeMesh = new InstancedMesh(capturedSmokeGeometry, capturedSmokeMaterial, MAX_CAPTURED_PUFFS);
   capturedSmokeMesh.frustumCulled = false;
@@ -158,7 +292,6 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
   const banners: Array<BannerRecord & { color: Color }> = [];
 
   const tempMatrix = new Matrix4();
-  const tempColor = new Color();
 
   const clear = (): void => {
     villages.length = 0;
@@ -187,6 +320,74 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
     banners.push({ worldX, worldZ, surfaceY, seed, color: new Color(color) });
   };
 
+  // Flushes the three per-instance shader input attributes (base position via
+  // instanceMatrix, phase offset, seedX/seedZ) for a smoke mesh after its
+  // puff count and per-puff values have been written into `mesh`'s
+  // attributes by the caller. Only runs once per village/captured-town list
+  // change (from commit()) — not every animation frame.
+  const flushSmokeAttributes = (mesh: InstancedMesh, puffCount: number): void => {
+    mesh.count = puffCount;
+    mesh.instanceMatrix.clearUpdateRanges();
+    mesh.instanceMatrix.addUpdateRange(0, mesh.count * 16);
+    mesh.instanceMatrix.needsUpdate = true;
+    for (const attrName of ["aPhaseOffset", "aSeedX", "aSeedZ"] as const) {
+      const attr = mesh.geometry.getAttribute(attrName) as InstancedBufferAttribute;
+      attr.clearUpdateRanges();
+      attr.addUpdateRange(0, mesh.count);
+      attr.needsUpdate = true;
+    }
+  };
+
+  // Writes each owned-village puff's static base position + per-instance
+  // shader inputs. Mirrors the original per-frame CPU loop exactly, just
+  // computed once (here) instead of every animation frame.
+  const commitVillageSmoke = (): void => {
+    const phaseOffsetAttr = smokeMesh.geometry.getAttribute("aPhaseOffset") as InstancedBufferAttribute;
+    const seedXAttr = smokeMesh.geometry.getAttribute("aSeedX") as InstancedBufferAttribute;
+    const seedZAttr = smokeMesh.geometry.getAttribute("aSeedZ") as InstancedBufferAttribute;
+    let puff = 0;
+    for (const v of villages) {
+      for (let i = 0; i < SMOKE_PUFFS_PER_VILLAGE; i += 1) {
+        if (puff >= MAX_SMOKE_PUFFS) break;
+        const phaseOffset = (v.seed * 73 + i * 1100) % SMOKE_CYCLE_MS;
+        tempMatrix.makeTranslation(v.worldX, v.surfaceY + SMOKE_BASE_Y, v.worldZ);
+        smokeMesh.setMatrixAt(puff, tempMatrix);
+        phaseOffsetAttr.setX(puff, phaseOffset);
+        seedXAttr.setX(puff, v.seed);
+        seedZAttr.setX(puff, v.seed * 1.7);
+        puff += 1;
+      }
+    }
+    flushSmokeAttributes(smokeMesh, puff);
+  };
+
+  // Writes each captured-town smoke column's puffs. Mirrors the original
+  // per-frame CPU loop (including its column layout) exactly.
+  const commitCapturedSmoke = (): void => {
+    const phaseOffsetAttr = capturedSmokeMesh.geometry.getAttribute("aPhaseOffset") as InstancedBufferAttribute;
+    const seedXAttr = capturedSmokeMesh.geometry.getAttribute("aSeedX") as InstancedBufferAttribute;
+    const seedZAttr = capturedSmokeMesh.geometry.getAttribute("aSeedZ") as InstancedBufferAttribute;
+    let capturedPuff = 0;
+    for (const town of capturedTowns) {
+      for (let col = 0; col < CAPTURED_COLUMNS_PER_TOWN; col += 1) {
+        const columnAngle = (col / CAPTURED_COLUMNS_PER_TOWN) * Math.PI * 2 + town.seed * 0.13;
+        const columnX = town.worldX + Math.cos(columnAngle) * CAPTURED_COLUMN_RADIUS;
+        const columnZ = town.worldZ + Math.sin(columnAngle) * CAPTURED_COLUMN_RADIUS;
+        for (let i = 0; i < CAPTURED_PUFFS_PER_COLUMN; i += 1) {
+          if (capturedPuff >= MAX_CAPTURED_PUFFS) break;
+          const phaseOffset = (town.seed * 53 + col * 1900 + i * 1100) % CAPTURED_CYCLE_MS;
+          tempMatrix.makeTranslation(columnX, town.surfaceY + CAPTURED_BASE_Y, columnZ);
+          capturedSmokeMesh.setMatrixAt(capturedPuff, tempMatrix);
+          phaseOffsetAttr.setX(capturedPuff, phaseOffset);
+          seedXAttr.setX(capturedPuff, town.seed + col);
+          seedZAttr.setX(capturedPuff, town.seed * 1.3 + col);
+          capturedPuff += 1;
+        }
+      }
+    }
+    flushSmokeAttributes(capturedSmokeMesh, capturedPuff);
+  };
+
   const commit = (): void => {
     let pole = 0;
     for (const b of banners) {
@@ -205,86 +406,43 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
 
     bannerMesh.count = banners.length;
     for (let i = 0; i < banners.length; i += 1) {
-      bannerMesh.setColorAt(i, banners[i]!.color);
+      const b = banners[i]!;
+      bannerMesh.setColorAt(i, b.color);
+      // Static per-banner position (doesn't depend on nowMs) — used to only
+      // get written every frame from update(); banners don't move, so this
+      // only needs to run when the banner list itself changes.
+      tempMatrix.makeTranslation(
+        b.worldX + BANNER_OFFSET_X,
+        b.surfaceY + BANNER_OFFSET_Y + BANNER_POLE_BASE_Y,
+        b.worldZ
+      );
+      bannerMesh.setMatrixAt(i, tempMatrix);
     }
     if (bannerMesh.instanceColor) {
       bannerMesh.instanceColor.clearUpdateRanges();
       bannerMesh.instanceColor.addUpdateRange(0, bannerMesh.count * 3);
       bannerMesh.instanceColor.needsUpdate = true;
     }
+    bannerMesh.instanceMatrix.clearUpdateRanges();
+    bannerMesh.instanceMatrix.addUpdateRange(0, bannerMesh.count * 16);
+    bannerMesh.instanceMatrix.needsUpdate = true;
+
+    commitVillageSmoke();
+    commitCapturedSmoke();
   };
 
+  // Only the banner flutter remains here: a small (~28-vertex), shared,
+  // per-frame vertex wobble on the banner plane geometry — not per-instance,
+  // so it was never part of the bufferSubData blowup the smoke puffs caused.
   const update = (nowMs: number): void => {
-    let puff = 0;
-    for (const v of villages) {
-      for (let i = 0; i < SMOKE_PUFFS_PER_VILLAGE; i += 1) {
-        if (puff >= MAX_SMOKE_PUFFS) break;
-        const phaseOffset = (v.seed * 73 + i * 1100) % SMOKE_CYCLE_MS;
-        const phase = ((nowMs + phaseOffset) % SMOKE_CYCLE_MS) / SMOKE_CYCLE_MS;
-        const rise = phase * SMOKE_RISE_HEIGHT;
-        const drift = Math.sin(phase * Math.PI * 2 + v.seed) * 0.18 * phase;
-        const driftZ = Math.cos(phase * Math.PI * 2 + v.seed * 1.7) * 0.12 * phase;
-        const fade = 0.55 * (1 - phase) + 0.18;
-        const scale = 0.6 + phase * 1.6;
-        tempMatrix.makeScale(scale, scale, scale);
-        tempMatrix.setPosition(
-          v.worldX + drift,
-          v.surfaceY + SMOKE_BASE_Y + rise,
-          v.worldZ + driftZ
-        );
-        smokeMesh.setMatrixAt(puff, tempMatrix);
-        tempColor.copy(smokeMaterial.color).multiplyScalar(fade);
-        smokeMesh.setColorAt(puff, tempColor);
-        puff += 1;
-      }
-    }
-    smokeMesh.count = puff;
-    smokeMesh.instanceMatrix.clearUpdateRanges();
-    smokeMesh.instanceMatrix.addUpdateRange(0, smokeMesh.count * 16);
-    smokeMesh.instanceMatrix.needsUpdate = true;
-    if (smokeMesh.instanceColor) {
-      smokeMesh.instanceColor.clearUpdateRanges();
-      smokeMesh.instanceColor.addUpdateRange(0, smokeMesh.count * 3);
-      smokeMesh.instanceColor.needsUpdate = true;
-    }
-
-    let capturedPuff = 0;
-    for (const town of capturedTowns) {
-      for (let col = 0; col < CAPTURED_COLUMNS_PER_TOWN; col += 1) {
-        const columnAngle = (col / CAPTURED_COLUMNS_PER_TOWN) * Math.PI * 2 + town.seed * 0.13;
-        const columnX = town.worldX + Math.cos(columnAngle) * CAPTURED_COLUMN_RADIUS;
-        const columnZ = town.worldZ + Math.sin(columnAngle) * CAPTURED_COLUMN_RADIUS;
-        for (let i = 0; i < CAPTURED_PUFFS_PER_COLUMN; i += 1) {
-          if (capturedPuff >= MAX_CAPTURED_PUFFS) break;
-          const phaseOffset = (town.seed * 53 + col * 1900 + i * 1100) % CAPTURED_CYCLE_MS;
-          const phase = ((nowMs + phaseOffset) % CAPTURED_CYCLE_MS) / CAPTURED_CYCLE_MS;
-          const rise = phase * CAPTURED_RISE_HEIGHT;
-          const drift = Math.sin(phase * Math.PI * 2 + town.seed + col) * 0.12 * phase;
-          const driftZ = Math.cos(phase * Math.PI * 2 + town.seed * 1.3 + col) * 0.10 * phase;
-          const fade = 0.85 * (1 - phase * 0.7);
-          const scale = 0.7 + phase * 1.4;
-          tempMatrix.makeScale(scale, scale, scale);
-          tempMatrix.setPosition(
-            columnX + drift,
-            town.surfaceY + CAPTURED_BASE_Y + rise,
-            columnZ + driftZ
-          );
-          capturedSmokeMesh.setMatrixAt(capturedPuff, tempMatrix);
-          tempColor.copy(capturedSmokeMaterial.color).multiplyScalar(fade);
-          capturedSmokeMesh.setColorAt(capturedPuff, tempColor);
-          capturedPuff += 1;
-        }
-      }
-    }
-    capturedSmokeMesh.count = capturedPuff;
-    capturedSmokeMesh.instanceMatrix.clearUpdateRanges();
-    capturedSmokeMesh.instanceMatrix.addUpdateRange(0, capturedSmokeMesh.count * 16);
-    capturedSmokeMesh.instanceMatrix.needsUpdate = true;
-    if (capturedSmokeMesh.instanceColor) {
-      capturedSmokeMesh.instanceColor.clearUpdateRanges();
-      capturedSmokeMesh.instanceColor.addUpdateRange(0, capturedSmokeMesh.count * 3);
-      capturedSmokeMesh.instanceColor.needsUpdate = true;
-    }
+    // Wrap on the CPU (float64-exact) before handing the value to the GPU.
+    // uTime is performance.now()-based and grows unboundedly over a session;
+    // GPU floats are 32-bit, so a multi-hour session's raw ms value would
+    // eventually lose enough precision in the shader's `mod()` to visibly
+    // jitter the animation. Modulo by the material's own cycle length keeps
+    // the value small and bounded forever, without changing the phase math.
+    smokeUniforms.uTime.value = nowMs % SMOKE_CYCLE_MS;
+    capturedSmokeUniforms.uTime.value = nowMs % CAPTURED_CYCLE_MS;
 
     if (bannerPositionAttr && bannerBaseXY) {
       const arr = bannerPositionAttr.array as Float32Array;
@@ -301,19 +459,6 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
       }
       bannerPositionAttr.needsUpdate = true;
     }
-
-    for (let i = 0; i < banners.length; i += 1) {
-      const b = banners[i]!;
-      tempMatrix.makeTranslation(
-        b.worldX + BANNER_OFFSET_X,
-        b.surfaceY + BANNER_OFFSET_Y + BANNER_POLE_BASE_Y,
-        b.worldZ
-      );
-      bannerMesh.setMatrixAt(i, tempMatrix);
-    }
-    bannerMesh.instanceMatrix.clearUpdateRanges();
-    bannerMesh.instanceMatrix.addUpdateRange(0, bannerMesh.count * 16);
-    bannerMesh.instanceMatrix.needsUpdate = true;
   };
 
   const dispose = (): void => {
@@ -342,4 +487,3 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
     dispose
   };
 };
-
