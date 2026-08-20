@@ -33,6 +33,19 @@ export const findEnclosedRegion = (
   originKey: string,
   tiles: ReadonlyMap<string, DomainTileState>,
   enclosingOwnerId: string,
+  // Fixed-border reach gate: a wall — whether the player's own SETTLED tile
+  // or a natural barrier (sea/mountain/missing tile) — only actually seals
+  // the pocket if it's inside `enclosingOwnerId`'s current reach. A wall
+  // outside reach isn't "not there" (traversal doesn't continue past it —
+  // it's still not LAND to walk through), it just doesn't count as sealed:
+  // the whole scan fails, the same as leaking to an enemy tile. This keeps
+  // auto-fill's notion of "enclosed" tied to the player's live reach rather
+  // than to territory/terrain that may have nothing to do with where they're
+  // currently building — a stale ring of walls built long ago shouldn't
+  // suddenly seal a pocket just because reach drifted back over it from an
+  // unrelated settle elsewhere, and an island whose coastline isn't fully in
+  // reach yet shouldn't auto-fill until it is.
+  isInReach: (x: number, y: number) => boolean,
   // Optional out-param: set to true when the scan bailed specifically because the
   // region exceeded AUTO_FILL_MAX_REGION_SIZE (as opposed to leaking to an enemy
   // tile or being an ineligible origin). Used to gate the scan cooldown above.
@@ -69,9 +82,14 @@ export const findEnclosedRegion = (
       const key = simulationTileKey(nx, ny);
       if (region.has(key)) continue;
       const neighbor = tiles.get(key);
-      // The enclosing player's own SETTLED tiles are a permanent seal.
-      if (neighbor && neighbor.ownerId === enclosingOwnerId && neighbor.ownershipState === "SETTLED") continue;
-      // Enemy tiles (any state) aren't ours to claim — leak out.
+      // The enclosing player's own SETTLED tiles are a seal — but only if
+      // reach actually covers them; see the isInReach doc above.
+      if (neighbor && neighbor.ownerId === enclosingOwnerId && neighbor.ownershipState === "SETTLED") {
+        if (!isInReach(nx, ny)) return null;
+        continue;
+      }
+      // Enemy tiles (any state) aren't ours to claim — leak out, regardless
+      // of reach (reach never grants you someone else's territory).
       if (neighbor && neighbor.ownerId && neighbor.ownerId !== enclosingOwnerId) return null;
       // Our own FRONTIER and unowned LAND are transparent interior — traversed
       // and (for unowned tiles) claimed. FRONTIER is walked through but never
@@ -86,7 +104,9 @@ export const findEnclosedRegion = (
         continue;
       }
       // Anything else — sea, coastal sea, mountain, or a missing tile — is a
-      // natural barrier that seals the pocket but caps its size.
+      // natural barrier that seals the pocket (again, only if in reach) but
+      // caps its size.
+      if (!isInReach(nx, ny)) return null;
       usedNaturalBarrier = true;
     }
   }
@@ -102,13 +122,19 @@ export const findEnclosedRegion = (
 // fillable. `originCooldownUntil` lets the caller skip re-scanning such an origin
 // for a short window (see AUTO_FILL_SCAN_COOLDOWN_MS for why only size-cap failures
 // are cached — never leak failures, which must stay eagerly re-scanned so a newly
-// completed enclosure is sealed immediately). The cooldown map is keyed by tile key,
-// so it's naturally bounded by world size like `tileYieldCollectedAtByTile`, and
-// callers must not persist it — it's a pure perf cache, not game state.
+// completed enclosure is sealed immediately). A wall/barrier outside reach fails via
+// the same `return null` path as a leak (see isInReach in findEnclosedRegion) and is
+// deliberately never cached either, for the same reason: reach can grow at any time
+// (a new outpost, a captured dock) independently of any settle near this origin, and
+// caching the failure could delay sealing a pocket well past when reach actually
+// caught up to it. The cooldown map is keyed by tile key, so it's naturally bounded
+// by world size like `tileYieldCollectedAtByTile`, and callers must not persist it —
+// it's a pure perf cache, not game state.
 export const findEnclosedRegionsAdjacentTo = (
   tile: DomainTileState,
   tiles: ReadonlyMap<string, DomainTileState>,
   ownerId: string,
+  isInReach: (x: number, y: number) => boolean,
   options?: {
     now: number;
     cooldownMs: number;
@@ -127,7 +153,7 @@ export const findEnclosedRegionsAdjacentTo = (
       continue;
     }
     const outcome = { hitSizeCap: false };
-    const region = findEnclosedRegion(key, tiles, ownerId, outcome);
+    const region = findEnclosedRegion(key, tiles, ownerId, isInReach, outcome);
     if (region) {
       for (const k of region) checkedOrigins.add(k);
       results.push(region);
@@ -148,11 +174,14 @@ export const findEnclosedRegionsAdjacentTo = (
  * toward the seal, but a pocket that leans on them is capped at
  * AUTO_FILL_NATURAL_BARRIER_MAX_REGION_SIZE; a pocket walled purely by the
  * player's own SETTLED tiles may grow to AUTO_FILL_MAX_REGION_SIZE. Pockets
- * bordering enemy territory are left alone. Only tiles inside `ownerId`'s
- * fixed-border reach (`isInReach`) are actually claimed — the same
- * OUT_OF_REACH gate manual SETTLE and EXPAND apply — so a tile inside an
- * otherwise-eligible pocket but outside the player's reach is left unclaimed
- * rather than settled. Returns the newly-settled tiles.
+ * bordering enemy territory are left alone. A wall — built or natural — only
+ * counts as sealing the pocket if it's inside `ownerId`'s reach (`isInReach`,
+ * see findEnclosedRegion); a pocket with any part of its seal outside reach
+ * doesn't auto-fill at all yet. As a second, belt-and-suspenders check on top
+ * of that (reach coverage isn't necessarily solid/convex inside a reach-sealed
+ * ring), any individual claimed tile is also re-checked against `isInReach`
+ * before being settled — the same OUT_OF_REACH gate manual SETTLE and EXPAND
+ * apply. Returns the newly-settled tiles.
  *
  * `recordYieldAnchors` is invoked once with every newly-settled tile key so the
  * caller can stamp their yield-collection baseline in a single batch, matching
@@ -181,7 +210,7 @@ export const applyAutoFill = (input: {
   };
 }): DomainTileState[] => {
   const { capturedTile, ownerId, tiles, replaceTileState, isInReach, onAutoFillTiles, recordYieldAnchors, scanCooldown } = input;
-  const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId, scanCooldown);
+  const regions = findEnclosedRegionsAdjacentTo(capturedTile, tiles, ownerId, isInReach, scanCooldown);
   const settled: DomainTileState[] = [];
   const settledKeys: string[] = [];
   for (const region of regions) {
