@@ -10,6 +10,8 @@ import {
   RETIRE_TOTAL_MS
 } from "./client-reach-overlay-transitions.js";
 
+const STAGGER_MS = 100;
+
 type Point = { x: number; y: number };
 
 describe("diffTransitions", () => {
@@ -142,5 +144,140 @@ describe("diffTransitions", () => {
     expect(out.get("a")).toEqual({ x: 0, y: 0, riseFraction: 1, laserFraction: 1 });
     expect(out.get("b")?.laserFraction).toBe(1); // just started retiring
     expect(out.get("c")?.riseFraction).toBe(0); // just started arriving
+  });
+
+  describe("arriveStaggerMs", () => {
+    it("with no stagger given, multiple new arrivals in the same call all start rising together (unchanged default)", () => {
+      const tracker = createTransitionTracker<Point>();
+      const current = new Map([
+        ["a", { x: 0, y: 0 }],
+        ["b", { x: 1, y: 0 }],
+        ["c", { x: 2, y: 0 }]
+      ]);
+      diffTransitions(current, tracker, 0);
+      const midRise = diffTransitions(current, tracker, ARRIVE_RISE_MS / 2);
+      // All three are equally far into their rise -- no wave.
+      expect(midRise.get("a")!.riseFraction).toBe(midRise.get("b")!.riseFraction);
+      expect(midRise.get("b")!.riseFraction).toBe(midRise.get("c")!.riseFraction);
+    });
+
+    it("staggers a batch of new arrivals into a 1-2-3 wave, one item per arriveStaggerMs, in current's iteration order", () => {
+      const tracker = createTransitionTracker<Point>();
+      const current = new Map([
+        ["a", { x: 0, y: 0 }],
+        ["b", { x: 1, y: 0 }],
+        ["c", { x: 2, y: 0 }]
+      ]);
+      const start = diffTransitions(current, tracker, 0, { arriveStaggerMs: STAGGER_MS });
+      // Nothing has risen yet at t=0 -- "a" just began, "b"/"c" are still
+      // waiting on their delay.
+      expect(start.get("a")!.riseFraction).toBe(0);
+      expect(start.get("b")!.riseFraction).toBe(0);
+      expect(start.get("c")!.riseFraction).toBe(0);
+
+      // Just after "a"'s own rise would be underway but before "b"'s delay
+      // has elapsed: only "a" has actually started moving.
+      const midway = diffTransitions(current, tracker, STAGGER_MS / 2, { arriveStaggerMs: STAGGER_MS });
+      expect(midway.get("a")!.riseFraction).toBeGreaterThan(0);
+      expect(midway.get("b")!.riseFraction).toBe(0); // still waiting out its stagger delay
+      expect(midway.get("c")!.riseFraction).toBe(0);
+
+      // Once "b"'s delay has elapsed, it's underway too, but "c" still waits.
+      const secondWave = diffTransitions(current, tracker, STAGGER_MS + 1, { arriveStaggerMs: STAGGER_MS });
+      expect(secondWave.get("b")!.riseFraction).toBeGreaterThan(0);
+      expect(secondWave.get("c")!.riseFraction).toBe(0);
+
+      // Once "c"'s delay has elapsed, all three are underway.
+      const thirdWave = diffTransitions(current, tracker, 2 * STAGGER_MS + 1, { arriveStaggerMs: STAGGER_MS });
+      expect(thirdWave.get("c")!.riseFraction).toBeGreaterThan(0);
+    });
+
+    it("does NOT stagger retiring items -- a batch that drops out together all start sinking on the same instant", () => {
+      const tracker = createTransitionTracker<Point>();
+      const current = new Map([
+        ["a", { x: 0, y: 0 }],
+        ["b", { x: 1, y: 0 }],
+        ["c", { x: 2, y: 0 }]
+      ]);
+      diffTransitions(current, tracker, 0, { animateInitial: false });
+      const empty = new Map<string, Point>();
+      const out = diffTransitions(empty, tracker, 1000, { arriveStaggerMs: STAGGER_MS });
+      // All three are equally far into their laser fade -- no wave on the way out.
+      expect(out.get("a")!.laserFraction).toBe(out.get("b")!.laserFraction);
+      expect(out.get("b")!.laserFraction).toBe(out.get("c")!.laserFraction);
+    });
+
+    it("staggers a resurrected (mid-retirement) arrival same as a brand-new one", () => {
+      const tracker = createTransitionTracker<Point>();
+      const current = new Map([
+        ["a", { x: 0, y: 0 }],
+        ["b", { x: 1, y: 0 }]
+      ]);
+      diffTransitions(current, tracker, 0, { animateInitial: false });
+      const empty = new Map<string, Point>();
+      diffTransitions(empty, tracker, 0); // both start retiring
+      // Both reappear together, mid-retirement, staggered on resurrection too.
+      const resurrected = diffTransitions(current, tracker, 10, { arriveStaggerMs: STAGGER_MS });
+      expect(resurrected.get("a")!.riseFraction).toBe(0);
+      expect(resurrected.get("b")!.riseFraction).toBe(0);
+      // Partway through "a"'s stagger-adjusted rise, but before "b"'s delay
+      // has elapsed: "a" is underway, "b" is still waiting.
+      const between = diffTransitions(current, tracker, 10 + STAGGER_MS / 2, { arriveStaggerMs: STAGGER_MS });
+      expect(between.get("a")!.riseFraction).toBeGreaterThan(0);
+      expect(between.get("b")!.riseFraction).toBe(0);
+    });
+
+    it("does not pop a staggered item to full height if it drops out again before its own delay elapses", () => {
+      const tracker = createTransitionTracker<Point>();
+      const current = new Map([
+        ["a", { x: 0, y: 0 }],
+        ["b", { x: 1, y: 0 }]
+      ]);
+      // "b" is the 2nd arrival -- its startedAt is STAGGER_MS in the future,
+      // so at nowMs=0 it hasn't started rising at all yet.
+      diffTransitions(current, tracker, 0, { arriveStaggerMs: STAGGER_MS });
+
+      // "b" drops out well before its own stagger delay would have elapsed.
+      const empty = new Map<string, Point>();
+      const justRetiring = diffTransitions(empty, tracker, 1).get("b")!;
+      // Must ease down from where it actually was (still fully sunk), never
+      // pop to riseFraction 1 first.
+      expect(justRetiring.riseFraction).toBe(0);
+      expect(justRetiring.laserFraction).toBe(0);
+
+      // And it stays at (or below) that -- no bounce up -- through the rest
+      // of its retirement.
+      const midSink = diffTransitions(empty, tracker, RETIRE_LASER_FADE_MS + RETIRE_SINK_MS / 2).get("b")!;
+      expect(midSink.riseFraction).toBe(0);
+    });
+
+    it("eases down from a mid-rise (not-yet-lit) point instead of popping to full height when a genuinely mid-arrival item retires", () => {
+      const tracker = createTransitionTracker<Point>();
+      const current = new Map([["a", { x: 0, y: 0 }]]);
+      diffTransitions(current, tracker, 0);
+      const midRiseAt = ARRIVE_RISE_MS / 2;
+      const midRise = diffTransitions(current, tracker, midRiseAt).get("a")!;
+      expect(midRise.riseFraction).toBeGreaterThan(0);
+      expect(midRise.riseFraction).toBeLessThan(1);
+
+      const empty = new Map<string, Point>();
+      const justRetiring = diffTransitions(empty, tracker, midRiseAt).get("a")!;
+      // Eases down from wherever it actually was, not from 1.
+      expect(justRetiring.riseFraction).toBeCloseTo(midRise.riseFraction, 5);
+      expect(justRetiring.riseFraction).toBeLessThan(1);
+    });
+
+    it("caps the stagger delay so a large batch's tail items don't wait unboundedly", () => {
+      const tracker = createTransitionTracker<Point>();
+      const many = new Map<string, Point>();
+      for (let i = 0; i < 40; i += 1) many.set(`k${i}`, { x: i, y: 0 });
+      diffTransitions(many, tracker, 0, { arriveStaggerMs: STAGGER_MS });
+
+      // Even the very last item in a 40-item batch must have started rising
+      // well before 40 * STAGGER_MS -- the cap keeps the wave a fixed, short
+      // length regardless of batch size.
+      const soonAfterCap = diffTransitions(many, tracker, 10 * STAGGER_MS + 1, { arriveStaggerMs: STAGGER_MS });
+      expect(soonAfterCap.get("k39")!.riseFraction).toBeGreaterThan(0);
+    });
   });
 });

@@ -11,13 +11,31 @@
 // ReachOverlay3D's addPylon/addLineSegment.
 
 /** How long a retiring pylon's laser takes to fade out before it starts sinking. */
-export const RETIRE_LASER_FADE_MS = 300;
+export const RETIRE_LASER_FADE_MS = 450;
 /** How long a retiring pylon takes to sink into the ground once its laser is off. */
-export const RETIRE_SINK_MS = 600;
+export const RETIRE_SINK_MS = 900;
 /** How long an arriving pylon takes to rise out of the ground before its laser turns on. */
-export const ARRIVE_RISE_MS = 600;
+export const ARRIVE_RISE_MS = 900;
 /** How long an arriving pylon's laser takes to power on once it's fully risen. */
-export const ARRIVE_LASER_ON_MS = 300;
+export const ARRIVE_LASER_ON_MS = 450;
+/**
+ * Default stagger between consecutively-arriving pylons/segments in the same
+ * diffTransitions() call -- see `arriveStaggerMs` below. Retiring items get
+ * no such delay (they all start sinking together, same instant); this is
+ * purely so a batch of brand-new boundary corners rises as a 1-2-3 wave
+ * along the perimeter instead of popping up all at once.
+ */
+export const ARRIVE_STAGGER_MS = 350;
+/**
+ * Caps how many items into a single arriving batch the stagger keeps
+ * delaying further -- beyond this many, additional items in the same batch
+ * all start alongside the last staggered one instead of pushing the delay
+ * out indefinitely. Without a cap, a large simultaneous batch (e.g.
+ * recapturing a big lost area) would leave its tail items looking fully
+ * sunk for `batchSize * arriveStaggerMs`, which reads as broken rather than
+ * as a wave once the batch is more than a handful of items.
+ */
+const MAX_ARRIVE_STAGGER_STEPS = 8;
 
 export const RETIRE_TOTAL_MS = RETIRE_LASER_FADE_MS + RETIRE_SINK_MS;
 export const ARRIVE_TOTAL_MS = ARRIVE_RISE_MS + ARRIVE_LASER_ON_MS;
@@ -34,6 +52,10 @@ type TrackedEntry<T> = {
   phase: TransitionPhase;
   startedAt: number;
   value: T;
+  // Snapshot of the entry's own frame (riseFraction/laserFraction) at the
+  // instant it started retiring -- see frameFor's retiring branch. Only
+  // ever set when phase is "retiring"; undefined otherwise.
+  retireFrom?: TransitionFrame;
 };
 
 /** Persist one of these per overlay (one for pylons, one for segments) across frames -- opaque to callers beyond passing it back into diffTransitions each time. */
@@ -48,16 +70,23 @@ const ease = (t: number): number => {
   return c * c * (3 - 2 * c);
 };
 
-const frameFor = (entry: Pick<TrackedEntry<unknown>, "phase" | "startedAt">, nowMs: number): TransitionFrame => {
+const frameFor = (entry: Pick<TrackedEntry<unknown>, "phase" | "startedAt" | "retireFrom">, nowMs: number): TransitionFrame => {
   const elapsed = Math.max(0, nowMs - entry.startedAt);
   if (entry.phase === "idle") return { riseFraction: 1, laserFraction: 1 };
   if (entry.phase === "arriving") {
     if (elapsed < ARRIVE_RISE_MS) return { riseFraction: ease(elapsed / ARRIVE_RISE_MS), laserFraction: 0 };
     return { riseFraction: 1, laserFraction: ease((elapsed - ARRIVE_RISE_MS) / ARRIVE_LASER_ON_MS) };
   }
-  // retiring
-  if (elapsed < RETIRE_LASER_FADE_MS) return { riseFraction: 1, laserFraction: 1 - ease(elapsed / RETIRE_LASER_FADE_MS) };
-  return { riseFraction: 1 - ease((elapsed - RETIRE_LASER_FADE_MS) / RETIRE_SINK_MS), laserFraction: 0 };
+  // Retiring -- eases down from wherever the item actually was the instant
+  // retirement began (`retireFrom`, snapshotted by diffTransitions), NOT
+  // always from fully-risen+lit. A staggered arrival can still be mid-rise
+  // (or not even started) when it drops out of `current` again; without
+  // this it would pop straight to full height here before fading/sinking.
+  const from = entry.retireFrom ?? { riseFraction: 1, laserFraction: 1 };
+  if (elapsed < RETIRE_LASER_FADE_MS) {
+    return { riseFraction: from.riseFraction, laserFraction: from.laserFraction * (1 - ease(elapsed / RETIRE_LASER_FADE_MS)) };
+  }
+  return { riseFraction: from.riseFraction * (1 - ease((elapsed - RETIRE_LASER_FADE_MS) / RETIRE_SINK_MS)), laserFraction: 0 };
 };
 
 const isRetireComplete = (entry: Pick<TrackedEntry<unknown>, "phase" | "startedAt">, nowMs: number): boolean =>
@@ -85,23 +114,45 @@ const isArriveComplete = (entry: Pick<TrackedEntry<unknown>, "phase" | "startedA
  * - An "arriving" key flips to "idle" once its transition finishes; a
  *   "retiring" key is dropped from the tracker entirely once its sink
  *   finishes (never returned again).
+ *
+ * `arriveStaggerMs` (default 0 -- no stagger, all arrivals start together)
+ * delays each newly-arriving key in THIS call by an extra multiple of itself,
+ * in `current`'s iteration order -- the 1st new arrival starts at `nowMs`,
+ * the 2nd at `nowMs + arriveStaggerMs`, the 3rd at `nowMs + 2*arriveStaggerMs`,
+ * and so on, producing a rising "wave" along the perimeter instead of every
+ * new pylon popping up at once, up to `MAX_ARRIVE_STAGGER_STEPS` items in --
+ * beyond that the delay stops growing, so one huge batch can't leave its
+ * tail items looking sunk for the whole batch size times the stagger.
+ * `frameFor` already clamps elapsed time at 0, so a staggered entry simply
+ * reads as still-sunk until its own delay elapses. Retiring keys are
+ * deliberately NOT staggered (see the second loop below) -- they all start
+ * sinking on the same instant they drop out, from wherever they actually
+ * were (mid-rise, still fully waiting on a stagger delay, or fully idle),
+ * never popping to full height first.
  */
 export const diffTransitions = <T>(
   current: ReadonlyMap<string, T>,
   tracker: TransitionTracker<T>,
   nowMs: number,
-  options?: { animateInitial?: boolean }
+  options?: { animateInitial?: boolean; arriveStaggerMs?: number }
 ): Map<string, T & TransitionFrame> => {
   const animateInitial = options?.animateInitial ?? true;
+  const arriveStaggerMs = options?.arriveStaggerMs ?? 0;
   const out = new Map<string, T & TransitionFrame>();
+  let arrivalOrdinal = 0;
+  const nextArrivalStart = (): number => {
+    const steps = Math.min(arrivalOrdinal, MAX_ARRIVE_STAGGER_STEPS);
+    arrivalOrdinal += 1;
+    return nowMs + steps * arriveStaggerMs;
+  };
 
   for (const [key, value] of current) {
     const existing = tracker.get(key);
     let entry: TrackedEntry<T>;
     if (!existing) {
-      entry = { phase: animateInitial ? "arriving" : "idle", startedAt: nowMs, value };
+      entry = { phase: animateInitial ? "arriving" : "idle", startedAt: animateInitial ? nextArrivalStart() : nowMs, value };
     } else if (existing.phase === "retiring") {
-      entry = { phase: "arriving", startedAt: nowMs, value };
+      entry = { phase: "arriving", startedAt: nextArrivalStart(), value };
     } else if (existing.phase === "arriving" && isArriveComplete(existing, nowMs)) {
       entry = { phase: "idle", startedAt: existing.startedAt, value };
     } else {
@@ -115,6 +166,11 @@ export const diffTransitions = <T>(
   for (const [key, entry] of tracker) {
     if (current.has(key)) continue;
     if (entry.phase !== "retiring") {
+      // Snapshot wherever the item actually is right now (it may be
+      // mid-arrival, or still waiting out a stagger delay and not risen at
+      // all) BEFORE flipping phase -- frameFor's retiring branch eases down
+      // from this, not from an assumed fully-risen+lit starting point.
+      entry.retireFrom = frameFor(entry, nowMs);
       entry.phase = "retiring";
       entry.startedAt = nowMs;
     }
