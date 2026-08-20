@@ -4,6 +4,7 @@ import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gatewa
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
+import { pushFeedEntry } from "../client-alerts/client-alerts.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
@@ -122,6 +123,8 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       }
     });
   }
-  renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, () => deps.renderHud());
+  renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, () => deps.renderHud(), (def) =>
+    pushFeedEntry(state, { title: def.title, text: def.body, type: "info", severity: "info", at: Date.now() })
+  );
   deps.renderHud();
 };
