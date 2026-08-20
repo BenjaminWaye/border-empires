@@ -79,11 +79,11 @@ export const tileProductionRequirementLabel = (tile: Tile, prettyToken: (value: 
   return undefined;
 };
 
-// §6.3 rush-buy: "⏩🪙N" preview label for finishing this in-progress action
+// §6.3 rush-buy: "⏩💰N" preview label for finishing this in-progress action
 // right now. Client-side estimate only — the server (rushBuyPriceGold, same
 // formula) computes and enforces the real charge at command time.
 const rushBuyLabel = (remainingMs: number, totalMs: number, manpowerCost: number): string =>
-  `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, manpowerCost)}`;
+  `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, manpowerCost)}`;
 
 export const constructionProgressForTile = (
   tile: Tile,
