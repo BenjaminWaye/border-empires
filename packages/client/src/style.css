@@ -5819,8 +5819,6 @@ button:disabled,
     display: none;
     gap: 8px;
     padding: 8px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
     max-height: min(28dvh, 248px);
     overflow: auto;
   }
@@ -6074,15 +6072,15 @@ button:disabled,
     font-size: 11px;
   }
 
-  /* .mobile-utility-row reserves a fixed 4-column grid, but since the
-     Collect button was removed it now only holds "center-me" (1 of 4
-     cells). The row itself has no background, so the empty reserved
-     cells would otherwise sit over the map (this container opts into
-     pointer-events: auto via the #hud allowlist) and swallow taps meant
-     for the canvas. Disable pointer events on the row's own box and
-     re-enable them on the button so only the visible control is
-     tappable. */
-  .mobile-utility-row {
+  /* #mobile-core (this container opts into pointer-events: auto via the
+     #hud allowlist) sizes itself to its widest possible content, but
+     since the Collect button was removed it now only holds "center-me"
+     inside a 4-column .mobile-utility-row grid (1 of 4 cells used). The
+     leftover width has no background, so it would otherwise sit over the
+     map and swallow taps meant for the canvas. Disable pointer events on
+     the panel's own box and re-enable them on the button so only the
+     visible control is tappable. */
+  #hud #mobile-core {
     pointer-events: none;
   }
 
