@@ -99,6 +99,21 @@ const HILL_VERTS_PER_TILE = (HILL_SUBDIV + 1) * (HILL_SUBDIV + 1);
 const HILL_INDICES_PER_TILE = HILL_SUBDIV * HILL_SUBDIV * 6;
 const HILL_DRAPE_CLEARANCE = 0.012;
 
+// Hill tiles carry their 4 flat-ground corner heights so the frame
+// perimeter and wandering people can each sample the dome's actual height
+// at their own (fx, fz) position, instead of sitting at one fixed peak
+// height. A single fixed height only matches the dome at its exact center
+// (r=0); anywhere else on the tile — like the frame's edges, or a person
+// who has wandered away from the middle — the real dome surface is lower,
+// so a fixed-height placement floats above it, worst at the tile's rim
+// where the dome has already fallen back to ground level.
+type HillCorners = {
+  readonly corner00Y: number;
+  readonly corner10Y: number;
+  readonly corner01Y: number;
+  readonly corner11Y: number;
+};
+
 type TileEntry = {
   readonly worldTileX: number;
   readonly worldTileY: number;
@@ -107,6 +122,21 @@ type TileEntry = {
   readonly surfaceY: number;
   readonly startAt: number; // ms
   readonly resolvesAt: number; // ms
+  readonly hill?: HillCorners;
+};
+
+// Height of the draped dome surface at fractional tile position (fx, fz),
+// each in [0, 1] — same bilinear-corner + radial-falloff formula used to
+// build hillTintMesh's vertices, so anything placed with this stays flush
+// with the visible tinted surface rather than the flat ground beneath it.
+const hillSurfaceYAt = (hill: HillCorners, fx: number, fz: number): number => {
+  const top = hill.corner00Y + (hill.corner10Y - hill.corner00Y) * fx;
+  const bottom = hill.corner01Y + (hill.corner11Y - hill.corner01Y) * fx;
+  const groundY = top + (bottom - top) * fz;
+  const u = fx - 0.5;
+  const v = fz - 0.5;
+  const r = Math.hypot(u, v);
+  return groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r) + HILL_DRAPE_CLEARANCE;
 };
 
 export type SettleOverlay = {
@@ -223,8 +253,9 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
   // mesh is a flat plane and would clip into/poke through the dome
   // exactly like the bug this drape logic fixes. Hill tiles get their
   // tint from `hillTintMesh` (vertex-draped) instead; they still share
-  // the frame perimeter and people-wander logic with flat entries, using
-  // the hill's domed peak height rather than flat ground height.
+  // the frame perimeter and people-wander logic with flat entries, but
+  // sample the dome's real height at each element's own position (via
+  // `hillSurfaceYAt`) rather than one fixed peak height.
   const hillEntries: TileEntry[] = [];
 
   const clear = (): void => {
@@ -265,12 +296,13 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     worldTileY: number
   ): void => {
     if (hillTintCount >= maxHillTiles) return;
-    // Peak height at the tile's own center (r=0 → domeFalloff=1), used to
-    // place the frame perimeter and wandering people on top of the dome
-    // instead of at flat ground level.
-    const avgCornerY = (corner00Y + corner10Y + corner01Y + corner11Y) * 0.25;
-    const domePeakY = avgCornerY + HEIGHTFIELD_HILLS_ELEVATION_BONUS + HILL_DRAPE_CLEARANCE;
-    hillEntries.push({ worldTileX, worldTileY, sceneX: (x0 + x1) * 0.5, sceneZ: (z0 + z1) * 0.5, surfaceY: domePeakY, startAt, resolvesAt });
+    const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y };
+    // surfaceY is unused for hill entries — both read sites (commit()'s
+    // frame placement and tick()'s people placement) branch on `hill`
+    // first and always take that branch for a hill entry. Stored as 0
+    // rather than a computed placeholder purely to satisfy the shared
+    // TileEntry shape; flat entries are the ones that rely on it.
+    hillEntries.push({ worldTileX, worldTileY, sceneX: (x0 + x1) * 0.5, sceneZ: (z0 + z1) * 0.5, surfaceY: 0, startAt, resolvesAt, hill });
 
     const positions = hillTintGeom.getAttribute("position") as BufferAttribute;
     const colors = hillTintGeom.getAttribute("color") as BufferAttribute;
@@ -284,15 +316,9 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
       for (let a = 0; a <= HILL_SUBDIV; a += 1) {
         const fx = a / HILL_SUBDIV;
         const fz = b / HILL_SUBDIV;
-        const u = fx - 0.5;
-        const v = fz - 0.5;
-        const r = Math.hypot(u, v);
-        const top = corner00Y + (corner10Y - corner00Y) * fx;
-        const bottom = corner01Y + (corner11Y - corner01Y) * fx;
-        const groundY = top + (bottom - top) * fz;
         const p = vi * 3;
         positions.array[p + 0] = x0 + (x1 - x0) * fx;
-        (positions.array as Float32Array)[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r) + HILL_DRAPE_CLEARANCE;
+        (positions.array as Float32Array)[p + 1] = hillSurfaceYAt(hill, fx, fz);
         positions.array[p + 2] = z0 + (z1 - z0) * fz;
         colors.array[p + 0] = ownerColor.r;
         colors.array[p + 1] = ownerColor.g;
@@ -338,19 +364,28 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
     if (tintMesh.instanceColor) tintMesh.instanceColor.needsUpdate = true;
 
     // Frame perimeter (does not animate) covers both flat and hill
-    // entries, using each entry's own surfaceY (flat ground vs. the
-    // hill's domed peak) so it sits on the visible surface either way.
+    // entries. Flat entries use the entry's single surfaceY; hill entries
+    // sample each beam's own edge position on the dome (see below) so the
+    // frame sits on the visible sloped surface instead of the tile's peak.
     for (let i = 0; i < frameCount; i += 1) {
       const e = i < entries.length ? entries[i]! : hillEntries[i - entries.length]!;
-      matrix.makeTranslation(e.sceneX, e.surfaceY + FRAME_Y, e.sceneZ - FRAME_HALF);
+      // Each frame beam sits at its own edge of the tile, not the center,
+      // so on a hill tile it needs the dome's height at that edge (near
+      // ground level) rather than the tile's peak height — otherwise the
+      // frame floats above the sloped dome surface.
+      const nY = e.hill ? hillSurfaceYAt(e.hill, 0.5, 0.5 - FRAME_HALF) : e.surfaceY;
+      const sY = e.hill ? hillSurfaceYAt(e.hill, 0.5, 0.5 + FRAME_HALF) : e.surfaceY;
+      const eY = e.hill ? hillSurfaceYAt(e.hill, 0.5 + FRAME_HALF, 0.5) : e.surfaceY;
+      const wY = e.hill ? hillSurfaceYAt(e.hill, 0.5 - FRAME_HALF, 0.5) : e.surfaceY;
+      matrix.makeTranslation(e.sceneX, nY + FRAME_Y, e.sceneZ - FRAME_HALF);
       frameNMesh.setMatrixAt(i, matrix);
-      matrix.makeTranslation(e.sceneX, e.surfaceY + FRAME_Y, e.sceneZ + FRAME_HALF);
+      matrix.makeTranslation(e.sceneX, sY + FRAME_Y, e.sceneZ + FRAME_HALF);
       frameSMesh.setMatrixAt(i, matrix);
       // E and W frames: rotate 90° so the long side runs along Z, then
       // translate. multiplyMatrices writes into tmpFrameMatrix.
-      tmpFrameMatrix.makeTranslation(e.sceneX + FRAME_HALF, e.surfaceY + FRAME_Y, e.sceneZ).multiply(rotateY90);
+      tmpFrameMatrix.makeTranslation(e.sceneX + FRAME_HALF, eY + FRAME_Y, e.sceneZ).multiply(rotateY90);
       frameEMesh.setMatrixAt(i, tmpFrameMatrix);
-      tmpFrameMatrix.makeTranslation(e.sceneX - FRAME_HALF, e.surfaceY + FRAME_Y, e.sceneZ).multiply(rotateY90);
+      tmpFrameMatrix.makeTranslation(e.sceneX - FRAME_HALF, wY + FRAME_Y, e.sceneZ).multiply(rotateY90);
       frameWMesh.setMatrixAt(i, tmpFrameMatrix);
     }
     frameNMesh.instanceMatrix.clearUpdateRanges();
@@ -429,11 +464,14 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
         const point = wanderPoint(wanderTime, e.worldTileX, e.worldTileY, i);
         // point.x / point.y are in [0,1]; map to tile-local [-0.42, 0.42]
         // so people stay inside the perimeter frame.
-        matrix.makeTranslation(
-          e.sceneX + (point.x - 0.5) * 0.84,
-          e.surfaceY + PERSON_Y,
-          e.sceneZ + (point.y - 0.5) * 0.84
-        );
+        const localX = (point.x - 0.5) * 0.84;
+        const localZ = (point.y - 0.5) * 0.84;
+        // On a hill, each wandering person needs the dome's height at
+        // their own position — a fixed tile-center height would leave
+        // anyone who has wandered toward the rim floating above the
+        // sloped surface instead of standing on it.
+        const personY = e.hill ? hillSurfaceYAt(e.hill, 0.5 + localX, 0.5 + localZ) : e.surfaceY;
+        matrix.makeTranslation(e.sceneX + localX, personY + PERSON_Y, e.sceneZ + localZ);
         peopleMesh.setMatrixAt(writeIdx, matrix);
         writeIdx += 1;
       }
