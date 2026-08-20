@@ -210,6 +210,10 @@ export type AutomationPlannerDiagnostic = {
   expansionObjectiveKind?: "neutral_value" | "enemy" | "none";
   /** Debug-only: "x,y:STRUCTURE_TYPE" of chooseBestEconomicBuild's pick, if any. */
   economicBuildCandidate?: string;
+  /** Debug-only: the two gates deciding whether BUILD_BEACON can fire — see decisions.ts's scoreBuildBeacon. */
+  reachStarved?: boolean;
+  /** Debug-only: "x,y" (+ ":needsSettle") of chooseBestRelayBeaconBuild's pick, if any. */
+  relayBeaconBuildCandidate?: string;
   // Utility AI fields — populated on every result from the main planner.
   utilityWinner?: DecisionClass;
   utilityWinnerScore?: number;
