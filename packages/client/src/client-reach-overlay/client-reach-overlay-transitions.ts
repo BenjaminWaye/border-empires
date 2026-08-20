@@ -25,7 +25,7 @@ export const ARRIVE_LASER_ON_MS = 450;
  * purely so a batch of brand-new boundary corners rises as a 1-2-3 wave
  * along the perimeter instead of popping up all at once.
  */
-export const ARRIVE_STAGGER_MS = 120;
+export const ARRIVE_STAGGER_MS = 350;
 
 export const RETIRE_TOTAL_MS = RETIRE_LASER_FADE_MS + RETIRE_SINK_MS;
 export const ARRIVE_TOTAL_MS = ARRIVE_RISE_MS + ARRIVE_LASER_ON_MS;
