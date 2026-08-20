@@ -34,6 +34,7 @@ import {
   reassessBorderOnAnchorDeactivation,
   liveReachForOwner,
   isInReach,
+  reachSetForPlayer,
   type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
@@ -3247,6 +3248,16 @@ export class SimulationRuntime {
 
   private isPlayerTileInReach(playerId: string, x: number, y: number): boolean {
     return isInReach(playerId, x, y, this.reachBorder);
+  }
+
+  // Diagnostic-only (admin debug surface): size of the persistent reach
+  // border currently granted to a player — the "reachTiles" answer to
+  // "how much of their reach is frontier" questions, which owned/settled
+  // tile counts alone can't answer (owned tiles are always a SUBSET of
+  // granted reach — a player's border can extend into ground they haven't
+  // claimed yet). O(border size), not called from any hot path.
+  reachTileCountForPlayer(playerId: string): number {
+    return reachSetForPlayer(playerId, this.reachBorder).size;
   }
 
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER

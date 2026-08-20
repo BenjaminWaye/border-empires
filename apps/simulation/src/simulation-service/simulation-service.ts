@@ -2699,7 +2699,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         food: player.strategicResources.FOOD ?? 0,
         titanium: player.strategicResources.TITANIUM ?? 0,
         crystal: player.strategicResources.CRYSTAL ?? 0,
-        umbrite: player.strategicResources.UMBRITE ?? 0
+        umbrite: player.strategicResources.UMBRITE ?? 0,
+        reachTiles: runtime.reachTileCountForPlayer(player.id),
+        frontierTiles: Math.max(0, player.ownedTileCount - player.settledTileCount)
       }));
       callback(null, { ok: true, players_json: JSON.stringify(rows) });
     },
