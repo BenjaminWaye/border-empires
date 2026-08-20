@@ -96,11 +96,11 @@ export type DecisionInputs = {
   hasEconomicBuild: boolean;
   hasFortBuild: boolean;
   hasSiegeOutpost: boolean;
-  // Fixed-borders-via-reach plan: best RELAY_BEACON site available.
+  // Fixed-borders-via-reach plan: best RELAY_BEACON site available
+  // (chooseBestRelayBeaconBuild already requires it to newly cover some
+  // unowned land, so its mere existence is the whole precondition — see
+  // scoreBuildBeacon).
   hasRelayBeaconBuild: boolean;
-  // True when reach-filtered EXPAND candidates are scarce despite a strong
-  // economy — see ai-economic-heuristics.ts's isReachStarved.
-  reachStarved: boolean;
   // Tech
   techAffordable: boolean;
   // Anti-thrash: momentum ticks accrued since last class switch (0–N).
@@ -134,17 +134,6 @@ const scoreExpand = (inp: DecisionInputs): number =>
     // frontierNeutralCount > 0) even when every candidate tile was refused as
     // valueless waste — scoring EXPAND high with nothing to actually execute.
     boolVeto(inp.hasAnyExpandCandidate),
-    // Hard override, not a soft competition: once every real prize (town/
-    // resource/dock/wonder) within reach is claimed out and a beacon site
-    // exists to reach the next one (isReachStarved), EXPAND must not keep
-    // winning just because some scout-value empty tile is still nearby —
-    // that's true of almost any border edge, valuable or not, so without
-    // this veto isReachStarved's beacon trigger and EXPAND's own gate below
-    // would let plain land-grabbing race the beacon build indefinitely
-    // instead of ever decisively switching to it. See
-    // ai-economic-heuristics.ts's isReachStarved and
-    // structure-command-planner.ts's chooseBestRelayBeaconBuild.
-    boolVeto(!(inp.reachStarved && inp.hasRelayBeaconBuild)),
     // Suppress plain/waste expansion when no real (economic/townSupport/
     // scaffold) opportunity exists AND no expansion objective is set.
     // hasOnlyScoutExpand is deliberately NOT included here (it used to be):
@@ -235,22 +224,29 @@ const scoreBuildEconomy = (inp: DecisionInputs): number =>
 // A relay beacon (fixed-borders-via-reach plan) is border/reach
 // infrastructure, not an economic structure — it doesn't produce
 // gold/resources itself and shouldn't inherit BUILD_ECONOMY's
-// economy-weakness/expansion-availability suppression terms (a reach-
-// starved AI, by isReachStarved's own !needsEconomy and zero-valuable-
-// expansion gates, is never "weak" or "expansion still available" in the
-// first place, so those terms would only ever fire vacuously here). Kept
-// as its own decision class so it competes on its own terms and is easy
-// to reason about/measure independently (sim_ai_command_total by structure
-// type, not folded into a generic BUILD_ECONOMIC_STRUCTURE bucket).
+// economy-weakness/expansion-availability suppression terms. Kept as its
+// own decision class so it competes on its own terms and is easy to reason
+// about/measure independently (sim_ai_command_total by structure type, not
+// folded into a generic BUILD_ECONOMIC_STRUCTURE bucket).
+//
+// Deliberately simple, four plain conditions instead of a bundled
+// precondition function (the earlier version gated on a helper,
+// isReachStarved, that combined five unrelated checks behind one name —
+// hard to reason about from the outside): a valid site exists
+// (chooseBestRelayBeaconBuild already requires it to newly cover real
+// unowned land, so its mere existence is most of the "is this worth doing"
+// signal), a build slot is free, there's no enemy at the gate right now
+// (fight first — building undefended infrastructure mid-attack is the
+// wrong call, let ATTACK/MUSTER win instead), and EXPAND doesn't already
+// have a real prize to claim (a beacon reaches further ground — no reason
+// to build one while there's still an already-in-reach town/resource/dock
+// sitting unclaimed; claim that first, plain EXPAND already handles it).
 const scoreBuildBeacon = (inp: DecisionInputs): number =>
   scoreConsiderations([
-    // The only gate: reach itself is the bottleneck (isReachStarved already
-    // requires zero valuable expansion left, no enemy at the frontier, and
-    // a healthy economy) and a concrete site is ready. Once true, this is
-    // unconditionally the right move — no soft competition needed, unlike
-    // BUILD_ECONOMY's demand curve.
-    boolVeto(inp.reachStarved && inp.hasRelayBeaconBuild),
-    boolVeto(inp.devSlotAvailable)
+    boolVeto(inp.hasRelayBeaconBuild),
+    boolVeto(inp.devSlotAvailable),
+    boolVeto(inp.frontierEnemyCount === 0),
+    boolVeto(!inp.hasActionableNonWasteExpand)
   ]);
 
 const scoreChooseTech = (inp: DecisionInputs): number =>

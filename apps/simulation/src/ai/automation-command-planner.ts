@@ -13,7 +13,7 @@ import {
   chooseBestRelayBeaconBuild,
   chooseBestSiegeOutpostBuild
 } from "./structure-command-planner.js";
-import { economyWeak, foodCoverageLow, isReachStarved } from "./ai-economic-heuristics.js";
+import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationPlannerDecisionContext } from "./automation-command-planner-helpers.js";
 import { runUtilityPolicy } from "./utility/utility-dispatch.js";
@@ -338,19 +338,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
       dedupeTiles([...buildCandidates, ...beaconFrontierCandidates])
     );
   }
-  // Reach-starved: every reach-accessible VALUABLE target (town/resource/
-  // dock/wonder — frontierAnalysis.frontierOpportunityEconomic, already
-  // reach-filtered) has been claimed out, while the player is otherwise
-  // strong enough to want more land. Precondition for preferring a
-  // relay-beacon build over a plain economic build below — see
-  // ai-economic-heuristics.ts's isReachStarved.
-  const reachStarved = isReachStarved({
-    reachAccessibleValuableTargetCount: frontierAnalysis.frontierOpportunityEconomic,
-    townCount,
-    manpower: input.manpower,
-    needsFood,
-    frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount
-  });
 
   // Debug-only bridge from the generic TTile scan to explainFrontierOriginTile's
   // concrete DomainTileState signature (same cast pattern as
@@ -414,12 +401,10 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ...(economicBuild
       ? { economicBuildCandidate: `${economicBuild.tile.x},${economicBuild.tile.y}:${economicBuild.structureType}` }
       : {}),
-    // Debug-only: the two gates that decide whether BUILD_BEACON can fire
-    // (see decisions.ts's scoreBuildBeacon / scoreExpand's hard veto) — both
-    // needed to distinguish "reach-starved but no site found" from "not
-    // reach-starved yet" from the outside, instead of inferring it (wrongly)
-    // from unrelated fields like frontierNeutralTargetCount.
-    reachStarved,
+    // Debug-only: what chooseBestRelayBeaconBuild actually picked, so
+    // BUILD_BEACON's state can be traced via /admin/debug/ai/decisions
+    // instead of inferring it (wrongly) from unrelated fields like
+    // frontierNeutralTargetCount — see decisions.ts's scoreBuildBeacon.
     ...(relayBeaconBuild
       ? { relayBeaconBuildCandidate: `${relayBeaconBuild.tile.x},${relayBeaconBuild.tile.y}${relayBeaconBuild.needsSettle ? ":needsSettle" : ""}` }
       : {}),
@@ -496,7 +481,6 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     fortBuild,
     siegeOutpostBuild,
     relayBeaconBuild,
-    reachStarved,
     attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
     expansionObjective: input.expansionObjective,
     points: input.points,
