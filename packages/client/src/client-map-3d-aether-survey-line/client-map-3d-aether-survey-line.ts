@@ -9,7 +9,7 @@
 // traceReachBoundaryEdgeLoops/samplePerimeterPylons for the perimeter-walk and
 // sampling logic that decides WHERE pylons go -- this module only turns
 // "put a pylon here" / "connect these two pylon points" / "this tile is
-// dormant-frontier" / "this tile is out-of-reach" into 3D geometry). The
+// dormant-frontier" into 3D geometry). The
 // caller (client-map-3d.ts) walks the sampled points/segments once per
 // reach-set change and calls addPylon/addLineSegment for each.
 //
@@ -54,8 +54,6 @@ const AETHER_CORE = "#bdf3ff";
 const AETHER_LINE = "#9fe6ff";
 const DEAD_METAL = "#3a3d45";
 
-const OUT_OF_REACH_TINT_COLOR = "#0a0c12";
-const OUT_OF_REACH_OPACITY = 0.28;
 const DORMANT_FRONTIER_TINT_COLOR = "#4a3f30";
 const DORMANT_FRONTIER_OPACITY = 0.3;
 
@@ -99,7 +97,7 @@ export const PYLON_SINK_DEPTH = RING_HEIGHT;
 const LINE_RADIUS = 0.026;
 const LINE_BASE_OPACITY = 0.8;
 
-// --- Tile-fill overlays (out-of-reach dimming, dormant-frontier fill) -----
+// --- Tile-fill overlay (dormant-frontier fill) ------------------------------
 // Unchanged in concept from prior rounds: flat instanced quads, cheap,
 // drawn under everything else.
 
@@ -202,7 +200,7 @@ export type ReachOverlay3D = {
   readonly group: Group;
   /** Resets the live pylon/line pool -- call every frame, right before re-adding this frame's pylons/segments, so the border-transition animation stays smooth regardless of camera movement. */
   readonly clearPylons: () => void;
-  /** Resets the dead-pylon/dormant-frontier/out-of-reach tile overlays -- these don't animate, so only call this from the throttled camera-move/reach-change rebuild, not every frame. */
+  /** Resets the dead-pylon/dormant-frontier tile overlays -- these don't animate, so only call this from the throttled camera-move/reach-change rebuild, not every frame. */
   readonly clearTileOverlays: () => void;
   /**
    * Adds a live survey pylon at a sampled perimeter point. `ownerColor`
@@ -248,11 +246,9 @@ export type ReachOverlay3D = {
   ) => void;
   /** Adds a "this used to be surveyed, now abandoned" dim/dark pylon stub -- no glow, no ring, no line. */
   readonly addDormantFrontierTile: (x: number, z: number, surfaceY: number, size: number) => void;
-  /** Dims one visible-but-unreachable neutral/enemy tile. */
-  readonly addOutOfReachTile: (x: number, z: number, surfaceY: number, size: number) => void;
   /** Uploads this frame's live pylon/line pool. Call every frame, paired with clearPylons. */
   readonly commitPylons: () => void;
-  /** Uploads the dead-pylon/dormant-frontier/out-of-reach tile overlays. Call only from the throttled rebuild, paired with clearTileOverlays. */
+  /** Uploads the dead-pylon/dormant-frontier tile overlays. Call only from the throttled rebuild, paired with clearTileOverlays. */
   readonly commitTileOverlays: () => void;
   /** Advances ring spin / core pulse animation. Call every frame (unconditionally, not just when the visible-tile pass rebuilds). */
   readonly update: (nowMs: number) => void;
@@ -387,19 +383,16 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
 
   scene.add(group);
 
-  // Fill overlays (dormant-frontier tint, out-of-reach dim).
+  // Fill overlay (dormant-frontier tint).
   const dormant = createQuadMesh(maxTiles, DORMANT_FRONTIER_TINT_COLOR, DORMANT_FRONTIER_OPACITY, 7);
-  const outOfReach = createQuadMesh(maxTiles, OUT_OF_REACH_TINT_COLOR, OUT_OF_REACH_OPACITY, 8);
-  group.add(dormant.mesh, outOfReach.mesh);
+  group.add(dormant.mesh);
   let dormantVertCount = 0;
   let dormantIndexCount = 0;
-  let outOfReachVertCount = 0;
-  let outOfReachIndexCount = 0;
 
   // Split in two so the live pylon/line pool -- which needs a full
   // clear+re-add+commit every frame to animate the rise/sink/laser
   // transition smoothly regardless of camera movement -- doesn't force the
-  // dead-pylon/dormant/out-of-reach tile overlays (cheap to compute but
+  // dead-pylon/dormant tile overlays (cheap to compute but
   // pointless to redo every frame; they don't animate at all) to redo their
   // own work at the same cadence. client-map-3d.ts calls clearPylons/
   // commitPylons unconditionally every frame, and clearTileOverlays/
@@ -414,8 +407,6 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     deadCursor = 0;
     dormantVertCount = 0;
     dormantIndexCount = 0;
-    outOfReachVertCount = 0;
-    outOfReachIndexCount = 0;
   };
 
   const addPylon = (
@@ -457,12 +448,6 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     if (dormantVertCount + VERTS_PER_TILE > maxTiles * VERTS_PER_TILE) return;
     const { x0, x1, z0, z1 } = tileQuadCorners(x, z, size);
     [dormantVertCount, dormantIndexCount] = writeQuad(dormant, dormantVertCount, dormantIndexCount, x0, x1, z0, z1, surfaceY);
-  };
-
-  const addOutOfReachTile = (x: number, z: number, surfaceY: number, size: number): void => {
-    if (outOfReachVertCount + VERTS_PER_TILE > maxTiles * VERTS_PER_TILE) return;
-    const { x0, x1, z0, z1 } = tileQuadCorners(x, z, size);
-    [outOfReachVertCount, outOfReachIndexCount] = writeQuad(outOfReach, outOfReachVertCount, outOfReachIndexCount, x0, x1, z0, z1, surfaceY);
   };
 
   const addLineSegment = (
@@ -545,16 +530,6 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     dormantIndex.addUpdateRange(0, dormantIndexCount);
     dormantIndex.needsUpdate = true;
     dormant.geometry.setDrawRange(0, dormantIndexCount);
-
-    const outOfReachPos = outOfReach.geometry.getAttribute("position") as BufferAttribute;
-    const outOfReachIndex = outOfReach.geometry.getIndex() as BufferAttribute;
-    outOfReachPos.clearUpdateRanges();
-    outOfReachPos.addUpdateRange(0, outOfReachVertCount * 3);
-    outOfReachPos.needsUpdate = true;
-    outOfReachIndex.clearUpdateRanges();
-    outOfReachIndex.addUpdateRange(0, outOfReachIndexCount);
-    outOfReachIndex.needsUpdate = true;
-    outOfReach.geometry.setDrawRange(0, outOfReachIndexCount);
   };
 
   const dispose = (): void => {
@@ -570,8 +545,6 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     lineGeometry.dispose();
     dormant.geometry.dispose();
     dormant.material.dispose();
-    outOfReach.geometry.dispose();
-    outOfReach.material.dispose();
     materials.brass.dispose();
     materials.iron.dispose();
     materials.core.dispose();
@@ -588,7 +561,6 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     addPylon,
     addLineSegment,
     addDormantFrontierTile,
-    addOutOfReachTile,
     commitPylons,
     commitTileOverlays,
     update,
