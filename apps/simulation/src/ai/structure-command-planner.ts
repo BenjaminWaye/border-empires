@@ -479,11 +479,21 @@ export const chooseBestRelayBeaconBuild = (
     // would reject every frontier candidate on the state we're about to change.
     if (!structureVisibleOnTile("RELAY_BEACON", player.id, needsSettle ? { ...tile, ownershipState: "SETTLED" } : tile, tilesByKey)) continue;
     const newCoverage = estimateNewReachCoverage(player.id, tile, tilesByKey);
-    // A beacon only earns its keep by reaching an actual prize — plain empty
-    // land within reach doesn't need one (plain EXPAND already covers that;
-    // see isReachStarved's doc comment). Skip any site that doesn't put at
-    // least one town/resource/dock/wonder tile newly in reach.
-    if (!newCoverage.hasValuable) continue;
+    // Requiring a known valuable tile here created a dead end: EXPAND stops
+    // once nothing adjacent+in-reach is worth claiming, which is exactly
+    // when isReachStarved makes this function get called — but a beacon
+    // site could only ever be proposed if a resource/town/dock/wonder was
+    // ALREADY visible in its scan radius, and that scan only sees tiles
+    // already synced locally (tilesByKey). Genuinely new ground just past
+    // current vision was invisible to it, so an AI could get stuck on WAIT
+    // forever even with real, unclaimed land plausibly one step further out
+    // (confirmed live: multiple empires vetoed on every decision class
+    // simultaneously with zero visible neutral candidates). A site just
+    // needs to newly cover SOME unowned land to be worth proposing at all —
+    // estimateNewReachCoverage's VALUABLE_TARGET_COVERAGE_WEIGHT already
+    // makes a known prize win the ranking below when one exists; this just
+    // stops requiring one to exist for a beacon to fire at all.
+    if (newCoverage.score <= 0) continue;
     let score = newCoverage.score * 10;
     if (tile.dockId) score += 30; // cross-island reach floor per plan's DOCK_REACH_RADIUS note
     if (needsSettle) score -= FRONTIER_BEACON_SITE_PENALTY;

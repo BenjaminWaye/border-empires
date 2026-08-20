@@ -140,20 +140,28 @@ const scoreExpand = (inp: DecisionInputs): number =>
     // winning just because some scout-value empty tile is still nearby —
     // that's true of almost any border edge, valuable or not, so without
     // this veto isReachStarved's beacon trigger and EXPAND's own gate below
-    // (hasOnlyScoutExpand deliberately passes through) would let plain land-
-    // grabbing race the beacon build indefinitely instead of ever
-    // decisively switching to it. See ai-economic-heuristics.ts's
-    // isReachStarved and structure-command-planner.ts's
-    // chooseBestRelayBeaconBuild.
+    // would let plain land-grabbing race the beacon build indefinitely
+    // instead of ever decisively switching to it. See
+    // ai-economic-heuristics.ts's isReachStarved and
+    // structure-command-planner.ts's chooseBestRelayBeaconBuild.
     boolVeto(!(inp.reachStarved && inp.hasRelayBeaconBuild)),
-    // Suppress plain/waste expansion when no actionable target exists AND no
-    // expansion objective is set.  Scout-only passes this gate (hasOnlyScoutExpand)
-    // but gets penalised below so WAIT wins when the economy is weak.
-    boolVeto(
-      inp.hasActionableNonWasteExpand ||
-        inp.hasExpansionObjective ||
-        inp.hasOnlyScoutExpand
-    ),
+    // Suppress plain/waste expansion when no real (economic/townSupport/
+    // scaffold) opportunity exists AND no expansion objective is set.
+    // hasOnlyScoutExpand is deliberately NOT included here (it used to be):
+    // scoutScore clears its own >=30 threshold almost automatically for any
+    // tile at the edge of explored territory (novelFrontierCount alone is
+    // worth 70 in scoutExpandScore — frontier-scoring.ts), so treating
+    // "reveals some fog" as good enough to unlock EXPAND meant the AI
+    // claimed close to its entire reach circle regardless of value (observed
+    // live: 92-96% of reachable land owned, vs. the ~1-in-20 tiles that
+    // actually carry a resource/town/dock/wonder on this map). EXPAND now
+    // requires a genuine prize nearby, or an active expansion objective —
+    // fog-revealing land alone no longer counts as "worth claiming". Scout
+    // classification itself (hasOnlyScoutExpand, frontierOpportunityScout)
+    // is untouched elsewhere; it still feeds chooseBestRelayBeaconBuild's
+    // "maximize newly revealed land" scoring, just no longer lets EXPAND
+    // claim that land directly.
+    boolVeto(inp.hasActionableNonWasteExpand || inp.hasExpansionObjective),
     // Aggregate expansion signal across all non-waste opportunity types.
     // Range 0–3: 1 tile → 0.33, 2 tiles → 0.67, ≥3 → 1.0.
     linear(inp.expansionOpportunityCount, 0, 3),
@@ -162,13 +170,6 @@ const scoreExpand = (inp: DecisionInputs): number =>
     // out an attack.  When pressure is absent this is 1 (identity).
     inp.pressureThreatensCore && inp.expansionOpportunityCount <= 2
       ? 1 - logistic(inp.pressureAttackScore, 100, 0.03) * 0.8
-      : 1,
-    // Scout-only expansion is only worthwhile when the economy can afford it.
-    // Scale from mildly permissive (needsEconomy=false → ~0.60 multiplier) to
-    // heavily suppressed (needsEconomy=true → ~0.20 multiplier), so WAIT wins
-    // over wasteful scout expansions in the old wait_and_recover scenarios.
-    inp.hasOnlyScoutExpand
-      ? 1 - logistic(inp.needsEconomy ? 1 : inp.needsFood ? 0.6 : 0.1, 0.3, 6) * 0.85
       : 1,
   ]);
 
