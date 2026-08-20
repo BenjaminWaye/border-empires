@@ -2775,6 +2775,7 @@ export class SimulationRuntime {
       plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
       ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
       estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
+      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
       neutralBeaconTileKeys: this.neutralBeaconTileKeys,
       beaconGeneration: this.beaconGeneration,
       yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
@@ -2816,6 +2817,7 @@ export class SimulationRuntime {
       plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
       ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
       estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
+      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
       neutralBeaconTileKeys: this.neutralBeaconTileKeys, beaconGeneration: this.beaconGeneration, yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
       expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer, musterTilesByOwner: this.musterTilesByOwner,
       playerManpowerCap: (playerId) => { const player = this.players.get(playerId); return player ? this.playerManpowerCap(player) : 0; }, // §9 (see PlannerExportInput's doc comments)
@@ -3258,6 +3260,13 @@ export class SimulationRuntime {
   // claimed yet). O(border size), not called from any hot path.
   reachTileCountForPlayer(playerId: string): number {
     return reachSetForPlayer(playerId, this.reachBorder).size;
+  }
+
+  // Real (non-diagnostic) accessor: the full key set the AI planner needs to
+  // build its own reachLookup, for both the in-process and worker-thread
+  // planning paths — see buildRuntimePlannerPlayerViews's reachTileKeys.
+  reachTileKeysForPlayer(playerId: string): string[] {
+    return [...reachSetForPlayer(playerId, this.reachBorder)];
   }
 
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER

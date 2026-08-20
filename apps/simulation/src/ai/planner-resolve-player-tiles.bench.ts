@@ -40,6 +40,7 @@ const player: PlannerPlayerView = {
   topologyDirtyTileKeys: [],
   activeDevelopmentProcessCount: 0,
   territoryTileKeys,
+  reachTileKeys: territoryTileKeys,
   frontierTileKeys,
   hotFrontierTileKeys,
   strategicFrontierTileKeys,

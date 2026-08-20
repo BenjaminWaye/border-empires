@@ -324,6 +324,10 @@ type PlannerExportInput = {
   plannerPlayerTileKeys: (playerId: string, summary: PlayerRuntimeSummary) => PlannerTileKeys;
   ownedStructureCountsForPlayer: (playerId: string) => PlannerOwnedStructureCounts;
   estimatedIncomePerMinuteForPlayer: (playerId: string) => number;
+  // Fixed-border reach (packages/shared/src/reach/reach.ts) — see
+  // PlannerPlayerView.reachTileKeys' doc comment for why this is required,
+  // not optional: without it EXPAND-family planning is reach-blind.
+  reachTileKeysForPlayer: (playerId: string) => string[];
   // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): feed the
   // planner's diagnostic-only needVector. Optional so callers that don't care
   // about it (tests building a PlannerExportInput by hand) don't need to wire
@@ -427,6 +431,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         topologyDirtyTileKeys: tileKeys.topologyDirtyTileKeys,
         hasActiveLock: lockPlayerIds.has(player.id),
         territoryTileKeys: tileKeys.territoryTileKeys,
+        reachTileKeys: track("planner_view_reach_tile_keys", playerId, () => input.reachTileKeysForPlayer(playerId)),
         frontierTileKeys: tileKeys.frontierTileKeys,
         hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
         strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,

@@ -190,10 +190,27 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
         };
       }
     }
+    // Fixed-border reach (packages/shared/src/reach/reach.ts): this worker
+    // thread has no access to the main-thread runtime's live reachBorder, so
+    // it can't compute reach itself the way runtime.ts's direct in-process
+    // call does — the main thread instead resolves it server-side and syncs
+    // the tile-key SET via PlannerPlayerView.reachTileKeys (see
+    // buildRuntimePlannerPlayerViews). Before this, reachLookup was never
+    // wired in the worker path at all, meaning the ai-runtime session
+    // (SIMULATION_AI_WORKER=1, the path actually running in staging/prod)
+    // proposed EXPAND targets with zero reach awareness — the server's
+    // authoritative OUT_OF_REACH check then rejected roughly half of every
+    // AI's EXPAND attempts, every single tick, forever (confirmed live:
+    // sim_ai_command_rejected_code_total{code="OUT_OF_REACH"} tracked almost
+    // exactly the accepted EXPAND count, and stuck empires never grew past
+    // their first few claimed tiles despite abundant room left in reach).
+    const reachTileKeySet = player.reachTileKeys ? new Set(player.reachTileKeys) : undefined;
+    const reachLookup = reachTileKeySet ? { isInReach: (_pid: string, x: number, y: number) => reachTileKeySet.has(`${x},${y}`) } : undefined;
     const plan = planAutomationCommand({
       playerId,
       points: player.points,
       manpower: player.manpower,
+      ...(reachLookup ? { reachLookup } : {}),
       ...(player.techIds ? { techIds: player.techIds } : {}),
       ...(player.domainIds ? { domainIds: player.domainIds } : {}),
       ...(player.strategicResources ? { strategicResources: player.strategicResources } : {}),
