@@ -1089,7 +1089,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       note: "This tile will become frontier territory.",
       cancelLabel: "Cancel expansion",
       cancelActionId: "cancel_capture" as const,
-      rushBuyLabel: `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST)}`,
+      rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST)}`,
       rushBuyActionId: "rush_buy" as const
     };
   };
@@ -1125,7 +1125,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             : {
                 cancelLabel: "Cancel settlement",
                 cancelActionId: "cancel_settle" as const,
-                rushBuyLabel: `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
+                rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
                 rushBuyActionId: "rush_buy" as const
               })
         };

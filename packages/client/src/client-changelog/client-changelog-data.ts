@@ -23,6 +23,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787259991319,
+    introducedIn: "2026.08.20",
+    title: "Rush-buy button is no longer a bare unstyled control, and its gold icon no longer looks like silver",
+    why: "The tile progress card's rush-buy button had no CSS at all, so it rendered as a plain browser-default button instead of matching the card's other pill-shaped controls. Its price label also used the 🪙 coin emoji, which renders as a plain silver/steel coin in most fonts and read as a different currency than gold.",
+    changes: [
+      "The rush-buy button now uses a gold-gradient pill style matching the rest of the tile progress card's buttons.",
+      "The rush-buy price label now uses 💰 instead of 🪙 so it reads unambiguously as gold."
+    ]
+  },
+  {
     createdAt: 1787259991318,
     introducedIn: "2026.08.20.3",
     title: "Fixed a frame-rate drop from the survey-sweep ping overlay",
