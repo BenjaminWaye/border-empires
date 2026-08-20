@@ -83,6 +83,7 @@ import {
   traceReachBoundaryEdgeLoops
 } from "../client-reach-overlay/client-reach-overlay.js";
 import { createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
+import { computeOtherOwnersReachPylons, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
@@ -175,6 +176,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // than a per-tile boundary check, so it must not run every frame.
   let reach3DPylons: { x: number; y: number }[] = [];
   let reach3DSegments: { from: { x: number; y: number }; to: { x: number; y: number } }[] = [];
+  let otherOwnersPylons: OwnedPylonPoint[] = []; let otherOwnersSegments: OwnedPylonSegment[] = []; // every OTHER visible owner's border -- client-reach-overlay-3d-multi.ts
   // Border-transition animation state (client-reach-overlay-transitions.ts),
   // persisted across frames -- a pylon/segment that drops out of
   // reach3DPylons/reach3DSegments keeps rendering here (sinking) until its
@@ -183,8 +185,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // unconditional renderReachOverlay3DPylons(), independent of
   // rebuildVisibleTerrain()'s camera-move/reach-change throttle, or the
   // animation would freeze whenever the camera stops moving mid-transition.
-  const reach3DPylonTracker = createTransitionTracker<{ x: number; y: number }>();
-  const reach3DSegmentTracker = createTransitionTracker<{ fx: number; fy: number; tx: number; ty: number }>();
+  const reach3DPylonTracker = createTransitionTracker<{ x: number; y: number; ownerId: string }>();
+  const reach3DSegmentTracker = createTransitionTracker<{ fx: number; fy: number; tx: number; ty: number; ownerId: string }>();
   // §21.1: one badge overlay per resource icon, so a dormant Fort missing TITANIUM gets ⛏ while an unfed town still gets 🍞.
   const RESOURCE_BADGE_ICON: Record<SlotResource, string> = { FOOD: "🍞", TITANIUM: "⛏", CRYSTAL: "💎", UMBRITE: "🟣" };
   const resourceBadgeOverlays: Record<SlotResource, ResourceBadgeOverlay> = {
@@ -1402,12 +1404,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const { pylons, segments } = samplePerimeterPylons(loops);
         reach3DPylons = pylons.flat();
         reach3DSegments = segments.flat();
+        ({ pylons: otherOwnersPylons, segments: otherOwnersSegments } = computeOtherOwnersReachPylons(deps.state.tiles, deps.state.me, reach3DDeps, deps.keyFor));
       }
     } else {
       reach3DCache = undefined;
       reach3DCacheRevision = -1;
-      reach3DPylons = [];
-      reach3DSegments = [];
+      reach3DPylons = []; reach3DSegments = []; otherOwnersPylons = []; otherOwnersSegments = [];
     }
 
     const perTileLoopStartAt = performance.now();
@@ -1982,7 +1984,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const renderReachOverlay3DPylons = (nowMs: number): void => {
     reachOverlay3D.clearPylons();
     if (isTrue3DRendererActive() && reach3DCache) {
-      const myColor = deps.effectiveOverlayColor(deps.state.me);
       // Pylon/segment points are grid CORNERS (traceReachBoundaryEdgeLoops),
       // not tile centers -- a corner is already exactly on the boundary
       // line between owned and out-of-reach ground, so no edge-offset
@@ -2006,19 +2007,18 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         });
       };
 
-      const currentPylons = new Map<string, { x: number; y: number }>();
-      for (const point of reach3DPylons) {
+      const allPylons: OwnedPylonPoint[] = [...reach3DPylons.map((p) => ({ ...p, ownerId: deps.state.me })), ...otherOwnersPylons]; // mine + every other visible owner's (already tagged)
+      const allSegments: OwnedPylonSegment[] = [...reach3DSegments.map((s) => ({ ...s, ownerId: deps.state.me })), ...otherOwnersSegments];
+      const currentPylons = new Map<string, { x: number; y: number; ownerId: string }>();
+      for (const point of allPylons) {
         if (!isCornerVisible(point.x, point.y)) continue;
-        currentPylons.set(`${point.x},${point.y}`, point);
+        currentPylons.set(`${point.ownerId}:${point.x},${point.y}`, point);
       }
-      const currentSegments = new Map<string, { fx: number; fy: number; tx: number; ty: number }>();
-      for (const segment of reach3DSegments) {
+      const currentSegments = new Map<string, { fx: number; fy: number; tx: number; ty: number; ownerId: string }>();
+      for (const segment of allSegments) {
         if (!isCornerVisible(segment.from.x, segment.from.y) && !isCornerVisible(segment.to.x, segment.to.y)) continue;
-        currentSegments.set(`${segment.from.x},${segment.from.y}|${segment.to.x},${segment.to.y}`, {
-          fx: segment.from.x,
-          fy: segment.from.y,
-          tx: segment.to.x,
-          ty: segment.to.y
+        currentSegments.set(`${segment.ownerId}:${segment.from.x},${segment.from.y}|${segment.to.x},${segment.to.y}`, {
+          fx: segment.from.x, fy: segment.from.y, tx: segment.to.x, ty: segment.to.y, ownerId: segment.ownerId
         });
       }
 
@@ -2032,7 +2032,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       for (const pf of pylonFrames.values()) {
         const sx = toroidDelta(deps.state.camX, pf.x, WORLD_WIDTH);
         const sz = toroidDelta(deps.state.camY, pf.y, WORLD_HEIGHT);
-        reachOverlay3D.addPylon(sx, sz, surfaceYForCorner(pf.x, pf.y), 1, nowMs, myColor, pf.riseFraction, pf.laserFraction);
+        reachOverlay3D.addPylon(sx, sz, surfaceYForCorner(pf.x, pf.y), 1, nowMs, deps.effectiveOverlayColor(pf.ownerId), pf.riseFraction, pf.laserFraction);
       }
       for (const sf of segmentFrames.values()) {
         const sx0 = toroidDelta(deps.state.camX, sf.fx, WORLD_WIDTH);
@@ -2046,7 +2046,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           sx1,
           sz1,
           surfaceYForCorner(sf.tx, sf.ty),
-          myColor,
+          deps.effectiveOverlayColor(sf.ownerId),
           sf.laserFraction,
           sf.riseFraction,
           sf.riseFraction

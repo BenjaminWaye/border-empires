@@ -39,9 +39,9 @@ import type { Tile } from "../client-types.js";
 
 export type ReachOverlayTileMap = ReadonlyMap<string, Tile>;
 
-const OUTPOST_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
+export const OUTPOST_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
 
-type LocalAnchor = { x: number; y: number; kind: ReachAnchorKind };
+export type LocalAnchor = { x: number; y: number; kind: ReachAnchorKind };
 
 const REACH_RADIUS_BY_KIND: Record<ReachAnchorKind, number> = {
   TOWN: 3,
@@ -50,7 +50,7 @@ const REACH_RADIUS_BY_KIND: Record<ReachAnchorKind, number> = {
 };
 
 /** Every wrapped tile key within an anchor's radius, inclusive of its own tile. */
-const tileKeysAroundAnchor = (anchor: LocalAnchor): string[] => {
+export const tileKeysAroundAnchor = (anchor: LocalAnchor): string[] => {
   const radius = REACH_RADIUS_BY_KIND[anchor.kind];
   const keys: string[] = [];
   for (let dy = -radius; dy <= radius; dy += 1) {
