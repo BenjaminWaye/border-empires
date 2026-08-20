@@ -297,12 +297,12 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
   ): void => {
     if (hillTintCount >= maxHillTiles) return;
     const hill: HillCorners = { corner00Y, corner10Y, corner01Y, corner11Y };
-    // surfaceY here is just the tile-center height (r=0 → domeFalloff=1),
-    // kept as a fallback/reference value; the frame perimeter and
-    // wandering people use `hill` to sample the dome's real height at
-    // their own position instead of this single peak value.
-    const surfaceY = hillSurfaceYAt(hill, 0.5, 0.5);
-    hillEntries.push({ worldTileX, worldTileY, sceneX: (x0 + x1) * 0.5, sceneZ: (z0 + z1) * 0.5, surfaceY, startAt, resolvesAt, hill });
+    // surfaceY is unused for hill entries — both read sites (commit()'s
+    // frame placement and tick()'s people placement) branch on `hill`
+    // first and always take that branch for a hill entry. Stored as 0
+    // rather than a computed placeholder purely to satisfy the shared
+    // TileEntry shape; flat entries are the ones that rely on it.
+    hillEntries.push({ worldTileX, worldTileY, sceneX: (x0 + x1) * 0.5, sceneZ: (z0 + z1) * 0.5, surfaceY: 0, startAt, resolvesAt, hill });
 
     const positions = hillTintGeom.getAttribute("position") as BufferAttribute;
     const colors = hillTintGeom.getAttribute("color") as BufferAttribute;
@@ -316,15 +316,9 @@ export const createSettleOverlay = (scene: Scene, maxTiles: number): SettleOverl
       for (let a = 0; a <= HILL_SUBDIV; a += 1) {
         const fx = a / HILL_SUBDIV;
         const fz = b / HILL_SUBDIV;
-        const u = fx - 0.5;
-        const v = fz - 0.5;
-        const r = Math.hypot(u, v);
-        const top = corner00Y + (corner10Y - corner00Y) * fx;
-        const bottom = corner01Y + (corner11Y - corner01Y) * fx;
-        const groundY = top + (bottom - top) * fz;
         const p = vi * 3;
         positions.array[p + 0] = x0 + (x1 - x0) * fx;
-        (positions.array as Float32Array)[p + 1] = groundY + HEIGHTFIELD_HILLS_ELEVATION_BONUS * domeFalloff(r) + HILL_DRAPE_CLEARANCE;
+        (positions.array as Float32Array)[p + 1] = hillSurfaceYAt(hill, fx, fz);
         positions.array[p + 2] = z0 + (z1 - z0) * fz;
         colors.array[p + 0] = ownerColor.r;
         colors.array[p + 1] = ownerColor.g;
