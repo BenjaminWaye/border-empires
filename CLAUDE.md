@@ -1,5 +1,7 @@
 # Notes for Claude
 
+@AGENTS.md
+
 ## PR review/fix tasks
 
 This repo does not have CI wired up to run on pull requests (no check runs get

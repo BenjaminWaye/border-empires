@@ -414,6 +414,15 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     ...(economicBuild
       ? { economicBuildCandidate: `${economicBuild.tile.x},${economicBuild.tile.y}:${economicBuild.structureType}` }
       : {}),
+    // Debug-only: the two gates that decide whether BUILD_BEACON can fire
+    // (see decisions.ts's scoreBuildBeacon / scoreExpand's hard veto) — both
+    // needed to distinguish "reach-starved but no site found" from "not
+    // reach-starved yet" from the outside, instead of inferring it (wrongly)
+    // from unrelated fields like frontierNeutralTargetCount.
+    reachStarved,
+    ...(relayBeaconBuild
+      ? { relayBeaconBuildCandidate: `${relayBeaconBuild.tile.x},${relayBeaconBuild.tile.y}${relayBeaconBuild.needsSettle ? ":needsSettle" : ""}` }
+      : {}),
     ...(typeof input.playerScopeKeyCount === "number" ? { playerScopeKeyCount: input.playerScopeKeyCount } : {}),
     ...(typeof input.playerScopeTileCount === "number" ? { playerScopeTileCount: input.playerScopeTileCount } : {})
   };
