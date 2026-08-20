@@ -133,6 +133,18 @@ const scoreExpand = (inp: DecisionInputs): number =>
     // frontierNeutralCount > 0) even when every candidate tile was refused as
     // valueless waste — scoring EXPAND high with nothing to actually execute.
     boolVeto(inp.hasAnyExpandCandidate),
+    // Hard override, not a soft competition: once every real prize (town/
+    // resource/dock/wonder) within reach is claimed out and a beacon site
+    // exists to reach the next one (isReachStarved), EXPAND must not keep
+    // winning just because some scout-value empty tile is still nearby —
+    // that's true of almost any border edge, valuable or not, so without
+    // this veto isReachStarved's beacon trigger and EXPAND's own gate below
+    // (hasOnlyScoutExpand deliberately passes through) would let plain land-
+    // grabbing race the beacon build indefinitely instead of ever
+    // decisively switching to it. See ai-economic-heuristics.ts's
+    // isReachStarved and structure-command-planner.ts's
+    // chooseBestRelayBeaconBuild.
+    boolVeto(!(inp.reachStarved && inp.hasRelayBeaconBuild)),
     // Suppress plain/waste expansion when no actionable target exists AND no
     // expansion objective is set.  Scout-only passes this gate (hasOnlyScoutExpand)
     // but gets penalised below so WAIT wins when the economy is weak.
