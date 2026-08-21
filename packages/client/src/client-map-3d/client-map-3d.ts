@@ -76,13 +76,8 @@ import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
-import {
-  computeLocalReachSet,
-  filterReachToLand,
-  isDormantFrontierTile,
-  samplePerimeterPylons,
-  traceReachBoundaryEdgeLoops
-} from "../client-reach-overlay/client-reach-overlay.js";
+import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { filterReachToLand, isDormantFrontierTile, samplePerimeterPylons, traceReachBoundaryEdgeLoops } from "../client-reach-overlay/client-reach-overlay.js";
 import { ARRIVE_STAGGER_MS, createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
 import { computeOtherOwnersReachPylons, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
@@ -1386,21 +1381,22 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
 
     // Fixed-borders-via-reach 3D overlay data source. Reuses the exact same
-    // pure computeLocalReachSet/isDormantFrontierTile/isReachBoundaryTile
+    // pure resolveMyReach/isDormantFrontierTile/isReachBoundaryTile
     // helpers the 2D canvas path uses (client-reach-overlay.ts) so both
     // renderers always agree on what's in reach. Only computed while the
     // true-3D renderer is actually active.
     const reach3DActive = isTrue3DRendererActive();
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
     if (reach3DActive) {
-      if (reach3DCacheRevision !== deps.state.tilesRevision) {
+      const reach3DKey = deps.state.tilesRevision + deps.state.serverReachRevision * 1e6; // serverReachRevision: repaint on REACH_UPDATE alone
+      if (reach3DCacheRevision !== reach3DKey) {
         // Land-only: reach is a purely geometric radius (no terrain
         // awareness), so a coastal anchor's disk legitimately extends over
         // open water -- filtered here so the boundary trace/pylons never
         // draw out into the sea. Gameplay legality (EXPAND requiring LAND
         // terrain) is unaffected; this only trims the visual reach set.
-        reach3DCache = filterReachToLand(computeLocalReachSet(deps.state.tiles, deps.state.me), deps.state.tiles, deps.keyFor);
-        reach3DCacheRevision = deps.state.tilesRevision;
+        reach3DCache = filterReachToLand(resolveMyReach(deps.state), deps.state.tiles, deps.keyFor);
+        reach3DCacheRevision = reach3DKey;
         const loops = traceReachBoundaryEdgeLoops(reach3DCache, reach3DDeps);
         const { pylons, segments } = samplePerimeterPylons(loops);
         reach3DPylons = pylons.flat();

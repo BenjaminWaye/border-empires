@@ -1,5 +1,5 @@
 import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
-import { localReachIsInReach } from "./client-reach-overlay/client-reach-overlay.js";
+import { authoritativeIsInReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import {
   persistWaypointQueueForPlayer,
   waypointCancelAllWirePayload,
@@ -50,7 +50,7 @@ const setWaypointForSelected = (
   }
   const plan: WaypointPlan = planWaypoint(
     { x: selected.x, y: selected.y },
-    { state, keyFor, isInReach: localReachIsInReach(state.tiles, state.me, keyFor) }
+    { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) }
   );
   if (!plan.reachable) {
     showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Action blocked", "No expansion path to that tile.");
