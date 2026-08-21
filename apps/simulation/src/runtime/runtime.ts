@@ -1760,7 +1760,7 @@ export class SimulationRuntime {
       // best-effort log; never throw from the diagnostic path
     }
   }
-
+  hasPlayer(playerId: string): boolean { return this.players.has(playerId); }
   ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }): boolean {
     const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor); if (spawned) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.players);
     if (spawned && this.pendingImperialWard?.playerId === playerId) {
