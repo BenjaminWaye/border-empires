@@ -7,6 +7,8 @@ import {
   finalizeRecoveredSimulationAccumulator
 } from "../event-recovery/event-recovery.js";
 import { SimulationRuntime } from "../runtime/runtime.js";
+import { orderedAutoSettlementTileKeys } from "./territory-automation.js";
+import type { DomainTileState } from "@border-empires/game-domain";
 
 const player = (id: string, points = 1_000, manpower = 1_000) => ({
   id,
@@ -194,6 +196,31 @@ describe("territory automation", () => {
     expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["30,30", "45,45", "60,60"]);
     const plainFrontier = runtime.exportState().tiles.find((tile) => tile.x === 75 && tile.y === 75);
     expect(plainFrontier).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
+  });
+
+  it("excludes an owned frontier resource tile that has not been revealed to the player", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [
+        "30,30",
+        { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" }
+      ],
+      [
+        "31,31",
+        { x: 31, y: 31, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" }
+      ]
+    ]);
+    const revealed = new Set(["31,31"]);
+
+    const result = orderedAutoSettlementTileKeys("player-1", ["30,30", "31,31"], {
+      getTile: (tileKey) => tiles.get(tileKey),
+      isBlocked: () => false,
+      hasTownSupport: () => false,
+      isRevealedToPlayer: (tile) => revealed.has(`${tile.x},${tile.y}`)
+    });
+
+    // Only the revealed tile is eligible — the unrevealed resource tile must
+    // never be auto-settled, regardless of how valuable it is.
+    expect(result).toEqual(["31,31"]);
   });
 
   it("uses territory expansion order for the advertised auto-settlement queue", async () => {
