@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787324700000,
+    introducedIn: "2026.08.21.5",
+    title: "Players now get a season-start email, and the previous champion gets a victory email",
+    why: "When a season rolled over, nothing told players by email that the map had reset -- they'd only find out by opening the game. And the player who was just crowned champion had no record of their win beyond the in-game season-end screen.",
+    changes: [
+      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one.",
+      "The player who won the previous season also gets a separate victory email calling out the objective they won through."
+    ]
+  },
+  {
     createdAt: 1787322201581,
     introducedIn: "2026.08.21",
     title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",

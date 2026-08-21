@@ -13,6 +13,7 @@ export type EmailAlertService = {
   sendAllianceRequestAlert: (input: SocialRequestAlertInput) => Promise<EmailAlertOutcome>;
   sendTruceRequestAlert: (input: TruceRequestAlertInput) => Promise<EmailAlertOutcome>;
   sendAttackAlert: (input: AttackAlertInput) => Promise<EmailAlertOutcome>;
+  sendSeasonStartAlert: (input: SeasonStartAlertInput) => Promise<EmailAlertOutcome>;
 };
 
 export type EmailAlertOutcome = "sent" | "disabled" | "recipient_missing" | "throttled" | "send_failed";
@@ -31,6 +32,14 @@ type AttackAlertInput = {
   attackerName: string;
   x: number;
   y: number;
+};
+
+type SeasonStartAlertInput = {
+  recipientPlayerId: string;
+  previousWinnerName?: string;
+  /** True when recipientPlayerId is themself the previous season's winner — folds a victory recap into this same email. */
+  isPreviousWinner?: boolean;
+  objectiveName?: string;
 };
 
 type EmailMessage = {
@@ -293,6 +302,83 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     };
   };
 
+  const formatSeasonMessage = (input: {
+    to: string;
+    subject: string;
+    eyebrow: string;
+    headline: string;
+    body: string[];
+    highlight?: { label: string; value: string };
+    linkUrl?: string;
+    linkLabel?: string;
+  }): EmailMessage => {
+    const linkUrl = input.linkUrl ?? appUrl;
+    const linkLabel = input.linkLabel ?? "Enter Border Empires";
+    const safeHeadline = escapeHtml(input.headline);
+    const safeEyebrow = escapeHtml(input.eyebrow);
+    const safeBody = input.body.map(escapeHtml);
+    const safeLinkUrl = escapeHtml(linkUrl);
+    const safeLinkLabel = escapeHtml(linkLabel);
+
+    const highlightHtml = input.highlight
+      ? `<tr><td style="padding:24px 40px 0;">
+           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#241a08,#2f2107);border:1px solid #a9791f;border-radius:10px;">
+             <tr>
+               <td style="padding:20px 24px;text-align:center;">
+                 <div style="font:600 11px/1.4 'Segoe UI',Arial,sans-serif;letter-spacing:2px;text-transform:uppercase;color:#e0b84a;">${escapeHtml(input.highlight.label)}</div>
+                 <div style="font:700 22px/1.4 Georgia,'Times New Roman',serif;color:#fbe7ad;margin-top:6px;">${escapeHtml(input.highlight.value)}</div>
+               </td>
+             </tr>
+           </table>
+         </td></tr>`
+      : "";
+
+    const bodyHtml = safeBody.map((line) => `<p style="margin:0 0 14px;font:400 15px/1.6 'Segoe UI',Arial,sans-serif;color:#cbd2de;">${line}</p>`).join("");
+
+    const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#0b0d14;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0d14;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#141826;border-radius:14px;overflow:hidden;border:1px solid #262c40;">
+            <tr>
+              <td style="background:linear-gradient(135deg,#1c2438,#0e1220);padding:32px 40px 24px;text-align:center;border-bottom:1px solid #2a3350;">
+                <div style="font:600 12px/1 'Segoe UI',Arial,sans-serif;letter-spacing:3px;text-transform:uppercase;color:#7c8bb3;">${safeEyebrow}</div>
+                <div style="font:700 26px/1.3 Georgia,'Times New Roman',serif;color:#f3d98b;margin-top:10px;">${safeHeadline}</div>
+              </td>
+            </tr>
+            ${highlightHtml}
+            <tr>
+              <td style="padding:28px 40px 8px;">
+                ${bodyHtml}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 40px 36px;text-align:center;">
+                <a href="${safeLinkUrl}" style="display:inline-block;padding:14px 32px;background:#c8952f;color:#1a1305;font:700 14px/1 'Segoe UI',Arial,sans-serif;letter-spacing:0.5px;text-decoration:none;border-radius:8px;">${safeLinkLabel}</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:20px 40px 28px;border-top:1px solid #232a3f;text-align:center;">
+                <div style="font:400 12px/1.5 'Segoe UI',Arial,sans-serif;color:#5b647f;">Border Empires &mdash; build, ally, conquer.</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+    return {
+      to: input.to,
+      subject: input.subject,
+      text: `${input.headline}\n\n${input.body.join("\n\n")}${input.highlight ? `\n\n${input.highlight.label}: ${input.highlight.value}` : ""}\n\n${linkLabel}: ${linkUrl}`,
+      html
+    };
+  };
+
   return {
     sendAllianceRequestAlert(input) {
       return send(
@@ -333,6 +419,38 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
           linkUrl: `${appUrl}/?x=${input.x}&y=${input.y}`,
           linkLabel: "Go to tile"
         })
+      );
+    },
+    sendSeasonStartAlert(input) {
+      const isPreviousWinner = input.isPreviousWinner === true;
+      return send(
+        input.recipientPlayerId,
+        (to) =>
+          formatSeasonMessage({
+            to,
+            subject: isPreviousWinner ? "You won the season — and a new one has begun in Border Empires" : "A new season has begun in Border Empires",
+            eyebrow: isPreviousWinner ? "Border Empires — Season Recap" : "Border Empires",
+            headline: isPreviousWinner ? "Victory Is Yours" : "A New Season Has Begun",
+            body: isPreviousWinner
+              ? [
+                  "Your empire outbuilt, outmaneuvered, and outlasted every rival on the map.",
+                  input.objectiveName
+                    ? `You claimed victory through ${input.objectiveName}, and your name is now etched into this season's history.`
+                    : "Your name is now etched into this season's history.",
+                  "The map has already reset for a new season — come defend your title before your rivals stake their claim."
+                ]
+              : [
+                  "The map has been reset, borders are undrawn, and every empire starts from the same first tile again.",
+                  "Claim your territory early, forge alliances, and build toward this season's objective before your rivals do."
+                ],
+            ...(isPreviousWinner
+              ? { highlight: { label: "Status", value: "Season Champion" } }
+              : input.previousWinnerName
+                ? { highlight: { label: "Reigning Champion", value: input.previousWinnerName } }
+                : {}),
+            linkLabel: isPreviousWinner ? "Defend Your Title" : "Start Your Empire"
+          }),
+        { bypassRateLimit: true }
       );
     }
   };
