@@ -2,35 +2,31 @@ import type { ClientState } from "../client-state/client-state.js";
 
 // Derives war-music combat/tension signals for updateMusicForGameState.
 //
-// `activeBattles` is purely client-side battle-FX animation state, pruned
-// the instant each individual skirmish's ~5.6s clash/rout animation ends
-// (see client-battle-overlay.ts). During a sustained war, entries flicker
-// empty for a beat between skirmishes even though the war itself hasn't
-// paused, which made music flip back to calm and re-trigger repeatedly.
-//
-// A muster flag left in ADVANCE mode is a durable, server-tracked stance —
-// it stays ADVANCE and keeps auto-firing until the player explicitly sets
-// it back to HOLD (see runtime-muster-tick.ts) — so it doesn't blip between
-// individual skirmishes the way activeBattles does. We still OR in
-// activeBattles for a manual (non-muster) attack, which can start a
-// skirmish with no ADVANCE flag involved at all.
-export const computeWarMusicSignals = (state: Pick<ClientState, "tiles" | "activeBattles" | "incomingAttacksByTile" | "musterTransitByTile" | "deferredAttackByTile" | "pendingMusterAttacks">): {
+// Both signals are driven off `tile.muster`, a server-tracked field that
+// only changes on an explicit SET_MUSTER/CLEAR_MUSTER command (see
+// runtime-muster-tick.ts and runtime-structure-lifecycle-command-handlers.ts)
+// — not per-frame or per-attack-resolution state. That makes both stable for
+// as long as the underlying stance holds, instead of blipping every time an
+// individual skirmish's animation or attack-in-flight timer happens to be
+// empty for a beat:
+//   - combat: a flag is raised and set to ADVANCE (actively marching/firing).
+//     `activeBattles` is still OR'd in to catch a manual (non-muster) attack,
+//     which can start a skirmish with no muster flag involved at all.
+//   - tension: a flag is raised but still HOLD (staged, not yet advancing) —
+//     the "war is coming" stance.
+export const computeWarMusicSignals = (state: Pick<ClientState, "tiles" | "activeBattles">): {
   combat: boolean;
   tension: boolean;
 } => {
   let advancing = false;
+  let staged = false;
   for (const tile of state.tiles.values()) {
-    if (tile.muster?.mode === "ADVANCE") {
-      advancing = true;
-      break;
-    }
+    if (tile.muster?.mode === "ADVANCE") advancing = true;
+    else if (tile.muster?.mode === "HOLD") staged = true;
+    if (advancing && staged) break;
   }
   return {
     combat: advancing || state.activeBattles.size > 0,
-    tension:
-      state.incomingAttacksByTile.size > 0 ||
-      state.musterTransitByTile.size > 0 ||
-      state.deferredAttackByTile.size > 0 ||
-      state.pendingMusterAttacks.length > 0
+    tension: staged
   };
 };
