@@ -7,20 +7,7 @@ const musterTile = (mode: "HOLD" | "ADVANCE"): Tile =>
 
 const baseState = () => ({
   tiles: new Map<string, Tile>(),
-  activeBattles: new Map(),
-  incomingAttacksByTile: new Map(),
-  musterTransitByTile: new Map(),
-  deferredAttackByTile: new Map(),
-  pendingMusterAttacks: [] as Array<{
-    targetX: number;
-    targetY: number;
-    fromX: number;
-    fromY: number;
-    musterTileKey: string;
-    dismissed?: boolean;
-    musterRequestedAt?: number;
-    queuedAt?: number;
-  }>
+  activeBattles: new Map()
 });
 
 describe("computeWarMusicSignals", () => {
@@ -32,15 +19,32 @@ describe("computeWarMusicSignals", () => {
     expect(computeWarMusicSignals(state).combat).toBe(true);
   });
 
-  it("is not in combat when musters are all HOLD and no battle FX is active", () => {
+  it("is in tension, not combat, while a flag is staged at HOLD", () => {
     const state = baseState();
     state.tiles.set("0,0", musterTile("HOLD"));
-    expect(computeWarMusicSignals(state).combat).toBe(false);
+    const result = computeWarMusicSignals(state);
+    expect(result.combat).toBe(false);
+    expect(result.tension).toBe(true);
+  });
+
+  it("is calm when no muster flags are raised and no battle FX is active", () => {
+    const state = baseState();
+    const result = computeWarMusicSignals(state);
+    expect(result.combat).toBe(false);
+    expect(result.tension).toBe(false);
   });
 
   it("is in combat for a manual attack with no ADVANCE flag involved", () => {
     const state = baseState();
     state.activeBattles.set("1,1", {} as never);
     expect(computeWarMusicSignals(state).combat).toBe(true);
+  });
+
+  it("stays combat (not tension) when both an ADVANCE and a HOLD flag are raised", () => {
+    const state = baseState();
+    state.tiles.set("0,0", musterTile("ADVANCE"));
+    state.tiles.set("1,1", musterTile("HOLD"));
+    const result = computeWarMusicSignals(state);
+    expect(result.combat).toBe(true);
   });
 });
