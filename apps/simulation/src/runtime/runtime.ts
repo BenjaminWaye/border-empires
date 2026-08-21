@@ -299,6 +299,7 @@ import {
   handleSurveySweepCommand as handleSurveySweepCommandImpl,
   type RuntimeAbilityCommandContext
 } from "../runtime-ability-command-handlers.js";
+import { buildAbilityCommandContext } from "./runtime-ability-command-context.js";
 import { handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { handleSyncTruceCommand as handleSyncTruceCommandImpl } from "../runtime-truce-sync-command.js";
 import {
   handleAegisLockCommand as handleAegisLockCommandImpl,
@@ -418,6 +419,7 @@ import {
   handleRushBuyCommandImpl,
   type RuntimeRushBuyCommandContext
 } from "../runtime-rush-buy-command.js";
+import { buildRushBuyCommandContext } from "./runtime-rush-buy-command-context.js";
 import {
   seedLiveBarbarians as seedLiveBarbariansImpl,
   type SeedLiveBarbariansResult
@@ -3978,7 +3980,7 @@ export class SimulationRuntime {
   }
 
   private rushBuyCommandContext(): RuntimeRushBuyCommandContext {
-    return {
+    return buildRushBuyCommandContext({
       players: this.players,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       locksByTile: this.locksByTile,
@@ -3992,10 +3994,8 @@ export class SimulationRuntime {
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       emitEvent: (event) => this.emitEvent(event),
       structureCommandContext: () => this.structureCommandContext()
-    };
+    });
   }
-
-  private handleRushBuyCommand(command: CommandEnvelope): void { handleRushBuyCommandImpl(this.rushBuyCommandContext(), command); }
 
   private handleSettleCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
@@ -4207,7 +4207,7 @@ export class SimulationRuntime {
   private handleUncaptureTileCommand(command: CommandEnvelope): void { handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command); }
 
   private abilityCommandContext(): RuntimeAbilityCommandContext {
-    return {
+    return buildAbilityCommandContext({
       players: this.players,
       tiles: this.tiles,
       activeAetherBridgesByPlayer: this.activeAetherBridgesByPlayer,
@@ -4238,24 +4238,8 @@ export class SimulationRuntime {
         this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
       reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
       grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId)
-    };
+    });
   }
-
-  private handleRevealEmpireCommand(command: CommandEnvelope): void { handleRevealEmpireCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleRevealEmpireStatsCommand(command: CommandEnvelope): void { handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleSurveySweepCommand(command: CommandEnvelope): void { handleSurveySweepCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleAetherLanceCommand(command: CommandEnvelope): void { handleAetherLanceCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleCastAetherBridgeCommand(command: CommandEnvelope): void { handleCastAetherBridgeCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleCastAetherWallCommand(command: CommandEnvelope): void { handleCastAetherWallCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleSiphonTileCommand(command: CommandEnvelope): void { handleSiphonTileCommandImpl(this.abilityCommandContext(), command); }
-
-  private handlePurgeSiphonCommand(command: CommandEnvelope): void { handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command); }
 
   private mapCommandContext(): RuntimeMapCommandContext {
     return {
@@ -5023,7 +5007,7 @@ export class SimulationRuntime {
       handleCancelCaptureCommand: (command) => this.handleCancelCaptureCommand(command),
       handleCancelFortBuildCommand: (command) => this.handleCancelFortBuildCommand(command),
       handleCancelStructureBuildCommand: (command) => this.handleCancelStructureBuildCommand(command),
-      handleRushBuyCommand: (command) => this.handleRushBuyCommand(command),
+      handleRushBuyCommand: (command) => handleRushBuyCommandImpl(this.rushBuyCommandContext(), command),
       handleCancelSettleCommand: (command) => this.handleCancelSettleCommand(command),
       handleRemoveStructureCommand: (command) => this.handleRemoveStructureCommand(command),
       handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
@@ -5034,14 +5018,14 @@ export class SimulationRuntime {
       handleChooseDomainCommand: (command) => handleChooseDomainCommandImpl(this.progressionCommandContext(), command),
       handleSetConverterStructureEnabledCommand: (command) => handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command),
       handleSetConverterStructureModeCommand: (command) => handleSetConverterStructureModeCommandImpl(this.economicStructureCommandContext(), command),
-      handleRevealEmpireCommand: (command) => this.handleRevealEmpireCommand(command),
-      handleRevealEmpireStatsCommand: (command) => this.handleRevealEmpireStatsCommand(command),
-      handleSurveySweepCommand: (command) => this.handleSurveySweepCommand(command),
-      handleAetherLanceCommand: (command) => this.handleAetherLanceCommand(command),
-      handleCastAetherBridgeCommand: (command) => this.handleCastAetherBridgeCommand(command),
-      handleCastAetherWallCommand: (command) => this.handleCastAetherWallCommand(command),
-      handleSiphonTileCommand: (command) => this.handleSiphonTileCommand(command),
-      handlePurgeSiphonCommand: (command) => this.handlePurgeSiphonCommand(command),
+      handleRevealEmpireCommand: (command) => handleRevealEmpireCommandImpl(this.abilityCommandContext(), command),
+      handleRevealEmpireStatsCommand: (command) => handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command),
+      handleSurveySweepCommand: (command) => handleSurveySweepCommandImpl(this.abilityCommandContext(), command),
+      handleAetherLanceCommand: (command) => handleAetherLanceCommandImpl(this.abilityCommandContext(), command),
+      handleCastAetherBridgeCommand: (command) => handleCastAetherBridgeCommandImpl(this.abilityCommandContext(), command),
+      handleCastAetherWallCommand: (command) => handleCastAetherWallCommandImpl(this.abilityCommandContext(), command),
+      handleSiphonTileCommand: (command) => handleSiphonTileCommandImpl(this.abilityCommandContext(), command),
+      handlePurgeSiphonCommand: (command) => handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command),
       handleCreateMountainCommand: (command) => handleCreateMountainCommandImpl(this.mapCommandContext(), command),
       handleRemoveMountainCommand: (command) => handleRemoveMountainCommandImpl(this.mapCommandContext(), command),
       handleAirportBombardCommand: (command) => handleAirportBombardCommandImpl(this.mapCommandContext(), command),
