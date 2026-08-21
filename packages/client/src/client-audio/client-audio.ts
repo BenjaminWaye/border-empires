@@ -204,7 +204,11 @@ export const initClientAudio = (): void => {
     }
     if (muted) return;
     attemptPlay();
-    void sfxElement?.play();
+    sfxElement?.play().catch(() => {
+      // Ignore — e.g. the tab was hidden again before this play() resolved,
+      // interrupting it with a pause(). Nothing to resume here (unlike the
+      // music bed, a location theme isn't retried on the next interaction).
+    });
   });
 };
 

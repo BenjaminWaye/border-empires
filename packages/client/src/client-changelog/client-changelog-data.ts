@@ -22,6 +22,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787356800000,
+    introducedIn: "2026.08.21.3",
+    title: "Fixed a crash when switching apps and back while a location theme was playing",
+    why: "Backgrounding the tab pauses playback; returning to it resumes both the music bed and any location theme. The location theme's resume call didn't catch play() rejections the way the music bed's did, so a fast switch-away-and-back (interrupting that play() with a pause()) threw an unhandled rejection that tripped the app's error boundary, showing \"Border Empires hit a problem loading\".",
+    changes: [
+      "Switching to another app and back no longer crashes the game to the error screen."
+    ]
+  },
+  {
     createdAt: 1787322201581,
     introducedIn: "2026.08.21",
     title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",
