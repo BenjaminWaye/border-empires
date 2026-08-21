@@ -2838,8 +2838,8 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
       playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
-      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId)
-    });
+      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
+      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId), resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId) });
   }
 
   // Lean per-second metrics row (skips exportPlayerDebugSnapshot's sort/clone/lock-scan work; see RuntimeAiPlayerMetricsRow doc comment).
