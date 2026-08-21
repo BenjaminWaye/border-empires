@@ -74,6 +74,7 @@ export type RecoveredSimulationState = {
     strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
     chosenTrickleResource?: ChosenTrickleResource;
     imperialWardCharges?: number;
+    wonderLastFreeRushBuyAt?: number;
     eventLog?: PlayerEventLogEntry[];
     allies?: string[];
     vision?: number;

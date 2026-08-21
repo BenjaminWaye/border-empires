@@ -12,5 +12,4 @@ export type NaturalWonderType =
 export type NaturalWonderState = {
   type: NaturalWonderType;
   claimedAt?: number;
-  lastFreeRushBuyAt?: number;
 };
