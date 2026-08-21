@@ -74,6 +74,7 @@ import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "../season-lifecycle.js";
+import { parseRallyAnchor, preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
 import { computeSeasonWinnerStats } from "../season-winner-stats.js";
 import { computeLongestRoad, findMostDeadlyTile } from "../season-stats/season-stats.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
@@ -90,17 +91,6 @@ import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
 import { buildEventLoopBlockedPayload } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
 
-const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
-  if (!value) return undefined;
-  try {
-    const parsed = JSON.parse(value) as { x?: unknown; y?: unknown };
-    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return undefined;
-    if (!Number.isInteger(parsed.x) || !Number.isInteger(parsed.y)) return undefined;
-    return { x: parsed.x, y: parsed.y };
-  } catch {
-    return undefined;
-  }
-};
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
@@ -1218,7 +1208,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   };
-  const preparePlayerSlowLogMs = 250;
   // 5s: Phase 3b broadcast uses cheap player-only path (no tile export).
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 5000;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
@@ -2304,59 +2293,23 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     PreparePlayer(
       call: { request: { player_id: string; rally_anchor_json?: string } },
+      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean }) => void
+    ) {
+      preparePlayerHandler(
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; } },
+        call,
+        callback
+      );
+    },
+    JoinSeason(
+      call: { request: { player_id: string; rally_anchor_json?: string } },
       callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean }) => void
     ) {
-      const prepareStartedAt = Date.now();
-      let spawned = false;
-      try {
-        if (currentSeasonState.status !== "ended") {
-          const spawnStartedAt = Date.now();
-          const rallyAnchor = parseRallyAnchor(call.request.rally_anchor_json);
-          spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id, rallyAnchor);
-          simulationMetrics.observeSimPreparePlayerLatencyMs("spawn", Date.now() - spawnStartedAt);
-          if (spawned) {
-            deleteCachedSnapshot(call.request.player_id);
-            log.info({ playerId: call.request.player_id }, "spawned runtime territory for prepared player");
-          }
-          try {
-            runtime.emitShardRainHelloFor(call.request.player_id);
-          } catch (error) {
-            log.error({ err: error, playerId: call.request.player_id }, "shard rain hello failed");
-          }
-        }
-        const prepareDurationMs = Date.now() - prepareStartedAt;
-        simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
-        if (spawned || prepareDurationMs >= preparePlayerSlowLogMs) {
-          log.info({
-            playerId: call.request.player_id,
-            prepareDurationMs,
-            spawned
-          }, "prepare player completed");
-        }
-        callback(null, {
-          ok: true,
-          player_id: call.request.player_id,
-          playerId: call.request.player_id,
-          spawned
-        });
-      } catch (error) {
-        const prepareDurationMs = Date.now() - prepareStartedAt;
-        simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
-        log.error(
-          {
-            playerId: call.request.player_id,
-            prepareDurationMs,
-            error: error instanceof Error ? error.message : String(error)
-          },
-          "prepare player failed"
-        );
-        callback(error instanceof Error ? error : new Error("failed to prepare simulation player"), {
-          ok: false,
-          player_id: call.request.player_id,
-          playerId: call.request.player_id,
-          spawned
-        });
-      }
+      joinSeasonHandler(
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; } },
+        call,
+        callback
+      );
     },
     SubscribePlayer(
       call: { request: { player_id: string; subscription_json: string } },

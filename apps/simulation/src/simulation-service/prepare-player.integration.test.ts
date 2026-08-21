@@ -22,9 +22,17 @@ type RawSimulationClient = {
   ) => void;
   PreparePlayer?: (
     request: { player_id: string },
-    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean }) => void
+    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean; joined?: boolean }) => void
   ) => void;
   preparePlayer?: (
+    request: { player_id: string },
+    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean; joined?: boolean }) => void
+  ) => void;
+  JoinSeason?: (
+    request: { player_id: string },
+    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean }) => void
+  ) => void;
+  joinSeason?: (
     request: { player_id: string },
     callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean }) => void
   ) => void;
@@ -77,9 +85,27 @@ const proto = loadPackageDefinition(packageDefinition) as unknown as {
 const createRawSimulationClient = (address: string) =>
   new proto.border_empires.simulation.SimulationService(address, credentials.createInsecure());
 
-const preparePlayer = async (client: RawSimulationClient, playerId: string): Promise<{ playerId: string; spawned: boolean }> => {
+const preparePlayer = async (client: RawSimulationClient, playerId: string): Promise<{ playerId: string; spawned: boolean; joined: boolean }> => {
   const rpc = client.PreparePlayer ?? client.preparePlayer;
   if (!rpc) throw new Error("PreparePlayer RPC unavailable in integration test");
+  return await new Promise((resolve, reject) => {
+    rpc.call(client, { player_id: playerId }, (error, response) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve({
+        playerId: response.player_id ?? playerId,
+        spawned: response.spawned === true,
+        joined: response.joined !== false
+      });
+    });
+  });
+};
+
+const joinSeason = async (client: RawSimulationClient, playerId: string): Promise<{ playerId: string; spawned: boolean }> => {
+  const rpc = client.JoinSeason ?? client.joinSeason;
+  if (!rpc) throw new Error("JoinSeason RPC unavailable in integration test");
   return await new Promise((resolve, reject) => {
     rpc.call(client, { player_id: playerId }, (error, response) => {
       if (error) {
@@ -218,7 +244,31 @@ describe("prepare player integration", () => {
     }
   });
 
-  it("spawns an unknown player exactly once across repeated prepare calls", async () => {
+  it("does not spawn an unrecognized player via PreparePlayer alone", async () => {
+    // Regression for the season-carryover bug: PreparePlayer is called on
+    // every authenticated connection, so it must never silently admit a
+    // player who has not explicitly joined the active season.
+    const service = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      log: silentLog
+    });
+    cleanup.push(() => service.close());
+    const started = await service.start();
+    const client = createRawSimulationClient(started.address);
+    const playerId = "firebase-user-unjoined";
+
+    await expect(preparePlayer(client, playerId)).resolves.toEqual({
+      playerId,
+      spawned: false,
+      joined: false
+    });
+
+    const ownedTiles = service.runtime.exportState().tiles.filter((tile) => tile.ownerId === playerId);
+    expect(ownedTiles).toHaveLength(0);
+  });
+
+  it("spawns an unknown player exactly once across repeated join calls, and PreparePlayer afterward is a no-op respawn check", async () => {
     const service = await createSimulationService({
       host: "127.0.0.1",
       port: 0,
@@ -229,13 +279,18 @@ describe("prepare player integration", () => {
     const client = createRawSimulationClient(started.address);
     const playerId = "firebase-user-1";
 
-    await expect(preparePlayer(client, playerId)).resolves.toEqual({
+    await expect(joinSeason(client, playerId)).resolves.toEqual({
       playerId,
       spawned: true
     });
-    await expect(preparePlayer(client, playerId)).resolves.toEqual({
+    await expect(joinSeason(client, playerId)).resolves.toEqual({
       playerId,
       spawned: false
+    });
+    await expect(preparePlayer(client, playerId)).resolves.toEqual({
+      playerId,
+      spawned: false,
+      joined: true
     });
 
     const ownedTiles = service.runtime.exportState().tiles.filter((tile) => tile.ownerId === playerId);
@@ -275,7 +330,7 @@ describe("prepare player integration", () => {
     const client = createRawSimulationClient(started.address);
     const playerId = "firebase-user-3";
 
-    await preparePlayer(client, playerId);
+    await joinSeason(client, playerId);
     const snapshot = await subscribePlayer(client, playerId);
 
     expect(snapshot.playerId).toBe(playerId);
@@ -293,7 +348,7 @@ describe("prepare player integration", () => {
     const client = createRawSimulationClient(started.address);
     const playerId = "firebase-user-4";
 
-    await preparePlayer(client, playerId);
+    await joinSeason(client, playerId);
     const snapshot = await subscribePlayer(client, playerId, JSON.stringify({ mode: "bootstrap-only" }));
 
     expect(snapshot.playerId).toBe(playerId);
@@ -314,7 +369,7 @@ describe("prepare player integration", () => {
     const client = createRawSimulationClient(started.address);
     const playerId = "firebase-user-bootstrap-only";
 
-    await preparePlayer(client, playerId);
+    await joinSeason(client, playerId);
     await subscribePlayer(client, playerId, JSON.stringify({ mode: "bootstrap-only", emitBootstrapEvent: false }));
     await submitCommand(client, {
       command_id: "bootstrap-only-no-live-events",
@@ -345,7 +400,7 @@ describe("prepare player integration", () => {
     const client = createRawSimulationClient(started.address);
     const playerId = "firebase-user-5";
 
-    await preparePlayer(client, playerId);
+    await joinSeason(client, playerId);
     await subscribePlayer(client, playerId);
     await subscribePlayer(client, playerId);
     await unsubscribePlayer(client, playerId);
@@ -419,7 +474,7 @@ describe("prepare player integration", () => {
     const client = createRawSimulationClient(started.address);
     const playerId = "firebase-user-bootstrap-cache-hit";
 
-    await preparePlayer(client, playerId);
+    await joinSeason(client, playerId);
     const first = await subscribePlayer(client, playerId, JSON.stringify({ mode: "bootstrap-only" }));
 
     const retryStartedAt = Date.now();

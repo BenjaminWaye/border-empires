@@ -2079,9 +2079,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel
               });
               loginPhase.notify(socket, "Preparing your empire...", "Connecting to the simulation backend.");
-              const prepareResult = await retrySimulationRpc(
+              const prepareResult = await retrySimulationRpc( // login = explicit season join; see JoinSeason
                 "gateway prepare player",
-                () => simulationClient.preparePlayer(playerIdentity.playerId, rallyAnchor),
+                () => (simulationClient.joinSeason ?? simulationClient.preparePlayer)(playerIdentity.playerId, rallyAnchor),
                 simulationPrepareTimeoutMs,
                 (error, attempt) => {
                   recordGatewayEvent("warn", "gateway_auth_prepare_retry", {
