@@ -389,6 +389,7 @@ import {
   handleUncaptureTileCommand as handleUncaptureTileCommandImpl,
   type RuntimeEconomicStructureCommandContext
 } from "../runtime-economic-structure-command-handlers.js";
+import { buildEconomicStructureCommandContext } from "./runtime-economic-structure-command-context.js";
 import {
   cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
   completeStructureRemoval as completeStructureRemovalImpl,
@@ -4186,7 +4187,7 @@ export class SimulationRuntime {
   }
 
   private economicStructureCommandContext(): RuntimeEconomicStructureCommandContext {
-    return {
+    return buildEconomicStructureCommandContext({
       players: this.players,
       tiles: this.tiles,
       locksByTile: this.locksByTile,
@@ -4201,10 +4202,8 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount)
-    };
+    });
   }
-
-  private handleUncaptureTileCommand(command: CommandEnvelope): void { handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command); }
 
   private abilityCommandContext(): RuntimeAbilityCommandContext {
     return buildAbilityCommandContext({
@@ -5013,7 +5012,7 @@ export class SimulationRuntime {
       handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
       handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
       handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
-      handleUncaptureTileCommand: (command) => this.handleUncaptureTileCommand(command),
+      handleUncaptureTileCommand: (command) => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command),
       handleChooseTechCommand: (command) => handleChooseTechCommandImpl(this.progressionCommandContext(), command),
       handleChooseDomainCommand: (command) => handleChooseDomainCommandImpl(this.progressionCommandContext(), command),
       handleSetConverterStructureEnabledCommand: (command) => handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command),
