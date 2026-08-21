@@ -65,6 +65,22 @@ export class SqliteGatewayAuthBindingStore implements GatewayAuthBindingStore {
     return row ? toBinding(row) : undefined;
   }
 
+  async listAllWithEmail(): Promise<StoredAuthIdentityBinding[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT auth_uid, player_id, auth_email, updated_at
+         FROM auth_identity_bindings
+         WHERE auth_email IS NOT NULL
+         ORDER BY player_id, updated_at DESC`
+      )
+      .all() as Row[];
+    const latestByPlayerId = new Map<string, StoredAuthIdentityBinding>();
+    for (const row of rows) {
+      if (!latestByPlayerId.has(row.player_id)) latestByPlayerId.set(row.player_id, toBinding(row));
+    }
+    return [...latestByPlayerId.values()];
+  }
+
   async bindIdentity(binding: { uid: string; playerId: string; email?: string }): Promise<StoredAuthIdentityBinding> {
     const now = this.now();
     const row = this.db
