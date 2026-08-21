@@ -7,6 +7,14 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
 import {
+  gatherReachAnchors as gatherReachAnchorsImpl,
+  newlyActivatedReachAnchors as newlyActivatedReachAnchorsImpl,
+  newlyDeactivatedReachAnchors as newlyDeactivatedReachAnchorsImpl,
+  isPlayerTileInReach as isPlayerTileInReachImpl,
+  reachTileCountForPlayer as reachTileCountForPlayerImpl,
+  reachTileKeysForPlayer as reachTileKeysForPlayerImpl
+} from "./runtime-reach-anchors.js";
+import {
   appendPlayerEventLogEntry,
   CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
   QUARTERMASTERS_OFFICE_RADIUS,
@@ -34,8 +42,6 @@ import {
   grantAnchorToBorder,
   reassessBorderOnAnchorDeactivation,
   liveReachForOwner,
-  isInReach,
-  reachSetForPlayer,
   type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
@@ -57,9 +63,14 @@ import {
 import {
   buildDockLinksByDockTileKey,
   computeLinkedDockRevealTileKeys,
-  isValidDockCrossingTarget,
   type DockRouteDefinition
 } from "../dock-network/dock-network.js";
+import {
+  isDockCrossingTarget as isDockCrossingTargetImpl,
+  isAetherBridgeCrossingTarget as isAetherBridgeCrossingTargetImpl,
+  findOwnedDockOriginForCrossing as findOwnedDockOriginForCrossingImpl,
+  findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl
+} from "./runtime-crossing.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "../ai/frontier-command-planner.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import {
@@ -3058,49 +3069,15 @@ export class SimulationRuntime {
   // not build order) but is still populated for API completeness / possible
   // future use.
   private gatherReachAnchors(): ReachAnchor[] {
-    const anchors: ReachAnchor[] = [];
-    for (const [playerId, summary] of this.playerSummaries) {
-      for (const tileKey of summary.ownedTownTierByTile.keys()) {
-        const tile = this.tiles.get(tileKey);
-        // ownershipState gate: a tile that was overtaken by the unsettle
-        // transition keeps its `town`/`siegeOutpost`/`economicStructure`
-        // fields untouched (structures stay, only ownershipState flips), so
-        // without this check a dormant/downgraded structure would keep
-        // functioning as a full reach anchor forever — contradicting the
-        // same SETTLED-only dormancy rule already enforced for combat aura
-        // in outpost-aura.ts. Gate TOWN and OUTPOST anchors on it; DOCK is
-        // deliberately left ungated (see the dock loop below).
-        if (!tile || tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
-        anchors.push({ x: tile.x, y: tile.y, ownerId: playerId, activatedAt: this.tileSettledAtByKey.get(tileKey) ?? this.now(), kind: "TOWN" });
-      }
-    }
-    for (const [ownerId, keys] of this.activeRelayBeaconsByOwner) {
-      for (const tileKey of keys) {
-        const tile = this.tiles.get(tileKey);
-        if (!tile || tile.ownershipState !== "SETTLED") continue;
-        anchors.push({ x: tile.x, y: tile.y, ownerId, activatedAt: tile.economicStructure?.activatedAt ?? this.now(), kind: "OUTPOST" });
-      }
-    }
-    for (const [ownerId, keys] of this.activeSiegeOutpostsByOwner) {
-      for (const tileKey of keys) {
-        const tile = this.tiles.get(tileKey);
-        if (!tile || tile.ownershipState !== "SETTLED") continue;
-        anchors.push({ x: tile.x, y: tile.y, ownerId, activatedAt: tile.siegeOutpost?.activatedAt ?? this.now(), kind: "OUTPOST" });
-      }
-    }
-    for (const dock of this.docks) {
-      const tile = this.tiles.get(dock.tileKey);
-      // Deliberately NOT gated on ownershipState === "SETTLED": a freshly
-      // captured dock tile always lands FRONTIER (capture rule, see
-      // runtime-lock-resolution.ts), and requiring SETTLE first would make a
-      // dock's small reach bubble unavailable exactly when it's most useful
-      // (right after taking it). Docks aren't part of the SETTLED-dormancy
-      // precedent this plan established for outposts/towns — see the plan
-      // doc's "Reach computation" section.
-      if (!tile?.ownerId) continue;
-      anchors.push({ x: tile.x, y: tile.y, ownerId: tile.ownerId, activatedAt: this.tileSettledAtByKey.get(dock.tileKey) ?? this.now(), kind: "DOCK" });
-    }
-    return anchors;
+    return gatherReachAnchorsImpl({
+      playerSummaries: this.playerSummaries,
+      tiles: this.tiles,
+      activeRelayBeaconsByOwner: this.activeRelayBeaconsByOwner,
+      activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
+      docks: this.docks,
+      tileSettledAtByKey: this.tileSettledAtByKey,
+      now: this.now()
+    });
   }
 
   // Detects any reach anchor that just became active on this tile as a
@@ -3118,36 +3095,7 @@ export class SimulationRuntime {
   // only changes on a new activation contesting it (see
   // grantAnchorToBorder's doc comment).
   private newlyActivatedReachAnchors(previous: DomainTileState | undefined, tile: DomainTileState): ReachAnchor[] {
-    const anchors: ReachAnchor[] = [];
-    const wasSettled = previous?.ownershipState === "SETTLED";
-    const isSettled = tile.ownershipState === "SETTLED";
-
-    const wasActiveTown = wasSettled && previous?.town ? previous.ownerId : undefined;
-    const isActiveTown = isSettled && tile.town ? tile.ownerId : undefined;
-    if (isActiveTown && isActiveTown !== wasActiveTown) {
-      anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveTown, activatedAt: this.now(), kind: "TOWN" });
-    }
-    const wasActiveSiege = wasSettled && previous?.siegeOutpost?.status === "active" ? previous.siegeOutpost.ownerId : undefined;
-    const isActiveSiege = isSettled && tile.siegeOutpost?.status === "active" ? tile.siegeOutpost.ownerId : undefined;
-    if (isActiveSiege && isActiveSiege !== wasActiveSiege) {
-      anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveSiege, activatedAt: tile.siegeOutpost?.activatedAt ?? this.now(), kind: "OUTPOST" });
-    }
-    const wasActiveBeacon =
-      wasSettled && previous?.economicStructure?.status === "active" && previous.economicStructure.type === "RELAY_BEACON"
-        ? previous.economicStructure.ownerId
-        : undefined;
-    const isActiveBeacon =
-      isSettled && tile.economicStructure?.status === "active" && tile.economicStructure.type === "RELAY_BEACON"
-        ? tile.economicStructure.ownerId
-        : undefined;
-    if (isActiveBeacon && isActiveBeacon !== wasActiveBeacon) {
-      anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveBeacon, activatedAt: tile.economicStructure?.activatedAt ?? this.now(), kind: "OUTPOST" });
-    }
-    // DOCK deliberately not gated on ownershipState — see gatherReachAnchors.
-    if (tile.dockId && tile.ownerId && (!previous?.dockId || previous.ownerId !== tile.ownerId)) {
-      anchors.push({ x: tile.x, y: tile.y, ownerId: tile.ownerId, activatedAt: this.now(), kind: "DOCK" });
-    }
-    return anchors;
+    return newlyActivatedReachAnchorsImpl(previous, tile, this.now());
   }
 
   // Mirror of newlyActivatedReachAnchors, inverted: detects any reach anchor
@@ -3160,36 +3108,7 @@ export class SimulationRuntime {
   // exists right now — see reassessBorderOnAnchorDeactivation's doc comment
   // for why this is needed even though the border is otherwise sticky.
   private newlyDeactivatedReachAnchors(previous: DomainTileState | undefined, tile: DomainTileState): ReachAnchor[] {
-    const anchors: ReachAnchor[] = [];
-    const wasSettled = previous?.ownershipState === "SETTLED";
-    const isSettled = tile.ownershipState === "SETTLED";
-
-    const wasActiveTown = wasSettled && previous?.town ? previous.ownerId : undefined;
-    const isActiveTown = isSettled && tile.town ? tile.ownerId : undefined;
-    if (wasActiveTown && wasActiveTown !== isActiveTown) {
-      anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveTown, activatedAt: this.now(), kind: "TOWN" });
-    }
-    const wasActiveSiege = wasSettled && previous?.siegeOutpost?.status === "active" ? previous.siegeOutpost.ownerId : undefined;
-    const isActiveSiege = isSettled && tile.siegeOutpost?.status === "active" ? tile.siegeOutpost.ownerId : undefined;
-    if (wasActiveSiege && wasActiveSiege !== isActiveSiege) {
-      anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveSiege, activatedAt: this.now(), kind: "OUTPOST" });
-    }
-    const wasActiveBeacon =
-      wasSettled && previous?.economicStructure?.status === "active" && previous.economicStructure.type === "RELAY_BEACON"
-        ? previous.economicStructure.ownerId
-        : undefined;
-    const isActiveBeacon =
-      isSettled && tile.economicStructure?.status === "active" && tile.economicStructure.type === "RELAY_BEACON"
-        ? tile.economicStructure.ownerId
-        : undefined;
-    if (wasActiveBeacon && wasActiveBeacon !== isActiveBeacon) {
-      anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveBeacon, activatedAt: this.now(), kind: "OUTPOST" });
-    }
-    // DOCK deliberately not gated on ownershipState — see gatherReachAnchors.
-    if (previous?.dockId && previous.ownerId && (!tile.dockId || tile.ownerId !== previous.ownerId)) {
-      anchors.push({ x: previous.x, y: previous.y, ownerId: previous.ownerId, activatedAt: this.now(), kind: "DOCK" });
-    }
-    return anchors;
+    return newlyDeactivatedReachAnchorsImpl(previous, tile, this.now());
   }
 
   // Applies one anchor activation to the persistent reachBorder, downgrading
@@ -3259,7 +3178,7 @@ export class SimulationRuntime {
   }
 
   private isPlayerTileInReach(playerId: string, x: number, y: number): boolean {
-    return isInReach(playerId, x, y, this.reachBorder);
+    return isPlayerTileInReachImpl(playerId, x, y, this.reachBorder);
   }
 
   // Diagnostic-only (admin debug surface): size of the persistent reach
@@ -3281,18 +3200,14 @@ export class SimulationRuntime {
   // needlessly risks drifting from the ground truth it's meant to mirror).
   // O(border size), not called from any hot path.
   reachTileCountForPlayer(playerId: string): number {
-    let count = 0;
-    for (const tileKey of reachSetForPlayer(playerId, this.reachBorder)) {
-      if (this.tiles.get(tileKey)?.terrain === "LAND") count += 1;
-    }
-    return count;
+    return reachTileCountForPlayerImpl(playerId, this.reachBorder, this.tiles);
   }
 
   // Real (non-diagnostic) accessor: the full key set the AI planner needs to
   // build its own reachLookup, for both the in-process and worker-thread
   // planning paths — see buildRuntimePlannerPlayerViews's reachTileKeys.
   reachTileKeysForPlayer(playerId: string): string[] {
-    return [...reachSetForPlayer(playerId, this.reachBorder)];
+    return reachTileKeysForPlayerImpl(playerId, this.reachBorder);
   }
 
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
@@ -4612,7 +4527,9 @@ export class SimulationRuntime {
 
   private extendFortPatrolGrace(tileKey: string, graceUntil: number): void { this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil)); }
 
-  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean { return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey); }
+  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
+    return isDockCrossingTargetImpl(from, toX, toY, this.dockLinksByDockTileKey);
+  }
 
   private isAetherBridgeCrossingTarget(
     playerId: string,
@@ -4621,35 +4538,22 @@ export class SimulationRuntime {
     toX: number,
     toY: number
   ): boolean {
-    for (const bridge of this.activeAetherBridgesForPlayer(playerId)) {
-      if (
-        bridge.from.x === fromX &&
-        bridge.from.y === fromY &&
-        bridge.to.x === toX &&
-        bridge.to.y === toY
-      ) {
-        return true;
-      }
-    }
-    return false;
+    return isAetherBridgeCrossingTargetImpl(this.activeAetherBridgesForPlayer(playerId), fromX, fromY, toX, toY);
   }
 
   private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
-    for (const tileKey of this.summaryForPlayer(playerId).territoryTileKeys) {
-      const tile = this.tiles.get(tileKey);
-      if (!tile || tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
-      if (this.isDockCrossingTarget(tile, toX, toY)) return tile;
-    }
-    return undefined;
+    return findOwnedDockOriginForCrossingImpl(
+      this.tiles,
+      this.summaryForPlayer(playerId).territoryTileKeys,
+      playerId,
+      toX,
+      toY,
+      this.dockLinksByDockTileKey
+    );
   }
 
   private findOwnedAetherBridgeOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
-    for (const bridge of this.activeAetherBridgesForPlayer(playerId)) {
-      if (bridge.to.x !== toX || bridge.to.y !== toY) continue;
-      const origin = this.tiles.get(simulationTileKey(bridge.from.x, bridge.from.y));
-      if (origin?.ownerId === playerId) return origin;
-    }
-    return undefined;
+    return findOwnedAetherBridgeOriginForCrossingImpl(this.tiles, this.activeAetherBridgesForPlayer(playerId), playerId, toX, toY);
   }
 
   private supportedTownKeysForTile(playerId: string, x: number, y: number): string[] {
