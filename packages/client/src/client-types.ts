@@ -103,7 +103,7 @@ export type Tile = {
     expiresAt?: number;
   } | null;
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
-  naturalWonder?: { type: NaturalWonderType; claimedAt?: number; lastFreeRushBuyAt?: number } | null;
+  naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
   town?: {
     name?: string;
     type: "MARKET" | "FARMING";
