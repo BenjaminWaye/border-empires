@@ -319,6 +319,7 @@ import {
   handleUpgradeTownTierCommand as handleUpgradeTownTierCommandImpl,
   type RuntimeProgressionCommandContext
 } from "../runtime-progression-command-handlers.js";
+import { buildProgressionCommandContext } from "./runtime-progression-command-context.js";
 import {
   adjustOwnedStructureCount as adjustOwnedStructureCountImpl,
   ownedStructureCountForPlayer as ownedStructureCountForPlayerImpl,
@@ -4299,7 +4300,7 @@ export class SimulationRuntime {
   private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean { return isTileShieldedByAegisLockImpl(this.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY); }
 
   private progressionCommandContext(): RuntimeProgressionCommandContext {
-    return {
+    return buildProgressionCommandContext({
       players: this.players,
       tiles: this.tiles,
       emitEvent: (event) => this.emitEvent(event),
@@ -4307,51 +4308,24 @@ export class SimulationRuntime {
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
-      setTileState: (tileKey, tile) => {
-        const previous = this.tiles.get(tileKey);
-        this.tiles.set(tileKey, tile); this.snapshotTileCache.set(tileKey, mapTile(tile));
-        // This path deliberately skips refreshEconomyCachesForTileChange (the
-        // progression handlers invalidate the economy caches themselves), but
-        // the corridor union-find still has to be maintained: UPGRADE_TOWN_TIER
-        // crossing the SETTLEMENT boundary turns a corridor tile into a
-        // connectivity barrier, and leaving the structure merged across it
-        // inflates connectedTownCount for towns on either side.
-        maintainTownConnectivityForTileChange(this.townConnectivityStateByPlayer, tileKey, previous, tile);
-        flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
-        reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
-        reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
-      },
+      snapshotTileCache: this.snapshotTileCache,
+      townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey,
+      settledTilesForPlayer: (playerId) => this.settledTilesForPlayer(playerId),
+      outpostVisionDeps: () => this.outpostVisionDeps(),
+      visibilityCoverage: this.visibilityCoverage,
+      visionTransitionCallbacks: this.visionTransitions.callbacks,
+      now: () => this.now(),
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      invalidateEconomySnapshot: (playerId) => {
-        this.economySnapshotCacheByPlayer.delete(playerId);
-        // UPGRADE_TOWN_TIER changes the town's FOOD slot demand
-        // (townFoodSlotDemandForTier) — this setTileState path skips
-        // refreshEconomyCachesForTileChange (see its own comment above), so
-        // the resource-slot caches need invalidating here instead.
-        this.resourceSlotDemandCacheByPlayer.delete(playerId);
-        this.resourceSlotDormancyCacheByPlayer.delete(playerId);
-      },
-      invalidateTileYieldContext: (playerId) => {
-        this.tileYieldContextCacheByPlayer.delete(playerId);
-        // UPGRADE_TOWN_TIER can move a town across the SETTLEMENT boundary,
-        // which now changes graph membership in buildConnectedTownNetworkForPlayer
-        // (settlements are excluded) — the cached network must be rebuilt too,
-        // not just the yield context that wraps it.
-        this.townNetworkCacheByPlayer.delete(playerId);
-        this.manpowerStructureBonusCacheByPlayer.delete(playerId);
-      },
-      invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
-      resyncVisionRadius: (playerId) => {
-        this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks);
-        // A base-radius change also moves every owned town's +1 reveal ring.
-        resyncPlayerTownVisionBonuses({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, playerId, this.summaryForPlayer(playerId).ownedTownTierByTile);
-        // A tech unlock (e.g. Survey Corps) can also move every owned outpost's
-        // ring — and since applyOutpostVisionBonusForTile is dormancy-aware,
-        // this also doubles as the dormancy resync for a slot-waiver change
-        // (§23.2) or a townFoodSlotDemandForTier bump (UPGRADE_TOWN_TIER).
-        resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
-      },
+      economySnapshotCacheByPlayer: this.economySnapshotCacheByPlayer,
+      resourceSlotDemandCacheByPlayer: this.resourceSlotDemandCacheByPlayer,
+      resourceSlotDormancyCacheByPlayer: this.resourceSlotDormancyCacheByPlayer,
+      tileYieldContextCacheByPlayer: this.tileYieldContextCacheByPlayer,
+      townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
+      manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer,
+      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
+      ownedOutpostTilesForPlayer: (playerId) => this.ownedOutpostTilesForPlayer(playerId),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => {
         this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
@@ -4361,22 +4335,9 @@ export class SimulationRuntime {
       clearLastShardRainHello: () => this.lastShardRainHelloByPlayer.clear(),
       onShardCollected: this.onShardCollected,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
-      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
-      // §23.2: a tech/domain choice can change slot waivers, which the
-      // tile-mutation-only cache invalidation below doesn't catch.
-      invalidateResourceSlotDemand: (playerId) => {
-        this.resourceSlotDemandCacheByPlayer.delete(playerId); this.resourceSlotDormancyCacheByPlayer.delete(playerId);
-      }
-    };
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId)
+    });
   }
-
-  private handleUpgradeTownTierCommand(command: CommandEnvelope): void { handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command); }
-
-  private handleCollectShardCommand(command: CommandEnvelope): void { handleCollectShardCommandImpl(this.progressionCommandContext(), command); }
-
-  private handleChooseTechCommand(command: CommandEnvelope): void { handleChooseTechCommandImpl(this.progressionCommandContext(), command); }
-
-  private handleChooseDomainCommand(command: CommandEnvelope): void { handleChooseDomainCommandImpl(this.progressionCommandContext(), command); }
 
   private emitPlayerMessage(command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>): void {
     const messageType = typeof payload.type === "string" ? payload.type : "UNKNOWN";
@@ -5069,8 +5030,8 @@ export class SimulationRuntime {
       handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
       handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
       handleUncaptureTileCommand: (command) => this.handleUncaptureTileCommand(command),
-      handleChooseTechCommand: (command) => this.handleChooseTechCommand(command),
-      handleChooseDomainCommand: (command) => this.handleChooseDomainCommand(command),
+      handleChooseTechCommand: (command) => handleChooseTechCommandImpl(this.progressionCommandContext(), command),
+      handleChooseDomainCommand: (command) => handleChooseDomainCommandImpl(this.progressionCommandContext(), command),
       handleSetConverterStructureEnabledCommand: (command) => handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command),
       handleSetConverterStructureModeCommand: (command) => handleSetConverterStructureModeCommandImpl(this.economicStructureCommandContext(), command),
       handleRevealEmpireCommand: (command) => this.handleRevealEmpireCommand(command),
@@ -5090,8 +5051,8 @@ export class SimulationRuntime {
       handleAstralDockLaunchCommand: (command) => handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command),
       handleTitaniumLevyMusterCommand: (command) => handleTitaniumLevyMusterCommandImpl(this.mapCommandContext(), command),
       handleActivateImperialWardCommand: (command) => handleActivateImperialWardCommandImpl(this.mapCommandContext(), command),
-      handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
-      handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),
+      handleUpgradeTownTierCommand: (command) => handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command),
+      handleCollectShardCommand: (command) => handleCollectShardCommandImpl(this.progressionCommandContext(), command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command), handleSyncTruceCommand: (command) => handleSyncTruceCommandImpl(this.mapCommandContext(), command),
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
       handleDevQueueEnqueueCommand: (command) => handleDevQueueEnqueueCommandImpl(this.devQueueCommandContext(), command),
