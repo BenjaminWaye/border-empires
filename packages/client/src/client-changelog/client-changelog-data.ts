@@ -331,15 +331,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Panning the 3D map now always rebuilds the terrain to match the live camera, so border pylons, structures, and the ground they sit on stay locked together while scrolling. The zoom-only rebuild savings from the fix above are unaffected."
     ]
-  },
-  {
-    createdAt: 1787332288038,
-    introducedIn: "2026.08.21.5",
-    title: "Auto-settle no longer claims resources you haven't discovered yet",
-    why: "Auto-settle picked any owned frontier tile with a resource, town, or dock as a valuable target, without checking whether that tile was actually within the player's fog-of-war vision. That let it settle tiles whose resource the player had never actually seen revealed.",
-    changes: [
-      "Auto-settle now only considers a frontier tile eligible once it's been revealed to the settling player -- an owned tile outside current vision coverage is skipped until it's actually discovered."
-    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
