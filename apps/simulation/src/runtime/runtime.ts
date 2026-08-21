@@ -233,12 +233,18 @@ import {
   cachedEconomySnapshot as cachedEconomySnapshotImpl,
   cachedUpkeepAccrual as cachedUpkeepAccrualImpl,
   effectiveManpowerAtForPlayer as effectiveManpowerAtForPlayerImpl,
+  ensureGrossIncomeSettlementForPlayer as ensureGrossIncomeSettlementForPlayerImpl,
+  estimatedIncomePerMinuteForPlayer as estimatedIncomePerMinuteForPlayerImpl,
+  hasActiveSettlementTownForPlayer as hasActiveSettlementTownForPlayerImpl,
+  incomePerMinuteForPlayer as incomePerMinuteForPlayerImpl,
   playerLogisticsThroughputPerMinute as playerLogisticsThroughputPerMinuteImpl,
   playerManpowerBreakdown as playerManpowerBreakdownImpl,
   playerManpowerCap as playerManpowerCapImpl,
   playerManpowerRegenPerMinute as playerManpowerRegenPerMinuteImpl,
   refreshManpowerOnlyForPlayer as refreshManpowerOnlyForPlayerImpl,
+  storageCapForPlayer as storageCapForPlayerImpl,
   type RuntimeEconomyCacheContext,
+  type RuntimeIncomeStorageContext,
   type RuntimeManpowerEconomyContext
 } from "./runtime-economy.js";
 import {
@@ -378,7 +384,7 @@ import {
   type WatchtowerRevealRuntimeInput
 } from "../runtime-watchtower-reveal-tick.js";
 import { computeShardRainWelcomeNotice } from "../runtime-shard-rain-rules.js";
-import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
+import type { EmpireStorageCap } from "../runtime-empire-storage.js";
 import {
   emitPlayerStateUpdate as emitPlayerStateUpdateImpl,
   type RuntimePlayerStateUpdateContext
@@ -3407,44 +3413,30 @@ export class SimulationRuntime {
     return { ...tile, town: refreshedTown };
   }
 
+  private incomeStorageContext(): RuntimeIncomeStorageContext {
+    return {
+      players: this.players,
+      tiles: this.tiles,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      cachedEconomySnapshot: (player) => this.cachedEconomySnapshot(player),
+      respawnPlayerOnUnownedLand: (playerId, commandId) => this.respawnPlayerOnUnownedLand(playerId, commandId)
+    };
+  }
+
   private incomePerMinuteForPlayer(playerId: string): number {
-    const player = this.players.get(playerId);
-    if (!player) return 0;
-    // Route through cachedEconomySnapshot — the cache is maintained
-    // incrementally by replaceTileState (O(1) per tile mutation) so this
-    // returns a stale-free result without rebuilding the full O(settled-tiles)
-    // snapshot on every call. The full rebuild only fires on cache miss.
-    return this.cachedEconomySnapshot(player).incomePerMinute;
+    return incomePerMinuteForPlayerImpl(this.incomeStorageContext(), playerId);
   }
 
   private hasActiveSettlementTownForPlayer(playerId: string): boolean {
-    for (const tileKey of this.summaryForPlayer(playerId).ownedTownTierByTile.keys()) {
-      const tile = this.tiles.get(tileKey);
-      if (
-        tile?.ownerId === playerId &&
-        tile.ownershipState === "SETTLED" &&
-        tile.town?.populationTier === "SETTLEMENT"
-      ) {
-        return true;
-      }
-    }
-    return false;
+    return hasActiveSettlementTownForPlayerImpl(this.incomeStorageContext(), playerId);
   }
 
   private ensureGrossIncomeSettlementForPlayer(playerId: string, commandId: string): boolean {
-    const player = this.players.get(playerId);
-    if (!player || player.id.startsWith("barbarian-")) return false;
-    const summary = this.summaryForPlayer(playerId);
-    if (summary.territoryTileKeys.size === 0) return false;
-    if (this.hasActiveSettlementTownForPlayer(playerId)) return false;
-    if (this.incomePerMinuteForPlayer(playerId) > 0) return false;
-    return this.respawnPlayerOnUnownedLand(playerId, commandId);
+    return ensureGrossIncomeSettlementForPlayerImpl(this.incomeStorageContext(), playerId, commandId);
   }
 
   private estimatedIncomePerMinuteForPlayer(playerId: string): number {
-    const player = this.players.get(playerId);
-    const incomeMult = player?.mods?.income ?? 1;
-    return Math.round(this.summaryForPlayer(playerId).goldIncomePerMinute * incomeMult * 1e6) / 1e6; // was 2dp; rounded most income to 0.00 post-rescale (§24.4)
+    return estimatedIncomePerMinuteForPlayerImpl(this.incomeStorageContext(), playerId);
   }
 
   private activeDevelopmentProcessCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).activeDevelopmentProcessCount; }
@@ -3527,11 +3519,7 @@ export class SimulationRuntime {
   }
 
   storageCapForPlayer(playerId: string): EmpireStorageCap | undefined {
-    const player = this.players.get(playerId);
-    if (!player) return undefined;
-    const summary = this.summaryForPlayer(playerId);
-    const economy = this.cachedEconomySnapshot(player);
-    return computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
+    return storageCapForPlayerImpl(this.incomeStorageContext(), playerId);
   }
 
   private playerStateUpdateContext(): RuntimePlayerStateUpdateContext {

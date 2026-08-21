@@ -23,6 +23,7 @@ import { buildUpkeepAccrualSnapshot, type UpkeepAccrualSnapshot } from "../playe
 import { EMPIRE_INTEGRITY_ENABLED, empireIntegrity, integrityEconomyMult } from "@border-empires/shared";
 import type { ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
 import type { MainThreadTaskTracker } from "../main-thread-task-tracker/main-thread-task-tracker.js";
+import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
 
 // Every UPKEEP_ACCRUAL_REBUILD_INTERVAL reads we force a full upkeep-accrual
 // rebuild to bound floating-point drift from the running add/subtract sum
@@ -305,4 +306,64 @@ export function cachedDefensibilityMetrics(
   ctx.defensibilityMetricsDirtyPlayerIds.delete(playerId);
   ctx.defensibilityMetricsLastRebuiltAtMsByPlayer.set(playerId, ctx.now());
   return metrics;
+}
+
+export interface RuntimeIncomeStorageContext {
+  players: Map<string, RuntimePlayer>;
+  tiles: Map<string, DomainTileState>;
+  summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
+  cachedEconomySnapshot: (player: RuntimePlayer) => PlayerUpdateEconomySnapshot;
+  respawnPlayerOnUnownedLand: (playerId: string, commandId: string) => boolean;
+}
+
+export function incomePerMinuteForPlayer(ctx: RuntimeIncomeStorageContext, playerId: string): number {
+  const player = ctx.players.get(playerId);
+  if (!player) return 0;
+  // Route through cachedEconomySnapshot — the cache is maintained
+  // incrementally by replaceTileState (O(1) per tile mutation) so this
+  // returns a stale-free result without rebuilding the full O(settled-tiles)
+  // snapshot on every call. The full rebuild only fires on cache miss.
+  return ctx.cachedEconomySnapshot(player).incomePerMinute;
+}
+
+export function hasActiveSettlementTownForPlayer(ctx: RuntimeIncomeStorageContext, playerId: string): boolean {
+  for (const tileKey of ctx.summaryForPlayer(playerId).ownedTownTierByTile.keys()) {
+    const tile = ctx.tiles.get(tileKey);
+    if (
+      tile?.ownerId === playerId &&
+      tile.ownershipState === "SETTLED" &&
+      tile.town?.populationTier === "SETTLEMENT"
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function ensureGrossIncomeSettlementForPlayer(
+  ctx: RuntimeIncomeStorageContext,
+  playerId: string,
+  commandId: string
+): boolean {
+  const player = ctx.players.get(playerId);
+  if (!player || player.id.startsWith("barbarian-")) return false;
+  const summary = ctx.summaryForPlayer(playerId);
+  if (summary.territoryTileKeys.size === 0) return false;
+  if (hasActiveSettlementTownForPlayer(ctx, playerId)) return false;
+  if (incomePerMinuteForPlayer(ctx, playerId) > 0) return false;
+  return ctx.respawnPlayerOnUnownedLand(playerId, commandId);
+}
+
+export function estimatedIncomePerMinuteForPlayer(ctx: RuntimeIncomeStorageContext, playerId: string): number {
+  const player = ctx.players.get(playerId);
+  const incomeMult = player?.mods?.income ?? 1;
+  return Math.round(ctx.summaryForPlayer(playerId).goldIncomePerMinute * incomeMult * 1e6) / 1e6; // was 2dp; rounded most income to 0.00 post-rescale (§24.4)
+}
+
+export function storageCapForPlayer(ctx: RuntimeIncomeStorageContext, playerId: string): EmpireStorageCap | undefined {
+  const player = ctx.players.get(playerId);
+  if (!player) return undefined;
+  const summary = ctx.summaryForPlayer(playerId);
+  const economy = ctx.cachedEconomySnapshot(player);
+  return computeEmpireStorageCap(summary, economy.goldCapIncomePerMinute, economy.strategicProductionPerMinute);
 }
