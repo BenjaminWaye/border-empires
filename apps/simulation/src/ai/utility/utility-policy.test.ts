@@ -15,7 +15,6 @@ const BASE: DecisionInputs = {
   frontierEnemyCount: 0,
   frontierOpportunityEconomic: 0,
   expansionOpportunityCount: 0,
-  nonWasteExpansionOpportunityCount: 0,
   hasActionableNonWasteExpand: false,
   hasExpansionObjective: false,
   hasOnlyScoutExpand: false,
@@ -35,6 +34,8 @@ const BASE: DecisionInputs = {
   hasEconomicBuild: false,
   hasFortBuild: false,
   hasSiegeOutpost: false,
+  hasRelayBeaconBuild: false,
+  relayBeaconSiteValue: 0,
   techAffordable: false,
   momentumTicks: {},
   cooldown: {},
@@ -298,9 +299,6 @@ describe("BUILD_ECONOMY decision", () => {
       hasActionableNonWasteExpand: true,
       hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3,
-      // Genuine (non-waste) opportunity per hasActionableNonWasteExpand above,
-      // so the waste-excluded count matches the raw count here.
-      nonWasteExpansionOpportunityCount: 3,
       hasEconomicBuild: true,
       needsEconomy: true
     };
@@ -342,12 +340,22 @@ describe("BUILD_ECONOMY decision", () => {
   // was surrounded only by waste-classified neutral tiles. EXPAND correctly
   // refused them (hasActionableNonWasteExpand=false), but the raw
   // expansionOpportunityCount (which includes waste) was still fully
-  // suppressing BUILD_ECONOMY's score to 0 via the "expansion is available"
+  // suppressing BUILD_ECONOMY's score to 0 via an "expansion is available"
   // consideration — even though that "expansion" wasn't actually available
-  // to EXPAND either. nonWasteExpansionOpportunityCount must exclude the
-  // waste tiles so BUILD_ECONOMY isn't deadlocked by opportunities EXPAND
-  // itself refuses.
-  it("is NOT suppressed by waste-only neutrals that EXPAND itself refuses", () => {
+  // to EXPAND either.
+  //
+  // The original fix added a waste-excluded aggregate,
+  // nonWasteExpansionOpportunityCount, for this term specifically. That
+  // field is gone now: the fixed-borders-via-reach plan removed
+  // scoreBuildEconomy's expansion-opportunity suppression entirely (see
+  // decisions.ts's comment on that consideration) — EXPAND no longer touches
+  // a dev slot and is reach-capped, so it isn't competing with a build for
+  // the same resource the way it did when this incident happened. This test
+  // is kept because the underlying guarantee (a hemmed-in AI with nothing to
+  // expand into must not deadlock on WAIT despite a ready build) is still a
+  // real regression to guard, even though the mechanism that broke it is
+  // different now — waste-classified or not no longer matters here at all.
+  it("is NOT suppressed by neutrals EXPAND itself refuses (waste or otherwise)", () => {
     const wasteOnlyHemmedIn: DecisionInputs = {
       ...BASE,
       canExpand: true,
@@ -356,29 +364,25 @@ describe("BUILD_ECONOMY decision", () => {
       hasActionableNonWasteExpand: false,
       hasAnyExpandCandidate: false,
       expansionOpportunityCount: 7,
-      nonWasteExpansionOpportunityCount: 0,
       hasEconomicBuild: true,
       needsEconomy: false
     };
     const expand = scoreDecision("EXPAND", wasteOnlyHemmedIn);
     const economy = scoreDecision("BUILD_ECONOMY", wasteOnlyHemmedIn);
     expect(expand).toBe(0);
-    // Before the fix this was 0 (fully suppressed by the 7 waste tiles).
     expect(economy).toBeGreaterThan(0.5);
 
     const result = evaluateUtilityPolicy(wasteOnlyHemmedIn);
     expect(result.winner).toBe("BUILD_ECONOMY");
   });
 
-  it("stays suppressed by real (non-waste) frontier enemy presence", () => {
-    // Enemy pressure should still suppress economy building even when the
-    // AI has no waste-only expansion candidates — nonWasteExpansionOpportunityCount
-    // must not accidentally exempt frontierEnemyCount from the suppression term.
+  it("stays suppressed by frontier enemy presence", () => {
+    // Enemy pressure still suppresses economy building — this is the one
+    // suppression term scoreBuildEconomy kept (fight first, let ATTACK win).
     const s = scoreDecision("BUILD_ECONOMY", {
       ...BASE,
       hasEconomicBuild: true,
       needsEconomy: false,
-      nonWasteExpansionOpportunityCount: 0,
       frontierEnemyCount: 5
     });
     expect(s).toBe(0);
@@ -428,8 +432,6 @@ describe("evaluateUtilityPolicy", () => {
       hasActionableNonWasteExpand: true,
       hasAnyExpandCandidate: true,
       expansionOpportunityCount: 3,
-      // Genuine (non-waste) opportunity per hasActionableNonWasteExpand above.
-      nonWasteExpansionOpportunityCount: 3,
       hasEconomicBuild: true,
       needsEconomy: true
     });
