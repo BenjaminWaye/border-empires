@@ -63,9 +63,14 @@ import {
 import {
   buildDockLinksByDockTileKey,
   computeLinkedDockRevealTileKeys,
-  isValidDockCrossingTarget,
   type DockRouteDefinition
 } from "../dock-network/dock-network.js";
+import {
+  isDockCrossingTarget as isDockCrossingTargetImpl,
+  isAetherBridgeCrossingTarget as isAetherBridgeCrossingTargetImpl,
+  findOwnedDockOriginForCrossing as findOwnedDockOriginForCrossingImpl,
+  findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl
+} from "./runtime-crossing.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "../ai/frontier-command-planner.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import {
@@ -4522,7 +4527,9 @@ export class SimulationRuntime {
 
   private extendFortPatrolGrace(tileKey: string, graceUntil: number): void { this.fortPatrolGraceUntilByTile.set(tileKey, Math.max(this.fortPatrolGraceUntilByTile.get(tileKey) ?? 0, graceUntil)); }
 
-  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean { return isValidDockCrossingTarget(simulationTileKey(from.x, from.y), toX, toY, this.dockLinksByDockTileKey); }
+  private isDockCrossingTarget(from: DomainTileState, toX: number, toY: number): boolean {
+    return isDockCrossingTargetImpl(from, toX, toY, this.dockLinksByDockTileKey);
+  }
 
   private isAetherBridgeCrossingTarget(
     playerId: string,
@@ -4531,35 +4538,22 @@ export class SimulationRuntime {
     toX: number,
     toY: number
   ): boolean {
-    for (const bridge of this.activeAetherBridgesForPlayer(playerId)) {
-      if (
-        bridge.from.x === fromX &&
-        bridge.from.y === fromY &&
-        bridge.to.x === toX &&
-        bridge.to.y === toY
-      ) {
-        return true;
-      }
-    }
-    return false;
+    return isAetherBridgeCrossingTargetImpl(this.activeAetherBridgesForPlayer(playerId), fromX, fromY, toX, toY);
   }
 
   private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
-    for (const tileKey of this.summaryForPlayer(playerId).territoryTileKeys) {
-      const tile = this.tiles.get(tileKey);
-      if (!tile || tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
-      if (this.isDockCrossingTarget(tile, toX, toY)) return tile;
-    }
-    return undefined;
+    return findOwnedDockOriginForCrossingImpl(
+      this.tiles,
+      this.summaryForPlayer(playerId).territoryTileKeys,
+      playerId,
+      toX,
+      toY,
+      this.dockLinksByDockTileKey
+    );
   }
 
   private findOwnedAetherBridgeOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
-    for (const bridge of this.activeAetherBridgesForPlayer(playerId)) {
-      if (bridge.to.x !== toX || bridge.to.y !== toY) continue;
-      const origin = this.tiles.get(simulationTileKey(bridge.from.x, bridge.from.y));
-      if (origin?.ownerId === playerId) return origin;
-    }
-    return undefined;
+    return findOwnedAetherBridgeOriginForCrossingImpl(this.tiles, this.activeAetherBridgesForPlayer(playerId), playerId, toX, toY);
   }
 
   private supportedTownKeysForTile(playerId: string, x: number, y: number): string[] {
