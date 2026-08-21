@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787360000000,
+    introducedIn: "2026.08.21.6",
+    title: "Fixed the settle animation not showing until you panned the camera",
+    why: "Pressing Settle on a frontier tile marks it optimistically pending without changing its owner or ownership state (both already belonged to you), but the 3D map only rebuilt its terrain and overlays when ownership actually changed. That left the new settle overlay instance uncreated until something else -- like panning -- forced a rebuild for an unrelated reason.",
+    changes: [
+      "The settlement animation now plays immediately when you press Settle, instead of waiting for the next camera pan."
+    ]
+  },
+  {
     createdAt: 1787330000000,
     introducedIn: "2026.08.21.5",
     title: "The Quickforge wonder now discounts a rush-buy instead of making it free",

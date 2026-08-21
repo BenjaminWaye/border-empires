@@ -62,7 +62,11 @@ export const createClientOptimisticStateController = (deps: OptimisticStateDeps)
       } satisfies Tile);
     const next = { ...current };
     mutate(next);
-    if (next.ownerId !== current.ownerId || next.ownershipState !== current.ownershipState) {
+    if (
+      next.ownerId !== current.ownerId ||
+      next.ownershipState !== current.ownershipState ||
+      next.optimisticPending !== current.optimisticPending
+    ) {
       state.tilesRevision += 1;
     }
     state.tiles.set(tileKey, next);

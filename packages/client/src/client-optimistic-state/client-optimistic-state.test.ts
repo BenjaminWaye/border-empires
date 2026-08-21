@@ -406,6 +406,45 @@ describe("client optimistic state", () => {
     expect(state.tilesRevision).toBeGreaterThan(revisionBefore);
   });
 
+  it("bumps tilesRevision when settle starts on an already-owned frontier tile (optimisticPending set, owner/state unchanged)", () => {
+    // Regression: pressing settle on a frontier tile you already own doesn't
+    // change ownerId or ownershipState (both stay "me"/"FRONTIER" until the
+    // server confirms) -- only optimisticPending flips to "settle". The 3D
+    // map's terrain rebuild is gated on tilesRevision, so without this bump
+    // the settle overlay animation never renders until something else (like
+    // panning the camera) happens to bump tilesRevision.
+    const state = {
+      me: "me",
+      selected: undefined,
+      tilesRevision: 0,
+      tiles: new Map<string, Tile>([["12,18", baseTile({ ownerId: "me", ownershipState: "FRONTIER" })]]),
+      settledTiles: new Set<string>(),
+      discoveredTiles: new Set<string>(),
+      settleProgressByTile: new Map<string, unknown>(),
+      optimisticTileSnapshots: new Map<string, Tile | undefined>(),
+      frontierLateAckUntilByTarget: new Map<string, number>()
+    } as any;
+
+    const { applyOptimisticTileState } = createClientOptimisticStateController({
+      state,
+      keyFor: (x, y) => `${x},${y}`,
+      terrainAt: () => "LAND",
+      tileVisibilityStateAt: () => "visible",
+      optimisticEnabled: true
+    });
+
+    const revisionBefore = state.tilesRevision;
+    applyOptimisticTileState(12, 18, (tile) => {
+      tile.ownerId = "me";
+      tile.ownershipState = "FRONTIER";
+      tile.fogged = false;
+      tile.optimisticPending = "settle";
+    });
+
+    expect(state.tilesRevision).toBeGreaterThan(revisionBefore);
+    expect(state.tiles.get("12,18")?.optimisticPending).toBe("settle");
+  });
+
   it("does not bump tilesRevision when optimistic state changes only non-ownership fields", () => {
     const state = {
       me: "me",
