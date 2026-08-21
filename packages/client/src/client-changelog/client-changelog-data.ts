@@ -303,6 +303,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787356800001, // 2026.08.21, after the entries below
+    introducedIn: "2026.08.21",
+    title: "Shard rain impact sites now show on the map, even before you've explored them",
+    why: "A shard rain event's landing sites were previously only ever shown as a text notice (\"Nearest site is ~N tiles NE\") or as an in-tile icon once you'd actually explored that tile. There was no way to see where the other sites were at a glance, or to navigate straight to one.",
+    changes: [
+      "Every active shard rain site now shows as an arrow-shaped badge pointing off-screen toward it, the same locator system muster flags use — click it to jump the camera there.",
+      "Once you scroll a site on-screen, a small shield badge hovers over that exact tile, bobbing gently in place — the same badge style as the unfed-town warning, with a shard icon instead. It's just a positional blip from the event broadcast, not confirmation the shard is still there, especially on a tile you haven't explored yet.",
+      "Both the off-screen badge and the on-screen badge stay up for the full ~30-minute life of the shard rain event, not just the first moments after landing."
+    ]
+  },
+  {
     createdAt: 1787122800000, // 2026.08.21
     introducedIn: "2026.08.21",
     title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",

@@ -91,7 +91,7 @@ import { createThreeRenderTarget } from "../client-map-3d-render-target/client-m
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
 import { lightenHex, parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
 import { createWaypointFlag } from "../client-map-3d-waypoint-flag/client-map-3d-waypoint-flag.js";
-import { WAYPOINT_QUEUE_CLIENT_CAP } from "../client-waypoint-planner/client-waypoint-persistence.js";
+import { WAYPOINT_QUEUE_CLIENT_CAP } from "../client-waypoint-planner/client-waypoint-persistence.js"; import { createShardRainBadgeOverlay, populateShardRainBadgeInstances } from "../client-map-3d-shard-rain-badge-overlay/client-map-3d-shard-rain-badge-overlay.js";
 
 type TileTimedProgress = {
   readonly startAt: number;
@@ -189,6 +189,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     FOOD: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.FOOD), TITANIUM: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.TITANIUM),
     CRYSTAL: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.CRYSTAL), UMBRITE: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.UMBRITE)
   };
+  const shardRainBadgeOverlay = createShardRainBadgeOverlay(scene); const allBadgeOverlays = [...Object.values(resourceBadgeOverlays), shardRainBadgeOverlay]; // shares the clear/commit/tick/dispose loops below — see client-map-3d-shard-rain-badge-overlay.ts
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const upgradeReadyBadgeOverlay = createUpgradeReadyBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene);
@@ -1349,7 +1350,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         dormantStructureResourceByTileKey.set(tileKey, resources[0]);
       }
     }
-    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.clear();
+    for (const overlay of allBadgeOverlays) overlay.clear();
     observatoryCooldownBadgeOverlay.clear();
     upgradeReadyBadgeOverlay.clear();
     musterOverlay.clear();
@@ -1895,8 +1896,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
       }
     }
-
-    const perTileLoopMs = performance.now() - perTileLoopStartAt;
+    populateShardRainBadgeInstances(shardRainBadgeOverlay, deps.state.shardRainStatus, { camX: deps.state.camX, camY: deps.state.camY, halfW, halfH, elevationAt: heightfield.elevationAt }); const perTileLoopMs = performance.now() - perTileLoopStartAt;
 
     // Aether Survey Line live pylons/segments are placed every frame now
     // (see renderReachOverlay3DPylons, called unconditionally from
@@ -1918,7 +1918,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townOverlay.commit();
     roadOverlay.commit();
     reachOverlay3D.commitTileOverlays();
-    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.commit();
+    for (const overlay of allBadgeOverlays) overlay.commit();
     observatoryCooldownBadgeOverlay.commit();
     upgradeReadyBadgeOverlay.commit();
     musterOverlay.commit();
@@ -2141,7 +2141,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
-    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.tick(nowMs);
+    for (const overlay of allBadgeOverlays) overlay.tick(nowMs);
     observatoryCooldownBadgeOverlay.tick(nowMs);
     upgradeReadyBadgeOverlay.tick(nowMs);
     musterOverlay.tick(nowMs);
@@ -2209,7 +2209,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townOverlay.dispose();
     roadOverlay.dispose();
     reachOverlay3D.dispose();
-    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.dispose();
+    for (const overlay of allBadgeOverlays) overlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
     upgradeReadyBadgeOverlay.dispose();
     musterOverlay.dispose();
