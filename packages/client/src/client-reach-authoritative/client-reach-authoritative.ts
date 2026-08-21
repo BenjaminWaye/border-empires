@@ -43,10 +43,16 @@ export type ReachUpdateMessage = {
  * is how a reconnect announces a fresh per-player sequence (the simulation
  * restarts revisions from 1 on its own restart, and the client's counter
  * survives a socket reconnect that the simulation never saw).
+ *
+ * A missing or invalid revision is rejected outright rather than defaulted to
+ * 0: defaulting used to skip the staleness check entirely (0 is never > 1)
+ * and then reset serverReachRevision to 0, silently disabling ordering
+ * protection for every update after it too.
  */
 export const applyServerReachUpdate = (state: ReachAuthoritativeState, message: ReachUpdateMessage): boolean => {
   if (!Array.isArray(message.tileKeys)) return false;
-  const revision = typeof message.revision === "number" && Number.isFinite(message.revision) ? message.revision : 0;
+  if (typeof message.revision !== "number" || !Number.isFinite(message.revision) || message.revision < 1) return false;
+  const revision = message.revision;
   if (revision > 1 && revision <= state.serverReachRevision) return false;
   const tileKeys = message.tileKeys.filter((key): key is string => typeof key === "string");
   state.serverReach = new Set(tileKeys);

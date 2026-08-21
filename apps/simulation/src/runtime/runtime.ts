@@ -5085,10 +5085,10 @@ export class SimulationRuntime {
     const lane = laneForCommand(command);
     this.enqueueJob(
       lane,
-      // Flush after dispatch, not inside the border-mutation helpers: one
-      // command can activate several anchors, and the dirty-set + signature
-      // filter collapses that into at most one REACH_UPDATE per player.
-      () => { dispatchRuntimeCommand(command, this.commandDispatchHandlers()); this.flushReachUpdatesForCommand(`reach-update:${command.commandId}`); },
+      // Flush after dispatch (collapses several anchor activations into at
+      // most one REACH_UPDATE per player), wrapped in try/finally so a
+      // throwing handler still flushes what it mutated before throwing.
+      () => { try { dispatchRuntimeCommand(command, this.commandDispatchHandlers()); } finally { this.flushReachUpdatesForCommand(`reach-update:${command.commandId}`); } },
       command.type,
       commandScheduling(command),
       command.commandId
