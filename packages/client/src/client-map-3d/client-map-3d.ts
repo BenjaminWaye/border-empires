@@ -17,7 +17,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS, MIN_ZOOM } from "../client-constants.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js";
-import { padTerrainWindow, requiredTerrainWindow, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import { padTerrainWindow, requiredTerrainWindow, terrainWindowCovers, terrainWindowPanned, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 
@@ -1959,17 +1959,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     });
   };
 
-  // A trailing-edge throttle floor for rebuildVisibleTerrain(): terrainWindowCovers (see
-  // client-map-3d-terrain-window.ts) already suppresses most rebuilds during a zoom, since
-  // zooming in needs no rebuild at all and zooming out only crosses the pad every so often. This
-  // floor is what remains load-bearing on top of that: continuous panning still crosses the pad
-  // roughly once per pad-width of travel, and a fast pan can do that every frame, so the main
-  // thread still needs a backstop against back-to-back rebuilds. Also covers tilesRevision and
-  // crystalTargeting changes, which bypass the window check entirely. Not a dropped-update risk:
-  // rebuildNeeded stays true on every subsequent frame until the floor opens (lastRebuild.at only
-  // advances on an actual rebuild), so the next frame after motion settles always rebuilds against
-  // whatever the current state is, not whatever first triggered the dirty flag. Worst case the
-  // terrain lags the camera by one floor window, then snaps correct.
+  // A trailing-edge throttle floor for rebuildVisibleTerrain(): terrainWindowCovers/
+  // terrainWindowPanned (client-map-3d-terrain-window.ts) suppress rebuilds during a zoom that
+  // doesn't need new tiles, but every pan forces one every frame it moves, so continuous dragging
+  // still needs a backstop against back-to-back rebuilds. Not a dropped-update risk: rebuildNeeded
+  // stays true on every subsequent frame until the floor opens (lastRebuild.at only advances on an
+  // actual rebuild), so the next frame after motion settles always rebuilds against current state.
   const REBUILD_MIN_INTERVAL_MS = 48;
 
   // Places this frame's live Aether Survey Line pylons/segments, animating
@@ -2079,6 +2074,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const ctActiveNow = deps.state.crystalTargeting.active;
     const requiredWindow = requiredTerrainWindow({ zoom: deps.state.zoom, canvasWidth: width, canvasHeight: height, camX: deps.state.camX, camY: deps.state.camY });
     const rebuildNeeded =
+      terrainWindowPanned(lastRebuild.builtWindow, requiredWindow) ||
       !terrainWindowCovers(lastRebuild.builtWindow, requiredWindow, WORLD_WIDTH, WORLD_HEIGHT) ||
       deps.state.tilesRevision !== lastRebuild.tilesRevision ||
       ctActiveNow !== lastRebuild.crystalTargetingActive;
