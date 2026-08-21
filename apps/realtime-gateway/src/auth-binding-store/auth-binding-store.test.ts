@@ -66,4 +66,25 @@ describe("InMemoryGatewayAuthBindingStore", () => {
       updatedAt: 2_000
     });
   });
+
+  it("lists one binding per player id, only for players with an email, preferring the latest", async () => {
+    let now = 1_000;
+    const store = new InMemoryGatewayAuthBindingStore(() => now);
+
+    await store.bindIdentity({ uid: "firebase-user-1", playerId: "player-1", email: "old@example.com" });
+    now = 2_000;
+    await store.bindIdentity({ uid: "firebase-user-2", playerId: "player-1", email: "new@example.com" });
+    await store.bindIdentity({ uid: "firebase-user-3", playerId: "player-2" });
+    now = 3_000;
+    await store.bindIdentity({ uid: "firebase-user-4", playerId: "player-3", email: "third@example.com" });
+
+    const listed = await store.listAllWithEmail();
+    expect(listed).toHaveLength(2);
+    expect(listed).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ playerId: "player-1", email: "new@example.com" }),
+        expect.objectContaining({ playerId: "player-3", email: "third@example.com" })
+      ])
+    );
+  });
 });
