@@ -2089,7 +2089,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     // GL calls on a lost context are no-ops that still cost a frame of scene syncing.
     if (contextGuard.isContextLost()) return;
     const nowMs = performance.now();
-    maybeRebuild(nowMs);
+    maybeRebuild(nowMs); (selectedMarker.material as LineBasicMaterial).color.set(deps.state.selected && !resolveMyReach(deps.state).has(deps.keyFor(deps.state.selected.x, deps.state.selected.y)) ? "#ff8a3d" : "#ffd166"); // fixed-border reach: warning-orange outside reach
     syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncTownSupportMarkers();
