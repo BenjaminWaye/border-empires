@@ -126,6 +126,8 @@ import {
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view/client-tile-menu-view.js";
+import { quickforgeRushBuyContextForState } from "./client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js";
+import { constructionRemainingMsForTile } from "./client-construction-remaining-ms/client-construction-remaining-ms.js";
 import {
   queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
   queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
@@ -946,27 +948,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const constructionCountdownLineForTile = (tile: Tile): string =>
     constructionCountdownLineForTileFromModule(tile, formatCountdownClock, deps.economicStructureName);
 
-  const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
-    const completesAt =
-      tile.fort?.status === "under_construction" || tile.fort?.status === "removing"
-        ? tile.fort.completesAt
-        : tile.observatory?.status === "under_construction" || tile.observatory?.status === "removing"
-          ? tile.observatory.completesAt
-          : tile.siegeOutpost?.status === "under_construction" || tile.siegeOutpost?.status === "removing"
-            ? tile.siegeOutpost.completesAt
-            : tile.economicStructure?.status === "under_construction" || tile.economicStructure?.status === "removing"
-              ? tile.economicStructure.completesAt
-              : undefined;
-    return typeof completesAt === "number" ? Math.max(0, completesAt - Date.now()) : undefined;
-  };
-
   const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined =>
     buildDetailTextForActionFromModule(actionId, tile, supportedTown);
 
   const tileProductionRequirementLabel = (tile: Tile): string | undefined => tileProductionRequirementLabelFromModule(tile, prettyToken);
 
   const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
-    constructionProgressForTileFromModule(tile, formatCountdownClock);
+    constructionProgressForTileFromModule(tile, formatCountdownClock, quickforgeRushBuyContextForState(state));
 
   const queuedSettlementProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
     queuedSettlementProgressForTileFromModule(tile, {

@@ -79,6 +79,7 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           domainIds: [...(player.domainIds ?? [])].sort(),
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+          ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
           ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
           strategicResources: { ...(player.strategicResources ?? {}) },
           allies: [...player.allies].sort(),
