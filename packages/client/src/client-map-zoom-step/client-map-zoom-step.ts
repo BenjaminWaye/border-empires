@@ -40,7 +40,11 @@ const PIXELS_PER_NOTCH = 100;
 // jump the whole range in one event.
 const NOTCH_CLAMP = 4;
 
-const deltaYInPixels = (deltaY: number, deltaMode: number): number => {
+// Exported so callers that accumulate deltaY across multiple events (e.g. to
+// coalesce several wheel events into one state update per frame) can convert
+// each event to pixels as it arrives, rather than accumulating raw values
+// that mix units if deltaMode ever changes mid-accumulation.
+export const deltaYInPixels = (deltaY: number, deltaMode: number): number => {
   if (deltaMode === 1) return deltaY * PIXELS_PER_LINE;
   if (deltaMode === 2) return deltaY * PIXELS_PER_PAGE;
   return deltaY;
