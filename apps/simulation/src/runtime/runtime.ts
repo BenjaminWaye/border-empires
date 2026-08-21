@@ -6,6 +6,8 @@ import {
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
+import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
+import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
 import {
   gatherReachAnchors as gatherReachAnchorsImpl,
   newlyActivatedReachAnchors as newlyActivatedReachAnchorsImpl,
@@ -694,6 +696,8 @@ export class SimulationRuntime {
   // shrinks this map by itself; it only changes what's available to defend
   // a tile the next time a rival anchor contests it.
   private reachBorder: Map<string, string> = new Map();
+  // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
+  private readonly reachUpdateState: ReachUpdateState = createReachUpdateState();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   // Throttle per-tick respawn attempts for eliminated AI players. Spawn
   // placement is an O(n-tile) scan; 30 s cooldown keeps it from running
@@ -3015,74 +3019,46 @@ export class SimulationRuntime {
     return newlyDeactivatedReachAnchorsImpl(previous, tile, this.now());
   }
 
-  // Applies one anchor activation to the persistent reachBorder, downgrading
-  // any tile it overtakes from a different (non-barbarian) owner from
-  // SETTLED to FRONTIER, same owner, structures untouched — the unsettle
-  // transition. Routes the downgrade through replaceTileState so the same
-  // cache-invalidation side effects (economy/indexes/visibility) fire as
-  // they do for settle/capture. Barbarian territory is environment, not a
-  // bordered empire — it never contributes anchors of its own and is exempt
-  // from being overtaken this way; ATTACK/capture remains the only way to
-  // take barbarian land.
-  private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string): void {
-    const anchors = this.gatherReachAnchors();
-    const liveReachCache = new Map<string, ReadonlySet<string>>();
-    const defenderLiveReach = (ownerId: string): ReadonlySet<string> => {
-      let set = liveReachCache.get(ownerId);
-      if (!set) {
-        set = liveReachForOwner(ownerId, anchors);
-        liveReachCache.set(ownerId, set);
+  // Border mutation lives in runtime-reach-border-apply.ts, next to the
+  // REACH_UPDATE push it feeds. This is the runtime-side adapter: it supplies
+  // the world lookups and routes the unsettle downgrade back through
+  // replaceTileState, so the usual cache-invalidation side effects still fire.
+  private reachBorderApplyContext(): ReachBorderApplyContext {
+    return {
+      gatherReachAnchors: () => this.gatherReachAnchors(),
+      rivalOwnerIds: () => [...this.playerSummaries.keys()].filter((id) => !id.startsWith("barbarian-")).sort(),
+      tileOwnership: (tileKey) => this.tiles.get(tileKey),
+      downgradeToFrontier: (tileKey, causeCommandId) => {
+        const t = this.tiles.get(tileKey);
+        if (t) this.replaceTileState(tileKey, { ...t, ownershipState: "FRONTIER" }, `unsettle:${causeCommandId}:${tileKey}`);
       }
-      return set;
     };
-    const { border, overtaken } = grantAnchorToBorder(this.reachBorder, anchor, defenderLiveReach);
-    this.reachBorder = border;
-    for (const { tileKey, fromOwnerId } of overtaken) {
-      if (fromOwnerId.startsWith("barbarian-")) continue;
-      const t = this.tiles.get(tileKey);
-      if (!t || t.ownerId !== fromOwnerId || t.ownershipState !== "SETTLED") continue;
-      this.replaceTileState(tileKey, { ...t, ownershipState: "FRONTIER" }, `unsettle:${causeCommandId}:${tileKey}`);
-    }
   }
 
-  // Applies one anchor DEACTIVATION to the persistent reachBorder. Sticky by
-  // default (does nothing) unless some rival's CURRENT live reach already
-  // covers ground this anchor used to help defend and the owner can no
-  // longer defend it themselves — see reassessBorderOnAnchorDeactivation's
-  // doc comment. Same barbarian exemption and replaceTileState downgrade
-  // path as applyReachAnchorActivation.
+  private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string): void {
+    this.reachBorder = applyReachAnchorActivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId);
+  }
+
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
-    const anchors = this.gatherReachAnchors(); // already reflects the deactivation (this.tiles was updated before this hook runs)
-    const liveReachCache = new Map<string, ReadonlySet<string>>();
-    const liveReachForOwnerCached = (ownerId: string): ReadonlySet<string> => {
-      let set = liveReachCache.get(ownerId);
-      if (!set) {
-        set = liveReachForOwner(ownerId, anchors);
-        liveReachCache.set(ownerId, set);
-      }
-      return set;
-    };
-    const rivalOwnerIds = [...this.playerSummaries.keys()]
-      .filter((id) => id !== anchor.ownerId && !id.startsWith("barbarian-"))
-      .sort();
-    const { border, overtaken } = reassessBorderOnAnchorDeactivation(
-      this.reachBorder,
-      anchor,
-      liveReachForOwnerCached(anchor.ownerId),
-      liveReachForOwnerCached,
-      rivalOwnerIds
-    );
-    this.reachBorder = border;
-    for (const { tileKey, fromOwnerId } of overtaken) {
-      if (fromOwnerId.startsWith("barbarian-")) continue;
-      const t = this.tiles.get(tileKey);
-      if (!t || t.ownerId !== fromOwnerId || t.ownershipState !== "SETTLED") continue;
-      this.replaceTileState(tileKey, { ...t, ownershipState: "FRONTIER" }, `unsettle:${causeCommandId}:${tileKey}`);
-    }
+    this.reachBorder = applyReachAnchorDeactivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId);
   }
 
   private isPlayerTileInReach(playerId: string, x: number, y: number): boolean {
     return isPlayerTileInReachImpl(playerId, x, y, this.reachBorder);
+  }
+
+  // Pushes the authoritative reach border to every player it just changed for
+  // (runtime-reach-update.ts). Without this the client can only approximate
+  // its own border and will keep re-issuing EXPANDs the server rejects as
+  // OUT_OF_REACH — the mismatch that used to wedge waypoint queues.
+  private flushReachUpdatesForCommand(causeCommandId: string): void {
+    flushReachUpdates(this.reachUpdateState, { reachTileKeysForPlayer: (id) => this.reachTileKeysForPlayer(id), emitPlayerMessage: (cmd, payload) => this.emitPlayerMessage(cmd, payload) }, causeCommandId);
+  }
+
+  /** Re-push reach to a (re)connecting player, whose client starts with none. */
+  resendReachForPlayer(playerId: string): void {
+    markReachForResend(this.reachUpdateState, playerId);
+    this.flushReachUpdatesForCommand(`reach-update:resend:${this.now()}`);
   }
 
   // Diagnostic-only (admin debug surface): size of the persistent reach
@@ -4755,7 +4731,10 @@ export class SimulationRuntime {
     const lane = laneForCommand(command);
     this.enqueueJob(
       lane,
-      () => dispatchRuntimeCommand(command, this.commandDispatchHandlers()),
+      // Flush after dispatch (collapses several anchor activations into at
+      // most one REACH_UPDATE per player), wrapped in try/finally so a
+      // throwing handler still flushes what it mutated before throwing.
+      () => { try { dispatchRuntimeCommand(command, this.commandDispatchHandlers()); } finally { this.flushReachUpdatesForCommand(`reach-update:${command.commandId}`); } },
       command.type,
       commandScheduling(command),
       command.commandId

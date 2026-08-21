@@ -27,8 +27,8 @@ import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
+import { resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import {
-  computeLocalReachSet,
   drawDormantFrontierTreatment,
   drawReachBoundaryLine,
   isDormantFrontierTile
@@ -264,13 +264,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
       dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
     }
-    // Reach overlay: recompute only when the tile set has actually changed
-    // (tilesRevision bump), not every frame. See client-reach-overlay.ts's
-    // MOCK-DATA SEAM comment — this is a client-local approximation until
-    // the server pushes real reach data.
-    if (!isTrue3DRendererActive() && state.myReachRevisionAtCompute !== state.tilesRevision) {
-      state.myReach = computeLocalReachSet(state.tiles, state.me);
-      state.myReachRevisionAtCompute = state.tilesRevision;
+    // Reach overlay: recompute only when tiles or server reach actually
+    // changed. String key (not tilesRevision + serverReachRevision * 1e6) to
+    // avoid collisions once tilesRevision outgrows the multiplier.
+    const reachCacheKey = `${state.tilesRevision}:${state.serverReachRevision}`;
+    if (!isTrue3DRendererActive() && state.myReachRevisionAtCompute !== reachCacheKey) {
+      state.myReach = resolveMyReach(state);
+      state.myReachRevisionAtCompute = reachCacheKey;
     }
     const myReach = state.myReach;
     const crystalTargetingActive = state.crystalTargeting.active;
