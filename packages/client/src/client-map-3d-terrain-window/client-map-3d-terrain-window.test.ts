@@ -3,6 +3,7 @@ import {
   padTerrainWindow,
   requiredTerrainWindow,
   terrainWindowCovers,
+  terrainWindowPanned,
   tileCountForWindow,
   type TerrainWindow
 } from "./client-map-3d-terrain-window.js";
@@ -126,5 +127,39 @@ describe("terrain window", () => {
 
   it("treats a missing built window as uncovered, so the first frame rebuilds", () => {
     expect(terrainWindowCovers(undefined, windowAt(22), WORLD_WIDTH, WORLD_HEIGHT)).toBe(false);
+  });
+
+  describe("terrainWindowPanned", () => {
+    // Regression for the terrain visibly separating from every other 3D
+    // overlay (ownership border pylons especially) while panning: the pad in
+    // padTerrainWindow() let terrainWindowCovers() stay satisfied -- and so
+    // skip a rebuild -- for any pan that drifted less than the padded
+    // extent, even though the terrain's baked geometry doesn't move on its
+    // own between rebuilds while border pylons/markers reposition every
+    // frame off the live camera regardless of the pad. A small pan used to
+    // be silently absorbed by terrainWindowCovers; terrainWindowPanned must
+    // catch it even when the padded window still technically covers it.
+    it("is true for a small pan that terrainWindowCovers would still absorb inside the pad", () => {
+      const built = builtAt(22, 200, 200);
+      const required = windowAt(22, 201, 200);
+      expect(covers(built, required)).toBe(true);
+      expect(terrainWindowPanned(built, required)).toBe(true);
+    });
+
+    it("is false when the camera hasn't moved since the last rebuild", () => {
+      const built = builtAt(22, 200, 200);
+      const required = windowAt(22, 200, 200);
+      expect(terrainWindowPanned(built, required)).toBe(false);
+    });
+
+    it("is false with no built window yet, matching terrainWindowCovers' first-frame handling", () => {
+      expect(terrainWindowPanned(undefined, windowAt(22))).toBe(false);
+    });
+
+    it("is true across the wrapping seam, same as a same-magnitude non-wrapping pan", () => {
+      const built = builtAt(22, 0, 200);
+      const required = windowAt(22, WORLD_WIDTH - 1, 200);
+      expect(terrainWindowPanned(built, required)).toBe(true);
+    });
   });
 });
