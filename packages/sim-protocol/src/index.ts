@@ -102,10 +102,16 @@ export type AdminPlayerRow = {
   incomePerMinute: number;
   techs: number;
   manpower: number;
-  food: number;
-  titanium: number;
-  crystal: number;
-  umbrite: number;
+  /**
+   * FOOD/TITANIUM/CRYSTAL/UMBRITE run on the resource-slots pillar
+   * (docs/manpower-economy-rewrite-plan.md §5): supply from settled resource
+   * tiles vs. demand occupied by existing structures, not a spendable
+   * stockpile — there is no banked quantity to report for these.
+   */
+  resourceSlotSupply: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number };
+  resourceSlotDemand: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number };
+  /** SHARD is the one strategic resource still a real banked stockpile. */
+  shardStockpile: number;
   /** Persistent reach-border tile count granted to this player (see packages/shared/src/reach/reach.ts). */
   reachTiles: number;
   /** ownedTiles - settledTiles, i.e. FRONTIER-state tiles this player owns. */
