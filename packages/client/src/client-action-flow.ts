@@ -578,8 +578,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
-    state.autoSettleTargets.add(targetKey);
-    state.autoBuildTargets.set(targetKey, structureType);
+    state.autoSettleTargets.add(targetKey); state.autoBuildTargets.set(targetKey, structureType);
+    sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType }); // server-durable continuation, see runtime-claim-continuation-command-handlers.ts
     pushFeed(
       isActiveCaptureTarget
         ? `Queued settle + build ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`
@@ -1488,8 +1488,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           state.waypoint.push({ target: { x: selected.x, y: selected.y }, plan });
           persistWaypointQueueForPlayer(state.me, state.waypoint);
           sendGameMessage(waypointEnqueueWirePayload({ x: selected.x, y: selected.y }));
-          state.autoSettleTargets.add(targetKey);
-          state.autoBuildTargets.set(targetKey, "RELAY_BEACON");
+          state.autoSettleTargets.add(targetKey); state.autoBuildTargets.set(targetKey, "RELAY_BEACON");
+          sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType: "RELAY_BEACON" }); // server-durable continuation, see handleBuildAction above
           processActionQueue();
         }
       }

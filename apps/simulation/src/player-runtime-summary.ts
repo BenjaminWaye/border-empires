@@ -43,6 +43,22 @@ export type ServerWaypointQueueEntry = {
   queuedAt: number;
 };
 
+/**
+ * Server-durable "claim continuation" -- see runtime-claim-continuation-
+ * command-handlers.ts. Registered when a player clicks a composite
+ * settle(+build) action on a tile that is either mid-EXPAND or already
+ * owned-but-unsettled. Means: once the tile is owned+FRONTIER by this player
+ * (whether already true, or once an in-flight EXPAND lands it), auto-SETTLE
+ * it, then auto-BUILD `structureType` (if set) once settled -- all driven
+ * from the server-durable devQueue, so it survives the player disconnecting.
+ * Bounded at DEV_QUEUE_SERVER_CAP entries (same cap as devQueue itself,
+ * reused rather than introducing a second magic number -- see
+ * docs/agents/state-and-persistence-discipline.md).
+ */
+export type ClaimContinuation = {
+  structureType?: string;
+};
+
 export type PlayerRuntimeSummary = {
   territoryTileKeys: Set<string>;
   frontierTileKeys: Set<string>;
@@ -60,6 +76,7 @@ export type PlayerRuntimeSummary = {
   lastActiveAtMs: number;
   devQueue: ServerDevQueueEntry[];
   waypointQueue: ServerWaypointQueueEntry[];
+  claimContinuations: Map<string, ClaimContinuation>;
 };
 
 const emptyStrategicProduction = (): Record<StrategicResourceKey, number> => ({
@@ -152,7 +169,8 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   fishFoodPerMinute: 0,
   lastActiveAtMs: 0,
   devQueue: [],
-  waypointQueue: []
+  waypointQueue: [],
+  claimContinuations: new Map<string, ClaimContinuation>()
 });
 
 export const cloneStrategicProduction = (
