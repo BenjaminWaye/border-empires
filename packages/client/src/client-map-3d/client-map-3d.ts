@@ -187,7 +187,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // rebuildVisibleTerrain()'s camera-move/reach-change throttle, or the
   // animation would freeze whenever the camera stops moving mid-transition.
   const reach3DPylonTracker = createTransitionTracker<{ x: number; y: number; ownerId: string }>();
-  const reach3DSegmentTracker = createTransitionTracker<{ fx: number; fy: number; tx: number; ty: number; ownerId: string }>();
+  const reach3DSegmentTracker = createTransitionTracker<{ fx: number; fy: number; tx: number; ty: number; ownerId: string }>(); let reach3DPylonsAnimateArrivals = false; // false only on the first diffTransitions() call (initial load)
   // §21.1: one badge overlay per resource icon, so a dormant Fort missing TITANIUM gets ⛏ while an unfed town still gets 🍞.
   const RESOURCE_BADGE_ICON: Record<SlotResource, string> = { FOOD: "🍞", TITANIUM: "⛏", CRYSTAL: "💎", UMBRITE: "🟣" };
   const resourceBadgeOverlays: Record<SlotResource, ResourceBadgeOverlay> = {
@@ -2019,13 +2019,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       }
 
       const pylonFrames = diffTransitions(currentPylons, reach3DPylonTracker, nowMs, {
-        animateInitial: false,
+        animateInitial: reach3DPylonsAnimateArrivals,
         arriveStaggerMs: ARRIVE_STAGGER_MS
       });
       const segmentFrames = diffTransitions(currentSegments, reach3DSegmentTracker, nowMs, {
-        animateInitial: false,
+        animateInitial: reach3DPylonsAnimateArrivals,
         arriveStaggerMs: ARRIVE_STAGGER_MS
-      });
+      }); reach3DPylonsAnimateArrivals = true;
 
       // NOTE: corners sit at raw integer grid positions (tile (x,y)'s
       // center is at grid position x+TILE_CENTER_OFFSET, but its top-left
