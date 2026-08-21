@@ -70,14 +70,16 @@ export const applyFoundryHeartSlotBonus = (hasFoundryHeart: boolean, totals: Res
   totals.UMBRITE += 1;
 };
 
-// Quickforge: waive one rush-buy's gold cost per UTC day for the player. The
-// "used today" marker lives on the player object as wonderLastFreeRushBuyAt
-// so rush-buy pricing stays O(1).
+// Quickforge: discount one rush-buy by QUICKFORGE_RUSH_BUY_DISCOUNT_GOLD gold
+// per UTC day for the player. The "used today" marker lives on the player
+// object as wonderLastFreeRushBuyAt so rush-buy pricing stays O(1).
+export const QUICKFORGE_RUSH_BUY_DISCOUNT_GOLD = 40;
+
 export const quickforgeAdjustedRushPrice = (player: RuntimePlayer | undefined, hasQuickforge: boolean, price: number, nowMs: number): number => {
   if (price === 0 || !hasQuickforge) return price;
   const lastUse = player?.wonderLastFreeRushBuyAt ?? 0;
   const utcDayStart = Math.floor(nowMs / 86_400_000) * 86_400_000;
-  return lastUse < utcDayStart ? 0 : price;
+  return lastUse < utcDayStart ? Math.max(0, price - QUICKFORGE_RUSH_BUY_DISCOUNT_GOLD) : price;
 };
 
 export const stampQuickforgeRushUse = (player: RuntimePlayer | undefined, nowMs: number): void => {
