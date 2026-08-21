@@ -2562,7 +2562,7 @@ export class SimulationRuntime {
     clientSeq: number,
     issuedAt: number,
     sessionPrefix: "ai-runtime" | "system-runtime",
-    options?: { skipPreplan?: boolean; reservedDevelopmentSlots?: number; decisionCooldowns?: DecisionCooldownMap }
+    options?: { skipPreplan?: boolean; reservedDevelopmentSlots?: number; decisionCooldowns?: DecisionCooldownMap; beaconBoostActive?: boolean }
   ): { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic } {
     const player = this.players.get(playerId);
     if (!player) {
@@ -2658,7 +2658,7 @@ export class SimulationRuntime {
       ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
       ...(spatialFocus ? { spatialFocusFront: spatialFocus.primaryFront } : {}),
       ...(forceBroadFrontierScan ? { forceBroadFrontierScan } : {}),
-      ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {}),
+      ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {}), ...(options?.beaconBoostActive ? { beaconBoostActive: true } : {}),
       clientSeq,
       issuedAt,
       sessionPrefix

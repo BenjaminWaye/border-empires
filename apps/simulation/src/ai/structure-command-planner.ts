@@ -6,6 +6,7 @@ import {
   structureBuildManpowerCostScaled,
   structureCostDefinition,
   structureShowsOnTile,
+  TECH_REQUIREMENTS_BY_STRUCTURE,
   type EconomicStructureType,
   type Terrain
 } from "@border-empires/shared";
@@ -17,6 +18,8 @@ import {
   townSupportStructureShowsOnTile
 } from "../town-support-lookup.js";
 import { economyWeak } from "./ai-economic-heuristics.js";
+import { ECONOMIC_STRUCTURE_CATALOG, economicCatalogScore } from "./build/economic-structure-catalog.js";
+import type { NeedVector } from "./build/build-need-vector.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
@@ -176,14 +179,11 @@ export const canAffordStructure = (
   structureType: EconomicStructureType,
   existingOwnedCount: number
 ): boolean => {
-  const requiredTech: Partial<Record<EconomicStructureType, string>> = {
-    FARMSTEAD: "agriculture",
-    UMBRITE_RIG: "leatherworking",
-    MINE: "mining",
-    MINTWORKS: "trade",
-    GRANARY: "pottery"
-  };
-  const requiredTechId = requiredTech[structureType];
+  // Single source of truth (previously a hand-copied 5-entry subset here,
+  // which meant every newly-catalog-scored type — economic-structure-catalog.ts
+  // — would silently skip its own tech gate unless someone remembered to add
+  // it to both places).
+  const requiredTechId = TECH_REQUIREMENTS_BY_STRUCTURE[structureType];
   if (requiredTechId && !techSet.has(requiredTechId)) return false;
   if (!canAffordGold(player, structureBuildGoldCost(structureType, existingOwnedCount))) return false;
   // Same existingOwnedCount the runtime scales by (it passes
@@ -202,7 +202,12 @@ export const chooseBestEconomicBuild = (
   player: StructurePlannerPlayer,
   ownedTiles: readonly StructurePlannerTile[],
   tilesByKey: TileLookup,
-  candidateTiles: readonly StructurePlannerTile[] = ownedTiles
+  candidateTiles: readonly StructurePlannerTile[] = ownedTiles,
+  // Optional: absent needVector just means the catalog's open_settled/
+  // town_support entries below never fire (their score would be
+  // unknowable), same as before this catalog existed — the original 5
+  // hand-tuned types are unaffected either way.
+  needVector?: NeedVector
 ): { tile: StructurePlannerTile; structureType: EconomicStructureType } | undefined => {
   let best: { tile: StructurePlannerTile; structureType: EconomicStructureType; score: number } | undefined;
   const foodLow = foodCoverageLow(player);
@@ -248,6 +253,31 @@ export const chooseBestEconomicBuild = (
         existingSupportStructureTypes = economicStructureTypesForSupportedTown(tilesByKey, player.id, townKey);
         candidates.push({ type: foodLow ? "GRANARY" : "MINTWORKS", score: foodLow ? 160 : 54 });
         candidates.push({ type: "GRANARY", score: foodLow ? 132 : 20 });
+        if (needVector) {
+          for (const entry of ECONOMIC_STRUCTURE_CATALOG) {
+            if (entry.placement !== "town_support") continue;
+            // A deficit of exactly 0 means the need is already fully met —
+            // proposing the build anyway would spend manpower for zero
+            // value. chooseBestEconomicBuild's best-pick loop below has no
+            // score>0 filter of its own (the original 5 types never hit
+            // exactly 0), so the catalog must not push a 0-score candidate.
+            const score = economicCatalogScore(entry, needVector);
+            if (score > 0) candidates.push({ type: entry.type, score });
+          }
+        }
+      }
+    }
+    // Plain open land — no resource, not a town tile — is where the
+    // catalog's open_settled entries (WATERWORKS/GOVERNORS_OFFICE) get
+    // considered. Deliberately excluded from resource/town tiles above:
+    // FARMSTEAD belongs on a farm tile more than Waterworks does, and this
+    // keeps that tile's candidates to the single branch that already matched
+    // it rather than layering a second, unrelated evaluation on top.
+    if (needVector && !tile.resource && !tile.town) {
+      for (const entry of ECONOMIC_STRUCTURE_CATALOG) {
+        if (entry.placement !== "open_settled") continue;
+        const score = economicCatalogScore(entry, needVector);
+        if (score > 0) candidates.push({ type: entry.type, score });
       }
     }
     for (const candidate of candidates) {
