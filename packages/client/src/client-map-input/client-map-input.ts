@@ -1,4 +1,5 @@
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
+import { zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
 import type { initClientDom } from "../client-dom.js";
 import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
@@ -145,9 +146,31 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   const TOUCH_TAP_MAX_MOVE_PX = 12;
   const MOUSE_PAN_THRESHOLD_PX = 4;
 
+  // Wheel deltas are accumulated and applied once per animation frame. A
+  // trackpad fires wheel events well above 60Hz (measured ~2.6 per frame
+  // mid-gesture), and every distinct `state.zoom` write is a potential terrain
+  // rebuild in the 3D renderer — coalescing to one write per frame drops the
+  // redundant ones without changing how far the gesture travels.
+  let pendingWheelDeltaY = 0;
+  let pendingWheelDeltaMode = 0;
+  let wheelFrame: number | undefined;
+
+  const applyPendingWheelZoom = (): void => {
+    wheelFrame = undefined;
+    const deltaY = pendingWheelDeltaY;
+    const deltaMode = pendingWheelDeltaMode;
+    pendingWheelDeltaY = 0;
+    if (deltaY === 0) return;
+    state.zoom = zoomStepFor({ zoom: state.zoom, deltaY, deltaMode, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM });
+  };
+
   deps.canvas.addEventListener("wheel", (ev) => {
     ev.preventDefault();
-    state.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, state.zoom + (ev.deltaY > 0 ? -1 : 1)));
+    // Mixed delta modes within one frame are vanishingly rare (a device does
+    // not change mode mid-gesture); the last one wins.
+    pendingWheelDeltaMode = ev.deltaMode;
+    pendingWheelDeltaY += ev.deltaY;
+    if (wheelFrame === undefined) wheelFrame = requestAnimationFrame(applyPendingWheelZoom);
   });
 
   window.addEventListener("keydown", (ev) => {
@@ -335,7 +358,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         if (!a || !b) return;
         const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const factor = d / Math.max(1, pinchStart.distance);
-        state.zoom = Math.max(12, Math.min(MAX_ZOOM, Math.round(pinchStart.zoom * factor)));
+        state.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(pinchStart.zoom * factor)));
       }
     },
     { passive: true }
