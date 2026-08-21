@@ -4,7 +4,7 @@
 // client-changelog-data-earlier.ts when this file approaches the cap.
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER } from "./client-changelog-data-earlier.js";
 export type ClientChangelogEntry = {
-  createdAt: number; // Unix ms. Use Date.now() when authoring a new entry.
+  createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
   title: string;
   why: string;
@@ -23,7 +23,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1787296000000, // 2026.08.21.2 — frozen; was Date.now() in the merged commit
     introducedIn: "2026.08.21.2",
     title: "Relay beacons are now destroyed when their tile is captured",
     why: "Every other structure kept its old survive-capture behavior, but a relay beacon transferring intact to the attacker let a single capture instantly hand over both the tile and a working reach anchor on it — same treatment siege outposts already get.",
@@ -220,7 +220,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1787122800000, // 2026.08.21
     introducedIn: "2026.08.21",
     title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",
     why: "Expanding onto a dock connected to one you already own always failed with an out-of-reach error, since a dock only contributed to your reach once you already owned it -- there was no way to ever take the first step onto the far side. Separately, an Aether Bridge only ever opened a single-tile crossing at its landing point, so it couldn't be used to establish a real foothold for further expansion.",
@@ -228,6 +228,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "You can now EXPAND onto an unowned dock that's connected to a dock you already own.",
       "Casting Aether Bridge onto neutral ground now grants a small radius of reach around the landing tile, so you can expand into the surrounding land and build a Relay Beacon there -- the grant persists even after the bridge itself expires, though it can still be overtaken if a rival establishes their own reach (e.g. a Relay Beacon) over that ground.",
       "Casting a bridge onto ground already inside a rival's territory still opens the crossing for an attack, but no longer grants any reach there."
+    ]
+  },
+  {
+    createdAt: 1787295247575, // 2026.08.21.3
+    introducedIn: "2026.08.21.3",
+    title: "Map zoom is now smooth and responsive",
+    why: "Zooming used to feel sluggish for two compounding reasons: each wheel notch only moved the zoom level by 1 out of a 10-192 range, so crossing the range took roughly 180 notches; and every single notch tore down and re-uploaded the entire visible terrain to the GPU, which alone cost ~74ms and pinned the frame rate around 10fps for the whole gesture.",
+    changes: [
+      "A wheel notch now moves zoom by a proportional step instead of a flat ±1, so the full zoom range crosses in about 15-20 notches instead of ~180.",
+      "The 3D renderer now only rebuilds the visible terrain when the camera actually needs tiles outside what's already loaded, instead of on every zoom or pan change -- zooming in no longer triggers a rebuild at all, and frame rate stays smooth while zooming or making small-to-moderate pans."
     ]
   }
 ];
