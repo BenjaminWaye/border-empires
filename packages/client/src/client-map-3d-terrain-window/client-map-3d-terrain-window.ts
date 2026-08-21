@@ -131,3 +131,27 @@ export const terrainWindowCovers = (
     axisCovers(built.halfH, built.camY, required.halfH, required.camY, worldHeight)
   );
 };
+
+// True when the camera has panned since the last rebuild, i.e. builtWindow's
+// camX/camY no longer matches the live camera. The pad in padTerrainWindow()
+// deliberately lets a rebuild wait until the camera needs tiles outside the
+// padded extent -- that's fine for the terrain's own geometry, which the pad
+// exists to protect from being rebuilt on every zoom notch. But every OTHER
+// 3D overlay (ownership border pylons, flags, badges, selection markers...)
+// repositions itself every frame straight off the live camX/camY, with no
+// pad and no rebuild step. If the terrain is allowed to sit unrebuilt while
+// the camera drifts inside the pad, its baked geometry stays pinned to the
+// stale camX/camY from the last rebuild while every other overlay glides on
+// with the live camera -- the border pylons visibly separate from the
+// ground tiles under them mid-pan. Requiring an exact camX/camY match (any
+// nonzero drift needs a rebuild) keeps the terrain locked to the same live
+// camera position everything else already uses; REBUILD_MIN_INTERVAL_MS in
+// client-map-3d.ts is what actually bounds how often that fires during a
+// continuous drag.
+export const terrainWindowPanned = (
+  built: TerrainWindow | undefined,
+  required: TerrainWindow
+): boolean => {
+  if (!built) return false;
+  return built.camX !== required.camX || built.camY !== required.camY;
+};
