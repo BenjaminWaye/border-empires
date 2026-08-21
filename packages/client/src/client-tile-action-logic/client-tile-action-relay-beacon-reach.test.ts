@@ -112,7 +112,7 @@ describe("build_relay_beacon_frontier — gated on reach, not fog exploration", 
   });
 });
 
-describe("settle_land — hidden (not just disabled) outside reach", () => {
+describe("settle_land — always shown, since EXPAND is no longer reach-gated", () => {
   it("shows Settle Land on a tile inside reach", () => {
     const state = stateWithTown(0, 0);
     const target: Tile = { x: 2, y: 2, terrain: "LAND" } as Tile;
@@ -122,19 +122,17 @@ describe("settle_land — hidden (not just disabled) outside reach", () => {
     expect(findAction(actions, "settle_land")).toBeDefined();
   });
 
-  it("hides Settle Land entirely on a tile outside reach, rather than showing it disabled", () => {
-    // Previously always pushed regardless of reach -- a reachable (adjacent,
-    // via baseDeps' always-adjacent pickOriginForTarget mock) but out-of-
-    // reach tile would show "Settle Land" as an apparently-actionable
-    // (or cost-disabled) row that the server would actually reject as
-    // OUT_OF_REACH. Matches the same "just don't show it" policy already
-    // applied to the relay-beacon button.
+  it("still shows Settle Land on a tile outside reach -- EXPAND itself is no longer reach-gated server-side", () => {
+    // Previously hidden outside reach because the server rejected EXPAND
+    // there as OUT_OF_REACH. That gate moved to SETTLE/outpost builds only
+    // (runtime.ts / runtime-structure-command-handlers.ts), so "Expand To"
+    // now shows for any reachable-by-path target, in or out of reach.
     const state = stateWithTown(0, 0); // TOWN_REACH_RADIUS = 3
     const target: Tile = { x: 50, y: 50, terrain: "LAND" } as Tile;
     state.tiles.set(keyFor(50, 50), target);
 
     const actions = menuActionsForSingleTile(state, target, baseDeps as never);
-    expect(findAction(actions, "settle_land")).toBeUndefined();
+    expect(findAction(actions, "settle_land")).toBeDefined();
   });
 
   it("still offers Settle Land AND Build Relay Beacon on a tile that's inside reach but NOT adjacent -- both walk there via a waypoint chain instead of requiring a direct claim", () => {

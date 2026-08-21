@@ -4411,7 +4411,7 @@ export class SimulationRuntime {
       rejectIfNoDevelopmentSlot: (command, code, message) => this.rejectIfNoDevelopmentSlot(command, code, message),
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
-      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType),
+      ownedStructureCountForPlayer: (playerId, structureType) => this.ownedStructureCountForPlayer(playerId, structureType), isPlayerTileInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y),
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId, true), // forceFresh: hasFreeResourceSlots can't tolerate stale totals
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId, true),
       supportedTownKeysForTile: (playerId, x, y) => this.supportedTownKeysForTile(playerId, x, y),

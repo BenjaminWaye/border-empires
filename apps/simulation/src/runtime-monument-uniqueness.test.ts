@@ -49,6 +49,7 @@ function createContext(players: DomainPlayer[], tiles: DomainTileState[]) {
       return true;
     },
     ownedStructureCountForPlayer: () => 0,
+    isPlayerTileInReach: () => true,
     resourceSlotSupplyForPlayer: () => ({ FOOD: 99, TITANIUM: 99, CRYSTAL: 99, UMBRITE: 99 }),
     resourceSlotDemandForPlayer: () => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }),
     supportedTownKeysForTile: () => [],

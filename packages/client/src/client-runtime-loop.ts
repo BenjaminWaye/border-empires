@@ -717,10 +717,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
           deps.ctx.fillRect(px, py, size, size);
         } else {
-          deps.ctx.strokeStyle = "#ffd166";
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
-          deps.ctx.lineWidth = 1;
+          const selectedOutOfReach = Boolean(myReach) && !myReach!.has(deps.keyFor(wx, wy)); // fixed-border reach: dashed orange outside reach
+          if (selectedOutOfReach) deps.ctx.setLineDash([4, 3]);
+          deps.ctx.strokeStyle = selectedOutOfReach ? "#ff8a3d" : "#ffd166"; deps.ctx.lineWidth = 2; deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1); deps.ctx.lineWidth = 1;
+          if (selectedOutOfReach) deps.ctx.setLineDash([]);
         }
       } else if (state.selected) {
         const selected = state.tiles.get(deps.keyFor(state.selected.x, state.selected.y));
