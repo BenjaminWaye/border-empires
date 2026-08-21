@@ -1405,17 +1405,11 @@ describe("simulation runtime", () => {
           tiles: [
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
             { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
-            { x: 51, y: 50, terrain: "LAND" },
-            // Dock-crossing EXPAND is still reach-gated on the target, so give
-            // player-1 a second reach anchor (town) right by the linked dock.
-            {
-              x: 49,
-              y: 50,
-              terrain: "LAND",
-              ownerId: "player-1",
-              ownershipState: "SETTLED",
-              town: { name: "Harbor", type: "FARMING", populationTier: "SETTLEMENT" }
-            }
+            { x: 51, y: 50, terrain: "LAND" }
+            // Deliberately no reach anchor near the linked dock (50,50) —
+            // a dock crossing is exempt from the reach gate on its exact
+            // paired-dock target, since that's the whole point of a dock:
+            // reaching a landmass with no anchor of your own on it yet.
           ],
           docks: [
             { dockId: "dock-a", tileKey: "10,10", pairedDockId: "dock-b", connectedDockIds: ["dock-b"] },
@@ -7350,7 +7344,7 @@ describe("simulation runtime", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
-              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: 61_000, frontierDecayKind: "NATURAL" },
+              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
               { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
             ],
             activeLocks: []

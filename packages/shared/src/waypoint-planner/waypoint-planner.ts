@@ -184,6 +184,13 @@ export const planWaypoint = (
   // (topUpFromWaypoint) cancels, keeping whatever ground was captured.
   const goalUnexplored = !goalTile;
   const alliedPlayerIds = alliedPlayerIdsOf(state);
+  // EXPAND is no longer reach-gated server-side (fixed-border reach only
+  // gates SETTLE/build now), so a waypoint chain whose target is plain
+  // neutral land (an EXPAND-only chain — never an ATTACK) may route through
+  // out-of-reach tiles too. An ATTACK target (or an undiscovered target,
+  // which is always optimistically NEUTRAL) is unaffected either way, and
+  // chains actually targeting an enemy tile keep the existing reach pruning
+  // on their intermediate NEUTRAL/EXPAND steps.
   if (!goalUnexplored) {
     if (goalTile.terrain !== "LAND") return blockedPlan("TARGET_BARRIER");
     if (goalTile.ownerId === me) return blockedPlan("TARGET_OWN");
@@ -199,6 +206,8 @@ export const planWaypoint = (
     !tile
       ? { kind: "NEUTRAL", durationMs: expandDurationMsAt(x, y) }
       : classifyTile(tile, x, y, me, attackDurationMs, alliedPlayerIds, truceTargetIds, expandDurationMsAt, now);
+
+  const isExpandOnlyChain = classifyForSearch(goalTile, goalX, goalY).kind === "NEUTRAL";
 
   // Collect sources: all currently-owned land tiles (gScore 0 each).
   // A source remains valid even if fogged — the server may reject the
@@ -283,7 +292,7 @@ export const planWaypoint = (
       // fail outright if reach is what's actually blocking every path),
       // instead of producing a plan whose EXPAND steps the server would
       // reject once the chain got there.
-      if (classified.kind === "NEUTRAL" && deps.isInReach && !deps.isInReach(nx, ny)) continue;
+      if (classified.kind === "NEUTRAL" && deps.isInReach && !deps.isInReach(nx, ny) && !isExpandOnlyChain) continue;
       const baseCost = classified.kind === "OWN" ? 0 : classified.durationMs;
       const turnPenalty = parentDir === NO_DIR || parentDir === dirIdx ? 0 : TURN_PENALTY_MS;
       const tentative = currentG + baseCost + turnPenalty;
@@ -309,7 +318,7 @@ export const planWaypoint = (
           const destTile = state.tiles.get(keyFor(dxw, dyw));
           const classified = classifyForSearch(destTile, dxw, dyw);
           if (classified.kind === "IMPASSABLE") continue;
-          if (classified.kind === "NEUTRAL" && deps.isInReach && !deps.isInReach(dxw, dyw)) continue;
+          if (classified.kind === "NEUTRAL" && deps.isInReach && !deps.isInReach(dxw, dyw) && !isExpandOnlyChain) continue;
           const stepCost = classified.kind === "OWN" ? 0 : classified.durationMs;
           const tentative = currentG + stepCost;
           const destState = encodeState(destIdx, NO_DIR);

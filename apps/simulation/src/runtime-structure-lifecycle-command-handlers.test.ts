@@ -91,6 +91,7 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
       return true;
     },
     ownedStructureCountForPlayer: (playerId, structureType) => ownedStructureCounts.get(playerId)?.get(structureType) ?? 0,
+    isPlayerTileInReach: () => true,
     supportedTownKeysForTile: () => [],
     supportedDockKeysForTile: () => [],
     economicStructureForSupportedTown: () => undefined,

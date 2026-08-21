@@ -3,11 +3,9 @@ import {
   type TownGrowthUpgradeView,
   nextTownGrowthUpgrade,
   type BuildableStructureType,
-  EXPAND_MANPOWER_COST, FORT_BUILD_MS,
-  FRONTIER_CLAIM_COST,
+  FORT_BUILD_MS,
   RELAY_BEACON_ATTACK_MULT,
   RELAY_BEACON_BUILD_MS,
-  RELAY_BEACON_VISION_BONUS,
   OBSERVATORY_BUILD_MS,
   SETTLE_COST, SETTLE_MANPOWER_COST,
   SIEGE_OUTPOST_ATTACK_MULT,
@@ -37,7 +35,7 @@ import {
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 import { converterStructureMenuEntries } from "../client-converter-menu.js";
-import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, frontierClaimCostLabelForTile, isForestTile } from "../client-constants.js";
+import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, isForestTile } from "../client-constants.js";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
@@ -60,9 +58,8 @@ import { ownObservatoryRange } from "../client-observatory-rules/client-observat
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
-import { localReachIsInReach } from "../client-reach-overlay/client-reach-overlay.js";
-import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
-import { formatWaypointSummary } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
+import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { neutralTileActions } from "./client-tile-action-neutral.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -765,112 +762,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     }
   }
   if (!tile.ownerId) {
-    const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false));
-    const isInReach = localReachIsInReach(state.tiles, state.me, deps.keyFor);
-    const targetInReach = isInReach(tile.x, tile.y);
-
-    const out: TileActionDef[] = [];
-    // "Expand To" claims any tile inside reach, adjacent or not -- if it's
-    // already adjacent that's a direct EXPAND; otherwise it walks there
-    // first via the exact same multi-step waypoint chain Add Waypoint used
-    // to offer as a SEPARATE button for this case (client-action-flow.ts
-    // dispatches "settle_land" on a non-adjacent target straight into
-    // handleWaypointAction). One button that does the right thing
-    // regardless of distance, instead of two buttons the player has to
-    // separately notice for near vs. far reach ground. Hidden entirely
-    // when out of reach (server would reject as OUT_OF_REACH regardless of
-    // cost) or when no path exists at all (planWaypoint's own check).
-    // Labeled "Expand To" rather than "Settle Land" -- this claims neutral
-    // ground (an EXPAND, possibly via a waypoint chain), it doesn't settle
-    // it; "Settle Land" is reserved for the real settle action on a tile
-    // already owned as FRONTIER (further below), which is a genuinely
-    // different action (pays SETTLE_COST, converts FRONTIER -> SETTLED).
-    if (reachable && targetInReach) {
-      out.push({
-        id: "settle_land",
-        label: "Expand To",
-        ...tileActionAvailability(
-          state.gold >= FRONTIER_CLAIM_COST && state.manpower >= EXPAND_MANPOWER_COST,
-          state.manpower < EXPAND_MANPOWER_COST ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
-          frontierClaimCostLabelForTile(tile.x, tile.y)
-        )
-      });
-    } else if (targetInReach) {
-      const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor, isInReach });
-      if (plan.reachable) {
-        out.push({
-          id: "settle_land",
-          label: "Expand To",
-          ...tileActionAvailability(
-            canAffordCost(state.gold, plan.totalGold) && state.manpower >= plan.totalManpower,
-            state.manpower < plan.totalManpower ? `Need ${plan.totalManpower} manpower` : `Need ${plan.totalGold} gold`,
-            formatWaypointSummary(plan)
-          )
-        });
-      }
-    }
-    // Build Relay Beacon does NOT require adjacency: its handler
-    // (client-action-flow.ts, actionId === "build_relay_beacon_frontier")
-    // already drives a non-adjacent target over via the same waypoint
-    // mechanism "Expand Here" uses, then auto-settles and auto-builds once
-    // ownership lands (state.autoSettleTargets/autoBuildTargets) -- that's
-    // pre-existing, unrelated to reach, and was never broken. The only real
-    // gate here is reach itself (an EXPAND landing outside it is rejected
-    // server-side regardless of path); "just don't show it" outside reach,
-    // same policy as everything below.
-    if (targetInReach) {
-      const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-      const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
-      const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
-      const exploreEnabled =
-        canAffordCost(state.gold, totalExploreGold) &&
-        state.manpower >= totalExploreManpower &&
-        hasFreeResourceSlotsForRelayBeacon(state);
-      out.push({
-        id: "build_relay_beacon_frontier" as TileActionDef["id"],
-        label: "Build Relay Beacon",
-        detail: `Push into the unknown • expand + settle + build • +${RELAY_BEACON_VISION_BONUS} vision`,
-        ...tileActionAvailability(
-          exploreEnabled,
-          state.manpower < totalExploreManpower
-            ? `Need ${totalExploreManpower} manpower`
-            : !canAffordCost(state.gold, totalExploreGold)
-              ? `Need ${totalExploreGold} gold`
-              : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
-          `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
-        )
-      });
-    }
-    out.push({
-      id: "build_foundry",
-      label: "Build Foundry",
-      detail: deps.buildDetailTextForAction("build_foundry", tile),
-      ...tileActionAvailabilityWithDevelopmentSlot(
-        reachable &&
-          state.techIds.includes("industrial-extraction") &&
-          state.gold >= deps.structureGoldCost("FOUNDRY") &&
-          state.manpower >= structureBuildManpowerCost("FOUNDRY") &&
-          !tile.resource &&
-          !tile.town &&
-          !tile.dockId,
-        !reachable
-          ? "Must touch your territory"
-          : !state.techIds.includes("industrial-extraction")
-            ? "Requires Steam-Driven Extraction"
-            : tile.resource || tile.town || tile.dockId
-              ? "Needs empty land"
-              : state.gold < deps.structureGoldCost("FOUNDRY")
-                ? `Need ${deps.structureGoldCost("FOUNDRY")} gold`
-                : `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`,
-        `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 5 tiles; boosted production raises iron/crystal cap`,
-        deps.developmentSlotSummary(),
-        deps
-      )
-    });
-    out.push(...retortRecastActions());
-    out.push(...crystalCoreActions());
-    out.push(createMountainAction());
-    return out;
+    return neutralTileActions(state, tile, deps, { retortRecastActions, crystalCoreActions, createMountainAction });
   }
   if (tile.ownerId === state.me) {
     const slots = deps.developmentSlotSummary();
@@ -893,6 +785,14 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const townBuildSource =
       tile.town && tile.town.populationTier !== "SETTLEMENT" && tile.ownershipState === "SETTLED" ? tile : supportedTown;
     const supportPlacementBlocked = Boolean(hasBlockingStructure && townBuildSource && townBuildSource !== tile);
+    // Fixed-border reach: EXPAND itself is no longer reach-gated, but SETTLE
+    // and outpost-family builds (siege outposts/relay beacon, which skip the
+    // SETTLED requirement server-side) still are -- see runtime-structure-
+    // command-handlers.ts. On a FRONTIER tile outside reach, show these
+    // actions disabled with the reason instead of hiding them.
+    const frontierOutOfReach = tile.ownershipState === "FRONTIER" && !authoritativeIsInReach(state, deps.keyFor)(tile.x, tile.y);
+    const withReachGate = ([eligible, reason, cost]: [boolean, string, string]): [boolean, string, string] =>
+      frontierOutOfReach ? [false, "Outside your reach", cost] : [eligible, reason, cost];
     if (tile.observatory?.ownerId === state.me && tile.observatory.status === "active") {
       const cooldown = deps.abilityCooldownRemainingMs("survey_sweep");
       out.push({
@@ -1109,9 +1009,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         label: "Settle Land",
         detail: deps.buildDetailTextForAction("settle_land", tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
-          state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} gold`,
-          `${SETTLE_COST} gold, ${SETTLE_MANPOWER_COST} manpower • ${Math.round(settleDurationMsForState(state, tile) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`,
+          ...withReachGate([
+            canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
+            state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} gold`,
+            `${SETTLE_COST} gold, ${SETTLE_MANPOWER_COST} manpower • ${Math.round(settleDurationMsForState(state, tile) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`
+          ]),
           slots,
           deps
         )
@@ -1130,9 +1032,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           label: `Settle Connected (${actionableKeys.length})`,
           detail: deps.buildDetailTextForAction("settle_connected_frontier", tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
-            state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} gold`,
-            `${totalCost} gold total • fills slots, rest queue`,
+            ...withReachGate([
+              canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
+              state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} gold`,
+              `${totalCost} gold total • fills slots, rest queue`
+            ]),
             slots,
             deps
           )
@@ -1671,12 +1575,12 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         label: "Build Relay Beacon",
         detail: deps.buildDetailTextForAction("build_relay_beacon", tile) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
-          ...chainedBuildAvailability(
+          ...withReachGate(chainedBuildAvailability(
             "RELAY_BEACON",
             hasFreeResourceSlotsForRelayBeacon(state),
             missingRelayBeaconSlotReason(state) ?? "Unavailable",
             `${deps.structureCostText("RELAY_BEACON")} • ${Math.round(RELAY_BEACON_BUILD_MS / 60000)}m • atk x${RELAY_BEACON_ATTACK_MULT.toFixed(2)}`
-          ),
+          )),
           slots,
           deps
         )
@@ -1698,7 +1602,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
           label: tile.siegeOutpost || hasRelayBeacon ? `Upgrade to ${siegeVariant.label}` : `Build ${siegeVariant.label}`,
           detail: deps.buildDetailTextForAction("build_siege_camp", tile) + frontierBuildDetailSuffix(tile),
           ...tileActionAvailabilityWithDevelopmentSlot(
-            ...chainedBuildAvailability(
+            ...withReachGate(chainedBuildAvailability(
               "SIEGE_OUTPOST",
               hasTech && hasFreeSlots && canUseTile,
               !hasTech
@@ -1708,7 +1612,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                   : missingResourceSlotReason(state, siegeVariant.variant, tile.siegeOutpost?.variant) ?? "Unavailable",
               `${siegeVariant.summary} • ${Math.round(SIEGE_OUTPOST_BUILD_MS / 60000)}m • atk x${siegeVariant.attackMult.toFixed(2)}`,
               siegeVariant.gold
-            ),
+            )),
             slots,
             deps
           )

@@ -56,7 +56,7 @@ const connectedNeighborKeys = (tileKey: string, extraNeighborKeys?: ExtraNeighbo
 export interface EncirclementTileView {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
-  frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+  frontierDecayKind?: "ENCIRCLEMENT" | undefined;
   dockId?: string | undefined;
 }
 

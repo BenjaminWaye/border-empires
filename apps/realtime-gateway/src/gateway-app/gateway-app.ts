@@ -22,8 +22,7 @@ import {
   createEmailAlertService,
   readAttackAlert,
   readIncomingAllianceRequestAlert,
-  type EmailAlertConfig,
-  type EmailAlertOutcome
+  type EmailAlertConfig
 } from "../email-alerts/email-alerts.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "../frontier-submit/frontier-submit.js";
 import { CommandRateLimiter, rejectIfCommandRateLimited } from "../command-rate-limiter/command-rate-limiter.js";
@@ -45,6 +44,8 @@ import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-
 import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js";
 import { createWorldEngineStrikeGatewayIntegration } from "../world-engine-strike-broadcast/world-engine-strike-broadcast.js";
 import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js";
+import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
+import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
 import { startImperialWardAutoStartTimer } from "../galaxy-endorsement-auto-start/galaxy-endorsement-auto-start.js";
 import { buildGatewayHttpRoutesDeps } from "./build-http-routes-deps.js";
 import { startDatabaseKeepAlive } from "./database-keepalive.js";
@@ -623,29 +624,19 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       error: (payload, message) => app.log.error(payload, message)
     }
   });
-  const recordEmailAlertOutcome = (
-    kind: "alliance_request" | "truce_request" | "attack",
-    recipientPlayerId: string,
-    outcome: EmailAlertOutcome
-  ): void => {
-    if (outcome === "disabled" || outcome === "recipient_missing") return;
-    const level = outcome === "send_failed" ? "warn" : "info";
-    recordGatewayEvent(level, "gateway_email_alert_result", { kind, recipientPlayerId, outcome });
-  };
-  const sendGameplayEmailAlert = (
-    kind: "alliance_request" | "truce_request" | "attack",
-    recipientPlayerId: string,
-    send: () => Promise<EmailAlertOutcome>
-  ): void => {
-    void send()
-      .then((outcome) => recordEmailAlertOutcome(kind, recipientPlayerId, outcome))
-      .catch((error) => {
-        app.log.error(
-          { err: error instanceof Error ? error.message : String(error), kind, recipientPlayerId },
-          "gameplay email alert failed"
-        );
-      });
-  };
+  const sendGameplayEmailAlert = createGameplayEmailAlertSender({
+    recordGatewayEvent,
+    logError: (payload, message) => app.log.error(payload, message)
+  });
+
+  const notifySeasonStarted = (): void =>
+    notifySeasonStartedImpl({
+      listSeasonArchives: () => simulationClient.listSeasonArchives(),
+      listPlayersWithEmail: () => authBindingStore.listAllWithEmail(),
+      sendSeasonStartAlert: (input) => emailAlerts.sendSeasonStartAlert(input),
+      sendGameplayEmailAlert,
+      onError: (error, context) => app.log.error({ err: error instanceof Error ? error.message : String(error) }, context)
+    });
 
   const authIdentityCacheTtlMs = Math.max(0, Number(process.env.GATEWAY_AUTH_IDENTITY_CACHE_TTL_MS ?? 300_000));
   const profileCacheTtlMs = Math.max(0, Number(process.env.GATEWAY_PROFILE_CACHE_TTL_MS ?? 300_000));
@@ -1811,6 +1802,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       socialStore.clearSeasonData();
       seasonStartVote.reset();
       slackAlerter?.alertSeasonStarted(result.seasonId, force === true);
+      notifySeasonStarted();
       return result;
     },
     endorsementStore: galaxyEndorsementStore,
@@ -2535,6 +2527,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               socialStore.clearSeasonData();
               seasonStartVote.reset();
               slackAlerter?.alertSeasonStarted(result.seasonId, false);
+              notifySeasonStarted();
             } catch (error) {
               recordGatewayEvent("warn", "gateway_start_new_season_rejected", { playerId: session.playerId, error: error instanceof Error ? error.message : String(error) });
               sendJson(socket, { type: "ERROR", code: "SEASON_NOT_READY", message: "A new season cannot start yet." });

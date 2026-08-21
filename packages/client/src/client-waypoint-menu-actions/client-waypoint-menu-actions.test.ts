@@ -24,7 +24,7 @@ const view = (overrides: Partial<TileMenuView> = {}): TileMenuView => ({
   ...overrides
 });
 
-type StateShape = Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint">;
+type StateShape = Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint" | "serverReach" | "serverReachRevision">;
 
 const stateWith = (tiles: Tile[], overrides: Partial<StateShape> = {}): StateShape => ({
   me: "me",
@@ -33,6 +33,10 @@ const stateWith = (tiles: Tile[], overrides: Partial<StateShape> = {}): StateSha
   allies: [],
   activeTruces: [],
   waypoint: [],
+  // undefined serverReach = no REACH_UPDATE yet, so resolveMyReach falls back
+  // to the local anchor-derived approximation these fixtures already set up.
+  serverReach: undefined,
+  serverReachRevision: 0,
   ...overrides
 });
 

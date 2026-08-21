@@ -39,7 +39,7 @@ export type RuntimeExportState = {
     ownerId?: string;
     ownershipState?: string;
     frontierDecayAt?: number;
-    frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT";
+    frontierDecayKind?: "ENCIRCLEMENT";
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;
@@ -76,6 +76,12 @@ export type RuntimeExportState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
+    // Quickforge wonder: ms timestamp of this player's last discounted
+    // rush-buy (0/absent = never used). Sent to the client purely so the
+    // rush-buy price preview (client-tile-menu-view.ts) can replicate the
+    // exact UTC-day gate quickforgeAdjustedRushPrice enforces server-side —
+    // the server remains authoritative on the actual charged price.
+    wonderLastFreeRushBuyAt?: number;
     eventLog?: PlayerEventLogEntry[];
     // Server-durable dev/expand queue tail (see player-runtime-summary.ts /
     // runtime-dev-queue.ts / runtime-waypoint-queue.ts) -- carried through
@@ -203,6 +209,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+        ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
         ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
         ...(summary.devQueue.length
           ? {

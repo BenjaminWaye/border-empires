@@ -2,6 +2,7 @@ import type { DomainPlayer } from "@border-empires/game-domain";
 import { cloneStrategicProduction } from "./player-runtime-summary.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { LockRecord, StrategicResourceKey } from "./runtime-types.js";
+import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 
 export type RuntimePlayerDebugSnapshot = Array<{
   id: string;
@@ -13,7 +14,15 @@ export type RuntimePlayerDebugSnapshot = Array<{
   manpowerRegenPerMinute: number;
   techIds: string[];
   domainIds: string[];
-  strategicResources: Partial<Record<StrategicResourceKey, number>>;
+  // FOOD/TITANIUM/CRYSTAL/UMBRITE run on the resource-slots pillar
+  // (docs/manpower-economy-rewrite-plan.md §5): supply from settled resource
+  // tiles vs. demand occupied by existing structures, not a spendable
+  // stockpile. `strategicResources` on DomainPlayer stays ~0 for these post-
+  // rewrite; report slot supply/demand instead so this reflects how the
+  // game actually works. SHARD is the one resource still a real stockpile.
+  resourceSlotSupply: ResourceSlotTotals;
+  resourceSlotDemand: ResourceSlotTotals;
+  shardStockpile: number;
   settledTileCount: number;
   ownedTileCount: number;
   townCount: number;
@@ -35,6 +44,8 @@ type PlayerDebugInput = {
   playerManpowerCap: (player: DomainPlayer) => number;
   playerManpowerRegenPerMinute: (player: DomainPlayer) => number;
   estimatedIncomePerMinuteForPlayer: (playerId: string) => number;
+  resourceSlotSupplyForPlayer: (playerId: string) => ResourceSlotTotals;
+  resourceSlotDemandForPlayer: (playerId: string) => ResourceSlotTotals;
 };
 
 export function buildRuntimePlayerDebugSnapshot(input: PlayerDebugInput): RuntimePlayerDebugSnapshot {
@@ -58,7 +69,9 @@ export function buildRuntimePlayerDebugSnapshot(input: PlayerDebugInput): Runtim
         manpowerRegenPerMinute: input.playerManpowerRegenPerMinute(player),
         techIds: [...player.techIds].sort(),
         domainIds: [...(player.domainIds ?? [])].sort(),
-        strategicResources: { ...(player.strategicResources ?? {}) },
+        resourceSlotSupply: input.resourceSlotSupplyForPlayer(player.id),
+        resourceSlotDemand: input.resourceSlotDemandForPlayer(player.id),
+        shardStockpile: player.strategicResources?.SHARD ?? 0,
         settledTileCount: summary.settledTileCount,
         ownedTileCount: summary.territoryTileKeys.size,
         townCount: summary.townCount,

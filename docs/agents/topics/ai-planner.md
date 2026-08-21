@@ -23,7 +23,7 @@ See `staging-login-cpu-contention.md` for the login-vs-CPU story.
   AIs out" further; that's done.
 - The decision itself is a small utility policy (`ai/utility/decisions.ts`):
   classes are **EXPAND, ATTACK, MUSTER, BUILD_DEFENSE, BUILD_ECONOMY,
-  CHOOSE_TECH, WAIT**. There is **no SETTLE class** (see below).
+  BUILD_BEACON, CHOOSE_TECH, WAIT**. There is **no SETTLE class** (see below).
 
 ## Profiling per-plan cost
 
@@ -50,13 +50,21 @@ wall-clock inflation** on the oversubscribed vCPU, not planner code cost.
 
 Emitters: `EXPAND`, `ATTACK`, `SET_MUSTER`/`ADVANCE`, `CHOOSE_TECH`,
 `CHOOSE_DOMAIN`, `BUILD_FORT`, `BUILD_ECONOMIC_STRUCTURE`,
-`BUILD_SIEGE_OUTPOST`, `COLLECT_VISIBLE`; barbarian planner: `EXPAND`,
-`ATTACK`, `UNCAPTURE_TILE`.
+`BUILD_SIEGE_OUTPOST`, `SETTLE`, `COLLECT_VISIBLE`; barbarian planner:
+`EXPAND`, `ATTACK`, `UNCAPTURE_TILE`.
 
-The AI does **NOT** emit `SETTLE` (human-client only — `client-queue-logic.ts`)
-or `BUILD_OBSERVATORY`. Any AI code computing candidates/branches for those is
-dead. `evaluateSettlementCandidate` is still used for frontier *classification*
-(planner-candidate-index, frontier-command-planner) — that one is NOT dead.
+The AI does **NOT** emit `BUILD_OBSERVATORY`. Any AI code computing
+candidates/branches for it is dead. `evaluateSettlementCandidate` is still
+used for frontier *classification* (planner-candidate-index,
+frontier-command-planner) — that one is NOT dead.
+
+**`SETTLE` is no longer human-client-only** (fixed-borders-via-reach plan):
+`BUILD_BEACON`'s `executeClass` branch (`ai/utility/utility-dispatch.ts`)
+emits `SETTLE` on a FRONTIER `RELAY_BEACON` site before the build itself can
+land — `RELAY_BEACON_SPEC`'s placement rule requires `SETTLED`. There is
+still no standalone SETTLE *decision class* (deliberately — see below); this
+is the one narrow, purpose-built exception, not a general settle-everything
+policy.
 
 ## Already-removed dead work (don't re-flag)
 
@@ -112,14 +120,24 @@ consolidation, planning cadence), not deletion.
   `utility-dispatch.ts` includes waste-classified plain neutrals (tiles
   `EXPAND` itself refuses via `hasActionableNonWasteExpand`). Any *other*
   decision class that uses it as an "expansion is available, defer to it"
-  suppression term (e.g. `scoreBuildEconomy`) gets suppressed by tiles that
-  were never actually available. Fixed by adding
-  `nonWasteExpansionOpportunityCount` (waste excluded) for BUILD_ECONOMY's
-  suppression term specifically — `expansionOpportunityCount` is still correct
-  for EXPAND's own linear-signal term, since EXPAND's veto already gates the
-  waste-only case first. When wiring a new consideration off an existing
-  aggregate field, check whether that field's *inclusions* still match the
-  new consumer's definition of "available."
+  suppression term (e.g. `scoreBuildEconomy`, at the time) gets suppressed by
+  tiles that were never actually available. `expansionOpportunityCount`
+  itself is still correct for EXPAND's own linear-signal term, since EXPAND's
+  veto already gates the waste-only case first. The lesson generalizes: when
+  wiring a new consideration off an existing aggregate field, check whether
+  that field's *inclusions* still match the new consumer's definition of
+  "available."
+  — The original fix was a second field, `nonWasteExpansionOpportunityCount`
+  (waste excluded), used only by `scoreBuildEconomy`'s suppression term. That
+  field was removed (docs/ai-structure-building-rewrite-plan.md's
+  reach-consideration work) once the fixed-borders-via-reach plan made
+  `scoreBuildEconomy` stop suppressing on expansion-opportunity at all —
+  EXPAND no longer consumes a dev slot and is now reach-capped, so it isn't
+  actually competing with a build for the same resource the way it did when
+  this incident happened. If a future consideration needs a waste-excluded
+  aggregate again, `git log -p -- apps/simulation/src/ai/utility/decisions.ts`
+  has the original formula (`Math.max(0, frontierNeutralTargetCount -
+  frontierOpportunityWaste) + frontierOpportunityEconomic + ...`).
 - **`restrictToFocus`'s unfiltered-fallback silently defeats
   `ai-spatial-focus.ts`'s rotation** (same staging incident): `restrictToFocus`
   (in `automation-command-planner.ts`) widens to the full unfiltered candidate

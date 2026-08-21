@@ -150,6 +150,67 @@ describe("email alerts", () => {
     ).resolves.toBe("recipient_missing");
   });
 
+  it("sends a branded season-start email crediting the previous champion", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1", email: "player@example.com" });
+    const sent: Array<{ to: string; subject: string; text: string; html: string }> = [];
+    const alerts = createEmailAlertService({
+      authBindingStore,
+      transport: {
+        send: async (message) => {
+          sent.push(message);
+        }
+      },
+      appUrl: "https://play.example"
+    });
+
+    await expect(
+      alerts.sendSeasonStartAlert({ recipientPlayerId: "player-1", previousWinnerName: "Nauticus" })
+    ).resolves.toBe("sent");
+
+    expect(sent).toEqual([
+      expect.objectContaining({
+        to: "player@example.com",
+        subject: "A new season has begun in Border Empires",
+        html: expect.stringContaining("Reigning Champion"),
+        text: expect.stringContaining("Reigning Champion: Nauticus")
+      })
+    ]);
+    expect(sent[0]?.html).toContain("Nauticus");
+    expect(sent[0]?.html).toContain("https://play.example");
+  });
+
+  it("folds a victory recap into the season-start email for the previous winner", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1", email: "player@example.com" });
+    const sent: Array<{ to: string; subject: string; text: string; html: string }> = [];
+    const alerts = createEmailAlertService({
+      authBindingStore,
+      transport: {
+        send: async (message) => {
+          sent.push(message);
+        }
+      },
+      appUrl: "https://play.example"
+    });
+
+    await expect(
+      alerts.sendSeasonStartAlert({
+        recipientPlayerId: "player-1",
+        isPreviousWinner: true,
+        objectiveName: "Continental Dominance"
+      })
+    ).resolves.toBe("sent");
+
+    expect(sent).toEqual([
+      expect.objectContaining({
+        to: "player@example.com",
+        subject: "You won the season — and a new one has begun in Border Empires",
+        text: expect.stringContaining("Continental Dominance")
+      })
+    ]);
+  });
+
   it("extracts alert details from social and attack payloads", () => {
     expect(
       readIncomingAllianceRequestAlert(

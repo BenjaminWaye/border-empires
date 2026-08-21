@@ -7,6 +7,7 @@ import {
   grantAnchorToBorder,
   isInReach,
   liveReachForOwner,
+  reachRadiusForAnchor,
   reachRadiusForKind,
   reachSetForPlayer,
   reassessBorderOnAnchorDeactivation,
@@ -25,6 +26,19 @@ describe("reachRadiusForKind", () => {
   });
   it("DOCK → DOCK_REACH_RADIUS", () => {
     expect(reachRadiusForKind("DOCK")).toBe(DOCK_REACH_RADIUS);
+  });
+});
+
+describe("reachRadiusForAnchor", () => {
+  it("falls back to reachRadiusForKind when no override is set", () => {
+    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    expect(reachRadiusForAnchor(anchor)).toBe(OUTPOST_REACH_RADIUS);
+  });
+
+  it("uses radiusOverride when set, regardless of kind", () => {
+    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST", radiusOverride: 3 };
+    expect(reachRadiusForAnchor(anchor)).toBe(3);
+    expect(tileKeysInReach(anchor).length).toBe((2 * 3 + 1) ** 2);
   });
 });
 

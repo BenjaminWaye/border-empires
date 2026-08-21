@@ -3,7 +3,6 @@ import {
   computeLocalReachSet,
   computeOutpostReachPreview,
   drawDormantFrontierTreatment,
-  drawOutOfReachDimming,
   drawOutpostReachPreviewTile,
   drawReachBoundaryLine,
   isDormantFrontierTile
@@ -16,8 +15,8 @@ import type { Tile } from "@client/client-types.js";
  * packages/shared/src/reach/reach.ts for the authoritative server-side
  * definition this mirrors). Builds a small synthetic world on a plain grid
  * (not the full hex/iso game canvas) so the boundary line, dormant-frontier
- * treatment, out-of-reach dimming, and beacon-placement preview can all be
- * inspected in isolation using the exact draw functions the game ships.
+ * treatment, and beacon-placement preview can all be inspected in isolation
+ * using the exact draw functions the game ships.
  */
 
 const ME = "player-1";
@@ -43,8 +42,8 @@ const makeTile = (overrides: { x: number; y: number } & Record<string, unknown>)
  * Builds the demo world: a town at the center (radius-3 reach), a
  * RELAY_BEACON pushed out to the east (radius-5 reach), a dormant-frontier
  * tile to the northwest (previously unsettled — still carries a leftover
- * economicStructure), an enemy pocket to the south (out-of-reach dimming),
- * and everything else left as plain unowned land.
+ * economicStructure), an enemy pocket to the south, and everything else
+ * left as plain unowned land.
  */
 const buildWorld = (): Map<string, Tile> => {
   const tiles = new Map<string, Tile>();
@@ -112,7 +111,7 @@ const buildWorld = (): Map<string, Tile> => {
     })
   );
 
-  // Enemy pocket to the south — visible, but outside my reach.
+  // Enemy pocket to the south.
   for (let dx = -1; dx <= 1; dx += 1) {
     for (let dy = 0; dy <= 1; dy += 1) {
       const x = center + dx;
@@ -161,9 +160,6 @@ const renderReachAndDormant = (): HTMLElement => {
       if (t.ownerId === ME && isDormantFrontierTile(t)) {
         drawDormantFrontierTreatment(ctx, px, py, TILE);
       }
-      if (t.ownerId && t.ownerId !== ME && !reach.has(keyFor(x, y))) {
-        drawOutOfReachDimming(ctx, px, py, TILE);
-      }
       if (t.ownerId === ME) {
         drawReachBoundaryLine(ctx, x, y, px, py, TILE, reach, { tiles, keyFor, wrapX: wrap, wrapY: wrap });
       }
@@ -197,7 +193,7 @@ const renderReachAndDormant = (): HTMLElement => {
   legend.innerHTML = `
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem;">Fixed-Border Reach Overlay</h3>
     <p style="margin: 0;">🏰 = town (radius 3) &nbsp; 📡 = active relay beacon (radius 5) &nbsp; 💤 = dormant frontier tile (previously unsettled, structure still present but inactive)</p>
-    <p style="margin: 0.5rem 0 0;">Dashed gold line = reach boundary. Hatched dark tiles = visible but out of reach (EXPAND/SETTLE would fail). Amber-tinted tile = dormant frontier.</p>
+    <p style="margin: 0.5rem 0 0;">Dashed gold line = reach boundary. Amber-tinted tile = dormant frontier.</p>
   `;
 
   container.appendChild(canvas);

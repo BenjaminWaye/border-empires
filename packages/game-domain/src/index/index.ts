@@ -262,7 +262,6 @@ export type DomainTileState = {
     | {
         type: import("@border-empires/shared").NaturalWonderType;
         claimedAt?: number;
-        lastFreeRushBuyAt?: number;
       }
     | undefined;
 };
@@ -351,9 +350,6 @@ export const validateFrontierCommand = (
   const manpowerCost = musterAttack ? effectiveCost : legacy.manpowerCost;
   if (input.actionType === "EXPAND" && input.to.ownerId) {
     return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
-  }
-  if (input.actionType === "EXPAND" && typeof input.isInReach === "boolean" && !input.isInReach) {
-    return { ok: false, code: "OUT_OF_REACH", message: "target is outside your reach" };
   }
   if (input.actionType === "ATTACK" && (!input.to.ownerId || input.to.ownerId === input.actor.id)) {
     return { ok: false, code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" };

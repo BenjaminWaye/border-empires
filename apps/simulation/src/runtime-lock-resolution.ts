@@ -49,6 +49,11 @@ export type RuntimeLockResolutionContext = {
   // surrounding area, then reverts to normal fog-of-war. No-op if the tile
   // has no watchtower or it was already activated.
   maybeActivateWatchtower: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
+  // Drains a server-durable "claim continuation" (see player-runtime-
+  // summary.ts / runtime-claim-continuation-command-handlers.ts) registered
+  // for this tile, if any -- i.e. auto-SETTLE (+ auto-BUILD) it now that a
+  // winning EXPAND actually landed ownership. No-op if none was registered.
+  maybeDrainClaimContinuation: (targetKey: string, x: number, y: number, playerId: string) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -182,6 +187,9 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     else context.clearFortPatrolGrace(lock.targetKey);
     if (lock.actionType === "EXPAND") {
       context.maybeActivateWatchtower(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
+      if (resolvedTarget.ownershipState === "FRONTIER") {
+        context.maybeDrainClaimContinuation(lock.targetKey, lock.targetX, lock.targetY, lock.playerId);
+      }
     }
 
     let tileDeltas: SimulationTileWireDelta[];

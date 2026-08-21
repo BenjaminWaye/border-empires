@@ -23,3 +23,21 @@ export const rushBuyPriceGold = (remainingMs: number, totalMs: number, manpowerC
   const remainingFraction = clampedRemainingMs / totalMs;
   return Math.max(1, Math.ceil(remainingFraction * manpowerCost * RUSH_BUY_GOLD_PER_MANPOWER));
 };
+
+// Quickforge wonder: once per UTC day, the controller's rush-buy price is
+// discounted by this many gold (floored at 0). Pulled into shared so both
+// the simulation (authoritative pricing) and the client (price preview)
+// compute the exact same number from the exact same formula.
+export const QUICKFORGE_RUSH_BUY_DISCOUNT_GOLD = 40;
+
+// Whether the once-per-UTC-day Quickforge discount is still unused, given
+// the ms timestamp of its last use (0 if never used) and the current time.
+export const quickforgeDiscountAvailable = (lastUseMs: number, nowMs: number): boolean => {
+  const utcDayStart = Math.floor(nowMs / 86_400_000) * 86_400_000;
+  return lastUseMs < utcDayStart;
+};
+
+export const quickforgeAdjustedRushPrice = (hasQuickforge: boolean, price: number, lastUseMs: number, nowMs: number): number => {
+  if (price === 0 || !hasQuickforge) return price;
+  return quickforgeDiscountAvailable(lastUseMs, nowMs) ? Math.max(0, price - QUICKFORGE_RUSH_BUY_DISCOUNT_GOLD) : price;
+};
