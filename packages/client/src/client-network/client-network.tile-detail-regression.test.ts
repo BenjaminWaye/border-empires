@@ -545,13 +545,13 @@ describe("client network tile detail regression", () => {
             ownershipState: "FRONTIER",
             detailLevel: "summary",
             frontierDecayAt: 555_000,
-            frontierDecayKind: "NATURAL"
+            frontierDecayKind: "ENCIRCLEMENT"
           }
         ]
       })
     });
     expect(state.tiles.get("79,240")?.frontierDecayAt).toBe(555_000);
-    expect(state.tiles.get("79,240")?.frontierDecayKind).toBe("NATURAL");
+    expect(state.tiles.get("79,240")?.frontierDecayKind).toBe("ENCIRCLEMENT");
 
     ws.emit("message", {
       data: JSON.stringify({

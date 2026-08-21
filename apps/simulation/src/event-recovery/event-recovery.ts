@@ -213,7 +213,7 @@ const applyTileDeltaToRecoveredAccumulator = (
         ? { frontierDecayAt: existing.frontierDecayAt }
         : {}),
     ...("frontierDecayKind" in tileDelta
-      ? tileDelta.frontierDecayKind === "NATURAL" || tileDelta.frontierDecayKind === "ENCIRCLEMENT"
+      ? tileDelta.frontierDecayKind === "ENCIRCLEMENT"
         ? { frontierDecayKind: tileDelta.frontierDecayKind }
         : {}
       : existing?.frontierDecayKind
