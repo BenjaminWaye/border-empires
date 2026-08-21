@@ -309,7 +309,8 @@ import {
   handleRemoveMountainCommand as handleRemoveMountainCommandImpl,
   handleWorldEngineStrikeCommand as handleWorldEngineStrikeCommandImpl,
   type RuntimeMapCommandContext
-} from "../runtime-map-command-handlers.js"; import { buildMapCommandContext } from "./runtime-map-command-context.js";
+} from "../runtime-map-command-handlers.js";
+import { buildMapCommandContext } from "./runtime-map-command-context.js";
 import { handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl } from "../runtime-imperial-exchange-levy-command.js";
 import { handleTitaniumLevyMusterCommand as handleTitaniumLevyMusterCommandImpl, TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
 import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
@@ -382,7 +383,8 @@ import {
   completeStructureBuild as completeStructureBuildImpl,
   handleBuildStructureCommand as handleBuildStructureCommandImpl,
   type RuntimeStructureCommandContext
-} from "../runtime-structure-command-handlers.js"; import { buildStructureCommandContext } from "./runtime-structure-command-context.js";
+} from "../runtime-structure-command-handlers.js";
+import { buildStructureCommandContext } from "./runtime-structure-command-context.js";
 import {
   handleSetConverterStructureEnabledCommand as handleSetConverterStructureEnabledCommandImpl,
   handleSetConverterStructureModeCommand as handleSetConverterStructureModeCommandImpl,
