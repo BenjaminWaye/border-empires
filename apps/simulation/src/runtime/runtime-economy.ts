@@ -31,7 +31,9 @@ import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empir
 const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
 // Coalescing window for AI-only derived caches (economy snapshot,
 // defensibility metrics) — see cachedEconomySnapshot/cachedDefensibilityMetrics.
-const AI_DERIVED_CACHE_COALESCE_MS = 5_000;
+// Exported so runtime.ts's own AI-derived caches (planner world view, etc.)
+// share one definition instead of drifting independently.
+export const AI_DERIVED_CACHE_COALESCE_MS = 5_000;
 
 export interface RuntimeManpowerEconomyContext {
   now: () => number;

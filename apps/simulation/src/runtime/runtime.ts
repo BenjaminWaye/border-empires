@@ -228,7 +228,7 @@ import {
 } from "../runtime-combat-support.js";
 import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
 import {
-  applyManpowerRegenForPlayer as applyManpowerRegenForPlayerImpl,
+  AI_DERIVED_CACHE_COALESCE_MS, applyManpowerRegenForPlayer as applyManpowerRegenForPlayerImpl,
   cachedDefensibilityMetrics as cachedDefensibilityMetricsImpl,
   cachedEconomySnapshot as cachedEconomySnapshotImpl,
   cachedUpkeepAccrual as cachedUpkeepAccrualImpl,
@@ -474,8 +474,8 @@ const ORPHAN_LOCK_GRACE_MS = 60_000;
 // login-stall investigation). Well under both consumers' own tick cadence —
 // passive income (15s) and population growth (60s) — so this never produces
 // gameplay-visible staleness; it just stops a continuously-settling AI from
-// paying a fresh O(settled-tiles) rebuild on nearly every command.
-const AI_DERIVED_CACHE_COALESCE_MS = 5_000;
+// paying a fresh O(settled-tiles) rebuild on nearly every command. Defined in
+// runtime-economy.ts (imported above) so both files share one value.
 // TTL for the per-tile auto-settlement eligibility cache (AI only, see
 // autoSettlementQueueForPlayer). Longer than AI_DERIVED_CACHE_COALESCE_MS
 // deliberately: that cache only avoids re-running the WHOLE rebuild within a
