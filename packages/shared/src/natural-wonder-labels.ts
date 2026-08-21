@@ -37,7 +37,7 @@ export const NATURAL_WONDER_LABELS: Record<NaturalWonderType, { name: string; fl
   QUICKFORGE: {
     name: "the Quickforge",
     flavor: "pneumatic pistons hiss and slam in rapid rhythm, forge-glow washing over red-hot steel",
-    boon: "once per day (UTC midnight), rush-buy one in-progress build for free"
+    boon: "once per day (UTC midnight), rush-buy one in-progress build for 40 gold cheaper"
   },
   WATCHTOWER_ENGINE: {
     name: "the Watchtower Engine",

@@ -123,10 +123,10 @@ scrolling data on glass panels, and computation spark particles.
 
 ### 2.7 — The Quickforge
 
-**Effect:** Once per 24h (real-time, UTC midnight reset), the controller may
-invoke a free rush-buy on one in-progress build. Uses the standard rush-buy
-mechanic but the gold cost is waived. Resets on fixed UTC midnight, not a
-rolling timer.
+**Effect:** Once per 24h (real-time, UTC midnight reset), the controller's
+next rush-buy on an in-progress build costs 40 gold less (floored at 0). Uses
+the standard rush-buy mechanic with a flat gold discount applied. Resets on
+fixed UTC midnight, not a rolling timer.
 
 **Spawn:** FERTILE_PLAINS or ANCIENT_HEARTLAND region. LAND tile.
 

@@ -251,7 +251,7 @@ const meta: Meta<Args> = {
       description: {
         component:
           "The Quickforge — a rapid-action forge with animated pistons, steam jets, and a red-hot glow. " +
-          "Passive effect: once per 24h (UTC midnight), one free rush-buy using the standard rush-buy mechanic with gold cost waived.",
+          "Passive effect: once per 24h (UTC midnight), one rush-buy using the standard rush-buy mechanic costs 40 gold less.",
       },
     },
   },
