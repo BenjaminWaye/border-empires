@@ -23,6 +23,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: Date.now(),
+    introducedIn: "2026.08.21.2",
+    title: "Relay beacons are now destroyed when their tile is captured",
+    why: "Every other structure kept its old survive-capture behavior, but a relay beacon transferring intact to the attacker let a single capture instantly hand over both the tile and a working reach anchor on it — same treatment siege outposts already get.",
+    changes: [
+      "Capturing a tile with a relay beacon on it now destroys the beacon instead of transferring ownership.",
+      "The attacker still takes the tile itself; they'll need to rebuild a relay beacon there to project reach from it."
+    ]
+  },
+  {
     createdAt: 1787295212839, // 2026.08.21.1 — frozen from a live Date.now() call left in by the merged commit
     introducedIn: "2026.08.21.1",
     title: "Fixed research (tech/domain) picks being lost on server restart or deploy",
