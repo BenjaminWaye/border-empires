@@ -190,6 +190,7 @@ import {
   handleWaypointEnqueueCommand as handleWaypointEnqueueCommandImpl,
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js";
+import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
 import {
   createDocksFromInitialState,
   createLocksFromInitialState,
@@ -1697,6 +1698,7 @@ export class SimulationRuntime {
       respawnIfEliminated: (playerId, commandId) => this.respawnIfEliminated(playerId, commandId),
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId),
+      maybeDrainClaimContinuation: (targetKey, x, y, playerId) => tryDrainClaimContinuationImpl(this.devQueueCommandContext(), playerId, targetKey, x, y),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({
             capturedTile,
@@ -2562,7 +2564,7 @@ export class SimulationRuntime {
     clientSeq: number,
     issuedAt: number,
     sessionPrefix: "ai-runtime" | "system-runtime",
-    options?: { skipPreplan?: boolean; reservedDevelopmentSlots?: number; decisionCooldowns?: DecisionCooldownMap }
+    options?: { skipPreplan?: boolean; reservedDevelopmentSlots?: number; decisionCooldowns?: DecisionCooldownMap; beaconBoostActive?: boolean }
   ): { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic } {
     const player = this.players.get(playerId);
     if (!player) {
@@ -2658,7 +2660,7 @@ export class SimulationRuntime {
       ...(preplanDiagnostic?.preplanProgressState ? { preplanProgressState: preplanDiagnostic.preplanProgressState } : {}),
       ...(spatialFocus ? { spatialFocusFront: spatialFocus.primaryFront } : {}),
       ...(forceBroadFrontierScan ? { forceBroadFrontierScan } : {}),
-      ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {}),
+      ...(options?.decisionCooldowns ? { decisionCooldowns: options.decisionCooldowns } : {}), ...(options?.beaconBoostActive ? { beaconBoostActive: true } : {}),
       clientSeq,
       issuedAt,
       sessionPrefix
@@ -3650,9 +3652,7 @@ export class SimulationRuntime {
       const cached = this.autoSettlementQueueCacheByPlayer.get(playerId);
       if (cached && this.now() - cached.computedAtMs < AI_DERIVED_CACHE_COALESCE_MS) return cached.value;
     }
-    // Use frontierTilesByOwner to avoid iterating all territory tiles (O(settled) → O(frontier))
-    // orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway, so passing only
-    // frontier keys is semantically equivalent but O(frontier) instead of O(territory).
+    // frontierTilesByOwner keeps this O(frontier) instead of O(territory) — orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway.
     const frontierKeys = this.frontierTilesByOwner.get(playerId) ?? new Set<string>();
     let supportLookupCalls = 0;
     // AI-only read-through cache for the per-tile eligibility result (see
@@ -3682,6 +3682,8 @@ export class SimulationRuntime {
             return Boolean(town && town.populationTier !== "SETTLEMENT");
           });
         },
+        // Must be revealed (fog-of-war coverage) before auto-settle can claim it.
+        isRevealedToPlayer: (tile) => this.visibilityCoverage.isVisible(playerId, simulationTileKey(tile.x, tile.y)),
         eligibilityCache
       })
         .map((tileKey) => {
@@ -3960,6 +3962,7 @@ export class SimulationRuntime {
     };
     this.setTileYieldCollectedAt(input.commandId, input.ownerId, input.tileKey, this.now());
     this.replaceTileState(input.tileKey, settledTile);
+    tryDrainClaimContinuationBuildTailImpl(this.devQueueCommandContext(), input.ownerId, input.tileKey, settledTile.x, settledTile.y);
     this.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: input.commandId,
@@ -4064,14 +4067,9 @@ export class SimulationRuntime {
     };
   }
 
-  private waypointQueueCommandContext(): RuntimeWaypointQueueCommandContext {
-    return {
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      now: () => this.now(),
-      emitEvent: (event) => this.emitEvent(event),
-      rejectCommand: (command, code, message) => this.rejectCommand(command, code, message)
-    };
-  }
+  // See runtime-claim-continuation-command-handlers.ts (context builder lives there; oversized file).
+  private claimContinuationCommandContext() { return claimContinuationContextFromDevQueueContext(this.devQueueCommandContext(), this.tiles); }
+  private waypointQueueCommandContext(): RuntimeWaypointQueueCommandContext { return { summaryForPlayer: (playerId) => this.summaryForPlayer(playerId), now: () => this.now(), emitEvent: (event) => this.emitEvent(event), rejectCommand: (command, code, message) => this.rejectCommand(command, code, message) }; }
 
   /**
    * Server-side auto-settle for AI players. AI has no client, so unlike
@@ -5101,7 +5099,8 @@ export class SimulationRuntime {
       handleDevQueueMoveToFrontCommand: (command) => handleDevQueueMoveToFrontCommandImpl(this.devQueueCommandContext(), command),
       handleWaypointEnqueueCommand: (command) => handleWaypointEnqueueCommandImpl(this.waypointQueueCommandContext(), command),
       handleWaypointCancelCommand: (command) => handleWaypointCancelCommandImpl(this.waypointQueueCommandContext(), command),
-      handleWaypointCancelAllCommand: (command) => handleWaypointCancelAllCommandImpl(this.waypointQueueCommandContext(), command)
+      handleWaypointCancelAllCommand: (command) => handleWaypointCancelAllCommandImpl(this.waypointQueueCommandContext(), command),
+      handleClaimContinuationSetCommand: (command) => handleClaimContinuationSetCommandImpl(this.claimContinuationCommandContext(), command)
     };
   }
 

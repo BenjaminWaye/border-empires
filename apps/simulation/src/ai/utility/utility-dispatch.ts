@@ -48,6 +48,8 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   points: number;
   manpower: number;
   decisionCooldowns: DecisionCooldownMap | undefined;
+  /** True on the boosted portion of this player's beacon build cadence — see ai-beacon-cadence.ts. */
+  beaconBoostActive: boolean;
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -124,6 +126,7 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     hasSiegeOutpost: Boolean(state.siegeOutpostBuild),
     hasRelayBeaconBuild: Boolean(state.relayBeaconBuild),
     relayBeaconSiteValue: state.relayBeaconBuild?.siteValue ?? 0,
+    beaconBoostActive: state.beaconBoostActive,
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},

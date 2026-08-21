@@ -1,4 +1,5 @@
 import { appendPlayerEventLogEntry, type DomainTileState } from "@border-empires/game-domain";
+import { quickforgeAdjustedRushPrice as sharedQuickforgeAdjustedRushPrice } from "@border-empires/shared";
 import type { RuntimePlayer } from "./runtime-types.js";
 import type { ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { naturalWonderClaimEventText } from "./natural-wonder-claim-text.js";
@@ -70,15 +71,13 @@ export const applyFoundryHeartSlotBonus = (hasFoundryHeart: boolean, totals: Res
   totals.UMBRITE += 1;
 };
 
-// Quickforge: waive one rush-buy's gold cost per UTC day for the player. The
-// "used today" marker lives on the player object as wonderLastFreeRushBuyAt
-// so rush-buy pricing stays O(1).
-export const quickforgeAdjustedRushPrice = (player: RuntimePlayer | undefined, hasQuickforge: boolean, price: number, nowMs: number): number => {
-  if (price === 0 || !hasQuickforge) return price;
-  const lastUse = player?.wonderLastFreeRushBuyAt ?? 0;
-  const utcDayStart = Math.floor(nowMs / 86_400_000) * 86_400_000;
-  return lastUse < utcDayStart ? 0 : price;
-};
+// Quickforge: discount one rush-buy per UTC day for the player. The "used
+// today" marker lives on the player object as wonderLastFreeRushBuyAt so
+// rush-buy pricing stays O(1). The actual discount formula lives in
+// @border-empires/shared (quickforgeAdjustedRushPrice) so the client's
+// rush-buy price preview can compute the identical number.
+export const quickforgeAdjustedRushPrice = (player: RuntimePlayer | undefined, hasQuickforge: boolean, price: number, nowMs: number): number =>
+  sharedQuickforgeAdjustedRushPrice(hasQuickforge, price, player?.wonderLastFreeRushBuyAt ?? 0, nowMs);
 
 export const stampQuickforgeRushUse = (player: RuntimePlayer | undefined, nowMs: number): void => {
   if (!player) return;

@@ -222,6 +222,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   const initialTrickle = (player as { chosenTrickleResource?: unknown }).chosenTrickleResource;
   state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
   state.imperialWardCharges = (player as { imperialWardCharges?: number }).imperialWardCharges;
+  state.wonderLastFreeRushBuyAt = (player as { wonderLastFreeRushBuyAt?: number }).wonderLastFreeRushBuyAt;
   state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
   state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
   state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;

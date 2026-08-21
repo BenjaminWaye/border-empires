@@ -33,6 +33,7 @@ describe("orderedAutoSettlementTileKeys — eligibility cache", () => {
         hasTownSupportCalls += 1;
         return false;
       },
+      isRevealedToPlayer: () => true,
       eligibilityCache: {
         get: (tileKey: string) => cacheStore.get(tileKey),
         set: (tileKey: string, eligible: boolean) => { cacheStore.set(tileKey, eligible); }
@@ -57,7 +58,8 @@ describe("orderedAutoSettlementTileKeys — eligibility cache", () => {
     const result = orderedAutoSettlementTileKeys("player-1", ["1,1"], {
       getTile: (tileKey: string) => tiles.get(tileKey),
       isBlocked: () => false,
-      hasTownSupport: () => { hasTownSupportCalls += 1; return false; }
+      hasTownSupport: () => { hasTownSupportCalls += 1; return false; },
+      isRevealedToPlayer: () => true
     });
     expect(result).toEqual(["1,1"]);
     expect(hasTownSupportCalls).toBe(0); // short-circuited by tile.resource
@@ -73,6 +75,7 @@ describe("orderedAutoSettlementTileKeys — eligibility cache", () => {
       getTile: (tileKey: string) => tiles.get(tileKey),
       isBlocked: () => blocked,
       hasTownSupport: () => true,
+      isRevealedToPlayer: () => true,
       eligibilityCache: {
         get: (tileKey: string) => cacheStore.get(tileKey),
         set: (tileKey: string, eligible: boolean) => { cacheStore.set(tileKey, eligible); }
@@ -98,7 +101,8 @@ describe("orderedAutoSettlementTileKeys — eligibility cache", () => {
     const deps = {
       getTile: (tileKey: string) => tiles.get(tileKey),
       isBlocked: () => false,
-      hasTownSupport: () => { hasTownSupportCalls += 1; return true; }
+      hasTownSupport: () => { hasTownSupportCalls += 1; return true; },
+      isRevealedToPlayer: () => true
     };
     orderedAutoSettlementTileKeys("player-1", ["3,3"], deps);
     orderedAutoSettlementTileKeys("player-1", ["3,3"], deps);
