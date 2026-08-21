@@ -28,7 +28,6 @@ import {
   BREAKTHROUGH_ENABLED,
   EMPIRE_INTEGRITY_ENABLED,
   empireIntegrity,
-  integrityEconomyMult,
   integrityGrowthMult,
   MUSTER_ATTACK_COST,
   FORT_GARRISON_ATTRITION_MIN,
@@ -78,7 +77,7 @@ import {
   orderedAutoSettlementTileKeys,
   TOWN_AUTO_FRONTIER_RADIUS
 } from "../territory-automation/territory-automation.js";
-import { buildPlayerDefensibilityMetrics, type PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
+import type { PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import {
   addPendingSettlementToSummary,
   applyTileToPlayerSummary,
@@ -90,12 +89,10 @@ import {
 } from "../player-runtime-summary.js";
 import {
   buildFedTownKeys,
-  buildPlayerUpdateEconomySnapshot,
   refreshTownEconomyFields,
   type PlayerUpdateEconomySnapshot
 } from "../player-update-economy/player-update-economy.js";
 import {
-  buildUpkeepAccrualSnapshot,
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
 import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, railDepotAlreadyInNetwork, railDepotNetworkLogisticsGuildCountForPlayer, assemblyWorksAlreadyInNetwork, assemblyWorksNetworkGarrisonHallCountForPlayer, censusHallConnectedGranaryCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
@@ -232,12 +229,16 @@ import {
 import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
 import {
   applyManpowerRegenForPlayer as applyManpowerRegenForPlayerImpl,
+  cachedDefensibilityMetrics as cachedDefensibilityMetricsImpl,
+  cachedEconomySnapshot as cachedEconomySnapshotImpl,
+  cachedUpkeepAccrual as cachedUpkeepAccrualImpl,
   effectiveManpowerAtForPlayer as effectiveManpowerAtForPlayerImpl,
   playerLogisticsThroughputPerMinute as playerLogisticsThroughputPerMinuteImpl,
   playerManpowerBreakdown as playerManpowerBreakdownImpl,
   playerManpowerCap as playerManpowerCapImpl,
   playerManpowerRegenPerMinute as playerManpowerRegenPerMinuteImpl,
   refreshManpowerOnlyForPlayer as refreshManpowerOnlyForPlayerImpl,
+  type RuntimeEconomyCacheContext,
   type RuntimeManpowerEconomyContext
 } from "./runtime-economy.js";
 import {
@@ -455,9 +456,6 @@ import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "
 
 export type { VisibilityAuditSample };
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
-// Force a full upkeep-cache rebuild every N reads to bound floating-point drift
-// from the incremental add/subtract sum over a long-lived season.
-const UPKEEP_ACCRUAL_REBUILD_INTERVAL = 256;
 // §24.2: revised down from 100 to 10 (one tier-1 tech's worth, §13) — in
 // line with how far everything else in the new economy scale shrank.
 const RESPAWN_MINIMUM_GOLD = 10;
@@ -1978,136 +1976,59 @@ export class SimulationRuntime {
     refreshManpowerOnlyForPlayerImpl(this.manpowerEconomyContext(), player, nowMs);
   }
 
+  private economyCacheContext(): RuntimeEconomyCacheContext {
+    return {
+      now: () => this.now(),
+      tiles: this.tiles,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey,
+      players: this.players,
+      economySnapshotCacheByPlayer: this.economySnapshotCacheByPlayer,
+      economySnapshotDirtyPlayerIds: this.economySnapshotDirtyPlayerIds,
+      economySnapshotLastRebuiltAtMsByPlayer: this.economySnapshotLastRebuiltAtMsByPlayer,
+      defensibilityMetricsCacheByPlayer: this.defensibilityMetricsCacheByPlayer,
+      defensibilityMetricsDirtyPlayerIds: this.defensibilityMetricsDirtyPlayerIds,
+      defensibilityMetricsLastRebuiltAtMsByPlayer: this.defensibilityMetricsLastRebuiltAtMsByPlayer,
+      upkeepAccrualReadCountByPlayer: this.upkeepAccrualReadCountByPlayer,
+      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
+      settledTilesForPlayer: (playerId) => this.settledTilesForPlayer(playerId),
+      cachedTownNetworkForPlayer: (player, settledTiles, maxConnectedTownNames) =>
+        this.cachedTownNetworkForPlayer(player, settledTiles, maxConnectedTownNames),
+      foodDormantTownKeysForPlayer: (playerId) => this.foodDormantTownKeysForPlayer(playerId),
+      dormantEconomicStructureKeysForPlayer: (playerId) => this.dormantEconomicStructureKeysForPlayer(playerId),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {}),
+      runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message)
+    };
+  }
+
   /**
    * Returns a cached PlayerUpdateEconomySnapshot for the player, rebuilding it
    * only when the cache has been invalidated (i.e., a tile affecting this
-   * player's income changed via replaceTileState).
-   *
-   * The snapshot is built with full dock context so both the accrual path and
-   * the emit path share a single entry.  The dock context affects only
-   * `incomePerMinute` (display), not the upkeep rates consumed by accrual math,
-   * so this is safe for all callers.
-   *
-   * Cache miss cost: O(settled tiles).  Cache hit cost: O(1).
-   * Invalidated on every replaceTileState — O(1) per mutation.
+   * player's income changed via replaceTileState). See cachedEconomySnapshot
+   * in runtime-economy.ts for the full rebuild logic and caching rationale.
    */
   private cachedEconomySnapshot(player: RuntimePlayer): PlayerUpdateEconomySnapshot {
-    const cached = this.economySnapshotCacheByPlayer.get(player.id);
-    if (cached) {
-      const dirty = this.economySnapshotDirtyPlayerIds.has(player.id);
-      if (!dirty) return cached;
-      if (player.isAi) {
-        const lastRebuiltAt = this.economySnapshotLastRebuiltAtMsByPlayer.get(player.id) ?? 0;
-        if (this.now() - lastRebuiltAt < AI_DERIVED_CACHE_COALESCE_MS) return cached;
-      }
-    }
-    const rebuild = (): PlayerUpdateEconomySnapshot => {
-      const summary = this.summaryForPlayer(player.id);
-      let econMult = 1;
-      if (EMPIRE_INTEGRITY_ENABLED) {
-        // Read from the defensibility cache without triggering a rebuild here —
-        // emitPlayerStateUpdate always calls cachedDefensibilityMetrics() before
-        // cachedEconomySnapshot(), so the cache is warm on the normal command path.
-        // Callers outside emitPlayerStateUpdate (login snapshot, passive income)
-        // get econMult=1 when the cache is cold, which is acceptable because
-        // emitPlayerStateUpdate will emit the corrected value in the same tick.
-        const metrics = this.defensibilityMetricsCacheByPlayer.get(player.id);
-        if (metrics) {
-          econMult = integrityEconomyMult(empireIntegrity(metrics.Ts, metrics.Es));
-        }
-      }
-      const settledTiles = this.settledTilesForPlayer(player.id);
-      const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
-      const snapshot = buildPlayerUpdateEconomySnapshot(
-        player,
-        summary,
-        this.tiles,
-        { dockLinksByDockTileKey: this.dockLinksByDockTileKey },
-        econMult,
-        townNetwork,
-        this.foodDormantTownKeysForPlayer(player.id),
-        this.dormantEconomicStructureKeysForPlayer(player.id),
-        this.now()
-      );
-      this.economySnapshotCacheByPlayer.set(player.id, snapshot);
-      this.economySnapshotDirtyPlayerIds.delete(player.id);
-      this.economySnapshotLastRebuiltAtMsByPlayer.set(player.id, this.now());
-      return snapshot;
-    };
-    // Attribution for event_loop_blocked (was empty mainThreadTasks): scales
-    // with settled/owned tile count; hit from passive income + command handlers.
-    return this.trackSyncMainThreadTask
-      ? this.trackSyncMainThreadTask("cached_economy_snapshot_rebuild", { playerId: player.id }, rebuild)
-      : rebuild();
+    return cachedEconomySnapshotImpl(this.economyCacheContext(), player);
   }
 
   /**
-   * Returns the incremental upkeep accrual snapshot for `player`.
-   * Cache hit: O(1).  Cache miss (first access or after tech/domain change): O(settled tiles).
-   * Kept warm by replaceTileState O(1) add/subtract on every tile mutation.
-   *
-   * Every UPKEEP_ACCRUAL_REBUILD_INTERVAL reads we force a full rebuild to bound
-   * floating-point drift from the running add/subtract sum over a long-lived
-   * season. Drift per op is ~1e-16 relative, so this is defense-in-depth; the
-   * interval keeps the periodic O(settled-tiles) rebuild rare.
+   * Returns the incremental upkeep accrual snapshot for `player`. See
+   * cachedUpkeepAccrual in runtime-economy.ts for the full rebuild logic and
+   * caching rationale.
    */
   private cachedUpkeepAccrual(player: RuntimePlayer): UpkeepAccrualSnapshot {
-    const reads = (this.upkeepAccrualReadCountByPlayer.get(player.id) ?? 0) + 1;
-    this.upkeepAccrualReadCountByPlayer.set(player.id, reads);
-    if (reads % UPKEEP_ACCRUAL_REBUILD_INTERVAL === 0) {
-      this.upkeepAccrualCacheByPlayer.delete(player.id);
-    }
-    const cached = this.upkeepAccrualCacheByPlayer.get(player.id);
-    if (cached) return cached;
-    const snapshot = buildUpkeepAccrualSnapshot(player.id, player, this.tiles);
-    this.upkeepAccrualCacheByPlayer.set(player.id, snapshot);
-    return snapshot;
+    return cachedUpkeepAccrualImpl(this.economyCacheContext(), player);
   }
 
+  /**
+   * See cachedDefensibilityMetrics in runtime-economy.ts for the full
+   * rebuild logic and caching rationale.
+   */
   private cachedDefensibilityMetrics(
     playerId: string,
     summary: PlayerRuntimeSummary
   ): PlayerDefensibilityMetrics {
-    const cached = this.defensibilityMetricsCacheByPlayer.get(playerId);
-    if (cached) {
-      const dirty = this.defensibilityMetricsDirtyPlayerIds.has(playerId);
-      if (!dirty) return cached;
-      if (this.players.get(playerId)?.isAi) {
-        const lastRebuiltAt = this.defensibilityMetricsLastRebuiltAtMsByPlayer.get(playerId) ?? 0;
-        if (this.now() - lastRebuiltAt < AI_DERIVED_CACHE_COALESCE_MS) return cached;
-      }
-    }
-    // Instrumentation only (2026-07-28/29 login-stall investigation): this
-    // rebuild was previously untracked, so a cache-miss here was invisible in
-    // event_loop_blocked's mainThreadTasks — its cost got silently absorbed
-    // into whichever outer phase (emitPlayerStateUpdate /
-    // apply_passive_income_for_player) happened to trigger it. A 3.9s single
-    // call was observed post-fix; buildPlayerDefensibilityMetrics is O(owned
-    // tiles x 4-neighbor-scan), which should be well under a second even for
-    // 10k+ tiles, so log the real owned-tile count directly (trackSync's
-    // "details" field gets truncated to "[Object]" in the pretty-printed fly
-    // logs) whenever this is suspiciously slow.
-    const rebuildStartedAt = this.now();
-    // Skip the T/E all-owned pass for AI: nothing ever reads T/E for a
-    // player nobody is subscribed to (see buildPlayerDefensibilityMetrics'
-    // doc comment) — only Ts/Es (settled-only) feeds real gameplay math.
-    const skipAllOwnedStats = this.players.get(playerId)?.isAi === true;
-    const rebuild = (): PlayerDefensibilityMetrics =>
-      buildPlayerDefensibilityMetrics(playerId, this.tiles, summary.territoryTileKeys, skipAllOwnedStats);
-    const metrics = this.trackSyncMainThreadTask
-      ? this.trackSyncMainThreadTask("defensibility_metrics_rebuild", { playerId }, rebuild)
-      : rebuild();
-    const rebuildDurationMs = this.now() - rebuildStartedAt;
-    if (rebuildDurationMs > 500) {
-      this.runtimeLogInfo(
-        { playerId, ownedTileCount: summary.territoryTileKeys.size, durationMs: rebuildDurationMs },
-        "[defensibility_metrics_rebuild] slow call detail"
-      );
-    }
-    this.defensibilityMetricsCacheByPlayer.set(playerId, metrics);
-    this.defensibilityMetricsDirtyPlayerIds.delete(playerId);
-    this.defensibilityMetricsLastRebuiltAtMsByPlayer.set(playerId, this.now());
-    return metrics;
+    return cachedDefensibilityMetricsImpl(this.economyCacheContext(), playerId, summary);
   }
 
   private upkeepAccrualContext(): RuntimeUpkeepAccrualContext {
