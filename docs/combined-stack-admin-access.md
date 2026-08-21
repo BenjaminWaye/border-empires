@@ -26,22 +26,28 @@ Those apps no longer exist; everything below targets the combined app.
 - `GET /admin/runtime/dashboard` — HTML view of the same data.
 - `GET /admin/players` — per-player stats including gold, which
   `/hq/summary` doesn't expose: `{ id, name, isAi, gold, settledTiles,
-  ownedTiles, incomePerMinute, techs, manpower, food, iron, crystal,
-  supply, reachTiles, frontierTiles }`, for every player (including
-  barbarians, not just competitive players). `settledTiles` counts
-  `SETTLED`-state tiles only; `ownedTiles` also counts `FRONTIER`-state
-  tiles; `frontierTiles` is `ownedTiles - settledTiles`. `reachTiles` is
-  the LAND-ONLY size of the player's persistent reach border
-  (packages/shared/src/reach/reach.ts) — the border itself is a purely
-  geometric radius disk with no terrain awareness, so the raw size
-  routinely includes SEA/COASTAL_SEA/MOUNTAIN tiles that can never be
-  EXPANDed onto; `reachTiles` filters those out before counting.
-  NOT the same as `ownedTiles`, since a player's granted reach can extend
-  into ground they haven't claimed yet; `frontierTiles / reachTiles` is the
-  real "how much of my reach is still unsettled" ratio (frontier tiles are
-  always ⊆ owned tiles ⊆ reach). `food`/`iron`/`crystal`/`supply` are
-  current strategic-resource stockpiles (SHARD is tracked separately and
-  not included here). Source: `runtime.exportPlayerDebugSnapshot()` plus
+  ownedTiles, incomePerMinute, techs, manpower, resourceSlotSupply,
+  resourceSlotDemand, shardStockpile, reachTiles, frontierTiles }`, for
+  every player (including barbarians, not just competitive players).
+  `settledTiles` counts `SETTLED`-state tiles only; `ownedTiles` also
+  counts `FRONTIER`-state tiles; `frontierTiles` is
+  `ownedTiles - settledTiles`. `reachTiles` is the LAND-ONLY size of the
+  player's persistent reach border (packages/shared/src/reach/reach.ts) —
+  the border itself is a purely geometric radius disk with no terrain
+  awareness, so the raw size routinely includes SEA/COASTAL_SEA/MOUNTAIN
+  tiles that can never be EXPANDed onto; `reachTiles` filters those out
+  before counting. NOT the same as `ownedTiles`, since a player's granted
+  reach can extend into ground they haven't claimed yet; `frontierTiles /
+  reachTiles` is the real "how much of my reach is still unsettled" ratio
+  (frontier tiles are always ⊆ owned tiles ⊆ reach). `resourceSlotSupply`
+  / `resourceSlotDemand` are `{ FOOD, TITANIUM, CRYSTAL, UMBRITE }` totals
+  from the resource-slots pillar (docs/manpower-economy-rewrite-plan.md
+  §5) — supply from settled resource tiles vs. demand occupied by
+  existing structures. FOOD/TITANIUM/CRYSTAL/UMBRITE are **not** a
+  spendable stockpile post-rewrite, so don't expect a banked quantity to
+  grow over time for them; `shardStockpile` is the one strategic resource
+  that is still a real accumulated stockpile. Source:
+  `runtime.exportPlayerDebugSnapshot()` plus
   `runtime.reachTileCountForPlayer()` (O(reach size), diagnostic-only, not
   on any hot path) — no full tile export.
 
