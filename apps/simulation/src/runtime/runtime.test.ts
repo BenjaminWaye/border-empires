@@ -7344,7 +7344,7 @@ describe("simulation runtime", () => {
           seedTiles: new Map(),
           initialState: {
             tiles: [
-              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: 61_000, frontierDecayKind: "NATURAL" },
+              { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
               { x: 10, y: 11, terrain: "LAND", ownerId: "barbarian-1", ownershipState: "SETTLED" }
             ],
             activeLocks: []
