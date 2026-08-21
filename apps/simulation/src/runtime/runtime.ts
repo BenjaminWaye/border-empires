@@ -382,7 +382,7 @@ import {
   completeStructureBuild as completeStructureBuildImpl,
   handleBuildStructureCommand as handleBuildStructureCommandImpl,
   type RuntimeStructureCommandContext
-} from "../runtime-structure-command-handlers.js";
+} from "../runtime-structure-command-handlers.js"; import { buildStructureCommandContext } from "./runtime-structure-command-context.js";
 import {
   handleSetConverterStructureEnabledCommand as handleSetConverterStructureEnabledCommandImpl,
   handleSetConverterStructureModeCommand as handleSetConverterStructureModeCommandImpl,
@@ -4704,7 +4704,7 @@ export class SimulationRuntime {
   }
 
   private structureCommandContext(): RuntimeStructureCommandContext {
-    return {
+    return buildStructureCommandContext({
       players: this.players,
       tiles: this.tiles,
       musterTilesByOwner: this.musterTilesByOwner,
@@ -4735,10 +4735,8 @@ export class SimulationRuntime {
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
       completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
       appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
-    };
+    });
   }
-
-  private handleBuildStructureCommand(command: CommandEnvelope): void { handleBuildStructureCommandImpl(this.structureCommandContext(), command); }
 
   private completeStructureBuild(targetKey: string, ownerId: string, structureType: string, commandId: string): void {
     completeStructureBuildImpl(this.structureCommandContext(), targetKey, ownerId, structureType, commandId);
@@ -4748,10 +4746,6 @@ export class SimulationRuntime {
   private cancelActiveOutpostAttackLocks(playerId: string, originKey: string): string[] {
     return cancelActiveOutpostAttackLocksImpl(this.structureCommandContext(), playerId, originKey);
   }
-
-  private handleSetMusterCommand(command: CommandEnvelope): void { handleSetMusterCommandImpl(this.structureCommandContext(), command); }
-
-  private handleClearMusterCommand(command: CommandEnvelope): void { handleClearMusterCommandImpl(this.structureCommandContext(), command); }
 
   private handleWatchMusterCommand(command: CommandEnvelope): void {
     const payload = JSON.parse(command.payloadJson) as { x: number; y: number };
@@ -4764,15 +4758,7 @@ export class SimulationRuntime {
     this.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
   }
 
-  private handleCancelFortBuildCommand(command: CommandEnvelope): void { handleCancelFortBuildCommandImpl(this.structureCommandContext(), command); }
-
-  private handleCancelStructureBuildCommand(command: CommandEnvelope): void { handleCancelStructureBuildCommandImpl(this.structureCommandContext(), command); }
-
-  private handleRemoveStructureCommand(command: CommandEnvelope): void { handleRemoveStructureCommandImpl(this.structureCommandContext(), command); }
-
   private completeStructureRemoval(targetKey: string, ownerId: string, commandId: string): void { completeStructureRemovalImpl(this.structureCommandContext(), targetKey, ownerId, commandId); }
-
-  private handleCancelSiegeOutpostBuildCommand(command: CommandEnvelope): void { handleCancelSiegeOutpostBuildCommandImpl(this.structureCommandContext(), command); }
 
   // Player-ids with at least one *player-issued* frontier lock - i.e. locks
   // that should gate the AI strategic planner. Automation combat locks are
@@ -4997,19 +4983,19 @@ export class SimulationRuntime {
         this.rejectCommand(command, "UNSUPPORTED", `${command.type} not yet migrated to the new simulation service`);
       },
       handleSettleCommand: (command) => this.handleSettleCommand(command),
-      handleBuildStructureCommand: (command) => this.handleBuildStructureCommand(command),
+      handleBuildStructureCommand: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
       normalizeLegacyBuildCommand: (command) => this.normalizeLegacyBuildCommand(command),
-      handleSetMusterCommand: (command) => this.handleSetMusterCommand(command),
-      handleClearMusterCommand: (command) => this.handleClearMusterCommand(command),
+      handleSetMusterCommand: (command) => handleSetMusterCommandImpl(this.structureCommandContext(), command),
+      handleClearMusterCommand: (command) => handleClearMusterCommandImpl(this.structureCommandContext(), command),
       handleWatchMusterCommand: (command) => this.handleWatchMusterCommand(command),
       handleUnwatchMusterCommand: (command) => this.handleUnwatchMusterCommand(command),
       handleCancelCaptureCommand: (command) => this.handleCancelCaptureCommand(command),
-      handleCancelFortBuildCommand: (command) => this.handleCancelFortBuildCommand(command),
-      handleCancelStructureBuildCommand: (command) => this.handleCancelStructureBuildCommand(command),
+      handleCancelFortBuildCommand: (command) => handleCancelFortBuildCommandImpl(this.structureCommandContext(), command),
+      handleCancelStructureBuildCommand: (command) => handleCancelStructureBuildCommandImpl(this.structureCommandContext(), command),
       handleRushBuyCommand: (command) => handleRushBuyCommandImpl(this.rushBuyCommandContext(), command),
       handleCancelSettleCommand: (command) => this.handleCancelSettleCommand(command),
-      handleRemoveStructureCommand: (command) => this.handleRemoveStructureCommand(command),
-      handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
+      handleRemoveStructureCommand: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command),
+      handleCancelSiegeOutpostBuildCommand: (command) => handleCancelSiegeOutpostBuildCommandImpl(this.structureCommandContext(), command),
       handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
       handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
       handleUncaptureTileCommand: (command) => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command),
