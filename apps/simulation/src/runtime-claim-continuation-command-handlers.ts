@@ -54,10 +54,11 @@ export const parseClaimContinuationSetPayload = (payloadJson: string): ClaimCont
 // stays registered in claimContinuations until tryDrainClaimContinuationBuildTail
 // (called once the settlement actually completes) enqueues the BUILD tail.
 
-const enqueueSettleStep = (summary: PlayerRuntimeSummary, x: number, y: number, tileKey: string, nowMs: number): void => {
-  if (summary.devQueue.some((entry) => entry.tileKey === tileKey && entry.kind === "SETTLE")) return;
-  const { queue } = devQueueEnqueue(summary.devQueue, { x, y, tileKey, kind: "SETTLE" }, nowMs);
+const enqueueSettleStep = (summary: PlayerRuntimeSummary, x: number, y: number, tileKey: string, nowMs: number): boolean => {
+  if (summary.devQueue.some((entry) => entry.tileKey === tileKey && entry.kind === "SETTLE")) return true;
+  const { queue, accepted } = devQueueEnqueue(summary.devQueue, { x, y, tileKey, kind: "SETTLE" }, nowMs);
   summary.devQueue = queue;
+  return accepted;
 };
 
 export const handleClaimContinuationSetCommand = (
@@ -78,9 +79,9 @@ export const handleClaimContinuationSetCommand = (
     // that will never come for this tile. If a build should follow, keep the
     // continuation registered -- tryDrainClaimContinuationBuildTail picks it
     // up once the settlement actually completes.
-    if (payload.structureType) summary.claimContinuations.set(payload.tileKey, continuation);
+    const settleEnqueued = enqueueSettleStep(summary, payload.x, payload.y, payload.tileKey, context.now());
+    if (payload.structureType || !settleEnqueued) summary.claimContinuations.set(payload.tileKey, continuation);
     else summary.claimContinuations.delete(payload.tileKey);
-    enqueueSettleStep(summary, payload.x, payload.y, payload.tileKey, context.now());
     context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
     tryDrainDevQueue(context, command.playerId);
     return;
@@ -108,8 +109,8 @@ export const tryDrainClaimContinuation = (
   const summary = context.summaryForPlayer(playerId);
   const continuation = summary.claimContinuations.get(tileKey);
   if (!continuation) return;
-  if (!continuation.structureType) summary.claimContinuations.delete(tileKey);
-  enqueueSettleStep(summary, x, y, tileKey, context.now());
+  const settleEnqueued = enqueueSettleStep(summary, x, y, tileKey, context.now());
+  if (!continuation.structureType && settleEnqueued) summary.claimContinuations.delete(tileKey);
   tryDrainDevQueue(context, playerId);
 };
 
@@ -130,9 +131,12 @@ export const tryDrainClaimContinuationBuildTail = (
   const summary = context.summaryForPlayer(playerId);
   const continuation = summary.claimContinuations.get(tileKey);
   if (!continuation?.structureType) return;
-  summary.claimContinuations.delete(tileKey);
-  if (summary.devQueue.some((entry) => entry.tileKey === tileKey && entry.kind === "BUILD")) return;
-  const { queue } = devQueueEnqueue(summary.devQueue, { x, y, tileKey, kind: "BUILD", structureType: continuation.structureType }, context.now());
+  if (summary.devQueue.some((entry) => entry.tileKey === tileKey && entry.kind === "BUILD")) {
+    summary.claimContinuations.delete(tileKey);
+    return;
+  }
+  const { queue, accepted } = devQueueEnqueue(summary.devQueue, { x, y, tileKey, kind: "BUILD", structureType: continuation.structureType }, context.now());
   summary.devQueue = queue;
+  if (accepted) summary.claimContinuations.delete(tileKey);
   tryDrainDevQueue(context, playerId);
 };
