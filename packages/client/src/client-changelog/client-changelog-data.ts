@@ -22,6 +22,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787326342941, // 2026.08.21.4 — frozen from a live Date.now() call
+    introducedIn: "2026.08.21.4",
+    title: "AI opponents now build a wider range of structures, and beacon relays more often",
+    why: "AI opponents could previously only ever build 5 kinds of structures (Farmstead, Umbrite Rig, Mine, Mintworks, Granary), scored by fixed numbers instead of what the AI's economy actually needed. Their Relay Beacon building was also just as likely at any time, whether or not there was still good territory left nearby to claim.",
+    changes: [
+      "AI opponents can now also build Waterworks, Ministry Hall (Governors Office), Ancillary Factory (Garrison Hall), Logistics Guild, Caravanary, and the Umbrite/Titanium/Crystal Synthesizers, chosen based on which resource or manpower shortfall is most acute rather than a fixed priority list.",
+      "AI opponents now favor Relay Beacon construction in bursts — several in a row, then a pause where other buildings get priority — instead of a flat, constant likelihood throughout the game."
+    ]
+  },
+  {
     createdAt: 1787294902457, // 2026.08.20.1
     introducedIn: "2026.08.20.1",
     title: "ADVANCE-mode muster attacks now show the skirmish animation too",
