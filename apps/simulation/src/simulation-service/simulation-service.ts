@@ -2696,10 +2696,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         incomePerMinute: player.incomePerMinute,
         techs: player.techIds.length,
         manpower: player.manpower,
-        food: player.strategicResources.FOOD ?? 0,
-        titanium: player.strategicResources.TITANIUM ?? 0,
-        crystal: player.strategicResources.CRYSTAL ?? 0,
-        umbrite: player.strategicResources.UMBRITE ?? 0,
+        resourceSlotSupply: player.resourceSlotSupply,
+        resourceSlotDemand: player.resourceSlotDemand,
+        shardStockpile: player.shardStockpile,
         reachTiles: runtime.reachTileCountForPlayer(player.id),
         frontierTiles: Math.max(0, player.ownedTileCount - player.settledTileCount)
       }));

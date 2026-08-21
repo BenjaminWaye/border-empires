@@ -4,7 +4,7 @@
 // client-changelog-data-earlier.ts when this file approaches the cap.
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER } from "./client-changelog-data-earlier.js";
 export type ClientChangelogEntry = {
-  createdAt: number; // Unix ms. Use Date.now() when authoring a new entry.
+  createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
   title: string;
   why: string;
@@ -13,7 +13,119 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1787270400000, // 2026.08.21 (frozen; was a live Date.now() call — see check-client-changelog-update.mjs)
+    createdAt: 1787324700000,
+    introducedIn: "2026.08.21.5",
+    title: "Players now get a season-start email, and the previous champion gets a victory email",
+    why: "When a season rolled over, nothing told players by email that the map had reset -- they'd only find out by opening the game. And the player who was just crowned champion had no record of their win beyond the in-game season-end screen.",
+    changes: [
+      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one and pointing them to the season recap screen to browse final stats for friends and foes.",
+      "The player who won the previous season gets that same email with a victory recap folded in, calling out the objective they won through, instead of a separate message."
+    ]
+  },
+  {
+    createdAt: 1787360000000,
+    introducedIn: "2026.08.21.7",
+    title: "Fixed the settle animation not showing until you panned the camera",
+    why: "Pressing Settle on a frontier tile marks it optimistically pending without changing its owner or ownership state (both already belonged to you), but the 3D map only rebuilt its terrain and overlays when ownership actually changed. That left the new settle overlay instance uncreated until something else -- like panning -- forced a rebuild for an unrelated reason.",
+    changes: [
+      "The settlement animation now plays immediately when you press Settle, instead of waiting for the next camera pan."
+    ]
+  },
+  {
+    createdAt: 1787340000000,
+    introducedIn: "2026.08.21.6",
+    title: "The rush-buy price preview now accounts for the Quickforge discount",
+    why: "The tile menu's rush-buy price chip always showed the full server price estimate, even for a player who owns a Quickforge with today's discount still unused — the number shown was different from what got charged.",
+    changes: [
+      "The rush-buy price chip now shows the discounted price when you own a Quickforge and haven't used its once-per-day discount yet."
+    ]
+  },
+  {
+    createdAt: 1787330000000,
+    introducedIn: "2026.08.21.5",
+    title: "The Quickforge wonder now discounts a rush-buy instead of making it free",
+    why: "The Quickforge's once-per-UTC-day rush-buy perk waived the gold cost entirely, which trivialized cheap rush-buys (like a Settle at 10 gold) and scaled unevenly across rush-buy prices.",
+    changes: [
+      "Once per UTC day, the Quickforge's controller now gets 40 gold off their next rush-buy (floored at 0) instead of that rush-buy being completely free."
+    ]
+  },
+  {
+    createdAt: 1787356800000,
+    introducedIn: "2026.08.21.3",
+    title: "Fixed a crash when switching apps and back while a location theme was playing",
+    why: "Backgrounding the tab pauses playback; returning to it resumes both the music bed and any location theme. The location theme's resume call didn't catch play() rejections the way the music bed's did, so a fast switch-away-and-back (interrupting that play() with a pause()) threw an unhandled rejection that tripped the app's error boundary, showing \"Border Empires hit a problem loading\".",
+    changes: [
+      "Switching to another app and back no longer crashes the game to the error screen."
+    ]
+  },
+  {
+    createdAt: 1787322800000,
+    introducedIn: "2026.08.21.1",
+    title: "Composite settle+build orders (e.g. Build Relay Beacon) now survive logging out mid-order",
+    why: "Clicking a composite action like \"Build Relay Beacon\" on an unowned tile sends the expand immediately, then relied purely on this client's own in-memory bookkeeping to notice the expand land and fire the follow-up settle, then notice the settlement land and fire the build. If you logged out (or your connection dropped) between the click and either of those follow-ups, nothing server-side was watching to continue the chain, so the order silently stalled.",
+    changes: [
+      "Settle+build orders (fresh expand-then-settle-then-build, and settle-then-build on an already-owned tile) now also register server-side, so they keep completing even if you disconnect right after clicking."
+    ]
+  },
+  {
+    createdAt: 1787322201581,
+    introducedIn: "2026.08.21",
+    title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",
+    why: "Tension (\"war is coming\") music used to be driven by short-lived, per-attack timers (an attack in transit, a deferred send, an incoming-attack tracker) that clear the instant that specific attack resolves, so it kept dropping back to calm music between attacks even while a muster flag was still staged and ready to fire.",
+    changes: [
+      "Tension music now plays for as long as any muster flag is raised and set to Hold (staged, not yet advancing), which is a stable signal instead of one that clears after every individual attack."
+    ]
+  },
+  {
+    createdAt: 1787326342941, // 2026.08.21.4 — frozen from a live Date.now() call
+    introducedIn: "2026.08.21.4",
+    title: "AI opponents now build a wider range of structures, and beacon relays more often",
+    why: "AI opponents could previously only ever build 5 kinds of structures (Farmstead, Umbrite Rig, Mine, Mintworks, Granary), scored by fixed numbers instead of what the AI's economy actually needed. Their Relay Beacon building was also just as likely at any time, whether or not there was still good territory left nearby to claim.",
+    changes: [
+      "AI opponents can now also build Waterworks, Ministry Hall (Governors Office), Ancillary Factory (Garrison Hall), Logistics Guild, Caravanary, and the Umbrite/Titanium/Crystal Synthesizers, chosen based on which resource or manpower shortfall is most acute rather than a fixed priority list.",
+      "AI opponents now favor Relay Beacon construction in bursts — several in a row, then a pause where other buildings get priority — instead of a flat, constant likelihood throughout the game."
+    ]
+  },
+  {
+    createdAt: 1787294902457, // 2026.08.20.1
+    introducedIn: "2026.08.20.1",
+    title: "ADVANCE-mode muster attacks now show the skirmish animation too",
+    why: "A manual attack is almost always against a tile you're currently looking at, so it's already loaded client-side. But a muster flag in ADVANCE mode fires autonomously against whatever the server's own search finds nearest — which can be a tile this client has never had vision of. The skirmish overlay required already knowing that tile's owner, so it silently skipped rendering for the whole ~30s countdown, only appearing once the resolution broadcast finally revealed the tile — reading as \"no animation until it resolves\", exactly for the fire-and-forget flags ADVANCE mode is meant for.",
+    changes: [
+      "An ADVANCE-fired attack now shows its own skirmish animation for the full countdown, the same as a manual attack, even when you haven't scouted the target tile yourself.",
+      "The dot colors briefly use a placeholder until real tile data arrives (typically within the countdown), then switch to the correct owner colors."
+    ]
+  },
+  {
+    createdAt: 1787296000000, // 2026.08.21.2 — frozen; was Date.now() in the merged commit
+    introducedIn: "2026.08.21.2",
+    title: "Relay beacons are now destroyed when their tile is captured",
+    why: "Every other structure kept its old survive-capture behavior, but a relay beacon transferring intact to the attacker let a single capture instantly hand over both the tile and a working reach anchor on it — same treatment siege outposts already get.",
+    changes: [
+      "Capturing a tile with a relay beacon on it now destroys the beacon instead of transferring ownership.",
+      "The attacker still takes the tile itself; they'll need to rebuild a relay beacon there to project reach from it."
+    ]
+  },
+  {
+    createdAt: 1787295212839, // 2026.08.21.1 — frozen from a live Date.now() call left in by the merged commit
+    introducedIn: "2026.08.21.1",
+    title: "Fixed research (tech/domain) picks being lost on server restart or deploy",
+    why: "On startup, the simulation server rebuilds state from the latest checkpoint snapshot and then replays any events recorded after that checkpoint. That replay step had no handler for tech or domain research events, so a research pick made after the last checkpoint but before a restart or deploy was silently dropped instead of being reapplied — the player would come back with an earlier set of researched techs/domains than they actually had.",
+    changes: [
+      "Tech and domain research chosen shortly before a server restart or deploy is now correctly preserved instead of sometimes reverting to an earlier state."
+    ]
+  },
+  {
+    createdAt: 1787345991317,
+    introducedIn: "2026.08.21",
+    title: "War music no longer flickers back to calm music during an ongoing war",
+    why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
+    changes: [
+      "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
+    ]
+  },
+  {
+    createdAt: 1787322201580, // 2026.08.21 — frozen; was Date.now() in the merged commit
     introducedIn: "2026.08.21",
     title: "Border-expansion pylon animation is slower and more dramatic",
     why: "The survey pylon rise/sink and laser on/off animation that plays when your border expands or contracts was over in about 1.3 seconds per pylon, which made it easy to miss entirely.",
@@ -58,6 +170,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Auto-fill no longer settles tiles outside your reach/border.",
       "A pocket only auto-fills once every part of its sealing boundary (your own territory and/or coastline/mountains) is within your reach — a boundary tile that's still out of reach means the whole pocket waits, rather than filling in partially."
+    ]
+  },
+  {
+    createdAt: 1787176861000, // 2026.08.20
+    introducedIn: "2026.08.20",
+    title: "Fixed: EXPAND onto a connected dock or across an active Aether Bridge was silently impossible",
+    why: "EXPAND has always required the target tile to be inside your persistent reach border, and that check applied unconditionally to dock and Aether Bridge crossings too — but a bridge or dock crossing lands you on a landmass with no anchor of your own there yet, by design (that's the entire point of both). The reach check therefore always failed for a genuinely connected dock's paired tile or a bridge's landing tile, making it impossible to ever claim either.",
+    changes: [
+      "EXPAND across a connected dock link, or across an active Aether Bridge, no longer requires the target tile to already be inside your reach border — matching the adjacency and Aether-wall-shield exemptions those crossings already had."
     ]
   },
   {
@@ -171,56 +292,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786811200000, // 2026.08.15.5
-    introducedIn: "2026.08.15.5",
-    title: "Battle dots now actually approach and meet in the middle before fighting",
-    why: "The pre-resolution skirmish loop — what an attacker or defender watches for nearly all of a ~30s siege, per 2026.08.14.1 — rendered dots already oscillating in melee at the tile center from its very first frame, with no approach. Only a bystander with no stake in the fight (who only ever sees the post-resolution combat broadcast) got the intended approach-then-clash sequence, because that path already had one. So the two players actually fighting never saw the dots close the distance; the fight just appeared already underway, which read as broken rather than as a fight starting. Separately, the handoff from skirmish to resolved battle only ever checked the defender's own siege-tracking map, so an attacker's resolved battle always restarted its approach from scratch even after their dots had already been fighting for the whole countdown — snapping them back out to the tile edge right as the fight was supposed to conclude.",
-    changes: [
-      "The pre-resolution skirmish now plays the same converge-on-the-target-tile approach as a resolved battle before settling into its ongoing melee, instead of starting the melee immediately.",
-      "The approach plays once per skirmish as seen by this client, so reloading mid-siege still shows a fresh approach instead of a jump-cut into an already-oscillating fight.",
-      "An attacker's own resolved battle now continues seamlessly from their already-visible skirmish instead of restarting its approach animation, matching what defenders already saw."
-    ]
-  },
-  {
-    createdAt: 1786810965877, // 2026.08.15.4
-    introducedIn: "2026.08.15.4",
-    title: "The Mustering overlay now updates every second instead of every ~30 seconds",
-    why: "A muster flag's manpower only ticks on the server's regular ~30-second global schedule, which is why the overlay always felt jaggy — long flat stretches then a jump. The server already has a mechanism for fast per-second ticks on a specific flag a player is actively watching, but it was only ever triggered by tapping that exact tile's action menu — never by simply having an attack parked and waiting on it, which is when the overlay is actually on screen.",
-    changes: [
-      "Parking a manual attack behind a muster flag now tells the server to watch that flag, so its manpower ticks every 1 second instead of every ~30 while the attack is waiting on it — the overlay should track real progress far more smoothly.",
-      "The fast tick automatically stops once the attack fires, is dropped, or is cancelled."
-    ]
-  },
-  {
-    createdAt: 1786796146676, // 2026.08.15.3
-    introducedIn: "2026.08.15.3",
-    title: "Mustering overlay no longer shows \"ready\" before it actually is; ambient audio now defaults off",
-    why: "The Mustering overlay's staged/required readout is smoothed between the sparse (~30s-cadence) server updates by extrapolating from the last observed accumulation rate. That extrapolation was capped at `required`, so once the prediction crossed the threshold — commonly well before the next real server tick, since the rate estimate from a short first sample tends to overshoot — the bar showed a false \"ready\" state for a long stretch before the attack that number is supposed to represent actually fired. Separately, ambient background audio defaulted to on for anyone who'd never touched the setting.",
-    changes: [
-      "The Mustering overlay's staged/required number can no longer visually reach or exceed what's required before a real server update confirms it — it always stays a hair behind reality instead of occasionally lying ahead of it.",
-      "Ambient background audio now defaults to muted; turn it on from Settings if you want it."
-    ]
-  },
-  {
-    createdAt: 1786792818601, // 2026.08.15.2
-    introducedIn: "2026.08.15.2",
-    title: "A muster flag reaching full manpower now actually launches the attack",
-    why: "Once a muster flag finished staging, the attack was promoted from the waiting list into the real dispatch queue — but nothing then told the queue to actually process it. The 300ms heartbeat that runs the promotion check returns immediately afterward on a guard meant for an unrelated case (handling a stuck server acknowledgement while an attack is already in flight), so a freshly promoted attack just sat in the queue doing nothing unless some unrelated event happened to nudge it — a different click, an incoming tile update, anything. Visibly, the flag would fill up and the attack would simply never fire.",
-    changes: [
-      "A muster flag that finishes staging now dispatches its attack immediately instead of potentially sitting queued indefinitely."
-    ]
-  },
-  {
-    createdAt: 1786792013605, // 2026.08.15.1
-    introducedIn: "2026.08.15.1",
-    title: "A stuck manual attack now cancels itself after 5 minutes instead of parking forever",
-    why: "A parked attack waiting on a muster flag only had an expiry if the client had just requested a brand-new flag for it. An attack parked against a flag that already existed at queue time had no expiry at all — if that flag never accumulated enough manpower (or the amount/requirement otherwise never converged), the \"Mustering...\" overlay could sit frozen indefinitely with no way out short of a reload. Separately, that overlay's staged/required text was unreadable — the number defaults to near-black text sized for the lighter default capture-bar background, but Mustering uses a dark blue background.",
-    changes: [
-      "A parked attack now cancels itself with a feed message if it hasn't staged enough manpower within 5 minutes, regardless of why it stalled — instead of sitting frozen forever.",
-      "Fixed: the staged/required number on the Mustering overlay was rendered in near-black text on a dark blue background, making it unreadable."
-    ]
-  },
-  {
     createdAt: 1786905792661, // 2026.08.16
     introducedIn: "2026.08.16",
     title: "The Caravanary is now the Trade Nexus, with a new commercial-hub look",
@@ -232,8 +303,47 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787346548333, // 2026.08.21
+    createdAt: 1787122800000, // 2026.08.21
     introducedIn: "2026.08.21",
+    title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",
+    why: "Expanding onto a dock connected to one you already own always failed with an out-of-reach error, since a dock only contributed to your reach once you already owned it -- there was no way to ever take the first step onto the far side. Separately, an Aether Bridge only ever opened a single-tile crossing at its landing point, so it couldn't be used to establish a real foothold for further expansion.",
+    changes: [
+      "You can now EXPAND onto an unowned dock that's connected to a dock you already own.",
+      "Casting Aether Bridge onto neutral ground now grants a small radius of reach around the landing tile, so you can expand into the surrounding land and build a Relay Beacon there -- the grant persists even after the bridge itself expires, though it can still be overtaken if a rival establishes their own reach (e.g. a Relay Beacon) over that ground.",
+      "Casting a bridge onto ground already inside a rival's territory still opens the crossing for an attack, but no longer grants any reach there."
+    ]
+  },
+  {
+    createdAt: 1787295247575, // 2026.08.21.3
+    introducedIn: "2026.08.21.3",
+    title: "Map zoom is now smooth and responsive",
+    why: "Zooming used to feel sluggish for two compounding reasons: each wheel notch only moved the zoom level by 1 out of a 10-192 range, so crossing the range took roughly 180 notches; and every single notch tore down and re-uploaded the entire visible terrain to the GPU, which alone cost ~74ms and pinned the frame rate around 10fps for the whole gesture.",
+    changes: [
+      "A wheel notch now moves zoom by a proportional step instead of a flat ±1, so the full zoom range crosses in about 15-20 notches instead of ~180.",
+      "The 3D renderer now only rebuilds the visible terrain when the camera actually needs tiles outside what's already loaded, instead of on every zoom or pan change -- zooming in no longer triggers a rebuild at all, and frame rate stays smooth while zooming or making small-to-moderate pans."
+    ]
+  },
+  {
+    createdAt: 1787323800000,
+    introducedIn: "2026.08.21.4",
+    title: "Fixed border pylons and structures drifting away from the ground while panning",
+    why: "The zoom-smoothness fix above let the terrain skip a rebuild for any pan that stayed inside a padded window, but every other 3D overlay (ownership border pylons/walls, flags, badges, selection markers) still repositions itself every single frame off the live camera with no such padding. Mid-pan, that left the terrain's baked geometry pinned to wherever it was last rebuilt while border pylons and structures kept gliding on with the live camera, so towers and border lines visibly separated from the tiles under them until the pan stopped.",
+    changes: [
+      "Panning the 3D map now always rebuilds the terrain to match the live camera, so border pylons, structures, and the ground they sit on stay locked together while scrolling. The zoom-only rebuild savings from the fix above are unaffected."
+    ]
+  },
+  {
+    createdAt: 1787346768128, // 2026.08.21.8 (frozen; was a live Date.now() call — see check-client-changelog-update.mjs)
+    introducedIn: "2026.08.21.8",
+    title: "Border-expansion pylons now rise and light up again mid-game, not just retire",
+    why: "A caller-side flag meant to skip the arrival animation on the very first frame (so the whole starting boundary didn't rise out of the ground on page load) was being passed on every single frame instead of just the first one, so any pylon or laser line added by a later border expansion popped straight into its fully-lit state instead of playing the rise-then-power-on animation -- only retiring pylons ever animated.",
+    changes: [
+      "Newly-added border pylons and laser lines now rise out of the ground and power on with the same staggered wave animation you see in Storybook, instead of popping in instantly, for every border change after the map first loads."
+    ]
+  },
+  {
+    createdAt: 1787346768129, // 2026.08.21.9
+    introducedIn: "2026.08.21.9",
     title: "Removed the unused \"frontier collapsing\" decay countdown",
     why: "Frontier tiles carried a natural-decay countdown UI (a header timer and tile-menu warning saying the tile would soon collapse) left over from an early design that the server never actually implemented — no frontier tile has ever expired this way, so the warning could never legitimately appear. Removed the dead client code so it can't be confused with the real encirclement cut-off warning, which still applies: a frontier tile cut off from your supply chain is still claimed by an enemy after 60 seconds if it stays disconnected.",
     changes: [

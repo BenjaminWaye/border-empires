@@ -5,6 +5,7 @@ import { type DomainTileState, type PlayerEventLogEntry } from "@border-empires/
 import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
 import { hydrateRecoveredTown, parseOptionalJson, recoverTownState } from "./event-recovery-town-helpers.js";
+import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progression-helpers.js";
 import type { ChosenTrickleResource } from "@border-empires/shared";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PendingSettlementRecord } from "../player-runtime-summary.js";
@@ -73,6 +74,7 @@ export type RecoveredSimulationState = {
     strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
     chosenTrickleResource?: ChosenTrickleResource;
     imperialWardCharges?: number;
+    wonderLastFreeRushBuyAt?: number;
     eventLog?: PlayerEventLogEntry[];
     allies?: string[];
     vision?: number;
@@ -351,6 +353,12 @@ export const applySimulationEventsToRecoveredAccumulator = (
         goldCost: event.goldCost,
         commandId: event.commandId
       });
+      continue;
+    }
+
+    if (event.eventType === "TECH_UPDATE" || event.eventType === "DOMAIN_UPDATE") {
+      const player = accumulator.players.find((entry) => entry.id === event.playerId);
+      if (player) applyProgressionUpdateToRecoveredPlayer(player, event.payloadJson);
       continue;
     }
 

@@ -17,6 +17,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS, MIN_ZOOM } from "../client-constants.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js";
+import { padTerrainWindow, requiredTerrainWindow, terrainWindowCovers, terrainWindowPanned, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 
@@ -186,7 +187,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // rebuildVisibleTerrain()'s camera-move/reach-change throttle, or the
   // animation would freeze whenever the camera stops moving mid-transition.
   const reach3DPylonTracker = createTransitionTracker<{ x: number; y: number; ownerId: string }>();
-  const reach3DSegmentTracker = createTransitionTracker<{ fx: number; fy: number; tx: number; ty: number; ownerId: string }>();
+  const reach3DSegmentTracker = createTransitionTracker<{ fx: number; fy: number; tx: number; ty: number; ownerId: string }>(); let reach3DPylonsAnimateArrivals = false; // false only on the first diffTransitions() call (initial load)
   // §21.1: one badge overlay per resource icon, so a dormant Fort missing TITANIUM gets ⛏ while an unfed town still gets 🍞.
   const RESOURCE_BADGE_ICON: Record<SlotResource, string> = { FOOD: "🍞", TITANIUM: "⛏", CRYSTAL: "💎", UMBRITE: "🟣" };
   const resourceBadgeOverlays: Record<SlotResource, ResourceBadgeOverlay> = {
@@ -618,12 +619,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // Camera transform tracking (resize/applyCamera): applied every frame, unthrottled — these
   // are cheap (a few float ops), and the camera needs to feel instantly responsive.
   const lastCameraApplied = { zoom: Number.NaN, width: 0, height: 0 };
-  // rebuildVisibleTerrain() tracking: throttled below (REBUILD_MIN_INTERVAL_MS) — it tears
-  // down and repopulates ~25 overlay systems every call, expensive independent of tile count
-  // (measured: up to 35ms for just 45 visible tiles — see the terrainRebuild diagnostics this
-  // tracking feeds). Deliberately a separate object from lastCameraApplied so throttling the
-  // rebuild never delays the camera transform itself.
-  const lastRebuild = { camX: Number.NaN, camY: Number.NaN, zoom: Number.NaN, width: 0, height: 0, at: 0, tilesRevision: -1, crystalTargetingActive: false };
+  // rebuildVisibleTerrain() tracking: it tears down and repopulates ~25 overlay systems every
+  // call, expensive independent of tile count (measured: up to 35ms for just 45 visible tiles —
+  // see the terrainRebuild diagnostics this tracking feeds), and every buffer it touches is
+  // re-uploaded to the GPU on the next render. `builtWindow` is the padded tile window currently
+  // in those buffers; a rebuild fires only when the camera needs tiles outside it (see
+  // client-map-3d-terrain-window.ts). Separate from lastCameraApplied so the rebuild throttle
+  // never delays the camera transform.
+  const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, tilesRevision: -1, crystalTargetingActive: false };
   let rafId: number | undefined;
   let lastOwnershipDebugSignature = "";
   const ownershipDebugWindow = (): (Window & { __be3dOwnershipDebug?: unknown }) | undefined =>
@@ -1296,11 +1299,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const tmpBlack = new Color("#000000");
   const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
 
-  const rebuildVisibleTerrain = (): void => {
+  const rebuildVisibleTerrain = (window: TerrainWindow): void => {
     const rebuildStartAt = performance.now();
-    const size = Math.max(1, deps.state.zoom);
-    const halfW = Math.max(1, Math.floor(deps.canvas.width / size / 2));
-    const halfH = Math.max(1, Math.floor(deps.canvas.height / size / 2));
+    const { halfW, halfH } = window;
 
     heightfield.mesh.position.set(0, 0, 0);
     const isExploredForHeightfield = (wx: number, wy: number): boolean => {
@@ -1313,7 +1314,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     // dome layer (client-map-3d-hills.ts, which draws what the grid excludes)
     // — both must rebuild against the exact same visible window every frame.
     const sharedTerrainWindow = {
-      camX: deps.state.camX, camY: deps.state.camY, halfW, halfH,
+      camX: window.camX, camY: window.camY, halfW, halfH,
       worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT,
       tileKindAt: heightfieldKindAt, isExploredAt: isExploredForHeightfield
     };
@@ -1415,8 +1416,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const perTileLoopStartAt = performance.now();
     for (let dy = -halfH - 1; dy <= halfH + 1; dy += 1) {
       for (let dx = -halfW - 1; dx <= halfW + 1; dx += 1) {
-        const wx = deps.wrapX(deps.state.camX + dx);
-        const wy = deps.wrapY(deps.state.camY + dy);
+        const wx = deps.wrapX(window.camX + dx);
+        const wy = deps.wrapY(window.camY + dy);
         const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
         const visibility = deps.tileVisibilityStateAt(wx, wy, tile);
         if (debugTileLoggingEnabled()) {
@@ -1958,14 +1959,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     });
   };
 
-  // A trailing-edge throttle floor for rebuildVisibleTerrain(): a zoom/pan gesture changes
-  // camX/camY/zoom on nearly every animation frame, and without this the main thread had no
-  // room to do anything else — each rebuild ran back-to-back with the next. This is not a
-  // dropped-update risk: rebuildNeeded (via lastRebuild not being updated on a throttled tick)
-  // stays true on every subsequent frame until the floor opens, so the next frame after motion
-  // settles always rebuilds against whatever the current state is, not whatever first triggered
-  // the dirty flag. Worst case the terrain lags the camera by one floor window, then snaps
-  // correct — a large improvement over the previous every-single-frame full rebuild.
+  // A trailing-edge throttle floor for rebuildVisibleTerrain(): terrainWindowCovers/
+  // terrainWindowPanned (client-map-3d-terrain-window.ts) suppress rebuilds during a zoom that
+  // doesn't need new tiles, but every pan forces one every frame it moves, so continuous dragging
+  // still needs a backstop against back-to-back rebuilds. Not a dropped-update risk: rebuildNeeded
+  // stays true on every subsequent frame until the floor opens (lastRebuild.at only advances on an
+  // actual rebuild), so the next frame after motion settles always rebuilds against current state.
   const REBUILD_MIN_INTERVAL_MS = 48;
 
   // Places this frame's live Aether Survey Line pylons/segments, animating
@@ -2020,13 +2019,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       }
 
       const pylonFrames = diffTransitions(currentPylons, reach3DPylonTracker, nowMs, {
-        animateInitial: false,
+        animateInitial: reach3DPylonsAnimateArrivals,
         arriveStaggerMs: ARRIVE_STAGGER_MS
       });
       const segmentFrames = diffTransitions(currentSegments, reach3DSegmentTracker, nowMs, {
-        animateInitial: false,
+        animateInitial: reach3DPylonsAnimateArrivals,
         arriveStaggerMs: ARRIVE_STAGGER_MS
-      });
+      }); reach3DPylonsAnimateArrivals = true;
 
       // NOTE: corners sit at raw integer grid positions (tile (x,y)'s
       // center is at grid position x+TILE_CENTER_OFFSET, but its top-left
@@ -2073,23 +2072,18 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
 
     const ctActiveNow = deps.state.crystalTargeting.active;
+    const requiredWindow = requiredTerrainWindow({ zoom: deps.state.zoom, canvasWidth: width, canvasHeight: height, camX: deps.state.camX, camY: deps.state.camY });
     const rebuildNeeded =
-      deps.state.camX !== lastRebuild.camX ||
-      deps.state.camY !== lastRebuild.camY ||
-      deps.state.zoom !== lastRebuild.zoom ||
-      width !== lastRebuild.width ||
-      height !== lastRebuild.height ||
+      terrainWindowPanned(lastRebuild.builtWindow, requiredWindow) ||
+      !terrainWindowCovers(lastRebuild.builtWindow, requiredWindow, WORLD_WIDTH, WORLD_HEIGHT) ||
       deps.state.tilesRevision !== lastRebuild.tilesRevision ||
       ctActiveNow !== lastRebuild.crystalTargetingActive;
     if (!rebuildNeeded) return;
     if (lastRebuild.at !== 0 && nowMs - lastRebuild.at < REBUILD_MIN_INTERVAL_MS) return;
 
-    rebuildVisibleTerrain();
-    lastRebuild.camX = deps.state.camX;
-    lastRebuild.camY = deps.state.camY;
-    lastRebuild.zoom = deps.state.zoom;
-    lastRebuild.width = width;
-    lastRebuild.height = height;
+    const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);
+    rebuildVisibleTerrain(builtWindow);
+    lastRebuild.builtWindow = builtWindow;
     lastRebuild.at = nowMs;
     lastRebuild.tilesRevision = deps.state.tilesRevision;
     lastRebuild.crystalTargetingActive = ctActiveNow;

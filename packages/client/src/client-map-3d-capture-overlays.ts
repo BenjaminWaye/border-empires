@@ -10,6 +10,13 @@ import type { ClientState } from "./client-state/client-state.js";
 
 const TILE_CENTER_OFFSET = 0.5;
 
+// Placeholder passed to playerColorFor for the attacker's own skirmish when
+// the target tile's real owner isn't known client-side yet (see below) — any
+// string not already in state.playerColors resolves to some deterministic
+// fallback color (see resolveOwnerColor), so this never crashes; it's purely
+// a stand-in until real tile data arrives and supplies the true owner.
+const UNKNOWN_ENEMY_OWNER_ID = "unknown-enemy";
+
 let advanceSrcCache: AdvanceMusterFallbackCache;
 
 export function syncCaptureOverlays(
@@ -169,13 +176,27 @@ export function syncBattleOverlayFx(
     // reaches incomingAttacksByTile — without this it would show no dots at
     // all until the resolution flourish. Drive it off the in-flight action
     // instead. EXPAND is excluded: claiming neutral land is not a fight.
+    //
+    // Deliberately does NOT require state.tiles.get(key) to already know the
+    // target's ownerId, unlike the defending branch above. A manual attack is
+    // almost always against a tile the player is currently looking at, so
+    // that tile is already loaded — but a muster flag in ADVANCE mode fires
+    // autonomously against whatever the server's own search finds nearest,
+    // which can be a tile this client has never had vision of. Requiring a
+    // known owner there silently skipped the skirmish for the entire ~30s
+    // countdown, only for it to appear once resolution's tile delta reveals
+    // the target and populates activeBattles — reading as "no animation
+    // until it resolves". actionType === "ATTACK" already guarantees
+    // (server-validated) this targets a real enemy tile, so a placeholder
+    // color is a safe stand-in until real tile data upgrades it on a later
+    // frame, exactly like a bystander's fog-of-war tinting already does.
     const capture = state.capture;
     if (capture?.actionType === "ATTACK" && capture.origin && capture.resolvesAt > nowEpochMs) {
       const key = keyFor(capture.target.x, capture.target.y);
-      const target = state.tiles.get(key);
-      const defenderOwnerId = target?.ownerId;
-      if (target && defenderOwnerId && defenderOwnerId !== state.me && !state.activeBattles.has(key)) {
-        pushSkirmish(key, capture.origin.x, capture.origin.y, target, state.me, defenderOwnerId);
+      if (!state.activeBattles.has(key)) {
+        const knownOwnerId = state.tiles.get(key)?.ownerId;
+        const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
+        pushSkirmish(key, capture.origin.x, capture.origin.y, capture.target, state.me, defenderOwnerId);
       }
     }
   }

@@ -81,6 +81,27 @@ describe("battle overlay skirmish sourcing", () => {
     expect(skirmishes[0]).toEqual(expect.objectContaining({ attackerColor: "#me", defenderColor: "#victim" }));
   });
 
+  // Regression: an ADVANCE-mode muster flag fires autonomously against
+  // whatever the server's own search finds nearest, which can be a tile this
+  // client has never had vision of (a manual attack is almost always against
+  // a tile the player is currently looking at, so it's normally already
+  // loaded). Requiring a known ownerId here used to silently skip the
+  // attacker's own skirmish for the entire countdown, only for it to appear
+  // once the resolution broadcast finally reveals the tile.
+  it("renders the attacker's own skirmish even when the target tile is still unexplored", () => {
+    const state = createState({
+      me: "me",
+      tiles: new Map(), // target tile never loaded client-side
+      capture: { startAt: 0, resolvesAt: Date.now() + 25_000, target: { x: 5, y: 5 }, origin: { x: 4, y: 5 }, actionType: "ATTACK" }
+    });
+
+    const skirmishes = skirmishesFrom(state);
+
+    expect(skirmishes).toHaveLength(1);
+    expect(skirmishes[0]).toEqual(expect.objectContaining({ attackerColor: "#me" }));
+    expect(skirmishes[0]?.defenderColor).not.toBe("#me");
+  });
+
   it("renders no skirmish for an EXPAND onto neutral land", () => {
     const state = createState({
       me: "me",

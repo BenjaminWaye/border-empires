@@ -1425,7 +1425,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.domainIds = (msg.domainIds as string[]) ?? state.domainIds;
       const techMsgTrickle = (msg as { chosenTrickleResource?: unknown }).chosenTrickleResource;
       if (isChosenTrickleResource(techMsgTrickle)) state.chosenTrickleResource = techMsgTrickle;
-      if (typeof (msg as { imperialWardCharges?: unknown }).imperialWardCharges === "number") state.imperialWardCharges = (msg as { imperialWardCharges: number }).imperialWardCharges;
+      if (typeof (msg as { imperialWardCharges?: unknown }).imperialWardCharges === "number") state.imperialWardCharges = (msg as { imperialWardCharges: number }).imperialWardCharges; if (typeof (msg as { wonderLastFreeRushBuyAt?: unknown }).wonderLastFreeRushBuyAt === "number") state.wonderLastFreeRushBuyAt = (msg as { wonderLastFreeRushBuyAt: number }).wonderLastFreeRushBuyAt;
       state.domainChoices = (msg.domainChoices as string[]) ?? state.domainChoices;
       state.domainCatalog = (msg.domainCatalog as any[]) ?? state.domainCatalog;
       if (

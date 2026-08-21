@@ -129,6 +129,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   /** Tile keys of this player's currently active muster flags. */ musterTileKeys?: ReadonlySet<string>;
   /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
   decisionCooldowns?: DecisionCooldownMap;
+  /** True on the boosted portion of this player's beacon build cadence — see ai-beacon-cadence.ts. */
+  beaconBoostActive?: boolean;
   // Bounded BFS front of owned tile keys for this AI's current spatial focus.
   // When provided, frontier candidate enumeration is restricted to origins
   // inside this set, capping per-tick CPU regardless of empire size. See
@@ -212,6 +214,9 @@ export type AutomationPlannerDiagnostic = {
   economicBuildCandidate?: string;
   /** Debug-only: "x,y" (+ ":needsSettle") of chooseBestRelayBeaconBuild's pick, if any. */
   relayBeaconBuildCandidate?: string;
+  /** Debug-only: that pick's raw newCoverage.score — see decisions.ts's
+   *  scoreBuildBeacon graduated consideration and RELAY_BEACON_SITE_VALUE_FLOOR/CEILING. */
+  relayBeaconSiteValue?: number;
   // Utility AI fields — populated on every result from the main planner.
   utilityWinner?: DecisionClass;
   utilityWinnerScore?: number;

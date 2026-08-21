@@ -1,7 +1,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { ATTACK_MANPOWER_MIN, DEVELOPMENT_PROCESS_LIMIT, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, SETTLE_COST } from "@border-empires/shared";
 
-import { needVectorFromPlannerInput } from "./build/build-need-vector.js";
+import { buildScoringNeedVectorFromPlannerInput, needVectorFromPlannerInput } from "./build/build-need-vector.js";
 
 import { analyzeOwnedFrontierTargetsFromLookup, type FrontierAnalysis } from "./frontier-command-planner.js";
 import { explainFrontierOriginTile } from "./planner-candidate-index.js";
@@ -10,9 +10,9 @@ import { computeTownSupport } from "../town-support.js";
 import {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
-  chooseBestRelayBeaconBuild,
   chooseBestSiegeOutpostBuild
 } from "./structure-command-planner.js";
+import { chooseBestRelayBeaconBuild } from "./relay-beacon-command-planner.js";
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationPlannerDecisionContext } from "./automation-command-planner-helpers.js";
@@ -311,7 +311,11 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     });
     // Competition is resolved by scoring, not a boolean gate — always compute
     // so BUILD_ECONOMY can be scored even when frontier action is available.
-    economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    // buildScoringNeedVector feeds the catalog's need-weighted candidates
+    // (economic-structure-catalog.ts) — see its own doc comment for why it's
+    // computed ahead of the strategic snapshot below rather than reusing that.
+    const buildScoringNeedVector = buildScoringNeedVectorFromPlannerInput(input, { settledTileCount, incomePerMinute, frontierEnemyTargetCount: frontierAnalysis.frontierEnemyTargetCount });
+    economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates, buildScoringNeedVector);
     fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     // The relay beacon is the one build that may target an owned FRONTIER
@@ -406,7 +410,10 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     // instead of inferring it (wrongly) from unrelated fields like
     // frontierNeutralTargetCount — see decisions.ts's scoreBuildBeacon.
     ...(relayBeaconBuild
-      ? { relayBeaconBuildCandidate: `${relayBeaconBuild.tile.x},${relayBeaconBuild.tile.y}${relayBeaconBuild.needsSettle ? ":needsSettle" : ""}` }
+      ? {
+          relayBeaconBuildCandidate: `${relayBeaconBuild.tile.x},${relayBeaconBuild.tile.y}${relayBeaconBuild.needsSettle ? ":needsSettle" : ""}`,
+          relayBeaconSiteValue: relayBeaconBuild.siteValue
+        }
       : {}),
     ...(typeof input.playerScopeKeyCount === "number" ? { playerScopeKeyCount: input.playerScopeKeyCount } : {}),
     ...(typeof input.playerScopeTileCount === "number" ? { playerScopeTileCount: input.playerScopeTileCount } : {})
@@ -485,6 +492,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     expansionObjective: input.expansionObjective,
     points: input.points,
     manpower: input.manpower,
-    decisionCooldowns: input.decisionCooldowns
+    decisionCooldowns: input.decisionCooldowns,
+    beaconBoostActive: input.beaconBoostActive ?? false
   });
 };

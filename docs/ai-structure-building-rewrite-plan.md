@@ -810,3 +810,187 @@ degradation is the desired shape and is pinned by
    In scope for a follow-up, or fold `CRYSTAL_SLOTS` demand into this work?
 4. **Fort/siege ladder upgrades** (`nextFortTierForUpgrade`) — the AI builds
    fresh at the best tier but never upgrades existing forts. Same rework?
+
+---
+
+## §16 Reach system landed on `main` — `BUILD_BEACON` reworked to a graduated consideration
+
+Between this plan's original write-up and Phase 0/1 shipping, `main` landed a
+fixed-borders-via-reach mechanic (commits `f098e66`..`c5b0158`+): `EXPAND`/
+`SETTLE` are now gated by a persistent reach radius from anchors —
+`TOWN` (`TOWN_REACH_RADIUS` = 3), the outpost family `RELAY_BEACON` /
+`SIEGE_OUTPOST` / `SIEGE_TOWER` / `DREAD_TOWER` (`OUTPOST_REACH_RADIUS` = 5),
+and `DOCK` (`DOCK_REACH_RADIUS` = 1). **`FORT` does not grant reach** — it is
+not one of the anchor kinds `gatherReachAnchors()` (`runtime.ts`) recognizes;
+the separate `activeFortAnchorsByOwner` map is the pre-existing
+`TOWN_AUTO_FRONTIER_RADIUS` mechanic and is unrelated. `ATTACK` is unaffected
+by reach.
+
+This changes two premises this plan was built on, both addressed below rather
+than by revising §1–§15 in place (the original sections still describe the
+manpower/need-vector/catalog work accurately; this section is additive):
+
+### §16.1 `EXPAND` is no longer an unbounded manpower sink
+
+§1.3's "AI's steady state is manpower ≈ 0" narrative assumed `EXPAND` could
+keep consuming a dev slot indefinitely. Under reach, `EXPAND`/`SETTLE` are
+capped by territory already in radius of an anchor — once every in-reach tile
+is claimed, `EXPAND` has nothing left to do regardless of manpower on hand.
+The only way to open more `EXPAND` room is a new anchor, i.e. a new
+`RELAY_BEACON` (or town/dock). This is a natural, mechanic-driven brake on
+`EXPAND`'s appetite that §3's savings-rate design doesn't need to fight
+anymore — it was designed against a strictly-worse assumption.
+
+### §16.2 `BUILD_BEACON`: boolean site-exists veto → graduated consideration
+
+Before this change, `BUILD_BEACON` (`decisions.ts`) scored identically
+whether `chooseBestRelayBeaconBuild` (`relay-beacon-command-planner.ts`)
+found a beacon site that unlocked one plain `LAND` tile or one that unlocked
+a dozen resource/town/dock tiles — the site-exists check was a `boolVeto`,
+pass/fail only. That made beacon cadence unresponsive to how much value was
+actually left to claim.
+
+The fix reuses `estimateNewReachCoverage`'s existing score (previously
+discarded after ranking candidates against each other) as a genuine
+magnitude, threaded through as `RelayBeaconBuildPlan.siteValue`:
+
+```
+scoreBuildBeacon = scoreConsiderations([
+  boolVeto(hasRelayBeaconBuild),
+  boolVeto(devSlotAvailable),
+  boolVeto(frontierEnemyCount === 0),
+  boolVeto(!hasActionableNonWasteExpand),
+  linear(relayBeaconSiteValue, RELAY_BEACON_SITE_VALUE_FLOOR = 1, RELAY_BEACON_SITE_VALUE_CEILING = 24)
+])
+```
+
+`RELAY_BEACON_SITE_VALUE_FLOOR = 1` is the smallest passing value (a single
+plain unowned `LAND` tile in the scan radius). `RELAY_BEACON_SITE_VALUE_CEILING
+= 24` is roughly three valuable tiles' worth
+(`VALUABLE_TARGET_COVERAGE_WEIGHT = 8` each). This was chosen over the
+alternative the strategic doctrine discussion first proposed — a literal
+counter ("an economic building every 5 beacons, or when there are no
+expansion opportunities") — because the value curve gets the same outcome
+(beacon cadence naturally tapers as the best sites get claimed first, leaving
+room for `BUILD_ECONOMY`) without adding new persistent state or a synthetic
+threshold to tune. `siteValue` is surfaced through
+`AutomationPlannerDiagnostic.relayBeaconSiteValue` →
+`AiDecisionDiagnostic.relayBeaconSiteValue` (`/admin/debug/ai/decisions`),
+following the same explicit-field-allowlist pattern as
+`economicBuildCandidate`.
+
+### §16.3 `BUILD_ECONOMY`'s expansion-opportunity suppression removed
+
+`scoreBuildEconomy` used to suppress on `nonWasteExpansionOpportunityCount` in
+addition to `frontierEnemyCount`, to stop `BUILD_ECONOMY` from competing with
+`EXPAND` for the same dev slot while there was still cheap land to grab.
+Under reach, `EXPAND` doesn't consume a dev slot and is itself reach-capped
+(§16.1), so that suppression no longer reflects real resource contention —
+it was actively fighting the desired "dev slots open up for economic
+buildings during the post-beacon expansion window" behaviour raised in the
+strategic-doctrine discussion. It has been removed; `scoreBuildEconomy` now
+suppresses only on `frontierEnemyCount` (fight first, let `ATTACK`/`MUSTER`
+win that competition).
+
+### §16.4 Need-weighted economic structure catalog
+
+`chooseBestEconomicBuild` (`structure-command-planner.ts`) could only ever
+propose 5 of the ~28 buildable `EconomicStructureType`s — FARMSTEAD,
+UMBRITE_RIG, MINE, MINTWORKS, GRANARY — each scored by a hand-picked flat
+number (`foodLow ? 190 : 70`, etc.), not by any measured need. This was the
+original plan's §5/§6 Phase 2 gap.
+
+`economic-structure-catalog.ts` adds a declarative catalog — `{ type,
+needKey, placement, maxScore }` — for 8 more types, scored by
+`computeNeedVector`'s real per-resource deficit instead of another flat
+number: `score = maxScore * needVector[needKey]`, calibrated so `maxScore`
+sits inside the original 5 types' existing 20-190 range. The original 5
+types' scoring is deliberately left untouched (already shipped and tuned);
+the catalog is additive, layered onto the same candidate list.
+
+Each entry's `needKey` was confirmed against the structure's actual
+gameplay effect in `structure-modifier-catalog-economic.ts` (the same
+source of truth the client's own tooltips read from) — not guessed:
+
+| Type | needKey | Placement |
+| --- | --- | --- |
+| WATERWORKS | FOOD_SLOTS | any open settled tile |
+| GOVERNORS_OFFICE | FOOD_SLOTS | any open settled tile |
+| GARRISON_HALL | MANPOWER_CEILING | town-support neighbor |
+| LOGISTICS_GUILD | MANPOWER_THROUGHPUT | town-support neighbor |
+| CARAVANARY | GOLD | town-support neighbor |
+| UMBRITE_SYNTHESIZER | UMBRITE_SLOTS | town-support neighbor |
+| TITANIUM_WORKS | TITANIUM_SLOTS | town-support neighbor |
+| CRYSTAL_SYNTHESIZER | CRYSTAL_SLOTS | town-support neighbor |
+
+Deliberately left out of this pass: RAIL_DEPOT/ASSEMBLY_WORKS (their effect
+is "+X per Y-in-network" — only useful if another specific structure is
+already built elsewhere, which the planner doesn't evaluate yet);
+CUSTOMS_HOUSE (placed directly on a dock tile — no existing candidate-
+gathering for that placement rule); SEED_GRANARY/CENSUS_HALL/CLEARING_HOUSE
+(population/upgrade-cost/synergy effects with no clean `NeedVector`
+counterpart, some needing a prerequisite structure already built); the
+wonder chain (needs completed PART prerequisites first, §15 open question
+#1). The synthesizer entries were briefly single-copy-only in an earlier
+draft, citing `structure-slots.ts`'s "hard-capped at exactly 1 slot ...
+forever" comment — that comment is stale.
+`runtime-structure-command-handlers.ts` documents the cap as removed
+("Decision 5: unlimited SYNTHESIZE-mode converters per family"), and
+`resourceSlotSupplyForPlayer` (`resource-slot-view.ts`) sums
+`structureSlotRequirements` per *active* synthesizer tile with no dedup —
+each additional copy genuinely adds its own slot supply. Only a duplicate on
+the SAME town's support ring is rejected, via the same
+`existingSupportStructureTypes` check every catalog entry already gets
+(§16.4's town-support branch) — there is no empire-wide cap.
+
+A score of exactly 0 (need fully met) is filtered out at the push site —
+`chooseBestEconomicBuild`'s best-pick loop has no score-floor of its own
+(the original 5 types never hit exactly 0), so an unfiltered 0-score
+catalog candidate could still win by default when nothing else exists to
+compare against, proposing a build for zero value.
+
+The catalog's `needVector` is computed via a new
+`buildScoringNeedVectorFromPlannerInput` (`build-need-vector.ts`) — a
+thin wrapper defaulting `victoryPathProgress` to 0, since none of the
+catalog's `needKey`s read `VICTORY`. This runs *before* the strategic
+snapshot in `planAutomationCommand` (whereas the diagnostic-only
+`needVectorFromPlannerInput` call later in the same function uses the real
+`victoryPathProgress`), because `chooseBestEconomicBuild` is called before
+the snapshot exists and the snapshot itself depends on `economicBuild`'s
+availability — reordering the whole function to avoid the double
+computation was judged higher-risk than computing a cheap pure function
+twice.
+
+### §16.5 Beacon build cadence boost
+
+Per the strategic-doctrine discussion's request for "a mix" — beacon-first
+most of the time, with room for economic building — `BUILD_BEACON` now gets
+a periodic priority boost layered on top of §16.2's graduated site-value
+score, tracked by `ai-beacon-cadence.ts`:
+
+- A per-player cycle position (0..4), advanced once per **accepted**
+  structure-build command (`BUILD_FORT`/`BUILD_SIEGE_OUTPOST`/
+  `BUILD_ECONOMIC_STRUCTURE`, including beacons themselves) — counted at
+  command acceptance, not construction finish (which can be minutes later
+  for slower structures), so the cadence tracks build *actions*, not
+  real-time completion.
+- Positions 0-3 (`BEACON_CADENCE_BOOSTED_BUILDS = 4`): `scoreBuildBeacon`
+  adds a flat `BEACON_CADENCE_BOOST = 0.6` on top of its normal graduated
+  score, clamped to 1 — strong enough that a legal beacon reliably
+  outcompetes `BUILD_ECONOMY`/`BUILD_DEFENSE` during the boosted window.
+- Position 4 (the 5th build in the cycle): no boost — the plain
+  need-driven comparison decides, the same "mix" window the doctrine
+  discussion asked for.
+- The boost is added *after* the vetoes and the graduated term, and only
+  when the un-boosted score is already nonzero — it can never revive a
+  beacon that's still illegal (no site, no dev slot, an enemy at the gate,
+  or a real in-reach EXPAND prize still unclaimed). Strong bias, not a
+  hard override, per the explicit design choice.
+
+State lives in `ai-command-producer.ts` (`Map<playerId, position>`,
+mirroring `ai-rejection-cooldown.ts`'s shape) — real, small, process-local
+state, not a snapshot/persistence concern; a lost position on restart just
+resets a player to the start of a cycle, which is harmless. Threaded through
+as `explainNextAutomationCommand`'s `beaconBoostActive` option →
+`AutomationPlannerInput.beaconBoostActive` →
+`UtilityDispatchState.beaconBoostActive` → `DecisionInputs.beaconBoostActive`.
