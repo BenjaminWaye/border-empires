@@ -39,7 +39,7 @@ export type RuntimeExportState = {
     ownerId?: string;
     ownershipState?: string;
     frontierDecayAt?: number;
-    frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT";
+    frontierDecayKind?: "ENCIRCLEMENT";
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;

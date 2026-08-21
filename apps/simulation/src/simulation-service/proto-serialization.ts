@@ -65,7 +65,7 @@ export type ProtoSimulationEvent = {
     ownerId?: string | null | undefined;
     ownershipState?: string | null | undefined;
     frontierDecayAt?: number | null | undefined;
-    frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | null | undefined;
+    frontierDecayKind?: "ENCIRCLEMENT" | null | undefined;
     townJson?: string | undefined;
     townType?: string | undefined;
     townName?: string | undefined;
@@ -106,7 +106,7 @@ export type SimulationTileDelta = {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   frontierDecayAt?: number | undefined;
-  frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+  frontierDecayKind?: "ENCIRCLEMENT" | undefined;
   townJson?: string | undefined;
   townType?: "MARKET" | "FARMING";
   townName?: string | undefined;

@@ -739,7 +739,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
         breachShockUntil?: number;
         frontierDecayAt?: number | null;
-        frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | null;
+        frontierDecayKind?: "ENCIRCLEMENT" | null;
       }>) ??
       [];
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
@@ -761,7 +761,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
       if (typeof change.frontierDecayAt === "number") incoming.frontierDecayAt = change.frontierDecayAt;
       else if ("frontierDecayAt" in change && !change.frontierDecayAt) delete incoming.frontierDecayAt;
-      if (change.frontierDecayKind === "NATURAL" || change.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = change.frontierDecayKind;
+      if (change.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = change.frontierDecayKind;
       else if ("frontierDecayKind" in change && !change.frontierDecayKind) delete incoming.frontierDecayKind;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
