@@ -1,5 +1,6 @@
 import { isForestTile } from "./client-constants.js";
 import { updateMusicForGameState } from "./client-audio/client-audio.js";
+import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
@@ -1881,14 +1882,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   }, 300);
 
   setInterval(() => {
-    updateMusicForGameState({
-      combat: state.activeBattles.size > 0,
-      tension:
-        state.incomingAttacksByTile.size > 0 ||
-        state.musterTransitByTile.size > 0 ||
-        state.deferredAttackByTile.size > 0 ||
-        state.pendingMusterAttacks.length > 0
-    });
+    updateMusicForGameState(computeWarMusicSignals(state));
   }, 500);
 
   setInterval(() => {

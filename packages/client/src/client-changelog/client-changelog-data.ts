@@ -15,6 +15,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: Date.now(),
     introducedIn: "2026.08.21",
+    title: "War music no longer flickers back to calm music during an ongoing war",
+    why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
+    changes: [
+      "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.08.21",
     title: "Border-expansion pylon animation is slower and more dramatic",
     why: "The survey pylon rise/sink and laser on/off animation that plays when your border expands or contracts was over in about 1.3 seconds per pylon, which made it easy to miss entirely.",
     changes: [
