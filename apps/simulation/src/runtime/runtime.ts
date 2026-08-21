@@ -299,6 +299,7 @@ import {
   handleSurveySweepCommand as handleSurveySweepCommandImpl,
   type RuntimeAbilityCommandContext
 } from "../runtime-ability-command-handlers.js";
+import { buildAbilityCommandContext } from "./runtime-ability-command-context.js";
 import { handleSiphonTileCommand as handleSiphonTileCommandImpl } from "../runtime-siphon-command-handlers.js"; import { handleSyncTruceCommand as handleSyncTruceCommandImpl } from "../runtime-truce-sync-command.js";
 import {
   handleAegisLockCommand as handleAegisLockCommandImpl,
@@ -319,6 +320,7 @@ import {
   handleUpgradeTownTierCommand as handleUpgradeTownTierCommandImpl,
   type RuntimeProgressionCommandContext
 } from "../runtime-progression-command-handlers.js";
+import { buildProgressionCommandContext } from "./runtime-progression-command-context.js";
 import {
   adjustOwnedStructureCount as adjustOwnedStructureCountImpl,
   ownedStructureCountForPlayer as ownedStructureCountForPlayerImpl,
@@ -387,6 +389,7 @@ import {
   handleUncaptureTileCommand as handleUncaptureTileCommandImpl,
   type RuntimeEconomicStructureCommandContext
 } from "../runtime-economic-structure-command-handlers.js";
+import { buildEconomicStructureCommandContext } from "./runtime-economic-structure-command-context.js";
 import {
   cancelActiveOutpostAttackLocks as cancelActiveOutpostAttackLocksImpl,
   completeStructureRemoval as completeStructureRemovalImpl,
@@ -417,6 +420,7 @@ import {
   handleRushBuyCommandImpl,
   type RuntimeRushBuyCommandContext
 } from "../runtime-rush-buy-command.js";
+import { buildRushBuyCommandContext } from "./runtime-rush-buy-command-context.js";
 import {
   seedLiveBarbarians as seedLiveBarbariansImpl,
   type SeedLiveBarbariansResult
@@ -3977,7 +3981,7 @@ export class SimulationRuntime {
   }
 
   private rushBuyCommandContext(): RuntimeRushBuyCommandContext {
-    return {
+    return buildRushBuyCommandContext({
       players: this.players,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
       locksByTile: this.locksByTile,
@@ -3991,10 +3995,8 @@ export class SimulationRuntime {
       emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       emitEvent: (event) => this.emitEvent(event),
       structureCommandContext: () => this.structureCommandContext()
-    };
+    });
   }
-
-  private handleRushBuyCommand(command: CommandEnvelope): void { handleRushBuyCommandImpl(this.rushBuyCommandContext(), command); }
 
   private handleSettleCommand(command: CommandEnvelope): void {
     const actor = this.players.get(command.playerId);
@@ -4185,7 +4187,7 @@ export class SimulationRuntime {
   }
 
   private economicStructureCommandContext(): RuntimeEconomicStructureCommandContext {
-    return {
+    return buildEconomicStructureCommandContext({
       players: this.players,
       tiles: this.tiles,
       locksByTile: this.locksByTile,
@@ -4200,13 +4202,11 @@ export class SimulationRuntime {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       playerManpowerCap: (player) => this.playerManpowerCap(player),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount)
-    };
+    });
   }
 
-  private handleUncaptureTileCommand(command: CommandEnvelope): void { handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command); }
-
   private abilityCommandContext(): RuntimeAbilityCommandContext {
-    return {
+    return buildAbilityCommandContext({
       players: this.players,
       tiles: this.tiles,
       activeAetherBridgesByPlayer: this.activeAetherBridgesByPlayer,
@@ -4237,24 +4237,8 @@ export class SimulationRuntime {
         this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
       reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
       grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId)
-    };
+    });
   }
-
-  private handleRevealEmpireCommand(command: CommandEnvelope): void { handleRevealEmpireCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleRevealEmpireStatsCommand(command: CommandEnvelope): void { handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleSurveySweepCommand(command: CommandEnvelope): void { handleSurveySweepCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleAetherLanceCommand(command: CommandEnvelope): void { handleAetherLanceCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleCastAetherBridgeCommand(command: CommandEnvelope): void { handleCastAetherBridgeCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleCastAetherWallCommand(command: CommandEnvelope): void { handleCastAetherWallCommandImpl(this.abilityCommandContext(), command); }
-
-  private handleSiphonTileCommand(command: CommandEnvelope): void { handleSiphonTileCommandImpl(this.abilityCommandContext(), command); }
-
-  private handlePurgeSiphonCommand(command: CommandEnvelope): void { handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command); }
 
   private mapCommandContext(): RuntimeMapCommandContext {
     return {
@@ -4299,7 +4283,7 @@ export class SimulationRuntime {
   private isTileShieldedByAegisLock(actorId: string, targetX: number, targetY: number): boolean { return isTileShieldedByAegisLockImpl(this.tiles, this.abilityCooldowns, this.now(), actorId, targetX, targetY); }
 
   private progressionCommandContext(): RuntimeProgressionCommandContext {
-    return {
+    return buildProgressionCommandContext({
       players: this.players,
       tiles: this.tiles,
       emitEvent: (event) => this.emitEvent(event),
@@ -4307,51 +4291,24 @@ export class SimulationRuntime {
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
-      setTileState: (tileKey, tile) => {
-        const previous = this.tiles.get(tileKey);
-        this.tiles.set(tileKey, tile); this.snapshotTileCache.set(tileKey, mapTile(tile));
-        // This path deliberately skips refreshEconomyCachesForTileChange (the
-        // progression handlers invalidate the economy caches themselves), but
-        // the corridor union-find still has to be maintained: UPGRADE_TOWN_TIER
-        // crossing the SETTLEMENT boundary turns a corridor tile into a
-        // connectivity barrier, and leaving the structure merged across it
-        // inflates connectedTownCount for towns on either side.
-        maintainTownConnectivityForTileChange(this.townConnectivityStateByPlayer, tileKey, previous, tile);
-        flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.tiles, dockLinksByDockTileKey: this.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
-        reconcileTownVisionBonus({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
-        reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
-      },
+      snapshotTileCache: this.snapshotTileCache,
+      townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
+      dockLinksByDockTileKey: this.dockLinksByDockTileKey,
+      settledTilesForPlayer: (playerId) => this.settledTilesForPlayer(playerId),
+      outpostVisionDeps: () => this.outpostVisionDeps(),
+      visibilityCoverage: this.visibilityCoverage,
+      visionTransitionCallbacks: this.visionTransitions.callbacks,
+      now: () => this.now(),
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      invalidateEconomySnapshot: (playerId) => {
-        this.economySnapshotCacheByPlayer.delete(playerId);
-        // UPGRADE_TOWN_TIER changes the town's FOOD slot demand
-        // (townFoodSlotDemandForTier) — this setTileState path skips
-        // refreshEconomyCachesForTileChange (see its own comment above), so
-        // the resource-slot caches need invalidating here instead.
-        this.resourceSlotDemandCacheByPlayer.delete(playerId);
-        this.resourceSlotDormancyCacheByPlayer.delete(playerId);
-      },
-      invalidateTileYieldContext: (playerId) => {
-        this.tileYieldContextCacheByPlayer.delete(playerId);
-        // UPGRADE_TOWN_TIER can move a town across the SETTLEMENT boundary,
-        // which now changes graph membership in buildConnectedTownNetworkForPlayer
-        // (settlements are excluded) — the cached network must be rebuilt too,
-        // not just the yield context that wraps it.
-        this.townNetworkCacheByPlayer.delete(playerId);
-        this.manpowerStructureBonusCacheByPlayer.delete(playerId);
-      },
-      invalidateUpkeepAccrual: (playerId) => this.upkeepAccrualCacheByPlayer.delete(playerId),
-      resyncVisionRadius: (playerId) => {
-        this.visibilityCoverage.resyncVisionRadius(playerId, this.visionTransitions.callbacks);
-        // A base-radius change also moves every owned town's +1 reveal ring.
-        resyncPlayerTownVisionBonuses({ players: this.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, playerId, this.summaryForPlayer(playerId).ownedTownTierByTile);
-        // A tech unlock (e.g. Survey Corps) can also move every owned outpost's
-        // ring — and since applyOutpostVisionBonusForTile is dormancy-aware,
-        // this also doubles as the dormancy resync for a slot-waiver change
-        // (§23.2) or a townFoodSlotDemandForTier bump (UPGRADE_TOWN_TIER).
-        resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
-      },
+      economySnapshotCacheByPlayer: this.economySnapshotCacheByPlayer,
+      resourceSlotDemandCacheByPlayer: this.resourceSlotDemandCacheByPlayer,
+      resourceSlotDormancyCacheByPlayer: this.resourceSlotDormancyCacheByPlayer,
+      tileYieldContextCacheByPlayer: this.tileYieldContextCacheByPlayer,
+      townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
+      manpowerStructureBonusCacheByPlayer: this.manpowerStructureBonusCacheByPlayer,
+      upkeepAccrualCacheByPlayer: this.upkeepAccrualCacheByPlayer,
+      ownedOutpostTilesForPlayer: (playerId) => this.ownedOutpostTilesForPlayer(playerId),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       decrementShardRainSiteCount: () => {
         this.currentShardRainSiteCount = Math.max(0, this.currentShardRainSiteCount - 1);
@@ -4361,22 +4318,9 @@ export class SimulationRuntime {
       clearLastShardRainHello: () => this.lastShardRainHelloByPlayer.clear(),
       onShardCollected: this.onShardCollected,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
-      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
-      // §23.2: a tech/domain choice can change slot waivers, which the
-      // tile-mutation-only cache invalidation below doesn't catch.
-      invalidateResourceSlotDemand: (playerId) => {
-        this.resourceSlotDemandCacheByPlayer.delete(playerId); this.resourceSlotDormancyCacheByPlayer.delete(playerId);
-      }
-    };
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId)
+    });
   }
-
-  private handleUpgradeTownTierCommand(command: CommandEnvelope): void { handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command); }
-
-  private handleCollectShardCommand(command: CommandEnvelope): void { handleCollectShardCommandImpl(this.progressionCommandContext(), command); }
-
-  private handleChooseTechCommand(command: CommandEnvelope): void { handleChooseTechCommandImpl(this.progressionCommandContext(), command); }
-
-  private handleChooseDomainCommand(command: CommandEnvelope): void { handleChooseDomainCommandImpl(this.progressionCommandContext(), command); }
 
   private emitPlayerMessage(command: Pick<CommandEnvelope, "commandId" | "playerId">, payload: Record<string, unknown>): void {
     const messageType = typeof payload.type === "string" ? payload.type : "UNKNOWN";
@@ -5062,25 +5006,25 @@ export class SimulationRuntime {
       handleCancelCaptureCommand: (command) => this.handleCancelCaptureCommand(command),
       handleCancelFortBuildCommand: (command) => this.handleCancelFortBuildCommand(command),
       handleCancelStructureBuildCommand: (command) => this.handleCancelStructureBuildCommand(command),
-      handleRushBuyCommand: (command) => this.handleRushBuyCommand(command),
+      handleRushBuyCommand: (command) => handleRushBuyCommandImpl(this.rushBuyCommandContext(), command),
       handleCancelSettleCommand: (command) => this.handleCancelSettleCommand(command),
       handleRemoveStructureCommand: (command) => this.handleRemoveStructureCommand(command),
       handleCancelSiegeOutpostBuildCommand: (command) => this.handleCancelSiegeOutpostBuildCommand(command),
       handleCollectTileCommand: (command) => this.handleCollectTileCommand(command),
       handleCollectVisibleCommand: (command) => this.handleCollectVisibleCommand(command),
-      handleUncaptureTileCommand: (command) => this.handleUncaptureTileCommand(command),
-      handleChooseTechCommand: (command) => this.handleChooseTechCommand(command),
-      handleChooseDomainCommand: (command) => this.handleChooseDomainCommand(command),
+      handleUncaptureTileCommand: (command) => handleUncaptureTileCommandImpl(this.economicStructureCommandContext(), command),
+      handleChooseTechCommand: (command) => handleChooseTechCommandImpl(this.progressionCommandContext(), command),
+      handleChooseDomainCommand: (command) => handleChooseDomainCommandImpl(this.progressionCommandContext(), command),
       handleSetConverterStructureEnabledCommand: (command) => handleSetConverterStructureEnabledCommandImpl(this.economicStructureCommandContext(), command),
       handleSetConverterStructureModeCommand: (command) => handleSetConverterStructureModeCommandImpl(this.economicStructureCommandContext(), command),
-      handleRevealEmpireCommand: (command) => this.handleRevealEmpireCommand(command),
-      handleRevealEmpireStatsCommand: (command) => this.handleRevealEmpireStatsCommand(command),
-      handleSurveySweepCommand: (command) => this.handleSurveySweepCommand(command),
-      handleAetherLanceCommand: (command) => this.handleAetherLanceCommand(command),
-      handleCastAetherBridgeCommand: (command) => this.handleCastAetherBridgeCommand(command),
-      handleCastAetherWallCommand: (command) => this.handleCastAetherWallCommand(command),
-      handleSiphonTileCommand: (command) => this.handleSiphonTileCommand(command),
-      handlePurgeSiphonCommand: (command) => this.handlePurgeSiphonCommand(command),
+      handleRevealEmpireCommand: (command) => handleRevealEmpireCommandImpl(this.abilityCommandContext(), command),
+      handleRevealEmpireStatsCommand: (command) => handleRevealEmpireStatsCommandImpl(this.abilityCommandContext(), command),
+      handleSurveySweepCommand: (command) => handleSurveySweepCommandImpl(this.abilityCommandContext(), command),
+      handleAetherLanceCommand: (command) => handleAetherLanceCommandImpl(this.abilityCommandContext(), command),
+      handleCastAetherBridgeCommand: (command) => handleCastAetherBridgeCommandImpl(this.abilityCommandContext(), command),
+      handleCastAetherWallCommand: (command) => handleCastAetherWallCommandImpl(this.abilityCommandContext(), command),
+      handleSiphonTileCommand: (command) => handleSiphonTileCommandImpl(this.abilityCommandContext(), command),
+      handlePurgeSiphonCommand: (command) => handlePurgeSiphonCommandImpl(this.abilityCommandContext(), command),
       handleCreateMountainCommand: (command) => handleCreateMountainCommandImpl(this.mapCommandContext(), command),
       handleRemoveMountainCommand: (command) => handleRemoveMountainCommandImpl(this.mapCommandContext(), command),
       handleAirportBombardCommand: (command) => handleAirportBombardCommandImpl(this.mapCommandContext(), command),
@@ -5090,8 +5034,8 @@ export class SimulationRuntime {
       handleAstralDockLaunchCommand: (command) => handleAstralDockLaunchCommandImpl(this.mapCommandContext(), command),
       handleTitaniumLevyMusterCommand: (command) => handleTitaniumLevyMusterCommandImpl(this.mapCommandContext(), command),
       handleActivateImperialWardCommand: (command) => handleActivateImperialWardCommandImpl(this.mapCommandContext(), command),
-      handleUpgradeTownTierCommand: (command) => this.handleUpgradeTownTierCommand(command),
-      handleCollectShardCommand: (command) => this.handleCollectShardCommand(command),
+      handleUpgradeTownTierCommand: (command) => handleUpgradeTownTierCommandImpl(this.progressionCommandContext(), command),
+      handleCollectShardCommand: (command) => handleCollectShardCommandImpl(this.progressionCommandContext(), command),
       handleSyncAllianceCommand: (command) => this.handleSyncAllianceCommand(command), handleSyncTruceCommand: (command) => handleSyncTruceCommandImpl(this.mapCommandContext(), command),
       handleFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType),
       handleDevQueueEnqueueCommand: (command) => handleDevQueueEnqueueCommandImpl(this.devQueueCommandContext(), command),
