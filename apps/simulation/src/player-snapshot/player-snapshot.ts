@@ -295,6 +295,7 @@ export const buildPlayerSubscriptionSnapshot = (
             },
             incomePerMinute,
             imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
+            wonderLastFreeRushBuyAt: livePlayer.wonderLastFreeRushBuyAt ?? 0,
             eventLog: livePlayer.eventLog ?? [],
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,

@@ -14,11 +14,20 @@ export type ClientChangelogEntry = {
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1787360000000,
-    introducedIn: "2026.08.21.6",
+    introducedIn: "2026.08.21.7",
     title: "Fixed the settle animation not showing until you panned the camera",
     why: "Pressing Settle on a frontier tile marks it optimistically pending without changing its owner or ownership state (both already belonged to you), but the 3D map only rebuilt its terrain and overlays when ownership actually changed. That left the new settle overlay instance uncreated until something else -- like panning -- forced a rebuild for an unrelated reason.",
     changes: [
       "The settlement animation now plays immediately when you press Settle, instead of waiting for the next camera pan."
+    ]
+  },
+  {
+    createdAt: 1787340000000,
+    introducedIn: "2026.08.21.6",
+    title: "The rush-buy price preview now accounts for the Quickforge discount",
+    why: "The tile menu's rush-buy price chip always showed the full server price estimate, even for a player who owns a Quickforge with today's discount still unused — the number shown was different from what got charged.",
+    changes: [
+      "The rush-buy price chip now shows the discounted price when you own a Quickforge and haven't used its once-per-day discount yet."
     ]
   },
   {
