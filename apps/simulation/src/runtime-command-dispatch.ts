@@ -53,6 +53,7 @@ export type RuntimeCommandDispatchHandlers = {
   handleWaypointEnqueueCommand: (command: CommandEnvelope) => void;
   handleWaypointCancelCommand: (command: CommandEnvelope) => void;
   handleWaypointCancelAllCommand: (command: CommandEnvelope) => void;
+  handleClaimContinuationSetCommand: (command: CommandEnvelope) => void;
 };
 
 export const commandScheduling = (command: CommandEnvelope): "immediate" | "background" =>
@@ -119,6 +120,7 @@ export const dispatchRuntimeCommand = (command: CommandEnvelope, handlers: Runti
   if ((command.type as string) === "WAYPOINT_ENQUEUE") return handlers.handleWaypointEnqueueCommand(command);
   if ((command.type as string) === "WAYPOINT_CANCEL") return handlers.handleWaypointCancelCommand(command);
   if ((command.type as string) === "WAYPOINT_CANCEL_ALL") return handlers.handleWaypointCancelAllCommand(command);
+  if ((command.type as string) === "CLAIM_CONTINUATION_SET") return handlers.handleClaimContinuationSetCommand(command);
 };
 
 const isLegacyBuildCommand = (command: CommandEnvelope): boolean =>
@@ -177,7 +179,8 @@ const isSupportedRuntimeCommand = (command: CommandEnvelope): boolean =>
   (command.type as string) === "DEV_QUEUE_MOVE_TO_FRONT" ||
   (command.type as string) === "WAYPOINT_ENQUEUE" ||
   (command.type as string) === "WAYPOINT_CANCEL" ||
-  (command.type as string) === "WAYPOINT_CANCEL_ALL";
+  (command.type as string) === "WAYPOINT_CANCEL_ALL" ||
+  (command.type as string) === "CLAIM_CONTINUATION_SET";
 
 export type RuntimeCommandEnqueue = (
   lane: QueueLane,

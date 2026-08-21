@@ -58,6 +58,7 @@ export const laneForCommand = (command: Pick<CommandEnvelope, "type" | "sessionI
     case "WAYPOINT_ENQUEUE":
     case "WAYPOINT_CANCEL":
     case "WAYPOINT_CANCEL_ALL":
+    case "CLAIM_CONTINUATION_SET":
       return "human_noninteractive";
     default:
       return "system";

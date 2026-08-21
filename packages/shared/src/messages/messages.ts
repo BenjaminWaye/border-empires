@@ -229,6 +229,18 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("DEV_QUEUE_CANCEL"), tileKey: z.string().min(1) }),
   z.object({ type: z.literal("DEV_QUEUE_MOVE_TO_FRONT"), tileKey: z.string().min(1) }),
+  // Server-durable "claim continuation" -- see
+  // apps/simulation/src/runtime-claim-continuation-command-handlers.ts.
+  // Registered alongside the client's own optimistic autoSettleTargets/
+  // autoBuildTargets bookkeeping so the settle(+build) tail that follows an
+  // EXPAND (or an already-owned-but-unsettled tile) completes server-side
+  // even if the player disconnects before it lands.
+  z.object({
+    type: z.literal("CLAIM_CONTINUATION_SET"),
+    x: z.number().int(),
+    y: z.number().int(),
+    structureType: z.string().optional()
+  }),
   z.object({
     type: z.literal("WAYPOINT_ENQUEUE"),
     x: z.number().int(),
