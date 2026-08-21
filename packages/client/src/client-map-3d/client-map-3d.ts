@@ -1959,14 +1959,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     });
   };
 
-  // A trailing-edge throttle floor for rebuildVisibleTerrain(): a zoom/pan gesture changes
-  // camX/camY/zoom on nearly every animation frame, and without this the main thread had no
-  // room to do anything else — each rebuild ran back-to-back with the next. This is not a
-  // dropped-update risk: rebuildNeeded (via lastRebuild not being updated on a throttled tick)
-  // stays true on every subsequent frame until the floor opens, so the next frame after motion
-  // settles always rebuilds against whatever the current state is, not whatever first triggered
-  // the dirty flag. Worst case the terrain lags the camera by one floor window, then snaps
-  // correct — a large improvement over the previous every-single-frame full rebuild.
+  // A trailing-edge throttle floor for rebuildVisibleTerrain(): terrainWindowCovers (see
+  // client-map-3d-terrain-window.ts) already suppresses most rebuilds during a zoom, since
+  // zooming in needs no rebuild at all and zooming out only crosses the pad every so often. This
+  // floor is what remains load-bearing on top of that: continuous panning still crosses the pad
+  // roughly once per pad-width of travel, and a fast pan can do that every frame, so the main
+  // thread still needs a backstop against back-to-back rebuilds. Also covers tilesRevision and
+  // crystalTargeting changes, which bypass the window check entirely. Not a dropped-update risk:
+  // rebuildNeeded stays true on every subsequent frame until the floor opens (lastRebuild.at only
+  // advances on an actual rebuild), so the next frame after motion settles always rebuilds against
+  // whatever the current state is, not whatever first triggered the dirty flag. Worst case the
+  // terrain lags the camera by one floor window, then snaps correct.
   const REBUILD_MIN_INTERVAL_MS = 48;
 
   // Places this frame's live Aether Survey Line pylons/segments, animating

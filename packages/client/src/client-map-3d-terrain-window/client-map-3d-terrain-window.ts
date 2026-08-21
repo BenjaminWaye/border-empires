@@ -78,21 +78,25 @@ export const padTerrainWindow = (required: TerrainWindow, maxTiles: number): Ter
   let halfW = padExtent(required.halfW);
   let halfH = padExtent(required.halfH);
 
-  // Shrink the longer axis first so the padded window keeps the aspect ratio
-  // of the screen rather than collapsing one axis.
-  while (
-    tileCountForWindow(halfW, halfH) > maxTiles &&
-    (halfW > required.halfW || halfH > required.halfH)
-  ) {
-    if (halfW - required.halfW >= halfH - required.halfH && halfW > required.halfW) halfW -= 1;
-    else if (halfH > required.halfH) halfH -= 1;
-    else halfW -= 1;
+  // Shrink whichever axis has more pad left, one tile at a time, so the
+  // padded window keeps the aspect ratio of the screen rather than
+  // collapsing one axis. The loop guard guarantees at least one axis still
+  // has slack whenever this runs.
+  while (tileCountForWindow(halfW, halfH) > maxTiles && (halfW > required.halfW || halfH > required.halfH)) {
+    const wSlack = halfW - required.halfW;
+    const hSlack = halfH - required.halfH;
+    if (wSlack >= hSlack) halfW -= 1;
+    else halfH -= 1;
   }
 
   return { camX: required.camX, camY: required.camY, halfW, halfH };
 };
 
 // Shortest signed distance from `from` to `to` on a wrapping axis of `size`.
+// Same contract as toroidDelta in client-map-3d-pointer-pick.ts; duplicated
+// rather than imported so this module stays free of the `three` dependency
+// that file pulls in — this module's tests run pure, with no WebGL/three
+// setup, and every call site here is on the hot rebuild-decision path.
 const wrappedDelta = (from: number, to: number, size: number): number => {
   if (size <= 0) return to - from;
   const raw = ((to - from) % size + size) % size;

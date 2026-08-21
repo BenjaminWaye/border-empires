@@ -1,5 +1,5 @@
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
-import { zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
+import { deltaYInPixels, zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
 import type { initClientDom } from "../client-dom.js";
 import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
@@ -70,6 +70,11 @@ export const isDoubleTap = (args: {
 
 export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputDeps): void => {
   const worldTileFromPointer = (offsetX: number, offsetY: number): { wx: number; wy: number } => {
+    // A wheel-driven zoom is deferred up to one frame (see flushPendingWheelZoom
+    // below); flush it before hit-testing so a click right after a scroll
+    // gesture can't land against a stale zoom level while the screen already
+    // shows the new one.
+    flushPendingWheelZoom();
     const raw = deps.worldTileRawFromPointer(offsetX, offsetY);
     return { wx: deps.wrapX(raw.gx), wy: deps.wrapY(raw.gy) };
   };
@@ -146,30 +151,39 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   const TOUCH_TAP_MAX_MOVE_PX = 12;
   const MOUSE_PAN_THRESHOLD_PX = 4;
 
-  // Wheel deltas are accumulated and applied once per animation frame. A
-  // trackpad fires wheel events well above 60Hz (measured ~2.6 per frame
-  // mid-gesture), and every distinct `state.zoom` write is a potential terrain
-  // rebuild in the 3D renderer — coalescing to one write per frame drops the
-  // redundant ones without changing how far the gesture travels.
-  let pendingWheelDeltaY = 0;
-  let pendingWheelDeltaMode = 0;
+  // Wheel deltas are converted to pixels and accumulated, then applied once
+  // per animation frame. A trackpad fires wheel events well above 60Hz
+  // (measured ~2.6 per frame mid-gesture), and every distinct `state.zoom`
+  // write is a potential terrain rebuild in the 3D renderer — coalescing to
+  // one write per frame drops the redundant ones without changing how far
+  // the gesture travels. Converting to pixels before accumulating (rather
+  // than summing raw deltaY and converting once) means a mid-gesture
+  // deltaMode change, however unlikely, can't misconvert the events that
+  // preceded it.
+  let pendingWheelPixels = 0;
   let wheelFrame: number | undefined;
 
   const applyPendingWheelZoom = (): void => {
     wheelFrame = undefined;
-    const deltaY = pendingWheelDeltaY;
-    const deltaMode = pendingWheelDeltaMode;
-    pendingWheelDeltaY = 0;
-    if (deltaY === 0) return;
-    state.zoom = zoomStepFor({ zoom: state.zoom, deltaY, deltaMode, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM });
+    const pixels = pendingWheelPixels;
+    pendingWheelPixels = 0;
+    if (pixels === 0) return;
+    state.zoom = zoomStepFor({ zoom: state.zoom, deltaY: pixels, deltaMode: 0, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM });
+  };
+
+  // A wheel-driven zoom is deferred up to one frame (above); flush it before
+  // any hit-testing (tile selection, drag-pan start) that reads state.zoom,
+  // so a click right after a scroll gesture can't land against a stale zoom
+  // level while the screen already shows the new one.
+  const flushPendingWheelZoom = (): void => {
+    if (wheelFrame === undefined) return;
+    cancelAnimationFrame(wheelFrame);
+    applyPendingWheelZoom();
   };
 
   deps.canvas.addEventListener("wheel", (ev) => {
     ev.preventDefault();
-    // Mixed delta modes within one frame are vanishingly rare (a device does
-    // not change mode mid-gesture); the last one wins.
-    pendingWheelDeltaMode = ev.deltaMode;
-    pendingWheelDeltaY += ev.deltaY;
+    pendingWheelPixels += deltaYInPixels(ev.deltaY, ev.deltaMode);
     if (wheelFrame === undefined) wheelFrame = requestAnimationFrame(applyPendingWheelZoom);
   });
 
@@ -207,6 +221,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
 
   deps.canvas.addEventListener("mousedown", (ev) => {
     if (ev.button !== 0) return;
+    flushPendingWheelZoom();
     dragActive = true;
     mousePanMoved = false;
     boxSelectionMode = ev.shiftKey;
