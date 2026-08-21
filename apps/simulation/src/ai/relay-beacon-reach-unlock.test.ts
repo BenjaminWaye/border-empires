@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { chooseBestRelayBeaconBuild, type StructurePlannerTile } from "./structure-command-planner.js";
+import type { StructurePlannerTile } from "./structure-command-planner.js";
+import { chooseBestRelayBeaconBuild } from "./relay-beacon-command-planner.js";
 
 /**
  * Regression cover for the reach-lock deadlock observed on staging: five AI
@@ -103,6 +104,11 @@ describe("relay beacon fires without an already-visible prize (maximize newly-re
     expect(plan).toBeDefined();
     expect(plan?.tile.x).toBe(100);
     expect(plan?.tile.y).toBe(100);
+    // One plain unowned LAND tile in scan radius, weight 1 — the floor value
+    // scoreBuildBeacon's graduated consideration (decisions.ts) treats as
+    // "not worth it" (RELAY_BEACON_SITE_VALUE_FLOOR). See that file's
+    // "graduated on site value" tests for the scoring side of this.
+    expect(plan?.siteValue).toBe(1);
   });
 
   it("still prefers a site that reaches a known valuable tile over one that only reveals plain land", () => {
@@ -125,6 +131,11 @@ describe("relay beacon fires without an already-visible prize (maximize newly-re
 
     expect(plan?.tile.x).toBe(150);
     expect(plan?.tile.y).toBe(150);
+    // One valuable tile (VALUABLE_TARGET_COVERAGE_WEIGHT=8) in scan radius —
+    // well above the floor, so this site would score meaningfully on
+    // scoreBuildBeacon's graduated consideration, unlike the plain-land-only
+    // site above.
+    expect(plan?.siteValue).toBe(8);
   });
 
   it("still refuses a site whose scan reveals literally nothing new (fully boxed in)", () => {

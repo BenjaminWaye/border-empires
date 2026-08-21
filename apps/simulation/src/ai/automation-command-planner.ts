@@ -10,9 +10,9 @@ import { computeTownSupport } from "../town-support.js";
 import {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
-  chooseBestRelayBeaconBuild,
   chooseBestSiegeOutpostBuild
 } from "./structure-command-planner.js";
+import { chooseBestRelayBeaconBuild } from "./relay-beacon-command-planner.js";
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationPlannerDecisionContext } from "./automation-command-planner-helpers.js";
@@ -406,7 +406,10 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     // instead of inferring it (wrongly) from unrelated fields like
     // frontierNeutralTargetCount — see decisions.ts's scoreBuildBeacon.
     ...(relayBeaconBuild
-      ? { relayBeaconBuildCandidate: `${relayBeaconBuild.tile.x},${relayBeaconBuild.tile.y}${relayBeaconBuild.needsSettle ? ":needsSettle" : ""}` }
+      ? {
+          relayBeaconBuildCandidate: `${relayBeaconBuild.tile.x},${relayBeaconBuild.tile.y}${relayBeaconBuild.needsSettle ? ":needsSettle" : ""}`,
+          relayBeaconSiteValue: relayBeaconBuild.siteValue
+        }
       : {}),
     ...(typeof input.playerScopeKeyCount === "number" ? { playerScopeKeyCount: input.playerScopeKeyCount } : {}),
     ...(typeof input.playerScopeTileCount === "number" ? { playerScopeTileCount: input.playerScopeTileCount } : {})

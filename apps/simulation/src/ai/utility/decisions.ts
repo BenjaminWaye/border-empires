@@ -43,15 +43,6 @@ export type DecisionInputs = {
   // already gates out the waste-only case, so counting waste here just adds
   // texture once a real candidate is confirmed to exist.
   expansionOpportunityCount: number;
-  // Same aggregate, but with waste-classified plain neutrals excluded (see
-  // utility-dispatch.ts's buildDecisionInputs). Used by BUILD_ECONOMY's
-  // suppression term instead of expansionOpportunityCount: that term exists
-  // to defer economy-building "while expansion is available", and waste-only
-  // neutrals are NOT available to EXPAND (it refuses them) — counting them
-  // there suppressed BUILD_ECONOMY on the same tiles EXPAND was refusing to
-  // touch, deadlocking a hemmed-in AI on WAIT despite an affordable, ready
-  // economic build. See docs/agents/topics/ai-planner.md.
-  nonWasteExpansionOpportunityCount: number;
   // Expansion quality: true when an economic/scaffold/town-support opportunity
   // exists on the frontier, or when an expansion objective is set.  Without
   // this, plain-tile expansion is suppressed (matches old noDirectedExpansion).
@@ -101,6 +92,12 @@ export type DecisionInputs = {
   // unowned land, so its mere existence is the whole precondition — see
   // scoreBuildBeacon).
   hasRelayBeaconBuild: boolean;
+  // Magnitude of what that site actually unlocks (chooseBestRelayBeaconBuild's
+  // RelayBeaconBuildPlan.siteValue) — 0 when hasRelayBeaconBuild is false.
+  // Feeds scoreBuildBeacon's graduated consideration: existence alone doesn't
+  // distinguish a beacon reaching one empty tile from one reaching several
+  // towns/resources/docks, and it should.
+  relayBeaconSiteValue: number;
   // Tech
   techAffordable: boolean;
   // Anti-thrash: momentum ticks accrued since last class switch (0–N).
@@ -210,14 +207,21 @@ const scoreBuildEconomy = (inp: DecisionInputs): number =>
   scoreConsiderations([
     boolVeto(inp.hasEconomicBuild),
     boolVeto(inp.devSlotAvailable),
-    // Economy build is unattractive while expansion / attack is available.
-    // Includes frontier enemy count so that ANY enemy at the gate naturally
-    // suppresses economy building, letting ATTACK win the competition.
-    // 1 frontier action cuts BUILD_ECONOMY by ~67%; ≥1.5 pushes to 0.
-    // Uses nonWasteExpansionOpportunityCount, NOT expansionOpportunityCount:
-    // waste-only neutrals are not real "expansion available" (EXPAND itself
-    // refuses them), so they must not suppress economy building either.
-    1 - linear(inp.nonWasteExpansionOpportunityCount + inp.frontierEnemyCount, 0, 1.5),
+    // Suppressed by an enemy at the gate — fight first, let ATTACK/MUSTER win
+    // the competition. 1.5+ frontier enemies pushes this to 0.
+    //
+    // Deliberately NOT suppressed by expansion opportunity anymore (it used
+    // to be, via nonWasteExpansionOpportunityCount — see git history). That
+    // made sense pre-reach, when EXPAND was uncapped and cheap enough (10 MP
+    // vs 80+) that grabbing land first was always the better trade. Under the
+    // fixed-borders-via-reach plan, EXPAND is capped by reach and doesn't
+    // touch a dev slot at all, so it isn't actually competing with a build for
+    // the same resource — a fresh RELAY_BEACON typically opens a whole
+    // radius-5 area, which drove this term to ~0 for the entire post-beacon
+    // expansion window, exactly when a free dev slot (the beacon's own) and a
+    // real chance to interleave an economic build exist. See
+    // docs/ai-structure-building-rewrite-plan.md's reach-consideration section.
+    1 - linear(inp.frontierEnemyCount, 0, 1.5),
     logistic(inp.needsEconomy ? 1 : inp.needsFood ? 0.6 : 0.2, 0.7, 6)
   ]);
 
@@ -229,24 +233,45 @@ const scoreBuildEconomy = (inp: DecisionInputs): number =>
 // about/measure independently (sim_ai_command_total by structure type, not
 // folded into a generic BUILD_ECONOMIC_STRUCTURE bucket).
 //
-// Deliberately simple, four plain conditions instead of a bundled
-// precondition function (the earlier version gated on a helper,
-// isReachStarved, that combined five unrelated checks behind one name —
-// hard to reason about from the outside): a valid site exists
-// (chooseBestRelayBeaconBuild already requires it to newly cover real
-// unowned land, so its mere existence is most of the "is this worth doing"
-// signal), a build slot is free, there's no enemy at the gate right now
+// Four plain conditions instead of a bundled precondition function (the
+// earlier version gated on a helper, isReachStarved, that combined five
+// unrelated checks behind one name — hard to reason about from the
+// outside): a build slot is free, there's no enemy at the gate right now
 // (fight first — building undefended infrastructure mid-attack is the
-// wrong call, let ATTACK/MUSTER win instead), and EXPAND doesn't already
-// have a real prize to claim (a beacon reaches further ground — no reason
-// to build one while there's still an already-in-reach town/resource/dock
-// sitting unclaimed; claim that first, plain EXPAND already handles it).
+// wrong call, let ATTACK/MUSTER win instead), EXPAND doesn't already have a
+// real prize to claim (a beacon reaches further ground — no reason to build
+// one while there's still an already-in-reach town/resource/dock sitting
+// unclaimed; claim that first, plain EXPAND already handles it), and a
+// graduated read of how much the best available site is actually worth.
+//
+// That last term used to be a plain boolVeto(hasRelayBeaconBuild) — "a site
+// exists" — which scored a beacon reaching one empty tile identically to one
+// reaching three towns and a dock (both hit 1.0 once unvetoed). Linear on
+// relayBeaconSiteValue fixes that: RELAY_BEACON_SITE_VALUE_FLOOR is 1 (the
+// smallest value chooseBestRelayBeaconBuild's own newCoverage.score>0 veto
+// ever lets through — a single plain LAND tile), so a beacon whose only
+// prize is one empty tile scores ~0 here regardless of the other terms;
+// RELAY_BEACON_SITE_VALUE_CEILING is roughly 3 valuable tiles' worth
+// (estimateNewReachCoverage's VALUABLE_TARGET_COVERAGE_WEIGHT is 8 per
+// town/resource/dock/wonder — relay-beacon-command-planner.ts), a site clearly
+// worth the manpower and dev slot regardless of anything else. First-pass
+// constants, expect tuning against real games.
+//
+// This also gives the AI's build cadence a natural taper without any counter
+// or cooldown: as beacons claim the richest nearby sites first, each
+// successive candidate's siteValue tends to fall, so this term — and BUILD_BEACON's
+// score with it — decays on its own as reach approaches saturation, instead
+// of needing an artificial "every N beacons" rule.
+const RELAY_BEACON_SITE_VALUE_FLOOR = 1;
+const RELAY_BEACON_SITE_VALUE_CEILING = 24;
+
 const scoreBuildBeacon = (inp: DecisionInputs): number =>
   scoreConsiderations([
     boolVeto(inp.hasRelayBeaconBuild),
     boolVeto(inp.devSlotAvailable),
     boolVeto(inp.frontierEnemyCount === 0),
-    boolVeto(!inp.hasActionableNonWasteExpand)
+    boolVeto(!inp.hasActionableNonWasteExpand),
+    linear(inp.relayBeaconSiteValue, RELAY_BEACON_SITE_VALUE_FLOOR, RELAY_BEACON_SITE_VALUE_CEILING)
   ]);
 
 const scoreChooseTech = (inp: DecisionInputs): number =>
