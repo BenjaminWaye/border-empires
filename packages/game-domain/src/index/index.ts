@@ -262,7 +262,6 @@ export type DomainTileState = {
     | {
         type: import("@border-empires/shared").NaturalWonderType;
         claimedAt?: number;
-        lastFreeRushBuyAt?: number;
       }
     | undefined;
 };
