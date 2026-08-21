@@ -17,7 +17,6 @@ import {
 import {
   appendPlayerEventLogEntry,
   CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
-  QUARTERMASTERS_OFFICE_RADIUS,
   type DomainPlayer,
   type DomainTileState,
   type FrontierCommandType
@@ -88,20 +87,18 @@ import {
   type PlayerRuntimeSummary
 } from "../player-runtime-summary.js";
 import {
-  buildFedTownKeys,
-  refreshTownEconomyFields,
   type PlayerUpdateEconomySnapshot
 } from "../player-update-economy/player-update-economy.js";
 import {
   type UpkeepAccrualSnapshot
 } from "../player-upkeep-incremental/player-upkeep-incremental.js";
-import { buildConnectedTownNetworkForPlayer, enrichTownWithConnectedNetwork, firstThreeTownKeysForPlayer, firstThreeTownsGoldOutputMultiplierForPlayer, railDepotAlreadyInNetwork, railDepotNetworkLogisticsGuildCountForPlayer, assemblyWorksAlreadyInNetwork, assemblyWorksNetworkGarrisonHallCountForPlayer, censusHallConnectedGranaryCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
+import { railDepotNetworkLogisticsGuildCountForPlayer, assemblyWorksNetworkGarrisonHallCountForPlayer, type ConnectedTownNetworkEntry } from "../economy-network/economy-network.js";
 import { activeMonumentOnTile, refreshMonumentOwnerIndexForTile } from "../monument-uniqueness.js";
 import {
   cachedManpowerStructureBonusForPlayer as cachedManpowerStructureBonusForPlayerImpl,
   type ManpowerStructureBonus
 } from "../runtime-manpower-structure-bonus.js";
-import { createTownConnectivityState, maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
+import { maintainTownConnectivityForTileChange, type TownConnectivityState } from "../economy-network/town-connectivity-incremental.js";
 import { createSeedWorld, simulationTileKey } from "../seed-state/seed-state.js";
 import type { SimulationSnapshotSections } from "../snapshot-store/snapshot-store.js";
 import {
@@ -247,6 +244,19 @@ import {
   type RuntimeIncomeStorageContext,
   type RuntimeManpowerEconomyContext
 } from "./runtime-economy.js";
+import {
+  orderedTownTilesForPlayer as orderedTownTilesForPlayerImpl,
+  fedTownKeysForPlayer as fedTownKeysForPlayerImpl,
+  cachedTownNetworkForPlayer as cachedTownNetworkForPlayerImpl,
+  rebuildTownNetworkUninstrumented as rebuildTownNetworkUninstrumentedImpl,
+  railDepotAlreadyInNetworkForPlayer as railDepotAlreadyInNetworkForPlayerImpl,
+  assemblyWorksAlreadyInNetworkForPlayer as assemblyWorksAlreadyInNetworkForPlayerImpl,
+  hasNearbyQuartermastersOfficeForPlayer as hasNearbyQuartermastersOfficeForPlayerImpl,
+  censusHallConnectedGranaryBonusCountForPlayer as censusHallConnectedGranaryBonusCountForPlayerImpl,
+  tileYieldEconomyContextForPlayer as tileYieldEconomyContextForPlayerImpl,
+  enrichTileWithTownContext as enrichTileWithTownContextImpl,
+  type RuntimeTownNetworkContext
+} from "./runtime-town-network.js";
 import {
   resolveMusterSource as resolveMusterSourceImpl,
   type RuntimeMusterSourceContext
@@ -3219,15 +3229,28 @@ export class SimulationRuntime {
     return dormantStructureDetailsFromDormancyImpl(this.resourceSlotDormancyForPlayer(playerId));
   }
 
+  private townNetworkContext(): RuntimeTownNetworkContext {
+    return {
+      tiles: this.tiles,
+      townNetworkCacheByPlayer: this.townNetworkCacheByPlayer,
+      townConnectivityStateByPlayer: this.townConnectivityStateByPlayer,
+      tileYieldContextCacheByPlayer: this.tileYieldContextCacheByPlayer,
+      quartermastersOfficeTilesByOwner: this.quartermastersOfficeTilesByOwner,
+      ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {}),
+      players: this.players,
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      settledTilesForPlayer: (playerId) => this.settledTilesForPlayer(playerId),
+      foodDormantTownKeysForPlayer: (playerId) => this.foodDormantTownKeysForPlayer(playerId),
+      dormantEconomicStructureKeysForPlayer: (playerId) => this.dormantEconomicStructureKeysForPlayer(playerId)
+    };
+  }
+
   private orderedTownTilesForPlayer(playerId: string): DomainTileState[] {
-    return [...this.summaryForPlayer(playerId).ownedTownTierByTile.keys()]
-      .map((tileKey) => this.tiles.get(tileKey))
-      .filter((tile): tile is DomainTileState => Boolean(tile?.town && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
+    return orderedTownTilesForPlayerImpl(this.townNetworkContext(), playerId);
   }
 
   private fedTownKeysForPlayer(player: DomainPlayer): Set<string> {
-    const summary = this.summaryForPlayer(player.id);
-    return buildFedTownKeys(player.id, summary, this.tiles, this.foodDormantTownKeysForPlayer(player.id));
+    return fedTownKeysForPlayerImpl(this.townNetworkContext(), player);
   }
 
   // Shared with cachedEconomySnapshot so buildConnectedTownNetworkForPlayer
@@ -3237,25 +3260,7 @@ export class SimulationRuntime {
     settledTiles: readonly DomainTileState[],
     maxConnectedTownNames: number
   ): Map<string, ConnectedTownNetworkEntry> {
-    const cached = this.townNetworkCacheByPlayer.get(player.id);
-    if (cached) return cached;
-    const rebuild = (): Map<string, ConnectedTownNetworkEntry> => {
-      let incrementalState = this.townConnectivityStateByPlayer.get(player.id);
-      if (!incrementalState) {
-        incrementalState = createTownConnectivityState();
-        this.townConnectivityStateByPlayer.set(player.id, incrementalState);
-      }
-      const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, {
-        maxConnectedTownNames,
-        incrementalState,
-        dormantEconomicStructureKeys: this.dormantEconomicStructureKeysForPlayer(player.id)
-      });
-      this.townNetworkCacheByPlayer.set(player.id, network);
-      return network;
-    };
-    return this.trackSyncMainThreadTask
-      ? this.trackSyncMainThreadTask("town_network_rebuild", { playerId: player.id }, rebuild)
-      : rebuild();
+    return cachedTownNetworkForPlayerImpl(this.townNetworkContext(), player, settledTiles, maxConnectedTownNames);
   }
 
   // §4.4 (docs/manpower-economy-rewrite-plan.md): Garrison Hall's flat cap
@@ -3301,40 +3306,21 @@ export class SimulationRuntime {
     player: DomainPlayer,
     settledTiles: readonly DomainTileState[]
   ): Map<string, ConnectedTownNetworkEntry> {
-    let incrementalState = this.townConnectivityStateByPlayer.get(player.id);
-    if (!incrementalState) {
-      incrementalState = createTownConnectivityState();
-      this.townConnectivityStateByPlayer.set(player.id, incrementalState);
-    }
-    const network = buildConnectedTownNetworkForPlayer(player, this.tiles, settledTiles, {
-      maxConnectedTownNames: 0,
-      incrementalState,
-      dormantEconomicStructureKeys: this.dormantEconomicStructureKeysForPlayer(player.id)
-    });
-    this.townNetworkCacheByPlayer.set(player.id, network);
-    return network;
+    return rebuildTownNetworkUninstrumentedImpl(this.townNetworkContext(), player, settledTiles);
   }
 
   // §4.4: "only one Rail Depot may be built per connected-town network" —
   // checked at build time (see resolveTownSupportTarget in
   // runtime-structure-command-handlers.ts).
   private railDepotAlreadyInNetworkForPlayer(playerId: string, townKey: string): boolean {
-    const player = this.players.get(playerId);
-    if (!player) return false;
-    const settledTiles = this.settledTilesForPlayer(playerId);
-    const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
-    return railDepotAlreadyInNetwork(playerId, townKey, this.tiles, townNetwork);
+    return railDepotAlreadyInNetworkForPlayerImpl(this.townNetworkContext(), playerId, townKey);
   }
 
   // Assembly Works (tech-tree redesign): "only one Assembly Works may be
   // built per connected-town network" — mirrors railDepotAlreadyInNetworkForPlayer
   // exactly, retargeted.
   private assemblyWorksAlreadyInNetworkForPlayer(playerId: string, townKey: string): boolean {
-    const player = this.players.get(playerId);
-    if (!player) return false;
-    const settledTiles = this.settledTilesForPlayer(playerId);
-    const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
-    return assemblyWorksAlreadyInNetwork(playerId, townKey, this.tiles, townNetwork);
+    return assemblyWorksAlreadyInNetworkForPlayerImpl(this.townNetworkContext(), playerId, townKey);
   }
 
   // Quartermaster's Office (tech-tree redesign): true when the player owns
@@ -3344,73 +3330,21 @@ export class SimulationRuntime {
   // monumentClaimOwnerId's full scan -- this only runs on a War-branch
   // structure build/upgrade command, not every tick.
   private hasNearbyQuartermastersOfficeForPlayer(playerId: string, x: number, y: number): boolean {
-    const keys = this.quartermastersOfficeTilesByOwner.get(playerId);
-    if (!keys || keys.size === 0) return false;
-    for (const key of keys) {
-      const tile = this.tiles.get(key);
-      if (!tile || tile.economicStructure?.status !== "active") continue;
-      if (Math.max(Math.abs(tile.x - x), Math.abs(tile.y - y)) <= QUARTERMASTERS_OFFICE_RADIUS) return true;
-    }
-    return false;
+    return hasNearbyQuartermastersOfficeForPlayerImpl(this.townNetworkContext(), playerId, x, y);
   }
 
   // Census Hall (tech-tree redesign): connected-network Incubation Engine
   // (Granary) count, for the +20,000 population per connected city bonus.
   private censusHallConnectedGranaryBonusCountForPlayer(playerId: string, townKey: string): number {
-    const player = this.players.get(playerId);
-    if (!player) return 0;
-    const settledTiles = this.settledTilesForPlayer(playerId);
-    const townNetwork = this.cachedTownNetworkForPlayer(player, settledTiles, 0);
-    return censusHallConnectedGranaryCountForPlayer(playerId, this.tiles, townNetwork, townKey, this.dormantEconomicStructureKeysForPlayer(playerId));
+    return censusHallConnectedGranaryBonusCountForPlayerImpl(this.townNetworkContext(), playerId, townKey);
   }
 
   private tileYieldEconomyContextForPlayer(player: DomainPlayer): RuntimeTileYieldEconomyContext {
-    const cached = this.tileYieldContextCacheByPlayer.get(player.id);
-    if (cached) return cached;
-    const rebuild = (): RuntimeTileYieldEconomyContext => {
-      const settledTiles = this.settledTilesForPlayer(player.id);
-      const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles);
-      const context: RuntimeTileYieldEconomyContext = {
-        player,
-        townNetwork: this.cachedTownNetworkForPlayer(player, settledTiles, 16),
-        fedTownKeys: this.fedTownKeysForPlayer(player),
-        // Skip expensive first-three-town key computation if the player has no
-        // domain granting firstThreeTownsGoldOutputMult — multiplier is 1.0 so
-        // the key set has no effect. Skips O(towns) sort for most players.
-        firstThreeTownKeys: firstThreeTownsGoldOutputMultiplierForPlayer(player) !== 1
-          ? firstThreeTownKeysForPlayer(player.id, this.orderedTownTilesForPlayer(player.id).map(t => `${t.x},${t.y}`))
-          : new Set<string>(),
-        waterworksKeys,
-        foundryKeys,
-        dormantEconomicStructureKeys: this.dormantEconomicStructureKeysForPlayer(player.id)
-      };
-      this.tileYieldContextCacheByPlayer.set(player.id, context);
-      return context;
-    };
-    // Attribution for event_loop_blocked (was empty mainThreadTasks): rebuild
-    // is buildConnectedTownNetworkForPlayer's O(settled_tiles + towns²) BFS.
-    return this.trackSyncMainThreadTask
-      ? this.trackSyncMainThreadTask("tile_yield_economy_context_rebuild", { playerId: player.id }, rebuild)
-      : rebuild();
+    return tileYieldEconomyContextForPlayerImpl(this.townNetworkContext(), player);
   }
 
   private enrichTileWithTownContext(tile: DomainTileState, player: RuntimePlayer | undefined, context: RuntimeTileYieldEconomyContext): DomainTileState {
-    if (!tile.town) return tile;
-    const networkTown = enrichTownWithConnectedNetwork(tile, context.townNetwork);
-    const tileKey = `${tile.x},${tile.y}`;
-    const refreshedTown = networkTown && player
-      ? refreshTownEconomyFields(
-          networkTown,
-          tile,
-          player,
-          this.tiles,
-          context.fedTownKeys,
-          context.firstThreeTownKeys,
-          context.townNetwork?.get(tileKey)?.connectedClearingHouseKeys,
-          context.dormantEconomicStructureKeys
-        )
-      : networkTown;
-    return { ...tile, town: refreshedTown };
+    return enrichTileWithTownContextImpl(tile, player, context, this.tiles);
   }
 
   private incomeStorageContext(): RuntimeIncomeStorageContext {
