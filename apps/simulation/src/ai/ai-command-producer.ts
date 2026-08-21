@@ -2,6 +2,11 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "../runtime/runtime.js";
 import type { AutomationPlannerDiagnostic } from "./automation-command-planner.js";
 import {
+  beaconCadenceBoostedForPlayer,
+  createBeaconCadenceState,
+  recordCompletedBuild
+} from "./ai-beacon-cadence.js";
+import {
   createAiIntentLatchState,
   latchAiIntent,
   probeAiLatchedIntent,
@@ -41,6 +46,7 @@ type AiCommandProducerOptions = {
         skipPreplan?: boolean;
         reservedDevelopmentSlots?: number;
         decisionCooldowns?: DecisionCooldownMap;
+        beaconBoostActive?: boolean;
       }
     ) => { command?: CommandEnvelope; diagnostic: AutomationPlannerDiagnostic };
   };
@@ -72,6 +78,9 @@ type AiCommandProducerOptions = {
 const hasHumanInteractiveBacklog = (queueDepths: QueueDepths): boolean => queueDepths.human_interactive > 0;
 const isAutomationPreplanCommand = (type: CommandEnvelope["type"]): boolean =>
   type === "CHOOSE_TECH" || type === "CHOOSE_DOMAIN";
+// Every structure-build command type the beacon cadence (ai-beacon-cadence.ts)
+// counts toward its cycle, including beacons themselves.
+const BEACON_CADENCE_BUILD_COMMAND_TYPES: ReadonlySet<CommandEnvelope["type"]> = new Set(["BUILD_FORT", "BUILD_SIEGE_OUTPOST", "BUILD_ECONOMIC_STRUCTURE"]);
 const PREPLAN_OUTCOME_TIMEOUT_MS = 5_000;
 type PreplanOutcome = "applied" | "rejected" | "timed_out";
 type TrackedPreplanCommand = { playerId: string; trackedAt: number };
@@ -95,6 +104,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
   const trackedPreplanByCommandId = new Map<string, TrackedPreplanCommand>();
   const developmentReservationsByPlayer = new Map<string, DevelopmentSlotReservation[]>();
   const rejectionCooldowns = createRejectionCooldownState();
+  const beaconCadence = createBeaconCadenceState();
   const urgentByPlayerId = new Set<string>();
   let tickInFlight = false;
   let nextPlayerIndex = 0;
@@ -166,6 +176,11 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
       if (pendingMatches && event.eventType === "COMMAND_REJECTED" && pendingCommand) {
         options.onRejectedCommand?.({ playerId: event.playerId, commandType: pendingCommand.commandType, rejectionCode: event.code, rejectionMessage: event.message });
         recordRejectionCooldown(rejectionCooldowns, event.playerId, { type: pendingCommand.commandType, payloadJson: pendingCommand.payloadJson }, now());
+      }
+      // Counted on ACCEPTANCE, not construction finish (which can be minutes
+      // later) — see ai-beacon-cadence.ts's doc comment.
+      if (pendingMatches && event.eventType !== "COMMAND_REJECTED" && pendingCommand && BEACON_CADENCE_BUILD_COMMAND_TYPES.has(pendingCommand.commandType)) {
+        recordCompletedBuild(beaconCadence, event.playerId);
       }
       resolvePendingPreplanOutcome(
         event.commandId,
@@ -241,6 +256,7 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
           const plannerStartedAt = now();
           const reservedDevelopmentSlots = reservedDevelopmentSlotCount(developmentReservationsByPlayer, playerId, issuedAt);
           const cooldowns = activeCooldownsForPlayer(rejectionCooldowns, playerId, issuedAt);
+          const beaconBoostActive = beaconCadenceBoostedForPlayer(beaconCadence, playerId);
           const plan = options.runtime.explainNextAutomationCommand
             ? options.runtime.explainNextAutomationCommand(
                 playerId,
@@ -250,7 +266,8 @@ export const createAiCommandProducer = (options: AiCommandProducerOptions) => {
                 {
                   skipPreplan,
                   ...(reservedDevelopmentSlots > 0 ? { reservedDevelopmentSlots } : {}),
-                  ...(cooldowns ? { decisionCooldowns: cooldowns } : {})
+                  ...(cooldowns ? { decisionCooldowns: cooldowns } : {}),
+                  ...(beaconBoostActive ? { beaconBoostActive } : {})
                 }
               )
             : { command: options.runtime.chooseNextAutomationCommand(playerId, nextClientSeq, issuedAt, "ai-runtime") };
