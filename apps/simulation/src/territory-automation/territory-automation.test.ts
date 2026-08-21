@@ -223,6 +223,34 @@ describe("territory automation", () => {
     expect(result).toEqual(["31,31"]);
   });
 
+  it("does not require reveal for owned frontier town/dock tiles", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [
+        "30,30",
+        {
+          x: 30,
+          y: 30,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "FRONTIER",
+          town: { type: "MARKET", populationTier: "TOWN" }
+        }
+      ],
+      ["31,31", { x: 31, y: 31, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-1" }]
+    ]);
+
+    const result = orderedAutoSettlementTileKeys("player-1", ["30,30", "31,31"], {
+      getTile: (tileKey) => tiles.get(tileKey),
+      isBlocked: () => false,
+      hasTownSupport: () => false,
+      isRevealedToPlayer: () => false
+    });
+
+    // A player's own towns and docks are never hidden from them, so they
+    // remain eligible even when isRevealedToPlayer reports false.
+    expect(result).toEqual(["30,30", "31,31"]);
+  });
+
   it("uses territory expansion order for the advertised auto-settlement queue", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
