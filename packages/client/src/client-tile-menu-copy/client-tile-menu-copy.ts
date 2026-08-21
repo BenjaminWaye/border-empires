@@ -55,7 +55,13 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
         ];
   }
   if (input.ownerKind === "mine-settled") {
-    return ["Settled land is defended and fully part of your empire."];
+    // A real town's own overview (population/gold/manpower stat grid, or the
+    // upcoming/basic prose below it) already says everything this generic
+    // "you own this and it's defended" line would — showing both reads as
+    // filler above the actual numbers. Only plain settled land (no town)
+    // still needs it, same as the unclaimed/mine-frontier branches above
+    // already special-case hasTown.
+    return input.hasTown ? [] : ["Settled land is defended and fully part of your empire."];
   }
   return [];
 };

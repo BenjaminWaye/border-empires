@@ -21,6 +21,7 @@ import { tileKeyOf } from "../frontier-scoring.js";
 import type {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
+  chooseBestRelayBeaconBuild,
   chooseBestSiegeOutpostBuild
 } from "../structure-command-planner.js";
 import type { DecisionClass, DecisionInputs } from "./decisions.js";
@@ -40,6 +41,8 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
   fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
   siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
+  /** Best RELAY_BEACON placement candidate (fixed-borders-via-reach plan). */
+  relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
   attackStalemateTargetTileKeys: ReadonlySet<string> | undefined;
   expansionObjective: { x: number; y: number; kind: "neutral_value" | "enemy" } | undefined;
   points: number;
@@ -133,6 +136,7 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     hasEconomicBuild: Boolean(state.economicBuild),
     hasFortBuild: Boolean(state.fortBuild),
     hasSiegeOutpost: Boolean(state.siegeOutpostBuild),
+    hasRelayBeaconBuild: Boolean(state.relayBeaconBuild),
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},
@@ -232,6 +236,28 @@ const executeClass = <TTile extends AutomationPlannerTile>(
         });
       }
       return undefined;
+
+    case "BUILD_BEACON": {
+      // Reach infrastructure, not economy — see decisions.ts's
+      // scoreBuildBeacon doc comment for why this is its own class rather
+      // than a BUILD_ECONOMY sub-case.
+      if (!state.relayBeaconBuild) return undefined;
+      const beaconSite = state.relayBeaconBuild.tile;
+      // A FRONTIER site must be SETTLED before RELAY_BEACON_SPEC's
+      // tileIsSettled placement check will accept it. Emit the SETTLE now;
+      // the planner re-runs every tick, so once the settlement lands this
+      // same branch re-selects the (now SETTLED) tile and emits the build.
+      // No multi-command sequencing machinery needed — re-planning is the
+      // sequencer, and each step is independently valid and idempotent.
+      if (state.relayBeaconBuild.needsSettle) {
+        return buildPlannerCommand(context, "SETTLE", { x: beaconSite.x, y: beaconSite.y });
+      }
+      return buildPlannerCommand(context, "BUILD_ECONOMIC_STRUCTURE", {
+        x: beaconSite.x,
+        y: beaconSite.y,
+        structureType: "RELAY_BEACON"
+      });
+    }
 
     case "CHOOSE_TECH":
       return undefined; // handled by preplan

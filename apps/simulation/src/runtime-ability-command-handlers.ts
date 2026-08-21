@@ -77,6 +77,8 @@ export type RuntimeAbilityCommandContext = {
   activeAetherBridgesForPlayer: (playerId: string) => ActiveAetherBridgeView[];
   activeAetherWallsForPlayer: (playerId: string) => ActiveAetherWallView[];
   crossingBlockedByAetherWall: (fromX: number, fromY: number, toX: number, toY: number) => boolean;
+  reachBorderOwnerAt: (x: number, y: number) => string | undefined;
+  grantAetherBridgeReach: (playerId: string, x: number, y: number, commandId: string) => void;
 };
 
 function rejectCommand(
@@ -385,6 +387,16 @@ export function handleCastAetherBridgeCommand(context: RuntimeAbilityCommandCont
     endsAt: startedAt + AETHER_BRIDGE_DURATION_MS
   });
   context.activeAetherBridgesByPlayer.set(actor.id, active);
+  // A bridge always opens the crossing itself (see isAetherBridgeCrossingTarget
+  // in runtime.ts, consulted independently of reach), but only grants the
+  // landing-tile reach bonus when it isn't landing inside a RIVAL player's
+  // existing border -- otherwise casting a bridge into enemy territory would
+  // let the caster colonize around it for free instead of just opening an
+  // attack lane, which is the bridge's actual purpose there.
+  const landingBorderOwner = context.reachBorderOwnerAt(target.x, target.y);
+  if (!landingBorderOwner || landingBorderOwner === actor.id) {
+    context.grantAetherBridgeReach(actor.id, target.x, target.y, command.commandId);
+  }
   context.emitPlayerMessage(command, {
     type: "AETHER_BRIDGE_UPDATE",
     bridges: active

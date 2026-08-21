@@ -22,9 +22,21 @@ const stateWithTiles = (tiles: Tile[]): ClientState => {
   return state;
 };
 
+// An owned, settled tile with an active RELAY_BEACON (OUTPOST_REACH_RADIUS =
+// 5) -- topUpFromWaypoint's planWaypoint call is now reach-gated
+// (localReachIsInReach), so an origin tile with no real reach anchor at all
+// would block every EXPAND leg. All the fixtures below stay within this
+// radius (the longest chain here is 4 tiles out).
+const reachAnchorTile = (x: number, y: number): Tile =>
+  tile(x, y, {
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
+  });
+
 describe("topUpFromWaypoint", () => {
   it("returns false and enqueues nothing when there is no active waypoint", () => {
-    const state = stateWithTiles([tile(3, 3, { ownerId: "me" })]);
+    const state = stateWithTiles([reachAnchorTile(3, 3)]);
     const ok = topUpFromWaypoint(state, keyFor, () => {});
     expect(ok).toBe(false);
     expect(state.actionQueue).toHaveLength(0);
@@ -32,7 +44,7 @@ describe("topUpFromWaypoint", () => {
 
   it("does not top up while the action queue already has work", () => {
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(4, 3),
       tile(5, 3)
     ]);
@@ -48,7 +60,7 @@ describe("topUpFromWaypoint", () => {
 
   it("clears the waypoint when the target tile is now owned (no feed echo — commit 1ddf07f7 dropped self-action feed echoes)", () => {
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(5, 3, { ownerId: "me" })
     ]);
     state.waypoint = [{
@@ -65,7 +77,7 @@ describe("topUpFromWaypoint", () => {
 
   it("advances to the next queued waypoint once the current one is reached", () => {
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(5, 3, { ownerId: "me" }),
       tile(6, 3)
     ]);
@@ -98,7 +110,7 @@ describe("topUpFromWaypoint", () => {
     // longer isolate it (there's always a way around through the
     // surrounding unexplored land), so every neighbor must be walled.
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(4, 2, { terrain: "MOUNTAIN" }),
       tile(5, 2, { terrain: "MOUNTAIN" }),
       tile(6, 2, { terrain: "MOUNTAIN" }),
@@ -124,7 +136,7 @@ describe("topUpFromWaypoint", () => {
     // target can never be known upfront); this simulates it now being
     // revealed as impassable as the player's territory approached it.
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(4, 3),
       tile(5, 3, { terrain: "MOUNTAIN" })
     ]);
@@ -156,7 +168,7 @@ describe("topUpFromWaypoint", () => {
 
   it("blocks allied waypoint targets without enqueueing an attack step", () => {
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(4, 3, { ownerId: "ally" })
     ]);
     state.allies = ["ally"];
@@ -176,7 +188,7 @@ describe("topUpFromWaypoint", () => {
 
   it("enqueues the first step of a reachable plan and leaves the queue with one entry", () => {
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(4, 3),
       tile(5, 3),
       tile(6, 3)
@@ -195,7 +207,7 @@ describe("topUpFromWaypoint", () => {
   it("walks the full path end-to-end as steps complete (proves the chain advances)", () => {
     // Build a 5-tile horizontal chain: (3,3)me → (4,3) → (5,3) → (6,3) → (7,3) target.
     const tiles = [
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(4, 3),
       tile(5, 3),
       tile(6, 3),
@@ -238,7 +250,7 @@ describe("topUpFromWaypoint", () => {
     // Snapshot arriving AFTER the next topUp is the common race: the planner
     // re-emits the same step because state.tiles is briefly behind the server.
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(4, 3),
       tile(5, 3)
     ]);
@@ -271,7 +283,7 @@ describe("topUpFromWaypoint", () => {
 
   it("halts the plan after several consecutive retries on the same step (real reject)", () => {
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(4, 3),
       tile(5, 3)
     ]);
@@ -293,7 +305,7 @@ describe("topUpFromWaypoint", () => {
 
   it("pauses (not halts) an EXPAND leg when manpower is insufficient, and never emits a halted message", () => {
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(4, 3),
       tile(5, 3)
     ]);
@@ -322,7 +334,7 @@ describe("topUpFromWaypoint", () => {
 
   it("resumes a manpower-paused waypoint automatically once manpower is available again", () => {
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(4, 3),
       tile(5, 3)
     ]);
@@ -350,7 +362,7 @@ describe("topUpFromWaypoint", () => {
     // The barbarian that was at (4,3) has moved diagonally to (3,2) — a
     // Chebyshev-ring cell that a plus-shaped (non-diagonal) scan would miss.
     const state = stateWithTiles([
-      tile(3, 3, { ownerId: "me" }),
+      reachAnchorTile(3, 3),
       tile(4, 3),
       tile(3, 2, { ownerId: "barbarian-1" })
     ]);

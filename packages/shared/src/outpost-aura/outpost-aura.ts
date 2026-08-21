@@ -18,6 +18,11 @@ export const OUTPOST_AURA_RADIUS = 5;
  */
 export type OutpostAuraTileFacts = {
   ownerId?: string | undefined;
+  // Fixed-border reach: a tile that has been unsettled (SETTLED -> FRONTIER,
+  // same owner, after losing the reach that used to cover it) keeps its
+  // structures but they stop projecting effects — see the `ownershipState`
+  // gate below.
+  ownershipState?: string | undefined;
   siegeOutpost?: { ownerId?: string | undefined; status?: string | undefined; variant?: string | undefined } | undefined;
   economicStructure?: { ownerId?: string | undefined; type?: string | undefined; status?: string | undefined } | undefined;
 };
@@ -31,6 +36,9 @@ export const tileOutpostMult = (
   playerId: string
 ): { mult: number } => {
   if (tile.ownerId !== playerId) return { mult: 1 };
+  // Fixed-border reach: a dormant (unsettled) tile's structures don't
+  // project — only SETTLED tiles contribute an aura.
+  if (tile.ownershipState !== "SETTLED") return { mult: 1 };
   if (
     tile.siegeOutpost?.ownerId === playerId &&
     tile.siegeOutpost.status === "active"

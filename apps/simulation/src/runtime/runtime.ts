@@ -5,6 +5,7 @@ import {
   type PendingRespawnNoticeContext
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
+import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
 import {
   appendPlayerEventLogEntry,
   CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
@@ -30,11 +31,17 @@ import {
   structureSlotRequirements,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  grantAnchorToBorder,
+  reassessBorderOnAnchorDeactivation,
+  liveReachForOwner,
+  isInReach,
+  reachSetForPlayer,
   type Terrain,
   type BuildableStructureType,
   type EconomicStructureType,
   type MonumentalStructureType,
-  type SlotStructureType
+  type SlotStructureType,
+  type ReachAnchor
 } from "@border-empires/shared";
 import {
   DEFAULT_MAX_PLAYER_SEQ_REPLAY_ENTRIES,
@@ -350,12 +357,6 @@ import {
   type PendingWatchtowerReveal,
   type WatchtowerRevealRuntimeInput
 } from "../runtime-watchtower-reveal-tick.js";
-import {
-  activateExpandRevealAt as activateExpandRevealAtImpl,
-  tickExpandReveals as tickExpandRevealsImpl,
-  type PendingExpandReveal,
-  type ExpandRevealRuntimeInput
-} from "../runtime-expand-reveal-tick.js";
 import { computeShardRainWelcomeNotice } from "../runtime-shard-rain-rules.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "../runtime-empire-storage.js";
 import {
@@ -520,8 +521,6 @@ export class SimulationRuntime {
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
   // Watchtower "flicker" reveals in flight — see runtime-watchtower-reveal-tick.ts. Self-draining, bounded, never persisted.
   private readonly pendingWatchtowerReveals: PendingWatchtowerReveal[] = [];
-  // EXPAND discovery-pulse reveals in flight — see runtime-expand-reveal-tick.ts. Self-draining, bounded, never persisted.
-  private readonly pendingExpandReveals: PendingExpandReveal[] = [];
   private readonly plannerPlayerTopologyVersionByPlayer = new Map<string, number>();
   private readonly plannerPlayerTopologyDirtyTilesByPlayer = new Map<string, Set<string>>();
   private readonly rememberedAutomationVictoryPathByPlayer = new Map<string, AutomationVictoryPath>();
@@ -651,6 +650,14 @@ export class SimulationRuntime {
   // broke. Not persisted — tiles recovered from the event log tie at -Infinity
   // so they shed last (a restarted empire's core tiles outlast its expansions).
   private readonly tileSettledAtByKey = new Map<string, number>();
+  // Fixed-border reach (packages/shared/src/reach/reach.ts): the persistent
+  // tileKey -> owning playerId border, maintained incrementally via
+  // grantAnchorToBorder as reach anchors activate (see
+  // newlyActivatedReachAnchors / applyReachAnchorActivation in
+  // replaceTileState). Sticky by design — deactivating an anchor never
+  // shrinks this map by itself; it only changes what's available to defend
+  // a tile the next time a rival anchor contests it.
+  private reachBorder: Map<string, string> = new Map();
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   // Throttle per-tick respawn attempts for eliminated AI players. Spawn
   // placement is an O(n-tile) scan; 30 s cooldown keeps it from running
@@ -1071,6 +1078,18 @@ export class SimulationRuntime {
         }
       }
     } for (const tile of this.tiles.values()) wonderEffects.syncWatchtowerObservatory(tile); for (const playerId of this.players.keys()) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.players);
+    // Fixed-border reach: seed the persistent reachBorder from every anchor
+    // already present in the loaded/seeded world (indexes above are now
+    // fully populated). Applied one activation at a time through the same
+    // grantAnchorToBorder path a live activation uses, so any anchors that
+    // already overlap at load time resolve deterministically via live
+    // coverage rather than needing special-cased startup logic. No unsettle
+    // downgrade is expected to fire here in practice (persisted/seeded
+    // worlds start from a consistent state), but if it ever does, it's
+    // correct to let it — the tile genuinely isn't defended by anyone else.
+    for (const anchor of this.gatherReachAnchors()) {
+      this.applyReachAnchorActivation(anchor, "world-init");
+    }
     // Moved here (see the long comment above, right after this.tiles is
     // assigned) from immediately after `this.players` was built: this is the
     // first point where garrisonHallTilesByOwner/railDepotTilesByOwner/
@@ -1439,21 +1458,6 @@ export class SimulationRuntime {
     tickWatchtowerRevealsImpl(this.watchtowerRevealContext(), nowMs);
   }
 
-  private expandRevealContext(): ExpandRevealRuntimeInput {
-    return {
-      now: this.now,
-      pendingExpandReveals: this.pendingExpandReveals,
-      visibilityCoverage: this.visibilityCoverage,
-      visionTransitionCallbacks: this.visionTransitions.callbacks
-    };
-  }
-
-  private activateExpandRevealAt(x: number, y: number, playerId: string): void { activateExpandRevealAtImpl(this.expandRevealContext(), x, y, playerId); }
-
-  tickExpandReveals(nowMs: number = this.now()): void {
-    tickExpandRevealsImpl(this.expandRevealContext(), nowMs);
-  }
-
   async tickTerritoryAutomation(
     nowMs: number = this.now(),
     yieldToEventLoop?: () => Promise<void>
@@ -1636,7 +1640,8 @@ export class SimulationRuntime {
       isTileWardedByImperialWard: (targetOwnerId) => isTileWardedByImperialWardImpl(this.abilityCooldowns, this.now(), targetOwnerId),
       resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred),
       requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
-      buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock)
+      buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
+      isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y)
     };
   }
 
@@ -1692,7 +1697,6 @@ export class SimulationRuntime {
       respawnIfEliminated: (playerId, commandId) => this.respawnIfEliminated(playerId, commandId),
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId),
-      activateExpandReveal: (x, y, playerId) => this.activateExpandRevealAt(x, y, playerId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({
             capturedTile,
@@ -1710,6 +1714,7 @@ export class SimulationRuntime {
       {
         tiles: this.tiles,
         replaceTileState: (k, t) => this.replaceTileState(k, t),
+        isInReach: (x, y) => this.isPlayerTileInReach(ownerId, x, y),
         onAutoFillTiles: this.onAutoFillTiles,
         autoFillOriginCooldownUntil: this.autoFillOriginCooldownUntil,
         now: this.now,
@@ -2322,6 +2327,22 @@ export class SimulationRuntime {
     // explains why this can't just resync eagerly here).
     this.markOutpostVisionDormancyDirty(previous?.ownerId);
     if (tile.ownerId !== previous?.ownerId) this.markOutpostVisionDormancyDirty(tile.ownerId);
+    // Fixed-border reach: if this mutation just activated a new reach anchor
+    // (town gained/changed owner, an outpost-family structure went active,
+    // or a dock tile gained an owner), extend the persistent border with it.
+    // Territory is sticky — losing your own anchor does nothing by itself
+    // (see newlyActivatedReachAnchors' doc comment) — the SETTLED -> FRONTIER
+    // unsettle transition only fires here, on the *overtaking* side of a
+    // border contest.
+    for (const anchor of this.newlyActivatedReachAnchors(previous, tile)) {
+      this.applyReachAnchorActivation(anchor, commandId);
+    }
+    // Deactivation side: normally a no-op (sticky), but closes the gap where
+    // a rival's reach already covers ground this anchor stops defending —
+    // see applyReachAnchorDeactivation's doc comment.
+    for (const anchor of this.newlyDeactivatedReachAnchors(previous, tile)) {
+      this.applyReachAnchorDeactivation(anchor, commandId);
+    }
   }
 
   // Update the per-tile collect anchor and emit the matching event so replay can
@@ -2620,6 +2641,12 @@ export class SimulationRuntime {
       ownedTiles,
       tilesByKey: this.tiles,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
+      // Fixed-border reach: lets the AI's frontier-candidate enumeration
+      // prune EXPAND targets outside the player's reach (see ReachLookup in
+      // frontier-command-planner.ts — this was the one deliberately-deferred
+      // integration point from that change, now that isPlayerTileInReach
+      // exists). ATTACK candidates are unaffected.
+      reachLookup: { isInReach: (pid, x, y) => this.isPlayerTileInReach(pid, x, y) },
       playerScopeKeyCount,
       playerScopeTileCount: playerScopeKeyCount,
       previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),
@@ -2750,6 +2777,7 @@ export class SimulationRuntime {
       plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
       ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
       estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
+      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
       neutralBeaconTileKeys: this.neutralBeaconTileKeys,
       beaconGeneration: this.beaconGeneration,
       yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
@@ -2791,12 +2819,13 @@ export class SimulationRuntime {
       plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
       ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
       estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
-      neutralBeaconTileKeys: this.neutralBeaconTileKeys,
-      beaconGeneration: this.beaconGeneration,
-      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
-      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer,
-      musterTilesByOwner: this.musterTilesByOwner,
-      ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
+      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
+      neutralBeaconTileKeys: this.neutralBeaconTileKeys, beaconGeneration: this.beaconGeneration, yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
+      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer, musterTilesByOwner: this.musterTilesByOwner,
+      playerManpowerCap: (playerId) => { const player = this.players.get(playerId); return player ? this.playerManpowerCap(player) : 0; }, // §9 (see PlannerExportInput's doc comments)
+      playerManpowerRegenPerMinute: (playerId) => { const player = this.players.get(playerId); return player ? this.playerManpowerRegenPerMinute(player) : 0; },
+      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId), ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
     });
   }
 
@@ -3005,6 +3034,257 @@ export class SimulationRuntime {
     return [...this.summaryForPlayer(playerId).territoryTileKeys]
       .map((tileKey) => this.tiles.get(tileKey))
       .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
+  }
+
+  // --- Fixed-border reach (packages/shared/src/reach/reach.ts) ---
+
+  // Every reach anchor world-wide, right now: every player's town tiles,
+  // every active outpost-family structure tile (RELAY_BEACON /
+  // SIEGE_OUTPOST / SIEGE_TOWER / DREAD_TOWER — same "active" predicate
+  // outpost-aura.ts uses, sourced from the already-maintained
+  // activeRelayBeaconsByOwner / activeSiegeOutpostsByOwner indexes), and
+  // every owned dock tile. Used both for `liveReachForOwner`'s "can this
+  // owner currently defend this tile" check during a contest, and once at
+  // startup to seed `reachBorder`. `activatedAt` is unused by the current
+  // border model (grantAnchorToBorder resolves contests via live coverage,
+  // not build order) but is still populated for API completeness / possible
+  // future use.
+  private gatherReachAnchors(): ReachAnchor[] {
+    const anchors: ReachAnchor[] = [];
+    for (const [playerId, summary] of this.playerSummaries) {
+      for (const tileKey of summary.ownedTownTierByTile.keys()) {
+        const tile = this.tiles.get(tileKey);
+        // ownershipState gate: a tile that was overtaken by the unsettle
+        // transition keeps its `town`/`siegeOutpost`/`economicStructure`
+        // fields untouched (structures stay, only ownershipState flips), so
+        // without this check a dormant/downgraded structure would keep
+        // functioning as a full reach anchor forever — contradicting the
+        // same SETTLED-only dormancy rule already enforced for combat aura
+        // in outpost-aura.ts. Gate TOWN and OUTPOST anchors on it; DOCK is
+        // deliberately left ungated (see the dock loop below).
+        if (!tile || tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
+        anchors.push({ x: tile.x, y: tile.y, ownerId: playerId, activatedAt: this.tileSettledAtByKey.get(tileKey) ?? this.now(), kind: "TOWN" });
+      }
+    }
+    for (const [ownerId, keys] of this.activeRelayBeaconsByOwner) {
+      for (const tileKey of keys) {
+        const tile = this.tiles.get(tileKey);
+        if (!tile || tile.ownershipState !== "SETTLED") continue;
+        anchors.push({ x: tile.x, y: tile.y, ownerId, activatedAt: tile.economicStructure?.activatedAt ?? this.now(), kind: "OUTPOST" });
+      }
+    }
+    for (const [ownerId, keys] of this.activeSiegeOutpostsByOwner) {
+      for (const tileKey of keys) {
+        const tile = this.tiles.get(tileKey);
+        if (!tile || tile.ownershipState !== "SETTLED") continue;
+        anchors.push({ x: tile.x, y: tile.y, ownerId, activatedAt: tile.siegeOutpost?.activatedAt ?? this.now(), kind: "OUTPOST" });
+      }
+    }
+    for (const dock of this.docks) {
+      const tile = this.tiles.get(dock.tileKey);
+      // Deliberately NOT gated on ownershipState === "SETTLED": a freshly
+      // captured dock tile always lands FRONTIER (capture rule, see
+      // runtime-lock-resolution.ts), and requiring SETTLE first would make a
+      // dock's small reach bubble unavailable exactly when it's most useful
+      // (right after taking it). Docks aren't part of the SETTLED-dormancy
+      // precedent this plan established for outposts/towns — see the plan
+      // doc's "Reach computation" section.
+      if (!tile?.ownerId) continue;
+      anchors.push({ x: tile.x, y: tile.y, ownerId: tile.ownerId, activatedAt: this.tileSettledAtByKey.get(dock.tileKey) ?? this.now(), kind: "DOCK" });
+    }
+    return anchors;
+  }
+
+  // Detects any reach anchor that just became active on this tile as a
+  // result of `previous` -> `tile` (town gained/changed owner, an
+  // outpost-family structure went active, or a dock tile gained an owner —
+  // AND, for TOWN/OUTPOST, the tile just became SETTLED: re-settling a tile
+  // that was downgraded by the unsettle transition while it still carried a
+  // live structure must re-fire the grant, since gatherReachAnchors now
+  // excludes non-SETTLED tiles entirely — without this, a re-settled anchor
+  // would silently stop extending the border even though it once did).
+  // A single tile can in principle activate more than one anchor kind at
+  // once (e.g. a town tile that also carries a dock), so this returns a
+  // list. Deactivations (structure destroyed/captured away, town lost, or a
+  // downgrade to FRONTIER) are NOT reported here — the border is sticky and
+  // only changes on a new activation contesting it (see
+  // grantAnchorToBorder's doc comment).
+  private newlyActivatedReachAnchors(previous: DomainTileState | undefined, tile: DomainTileState): ReachAnchor[] {
+    const anchors: ReachAnchor[] = [];
+    const wasSettled = previous?.ownershipState === "SETTLED";
+    const isSettled = tile.ownershipState === "SETTLED";
+
+    const wasActiveTown = wasSettled && previous?.town ? previous.ownerId : undefined;
+    const isActiveTown = isSettled && tile.town ? tile.ownerId : undefined;
+    if (isActiveTown && isActiveTown !== wasActiveTown) {
+      anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveTown, activatedAt: this.now(), kind: "TOWN" });
+    }
+    const wasActiveSiege = wasSettled && previous?.siegeOutpost?.status === "active" ? previous.siegeOutpost.ownerId : undefined;
+    const isActiveSiege = isSettled && tile.siegeOutpost?.status === "active" ? tile.siegeOutpost.ownerId : undefined;
+    if (isActiveSiege && isActiveSiege !== wasActiveSiege) {
+      anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveSiege, activatedAt: tile.siegeOutpost?.activatedAt ?? this.now(), kind: "OUTPOST" });
+    }
+    const wasActiveBeacon =
+      wasSettled && previous?.economicStructure?.status === "active" && previous.economicStructure.type === "RELAY_BEACON"
+        ? previous.economicStructure.ownerId
+        : undefined;
+    const isActiveBeacon =
+      isSettled && tile.economicStructure?.status === "active" && tile.economicStructure.type === "RELAY_BEACON"
+        ? tile.economicStructure.ownerId
+        : undefined;
+    if (isActiveBeacon && isActiveBeacon !== wasActiveBeacon) {
+      anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveBeacon, activatedAt: tile.economicStructure?.activatedAt ?? this.now(), kind: "OUTPOST" });
+    }
+    // DOCK deliberately not gated on ownershipState — see gatherReachAnchors.
+    if (tile.dockId && tile.ownerId && (!previous?.dockId || previous.ownerId !== tile.ownerId)) {
+      anchors.push({ x: tile.x, y: tile.y, ownerId: tile.ownerId, activatedAt: this.now(), kind: "DOCK" });
+    }
+    return anchors;
+  }
+
+  // Mirror of newlyActivatedReachAnchors, inverted: detects any reach anchor
+  // that just went INACTIVE on this tile as a result of `previous` -> `tile`
+  // (town lost/downgraded, an outpost-family structure destroyed/captured
+  // away, a dock tile losing its owner, or a SETTLED -> FRONTIER downgrade
+  // taking a TOWN/OUTPOST anchor down with it). Feeds
+  // applyReachAnchorDeactivation, which re-checks only the tiles this
+  // specific anchor used to help defend against rival coverage that already
+  // exists right now — see reassessBorderOnAnchorDeactivation's doc comment
+  // for why this is needed even though the border is otherwise sticky.
+  private newlyDeactivatedReachAnchors(previous: DomainTileState | undefined, tile: DomainTileState): ReachAnchor[] {
+    const anchors: ReachAnchor[] = [];
+    const wasSettled = previous?.ownershipState === "SETTLED";
+    const isSettled = tile.ownershipState === "SETTLED";
+
+    const wasActiveTown = wasSettled && previous?.town ? previous.ownerId : undefined;
+    const isActiveTown = isSettled && tile.town ? tile.ownerId : undefined;
+    if (wasActiveTown && wasActiveTown !== isActiveTown) {
+      anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveTown, activatedAt: this.now(), kind: "TOWN" });
+    }
+    const wasActiveSiege = wasSettled && previous?.siegeOutpost?.status === "active" ? previous.siegeOutpost.ownerId : undefined;
+    const isActiveSiege = isSettled && tile.siegeOutpost?.status === "active" ? tile.siegeOutpost.ownerId : undefined;
+    if (wasActiveSiege && wasActiveSiege !== isActiveSiege) {
+      anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveSiege, activatedAt: this.now(), kind: "OUTPOST" });
+    }
+    const wasActiveBeacon =
+      wasSettled && previous?.economicStructure?.status === "active" && previous.economicStructure.type === "RELAY_BEACON"
+        ? previous.economicStructure.ownerId
+        : undefined;
+    const isActiveBeacon =
+      isSettled && tile.economicStructure?.status === "active" && tile.economicStructure.type === "RELAY_BEACON"
+        ? tile.economicStructure.ownerId
+        : undefined;
+    if (wasActiveBeacon && wasActiveBeacon !== isActiveBeacon) {
+      anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveBeacon, activatedAt: this.now(), kind: "OUTPOST" });
+    }
+    // DOCK deliberately not gated on ownershipState — see gatherReachAnchors.
+    if (previous?.dockId && previous.ownerId && (!tile.dockId || tile.ownerId !== previous.ownerId)) {
+      anchors.push({ x: previous.x, y: previous.y, ownerId: previous.ownerId, activatedAt: this.now(), kind: "DOCK" });
+    }
+    return anchors;
+  }
+
+  // Applies one anchor activation to the persistent reachBorder, downgrading
+  // any tile it overtakes from a different (non-barbarian) owner from
+  // SETTLED to FRONTIER, same owner, structures untouched — the unsettle
+  // transition. Routes the downgrade through replaceTileState so the same
+  // cache-invalidation side effects (economy/indexes/visibility) fire as
+  // they do for settle/capture. Barbarian territory is environment, not a
+  // bordered empire — it never contributes anchors of its own and is exempt
+  // from being overtaken this way; ATTACK/capture remains the only way to
+  // take barbarian land.
+  private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string): void {
+    const anchors = this.gatherReachAnchors();
+    const liveReachCache = new Map<string, ReadonlySet<string>>();
+    const defenderLiveReach = (ownerId: string): ReadonlySet<string> => {
+      let set = liveReachCache.get(ownerId);
+      if (!set) {
+        set = liveReachForOwner(ownerId, anchors);
+        liveReachCache.set(ownerId, set);
+      }
+      return set;
+    };
+    const { border, overtaken } = grantAnchorToBorder(this.reachBorder, anchor, defenderLiveReach);
+    this.reachBorder = border;
+    for (const { tileKey, fromOwnerId } of overtaken) {
+      if (fromOwnerId.startsWith("barbarian-")) continue;
+      const t = this.tiles.get(tileKey);
+      if (!t || t.ownerId !== fromOwnerId || t.ownershipState !== "SETTLED") continue;
+      this.replaceTileState(tileKey, { ...t, ownershipState: "FRONTIER" }, `unsettle:${causeCommandId}:${tileKey}`);
+    }
+  }
+
+  // Applies one anchor DEACTIVATION to the persistent reachBorder. Sticky by
+  // default (does nothing) unless some rival's CURRENT live reach already
+  // covers ground this anchor used to help defend and the owner can no
+  // longer defend it themselves — see reassessBorderOnAnchorDeactivation's
+  // doc comment. Same barbarian exemption and replaceTileState downgrade
+  // path as applyReachAnchorActivation.
+  private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
+    const anchors = this.gatherReachAnchors(); // already reflects the deactivation (this.tiles was updated before this hook runs)
+    const liveReachCache = new Map<string, ReadonlySet<string>>();
+    const liveReachForOwnerCached = (ownerId: string): ReadonlySet<string> => {
+      let set = liveReachCache.get(ownerId);
+      if (!set) {
+        set = liveReachForOwner(ownerId, anchors);
+        liveReachCache.set(ownerId, set);
+      }
+      return set;
+    };
+    const rivalOwnerIds = [...this.playerSummaries.keys()]
+      .filter((id) => id !== anchor.ownerId && !id.startsWith("barbarian-"))
+      .sort();
+    const { border, overtaken } = reassessBorderOnAnchorDeactivation(
+      this.reachBorder,
+      anchor,
+      liveReachForOwnerCached(anchor.ownerId),
+      liveReachForOwnerCached,
+      rivalOwnerIds
+    );
+    this.reachBorder = border;
+    for (const { tileKey, fromOwnerId } of overtaken) {
+      if (fromOwnerId.startsWith("barbarian-")) continue;
+      const t = this.tiles.get(tileKey);
+      if (!t || t.ownerId !== fromOwnerId || t.ownershipState !== "SETTLED") continue;
+      this.replaceTileState(tileKey, { ...t, ownershipState: "FRONTIER" }, `unsettle:${causeCommandId}:${tileKey}`);
+    }
+  }
+
+  private isPlayerTileInReach(playerId: string, x: number, y: number): boolean {
+    return isInReach(playerId, x, y, this.reachBorder);
+  }
+
+  // Diagnostic-only (admin debug surface): size of the persistent reach
+  // border currently granted to a player, LAND-ONLY — the "reachTiles"
+  // answer to "how much of their reach is frontier / still usable" (owned
+  // tiles are always a SUBSET of granted reach — a border can extend into
+  // ground not yet claimed). The border itself is purely geometric (a
+  // radius disk with no terrain awareness — same as the client's
+  // computeLocalReachSet), so a coastal or island anchor's disk routinely
+  // covers SEA/COASTAL_SEA/MOUNTAIN tiles that can never actually be
+  // EXPANDed onto (handleFrontierCommandImpl requires terrain === "LAND").
+  // Reporting the raw geometric size overstated how much room a player
+  // actually has — an island empire could read as having plenty of "reach"
+  // left when most of that disk was open water. Filtered here, not on
+  // reachTileKeysForPlayer below: that one feeds the AI planner's actual
+  // legality lookup and must stay exactly geometric to match the server's
+  // authoritative isInReach check bit-for-bit (filtering there would be
+  // harmless for legality — EXPAND already separately requires LAND — but
+  // needlessly risks drifting from the ground truth it's meant to mirror).
+  // O(border size), not called from any hot path.
+  reachTileCountForPlayer(playerId: string): number {
+    let count = 0;
+    for (const tileKey of reachSetForPlayer(playerId, this.reachBorder)) {
+      if (this.tiles.get(tileKey)?.terrain === "LAND") count += 1;
+    }
+    return count;
+  }
+
+  // Real (non-diagnostic) accessor: the full key set the AI planner needs to
+  // build its own reachLookup, for both the in-process and worker-thread
+  // planning paths — see buildRuntimePlannerPlayerViews's reachTileKeys.
+  reachTileKeysForPlayer(playerId: string): string[] {
+    return [...reachSetForPlayer(playerId, this.reachBorder)];
   }
 
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
@@ -3729,6 +4009,14 @@ export class SimulationRuntime {
     // frontier expiry also uses `frontierDecayAt`, so use the explicit owner.
     if (target.frontierDecayKind === "ENCIRCLEMENT") { this.rejectCommand(command, "ORIGIN_CUT_OFF", "tile is cut off from supply and cannot be settled"); return; }
     if (target.terrain !== "LAND") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not valid land"); return; }
+    // Fixed-border reach: SETTLE requires the tile to be inside the actor's
+    // resolved reach set (packages/shared/src/reach/reach.ts), same gate as
+    // EXPAND's OUT_OF_REACH check in validateFrontierCommand — SETTLE has its
+    // own handler (not routed through validateFrontierCommand) so the check
+    // is applied here directly.
+    if (!this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
+      this.rejectCommand(command, "OUT_OF_REACH", "tile is outside your reach"); return;
+    }
     if (this.pendingSettlementsByTile.has(targetKey)) { this.rejectCommand(command, "SETTLE_INVALID", "tile is already settling"); return; }
     if (this.rejectIfNoDevelopmentSlot(command, "SETTLE_INVALID", "development slots are busy")) return;
     const settleRejection = settleRejectionForActor(actor); if (settleRejection) { this.rejectCommand(command, settleRejection.code, settleRejection.message); return; }
@@ -3932,15 +4220,13 @@ export class SimulationRuntime {
       revealCapacityForPlayer: (player) => this.revealCapacityForPlayer(player),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
       pickReadyOwnedObservatoryAny: (playerId, now) => this.pickReadyOwnedObservatoryAny(playerId, now),
-      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) =>
-        this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
+      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) => this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
       stampObservatoryCooldown: (tileKey, durationMs, now, commandId, playerId) =>
         this.stampObservatoryCooldown(tileKey, durationMs, now, commandId, playerId),
       buildRevealEmpireStats: (target) => this.buildRevealEmpireStats(target),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       filterTileDeltasForPlayer: (tileDeltas, playerId) => this.filterTileDeltasForPlayer(tileDeltas, playerId),
-      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
-        this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
       isStructureDormant: (playerId, tileKey, field) => this.isStructureDormant(playerId, tileKey, field),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       isCoastalLand: (x, y) => this.isCoastalLand(x, y),
@@ -3950,7 +4236,9 @@ export class SimulationRuntime {
       activeAetherBridgesForPlayer: (playerId) => this.activeAetherBridgesForPlayer(playerId),
       activeAetherWallsForPlayer: (playerId) => this.activeAetherWallsForPlayer(playerId),
       crossingBlockedByAetherWall: (fromX, fromY, toX, toY) =>
-        this.crossingBlockedByAetherWall(fromX, fromY, toX, toY)
+        this.crossingBlockedByAetherWall(fromX, fromY, toX, toY),
+      reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y),
+      grantAetherBridgeReach: (playerId, x, y, commandId) => this.applyReachAnchorActivation(aetherBridgeReachAnchor(playerId, x, y, this.now()), commandId)
     };
   }
 
@@ -3977,8 +4265,7 @@ export class SimulationRuntime {
       now: this.now,
       emitEvent: (event) => this.emitEvent(event),
       ownedLandWithinRange: (playerId, x, y, range) => this.ownedLandWithinRange(playerId, x, y, range),
-      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) =>
-        this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
+      pickReadyOwnedObservatoryForTarget: (playerId, targetX, targetY, now) => this.pickReadyOwnedObservatoryForTarget(playerId, targetX, targetY, now),
       stampObservatoryCooldown: (tileKey, durationMs, now, commandId, playerId) =>
         this.stampObservatoryCooldown(tileKey, durationMs, now, commandId, playerId),
       spendStrategicResource: (player, resource, amount) => this.spendStrategicResource(player, resource, amount),
@@ -3986,8 +4273,7 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       bumpTerrainEpoch: () => { this.terrainEpoch = nextTerrainEpoch++; },
       isStructurePowered: (ownerId, tileKey, structureType) => this.isStructurePowered(ownerId, tileKey, structureType),
-      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) =>
-        this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
+      isTileShieldedByEnemyAegisDome: (actorId, targetX, targetY) => this.isTileShieldedByEnemyAegisDome(actorId, targetX, targetY),
       isTileShieldedByAegisLock: (actorId, targetX, targetY) =>
         this.isTileShieldedByAegisLock(actorId, targetX, targetY),
       isTileBombardBlockedByRadar: (actorId, targetX, targetY) =>

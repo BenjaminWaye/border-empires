@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { GARRISON_HALL_MANPOWER_CAP_BONUS, MINTWORKS_GOLD_PRODUCTION_BONUS, percentLabel } from "@border-empires/game-domain";
+import {
+  GARRISON_HALL_MANPOWER_CAP_BONUS,
+  MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
+  MINTWORKS_GOLD_PRODUCTION_BONUS,
+  percentLabel,
+  TOWN_BASE_GOLD_PER_MIN
+} from "@border-empires/game-domain";
 import { TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING, WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING } from "@border-empires/shared";
 import { buildTownSummary } from "./live-town-summary.js";
 import { keyFor } from "./snapshot-tile-cache.js";
@@ -95,5 +101,32 @@ describe("buildTownSummary — townModifierTotals (unified building modifier dis
       heading: "3 Mintworks",
       modifiers: expect.arrayContaining([{ statLabel: "Gold production", valueText: percentLabel(expectedPercent), tone: "positive" }])
     });
+  });
+});
+
+describe("buildTownSummary — goldPerMinute", () => {
+  // Regression test: this formula used to duplicate townGoldPerMinuteForPlayer
+  // (player-update-economy.ts) without its trailing "+ MINTWORKS_FLAT_GOLD_BONUS_PER_MIN
+  // * mintworksCount" term — each Mintworks' own flat +1 gold/day-per-copy
+  // bonus (separate from its % production multiplier) silently never showed
+  // up in a town's displayed gold production. Exactly the "duplicate-logic
+  // risk this codebase has hit before" this file's own comments elsewhere
+  // warn about.
+  it("includes each active Mintworks' flat gold/min bonus, not just its % production multiplier", () => {
+    const ownerId = "p1";
+    const town = townTile(10, 10, ownerId);
+    const tiles: FixtureTile[] = [
+      town,
+      supportTile(11, 10, ownerId, "MINTWORKS"),
+      supportTile(9, 10, ownerId)
+    ];
+    const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
+    const fedTownKeys = new Set([keyFor(10, 10)]);
+    const summary = buildTownSummary(town as never, undefined, tilesByKey, fedTownKeys, true);
+    const expectedGoldPerMinute =
+      TOWN_BASE_GOLD_PER_MIN * (1 + MINTWORKS_GOLD_PRODUCTION_BONUS) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN;
+    // buildTownSummary rounds goldPerMinute before returning it — compare
+    // at reduced precision rather than exact float equality.
+    expect(summary?.goldPerMinute).toBeCloseTo(expectedGoldPerMinute, 4);
   });
 });

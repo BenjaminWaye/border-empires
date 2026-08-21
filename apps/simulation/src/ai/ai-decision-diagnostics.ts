@@ -65,6 +65,7 @@ export type AiDecisionDiagnostic = {
   noCommandReason: string | undefined;
   gates: AutomationPlannerDiagnostic["utilityGates"];
   economicBuildCandidate: string | undefined;
+  relayBeaconBuildCandidate: string | undefined;
   /** Most recent COMMAND_REJECTED this player has seen, if any — most
    *  rejection reasons collapse to the same "BUILD_INVALID" code (see
    *  sim_ai_command_rejected_code_total), so the message is what actually
@@ -138,6 +139,7 @@ export const recordAiDecisionDiagnosticFromPlanner = (
     noCommandReason: diagnostic.noCommandReason,
     gates: diagnostic.utilityGates,
     economicBuildCandidate: diagnostic.economicBuildCandidate,
+    relayBeaconBuildCandidate: diagnostic.relayBeaconBuildCandidate,
     lastRejection: lastRejectionByPlayer.get(diagnostic.playerId),
     needVector: diagnostic.needVector
   });

@@ -33,6 +33,7 @@ export const toPlannerTileView = (tile: DomainTileState): PlannerTileView => ({
   terrain: tile.terrain,
   ...(tile.resource ? { resource: tile.resource } : {}),
   ...(tile.dockId ? { dockId: tile.dockId } : {}),
+  ...(tile.naturalWonder ? { naturalWonder: true } : {}),
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(tile.town

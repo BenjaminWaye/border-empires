@@ -15,7 +15,14 @@ describe("event log — natural wonder claimed", () => {
       initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000 })]]),
       initialState: {
         tiles: [
-          { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          {
+            x: 0,
+            y: 0,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+          },
           { x: 1, y: 0, terrain: "LAND", naturalWonder: { type: "FOUNDRY_HEART" } }
         ] as never,
         activeLocks: []

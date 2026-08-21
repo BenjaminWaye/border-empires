@@ -72,6 +72,20 @@ const richState = (): ReturnType<typeof createInitialState> => {
   // No FOOD supply at all — isolates the assertions to the Relay Beacon
   // count-based waiver rather than a coincidentally-sufficient FOOD slot.
   state.resourceSlots = { supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } };
+  // Reach anchor near the tests' (3,3) target tile: build_relay_beacon_frontier
+  // now requires the target to be inside the player's fixed-border reach
+  // (see client-tile-action-logic.ts), not just fog-adjacent -- this file's
+  // owned relay beacons (addOwnedRelayBeacons) live far away at (100+i,100)
+  // purely to drive the FOOD-slot count logic under test, so they can't
+  // double as the reach anchor these assertions also need.
+  state.tiles.set(keyFor(1, 1), {
+    x: 1,
+    y: 1,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
+  } as Tile);
   return state;
 };
 

@@ -48,8 +48,35 @@ const COMMAND_TO_DECISION_CLASS: Partial<Record<CommandEnvelope["type"], Cooldow
   UPGRADE_TOWN_TIER: "UPGRADE_TOWN_TIER"
 };
 
-export const decisionClassForCommand = (commandType: CommandEnvelope["type"]): CooldownTag | undefined =>
-  COMMAND_TO_DECISION_CLASS[commandType];
+/**
+ * BUILD_ECONOMIC_STRUCTURE is shared by two decision classes: a plain
+ * economic structure (BUILD_ECONOMY) and a RELAY_BEACON (BUILD_BEACON —
+ * reach infrastructure, deliberately its own class since decisions.ts's
+ * scoreBuildBeacon doc comment; not folded into BUILD_ECONOMY). The command
+ * TYPE alone can't tell them apart — only the payload's structureType can —
+ * so a rejected beacon build was being cooled down as "BUILD_ECONOMY"
+ * instead of "BUILD_BEACON", leaving BUILD_BEACON free to re-propose the
+ * exact same doomed build every tick (the precise livelock class this file
+ * exists to prevent — see the ATTACK-cooldown precedent in the comment
+ * above). Parses the payload inline rather than importing a shared parser:
+ * the shape here is only ever `{ x, y, structureType }`.
+ */
+const decisionClassForBuildEconomicStructure = (payloadJson: string): CooldownTag => {
+  try {
+    const payload = JSON.parse(payloadJson) as { structureType?: unknown };
+    if (payload.structureType === "RELAY_BEACON") return "BUILD_BEACON";
+  } catch {
+    // Malformed payload: fall through to the default BUILD_ECONOMY tag —
+    // matches the runtime's own rejection path (BAD_COMMAND), which the
+    // caller already handles as a normal rejection needing a cooldown.
+  }
+  return "BUILD_ECONOMY";
+};
+
+export const decisionClassForCommand = (command: Pick<CommandEnvelope, "type" | "payloadJson">): CooldownTag | undefined =>
+  command.type === "BUILD_ECONOMIC_STRUCTURE"
+    ? decisionClassForBuildEconomicStructure(command.payloadJson)
+    : COMMAND_TO_DECISION_CLASS[command.type];
 
 export type RejectionCooldownState = Map<string, Map<CooldownTag, number>>;
 
@@ -58,10 +85,10 @@ export const createRejectionCooldownState = (): RejectionCooldownState => new Ma
 export const recordRejectionCooldown = (
   state: RejectionCooldownState,
   playerId: string,
-  commandType: CommandEnvelope["type"],
+  command: Pick<CommandEnvelope, "type" | "payloadJson">,
   nowMs: number
 ): void => {
-  const cls = decisionClassForCommand(commandType);
+  const cls = decisionClassForCommand(command);
   if (!cls) return;
   let playerCooldowns = state.get(playerId);
   if (!playerCooldowns) {

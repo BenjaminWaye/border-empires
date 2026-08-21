@@ -75,6 +75,10 @@ export type RuntimeFrontierCommandContext = {
   resolveMusterSource: (playerId: string, originKey: string, required: number, preferred?: string) => MusterSourceResult | undefined;
   requiredMusterForTarget: (target: DomainTileState) => number;
   buildLockedCombatResolution: (lock: LockedCombatInput) => LockedCombatResolution | undefined;
+  // Fixed-border reach (packages/shared/src/reach/reach.ts): true if (x, y)
+  // is inside playerId's resolved reach set. EXPAND requires this; ATTACK
+  // deliberately does not consult it.
+  isInReach: (playerId: string, x: number, y: number) => boolean;
 };
 
 export const handleFrontierCommandImpl = (
@@ -124,6 +128,7 @@ export const handleFrontierCommandImpl = (
   }
 
   const isDockCrossing = ctx.isDockCrossingTarget(from, to.x, to.y);
+  const isBridgeCrossing = ctx.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y);
   const expandClaimDurationMs = actionType === "EXPAND" ? frontierClaimDurationMsForCoords(to.x, to.y) : undefined;
   const requiredMuster = actionType === "ATTACK"
     ? ctx.requiredMusterForTarget(to)
@@ -150,14 +155,21 @@ export const handleFrontierCommandImpl = (
       (ctx.dockLinksByDockTileKey.get(simulationTileKey(from.x, from.y)) ?? [])
         .includes(simulationTileKey(to.x, to.y)),
     isDockCrossing,
-    isBridgeCrossing: ctx.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y),
+    isBridgeCrossing,
     targetShielded:
       (isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y)) ||
       ctx.isTileWardedByImperialWard(to.ownerId),
     defenderIsAlliedOrTruced: Boolean(to.ownerId && isAlliedOrTruced(actor, to.ownerId)),
     expandClaimDurationMs,
     originMuster: musterSource?.available ?? (from.muster?.ownerId === actor.id ? from.muster.amount : 0),
-    requiredMuster
+    requiredMuster,
+    // A dock or aether-bridge crossing deliberately reaches beyond the
+    // player's normal Chebyshev reach border by design (that's the whole
+    // point of both -- linking distant landmasses/points with no anchor of
+    // your own there yet) -- gating either on isInReach as well would block
+    // the very crossings they exist to enable. Same carve-out targetShielded
+    // already gives dock crossings above.
+    isInReach: isDockCrossing || isBridgeCrossing ? true : ctx.isInReach(actor.id, to.x, to.y)
   });
 
   if (!validation.ok) {

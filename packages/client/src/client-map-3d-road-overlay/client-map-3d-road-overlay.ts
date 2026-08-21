@@ -331,9 +331,26 @@ export const createRoadOverlay = (scene: Scene, style: RoadOverlayStyle = "dirt"
 
   const commit = (): void => {
     if (vCount.current > 0) {
-      (geometry.getAttribute("position") as BufferAttribute).needsUpdate = true;
-      (geometry.getAttribute("uv") as BufferAttribute).needsUpdate = true;
-      (geometry.getIndex() as BufferAttribute).needsUpdate = true;
+      // Ranged upload: this buffer is sized for the worst case (every
+      // visible tile carrying road geometry), but only vCount.current /
+      // iCount.current of it was written this rebuild. An unranged
+      // needsUpdate reuploads the whole preallocated buffer via
+      // bufferSubData every rebuild — costly when this fires every frame
+      // during a zoom gesture. Same scoping already applied to
+      // client-map-3d-hills.ts's dome buffers and
+      // client-map-3d-ownership-overlay.ts's commit().
+      const posAttr = geometry.getAttribute("position") as BufferAttribute;
+      const uvAttr = geometry.getAttribute("uv") as BufferAttribute;
+      const indexAttr = geometry.getIndex() as BufferAttribute;
+      posAttr.clearUpdateRanges();
+      posAttr.addUpdateRange(0, vCount.current * 3);
+      posAttr.needsUpdate = true;
+      uvAttr.clearUpdateRanges();
+      uvAttr.addUpdateRange(0, vCount.current * 2);
+      uvAttr.needsUpdate = true;
+      indexAttr.clearUpdateRanges();
+      indexAttr.addUpdateRange(0, iCount.current);
+      indexAttr.needsUpdate = true;
       geometry.setDrawRange(0, iCount.current);
     } else {
       geometry.setDrawRange(0, 0);

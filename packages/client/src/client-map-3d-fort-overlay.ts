@@ -273,10 +273,20 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     meshes.wallE.count = counters.wallE;
     meshes.wallW.count = counters.wallW;
     meshes.towers.count = counters.towers;
+    meshes.wallN.instanceMatrix.clearUpdateRanges();
+    meshes.wallN.instanceMatrix.addUpdateRange(0, meshes.wallN.count * 16);
     meshes.wallN.instanceMatrix.needsUpdate = true;
+    meshes.wallS.instanceMatrix.clearUpdateRanges();
+    meshes.wallS.instanceMatrix.addUpdateRange(0, meshes.wallS.count * 16);
     meshes.wallS.instanceMatrix.needsUpdate = true;
+    meshes.wallE.instanceMatrix.clearUpdateRanges();
+    meshes.wallE.instanceMatrix.addUpdateRange(0, meshes.wallE.count * 16);
     meshes.wallE.instanceMatrix.needsUpdate = true;
+    meshes.wallW.instanceMatrix.clearUpdateRanges();
+    meshes.wallW.instanceMatrix.addUpdateRange(0, meshes.wallW.count * 16);
     meshes.wallW.instanceMatrix.needsUpdate = true;
+    meshes.towers.instanceMatrix.clearUpdateRanges();
+    meshes.towers.instanceMatrix.addUpdateRange(0, meshes.towers.count * 16);
     meshes.towers.instanceMatrix.needsUpdate = true;
   };
 
@@ -289,11 +299,23 @@ export const createFortOverlay = (scene: Scene, maxTiles: number): FortOverlay =
     catPostRightMesh.count = catPostRightCount;
     catArmMesh.count = catArmCount;
     catStoneMesh.count = catStoneCount;
+    outpostTowerMesh.instanceMatrix.clearUpdateRanges();
+    outpostTowerMesh.instanceMatrix.addUpdateRange(0, outpostTowerMesh.count * 16);
     outpostTowerMesh.instanceMatrix.needsUpdate = true;
+    catBaseMesh.instanceMatrix.clearUpdateRanges();
+    catBaseMesh.instanceMatrix.addUpdateRange(0, catBaseMesh.count * 16);
     catBaseMesh.instanceMatrix.needsUpdate = true;
+    catPostLeftMesh.instanceMatrix.clearUpdateRanges();
+    catPostLeftMesh.instanceMatrix.addUpdateRange(0, catPostLeftMesh.count * 16);
     catPostLeftMesh.instanceMatrix.needsUpdate = true;
+    catPostRightMesh.instanceMatrix.clearUpdateRanges();
+    catPostRightMesh.instanceMatrix.addUpdateRange(0, catPostRightMesh.count * 16);
     catPostRightMesh.instanceMatrix.needsUpdate = true;
+    catArmMesh.instanceMatrix.clearUpdateRanges();
+    catArmMesh.instanceMatrix.addUpdateRange(0, catArmMesh.count * 16);
     catArmMesh.instanceMatrix.needsUpdate = true;
+    catStoneMesh.instanceMatrix.clearUpdateRanges();
+    catStoneMesh.instanceMatrix.addUpdateRange(0, catStoneMesh.count * 16);
     catStoneMesh.instanceMatrix.needsUpdate = true;
   };
 

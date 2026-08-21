@@ -1,0 +1,804 @@
+{
+  "at": "2026-08-20T02:52:29.413Z",
+  "soak": {
+    "wsUrl": "ws://127.0.0.1:13101/ws",
+    "startedAt": "2026-08-20T02:52:29.413Z",
+    "endedAt": "2026-08-20T03:22:29.523Z",
+    "soakMinutes": 30,
+    "minAcceptedSamples": 30,
+    "waitForResult": false,
+    "settleAfterAcceptedMs": 250,
+    "refreshOnEmptyFrontier": false,
+    "acceptedSamples": 0,
+    "acceptedP95Ms": null,
+    "acceptedP99Ms": null,
+    "acceptedMaxMs": null,
+    "diagnostics": {
+      "openedSessions": 0,
+      "frontierRefreshes": 0,
+      "emptyFrontierRejections": 0,
+      "speculativeInvalidTargets": 0,
+      "resourcePauses": 0
+    },
+    "batches": [],
+    "batchErrors": [
+      {
+        "at": 1787194349610,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194369748,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194389866,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194410000,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194430130,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194450270,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194470396,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194490520,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194510654,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194530779,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194550894,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194571010,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194591153,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194611291,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194631412,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194651537,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194671707,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194691852,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194711971,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194732083,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194752197,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194772312,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194792489,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194812607,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194832724,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194852836,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194872957,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194893094,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194913253,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194933371,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194953481,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194973605,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787194993721,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195013834,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195033947,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195054067,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195074177,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195094306,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195114439,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195134610,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195154743,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195174860,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195194974,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195215090,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195235202,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195255334,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195275448,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195295557,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195315665,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195335784,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195355916,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195376049,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195396227,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195416352,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195436479,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195456592,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195476697,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195496814,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195516930,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195537041,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195557153,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195577264,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195597399,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195617518,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195637633,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195657741,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195677855,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195697969,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195718080,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195738195,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195758306,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195778416,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195798539,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195818648,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195838759,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195858873,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195878991,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195899108,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195919226,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195939338,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195959459,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195979580,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787195999693,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196019801,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196039915,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196060038,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196080149,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196100266,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196120382,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196140508,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196140613,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196140699,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196140787,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196140877,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196140981,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196141077,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196141165,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196141271,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196141361,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196141446,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196141544,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196141633,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196141725,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196141811,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196141898,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196141992,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196142078,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196142163,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196142328,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196142414,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196142499,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196142625,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196142719,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196142803,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196142903,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196143009,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196143097,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196143188,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196143270,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196143359,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196143453,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196143539,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196143627,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196143712,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196143817,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196143905,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144001,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144091,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144174,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144257,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144343,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144434,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144550,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144639,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144731,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144818,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144901,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196144991,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196145088,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196145172,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196145275,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196145358,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196145443,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196145530,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196145618,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196145703,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196145793,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196145877,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196145984,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196146089,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196146186,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196146275,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196146362,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196146450,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196146545,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196146630,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196146730,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196146815,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196146902,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196146985,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196147084,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196147173,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196147272,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196147358,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196147443,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196147528,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196147614,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196147699,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196147802,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196147894,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196148005,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196148087,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196148172,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196148258,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196148353,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196148440,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196148544,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196148631,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196148725,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196148812,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196148910,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196149024,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196149113,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196149200,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196149286,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196149410,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      },
+      {
+        "at": 1787196149517,
+        "message": "rewrite-local-soak exited 1: file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local-soak.mjs:347\n        reject(new Error(`iteration ${iteration} got ${message.code}: ${message.message}`));\n               ^\n\nError: iteration 1 got OUT_OF_REACH: target is outside your reach\n    at WebSocket.onMessage (file:///home/runner/work/border-empires/border-empires/scripts/rewrite-local"
+      }
+    ]
+  },
+  "metrics": {
+    "gatewayMetricsUrl": "http://127.0.0.1:13101/metrics",
+    "simulationMetricsUrl": "http://127.0.0.1:50052/metrics",
+    "warmup": {
+      "ok": true,
+      "samples": 3,
+      "stableMs": 3000,
+      "timeoutMs": 30000,
+      "lastGatewayEventLoopMaxMs": 1,
+      "lastSimEventLoopMaxMs": 1
+    },
+    "sampleCount": 901,
+    "sampleErrors": [],
+    "gatewayEventLoopMaxMs": 3,
+    "simEventLoopMaxMs": 24,
+    "simHumanInteractiveBacklogMaxMs": 0,
+    "simCheckpointRssMaxMb": 519.203
+  },
+  "gates": {
+    "acceptedSamplesAtLeastMinimum": false,
+    "actionAcceptedP95Under300": false,
+    "actionAcceptedP99Under500": false,
+    "actionAcceptedMaxUnder1000": false,
+    "gatewayEventLoopMaxUnder500": true,
+    "simEventLoopMaxUnder150": true,
+    "simHumanInteractiveBacklogMaxUnder500": true,
+    "simCheckpointRssMaxUnder800": true
+  },
+  "allGatesGreen": false
+}

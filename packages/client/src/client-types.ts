@@ -122,7 +122,6 @@ export type Tile = {
     connectedTownNames?: string[];
     connectedTitaniumWeaponsFactoryCount?: number;
     connectedUmbriteWeaponsFactoryCount?: number;
-    goldIncomePausedReason?: "MANPOWER_NOT_FULL";
     manpowerCurrent?: number;
     manpowerCap?: number;
     hasMintworks: boolean;
@@ -768,7 +767,7 @@ export type TileMenuProgressView = {
 
 export type TileOverviewLine = {
   html: string;
-  kind?: "effect" | "section" | "loading" | "group";
+  kind?: "effect" | "section" | "loading" | "group" | "statgrid";
   // Indents an "effect" line under the "group" heading immediately above it
   // (e.g. a Mintworks stat line nested under "6 Mintworks").
   nested?: boolean;

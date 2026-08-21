@@ -199,13 +199,19 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
       pole += 1;
     }
     poleMesh.count = pole;
+    poleMesh.instanceMatrix.clearUpdateRanges();
+    poleMesh.instanceMatrix.addUpdateRange(0, poleMesh.count * 16);
     poleMesh.instanceMatrix.needsUpdate = true;
 
     bannerMesh.count = banners.length;
     for (let i = 0; i < banners.length; i += 1) {
       bannerMesh.setColorAt(i, banners[i]!.color);
     }
-    if (bannerMesh.instanceColor) bannerMesh.instanceColor.needsUpdate = true;
+    if (bannerMesh.instanceColor) {
+      bannerMesh.instanceColor.clearUpdateRanges();
+      bannerMesh.instanceColor.addUpdateRange(0, bannerMesh.count * 3);
+      bannerMesh.instanceColor.needsUpdate = true;
+    }
   };
 
   const update = (nowMs: number): void => {
@@ -233,8 +239,14 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
       }
     }
     smokeMesh.count = puff;
+    smokeMesh.instanceMatrix.clearUpdateRanges();
+    smokeMesh.instanceMatrix.addUpdateRange(0, smokeMesh.count * 16);
     smokeMesh.instanceMatrix.needsUpdate = true;
-    if (smokeMesh.instanceColor) smokeMesh.instanceColor.needsUpdate = true;
+    if (smokeMesh.instanceColor) {
+      smokeMesh.instanceColor.clearUpdateRanges();
+      smokeMesh.instanceColor.addUpdateRange(0, smokeMesh.count * 3);
+      smokeMesh.instanceColor.needsUpdate = true;
+    }
 
     let capturedPuff = 0;
     for (const town of capturedTowns) {
@@ -265,8 +277,14 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
       }
     }
     capturedSmokeMesh.count = capturedPuff;
+    capturedSmokeMesh.instanceMatrix.clearUpdateRanges();
+    capturedSmokeMesh.instanceMatrix.addUpdateRange(0, capturedSmokeMesh.count * 16);
     capturedSmokeMesh.instanceMatrix.needsUpdate = true;
-    if (capturedSmokeMesh.instanceColor) capturedSmokeMesh.instanceColor.needsUpdate = true;
+    if (capturedSmokeMesh.instanceColor) {
+      capturedSmokeMesh.instanceColor.clearUpdateRanges();
+      capturedSmokeMesh.instanceColor.addUpdateRange(0, capturedSmokeMesh.count * 3);
+      capturedSmokeMesh.instanceColor.needsUpdate = true;
+    }
 
     if (bannerPositionAttr && bannerBaseXY) {
       const arr = bannerPositionAttr.array as Float32Array;
@@ -293,6 +311,8 @@ export const createVillageEffects = (scene: Scene): VillageEffects => {
       );
       bannerMesh.setMatrixAt(i, tempMatrix);
     }
+    bannerMesh.instanceMatrix.clearUpdateRanges();
+    bannerMesh.instanceMatrix.addUpdateRange(0, bannerMesh.count * 16);
     bannerMesh.instanceMatrix.needsUpdate = true;
   };
 

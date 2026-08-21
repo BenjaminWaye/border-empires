@@ -364,7 +364,13 @@ describe("automation command planner strategic parity", () => {
     });
   });
 
-  it("uses opening scout expansion for no-town starts before weaker fallback actions", () => {
+  it("does not blindly scout-expand for no-town starts when nothing valuable is nearby", () => {
+    // Regression for the opposite bug: this used to assert scout-only land
+    // (no resource/dock/town anywhere) still won EXPAND — that's exactly
+    // the over-claiming behavior the fix removed (AI empires observed
+    // claiming 92-96% of their reach circle instead of the ~5% actually
+    // worth it). With nothing valuable and no expansion objective, EXPAND
+    // must not fire at all; WAIT is now correct here.
     const settled = makeTile(20, 19, { ownerId: "ai-1", ownershipState: "SETTLED" });
     const frontier = makeTile(20, 20, { ownerId: "ai-1", ownershipState: "FRONTIER" });
     const scout = makeTile(21, 20, {});
@@ -394,10 +400,8 @@ describe("automation command planner strategic parity", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "EXPAND",
-      payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 21, toY: 20 })
-    });
+    expect(result.command).toBeUndefined();
+    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
   });
 
   it("uses goap to fortify threatened town-control fronts before generic growth", () => {

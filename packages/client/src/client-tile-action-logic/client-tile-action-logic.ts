@@ -60,6 +60,9 @@ import { ownObservatoryRange } from "../client-observatory-rules/client-observat
 import { buildMusterActions } from "../client-muster-tile-actions.js";
 import { canBuildPlacementStructure } from "../client-structure-effects/client-structure-effects.js";
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
+import { localReachIsInReach } from "../client-reach-overlay/client-reach-overlay.js";
+import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
+import { formatWaypointSummary } from "../client-waypoint-menu-actions/client-waypoint-menu-actions.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -763,39 +766,81 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
   }
   if (!tile.ownerId) {
     const reachable = Boolean(deps.pickOriginForTarget(tile.x, tile.y, false));
-    const hasGold = state.gold >= FRONTIER_CLAIM_COST; const hasManpower = state.manpower >= EXPAND_MANPOWER_COST;
-    const frontierCostLabel = frontierClaimCostLabelForTile(tile.x, tile.y);
-
-    const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
-    const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
-    const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
-    const exploreHasGold = canAffordCost(state.gold, totalExploreGold);
-    const exploreHasManpower = state.manpower >= totalExploreManpower;
+    const isInReach = localReachIsInReach(state.tiles, state.me, deps.keyFor);
+    const targetInReach = isInReach(tile.x, tile.y);
 
     const out: TileActionDef[] = [];
-    if (isAdjacentToUnexplored(state, tile.x, tile.y, deps)) {
-      const exploreEnabled = exploreHasGold && exploreHasManpower && hasFreeResourceSlotsForRelayBeacon(state);
+    // "Expand To" claims any tile inside reach, adjacent or not -- if it's
+    // already adjacent that's a direct EXPAND; otherwise it walks there
+    // first via the exact same multi-step waypoint chain Add Waypoint used
+    // to offer as a SEPARATE button for this case (client-action-flow.ts
+    // dispatches "settle_land" on a non-adjacent target straight into
+    // handleWaypointAction). One button that does the right thing
+    // regardless of distance, instead of two buttons the player has to
+    // separately notice for near vs. far reach ground. Hidden entirely
+    // when out of reach (server would reject as OUT_OF_REACH regardless of
+    // cost) or when no path exists at all (planWaypoint's own check).
+    // Labeled "Expand To" rather than "Settle Land" -- this claims neutral
+    // ground (an EXPAND, possibly via a waypoint chain), it doesn't settle
+    // it; "Settle Land" is reserved for the real settle action on a tile
+    // already owned as FRONTIER (further below), which is a genuinely
+    // different action (pays SETTLE_COST, converts FRONTIER -> SETTLED).
+    if (reachable && targetInReach) {
+      out.push({
+        id: "settle_land",
+        label: "Expand To",
+        ...tileActionAvailability(
+          state.gold >= FRONTIER_CLAIM_COST && state.manpower >= EXPAND_MANPOWER_COST,
+          state.manpower < EXPAND_MANPOWER_COST ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
+          frontierClaimCostLabelForTile(tile.x, tile.y)
+        )
+      });
+    } else if (targetInReach) {
+      const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor, isInReach });
+      if (plan.reachable) {
+        out.push({
+          id: "settle_land",
+          label: "Expand To",
+          ...tileActionAvailability(
+            canAffordCost(state.gold, plan.totalGold) && state.manpower >= plan.totalManpower,
+            state.manpower < plan.totalManpower ? `Need ${plan.totalManpower} manpower` : `Need ${plan.totalGold} gold`,
+            formatWaypointSummary(plan)
+          )
+        });
+      }
+    }
+    // Build Relay Beacon does NOT require adjacency: its handler
+    // (client-action-flow.ts, actionId === "build_relay_beacon_frontier")
+    // already drives a non-adjacent target over via the same waypoint
+    // mechanism "Expand Here" uses, then auto-settles and auto-builds once
+    // ownership lands (state.autoSettleTargets/autoBuildTargets) -- that's
+    // pre-existing, unrelated to reach, and was never broken. The only real
+    // gate here is reach itself (an EXPAND landing outside it is rejected
+    // server-side regardless of path); "just don't show it" outside reach,
+    // same policy as everything below.
+    if (targetInReach) {
+      const totalExploreGold = FRONTIER_CLAIM_COST + SETTLE_COST; // build cost is 0
+      const totalExploreManpower = EXPAND_MANPOWER_COST + SETTLE_MANPOWER_COST + structureBuildManpowerCost("RELAY_BEACON");
+      const totalExploreMs = settleDurationMsForState(state, tile) + RELAY_BEACON_BUILD_MS;
+      const exploreEnabled =
+        canAffordCost(state.gold, totalExploreGold) &&
+        state.manpower >= totalExploreManpower &&
+        hasFreeResourceSlotsForRelayBeacon(state);
       out.push({
         id: "build_relay_beacon_frontier" as TileActionDef["id"],
         label: "Build Relay Beacon",
         detail: `Push into the unknown • expand + settle + build • +${RELAY_BEACON_VISION_BONUS} vision`,
         ...tileActionAvailability(
           exploreEnabled,
-          !exploreHasManpower ? `Need ${totalExploreManpower} manpower` : !exploreHasGold ? `Need ${totalExploreGold} gold` : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
+          state.manpower < totalExploreManpower
+            ? `Need ${totalExploreManpower} manpower`
+            : !canAffordCost(state.gold, totalExploreGold)
+              ? `Need ${totalExploreGold} gold`
+              : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
           `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
         )
       });
     }
-    out.push({
-        id: "settle_land",
-        label: "Settle Land",
-        ...tileActionAvailability(
-          reachable && hasGold && hasManpower,
-          !reachable ? "Must touch your territory" : !hasManpower ? `Need ${EXPAND_MANPOWER_COST} manpower` : `Need ${FRONTIER_CLAIM_COST} gold`,
-          frontierCostLabel
-        )
-      }
-    );
     out.push({
       id: "build_foundry",
       label: "Build Foundry",

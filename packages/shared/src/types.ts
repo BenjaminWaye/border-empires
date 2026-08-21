@@ -272,7 +272,6 @@ export interface Tile {
     // scope combat actually reads from).
     connectedTitaniumWeaponsFactoryCount?: number;
     connectedUmbriteWeaponsFactoryCount?: number;
-    goldIncomePausedReason?: "MANPOWER_NOT_FULL";
     manpowerCurrent?: number;
     manpowerCap?: number;
     hasMintworks: boolean;
