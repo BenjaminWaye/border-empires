@@ -10,6 +10,7 @@ import { computeTownSupport } from "../town-support.js";
 import {
   chooseBestEconomicBuild,
   chooseBestFortBuild,
+  chooseBestRelayBeaconBuild,
   chooseBestSiegeOutpostBuild
 } from "./structure-command-planner.js";
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
@@ -76,6 +77,10 @@ const hasActionableFrontierAnalysis = (analysis: FrontierAnalysis): boolean =>
       analysis.directedExpand ||
       analysis.townSupportExpand || analysis.scaffoldExpand || analysis.scoutExpand
   );
+
+// Bounded frontier sample considered as relay-beacon sites (each candidate
+// costs a box scan in estimateNewReachCoverage — see the call site).
+const RELAY_BEACON_FRONTIER_SAMPLE_CAP = 96;
 
 const dedupeTiles = <TTile extends AutomationPlannerTile>(
   tiles: Iterable<TTile>
@@ -232,6 +237,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           preferFogEfficientExpansion: true,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
+          ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -267,6 +273,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
           preferFogEfficientExpansion: true,
           ...(input.dockLinksByDockTileKey ? { dockLinksByDockTileKey: input.dockLinksByDockTileKey } : {}),
           ...(input.expansionObjective ? { expansionObjective: input.expansionObjective } : {}),
+          ...(input.reachLookup ? { reachLookup: input.reachLookup } : {}),
           onAnalyzeTiming: (phase, durationMs) => {
             input.onPhaseTiming?.({ phase: phase as AutomationPlannerPhase, durationMs });
           }
@@ -285,6 +292,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   let economicBuild: ReturnType<typeof chooseBestEconomicBuild> | undefined;
   let fortBuild: ReturnType<typeof chooseBestFortBuild> | undefined;
   let siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
+  let relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
   if (input.sessionPrefix === "ai-runtime" && effectiveDevelopmentProcessCount < DEVELOPMENT_PROCESS_LIMIT) {
     const structurePlayer = {
       id: input.playerId,
@@ -306,6 +314,29 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     economicBuild = chooseBestEconomicBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     fortBuild = chooseBestFortBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
     siegeOutpostBuild = chooseBestSiegeOutpostBuild(structurePlayer, input.ownedTiles, input.tilesByKey, buildCandidates);
+    // The relay beacon is the one build that may target an owned FRONTIER
+    // tile (it settles it first — see chooseBestRelayBeaconBuild). The shared
+    // `buildCandidates` list can't supply those: isBuildCandidateTile requires
+    // ownershipState === "SETTLED", so a reach-locked AI whose only remaining
+    // ground is frontier would see zero beacon sites and stay locked forever.
+    // Give the beacon its own candidate list = settled build candidates plus a
+    // bounded, focus-restricted sample of owned frontier tiles. Sampled (not
+    // the full frontier set) because estimateNewReachCoverage box-scans up to
+    // RELAY_BEACON_REACH_SAMPLE_CAP cells per candidate, and a large empire's
+    // frontier runs to many hundreds of tiles — per AGENTS.md's AI CPU
+    // guardrails, planner-static builders must stay bounded.
+    const beaconFrontierCandidates = restrictToFocus(
+      strideSample(input.frontierTiles, RELAY_BEACON_FRONTIER_SAMPLE_CAP),
+      () => {
+        buildScanUsedFocusFallback = true;
+      }
+    );
+    relayBeaconBuild = chooseBestRelayBeaconBuild(
+      structurePlayer,
+      input.ownedTiles,
+      input.tilesByKey,
+      dedupeTiles([...buildCandidates, ...beaconFrontierCandidates])
+    );
   }
 
   // Debug-only bridge from the generic TTile scan to explainFrontierOriginTile's
@@ -369,6 +400,13 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     // specific tile/type via /admin/debug/ai/decisions instead of guessing.
     ...(economicBuild
       ? { economicBuildCandidate: `${economicBuild.tile.x},${economicBuild.tile.y}:${economicBuild.structureType}` }
+      : {}),
+    // Debug-only: what chooseBestRelayBeaconBuild actually picked, so
+    // BUILD_BEACON's state can be traced via /admin/debug/ai/decisions
+    // instead of inferring it (wrongly) from unrelated fields like
+    // frontierNeutralTargetCount — see decisions.ts's scoreBuildBeacon.
+    ...(relayBeaconBuild
+      ? { relayBeaconBuildCandidate: `${relayBeaconBuild.tile.x},${relayBeaconBuild.tile.y}${relayBeaconBuild.needsSettle ? ":needsSettle" : ""}` }
       : {}),
     ...(typeof input.playerScopeKeyCount === "number" ? { playerScopeKeyCount: input.playerScopeKeyCount } : {}),
     ...(typeof input.playerScopeTileCount === "number" ? { playerScopeTileCount: input.playerScopeTileCount } : {})
@@ -442,6 +480,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     economicBuild,
     fortBuild,
     siegeOutpostBuild,
+    relayBeaconBuild,
     attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
     expansionObjective: input.expansionObjective,
     points: input.points,

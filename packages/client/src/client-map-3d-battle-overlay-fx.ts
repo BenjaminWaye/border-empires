@@ -525,12 +525,28 @@ export function createBattleOverlayFx(scene: Scene) {
     defenderMesh.count = defWrite;
     shardMeshA.count = shardAWrite;
     shardMeshB.count = shardBWrite;
+    attackerMesh.instanceMatrix.clearUpdateRanges();
+    attackerMesh.instanceMatrix.addUpdateRange(0, attackerMesh.count * 16);
     attackerMesh.instanceMatrix.needsUpdate = true;
+    defenderMesh.instanceMatrix.clearUpdateRanges();
+    defenderMesh.instanceMatrix.addUpdateRange(0, defenderMesh.count * 16);
     defenderMesh.instanceMatrix.needsUpdate = true;
+    shardMeshA.instanceMatrix.clearUpdateRanges();
+    shardMeshA.instanceMatrix.addUpdateRange(0, shardMeshA.count * 16);
     shardMeshA.instanceMatrix.needsUpdate = true;
+    shardMeshB.instanceMatrix.clearUpdateRanges();
+    shardMeshB.instanceMatrix.addUpdateRange(0, shardMeshB.count * 16);
     shardMeshB.instanceMatrix.needsUpdate = true;
-    if (attackerMesh.instanceColor) attackerMesh.instanceColor.needsUpdate = true;
-    if (defenderMesh.instanceColor) defenderMesh.instanceColor.needsUpdate = true;
+    if (attackerMesh.instanceColor) {
+      attackerMesh.instanceColor.clearUpdateRanges();
+      attackerMesh.instanceColor.addUpdateRange(0, attackerMesh.count * 3);
+      attackerMesh.instanceColor.needsUpdate = true;
+    }
+    if (defenderMesh.instanceColor) {
+      defenderMesh.instanceColor.clearUpdateRanges();
+      defenderMesh.instanceColor.addUpdateRange(0, defenderMesh.count * 3);
+      defenderMesh.instanceColor.needsUpdate = true;
+    }
   };
 
   const dispose = (): void => {

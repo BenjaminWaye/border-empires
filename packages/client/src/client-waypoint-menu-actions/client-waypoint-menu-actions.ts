@@ -1,4 +1,5 @@
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
+import { localReachIsInReach } from "../client-reach-overlay/client-reach-overlay.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -34,11 +35,38 @@ const waypointPlanForTile = (
   // already-owned-by-me does. Excluding fogged tiles here used to leave
   // distant fog-of-war tiles with no offered action at all.
   if (tile.terrain !== "LAND" || tile.ownerId === state.me) return;
+  // A neutral (unowned) target the client already has real tile data for is
+  // fully handled by Settle Land itself (client-tile-action-logic.ts): if
+  // it's not adjacent, that button walks there via this exact same
+  // planWaypoint/handleWaypointAction("expand_here") machinery. Offering a
+  // second, functionally identical "Add Waypoint" button there would be
+  // pure duplication. This does NOT apply to a genuinely unexplored target
+  // (no entry in state.tiles at all) -- that case never reaches
+  // menuActionsForSingleTile/Settle Land in the first place
+  // (openUnexploredTileActionMenu is a separate menu whose only possible
+  // action IS this one), so this module must keep offering it there.
+  if (!tile.ownerId && state.tiles.has(deps.keyFor(tile.x, tile.y))) return;
   const adjacentOrigin =
     deps.pickOriginForTarget(tile.x, tile.y, false) ??
     deps.pickOriginForTarget(tile.x, tile.y, false, true);
   if (adjacentOrigin) return;
-  const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor });
+  const isInReach = localReachIsInReach(state.tiles, state.me, deps.keyFor);
+  // ATTACK is deliberately not reach-gated (see the fixed-borders-via-reach
+  // plan), so an enemy-owned target skips the reach pre-check entirely (the
+  // FINAL-target check below). The only neutral case that still reaches
+  // here is a genuinely-unexplored target (no confirmed tile data at all --
+  // a known neutral tile already returned above, since Settle Land handles
+  // it instead): that EXPAND claim still needs to land inside the player's
+  // reach, so it gets the same check Settle Land itself uses, computed
+  // purely from the player's own tiles (reach never depends on the
+  // unexplored target's own data).
+  if (!tile.ownerId && !isInReach(tile.x, tile.y)) return;
+  // isInReach also threads into the planner itself so every INTERMEDIATE
+  // EXPAND step along the path is reach-checked too, not just the final
+  // target -- a multi-hop chain toward an in-reach destination can still
+  // pass through out-of-reach ground if the player's reach shape has a
+  // notch (e.g. two separate anchors with a gap between their disks).
+  const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor, isInReach });
   return plan.reachable ? plan : undefined;
 };
 

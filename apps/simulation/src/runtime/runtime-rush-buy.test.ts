@@ -19,7 +19,17 @@ describe("RUSH_BUY", () => {
         now: () => 1_000,
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000 })]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
+          ],
           activeLocks: []
         }
       });
@@ -66,7 +76,17 @@ describe("RUSH_BUY", () => {
         now: () => nowMs,
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000 })]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
+          ],
           activeLocks: []
         }
       });
@@ -114,7 +134,17 @@ describe("RUSH_BUY", () => {
         // (ceil(SETTLE_MANPOWER_COST * 0.5) = 10 gold).
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 5, manpower: 10_000 })]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
+          ],
           activeLocks: []
         }
       });
@@ -262,7 +292,17 @@ describe("RUSH_BUY", () => {
         now: () => 1_000,
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000 })]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
+          ],
           activeLocks: []
         }
       });
@@ -303,7 +343,23 @@ describe("RUSH_BUY", () => {
             // settling the first one doesn't auto-fill/auto-settle the second
             // via emitAutoFillForSettlement's adjacent-tile island painting.
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            },
             { x: 50, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 50,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Outpost", type: "FARMING", populationTier: "SETTLEMENT" }
+            },
             { x: 99, y: 99, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", naturalWonder: { type: "QUICKFORGE", claimedAt: nowMs } }
           ],
           activeLocks: []

@@ -49,13 +49,6 @@ export type RuntimeLockResolutionContext = {
   // surrounding area, then reverts to normal fog-of-war. No-op if the tile
   // has no watchtower or it was already activated.
   maybeActivateWatchtower: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
-  // Fires a temporary discovery-pulse vision reveal (see
-  // runtime-expand-reveal-tick.ts) on every successful EXPAND or ATTACK
-  // capture, independent of any watchtower feature — FRONTIER tiles no
-  // longer hold standing vision (see visibility-coverage-cache.ts), so this
-  // is what makes pushing the frontier outward feel like exploring rather
-  // than blind claiming, whether that push is peaceful or forced.
-  activateExpandReveal: (x: number, y: number, playerId: string) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -189,19 +182,6 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     else context.clearFortPatrolGrace(lock.targetKey);
     if (lock.actionType === "EXPAND") {
       context.maybeActivateWatchtower(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
-    }
-    // Every successful human capture (peaceful or forced) grants a discovery
-    // pulse — a captured tile always lands as FRONTIER for the new owner
-    // (see resolvedTarget.ownershipState above), which carries no standing
-    // vision of its own, so without this an attack chain could never see
-    // past its own current edge to line up the next target. Skipped for
-    // AI/barbarian actors: same reasoning as the reveal-square skip just
-    // below — no WS subscriber means the pulse (already a no-op for
-    // barbarians inside addTemporaryReveal/removeTemporaryReveal, see
-    // visibility-coverage-cache.ts's isBarbarian guards) would only churn
-    // pendingExpandReveals for 10s with nothing watching.
-    if (!isAiControlledActor(lock.playerId, attacker?.isAi) && (lock.actionType === "EXPAND" || lock.actionType === "ATTACK")) {
-      context.activateExpandReveal(lock.targetX, lock.targetY, lock.playerId);
     }
 
     let tileDeltas: SimulationTileWireDelta[];

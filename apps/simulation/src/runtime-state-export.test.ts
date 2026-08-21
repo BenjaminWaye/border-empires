@@ -36,6 +36,7 @@ describe("runtime state export", () => {
       }),
       ownedStructureCountsForPlayer: () => ({ FORT: 2, SIEGE_OUTPOST: 3 }),
       estimatedIncomePerMinuteForPlayer: () => 0,
+      reachTileKeysForPlayer: () => [],
       neutralBeaconTileKeys: new Set(),
       beaconGeneration: 0,
       yieldBearingTilesByOwner: new Map(),
@@ -82,6 +83,7 @@ describe("runtime state export", () => {
       }),
       ownedStructureCountsForPlayer: () => ({}),
       estimatedIncomePerMinuteForPlayer: () => 0,
+      reachTileKeysForPlayer: () => [],
       neutralBeaconTileKeys: new Set(),
       beaconGeneration: 0,
       yieldBearingTilesByOwner: new Map(),
@@ -134,6 +136,7 @@ describe("runtime state export", () => {
         }),
         ownedStructureCountsForPlayer: () => ({}),
         estimatedIncomePerMinuteForPlayer: () => 0,
+      reachTileKeysForPlayer: () => [],
         // A neutral beacon so selectExpansionObjective doesn't short-circuit
         // before ever touching the enemy pool.
         neutralBeaconTileKeys: new Set(["5,5"]),

@@ -2,6 +2,7 @@ import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, 
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
+import { computeLocalReachSet, localReachIsInReach } from "./client-reach-overlay/client-reach-overlay.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
@@ -64,6 +65,7 @@ import {
 } from "./client-queue-logic/client-queue-logic.js";
 import { dispatchPaced } from "./client-paced-bulk-dispatch/client-paced-bulk-dispatch.js";
 import { announceDiscoveryTip } from "./client-discovery-tips/client-discovery-tip-overlay.js";
+import { pushDiscoveryTipFeedEntry } from "./client-alerts/client-alerts.js";
 import {
   buildFortOnSelected as buildFortOnSelectedFromModule,
   buildSiegeOutpostOnSelected as buildSiegeOutpostOnSelectedFromModule,
@@ -153,7 +155,7 @@ import type {
   TileTimedProgress,
   TileVisibilityState
 } from "./client-types.js";
-import { debugTileLog, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
+import { debugTileLog, tileMatchesDebugKey, tileSyncDebugEnabled, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
 import { createMusterWatchGuard } from "./client-muster-watch/client-muster-watch.js";
 
 type ActionFlowDeps = Record<string, any> & {
@@ -1012,20 +1014,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     return state.dormantStructures.find((entry) => entry.key === key)?.resources;
   };
 
-  const computeDisplayManpower = (): number => {
-    let reserved = 0;
-    if (state.actionCurrent?.actionType === "EXPAND") {
-      reserved += EXPAND_MANPOWER_COST;
-    }
-    for (const action of state.actionQueue) {
-      const tile = state.tiles.get(keyFor(action.x, action.y));
-      if (tile && !tile.ownerId) {
-        reserved += EXPAND_MANPOWER_COST;
-      }
-    }
-    return Math.max(0, state.manpower - reserved);
-  };
-
   const menuOverviewForTile = (tile: Tile): TileOverviewLine[] => {
     if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && tile.town) {
       const tileKey = `${tile.x},${tile.y}`;
@@ -1051,8 +1039,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
                 (pair.bx === dockTile.x && pair.by === dockTile.y)
             ).length
           : 0,
-      currentManpower: computeDisplayManpower(),
-      currentManpowerCap: state.manpowerCap,
       hostileObservatoryProtectingTile,
       constructionCountdownLineForTile,
       tileHistoryLines,
@@ -1103,7 +1089,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       note: "This tile will become frontier territory.",
       cancelLabel: "Cancel expansion",
       cancelActionId: "cancel_capture" as const,
-      rushBuyLabel: `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST)}`,
+      rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST)}`,
       rushBuyActionId: "rush_buy" as const
     };
   };
@@ -1139,7 +1125,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             : {
                 cancelLabel: "Cancel settlement",
                 cancelActionId: "cancel_settle" as const,
-                rushBuyLabel: `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
+                rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
                 rushBuyActionId: "rush_buy" as const
               })
         };
@@ -1390,11 +1376,35 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       } else if (selected) {
         const k = keyFor(selected.x, selected.y);
         if (!selected.ownerId) {
-          const out = queueSpecificTargets([k]);
-          if (out.queued > 0) {
-            processActionQueue();
+          const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false) ?? pickOriginForTarget(selected.x, selected.y, false, true);
+          if (adjacentOrigin) {
+            const out = queueSpecificTargets([k]);
+            if (out.queued > 0) {
+              processActionQueue();
+            } else {
+              showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
+            }
           } else {
-            showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Frontier claim blocked", "Cannot claim this tile yet. It must touch your territory and you need enough gold.");
+            // Not adjacent yet, but still inside reach (that's the only way
+            // this row is visible at all -- see the targetInReach gate on
+            // "settle_land" in client-tile-action-logic.ts). Walk there
+            // first via the exact same waypoint mechanism "Add Waypoint"
+            // used to offer as a separate button for this case -- one
+            // action that does the right thing regardless of distance,
+            // instead of forcing the player to notice two different buttons.
+            handleWaypointAction({
+              state,
+              selected,
+              actionId: "expand_here",
+              keyFor,
+              pushFeed,
+              renderHud,
+              hideTileActionMenu,
+              showCaptureAlert,
+              processActionQueue,
+              sendGameMessage
+            });
+            return;
           }
         } else if (selected.ownerId === state.me && selected.ownershipState === "FRONTIER") {
           requestSettlement(selected.x, selected.y);
@@ -1475,7 +1485,10 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
     if (actionId === "build_relay_beacon_frontier") {
       if (selected && !selected.ownerId) {
-        const plan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
+        const plan = planWaypoint(
+          { x: selected.x, y: selected.y },
+          { state, keyFor, isInReach: localReachIsInReach(state.tiles, state.me, keyFor) }
+        );
         if (!plan.reachable) {
           showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Relay Beacon unreachable", "No expansion path to that tile.");
         } else {
@@ -1523,7 +1536,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         });
       }
     }
-    if (actionId === "muster_hold" || actionId === "muster_advance") { sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" }); if (state.discoveryTipQueue) announceDiscoveryTip(state.discoveryTipQueue, "FIRST_MUSTER", state.authEmail, renderHud); }
+    if (actionId === "muster_hold" || actionId === "muster_advance") { sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" }); if (state.discoveryTipQueue) announceDiscoveryTip(state.discoveryTipQueue, "FIRST_MUSTER", state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def)); }
     if (actionId === "muster_clear") sendGameMessage({ type: "CLEAR_MUSTER", x: selected.x, y: selected.y });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
@@ -1725,6 +1738,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
+    // True when (x,y) falls inside the local player's fixed-border reach --
+    // see client-reach-overlay.ts's MOCK-DATA SEAM comment for why this is a
+    // client-local approximation of the server's authoritative reach, not
+    // fog/vision-gated (a tile can be in reach long before it's ever been
+    // seen). Used below to decide whether an adjacent-neutral click should
+    // still auto-queue a bare EXPAND, or instead open the tile menu so the
+    // richer "Build Relay Beacon" (expand+settle+build) choice -- which only
+    // ever appears inside that menu -- actually has a chance to be seen.
+    const isTargetInLocalReach = (x: number, y: number): boolean =>
+      computeLocalReachSet(state.tiles, state.me).has(keyFor(x, y));
     // Shared with the "visible" neutral-adjacent click path below: claims an
     // adjacent-reachable tile immediately instead of opening a menu. Lifted
     // out so fogged/unexplored tiles adjacent to owned territory can also
@@ -1806,6 +1829,20 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hasFrontierOrigin: Boolean(frontierOrigin),
       isNeutral: !to.ownerId
     });
+    // Enable via localStorage.setItem("tile-sync-debug", "1") in the
+    // browser console, then click a tile -- prints what the click decided.
+    if (tileSyncDebugEnabled()) {
+      console.log("[tile-click]", {
+        x: to.x,
+        y: to.y,
+        ownerId: to.ownerId ?? null,
+        terrain: to.terrain,
+        fogged: Boolean(to.fogged),
+        hasFrontierOrigin: Boolean(frontierOrigin),
+        targetInReach: isTargetInLocalReach(to.x, to.y),
+        clickOutcome
+      });
+    }
     if (clickOutcome === "queue-adjacent-neutral") {
       // Re-clicking a tile that's already sitting in the action queue
       // behind the active capture, or a tile that's ALREADY the active

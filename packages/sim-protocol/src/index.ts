@@ -106,6 +106,10 @@ export type AdminPlayerRow = {
   titanium: number;
   crystal: number;
   umbrite: number;
+  /** Persistent reach-border tile count granted to this player (see packages/shared/src/reach/reach.ts). */
+  reachTiles: number;
+  /** ownedTiles - settledTiles, i.e. FRONTIER-state tiles this player owns. */
+  frontierTiles: number;
 };
 
 export type RecentCommand = {

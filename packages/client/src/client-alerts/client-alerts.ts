@@ -6,6 +6,7 @@ import { maybeRegisterShardRainPing } from "../client-shard-rain-pings/client-sh
 import { victoryHoldAlertFor } from "../client-victory-alert/client-victory-alert.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { ClientShardRainAlert } from "../client-shard-alert/client-shard-alert.js";
+import type { DiscoveryTipDef } from "../client-discovery-tips/client-discovery-tips.js";
 import type { FeedEntry, FeedSeverity, FeedType, SeasonVictoryObjectiveView, Tile } from "../client-types.js";
 
 type FeedMutableState = Pick<ClientState, "feed"> &
@@ -42,6 +43,13 @@ export const pushFeedEntry = (state: FeedMutableState, entry: FeedEntry): void =
   state.feed.unshift(entry);
   state.feed = state.feed.slice(0, 18);
   markFeedUnread(state, entry);
+};
+
+/** `onShow` handler shared by every `announceDiscoveryTip`/`renderDiscoveryTipOverlay`
+ * call site: records a freshly-shown discovery tip into the Activity Feed so the
+ * player can scroll back and re-read it after the toast is gone. */
+export const pushDiscoveryTipFeedEntry = (state: FeedMutableState, def: DiscoveryTipDef): void => {
+  pushFeedEntry(state, { title: def.title, text: def.body, type: "info", severity: "info", at: Date.now() });
 };
 
 export const maybeAnnounceShardSite = (

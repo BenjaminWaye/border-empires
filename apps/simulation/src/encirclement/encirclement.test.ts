@@ -430,7 +430,7 @@ describe("encirclement attack guard", () => {
           tiles: [
             // player-1 origin — normal frontier tile, supplied by adjacent settled tile
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-            { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             // neutral target
             { x: 11, y: 10, terrain: "LAND" }
           ],
@@ -466,7 +466,7 @@ describe("encirclement attack guard", () => {
         frontierDecayAt: 1_000 + FRONTIER_DECAY_MS,
         frontierDecayKind: "NATURAL"
       },
-      { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
       { x: 11, y: 10, terrain: "LAND" }
     ]);
     const events: SimulationEvent[] = [];
@@ -527,7 +527,7 @@ describe("encirclement settle guard", () => {
     const runtime = mkRuntime([
       // no frontierDecayAt set and adjacent settled supply → not cut off
       { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
-      { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+      { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } }
     ]);
     const events: SimulationEvent[] = [];
     runtime.onEvent((e) => events.push(e));
@@ -556,7 +556,7 @@ describe("encirclement settle guard", () => {
         frontierDecayAt: 1_000 + FRONTIER_DECAY_MS,
         frontierDecayKind: "NATURAL"
       },
-      { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+      { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } }
     ]);
     const events: SimulationEvent[] = [];
     runtime.onEvent((e) => events.push(e));
@@ -600,7 +600,7 @@ describe("encirclement expand reconnection", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
-            { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" } },
+            { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", observatory: { ownerId: "player-1", status: "active" }, town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             { x: 0, y: 1, terrain: "SEA" },
             { x: 0, y: 2, terrain: "SEA" },
             { x: 0, y: 3, terrain: "LAND" },
@@ -672,7 +672,7 @@ describe("encirclement expand reconnection", () => {
         seedTiles: new Map(),
         initialState: {
           tiles: [
-            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
             // pocket tile is cut off — no path to settled because (11,10) is neutral
             {
               x: 12, y: 10, terrain: "LAND",

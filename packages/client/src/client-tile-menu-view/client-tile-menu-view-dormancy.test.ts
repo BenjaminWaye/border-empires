@@ -16,8 +16,6 @@ const baseDeps = {
   townNextGrowthEtaLabel: () => "never",
   supportedOwnedTownsForTile: () => [] as Tile[],
   connectedDockCountForTile: () => 0,
-  currentManpower: 100,
-  currentManpowerCap: 100,
   hostileObservatoryProtectingTile: () => undefined,
   constructionCountdownLineForTile: () => "",
   tileHistoryLines: () => [] as string[],

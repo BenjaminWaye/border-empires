@@ -14,6 +14,7 @@ describe("tileOutpostMult — per-variant multipliers", () => {
   it("VariantMult: SIEGE_OUTPOST → 1.6", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
     };
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: SIEGE_OUTPOST_ATTACK_MULT });
@@ -22,6 +23,7 @@ describe("tileOutpostMult — per-variant multipliers", () => {
   it("VariantMult: SIEGE_TOWER → 1.8", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_TOWER" }
     };
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: SIEGE_TOWER_ATTACK_MULT });
@@ -30,6 +32,7 @@ describe("tileOutpostMult — per-variant multipliers", () => {
   it("VariantMult: DREAD_TOWER → 2.0", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       siegeOutpost: { ownerId: "p1", status: "active", variant: "DREAD_TOWER" }
     };
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: DREAD_TOWER_ATTACK_MULT });
@@ -38,6 +41,7 @@ describe("tileOutpostMult — per-variant multipliers", () => {
   it("VariantMult: RELAY_BEACON → 1.25", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
     };
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: RELAY_BEACON_ATTACK_MULT });
@@ -46,6 +50,7 @@ describe("tileOutpostMult — per-variant multipliers", () => {
   it("VariantMult: undefined siege variant defaults to SIEGE_OUTPOST mult", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       siegeOutpost: { ownerId: "p1", status: "active" }
     };
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: SIEGE_OUTPOST_ATTACK_MULT });
@@ -62,6 +67,7 @@ describe("tileOutpostMult — per-variant multipliers", () => {
   it("ignores constructing outposts", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       siegeOutpost: { ownerId: "p1", status: "under_construction" },
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "under_construction" }
     };
@@ -71,6 +77,7 @@ describe("tileOutpostMult — per-variant multipliers", () => {
   it("ignores non-RELAY_BEACON economic structures", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       economicStructure: { ownerId: "p1", type: "MILL", status: "active" }
     };
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: 1 });
@@ -89,6 +96,7 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     // Siege outpost at (10, 10). Target at (14, 10) — exactly 4 tiles away (within radius 5).
     seed(10, 10, {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
     });
     // Target is at (14, 10); attacker scans around target position
@@ -99,6 +107,7 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     tilesByKey.clear();
     seed(10, 10, {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
     });
     // Target at (16, 10) — 6 tiles from outpost, outside radius 5
@@ -109,6 +118,7 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     tilesByKey.clear();
     seed(10, 10, {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
     });
     // Target at (13, 10) — 3 tiles from outpost
@@ -119,10 +129,12 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     tilesByKey.clear();
     seed(10, 10, {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
     });
     seed(11, 10, {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
     });
     // Target at (12, 10) — within radius of both. SIEGE_OUTPOST should win.
@@ -145,6 +157,7 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     // Outpost near the world edge
     seed(0, 0, {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
     });
     // Target at the wrapped edge: (WORLD_WIDTH - 1, WORLD_HEIGHT - 1) is distance 1,1 via wrapping
@@ -163,6 +176,7 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     tilesByKey.clear();
     seed(10, 10, {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       economicStructure: { ownerId: "p1", type: "MILL", status: "active" }
     });
     expect(scanOutpostMult("p1", 12, 10, lookup)).toBe(1);
@@ -172,14 +186,17 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     tilesByKey.clear();
     seed(10, 10, {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       siegeOutpost: { ownerId: "p1", status: "active", variant: "DREAD_TOWER" }
     });
     seed(11, 10, {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
     });
     seed(12, 10, {
       ownerId: "p1",
+      ownershipState: "SETTLED",
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
     });
     // Target at (13, 10) is within radius of all three — DREAD_TOWER (2.0) should win

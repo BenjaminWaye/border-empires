@@ -380,7 +380,11 @@ describe("automation command planner", () => {
     });
   });
 
-  it("uses scout expansion when fallback settlement is legal but only scouting is worthwhile", () => {
+  it("does not expand when a fallback settlement is legal but only scouting is worthwhile", () => {
+    // Regression for the opposite bug: scout-only land no longer unlocks
+    // EXPAND at all (see the "AI over-claims low-value land" fix) — a tile
+    // that only reveals fog, with nothing valuable anywhere, must not be
+    // claimed just because it's technically legal.
     const settled = makeTile(20, 19, {
       ownerId: "ai-1",
       ownershipState: "SETTLED"
@@ -421,10 +425,8 @@ describe("automation command planner", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "EXPAND",
-      payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 21, toY: 20 })
-    });
+    expect(result.command).toBeUndefined();
+    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
   });
 
   it("does not force a mediocre fallback settlement when no frontier actions exist", () => {
@@ -464,7 +466,10 @@ describe("automation command planner", () => {
     expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
   });
 
-  it("prefers scout expansion over mediocre fallback settlement while first tech is unaffordable", () => {
+  it("does not expand onto mediocre/scout land while first tech is unaffordable — WAIT instead", () => {
+    // Regression for the opposite bug: neither the plain "fallback" tile nor
+    // the scout tile carries real value, so EXPAND must not fire onto
+    // either just because tech is unaffordable and something has to happen.
     const settled = makeTile(20, 19, {
       ownerId: "ai-1",
       ownershipState: "SETTLED"
@@ -504,13 +509,16 @@ describe("automation command planner", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    expect(result.command).toMatchObject({
-      type: "EXPAND",
-      payloadJson: JSON.stringify({ fromX: 20, fromY: 20, toX: 21, toY: 20 })
-    });
+    expect(result.command).toBeUndefined();
+    expect(result.diagnostic.noCommandReason).toBe("wait_and_recover");
   });
 
-  it("prefers expandable frontier over wait_and_recover at late scout expansion", () => {
+  it("falls back to WAIT (not scout expansion) when no attack strength and no valuable land exists", () => {
+    // Regression for the opposite bug: a scout-only frontier tile no longer
+    // beats WAIT — EXPAND requires real value now (see the "AI over-claims
+    // low-value land" fix). With the enemy too weak to attack (manpower
+    // below ATTACK_MANPOWER_MIN) and nothing valuable to expand onto, WAIT
+    // is correct.
     const settled = makeTile(0, 0, { ownerId: "ai-1", ownershipState: "SETTLED" });
     const enemy = makeTile(1, 0, { ownerId: "enemy-1" });
     const scout = makeTile(0, 1, {});
@@ -541,8 +549,7 @@ describe("automation command planner", () => {
       sessionPrefix: "ai-runtime"
     });
 
-    // utility policy scores EXPAND > WAIT when a scout frontier exists
-    expect(result.command?.type).toBe("EXPAND");
+    expect(result.command).toBeUndefined();
   });
 
   it("runs the broad fallback (and finds a real target) when the narrow scan sees only a waste-classified neutral", () => {
