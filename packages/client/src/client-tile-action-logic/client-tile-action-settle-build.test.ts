@@ -69,6 +69,17 @@ const richState = (): ReturnType<typeof createInitialState> => {
   state.me = "me";
   state.gold = 10_000;
   state.manpower = 10_000;
+  // A settled town at (0,0) puts (3,3) inside TOWN_REACH_RADIUS (3) --
+  // these tests exercise the settle+build chain, not the reach gate, so
+  // they need the FRONTIER tile they build against to be in reach.
+  state.tiles.set(keyFor(0, 0), {
+    x: 0,
+    y: 0,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
+  } as Tile);
   return state;
 };
 

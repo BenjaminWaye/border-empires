@@ -50,7 +50,11 @@ export const encirclementRemainingMsForTile = (tile: Tile, nowMs = Date.now()): 
 export const isFrontierOriginCutOff = (tile: Tile, nowMs = Date.now()): boolean =>
   encirclementRemainingMsForTile(tile, nowMs) !== undefined;
 
-export const tileMenuHeaderStatusForTile = (tile: Tile, nowMs = Date.now()): TileMenuHeaderStatus | undefined => {
+export const tileMenuHeaderStatusForTile = (
+  tile: Tile,
+  nowMs = Date.now(),
+  isOwnedTileInReach?: (tile: Tile) => boolean
+): TileMenuHeaderStatus | undefined => {
   // Encirclement takes precedence over capture-recovery for the header status.
   const encirclementRemaining = encirclementRemainingMsForTile(tile, nowMs);
   if (encirclementRemaining !== undefined) {
@@ -62,9 +66,23 @@ export const tileMenuHeaderStatusForTile = (tile: Tile, nowMs = Date.now()): Til
   }
 
   const remainingMs = captureRecoveryRemainingMsForTile(tile, nowMs);
-  if (remainingMs === undefined) return undefined;
-  return {
-    text: `Recently captured ${formatHeaderCountdown(remainingMs)}`,
-    tone: "warning"
-  };
+  if (remainingMs !== undefined) {
+    return {
+      text: `Recently captured ${formatHeaderCountdown(remainingMs)}`,
+      tone: "warning"
+    };
+  }
+
+  // Fixed-border reach: settling/building an outpost on this FRONTIER tile
+  // is still blocked until reach catches up, even though EXPAND itself no
+  // longer is -- flag it so the header explains why those actions are
+  // disabled instead of leaving the player to guess.
+  if (tile.ownershipState === "FRONTIER" && isOwnedTileInReach && !isOwnedTileInReach(tile)) {
+    return {
+      text: "Outside reach",
+      tone: "warning"
+    };
+  }
+
+  return undefined;
 };

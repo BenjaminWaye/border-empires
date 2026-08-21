@@ -343,7 +343,11 @@ describe("game domain frontier validation", () => {
       allies: new Set<string>()
     };
 
-    it("rejects EXPAND with OUT_OF_REACH when the target is out of reach via plain adjacency", () => {
+    // EXPAND is no longer reach-gated (only SETTLE and outpost-family builds
+    // still are — see runtime.ts's SETTLE gate and
+    // runtime-structure-command-handlers.ts's OUT_OF_REACH build gate), so
+    // these three now assert success even with isInReach: false.
+    it("allows EXPAND out of reach via plain adjacency", () => {
       const result = validateFrontierCommand({
         now: 1_000,
         actor,
@@ -359,10 +363,10 @@ describe("game domain frontier validation", () => {
         isInReach: false
       });
 
-      expect(result).toMatchObject({ ok: false, code: "OUT_OF_REACH" });
+      expect(result).toMatchObject({ ok: true });
     });
 
-    it("rejects EXPAND with OUT_OF_REACH when the target is out of reach via a dock crossing", () => {
+    it("allows EXPAND out of reach via a dock crossing", () => {
       const result = validateFrontierCommand({
         now: 1_000,
         actor,
@@ -378,10 +382,10 @@ describe("game domain frontier validation", () => {
         isInReach: false
       });
 
-      expect(result).toMatchObject({ ok: false, code: "OUT_OF_REACH" });
+      expect(result).toMatchObject({ ok: true });
     });
 
-    it("rejects EXPAND with OUT_OF_REACH when the target is out of reach via an aether bridge", () => {
+    it("allows EXPAND out of reach via an aether bridge", () => {
       const result = validateFrontierCommand({
         now: 1_000,
         actor,
@@ -397,7 +401,7 @@ describe("game domain frontier validation", () => {
         isInReach: false
       });
 
-      expect(result).toMatchObject({ ok: false, code: "OUT_OF_REACH" });
+      expect(result).toMatchObject({ ok: true });
     });
 
     it("allows EXPAND when the target is in reach", () => {

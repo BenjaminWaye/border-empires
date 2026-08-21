@@ -41,6 +41,8 @@ export type RuntimeStructureCommandContext = {
   strategicResourceAmount: (player: DomainPlayer, resource: StrategicResourceKey) => number;
   spendStrategicResource: (player: DomainPlayer, resource: StrategicResourceKey, amount: number) => boolean;
   ownedStructureCountForPlayer: (playerId: string, type: BuildableStructureType) => number;
+  // Fixed-border reach: gates a FRONTIER build target the same way SETTLE does (outposts skip the SETTLED requirement below).
+  isPlayerTileInReach: (playerId: string, x: number, y: number) => boolean;
   // §5 (resource slots): the player's current global slot supply/demand
   // pool (§5.6 v1 scope). Demand includes the structure this command would
   // replace on the SAME tile field (upgrades overwrite it synchronously —
@@ -359,6 +361,11 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   }
   if ((spec.kind !== "OUTPOST" || structureType === "RELAY_BEACON") && target.ownershipState !== "SETTLED") {
     rejectCommand(context, command, "BUILD_INVALID", "tile must be settled");
+    return;
+  }
+  // Outposts skip SETTLED above; a FRONTIER target must still be in reach (no-op once settled — settled tiles are always already inside the border).
+  if (target.ownershipState !== "SETTLED" && !context.isPlayerTileInReach(command.playerId, target.x, target.y)) {
+    rejectCommand(context, command, "OUT_OF_REACH", "target is outside your reach");
     return;
   }
 
