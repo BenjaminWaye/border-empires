@@ -190,13 +190,6 @@ const render = (args: Args): HTMLElement => {
 
   overlay.clearPylons();
   overlay.clearTileOverlays();
-  // Out-of-reach dimming: any tile visible-but-unreachable from MY
-  // perspective (the enemy's inner tiles, from my point of view).
-  for (const tile of tiles.values()) {
-    if (tile.ownerId === ENEMY && !myReach.has(keyFor(tile.x, tile.y))) {
-      overlay.addOutOfReachTile(tile.x - ORIGIN_X, tile.y - ORIGIN_Y, 0, 1);
-    }
-  }
   addEmpireBoundary(ME, myReach);
   addEmpireBoundary(ENEMY, enemyReach);
   overlay.commitPylons();
@@ -250,7 +243,7 @@ const TRANSITION_TOWN = { x: 13, y: 13 };
 // single radius: most of the loop stays idle while only the affected
 // stretch retires/arrives.
 const TRANSITION_BEACON = { x: TRANSITION_TOWN.x + 3, y: TRANSITION_TOWN.y };
-const TRANSITION_TOGGLE_INTERVAL_MS = 3500;
+const TRANSITION_TOGGLE_INTERVAL_MS = 6500;
 
 // computeLocalReachSet derives reach purely from real anchors (town/
 // outpost/dock radii) -- NOT from however far land happens to be marked

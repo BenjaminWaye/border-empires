@@ -144,3 +144,17 @@ export const needVectorFromPlannerInput = <TTile extends AutomationPlannerTile>(
     victoryPathProgress: locals.victoryPathProgress
   });
 };
+
+/**
+ * Same as needVectorFromPlannerInput, but for scoring chooseBestEconomicBuild's
+ * catalog candidates (economic-structure-catalog.ts) at the point in
+ * planAutomationCommand where builds are chosen — BEFORE the strategic
+ * snapshot (which the real victoryPathProgress depends on) has been computed
+ * this tick. None of the catalog's entries score against VICTORY, so a
+ * placeholder 0 here is exact, not approximate, for every value this caller
+ * actually reads.
+ */
+export const buildScoringNeedVectorFromPlannerInput = <TTile extends AutomationPlannerTile>(
+  input: AutomationPlannerInput<TTile>,
+  locals: { settledTileCount: number; incomePerMinute: number; frontierEnemyTargetCount: number }
+): NeedVector | undefined => needVectorFromPlannerInput(input, { ...locals, victoryPathProgress: 0 });

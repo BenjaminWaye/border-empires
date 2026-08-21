@@ -1,4 +1,5 @@
 import { DOUBLE_TAP_ZOOM_STEP, MAX_ZOOM, MIN_ZOOM } from "../client-constants.js";
+import { deltaYInPixels, zoomStepFor } from "../client-map-zoom-step/client-map-zoom-step.js";
 import type { initClientDom } from "../client-dom.js";
 import { computeMiniMapViewBox } from "../client-minimap-view-box.js";
 import { effectiveFogDisabled } from "../client-map-reveal/client-map-reveal.js";
@@ -69,6 +70,11 @@ export const isDoubleTap = (args: {
 
 export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputDeps): void => {
   const worldTileFromPointer = (offsetX: number, offsetY: number): { wx: number; wy: number } => {
+    // A wheel-driven zoom is deferred up to one frame (see flushPendingWheelZoom
+    // below); flush it before hit-testing so a click right after a scroll
+    // gesture can't land against a stale zoom level while the screen already
+    // shows the new one.
+    flushPendingWheelZoom();
     const raw = deps.worldTileRawFromPointer(offsetX, offsetY);
     return { wx: deps.wrapX(raw.gx), wy: deps.wrapY(raw.gy) };
   };
@@ -145,9 +151,40 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
   const TOUCH_TAP_MAX_MOVE_PX = 12;
   const MOUSE_PAN_THRESHOLD_PX = 4;
 
+  // Wheel deltas are converted to pixels and accumulated, then applied once
+  // per animation frame. A trackpad fires wheel events well above 60Hz
+  // (measured ~2.6 per frame mid-gesture), and every distinct `state.zoom`
+  // write is a potential terrain rebuild in the 3D renderer — coalescing to
+  // one write per frame drops the redundant ones without changing how far
+  // the gesture travels. Converting to pixels before accumulating (rather
+  // than summing raw deltaY and converting once) means a mid-gesture
+  // deltaMode change, however unlikely, can't misconvert the events that
+  // preceded it.
+  let pendingWheelPixels = 0;
+  let wheelFrame: number | undefined;
+
+  const applyPendingWheelZoom = (): void => {
+    wheelFrame = undefined;
+    const pixels = pendingWheelPixels;
+    pendingWheelPixels = 0;
+    if (pixels === 0) return;
+    state.zoom = zoomStepFor({ zoom: state.zoom, deltaY: pixels, deltaMode: 0, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM });
+  };
+
+  // A wheel-driven zoom is deferred up to one frame (above); flush it before
+  // any hit-testing (tile selection, drag-pan start) that reads state.zoom,
+  // so a click right after a scroll gesture can't land against a stale zoom
+  // level while the screen already shows the new one.
+  const flushPendingWheelZoom = (): void => {
+    if (wheelFrame === undefined) return;
+    cancelAnimationFrame(wheelFrame);
+    applyPendingWheelZoom();
+  };
+
   deps.canvas.addEventListener("wheel", (ev) => {
     ev.preventDefault();
-    state.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, state.zoom + (ev.deltaY > 0 ? -1 : 1)));
+    pendingWheelPixels += deltaYInPixels(ev.deltaY, ev.deltaMode);
+    if (wheelFrame === undefined) wheelFrame = requestAnimationFrame(applyPendingWheelZoom);
   });
 
   window.addEventListener("keydown", (ev) => {
@@ -184,6 +221,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
 
   deps.canvas.addEventListener("mousedown", (ev) => {
     if (ev.button !== 0) return;
+    flushPendingWheelZoom();
     dragActive = true;
     mousePanMoved = false;
     boxSelectionMode = ev.shiftKey;
@@ -335,7 +373,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         if (!a || !b) return;
         const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const factor = d / Math.max(1, pinchStart.distance);
-        state.zoom = Math.max(12, Math.min(MAX_ZOOM, Math.round(pinchStart.zoom * factor)));
+        state.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(pinchStart.zoom * factor)));
       }
     },
     { passive: true }

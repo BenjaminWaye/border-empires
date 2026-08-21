@@ -923,11 +923,11 @@ describe("menuOverviewForTile", () => {
           completesAt: Date.now() + 1 // effectively fully elapsed -> minimal price
         }
       },
-      () => "0:00"
+      () => "0:00", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }
     );
 
     expect(progress?.rushBuyActionId).toBe("rush_buy");
-    expect(progress?.rushBuyLabel).toMatch(/^⏩ 🪙\d+$/);
+    expect(progress?.rushBuyLabel).toMatch(/^⏩ 💰\d+$/);
   });
 
   it("omits a rush-buy label for removal progress (only in-progress builds can be rushed)", () => {
@@ -941,7 +941,7 @@ describe("menuOverviewForTile", () => {
           completesAt: Date.now() + 45_000
         }
       },
-      () => "0:45"
+      () => "0:45", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }
     );
 
     expect(progress?.rushBuyLabel).toBeUndefined();
@@ -958,7 +958,7 @@ describe("menuOverviewForTile", () => {
           completesAt: Date.now() + 45_000
         }
       },
-      () => "0:45"
+      () => "0:45", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }
     );
 
     expect(progress?.title).toBe("Removing Relay Beacon");
@@ -982,7 +982,7 @@ describe("menuOverviewForTile", () => {
           completesAt: Date.now() + 5 * 60_000
         }
       },
-      () => "5:00"
+      () => "5:00", { hasQuickforge: false, wonderLastFreeRushBuyAt: 0, nowMs: Date.now() }
     );
 
     expect(progress?.title).toBe("Removing Fort");

@@ -131,6 +131,31 @@ describe("recordAiDecisionDiagnosticFromPlanner — economicBuildCandidate", () 
   });
 });
 
+// Same allowlist-mapping regression as economicBuildCandidate above, for the
+// reach-consideration work's relayBeaconSiteValue.
+describe("recordAiDecisionDiagnosticFromPlanner — relayBeaconBuildCandidate / relayBeaconSiteValue", () => {
+  it("carries the picked beacon site and its value through from the planner diagnostic", () => {
+    recordAiDecisionDiagnosticFromPlanner(
+      baseDiagnostic({
+        playerId: "ai-decision-diag-test-beacon-1",
+        relayBeaconBuildCandidate: "12,7",
+        relayBeaconSiteValue: 16
+      })
+    );
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-beacon-1");
+    expect(recorded).toMatchObject({ relayBeaconBuildCandidate: "12,7", relayBeaconSiteValue: 16 });
+  });
+
+  it("is undefined when the planner diagnostic has no beacon candidate", () => {
+    recordAiDecisionDiagnosticFromPlanner(baseDiagnostic({ playerId: "ai-decision-diag-test-beacon-2" }));
+
+    const [recorded] = getAiDecisionDiagnostics("ai-decision-diag-test-beacon-2");
+    expect(recorded.relayBeaconBuildCandidate).toBeUndefined();
+    expect(recorded.relayBeaconSiteValue).toBeUndefined();
+  });
+});
+
 // Same allowlist-mapping regression as economicBuildCandidate above, for
 // Phase 1's needVector (docs/ai-structure-building-rewrite-plan.md §9/§10.1).
 describe("recordAiDecisionDiagnosticFromPlanner — needVector", () => {

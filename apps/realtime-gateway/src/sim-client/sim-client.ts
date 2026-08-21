@@ -57,8 +57,8 @@ type ProtoTileDelta = {
   ownershipState?: string;
   frontier_decay_at?: number;
   frontierDecayAt?: number;
-  frontier_decay_kind?: "NATURAL" | "ENCIRCLEMENT";
-  frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT";
+  frontier_decay_kind?: "ENCIRCLEMENT";
+  frontierDecayKind?: "ENCIRCLEMENT";
   breach_shock_until?: number;
   breachShockUntil?: number;
   town_json?: string;
@@ -321,7 +321,7 @@ export type SimulationClientEvent =
         ownerId?: string | undefined;
         ownershipState?: string | undefined;
         frontierDecayAt?: number | undefined;
-        frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+        frontierDecayKind?: "ENCIRCLEMENT" | undefined;
         breachShockUntil?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
@@ -414,7 +414,7 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   }
   if ("frontier_decay_kind" in tile || "frontierDecayKind" in tile) {
     const frontierDecayKind = tile.frontier_decay_kind ?? tile.frontierDecayKind;
-    normalized.frontierDecayKind = frontierDecayKind === "NATURAL" || frontierDecayKind === "ENCIRCLEMENT" ? frontierDecayKind : undefined;
+    normalized.frontierDecayKind = frontierDecayKind === "ENCIRCLEMENT" ? frontierDecayKind : undefined;
   }
   if ("breach_shock_until" in tile || "breachShockUntil" in tile) {
     const breachShockUntil = tile.breach_shock_until ?? tile.breachShockUntil;

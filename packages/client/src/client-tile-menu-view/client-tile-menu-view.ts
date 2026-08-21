@@ -3,7 +3,6 @@ import {
   FORT_TIER_LADDER,
   MUSTER_ATTACK_COST,
   OBSERVATORY_BUILD_MS,
-  rushBuyPriceGold,
   SIEGE_OUTPOST_BUILD_MS,
   SIEGE_TIER_LADDER,
   nextFortTierForUpgrade,
@@ -16,13 +15,15 @@ import {
   type SlotStructureType
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
+import { rushBuyLabel, type QuickforgeRushBuyContext } from "./client-tile-menu-quickforge-rush-buy.js";
 import { converterModeLockLine, converterModeStatusLine, isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
 import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
-import { captureRecoveryRemainingMsForTile, isFrontierNaturallyDecaying, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
+import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
+import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js"; import { keyForTile } from "../client-app-runtime-utils.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
@@ -79,15 +80,10 @@ export const tileProductionRequirementLabel = (tile: Tile, prettyToken: (value: 
   return undefined;
 };
 
-// §6.3 rush-buy: "⏩🪙N" preview label for finishing this in-progress action
-// right now. Client-side estimate only — the server (rushBuyPriceGold, same
-// formula) computes and enforces the real charge at command time.
-const rushBuyLabel = (remainingMs: number, totalMs: number, manpowerCost: number): string =>
-  `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, manpowerCost)}`;
-
 export const constructionProgressForTile = (
   tile: Tile,
-  formatCountdownClock: (ms: number) => string
+  formatCountdownClock: (ms: number) => string,
+  quickforge: QuickforgeRushBuyContext
 ): TileMenuProgressView | undefined => {
   const nowMs = Date.now();
   if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
@@ -99,7 +95,7 @@ export const constructionProgressForTile = (
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, FORT_BUILD_MS, FORT_TIER_LADDER[tile.fort.variant ?? "FORT"].manpower),
+      rushBuyLabel: rushBuyLabel(remaining, FORT_BUILD_MS, FORT_TIER_LADDER[tile.fort.variant ?? "FORT"].manpower, quickforge),
       rushBuyActionId: "rush_buy"
     };
   }
@@ -123,7 +119,7 @@ export const constructionProgressForTile = (
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, OBSERVATORY_BUILD_MS, structureBuildManpowerCost("OBSERVATORY")),
+      rushBuyLabel: rushBuyLabel(remaining, OBSERVATORY_BUILD_MS, structureBuildManpowerCost("OBSERVATORY"), quickforge),
       rushBuyActionId: "rush_buy"
     };
   }
@@ -147,7 +143,7 @@ export const constructionProgressForTile = (
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, SIEGE_OUTPOST_BUILD_MS, SIEGE_TIER_LADDER[tile.siegeOutpost.variant ?? "SIEGE_OUTPOST"].manpower),
+      rushBuyLabel: rushBuyLabel(remaining, SIEGE_OUTPOST_BUILD_MS, SIEGE_TIER_LADDER[tile.siegeOutpost.variant ?? "SIEGE_OUTPOST"].manpower, quickforge),
       rushBuyActionId: "rush_buy"
     };
   }
@@ -172,7 +168,7 @@ export const constructionProgressForTile = (
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, buildMs))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, buildMs, structureBuildManpowerCost(tile.economicStructure.type)),
+      rushBuyLabel: rushBuyLabel(remaining, buildMs, structureBuildManpowerCost(tile.economicStructure.type), quickforge),
       rushBuyActionId: "rush_buy"
     };
   }
@@ -293,8 +289,7 @@ export const menuOverviewForTile = (
     productionLabel,
     resourceLabel: resourceLabelText,
     isDockEndpoint: Boolean(tile.dockId),
-    hasTown: Boolean(tile.town),
-    isDecaying: isFrontierNaturallyDecaying(tile)
+    hasTown: Boolean(tile.town)
   }).forEach(pushLine);
   if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
@@ -596,7 +591,7 @@ export const tileMenuViewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined;
-    state: { me: string };
+    state: { me: string } & Partial<ReachAuthoritativeState>;
     /**
      * True when this tile is the target of the player's own in-progress
      * frontier expansion — not owned yet, but about to be. Actions/tabs are
@@ -665,8 +660,7 @@ export const tileMenuViewForTile = (
         : tile.resource
           ? deps.prettyToken(resourceLabel(tile.resource))
           : deps.terrainLabel(tile.x, tile.y, tile.terrain);
-  const headerStatus = tileMenuHeaderStatusForTile(tile);
-  return {
+  const reachState = deps.state; const headerStatus = tile.ownerId === reachState.me && reachState.tiles ? tileMenuHeaderStatusForTile(tile, Date.now(), (t) => authoritativeIsInReach(reachState as ReachAuthoritativeState, keyForTile)(t.x, t.y)) : tileMenuHeaderStatusForTile(tile); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
     ...(subtitleHtml ? { subtitleHtml } : {}),

@@ -1,0 +1,134 @@
+import { describe, expect, it } from "vitest";
+import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { SimulationRuntime } from "./runtime.js";
+
+type Seen = { eventType: string; commandId: string; playerId: string; code?: string };
+
+// Regression coverage for the "Build Relay Beacon logout" bug: a composite
+// settle(+build) order that used to live purely in client-side in-memory
+// bookkeeping (autoSettleTargets/autoBuildTargets + the client tick loop)
+// now also registers server-side (CLAIM_CONTINUATION_SET), so it completes
+// even if the player disconnects and never calls the client tick loop again.
+describe("claim continuation (server-durable settle+build tail)", () => {
+  it("drives SETTLE then BUILD to completion purely from the server after a winning EXPAND lands -- no client tick loop involved", async () => {
+    const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      scheduleAfter: (delayMs, task) => {
+        scheduledTasks.push({ delayMs, task });
+      },
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
+          { x: 11, y: 10, terrain: "LAND" } // unowned frontier target of the EXPAND
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: Seen[] = [];
+    runtime.onEvent((event) => seen.push(event as SimulationEvent as unknown as Seen));
+
+    // 1. Click "Build Relay Beacon" on the unclaimed tile -- fires EXPAND immediately...
+    runtime.submitCommand({
+      commandId: "expand-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 10, fromY: 10, toX: 11, toY: 10 })
+    });
+    // ...and registers the server-durable continuation alongside it.
+    runtime.submitCommand({
+      commandId: "claim-continuation-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_000,
+      type: "CLAIM_CONTINUATION_SET",
+      payloadJson: JSON.stringify({ x: 11, y: 10, structureType: "RELAY_BEACON" })
+    });
+    await Promise.resolve();
+
+    expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "claim-continuation-1" }));
+
+    // 2. Player disconnects right here -- nothing further is sent from a
+    // client, and the client's own tick loop (processAutoSettleTargets /
+    // processAutoBuildTargets) is never called again in this test. Only the
+    // scheduled server-side lock-resolution task below drives the rest.
+    const expandResolution = scheduledTasks.find((t) => t.delayMs > 0);
+    expect(expandResolution).toBeDefined();
+    expandResolution!.task();
+    await Promise.resolve();
+
+    expect(runtime.exportState().tiles).toContainEqual(
+      expect.objectContaining({ x: 11, y: 10, ownerId: "player-1", ownershipState: "FRONTIER" })
+    );
+
+    // 3. The EXPAND landing should have queued (and, since a dev slot was
+    // free, immediately dispatched) the SETTLE -- find and fire its
+    // scheduled completion, again with no client involvement.
+    const settleResolution = scheduledTasks.find((t) => t.delayMs === 60_000);
+    expect(settleResolution).toBeDefined();
+    settleResolution!.task();
+    await Promise.resolve();
+
+    expect(runtime.exportState().tiles).toContainEqual(
+      expect.objectContaining({ x: 11, y: 10, ownerId: "player-1", ownershipState: "SETTLED" })
+    );
+
+    // 4. The BUILD should have followed automatically once SETTLE completed
+    // -- structure construction started, purely server-driven throughout.
+    const builtTile = runtime.exportState().tiles.find((t) => t.x === 11 && t.y === 10);
+    expect(builtTile?.economicStructureJson).toBeTruthy();
+    expect(JSON.parse(builtTile!.economicStructureJson!)).toEqual(
+      expect.objectContaining({ type: "RELAY_BEACON", ownerId: "player-1" })
+    );
+  });
+
+  it("drives SETTLE then BUILD immediately when the tile is already owned+FRONTIER (no EXPAND in flight)", async () => {
+    const scheduledTasks: Array<{ delayMs: number; task: () => void }> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      scheduleAfter: (delayMs, task) => {
+        scheduledTasks.push({ delayMs, task });
+      },
+      initialState: {
+        tiles: [
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: Seen[] = [];
+    runtime.onEvent((event) => seen.push(event as SimulationEvent as unknown as Seen));
+
+    runtime.submitCommand({
+      commandId: "claim-continuation-owned",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "CLAIM_CONTINUATION_SET",
+      payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "RELAY_BEACON" })
+    });
+    await Promise.resolve();
+
+    expect(seen).toContainEqual(expect.objectContaining({ eventType: "COMMAND_RESOLVED", commandId: "claim-continuation-owned" }));
+
+    const settleResolution = scheduledTasks.find((t) => t.delayMs === 60_000);
+    expect(settleResolution).toBeDefined();
+    settleResolution!.task();
+    await Promise.resolve();
+
+    expect(runtime.exportState().tiles).toContainEqual(
+      expect.objectContaining({ x: 10, y: 10, ownerId: "player-1", ownershipState: "SETTLED" })
+    );
+    const settledTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(settledTile?.economicStructureJson).toBeTruthy();
+    expect(JSON.parse(settledTile!.economicStructureJson!)).toEqual(
+      expect.objectContaining({ type: "RELAY_BEACON", ownerId: "player-1" })
+    );
+  });
+});

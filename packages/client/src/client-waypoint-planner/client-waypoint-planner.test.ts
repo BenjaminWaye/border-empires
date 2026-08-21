@@ -468,15 +468,15 @@ describe("planWaypoint — reach-aware routing (deps.isInReach)", () => {
     return tiles;
   };
 
-  it("blocks the plan when the FINAL target itself is outside reach, even though a physical path exists", () => {
+  it("still reaches a NEUTRAL target outside reach -- EXPAND-only chains are no longer reach-pruned (EXPAND itself isn't reach-gated server-side any more)", () => {
     const state = stateWith(openGrid({ x: 0, y: 0 }));
     const deps: WaypointPlannerDeps = {
       ...baseDeps(state),
       isInReach: (x, y) => x <= 2 // (3,0) is one step past the reach edge
     };
     const plan = planWaypoint({ x: 3, y: 0 }, deps);
-    expect(plan.reachable).toBe(false);
-    expect(plan.blockReason).toBe("NO_PATH");
+    expect(plan.reachable).toBe(true);
+    for (const step of plan.steps) expect(step.action).toBe("EXPAND");
   });
 
   it("still reaches an in-reach target when isInReach permits it", () => {

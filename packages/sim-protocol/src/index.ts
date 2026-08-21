@@ -102,10 +102,16 @@ export type AdminPlayerRow = {
   incomePerMinute: number;
   techs: number;
   manpower: number;
-  food: number;
-  titanium: number;
-  crystal: number;
-  umbrite: number;
+  /**
+   * FOOD/TITANIUM/CRYSTAL/UMBRITE run on the resource-slots pillar
+   * (docs/manpower-economy-rewrite-plan.md §5): supply from settled resource
+   * tiles vs. demand occupied by existing structures, not a spendable
+   * stockpile — there is no banked quantity to report for these.
+   */
+  resourceSlotSupply: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number };
+  resourceSlotDemand: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number };
+  /** SHARD is the one strategic resource still a real banked stockpile. */
+  shardStockpile: number;
   /** Persistent reach-border tile count granted to this player (see packages/shared/src/reach/reach.ts). */
   reachTiles: number;
   /** ownedTiles - settledTiles, i.e. FRONTIER-state tiles this player owns. */
@@ -347,6 +353,12 @@ export type PlayerSubscriptionSnapshot = {
     // itself is communicated via a one-off IMPERIAL_WARD_ACTIVATED player
     // message, not this snapshot field (same convention as Aegis Lock).
     imperialWardCharges?: number;
+    // Quickforge wonder: ms timestamp of this player's last discounted
+    // rush-buy (0/absent = never used this UTC day). Sent purely so the
+    // client's rush-buy price preview can replicate the server's exact
+    // once-per-UTC-day discount gate (quickforgeAdjustedRushPrice in
+    // @border-empires/shared) — the server remains authoritative on price.
+    wonderLastFreeRushBuyAt?: number;
     // §20: durable "what happened while I was away" feed — distinct from the
     // ephemeral PLAYER_MESSAGE toast. Most-recent-last on the wire (matches
     // the server's append order); the client reverses for most-recent-first
@@ -370,7 +382,7 @@ export type PlayerSubscriptionSnapshot = {
     ownerId?: string | undefined;
     ownershipState?: string | undefined;
     frontierDecayAt?: number | undefined;
-    frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+    frontierDecayKind?: "ENCIRCLEMENT" | undefined;
     breachShockUntil?: number | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";

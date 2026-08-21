@@ -38,6 +38,13 @@ export type ReachAnchor = {
   /** Event-ordering timestamp. Used only to order processing deterministically. */
   activatedAt: number;
   kind: ReachAnchorKind;
+  /**
+   * Overrides reachRadiusForKind's kind-based radius for this specific
+   * anchor instance. Used by the Aether Bridge landing grant, which reuses
+   * "OUTPOST" kind semantics (a one-shot grant, not a persistent structure)
+   * but at a smaller radius than OUTPOST_REACH_RADIUS.
+   */
+  radiusOverride?: number;
 };
 
 export const reachRadiusForKind = (kind: ReachAnchorKind): number => {
@@ -45,6 +52,9 @@ export const reachRadiusForKind = (kind: ReachAnchorKind): number => {
   if (kind === "DOCK") return DOCK_REACH_RADIUS;
   return OUTPOST_REACH_RADIUS; // OUTPOST: RELAY_BEACON, SIEGE_OUTPOST, SIEGE_TOWER, DREAD_TOWER
 };
+
+export const reachRadiusForAnchor = (anchor: ReachAnchor): number =>
+  anchor.radiusOverride ?? reachRadiusForKind(anchor.kind);
 
 export const wrapCoord = (v: number, size: number): number => ((v % size) + size) % size;
 
@@ -65,7 +75,7 @@ export const chebyshevWithWrap = (ax: number, ay: number, bx: number, by: number
  * world grid, so cost is O(radius²) per anchor regardless of world size.
  */
 export const tileKeysInReach = (anchor: ReachAnchor): string[] => {
-  const radius = reachRadiusForKind(anchor.kind);
+  const radius = reachRadiusForAnchor(anchor);
   const keys: string[] = [];
   for (let dy = -radius; dy <= radius; dy += 1) {
     for (let dx = -radius; dx <= radius; dx += 1) {

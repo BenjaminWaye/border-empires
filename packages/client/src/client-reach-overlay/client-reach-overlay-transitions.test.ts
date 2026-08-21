@@ -280,4 +280,20 @@ describe("diffTransitions", () => {
       expect(soonAfterCap.get("k39")!.riseFraction).toBeGreaterThan(0);
     });
   });
+
+  // Regression: callers (client-map-3d.ts's renderReachOverlay3DPylons) must
+  // only pass animateInitial: false on the very first diff of a session --
+  // if a caller instead passed `false` on EVERY call (the historical bug),
+  // a pylon that expands into reach mid-game would pop straight to idle
+  // (fully risen, laser on) instead of animating in, even though retirement
+  // animation kept working fine. This locks in the correct one-shot pattern.
+  it("a key added on a LATER call still arrives animated even when the first call used animateInitial: false", () => {
+    const tracker = createTransitionTracker<Point>();
+    diffTransitions(new Map([["a", { x: 0, y: 0 }]]), tracker, 0, { animateInitial: false });
+    const out = diffTransitions(new Map([["a", { x: 0, y: 0 }], ["b", { x: 1, y: 1 }]]), tracker, 10, { animateInitial: true });
+    expect(out.get("a")).toEqual({ x: 0, y: 0, riseFraction: 1, laserFraction: 1 }); // untouched, still idle
+    const arriving = out.get("b")!;
+    expect(arriving.riseFraction).toBe(0); // newly-added key rises in, doesn't pop to idle
+    expect(arriving.laserFraction).toBe(0);
+  });
 });

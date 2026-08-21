@@ -2,7 +2,7 @@ import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, 
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
-import { computeLocalReachSet, localReachIsInReach } from "./client-reach-overlay/client-reach-overlay.js";
+import { authoritativeIsInReach, resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
@@ -126,6 +126,8 @@ import {
   tileMenuViewForTile as tileMenuViewForTileFromModule,
   tileProductionRequirementLabel as tileProductionRequirementLabelFromModule
 } from "./client-tile-menu-view/client-tile-menu-view.js";
+import { quickforgeRushBuyContextForState } from "./client-tile-menu-view/client-tile-menu-quickforge-rush-buy.js";
+import { constructionRemainingMsForTile } from "./client-construction-remaining-ms/client-construction-remaining-ms.js";
 import {
   queuedBuildProgressForTile as queuedBuildProgressForTileFromModule,
   queuedSettlementProgressForTile as queuedSettlementProgressForTileFromModule,
@@ -576,8 +578,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       hideTileActionMenu();
       return;
     }
-    state.autoSettleTargets.add(targetKey);
-    state.autoBuildTargets.set(targetKey, structureType);
+    state.autoSettleTargets.add(targetKey); state.autoBuildTargets.set(targetKey, structureType);
+    sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType }); // server-durable continuation, see runtime-claim-continuation-command-handlers.ts
     pushFeed(
       isActiveCaptureTarget
         ? `Queued settle + build ${structureDisplayLabel(structureType)} at (${selected.x}, ${selected.y}) — starts once the expansion completes.`
@@ -684,7 +686,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
         breachShockUntil?: number;
         frontierDecayAt?: number | null;
-        frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | null;
+        frontierDecayKind?: "ENCIRCLEMENT" | null;
       }>) ??
       [];
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
@@ -706,7 +708,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       else if ("breachShockUntil" in c && !c.breachShockUntil) delete incoming.breachShockUntil;
       if (typeof c.frontierDecayAt === "number") incoming.frontierDecayAt = c.frontierDecayAt;
       else if ("frontierDecayAt" in c && !c.frontierDecayAt) delete incoming.frontierDecayAt;
-      if (c.frontierDecayKind === "NATURAL" || c.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = c.frontierDecayKind;
+      if (c.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = c.frontierDecayKind;
       else if ("frontierDecayKind" in c && !c.frontierDecayKind) delete incoming.frontierDecayKind;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
@@ -946,27 +948,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   const constructionCountdownLineForTile = (tile: Tile): string =>
     constructionCountdownLineForTileFromModule(tile, formatCountdownClock, deps.economicStructureName);
 
-  const constructionRemainingMsForTile = (tile: Tile): number | undefined => {
-    const completesAt =
-      tile.fort?.status === "under_construction" || tile.fort?.status === "removing"
-        ? tile.fort.completesAt
-        : tile.observatory?.status === "under_construction" || tile.observatory?.status === "removing"
-          ? tile.observatory.completesAt
-          : tile.siegeOutpost?.status === "under_construction" || tile.siegeOutpost?.status === "removing"
-            ? tile.siegeOutpost.completesAt
-            : tile.economicStructure?.status === "under_construction" || tile.economicStructure?.status === "removing"
-              ? tile.economicStructure.completesAt
-              : undefined;
-    return typeof completesAt === "number" ? Math.max(0, completesAt - Date.now()) : undefined;
-  };
-
   const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined =>
     buildDetailTextForActionFromModule(actionId, tile, supportedTown);
 
   const tileProductionRequirementLabel = (tile: Tile): string | undefined => tileProductionRequirementLabelFromModule(tile, prettyToken);
 
   const constructionProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
-    constructionProgressForTileFromModule(tile, formatCountdownClock);
+    constructionProgressForTileFromModule(tile, formatCountdownClock, quickforgeRushBuyContextForState(state));
 
   const queuedSettlementProgressForTile = (tile: Tile): TileMenuProgressView | undefined =>
     queuedSettlementProgressForTileFromModule(tile, {
@@ -1089,7 +1077,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       note: "This tile will become frontier territory.",
       cancelLabel: "Cancel expansion",
       cancelActionId: "cancel_capture" as const,
-      rushBuyLabel: `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST)}`,
+      rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, EXPAND_MANPOWER_COST)}`,
       rushBuyActionId: "rush_buy" as const
     };
   };
@@ -1125,7 +1113,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
             : {
                 cancelLabel: "Cancel settlement",
                 cancelActionId: "cancel_settle" as const,
-                rushBuyLabel: `⏩ 🪙${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
+                rushBuyLabel: `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, SETTLE_MANPOWER_COST)}`,
                 rushBuyActionId: "rush_buy" as const
               })
         };
@@ -1487,7 +1475,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       if (selected && !selected.ownerId) {
         const plan = planWaypoint(
           { x: selected.x, y: selected.y },
-          { state, keyFor, isInReach: localReachIsInReach(state.tiles, state.me, keyFor) }
+          { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) }
         );
         if (!plan.reachable) {
           showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Relay Beacon unreachable", "No expansion path to that tile.");
@@ -1500,8 +1488,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           state.waypoint.push({ target: { x: selected.x, y: selected.y }, plan });
           persistWaypointQueueForPlayer(state.me, state.waypoint);
           sendGameMessage(waypointEnqueueWirePayload({ x: selected.x, y: selected.y }));
-          state.autoSettleTargets.add(targetKey);
-          state.autoBuildTargets.set(targetKey, "RELAY_BEACON");
+          state.autoSettleTargets.add(targetKey); state.autoBuildTargets.set(targetKey, "RELAY_BEACON");
+          sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType: "RELAY_BEACON" }); // server-durable continuation, see handleBuildAction above
           processActionQueue();
         }
       }
@@ -1747,7 +1735,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // richer "Build Relay Beacon" (expand+settle+build) choice -- which only
     // ever appears inside that menu -- actually has a chance to be seen.
     const isTargetInLocalReach = (x: number, y: number): boolean =>
-      computeLocalReachSet(state.tiles, state.me).has(keyFor(x, y));
+      resolveMyReach(state).has(keyFor(x, y));
     // Shared with the "visible" neutral-adjacent click path below: claims an
     // adjacent-reachable tile immediately instead of opening a menu. Lifted
     // out so fogged/unexplored tiles adjacent to owned territory can also
