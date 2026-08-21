@@ -164,7 +164,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // on ClientState since the 2D path guards its own state.myReach update
   // with !isTrue3DRendererActive() and only one renderer is ever active.
   let reach3DCache: Set<string> | undefined;
-  let reach3DCacheRevision = -1;
+  let reach3DCacheRevision = "";
   // Sparse pylon placement points + connecting chords, sampled from the
   // traced reach-boundary perimeter (see client-reach-overlay.ts's
   // traceReachBoundaryEdgeLoops/samplePerimeterPylons). Recomputed only when
@@ -1388,7 +1388,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const reach3DActive = isTrue3DRendererActive();
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
     if (reach3DActive) {
-      const reach3DKey = deps.state.tilesRevision + deps.state.serverReachRevision * 1e6; // serverReachRevision: repaint on REACH_UPDATE alone
+      const reach3DKey = `${deps.state.tilesRevision}:${deps.state.serverReachRevision}`; // string key avoids arithmetic collisions
       if (reach3DCacheRevision !== reach3DKey) {
         // Land-only: reach is a purely geometric radius (no terrain
         // awareness), so a coastal anchor's disk legitimately extends over
@@ -1405,7 +1405,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       }
     } else {
       reach3DCache = undefined;
-      reach3DCacheRevision = -1;
+      reach3DCacheRevision = "";
       reach3DPylons = []; reach3DSegments = []; otherOwnersPylons = []; otherOwnersSegments = [];
     }
 

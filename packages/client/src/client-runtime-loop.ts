@@ -264,10 +264,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
       dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
     }
-    // Reach overlay: recompute only when the tile set has actually changed
-    // (tilesRevision bump), not every frame. The key mixes in
-    // serverReachRevision so a REACH_UPDATE with no tile change still repaints.
-    const reachCacheKey = state.tilesRevision + state.serverReachRevision * 1e6;
+    // Reach overlay: recompute only when tiles or server reach actually
+    // changed. String key (not tilesRevision + serverReachRevision * 1e6) to
+    // avoid collisions once tilesRevision outgrows the multiplier.
+    const reachCacheKey = `${state.tilesRevision}:${state.serverReachRevision}`;
     if (!isTrue3DRendererActive() && state.myReachRevisionAtCompute !== reachCacheKey) {
       state.myReach = resolveMyReach(state);
       state.myReachRevisionAtCompute = reachCacheKey;

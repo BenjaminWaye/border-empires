@@ -54,6 +54,28 @@ describe("authoritative reach on the client", () => {
     expect(state.serverReach).toBeUndefined();
   });
 
+  it("rejects a missing or invalid revision instead of defaulting it", () => {
+    // A default of 0 used to skip the staleness check outright (0 is never
+    // > 1) and reset serverReachRevision to 0, silently disabling ordering
+    // protection for every later update too.
+    const state = stateWith();
+    expect(applyServerReachUpdate(state, { tileKeys: ["1,1"] })).toBe(false);
+    expect(applyServerReachUpdate(state, { tileKeys: ["1,1"], revision: "1" })).toBe(false);
+    expect(applyServerReachUpdate(state, { tileKeys: ["1,1"], revision: 0 })).toBe(false);
+    expect(applyServerReachUpdate(state, { tileKeys: ["1,1"], revision: -1 })).toBe(false);
+    expect(applyServerReachUpdate(state, { tileKeys: ["1,1"], revision: Number.NaN })).toBe(false);
+    expect(state.serverReach).toBeUndefined();
+    expect(state.serverReachRevision).toBe(0);
+  });
+
+  it("does not let an invalid revision reset protection for a later stale one", () => {
+    const state = stateWith();
+    applyServerReachUpdate(state, { tileKeys: ["1,1"], revision: 5 });
+    applyServerReachUpdate(state, { tileKeys: ["9,9"] }); // malformed, must not touch serverReachRevision
+    expect(applyServerReachUpdate(state, { tileKeys: ["2,2"], revision: 3 })).toBe(false);
+    expect(resolveMyReach(state)).toEqual(new Set(["1,1"]));
+  });
+
   it("skips non-string entries rather than poisoning the set", () => {
     const state = stateWith();
     applyServerReachUpdate(state, { tileKeys: ["1,1", 42, null, "2,2"], revision: 1 });

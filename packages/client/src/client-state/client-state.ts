@@ -380,7 +380,7 @@ export const createInitialState = () => ({
   // which prefers serverReach below and only falls back to the local
   // approximation before the first REACH_UPDATE arrives).
   myReach: undefined as Set<string> | undefined,
-  myReachRevisionAtCompute: -1,
+  myReachRevisionAtCompute: "" as string,
   // Authoritative reach pushed by the simulation (REACH_UPDATE) — see
   // client-reach-authoritative.ts. `undefined` until the first message lands.
   serverReach: undefined as Set<string> | undefined,
