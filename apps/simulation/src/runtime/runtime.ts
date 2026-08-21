@@ -309,7 +309,7 @@ import {
   handleRemoveMountainCommand as handleRemoveMountainCommandImpl,
   handleWorldEngineStrikeCommand as handleWorldEngineStrikeCommandImpl,
   type RuntimeMapCommandContext
-} from "../runtime-map-command-handlers.js";
+} from "../runtime-map-command-handlers.js"; import { buildMapCommandContext } from "./runtime-map-command-context.js";
 import { handleImperialExchangeLevyCommand as handleImperialExchangeLevyCommandImpl } from "../runtime-imperial-exchange-levy-command.js";
 import { handleTitaniumLevyMusterCommand as handleTitaniumLevyMusterCommandImpl, TITANIUM_LEVY_REGEN_FREEZE_KEY } from "../runtime-titanium-levy-command.js";
 import { handleActivateImperialWardCommand as handleActivateImperialWardCommandImpl } from "../runtime-imperial-ward-command-handler.js";
@@ -4241,7 +4241,7 @@ export class SimulationRuntime {
   }
 
   private mapCommandContext(): RuntimeMapCommandContext {
-    return {
+    return buildMapCommandContext({
       players: this.players,
       tiles: this.tiles,
       now: this.now,
@@ -4273,7 +4273,7 @@ export class SimulationRuntime {
       strategicResourceAmount: (player, resource) => this.strategicResourceAmount(player, resource),
       addStrategicResource: (player, resource, amount) => this.addStrategicResource(player, resource, amount),
       appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
-    };
+    });
   }
 
   private getAbilityCooldownUntil(playerId: string, abilityKey: string): number { return getAbilityCooldownUntilImpl(this.abilityCooldowns, playerId, abilityKey); }
