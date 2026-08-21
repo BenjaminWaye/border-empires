@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787340000000,
+    introducedIn: "2026.08.21.6",
+    title: "The rush-buy price preview now accounts for the Quickforge discount",
+    why: "The tile menu's rush-buy price chip always showed the full server price estimate, even for a player who owns a Quickforge with today's discount still unused — the number shown was different from what got charged.",
+    changes: [
+      "The rush-buy price chip now shows the discounted price when you own a Quickforge and haven't used its once-per-day discount yet."
+    ]
+  },
+  {
     createdAt: 1787330000000,
     introducedIn: "2026.08.21.5",
     title: "The Quickforge wonder now discounts a rush-buy instead of making it free",

@@ -347,6 +347,12 @@ export type PlayerSubscriptionSnapshot = {
     // itself is communicated via a one-off IMPERIAL_WARD_ACTIVATED player
     // message, not this snapshot field (same convention as Aegis Lock).
     imperialWardCharges?: number;
+    // Quickforge wonder: ms timestamp of this player's last discounted
+    // rush-buy (0/absent = never used this UTC day). Sent purely so the
+    // client's rush-buy price preview can replicate the server's exact
+    // once-per-UTC-day discount gate (quickforgeAdjustedRushPrice in
+    // @border-empires/shared) — the server remains authoritative on price.
+    wonderLastFreeRushBuyAt?: number;
     // §20: durable "what happened while I was away" feed — distinct from the
     // ephemeral PLAYER_MESSAGE toast. Most-recent-last on the wire (matches
     // the server's append order); the client reverses for most-recent-first

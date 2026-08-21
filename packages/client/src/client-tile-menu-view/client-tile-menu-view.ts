@@ -3,7 +3,6 @@ import {
   FORT_TIER_LADDER,
   MUSTER_ATTACK_COST,
   OBSERVATORY_BUILD_MS,
-  rushBuyPriceGold,
   SIEGE_OUTPOST_BUILD_MS,
   SIEGE_TIER_LADDER,
   nextFortTierForUpgrade,
@@ -16,6 +15,7 @@ import {
   type SlotStructureType
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
+import { rushBuyLabel, type QuickforgeRushBuyContext } from "./client-tile-menu-quickforge-rush-buy.js";
 import { converterModeLockLine, converterModeStatusLine, isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
@@ -79,15 +79,10 @@ export const tileProductionRequirementLabel = (tile: Tile, prettyToken: (value: 
   return undefined;
 };
 
-// §6.3 rush-buy: "⏩💰N" preview label for finishing this in-progress action
-// right now. Client-side estimate only — the server (rushBuyPriceGold, same
-// formula) computes and enforces the real charge at command time.
-const rushBuyLabel = (remainingMs: number, totalMs: number, manpowerCost: number): string =>
-  `⏩ 💰${rushBuyPriceGold(remainingMs, totalMs, manpowerCost)}`;
-
 export const constructionProgressForTile = (
   tile: Tile,
-  formatCountdownClock: (ms: number) => string
+  formatCountdownClock: (ms: number) => string,
+  quickforge: QuickforgeRushBuyContext
 ): TileMenuProgressView | undefined => {
   const nowMs = Date.now();
   if (tile.fort?.status === "under_construction" && typeof tile.fort.completesAt === "number") {
@@ -99,7 +94,7 @@ export const constructionProgressForTile = (
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, FORT_BUILD_MS))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, FORT_BUILD_MS, FORT_TIER_LADDER[tile.fort.variant ?? "FORT"].manpower),
+      rushBuyLabel: rushBuyLabel(remaining, FORT_BUILD_MS, FORT_TIER_LADDER[tile.fort.variant ?? "FORT"].manpower, quickforge),
       rushBuyActionId: "rush_buy"
     };
   }
@@ -123,7 +118,7 @@ export const constructionProgressForTile = (
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, OBSERVATORY_BUILD_MS, structureBuildManpowerCost("OBSERVATORY")),
+      rushBuyLabel: rushBuyLabel(remaining, OBSERVATORY_BUILD_MS, structureBuildManpowerCost("OBSERVATORY"), quickforge),
       rushBuyActionId: "rush_buy"
     };
   }
@@ -147,7 +142,7 @@ export const constructionProgressForTile = (
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, SIEGE_OUTPOST_BUILD_MS))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, SIEGE_OUTPOST_BUILD_MS, SIEGE_TIER_LADDER[tile.siegeOutpost.variant ?? "SIEGE_OUTPOST"].manpower),
+      rushBuyLabel: rushBuyLabel(remaining, SIEGE_OUTPOST_BUILD_MS, SIEGE_TIER_LADDER[tile.siegeOutpost.variant ?? "SIEGE_OUTPOST"].manpower, quickforge),
       rushBuyActionId: "rush_buy"
     };
   }
@@ -172,7 +167,7 @@ export const constructionProgressForTile = (
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, buildMs))),
       note: "Construction is underway on this tile.",
       cancelLabel: "Cancel construction",
-      rushBuyLabel: rushBuyLabel(remaining, buildMs, structureBuildManpowerCost(tile.economicStructure.type)),
+      rushBuyLabel: rushBuyLabel(remaining, buildMs, structureBuildManpowerCost(tile.economicStructure.type), quickforge),
       rushBuyActionId: "rush_buy"
     };
   }
