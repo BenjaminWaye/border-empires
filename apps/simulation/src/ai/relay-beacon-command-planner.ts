@@ -4,7 +4,7 @@
 // economic building selection stays in structure-command-planner.ts; this
 // file owns only the beacon (fixed-borders-via-reach plan) concern, which is
 // already self-contained enough to live on its own.
-import { OUTPOST_REACH_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
+import { OUTPOST_REACH_RADIUS, WORLD_HEIGHT, WORLD_WIDTH, tileKeysInReach, wrapX, wrapY, type ReachAnchor } from "@border-empires/shared";
 
 import {
   canAffordStructure,
@@ -42,10 +42,62 @@ const RELAY_BEACON_REACH_SAMPLE_CAP = 150;
  */
 const VALUABLE_TARGET_COVERAGE_WEIGHT = 8;
 
+// Cap on how many of the player's existing RELAY_BEACON tiles feed
+// existingBeaconOverlapTileKeys below. Each anchor's box is a fixed ~121
+// cells (radius 5), so even this generous a cap is cheap (a few tens of
+// thousands of Set insertions, once per chooseBestRelayBeaconBuild call) —
+// it exists as a defensive ceiling per AGENTS.md's AI CPU guardrails, not
+// because real beacon counts are expected to approach it.
+const RELAY_BEACON_OVERLAP_ANCHOR_CAP = 256;
+
+// Statuses under which an owned RELAY_BEACON should count as "claiming" its
+// reach box. "under_construction" is included deliberately — that's the
+// entire point of this exclusion (see doc comment below): a beacon that
+// hasn't gone active yet still WILL claim this ground shortly, and a second
+// candidate shouldn't get credit for land the first is already about to
+// cover. "removing" (queued for demolition) and "inactive" are excluded:
+// neither is defending or about to defend anything, so land in their radius
+// is genuinely still open for a new candidate to claim.
+const BEACON_OVERLAP_CLAIMING_STATUSES: ReadonlySet<string> = new Set(["active", "under_construction"]);
+
+/**
+ * Tiles already within OUTPOST_REACH_RADIUS of a RELAY_BEACON this player
+ * already owns — including one still under construction. gatherReachAnchors
+ * (runtime.ts) only grants real reach once a beacon's status flips to
+ * "active", but a player can have up to DEVELOPMENT_PROCESS_LIMIT (3, more
+ * with some tech/wonders) builds in flight at once. Without this, two beacon
+ * candidates proposed a few ticks apart — before the first one finishes and
+ * actually grants reach — would each see the same unclaimed land as "new"
+ * coverage, since estimateNewReachCoverage only excludes tiles already
+ * OWNED, not tiles a sibling beacon is already about to cover. Computed once
+ * per chooseBestRelayBeaconBuild call and reused across every candidate, not
+ * per-candidate. Reuses tileKeysInReach (packages/shared/src/reach/reach.ts)
+ * — the same wrapped-box computation the real reach border is built from —
+ * rather than a second hand-rolled scan.
+ */
+const existingBeaconOverlapTileKeys = (
+  playerId: string,
+  ownedTiles: readonly StructurePlannerTile[]
+): ReadonlySet<string> => {
+  const claimed = new Set<string>();
+  let anchorsScanned = 0;
+  for (const tile of ownedTiles) {
+    if (anchorsScanned >= RELAY_BEACON_OVERLAP_ANCHOR_CAP) break;
+    const structure = tile.economicStructure;
+    if (structure?.ownerId !== playerId || structure.type !== "RELAY_BEACON") continue;
+    if (!structure.status || !BEACON_OVERLAP_CLAIMING_STATUSES.has(structure.status)) continue;
+    anchorsScanned += 1;
+    const anchor: ReachAnchor = { x: tile.x, y: tile.y, ownerId: playerId, activatedAt: 0, kind: "OUTPOST" };
+    for (const key of tileKeysInReach(anchor)) claimed.add(key);
+  }
+  return claimed;
+};
+
 const estimateNewReachCoverage = (
   playerId: string,
   tile: StructurePlannerTile,
-  tilesByKey: TileLookup
+  tilesByKey: TileLookup,
+  alreadyClaimedTileKeys: ReadonlySet<string>
 ): { score: number; hasValuable: boolean } => {
   let covered = 0;
   let hasValuable = false;
@@ -57,9 +109,11 @@ const estimateNewReachCoverage = (
       if (scanned > RELAY_BEACON_REACH_SAMPLE_CAP) break outer;
       const nx = wrapX(tile.x + dx, WORLD_WIDTH);
       const ny = wrapY(tile.y + dy, WORLD_HEIGHT);
-      const neighbor = tilesByKey.get(tileKeyOf(nx, ny));
+      const neighborKey = tileKeyOf(nx, ny);
+      const neighbor = tilesByKey.get(neighborKey);
       if (!neighbor || neighbor.terrain !== "LAND") continue;
       if (neighbor.ownerId === playerId) continue;
+      if (alreadyClaimedTileKeys.has(neighborKey)) continue;
       const isValuable = Boolean(neighbor.town || neighbor.resource || neighbor.dockId || neighbor.naturalWonder);
       if (isValuable) hasValuable = true;
       covered += isValuable ? VALUABLE_TARGET_COVERAGE_WEIGHT : 1;
@@ -124,6 +178,8 @@ export const chooseBestRelayBeaconBuild = (
   const existingOwnedCount = plannedOwnedStructureCount(player, counts, "RELAY_BEACON");
   if (!canAffordStructure(player, playerTechSet(player), "RELAY_BEACON", existingOwnedCount)) return undefined;
 
+  const alreadyClaimedTileKeys = existingBeaconOverlapTileKeys(player.id, ownedTiles);
+
   let best: { tile: StructurePlannerTile; score: number; needsSettle: boolean; siteValue: number } | undefined;
   for (const tile of candidateTiles) {
     if (tile.ownerId !== player.id || tile.terrain !== "LAND") continue;
@@ -135,7 +191,7 @@ export const chooseBestRelayBeaconBuild = (
     // structureShowsOnTile keys off ownershipState, so checking it as-is
     // would reject every frontier candidate on the state we're about to change.
     if (!structureVisibleOnTile("RELAY_BEACON", player.id, needsSettle ? { ...tile, ownershipState: "SETTLED" } : tile, tilesByKey)) continue;
-    const newCoverage = estimateNewReachCoverage(player.id, tile, tilesByKey);
+    const newCoverage = estimateNewReachCoverage(player.id, tile, tilesByKey, alreadyClaimedTileKeys);
     // Requiring a known valuable tile here created a dead end: EXPAND stops
     // once nothing adjacent+in-reach is worth claiming — but a beacon site
     // could only ever be proposed if a resource/town/dock/wonder was ALREADY

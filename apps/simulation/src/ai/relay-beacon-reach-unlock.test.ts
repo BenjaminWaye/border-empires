@@ -155,3 +155,85 @@ describe("relay beacon fires without an already-visible prize (maximize newly-re
     expect(plan).toBeUndefined();
   });
 });
+
+describe("relay beacon coverage excludes ground an existing beacon already claims", () => {
+  // Regression: gatherReachAnchors (runtime.ts) only grants real reach once a
+  // beacon's status flips to "active" — a beacon mid-construction contributes
+  // nothing yet. A player can have several builds in flight at once
+  // (DEVELOPMENT_PROCESS_LIMIT = 3), so before this fix, two beacon
+  // candidates proposed a few ticks apart could each see the same unclaimed
+  // land as "new" coverage, since estimateNewReachCoverage only excluded
+  // tiles already OWNED — not tiles a sibling beacon (finished or still
+  // under construction) was already about to cover. That let the AI queue
+  // several beacons clustered right next to each other.
+
+  it("scores a candidate lower when its coverage overlaps an existing (still-constructing) beacon's radius", () => {
+    // existingBeacon's own reach radius (OUTPOST_REACH_RADIUS = 5) already
+    // covers `prize` at distance 2 — a second candidate 3 tiles further out
+    // whose own radius also reaches `prize` shouldn't get credit for it.
+    const existingBeacon = tile({
+      x: 100,
+      y: 100,
+      economicStructure: { ownerId: "ai-1", type: "RELAY_BEACON", status: "under_construction" }
+    });
+    const candidate = tile({ x: 103, y: 100, ownershipState: "SETTLED" });
+    const prize = tile({ x: 102, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [existingBeacon, candidate, prize];
+
+    const plan = chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
+      tiles,
+      lookupOf(tiles),
+      [candidate]
+    );
+
+    // prize sits within existingBeacon's radius, so it's excluded from
+    // candidate's coverage score — nothing else unowned is in range.
+    expect(plan).toBeUndefined();
+  });
+
+  it("does NOT exclude a beacon's radius once it's queued for removal (nothing left to double-claim)", () => {
+    // A beacon mid-demolition ("removing") is not defending anything and
+    // never will again — its radius must NOT be treated as claimed, or a
+    // genuinely open prize right next to it could never be proposed again.
+    const removingBeacon = tile({
+      x: 100,
+      y: 100,
+      economicStructure: { ownerId: "ai-1", type: "RELAY_BEACON", status: "removing" }
+    });
+    const candidate = tile({ x: 103, y: 100, ownershipState: "SETTLED" });
+    const prize = tile({ x: 102, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [removingBeacon, candidate, prize];
+
+    const plan = chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
+      tiles,
+      lookupOf(tiles),
+      [candidate]
+    );
+
+    expect(plan?.tile.x).toBe(103);
+    expect(plan?.siteValue).toBe(8);
+  });
+
+  it("still scores a candidate normally when its coverage lies outside every existing beacon's radius", () => {
+    const existingBeacon = tile({
+      x: 100,
+      y: 100,
+      economicStructure: { ownerId: "ai-1", type: "RELAY_BEACON", status: "active" }
+    });
+    const candidate = tile({ x: 200, y: 100, ownershipState: "SETTLED" });
+    const prize = tile({ x: 202, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [existingBeacon, candidate, prize];
+
+    const plan = chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
+      tiles,
+      lookupOf(tiles),
+      [candidate]
+    );
+
+    expect(plan?.tile.x).toBe(200);
+    expect(plan?.siteValue).toBe(8);
+  });
+});
