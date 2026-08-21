@@ -44,7 +44,8 @@ export const SERVER_GENERATED_COMMAND_ID_PREFIXES = [
   "tile-owner-change:",
   "income-tick:",
   "breach:",
-  "auto-fill:"
+  "auto-fill:",
+  "reach-update:"
 ] as const;
 
 /**

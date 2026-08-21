@@ -2,7 +2,7 @@ import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, 
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
-import { computeLocalReachSet, localReachIsInReach } from "./client-reach-overlay/client-reach-overlay.js";
+import { authoritativeIsInReach, resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import { playerDisplayNameForOwnerFromState } from "./client-owner-name/client-owner-name.js";
 import { connectedEnemyRegionKeys, connectedOwnedFrontierKeys } from "./client-connected-region/client-connected-region.js";
 import { readyOwnedObservatoryCooldownRemainingMs } from "./client-observatory-cooldown/client-observatory-cooldown.js";
@@ -1475,7 +1475,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       if (selected && !selected.ownerId) {
         const plan = planWaypoint(
           { x: selected.x, y: selected.y },
-          { state, keyFor, isInReach: localReachIsInReach(state.tiles, state.me, keyFor) }
+          { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) }
         );
         if (!plan.reachable) {
           showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Relay Beacon unreachable", "No expansion path to that tile.");
@@ -1735,7 +1735,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     // richer "Build Relay Beacon" (expand+settle+build) choice -- which only
     // ever appears inside that menu -- actually has a chance to be seen.
     const isTargetInLocalReach = (x: number, y: number): boolean =>
-      computeLocalReachSet(state.tiles, state.me).has(keyFor(x, y));
+      resolveMyReach(state).has(keyFor(x, y));
     // Shared with the "visible" neutral-adjacent click path below: claims an
     // adjacent-reachable tile immediately instead of opening a menu. Lifted
     // out so fogged/unexplored tiles adjacent to owned territory can also
