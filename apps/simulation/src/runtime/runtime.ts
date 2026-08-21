@@ -231,11 +231,15 @@ import {
 } from "../runtime-combat-support.js";
 import { emitAutoFillForSettlement as emitAutoFillForSettlementImpl } from "../runtime-auto-fill.js";
 import {
-  effectiveManpowerAt,
-  playerManpowerBreakdownFromSummary,
-  playerManpowerCapFromSummary,
-  playerManpowerRegenPerMinuteFromSummary
-} from "../runtime-manpower.js";
+  applyManpowerRegenForPlayer as applyManpowerRegenForPlayerImpl,
+  effectiveManpowerAtForPlayer as effectiveManpowerAtForPlayerImpl,
+  playerLogisticsThroughputPerMinute as playerLogisticsThroughputPerMinuteImpl,
+  playerManpowerBreakdown as playerManpowerBreakdownImpl,
+  playerManpowerCap as playerManpowerCapImpl,
+  playerManpowerRegenPerMinute as playerManpowerRegenPerMinuteImpl,
+  refreshManpowerOnlyForPlayer as refreshManpowerOnlyForPlayerImpl,
+  type RuntimeManpowerEconomyContext
+} from "./runtime-economy.js";
 import {
   resolveMusterSource as resolveMusterSourceImpl,
   type RuntimeMusterSourceContext
@@ -1925,57 +1929,39 @@ export class SimulationRuntime {
     return plannerPlayerTileKeysImpl(playerId, summary, this.plannerPlayerTileKeysContext);
   }
 
+  private manpowerEconomyContext(): RuntimeManpowerEconomyContext {
+    return {
+      now: () => this.now(),
+      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
+      cachedManpowerStructureBonusForPlayer: (player) => this.cachedManpowerStructureBonusForPlayer(player),
+      wonderCacheByPlayer: this.wonderCacheByPlayer,
+      getAbilityCooldownUntil: (playerId, abilityKey) => this.getAbilityCooldownUntil(playerId, abilityKey),
+      applyEconomyAccrual: (player, nowMs) => this.applyEconomyAccrual(player, nowMs)
+    };
+  }
+
   private playerManpowerCap(player: RuntimePlayer): number {
-    if (player.id === "barbarian-1") return Number.MAX_SAFE_INTEGER;
-    const { garrisonHallCount, assemblyWorksNetworkGarrisonHallCount } = this.cachedManpowerStructureBonusForPlayer(player);
-    return playerManpowerCapFromSummary(this.summaryForPlayer(player.id), garrisonHallCount, assemblyWorksNetworkGarrisonHallCount) + (wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, player.id, "CONSCRIPTION_ENGINE") ? 2000 : 0);
+    return playerManpowerCapImpl(this.manpowerEconomyContext(), player);
   }
 
   private playerManpowerRegenPerMinute(player: RuntimePlayer): number {
-    // The Iron Levy (tech-tree redesign): a 2-hour empire-wide manpower
-    // regen freeze after triggering the muster ability.
-    if (this.getAbilityCooldownUntil(player.id, TITANIUM_LEVY_REGEN_FREEZE_KEY) > this.now()) return 0;
-    const { railDepotNetworkLogisticsGuildCount, logisticsGuildCount, populationBureauManpowerBuildingCount } =
-      this.cachedManpowerStructureBonusForPlayer(player);
-    return playerManpowerRegenPerMinuteFromSummary(
-      this.summaryForPlayer(player.id),
-      railDepotNetworkLogisticsGuildCount,
-      logisticsGuildCount,
-      populationBureauManpowerBuildingCount
-    );
+    return playerManpowerRegenPerMinuteImpl(this.manpowerEconomyContext(), player);
   }
 
   playerLogisticsThroughputPerMinute(player: RuntimePlayer): number {
-    // Logistics throughput = same as manpower regen for now; tune later.
-    return this.playerManpowerRegenPerMinute(player);
+    return playerLogisticsThroughputPerMinuteImpl(this.manpowerEconomyContext(), player);
   }
 
   private playerManpowerBreakdown(player: RuntimePlayer): ManpowerBreakdown {
-    const {
-      garrisonHallCount,
-      assemblyWorksNetworkGarrisonHallCount,
-      railDepotNetworkLogisticsGuildCount,
-      logisticsGuildCount,
-      populationBureauManpowerBuildingCount
-    } = this.cachedManpowerStructureBonusForPlayer(player);
-    return playerManpowerBreakdownFromSummary(
-      this.summaryForPlayer(player.id),
-      garrisonHallCount,
-      assemblyWorksNetworkGarrisonHallCount,
-      railDepotNetworkLogisticsGuildCount,
-      logisticsGuildCount,
-      populationBureauManpowerBuildingCount
-    );
+    return playerManpowerBreakdownImpl(this.manpowerEconomyContext(), player);
   }
 
   private effectiveManpowerAt(player: RuntimePlayer, nowMs = this.now()): number {
-    const cap = this.playerManpowerCap(player);
-    return effectiveManpowerAt(player, cap, this.playerManpowerRegenPerMinute(player), nowMs);
+    return effectiveManpowerAtForPlayerImpl(this.manpowerEconomyContext(), player, nowMs);
   }
 
   private applyManpowerRegen(player: RuntimePlayer, nowMs = this.now()): void {
-    this.applyEconomyAccrual(player, nowMs);
-    this.refreshManpowerOnly(player, nowMs);
+    applyManpowerRegenForPlayerImpl(this.manpowerEconomyContext(), player, nowMs);
   }
 
   /**
@@ -1989,26 +1975,7 @@ export class SimulationRuntime {
    * single planner cycle.
    */
   private refreshManpowerOnly(player: RuntimePlayer, nowMs = this.now()): void {
-    const cap = this.playerManpowerCap(player);
-    if (!Number.isFinite(player.manpower)) {
-      player.manpower = cap;
-      player.manpowerUpdatedAt = nowMs;
-      player.manpowerCapSnapshot = cap;
-      return;
-    }
-    const previousCap = Number.isFinite(player.manpowerCapSnapshot) ? player.manpowerCapSnapshot! : cap;
-    if (cap > previousCap) {
-      player.manpower = Math.min(cap, Math.max(0, player.manpower) + (cap - previousCap));
-    }
-    if (!Number.isFinite(player.manpowerUpdatedAt)) {
-      player.manpower = Math.max(0, Math.min(cap, player.manpower));
-      player.manpowerUpdatedAt = nowMs;
-      player.manpowerCapSnapshot = cap;
-      return;
-    }
-    player.manpower = this.effectiveManpowerAt(player, nowMs);
-    player.manpowerUpdatedAt = nowMs;
-    player.manpowerCapSnapshot = cap;
+    refreshManpowerOnlyForPlayerImpl(this.manpowerEconomyContext(), player, nowMs);
   }
 
   /**
