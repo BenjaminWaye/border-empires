@@ -328,7 +328,7 @@ describe("RUSH_BUY", () => {
     }
   });
 
-  it("Quickforge waives the gold cost of one rush-buy per UTC day, then charges full price", async () => {
+  it("Quickforge discounts one rush-buy by 40 gold per UTC day, then charges full price", async () => {
     vi.useFakeTimers();
     try {
       // A UTC-day-aligned clock (midnight anchor) with a QUICKFORGE wonder tile
@@ -385,16 +385,18 @@ describe("RUSH_BUY", () => {
         return runtime.exportState().players.find((p) => p.id === "player-1")?.points ?? 0;
       };
 
+      const fullPrice = Math.ceil(SETTLE_MANPOWER_COST * 0.5);
+      const discountedPrice = Math.max(0, fullPrice - 40);
+
       await startASettle("settle-1", 10);
-      const goldBeforeFree = runtime.exportState().players.find((p) => p.id === "player-1")?.points ?? 0;
-      const goldAfterFree = await rush("rush-1", 10);
-      expect(goldBeforeFree - goldAfterFree).toBe(0);
+      const goldBeforeDiscounted = runtime.exportState().players.find((p) => p.id === "player-1")?.points ?? 0;
+      const goldAfterDiscounted = await rush("rush-1", 10);
+      expect(goldBeforeDiscounted - goldAfterDiscounted).toBe(discountedPrice);
 
       // Second rush in the same UTC day must cost full price again.
       await startASettle("settle-2", 50);
       const goldBeforePaid = runtime.exportState().players.find((p) => p.id === "player-1")?.points ?? 0;
       const goldAfterPaid = await rush("rush-2", 50);
-      const fullPrice = Math.ceil(SETTLE_MANPOWER_COST * 0.5);
       expect(goldBeforePaid - goldAfterPaid).toBe(fullPrice);
     } finally {
       vi.useRealTimers();

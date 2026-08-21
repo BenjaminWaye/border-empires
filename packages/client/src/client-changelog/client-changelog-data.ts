@@ -18,8 +18,53 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Players now get a season-start email, and the previous champion gets a victory email",
     why: "When a season rolled over, nothing told players by email that the map had reset -- they'd only find out by opening the game. And the player who was just crowned champion had no record of their win beyond the in-game season-end screen.",
     changes: [
-      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one.",
+      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one and pointing them to the season recap screen to browse final stats for friends and foes.",
       "The player who won the previous season gets that same email with a victory recap folded in, calling out the objective they won through, instead of a separate message."
+    ]
+  },
+  {
+    createdAt: 1787360000000,
+    introducedIn: "2026.08.21.7",
+    title: "Fixed the settle animation not showing until you panned the camera",
+    why: "Pressing Settle on a frontier tile marks it optimistically pending without changing its owner or ownership state (both already belonged to you), but the 3D map only rebuilt its terrain and overlays when ownership actually changed. That left the new settle overlay instance uncreated until something else -- like panning -- forced a rebuild for an unrelated reason.",
+    changes: [
+      "The settlement animation now plays immediately when you press Settle, instead of waiting for the next camera pan."
+    ]
+  },
+  {
+    createdAt: 1787340000000,
+    introducedIn: "2026.08.21.6",
+    title: "The rush-buy price preview now accounts for the Quickforge discount",
+    why: "The tile menu's rush-buy price chip always showed the full server price estimate, even for a player who owns a Quickforge with today's discount still unused — the number shown was different from what got charged.",
+    changes: [
+      "The rush-buy price chip now shows the discounted price when you own a Quickforge and haven't used its once-per-day discount yet."
+    ]
+  },
+  {
+    createdAt: 1787330000000,
+    introducedIn: "2026.08.21.5",
+    title: "The Quickforge wonder now discounts a rush-buy instead of making it free",
+    why: "The Quickforge's once-per-UTC-day rush-buy perk waived the gold cost entirely, which trivialized cheap rush-buys (like a Settle at 10 gold) and scaled unevenly across rush-buy prices.",
+    changes: [
+      "Once per UTC day, the Quickforge's controller now gets 40 gold off their next rush-buy (floored at 0) instead of that rush-buy being completely free."
+    ]
+  },
+  {
+    createdAt: 1787356800000,
+    introducedIn: "2026.08.21.3",
+    title: "Fixed a crash when switching apps and back while a location theme was playing",
+    why: "Backgrounding the tab pauses playback; returning to it resumes both the music bed and any location theme. The location theme's resume call didn't catch play() rejections the way the music bed's did, so a fast switch-away-and-back (interrupting that play() with a pause()) threw an unhandled rejection that tripped the app's error boundary, showing \"Border Empires hit a problem loading\".",
+    changes: [
+      "Switching to another app and back no longer crashes the game to the error screen."
+    ]
+  },
+  {
+    createdAt: 1787322800000,
+    introducedIn: "2026.08.21.1",
+    title: "Composite settle+build orders (e.g. Build Relay Beacon) now survive logging out mid-order",
+    why: "Clicking a composite action like \"Build Relay Beacon\" on an unowned tile sends the expand immediately, then relied purely on this client's own in-memory bookkeeping to notice the expand land and fire the follow-up settle, then notice the settlement land and fire the build. If you logged out (or your connection dropped) between the click and either of those follow-ups, nothing server-side was watching to continue the chain, so the order silently stalled.",
+    changes: [
+      "Settle+build orders (fresh expand-then-settle-then-build, and settle-then-build on an already-owned tile) now also register server-side, so they keep completing even if you disconnect right after clicking."
     ]
   },
   {
@@ -29,6 +74,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Tension (\"war is coming\") music used to be driven by short-lived, per-attack timers (an attack in transit, a deferred send, an incoming-attack tracker) that clear the instant that specific attack resolves, so it kept dropping back to calm music between attacks even while a muster flag was still staged and ready to fire.",
     changes: [
       "Tension music now plays for as long as any muster flag is raised and set to Hold (staged, not yet advancing), which is a stable signal instead of one that clears after every individual attack."
+    ]
+  },
+  {
+    createdAt: 1787326342941, // 2026.08.21.4 — frozen from a live Date.now() call
+    introducedIn: "2026.08.21.4",
+    title: "AI opponents now build a wider range of structures, and beacon relays more often",
+    why: "AI opponents could previously only ever build 5 kinds of structures (Farmstead, Umbrite Rig, Mine, Mintworks, Granary), scored by fixed numbers instead of what the AI's economy actually needed. Their Relay Beacon building was also just as likely at any time, whether or not there was still good territory left nearby to claim.",
+    changes: [
+      "AI opponents can now also build Waterworks, Ministry Hall (Governors Office), Ancillary Factory (Garrison Hall), Logistics Guild, Caravanary, and the Umbrite/Titanium/Crystal Synthesizers, chosen based on which resource or manpower shortfall is most acute rather than a fixed priority list.",
+      "AI opponents now favor Relay Beacon construction in bursts — several in a row, then a pause where other buildings get priority — instead of a flat, constant likelihood throughout the game."
     ]
   },
   {
@@ -275,6 +330,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The zoom-smoothness fix above let the terrain skip a rebuild for any pan that stayed inside a padded window, but every other 3D overlay (ownership border pylons/walls, flags, badges, selection markers) still repositions itself every single frame off the live camera with no such padding. Mid-pan, that left the terrain's baked geometry pinned to wherever it was last rebuilt while border pylons and structures kept gliding on with the live camera, so towers and border lines visibly separated from the tiles under them until the pan stopped.",
     changes: [
       "Panning the 3D map now always rebuilds the terrain to match the live camera, so border pylons, structures, and the ground they sit on stay locked together while scrolling. The zoom-only rebuild savings from the fix above are unaffected."
+    ]
+  },
+  {
+    createdAt: 1787332288038,
+    introducedIn: "2026.08.21.5",
+    title: "Auto-settle no longer claims resources you haven't discovered yet",
+    why: "Auto-settle picked any owned frontier tile with a resource, town, or dock as a valuable target, without checking whether that tile was actually within the player's fog-of-war vision. That let it settle tiles whose resource the player had never actually seen revealed.",
+    changes: [
+      "Auto-settle now only considers a frontier tile eligible once it's been revealed to the settling player -- an owned tile outside current vision coverage is skipped until it's actually discovered."
     ]
   }
 ];

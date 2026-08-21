@@ -36,6 +36,7 @@ const BASE: DecisionInputs = {
   hasSiegeOutpost: false,
   hasRelayBeaconBuild: false,
   relayBeaconSiteValue: 0,
+  beaconBoostActive: false,
   techAffordable: false,
   momentumTicks: {},
   cooldown: {},

@@ -47,6 +47,7 @@ const baseInputs: DecisionInputs = {
   hasSiegeOutpost: false,
   hasRelayBeaconBuild: true,
   relayBeaconSiteValue: RICH_SITE_VALUE,
+  beaconBoostActive: false,
   techAffordable: false,
   momentumTicks: {},
   cooldown: {},
@@ -110,5 +111,31 @@ describe("scoreBuildBeacon — graduated on site value", () => {
     const rich = scoreDecision("BUILD_BEACON", { ...baseInputs, relayBeaconSiteValue: RICH_SITE_VALUE });
     const extraordinary = scoreDecision("BUILD_BEACON", { ...baseInputs, relayBeaconSiteValue: RICH_SITE_VALUE * 10 });
     expect(extraordinary).toBe(rich);
+  });
+});
+
+// docs/ai-structure-building-rewrite-plan.md §16 / ai-beacon-cadence.ts: for
+// 4 consecutive completed builds, BUILD_BEACON gets a flat additive bonus on
+// top of the graduated site-value score above; the 5th build in the cycle
+// gets none.
+describe("scoreBuildBeacon — cadence boost", () => {
+  it("scores a mediocre site higher when the cadence boost is active", () => {
+    const mediocre = { ...baseInputs, relayBeaconSiteValue: 6 };
+    const unboosted = scoreDecision("BUILD_BEACON", mediocre);
+    const boosted = scoreDecision("BUILD_BEACON", { ...mediocre, beaconBoostActive: true });
+    expect(boosted).toBeGreaterThan(unboosted);
+  });
+
+  it("never revives a vetoed beacon — the boost cannot overcome a missing site, dev slot, or frontier enemy", () => {
+    expect(scoreDecision("BUILD_BEACON", { ...baseInputs, hasRelayBeaconBuild: false, beaconBoostActive: true })).toBe(0);
+    expect(scoreDecision("BUILD_BEACON", { ...baseInputs, devSlotAvailable: false, beaconBoostActive: true })).toBe(0);
+    expect(scoreDecision("BUILD_BEACON", { ...baseInputs, frontierEnemyCount: 3, beaconBoostActive: true })).toBe(0);
+    // Site value at the floor (linear() = 0) is also still a hard 0, even boosted.
+    expect(scoreDecision("BUILD_BEACON", { ...baseInputs, relayBeaconSiteValue: 1, beaconBoostActive: true })).toBe(0);
+  });
+
+  it("still caps at 1 — the boost cannot push an already-rich site's score past the ceiling", () => {
+    const rich = { ...baseInputs, relayBeaconSiteValue: RICH_SITE_VALUE };
+    expect(scoreDecision("BUILD_BEACON", { ...rich, beaconBoostActive: true })).toBeLessThanOrEqual(1);
   });
 });

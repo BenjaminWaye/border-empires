@@ -98,6 +98,13 @@ export type DecisionInputs = {
   // distinguish a beacon reaching one empty tile from one reaching several
   // towns/resources/docks, and it should.
   relayBeaconSiteValue: number;
+  // True on the boosted portion of this player's beacon build cadence (4
+  // consecutive completed builds boosted, then 1 unboosted, repeating — see
+  // ai-beacon-cadence.ts and docs/ai-structure-building-rewrite-plan.md's
+  // §16). Feeds a flat additive bonus in scoreBuildBeacon on top of the
+  // graduated site-value consideration — still fully vetoable, never
+  // overrides a missing site/dev-slot/frontier-enemy gate.
+  beaconBoostActive: boolean;
   // Tech
   techAffordable: boolean;
   // Anti-thrash: momentum ticks accrued since last class switch (0–N).
@@ -265,14 +272,28 @@ const scoreBuildEconomy = (inp: DecisionInputs): number =>
 const RELAY_BEACON_SITE_VALUE_FLOOR = 1;
 const RELAY_BEACON_SITE_VALUE_CEILING = 24;
 
-const scoreBuildBeacon = (inp: DecisionInputs): number =>
-  scoreConsiderations([
+// Confirmed cadence design (docs/ai-structure-building-rewrite-plan.md §16,
+// ai-beacon-cadence.ts): for 4 consecutive completed builds, BUILD_BEACON
+// gets this flat bonus on top of its normal graduated score, so a legal
+// beacon reliably outcompetes BUILD_ECONOMY/BUILD_DEFENSE during that
+// window; the 5th build in the cycle gets none, letting the plain
+// need-driven comparison decide. A strong bias, not a hard override — the
+// boost is added AFTER the vetoes/graduated term below, so it can never
+// revive a build that's still illegal (no site, no dev slot, enemy at the
+// gate, or a real in-reach EXPAND prize still unclaimed).
+const BEACON_CADENCE_BOOST = 0.6;
+
+const scoreBuildBeacon = (inp: DecisionInputs): number => {
+  const base = scoreConsiderations([
     boolVeto(inp.hasRelayBeaconBuild),
     boolVeto(inp.devSlotAvailable),
     boolVeto(inp.frontierEnemyCount === 0),
     boolVeto(!inp.hasActionableNonWasteExpand),
     linear(inp.relayBeaconSiteValue, RELAY_BEACON_SITE_VALUE_FLOOR, RELAY_BEACON_SITE_VALUE_CEILING)
   ]);
+  if (base === 0 || !inp.beaconBoostActive) return base;
+  return Math.min(1, base + BEACON_CADENCE_BOOST);
+};
 
 const scoreChooseTech = (inp: DecisionInputs): number =>
   scoreConsiderations([

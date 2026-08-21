@@ -20,7 +20,7 @@ import { createContouredGroundGeometry, sampleContouredGroundHeights, type Terra
  * pistons, steam jets, and a red-hot glow (see docs/natural-wonders-
  * design.md §2.7 and the Storybook reference at packages/storybook/src/
  * wonders/Quickforge.stories.ts, which this overlay matches geometry/
- * shader-for-shader). Once per UTC day, the controller's rush-buy is free.
+ * shader-for-shader). Once per UTC day, the controller's rush-buy is 40 gold cheaper.
  */
 const PISTON_SPEED = 1.0;
 const STEAM_COUNT = 35;

@@ -104,10 +104,12 @@ export const isValuableAutoSettlementTarget = (
 export const isAutoSettlementEligibleTarget = (
   tile: DomainTileState | undefined,
   playerId: string,
-  hasTownSupport: (tile: DomainTileState) => boolean
+  hasTownSupport: (tile: DomainTileState) => boolean,
+  isRevealedToPlayer: (tile: DomainTileState) => boolean
 ): tile is DomainTileState => {
   if (!isAutoSettlementTarget(tile, playerId)) return false;
-  return Boolean(tile.resource || tile.town || tile.dockId || hasTownSupport(tile));
+  if (tile.resource) return isRevealedToPlayer(tile);
+  return Boolean(tile.town || tile.dockId || hasTownSupport(tile));
 };
 
 export const orderedAutoSettlementTileKeys = (
@@ -117,6 +119,12 @@ export const orderedAutoSettlementTileKeys = (
     getTile: (tileKey: string) => DomainTileState | undefined;
     isBlocked: (tileKey: string) => boolean;
     hasTownSupport: (tile: DomainTileState) => boolean;
+    // Only gates resource tiles: a resource must have actually been revealed
+    // to the settling player (i.e. currently within their fog-of-war vision
+    // coverage — see VisibilityCoverageTracker.isVisible) before auto-settle
+    // may claim it. Town/dock/town-support tiles are always considered
+    // revealed since a player's own towns/docks are never hidden from them.
+    isRevealedToPlayer: (tile: DomainTileState) => boolean;
     // Optional read-through cache for the (resource || town || dockId ||
     // hasTownSupport) eligibility result, keyed by tileKey. hasTownSupport is
     // the dominant per-tile cost (an 8-neighbor scan) and its result rarely
@@ -133,7 +141,7 @@ export const orderedAutoSettlementTileKeys = (
     let eligible = deps.eligibilityCache?.get(tileKey);
     if (eligible === undefined) {
       const tile = deps.getTile(tileKey);
-      eligible = isAutoSettlementEligibleTarget(tile, playerId, deps.hasTownSupport);
+      eligible = isAutoSettlementEligibleTarget(tile, playerId, deps.hasTownSupport, deps.isRevealedToPlayer);
       deps.eligibilityCache?.set(tileKey, eligible);
     }
     if (eligible) output.push(tileKey);

@@ -437,11 +437,13 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
                   input.objectiveName
                     ? `You claimed victory through ${input.objectiveName}, and your name is now etched into this season's history.`
                     : "Your name is now etched into this season's history.",
-                  "The map has already reset for a new season — come defend your title before your rivals stake their claim."
+                  "The map has already reset for a new season — come defend your title before your rivals stake their claim.",
+                  "Last season's final stats — yours, your allies', and your rivals' — are ready to browse on the season recap screen."
                 ]
               : [
                   "The map has been reset, borders are undrawn, and every empire starts from the same first tile again.",
-                  "Claim your territory early, forge alliances, and build toward this season's objective before your rivals do."
+                  "Claim your territory early, forge alliances, and build toward this season's objective before your rivals do.",
+                  "Curious how last season shook out? The recap screen now shows final stats for you and every friend or foe you played against."
                 ],
             ...(isPreviousWinner
               ? { highlight: { label: "Status", value: "Season Champion" } }

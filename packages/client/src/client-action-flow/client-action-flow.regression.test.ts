@@ -31,6 +31,20 @@ describe("client action flow regressions", () => {
     expect(source).toContain("state.autoBuildTargets.set(targetKey, structureType);");
   });
 
+  it("registers a server-durable claim continuation alongside a composite settle(+build) order, so it survives logout", () => {
+    const source = actionFlowSource();
+
+    // Previously the settle-then-build tail that follows a click on
+    // "Build Relay Beacon" (or any settle+build combo) lived purely in
+    // client-side in-memory bookkeeping (autoSettleTargets/autoBuildTargets
+    // + the runtime tick loop), so it silently stalled if the player logged
+    // out between the click and either follow-up landing. CLAIM_CONTINUATION_SET
+    // registers the same tail server-side too, covering both the fresh-EXPAND
+    // and already-owned-FRONTIER cases.
+    expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType });');
+    expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType: "RELAY_BEACON" });');
+  });
+
   it("opens the tile detail panel for a fogged tile using cached data instead of showing nothing", () => {
     const source = actionFlowSource();
 

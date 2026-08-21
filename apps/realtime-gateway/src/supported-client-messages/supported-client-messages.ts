@@ -67,7 +67,8 @@ export const supportedClientMessageTypes = [
   "DEV_QUEUE_MOVE_TO_FRONT",
   "WAYPOINT_ENQUEUE",
   "WAYPOINT_CANCEL",
-  "WAYPOINT_CANCEL_ALL"
+  "WAYPOINT_CANCEL_ALL",
+  "CLAIM_CONTINUATION_SET"
 ] as const;
 
 export type SupportedClientMessageType = (typeof supportedClientMessageTypes)[number];

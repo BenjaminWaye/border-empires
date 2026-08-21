@@ -207,8 +207,8 @@ export const createInitialState = () => ({
   // Locked sub-choice for Clockwork Stipend; undefined when not picked yet.
   chosenTrickleResource: undefined as ChosenTrickleResource | undefined,
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1).
-  imperialWardCharges: undefined as number | undefined,
-  imperialWardActiveUntil: undefined as number | undefined,
+  imperialWardCharges: undefined as number | undefined, imperialWardActiveUntil: undefined as number | undefined,
+  wonderLastFreeRushBuyAt: undefined as number | undefined, // Quickforge: ms of last discounted rush-buy (0/undefined = unused) -- rush-buy price preview only, server is price-authoritative
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],
   techAffordableByTechId: new Map<string, boolean>(), techAffordablePulseUntilByTechId: new Map<string, number>(), // §7.3 "reward is ready" pulse tracking
