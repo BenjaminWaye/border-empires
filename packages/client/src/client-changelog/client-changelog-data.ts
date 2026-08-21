@@ -49,6 +49,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787322800000,
+    introducedIn: "2026.08.21.1",
+    title: "Composite settle+build orders (e.g. Build Relay Beacon) now survive logging out mid-order",
+    why: "Clicking a composite action like \"Build Relay Beacon\" on an unowned tile sends the expand immediately, then relied purely on this client's own in-memory bookkeeping to notice the expand land and fire the follow-up settle, then notice the settlement land and fire the build. If you logged out (or your connection dropped) between the click and either of those follow-ups, nothing server-side was watching to continue the chain, so the order silently stalled.",
+    changes: [
+      "Settle+build orders (fresh expand-then-settle-then-build, and settle-then-build on an already-owned tile) now also register server-side, so they keep completing even if you disconnect right after clicking."
+    ]
+  },
+  {
     createdAt: 1787322201581,
     introducedIn: "2026.08.21",
     title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",
