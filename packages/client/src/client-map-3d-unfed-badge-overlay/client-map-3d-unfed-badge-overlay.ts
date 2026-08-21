@@ -47,7 +47,12 @@ const PHASE_PER_INSTANCE = Math.PI * 0.37;
 // elevations rather than only from the default.
 const PLANE_TILT_X = -0.50;
 
-const drawBadgeCanvas = (icon: string): HTMLCanvasElement | null => {
+const drawBadgeCanvas = (
+  icon: string,
+  drawProhibitionSlash: boolean,
+  customIconDraw?: (ctx: CanvasRenderingContext2D, size: number) => void,
+  shieldColors?: { fill: string; stroke: string }
+): HTMLCanvasElement | null => {
   // The unit test imports createResourceBadgeOverlay in a Node env that
   // has no `document`; skip canvas painting there. The overlay still
   // constructs the InstancedMesh (with no texture) so the regression
@@ -59,7 +64,9 @@ const drawBadgeCanvas = (icon: string): HTMLCanvasElement | null => {
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
 
-  // Shield background: rounded rectangle, warm gold with a darker rim.
+  // Shield background: rounded rectangle, warm gold with a darker rim by
+  // default — callers with a cooler icon (e.g. the white/cyan shard glyph)
+  // can pass a different shieldColors pair instead of fighting the default.
   const PAD = 12;
   const RADIUS = 28;
   const left = PAD;
@@ -67,8 +74,8 @@ const drawBadgeCanvas = (icon: string): HTMLCanvasElement | null => {
   const right = CANVAS_SIZE - PAD;
   const bottom = CANVAS_SIZE - PAD;
 
-  ctx.fillStyle = "#f3e2a8";
-  ctx.strokeStyle = "#8a6418";
+  ctx.fillStyle = shieldColors?.fill ?? "#f3e2a8";
+  ctx.strokeStyle = shieldColors?.stroke ?? "#8a6418";
   ctx.lineWidth = 6;
   ctx.beginPath();
   ctx.moveTo(left + RADIUS, top);
@@ -84,23 +91,36 @@ const drawBadgeCanvas = (icon: string): HTMLCanvasElement | null => {
   ctx.fill();
   ctx.stroke();
 
-  // Resource icon centred — same glyph set the game uses everywhere else
-  // (client-panel-html.ts's per-resource icon row), passed in by the caller.
-  ctx.font = `${Math.round(CANVAS_SIZE * 0.62)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(icon, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + CANVAS_SIZE * 0.02);
+  // Icon centred — either the game's per-resource emoji glyph set
+  // (client-panel-html.ts's icon row) or, when the caller needs a shape no
+  // emoji covers (e.g. the white shard-rain icon), a custom vector drawer
+  // invoked at the same center point instead.
+  if (customIconDraw) {
+    ctx.save();
+    ctx.translate(CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+    customIconDraw(ctx, CANVAS_SIZE * 0.34);
+    ctx.restore();
+  } else {
+    ctx.font = `${Math.round(CANVAS_SIZE * 0.62)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(icon, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + CANVAS_SIZE * 0.02);
+  }
 
   // Red diagonal slash from top-right to bottom-left — the universal
-  // prohibition slash, signalling "not enough of this resource".
-  const SLASH_MARGIN = 26;
-  ctx.strokeStyle = "#c94a38";
-  ctx.lineWidth = 14;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(CANVAS_SIZE - SLASH_MARGIN, SLASH_MARGIN);
-  ctx.lineTo(SLASH_MARGIN, CANVAS_SIZE - SLASH_MARGIN);
-  ctx.stroke();
+  // prohibition slash, signalling "not enough of this resource". Locator
+  // badges (e.g. shard rain sites) reuse this same shield+icon shape to
+  // point at a place worth looking at, not a shortage, so they skip it.
+  if (drawProhibitionSlash) {
+    const SLASH_MARGIN = 26;
+    ctx.strokeStyle = "#c94a38";
+    ctx.lineWidth = 14;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(CANVAS_SIZE - SLASH_MARGIN, SLASH_MARGIN);
+    ctx.lineTo(SLASH_MARGIN, CANVAS_SIZE - SLASH_MARGIN);
+    ctx.stroke();
+  }
 
   return canvas;
 };
@@ -114,12 +134,21 @@ export type ResourceBadgeOverlay = {
   readonly dispose: () => void;
 };
 
-export const createResourceBadgeOverlay = (scene: Scene, maxTiles: number, icon: string): ResourceBadgeOverlay => {
+export const createResourceBadgeOverlay = (
+  scene: Scene,
+  maxTiles: number,
+  icon: string,
+  options?: {
+    drawProhibitionSlash?: boolean;
+    customIconDraw?: (ctx: CanvasRenderingContext2D, size: number) => void;
+    shieldColors?: { fill: string; stroke: string };
+  }
+): ResourceBadgeOverlay => {
   const group = new Group();
   group.name = "resource-badge-overlay";
   scene.add(group);
 
-  const canvas = drawBadgeCanvas(icon);
+  const canvas = drawBadgeCanvas(icon, options?.drawProhibitionSlash ?? true, options?.customIconDraw, options?.shieldColors);
   const texture = canvas ? new CanvasTexture(canvas) : null;
   if (texture) {
     texture.colorSpace = SRGBColorSpace;

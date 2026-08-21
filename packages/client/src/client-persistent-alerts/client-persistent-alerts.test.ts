@@ -301,7 +301,7 @@ describe("persistent alerts", () => {
       me: "me",
       waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
       tiles: new Map<string, Tile>(),
-      shardAlert: {
+      shardRainStatus: {
         key: "rain-1",
         phase: "started" as const,
         startsAt: 0,
@@ -323,7 +323,7 @@ describe("persistent alerts", () => {
       me: "me",
       waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
       tiles: new Map<string, Tile>(),
-      shardAlert: {
+      shardRainStatus: {
         key: "rain-1",
         phase: "started" as const,
         startsAt: 0,
@@ -336,7 +336,12 @@ describe("persistent alerts", () => {
     expect(persistentAlertsForState(state, 1_800_001)).toEqual([]);
   });
 
-  it("draws an on-screen shard rain toast instead of an off-screen arrow badge", () => {
+  it("draws nothing on the 2D HUD for an on-screen shard rain site", () => {
+    // On-screen sites get the real 3D bobbing badge (createResourceBadgeOverlay
+    // in client-map-3d.ts, wired from client-map-3d.ts's own shardRainStatus
+    // loop) instead of a 2D canvas drawing here — same as how an on-screen
+    // muster flag or unfed town gets no HUD locator either, just their own
+    // in-world model/badge.
     const state = {
       me: "me",
       waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
@@ -344,7 +349,7 @@ describe("persistent alerts", () => {
       camY: 10,
       persistentAlertLocators: [] as PersistentAlertLocator[],
       tiles: new Map<string, Tile>(),
-      shardAlert: {
+      shardRainStatus: {
         key: "rain-1",
         phase: "started" as const,
         startsAt: 0,
@@ -353,24 +358,21 @@ describe("persistent alerts", () => {
         sites: [{ x: 10, y: 10 }]
       }
     };
-    const fillRectCalls: Array<[number, number, number, number]> = [];
-    const fillTextCalls: string[] = [];
+    let drawCalls = 0;
+    const countingNoop = (): void => { drawCalls += 1; };
     const ctx = {
       save: () => undefined,
       restore: () => undefined,
-      translate: () => undefined,
-      beginPath: () => undefined,
-      arc: () => undefined,
-      fill: () => undefined,
-      stroke: () => undefined,
-      rotate: () => undefined,
-      moveTo: () => undefined,
-      lineTo: () => undefined,
-      closePath: () => undefined,
-      fillRect: (x: number, y: number, w: number, h: number) => fillRectCalls.push([x, y, w, h]),
-      strokeRect: () => undefined,
-      measureText: () => ({ width: 80 }) as TextMetrics,
-      fillText: (text: string) => fillTextCalls.push(text)
+      translate: countingNoop,
+      beginPath: countingNoop,
+      arc: countingNoop,
+      fill: countingNoop,
+      stroke: countingNoop,
+      rotate: countingNoop,
+      moveTo: countingNoop,
+      lineTo: countingNoop,
+      quadraticCurveTo: countingNoop,
+      closePath: countingNoop
     } as unknown as CanvasRenderingContext2D;
 
     drawPersistentAlertLocators(state, {
@@ -385,7 +387,51 @@ describe("persistent alerts", () => {
     });
 
     expect(state.persistentAlertLocators).toEqual([]);
-    expect(fillRectCalls.length).toBe(1);
-    expect(fillTextCalls).toEqual(["Shard landed here"]);
+    expect(drawCalls).toBe(0);
+  });
+
+  it("draws the off-screen locator body as a round pin with an integrated tapered tip", () => {
+    const state = {
+      me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
+      camX: 10,
+      camY: 10,
+      persistentAlertLocators: [] as PersistentAlertLocator[],
+      tiles: new Map<string, Tile>([["30,40", musterTile()]])
+    };
+    let arcCalls = 0;
+    const lineToPoints: Array<[number, number]> = [];
+    const ctx = {
+      save: () => undefined,
+      restore: () => undefined,
+      translate: () => undefined,
+      beginPath: () => undefined,
+      arc: () => { arcCalls += 1; },
+      fill: () => undefined,
+      stroke: () => undefined,
+      rotate: () => undefined,
+      scale: () => undefined,
+      moveTo: () => undefined,
+      lineTo: (x: number, y: number) => lineToPoints.push([x, y]),
+      closePath: () => undefined
+    } as unknown as CanvasRenderingContext2D;
+
+    drawPersistentAlertLocators(state, {
+      ctx,
+      canvas: { width: 100, height: 100 } as HTMLCanvasElement,
+      worldToScreen: (wx) => (wx === 30 ? { sx: 180, sy: 50 } : { sx: 50, sy: 50 }),
+      toroidDelta: (from, to) => to - from,
+      size: 1,
+      halfW: 0,
+      halfH: 0,
+      nowMs: 0
+    });
+
+    // A round pin body with one integrated tapered tip: two tangent lines
+    // (drawn with lineTo) into the tip, then a single arc sweeping the rest
+    // of the circle back around — not the old 4-point kite/chevron outline
+    // (which used only lineTo, no arc at all).
+    expect(arcCalls).toBe(1);
+    expect(lineToPoints.length).toBeGreaterThanOrEqual(2);
   });
 });
