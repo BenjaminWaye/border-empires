@@ -29,7 +29,7 @@ export type PersistentAlertLocator = {
 };
 
 type PersistentAlertState = Pick<ClientState, "me" | "tiles" | "waypoint" | "persistentAlertLocators"> & {
-  shardAlert?: ClientState["shardAlert"] | undefined;
+  shardRainStatus?: ClientState["shardRainStatus"] | undefined;
 };
 
 const townLabel = (tile: Tile): string => tile.town?.name || tile.townName || `Town ${tile.x}, ${tile.y}`;
@@ -67,12 +67,16 @@ export const notificationCategoryForServerError = (code: string): NotificationCa
 
 const shardRainSiteLabel = (x: number, y: number): string => `A shard landed here at (${x}, ${y}). It may already be gone.`;
 
-// Shard rain sites are shown for the full life of the event (alert.expiresAt,
-// ~30 minutes) rather than the short client-shard-rain-pings reveal window:
-// this is a "something landed here" locator, independent of whether the
-// player has since explored/fogged the tile or collected the shard.
+// Shard rain sites are shown for the full life of the event
+// (shardRainStatus.expiresAt, ~30 minutes) rather than the short
+// client-shard-rain-pings reveal window: this is a "something landed here"
+// locator, independent of whether the player has since explored/fogged the
+// tile or collected the shard. Deliberately reads shardRainStatus, not the
+// dismissible shardAlert toast field (client-alerts.ts clears shardAlert on
+// dismissal but leaves shardRainStatus alone) — dismissing the toast
+// shouldn't also blind the player to where the sites are.
 export const persistentAlertsForState = (
-  state: Pick<ClientState, "me" | "tiles" | "waypoint"> & { shardAlert?: ClientShardRainAlert | undefined },
+  state: Pick<ClientState, "me" | "tiles" | "waypoint"> & { shardRainStatus?: ClientShardRainAlert | undefined },
   nowMs: number = Date.now()
 ): PersistentAlert[] => {
   const alerts: PersistentAlert[] = [];
@@ -113,9 +117,9 @@ export const persistentAlertsForState = (
       severity: "warn"
     });
   }
-  const shardAlert = state.shardAlert;
-  if (shardAlert?.phase === "started" && shardAlert.sites && nowMs < shardAlert.expiresAt) {
-    for (const site of shardAlert.sites) {
+  const shardRainStatus = state.shardRainStatus;
+  if (shardRainStatus?.phase === "started" && shardRainStatus.sites && nowMs < shardRainStatus.expiresAt) {
+    for (const site of shardRainStatus.sites) {
       alerts.push({
         id: `shard_rain:${site.x},${site.y}`,
         kind: "shard_rain",
@@ -170,6 +174,35 @@ const locatorEdgePoint = (
 
 const isOnScreen = (point: { sx: number; sy: number }, canvas: { width: number; height: number }, margin: number): boolean =>
   point.sx >= margin && point.sx <= canvas.width - margin && point.sy >= margin && point.sy <= canvas.height - margin;
+
+// A "ping" pin — a round badge whose rim tapers to a single point aimed at
+// the off-screen target, like the off-screen waypoint/ally markers in
+// Apex Legends, Destiny 2, and Fortnite: a circular icon slot stays
+// perfectly round and legible, and only a small integrated tip (not the
+// whole badge) carries the direction. Earlier this whole body was a
+// 4-point kite/chevron outline, which read as a lopsided arrowhead with no
+// room for the icon inside it — this keeps the same "outline is the
+// pointer" idea but merges the tip into a circle via two straight tangent
+// lines plus the remaining arc, instead of replacing the circle outright.
+const LOCATOR_TIP_HALF_ANGLE = 0.85; // radians; wider = fatter tip base
+const LOCATOR_TIP_LENGTH_RATIO = 0.85; // extra length beyond the rim, as a fraction of radius
+
+const drawLocatorPinBody = (ctx: CanvasRenderingContext2D, radius: number): void => {
+  const p1 = -LOCATOR_TIP_HALF_ANGLE;
+  const p2 = LOCATOR_TIP_HALF_ANGLE;
+  const tipDistance = radius * (1 + LOCATOR_TIP_LENGTH_RATIO);
+  ctx.beginPath();
+  ctx.moveTo(radius * Math.cos(p2), radius * Math.sin(p2));
+  ctx.lineTo(tipDistance, 0);
+  ctx.lineTo(radius * Math.cos(p1), radius * Math.sin(p1));
+  // Sweep the long way around (through angle = π, the back of the badge)
+  // so the small wedge facing the tip is the only part the tangent lines
+  // replace — the rest stays a true circle.
+  ctx.arc(0, 0, radius, p1, p2, true);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+};
 
 const drawCrossedSwordsGlyph = (ctx: CanvasRenderingContext2D, size: number): void => {
   ctx.save();
@@ -231,57 +264,50 @@ const drawCrossedSwordsGlyph = (ctx: CanvasRenderingContext2D, size: number): vo
   ctx.restore();
 };
 
-const drawShardGlyph = (ctx: CanvasRenderingContext2D, size: number): void => {
+// A shard, not the CRYSTAL resource's faceted round gem (💎 reads as "you're
+// short on Crystal", the wrong message for "something landed here"). White
+// fill with a pale cyan rim and facet lines — the same palette as the real
+// shard-site model (client-map-3d-shard-overlay.ts: color "#ffffff",
+// emissive "#ccefff", shimmer core rgb(50,210,233)) so the locator/badge
+// reads as the same object, just a 2D silhouette of it. Exported so the 3D
+// badge overlay (client-map-3d.ts's shardRainBadgeOverlay) can paint the
+// identical icon onto its canvas texture instead of duplicating the shape.
+export const drawShardGlyph = (ctx: CanvasRenderingContext2D, size: number): void => {
   ctx.save();
-  ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+  const points: Array<[number, number]> = [
+    [0, -size],
+    [size * 0.55, -size * 0.38],
+    [size * 0.34, size * 0.75],
+    [0, size],
+    [-size * 0.34, size * 0.75],
+    [-size * 0.55, -size * 0.38]
+  ];
+  ctx.beginPath();
+  ctx.moveTo(points[0]![0], points[0]![1]);
+  for (const [px, py] of points.slice(1)) ctx.lineTo(px, py);
+  ctx.closePath();
+  // Dark contrast base first — white-on-gold-shield or white-on-pale-badge
+  // is under 1.2:1 contrast on its own (WCAG wants 3:1+ for graphics), so a
+  // wide dark stroke sits under the fill the same way drawCrossedSwordsGlyph
+  // above lays a black stroke under its bright color on this same shield.
+  ctx.strokeStyle = "rgba(15, 26, 33, 0.75)";
+  ctx.lineWidth = Math.max(3, size * 0.32);
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.strokeStyle = "#8fd9ec";
+  ctx.lineWidth = Math.max(1.5, size * 0.12);
+  ctx.stroke();
+  // Two facet lines through the middle, echoing the shimmer core color of
+  // the real shard-site model.
+  ctx.strokeStyle = "rgba(50, 210, 233, 0.55)";
+  ctx.lineWidth = Math.max(1, size * 0.07);
   ctx.beginPath();
   ctx.moveTo(0, -size);
-  ctx.lineTo(size * 0.62, 0);
   ctx.lineTo(0, size);
-  ctx.lineTo(-size * 0.62, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.translate(-size * 0.08, -size * 0.08);
-  ctx.fillStyle = "#bdf3ff";
-  ctx.beginPath();
-  ctx.moveTo(0, -size);
-  ctx.lineTo(size * 0.62, 0);
-  ctx.lineTo(0, size);
-  ctx.lineTo(-size * 0.62, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-};
-
-// Toast anchored over the exact impact tile once it's scrolled on-screen —
-// a positional blip only, deliberately silent on whether the shard is still
-// there (the tile may still be unexplored/fogged, or already collected).
-const drawShardRainToast = (ctx: CanvasRenderingContext2D, point: { x: number; y: number }, label: string): void => {
-  ctx.save();
-  ctx.font = "600 12px system-ui";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const paddingX = 10;
-  const paddingY = 6;
-  const textWidth = ctx.measureText(label).width;
-  const boxWidth = textWidth + paddingX * 2;
-  const boxHeight = 14 + paddingY * 2;
-  const boxX = point.x - boxWidth / 2;
-  const tileClearance = 28;
-  const boxY = point.y - tileClearance - boxHeight;
-  ctx.fillStyle = "rgba(17, 23, 34, 0.92)";
-  ctx.strokeStyle = "rgba(102, 224, 255, 0.9)";
-  ctx.lineWidth = 1.5;
-  ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-  ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
-  ctx.beginPath();
-  ctx.moveTo(point.x - 6, boxY + boxHeight);
-  ctx.lineTo(point.x + 6, boxY + boxHeight);
-  ctx.lineTo(point.x, boxY + boxHeight + 8);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#bdf3ff";
-  ctx.fillText(label, point.x, boxY + boxHeight / 2);
+  ctx.moveTo(-size * 0.55, -size * 0.38);
+  ctx.lineTo(size * 0.34, size * 0.75);
+  ctx.stroke();
   ctx.restore();
 };
 
@@ -314,20 +340,16 @@ export const drawPersistentAlertLocators = (
   const inset = 30;
   ctx.save();
   let drawnCount = 0;
-  let toastCount = 0;
   for (const alert of alerts) {
     const projected = deps.worldToScreen(alert.x, alert.y, deps.size, deps.halfW, deps.halfH);
-    if (isOnScreen(projected, canvas, margin)) {
-      if (alert.kind === "shard_rain" && toastCount < 3) {
-        drawShardRainToast(ctx, { x: projected.sx, y: projected.sy }, "Shard landed here");
-        toastCount += 1;
-      }
-      continue;
-    }
+    // On-screen alerts get their own in-world indicator (e.g. the 3D
+    // bobbing badge over a shard rain site in client-map-3d.ts, or the
+    // muster flag model itself) rather than a HUD locator here.
+    if (isOnScreen(projected, canvas, margin)) continue;
     if (drawnCount >= 3) continue;
     const edge = locatorEdgePoint(projected, canvas, inset);
     const pulse = 0.78 + Math.sin(deps.nowMs / 260) * 0.12;
-    const radius = 26;
+    const radius = 22;
     state.persistentAlertLocators.push({
       id: alert.id,
       kind: alert.kind,
@@ -340,29 +362,23 @@ export const drawPersistentAlertLocators = (
     ctx.save();
     ctx.translate(edge.x, edge.y);
     ctx.globalAlpha = pulse;
+    // A round badge with the direction carried by a single tapered tip
+    // (drawLocatorPinBody), not the whole outline — see that function's
+    // comment for why. The icon inside stays upright: rotate for the body,
+    // draw it, then rotate back before drawing the glyph.
+    ctx.rotate(edge.angle);
     ctx.fillStyle = "rgba(17, 23, 34, 0.92)";
     ctx.strokeStyle = "rgba(255, 209, 102, 0.92)";
     ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.rotate(edge.angle);
-    ctx.fillStyle = "#ffd166";
-    ctx.beginPath();
-    ctx.moveTo(radius * 0.6, 0);
-    ctx.lineTo(-radius * 0.35, -radius * 0.5);
-    ctx.lineTo(-radius * 0.15, 0);
-    ctx.lineTo(-radius * 0.35, radius * 0.5);
-    ctx.closePath();
-    ctx.fill();
+    ctx.lineJoin = "round";
+    drawLocatorPinBody(ctx, radius);
     ctx.rotate(-edge.angle);
     if (alert.kind === "muster_active") {
-      drawCrossedSwordsGlyph(ctx, radius * 0.55);
+      drawCrossedSwordsGlyph(ctx, radius * 0.5);
     } else if (alert.kind === "shard_rain") {
-      drawShardGlyph(ctx, radius * 0.55);
+      drawShardGlyph(ctx, radius * 0.5);
     } else {
-      ctx.font = `700 ${radius * 1.3}px system-ui`;
+      ctx.font = `700 ${radius * 1.1}px system-ui`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "rgba(0, 0, 0, 0.6)";

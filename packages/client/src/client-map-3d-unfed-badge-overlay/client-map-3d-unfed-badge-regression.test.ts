@@ -57,9 +57,13 @@ describe("3d resource-dormancy badge regression guard", () => {
     expect(source).toContain("resourceBadgeOverlays");
     expect(source).toContain("resourceBadgeOverlays.FOOD.addInstance");
     expect(source).toContain("resourceBadgeOverlays[dormantStructureResource].addInstance");
-    expect(source).toMatch(/for \(const overlay of Object\.values\(resourceBadgeOverlays\)\) overlay\.clear\(\);/);
-    expect(source).toMatch(/for \(const overlay of Object\.values\(resourceBadgeOverlays\)\) overlay\.commit\(\);/);
-    expect(source).toMatch(/for \(const overlay of Object\.values\(resourceBadgeOverlays\)\) overlay\.dispose\(\);/);
+    // The shard-rain badge (client-map-3d-shard-rain-badge-overlay.ts) shares
+    // these same clear/commit/tick/dispose loops via allBadgeOverlays rather
+    // than getting 4 more call sites of its own — see that file's comments.
+    expect(source).toContain("allBadgeOverlays = [...Object.values(resourceBadgeOverlays), shardRainBadgeOverlay]");
+    expect(source).toMatch(/for \(const overlay of allBadgeOverlays\) overlay\.clear\(\);/);
+    expect(source).toMatch(/for \(const overlay of allBadgeOverlays\) overlay\.commit\(\);/);
+    expect(source).toMatch(/for \(const overlay of allBadgeOverlays\) overlay\.dispose\(\);/);
   });
 
   it("paints the food badge through the shared shouldShowTownUnfedWarning predicate", () => {
