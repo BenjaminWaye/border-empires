@@ -89,6 +89,7 @@ import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
 import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
 import { buildEventLoopBlockedPayload } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
+import { emitPerConnectHellos } from "./per-connect-hellos.js";
 
 const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
   if (!value) return undefined;
@@ -2318,11 +2319,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
             deleteCachedSnapshot(call.request.player_id);
             log.info({ playerId: call.request.player_id }, "spawned runtime territory for prepared player");
           }
-          try {
-            runtime.emitShardRainHelloFor(call.request.player_id);
-          } catch (error) {
-            log.error({ err: error, playerId: call.request.player_id }, "shard rain hello failed");
-          }
+          emitPerConnectHellos(runtime, call.request.player_id, log);
         }
         const prepareDurationMs = Date.now() - prepareStartedAt;
         simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
