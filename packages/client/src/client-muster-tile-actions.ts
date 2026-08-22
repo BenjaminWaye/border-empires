@@ -42,11 +42,30 @@ export const buildMusterActions = (
         detail: `Mustering… ${staged} manpower staged · auto-fire at an adjacent enemy when ready.`,
         ...avail()
       });
-    } else {
+      out.push({
+        id: "muster_march",
+        label: "March To…",
+        detail: `Mustering… ${staged} manpower staged · pick a target tile to fight toward.`,
+        ...avail()
+      });
+    } else if (muster.mode === "ADVANCE") {
       out.push({
         id: "muster_hold",
         label: "Set Hold",
         detail: `Mustering… ${staged} manpower staged · switch to HOLD to pause auto-fire.`,
+        ...avail()
+      });
+      out.push({
+        id: "muster_march",
+        label: "March To…",
+        detail: `Mustering… ${staged} manpower staged · pick a target tile to fight toward.`,
+        ...avail()
+      });
+    } else {
+      out.push({
+        id: "muster_march_cancel",
+        label: "Cancel March",
+        detail: `Marching toward (${muster.targetX}, ${muster.targetY}) · switch back to HOLD.`,
         ...avail()
       });
     }
