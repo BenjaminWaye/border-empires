@@ -121,3 +121,36 @@ export const applyReachAnchorDeactivationToBorder = (
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
   return result.border;
 };
+
+/**
+ * Shared body for a runtime's `downgradeToFrontier` hook: applies the
+ * SETTLED -> FRONTIER mutation, then broadcasts it. This flip happens as a
+ * side effect of the *overtaking* border push (settleOvertaken), not as
+ * part of the triggering command's own tileDeltas -- without an explicit
+ * broadcast here, neither the tile's owner nor the player who just overtook
+ * the border learns about it until they click the tile (forcing a fresh
+ * fetch) or reconnect.
+ */
+export const applyUnsettleDowngrade = <TTile extends { ownerId?: string | undefined; ownershipState?: string | undefined }, TDelta>(
+  tileKey: string,
+  causeCommandId: string,
+  deps: {
+    getTile: (tileKey: string) => TTile | undefined;
+    replaceTileState: (tileKey: string, tile: TTile, commandId: string) => void;
+    tileDeltaFromState: (tile: TTile) => TDelta;
+    emitEvent: (event: { eventType: "TILE_DELTA_BATCH"; commandId: string; playerId: string; tileDeltas: Array<TDelta & { ownerId?: string | undefined; ownershipState?: string | undefined }> }) => void;
+  }
+): void => {
+  const tile = deps.getTile(tileKey);
+  if (!tile) return;
+  const downgraded: TTile = { ...tile, ownershipState: "FRONTIER" };
+  const unsettleCommandId = `unsettle:${causeCommandId}:${tileKey}`;
+  deps.replaceTileState(tileKey, downgraded, unsettleCommandId);
+  if (!downgraded.ownerId) return;
+  deps.emitEvent({
+    eventType: "TILE_DELTA_BATCH",
+    commandId: unsettleCommandId,
+    playerId: downgraded.ownerId,
+    tileDeltas: [{ ...deps.tileDeltaFromState(downgraded), ownerId: downgraded.ownerId, ownershipState: downgraded.ownershipState }]
+  });
+};
