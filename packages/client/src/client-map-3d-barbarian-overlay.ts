@@ -120,10 +120,20 @@ export const createBarbarianOverlay = (scene: Scene, maxTiles: number): Barbaria
     jawMesh.count = count;
     crossboneMesh.count = count;
     toothMesh.count = toothCount;
+    poleMesh.instanceMatrix.clearUpdateRanges();
+    poleMesh.instanceMatrix.addUpdateRange(0, poleMesh.count * 16);
     poleMesh.instanceMatrix.needsUpdate = true;
+    craniumMesh.instanceMatrix.clearUpdateRanges();
+    craniumMesh.instanceMatrix.addUpdateRange(0, craniumMesh.count * 16);
     craniumMesh.instanceMatrix.needsUpdate = true;
+    jawMesh.instanceMatrix.clearUpdateRanges();
+    jawMesh.instanceMatrix.addUpdateRange(0, jawMesh.count * 16);
     jawMesh.instanceMatrix.needsUpdate = true;
+    crossboneMesh.instanceMatrix.clearUpdateRanges();
+    crossboneMesh.instanceMatrix.addUpdateRange(0, crossboneMesh.count * 16);
     crossboneMesh.instanceMatrix.needsUpdate = true;
+    toothMesh.instanceMatrix.clearUpdateRanges();
+    toothMesh.instanceMatrix.addUpdateRange(0, toothMesh.count * 16);
     toothMesh.instanceMatrix.needsUpdate = true;
   };
 

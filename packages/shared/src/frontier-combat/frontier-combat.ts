@@ -85,6 +85,13 @@ export type FrontierCombatModifiers = {
   // attack-side-only field (the attacker's own war-industry investment,
   // or lack of it, never affects their own defense).
   noWarIndustryVulnerabilityMult?: number | undefined;
+  // Mirror of noWarIndustryVulnerabilityMult above, but from the defender's
+  // side: doubles the defender's effective defense when the ATTACKER owns
+  // zero Titanium or zero Umbrite Weapons Factories anywhere in their empire
+  // (same NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT constant, applied to the
+  // other side) — a defense-side-only field (the defender's own war-industry
+  // investment, or lack of it, never affects their own attack).
+  noWarIndustryDefenseVulnerabilityMult?: number | undefined;
   // Generic tech/domain "attack"/"defense" stat mods (player.mods.attack /
   // player.mods.defense — recomputeMods in tech-domain-bridge.ts): persistent,
   // empire-wide, and independent of who/what is being fought, same tier as
@@ -158,6 +165,7 @@ const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   // Legacy parity: frontier tiles provide no defensive effective power.
   if (target.ownershipState === "FRONTIER") return { entries, mult: 0 };
   let mult = 1;
+  mult *= foldMult(entries, "Attacker has no war industry", modifiers.noWarIndustryDefenseVulnerabilityMult);
   mult *= foldMult(entries, "Settled tile", target.ownershipState === "SETTLED" ? 1.35 : undefined);
   mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
   mult *= foldMult(entries, "Dock", target.dockId ? 1.1 : undefined);

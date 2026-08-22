@@ -4,7 +4,7 @@ export type ManpowerPanelMusterFlag = {
   x: number;
   y: number;
   amount: number;
-  mode: "HOLD" | "ADVANCE";
+  mode: "HOLD" | "ADVANCE" | "MARCH";
   targetX?: number;
   targetY?: number;
 };

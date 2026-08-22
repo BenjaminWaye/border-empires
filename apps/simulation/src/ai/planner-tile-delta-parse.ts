@@ -13,6 +13,7 @@ export type SimulationTileDelta = {
   terrain?: Terrain | undefined;
   resource?: string | undefined;
   dockId?: string | undefined;
+  naturalWonderJson?: string | undefined;
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   townJson?: string | undefined;

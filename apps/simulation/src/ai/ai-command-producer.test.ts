@@ -775,7 +775,7 @@ describe("ai command producer", () => {
     producer.close();
 
     expect(submittedTypes).toEqual(["CHOOSE_TECH", "EXPAND"]);
-    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(2, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: true });
+    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(2, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: true, beaconBoostActive: true });
   });
 
   it("does not treat rejected tech preplan as applied same-tick progression", async () => {
@@ -839,7 +839,7 @@ describe("ai command producer", () => {
     producer.close();
 
     expect(submittedTypes).toEqual(["CHOOSE_TECH", "EXPAND"]);
-    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(2, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: false });
+    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(2, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: false, beaconBoostActive: true });
   });
 
   it("advances client seq after a timed-out preplan command instead of replaying it", async () => {
@@ -894,7 +894,7 @@ describe("ai command producer", () => {
     vi.useRealTimers();
 
     expect(submittedTypes).toEqual(["CHOOSE_TECH", "EXPAND"]);
-    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(2, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: false });
+    expect(explainNextAutomationCommand).toHaveBeenNthCalledWith(2, "ai-1", 2, expect.any(Number), "ai-runtime", { skipPreplan: false, beaconBoostActive: true });
   });
 
   it("releases stale pending AI commands so one stuck player does not freeze forever", async () => {

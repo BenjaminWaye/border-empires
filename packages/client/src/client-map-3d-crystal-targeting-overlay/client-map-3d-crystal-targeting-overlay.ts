@@ -160,6 +160,8 @@ export const createCrystalTargetingOverlay = (scene: Scene, maxTiles: number): C
   const commit = (): void => {
     if (fillCount > 0) {
       fillMesh.count = fillCount;
+      fillMesh.instanceMatrix.clearUpdateRanges();
+      fillMesh.instanceMatrix.addUpdateRange(0, fillMesh.count * 16);
       fillMesh.instanceMatrix.needsUpdate = true;
       fillMesh.visible = true;
     } else {

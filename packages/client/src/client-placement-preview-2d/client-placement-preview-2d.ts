@@ -5,6 +5,17 @@ import {
   placementRadius,
   tileIsPlacementBeneficiary
 } from "../client-structure-effects/client-structure-effects.js";
+import { computeOutpostReachPreview } from "../client-reach-overlay/client-reach-overlay.js";
+
+// Outpost-family structures (RELAY_BEACON/SIEGE_OUTPOST/SIEGE_TOWER/
+// DREAD_TOWER) all project a radius-5 reach disk once active (see
+// packages/shared/src/reach/reach.ts). While the player is siting one of
+// these via the building-placement flow, ghost-preview the new reach disk
+// it would add so beacon siting is an informed spatial choice — item 5 of
+// the reach overlay plan.
+const OUTPOST_FAMILY_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
+const REACH_PREVIEW_STROKE_STYLE = "rgba(150, 220, 255, 0.9)";
+const REACH_PREVIEW_NEW_FILL_STYLE = "rgba(150, 220, 255, 0.10)";
 
 export type PlacementPreview2DDeps = {
   ctx: CanvasRenderingContext2D;
@@ -53,6 +64,46 @@ const renderPlacementBeneficiaryTiles = (
   }
 };
 
+// Ghost-outlines the new reach disk an outpost-family structure would add.
+// Tiles already inside the player's current reach (state.myReach — see
+// client-reach-overlay.ts's MOCK-DATA SEAM) are left alone so the ghost
+// only highlights *newly* reachable ground, which is the actual siting
+// decision the player is making.
+const renderOutpostReachGhostPreview = (
+  state: ClientState,
+  deps: PlacementPreview2DDeps,
+  size: number,
+  halfW: number,
+  halfH: number
+): void => {
+  const { x, y } = state.buildingPlacement;
+  const placementTile = state.tiles.get(deps.keyFor(x, y));
+  if (deps.tileVisibilityStateAt(x, y, placementTile) !== "visible") return;
+  const preview = computeOutpostReachPreview(x, y);
+  const existingReach = state.myReach;
+  for (const key of preview) {
+    const [kxRaw, kyRaw] = key.split(",");
+    const kx = Number(kxRaw);
+    const ky = Number(kyRaw);
+    if (!Number.isFinite(kx) || !Number.isFinite(ky)) continue;
+    if (existingReach?.has(key)) continue; // already in reach — nothing new to show here
+    const { sx, sy } = deps.worldToScreen(kx, ky, size, halfW, halfH);
+    deps.ctx.save();
+    deps.ctx.fillStyle = REACH_PREVIEW_NEW_FILL_STYLE;
+    deps.ctx.fillRect(sx - size / 2 + 1, sy - size / 2 + 1, size - 2, size - 2);
+    deps.ctx.restore();
+  }
+  const center = deps.worldToScreen(x, y, size, halfW, halfH);
+  const ringRadius = 5.5; // OUTPOST_REACH_RADIUS (5) + 0.5 tile margin, matches the square-ring convention below
+  const squareSize = ringRadius * 2 * size;
+  deps.ctx.save();
+  deps.ctx.strokeStyle = REACH_PREVIEW_STROKE_STYLE;
+  deps.ctx.setLineDash([6, 4]);
+  deps.ctx.lineWidth = 2;
+  deps.ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
+  deps.ctx.restore();
+};
+
 export const renderBuildingPlacementPreview2D = (
   state: ClientState,
   deps: PlacementPreview2DDeps,
@@ -62,6 +113,10 @@ export const renderBuildingPlacementPreview2D = (
 ): void => {
   if (!state.buildingPlacement.active) return;
   const st = state.buildingPlacement.structureType;
+  if (OUTPOST_FAMILY_STRUCTURE_TYPES.has(st)) {
+    renderOutpostReachGhostPreview(state, deps, size, halfW, halfH);
+    return;
+  }
   if (st !== "WATERWORKS" && st !== "FOUNDRY") return;
   const { x, y } = state.buildingPlacement;
   const placementTile = state.tiles.get(deps.keyFor(x, y));

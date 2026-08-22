@@ -94,7 +94,7 @@ export type SimulationEvent =
         ownerId?: string | undefined;
         ownershipState?: string | undefined;
         frontierDecayAt?: number | undefined;
-        frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+        frontierDecayKind?: "ENCIRCLEMENT" | undefined;
         breachShockUntil?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";

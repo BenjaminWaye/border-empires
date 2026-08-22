@@ -98,9 +98,8 @@ describe("loadSimulationStartupRecovery", () => {
       initialCommandHistory: startupRecovery.initialCommandHistory
     });
     const seen: string[] = [];
-    runtime.onEvent((event) => {
-      seen.push(`${event.eventType}:${event.commandId}`);
-    });
+    // REACH_UPDATE is a derived-state push, not command lifecycle -- skipped.
+    runtime.onEvent((e) => { if (e.messageType !== "REACH_UPDATE") seen.push(`${e.eventType}:${e.commandId}`); });
 
     runtime.submitCommand({
       commandId: "cmd-resolved",

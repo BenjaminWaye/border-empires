@@ -36,6 +36,7 @@ export type RuntimeState = {
     domainIds: string[];
     chosenTrickleResource?: "TITANIUM" | "UMBRITE" | "CRYSTAL";
     imperialWardCharges?: number;
+    wonderLastFreeRushBuyAt?: number;
     eventLog?: PlayerEventLogEntry[];
     strategicResources: Partial<Record<StrategicResourceKey, number>>;
     allies: string[];

@@ -100,7 +100,7 @@ describe("AI development slot reservations", () => {
       2,
       1_100,
       "ai-runtime",
-      { skipPreplan: false, reservedDevelopmentSlots: 1 }
+      { skipPreplan: false, reservedDevelopmentSlots: 1, beaconBoostActive: true }
     );
   });
 });

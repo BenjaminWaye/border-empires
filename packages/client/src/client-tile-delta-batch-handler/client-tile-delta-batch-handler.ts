@@ -4,6 +4,7 @@ import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gatewa
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
+import { pushDiscoveryTipFeedEntry } from "../client-alerts/client-alerts.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
@@ -43,14 +44,20 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       updates: tileUpdates?.map((update) => ({ key: keyFor(update.x, update.y), ownerId: update.ownerId, ownershipState: update.ownershipState }))
     });
   }
-  const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"] } | undefined>();
+  const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"]; ownershipState?: Tile["ownershipState"] } | undefined>();
   if (Array.isArray(tileUpdates)) {
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
       const existing = state.tiles.get(updateKey);
       previousTileByKey.set(
         updateKey,
-        existing ? { ...(existing.ownerId ? { ownerId: existing.ownerId } : {}), ...(existing.town ? { town: existing.town } : {}) } : undefined
+        existing
+          ? {
+              ...(existing.ownerId ? { ownerId: existing.ownerId } : {}),
+              ...(existing.town ? { town: existing.town } : {}),
+              ...(existing.ownershipState ? { ownershipState: existing.ownershipState } : {})
+            }
+          : undefined
       );
     }
   }
@@ -93,6 +100,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     state.firstChunkAt = Date.now();
     state.chunkFullCount = Math.max(state.chunkFullCount, 1);
     state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
+    if (state.hasOwnedTileInCache) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; }
   }
   if (resolvedQueuedFrontierCapture) deps.resolveFrontierCapture("TILE_DELTA_BATCH");
   // Re-render the tile action menu if the delta touched the currently selected
@@ -107,6 +115,23 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
   const batchPlayerManpower = (msg as { playerManpower?: unknown }).playerManpower;
   if (typeof batchPlayerManpower === "number" && (msg as { playerId?: unknown }).playerId === state.me) state.manpower = batchPlayerManpower;
   if (Array.isArray(tileUpdates) && tileUpdates.length > 0) {
+    const nowMs = Date.now();
+    for (const update of tileUpdates) {
+      const updateKey = keyFor(update.x, update.y);
+      const previous = previousTileByKey.get(updateKey);
+      const resolved = state.tiles.get(updateKey);
+      // Unsettle transition only: same owner, SETTLED -> FRONTIER. A capture
+      // (ownerId change) is a different event, already handled below by
+      // emitTownCaptureIfCaptured -- keep the two visuals from overlapping.
+      if (
+        previous?.ownershipState === "SETTLED" &&
+        resolved?.ownershipState === "FRONTIER" &&
+        previous.ownerId &&
+        previous.ownerId === resolved.ownerId
+      ) {
+        state.unsettleFxQueue.push({ x: update.x, y: update.y, queuedAt: nowMs });
+      }
+    }
     emitTownCaptureIfCaptured({
       tileUpdates,
       previousTileByKey,
@@ -122,6 +147,6 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       }
     });
   }
-  renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, () => deps.renderHud());
+  renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, () => deps.renderHud(), (def) => pushDiscoveryTipFeedEntry(state, def));
   deps.renderHud();
 };

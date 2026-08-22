@@ -173,7 +173,6 @@ export type DomainTileState = {
             | "connectedTownNames"
             | "connectedTitaniumWeaponsFactoryCount"
             | "connectedUmbriteWeaponsFactoryCount"
-            | "goldIncomePausedReason"
             | "manpowerCurrent"
             | "manpowerCap"
             | "hasMintworks"
@@ -252,7 +251,7 @@ export type DomainTileState = {
     | {
         ownerId: string;
         amount: number;
-        mode: "HOLD" | "ADVANCE";
+        mode: "HOLD" | "ADVANCE" | "MARCH";
         targetX?: number;
         targetY?: number;
         setAt?: number;
@@ -263,7 +262,6 @@ export type DomainTileState = {
     | {
         type: import("@border-empires/shared").NaturalWonderType;
         claimedAt?: number;
-        lastFreeRushBuyAt?: number;
       }
     | undefined;
 };
@@ -289,6 +287,16 @@ export type ValidateFrontierCommandInput = {
   originMuster?: number | undefined;
   /** Required muster for this attack (defaults to MUSTER_ATTACK_COST). */
   requiredMuster?: number | undefined;
+  /**
+   * Fixed-border reach (packages/shared/src/reach/reach.ts): whether `to` is
+   * inside the actor's resolved reach set. Checked for EXPAND only (ATTACK
+   * deliberately ignores it). Optional so callers/tests that predate reach
+   * gating keep compiling unchanged — the check only fires when this field
+   * is explicitly supplied as `true` or `false`; omitting it skips the gate
+   * entirely. Production's only caller (runtime-frontier-command.ts) always
+   * supplies it.
+   */
+  isInReach?: boolean | undefined;
 };
 
 export type ValidateFrontierCommandResult =

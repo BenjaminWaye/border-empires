@@ -42,22 +42,8 @@ import type {
 } from "../client-types.js";
 import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
 
-export type ClientWaypoint = {
-  target: { x: number; y: number };
-  plan: WaypointPlan;
-  // Last tile-key the waypoint asked the action queue to claim. The
-  // next top-up compares the planner's new first step against it: a
-  // match means ownership has not advanced (either a stale-snapshot
-  // race or a real reject), so we wait a few ticks before halting.
-  lastEnqueuedKey?: string;
-  // Consecutive top-ups where the planner re-emitted the same step we
-  // just enqueued. Resets to 0 the moment the plan advances.
-  consecutiveRetries?: number;
-  // When true, the waypoint dynamically retargets if the barbarian moves
-  // off the original coordinate. Set when the destination tile is owned
-  // by barbarian-1.
-  trackBarbarian?: boolean; pausedForManpower?: boolean; // pausedForManpower: paused on an unaffordable EXPAND leg — see client-waypoint-manpower-pause.ts.
-};
+export type { ClientWaypoint } from "./client-waypoint-state.js";
+import type { ClientWaypoint } from "./client-waypoint-state.js";
 
 type QueuedOptimisticKind = OptimisticStructureKind;
 type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
@@ -116,9 +102,9 @@ export const createInitialState = () => ({
   authError: "",
   authBusyTitle: "",
   authBusyDetail: "",
+  seasonFull: false, seasonFullNotifyAcknowledged: false, // SEASON_FULL rejection — see client-auth-ui.ts
   profileSetupRequired: false,
-  gold: 0,
-  level: 0,
+  gold: 0, level: 0,
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   modBreakdown: {
     attack: [{ label: "Base", mult: 1 }],
@@ -207,8 +193,8 @@ export const createInitialState = () => ({
   // Locked sub-choice for Clockwork Stipend; undefined when not picked yet.
   chosenTrickleResource: undefined as ChosenTrickleResource | undefined,
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1).
-  imperialWardCharges: undefined as number | undefined,
-  imperialWardActiveUntil: undefined as number | undefined,
+  imperialWardCharges: undefined as number | undefined, imperialWardActiveUntil: undefined as number | undefined,
+  wonderLastFreeRushBuyAt: undefined as number | undefined, // Quickforge: ms of last discounted rush-buy (0/undefined = unused) -- rush-buy price preview only, server is price-authoritative
   techChoices: [] as string[],
   techCatalog: [] as TechInfo[],
   techAffordableByTechId: new Map<string, boolean>(), techAffordablePulseUntilByTechId: new Map<string, number>(), // §7.3 "reward is ready" pulse tracking
@@ -271,12 +257,7 @@ export const createInitialState = () => ({
   retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "UMBRITE" | "TITANIUM" | "GEMS"; queuedAt: number }>,
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  bombardFxQueue: [] as Array<{
-    x: number;
-    y: number;
-    queuedAt: number;
-    tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }>;
-  }>,
+  bombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number; tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> }>,
   worldEngineStrikeFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   // Drives the global camera-shake trigger (client-map-3d-camera-shake-fx.ts) —
   // pushed once per newly-seen WORLD_ENGINE_STRIKE_ANNOUNCEMENT broadcast, for
@@ -293,6 +274,7 @@ export const createInitialState = () => ({
   imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
@@ -309,7 +291,7 @@ export const createInitialState = () => ({
   feedAttentionUntil: 0,
   persistentAlertLocators: [] as Array<{
     id: string;
-    kind: "town_unfed" | "muster_active" | "waypoint_manpower_paused";
+    kind: "town_unfed" | "muster_active" | "waypoint_manpower_paused" | "shard_rain";
     x: number;
     y: number;
     screenX: number;
@@ -389,16 +371,26 @@ export const createInitialState = () => ({
   mobilePanel: "core" as "core" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings",
   activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings" | null,
   showWeakDefensibility: false,
+  // Fixed-borders-via-reach overlay. `undefined` means "not computed for this
+  // frame yet" (client-runtime-loop.ts lazily fills it via resolveMyReach,
+  // which prefers serverReach below and only falls back to the local
+  // approximation before the first REACH_UPDATE arrives).
+  myReach: undefined as Set<string> | undefined,
+  myReachRevisionAtCompute: "" as string,
+  // Authoritative reach pushed by the simulation (REACH_UPDATE) — see
+  // client-reach-authoritative.ts. `undefined` until the first message lands.
+  serverReach: undefined as Set<string> | undefined,
+  serverReachRevision: 0,
   shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,
   shardAlert: undefined as ClientShardRainAlert | undefined, shardRainStatus: undefined as ClientShardRainAlert | undefined, // shardRainStatus survives toast dismissal, unlike shardAlert
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
+  needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, // join-season overlay: see client-join-season-overlay.ts
   lastSeenRespawnNoticeId: "",
   dismissedShardAlertKeys: new Set<string>(),
-  structureInfoKey: "" as string,
-  crystalAbilityInfoKey: "" as string,
+  structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
   unreadAttackAlerts: 0,
   techSection: "research" as "research" | "domains",
@@ -598,11 +590,8 @@ export const createInitialState = () => ({
     direction: "N" as "N" | "E" | "S" | "W",
     length: 1 as 1 | 2 | 3
   },
-  airportTargeting: {
-    active: false,
-    originKey: "",
-    validTargets: new Set<string>()
-  },
+  airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
+  musterMarchTargeting: { active: false, originX: 0, originY: 0 },
   guide: {
     open: storageGet(GUIDE_STORAGE_KEY) !== "1",
     stepIndex: 0,

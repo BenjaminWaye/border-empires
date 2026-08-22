@@ -18,6 +18,7 @@ export type PlannerTile = {
   resource?: string | undefined;
   dockId?: string | undefined;
   town?: unknown;
+  naturalWonder?: unknown;
 };
 
 export type PlannerTileLookup = ReadonlyMap<string, PlannerTile>;
@@ -68,9 +69,10 @@ export const NARROW_ANALYZE_MAX_CANDIDATES = 512;
 export const strategicFrontierTargetScore = (tile: PlannerTile, needsFood: boolean = false): number => {
   let score = 0;
   if (tile.town) score += 1_000;
+  if (tile.naturalWonder) score += 700;
   if (tile.dockId) score += 450;
   score += resourceScore(tile.resource, needsFood);
-  if (!tile.resource && !tile.town && !tile.dockId) score -= 40;
+  if (!tile.resource && !tile.town && !tile.dockId && !tile.naturalWonder) score -= 40;
   return score;
 };
 
@@ -138,7 +140,7 @@ export const scoutExpandScore = (
     nextStepNonOwnedCount += 1;
     if (!currentReachableLandKeys.has(nextStepKey)) {
       novelFrontierCount += 1;
-      if (nextStepTile.resource || nextStepTile.dockId || nextStepTile.town) novelStrategicCount += 1;
+      if (nextStepTile.resource || nextStepTile.dockId || nextStepTile.town || nextStepTile.naturalWonder) novelStrategicCount += 1;
     }
   }
   return (
@@ -157,7 +159,7 @@ export const classifyNeutralOpportunity = (
   settlementEvaluation: SettlementCandidateEvaluation,
   scoutScore: number
 ): FrontierClass => {
-  if (target.town || target.dockId || target.resource) return "economic";
+  if (target.town || target.dockId || target.resource || target.naturalWonder) return "economic";
   if (settlementEvaluation.supportsImmediatePlan && settlementEvaluation.score >= 45) return "scaffold";
   if (scoutScore >= 30) return "scout";
   return "waste";

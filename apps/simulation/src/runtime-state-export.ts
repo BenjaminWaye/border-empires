@@ -39,7 +39,7 @@ export type RuntimeExportState = {
     ownerId?: string;
     ownershipState?: string;
     frontierDecayAt?: number;
-    frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT";
+    frontierDecayKind?: "ENCIRCLEMENT";
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;
@@ -76,6 +76,12 @@ export type RuntimeExportState = {
     strategicProductionPerMinute?: Record<StrategicResourceKey, number>;
     activeDevelopmentProcessCount?: number;
     imperialWardCharges?: number;
+    // Quickforge wonder: ms timestamp of this player's last discounted
+    // rush-buy (0/absent = never used). Sent to the client purely so the
+    // rush-buy price preview (client-tile-menu-view.ts) can replicate the
+    // exact UTC-day gate quickforgeAdjustedRushPrice enforces server-side —
+    // the server remains authoritative on the actual charged price.
+    wonderLastFreeRushBuyAt?: number;
     eventLog?: PlayerEventLogEntry[];
     // Server-durable dev/expand queue tail (see player-runtime-summary.ts /
     // runtime-dev-queue.ts / runtime-waypoint-queue.ts) -- carried through
@@ -203,6 +209,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         strategicProductionPerMinute: cloneStrategicProduction(summary.strategicProductionPerMinute),
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
+        ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
         ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
         ...(summary.devQueue.length
           ? {
@@ -324,6 +331,10 @@ type PlannerExportInput = {
   plannerPlayerTileKeys: (playerId: string, summary: PlayerRuntimeSummary) => PlannerTileKeys;
   ownedStructureCountsForPlayer: (playerId: string) => PlannerOwnedStructureCounts;
   estimatedIncomePerMinuteForPlayer: (playerId: string) => number;
+  // Fixed-border reach (packages/shared/src/reach/reach.ts) — see
+  // PlannerPlayerView.reachTileKeys' doc comment for why this is required,
+  // not optional: without it EXPAND-family planning is reach-blind.
+  reachTileKeysForPlayer: (playerId: string) => string[];
   // Phase 1 of docs/ai-structure-building-rewrite-plan.md (§9): feed the
   // planner's diagnostic-only needVector. Optional so callers that don't care
   // about it (tests building a PlannerExportInput by hand) don't need to wire
@@ -427,6 +438,7 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
         topologyDirtyTileKeys: tileKeys.topologyDirtyTileKeys,
         hasActiveLock: lockPlayerIds.has(player.id),
         territoryTileKeys: tileKeys.territoryTileKeys,
+        reachTileKeys: track("planner_view_reach_tile_keys", playerId, () => input.reachTileKeysForPlayer(playerId)),
         frontierTileKeys: tileKeys.frontierTileKeys,
         hotFrontierTileKeys: tileKeys.hotFrontierTileKeys,
         strategicFrontierTileKeys: tileKeys.strategicFrontierTileKeys,

@@ -66,6 +66,11 @@ export const createSurveySweepPingOverlay = (scene: Scene): SurveySweepPingOverl
   const ringScale = new Vector3();
   let resourceCount = 0;
   let townCount = 0;
+  // Tracks what the GPU buffers held after the last real commit, so an idle
+  // frame (no pings active, same as last frame) can skip the four
+  // bufferSubData uploads below instead of re-uploading zero-length data.
+  let lastCommittedResourceCount = 0;
+  let lastCommittedTownCount = 0;
 
   const beginFrame = (): void => {
     resourceCount = 0;
@@ -101,14 +106,30 @@ export const createSurveySweepPingOverlay = (scene: Scene): SurveySweepPingOverl
   };
 
   const commit = (): void => {
+    // Most frames have zero active pings. Once the GPU buffers are already
+    // showing zero instances, re-uploading zero-length data every frame is
+    // pure overhead — skip until a ping actually appears again.
+    if (resourceCount === 0 && townCount === 0 && lastCommittedResourceCount === 0 && lastCommittedTownCount === 0) {
+      return;
+    }
     resourceMesh.count = resourceCount;
     townMesh.count = townCount;
     resourceRingMesh.count = resourceCount;
     townRingMesh.count = townCount;
+    resourceMesh.instanceMatrix.clearUpdateRanges();
+    resourceMesh.instanceMatrix.addUpdateRange(0, resourceMesh.count * 16);
     resourceMesh.instanceMatrix.needsUpdate = true;
+    townMesh.instanceMatrix.clearUpdateRanges();
+    townMesh.instanceMatrix.addUpdateRange(0, townMesh.count * 16);
     townMesh.instanceMatrix.needsUpdate = true;
+    resourceRingMesh.instanceMatrix.clearUpdateRanges();
+    resourceRingMesh.instanceMatrix.addUpdateRange(0, resourceRingMesh.count * 16);
     resourceRingMesh.instanceMatrix.needsUpdate = true;
+    townRingMesh.instanceMatrix.clearUpdateRanges();
+    townRingMesh.instanceMatrix.addUpdateRange(0, townRingMesh.count * 16);
     townRingMesh.instanceMatrix.needsUpdate = true;
+    lastCommittedResourceCount = resourceCount;
+    lastCommittedTownCount = townCount;
   };
 
   const dispose = (): void => {

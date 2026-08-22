@@ -19,7 +19,17 @@ describe("RUSH_BUY", () => {
         now: () => 1_000,
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000 })]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
+          ],
           activeLocks: []
         }
       });
@@ -66,7 +76,17 @@ describe("RUSH_BUY", () => {
         now: () => nowMs,
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000 })]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
+          ],
           activeLocks: []
         }
       });
@@ -114,7 +134,17 @@ describe("RUSH_BUY", () => {
         // (ceil(SETTLE_MANPOWER_COST * 0.5) = 10 gold).
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 5, manpower: 10_000 })]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
+          ],
           activeLocks: []
         }
       });
@@ -262,7 +292,17 @@ describe("RUSH_BUY", () => {
         now: () => 1_000,
         initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 500, manpower: 10_000 })]]),
         initialState: {
-          tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+          tiles: [
+            { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            }
+          ],
           activeLocks: []
         }
       });
@@ -288,7 +328,7 @@ describe("RUSH_BUY", () => {
     }
   });
 
-  it("Quickforge waives the gold cost of one rush-buy per UTC day, then charges full price", async () => {
+  it("Quickforge discounts one rush-buy by 40 gold per UTC day, then charges full price", async () => {
     vi.useFakeTimers();
     try {
       // A UTC-day-aligned clock (midnight anchor) with a QUICKFORGE wonder tile
@@ -303,7 +343,23 @@ describe("RUSH_BUY", () => {
             // settling the first one doesn't auto-fill/auto-settle the second
             // via emitAutoFillForSettlement's adjacent-tile island painting.
             { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 10,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
+            },
             { x: 50, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+            {
+              x: 50,
+              y: 9,
+              terrain: "LAND",
+              ownerId: "player-1",
+              ownershipState: "SETTLED",
+              town: { name: "Outpost", type: "FARMING", populationTier: "SETTLEMENT" }
+            },
             { x: 99, y: 99, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", naturalWonder: { type: "QUICKFORGE", claimedAt: nowMs } }
           ],
           activeLocks: []
@@ -329,16 +385,18 @@ describe("RUSH_BUY", () => {
         return runtime.exportState().players.find((p) => p.id === "player-1")?.points ?? 0;
       };
 
+      const fullPrice = Math.ceil(SETTLE_MANPOWER_COST * 0.5);
+      const discountedPrice = Math.max(0, fullPrice - 40);
+
       await startASettle("settle-1", 10);
-      const goldBeforeFree = runtime.exportState().players.find((p) => p.id === "player-1")?.points ?? 0;
-      const goldAfterFree = await rush("rush-1", 10);
-      expect(goldBeforeFree - goldAfterFree).toBe(0);
+      const goldBeforeDiscounted = runtime.exportState().players.find((p) => p.id === "player-1")?.points ?? 0;
+      const goldAfterDiscounted = await rush("rush-1", 10);
+      expect(goldBeforeDiscounted - goldAfterDiscounted).toBe(discountedPrice);
 
       // Second rush in the same UTC day must cost full price again.
       await startASettle("settle-2", 50);
       const goldBeforePaid = runtime.exportState().players.find((p) => p.id === "player-1")?.points ?? 0;
       const goldAfterPaid = await rush("rush-2", 50);
-      const fullPrice = Math.ceil(SETTLE_MANPOWER_COST * 0.5);
       expect(goldBeforePaid - goldAfterPaid).toBe(fullPrice);
     } finally {
       vi.useRealTimers();

@@ -130,6 +130,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       authBusyTitleEl: dom.authBusyTitleEl,
       authBusyCopyEl: dom.authBusyCopyEl,
       authBusyDiagnosticsBtn: dom.authBusyDiagnosticsBtn,
+      authBusySeasonFullNotifyBtn: dom.authBusySeasonFullNotifyBtn,
       authStatusEl: dom.authStatusEl,
       authDebugRouteEl: dom.authDebugRouteEl,
       wsUrl,
@@ -143,6 +144,15 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
         console.error("[diagnostics] download button failed", error);
         setAuthStatus(`Diagnostics download failed: ${error instanceof Error ? error.message : String(error)}`, "error");
       }
+    };
+    // No network call: by the time SEASON_FULL is reached, gateway auth has
+    // already reconciled and persisted this account's email binding (see
+    // reconcileGatewayAuthBinding), and notifySeasonStarted emails every
+    // bound account — including this one — as soon as the next season
+    // rolls over. This button is purely a UI acknowledgement.
+    dom.authBusySeasonFullNotifyBtn.onclick = () => {
+      state.seasonFullNotifyAcknowledged = true;
+      syncAuthOverlay();
     };
   };
 

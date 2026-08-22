@@ -245,7 +245,7 @@ export type SimulationTileWireDelta = {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   frontierDecayAt?: number | undefined;
-  frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+  frontierDecayKind?: "ENCIRCLEMENT" | undefined;
   breachShockUntil?: number | undefined;
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;
@@ -267,4 +267,13 @@ export type SimulationTileWireDelta = {
   ownershipClearOnly?: boolean;
   /** One-shot combat-broadcast payload (JSON-stringified CombatBroadcastPayload) — see simulation.proto's combat_json doc comment. */
   combatJson?: string | undefined;
+  // Internal filter hint, never sent to the wire (proto-serialization.ts only
+  // forwards fields it knows about): forces tile-delta-visibility-filter.ts to
+  // deliver the FULL delta to this one playerId even if the tile just fell
+  // outside their fog-of-war coverage — e.g. a player who just lost a tile in
+  // combat (their origin overrun, or their target captured) needs to see that
+  // tile's resolved state, including any muster flag being cleared, even
+  // though losing ownership may have simultaneously dropped their vision of
+  // it. See runtime-lock-resolution.ts's resolveLostOrigin/resolveLock.
+  forceVisibleForPlayerId?: string | undefined;
 };

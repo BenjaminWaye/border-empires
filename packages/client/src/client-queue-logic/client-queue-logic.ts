@@ -13,6 +13,8 @@ import { createNextFrontierCommandIdentity } from "../client-frontier-command/cl
 import { dropStuckPendingMusterAttack, findClosestMuster, hasFundedMusterWithinRange, isDockCrossingBetween } from "../client-muster-attack-gate/client-muster-attack-gate.js";
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
+import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { registerWaypointNoProgressTick } from "./client-waypoint-halt.js";
 import {
   persistWaypointQueueForPlayer,
   syncWaypointQueueToServer,
@@ -845,7 +847,7 @@ export const topUpFromWaypoint = (
     }
   }
 
-  const plan = planWaypoint(target, { state, keyFor });
+  const plan = planWaypoint(target, { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) });
   waypoint.plan = plan;
   if (!plan.reachable) {
     const result = cancelWaypointOnBarrierBlock(state, plan, target, pushFeed);
@@ -864,20 +866,9 @@ export const topUpFromWaypoint = (
   // stale neutral tile; (b) the server is actively rejecting (e.g.,
   // EXPAND_TARGET_OWNED). Tolerate a few ticks for (a) before halting
   // on (b) — the next top-up that sees fresh state advances naturally.
-  const MAX_CONSECUTIVE_RETRIES = 4;
   if (waypoint.lastEnqueuedKey === stepKey) {
-    const retries = (waypoint.consecutiveRetries ?? 0) + 1;
-    if (retries > MAX_CONSECUTIVE_RETRIES) {
-      waypoint.plan = { ...plan, reachable: false, blockReason: "NO_PATH" };
-      pushFeed(
-        `Waypoint halted at ${stepKey}. Tap the flag to cancel.`,
-        "info",
-        "warn"
-      );
-      return false;
-    }
-    waypoint.consecutiveRetries = retries;
-    return false;
+    registerWaypointNoProgressTick(state, waypoint, plan, stepKey, { pushFeed, persistWaypointQueue: persistWaypointQueueForPlayer });
+    return false; // nothing enqueued this tick, whether still waiting or now halted
   }
   waypoint.consecutiveRetries = 0;
   const enqueued = enqueueTarget(state, firstStep.target.x, firstStep.target.y, keyFor, { fromWaypoint: true });

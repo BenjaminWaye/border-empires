@@ -1,4 +1,5 @@
 import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
+import { authoritativeIsInReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import {
   persistWaypointQueueForPlayer,
   waypointCancelAllWirePayload,
@@ -47,7 +48,10 @@ const setWaypointForSelected = (
     renderHud();
     return true;
   }
-  const plan: WaypointPlan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor });
+  const plan: WaypointPlan = planWaypoint(
+    { x: selected.x, y: selected.y },
+    { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) }
+  );
   if (!plan.reachable) {
     showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Action blocked", "No expansion path to that tile.");
     hideTileActionMenu();

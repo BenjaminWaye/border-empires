@@ -180,6 +180,30 @@ message PreparePlayerAck {
   bool ok = 1;
   string player_id = 2;
   bool spawned = 3;
+  // True when this would-be-new player was rejected because the season is
+  // already at its player cap (see SIMULATION_MAX_SEASON_PLAYERS). Never set
+  // for a returning player who already has territory this season.
+  bool full = 4;
+  // False when player_id has not joined the active season yet (and has no
+  // pre-existing runtime record) — the caller must invoke JoinSeason before
+  // PreparePlayer will spawn territory for them. Always true for a season
+  // persisted before season membership tracking existed.
+  bool joined = 5;
+}
+
+message JoinSeasonRequest {
+  string player_id = 1;
+  string rally_anchor_json = 2;
+}
+
+message JoinSeasonAck {
+  bool ok = 1;
+  string player_id = 2;
+  bool spawned = 3;
+  // True when a genuinely new player was rejected because the season is at
+  // its player cap (see SIMULATION_MAX_SEASON_PLAYERS) — membership is not
+  // recorded and no territory is spawned when this is set.
+  bool full = 4;
 }
 
 message SimulationEvent {
@@ -215,6 +239,7 @@ message SimulationEvent {
 service SimulationService {
   rpc SubmitCommand(CommandEnvelope) returns (Ack);
   rpc PreparePlayer(PreparePlayerRequest) returns (PreparePlayerAck);
+  rpc JoinSeason(JoinSeasonRequest) returns (JoinSeasonAck);
   rpc SubscribePlayer(SubscribePlayerRequest) returns (SubscribePlayerAck);
   rpc FetchTileDetail(FetchTileDetailRequest) returns (FetchTileDetailAck);
   rpc UnsubscribePlayer(UnsubscribePlayerRequest) returns (Ack);

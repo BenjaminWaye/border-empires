@@ -332,4 +332,115 @@ describe("game domain frontier validation", () => {
       code: "NOT_ADJACENT"
     });
   });
+
+  describe("fixed-border reach (isInReach)", () => {
+    const actor = {
+      id: "p1",
+      isAi: false,
+      points: 100,
+      manpower: 100,
+      techIds: new Set<string>(),
+      allies: new Set<string>()
+    };
+
+    // EXPAND is no longer reach-gated (only SETTLE and outpost-family builds
+    // still are — see runtime.ts's SETTLE gate and
+    // runtime-structure-command-handlers.ts's OUT_OF_REACH build gate), so
+    // these three now assert success even with isInReach: false.
+    it("allows EXPAND out of reach via plain adjacency", () => {
+      const result = validateFrontierCommand({
+        now: 1_000,
+        actor,
+        actionType: "EXPAND",
+        from: { x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+        to: { x: 11, y: 11, terrain: "LAND" },
+        actionGoldCost: 1,
+        isAdjacent: true,
+        isDockCrossing: false,
+        isBridgeCrossing: false,
+        targetShielded: false,
+        defenderIsAlliedOrTruced: false,
+        isInReach: false
+      });
+
+      expect(result).toMatchObject({ ok: true });
+    });
+
+    it("allows EXPAND out of reach via a dock crossing", () => {
+      const result = validateFrontierCommand({
+        now: 1_000,
+        actor,
+        actionType: "EXPAND",
+        from: { x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+        to: { x: 20, y: 20, terrain: "LAND" },
+        actionGoldCost: 1,
+        isAdjacent: false,
+        isDockCrossing: true,
+        isBridgeCrossing: false,
+        targetShielded: false,
+        defenderIsAlliedOrTruced: false,
+        isInReach: false
+      });
+
+      expect(result).toMatchObject({ ok: true });
+    });
+
+    it("allows EXPAND out of reach via an aether bridge", () => {
+      const result = validateFrontierCommand({
+        now: 1_000,
+        actor,
+        actionType: "EXPAND",
+        from: { x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+        to: { x: 30, y: 30, terrain: "LAND" },
+        actionGoldCost: 1,
+        isAdjacent: false,
+        isDockCrossing: false,
+        isBridgeCrossing: true,
+        targetShielded: false,
+        defenderIsAlliedOrTruced: false,
+        isInReach: false
+      });
+
+      expect(result).toMatchObject({ ok: true });
+    });
+
+    it("allows EXPAND when the target is in reach", () => {
+      const result = validateFrontierCommand({
+        now: 1_000,
+        actor,
+        actionType: "EXPAND",
+        from: { x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+        to: { x: 11, y: 11, terrain: "LAND" },
+        actionGoldCost: 1,
+        isAdjacent: true,
+        isDockCrossing: false,
+        isBridgeCrossing: false,
+        targetShielded: false,
+        defenderIsAlliedOrTruced: false,
+        isInReach: true
+      });
+
+      expect(result).toMatchObject({ ok: true });
+    });
+
+    it("does not gate ATTACK on isInReach even when explicitly false", () => {
+      const result = validateFrontierCommand({
+        now: 1_000,
+        actor,
+        actionType: "ATTACK",
+        from: { x: 10, y: 10, terrain: "LAND", ownerId: "p1", ownershipState: "FRONTIER" },
+        to: { x: 10, y: 11, terrain: "LAND", ownerId: "p2", ownershipState: "FRONTIER" },
+        actionGoldCost: 10,
+        isAdjacent: true,
+        isDockCrossing: false,
+        isBridgeCrossing: false,
+        targetShielded: false,
+        defenderIsAlliedOrTruced: false,
+        originMuster: 100,
+        isInReach: false
+      });
+
+      expect(result).toMatchObject({ ok: true });
+    });
+  });
 });

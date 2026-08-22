@@ -30,7 +30,8 @@ const buildRuntime = () =>
     initialState: {
       tiles: [
         { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
-        { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" },
+        { x: 5, y: 5, terrain: "LAND", ownershipState: "FRONTIER" }
       ],
       activeLocks: []
     }
@@ -130,5 +131,83 @@ describe("muster commands", () => {
         event.eventType === "COMMAND_REJECTED" && event.commandId === "set-muster-enemy"
     );
     expect(rejected?.code).toBe("MUSTER_INVALID");
+  });
+
+  it("SET_MUSTER with mode MARCH sets a target and rejects a missing one", async () => {
+    const runtime = buildRuntime();
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.submitCommand({
+      commandId: "set-muster-march-no-target",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_MUSTER",
+      payloadJson: JSON.stringify({ x: 10, y: 10, mode: "MARCH" })
+    });
+    await Promise.resolve();
+    const rejected = seen.find(
+      (event): event is Extract<SimulationEvent, { eventType: "COMMAND_REJECTED" }> =>
+        event.eventType === "COMMAND_REJECTED" && event.commandId === "set-muster-march-no-target"
+    );
+    expect(rejected?.code).toBe("BAD_COMMAND");
+    expect(muster(runtime.exportState().tiles, 10, 10)).toBeUndefined();
+
+    runtime.submitCommand({
+      commandId: "set-muster-march-ok",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 2,
+      issuedAt: 1_000,
+      type: "SET_MUSTER",
+      payloadJson: JSON.stringify({ x: 10, y: 10, mode: "MARCH", targetX: 5, targetY: 5 })
+    });
+    await Promise.resolve();
+    expect(muster(runtime.exportState().tiles, 10, 10)).toMatchObject({ mode: "MARCH", targetX: 5, targetY: 5 });
+  });
+
+  it("SET_MUSTER with mode MARCH targeting the flag's own tile is rejected", async () => {
+    const runtime = buildRuntime();
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.submitCommand({
+      commandId: "set-muster-march-self",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_MUSTER",
+      payloadJson: JSON.stringify({ x: 10, y: 10, mode: "MARCH", targetX: 10, targetY: 10 })
+    });
+    await Promise.resolve();
+    const rejected = seen.find(
+      (event): event is Extract<SimulationEvent, { eventType: "COMMAND_REJECTED" }> =>
+        event.eventType === "COMMAND_REJECTED" && event.commandId === "set-muster-march-self"
+    );
+    expect(rejected?.code).toBe("MUSTER_INVALID");
+  });
+
+  it("SET_MUSTER with mode MARCH targeting a nonexistent tile is rejected", async () => {
+    const runtime = buildRuntime();
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+    runtime.submitCommand({
+      commandId: "set-muster-march-nowhere",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SET_MUSTER",
+      payloadJson: JSON.stringify({ x: 10, y: 10, mode: "MARCH", targetX: 9_999, targetY: 9_999 })
+    });
+    await Promise.resolve();
+    const rejected = seen.find(
+      (event): event is Extract<SimulationEvent, { eventType: "COMMAND_REJECTED" }> =>
+        event.eventType === "COMMAND_REJECTED" && event.commandId === "set-muster-march-nowhere"
+    );
+    expect(rejected?.code).toBe("MUSTER_INVALID");
+    expect(muster(runtime.exportState().tiles, 10, 10)).toBeUndefined();
   });
 });
