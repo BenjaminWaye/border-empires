@@ -7,8 +7,14 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   joinSeasonOverlayOpen: false,
   joinSeasonId: "",
   joinSeasonPending: false,
+  seasonLobbyWaitingCount: 0,
+  seasonLobbyMaxPlayers: 0,
+  seasonLobbyRoster: [],
+  myCountryFlag: "",
   ...overrides
 });
+
+const noopSetCountryFlag = () => true;
 
 describe("join-season overlay", () => {
   it("is hidden when needsSeasonJoin is false", () => {
@@ -17,7 +23,8 @@ describe("join-season overlay", () => {
       state: makeState() as any,
       overlayEl,
       renderHud: () => {},
-      joinSeason: () => true
+      joinSeason: () => true,
+      setCountryFlag: noopSetCountryFlag
     });
     expect(overlayEl.style.display).toBe("none");
     expect(overlayEl.innerHTML).toBe("");
@@ -29,7 +36,8 @@ describe("join-season overlay", () => {
       state: makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: false }) as any,
       overlayEl,
       renderHud: () => {},
-      joinSeason: () => true
+      joinSeason: () => true,
+      setCountryFlag: noopSetCountryFlag
     });
     expect(overlayEl.style.display).toBe("none");
   });
@@ -40,7 +48,8 @@ describe("join-season overlay", () => {
       state: makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-42" }) as any,
       overlayEl,
       renderHud: () => {},
-      joinSeason: () => true
+      joinSeason: () => true,
+      setCountryFlag: noopSetCountryFlag
     });
     expect(overlayEl.style.display).toBe("grid");
     expect(overlayEl.innerHTML).toContain("season-42");
@@ -52,7 +61,7 @@ describe("join-season overlay", () => {
     const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-42" });
     const joinSeason = vi.fn(() => true);
     const renderHud = vi.fn();
-    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason });
+    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason, setCountryFlag: noopSetCountryFlag });
     const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
     confirmBtn.click();
     expect(state.joinSeasonPending).toBe(true);
@@ -64,7 +73,7 @@ describe("join-season overlay", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true });
     const renderHud = vi.fn();
-    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason: () => true });
+    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason: () => true, setCountryFlag: noopSetCountryFlag });
     const closeBtn = overlayEl.querySelector("#join-season-close") as HTMLButtonElement;
     closeBtn.click();
     expect(state.joinSeasonOverlayOpen).toBe(false);
@@ -76,7 +85,7 @@ describe("join-season overlay", () => {
     const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true });
     const joinSeason = vi.fn(() => false);
     const renderHud = vi.fn();
-    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason });
+    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason, setCountryFlag: noopSetCountryFlag });
     const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
     confirmBtn.click();
     expect(joinSeason).toHaveBeenCalledTimes(1);
@@ -87,9 +96,59 @@ describe("join-season overlay", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonPending: true });
     const joinSeason = vi.fn(() => true);
-    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud: () => {}, joinSeason });
+    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud: () => {}, joinSeason, setCountryFlag: noopSetCountryFlag });
     const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
     confirmBtn.click();
     expect(joinSeason).not.toHaveBeenCalled();
+  });
+
+  it("shows the You're in confirmation, player count, and roster while pending", () => {
+    const overlayEl = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({
+        needsSeasonJoin: true,
+        joinSeasonOverlayOpen: true,
+        seasonPending: true,
+        seasonPendingScheduledStartAt: Date.now() + 60_000,
+        seasonLobbyWaitingCount: 3,
+        seasonLobbyMaxPlayers: 120,
+        seasonLobbyRoster: [
+          { playerId: "p1", name: "Alice", countryFlag: "US" },
+          { playerId: "p2", name: "Bob" }
+        ]
+      }) as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true,
+      setCountryFlag: noopSetCountryFlag
+    });
+    expect(overlayEl.innerHTML).toContain("You're in");
+    expect(overlayEl.innerHTML).toContain("3 / 120 PLAYERS");
+    expect(overlayEl.innerHTML).toContain("Alice");
+    expect(overlayEl.innerHTML).toContain("Bob");
+    expect(overlayEl.querySelector("#season-lobby-discord")).toBeTruthy();
+    expect(overlayEl.querySelector("#season-lobby-invite")).toBeTruthy();
+  });
+
+  it("shows the flag picker only when the player has not set one", () => {
+    const overlayEl = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, seasonPending: true, seasonPendingScheduledStartAt: Date.now() + 60_000 }) as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true,
+      setCountryFlag: noopSetCountryFlag
+    });
+    expect(overlayEl.querySelector("#season-lobby-flag-select")).toBeTruthy();
+
+    const overlayEl2 = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, seasonPending: true, seasonPendingScheduledStartAt: Date.now() + 60_000, myCountryFlag: "US" }) as any,
+      overlayEl: overlayEl2,
+      renderHud: () => {},
+      joinSeason: () => true,
+      setCountryFlag: noopSetCountryFlag
+    });
+    expect(overlayEl2.querySelector("#season-lobby-flag-select")).toBeFalsy();
   });
 });
