@@ -38,7 +38,7 @@ describe("createRoutineAlertNotifier", () => {
     expect(JSON.parse(captured?.init.body as string)).toEqual({ text: "command submit latency p99 > 2500ms" });
   });
 
-  it("respects the cooldown between fires", async () => {
+  it("fires once for a sustained incident, no matter how many breaches are reported", async () => {
     let nowMs = 1000;
     let callCount = 0;
     const fetchImpl = fakeFetch(async () => {
@@ -48,22 +48,45 @@ describe("createRoutineAlertNotifier", () => {
     const notifier = createRoutineAlertNotifier({
       fireUrl: "https://example.com/fire",
       fireToken: "token",
-      cooldownMs: 10_000,
+      resolveAfterMs: 20_000,
       fetchImpl,
       now: () => nowMs
     });
 
-    notifier.notify("first");
+    notifier.notify("first breach");
     await flushPending();
     expect(callCount).toBe(1);
 
-    nowMs += 5_000;
-    notifier.notify("second, within cooldown");
+    // Repeated breaches every 5s for a full minute — still the same incident.
+    for (let i = 0; i < 12; i++) {
+      nowMs += 5_000;
+      notifier.notify(`breach #${i}`);
+      await flushPending();
+    }
+    expect(callCount).toBe(1);
+  });
+
+  it("fires again once the incident goes quiet for resolveAfterMs and a new breach occurs", async () => {
+    let nowMs = 1000;
+    let callCount = 0;
+    const fetchImpl = fakeFetch(async () => {
+      callCount += 1;
+      return new Response("ok", { status: 200 });
+    });
+    const notifier = createRoutineAlertNotifier({
+      fireUrl: "https://example.com/fire",
+      fireToken: "token",
+      resolveAfterMs: 10_000,
+      fetchImpl,
+      now: () => nowMs
+    });
+
+    notifier.notify("first incident");
     await flushPending();
     expect(callCount).toBe(1);
 
-    nowMs += 6_000;
-    notifier.notify("third, cooldown elapsed");
+    nowMs += 11_000; // quiet period exceeds resolveAfterMs
+    notifier.notify("new incident");
     await flushPending();
     expect(callCount).toBe(2);
   });

@@ -1,17 +1,26 @@
 /**
  * Routine-fire notifier for lag alerts.
  *
- * Pushes a Claude Code routine (via its API trigger) the moment a
- * lag-related SlackAlerter/SlowLoginAlerter threshold trips, carrying the
- * same rich text payload the Slack message gets (metrics snapshot, recent
- * events, world stats) so the fired session starts with real evidence
- * instead of a bare "something's slow" ping.
+ * Pushes a Claude Code routine (via its API trigger) once per lag
+ * *incident*, carrying the same rich text the Slack message gets (metrics
+ * snapshot, recent events, world stats) so the fired session starts with
+ * real evidence instead of a bare "something's slow" ping.
  *
- * Fire-and-forget, same shape as the Slack alerters: `notify()` returns
- * immediately, the POST runs in the background with a hard timeout, and a
- * cooldown prevents flooding a fresh session per event. No-op when
- * fireUrl/fireToken are unset (local/test runs, or before the API trigger
- * has been configured on the routine).
+ * Edge-triggered, not time-cooldown-based: `notify()` is expected to be
+ * called on every underlying breach (each already spaced out by the
+ * upstream alerter's own dedupe window — ~5 min for SlackAlerter, ~30s for
+ * SlowLoginAlerter), but only the *first* breach of an incident fires the
+ * routine. Later breaches update the "still ongoing" clock without spawning
+ * another session — the /fire API always starts a brand-new session, so
+ * there is no way to append to the one already investigating. The incident
+ * is considered over, and the next breach starts a fresh session, only
+ * after `resolveAfterMs` passes with no breach at all (default 20 min,
+ * comfortably longer than the upstream dedupe cadence so a sustained,
+ * hours-long lag spell still spawns exactly one session).
+ *
+ * Fire-and-forget: `notify()` returns immediately, the POST runs in the
+ * background with a hard timeout. No-op when fireUrl/fireToken are unset
+ * (local/test runs, or before the API trigger has been configured).
  */
 
 export type RoutineAlertOptions = {
@@ -19,32 +28,34 @@ export type RoutineAlertOptions = {
   fireUrl?: string;
   /** Bearer token for the routine's API trigger. */
   fireToken?: string;
-  /** Minimum interval between routine fires (ms). Default 600_000 (10 min) — a fresh
-   * investigation session per flap would be wasteful; the routine's own diagnosis
-   * already covers "is this still happening" once it starts. */
-  cooldownMs?: number;
+  /** Quiet period (ms) with no breach before the next breach counts as a new
+   * incident and fires a fresh session. Default 1_200_000 (20 min). */
+  resolveAfterMs?: number;
   fetchImpl?: typeof fetch;
   log?: { error?: (payload: unknown, message?: string) => void };
   now?: () => number;
 };
 
 export type RoutineAlertNotifier = {
-  /** Fire the routine with the given alert text, subject to cooldown. */
+  /** Report a breach. Fires the routine only if no incident is currently open. */
   notify: (text: string) => void;
 };
 
-const DEFAULT_COOLDOWN_MS = 600_000; // 10 min
+const DEFAULT_RESOLVE_AFTER_MS = 1_200_000; // 20 min
 const POST_TIMEOUT_MS = 5_000;
 const ROUTINE_BETA_HEADER = "experimental-cc-routine-2026-04-01";
 
 export const createRoutineAlertNotifier = (options: RoutineAlertOptions): RoutineAlertNotifier => {
   const fireUrl = options.fireUrl?.trim();
   const fireToken = options.fireToken?.trim();
-  const cooldownMs = options.cooldownMs ?? DEFAULT_COOLDOWN_MS;
+  const resolveAfterMs = options.resolveAfterMs ?? DEFAULT_RESOLVE_AFTER_MS;
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const now = options.now ?? (() => Date.now());
   const log = options.log;
-  let lastFiredAt = 0;
+  // Incident state: an incident is "open" from the first breach until
+  // resolveAfterMs elapses with no further breach.
+  let incidentOpen = false;
+  let lastBreachAt = 0;
 
   const post = async (text: string): Promise<void> => {
     if (!fireUrl || !fireToken || !fetchImpl) return;
@@ -77,8 +88,10 @@ export const createRoutineAlertNotifier = (options: RoutineAlertOptions): Routin
     notify(text: string): void {
       if (!fireUrl || !fireToken) return;
       const nowMs = now();
-      if (lastFiredAt > 0 && nowMs - lastFiredAt < cooldownMs) return;
-      lastFiredAt = nowMs;
+      if (incidentOpen && nowMs - lastBreachAt >= resolveAfterMs) incidentOpen = false;
+      lastBreachAt = nowMs;
+      if (incidentOpen) return;
+      incidentOpen = true;
       void post(text);
     }
   };
@@ -86,7 +99,7 @@ export const createRoutineAlertNotifier = (options: RoutineAlertOptions): Routin
 
 /** Singleton built from ROUTINE_LAG_ALERT_FIRE_URL/TOKEN env vars — a no-op notifier
  * until those are set. Shared by slack-alerts.ts and slow-login-alert.ts so both
- * lag signals share one cooldown clock instead of firing two routine sessions at once. */
+ * lag signals share one incident clock instead of opening two incidents at once. */
 export const gatewayRoutineAlertNotifier: RoutineAlertNotifier = createRoutineAlertNotifier({
   ...(process.env.ROUTINE_LAG_ALERT_FIRE_URL ? { fireUrl: process.env.ROUTINE_LAG_ALERT_FIRE_URL } : {}),
   ...(process.env.ROUTINE_LAG_ALERT_FIRE_TOKEN ? { fireToken: process.env.ROUTINE_LAG_ALERT_FIRE_TOKEN } : {})
