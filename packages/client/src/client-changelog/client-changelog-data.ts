@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787411986658,
+    introducedIn: "2026.08.22.8",
+    title: "Beta season countdown screen",
+    why: "The beta season now has a synchronized start time so everyone begins together instead of the first arrivals compounding a head start over testers in later timezones.",
+    changes: [
+      "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
+      "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
+    ]
+  },
+  {
     createdAt: 1787430500000,
     introducedIn: "2026.08.22.7",
     title: "Stage Muster now sits above Disable on structure tiles",

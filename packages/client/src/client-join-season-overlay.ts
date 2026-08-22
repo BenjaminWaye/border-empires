@@ -1,25 +1,95 @@
 import type { ClientState } from "./client-state/client-state.js";
 
 type JoinSeasonOverlayDeps = {
-  state: Pick<ClientState, "needsSeasonJoin" | "joinSeasonOverlayOpen" | "joinSeasonId" | "joinSeasonPending">;
+  state: Pick<
+    ClientState,
+    "needsSeasonJoin" | "joinSeasonOverlayOpen" | "joinSeasonId" | "joinSeasonPending" | "seasonPending" | "seasonPendingScheduledStartAt"
+  >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
   joinSeason: () => boolean;
 };
 
+const formatCountdown = (remainingMs: number): string => {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (n: number): string => String(n).padStart(2, "0");
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
+};
+
+// One shared interval driving every live countdown tick + auto-retry, so a
+// re-render of the overlay never leaks a duplicate timer.
+let countdownTimer: ReturnType<typeof setInterval> | undefined;
+
+const clearCountdownTimer = (): void => {
+  if (!countdownTimer) return;
+  clearInterval(countdownTimer);
+  countdownTimer = undefined;
+};
+
 // Modeled on client-respawn-overlay.ts: a simple full-screen modal reusing
 // the generic .card / .panel-btn / .guide-close-btn classes rather than a
-// bespoke themed component.
+// bespoke themed component. When state.seasonPending is set (the gateway
+// rejected JOIN_SEASON with SEASON_PENDING), this renders a countdown to the
+// scheduled start time in the viewer's local timezone instead of the normal
+// "join now" prompt, and auto-retries JOIN_SEASON a few seconds after the
+// scheduled time passes.
 export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   const { state, overlayEl, renderHud, joinSeason } = deps;
   const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen;
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";
+    clearCountdownTimer();
     return;
   }
 
   const seasonLabel = state.joinSeasonId ? `Season ${state.joinSeasonId}` : "the current season";
+
+  if (state.seasonPending) {
+    const scheduledStartAt = state.seasonPendingScheduledStartAt;
+    const localStartLabel = new Date(scheduledStartAt).toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short"
+    });
+    overlayEl.innerHTML = `
+      <div class="respawn-backdrop" id="join-season-backdrop"></div>
+      <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
+        <div class="respawn-modal-scroll">
+          <div class="respawn-kicker">Beta season</div>
+          <h2 id="join-season-title" class="respawn-title">${seasonLabel} starts soon</h2>
+          <p class="respawn-summary">Everyone begins together so the first move isn't decided by timezone. Starting at <strong>${localStartLabel}</strong> your local time.</p>
+          <section class="respawn-section respawn-actions">
+            <div id="join-season-countdown" class="respawn-title" style="font-variant-numeric: tabular-nums;">
+              ${formatCountdown(scheduledStartAt - Date.now())}
+            </div>
+          </section>
+        </div>
+      </div>
+    `;
+
+    clearCountdownTimer();
+    const tick = (): void => {
+      const countdownEl = overlayEl.querySelector("#join-season-countdown") as HTMLElement | null;
+      const remainingMs = scheduledStartAt - Date.now();
+      if (countdownEl) countdownEl.textContent = formatCountdown(remainingMs);
+      // A few seconds of slack past the scheduled time before retrying, so
+      // the gateway/simulation aren't hammered by every held client retrying
+      // in the exact same instant the clock hits zero.
+      if (remainingMs <= -3_000 && !state.joinSeasonPending) {
+        clearCountdownTimer();
+        if (joinSeason()) {
+          state.joinSeasonPending = true;
+          renderHud();
+        }
+      }
+    };
+    tick();
+    countdownTimer = setInterval(tick, 1_000);
+    return;
+  }
 
   overlayEl.innerHTML = `
     <div class="respawn-backdrop" id="join-season-backdrop"></div>
