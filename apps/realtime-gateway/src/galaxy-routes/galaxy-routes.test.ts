@@ -16,8 +16,8 @@ const wonArchive = (overrides: Partial<SeasonArchiveRow> = {}): SeasonArchiveRow
     playerId: "player-1",
     playerName: "Nauticus",
     crownedAt: 1_000,
-    objectiveId: "conquest",
-    objectiveName: "Conquest"
+    objectiveId: "DIPLOMATIC_DOMINANCE",
+    objectiveName: "Diplomatic Dominance"
   },
   mostTerritory: [],
   mostPoints: [],
@@ -75,7 +75,8 @@ describe("galaxy routes", () => {
         {
           seasonId: "season-1",
           seasonSequence: 1,
-          objectiveName: "Conquest",
+          objectiveName: "Diplomatic Dominance",
+          specialization: "CAPITAL",
           crownedAt: 1_000,
           planetName: null,
           named: false
@@ -161,7 +162,7 @@ describe("galaxy routes", () => {
   it("omits an AI-won season (no auth binding) from /me and shows it unclaimed in the public list", async () => {
     const authBindingStore = new InMemoryGatewayAuthBindingStore();
     const app = buildApp({
-      archives: [wonArchive({ seasonId: "season-ai", winner: { playerId: "ai-player-1", playerName: "Barbarian King", crownedAt: 1_000, objectiveId: "conquest", objectiveName: "Conquest" } })],
+      archives: [wonArchive({ seasonId: "season-ai", winner: { playerId: "ai-player-1", playerName: "Barbarian King", crownedAt: 1_000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" } })],
       identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
       authBindingStore
     });
@@ -179,7 +180,8 @@ describe("galaxy routes", () => {
         {
           seasonId: "season-ai",
           seasonSequence: 1,
-          objectiveName: "Conquest",
+          objectiveName: "Diplomatic Dominance",
+          specialization: "CAPITAL",
           crownedAt: 1_000,
           claimed: false,
           planetName: null
@@ -203,8 +205,8 @@ describe("galaxy routes", () => {
           playerId: "player-1",
           playerName: "Nauticus",
           crownedAt: 2_000,
-          objectiveId: "conquest",
-          objectiveName: "Conquest"
+          objectiveId: "DIPLOMATIC_DOMINANCE",
+          objectiveName: "Diplomatic Dominance"
         }
       }
     });
@@ -220,7 +222,8 @@ describe("galaxy routes", () => {
         {
           seasonId: "season-pending",
           seasonSequence: 2,
-          objectiveName: "Conquest",
+          objectiveName: "Diplomatic Dominance",
+          specialization: "CAPITAL",
           crownedAt: 2_000,
           planetName: null,
           named: false
@@ -240,8 +243,8 @@ describe("galaxy routes", () => {
         playerId: "player-1",
         playerName: "Nauticus",
         crownedAt: 2_000,
-        objectiveId: "conquest",
-        objectiveName: "Conquest"
+        objectiveId: "DIPLOMATIC_DOMINANCE",
+        objectiveName: "Diplomatic Dominance"
       }
     };
     const app = buildApp({
@@ -275,8 +278,8 @@ describe("galaxy routes", () => {
           playerId: "player-1",
           playerName: "Nauticus",
           crownedAt: 1_000,
-          objectiveId: "conquest",
-          objectiveName: "Conquest"
+          objectiveId: "DIPLOMATIC_DOMINANCE",
+          objectiveName: "Diplomatic Dominance"
         }
       }
     });
@@ -287,6 +290,33 @@ describe("galaxy routes", () => {
       headers: { authorization: "Bearer good-token" }
     });
     expect(response.json().planets).toHaveLength(1);
+  });
+
+  it("maps the winning victory path to its galactic specialization (docs/galactic-campaign-design.md §3)", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    const app = buildApp({
+      archives: [
+        wonArchive({
+          winner: {
+            playerId: "player-1",
+            playerName: "Nauticus",
+            crownedAt: 1_000,
+            objectiveId: "RESOURCE_MONOPOLY",
+            objectiveName: "Resource Monopoly"
+          }
+        })
+      ],
+      identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
+      authBindingStore
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/hq/galaxy/me",
+      headers: { authorization: "Bearer good-token" }
+    });
+    expect(response.json().planets[0].specialization).toBe("EXTRACTION");
   });
 
   it("surfaces the winner's stats snapshot in both /hq/galaxy/me and the public /hq/galaxy list", async () => {
@@ -302,7 +332,7 @@ describe("galaxy routes", () => {
       monumentalBuildings: { WORLD_ENGINE: 1 }
     };
     const app = buildApp({
-      archives: [wonArchive({ winner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 1_000, objectiveId: "conquest", objectiveName: "Conquest", stats } })],
+      archives: [wonArchive({ winner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 1_000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", stats } })],
       identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
       authBindingStore
     });
