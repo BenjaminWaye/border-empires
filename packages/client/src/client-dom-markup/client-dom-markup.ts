@@ -210,6 +210,7 @@ export const hudMarkup = `
   <div id="changelog-overlay" style="display:none;"></div>
   <div id="guide-overlay" style="display:none;"></div>
   <div id="respawn-overlay" style="display:none;"></div>
+  <div id="join-season-overlay" style="display:none;"></div>
   <div id="season-end-overlay" style="display:none;"></div>
   <div id="intel-overlay" style="display:none;"></div>
   <div id="renderer-prompt-overlay" style="display:none;"></div>

@@ -133,6 +133,7 @@ export const initClientDom = () => {
   const changelogOverlayEl = requireElement<HTMLDivElement>("#changelog-overlay");
   const guideOverlayEl = requireElement<HTMLDivElement>("#guide-overlay");
   const respawnOverlayEl = requireElement<HTMLDivElement>("#respawn-overlay");
+  const joinSeasonOverlayEl = requireElement<HTMLDivElement>("#join-season-overlay");
   const seasonEndOverlayEl = requireElement<HTMLDivElement>("#season-end-overlay");
   const intelOverlayEl = requireElement<HTMLDivElement>("#intel-overlay");
   const rendererPromptOverlayEl = requireElement<HTMLDivElement>("#renderer-prompt-overlay");
@@ -256,6 +257,7 @@ export const initClientDom = () => {
     panelTitleEl,
     rendererPromptOverlayEl,
     respawnOverlayEl,
+    joinSeasonOverlayEl,
     seasonEndOverlayEl,
     selectedEl,
     shardAlertCardEl,

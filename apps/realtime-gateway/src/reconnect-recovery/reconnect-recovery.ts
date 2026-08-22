@@ -34,7 +34,8 @@ export const buildInitMessage = (
   snapshotBootstrap?: LegacySnapshotBootstrap,
   profileOverrides?: PlayerProfileOverrides,
   socialState?: SocialState,
-  canToggleFog = false
+  canToggleFog = false,
+  needsSeasonJoin = false
 ): Promise<{
   type: "INIT";
   // process.env.BUILD_SHA is injected via `fly deploy --env BUILD_SHA=…` in
@@ -85,6 +86,7 @@ export const buildInitMessage = (
   seasonStartVoteCount?: number;
   seasonStartVoted?: boolean;
   initialState?: PlayerSubscriptionSnapshot;
+  needsSeasonJoin?: boolean;
 }> =>
   Promise.allSettled([
     withTimeout(commandStore.nextClientSeqForPlayer(playerIdentity.playerId), INIT_RECOVERY_TIMEOUT_MS, "nextClientSeqForPlayer"),
@@ -181,6 +183,7 @@ export const buildInitMessage = (
       mapMeta: bootstrap.mapMeta,
       ...(bootstrap.shardRainNotice ? { shardRainNotice: bootstrap.shardRainNotice } : {}),
       ...(initialState ? { initialState } : {}),
+      ...(needsSeasonJoin ? { needsSeasonJoin: true } : {}),
       recovery: {
         nextClientSeq,
         pendingCommands: []

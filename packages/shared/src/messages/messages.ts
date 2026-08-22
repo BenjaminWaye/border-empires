@@ -256,6 +256,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // (global rollover). The sim only honours it once the current season has
   // ended (startNextSeason(force=false)), so it cannot reset an active season.
   z.object({ type: z.literal("START_NEW_SEASON") }),
+  z.object({ type: z.literal("JOIN_SEASON") }),
   z.object({
     type: z.literal("CHOOSE_DOMAIN"),
     domainId: z.string().min(1),
