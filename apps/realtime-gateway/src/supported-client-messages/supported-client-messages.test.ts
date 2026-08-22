@@ -21,6 +21,10 @@ describe("supported client messages", () => {
     expect(supportedClientMessageTypes).toContain("START_NEW_SEASON");
   });
 
+  it("advertises explicit season join for the join-season overlay", () => {
+    expect(supportedClientMessageTypes).toContain("JOIN_SEASON");
+  });
+
   it.each(RECONNECT_COMMAND_TYPES)("keeps durable command %s available on the websocket surface", (type) => {
     expect(supportedClientMessageTypes).toContain(type);
   });

@@ -57,6 +57,7 @@ export const supportedClientMessageTypes = [
   "PING",
   "SET_FOG_DISABLED",
   "START_NEW_SEASON",
+  "JOIN_SEASON",
   "TRUCE_REQUEST",
   "TRUCE_ACCEPT",
   "TRUCE_REJECT",

@@ -1278,7 +1278,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       backfillWorldEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
       return;
     }
-
     if (msg.type === "CHUNK_FULL") {
       const applied = shouldApplyChunkGeneration(msg.generation);
       recordRecentTileMessage(msg, "CHUNK_FULL", applied);
@@ -1295,11 +1294,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       for (const chunk of chunks) applyChunkTiles(chunk.tilesMaskedByFog);
       return;
     }
+    if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; } renderHud(); return; }
     // Authoritative reach border (client-reach-authoritative.ts). Replaces the
     // old client-side approximation that could disagree with the server and
     // wedge waypoints on OUT_OF_REACH.
     if (msg.type === "REACH_UPDATE") { if (applyServerReachUpdate(state, msg as Record<string, unknown>)) renderHud(); return; }
-
     if (msg.type === "PLAYER_UPDATE") {
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       const prevGold = state.gold;
@@ -2421,7 +2420,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      clearAuthInFlight?.(); if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
+      clearAuthInFlight?.(); if (rawCode === "JOIN_SEASON_FAILED") state.joinSeasonPending = false;
+      if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
         const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : "";
         if (collectTileKey) revertOptimisticTileCollectDelta(collectTileKey);
         const pending = state.pendingShardCollect;
@@ -2597,7 +2597,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           );
         }
       }
-      if (errorCode === "SEASON_FULL") { applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); return; } if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
+      if (errorCode === "SEASON_FULL") { state.joinSeasonPending = false; applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); return; } if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") && firebaseAuth?.currentUser) {
           state.connection = ws.readyState === ws.OPEN ? "connected" : "disconnected";

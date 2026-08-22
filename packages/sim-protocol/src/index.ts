@@ -229,6 +229,12 @@ export type SimulationSeasonState = {
   endedAt?: number;
   winner?: SeasonWinnerSnapshot;
   victoryTrackers: SeasonVictoryTrackerSnapshot[];
+  /** Player ids that have explicitly joined this season (via JoinSeason),
+   *  distinct from ids merely known to the runtime (e.g. AI/barbarian seed
+   *  players, which are never added here). Absent/undefined on seasons
+   *  persisted before this field existed — callers must treat that as "no
+   *  membership recorded" rather than "nobody has joined". */
+  joinedPlayerIds?: string[];
 };
 
 export type WorldStatusSnapshot = {

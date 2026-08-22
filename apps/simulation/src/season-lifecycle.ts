@@ -27,14 +27,29 @@ export const createInitialSeasonState = ({
   ...(mapStyle ? { mapStyle } : {}),
   status: "active",
   startedAt,
-  victoryTrackers: []
+  victoryTrackers: [],
+  joinedPlayerIds: []
 });
 
 export const cloneSeasonState = (seasonState: SimulationSeasonState): SimulationSeasonState => ({
   ...seasonState,
   ...(seasonState.winner ? { winner: { ...seasonState.winner } } : {}),
-  victoryTrackers: seasonState.victoryTrackers.map((tracker) => ({ ...tracker }))
+  victoryTrackers: seasonState.victoryTrackers.map((tracker) => ({ ...tracker })),
+  ...(seasonState.joinedPlayerIds ? { joinedPlayerIds: [...seasonState.joinedPlayerIds] } : {})
 });
+
+/** True once `playerId` has explicitly joined `seasonState` via JoinSeason.
+ *  Seasons persisted before joinedPlayerIds existed have no field at all —
+ *  treat that as "membership not tracked for this season" (never gate) so
+ *  players already active in an in-flight season aren't locked out. */
+export const hasPlayerJoinedSeason = (seasonState: SimulationSeasonState, playerId: string): boolean =>
+  !seasonState.joinedPlayerIds || seasonState.joinedPlayerIds.includes(playerId);
+
+export const withPlayerJoinedSeason = (seasonState: SimulationSeasonState, playerId: string): SimulationSeasonState => {
+  const joinedPlayerIds = seasonState.joinedPlayerIds ?? [];
+  if (joinedPlayerIds.includes(playerId)) return seasonState;
+  return { ...seasonState, joinedPlayerIds: [...joinedPlayerIds, playerId] };
+};
 
 export const nextWorldSeed = (random = Math.random): number => Math.floor(random() * 1_000_000_000);
 
