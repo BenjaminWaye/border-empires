@@ -36,7 +36,7 @@ type WonSeason = {
 
 // Seasons carrying galaxyTiers (§3 Outpost/Stipend records for non-winners),
 // resolved the same way WonSeason is: archived rows plus the current season
-// if it ended but hasn't rolled over yet (see resolveWonSeasons).
+// if it ended but hasn't rolled over yet (see resolveEndedSeasons).
 type TieredSeason = {
   seasonId: string;
   seasonSequence: number;
@@ -92,33 +92,22 @@ type GalaxyStipendView = {
 const bearerHeader = (request: { headers: Record<string, unknown> }): string | undefined =>
   typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;
 
-// Combines archived (rolled-over) season winners with the current season's
-// winner, if it has been crowned but not yet archived, so a season sitting on
-// the season-end screen is visible in the galaxy immediately rather than only
-// after the next season successfully starts.
-const resolveWonSeasons = async (deps: RegisterGalaxyRoutesDeps): Promise<WonSeason[]> => {
+// Combines archived (rolled-over) seasons with the current season if it has
+// ended but hasn't rolled over yet, so a season sitting on the season-end
+// screen is visible in the galaxy immediately rather than only after the next
+// season successfully starts. Fetches `listSeasonArchives`/`getCurrentSeasonSummary`
+// exactly once per request and derives both the winner view (Planets) and the
+// galaxyTiers view (Outposts/Stipends) from that single pass — each of those
+// deps hits the sim client plus a display-name hydration pass, so resolving
+// them twice would double backend calls per request for no benefit.
+const resolveEndedSeasons = async (
+  deps: RegisterGalaxyRoutesDeps
+): Promise<{ won: WonSeason[]; tiered: TieredSeason[] }> => {
   const archives = await deps.listSeasonArchives();
   const won: WonSeason[] = [];
-  for (const archive of archives) {
-    if (archive.winner) won.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, winner: archive.winner });
-  }
-
-  if (deps.getCurrentSeasonSummary) {
-    const current = await deps.getCurrentSeasonSummary();
-    const alreadyArchived = won.some((season) => season.seasonId === current.seasonId);
-    if (current.status === "ended" && current.seasonWinner && !alreadyArchived) {
-      won.push({ seasonId: current.seasonId, seasonSequence: current.seasonSequence, winner: current.seasonWinner });
-    }
-  }
-  return won;
-};
-
-// Same shape as resolveWonSeasons, for the galactic Outpost/Stipend tier
-// records (§3) instead of the season's overall winner.
-const resolveTieredSeasons = async (deps: RegisterGalaxyRoutesDeps): Promise<TieredSeason[]> => {
-  const archives = await deps.listSeasonArchives();
   const tiered: TieredSeason[] = [];
   for (const archive of archives) {
+    if (archive.winner) won.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, winner: archive.winner });
     if (archive.galaxyTiers && archive.galaxyTiers.length > 0) {
       tiered.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, endedAt: archive.endedAt, galaxyTiers: archive.galaxyTiers });
     }
@@ -126,17 +115,21 @@ const resolveTieredSeasons = async (deps: RegisterGalaxyRoutesDeps): Promise<Tie
 
   if (deps.getCurrentSeasonSummary) {
     const current = await deps.getCurrentSeasonSummary();
-    const alreadyArchived = tiered.some((season) => season.seasonId === current.seasonId);
-    if (current.status === "ended" && current.seasonGalaxyTiers && current.seasonGalaxyTiers.length > 0 && !alreadyArchived) {
-      tiered.push({
-        seasonId: current.seasonId,
-        seasonSequence: current.seasonSequence,
-        endedAt: current.endedAt ?? current.updatedAt,
-        galaxyTiers: current.seasonGalaxyTiers
-      });
+    if (current.status === "ended") {
+      if (current.seasonWinner && !won.some((season) => season.seasonId === current.seasonId)) {
+        won.push({ seasonId: current.seasonId, seasonSequence: current.seasonSequence, winner: current.seasonWinner });
+      }
+      if (current.seasonGalaxyTiers && current.seasonGalaxyTiers.length > 0 && !tiered.some((season) => season.seasonId === current.seasonId)) {
+        tiered.push({
+          seasonId: current.seasonId,
+          seasonSequence: current.seasonSequence,
+          endedAt: current.endedAt ?? current.updatedAt,
+          galaxyTiers: current.seasonGalaxyTiers
+        });
+      }
     }
   }
-  return tiered;
+  return { won, tiered };
 };
 
 // Resolves the durable authUid that won a given season, or undefined if the
@@ -160,10 +153,12 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       return { ok: false, error: "unauthorized" };
     }
     const authUid = identity.authUid;
-    const wonSeasons = await resolveWonSeasons(deps);
+    const authBindingStore = deps.authBindingStore;
+    const { won: wonSeasons, tiered: tieredSeasons } = await resolveEndedSeasons(deps);
+
     const planets: GalaxyMePlanetView[] = [];
     for (const season of wonSeasons) {
-      const uid = await winnerAuthUid(season, deps.authBindingStore);
+      const uid = await winnerAuthUid(season, authBindingStore);
       if (uid !== authUid) continue;
       const record = await deps.galaxyPlanetStore.getBySeasonId(season.seasonId);
       planets.push({
@@ -182,14 +177,29 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
 
     // Outposts/Stipends (§3): every non-winning competitive player's own
     // galaxyTiers entry for a given season, if this account's authUid is
-    // bound to that entry's per-season playerId.
-    const tieredSeasons = await resolveTieredSeasons(deps);
+    // bound to that entry's per-season playerId. Every distinct playerId
+    // across all tiered seasons is resolved to its authUid concurrently
+    // (rather than one sequential lookup per season × tier record) — the
+    // same playerId can also recur across multiple seasons, so the lookup is
+    // deduped, not just parallelized.
+    const tierPlayerIds = new Set<string>();
+    for (const season of tieredSeasons) {
+      for (const tier of season.galaxyTiers) tierPlayerIds.add(tier.playerId);
+    }
+    const tierUidByPlayerId = new Map<string, string | undefined>(
+      await Promise.all(
+        [...tierPlayerIds].map(async (playerId): Promise<[string, string | undefined]> => [
+          playerId,
+          (await authBindingStore.getByPlayerId(playerId))?.uid
+        ])
+      )
+    );
+
     const outposts: GalaxyOutpostView[] = [];
     const stipends: GalaxyStipendView[] = [];
     for (const season of tieredSeasons) {
       for (const tier of season.galaxyTiers) {
-        const binding = await deps.authBindingStore.getByPlayerId(tier.playerId);
-        if (binding?.uid !== authUid) continue;
+        if (tierUidByPlayerId.get(tier.playerId) !== authUid) continue;
         if (tier.tier === "OUTPOST" && tier.specialization) {
           outposts.push({ seasonId: season.seasonId, seasonSequence: season.seasonSequence, tier: "OUTPOST", specialization: tier.specialization, awardedAt: season.endedAt, holderName: tier.playerName });
         } else if (tier.tier === "STIPEND") {
@@ -217,7 +227,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       reply.code(400);
       return { ok: false, error: "seasonId is required" };
     }
-    const wonSeasons = await resolveWonSeasons(deps);
+    const { won: wonSeasons } = await resolveEndedSeasons(deps);
     const season = wonSeasons.find((candidate) => candidate.seasonId === seasonId);
     if (!season) {
       reply.code(404);
@@ -253,7 +263,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       return { ok: false, error: "galaxy is unavailable" };
     }
     const galaxyPlanetStore = deps.galaxyPlanetStore;
-    const wonSeasons = await resolveWonSeasons(deps);
+    const { won: wonSeasons, tiered: tieredSeasons } = await resolveEndedSeasons(deps);
     const planets: GalaxyPublicPlanetView[] = [];
     for (const season of wonSeasons) {
       const record = await galaxyPlanetStore.getBySeasonId(season.seasonId);
@@ -274,7 +284,6 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
     // one-time payout with no territory, so — unlike Outposts — they're
     // deliberately left off the public listing; they still exist as a tier
     // concept (surfaced privately via /hq/galaxy/me).
-    const tieredSeasons = await resolveTieredSeasons(deps);
     const outposts: GalaxyOutpostView[] = [];
     for (const season of tieredSeasons) {
       for (const tier of season.galaxyTiers) {
