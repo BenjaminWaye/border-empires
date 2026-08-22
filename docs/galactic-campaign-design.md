@@ -23,16 +23,19 @@ binding store) is already solved — which was the single riskiest piece of
 §11. What does *not* exist is any economy (Influence/Production), Stability,
 Senate, Fleets, Blocs, system development, or a navigable multi-level map.
 
-**A naming collision to settle before building §19.** "Emperor" is already
-taken in shipped code for the per-season winner. This doc uses **Galactic
-Emperor** for the entirely different end-of-era title in §19, and flags the
-collision explicitly there rather than quietly reusing the word.
+**The shipped Emperor is phase one of the win condition, not a name clash.**
+An earlier revision of this doc treated the shipped per-season "Emperor" as a
+collision to rename around. That was wrong and §19.2 supersedes it: the
+season-winner Emperor is the *bootstrap* form of a single title that becomes
+Senate-elected once the galaxy is developed enough, and whoever holds it when
+the last Sector is captured wins the galactic game. The shipped Imperial Ward
+endorsement becomes the bootstrap-era Emperor's power. No rename needed.
 
-This revision folds in PR #1264 verbatim as §1–14 (with one correction to §7,
-marked inline), adds a review pass and visual-presentation spec (§15–16), and
-then adds the three systems that review exposed as missing: exploration and
-fog of war (§17), system development (§18), and how an era actually *ends*
-with a recorded winner (§19).
+This revision folds in PR #1264 verbatim as §1–14 (with corrections to §7 and
+§9, marked inline), adds a review pass and visual-presentation spec (§15–16),
+and then adds the three systems that review exposed as missing: exploration
+and fog of war (§17), system development (§18), and the throne, the endgame,
+and the permanent record (§19).
 
 ## 1. What this is
 
@@ -63,8 +66,10 @@ Two clocks:
 5. Held territory can be lost to **contestation** — via Influence deficit,
    a raid, or a Senate vote (§7) — which reopens it as a **Defense Campaign**
    season.
-6. The galaxy runs until **saturation** triggers Convergence and a reset
-   (§9).
+6. The galaxy runs until the **last unclaimed Sector is captured**, which
+   triggers Convergence: whoever holds the Emperor's throne at that moment
+   wins the galactic game, the era is recorded, and the galaxy resets
+   (§9, §19).
 
 ## 3. Rewards: Planet / Outpost / Stipend
 
@@ -493,12 +498,26 @@ Instead:
 - Size the galaxy's total Sector count to roughly the active playerbase,
   so scarcity is meaningful without waiting a long time to feel any
   contestation.
-- No hard calendar reset. **Convergence** (the year-end event: leaderboard
-  snapshot, Hall-of-Fame record using the existing cosmetics/history
-  persistence, then galaxy reset) triggers on **saturation** — e.g. ≥90%
-  of Sectors claimed and broadly stable — rather than a fixed date. This
-  is robust to season cadence changing as the playerbase grows or shrinks;
-  a fixed 365-day countdown isn't.
+- No hard calendar reset. **Convergence** (the era-end event: the crown
+  is settled, the Hall-of-Fame record is written using the existing
+  cosmetics/history persistence, then the galaxy resets) triggers when
+  **the last unclaimed Sector is captured** — every Sector in the galaxy
+  held at once — rather than on a fixed date. This is robust to season
+  cadence changing as the playerbase grows or shrinks; a fixed 365-day
+  countdown isn't.
+
+  **Superseded:** an earlier draft triggered Convergence on "≥90% of
+  Sectors claimed *and broadly stable*". The stability half of that
+  condition is cut. It was unmeasurable in practice, it fought §13's
+  upkeep curve (which deliberately keeps large empires near break-even,
+  so "broadly stable" may never arrive), and it gave players nothing
+  concrete to watch. "Sectors remaining: 3" is a countdown anyone can
+  read at a glance from the galaxy view, and it is the thing §19 hangs
+  the entire endgame on.
+
+  Note this count can go *down* as well as up — a Sector whose Stability
+  breaks reopens and is unclaimed again (§7). That is not a flaw; §19.6
+  turns it into the endgame's central tension.
 
 ## 10. Tiered progression and Frontier access
 
@@ -580,13 +599,24 @@ the core hook fun" before spending budget on the rest.
 - **v2b** — Alliance Blocs. Split out from v2 explicitly, because Blocs
   need raids to already exist to matter (§15.2); shipping v2a without
   v2b is a valid stopping point, not a half-finished phase.
-- **v3** — Convergence, Dominion Score, and the era record (§19). Last by
-  necessity: it scores everything the earlier phases build, so it cannot
-  be specified until they exist. But note the **era record store itself
-  is tiny and should be built early** — the risk in §19.5 isn't the
-  scoring, it's writing the record before a reset wipes the galaxy, and
-  that ordering is much easier to get right when the reset path is first
-  written than when it's retrofitted.
+- **v3** — the elective throne, Convergence, and the era record (§19).
+  Last by necessity: vote weight is computed from everything the earlier
+  phases build (§19.7), so it can't be specified until they exist.
+
+  Three caveats on sequencing, because §19 is less "a final phase" than
+  it looks:
+
+  - **The bootstrap Emperor already ships.** §19.2's phase one is live
+    today. So the title exists from v0 onward and only its *selection
+    method* is a v3 change — which means v3 is extending a feature
+    players already know, not introducing a win condition from nowhere.
+  - **The era record store should be built early**, with v1. The risk in
+    §19.8 isn't the scoring, it's writing the record before a reset
+    wipes the galaxy — and that ordering is far easier to get right when
+    the reset path is first written than retrofitted afterward.
+  - **Succession tracking must exist before the first elective era
+    runs**, not at Convergence. §19.8's `succession` log is append-as-it-
+    happens; it cannot be reconstructed from a wiped galaxy.
 
 ## 13. Balance numbers (first pass)
 
@@ -735,17 +765,18 @@ Senate weight and Wonder eligibility, which no development does.
 **These paybacks are the numbers most sensitive to Cycle length**, which
 §9 leaves at "proposed: monthly" — see §14.
 
-### Dominion Score (§19)
+### Dominion Score → Senate vote weight (§19.7)
 
 | Term | Weight |
 |---|---:|
 | Planet held | 10 each |
 | Outpost held | 3 each |
 | Development completed | 2 each |
-| Wonder held at Convergence | 15 each |
+| Wonder held | 15 each |
 | Stability | total across holdings ÷ 100 |
 
-Worked comparison, to show the weights let both strategies place:
+Worked comparison, to show the weights let both strategies contend for
+the throne:
 
 - **Wide:** 6 Planets, 2 Outposts, no developments, no Wonders, ~60
   average Stability → 60 + 6 + 0 + 0 + 4.8 = **70.8**
@@ -754,15 +785,52 @@ Worked comparison, to show the weights let both strategies place:
 
 Landing within a point of each other is the intent, not a coincidence:
 an empire that won half as many seasons but built and held carefully
-should be able to take the crown from one that sprawled. Retune the
+should carry comparable political weight to one that sprawled. Retune the
 development and Wonder weights together if playtesting collapses that.
 
-### Era length (§19.6)
+### The throne (§19)
 
-- **Saturation trigger:** ≥90% of Sectors claimed and broadly stable (§9).
-- **Ceiling:** 40 Cycles, whichever comes first. The safety valve that
-  guarantees an era ends and a Galactic Emperor is crowned even if the
-  saturation condition proves unreachable.
+**Elective transition** (§19.3), both required:
+
+- ≥ 10 Sectors claimed in the galaxy
+- ≥ 5 distinct Planet-holding empires eligible to vote
+
+**Election** (§19.4):
+
+| Rule | Value |
+|---|---|
+| Emperor | Plurality of pledged vote weight, tallied each Cycle |
+| Vacancy threshold | Leader below 33% of total weight → throne vacant |
+| Coalition benefit | Empires pledged to the sitting Emperor pay 33% less on Senate proposals |
+| Pledge changes | Free, standing, take effect at the next Cycle tick |
+
+**Crown Upkeep** (§19.5) — the anti-entrenchment brake, and the reason
+the throne shifts on its own:
+
+| Consecutive Cycles held | Influence upkeep per Cycle |
+|---:|---:|
+| 1–2 | 8 |
+| 3–5 | 14 |
+| 6+ | 22 |
+
+For scale: a healthy 2-Planet empire nets about +2 Inf/Cycle (see the
+worked examples above), and even a well-built Capital/Trade empire is in
+the low tens. So the crown is *never* comfortably affordable — it is paid
+for out of coalition support and accumulated reserves, and an Emperor who
+holds it for six Cycles straight is burning 22 Inf/Cycle to do so. That
+escalation is what makes long reigns a deliberate sacrifice rather than a
+default state, and it is the number to tune first if the throne turns out
+to be either too sticky or too frantic.
+
+The Emperor's income bonus is **zero**, by rule and not by tuning (§19.5).
+
+### Era length (§19.9)
+
+- **Primary trigger:** the last unclaimed Sector is captured (§9).
+- **Ceiling:** 40 Cycles, whichever comes first. Structurally required,
+  not just a safety valve: §19.6 gives the opposition a standing
+  incentive to keep one Sector permanently unclaimed, and the ceiling is
+  what stops that from working.
 
 ## 14. Open questions before implementation
 
@@ -773,11 +841,10 @@ development and Wonder weights together if playtesting collapses that.
   they're open to anyone and (as corrected) that the former owner gets no
   advantage, but not the minimum viable entrant count. See the revised
   §15.2 bullet and the dormant-and-requeue proposal there.
-- **Convergence reachability:** §9 triggers Convergence on ≥90% of
-  Sectors claimed *and broadly stable*. If the §13 upkeep curve keeps
-  large empires permanently near break-even, "broadly stable" may be
-  harder to reach than intended — worth simulating before committing to
-  the saturation trigger.
+- ~~**Convergence reachability.**~~ **Resolved.** The "broadly stable"
+  half of the old saturation trigger is cut (§9); closure is now the
+  concrete "last Sector captured", with a Cycle ceiling (§19.9) as the
+  guaranteed backstop.
 - **Blueprint sharing scope** (§6): Bloc-wide only, or galaxy-wide
   publishing? The latter is a real community feature but also a
   homogenizing force on fleet composition.
@@ -795,12 +862,10 @@ Added by the §15–19 review pass:
   (Cycles tick on a clock, not on season completions). This needs
   deciding before §13's economy is tuned, because it rescales every
   per-Cycle number in the doc at once.
-- **Naming: "Emperor" collides with shipped code** (§19.2). The
-  per-season Emperor / Imperial Ward title already exists in
-  `galaxy-endorsement-routes` and the client. Either the era title needs
-  a distinct name (Sovereign / Archon / First of the Era) or the
-  per-season one does. Touches shipped user-facing strings, so decide
-  before building §19.
+- ~~**Naming: "Emperor" collides with shipped code."**~~ **Resolved** by
+  §19.2 — the shipped per-season Emperor is the bootstrap phase of the
+  same title, not a separate honour. No rename needed, and the shipped
+  Imperial Ward endorsement becomes that phase's power.
 - **Do Outposts count toward Frontier tiering the same as Planets?** §10
   buckets empires by "Planet/Outpost count and Stability", but §18 now
   gives held systems a second growth axis. An empire with one Planet and
@@ -811,6 +876,22 @@ Added by the §15–19 review pass:
   the dormant-and-requeue fallback needs an actual number, and a rule for
   what happens to a system that stays dormant for many slots in a thin
   playerbase.
+- **Are pledges public?** Recommend yes — visible coalitions are what
+  make the throne a political drama rather than a hidden calculation,
+  and they let a player see who to court. Secret pledges would add
+  intrigue at the cost of making the single most important number in
+  the game unreadable. Not settled here because it's a real trade-off.
+- **How does a Bloc decide its pledge?** §8 gives Blocs a shared
+  treasury and single weighted vote, but no internal governance model.
+  With the throne at stake, "who decides where the Bloc's weight goes"
+  becomes the most consequential unanswered question in §8 — leader's
+  choice, internal majority, or unanimity are all defensible and
+  produce very different politics.
+- **What happens to the bootstrap Emperor at the transition?** §19.3
+  makes the switch one-way but doesn't say whether the sitting
+  season-winner Emperor keeps the throne into the first elective tally
+  or the throne simply vacates and is re-decided. The second is
+  cleaner; the first is kinder to whoever just won a season.
 - **Do developments survive Convergence?** §19 wipes the galaxy between
   eras. Developments transferring with a captured system (§18.4) is
   settled; whether anything at all persists across an *era* boundary is
@@ -891,22 +972,18 @@ homework attached to the game people actually came to play:
   (trickle paused, per §11's limbo handling) and re-queues next slot,
   rather than reverting to the former owner. Nobody gets it back for
   free; it simply waits.
-- **Convergence reachability (already flagged in §14) compounds with
-  the upkeep curve in a way worth stating precisely:** §13 says the
-  break-even point sits around 3-4 Planets, and §9 wants ≥90% of Sectors
-  "broadly stable" to trigger Convergence. If most successful empires
-  hover near break-even by design, "broadly stable" is fighting the
-  same anti-snowball pressure the doc wants — these two design goals
-  need to be checked against each other in a simulation before either
-  number is treated as final, not just each in isolation as §14 does.
-- **No decay/endgame pressure independent of Convergence.** Without a
-  visible countdown or escalating pressure as saturation approaches, the
-  "no hard calendar reset" design (§9) risks the opposite problem to a
-  fixed reset: nothing signals "the galaxy is closing" until it suddenly
-  does. A saturation percentage displayed galaxy-wide (tied into the
-  visual layer in §16) would give players the same anticipation a
-  visible timer gives, without reintroducing the fixed-date problem §9
-  was written to avoid.
+- ~~**Convergence reachability compounds with the upkeep curve.**~~
+  **Resolved by the §9 correction.** The finding stands as originally
+  written — "broadly stable" was fighting the same anti-snowball pressure
+  the doc deliberately applies — and the fix was to delete that half of
+  the trigger rather than tune around it. Closure is now "last Sector
+  captured" (§9), which is unambiguous, visible to players as a
+  countdown, and independent of the upkeep curve entirely.
+- ~~**No anticipation before the end.**~~ **Resolved by §9 and §19.6.**
+  "Sectors remaining: 3" on the galaxy view gives players a real
+  countdown without a fixed date, and §19.6's endgame — the Emperor
+  racing to close the map while everyone else knocks Sectors loose to
+  keep it open — supplies escalating pressure that no timer could.
 - **Bloc Sprawl Upkeep (§8/§13) has no stated way for a Bloc to shrink
   the number back down deliberately** (e.g. a member leaving, or the
   Bloc voluntarily dropping weaker holdings) versus it only ever
@@ -945,9 +1022,14 @@ not have shown on their own, and §17–19 close them:
   that isn't currently winning seasons has nothing to spend a trickle on
   and no reason to open the layer. This is the hole most likely to lose
   the median player, who wins seasons rarely. → §18.
-- **Nothing to ultimately win.** §9 ends the galaxy but never says what
+- **Nothing to ultimately win.** §9 ended the galaxy but never said what
   Convergence *awards*, so the entire slow layer had no terminal payoff
-  and no permanent record of who came out on top. → §19.
+  and no permanent record of who came out on top. → §19, which resolves
+  it into a contested throne rather than a final score: the Emperor at
+  the moment the last Sector falls wins the era. That also turns
+  Influence from a peripheral currency into the spine of the endgame,
+  and gives the galaxy view a live "who is winning" readout it
+  previously lacked.
 
 With those closed, the layer has all four things §15.1 asks for: a place
 to look at, something to discover, something to build, and something to
@@ -1010,7 +1092,7 @@ reference screenshots, not as a menu swap:
    itself carries information (you don't know a system's fate until
    you're close enough to see it, matching the "fog of distance" framing
    real astronomy has anyway). This view is also the natural home for
-   the saturation percentage from 15.2's decay-pressure gap, and for
+   the "Sectors remaining" countdown and the sitting Emperor (§19), and for
    the Bloc-territory clustering that makes an Alliance Bloc (§8)
    visually read as a bloc, not just a roster entry.
 
@@ -1066,7 +1148,7 @@ also phase in rather than block v0:
   deciding, not just a ballot text.
 - **v2:** full four-level zoom with animated Fleet travel between
   systems (16.2 point 3), moons-as-Outposts (16.3), and the galaxy-wide
-  saturation/Convergence framing (16.2 point 4, 15.2's decay-pressure
+  closure/Convergence framing (16.2 point 4, 15.2's decay-pressure
   gap). This is the right point to add it, since it's exactly when
   Fleets/raids/Blocs — the systems that most benefit from being watched,
   not just logged — come online.
@@ -1139,8 +1221,9 @@ here.
 **Zooming out is optional, not a step.** Neighborhood view (§16.2 level
 3) is for checking on rivals and contested Sectors; galaxy view (level 4)
 is for browsing, scouting targets, watching Bloc territory as clusters of
-colour, and reading the saturation gauge that says how close the era is
-to ending (§19). None of it is on the critical path of a routine visit.
+colour, and reading the "Sectors remaining" counter and current Emperor,
+which together say how close the era is to ending and who is winning it
+(§19). None of it is on the critical path of a routine visit.
 
 ## 17. Exploration and fog of war
 
@@ -1357,152 +1440,296 @@ The one thing this needs from the client is that inherited developments
 stay legible as inherited — a captured system showing what it was and who
 built it is the same "losses read as drama" principle as §7's battle log.
 
-## 19. Convergence, the Galactic Emperor, and the permanent record
+## 19. The Emperor, and how the galactic game is won
 
-### 19.1 What winning everything means
+### 19.1 The win condition
 
-§9 establishes that the galaxy ends in **Convergence** when it saturates,
-but never says what Convergence *awards*. It should award the thing the
-whole layer has been building toward: whoever stands highest when the
-galaxy closes is crowned, permanently and by name, and the era is sealed
-into a record that survives the reset.
+**Whoever holds the Emperor's throne at the moment the last unclaimed
+Sector is captured wins the galactic game.**
 
-That's the payoff that makes the slow layer worth playing at all. Seasons
-give you a planet; the era gives you the galaxy, once, and then it's in
-the books forever.
+That single sentence does more work than the Dominion Score model an
+earlier draft of this section proposed, and it replaces it as the win
+condition (§19.7 explains what Dominion Score becomes instead). Three
+reasons it's the stronger design:
 
-### 19.2 The naming collision, stated plainly
+- **The win condition is a *seat*, not a score.** A score is something
+  you compute and show people; a throne is something people can see
+  someone sitting in, want, and take. At any moment there is exactly one
+  Emperor, named on the galaxy map, and everyone knows whether it's them.
+- **It makes the Influence economy the spine of the game.** Influence
+  currently buys Sanctions, Contest votes, and terrain votes — useful,
+  but peripheral to anything final. Tying the throne to Senate backing
+  makes every Influence decision in §4 a decision about the endgame.
+- **It's inherently unstable, which is the point.** The crown shifts
+  constantly (§19.4, §19.5), so nobody accumulates a decisive lead;
+  what matters is who is holding it at one unpredictable moment.
 
-**"Emperor" is already taken in shipped code.** `galaxy-endorsement-routes`
-defines the Emperor as the winner of the most recently ended *season*,
-for a one-hour window in which they endorse an Imperial Ward. That is a
-per-season, hour-long title. The end-of-era title is a different thing at
-a different scale and must not silently reuse the word.
+### 19.2 The naming collision is not a collision — it's phase one
 
-This doc uses **Galactic Emperor** for the era winner. That is workable
-but not obviously good enough — "Emperor" and "Galactic Emperor" being
-different honours a player can hold is exactly the kind of distinction
-that reads fine in a design doc and confuses everyone in a UI. Worth
-deciding before build: either rename the era title to something
-unambiguous (**Sovereign**, **Archon**, **First of the Era**), or rename
-the existing per-season one. Flagged in §14 as an open question rather
-than settled here, because it touches shipped strings.
+An earlier revision of this doc flagged that "Emperor" was already taken
+in shipped code (`galaxy-endorsement-routes`: the winner of the most
+recently ended season, holding a one-hour Imperial Ward endorsement
+window) and proposed renaming one of the two titles.
 
-### 19.3 Dominion Score: how the winner is decided
+**That was wrong, and this supersedes it.** The shipped behaviour is the
+*bootstrap phase* of this exact title, not a different honour that
+happens to share a name. There is one Emperor throughout, selected two
+different ways depending on how developed the galaxy is:
 
-At the moment of Convergence, every empire is scored. The score has to
-reward *all* the paths the doc builds, or the unrewarded ones become
-decoration — if only conquest wins, nobody develops, votes, or organizes.
+| Phase | Emperor is | Runs while |
+|---|---|---|
+| **Bootstrap** | The winner of the most recently ended season *(shipped today)* | The galaxy is too small or too empty for a meaningful vote |
+| **Elective** | Elected by the Senate, continuously (§19.4) | The galaxy has enough claimed Sectors and enough voters |
 
-**Dominion Score** = weighted sum of what an empire holds at Convergence:
+No rename is needed, and the shipped Imperial Ward endorsement becomes
+the bootstrap-era Emperor's one power — which gives existing code a clean
+place in the design rather than making it legacy to work around.
 
-| Term | Rationale |
+### 19.3 When the throne becomes elective
+
+The transition fires the first Cycle tick where **both** hold:
+
+- **At least 10 Sectors in the galaxy are claimed.** Below that there
+  isn't enough held territory for Senate weight to mean anything.
+- **At least 5 distinct Planet-holding empires are eligible to vote.**
+  Below that an "election" is a handful of people, and one Bloc would
+  simply own the throne outright. This is the same concern the ≥3
+  distinct-voter floor in §4 exists to address, set higher because the
+  stakes are the whole game.
+
+The transition is **one-way within an era.** If the galaxy later drops
+back below either threshold (players leave, Sectors reopen), the throne
+stays elective rather than reverting to season-winner. Flipping selection
+rules back and forth mid-era would be incomprehensible to players and
+would hand a huge, arbitrary advantage to whoever happened to win the
+season at the moment it flipped.
+
+### 19.4 The election: standing pledges, not a ballot every Cycle
+
+The throne is decided by **standing pledges**, recalculated each Cycle.
+Not a discrete election event — a continuously-updating balance of
+support, which is what makes it shift on its own as fortunes change.
+
+- Every eligible empire has a **vote weight** (§19.7).
+- Each empire **pledges** its weight to one candidate — itself, or
+  another empire. A pledge is a standing setting: made once, it persists
+  until changed. This matters for §16.6's session budget — backing
+  someone is a decision you revisit when something changes, not a chore
+  every Cycle.
+- Blocs pledge as a single weighted entity (§8), so organizing
+  translates directly into throne-making power.
+- **Outpost-only empires can pledge**, with whatever weight their
+  holdings give them. They don't count toward §19.3's five-empire
+  threshold (that measures whether a real polity exists), but they are
+  not disenfranchised. Excluding them would strip a vote from exactly
+  the new and emerging players Outposts exist to onboard (§3, §10), and
+  in a close race their pooled weight is worth courting — which is the
+  best possible reason for an established empire to care about a
+  newcomer.
+- At each Cycle tick, pledges are tallied. **The plurality holder is the
+  Emperor.** If the leader holds less than a third of total weight, the
+  throne is **vacant** — nobody is Emperor until someone consolidates
+  enough support.
+
+**Why anyone pledges to someone else.** Without an incentive, everyone
+self-pledges and the throne goes to whoever is simply biggest, which
+would be both boring and a snowball. So: **empires pledged to the sitting
+Emperor pay reduced Senate proposal costs** (the same lever Grand
+Exchange already pulls in §5). Backing the winner puts you in the ruling
+coalition and makes your own politics cheaper; holding out and building a
+rival coalition costs you in the meantime. That's a real, recurring
+choice between profit and ambition, and it's the engine of the whole
+political layer.
+
+**The crown itself is why coalitions break.** See §19.5.
+
+### 19.5 Crown Upkeep: the throne must not entrench
+
+This is the single most important balance rule in the section, and the
+one most likely to be got wrong in implementation.
+
+**The Emperor receives no Influence or Production income from the
+throne.** Not a small amount — none. Influence is what decides the
+throne, so any Influence the crown grants is the crown paying for itself,
+and the whole design collapses into "first empire to get ahead stays
+ahead forever" — the exact failure this doc's every other mechanic exists
+to prevent.
+
+Instead the crown **costs**:
+
+**Crown Upkeep** — the sitting Emperor pays an Influence upkeep every
+Cycle they hold the throne (rate in §13), on top of their normal Planet
+and development upkeep (§4, §18). Wearing the crown is expensive, and it
+gets more expensive the longer it's worn (§13 escalates it), so:
+
+- An Emperor slowly bleeds Influence, which erodes their own vote weight,
+  which eventually costs them the throne. The crown falls off on its own.
+- Holding it continuously is a deliberate sacrifice: you are spending
+  real economic capacity on prestige and political leverage.
+- It reuses the upkeep lever players already understand from Planets,
+  developments, and Bloc Sprawl — no new mechanic to learn, applied at
+  one more level.
+
+**If the Emperor cannot pay, they abdicate immediately** — the throne
+vacates at that Cycle tick and pledges re-tally. Crown Upkeep does *not*
+fall through into the normal Influence deficit path (§7), and this is a
+deliberate exception to how every other upkeep in the doc behaves. Two
+reasons: routing it through deficit would mean an over-reaching Emperor
+punishes their own *Sectors'* Stability for a purely political
+over-reach, which reads as arbitrary; and it would let an insolvent
+empire keep the crown for several Cycles while slowly bleeding out, which
+is exactly the entrenchment this rule exists to prevent. Abdication is
+immediate, legible, and self-correcting.
+
+This is what delivers "the Emperor constantly shifts". It is not a
+random rotation or an artificial term limit — it's a throne that is
+genuinely expensive to keep, in the currency that keeps it.
+
+**What the Emperor does get**, all political, none economic:
+
+| Power | Note |
 |---|---|
-| Planets held | The primary prize; the heaviest term |
-| Outposts held | The lesser tier still counts (§3) |
-| Developments completed | Rewards tall play (§18), so a builder who won few seasons can still place |
-| Wonders currently held | Rewards the Production race, and it's a snapshot — a superseded Wonder counts for whoever holds it at the end (§5) |
-| Total Stability across holdings | Rewards holding things *well*, not just holding them — an empire limping at 20 Stability across six Sectors should not beat one thriving at 100 across four |
+| One free Senate action per Cycle (Sanction or Contest) | Reuses The Long Signal's token concept (§5) |
+| Tie-break on any deadlocked Senate proposal | Pure authority, no income |
+| Names the next era's galaxy if they win at Convergence | §19.8 — the prestige payoff |
+| A visible crown on their system in the galaxy view | The spectacle (§16.5) |
 
-Weights in §13. Political play is rewarded through its effects rather
-than a separate term — Contest votes win you Sectors, The Long Signal and
-Grand Exchange are Wonders, and Bloc organizing shows up in everything
-above — so the Senate needs no scoring term of its own.
+Free Senate actions are leverage over *others*, which is worth fighting
+for and does not compound into holding the throne longer. That's the
+distinction to hold onto: **the Emperor gets more say, never more
+means.**
 
-**Blocs are recorded, not crowned.** The Galactic Emperor is a single
-empire, because a shared crown isn't a crown. But the era record also
-names the **Dominant Bloc** (highest combined Dominion Score), so
-organized play gets its own permanent line in the history without
-diluting the individual title.
+### 19.6 The endgame: why the last Sector is the best part
 
-### 19.4 What the Emperor actually gets
+Convergence fires when the last unclaimed Sector is captured (§9). Since
+the claimed-Sector count moves both ways — a Sector whose Stability
+breaks reopens as unclaimed (§7) — the endgame generates a genuinely
+excellent dynamic with no extra machinery:
 
-**Cosmetic and commemorative only — no mechanical advantage carried into
-the next era.** This is not a soft preference; a persistent power carryover
-would make era 2 unwinnable for everyone else and would contradict every
-anti-snowball mechanic in this doc. Specifically:
+- **The sitting Emperor wants the galaxy to close now.** Every Cycle it
+  stays open is another Crown Upkeep payment and another chance to be
+  outvoted. They push to capture the last Sectors fast.
+- **Everyone else wants to keep it open.** As long as one Sector stays
+  unclaimed, there's still time to take the throne. So rivals raid and
+  Contest to knock Sectors *loose* — deliberately destabilizing the
+  galaxy to stop the music while they build a coalition.
 
-- A permanent title and badge on the account, displayed in-season, using
-  the cosmetics/history persistence §9 already assumes.
-- A permanent entry in the Hall of Fame (§19.5), by name, with the
-  systems they held and what those systems were called.
-- **Naming rights over the next era.** The Emperor names the incoming
-  galaxy — and possibly a starting star cluster within it. This is the
-  best reward available here because it is enormous in prestige, exactly
-  zero in balance impact, and it *already has a shipped precedent in this
-  repo*: `POST /hq/galaxy/planets/:seasonId/name` with its one-time,
-  permanent, validated christening flow (`galaxy-name-policy`). Era
-  naming is the same mechanic one level up, and can reuse the same
-  validation and the same "this cannot be changed later" framing.
+That's a real, emergent endgame: a race between one player trying to
+finish the map and everyone else trying to keep it unfinished, with the
+crown changing hands while they fight over it. None of it needs a
+bespoke endgame system — it falls straight out of the contestation rules
+(§7) meeting the closure condition (§9).
 
-### 19.5 Recording it: the era record
+**It also needs a stalemate guard**, because a determined opposition
+could keep one Sector perpetually in play. §19.9's Cycle ceiling is that
+guard, and under this model it stops being a nice-to-have safety valve
+and becomes structurally required.
 
-This is the concrete "record that winner somewhere" piece, and it should
-follow the pattern the repo already uses for `galaxy_planet` rather than
-inventing a new one.
+### 19.7 Vote weight, and what Dominion Score is now for
 
-**A new append-only store, `galactic_era`** — one row per completed era,
-alongside the existing `galaxy_planet` and `season_archive` tables:
+An earlier draft made **Dominion Score** the win condition. It isn't any
+more — the throne is. But the score is not discarded, because the
+weighting work it did is exactly what an election needs: a single number
+expressing how much an empire materially matters.
+
+**Dominion Score is now the basis of Senate vote weight.** Weights are
+unchanged (§13): Planets, Outposts, developments, Wonders held, and total
+Stability. That means:
+
+- Every system in the doc feeds the endgame. Winning campaigns, building
+  tall (§18), racing Wonders, and holding your territory *stable* all
+  convert into political weight, and political weight is what wins.
+- Holding things well matters as much as holding a lot — the Stability
+  term means a sprawling, deficit-ridden empire has less say than a
+  smaller, healthy one, which is consistent with §13's anti-sprawl
+  intent rather than fighting it.
+- It gives a clean, already-balanced answer to "how much is this empire's
+  pledge worth" without inventing a second scoring system.
+
+Dominion Score also remains the right input for the §10 progression
+tiers, and it is recorded in the era standings (§19.8) as "who was
+strongest" — a separate and interesting fact from "who was Emperor at the
+end", and one worth preserving precisely because they will often differ.
+
+### 19.8 Recording it: the era record
+
+Unchanged in structure from the previous draft, with the fields adjusted
+for a throne-based win. **A new append-only store, `galactic_era`** — one
+row per completed era, alongside the existing `galaxy_planet` and
+`season_archive` tables:
 
 | Field | Notes |
 |---|---|
 | `eraId`, `eraSequence` | Primary key and human-facing "Era 3" number |
 | `startedAt`, `convergedAt` | Era bounds |
-| `triggerReason` | `saturation` or `ceiling` (§19.6) |
-| `emperorAuthUid` | Nullable — an era can end with no qualifying empire |
-| `emperorDisplayName` | **Denormalized snapshot, not a join** — see below |
-| `dominionScore` | The winning score, for the record |
-| `dominantBlocName`, `dominantBlocScore` | Nullable |
-| `standings` | Frozen JSON: top N empires with scores |
+| `triggerReason` | `final_sector_captured` or `cycle_ceiling` (§19.9) |
+| `emperorAuthUid` | The winner — whoever held the throne at closure. Nullable: the throne can be vacant (§19.4) |
+| `emperorDisplayName` | **Denormalized snapshot, not a join** |
+| `finalSectorSeasonId` | The capture that ended the era — the record should be able to say which campaign closed the galaxy, and who won it |
+| `crownedFor` | How many Cycles the winner held the throne, so a long reign and a last-second snatch read differently |
+| `succession` | Frozen JSON: every Emperor of the era in order, with the Cycles they held. This is the era's story |
+| `standings` | Frozen JSON: top N empires by Dominion Score — "who was strongest", distinct from who won |
+| `dominantBlocName` | Nullable |
 | `holdings` | Frozen JSON: who held which systems, **with christened planet names** |
 
-Four disciplines this store has to observe, all of them things the repo's
-existing persistence rules (`docs/agents/state-and-persistence-discipline.md`)
-or §11 already warn about:
+The four persistence disciplines from the previous draft all still apply,
+and one is now sharper:
 
 1. **Denormalize display names at write time.** Never render the Hall of
-   Fame by joining live account records. Players rename; the historical
-   record must not silently rewrite itself when they do. Store the name
-   as it was.
+   Fame by joining live account records; players rename and the record
+   must not rewrite itself.
 2. **Write before the reset, not after.** The galaxy reset is a
-   wipe-and-replace, structurally identical to the season rollover
-   hazard §11 already calls out — and the same bug is available here. The
-   era record must be committed, and its write confirmed, *before* any
-   reset step runs. An explicit "seal era" step, ordered ahead of the
-   wipe, mirroring the "apply galactic rewards" hook §11 specifies for
-   season end.
-3. **Append-only and immutable.** A sealed era is never updated. This
-   also makes the store trivially bounded — one row per era, a handful
-   per year — which satisfies the "bound every growable map" rule without
-   any extra work.
-4. **Christened names are the emotional payload, so carry them.** The
-   `holdings` snapshot should preserve the planet names players chose,
-   because "Era 2 — Emperor Vance held seven systems: Ashfall, Kepler's
-   Rest, …" is the artifact people actually care about. Those names live
-   in `galaxy_planet` today and would otherwise be wiped with the galaxy.
+   wipe-and-replace, structurally identical to the season rollover hazard
+   §11 already calls out, and the same bug is available here. An explicit
+   "seal era" step, ordered ahead of the wipe.
+3. **Append-only and immutable**, which also keeps the store trivially
+   bounded — one row per era.
+4. **Track succession as it happens, not at the end.** `succession`
+   cannot be reconstructed after the fact from a wiped galaxy, so each
+   change of Emperor must be appended to a running era log at the Cycle
+   it occurs. This is the one piece of §19 that needs writing *during*
+   the era rather than at Convergence, and it's easy to miss.
+
+**If the throne is vacant at closure**, the crown goes to the plurality
+pledge-holder even if they're below the one-third threshold, so an era
+always has a winner. The record should note it was won from a vacant
+throne — a legitimate and memorable way to take a galaxy.
 
 Surfacing it: a `GET /hq/galaxy/eras` listing and an in-client Hall of
-Fame reachable from the galaxy view (§16.2 level 4) — the natural home
-for it, since the galaxy view is already where the era's saturation gauge
-lives.
+Fame reachable from the galaxy view (§16.2 level 4), alongside the
+live "Sectors remaining" counter and the current Emperor.
 
-### 19.6 Making sure an era can actually end
+### 19.9 Making sure an era can actually end
 
-§14 already worries that Convergence may be unreachable, because §13's
-upkeep curve keeps large empires near break-even and §9 requires ≥90% of
-Sectors claimed *and broadly stable*. §18 sharpens the worry in both
-directions: developments add Stability (Cryo Refineries) but also add
-Influence upkeep, so whether the galaxy trends toward "broadly stable" is
-now genuinely hard to predict without simulating it.
+Under §19.6, a coordinated opposition has a standing incentive to keep
+one Sector permanently unclaimed. So the ceiling is structural, not
+optional:
 
-Rather than tune blind, add a safety valve: **an era ends on saturation
-*or* on a hard Cycle ceiling, whichever comes first.** If the galaxy
-hasn't converged by the ceiling, it converges anyway and crowns whoever
-leads on Dominion Score. This costs nothing, guarantees the payoff in
-§19.1 is always eventually delivered, and removes the risk of an era
-grinding on indefinitely because a balance number was slightly wrong.
+**An era ends when the last Sector is captured, *or* at a hard Cycle
+ceiling (§13), whichever comes first.** At the ceiling, the sitting
+Emperor wins exactly as if the map had closed.
 
-The saturation gauge should be visible galaxy-wide throughout (§16.2
-level 4), which also closes §15.2's "no anticipation before the end"
-gap — players can see the era closing in without a fixed calendar date,
-which was §9's original objection to a hard timer.
+This guarantees the payoff always lands, and it has a useful second
+effect: as the ceiling approaches, the incentives invert — the opposition
+can no longer win by stalling, so they must either take the throne or
+lose. A stalling endgame is forced back into action rather than allowed
+to grind.
+
+### 19.10 What the winner gets
+
+**Cosmetic and commemorative only — no mechanical advantage carried into
+the next era.** A persistent power carryover would make era 2 unwinnable
+for everyone else and contradict every anti-snowball mechanic in this
+doc.
+
+- A permanent title and badge on the account, displayed in-season, using
+  the cosmetics/history persistence §9 already assumes.
+- A permanent Hall of Fame entry, by name, with the systems they held and
+  what those systems were called.
+- **Naming rights over the next era** — the winner names the incoming
+  galaxy. Enormous in prestige, exactly zero in balance impact, and it
+  already has a shipped precedent in this repo:
+  `POST /hq/galaxy/planets/:seasonId/name` with its one-time, permanent,
+  validated christening flow (`galaxy-name-policy`). Era naming is the
+  same mechanic one level up and can reuse the same validation and the
+  same "this cannot be changed later" framing.
