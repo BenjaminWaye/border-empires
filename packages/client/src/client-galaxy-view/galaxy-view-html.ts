@@ -6,6 +6,11 @@ export type GalaxyViewPlanet = {
   seasonId: string;
   seasonSequence: number;
   objectiveName: string;
+  // Optional rather than required: seasons persisted before this field
+  // existed (an old SeasonArchiveRow) have no specialization computed yet,
+  // and a client build newer than a not-yet-redeployed gateway would
+  // otherwise render "undefined". Absent renders no badge at all.
+  specialization?: string;
   crownedAt: number;
   planetName: string | null;
   named: boolean;
@@ -34,6 +39,25 @@ const escapeHtml = (value: string): string =>
 const crownedDateLabel = (crownedAt: number): string =>
   new Date(crownedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
+// Display names for GalaxySpecialization (@border-empires/sim-protocol's
+// GALAXY_SPECIALIZATION_NAME) — kept as a local copy rather than a new
+// package dependency, since this is display text only. Falls back to the raw
+// value for a specialization id introduced server-side before the client
+// knows its label.
+const SPECIALIZATION_LABEL: Record<string, string> = {
+  INDUSTRIAL: "Industrial",
+  TRADE: "Trade",
+  EXTRACTION: "Extraction",
+  LOGISTICS: "Logistics",
+  CAPITAL: "Capital"
+};
+
+const specializationBadgeHtml = (specialization: string | undefined): string => {
+  if (!specialization) return "";
+  const label = SPECIALIZATION_LABEL[specialization] ?? specialization;
+  return `<p class="gx-specialization" data-galaxy-specialization>${escapeHtml(label)} World</p>`;
+};
+
 // Purely decorative rotating planet figure (bands spin via CSS animation;
 // the ring and shading layers stay static for a simple "gas giant" look).
 // Shared by both the unnamed and named states so a world always feels like a
@@ -51,6 +75,7 @@ const christenFormHtml = (planet: GalaxyViewPlanet): string => `
   <div class="gx-christen" data-galaxy-christen data-season-id="${escapeHtml(planet.seasonId)}">
     <p class="gx-kicker">Unnamed World</p>
     ${planetFigureHtml()}
+    ${specializationBadgeHtml(planet.specialization)}
     <p class="gx-christen-copy">You won this season's crown. Name your planet — this cannot be changed later.</p>
     <form data-galaxy-christen-form>
       <input
@@ -72,6 +97,7 @@ const namedMedallionHtml = (planet: GalaxyViewPlanet): string => `
     <p class="gx-kicker">Your World</p>
     ${planetFigureHtml()}
     <p class="gx-planet-name">${escapeHtml(planet.planetName ?? "")}</p>
+    ${specializationBadgeHtml(planet.specialization)}
     <p class="gx-planet-meta">Crowned via ${escapeHtml(planet.objectiveName)} · ${crownedDateLabel(planet.crownedAt)}</p>
   </div>`;
 
