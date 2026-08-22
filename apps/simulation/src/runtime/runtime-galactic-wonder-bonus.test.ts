@@ -60,4 +60,25 @@ describe("simulation runtime — galactic Wonder starting bonus (v0)", () => {
 
     expect(withoutBonusRegen).toBeLessThan(withBonusRegen ?? 0);
   });
+
+  // Regression: exportSnapshotSections() feeds the durable checkpoint that
+  // startup-recovery.ts rehydrates from on every restart (see
+  // runtime-hydration.ts / event-recovery.ts). The granted bonus fields must
+  // round-trip through it or a service restart silently strips the "permanent"
+  // starting bonus from the winner the moment it's checkpointed — the same
+  // class of bug documented in runtime-manpower-boot-order.test.ts.
+  it("round-trips the granted bonus fields through exportSnapshotSections (checkpoint persistence)", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      seedTiles: new Map(),
+      initialState: { tiles: [{ x: 10, y: 10, terrain: "LAND" }], activeLocks: [] },
+      pendingGalacticWonderBonus: { playerId: "planet-winner" }
+    });
+    runtime.ensurePlayerHasSpawnTerritory("planet-winner");
+
+    const sections = runtime.exportSnapshotSections();
+    const snapshotted = sections.initialState.players?.find((p) => p.id === "planet-winner");
+    expect(snapshotted?.galacticWonderManpowerRegenBonusPerMinute).toBe(GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE);
+    expect(snapshotted?.galacticWonderVisionRadiusBonus).toBeGreaterThan(0);
+  });
 });
