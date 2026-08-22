@@ -65,7 +65,7 @@ import { retryStartup } from "../startup-retry.js";
 import { resolveInitialState } from "../initial-state/initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "../full-visibility-replacement-payload-cache/full-visibility-replacement-payload-cache.js";
 import { createRevealMapChunkCache, type RevealMapPayloadSet } from "../reveal-map-chunk-cache/reveal-map-chunk-cache.js";
-import { buildInitMessage } from "../reconnect-recovery/reconnect-recovery.js";
+import { buildInitMessage } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js";
 import { type SimulationSeedProfile } from "../seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "../sim-client/sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
@@ -2049,7 +2049,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.complete("rejected", admission.reason === "rate" || admission.reason === "queue_full" ? "bootstrap_admission" : "queue_socket_closed");
               return;
             }
-            let bootstrapInitialState;
+            let bootstrapInitialState; let needsSeasonJoin = false;
             try {
             let rallyAnchor: { x: number; y: number; island?: string } | undefined;
             let acceptedRallyCode: string | undefined;
@@ -2079,9 +2079,9 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel
               });
               loginPhase.notify(socket, "Preparing your empire...", "Connecting to the simulation backend.");
-              const prepareResult = await retrySimulationRpc( // login = explicit season join; see JoinSeason
+              const prepareResult = await retrySimulationRpc( // login only prepares; explicit join happens via JOIN_SEASON
                 "gateway prepare player",
-                () => (simulationClient.joinSeason ?? simulationClient.preparePlayer)(playerIdentity.playerId, rallyAnchor),
+                () => simulationClient.preparePlayer(playerIdentity.playerId, rallyAnchor),
                 simulationPrepareTimeoutMs,
                 (error, attempt) => {
                   recordGatewayEvent("warn", "gateway_auth_prepare_retry", {
@@ -2097,7 +2097,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 await rallyLinkStore.releaseUse(acceptedRallyCode);
                 acceptedRallyCode = undefined;
               }
-              const prepareDurationMs = Date.now() - prepareStartedAt;
+              needsSeasonJoin = prepareResult.joined === false; const prepareDurationMs = Date.now() - prepareStartedAt;
               recordGatewayEvent(
                 prepareResult.spawned || prepareDurationMs >= 250 ? "warn" : "info",
                 "gateway_auth_prepare_ready",
@@ -2303,8 +2303,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 simulationSeedProfile,
                 legacySnapshotBootstrap,
                 profileOverrides,
-                socialState,
-                session.canToggleFog
+                socialState, session.canToggleFog, needsSeasonJoin
               );
               recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
                 playerId: playerIdentity.playerId,
@@ -2535,6 +2534,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
+          if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ playerId: session.playerId, simulationClient, recordGatewayEvent, sendJson, socket }); return; }
           if (message.type === "SET_TILE_COLOR") {
             const normalized = normalizeHex(message.color);
             if (!normalized) {

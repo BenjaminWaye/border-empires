@@ -94,6 +94,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     state.firstChunkAt = Date.now();
     state.chunkFullCount = Math.max(state.chunkFullCount, 1);
     state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
+    if (state.hasOwnedTileInCache) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; }
   }
   if (resolvedQueuedFrontierCapture) deps.resolveFrontierCapture("TILE_DELTA_BATCH");
   // Re-render the tile action menu if the delta touched the currently selected

@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787361500000,
+    introducedIn: "2026.08.22.1",
+    title: "Joining a new season is now a deliberate choice",
+    why: "Logging in used to silently spawn you into whatever season was active, even if you had never chosen to play it. Reconnecting was indistinguishable from joining.",
+    changes: [
+      "When you log in and haven't joined the current season yet, a \"Join Season\" prompt now appears instead of spawning you automatically.",
+      "Confirming the prompt joins the season and spawns your starting territory; the prompt closes automatically once your empire appears."
+    ]
+  },
+  {
     createdAt: 1787324700000,
     introducedIn: "2026.08.21.5",
     title: "Players now get a season-start email, and the previous champion gets a victory email",

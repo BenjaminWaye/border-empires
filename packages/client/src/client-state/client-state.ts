@@ -401,10 +401,10 @@ export const createInitialState = () => ({
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
+  needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, // join-season overlay: see client-join-season-overlay.ts
   lastSeenRespawnNoticeId: "",
   dismissedShardAlertKeys: new Set<string>(),
-  structureInfoKey: "" as string,
-  crystalAbilityInfoKey: "" as string,
+  structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
   unreadAttackAlerts: 0,
   techSection: "research" as "research" | "domains",
