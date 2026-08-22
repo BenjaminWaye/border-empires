@@ -62,7 +62,6 @@ const applyOneCycle = (state: GalaxyEconomyTickState): GalaxyEconomyTickState =>
   let influence = state.influence;
   let production = state.production;
 
-  const planetCount = state.territories.filter((t) => t.tier === "PLANET").length;
   let planetIndex = 0;
   for (const territory of state.territories) {
     const trickle = TRICKLE[territory.specialization];
@@ -74,7 +73,6 @@ const applyOneCycle = (state: GalaxyEconomyTickState): GalaxyEconomyTickState =>
       planetIndex += 1;
     }
   }
-  void planetCount; // retained for readability at the call site above
 
   // §7 "Deficit drains one Sector at a time": while net Influence for this
   // Cycle is negative, drain applies only to the single lowest-Stability

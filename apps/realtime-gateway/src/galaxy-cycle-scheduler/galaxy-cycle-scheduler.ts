@@ -43,11 +43,12 @@ export const startGalaxyCycleScheduler = (deps: GalaxyCycleSchedulerDeps): { sto
         authBindingStore: deps.authBindingStore
       });
       const existingBalances = await deps.galaxyEconomyStore.getAllBalances();
-      const authUids = new Set<string>([...holdingsByOwner.keys(), ...existingBalances.map((b) => b.authUid)]);
+      const balanceByAuthUid = new Map(existingBalances.map((b) => [b.authUid, b]));
+      const authUids = new Set<string>([...holdingsByOwner.keys(), ...balanceByAuthUid.keys()]);
 
       const nowMs = now();
       for (const authUid of authUids) {
-        const balance = await deps.galaxyEconomyStore.getBalance(authUid);
+        const balance = balanceByAuthUid.get(authUid);
         const lastCycleAt = balance?.lastCycleAt ?? nowMs;
         const cyclesElapsed = Math.floor((nowMs - lastCycleAt) / GALAXY_CYCLE_LENGTH_MS);
         if (cyclesElapsed <= 0) {
