@@ -6,6 +6,7 @@ import {
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
   RESTART_PARITY_COMMAND_TYPES as RESTART_PARITY_COMMAND_TYPES_UNTYPED
 } from "./command-coverage-sets/command-coverage-sets.js";
+import type { GalaxySpecialization } from "./galaxy-specialization.js";
 
 // DEV_QUEUE_*/WAYPOINT_* now live on DurableCommandTypeSchema itself (see
 // @border-empires/client-protocol) now that the gateway forwards them like
@@ -224,6 +225,21 @@ export type SeasonVictoryTrackerSnapshot = {
   holdStartedAt?: number;
 };
 
+// Galactic meta-layer (docs/galactic-campaign-design.md §3): the record given
+// to every competitive player who did NOT win the season outright, one entry
+// per player, computed once at the moment a winner is crowned (see
+// updateSeasonVictoryTrackers / season-galaxy-tiers.ts). OUTPOST is a minor
+// permanent holding (specialization set); STIPEND is a one-time Inf/Prod
+// payout with no territory (influence/production set, no specialization).
+export type SeasonGalaxyTierSnapshot = {
+  playerId: string;
+  playerName: string;
+  tier: "OUTPOST" | "STIPEND";
+  specialization?: GalaxySpecialization;
+  influence?: number;
+  production?: number;
+};
+
 export type SimulationSeasonState = {
   seasonId: string;
   seasonSequence: number;
@@ -241,6 +257,11 @@ export type SimulationSeasonState = {
    *  or if it was never gated on a scheduled start. */
   scheduledStartAt?: number;
   winner?: SeasonWinnerSnapshot;
+  /** Outpost/Stipend tier records for every non-winning competitive player,
+   *  computed once at the moment `winner` is crowned (§3 of
+   *  docs/galactic-campaign-design.md). Absent before crowning and on seasons
+   *  archived before this field existed. */
+  galaxyTiers?: SeasonGalaxyTierSnapshot[];
   victoryTrackers: SeasonVictoryTrackerSnapshot[];
   /** Player ids that have explicitly joined this season (via JoinSeason),
    *  distinct from ids merely known to the runtime (e.g. AI/barbarian seed
@@ -277,6 +298,7 @@ export type CurrentSeasonSummary = {
   worldSeed: number;
   rulesetId: string;
   seasonWinner?: SeasonWinnerSnapshot;
+  seasonGalaxyTiers?: SeasonGalaxyTierSnapshot[];
   leaderboard: WorldStatusSnapshot["leaderboard"];
   overall: LeaderboardOverallEntry[];
   byTiles: LeaderboardMetricEntry[];
@@ -301,6 +323,7 @@ export type SeasonArchiveRow = {
   endedAt: number;
   updatedAt: number;
   winner?: SeasonWinnerSnapshot;
+  galaxyTiers?: SeasonGalaxyTierSnapshot[];
   mostTerritory: Array<{ playerId: string; playerName: string; value: number }>;
   mostPoints: Array<{ playerId: string; playerName: string; value: number }>;
   longestSurvivalMs: Array<{ playerId: string; playerName: string; value: number }>;

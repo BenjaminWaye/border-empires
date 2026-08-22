@@ -65,7 +65,13 @@ export const buildWorldStatusSnapshot = (
   runtimeState: RuntimeState,
   fallbackTiles?: Iterable<DomainTileState>,
   options?: { acceptLatencyP95Ms?: number; nonCompetitivePlayerIds?: ReadonlySet<string> }
-): WorldStatusSnapshot & { allPlayerSelfProgressLabels: Map<string, Map<SeasonVictoryPathId, string>> } => {
+): WorldStatusSnapshot & {
+  allPlayerSelfProgressLabels: Map<string, Map<SeasonVictoryPathId, string>>;
+  /** Numeric companion to allPlayerSelfProgressLabels — see computeSeasonVictory's
+   *  selfProgressByPlayerId. Used by the galactic meta-layer's Outpost/Stipend
+   *  tiering at season end (season-galaxy-tiers.ts). */
+  allPlayerSelfProgress: Map<string, Map<SeasonVictoryPathId, number>>;
+} => {
   const worldTiles = runtimeState.tiles.length > 0 ? runtimeState.tiles : fallbackTiles ? [...fallbackTiles].map((tile) => toFallbackWorldTile(tile)) : [];
   const overall = runtimeState.players
     .filter((player) => isCompetitivePlayer(player.id, options?.nonCompetitivePlayerIds))
@@ -104,7 +110,7 @@ export const buildWorldStatusSnapshot = (
   const selfByTiles = byTiles.find((entry) => entry.id === playerId);
   const selfByIncome = byIncome.find((entry) => entry.id === playerId);
   const selfByTechs = byTechs.find((entry) => entry.id === playerId);
-  const { objectives, selfProgressLabelsByPlayerId } = computeSeasonVictory(worldTiles, overall, runtimeState.players);
+  const { objectives, selfProgressLabelsByPlayerId, selfProgressByPlayerId } = computeSeasonVictory(worldTiles, overall, runtimeState.players);
 
   return {
     leaderboard: {
@@ -119,6 +125,7 @@ export const buildWorldStatusSnapshot = (
     },
     seasonVictory: mergeSelfProgress(objectives, selfProgressLabelsByPlayerId.get(playerId)),
     allPlayerSelfProgressLabels: selfProgressLabelsByPlayerId,
+    allPlayerSelfProgress: selfProgressByPlayerId,
     ...(typeof options?.acceptLatencyP95Ms === "number" ? { acceptLatencyP95Ms: options.acceptLatencyP95Ms } : {})
   };
 };

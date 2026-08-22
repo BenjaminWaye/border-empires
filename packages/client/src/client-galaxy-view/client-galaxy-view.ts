@@ -1,9 +1,16 @@
 import { onAuthStateChanged, type Auth } from "firebase/auth";
 
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
-import { renderGalaxyViewHtml, renderEmperorSectionHtml, type GalaxyViewPlanet, type GalaxyEmperorViewModel } from "./galaxy-view-html.js";
+import {
+  renderGalaxyViewHtml,
+  renderEmperorSectionHtml,
+  type GalaxyViewPlanet,
+  type GalaxyViewOutpost,
+  type GalaxyViewStipend,
+  type GalaxyEmperorViewModel
+} from "./galaxy-view-html.js";
 
-type GalaxyMeResponse = { planets?: GalaxyViewPlanet[] };
+type GalaxyMeResponse = { planets?: GalaxyViewPlanet[]; outposts?: GalaxyViewOutpost[]; stipends?: GalaxyViewStipend[] };
 type GalaxyNameResponse = { ok?: boolean; error?: string; planet?: { planetName: string } };
 type GalaxyEmperorResponse = Partial<GalaxyEmperorViewModel> & { ok?: boolean };
 type GalaxyEndorseResponse = { ok?: boolean; error?: string; endorsement?: { targetPlayerId: string; createdAt: number } };
@@ -55,6 +62,9 @@ const galaxyStyle = `
   .gx-switcher{position:relative;margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
   .gx-switcher-item{border:1px solid rgba(255,255,255,.18);border-radius:16px;background:transparent;color:#cbd5e1;font-size:12px;padding:6px 12px;cursor:pointer}
   .gx-switcher-item.is-active{background:#38bdf8;color:#082f49;border-color:#38bdf8}
+  .gx-holdings{position:relative;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.14);text-align:center}
+  .gx-holding-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .gx-holding-row{color:#cbd5e1;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
   .gx-emperor{position:relative;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.14);text-align:center}
   .gx-emperor-copy{margin:0 0 8px;color:#cbd5e1;font-size:14px}
   .gx-emperor-countdown{margin:0 0 8px;color:#facc15;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
@@ -109,13 +119,15 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
   if (typeof window === "undefined") return;
 
   let planets: GalaxyViewPlanet[] = [];
+  let outposts: GalaxyViewOutpost[] = [];
+  let stipends: GalaxyViewStipend[] = [];
   let focusedSeasonId = "";
   let emperorModel: GalaxyEmperorViewModel = { emperor: null, windowOpenUntil: null, endorsement: null, isEmperor: false };
   let panel: { overlay: HTMLElement; body: HTMLElement; launcher: HTMLButtonElement } | undefined;
 
   const render = (): void => {
     if (!panel) return;
-    panel.body.innerHTML = renderGalaxyViewHtml({ planets, focusedSeasonId }) + renderEmperorSectionHtml(emperorModel);
+    panel.body.innerHTML = renderGalaxyViewHtml({ planets, focusedSeasonId, outposts, stipends }) + renderEmperorSectionHtml(emperorModel);
   };
 
   const christen = async (form: HTMLFormElement): Promise<void> => {
@@ -235,12 +247,17 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
       if (!response.ok) return;
       const body = (await response.json().catch(() => undefined)) as GalaxyMeResponse | undefined;
       const fetched = body?.planets ?? [];
-      // Launcher only mounts once the account owns at least one planet — no
-      // empty room for non-winners. `/hq/galaxy/me` returns newest-first, so
-      // the newest win is the default focused hero.
-      if (fetched.length === 0) return;
+      const fetchedOutposts = body?.outposts ?? [];
+      const fetchedStipends = body?.stipends ?? [];
+      // Launcher only mounts once the account owns at least one Planet,
+      // Outpost, or Stipend record — no empty room for non-participants.
+      // `/hq/galaxy/me` returns newest-first, so the newest win is the
+      // default focused hero (when there is one).
+      if (fetched.length === 0 && fetchedOutposts.length === 0 && fetchedStipends.length === 0) return;
       planets = fetched;
-      focusedSeasonId = planets[0]!.seasonId;
+      outposts = fetchedOutposts;
+      stipends = fetchedStipends;
+      if (planets[0]) focusedSeasonId = planets[0].seasonId;
       ensureMounted();
       render();
     } catch {

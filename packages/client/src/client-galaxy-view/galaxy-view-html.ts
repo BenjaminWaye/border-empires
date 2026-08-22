@@ -16,9 +16,31 @@ export type GalaxyViewPlanet = {
   named: boolean;
 };
 
+// Galactic meta-layer v0 Outpost/Stipend tiers (docs/galactic-campaign-design.md
+// §3): a minor permanent holding (Outpost, specialized like a Planet) or a
+// one-time Inf/Prod payout with no territory (Stipend). Kept deliberately
+// simple for v0 — a flat list below the hero planet/switcher, not a second
+// starfield hero.
+export type GalaxyViewOutpost = {
+  seasonId: string;
+  seasonSequence: number;
+  specialization?: string;
+  awardedAt: number;
+};
+
+export type GalaxyViewStipend = {
+  seasonId: string;
+  seasonSequence: number;
+  influence: number;
+  production: number;
+  awardedAt: number;
+};
+
 export type GalaxyViewModel = {
   planets: GalaxyViewPlanet[];
   focusedSeasonId: string;
+  outposts?: GalaxyViewOutpost[];
+  stipends?: GalaxyViewStipend[];
 };
 
 // Phase 1: the "Emperor" (winner of the most recently ended season) can
@@ -159,13 +181,39 @@ export const renderEmperorSectionHtml = (model: GalaxyEmperorViewModel): string 
     </div>`;
 };
 
+const outpostRowHtml = (outpost: GalaxyViewOutpost): string => `
+  <li class="gx-holding-row" data-galaxy-outpost>
+    <span>Season ${outpost.seasonSequence} Outpost</span>
+    ${specializationBadgeHtml(outpost.specialization)}
+  </li>`;
+
+const stipendRowHtml = (stipend: GalaxyViewStipend): string => `
+  <li class="gx-holding-row" data-galaxy-stipend>
+    Season ${stipend.seasonSequence}: a stipend of ${stipend.influence} Inf / ${stipend.production} Prod
+  </li>`;
+
+// Deliberately simple v0 rendering — no starfield hero, just a flat list
+// under the Planet section. Empty when there are none of either.
+const outpostsAndStipendsHtml = (outposts: GalaxyViewOutpost[], stipends: GalaxyViewStipend[]): string => {
+  if (outposts.length === 0 && stipends.length === 0) return "";
+  const rows = [...outposts.map(outpostRowHtml), ...stipends.map(stipendRowHtml)].join("");
+  return `
+    <div class="gx-holdings" data-galaxy-holdings>
+      <p class="gx-kicker">Other Holdings</p>
+      <ul class="gx-holding-list">${rows}</ul>
+    </div>`;
+};
+
 export const renderGalaxyViewHtml = (model: GalaxyViewModel): string => {
+  const outposts = model.outposts ?? [];
+  const stipends = model.stipends ?? [];
   const focused = model.planets.find((planet) => planet.seasonId === model.focusedSeasonId) ?? model.planets[0];
-  if (!focused) return "";
+  if (!focused) return outpostsAndStipendsHtml(outposts, stipends);
   return `
     <div class="gx-starfield" data-galaxy-starfield>
       <div class="gx-stars" aria-hidden="true"></div>
       ${focused.named ? namedMedallionHtml(focused) : christenFormHtml(focused)}
       ${switcherHtml(model.planets, focused.seasonId)}
-    </div>`;
+    </div>
+    ${outpostsAndStipendsHtml(outposts, stipends)}`;
 };

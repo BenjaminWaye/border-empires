@@ -1,6 +1,7 @@
 import type {
   CurrentSeasonSummary,
   SeasonArchiveRow,
+  SeasonGalaxyTierSnapshot,
   SeasonVictoryObjectiveSnapshot
 } from "@border-empires/sim-protocol";
 
@@ -33,6 +34,7 @@ const collectIds = (summary: CurrentSeasonSummary): Set<string> => {
   for (const objective of summary.seasonVictory) {
     if (objective.leaderPlayerId) ids.add(objective.leaderPlayerId);
   }
+  for (const tier of summary.seasonGalaxyTiers ?? []) ids.add(tier.playerId);
   return ids;
 };
 
@@ -43,6 +45,7 @@ const collectArchiveIds = (rows: SeasonArchiveRow[]): Set<string> => {
     for (const entry of row.mostTerritory) ids.add(entry.playerId);
     for (const entry of row.mostPoints) ids.add(entry.playerId);
     for (const entry of row.longestSurvivalMs) ids.add(entry.playerId);
+    for (const tier of row.galaxyTiers ?? []) ids.add(tier.playerId);
   }
   return ids;
 };
@@ -86,6 +89,15 @@ const overrideSeasonVictoryLeaderNames = (
     return name ? { ...objective, leaderName: name } : objective;
   });
 
+// Outpost/Stipend tier records (§3) carry their own captured-at-crowning
+// playerName, same shape as a winner/mostTerritory entry — route them through
+// the same override so a later display-name change isn't stuck showing the
+// name a player had the moment their season ended.
+const overrideGalaxyTierNames = (
+  tiers: SeasonGalaxyTierSnapshot[],
+  lookup: ProfileNameLookup
+): SeasonGalaxyTierSnapshot[] => tiers.map((tier) => overrideWinnerName(tier, lookup));
+
 export const hydrateCurrentSeasonSummaryDisplayNames = async (
   summary: CurrentSeasonSummary,
   profileStore: GatewayPlayerProfileStore
@@ -119,6 +131,9 @@ export const hydrateCurrentSeasonSummaryDisplayNames = async (
 
   const seasonWinner = summary.seasonWinner ? overrideWinnerName(summary.seasonWinner, lookup) : undefined;
   const seasonVictory = overrideSeasonVictoryLeaderNames(summary.seasonVictory, lookup);
+  const seasonGalaxyTiers = summary.seasonGalaxyTiers
+    ? overrideGalaxyTierNames(summary.seasonGalaxyTiers, lookup)
+    : undefined;
 
   return {
     ...summary,
@@ -128,7 +143,8 @@ export const hydrateCurrentSeasonSummaryDisplayNames = async (
     byIncome,
     byTechs,
     seasonVictory,
-    ...(seasonWinner ? { seasonWinner } : {})
+    ...(seasonWinner ? { seasonWinner } : {}),
+    ...(seasonGalaxyTiers ? { seasonGalaxyTiers } : {})
   };
 };
 
@@ -150,9 +166,11 @@ export const hydrateSeasonArchiveDisplayNames = async (
   if (lookup.size === 0) return rows;
   return rows.map((row) => {
     const winner = row.winner ? overrideWinnerName(row.winner, lookup) : undefined;
+    const galaxyTiers = row.galaxyTiers ? overrideGalaxyTierNames(row.galaxyTiers, lookup) : undefined;
     return {
       ...row,
       ...(winner ? { winner } : {}),
+      ...(galaxyTiers ? { galaxyTiers } : {}),
       mostTerritory: overrideArchivePlayerNames(row.mostTerritory, lookup),
       mostPoints: overrideArchivePlayerNames(row.mostPoints, lookup),
       longestSurvivalMs: overrideArchivePlayerNames(row.longestSurvivalMs, lookup)
