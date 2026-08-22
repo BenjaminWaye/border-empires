@@ -42,6 +42,17 @@ const clearCountdownTimer = (): void => {
   countdownTimer = undefined;
 };
 
+// While the pending-season lobby is up, this becomes the ONLY thing on
+// screen: client-runtime-loop.ts checks it to skip canvas/world rendering
+// entirely, and client-season-lobby-style.css uses it to hide #game-surface
+// and every other #hud child. Cleared as soon as the lobby stops being the
+// active view (join succeeds, overlay closes, or we drop back to the plain
+// "join now" prompt).
+const setSeasonLobbyFullscreen = (active: boolean): void => {
+  if (typeof document === "undefined") return;
+  document.body.classList.toggle("season-lobby-active", active);
+};
+
 // Modeled on client-respawn-overlay.ts: a simple full-screen modal reusing
 // the generic .card / .panel-btn / .guide-close-btn classes rather than a
 // bespoke themed component. When state.seasonPending is set (the gateway
@@ -56,12 +67,14 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   if (!visible) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";
     clearCountdownTimer();
+    setSeasonLobbyFullscreen(false);
     return;
   }
 
   const seasonLabel = state.joinSeasonId ? `Season ${state.joinSeasonId}` : "the current season";
 
   if (state.seasonPending) {
+    setSeasonLobbyFullscreen(true);
     const scheduledStartAt = state.seasonPendingScheduledStartAt;
     const localStartLabel = new Date(scheduledStartAt).toLocaleString(undefined, {
       dateStyle: "medium",
@@ -72,7 +85,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
       <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
         <div class="respawn-modal-scroll">
           <div class="respawn-kicker">Beta season</div>
-          <h2 id="join-season-title" class="respawn-title">${seasonLabel} starts soon</h2>
+          <h2 id="join-season-title" class="respawn-title">Season starts soon</h2>
           <p class="respawn-summary">Everyone begins together so the first move isn't decided by timezone. Starting at <strong>${localStartLabel}</strong> your local time.</p>
           <section class="respawn-section respawn-actions">
             <div id="join-season-countdown" class="respawn-title" style="font-variant-numeric: tabular-nums;">
@@ -106,6 +119,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
     return;
   }
 
+  setSeasonLobbyFullscreen(false);
   overlayEl.innerHTML = `
     <div class="respawn-backdrop" id="join-season-backdrop"></div>
     <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
