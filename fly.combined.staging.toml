@@ -23,6 +23,15 @@ primary_region = "arn"
   GATEWAY_SIMULATION_WAKE_TOTAL_TIMEOUT_MS = "30000"
   GATEWAY_DB_APPLY_SCHEMA = "1"
   GATEWAY_SQLITE_PATH = "/data/border-empires.db"
+  # Raised from the code defaults (4 / 50) after the concurrent-join load
+  # harness (docs/plans/2026-08-22-beta-lobby-synchronized-season-start.md)
+  # showed a 100-tester synchronized season start hard-rejects ~46% of
+  # arrivals with SERVER_BUSY at the defaults, even though the gateway/sim
+  # event loop stayed healthy throughout -- the ceiling was purely queue
+  # capacity, not throughput. 150 covers the full beta cohort
+  # (SIMULATION_MAX_SEASON_PLAYERS=120) plus headroom. Matches prod.
+  GATEWAY_MAX_CONCURRENT_BOOTSTRAPS = "8"
+  GATEWAY_MAX_LOGIN_QUEUE_SIZE = "150"
 
   MUSTER_SYSTEM_ENABLED = "true"
   EMPIRE_INTEGRITY_ENABLED = "true"
