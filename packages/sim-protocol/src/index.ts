@@ -406,6 +406,14 @@ export type PlayerSubscriptionSnapshot = {
     // once-per-UTC-day discount gate (quickforgeAdjustedRushPrice in
     // @border-empires/shared) — the server remains authoritative on price.
     wonderLastFreeRushBuyAt?: number;
+    // Galactic meta-layer v0 (docs/galactic-campaign-design.md §5, §12): a
+    // one-time Wonder-style starting bonus granted to the most recent
+    // season's Planet winner (§3) for their next season — a manpower-regen
+    // head start (Dyson Array stand-in) and a vision-radius bump (Deep
+    // Sensor Array stand-in). Consumed/set once at their first spawn; not a
+    // recurring economy (v0 has no Production/Influence/Senate yet).
+    galacticWonderManpowerRegenBonusPerMinute?: number;
+    galacticWonderVisionRadiusBonus?: number;
     // §20: durable "what happened while I was away" feed — distinct from the
     // ephemeral PLAYER_MESSAGE toast. Most-recent-last on the wire (matches
     // the server's append order); the client reverses for most-recent-first

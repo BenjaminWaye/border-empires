@@ -30,7 +30,7 @@ import {
   empireIntegrity,
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST,
+  FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
   SETTLE_COST,
   structureSlotRequirements,
   WORLD_HEIGHT,
@@ -699,7 +699,7 @@ export class SimulationRuntime {
   private readonly ownedStructureCountByPlayerByType = new Map<string, Map<BuildableStructureType, number>>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
-  private pendingImperialWard: { playerId: string; charges: number } | undefined;
+  private pendingImperialWard: { playerId: string; charges: number } | undefined; /** v0 Wonder-style starting bonus (§5, §12) for the last season's Planet winner — mirrors pendingImperialWard's lifecycle. */ private pendingGalacticWonderBonus: { playerId: string } | undefined;
   private readonly tileYieldCollectedAtByTile = new Map<string, number>(); /** Perf-only auto-fill scan cache — see AUTO_FILL_SCAN_COOLDOWN_MS in runtime-auto-fill.ts. */ private readonly autoFillOriginCooldownUntil = new Map<string, number>();
   private readonly lastIncomeTickAtMsByPlayer = new Map<string, number>();
   private readonly lastActiveAtMsByPlayer = new Map<string, number>();
@@ -954,7 +954,7 @@ export class SimulationRuntime {
     this.trackSyncMainThreadTask = options.trackSyncMainThreadTask;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.onShardCollected = options.onShardCollected;
-    this.pendingImperialWard = options.pendingImperialWard;
+    this.pendingImperialWard = options.pendingImperialWard; this.pendingGalacticWonderBonus = options.pendingGalacticWonderBonus;
     this.players =
       createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
       (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
@@ -1827,7 +1827,7 @@ export class SimulationRuntime {
       const player = this.players.get(playerId);
       if (player) player.imperialWardCharges = this.pendingImperialWard.charges;
       this.pendingImperialWard = undefined;
-    }
+    } if (spawned && this.pendingGalacticWonderBonus?.playerId === playerId) { const player = this.players.get(playerId); if (player) { player.galacticWonderManpowerRegenBonusPerMinute = GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE; player.galacticWonderVisionRadiusBonus = GALACTIC_WONDER_VISION_RADIUS_BONUS; } this.pendingGalacticWonderBonus = undefined; }
     return spawned;
   }
 

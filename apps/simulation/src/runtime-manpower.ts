@@ -54,7 +54,12 @@ export const playerManpowerRegenPerMinuteFromSummary = (
   // amplification only (see railDepotNetworkLogisticsGuildCountForPlayer).
   railDepotNetworkLogisticsGuildCount = 0,
   logisticsGuildCount = 0,
-  populationBureauManpowerBuildingCount = 0
+  populationBureauManpowerBuildingCount = 0,
+  // Galactic meta-layer v0 Dyson Array stand-in (§5, §12 of
+  // docs/galactic-campaign-design.md): the most recent season's Planet
+  // winner's one-time starting bonus, granted via pendingGalacticWonderBonus.
+  // See DomainPlayer.galacticWonderManpowerRegenBonusPerMinute.
+  galacticWonderManpowerRegenBonusPerMinute = 0
 ): number => {
   let regen = 0;
   let index = 0;
@@ -68,7 +73,12 @@ export const playerManpowerRegenPerMinuteFromSummary = (
   const populationBureauBonus = populationBureauManpowerBuildingCount * POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING;
   return Math.max(
     MANPOWER_REGEN_GLOBAL_FLOOR,
-    STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE + regen + logisticsGuildStandaloneBonus + railDepotNetworkBonus + populationBureauBonus
+    STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE +
+      regen +
+      logisticsGuildStandaloneBonus +
+      railDepotNetworkBonus +
+      populationBureauBonus +
+      galacticWonderManpowerRegenBonusPerMinute
   );
 };
 
@@ -96,7 +106,8 @@ export const playerManpowerBreakdownFromSummary = (
   assemblyWorksNetworkGarrisonHallCount = 0,
   railDepotNetworkLogisticsGuildCount = 0,
   logisticsGuildCount = 0,
-  populationBureauManpowerBuildingCount = 0
+  populationBureauManpowerBuildingCount = 0,
+  galacticWonderManpowerRegenBonusPerMinute = 0
 ): ManpowerBreakdown => {
   const capByTier = new Map<TownTier, { count: number; amount: number }>();
   const regenByTierAndWeight = new Map<string, { tier: TownTier; count: number; amount: number; weight: number }>();
@@ -146,6 +157,9 @@ export const playerManpowerBreakdownFromSummary = (
       label: "Population Bureau",
       amount: populationBureauManpowerBuildingCount * POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING
     });
+  }
+  if (galacticWonderManpowerRegenBonusPerMinute > 0) {
+    regenLines.push({ label: "Galactic Wonder", amount: galacticWonderManpowerRegenBonusPerMinute });
   }
   const capLinesWithRailDepotNetwork =
     assemblyWorksNetworkGarrisonHallCount > 0

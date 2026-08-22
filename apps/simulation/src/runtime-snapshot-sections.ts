@@ -80,6 +80,12 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
           ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
+          ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number"
+            ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute }
+            : {}),
+          ...(typeof player.galacticWonderVisionRadiusBonus === "number"
+            ? { galacticWonderVisionRadiusBonus: player.galacticWonderVisionRadiusBonus }
+            : {}),
           ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
           strategicResources: { ...(player.strategicResources ?? {}) },
           allies: [...player.allies].sort(),

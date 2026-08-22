@@ -82,6 +82,8 @@ export type RuntimeExportState = {
     // exact UTC-day gate quickforgeAdjustedRushPrice enforces server-side —
     // the server remains authoritative on the actual charged price.
     wonderLastFreeRushBuyAt?: number;
+    galacticWonderManpowerRegenBonusPerMinute?: number; // v0 Wonder stand-in (§5, §12) — see DomainPlayer.
+    galacticWonderVisionRadiusBonus?: number;
     eventLog?: PlayerEventLogEntry[];
     // Server-durable dev/expand queue tail (see player-runtime-summary.ts /
     // runtime-dev-queue.ts / runtime-waypoint-queue.ts) -- carried through
@@ -210,6 +212,8 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
+        ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number" ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute } : {}),
+        ...(typeof player.galacticWonderVisionRadiusBonus === "number" ? { galacticWonderVisionRadiusBonus: player.galacticWonderVisionRadiusBonus } : {}),
         ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
         ...(summary.devQueue.length
           ? {
