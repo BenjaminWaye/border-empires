@@ -1,5 +1,15 @@
-export type ProtoPreparePlayerAck = { ok: boolean; player_id?: string; playerId?: string; spawned?: boolean; joined?: boolean; full?: boolean };
+export type ProtoPreparePlayerAck = {
+  ok: boolean;
+  player_id?: string;
+  playerId?: string;
+  spawned?: boolean;
+  joined?: boolean;
+  full?: boolean;
+  pending?: boolean;
+  scheduled_start_at?: number;
+};
 export type PreparePlayerRallyAnchor = { x: number; y: number; island?: string };
+export type PrepareLikeResult = { playerId: string; spawned: boolean; joined?: boolean; full?: boolean; pending?: boolean; scheduledStartAt?: number };
 
 type PrepareLikeRpc = (
   request: { player_id: string; rally_anchor_json?: string },
@@ -11,7 +21,7 @@ const callPrepareLikeRpc = (
   rpcName: string,
   playerId: string,
   rallyAnchor: PreparePlayerRallyAnchor | undefined
-): Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }> =>
+): Promise<PrepareLikeResult> =>
   new Promise((resolve, reject) => {
     if (!rpc) {
       reject(new Error(`simulation client ${rpcName} RPC is unavailable`));
@@ -31,7 +41,9 @@ const callPrepareLikeRpc = (
               : playerId,
         spawned: response.spawned === true,
         joined: response.joined !== false,
-        full: response.full === true
+        full: response.full === true,
+        pending: response.pending === true,
+        ...(typeof response.scheduled_start_at === "number" ? { scheduledStartAt: response.scheduled_start_at } : {})
       });
     });
   });
@@ -45,7 +57,7 @@ export const preparePlayer = (
   rpc: PrepareLikeRpc | undefined,
   playerId: string,
   rallyAnchor?: PreparePlayerRallyAnchor
-): Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }> => callPrepareLikeRpc(rpc, "preparePlayer", playerId, rallyAnchor);
+): Promise<PrepareLikeResult> => callPrepareLikeRpc(rpc, "preparePlayer", playerId, rallyAnchor);
 
 // joinSeason explicitly records the player as a member of the active season
 // and spawns their starting territory (unless the season is at its player
@@ -56,4 +68,4 @@ export const joinSeason = (
   rpc: PrepareLikeRpc | undefined,
   playerId: string,
   rallyAnchor?: PreparePlayerRallyAnchor
-): Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }> => callPrepareLikeRpc(rpc, "joinSeason", playerId, rallyAnchor);
+): Promise<PrepareLikeResult> => callPrepareLikeRpc(rpc, "joinSeason", playerId, rallyAnchor);
