@@ -1,14 +1,38 @@
 # Galactic Campaign — Design Doc (draft)
 
-Status: **concept / not implemented.** This is the output of a design discussion,
-not a build plan. The point of this doc is the shape of the systems and how they
-connect. A first-pass set of balance numbers lives in §13 — internally consistent
-and checked against each other, but not playtested; treat them as a starting
-point for tuning, not as settled constants.
+Status: **partly shipped, mostly concept.** §1–14 came out of a design
+discussion, not a build plan; the point of those sections is the shape of the
+systems and how they connect. A first-pass set of balance numbers lives in §13
+— internally consistent and checked against each other, but not playtested;
+treat them as a starting point for tuning, not as settled constants.
 
-This revision folds in PR #1264 verbatim as §1–14, then adds a review pass and
-a visual-presentation spec (§15–16) that PR left open: how the galactic layer
-is actually *seen and navigated*, not just how its numbers work.
+**What already exists in this repo** (found while reviewing, and worth knowing
+before anyone re-plans v0 — see §12 for how it maps onto the build order):
+
+| Shipped today | Where |
+|---|---|
+| Durable cross-season planet record, keyed by `authUid`, surviving season rollover | `apps/realtime-gateway/src/galaxy-planet-store/`, `sqlite-galaxy-planet-store.ts` |
+| One-time, permanent planet christening (name your won world) | `galaxy-routes.ts` → `POST /hq/galaxy/planets/:seasonId/name`, `galaxy-name-policy/` |
+| Public + personal galaxy listings | `GET /hq/galaxy`, `GET /hq/galaxy/me` |
+| Client galaxy view: starfield, rotating planet figure, christening flow | `packages/client/src/client-galaxy-view/` |
+| "Emperor" = winner of the most recently ended season, with a 1-hour Imperial Ward endorsement window | `galaxy-endorsement-routes/`, `galaxy-endorsement-store/`, `client-imperial-ward/` |
+
+So the persistent-record half of v0 (§12) is real, and the season→galaxy
+identity bridge (per-season `playerId` → durable `authUid`, via the auth
+binding store) is already solved — which was the single riskiest piece of
+§11. What does *not* exist is any economy (Influence/Production), Stability,
+Senate, Fleets, Blocs, system development, or a navigable multi-level map.
+
+**A naming collision to settle before building §19.** "Emperor" is already
+taken in shipped code for the per-season winner. This doc uses **Galactic
+Emperor** for the entirely different end-of-era title in §19, and flags the
+collision explicitly there rather than quietly reusing the word.
+
+This revision folds in PR #1264 verbatim as §1–14 (with one correction to §7,
+marked inline), adds a review pass and visual-presentation spec (§15–16), and
+then adds the three systems that review exposed as missing: exploration and
+fog of war (§17), system development (§18), and how an era actually *ends*
+with a recorded winner (§19).
 
 ## 1. What this is
 
@@ -349,19 +373,59 @@ crumbles first, not the whole empire simultaneously.
 
 Stability hitting zero opens a **Defense Campaign**: a full Sector
 campaign season, **open to anyone**, not a defender-vs-challenger duel.
-The former owner gets a one-time starting bonus scaled to their sunk
-Garrison Production (extra starting manpower or a pre-settled tile) —
-real, but not an unbeatable head start. Everyone else can enter,
-including empires with no hand in weakening the Sector.
 
-Two things make open-to-anyone the better call than a scoped duel.
-It sharpens the anti-snowball intent — a large empire that slips into
-deficit or eats a raid can lose the Planet to a rival who never fired a
-shot, so weakness draws a crowd. And it's *less* infrastructure, not
-more: a Defense Campaign becomes structurally identical to a Frontier
-campaign, differing only in the prize and the incumbent's head start.
-One campaign type, two prize configurations — reusing existing
-open-campaign matchmaking rather than building a bespoke lobby.
+**Correction to the original draft: there is no incumbent bonus.** An
+earlier version gave the former owner a starting bonus scaled to their
+sunk Garrison Production. That is cut. A Defense Campaign is *just a
+season played on that Sector, and whoever wins it wins the planet* —
+the former owner enters as an ordinary entrant with no advantage, or
+doesn't enter at all. Three reasons this is the better design:
+
+- **It's the one starting-position bonus that rewards incumbency
+  itself.** This needs stating carefully, because the Wonder roster (§5)
+  *does* grant in-season starting bonuses — Dyson Array gives starting
+  manpower regen, Deep Sensor Array gives starting vision — and §4
+  explicitly permits the galactic layer to touch "starting position".
+  So the objection can't be "meta-layer bonuses shouldn't affect a
+  season"; that boundary is already drawn elsewhere and drawn
+  deliberately.
+
+  The distinction is *what earns the bonus*. A Wonder bonus is bought
+  with Production, available to any empire willing to spend 700 Prod on
+  it, and applies to whatever campaign its owner enters next — it
+  rewards investment, and anyone can invest. An incumbent bonus is
+  granted **for already owning the specific thing being fought over**.
+  That is the definitional snowball pattern: the advantage accrues to
+  whoever is ahead, in the exact contest that decides whether they stay
+  ahead. Every other mechanic in this doc — the upkeep curve, Bloc
+  Sprawl Upkeep, open-to-anyone Defense Campaigns, developments
+  transferring to the captor (§18.4) — exists to prevent precisely that,
+  and an incumbent bonus would have been the one place the doc quietly
+  did the opposite.
+- **It removes the entrant-deterrence problem outright.** §15.2 flagged
+  that a bonus-boosted Dominant-tier incumbent could make contesting a
+  rich Sector a rationally bad bet, leaving Defense Campaigns empty. No
+  bonus, no deterrence: an open Sector is worth exactly what's on it,
+  and the strongest empires' best holdings become the *most* attractive
+  targets rather than the least.
+- **It collapses two campaign types into one.** With no incumbent head
+  start, a Defense Campaign is structurally identical to a Frontier
+  campaign in every respect — same matchmaking, same rules, same
+  win conditions. The only difference is what the prize already has
+  attached to it (a name, a history, and possibly developments — §18).
+  That is a pure content difference, not a systems difference: one
+  campaign type, no bespoke lobby, nothing extra to build.
+
+The knock-on worth stating plainly: **Garrison Production is spent, not
+stored.** It buys delay and deterrence (it raises the damage needed to
+break the Sector, §13) and nothing else — if the Sector falls anyway,
+that Production is simply gone. Garrison is insurance with no surrender
+value, which is a real cost and should read as one when a player decides
+between a Garrison, a Wonder, and a fleet.
+
+Open-to-anyone also sharpens the anti-snowball intent: a large empire
+that slips into deficit or eats a raid can lose the Planet to a rival
+who never fired a shot, so weakness draws a crowd.
 
 Garrisons (Production), the defender's standing Defense posture (§6),
 and Bloc mutual defense (§8) restore or protect Stability before it
@@ -495,11 +559,34 @@ the core hook fun" before spending budget on the rest.
   season end, specialization mapping, Production funding 1-2 Wonder-style
   starting bonuses for the claimant's next season. No Influence, no
   Senate, no Fleets, no Blocs.
+
+  **Status: roughly half of this already ships** (see the table at the
+  top of this doc). The durable per-account planet record, the
+  season→galaxy identity bridge, christening, the public/personal galaxy
+  listings, and a starfield galaxy view all exist. What v0 still needs is
+  the Outpost/Stipend tiers, specialization mapping, and the beginnings
+  of a Production balance. Anyone planning v0 should start from
+  `galaxy-planet-store` and extend, not from scratch.
 - **v1** — Influence, upkeep, Stability, Senate's three actions. This is
   where contestation and the anti-snowball pressure come online.
-- **v2** — Fleets and raids (needs Stability from v1). Alliance Blocs
-  (needs raids to exist to matter; their anti-snowball brake is specified
-  in §8 and priced in §13, so this no longer blocks the phase).
+  **System development (§18) belongs here too**, not later: it depends
+  only on Production and Influence upkeep, it's the cheapest way to give
+  the map something to look at that changes over time, and it's what
+  gives players who aren't winning seasons a reason to keep opening the
+  layer at all.
+- **v2a** — Fleets and raids (needs Stability from v1), plus
+  **exploration and fog of war (§17)**, which shares the Scout hull and
+  makes raid target selection a real decision.
+- **v2b** — Alliance Blocs. Split out from v2 explicitly, because Blocs
+  need raids to already exist to matter (§15.2); shipping v2a without
+  v2b is a valid stopping point, not a half-finished phase.
+- **v3** — Convergence, Dominion Score, and the era record (§19). Last by
+  necessity: it scores everything the earlier phases build, so it cannot
+  be specified until they exist. But note the **era record store itself
+  is tiny and should be built early** — the risk in §19.5 isn't the
+  scoring, it's writing the record before a reset wipes the galaxy, and
+  that ordering is much easier to get right when the reset path is first
+  written than when it's retrofitted.
 
 ## 13. Balance numbers (first pass)
 
@@ -610,14 +697,82 @@ player's best-path completion fraction at season end. A near-miss (0.9)
 pays 9 Inf + 36 Prod — roughly a Cycle and a half of a small empire's
 income, meaningful as a consolation without rivalling a Planet.
 
+### Exploration (§17)
+
+| Source | Charting radius |
+|---|---:|
+| Held Planet (passive) | 2 systems |
+| Held Outpost (passive) | 1 system |
+| Listening Post development | +1 to its own system |
+| Deep Sensor Array Wonder | +2, galaxy-wide for the owner |
+| Scout mission | 1 along its path, 2 at destination; destination is also **Surveyed** |
+
+**Derelicts:** ~8% chance per *newly charted, unclaimed* system. Payout
+15 Inf, 40 Prod, or a random fleet blueprint. Deliberately low enough
+that scouting is never a Production strategy — it's a garnish on a thing
+you were doing anyway.
+
+### System development (§18)
+
+| Development | Body | Cost | Yield | Inf upkeep |
+|---|---|---:|---|---:|
+| Gas Harvester | Gas Giant | 80 Prod | +8 Prod/Cycle | 1 |
+| Mining Station | Asteroid Belt | 50 Prod | +5 Prod/Cycle | 1 |
+| Cryo Refinery | Ice Moon | 70 Prod | +6 Stability/Cycle, this system only | 1 |
+| Listening Post | Barren Rock | 40 Prod | +1 charting radius, this system | 0 |
+
+Systems carry 2–5 secondary bodies, fixed at galaxy generation.
+
+Payback on both Production developments is **10 Cycles** — long enough to
+read as a permanent commitment rather than a no-brainer, short enough to
+be worth it for an empire that expects to hold the system. A fully
+developed 4-body system runs roughly 240 Prod for about +13 Prod/Cycle
+and 4 Inf/Cycle upkeep: a bit under half a Planet's Production for a bit
+more than a Planet's Influence cost. Tall is intended to be *safe and
+weaker*, not competitive with winning campaigns — Planets also carry
+Senate weight and Wonder eligibility, which no development does.
+
+**These paybacks are the numbers most sensitive to Cycle length**, which
+§9 leaves at "proposed: monthly" — see §14.
+
+### Dominion Score (§19)
+
+| Term | Weight |
+|---|---:|
+| Planet held | 10 each |
+| Outpost held | 3 each |
+| Development completed | 2 each |
+| Wonder held at Convergence | 15 each |
+| Stability | total across holdings ÷ 100 |
+
+Worked comparison, to show the weights let both strategies place:
+
+- **Wide:** 6 Planets, 2 Outposts, no developments, no Wonders, ~60
+  average Stability → 60 + 6 + 0 + 0 + 4.8 = **70.8**
+- **Tall:** 3 Planets, 1 Outpost, 10 developments, 1 Wonder, ~95 average
+  Stability → 30 + 3 + 20 + 15 + 3.8 = **71.8**
+
+Landing within a point of each other is the intent, not a coincidence:
+an empire that won half as many seasons but built and held carefully
+should be able to take the crown from one that sprawled. Retune the
+development and Wonder weights together if playtesting collapses that.
+
+### Era length (§19.6)
+
+- **Saturation trigger:** ≥90% of Sectors claimed and broadly stable (§9).
+- **Ceiling:** 40 Cycles, whichever comes first. The safety valve that
+  guarantees an era ends and a Galactic Emperor is crowned even if the
+  saturation condition proves unreachable.
+
 ## 14. Open questions before implementation
 
 - **The numbers in §13 have not been playtested.** They are internally
   consistent — trickle, upkeep, raid costs, and Wonder prices were
   checked against each other — but internal consistency is not balance.
 - **Defense Campaign entry conditions in practice:** §7 settles that
-  they're open to anyone, but not the minimum viable entrant count, or
-  what happens if nobody challenges an incumbent at all.
+  they're open to anyone and (as corrected) that the former owner gets no
+  advantage, but not the minimum viable entrant count. See the revised
+  §15.2 bullet and the dormant-and-requeue proposal there.
 - **Convergence reachability:** §9 triggers Convergence on ≥90% of
   Sectors claimed *and broadly stable*. If the §13 upkeep curve keeps
   large empires permanently near break-even, "broadly stable" may be
@@ -626,6 +781,42 @@ income, meaningful as a consolation without rivalling a Planet.
 - **Blueprint sharing scope** (§6): Bloc-wide only, or galaxy-wide
   publishing? The latter is a real community feature but also a
   homogenizing force on fleet composition.
+
+Added by the §15–19 review pass:
+
+- **Cycle length is unresolved and everything depends on it.** §9 proposes
+  monthly Cycles while observed seasons run about a week. At monthly, a
+  player who wins a Sector waits a month for a first trickle, a Battleline
+  is 8 months of one Planet's output, and §18's 10-Cycle development
+  payback is the better part of a year — all of which fight the
+  "check in a few times a week and see something changed" loop §16.6 is
+  built on. A **weekly Cycle**, roughly tracking season cadence, fits the
+  return loop far better while keeping §9's decoupling principle intact
+  (Cycles tick on a clock, not on season completions). This needs
+  deciding before §13's economy is tuned, because it rescales every
+  per-Cycle number in the doc at once.
+- **Naming: "Emperor" collides with shipped code** (§19.2). The
+  per-season Emperor / Imperial Ward title already exists in
+  `galaxy-endorsement-routes` and the client. Either the era title needs
+  a distinct name (Sovereign / Archon / First of the Era) or the
+  per-season one does. Touches shipped user-facing strings, so decide
+  before building §19.
+- **Do Outposts count toward Frontier tiering the same as Planets?** §10
+  buckets empires by "Planet/Outpost count and Stability", but §18 now
+  gives held systems a second growth axis. An empire with one Planet and
+  twelve developments is materially strong and might still sit in a
+  low tier, getting priority Frontier access it arguably shouldn't.
+  Dominion Score (§13) may be the better tiering input than raw counts.
+- **Minimum entrants for a Defense Campaign** (§15.2's revised bullet):
+  the dormant-and-requeue fallback needs an actual number, and a rule for
+  what happens to a system that stays dormant for many slots in a thin
+  playerbase.
+- **Do developments survive Convergence?** §19 wipes the galaxy between
+  eras. Developments transferring with a captured system (§18.4) is
+  settled; whether anything at all persists across an *era* boundary is
+  not. The anti-snowball logic in §19.4 argues strongly for a clean wipe
+  with only cosmetics and the Hall of Fame carrying over — but it should
+  be stated as a decision rather than assumed.
 
 ## 15. Review pass: is this actually fun, and what's missing
 
@@ -687,18 +878,19 @@ homework attached to the game people actually came to play:
   already sequences it this way in prose; it should be reflected as an
   explicit v2a/v2b split rather than a single "v2" bullet, so a partial
   v2 ship (Fleets without Blocs) isn't read as a phasing mistake.
-- **Defense Campaign minimum-entrant question (already flagged in §14)
-  has a real failure mode worth naming:** if a Sector's incumbent was
-  strong enough to reach Dominant tier, weaker empires may rationally
-  decline to contest it even when it opens, since the incumbent's
-  starting bonus plus their general strength makes the fight a bad bet.
-  An empty or single-entrant Defense Campaign is a worse outcome than
-  the mechanic intends — it hands the Sector straight back with no
-  actual contest. Needs either a floor incentive (bonus reward for
-  anyone who enters a Defense Campaign regardless of outcome, funded
-  by the same Stipend logic as §13) or an explicit fallback (auto-return
-  to incumbent if entrants < 3, refunding the raider/Senate-voter who
-  triggered it).
+- **Defense Campaign minimum-entrant question — largely resolved by the
+  §7 correction, but not entirely.** The original failure mode was that
+  a bonus-boosted Dominant-tier incumbent would deter challengers,
+  leaving a Sector uncontested. Removing the incumbent bonus (§7) kills
+  that: an open Sector is now worth exactly what's on it, and §18's
+  developments make a rich Sector actively *more* attractive, not less.
+  What remains is the thin-playerbase case — a Defense Campaign opening
+  when almost nobody is queued. That needs a floor rule, and the
+  cheapest one that doesn't reintroduce incumbency: if fewer than the
+  minimum entrants queue, the Sector stays **unowned and dormant**
+  (trickle paused, per §11's limbo handling) and re-queues next slot,
+  rather than reverting to the former owner. Nobody gets it back for
+  free; it simply waits.
 - **Convergence reachability (already flagged in §14) compounds with
   the upkeep curve in a way worth stating precisely:** §13 says the
   break-even point sits around 3-4 Planets, and §9 wants ≥90% of Sectors
@@ -738,9 +930,29 @@ comparable games — this is not a design that needs to be rebuilt. What
 keeps it from clearing the bar on its own is the gap in 15.1(1): every
 system here is legible as a rulebook, but none of it is legible as a
 *place*. A Senate ballot and an Influence counter are correct
-mechanically and forgettable experientially. The fix isn't more systems,
-it's giving the systems that already exist a map to live on — which is
-what §16 is for.
+mechanically and forgettable experientially. The first fix isn't more
+systems, it's giving the systems that already exist a map to live on —
+which is what §16 is for.
+
+Working through that map surfaced three genuine holes that §1–14 could
+not have shown on their own, and §17–19 close them:
+
+- **Nothing to discover.** A fully-visible galaxy makes zooming out a
+  re-read rather than a discovery, and leaves the Scout hull with almost
+  no reason to exist. → §17.
+- **Nothing to do with a system you already hold.** Every Production sink
+  in §1–14 concerns territory you don't have or might lose, so an empire
+  that isn't currently winning seasons has nothing to spend a trickle on
+  and no reason to open the layer. This is the hole most likely to lose
+  the median player, who wins seasons rarely. → §18.
+- **Nothing to ultimately win.** §9 ends the galaxy but never says what
+  Convergence *awards*, so the entire slow layer had no terminal payoff
+  and no permanent record of who came out on top. → §19.
+
+With those closed, the layer has all four things §15.1 asks for: a place
+to look at, something to discover, something to build, and something to
+finally win — plus, in §18.4, a loop that ties them together instead of
+leaving them as parallel features.
 
 ## 16. Visual layer: the galactic map as a navigable space
 
@@ -810,18 +1022,27 @@ a data record — it should grant the player **that Planet's system**,
 i.e. the star, the Planet, and the orbital slot structure around it,
 as their visible piece of the galaxy view. Concretely:
 
-- A **Planet** (§3's top reward tier) claims the system: the star and
-  the Planet's own orbital position are "owned," and any Outposts that
-  empire later claims which are modeled as belonging to the same system
-  render as moons or secondary bodies orbiting that Planet, not as
-  unrelated dots elsewhere in the galaxy. This gives multi-Sector
-  empires an actual *shape* — "my empire is these three systems, each
-  with its moons" — rather than a flat inventory count.
-- An **Outpost** claimed with no parent-Planet system yet owned by that
-  empire renders as an unattached minor body — visually smaller, no
-  star of its own — matching its mechanical status as the lesser tier
-  in §3. This makes the Planet/Outpost distinction legible at a glance
-  in the galaxy view without reading any tooltip.
+- A **Planet** (§3's top reward tier) claims the system: the star, the
+  Planet's own orbital position, *and the system's secondary bodies* —
+  the gas giants, belts, and moons that §18 turns into a development
+  track. This gives multi-Sector empires an actual *shape* — "my empire
+  is these three systems, and look how built-up the second one is" —
+  rather than a flat inventory count.
+- An **Outpost** renders as a minor body **in the system of the Sector
+  it was won in**, not relocated into the owner's home system —
+  visually smaller, no star of its own, matching its mechanical status
+  as the lesser tier in §3. So a galaxy view shows empires as scattered
+  presences, not tidy self-contained blobs, and a system can hold a
+  rival's Outpost alongside your Planet — a permanent friction point
+  and a natural raid target.
+
+  **Correction to an earlier draft of this section:** it modeled
+  Outposts as moons orbiting the owner's Planet. That is superseded —
+  moons and other secondary bodies are *developments* (§18), earned by
+  spending Production in a system you already hold, never by winning a
+  separate campaign. Keeping the two straight matters: Outposts come
+  from campaigns and are scattered; developments come from Production
+  and are concentrated in systems you own.
 - This requires one addition to §11's architecture: the galactic Empire
   record needs a lightweight spatial assignment (which Sector belongs to
   which system, and orbital slot indices for Outposts attached to a
@@ -870,3 +1091,418 @@ at the map at that moment, the positive-side mirror of the battle log's
 mechanic), and it's what turns "I won a Sector campaign" into something
 the rest of the galaxy notices, not just something the winner's own
 Empire record quietly updates.
+
+### 16.6 What a session actually looks like
+
+The sections above describe systems and a camera. This one describes the
+two minutes a player actually spends, because that's the thing the whole
+layer has to earn — and it's the check every future addition should be
+held against.
+
+**Target session: 1–3 minutes, a few times a week, between seasons.**
+Closer to checking a Clash of Clans base than playing a second game. If a
+proposed feature can't fit in that window, it belongs in the season, not
+here.
+
+1. **You open on your own system, not a menu.** Camera at system view
+   (§16.2 level 2): your Planet, its Stability ring, its developments
+   (§18), any moons and belts still undeveloped, drifting slowly against
+   the starfield. This is the home screen. There is nothing to configure
+   — it's a place, and that's the point (§15.1).
+2. **You read what changed since last time, from the picture alone.**
+   This is the actual job of the view, and the reason it beats a
+   dashboard. Without opening anything: a line arcing in from off-screen
+   is an inbound fleet with its ETA (§6's telegraph, made visible); a
+   dimmed or flickering neighbor is a Sector currently running a
+   campaign; a flare is a Wonder completed or lost (§16.5); your own
+   Stability ring sitting lower than you left it is a Cycle of deficit
+   you didn't notice; a newly-lit system at the edge of your vision is a
+   Scout mission that finished (§17).
+3. **You do at most one thing.** Most visits should have exactly one
+   obvious action, or none:
+   - Commit banked Production — toward a Wonder, a development on a body
+     in your own system (§18), a Garrison, or a fleet from a saved
+     blueprint (§6).
+   - Cast a Senate vote if one's open — as an overlay while sitting in
+     the galaxy view, with the target system highlighted, so "Sanction
+     empire X" is a place you can see rather than a name in a list.
+   - Send a Scout at unmapped space (§17).
+   - Adjust your standing defense posture (§6) — one control on your own
+     Planet.
+4. **You leave.** The most common correct session is: look, see nothing
+   is on fire, close it. A meta-layer that *requires* action every visit
+   has become a chore; one that *rewards* an occasional action is a
+   habit. The trickle economy (§4, §5) is built for exactly this — it
+   accrues whether you show up or not, and showing up is about deciding
+   where it goes.
+
+**Zooming out is optional, not a step.** Neighborhood view (§16.2 level
+3) is for checking on rivals and contested Sectors; galaxy view (level 4)
+is for browsing, scouting targets, watching Bloc territory as clusters of
+colour, and reading the saturation gauge that says how close the era is
+to ending (§19). None of it is on the critical path of a routine visit.
+
+## 17. Exploration and fog of war
+
+### 17.1 Why the galaxy shouldn't start visible
+
+§16 gives the layer a place to look at, but as specified there the whole
+galaxy is legible from day one — which quietly undercuts the return hook
+§16.6 is built on. If the map is fully known, zooming out is re-reading a
+board you've already read. If it isn't, zooming out is *discovery*, and a
+system appearing where there was nothing is the same class of event as an
+inbound fleet or a Wonder flare: something changed, and you found it by
+looking.
+
+It also fixes a smaller problem. The Scout hull (§6) currently has
+exactly one job — peek at a raid target's Garrison — which is not enough
+to justify a hull class, and which nobody without an active raid plan
+will ever build. Exploration gives the cheapest ship in the game a
+permanent reason to exist, and gives new or Emerging-tier empires (§10)
+something worth doing with a trivial amount of Production.
+
+### 17.2 What's hidden and what isn't
+
+Fog here is a **rendering and intel gate, not a simulation gate** — the
+galaxy is fully simulated at all times; you're just not shown it. That
+keeps this cheap: no per-empire world state, only a per-empire set of
+revealed system ids.
+
+Three visibility states per system, from an individual empire's view:
+
+| State | What you see |
+|---|---|
+| **Unknown** | A star in the backdrop, nothing more. No owner, no contents, not selectable. It's scenery. |
+| **Charted** | The system exists, its star and body layout are known (how many gas giants, belts, moons), and it's selectable and zoomable. Ownership and specialization are shown live. |
+| **Surveyed** | Everything in Charted, plus a **timestamped intel snapshot**: Garrison strength, Stability, and developments *as of when you last looked*. |
+
+The Charted/Surveyed split is what makes repeat scouting worthwhile
+without creating a chore. **The map is permanent; the intel is a
+snapshot.** Once charted, a system never goes dark again — there is no
+decay to babysit, no re-scouting to keep a map you already earned. But
+the *numbers* attached to it are stamped with a date, and the client
+should show them as such ("Garrison 180 — 4 Cycles ago"). Old intel isn't
+hidden or wrong, it's just old, and acting on stale numbers is the
+player's call. That's a real decision (raid on three-Cycle-old intel, or
+spend 25 Prod refreshing it first?) with no upkeep burden attached.
+
+### 17.3 How space gets revealed
+
+Three sources, all reusing things that already exist in the doc:
+
+- **Passive vision from holdings.** Every Planet charts systems within a
+  small radius of itself; Outposts chart a smaller one. So winning
+  campaigns expands the map on its own, and an empire that never builds a
+  Scout still sees its own neighbourhood grow.
+- **Scout missions.** Send a Scout at any point in space, charted or not;
+  it travels there over its (fast) travel time and permanently charts
+  everything within a radius of its path and destination, then returns.
+  This is the deliberate exploration tool, and at 25 Prod it's the
+  cheapest thing in the game.
+- **Deep Sensor Array** (§5's existing Wonder) extends passive vision
+  radius galaxy-wide for its owner, instead of only affecting their next
+  season's starting vision. That gives an already-specified Wonder a
+  second, permanent use and makes it a real competitor to the military
+  Wonders rather than a season-scoped nicety.
+
+**Blocs share charts.** A Bloc pools its members' charted map — a
+genuinely valuable, zero-balance-risk Bloc benefit (§8) that makes
+joining one immediately useful rather than only paying off once raids
+exist. Surveyed *intel* pools too, with each entry keeping the timestamp
+of whoever actually looked.
+
+### 17.4 What exploring gets you beyond the map
+
+Charting is only worth doing if what you find changes decisions:
+
+- **Target selection.** §18 makes systems genuinely unequal — a Sector
+  with three gas giants and a built-up rival is a far richer prize than a
+  bare rock. You cannot tell those apart without charting them, so
+  scouting is how you decide which Defense Campaign to enter, which
+  Sector to raid, and which to Contest in the Senate. This is the loop
+  that ties the three new systems together, and it's the main argument
+  for fog of war being worth building at all:
+
+  **explore → find a rich system → raid or Contest it → win the
+  resulting campaign → inherit its developments (§18.4).**
+
+- **Frontier lobbying.** Charting an unclaimed Sector before it opens
+  tells you whether it's worth queueing for, and gives the Senate's
+  next-Sector terrain vote (§4) something concrete to argue about beyond
+  map archetype.
+- **Derelicts.** Rare, one-time finds in charted-but-unclaimed space: a
+  small Influence/Production lump, or a fleet blueprint. Deliberately no
+  combat, no skill check, no decision — you scouted, you found something,
+  it's yours. Keeping them decision-free is what keeps them inside the
+  low-agency register (§1) instead of turning exploration into a
+  minigame. Rates in §13.
+
+### 17.5 What this deliberately isn't
+
+- **No stealth or counter-intel systems.** §6 grounds detection in
+  radiator signatures, which is good flavour and a bad system — hiding
+  fleets from a defender directly attacks the "full information, no
+  ambush" fairness principle §6 and §16.6 both depend on. Signatures stay
+  descriptive.
+- **No vision decay.** Stated above, worth repeating as a rule: charted
+  is permanent. Every design that makes players re-do work to stand still
+  is a chore in a layer that gets 2 minutes a visit.
+- **No exploration-only resource.** Derelicts pay out in the two
+  currencies that already exist. A third currency earned only by
+  exploring would need its own sinks, its own balance pass, and its own
+  UI, for a system that's meant to be a garnish on the map.
+
+## 18. System development
+
+### 18.1 The gap this fills: there is no "tall" play
+
+As §1–16 stand, Production has three sinks — Fleets, Garrisons, Wonders —
+and *all three are about territory you don't have yet or might lose*.
+There is nothing to do with a system you already own except defend it.
+That leaves the doc with a single strategy axis: expand wide, hold, or
+lose. And §13's upkeep curve deliberately punishes going wide, which
+means the game's one available strategy is also the one it taxes hardest.
+
+That's a real design hole, and it lands worst on exactly the players who
+can least afford it: seasons are scarce, most players won't win one
+often, and an empire holding one or two Planets currently has almost
+nothing to spend a slow trickle on. Wonders are 350–700 Prod away.
+
+**Development is the "tall" axis.** Every system contains secondary
+bodies — gas giants, asteroid belts, ice moons, barren rocks — fixed at
+galaxy generation and visible in system view (§16.2) as empty orbital
+slots. Spending Production develops them, permanently, without winning
+anything. Your systems visibly fill in over time.
+
+This is also what makes the system view worth returning to. A view of one
+planet you already won is a trophy case; a view of a system you are
+slowly building out is a base — and base-building is the single most
+reliable return hook in the reference class (§15.1).
+
+### 18.2 The development roster
+
+Four, mapped to body types, each doing something the existing systems
+already care about rather than introducing new levers:
+
+| Body | Development | Effect |
+|---|---|---|
+| **Gas Giant** | Gas Harvester | Permanent Production trickle add to the owning empire |
+| **Asteroid Belt** | Mining Station | Smaller permanent Production trickle |
+| **Ice Moon** | Cryo Refinery | Permanent Stability regeneration for *this system only* |
+| **Barren Rock** | Listening Post | Extends this system's passive charting radius (§17.3) |
+
+Costs, yields, and upkeep are in §13. Deliberately kept to four, with no
+tech tree, no upgrade tiers, and no adjacency rules — a development is
+one click, once, and then it's done forever. The interaction weight has
+to stay at §16.6's "at most one thing per visit".
+
+### 18.3 The brake: development is not free growth
+
+A permanent, compounding Production trickle is a snowball engine, and
+this doc's whole thesis is anti-snowball. Two things hold it in check,
+both reusing levers already in the design rather than inventing a new
+one:
+
+- **Each development costs Influence upkeep** (§13), drawn every Cycle
+  exactly like Planet upkeep (§4). So building tall pushes an empire
+  toward the same deficit pressure as spreading wide — same mechanic,
+  same failure mode, nothing new for a player to learn.
+- **Development is hard-capped by geography.** A system has the bodies it
+  has, fixed at galaxy generation (typically 2–5). There is no way to add
+  more, so an empire's total development ceiling is set by how many
+  systems it holds — which is set by winning campaigns, which is the
+  thing the whole game is about.
+
+The intended shape of the choice, and the reason to add this at all:
+
+| | Wide (more Planets) | Tall (more developments) |
+|---|---|---|
+| Gets you | More trickle, Senate weight, Wonder eligibility | More trickle only |
+| Costs | Steep escalating Influence upkeep (3,3,3,4,5,6…) | Flat, small Influence upkeep per development |
+| Requires | Winning campaigns — scarce, contested | Only Production and time |
+| Risk | More Sectors exposed to raids/Contest votes | Concentrated: one lost Sector loses everything in it (§18.4) |
+
+Tall is the slower, safer, always-available path; wide is faster, more
+powerful, and far more precarious. That's a genuine strategic axis, and
+crucially it gives the player who *hasn't* won a season lately something
+real to do — which is the difference between a meta-layer that retains
+casual players and one that only rewards the people already winning.
+
+### 18.4 Developments transfer with the system
+
+**If you lose the Sector, the new owner inherits everything built in
+it.** Developments are not destroyed and not refunded — they change
+hands intact.
+
+This is the single most important rule in this section, because it's what
+wires §17, §18, and §7 into one loop instead of three features:
+
+- A developed system is a **visibly richer prize**, and §17's charting is
+  how rivals find out. Building tall paints a target on you.
+- It gives raids and Contest votes (§7) a motive beyond denial. Taking a
+  built-up system is the fastest way to grow that doesn't require
+  winning a Frontier campaign — which matters a lot for Established and
+  Dominant empires, whose Frontier access is deliberately deprioritized
+  (§10).
+- It's anti-snowball without a special rule: the most developed empire is
+  automatically the most attractive target, so success generates its own
+  opposition. §7's "no leader carve-out" stays true — bigger empires are
+  emergently more exposed, never singled out.
+- And it gives losing a Sector real weight without making it
+  unrecoverable, which is §15.1(4)'s bar: you lose a lot, someone else
+  gains exactly what you lost, and the Defense Campaign that decides it
+  is a fair fight nobody starts ahead in (§7).
+
+The one thing this needs from the client is that inherited developments
+stay legible as inherited — a captured system showing what it was and who
+built it is the same "losses read as drama" principle as §7's battle log.
+
+## 19. Convergence, the Galactic Emperor, and the permanent record
+
+### 19.1 What winning everything means
+
+§9 establishes that the galaxy ends in **Convergence** when it saturates,
+but never says what Convergence *awards*. It should award the thing the
+whole layer has been building toward: whoever stands highest when the
+galaxy closes is crowned, permanently and by name, and the era is sealed
+into a record that survives the reset.
+
+That's the payoff that makes the slow layer worth playing at all. Seasons
+give you a planet; the era gives you the galaxy, once, and then it's in
+the books forever.
+
+### 19.2 The naming collision, stated plainly
+
+**"Emperor" is already taken in shipped code.** `galaxy-endorsement-routes`
+defines the Emperor as the winner of the most recently ended *season*,
+for a one-hour window in which they endorse an Imperial Ward. That is a
+per-season, hour-long title. The end-of-era title is a different thing at
+a different scale and must not silently reuse the word.
+
+This doc uses **Galactic Emperor** for the era winner. That is workable
+but not obviously good enough — "Emperor" and "Galactic Emperor" being
+different honours a player can hold is exactly the kind of distinction
+that reads fine in a design doc and confuses everyone in a UI. Worth
+deciding before build: either rename the era title to something
+unambiguous (**Sovereign**, **Archon**, **First of the Era**), or rename
+the existing per-season one. Flagged in §14 as an open question rather
+than settled here, because it touches shipped strings.
+
+### 19.3 Dominion Score: how the winner is decided
+
+At the moment of Convergence, every empire is scored. The score has to
+reward *all* the paths the doc builds, or the unrewarded ones become
+decoration — if only conquest wins, nobody develops, votes, or organizes.
+
+**Dominion Score** = weighted sum of what an empire holds at Convergence:
+
+| Term | Rationale |
+|---|---|
+| Planets held | The primary prize; the heaviest term |
+| Outposts held | The lesser tier still counts (§3) |
+| Developments completed | Rewards tall play (§18), so a builder who won few seasons can still place |
+| Wonders currently held | Rewards the Production race, and it's a snapshot — a superseded Wonder counts for whoever holds it at the end (§5) |
+| Total Stability across holdings | Rewards holding things *well*, not just holding them — an empire limping at 20 Stability across six Sectors should not beat one thriving at 100 across four |
+
+Weights in §13. Political play is rewarded through its effects rather
+than a separate term — Contest votes win you Sectors, The Long Signal and
+Grand Exchange are Wonders, and Bloc organizing shows up in everything
+above — so the Senate needs no scoring term of its own.
+
+**Blocs are recorded, not crowned.** The Galactic Emperor is a single
+empire, because a shared crown isn't a crown. But the era record also
+names the **Dominant Bloc** (highest combined Dominion Score), so
+organized play gets its own permanent line in the history without
+diluting the individual title.
+
+### 19.4 What the Emperor actually gets
+
+**Cosmetic and commemorative only — no mechanical advantage carried into
+the next era.** This is not a soft preference; a persistent power carryover
+would make era 2 unwinnable for everyone else and would contradict every
+anti-snowball mechanic in this doc. Specifically:
+
+- A permanent title and badge on the account, displayed in-season, using
+  the cosmetics/history persistence §9 already assumes.
+- A permanent entry in the Hall of Fame (§19.5), by name, with the
+  systems they held and what those systems were called.
+- **Naming rights over the next era.** The Emperor names the incoming
+  galaxy — and possibly a starting star cluster within it. This is the
+  best reward available here because it is enormous in prestige, exactly
+  zero in balance impact, and it *already has a shipped precedent in this
+  repo*: `POST /hq/galaxy/planets/:seasonId/name` with its one-time,
+  permanent, validated christening flow (`galaxy-name-policy`). Era
+  naming is the same mechanic one level up, and can reuse the same
+  validation and the same "this cannot be changed later" framing.
+
+### 19.5 Recording it: the era record
+
+This is the concrete "record that winner somewhere" piece, and it should
+follow the pattern the repo already uses for `galaxy_planet` rather than
+inventing a new one.
+
+**A new append-only store, `galactic_era`** — one row per completed era,
+alongside the existing `galaxy_planet` and `season_archive` tables:
+
+| Field | Notes |
+|---|---|
+| `eraId`, `eraSequence` | Primary key and human-facing "Era 3" number |
+| `startedAt`, `convergedAt` | Era bounds |
+| `triggerReason` | `saturation` or `ceiling` (§19.6) |
+| `emperorAuthUid` | Nullable — an era can end with no qualifying empire |
+| `emperorDisplayName` | **Denormalized snapshot, not a join** — see below |
+| `dominionScore` | The winning score, for the record |
+| `dominantBlocName`, `dominantBlocScore` | Nullable |
+| `standings` | Frozen JSON: top N empires with scores |
+| `holdings` | Frozen JSON: who held which systems, **with christened planet names** |
+
+Four disciplines this store has to observe, all of them things the repo's
+existing persistence rules (`docs/agents/state-and-persistence-discipline.md`)
+or §11 already warn about:
+
+1. **Denormalize display names at write time.** Never render the Hall of
+   Fame by joining live account records. Players rename; the historical
+   record must not silently rewrite itself when they do. Store the name
+   as it was.
+2. **Write before the reset, not after.** The galaxy reset is a
+   wipe-and-replace, structurally identical to the season rollover
+   hazard §11 already calls out — and the same bug is available here. The
+   era record must be committed, and its write confirmed, *before* any
+   reset step runs. An explicit "seal era" step, ordered ahead of the
+   wipe, mirroring the "apply galactic rewards" hook §11 specifies for
+   season end.
+3. **Append-only and immutable.** A sealed era is never updated. This
+   also makes the store trivially bounded — one row per era, a handful
+   per year — which satisfies the "bound every growable map" rule without
+   any extra work.
+4. **Christened names are the emotional payload, so carry them.** The
+   `holdings` snapshot should preserve the planet names players chose,
+   because "Era 2 — Emperor Vance held seven systems: Ashfall, Kepler's
+   Rest, …" is the artifact people actually care about. Those names live
+   in `galaxy_planet` today and would otherwise be wiped with the galaxy.
+
+Surfacing it: a `GET /hq/galaxy/eras` listing and an in-client Hall of
+Fame reachable from the galaxy view (§16.2 level 4) — the natural home
+for it, since the galaxy view is already where the era's saturation gauge
+lives.
+
+### 19.6 Making sure an era can actually end
+
+§14 already worries that Convergence may be unreachable, because §13's
+upkeep curve keeps large empires near break-even and §9 requires ≥90% of
+Sectors claimed *and broadly stable*. §18 sharpens the worry in both
+directions: developments add Stability (Cryo Refineries) but also add
+Influence upkeep, so whether the galaxy trends toward "broadly stable" is
+now genuinely hard to predict without simulating it.
+
+Rather than tune blind, add a safety valve: **an era ends on saturation
+*or* on a hard Cycle ceiling, whichever comes first.** If the galaxy
+hasn't converged by the ceiling, it converges anyway and crowns whoever
+leads on Dominion Score. This costs nothing, guarantees the payoff in
+§19.1 is always eventually delivered, and removes the risk of an era
+grinding on indefinitely because a balance number was slightly wrong.
+
+The saturation gauge should be visible galaxy-wide throughout (§16.2
+level 4), which also closes §15.2's "no anticipation before the end"
+gap — players can see the era closing in without a fixed calendar date,
+which was §9's original objection to a hard timer.
