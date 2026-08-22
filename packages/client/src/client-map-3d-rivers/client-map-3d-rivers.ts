@@ -189,7 +189,14 @@ const walkRiver = (
     const wobbleY = (seeded01(cx * 19 + riverIndex * 11, cy * 23 + step, seed + 6413) - 0.5) * WOBBLE_AMOUNT;
     points.push({ wx: cx + 0.5 + wobbleX, wy: cy + 0.5 + wobbleY });
     const d = distToSea[idx(cx, cy)]!;
-    if (d <= 1) break;
+    // Stopping at d<=1 (the last *land* tile, adjacent to the coast) left
+    // the ribbon's flat, untapered end short of the water by however much
+    // of that final tile the wobble didn't cover — reading as the river
+    // stopping just before the sea rather than flowing into it. Taking one
+    // more step so the path's last point actually sits on the SEA/
+    // COASTAL_SEA tile itself (d=0) guarantees the ribbon overlaps the
+    // water plane there instead of leaving a gap.
+    if (d <= 0) break;
     let bestX = cx;
     let bestY = cy;
     let bestScore = Number.POSITIVE_INFINITY;

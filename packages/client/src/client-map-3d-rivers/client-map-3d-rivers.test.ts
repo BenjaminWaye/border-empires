@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { BufferGeometry, Mesh, Scene } from "three";
 import { describe, expect, it } from "vitest";
-import { setWorldSeed } from "@border-empires/shared";
+import { setWorldSeed, terrainAt, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { createRiverOverlay, maxNearbyElevation } from "./client-map-3d-rivers.js";
 import { heightfieldFlatTileElevation, type HeightfieldTerrainKind } from "../client-map-3d-heightfield-terrain.js";
 
@@ -111,6 +111,41 @@ describe("decorative river overlay", () => {
 
     const vertexCount = positions!.length / 3;
     expect(vertexCount).toBeGreaterThan(350);
+
+    overlay.dispose();
+  });
+
+  it("extends at least one river's ribbon onto the actual sea tile at its mouth, not just adjacent land", () => {
+    // walkRiver used to stop as soon as it reached the last *land* tile
+    // adjacent to the coast (distance-to-sea == 1), so the ribbon's flat,
+    // untapered end could sit up to a tile short of the water depending on
+    // wobble — reading as the river stopping just before the sea rather
+    // than flowing into it. It now takes one more step onto the actual
+    // SEA/COASTAL_SEA tile, so at least one rendered vertex should resolve
+    // to water terrain, not just land.
+    //
+    // Seed 3141's river near (82, 143) was traced by hand: its last *land*
+    // point sits at (94.42, 142.62) with terrainAt(95, 142) === "SEA" as its
+    // immediate neighbour — a seed/window picked specifically because it
+    // does NOT touch water under the old stopping condition, so this
+    // actually exercises the fix rather than getting lucky on a coincidental
+    // wobble elsewhere in a wide scan.
+    setWorldSeed(3141);
+    const scene = new Scene();
+    const overlay = createRiverOverlay(scene);
+    const window = { camX: 82, camY: 143, halfW: 20, halfH: 20 };
+    overlay.rebuild(window);
+    const positions = positionsOf(riverMesh(scene));
+    expect(positions).toBeDefined();
+
+    let touchesWater = false;
+    for (let i = 0; i < positions!.length && !touchesWater; i += 3) {
+      const wx = ((window.camX + positions![i]!) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
+      const wy = ((window.camY + positions![i + 2]!) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
+      const terrain = terrainAt(Math.floor(wx), Math.floor(wy));
+      if (terrain === "SEA" || terrain === "COASTAL_SEA") touchesWater = true;
+    }
+    expect(touchesWater).toBe(true);
 
     overlay.dispose();
   });
