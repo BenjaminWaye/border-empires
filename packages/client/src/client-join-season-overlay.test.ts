@@ -130,6 +130,69 @@ describe("join-season overlay", () => {
     expect(overlayEl.querySelector("#season-lobby-invite")).toBeTruthy();
   });
 
+  it("shows a single clean title, not the raw season id duplicated, while pending", () => {
+    const overlayEl = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({
+        needsSeasonJoin: true,
+        joinSeasonOverlayOpen: true,
+        joinSeasonId: "season-8",
+        seasonPending: true,
+        seasonPendingScheduledStartAt: Date.now() + 60_000
+      }) as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true,
+      setCountryFlag: noopSetCountryFlag
+    });
+    const title = overlayEl.querySelector("#join-season-title") as HTMLElement;
+    expect(title.textContent).toBe("Season starts soon");
+    expect(title.textContent).not.toContain("season-8");
+  });
+
+  it("makes the lobby a full-screen page while pending, and restores the normal view once it stops being active", () => {
+    document.body.classList.remove("season-lobby-active");
+    const overlayEl = document.createElement("div");
+    const state = makeState({
+      needsSeasonJoin: true,
+      joinSeasonOverlayOpen: true,
+      seasonPending: true,
+      seasonPendingScheduledStartAt: Date.now() + 60_000
+    });
+    renderJoinSeasonOverlay({
+      state: state as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true,
+      setCountryFlag: noopSetCountryFlag
+    });
+    expect(document.body.classList.contains("season-lobby-active")).toBe(true);
+
+    // Player joins: seasonPending clears, overlay closes -> back to the
+    // normal game view, canvas/HUD no longer suppressed.
+    renderJoinSeasonOverlay({
+      state: makeState() as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true,
+      setCountryFlag: noopSetCountryFlag
+    });
+    expect(document.body.classList.contains("season-lobby-active")).toBe(false);
+  });
+
+  it("does not go full-screen for the plain join-now prompt (not the pending lobby)", () => {
+    document.body.classList.remove("season-lobby-active");
+    const overlayEl = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-42" }) as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true,
+      setCountryFlag: noopSetCountryFlag
+    });
+    expect(document.body.classList.contains("season-lobby-active")).toBe(false);
+  });
+
   it("shows the flag picker only when the player has not set one", () => {
     const overlayEl = document.createElement("div");
     renderJoinSeasonOverlay({
