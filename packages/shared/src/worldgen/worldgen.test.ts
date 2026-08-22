@@ -53,15 +53,33 @@ describe("worldgen", () => {
     expect(equator.every((b) => b !== "TUNDRA")).toBe(true);
   });
 
-  test("grassShadeAt is undefined for a TUNDRA-forced coordinate", () => {
+  test("grassShadeAt computes a real LIGHT/DARK split for TUNDRA — the tundra-forest sub-variant", () => {
     setWorldSeed(2024);
 
-    let tundraCoord: [number, number] | undefined;
-    for (let wx = 0; wx < WORLD_WIDTH && !tundraCoord; wx++) {
-      if (terrainAt(wx, 20) === "LAND" && landBiomeAt(wx, 20) === "TUNDRA") tundraCoord = [wx, 20];
+    const tundraShades = new Set<"LIGHT" | "DARK">();
+    for (let wx = 0; wx < WORLD_WIDTH; wx++) {
+      if (terrainAt(wx, 20) === "LAND" && landBiomeAt(wx, 20) === "TUNDRA") {
+        const shade = grassShadeAt(wx, 20);
+        expect(shade).not.toBeUndefined();
+        tundraShades.add(shade!);
+      }
     }
-    expect(tundraCoord).toBeDefined();
-    const [wx, wy] = tundraCoord!;
-    expect(grassShadeAt(wx, wy)).toBeUndefined();
+    expect(tundraShades.size).toBeGreaterThan(0);
+  });
+
+  test("grassShadeAt is undefined for SAND/COASTAL_SAND/MOUNTAIN — only GRASS and TUNDRA get a shade", () => {
+    setWorldSeed(2024);
+    let checkedNonGrassNonTundra = false;
+    for (let wy = 0; wy < WORLD_HEIGHT && !checkedNonGrassNonTundra; wy++) {
+      for (let wx = 0; wx < WORLD_WIDTH; wx++) {
+        const terrain = terrainAt(wx, wy);
+        if (terrain === "MOUNTAIN") {
+          expect(grassShadeAt(wx, wy)).toBeUndefined();
+          checkedNonGrassNonTundra = true;
+          break;
+        }
+      }
+    }
+    expect(checkedNonGrassNonTundra).toBe(true);
   });
 });

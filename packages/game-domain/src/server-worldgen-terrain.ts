@@ -174,11 +174,25 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
   const isGrassTitaniumTile = (x: number, y: number, relaxed = false): boolean =>
     terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && isNearMountain(x, y, relaxed ? 2 : 1);
 
-  // Tundra's only resource affinity — permafrost-near-rock veins, roughly as
-  // abundant as sand titanium (see clusterTileCountForResource/clusterRadiusForResource,
-  // which fall through to the shared TITANIUM default for any non-GRASS biome).
-  const isTundraTitaniumTile = (x: number, y: number, relaxed = false): boolean =>
-    terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "TUNDRA" && isNearMountain(x, y, relaxed ? 4 : 3);
+  // Tundra's "forest" sub-variant (reusing the GRASS light/dark shade split
+  // — see grassShadeAt in worldgen.ts) is the richer half of the biome:
+  // no FARM/GEMS either way, but real TITANIUM+UMBRITE veins instead of
+  // plain tundra's thin TITANIUM-only affinity. Deliberately NOT wired into
+  // isForestFrontierTile/settlement timing below — those stay GRASS-only;
+  // this only affects resource placement and the tile label.
+  const isTundraForestTile = (x: number, y: number): boolean =>
+    terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "TUNDRA" && grassShadeAt(x, y) === "DARK";
+
+  // Tundra's TITANIUM affinity — permafrost-near-rock veins, roughly as
+  // abundant as sand titanium at the base rate (see
+  // clusterTileCountForResource/clusterRadiusForResource, which fall through
+  // to the shared TITANIUM default for any non-GRASS biome), with a wider
+  // catchment radius in tundra-forest tiles for a modest abundance bump.
+  const isTundraTitaniumTile = (x: number, y: number, relaxed = false): boolean => {
+    if (terrainAt(x, y) !== "LAND" || landBiomeAt(x, y) !== "TUNDRA") return false;
+    const radius = isTundraForestTile(x, y) ? (relaxed ? 5 : 4) : (relaxed ? 4 : 3);
+    return isNearMountain(x, y, radius);
+  };
 
   const clusterRuleMatch = (x: number, y: number, resource: ResourceType): boolean => {
     if (terrainAt(x, y) !== "LAND") return false;
@@ -188,7 +202,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     if (resource === "TITANIUM") return (biome === "SAND" && isNearMountain(x, y, 4)) || isGrassTitaniumTile(x, y) || isTundraTitaniumTile(x, y);
     if (resource === "GEMS") return biome === "SAND";
     if (resource === "FARM") return biome === "GRASS" && shade === "LIGHT";
-    if (resource === "UMBRITE") return !isCoastalLand(x, y) && ((biome === "GRASS" && shade === "DARK") || biome === "SAND");
+    if (resource === "UMBRITE") return !isCoastalLand(x, y) && ((biome === "GRASS" && shade === "DARK") || biome === "SAND" || (biome === "TUNDRA" && shade === "DARK"));
     return false;
   };
 
@@ -200,7 +214,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     if (resource === "TITANIUM") return (biome === "SAND" && isNearMountain(x, y, 5)) || isGrassTitaniumTile(x, y, true) || isTundraTitaniumTile(x, y, true);
     if (resource === "GEMS") return biome === "SAND";
     if (resource === "FARM") return biome === "GRASS";
-    if (resource === "UMBRITE") return biome === "SAND" || (biome === "GRASS" && shade === "DARK");
+    if (resource === "UMBRITE") return biome === "SAND" || (biome === "GRASS" && shade === "DARK") || (biome === "TUNDRA" && shade === "DARK");
     return false;
   };
 
@@ -290,6 +304,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
   const clusterTileCountForResource = (resource: ResourceType, x: number, y: number, seed: number): number => {
     if (resource === "UMBRITE" && landBiomeAt(x, y) === "SAND") return seeded01(x * 71 + 3, y * 89 + 7, seed + 4242) < 0.5 ? 1 : 2;
     if (resource === "TITANIUM" && landBiomeAt(x, y) === "GRASS") return 2;
+    if (resource === "TITANIUM" && isTundraForestTile(x, y)) return 8;
     if (resource === "TITANIUM") return 6;
     if (resource === "GEMS") return 5;
     return 8;
@@ -298,6 +313,7 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
   const clusterRadiusForResource = (resource: ResourceType, x: number, y: number): number => {
     if (resource === "UMBRITE" && landBiomeAt(x, y) === "SAND") return 1;
     if (resource === "TITANIUM" && landBiomeAt(x, y) === "GRASS") return 1;
+    if (resource === "TITANIUM" && isTundraForestTile(x, y)) return 3;
     if (resource === "TITANIUM") return 2;
     if (resource === "GEMS") return 2;
     return 3;
