@@ -653,10 +653,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         wrapY: deps.wrapY
       });
 
-      // Fixed-borders-via-reach overlay (dormant-frontier fill, reach
-      // boundary line). See client-reach-overlay.ts.
-      if (!isTrue3DRendererActive() && myReach && t && vis === "visible") {
-        if (t.ownerId === state.me && isDormantFrontierTile(t)) {
+      // Fixed-borders-via-reach overlay. Boundary renders over fogged tiles
+      // too (a fixed claim, not fog-dependent) but stays hidden over unexplored.
+      if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+        if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
           drawDormantFrontierTreatment(deps.ctx, px, py, size);
         }
         if (t.ownerId === state.me) {
@@ -1180,9 +1180,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           wrapY: deps.wrapY
         });
 
-        // Fixed-borders-via-reach overlay — see client-reach-overlay.ts.
-        if (!isTrue3DRendererActive() && myReach && t && vis === "visible") {
-          if (t.ownerId === state.me && isDormantFrontierTile(t)) {
+        // Fixed-borders-via-reach overlay -- see the main pass above.
+        if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+          if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
             drawDormantFrontierTreatment(deps.ctx, px, py, size);
           }
           if (t.ownerId === state.me) {
