@@ -6868,27 +6868,13 @@ describe("simulation runtime", () => {
           ownershipState: "SETTLED" as const,
           town: { name: "Target", type: "FARMING" as const, populationTier: "SETTLEMENT" as const }
         },
-        // Gives the defender at least one Titanium and one Umbrite Weapons Factory
-        // so the "unarmed" vulnerability multiplier
-        // (NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT) stays neutral — this
-        // test is about the (legacy) Weapons Workshop mult, not that
-        // mechanic.
-        {
-          x: 9,
-          y: 11,
-          terrain: "LAND" as const,
-          ownerId: "player-2",
-          ownershipState: "SETTLED" as const,
-          economicStructure: { ownerId: "player-2", type: "TITANIUM_WEAPONS_FACTORY" as const, status: "active" as const }
-        },
-        {
-          x: 8,
-          y: 11,
-          terrain: "LAND" as const,
-          ownerId: "player-2",
-          ownershipState: "SETTLED" as const,
-          economicStructure: { ownerId: "player-2", type: "UMBRITE_WEAPONS_FACTORY" as const, status: "active" as const }
-        }
+        // Gives both sides one Titanium + one Umbrite Weapons Factory so the
+        // "unarmed" vulnerability multiplier (either direction) stays
+        // neutral — this test is about the (legacy) Weapons Workshop mult.
+        { x: 9, y: 11, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" as const, economicStructure: { ownerId: "player-2", type: "TITANIUM_WEAPONS_FACTORY" as const, status: "active" as const } },
+        { x: 8, y: 11, terrain: "LAND" as const, ownerId: "player-2", ownershipState: "SETTLED" as const, economicStructure: { ownerId: "player-2", type: "UMBRITE_WEAPONS_FACTORY" as const, status: "active" as const } },
+        { x: 9, y: 9, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, economicStructure: { ownerId: "player-1", type: "TITANIUM_WEAPONS_FACTORY" as const, status: "active" as const } },
+        { x: 8, y: 9, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, economicStructure: { ownerId: "player-1", type: "UMBRITE_WEAPONS_FACTORY" as const, status: "active" as const } }
       ];
       for (let i = 0; i < attackerWorkshops; i += 1) tiles.push(workshopTile(20 + i, 10, "player-1"));
       for (let i = 0; i < defenderWorkshops; i += 1) tiles.push(workshopTile(30 + i, 10, "player-2"));
@@ -6926,9 +6912,13 @@ describe("simulation runtime", () => {
     const attackerBoosted = await captureCombatResult(buildRuntime(2, 0));
     const defenderBoosted = await captureCombatResult(buildRuntime(0, 3));
 
-    expect(baseline?.atkEff).toBe(10);
+    // Attacker's own 1 Titanium + 1 Umbrite Weapons Factory (added above to
+    // keep the mirrored defense-vulnerability mult neutral) is a constant
+    // factor on every atkEff assertion below.
+    const attackerFactoryAtkMult = 1.015 * 1.03;
+    expect(baseline?.atkEff).toBeCloseTo(10 * attackerFactoryAtkMult, 6);
     // 2 owned Weapons Workshops: +3%/each -> 1.06x
-    expect(attackerBoosted?.atkEff).toBeCloseTo(10 * 1.06, 6);
+    expect(attackerBoosted?.atkEff).toBeCloseTo(10 * attackerFactoryAtkMult * 1.06, 6);
     // Target is SETTLED (1.35x) with a town (1.2x), 3 owned Weapons Workshops
     // (+9%), plus the fixture's own 1 Titanium (+3%) / 1 Umbrite (+1.5%)
     // Weapons Factory — both now count empire-wide regardless of network.
