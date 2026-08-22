@@ -145,11 +145,19 @@ export const grantAnchorToBorder = (
   for (const key of tileKeysInReach(anchor)) {
     const existingOwner = next.get(key);
     if (!existingOwner) {
-      next.set(key, anchor.ownerId);
       const settledOwner = settledOwnerAt?.(key);
-      if (settledOwner && settledOwner !== anchor.ownerId && !defenderLiveReach(settledOwner).has(key)) {
+      if (settledOwner && settledOwner !== anchor.ownerId) {
+        // Unclaimed slot, but a rival actually holds this ground SETTLED.
+        // Resolve it exactly as the claimed-slot branch below does: if they
+        // can still defend it themselves they keep it and this anchor simply
+        // doesn't extend the border here (the attacker gets a hole, same as a
+        // successfully defended claimed tile).
+        if (defenderLiveReach(settledOwner).has(key)) continue;
+        next.set(key, anchor.ownerId);
         overtaken.push({ tileKey: key, fromOwnerId: settledOwner, toOwnerId: anchor.ownerId });
+        continue;
       }
+      next.set(key, anchor.ownerId);
       continue;
     }
     if (existingOwner === anchor.ownerId) continue;

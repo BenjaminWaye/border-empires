@@ -68,7 +68,9 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
 
     const border = applyReachAnchorActivationToBorder(new Map(), attackerTown, createReachUpdateState(), context, "cmd-1");
 
-    expect(border.get(contestedKey)).toBe("player-1");
+    // The defender keeps the ground outright — granting the slot while skipping
+    // the downgrade would strand their SETTLED tile inside player-1's border.
+    expect(border.get(contestedKey)).toBeUndefined();
     expect(downgrade).not.toHaveBeenCalled();
   });
 
