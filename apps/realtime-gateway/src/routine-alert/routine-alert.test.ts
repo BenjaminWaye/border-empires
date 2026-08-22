@@ -91,6 +91,32 @@ describe("createRoutineAlertNotifier", () => {
     expect(callCount).toBe(2);
   });
 
+  it("posts the session link to Slack when the fire succeeds and slackWebhookUrl is set", async () => {
+    const calls: Array<{ url: string; body: unknown }> = [];
+    const fetchImpl = fakeFetch(async (url, init) => {
+      calls.push({ url, body: JSON.parse(init.body as string) });
+      if (url === "https://example.com/fire") {
+        return new Response(
+          JSON.stringify({ type: "routine_fire", claude_code_session_url: "https://claude.ai/code/session_abc" }),
+          { status: 200 }
+        );
+      }
+      return new Response("ok", { status: 200 });
+    });
+    const notifier = createRoutineAlertNotifier({
+      fireUrl: "https://example.com/fire",
+      fireToken: "token",
+      slackWebhookUrl: "https://example.com/slack-hook",
+      fetchImpl
+    });
+    notifier.notify("lag alert");
+    await flushPending();
+
+    const slackCall = calls.find((c) => c.url === "https://example.com/slack-hook");
+    expect(slackCall).toBeDefined();
+    expect((slackCall?.body as { text: string }).text).toContain("https://claude.ai/code/session_abc");
+  });
+
   it("logs and does not throw when the POST fails", async () => {
     const log = { error: vi.fn() };
     const fetchImpl = fakeFetch(async () => new Response("nope", { status: 500 }));

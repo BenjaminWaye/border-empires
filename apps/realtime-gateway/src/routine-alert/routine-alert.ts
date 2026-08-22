@@ -14,13 +14,17 @@
  * another session — the /fire API always starts a brand-new session, so
  * there is no way to append to the one already investigating. The incident
  * is considered over, and the next breach starts a fresh session, only
- * after `resolveAfterMs` passes with no breach at all (default 20 min,
- * comfortably longer than the upstream dedupe cadence so a sustained,
- * hours-long lag spell still spawns exactly one session).
+ * after `resolveAfterMs` passes with no breach at all (default 8 hours —
+ * comfortably longer than any realistic beta-testing session, so a
+ * sustained lag spell spawns exactly one session per day at most).
  *
  * Fire-and-forget: `notify()` returns immediately, the POST runs in the
  * background with a hard timeout. No-op when fireUrl/fireToken are unset
- * (local/test runs, or before the API trigger has been configured).
+ * (local/test runs, or before the API trigger has been configured). On a
+ * successful fire, also posts the session link to Slack (when
+ * slackWebhookUrl is set) so a human sees immediately that Claude picked
+ * up the alert and can watch the session live, instead of only finding out
+ * once it finishes via the routine's completion notification.
  */
 
 export type RoutineAlertOptions = {
@@ -29,8 +33,10 @@ export type RoutineAlertOptions = {
   /** Bearer token for the routine's API trigger. */
   fireToken?: string;
   /** Quiet period (ms) with no breach before the next breach counts as a new
-   * incident and fires a fresh session. Default 1_200_000 (20 min). */
+   * incident and fires a fresh session. Default 28_800_000 (8 hours). */
   resolveAfterMs?: number;
+  /** Slack incoming webhook to announce "investigation started" with the session link. Optional. */
+  slackWebhookUrl?: string;
   fetchImpl?: typeof fetch;
   log?: { error?: (payload: unknown, message?: string) => void };
   now?: () => number;
@@ -41,7 +47,7 @@ export type RoutineAlertNotifier = {
   notify: (text: string) => void;
 };
 
-const DEFAULT_RESOLVE_AFTER_MS = 1_200_000; // 20 min
+const DEFAULT_RESOLVE_AFTER_MS = 28_800_000; // 8 hours
 const POST_TIMEOUT_MS = 5_000;
 const ROUTINE_BETA_HEADER = "experimental-cc-routine-2026-04-01";
 
@@ -49,6 +55,7 @@ export const createRoutineAlertNotifier = (options: RoutineAlertOptions): Routin
   const fireUrl = options.fireUrl?.trim();
   const fireToken = options.fireToken?.trim();
   const resolveAfterMs = options.resolveAfterMs ?? DEFAULT_RESOLVE_AFTER_MS;
+  const slackWebhookUrl = options.slackWebhookUrl?.trim();
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const now = options.now ?? (() => Date.now());
   const log = options.log;
@@ -56,6 +63,19 @@ export const createRoutineAlertNotifier = (options: RoutineAlertOptions): Routin
   // resolveAfterMs elapses with no further breach.
   let incidentOpen = false;
   let lastBreachAt = 0;
+
+  const announceStarted = async (sessionUrl: string): Promise<void> => {
+    if (!slackWebhookUrl || !fetchImpl) return;
+    try {
+      await fetchImpl(slackWebhookUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text: `:robot_face: Claude is investigating a lag incident: ${sessionUrl}` })
+      });
+    } catch (err) {
+      log?.error?.({ error: err instanceof Error ? err.message : String(err) }, "routine-alert started-announcement post failed");
+    }
+  };
 
   const post = async (text: string): Promise<void> => {
     if (!fireUrl || !fireToken || !fetchImpl) return;
@@ -76,7 +96,10 @@ export const createRoutineAlertNotifier = (options: RoutineAlertOptions): Routin
       if (!res.ok) {
         const body = await res.text().catch(() => "");
         log?.error?.({ status: res.status, body: body.slice(0, 200) }, "routine-alert fire returned non-2xx");
+        return;
       }
+      const parsed = (await res.json().catch(() => undefined)) as { claude_code_session_url?: string } | undefined;
+      if (parsed?.claude_code_session_url) void announceStarted(parsed.claude_code_session_url);
     } catch (err) {
       log?.error?.({ error: err instanceof Error ? err.message : String(err) }, "routine-alert fire failed");
     } finally {
@@ -102,5 +125,8 @@ export const createRoutineAlertNotifier = (options: RoutineAlertOptions): Routin
  * lag signals share one incident clock instead of opening two incidents at once. */
 export const gatewayRoutineAlertNotifier: RoutineAlertNotifier = createRoutineAlertNotifier({
   ...(process.env.ROUTINE_LAG_ALERT_FIRE_URL ? { fireUrl: process.env.ROUTINE_LAG_ALERT_FIRE_URL } : {}),
-  ...(process.env.ROUTINE_LAG_ALERT_FIRE_TOKEN ? { fireToken: process.env.ROUTINE_LAG_ALERT_FIRE_TOKEN } : {})
+  ...(process.env.ROUTINE_LAG_ALERT_FIRE_TOKEN ? { fireToken: process.env.ROUTINE_LAG_ALERT_FIRE_TOKEN } : {}),
+  ...(process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK
+    ? { slackWebhookUrl: process.env.GATEWAY_SLOW_LOGIN_ALERT_SLACK_WEBHOOK }
+    : {})
 });
