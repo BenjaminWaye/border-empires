@@ -120,15 +120,25 @@ export type OvertakenTile = { tileKey: string; fromOwnerId: string; toOwnerId: s
  *
  * Pure — does not mutate `border`. Returns the updated map plus the list of
  * tiles that actually changed owner, so callers can drive the matching
- * `SETTLED -> FRONTIER` downgrade on exactly those tiles (only overtaken
- * tiles downgrade; the rest of a newly-granted disk over previously
- * unclaimed ground never downgrades anything, since nothing was settled
- * there under a different owner).
+ * `SETTLED -> FRONTIER` downgrade on exactly those tiles.
+ *
+ * `settledOwnerAt` closes a hole in the "unclaimed ground" branch. An empty
+ * border slot does NOT reliably mean nobody is settled there: a tile can be
+ * SETTLED by a player who never held reach over it in the first place (the
+ * pre-fix AI auto-settle path settled its own FRONTIER tiles with no reach
+ * check at all, so no border entry was ever written for them). Granting such
+ * a slot silently — the old behavior — handed the ground over while leaving
+ * the rival's tile SETTLED inside the new owner's border forever, since no
+ * `overtaken` entry ever fired to drive the downgrade. When supplied, this
+ * lookup reports who actually has the tile SETTLED, so an empty slot over a
+ * rival's settled ground resolves as a genuine contest, under the same
+ * live-defense rule a claimed slot already uses.
  */
 export const grantAnchorToBorder = (
   border: ReadonlyMap<string, string>,
   anchor: ReachAnchor,
-  defenderLiveReach: (claimantOwnerId: string) => ReadonlySet<string>
+  defenderLiveReach: (claimantOwnerId: string) => ReadonlySet<string>,
+  settledOwnerAt?: (tileKey: string) => string | undefined
 ): { border: Map<string, string>; overtaken: OvertakenTile[] } => {
   const next = new Map(border);
   const overtaken: OvertakenTile[] = [];
@@ -136,6 +146,10 @@ export const grantAnchorToBorder = (
     const existingOwner = next.get(key);
     if (!existingOwner) {
       next.set(key, anchor.ownerId);
+      const settledOwner = settledOwnerAt?.(key);
+      if (settledOwner && settledOwner !== anchor.ownerId && !defenderLiveReach(settledOwner).has(key)) {
+        overtaken.push({ tileKey: key, fromOwnerId: settledOwner, toOwnerId: anchor.ownerId });
+      }
       continue;
     }
     if (existingOwner === anchor.ownerId) continue;
