@@ -20,11 +20,12 @@ import {
   resourceMonopolyThresholdLabel
 } from "@border-empires/game-domain";
 import type { LeaderboardOverallEntry, SeasonVictoryObjectiveSnapshot } from "@border-empires/sim-protocol";
+import { objectiveSelfProgress, objectiveSelfProgressLabel } from "./season-victory-self-progress.js";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
 type WorldTile = RuntimeState["tiles"][number];
 
-type VictoryMetrics = {
+export type VictoryMetrics = {
   towns: number;
   settledTiles: number;
   controlledTiles: number;
@@ -33,7 +34,7 @@ type VictoryMetrics = {
   name: string;
 };
 
-const allianceBlocForPlayer = (
+export const allianceBlocForPlayer = (
   playerId: string,
   playerAlliesById: ReadonlyMap<string, ReadonlySet<string>>,
   competitivePlayerIds: ReadonlySet<string>
@@ -104,51 +105,12 @@ const diplomaticDominanceLeader = (
   };
 };
 
-const objectiveSelfProgressLabel = (
-  objectiveId: SeasonVictoryPathId,
-  playerId: string,
-  metricsByPlayerId: Map<string, VictoryMetrics>,
-  townTarget: number,
-  maritimeDockTarget: number,
-  diplomaticControlTarget: number,
-  totalResourceCounts: Record<ResourceType, number>,
-  ownedResourceCountsByPlayerId: Map<string, Record<ResourceType, number>>,
-  playerAlliesById: ReadonlyMap<string, ReadonlySet<string>>,
-  competitivePlayerIds: ReadonlySet<string>
-): string | undefined => {
-  const metric = metricsByPlayerId.get(playerId);
-  if (!metric) return undefined;
-  if (objectiveId === "TOWN_CONTROL") return `${metric.towns}/${townTarget} towns`;
-  if (objectiveId === "ECONOMIC_HEGEMONY") return `${(metric.incomePerMinute * 1440).toFixed(1)} gold/day`;
-  if (objectiveId === "RESOURCE_MONOPOLY") {
-    const owned = ownedResourceCountsByPlayerId.get(playerId) ?? { FARM: 0, TITANIUM: 0, GEMS: 0, FISH: 0, UMBRITE: 0 };
-    let bestResource: ResourceType | undefined;
-    let bestOwned = 0;
-    let bestTotal = 0;
-    for (const resource of VICTORY_RESOURCE_TYPES) {
-      const total = totalResourceCounts[resource] ?? 0;
-      if (total <= 0) continue;
-      const value = owned[resource] ?? 0;
-      if (value > bestOwned) {
-        bestOwned = value;
-        bestTotal = total;
-        bestResource = resource;
-      }
-    }
-    return bestResource ? `${bestOwned}/${bestTotal} ${bestResource}` : "No resource control";
-  }
-  if (objectiveId === "MARITIME_SUPREMACY") return `${metric.dockTiles}/${maritimeDockTarget} docks`;
-  const bloc = allianceBlocForPlayer(playerId, playerAlliesById, competitivePlayerIds);
-  const blocControlledTiles = [...bloc].reduce((sum, memberId) => sum + (metricsByPlayerId.get(memberId)?.controlledTiles ?? 0), 0);
-  return `${blocControlledTiles}/${diplomaticControlTarget} alliance-controlled land`;
-};
-
 const economicHegemonyDef = VICTORY_PRESSURE_DEFS.find((def) => def.id === "ECONOMIC_HEGEMONY")!;
 
 // Progress fractions (§3's Outpost/Stipend tiering) are always clamped to
 // 0..1 — a leader who has already cleared a threshold reports 1, never a
 // value that overshoots it.
-const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
+export const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 
 // Derives the Economic Hegemony objective purely from the leaderboard's live
 // incomePerMinute figures — no tile scan required. This is the single source
@@ -321,6 +283,12 @@ type SeasonVictoryComputation = {
   objectives: SeasonVictoryObjectiveSnapshot[];
   /** Every competitive player's own progress on every objective they don't lead. */
   selfProgressLabelsByPlayerId: Map<string, Map<SeasonVictoryPathId, string>>;
+  /** Numeric companion to selfProgressLabelsByPlayerId (0..1 fractions), for
+   *  every objective a player doesn't lead. A player's progress on an
+   *  objective they DO lead is `objectives.find(o => o.id === ...).progress`
+   *  instead — this map only covers the non-leader case, same as the labels
+   *  map above. Used by the galactic meta-layer's Outpost/Stipend tiering. */
+  selfProgressByPlayerId: Map<string, Map<SeasonVictoryPathId, number>>;
 };
 
 // Computes base objectives AND every player's self-progress label from one
@@ -405,9 +373,17 @@ export const computeSeasonVictory = (
     return objective;
   });
 
+  const economicHegemonyObjective = objectives.find((objective) => objective.id === "ECONOMIC_HEGEMONY");
+  const economicHegemonyLeaderIncomePerMinute =
+    (economicHegemonyObjective?.leaderPlayerId
+      ? ctx.metricsByPlayerId.get(economicHegemonyObjective.leaderPlayerId)?.incomePerMinute
+      : undefined) ?? 0;
+
   const selfProgressLabelsByPlayerId = new Map<string, Map<SeasonVictoryPathId, string>>();
+  const selfProgressByPlayerId = new Map<string, Map<SeasonVictoryPathId, number>>();
   for (const pid of ctx.competitivePlayerIds) {
     const labels = new Map<SeasonVictoryPathId, string>();
+    const progresses = new Map<SeasonVictoryPathId, number>();
     for (const objective of objectives) {
       if (objective.leaderPlayerId === pid) continue;
       const label = objectiveSelfProgressLabel(
@@ -423,11 +399,28 @@ export const computeSeasonVictory = (
         ctx.competitivePlayerIds
       );
       if (label) labels.set(objective.id, label);
+      progresses.set(
+        objective.id,
+        objectiveSelfProgress(
+          objective.id,
+          pid,
+          ctx.metricsByPlayerId,
+          ctx.townTarget,
+          ctx.maritimeDockTarget,
+          ctx.diplomaticControlTarget,
+          ctx.totalResourceCounts,
+          ctx.ownedResourceCountsByPlayerId,
+          ctx.playerAlliesById,
+          ctx.competitivePlayerIds,
+          economicHegemonyLeaderIncomePerMinute
+        )
+      );
     }
     if (labels.size > 0) selfProgressLabelsByPlayerId.set(pid, labels);
+    if (progresses.size > 0) selfProgressByPlayerId.set(pid, progresses);
   }
 
-  return { objectives, selfProgressLabelsByPlayerId };
+  return { objectives, selfProgressLabelsByPlayerId, selfProgressByPlayerId };
 };
 
 export const mergeSelfProgress = (

@@ -1,5 +1,12 @@
+import type {
+  CurrentSeasonSummary,
+  GalaxySpecialization,
+  SeasonArchiveRow,
+  SeasonGalaxyTierSnapshot,
+  SeasonWinnerSnapshot,
+  SeasonWinnerStats
+} from "@border-empires/sim-protocol";
 import type { FastifyInstance } from "fastify";
-import type { CurrentSeasonSummary, GalaxySpecialization, SeasonArchiveRow, SeasonWinnerSnapshot, SeasonWinnerStats } from "@border-empires/sim-protocol";
 import { specializationForVictoryPath } from "@border-empires/sim-protocol";
 
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
@@ -27,9 +34,20 @@ type WonSeason = {
   winner: SeasonWinnerSnapshot;
 };
 
+// Seasons carrying galaxyTiers (§3 Outpost/Stipend records for non-winners),
+// resolved the same way WonSeason is: archived rows plus the current season
+// if it ended but hasn't rolled over yet (see resolveWonSeasons).
+type TieredSeason = {
+  seasonId: string;
+  seasonSequence: number;
+  endedAt: number;
+  galaxyTiers: SeasonGalaxyTierSnapshot[];
+};
+
 type GalaxyMePlanetView = {
   seasonId: string;
   seasonSequence: number;
+  tier: "PLANET";
   objectiveName: string;
   specialization: GalaxySpecialization;
   crownedAt: number;
@@ -41,12 +59,34 @@ type GalaxyMePlanetView = {
 type GalaxyPublicPlanetView = {
   seasonId: string;
   seasonSequence: number;
+  tier: "PLANET";
   objectiveName: string;
   specialization: GalaxySpecialization;
   crownedAt: number;
   claimed: boolean;
   planetName: string | null;
   stats?: SeasonWinnerStats;
+};
+
+// Outposts are public territory like Planets (§3: "minor permanent
+// holding"), so both /hq/galaxy/me and /hq/galaxy surface them — unlike
+// Stipends (one-time payouts, no territory), which only appear on /hq/galaxy/me.
+type GalaxyOutpostView = {
+  seasonId: string;
+  seasonSequence: number;
+  tier: "OUTPOST";
+  specialization: GalaxySpecialization;
+  awardedAt: number;
+  holderName: string;
+};
+
+type GalaxyStipendView = {
+  seasonId: string;
+  seasonSequence: number;
+  tier: "STIPEND";
+  awardedAt: number;
+  influence: number;
+  production: number;
 };
 
 const bearerHeader = (request: { headers: Record<string, unknown> }): string | undefined =>
@@ -71,6 +111,32 @@ const resolveWonSeasons = async (deps: RegisterGalaxyRoutesDeps): Promise<WonSea
     }
   }
   return won;
+};
+
+// Same shape as resolveWonSeasons, for the galactic Outpost/Stipend tier
+// records (§3) instead of the season's overall winner.
+const resolveTieredSeasons = async (deps: RegisterGalaxyRoutesDeps): Promise<TieredSeason[]> => {
+  const archives = await deps.listSeasonArchives();
+  const tiered: TieredSeason[] = [];
+  for (const archive of archives) {
+    if (archive.galaxyTiers && archive.galaxyTiers.length > 0) {
+      tiered.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, endedAt: archive.endedAt, galaxyTiers: archive.galaxyTiers });
+    }
+  }
+
+  if (deps.getCurrentSeasonSummary) {
+    const current = await deps.getCurrentSeasonSummary();
+    const alreadyArchived = tiered.some((season) => season.seasonId === current.seasonId);
+    if (current.status === "ended" && current.seasonGalaxyTiers && current.seasonGalaxyTiers.length > 0 && !alreadyArchived) {
+      tiered.push({
+        seasonId: current.seasonId,
+        seasonSequence: current.seasonSequence,
+        endedAt: current.endedAt ?? current.updatedAt,
+        galaxyTiers: current.seasonGalaxyTiers
+      });
+    }
+  }
+  return tiered;
 };
 
 // Resolves the durable authUid that won a given season, or undefined if the
@@ -103,6 +169,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       planets.push({
         seasonId: season.seasonId,
         seasonSequence: season.seasonSequence,
+        tier: "PLANET",
         objectiveName: season.winner.objectiveName,
         specialization: specializationForVictoryPath(season.winner.objectiveId),
         crownedAt: season.winner.crownedAt,
@@ -112,7 +179,27 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       });
     }
     planets.sort((a, b) => b.crownedAt - a.crownedAt);
-    return { planets };
+
+    // Outposts/Stipends (§3): every non-winning competitive player's own
+    // galaxyTiers entry for a given season, if this account's authUid is
+    // bound to that entry's per-season playerId.
+    const tieredSeasons = await resolveTieredSeasons(deps);
+    const outposts: GalaxyOutpostView[] = [];
+    const stipends: GalaxyStipendView[] = [];
+    for (const season of tieredSeasons) {
+      for (const tier of season.galaxyTiers) {
+        const binding = await deps.authBindingStore.getByPlayerId(tier.playerId);
+        if (binding?.uid !== authUid) continue;
+        if (tier.tier === "OUTPOST" && tier.specialization) {
+          outposts.push({ seasonId: season.seasonId, seasonSequence: season.seasonSequence, tier: "OUTPOST", specialization: tier.specialization, awardedAt: season.endedAt, holderName: tier.playerName });
+        } else if (tier.tier === "STIPEND") {
+          stipends.push({ seasonId: season.seasonId, seasonSequence: season.seasonSequence, tier: "STIPEND", awardedAt: season.endedAt, influence: tier.influence ?? 0, production: tier.production ?? 0 });
+        }
+      }
+    }
+    outposts.sort((a, b) => b.awardedAt - a.awardedAt);
+    stipends.sort((a, b) => b.awardedAt - a.awardedAt);
+    return { planets, outposts, stipends };
   });
 
   app.post("/hq/galaxy/planets/:seasonId/name", async (request, reply) => {
@@ -173,6 +260,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       planets.push({
         seasonId: season.seasonId,
         seasonSequence: season.seasonSequence,
+        tier: "PLANET",
         objectiveName: season.winner.objectiveName,
         specialization: specializationForVictoryPath(season.winner.objectiveId),
         crownedAt: season.winner.crownedAt,
@@ -181,6 +269,20 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
         ...(season.winner.stats ? { stats: season.winner.stats } : {})
       });
     }
-    return { planets };
+
+    // Outposts are public territory like Planets (§3). Stipends are a
+    // one-time payout with no territory, so — unlike Outposts — they're
+    // deliberately left off the public listing; they still exist as a tier
+    // concept (surfaced privately via /hq/galaxy/me).
+    const tieredSeasons = await resolveTieredSeasons(deps);
+    const outposts: GalaxyOutpostView[] = [];
+    for (const season of tieredSeasons) {
+      for (const tier of season.galaxyTiers) {
+        if (tier.tier !== "OUTPOST" || !tier.specialization) continue;
+        outposts.push({ seasonId: season.seasonId, seasonSequence: season.seasonSequence, tier: "OUTPOST", specialization: tier.specialization, awardedAt: season.endedAt, holderName: tier.playerName });
+      }
+    }
+    outposts.sort((a, b) => b.awardedAt - a.awardedAt);
+    return { planets, outposts };
   });
 };
