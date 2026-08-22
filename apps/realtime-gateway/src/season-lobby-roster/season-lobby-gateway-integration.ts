@@ -30,8 +30,8 @@ export type SeasonLobbyGatewayIntegrationDeps = {
 export const createSeasonLobbyGatewayIntegration = (deps: SeasonLobbyGatewayIntegrationDeps) => {
   const roster: SeasonLobbyRoster = createSeasonLobbyRoster();
   const lookup: LobbyDisplayLookup = {
-    getOverride: deps.profileOverrides.get,
-    getStoredProfile: deps.profileStore.get,
+    getOverride: (playerId) => deps.profileOverrides.get(playerId),
+    getStoredProfile: (playerId) => deps.profileStore.get(playerId),
     fallbackName: deps.fallbackName
   };
 
