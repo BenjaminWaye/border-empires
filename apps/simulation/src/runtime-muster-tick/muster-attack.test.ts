@@ -121,7 +121,8 @@ describe("muster-gated attacks", () => {
             terrain: "LAND",
             ownerId: "player-1",
             ownershipState: "SETTLED",
-            muster: { ownerId: "player-1", amount: 0, mode: "HOLD", updatedAt: 1_000 }
+            muster: { ownerId: "player-1", amount: 0, mode: "HOLD", updatedAt: 1_000 },
+            town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" }
           },
           // Neutral LAND tile to expand onto (EXPAND requires an unowned LAND target).
           { x: 9, y: 10, terrain: "LAND" }

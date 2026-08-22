@@ -7,7 +7,6 @@ export type TileMenuOverviewIntroInput = {
   resourceLabel?: string | undefined;
   isDockEndpoint?: boolean;
   hasTown?: boolean;
-  isDecaying?: boolean;
 };
 
 export const tileMenuSubtitleText = (ownerLabel: string, regionLabel?: string): string =>
@@ -45,17 +44,21 @@ export const tileMenuOverviewIntroLines = (input: TileMenuOverviewIntroInput): s
       ? [
           ...(input.resourceLabel ? [`Resource node: ${input.resourceLabel}.`] : []),
           "Frontier land is visible control, but it has no real defense yet.",
-          `Needs settlement to produce ${input.productionLabel}.`,
-          ...(input.isDecaying ? ["This tile is unsupported and will soon decay."] : [])
+          `Needs settlement to produce ${input.productionLabel}.`
         ]
       : [
           "Frontier land is visible control, but it has no real defense yet.",
-          "Needs settlement to gain defense and full ownership strength.",
-          ...(input.isDecaying ? ["This tile is unsupported and will soon decay."] : [])
+          "Needs settlement to gain defense and full ownership strength."
         ];
   }
   if (input.ownerKind === "mine-settled") {
-    return ["Settled land is defended and fully part of your empire."];
+    // A real town's own overview (population/gold/manpower stat grid, or the
+    // upcoming/basic prose below it) already says everything this generic
+    // "you own this and it's defended" line would — showing both reads as
+    // filler above the actual numbers. Only plain settled land (no town)
+    // still needs it, same as the unclaimed/mine-frontier branches above
+    // already special-case hasTown.
+    return input.hasTown ? [] : ["Settled land is defended and fully part of your empire."];
   }
   return [];
 };

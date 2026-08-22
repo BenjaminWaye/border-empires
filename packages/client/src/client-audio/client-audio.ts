@@ -204,7 +204,11 @@ export const initClientAudio = (): void => {
     }
     if (muted) return;
     attemptPlay();
-    void sfxElement?.play();
+    sfxElement?.play().catch(() => {
+      // Ignore — e.g. the tab was hidden again before this play() resolved,
+      // interrupting it with a pause(). Nothing to resume here (unlike the
+      // music bed, a location theme isn't retried on the next interaction).
+    });
   });
 };
 
@@ -234,9 +238,9 @@ export const setAmbientAudioVolume = (next: number): void => {
 /**
  * Crossfades the looping music bed to reflect current conflict state.
  * Call this from the game loop with the latest combat/tension signals —
- * a no-op unless the derived mode actually changed. Combat (an active
- * battle) takes priority over tension (an attack incoming or a muster
- * marching out), which takes priority over calm.
+ * a no-op unless the derived mode actually changed. Combat (a muster flag
+ * set to ADVANCE, or an active battle) takes priority over tension (a
+ * muster flag staged at HOLD), which takes priority over calm.
  */
 export const updateMusicForGameState = (input: { combat: boolean; tension: boolean }): void => {
   const nextMode: MusicMode = input.combat ? "combat" : input.tension ? "tension" : "calm";

@@ -34,6 +34,10 @@ const capturedObservatory = (tile: DomainTileState | undefined, nextOwnerId: str
 // converter can't be harvested for gold the instant it changes hands.
 const capturedEconomicStructure = (tile: DomainTileState | undefined, nextOwnerId: string, now: number): DomainTileState["economicStructure"] => {
   if (!tile?.economicStructure || tile.economicStructure.status === "under_construction") return undefined;
+  // Relay beacons don't survive capture — like siege outposts, they're razed
+  // rather than handed to the attacker, so a captured beacon can't
+  // instantly extend the attacker's reach on the spot.
+  if (tile.economicStructure.type === "RELAY_BEACON") return undefined;
   if (tile.economicStructure.status === "removing") {
     const { completesAt: _ignoredCompletesAt, previousStatus, ...economicStructure } = tile.economicStructure;
     return {

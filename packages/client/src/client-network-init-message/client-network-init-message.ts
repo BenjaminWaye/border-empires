@@ -102,6 +102,9 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.lastChunkSnapshotGeneration = 0;
   const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number; mapStyle?: "continents" | "islands" }; fogDisabled?: boolean } | undefined) ?? {};
   const incomingSeason = incomingConfig.season;
+  state.needsSeasonJoin = Boolean((msg as { needsSeasonJoin?: unknown }).needsSeasonJoin);
+  state.joinSeasonId = incomingSeason?.seasonId ?? "";
+  state.joinSeasonOverlayOpen = state.needsSeasonJoin;
   const incomingRuntimeIdentity =
     (msg.runtimeIdentity as
       | {
@@ -222,6 +225,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   const initialTrickle = (player as { chosenTrickleResource?: unknown }).chosenTrickleResource;
   state.chosenTrickleResource = isChosenTrickleResource(initialTrickle) ? initialTrickle : undefined;
   state.imperialWardCharges = (player as { imperialWardCharges?: number }).imperialWardCharges;
+  state.wonderLastFreeRushBuyAt = (player as { wonderLastFreeRushBuyAt?: number }).wonderLastFreeRushBuyAt;
   state.revealCapacity = (player.revealCapacity as number) ?? state.revealCapacity;
   state.activeRevealTargets = (player.activeRevealTargets as string[]) ?? state.activeRevealTargets;
   state.abilityCooldowns = (player.abilityCooldowns as typeof state.abilityCooldowns | undefined) ?? state.abilityCooldowns;
@@ -373,6 +377,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.firstChunkAt = Date.now();
     state.chunkFullCount = Math.max(state.chunkFullCount, 1);
     state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
+    if (state.hasOwnedTileInCache) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; }
     state.bridgeDebugBootstrap = "rewrite-init";
   } else {
     state.bridgeDebugBootstrap = "legacy-init";

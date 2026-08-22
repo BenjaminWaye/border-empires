@@ -18,6 +18,7 @@ import {
   type StrategicResourceKey
 } from "@border-empires/sim-protocol";
 import type { Terrain, VisibilityState } from "@border-empires/shared";
+import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor } from "./sim-client-prepare-player.js";
 
 type ProtoAck = { ok: boolean };
 type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
@@ -42,8 +43,7 @@ export type SeedBarbariansResult = {
   placed: number;
   detail: Record<string, unknown>;
 };
-type ProtoPreparePlayerAck = { ok: boolean; player_id?: string; playerId?: string; spawned?: boolean };
-export type PreparePlayerRallyAnchor = { x: number; y: number; island?: string };
+export type { PreparePlayerRallyAnchor };
 type ProtoTileDelta = {
   x: number;
   y: number;
@@ -57,8 +57,8 @@ type ProtoTileDelta = {
   ownershipState?: string;
   frontier_decay_at?: number;
   frontierDecayAt?: number;
-  frontier_decay_kind?: "NATURAL" | "ENCIRCLEMENT";
-  frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT";
+  frontier_decay_kind?: "ENCIRCLEMENT";
+  frontierDecayKind?: "ENCIRCLEMENT";
   breach_shock_until?: number;
   breachShockUntil?: number;
   town_json?: string;
@@ -187,6 +187,10 @@ type ProtoSimulationEvent = {
 type SimulationClientLike = {
   SubmitCommand: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoAck) => void) => void;
   PreparePlayer: (
+    request: { player_id: string; rally_anchor_json?: string },
+    callback: (error: Error | null, response: ProtoPreparePlayerAck) => void
+  ) => void;
+  JoinSeason?: (
     request: { player_id: string; rally_anchor_json?: string },
     callback: (error: Error | null, response: ProtoPreparePlayerAck) => void
   ) => void;
@@ -321,7 +325,7 @@ export type SimulationClientEvent =
         ownerId?: string | undefined;
         ownershipState?: string | undefined;
         frontierDecayAt?: number | undefined;
-        frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+        frontierDecayKind?: "ENCIRCLEMENT" | undefined;
         breachShockUntil?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";
@@ -414,7 +418,7 @@ export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<Si
   }
   if ("frontier_decay_kind" in tile || "frontierDecayKind" in tile) {
     const frontierDecayKind = tile.frontier_decay_kind ?? tile.frontierDecayKind;
-    normalized.frontierDecayKind = frontierDecayKind === "NATURAL" || frontierDecayKind === "ENCIRCLEMENT" ? frontierDecayKind : undefined;
+    normalized.frontierDecayKind = frontierDecayKind === "ENCIRCLEMENT" ? frontierDecayKind : undefined;
   }
   if ("breach_shock_until" in tile || "breachShockUntil" in tile) {
     const breachShockUntil = tile.breach_shock_until ?? tile.breachShockUntil;
@@ -837,7 +841,8 @@ export type FetchTileDetailResult = {
 
 export const createSimulationClientFromRpcClient = (client: SimulationClientLike): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
-  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean }>;
+  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }>;
+  joinSeason?: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
@@ -871,36 +876,16 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
     });
   },
   preparePlayer(playerId, rallyAnchor) {
-    return new Promise<{ playerId: string; spawned: boolean }>((resolve, reject) => {
-      const preparePlayerRpc =
-        (typeof client.PreparePlayer === "function" ? client.PreparePlayer.bind(client) : undefined) ??
-        (
-          client as SimulationClientLike & {
-            preparePlayer?: SimulationClientLike["PreparePlayer"];
-          }
-        ).preparePlayer?.bind(client);
-      if (!preparePlayerRpc) {
-        reject(new Error("simulation client preparePlayer RPC is unavailable"));
-        return;
-      }
-      preparePlayerRpc(
-        { player_id: playerId, ...(rallyAnchor ? { rally_anchor_json: JSON.stringify(rallyAnchor) } : {}) },
-        (error, response) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve({
-          playerId:
-            typeof response.player_id === "string"
-              ? response.player_id
-              : typeof response.playerId === "string"
-                ? response.playerId
-                : playerId,
-          spawned: response.spawned === true
-        });
-      });
-    });
+    const preparePlayerRpc =
+      (typeof client.PreparePlayer === "function" ? client.PreparePlayer.bind(client) : undefined) ??
+      (client as SimulationClientLike & { preparePlayer?: SimulationClientLike["PreparePlayer"] }).preparePlayer?.bind(client);
+    return preparePlayerRpcCall(preparePlayerRpc, playerId, rallyAnchor);
+  },
+  joinSeason(playerId, rallyAnchor) {
+    const joinSeasonRpc =
+      (typeof client.JoinSeason === "function" ? client.JoinSeason.bind(client) : undefined) ??
+      (client as SimulationClientLike & { joinSeason?: SimulationClientLike["JoinSeason"] }).joinSeason?.bind(client);
+    return joinSeasonRpcCall(joinSeasonRpc, playerId, rallyAnchor);
   },
   subscribePlayer(playerId, subscriptionJson = "{}") {
     return new Promise<PlayerSubscriptionSnapshot>((resolve, reject) => {
@@ -1126,7 +1111,8 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
 
 export const createSimulationClient = (address: string): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
-  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean }>;
+  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }>;
+  joinSeason?: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;

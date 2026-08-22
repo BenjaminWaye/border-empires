@@ -1,5 +1,6 @@
 import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
 import { planWaypoint } from "./client-waypoint-planner.js";
+import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState, ClientWaypoint } from "../client-state/client-state.js";
 
 // Client-side sessionStorage persistence for the waypoint/expand queue,
@@ -127,7 +128,7 @@ export const persistWaypointQueueForPlayer = (playerId: string, queue: readonly 
 export const restorePersistedWaypointQueueForPlayer = (
   playerId: string,
   deps: {
-    state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces">;
+    state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "serverReach" | "serverReachRevision">;
     keyFor: (x: number, y: number) => string;
   },
   serverWaypointQueue?: readonly ServerWaypointQueueWireEntry[]
@@ -162,13 +163,14 @@ export const restorePersistedWaypointQueueForPlayer = (
     ...sessionEntries.filter((entry) => !serverTargetKeys.has(sessionKeyFor(entry.target.x, entry.target.y)))
   ];
 
+  const isInReach = authoritativeIsInReach(deps.state, deps.keyFor);
   const restored: ClientWaypoint[] = [];
   for (const entry of orderedEntries) {
     const tile = deps.state.tiles.get(deps.keyFor(entry.target.x, entry.target.y));
     if (tile && tile.ownerId === playerId) continue; // already reached while offline
     restored.push({
       target: entry.target,
-      plan: planWaypoint(entry.target, { state: deps.state, keyFor: deps.keyFor }),
+      plan: planWaypoint(entry.target, { state: deps.state, keyFor: deps.keyFor, isInReach }),
       ...(entry.trackBarbarian ? { trackBarbarian: true } : {})
     });
     if (restored.length >= WAYPOINT_QUEUE_CLIENT_CAP) break;

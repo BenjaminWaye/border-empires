@@ -114,11 +114,23 @@ export const createClientThreeTownLayer = (scene: Scene, maxVisibleTiles: number
     townRoofSideMesh.count = townRoofSideCount;
     townKeepMesh.count = townKeepCount;
     townKeepCapMesh.count = townKeepCapCount;
+    townWallFrontMesh.instanceMatrix.clearUpdateRanges();
+    townWallFrontMesh.instanceMatrix.addUpdateRange(0, townWallFrontMesh.count * 16);
     townWallFrontMesh.instanceMatrix.needsUpdate = true;
+    townWallSideMesh.instanceMatrix.clearUpdateRanges();
+    townWallSideMesh.instanceMatrix.addUpdateRange(0, townWallSideMesh.count * 16);
     townWallSideMesh.instanceMatrix.needsUpdate = true;
+    townRoofTopMesh.instanceMatrix.clearUpdateRanges();
+    townRoofTopMesh.instanceMatrix.addUpdateRange(0, townRoofTopMesh.count * 16);
     townRoofTopMesh.instanceMatrix.needsUpdate = true;
+    townRoofSideMesh.instanceMatrix.clearUpdateRanges();
+    townRoofSideMesh.instanceMatrix.addUpdateRange(0, townRoofSideMesh.count * 16);
     townRoofSideMesh.instanceMatrix.needsUpdate = true;
+    townKeepMesh.instanceMatrix.clearUpdateRanges();
+    townKeepMesh.instanceMatrix.addUpdateRange(0, townKeepMesh.count * 16);
     townKeepMesh.instanceMatrix.needsUpdate = true;
+    townKeepCapMesh.instanceMatrix.clearUpdateRanges();
+    townKeepCapMesh.instanceMatrix.addUpdateRange(0, townKeepCapMesh.count * 16);
     townKeepCapMesh.instanceMatrix.needsUpdate = true;
   };
 

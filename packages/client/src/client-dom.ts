@@ -68,6 +68,7 @@ export const initClientDom = () => {
   const authBusyTitleEl = requireElement<HTMLElement>("#auth-busy-title");
   const authBusyCopyEl = requireElement<HTMLParagraphElement>("#auth-busy-copy");
   const authBusyDiagnosticsBtn = requireElement<HTMLButtonElement>("#auth-busy-diagnostics");
+  const authBusySeasonFullNotifyBtn = requireElement<HTMLButtonElement>("#auth-busy-season-full-notify");
   const authEmailSentAddressEl = requireElement<HTMLSpanElement>("#auth-email-sent-address");
   const authEmailResetBtn = requireElement<HTMLButtonElement>("#auth-email-reset");
   const authProfileNameEl = requireElement<HTMLInputElement>("#auth-profile-name");
@@ -133,6 +134,7 @@ export const initClientDom = () => {
   const changelogOverlayEl = requireElement<HTMLDivElement>("#changelog-overlay");
   const guideOverlayEl = requireElement<HTMLDivElement>("#guide-overlay");
   const respawnOverlayEl = requireElement<HTMLDivElement>("#respawn-overlay");
+  const joinSeasonOverlayEl = requireElement<HTMLDivElement>("#join-season-overlay");
   const seasonEndOverlayEl = requireElement<HTMLDivElement>("#season-end-overlay");
   const intelOverlayEl = requireElement<HTMLDivElement>("#intel-overlay");
   const rendererPromptOverlayEl = requireElement<HTMLDivElement>("#renderer-prompt-overlay");
@@ -159,6 +161,7 @@ export const initClientDom = () => {
     authLoginBtn,
     authBusyCopyEl,
     authBusyDiagnosticsBtn,
+    authBusySeasonFullNotifyBtn,
     authBusyModalEl,
     authBusyTitleEl,
     authOverlayEl,
@@ -256,6 +259,7 @@ export const initClientDom = () => {
     panelTitleEl,
     rendererPromptOverlayEl,
     respawnOverlayEl,
+    joinSeasonOverlayEl,
     seasonEndOverlayEl,
     selectedEl,
     shardAlertCardEl,

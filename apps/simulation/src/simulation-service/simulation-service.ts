@@ -74,6 +74,7 @@ import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers } from "../season-lifecycle.js";
+import { parseRallyAnchor, preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
 import { computeSeasonWinnerStats } from "../season-winner-stats.js";
 import { computeLongestRoad, findMostDeadlyTile } from "../season-stats/season-stats.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
@@ -89,18 +90,7 @@ import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
 import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
 import { buildEventLoopBlockedPayload } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
-
-const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
-  if (!value) return undefined;
-  try {
-    const parsed = JSON.parse(value) as { x?: unknown; y?: unknown };
-    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return undefined;
-    if (!Number.isInteger(parsed.x) || !Number.isInteger(parsed.y)) return undefined;
-    return { x: parsed.x, y: parsed.y };
-  } catch {
-    return undefined;
-  }
-};
+import { resolveMaxSeasonPlayers } from "../season-join-capacity.js";
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
@@ -250,7 +240,7 @@ type SimulationServiceOptions = {
   commandStore?: SimulationCommandStore;
   eventStore?: SimulationEventStore;
   snapshotStore?: SimulationSnapshotStore;
-  seasonSummaryStore?: SeasonSummaryStore;
+  seasonSummaryStore?: SeasonSummaryStore; maxSeasonPlayers?: number; // overrides SIMULATION_MAX_SEASON_PLAYERS
   runtimeOptions?: ConstructorParameters<typeof SimulationRuntime>[0];
   log?: Pick<Console, "error" | "info" | "warn">;
 };
@@ -1145,7 +1135,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     if (orphanLockSweepTicker) { clearInterval(orphanLockSweepTicker); orphanLockSweepTicker = undefined; }
     if (watchedMusterTicker) { clearInterval(watchedMusterTicker); watchedMusterTicker = undefined; }
     if (watchtowerRevealTicker) { clearInterval(watchtowerRevealTicker); watchtowerRevealTicker = undefined; }
-    if (expandRevealTicker) { clearInterval(expandRevealTicker); expandRevealTicker = undefined; }
     if (populationGrowthTicker) { clearInterval(populationGrowthTicker); populationGrowthTicker = undefined; }
     if (passiveIncomeTicker) { clearInterval(passiveIncomeTicker); passiveIncomeTicker = undefined; }
     log.info("season ended — gameplay tickers stopped");
@@ -1219,7 +1208,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   };
-  const preparePlayerSlowLogMs = 250;
+  const maxSeasonPlayers = resolveMaxSeasonPlayers(options.maxSeasonPlayers);
   // 5s: Phase 3b broadcast uses cheap player-only path (no tile export).
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 5000;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
@@ -1230,7 +1219,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
   let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
   let watchtowerRevealTicker: ReturnType<typeof setInterval> | undefined;
-  let expandRevealTicker: ReturnType<typeof setInterval> | undefined;
   let populationGrowthTicker: ReturnType<typeof setInterval> | undefined;
   let passiveIncomeTicker: ReturnType<typeof setInterval> | undefined;
   let eventLoopWindowMaxMs = 0;
@@ -2306,59 +2294,23 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     PreparePlayer(
       call: { request: { player_id: string; rally_anchor_json?: string } },
-      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean }) => void
+      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean; full?: boolean }) => void
     ) {
-      const prepareStartedAt = Date.now();
-      let spawned = false;
-      try {
-        if (currentSeasonState.status !== "ended") {
-          const spawnStartedAt = Date.now();
-          const rallyAnchor = parseRallyAnchor(call.request.rally_anchor_json);
-          spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id, rallyAnchor);
-          simulationMetrics.observeSimPreparePlayerLatencyMs("spawn", Date.now() - spawnStartedAt);
-          if (spawned) {
-            deleteCachedSnapshot(call.request.player_id);
-            log.info({ playerId: call.request.player_id }, "spawned runtime territory for prepared player");
-          }
-          try {
-            runtime.emitShardRainHelloFor(call.request.player_id);
-          } catch (error) {
-            log.error({ err: error, playerId: call.request.player_id }, "shard rain hello failed");
-          }
-        }
-        const prepareDurationMs = Date.now() - prepareStartedAt;
-        simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
-        if (spawned || prepareDurationMs >= preparePlayerSlowLogMs) {
-          log.info({
-            playerId: call.request.player_id,
-            prepareDurationMs,
-            spawned
-          }, "prepare player completed");
-        }
-        callback(null, {
-          ok: true,
-          player_id: call.request.player_id,
-          playerId: call.request.player_id,
-          spawned
-        });
-      } catch (error) {
-        const prepareDurationMs = Date.now() - prepareStartedAt;
-        simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
-        log.error(
-          {
-            playerId: call.request.player_id,
-            prepareDurationMs,
-            error: error instanceof Error ? error.message : String(error)
-          },
-          "prepare player failed"
-        );
-        callback(error instanceof Error ? error : new Error("failed to prepare simulation player"), {
-          ok: false,
-          player_id: call.request.player_id,
-          playerId: call.request.player_id,
-          spawned
-        });
-      }
+      preparePlayerHandler(
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers },
+        call,
+        callback
+      );
+    },
+    JoinSeason(
+      call: { request: { player_id: string; rally_anchor_json?: string } },
+      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean }) => void
+    ) {
+      joinSeasonHandler(
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers },
+        call,
+        callback
+      );
     },
     SubscribePlayer(
       call: { request: { player_id: string; subscription_json: string } },
@@ -2698,10 +2650,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         incomePerMinute: player.incomePerMinute,
         techs: player.techIds.length,
         manpower: player.manpower,
-        food: player.strategicResources.FOOD ?? 0,
-        titanium: player.strategicResources.TITANIUM ?? 0,
-        crystal: player.strategicResources.CRYSTAL ?? 0,
-        umbrite: player.strategicResources.UMBRITE ?? 0
+        resourceSlotSupply: player.resourceSlotSupply,
+        resourceSlotDemand: player.resourceSlotDemand,
+        shardStockpile: player.shardStockpile,
+        reachTiles: runtime.reachTileCountForPlayer(player.id),
+        frontierTiles: Math.max(0, player.ownedTileCount - player.settledTileCount)
       }));
       callback(null, { ok: true, players_json: JSON.stringify(rows) });
     },
@@ -2909,10 +2862,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       watchtowerRevealTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         runtime.tickWatchtowerReveals(Date.now());
-      }, 1_000);
-      expandRevealTicker = setInterval(() => {
-        if (currentSeasonState.status === "ended") return;
-        runtime.tickExpandReveals(Date.now());
       }, 1_000);
       let passiveIncomeRunning = false;
       passiveIncomeTicker = setInterval(() => {
@@ -3180,7 +3129,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
       if (watchedMusterTicker) clearInterval(watchedMusterTicker);
       if (watchtowerRevealTicker) clearInterval(watchtowerRevealTicker);
-      if (expandRevealTicker) clearInterval(expandRevealTicker);
       if (populationGrowthTicker) clearInterval(populationGrowthTicker);
       if (passiveIncomeTicker) clearInterval(passiveIncomeTicker);
       gcObserver?.disconnect();

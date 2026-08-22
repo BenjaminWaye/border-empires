@@ -1,5 +1,6 @@
 import {
   DEVELOPMENT_PROCESS_LIMIT,
+  FRONTIER_STANDING_VISION_RADIUS,
   VISION_RADIUS,
   WORLD_HEIGHT,
   WORLD_WIDTH
@@ -102,11 +103,10 @@ export const buildPlayerSubscriptionSnapshot = (
   const frontierTileKeys = (pid: string): ReadonlySet<string> => frontierTileKeySetByPlayer.get(pid) ?? EMPTY_KEY_SET;
 
   const playersById = new Map(runtimeState.players.map((player) => [player.id, player] as const));
-  // A FRONTIER claim holds no standing vision halo of its own (see the same
-  // rule enforced server-side in visibility-coverage-cache.ts's
-  // tileOwnershipChanged) — only the tile itself is visible (radius 0),
-  // gated per-key via `frontierKeys` so SETTLED territory keeps the full
-  // radius.
+  // A FRONTIER claim holds only a flat FRONTIER_STANDING_VISION_RADIUS halo
+  // (see the same rule enforced server-side in visibility-coverage-cache.ts's
+  // tileOwnershipChanged), not the owner's full (tech-scaled) radius, gated
+  // per-key via `frontierKeys` so SETTLED territory keeps the full radius.
   const addVision = (
     targetKeys: Set<string>,
     territoryTileKeys: Iterable<string>,
@@ -118,7 +118,7 @@ export const buildPlayerSubscriptionSnapshot = (
     for (const tileKey of territoryTileKeys) {
       const coords = parseKey(tileKey);
       if (!coords) continue;
-      const effectiveRadius = frontierKeys.has(tileKey) ? 0 : radius;
+      const effectiveRadius = frontierKeys.has(tileKey) ? FRONTIER_STANDING_VISION_RADIUS : radius;
       for (let dy = -effectiveRadius; dy <= effectiveRadius; dy += 1) {
         for (let dx = -effectiveRadius; dx <= effectiveRadius; dx += 1) {
           targetKeys.add(keyFor(wrapX(coords.x + dx), wrapY(coords.y + dy)));
@@ -295,6 +295,7 @@ export const buildPlayerSubscriptionSnapshot = (
             },
             incomePerMinute,
             imperialWardCharges: livePlayer.imperialWardCharges ?? 0,
+            wonderLastFreeRushBuyAt: livePlayer.wonderLastFreeRushBuyAt ?? 0,
             eventLog: livePlayer.eventLog ?? [],
             strategicResources: {
               FOOD: livePlayer.strategicResources.FOOD ?? 0,

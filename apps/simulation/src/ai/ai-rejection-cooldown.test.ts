@@ -20,7 +20,6 @@ const BASE: DecisionInputs = {
   frontierEnemyCount: 0,
   frontierOpportunityEconomic: 0,
   expansionOpportunityCount: 0,
-  nonWasteExpansionOpportunityCount: 0,
   hasActionableNonWasteExpand: false,
   hasExpansionObjective: false,
   hasOnlyScoutExpand: false,
@@ -40,6 +39,9 @@ const BASE: DecisionInputs = {
   hasEconomicBuild: false,
   hasFortBuild: false,
   hasSiegeOutpost: false,
+  hasRelayBeaconBuild: false,
+  relayBeaconSiteValue: 0,
+  beaconBoostActive: false,
   techAffordable: false,
   momentumTicks: {},
   cooldown: {},
@@ -80,16 +82,40 @@ describe("rejection cooldown", () => {
 
   it("recordRejectionCooldown maps BUILD_FORT to BUILD_DEFENSE", () => {
     const state = createRejectionCooldownState();
-    recordRejectionCooldown(state, "p1", "BUILD_FORT", 1000);
+    recordRejectionCooldown(state, "p1", { type: "BUILD_FORT", payloadJson: "{}" }, 1000);
     const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
     expect(cooldowns).toEqual({ BUILD_DEFENSE: true });
   });
 
-  it("recordRejectionCooldown maps BUILD_ECONOMIC_STRUCTURE to BUILD_ECONOMY", () => {
+  it("recordRejectionCooldown maps a plain BUILD_ECONOMIC_STRUCTURE to BUILD_ECONOMY", () => {
     const state = createRejectionCooldownState();
-    recordRejectionCooldown(state, "p1", "BUILD_ECONOMIC_STRUCTURE", 1000);
+    recordRejectionCooldown(
+      state,
+      "p1",
+      { type: "BUILD_ECONOMIC_STRUCTURE", payloadJson: JSON.stringify({ x: 1, y: 1, structureType: "FARMSTEAD" }) },
+      1000
+    );
     const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
     expect(cooldowns).toEqual({ BUILD_ECONOMY: true });
+  });
+
+  it("recordRejectionCooldown maps a RELAY_BEACON BUILD_ECONOMIC_STRUCTURE to BUILD_BEACON, not BUILD_ECONOMY", () => {
+    // Regression: BUILD_ECONOMIC_STRUCTURE is the command TYPE for both a
+    // plain economic structure (BUILD_ECONOMY) and a relay beacon
+    // (BUILD_BEACON, its own decision class — reach infrastructure, not
+    // economy, see decisions.ts's scoreBuildBeacon). The type alone can't
+    // distinguish them; only the payload's structureType can. Without this,
+    // a rejected beacon build cooled down the WRONG class and BUILD_BEACON
+    // was free to re-propose the exact same doomed build every tick.
+    const state = createRejectionCooldownState();
+    recordRejectionCooldown(
+      state,
+      "p1",
+      { type: "BUILD_ECONOMIC_STRUCTURE", payloadJson: JSON.stringify({ x: 1, y: 1, structureType: "RELAY_BEACON" }) },
+      1000
+    );
+    const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
+    expect(cooldowns).toEqual({ BUILD_BEACON: true });
   });
 
   it("recordRejectionCooldown maps ATTACK to ATTACK", () => {
@@ -100,7 +126,7 @@ describe("rejection cooldown", () => {
     // the same doomed command until the lock cleared ~11 ticks later,
     // inflating rejected-command metrics with wasted resubmissions.
     const state = createRejectionCooldownState();
-    recordRejectionCooldown(state, "p1", "ATTACK", 1000);
+    recordRejectionCooldown(state, "p1", { type: "ATTACK", payloadJson: "{}" }, 1000);
     const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
     expect(cooldowns).toEqual({ ATTACK: true });
   });
@@ -113,21 +139,21 @@ describe("rejection cooldown", () => {
     // forever, starving tech/domain choices and the entire main planner for
     // that player.
     const state = createRejectionCooldownState();
-    recordRejectionCooldown(state, "p1", "UPGRADE_TOWN_TIER", 1000);
+    recordRejectionCooldown(state, "p1", { type: "UPGRADE_TOWN_TIER", payloadJson: "{}" }, 1000);
     const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS - 1);
     expect(cooldowns).toEqual({ UPGRADE_TOWN_TIER: true });
   });
 
   it("cooldown expires after REJECTION_COOLDOWN_MS", () => {
     const state = createRejectionCooldownState();
-    recordRejectionCooldown(state, "p1", "BUILD_FORT", 1000);
+    recordRejectionCooldown(state, "p1", { type: "BUILD_FORT", payloadJson: "{}" }, 1000);
     const active = activeCooldownsForPlayer(state, "p1", 1000 + REJECTION_COOLDOWN_MS + 1);
     expect(active).toBeUndefined();
   });
 
   it("non-build command types do not create cooldowns", () => {
     const state = createRejectionCooldownState();
-    recordRejectionCooldown(state, "p1", "EXPAND", 1000);
+    recordRejectionCooldown(state, "p1", { type: "EXPAND", payloadJson: "{}" }, 1000);
     const cooldowns = activeCooldownsForPlayer(state, "p1", 1000 + 1);
     expect(cooldowns).toBeUndefined();
   });

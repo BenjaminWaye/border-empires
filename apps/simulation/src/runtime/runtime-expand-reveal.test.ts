@@ -30,12 +30,12 @@ describe("simulation runtime — EXPAND capture reveal", () => {
           // (reveal-square) path would balloon to ~VISION_RADIUS² deltas —
           // this is what makes the assertion able to tell the two paths apart.
           tiles: (() => {
-            const t: Array<{ x: number; y: number; terrain: "LAND"; ownerId?: string; ownershipState?: "SETTLED" | "FRONTIER" }> = [];
+            const t: Array<{ x: number; y: number; terrain: "LAND"; ownerId?: string; ownershipState?: "SETTLED" | "FRONTIER"; town?: { name: string; type: "FARMING"; populationTier: "SETTLEMENT" } }> = [];
             for (let x = 6; x <= 14; x += 1) {
               for (let y = 7; y <= 15; y += 1) t.push({ x, y, terrain: "LAND" });
             }
             const at = (x: number, y: number) => t.find((tile) => tile.x === x && tile.y === y)!;
-            Object.assign(at(10, 10), { ownerId: "player-2", ownershipState: "SETTLED" });
+            Object.assign(at(10, 10), { ownerId: "player-2", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING" as const, populationTier: "SETTLEMENT" as const } });
             return t;
           })(),
           activeLocks: []
@@ -99,12 +99,16 @@ describe("simulation runtime — EXPAND capture reveal", () => {
         ]),
         initialState: {
           tiles: (() => {
-            const t: Array<{ x: number; y: number; terrain: "LAND"; ownerId?: string; ownershipState?: "SETTLED" | "FRONTIER" }> = [];
+            const t: Array<{ x: number; y: number; terrain: "LAND"; ownerId?: string; ownershipState?: "SETTLED" | "FRONTIER"; town?: { name: string; type: "FARMING"; populationTier: "SETTLEMENT" } }> = [];
             for (let x = 6; x <= 14; x += 1) {
               for (let y = 7; y <= 15; y += 1) t.push({ x, y, terrain: "LAND" });
             }
             const at = (x: number, y: number) => t.find((tile) => tile.x === x && tile.y === y)!;
             Object.assign(at(10, 10), { ownerId: "player-2", ownershipState: "SETTLED" });
+            // Town lives a few tiles away so its reach disc covers the origin/
+            // target tiles without itself contributing to the vision-radius
+            // math the assertions below depend on.
+            Object.assign(at(7, 8), { ownerId: "player-2", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING" as const, populationTier: "SETTLEMENT" as const } });
             return t;
           })(),
           activeLocks: []

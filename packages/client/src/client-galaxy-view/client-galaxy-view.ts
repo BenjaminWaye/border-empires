@@ -37,6 +37,7 @@ const galaxyStyle = `
   .gx-starfield{position:relative;border-radius:10px;padding:32px 16px;text-align:center;background:radial-gradient(ellipse at center,#0f172a 0%,#020617 70%);overflow:hidden}
   .gx-stars{position:absolute;inset:0;background-image:radial-gradient(1px 1px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 65% 15%,#fff,transparent),radial-gradient(1.5px 1.5px at 80% 60%,#fff,transparent),radial-gradient(1px 1px at 40% 80%,#fff,transparent),radial-gradient(1px 1px at 90% 40%,#fff,transparent),radial-gradient(1.5px 1.5px at 10% 65%,#fff,transparent);opacity:.6}
   .gx-kicker{position:relative;margin:0 0 8px;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+  .gx-specialization{position:relative;margin:0 0 8px;display:inline-block;color:#7dd3fc;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 10px;border:1px solid rgba(125,211,252,.4);border-radius:10px}
   .gx-planet-figure{position:relative;width:132px;height:132px;margin:0 auto 18px;display:grid;place-items:center}
   .gx-ring{position:absolute;width:224px;height:72px;border-radius:50%;border:9px solid transparent;border-top-color:rgba(148,197,255,.55);border-bottom-color:rgba(56,110,168,.32);transform:rotate(-12deg);pointer-events:none}
   .gx-orb{position:relative;width:132px;height:132px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 30% 26%,#a9ecff 0%,#38bdf8 32%,#0d6ab0 62%,#062a45 100%);box-shadow:0 0 46px rgba(56,189,248,.5)}

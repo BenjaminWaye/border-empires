@@ -31,42 +31,26 @@ describe("tile menu copy ownership", () => {
     ]);
   });
 
-  it("omits decay line for mine-frontier tile when isDecaying is false", () => {
-    const lines = tileMenuOverviewIntroLines({
-      terrain: "LAND",
-      ownerKind: "mine-frontier",
-      productionLabel: "food",
-      isDecaying: false
-    });
-    expect(lines).not.toContain("This tile is unsupported and will soon decay.");
+  it("shows the generic settled-land line for settled land with no town", () => {
+    expect(
+      tileMenuOverviewIntroLines({
+        terrain: "LAND",
+        ownerKind: "mine-settled"
+      })
+    ).toEqual(["Settled land is defended and fully part of your empire."]);
   });
 
-  it("omits decay line for mine-frontier tile when isDecaying is undefined", () => {
-    const lines = tileMenuOverviewIntroLines({
-      terrain: "LAND",
-      ownerKind: "mine-frontier"
-    });
-    expect(lines).not.toContain("This tile is unsupported and will soon decay.");
-  });
-
-  it("includes decay line for mine-frontier tile when isDecaying is true", () => {
-    const lines = tileMenuOverviewIntroLines({
-      terrain: "LAND",
-      ownerKind: "mine-frontier",
-      productionLabel: "food",
-      isDecaying: true
-    });
-    expect(lines).toContain("This tile is unsupported and will soon decay.");
-    expect(lines[lines.length - 1]).toBe("This tile is unsupported and will soon decay.");
-  });
-
-  it("includes decay line for mine-frontier tile without productionLabel when isDecaying is true", () => {
-    const lines = tileMenuOverviewIntroLines({
-      terrain: "LAND",
-      ownerKind: "mine-frontier",
-      isDecaying: true
-    });
-    expect(lines).toContain("This tile is unsupported and will soon decay.");
-    expect(lines[lines.length - 1]).toBe("This tile is unsupported and will soon decay.");
+  // Regression test: a real town's own overview (the stat grid below this
+  // intro) already says everything "settled land is defended and fully
+  // part of your empire" would — the generic line was showing as redundant
+  // filler above a town's actual numbers.
+  it("omits the generic settled-land line for a settled town", () => {
+    expect(
+      tileMenuOverviewIntroLines({
+        terrain: "LAND",
+        ownerKind: "mine-settled",
+        hasTown: true
+      })
+    ).toEqual([]);
   });
 });

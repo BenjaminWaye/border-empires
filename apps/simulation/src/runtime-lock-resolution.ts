@@ -49,13 +49,11 @@ export type RuntimeLockResolutionContext = {
   // surrounding area, then reverts to normal fog-of-war. No-op if the tile
   // has no watchtower or it was already activated.
   maybeActivateWatchtower: (targetKey: string, x: number, y: number, playerId: string, commandId: string) => void;
-  // Fires a temporary discovery-pulse vision reveal (see
-  // runtime-expand-reveal-tick.ts) on every successful EXPAND or ATTACK
-  // capture, independent of any watchtower feature — FRONTIER tiles no
-  // longer hold standing vision (see visibility-coverage-cache.ts), so this
-  // is what makes pushing the frontier outward feel like exploring rather
-  // than blind claiming, whether that push is peaceful or forced.
-  activateExpandReveal: (x: number, y: number, playerId: string) => void;
+  // Drains a server-durable "claim continuation" (see player-runtime-
+  // summary.ts / runtime-claim-continuation-command-handlers.ts) registered
+  // for this tile, if any -- i.e. auto-SETTLE (+ auto-BUILD) it now that a
+  // winning EXPAND actually landed ownership. No-op if none was registered.
+  maybeDrainClaimContinuation: (targetKey: string, x: number, y: number, playerId: string) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -189,19 +187,9 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     else context.clearFortPatrolGrace(lock.targetKey);
     if (lock.actionType === "EXPAND") {
       context.maybeActivateWatchtower(lock.targetKey, lock.targetX, lock.targetY, lock.playerId, lock.commandId);
-    }
-    // Every successful human capture (peaceful or forced) grants a discovery
-    // pulse — a captured tile always lands as FRONTIER for the new owner
-    // (see resolvedTarget.ownershipState above), which carries no standing
-    // vision of its own, so without this an attack chain could never see
-    // past its own current edge to line up the next target. Skipped for
-    // AI/barbarian actors: same reasoning as the reveal-square skip just
-    // below — no WS subscriber means the pulse (already a no-op for
-    // barbarians inside addTemporaryReveal/removeTemporaryReveal, see
-    // visibility-coverage-cache.ts's isBarbarian guards) would only churn
-    // pendingExpandReveals for 10s with nothing watching.
-    if (!isAiControlledActor(lock.playerId, attacker?.isAi) && (lock.actionType === "EXPAND" || lock.actionType === "ATTACK")) {
-      context.activateExpandReveal(lock.targetX, lock.targetY, lock.playerId);
+      if (resolvedTarget.ownershipState === "FRONTIER") {
+        context.maybeDrainClaimContinuation(lock.targetKey, lock.targetX, lock.targetY, lock.playerId);
+      }
     }
 
     let tileDeltas: SimulationTileWireDelta[];
@@ -223,15 +211,26 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // synchronously blocks the sim's event loop for 150-800ms+ and has caused
     // gateway submit timeouts (SIMULATION_UNAVAILABLE) during rapid-fire
     // expand chains.
+    // The previous owner (if this was a real capture, not an EXPAND onto
+    // neutral land) just lost this exact tile and needs to see its resolved
+    // state — including any muster flag being cleared — even if losing it
+    // dropped their fog-of-war coverage in the same instant. See
+    // SimulationTileWireDelta.forceVisibleForPlayerId's doc comment.
+    const capturedFromPlayerId = previousOwnerId && previousOwnerId !== lock.playerId ? previousOwnerId : undefined;
     if (isAiControlledActor(lock.playerId, attacker?.isAi) || lock.actionType === "EXPAND" || lock.actionType === "ATTACK") {
       tileDeltas = [{
         ...context.tileDeltaFromState(resolvedTarget),
-        ...(combatBroadcastJson ? { combatJson: combatBroadcastJson } : {})
+        ...(combatBroadcastJson ? { combatJson: combatBroadcastJson } : {}),
+        ...(capturedFromPlayerId ? { forceVisibleForPlayerId: capturedFromPlayerId } : {})
       }];
     } else {
       const measure = Boolean(context.onCaptureRevealBuilt);
       const startedAt = measure ? context.now() : 0;
       tileDeltas = context.buildCaptureRevealTileDeltas(lock.playerId, lock.targetX, lock.targetY);
+      if (capturedFromPlayerId) {
+        const targetIndex = tileDeltas.findIndex((delta) => delta.x === lock.targetX && delta.y === lock.targetY);
+        if (targetIndex >= 0) tileDeltas[targetIndex]!.forceVisibleForPlayerId = capturedFromPlayerId;
+      }
       if (measure) {
         context.onCaptureRevealBuilt?.({
           commandId: lock.commandId,
@@ -313,7 +312,14 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
   context.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
   if (originOwnershipState === "FRONTIER") context.extendFortPatrolGrace(lock.originKey, context.now() + FORT_PATROL_GRACE_MS);
   else context.clearFortPatrolGrace(lock.originKey);
-  const tileDeltas = [context.tileDeltaFromState(resolvedOrigin)];
+  // lock.playerId (the attacker) just lost this exact tile — force it visible
+  // to them even if losing ownership dropped their fog-of-war coverage of it
+  // in the same instant, so they actually see the muster flag getting
+  // cleared below instead of it lingering stale in their client cache. See
+  // SimulationTileWireDelta.forceVisibleForPlayerId's doc comment.
+  const originDelta = context.tileDeltaFromState(resolvedOrigin);
+  originDelta.forceVisibleForPlayerId = lock.playerId;
+  const tileDeltas = [originDelta];
 
   // The origin's muster flag (already stripped via `_discardMuster` above) is
   // destroyed along with its staged manpower — no refund to the player who

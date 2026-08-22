@@ -15,6 +15,7 @@ import type { NeedVector } from "./build/build-need-vector.js";
 import type { AutomationStrategicSnapshot, AutomationVictoryPath } from "./automation-strategic-snapshot.js";
 import type { PlannerOwnedStructureCounts } from "./planner-owned-structure-counts.js";
 import type { DecisionCooldownMap } from "./ai-rejection-cooldown.js";
+import type { ReachLookup } from "./frontier-command-planner.js";
 
 // Consecutive planner ticks an AI may spend with its narrow/hot-frontier
 // scan alone actionable (broadFallbackSkipped: true — see
@@ -128,6 +129,8 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   /** Tile keys of this player's currently active muster flags. */ musterTileKeys?: ReadonlySet<string>;
   /** Per-decision-class rejection cooldowns — true means the class is on cooldown. */
   decisionCooldowns?: DecisionCooldownMap;
+  /** True on the boosted portion of this player's beacon build cadence — see ai-beacon-cadence.ts. */
+  beaconBoostActive?: boolean;
   // Bounded BFS front of owned tile keys for this AI's current spatial focus.
   // When provided, frontier candidate enumeration is restricted to origins
   // inside this set, capping per-tick CPU regardless of empire size. See
@@ -139,6 +142,13 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   // broad-fallback sweep below to run even though the narrow scan alone is
   // actionable, so a persistent skirmish can't hide the rest of the frontier.
   forceBroadFrontierScan?: boolean;
+  /**
+   * Reach lookup for fixed-border EXPAND gating (see frontier-command-planner.ts's
+   * ReachLookup doc). Wired from SimulationRuntime.isPlayerTileInReach via
+   * runtime.ts's planAutomationCommand call site. Optional so test inputs
+   * and the no-AI system planner keep working unfiltered when omitted.
+   */
+  reachLookup?: ReachLookup;
   // Phase 1 (docs/ai-structure-building-rewrite-plan.md §9): diagnostic-only
   // needVector inputs — see needVectorFromPlannerInput's doc comment
   // (build/build-need-vector.ts) for the all-four-or-none gate.
@@ -202,6 +212,11 @@ export type AutomationPlannerDiagnostic = {
   expansionObjectiveKind?: "neutral_value" | "enemy" | "none";
   /** Debug-only: "x,y:STRUCTURE_TYPE" of chooseBestEconomicBuild's pick, if any. */
   economicBuildCandidate?: string;
+  /** Debug-only: "x,y" (+ ":needsSettle") of chooseBestRelayBeaconBuild's pick, if any. */
+  relayBeaconBuildCandidate?: string;
+  /** Debug-only: that pick's raw newCoverage.score — see decisions.ts's
+   *  scoreBuildBeacon graduated consideration and RELAY_BEACON_SITE_VALUE_FLOOR/CEILING. */
+  relayBeaconSiteValue?: number;
   // Utility AI fields — populated on every result from the main planner.
   utilityWinner?: DecisionClass;
   utilityWinnerScore?: number;

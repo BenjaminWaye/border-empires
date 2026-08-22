@@ -42,8 +42,6 @@ export const sweepAttackCandidates = (
     });
 
 export const TOWN_AUTO_FRONTIER_RADIUS = 1;
-export const FRONTIER_DECAY_MS = 10 * 60_000;
-export const FRONTIER_DECAY_WARNING_MS = 60_000;
 export const FORT_PATROL_GRACE_MS = 20_000;
 
 export const coordsInChebyshevRadius = (

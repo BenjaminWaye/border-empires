@@ -2,6 +2,17 @@ import { STARTING_CAPITAL_MANPOWER_CAP, STARTING_GOLD } from "@border-empires/ga
 
 import type { RuntimePlayer } from "./runtime-types.js";
 
+// Count of human-controlled players in `players` (excludes AI autopilot slots
+// and the barbarian system faction). Backs the SIMULATION_MAX_SEASON_PLAYERS
+// join cap in simulation-service.ts's PreparePlayer handler.
+export const humanPlayerCountOf = (players: ReadonlyMap<string, RuntimePlayer>): number => {
+  let count = 0;
+  for (const [playerId, player] of players) {
+    if (!isAiControlledActor(playerId, player.isAi)) count += 1;
+  }
+  return count;
+};
+
 // Worldgen always names AI player records "ai-<n>" (see
 // season-worldgen.ts). Any repair/recovery path that needs to reconstruct a
 // missing player record from tile ownership alone (no other context) can use

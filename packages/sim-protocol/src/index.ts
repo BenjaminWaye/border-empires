@@ -102,10 +102,20 @@ export type AdminPlayerRow = {
   incomePerMinute: number;
   techs: number;
   manpower: number;
-  food: number;
-  titanium: number;
-  crystal: number;
-  umbrite: number;
+  /**
+   * FOOD/TITANIUM/CRYSTAL/UMBRITE run on the resource-slots pillar
+   * (docs/manpower-economy-rewrite-plan.md §5): supply from settled resource
+   * tiles vs. demand occupied by existing structures, not a spendable
+   * stockpile — there is no banked quantity to report for these.
+   */
+  resourceSlotSupply: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number };
+  resourceSlotDemand: { FOOD: number; TITANIUM: number; CRYSTAL: number; UMBRITE: number };
+  /** SHARD is the one strategic resource still a real banked stockpile. */
+  shardStockpile: number;
+  /** Persistent reach-border tile count granted to this player (see packages/shared/src/reach/reach.ts). */
+  reachTiles: number;
+  /** ownedTiles - settledTiles, i.e. FRONTIER-state tiles this player owns. */
+  frontierTiles: number;
 };
 
 export type RecentCommand = {
@@ -169,6 +179,15 @@ export type SeasonVictoryObjectiveSnapshot = {
   holdRemainingSeconds?: number;
   statusLabel: string;
   conditionMet: boolean;
+  /** The current leader's progress toward this objective's win threshold, as a
+   *  0..1 fraction (1 once conditionMet is true; clamped, never negative or
+   *  above 1). Optional so older cached/broadcast objective snapshots that
+   *  predate this field (see mergeSelfProgress/seasonVictoryForBroadcast in
+   *  apps/simulation/src/season-victory-objectives) remain valid without a
+   *  migration. Introduced for the galactic meta-layer's Outpost/Stipend
+   *  tiering (docs/galactic-campaign-design.md §3), which needs a numeric
+   *  progress measure — the existing progressLabel is display text only. */
+  progress?: number;
 };
 
 // A point-in-time snapshot of the winning player's economy, taken at the
@@ -219,6 +238,12 @@ export type SimulationSeasonState = {
   endedAt?: number;
   winner?: SeasonWinnerSnapshot;
   victoryTrackers: SeasonVictoryTrackerSnapshot[];
+  /** Player ids that have explicitly joined this season (via JoinSeason),
+   *  distinct from ids merely known to the runtime (e.g. AI/barbarian seed
+   *  players, which are never added here). Absent/undefined on seasons
+   *  persisted before this field existed — callers must treat that as "no
+   *  membership recorded" rather than "nobody has joined". */
+  joinedPlayerIds?: string[];
 };
 
 export type WorldStatusSnapshot = {
@@ -280,6 +305,11 @@ export type SeasonArchiveRow = {
 
 // Moved to simulation-event.ts (this file is already over the file-line cap).
 export type { SimulationEvent, CombatBroadcastPayload } from "./simulation-event.js";
+
+// Galactic meta-layer: victory-path -> planet specialization mapping (§3 of
+// docs/galactic-campaign-design.md). Kept in its own module, same reason.
+export type { GalaxySpecialization } from "./galaxy-specialization.js";
+export { GALAXY_SPECIALIZATION_NAME, specializationForVictoryPath } from "./galaxy-specialization.js";
 
 export type PlayerSubscriptionDock = {
   dockId: string;
@@ -343,6 +373,12 @@ export type PlayerSubscriptionSnapshot = {
     // itself is communicated via a one-off IMPERIAL_WARD_ACTIVATED player
     // message, not this snapshot field (same convention as Aegis Lock).
     imperialWardCharges?: number;
+    // Quickforge wonder: ms timestamp of this player's last discounted
+    // rush-buy (0/absent = never used this UTC day). Sent purely so the
+    // client's rush-buy price preview can replicate the server's exact
+    // once-per-UTC-day discount gate (quickforgeAdjustedRushPrice in
+    // @border-empires/shared) — the server remains authoritative on price.
+    wonderLastFreeRushBuyAt?: number;
     // §20: durable "what happened while I was away" feed — distinct from the
     // ephemeral PLAYER_MESSAGE toast. Most-recent-last on the wire (matches
     // the server's append order); the client reverses for most-recent-first
@@ -366,7 +402,7 @@ export type PlayerSubscriptionSnapshot = {
     ownerId?: string | undefined;
     ownershipState?: string | undefined;
     frontierDecayAt?: number | undefined;
-    frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | undefined;
+    frontierDecayKind?: "ENCIRCLEMENT" | undefined;
     breachShockUntil?: number | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";

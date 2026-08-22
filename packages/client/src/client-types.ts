@@ -103,7 +103,7 @@ export type Tile = {
     expiresAt?: number;
   } | null;
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
-  naturalWonder?: { type: NaturalWonderType; claimedAt?: number; lastFreeRushBuyAt?: number } | null;
+  naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
   town?: {
     name?: string;
     type: "MARKET" | "FARMING";
@@ -122,7 +122,6 @@ export type Tile = {
     connectedTownNames?: string[];
     connectedTitaniumWeaponsFactoryCount?: number;
     connectedUmbriteWeaponsFactoryCount?: number;
-    goldIncomePausedReason?: "MANPOWER_NOT_FULL";
     manpowerCurrent?: number;
     manpowerCap?: number;
     hasMintworks: boolean;
@@ -318,7 +317,7 @@ export type Tile = {
   muster?: {
     ownerId: string;
     amount: number;
-    mode: "HOLD" | "ADVANCE";
+    mode: "HOLD" | "ADVANCE" | "MARCH";
     targetX?: number;
     targetY?: number;
     setAt?: number;
@@ -703,8 +702,7 @@ export type TileActionDef = {
     | "build_relay_beacon_frontier"
     | "enable_converter_structure"
     | "disable_converter_structure" | "set_converter_structure_mode"
-    | "muster_hold"
-    | "muster_advance"
+    | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel"
     | "muster_clear"
     | "offer_truce_12h"
     | "offer_truce_24h"
@@ -769,7 +767,7 @@ export type TileMenuProgressView = {
 
 export type TileOverviewLine = {
   html: string;
-  kind?: "effect" | "section" | "loading" | "group";
+  kind?: "effect" | "section" | "loading" | "group" | "statgrid";
   // Indents an "effect" line under the "group" heading immediately above it
   // (e.g. a Mintworks stat line nested under "6 Mintworks").
   nested?: boolean;

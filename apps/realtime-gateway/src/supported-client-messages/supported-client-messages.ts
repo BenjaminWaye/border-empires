@@ -57,6 +57,7 @@ export const supportedClientMessageTypes = [
   "PING",
   "SET_FOG_DISABLED",
   "START_NEW_SEASON",
+  "JOIN_SEASON",
   "TRUCE_REQUEST",
   "TRUCE_ACCEPT",
   "TRUCE_REJECT",
@@ -67,7 +68,8 @@ export const supportedClientMessageTypes = [
   "DEV_QUEUE_MOVE_TO_FRONT",
   "WAYPOINT_ENQUEUE",
   "WAYPOINT_CANCEL",
-  "WAYPOINT_CANCEL_ALL"
+  "WAYPOINT_CANCEL_ALL",
+  "CLAIM_CONTINUATION_SET"
 ] as const;
 
 export type SupportedClientMessageType = (typeof supportedClientMessageTypes)[number];

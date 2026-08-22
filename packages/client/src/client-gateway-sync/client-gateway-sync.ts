@@ -173,7 +173,6 @@ const isRenderableTownSummary = (town: PartialTownSummary | undefined): town is 
       isFiniteOptionalNumber(town.connectedTownCount) &&
       isFiniteOptionalNumber(town.connectedTownBonus) &&
       (town.connectedTownNames === undefined || hasStringArray(town.connectedTownNames)) &&
-      (town.goldIncomePausedReason === undefined || town.goldIncomePausedReason === "MANPOWER_NOT_FULL") &&
       isFiniteOptionalNumber(town.manpowerCurrent) &&
       isFiniteOptionalNumber(town.manpowerCap) &&
       isOptionalBoolean(town.hasMintworks) &&
@@ -303,7 +302,7 @@ export const normalizeGatewayTileUpdate = (
   }
   if ("frontierDecayKind" in update) {
     normalized.frontierDecayKind =
-      update.frontierDecayKind === "NATURAL" || update.frontierDecayKind === "ENCIRCLEMENT" ? update.frontierDecayKind : undefined;
+      update.frontierDecayKind === "ENCIRCLEMENT" ? update.frontierDecayKind : undefined;
   }
   if ("yield" in update) normalized.yield = update.yield;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;

@@ -30,6 +30,10 @@ export const mergePlannerTileDelta = (
     if (tileDelta.dockId) next.dockId = tileDelta.dockId;
     else delete next.dockId;
   }
+  if ("naturalWonderJson" in tileDelta) {
+    if (tileDelta.naturalWonderJson) next.naturalWonder = true;
+    else delete next.naturalWonder;
+  }
   if ("ownerId" in tileDelta) {
     if (tileDelta.ownerId) next.ownerId = tileDelta.ownerId;
     else delete next.ownerId;
@@ -88,6 +92,7 @@ export const toPlannerTileDelta = (tile: PlannerTileView): SimulationTileDelta =
   terrain: tile.terrain,
   ...(tile.resource !== undefined ? { resource: tile.resource } : {}),
   ...(tile.dockId !== undefined ? { dockId: tile.dockId } : {}),
+  ...(tile.naturalWonder !== undefined ? { naturalWonderJson: tile.naturalWonder ? "1" : undefined } : {}),
   ...(tile.ownerId !== undefined ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState !== undefined ? { ownershipState: tile.ownershipState } : {}),
   ...(tile.town !== undefined ? { townJson: JSON.stringify(tile.town) } : {}),

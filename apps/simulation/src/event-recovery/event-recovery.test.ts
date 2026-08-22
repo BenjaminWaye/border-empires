@@ -314,4 +314,43 @@ describe("recoverSimulationStateFromEvents", () => {
 
     expect(recovered.activeLocks).toEqual([]);
   });
+
+  it("replays TECH_UPDATE and DOMAIN_UPDATE events onto the checkpointed player instead of dropping them", () => {
+    const recovered = applySimulationEventsToRecoveredState(
+      {
+        tiles: [],
+        activeLocks: [],
+        players: [
+          {
+            id: "player-1",
+            techIds: ["masonry"],
+            domainIds: [],
+            points: 100
+          }
+        ],
+        pendingSettlements: [],
+        tileYieldCollectedAtByTile: [],
+        playerYieldCollectionEpochByPlayer: []
+      },
+      [
+        {
+          eventType: "TECH_UPDATE",
+          commandId: "tech-cmd-1",
+          playerId: "player-1",
+          payloadJson: JSON.stringify({ techIds: ["masonry", "trade"], gold: 70 })
+        },
+        {
+          eventType: "DOMAIN_UPDATE",
+          commandId: "domain-cmd-1",
+          playerId: "player-1",
+          payloadJson: JSON.stringify({ techIds: ["masonry", "trade"], domainIds: ["mercantile"], gold: 40 })
+        }
+      ]
+    );
+
+    const player = recovered.players?.find((entry) => entry.id === "player-1");
+    expect(player?.techIds).toEqual(["masonry", "trade"]);
+    expect(player?.domainIds).toEqual(["mercantile"]);
+    expect(player?.points).toBe(40);
+  });
 });

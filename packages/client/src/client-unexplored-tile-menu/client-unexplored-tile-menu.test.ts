@@ -33,7 +33,17 @@ describe("openUnexploredTileActionMenu", () => {
   it("offers Expand Here for a reachable unexplored target and makes actions the default tab — the client never guesses it might be a mountain or sea to refuse it", () => {
     const state = createInitialState();
     state.me = "me";
-    state.tiles.set(keyFor(5, 5), { x: 5, y: 5, terrain: "LAND", ownerId: "me" });
+    // A settled town (TOWN_REACH_RADIUS = 3) so the (5,7) target below
+    // falls inside the player's reach -- Add Waypoint is now reach-gated
+    // the same way Build Relay Beacon already is.
+    state.tiles.set(keyFor(5, 5), {
+      x: 5,
+      y: 5,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
+    } as never);
     state.tiles.set(keyFor(5, 6), { x: 5, y: 6, terrain: "LAND" });
     const deps = baseDeps();
 

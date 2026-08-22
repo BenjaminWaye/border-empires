@@ -452,3 +452,76 @@ describe("planWaypoint", () => {
     expect(turns).toBe(1);
   });
 });
+
+describe("planWaypoint — reach-aware routing (deps.isInReach)", () => {
+  // A big open grid so the planner always has room to detour around a
+  // reach-blocked tile instead of failing outright.
+  const openGrid = (excludeMe: { x: number; y: number }): Tile[] => {
+    const tiles: Tile[] = [];
+    for (let x = -3; x <= 6; x += 1) {
+      for (let y = -3; y <= 6; y += 1) {
+        if (x === excludeMe.x && y === excludeMe.y) continue;
+        tiles.push(tile(x, y));
+      }
+    }
+    tiles.push(tile(excludeMe.x, excludeMe.y, { ownerId: "me" }));
+    return tiles;
+  };
+
+  it("still reaches a NEUTRAL target outside reach -- EXPAND-only chains are no longer reach-pruned (EXPAND itself isn't reach-gated server-side any more)", () => {
+    const state = stateWith(openGrid({ x: 0, y: 0 }));
+    const deps: WaypointPlannerDeps = {
+      ...baseDeps(state),
+      isInReach: (x, y) => x <= 2 // (3,0) is one step past the reach edge
+    };
+    const plan = planWaypoint({ x: 3, y: 0 }, deps);
+    expect(plan.reachable).toBe(true);
+    for (const step of plan.steps) expect(step.action).toBe("EXPAND");
+  });
+
+  it("still reaches an in-reach target when isInReach permits it", () => {
+    const state = stateWith(openGrid({ x: 0, y: 0 }));
+    const deps: WaypointPlannerDeps = {
+      ...baseDeps(state),
+      isInReach: (x, y) => x <= 5
+    };
+    const plan = planWaypoint({ x: 3, y: 0 }, deps);
+    expect(plan.reachable).toBe(true);
+  });
+
+  it("routes AROUND a reach-blocked intermediate tile instead of walking through it -- reach applies to every EXPAND step, not just the final destination", () => {
+    const state = stateWith(openGrid({ x: 0, y: 0 }));
+    const deps: WaypointPlannerDeps = {
+      ...baseDeps(state),
+      // Every tile is in reach except the one direct step toward the goal --
+      // this is the exact bug reported: a waypoint plan that tried to
+      // expand through/from ground outside the player's reach.
+      isInReach: (x, y) => !(x === 1 && y === 0)
+    };
+    const plan = planWaypoint({ x: 2, y: 0 }, deps);
+    expect(plan.reachable).toBe(true);
+    for (const step of plan.steps) {
+      expect(step.target).not.toEqual({ x: 1, y: 0 });
+    }
+  });
+
+  it("does not reach-gate ATTACK steps -- ATTACK is deliberately unaffected by the fixed-border reach", () => {
+    const tiles = openGrid({ x: 0, y: 0 });
+    tiles.push(tile(1, 0, { ownerId: "enemy" }));
+    const state = stateWith(tiles.filter((t) => !(t.x === 1 && t.y === 0)).concat(tile(1, 0, { ownerId: "enemy" })));
+    const deps: WaypointPlannerDeps = {
+      ...baseDeps(state),
+      isInReach: () => false // nothing in reach at all
+    };
+    const plan = planWaypoint({ x: 1, y: 0 }, deps);
+    expect(plan.reachable).toBe(true);
+    expect(plan.steps).toHaveLength(1);
+    expect(plan.steps[0]!.action).toBe("ATTACK");
+  });
+
+  it("is reach-blind (original behavior preserved) when isInReach is omitted", () => {
+    const state = stateWith(openGrid({ x: 0, y: 0 }));
+    const plan = planWaypoint({ x: 3, y: 0 }, baseDeps(state));
+    expect(plan.reachable).toBe(true);
+  });
+});

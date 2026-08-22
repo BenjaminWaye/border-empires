@@ -31,6 +31,20 @@ describe("client action flow regressions", () => {
     expect(source).toContain("state.autoBuildTargets.set(targetKey, structureType);");
   });
 
+  it("registers a server-durable claim continuation alongside a composite settle(+build) order, so it survives logout", () => {
+    const source = actionFlowSource();
+
+    // Previously the settle-then-build tail that follows a click on
+    // "Build Relay Beacon" (or any settle+build combo) lived purely in
+    // client-side in-memory bookkeeping (autoSettleTargets/autoBuildTargets
+    // + the runtime tick loop), so it silently stalled if the player logged
+    // out between the click and either follow-up landing. CLAIM_CONTINUATION_SET
+    // registers the same tail server-side too, covering both the fresh-EXPAND
+    // and already-owned-FRONTIER cases.
+    expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType });');
+    expect(source).toContain('sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType: "RELAY_BEACON" });');
+  });
+
   it("opens the tile detail panel for a fogged tile using cached data instead of showing nothing", () => {
     const source = actionFlowSource();
 
@@ -89,6 +103,44 @@ describe("client action flow regressions", () => {
       0,
       source.indexOf("openUnexploredTileActionMenu(state, wx, wy, clientX, clientY,")
     );
-    expect(unexploredBranch.slice(-400)).toContain("queueAdjacentExpandClaim(wx, wy);");
+    expect(unexploredBranch.slice(-600)).toContain("queueAdjacentExpandClaim(wx, wy);");
+  });
+
+  it("always auto-claims an adjacent unowned tile with a single click, regardless of reach -- no menu detour", () => {
+    const source = actionFlowSource();
+
+    // An earlier version of this file gated the quick-claim shortcuts on
+    // reach (isTargetInLocalReach) so the menu would open instead, purely
+    // to make the "Build Relay Beacon" combo action reachable via a single
+    // click. That traded away the fast one-click claim workflow for every
+    // ordinary adjacent tile, which is the wrong tradeoff -- reverted.
+    // Adjacent-tile clicks (fogged, unexplored, and visible) go straight to
+    // queueAdjacentExpandClaim again; reach only affects what's *visible*
+    // once a menu is actually opened some other way (e.g. re-clicking an
+    // already-queued tile), never whether the quick-claim fires.
+    expect(source).not.toContain("targetInReach: clickTargetInReach");
+    expect(source).not.toContain("if (frontierOrigin && isTargetInLocalReach(wx, wy)) {");
+    const visibleBranchStart = source.indexOf("const to = clicked;");
+    const visibleBranch = source.slice(visibleBranchStart, visibleBranchStart + 600);
+    expect(visibleBranch).toContain(
+      "const clickOutcome = neutralTileClickOutcome({\n      isLand: to.terrain === \"LAND\",\n      isFogged: Boolean(to.fogged),\n      hasFrontierOrigin: Boolean(frontierOrigin),\n      isNeutral: !to.ownerId\n    });"
+    );
+  });
+
+  it("delegates settle_land on a non-adjacent-but-in-reach neutral tile into the waypoint machinery instead of a doomed direct claim", () => {
+    const source = actionFlowSource();
+
+    // "Settle Land" is visible on any in-reach neutral tile now (see
+    // client-tile-action-logic.ts), adjacent or not -- clicking it on a
+    // tile with no adjacent origin must walk there first via the same
+    // handleWaypointAction("expand_here") flow "Add Waypoint" uses, not
+    // fall through to queueSpecificTargets, which requires an adjacent
+    // origin and would just fail.
+    expect(source).toContain(
+      "const adjacentOrigin = pickOriginForTarget(selected.x, selected.y, false) ?? pickOriginForTarget(selected.x, selected.y, false, true);"
+    );
+    const settleLandStart = source.indexOf('if (actionId === "settle_land") {');
+    const settleLandBranch = source.slice(settleLandStart, source.indexOf('if (actionId === "launch_attack") {', settleLandStart));
+    expect(settleLandBranch).toContain('actionId: "expand_here"');
   });
 });

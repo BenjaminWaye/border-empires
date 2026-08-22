@@ -10,6 +10,8 @@ export type GatewayAuthBindingStore = {
   getByEmail: (email: string) => Promise<StoredAuthIdentityBinding | undefined>;
   getByPlayerId: (playerId: string) => Promise<StoredAuthIdentityBinding | undefined>;
   bindIdentity: (binding: { uid: string; playerId: string; email?: string }) => Promise<StoredAuthIdentityBinding>;
+  /** One binding per playerId (most recently updated), limited to bindings that carry an email. */
+  listAllWithEmail: () => Promise<StoredAuthIdentityBinding[]>;
 };
 
 export class InMemoryGatewayAuthBindingStore implements GatewayAuthBindingStore {
@@ -65,5 +67,15 @@ export class InMemoryGatewayAuthBindingStore implements GatewayAuthBindingStore 
     };
     this.bindingsByUid.set(binding.uid, created);
     return { ...created };
+  }
+
+  async listAllWithEmail(): Promise<StoredAuthIdentityBinding[]> {
+    const latestByPlayerId = new Map<string, StoredAuthIdentityBinding>();
+    for (const binding of this.bindingsByUid.values()) {
+      if (!binding.email) continue;
+      const existing = latestByPlayerId.get(binding.playerId);
+      if (!existing || binding.updatedAt > existing.updatedAt) latestByPlayerId.set(binding.playerId, binding);
+    }
+    return [...latestByPlayerId.values()].map((binding) => ({ ...binding }));
   }
 }

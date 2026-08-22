@@ -4,7 +4,7 @@
 // client-changelog-data-earlier.ts when this file approaches the cap.
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER } from "./client-changelog-data-earlier.js";
 export type ClientChangelogEntry = {
-  createdAt: number; // Unix ms. Use Date.now() when authoring a new entry.
+  createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
   title: string;
   why: string;
@@ -12,6 +12,329 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1787412371498, // 2026.08.22.11 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.11",
+    title: "Muster flags can now march on a chosen target instead of just the nearest enemy tile",
+    why: "A muster flag's ADVANCE mode always auto-fired on whatever enemy tile happened to be nearest, with no way to point it at a specific target -- useful for holding a line, but not for actually pushing an offensive toward somewhere particular.",
+    changes: [
+      "New \"March To...\" muster action: pick a flag, choose \"March To...\", then click a destination tile.",
+      "A marching flag fights its way toward that destination one attack at a time, always picking whichever reachable enemy tile is closest to the target -- it never crosses neutral ground, since a muster flag only ever attacks enemy territory.",
+      "The flag automatically returns to HOLD once it captures the target tile, or you can cancel the march early from the tile menu."
+    ]
+  },
+  {
+    createdAt: 1787430800000,
+    introducedIn: "2026.08.22.10",
+    title: "Your galaxy planet now shows what it's specialized in",
+    why: "The galaxy view showed which victory path crowned your planet, but not what that meant going forward -- part of the early galactic meta-layer groundwork (docs/galactic-campaign-design.md), where each victory path is meant to grant a distinct planet specialization.",
+    changes: [
+      "Your galaxy planet (named or not-yet-named) now shows a specialization badge -- Industrial, Trade, Extraction, Logistics, or Capital -- based on which victory condition crowned it."
+    ]
+  },
+  {
+    createdAt: 1787430700000,
+    introducedIn: "2026.08.22.9",
+    title: "Muster flags now clear reliably after losing a tile in combat",
+    why: "Losing an attack could hand your attacking tile to the enemy, and if that tile then fell outside your visible area in the same instant, the server's notice that the tile (and its staged muster flag) changed hands never reached your client -- the flag stayed stuck on ground you no longer owned until you happened to re-scout it.",
+    changes: [
+      "The server now always tells you when a tile you just lost -- whether your attack's origin was overrun or a target you held was captured -- changes hands, even if you no longer have vision of it, so a cleared muster flag (and the rest of that tile's state) updates immediately instead of going stale."
+    ]
+  },
+  {
+    createdAt: 1787430600000,
+    introducedIn: "2026.08.22.8",
+    title: "Creating a mountain now clears any muster flag staged on the tile",
+    why: "Turning a tile into a mountain destroyed the tile's ownership, but the muster flag staged on it stuck around, showing a stale muster icon on ground you no longer held.",
+    changes: [
+      "Creating a mountain on a tile with a staged muster flag now clears the flag along with the tile's ownership, matching how bombardment, capture, and tile shedding already handle it."
+    ]
+  },
+  {
+    createdAt: 1787430500000,
+    introducedIn: "2026.08.22.7",
+    title: "Stage Muster now sits above Disable on structure tiles",
+    why: "On a tile with both a muster flag and a disable-able structure (e.g. Relay Beacon), Stage Muster/Set Hold/Set Advance showed up below the Disable button, making the muster controls easy to miss.",
+    changes: [
+      "The tile action menu now lists Stage Muster (and Set Hold/Set Advance/Clear Muster) above Disable/Enable for the tile's structure."
+    ]
+  },
+  {
+    createdAt: 1787430400000,
+    introducedIn: "2026.08.22.6",
+    title: "Joining a new season is now a deliberate choice",
+    why: "Logging in used to silently spawn you into whatever season was active, even if you had never chosen to play it. Reconnecting was indistinguishable from joining.",
+    changes: [
+      "When you log in and haven't joined the current season yet, a \"Join Season\" prompt now appears instead of spawning you automatically.",
+      "Confirming the prompt joins the season and spawns your starting territory; the prompt closes automatically once your empire appears."
+    ]
+  },
+  {
+    createdAt: 1787430300000,
+    introducedIn: "2026.08.22.5",
+    title: "Growing your territory over an enemy tile that was settled out of reach now takes it properly",
+    why: "A tile could end up settled by an empire that never held any territory claim over it, which left no claim recorded for that tile at all. When your own territory later grew across it, the game treated the ground as empty and simply handed you the claim -- but because nothing was recorded as changing hands, the enemy's settled tile was never knocked back to a frontier tile. The result was an enemy town sitting inside your border that your territory could never dislodge, no matter how far your reach grew.",
+    changes: [
+      "When your territory grows over an enemy tile that was settled without a claim behind it, that tile now reverts to a frontier tile, the same as any other tile your border takes over.",
+      "An enemy tile that is still genuinely defended by their own town, outpost or dock is unaffected -- it stays theirs, exactly as before."
+    ]
+  },
+  {
+    createdAt: 1787430200000,
+    introducedIn: "2026.08.22.4",
+    title: "Auto-settle no longer fires on tiles that have drifted out of reach",
+    why: "Queuing a settle-then-build (or letting an AI empire's frontier auto-settle) could still fire once the tile had fallen out of reach in the meantime -- the server always rejected it as out-of-reach, but nothing checked first, so it just silently failed instead of being dropped up front.",
+    changes: [
+      "Both the player's queued auto-settle and an AI empire's automatic frontier settlement now check reach before sending a settle command, dropping the queued action instead of sending one that's guaranteed to be rejected.",
+      "When a settled tile gets overtaken and reverts to a frontier tile because a rival's territory grew over it, it now plays a brief collapsing pylon effect on the map instead of changing silently."
+    ]
+  },
+  {
+    createdAt: 1787430100000,
+    introducedIn: "2026.08.22.3",
+    title: "Fixed the reach border dodging around fog of war and unexplored tiles",
+    why: "Your reach border is a fixed, server-authoritative line -- it shouldn't move depending on what you can currently see. But the 2D map only drew the border on tiles it considered fully visible, so on any fogged or unexplored patch inside your own territory the line simply stopped, making it look like the border itself was carving around the fog instead of following your actual claim.",
+    changes: [
+      "The reach border now renders on top of fogged territory (dimmed, same as the rest of a fogged tile) instead of disappearing there.",
+      "It still stays hidden over fully unexplored tiles, since there's nothing remembered there to draw it against."
+    ]
+  },
+  {
+    createdAt: 1787430000000,
+    introducedIn: "2026.08.22.2",
+    title: "An empire with no war industry is now also weaker on defense, not just on offense",
+    why: "Owning zero Titanium and zero Umbrite Weapons Factories empire-wide already doubled an attacker's effective attack against you -- but that bonus only ever helped the attacker. If you had no war industry and someone else attacked you, defending gave you no comparable penalty or advantage either way.",
+    changes: [
+      "Defending against an attacker who owns zero Titanium AND zero Umbrite Weapons Factories anywhere in their empire now doubles your effective defense, mirroring the existing attack-side vulnerability from the other direction. Missing one factory type or both gives the same flat bonus -- it doesn't stack higher for missing both."
+    ]
+  },
+  {
+    createdAt: 1787324700000,
+    introducedIn: "2026.08.21.5",
+    title: "Players now get a season-start email, and the previous champion gets a victory email",
+    why: "When a season rolled over, nothing told players by email that the map had reset -- they'd only find out by opening the game. And the player who was just crowned champion had no record of their win beyond the in-game season-end screen.",
+    changes: [
+      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one and pointing them to the season recap screen to browse final stats for friends and foes.",
+      "The player who won the previous season gets that same email with a victory recap folded in, calling out the objective they won through, instead of a separate message."
+    ]
+  },
+  {
+    createdAt: 1787360000000,
+    introducedIn: "2026.08.21.7",
+    title: "Fixed the settle animation not showing until you panned the camera",
+    why: "Pressing Settle on a frontier tile marks it optimistically pending without changing its owner or ownership state (both already belonged to you), but the 3D map only rebuilt its terrain and overlays when ownership actually changed. That left the new settle overlay instance uncreated until something else -- like panning -- forced a rebuild for an unrelated reason.",
+    changes: [
+      "The settlement animation now plays immediately when you press Settle, instead of waiting for the next camera pan."
+    ]
+  },
+  {
+    createdAt: 1787340000000,
+    introducedIn: "2026.08.21.6",
+    title: "The rush-buy price preview now accounts for the Quickforge discount",
+    why: "The tile menu's rush-buy price chip always showed the full server price estimate, even for a player who owns a Quickforge with today's discount still unused — the number shown was different from what got charged.",
+    changes: [
+      "The rush-buy price chip now shows the discounted price when you own a Quickforge and haven't used its once-per-day discount yet."
+    ]
+  },
+  {
+    createdAt: 1787330000000,
+    introducedIn: "2026.08.21.5",
+    title: "The Quickforge wonder now discounts a rush-buy instead of making it free",
+    why: "The Quickforge's once-per-UTC-day rush-buy perk waived the gold cost entirely, which trivialized cheap rush-buys (like a Settle at 10 gold) and scaled unevenly across rush-buy prices.",
+    changes: [
+      "Once per UTC day, the Quickforge's controller now gets 40 gold off their next rush-buy (floored at 0) instead of that rush-buy being completely free."
+    ]
+  },
+  {
+    createdAt: 1787356800000,
+    introducedIn: "2026.08.21.3",
+    title: "Fixed a crash when switching apps and back while a location theme was playing",
+    why: "Backgrounding the tab pauses playback; returning to it resumes both the music bed and any location theme. The location theme's resume call didn't catch play() rejections the way the music bed's did, so a fast switch-away-and-back (interrupting that play() with a pause()) threw an unhandled rejection that tripped the app's error boundary, showing \"Border Empires hit a problem loading\".",
+    changes: [
+      "Switching to another app and back no longer crashes the game to the error screen."
+    ]
+  },
+  {
+    createdAt: 1787322800000,
+    introducedIn: "2026.08.21.1",
+    title: "Composite settle+build orders (e.g. Build Relay Beacon) now survive logging out mid-order",
+    why: "Clicking a composite action like \"Build Relay Beacon\" on an unowned tile sends the expand immediately, then relied purely on this client's own in-memory bookkeeping to notice the expand land and fire the follow-up settle, then notice the settlement land and fire the build. If you logged out (or your connection dropped) between the click and either of those follow-ups, nothing server-side was watching to continue the chain, so the order silently stalled.",
+    changes: [
+      "Settle+build orders (fresh expand-then-settle-then-build, and settle-then-build on an already-owned tile) now also register server-side, so they keep completing even if you disconnect right after clicking."
+    ]
+  },
+  {
+    createdAt: 1787322201581,
+    introducedIn: "2026.08.21",
+    title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",
+    why: "Tension (\"war is coming\") music used to be driven by short-lived, per-attack timers (an attack in transit, a deferred send, an incoming-attack tracker) that clear the instant that specific attack resolves, so it kept dropping back to calm music between attacks even while a muster flag was still staged and ready to fire.",
+    changes: [
+      "Tension music now plays for as long as any muster flag is raised and set to Hold (staged, not yet advancing), which is a stable signal instead of one that clears after every individual attack."
+    ]
+  },
+  {
+    createdAt: 1787326342941, // 2026.08.21.4 — frozen from a live Date.now() call
+    introducedIn: "2026.08.21.4",
+    title: "AI opponents now build a wider range of structures, and beacon relays more often",
+    why: "AI opponents could previously only ever build 5 kinds of structures (Farmstead, Umbrite Rig, Mine, Mintworks, Granary), scored by fixed numbers instead of what the AI's economy actually needed. Their Relay Beacon building was also just as likely at any time, whether or not there was still good territory left nearby to claim.",
+    changes: [
+      "AI opponents can now also build Waterworks, Ministry Hall (Governors Office), Ancillary Factory (Garrison Hall), Logistics Guild, Caravanary, and the Umbrite/Titanium/Crystal Synthesizers, chosen based on which resource or manpower shortfall is most acute rather than a fixed priority list.",
+      "AI opponents now favor Relay Beacon construction in bursts — several in a row, then a pause where other buildings get priority — instead of a flat, constant likelihood throughout the game."
+    ]
+  },
+  {
+    createdAt: 1787294902457, // 2026.08.20.1
+    introducedIn: "2026.08.20.1",
+    title: "ADVANCE-mode muster attacks now show the skirmish animation too",
+    why: "A manual attack is almost always against a tile you're currently looking at, so it's already loaded client-side. But a muster flag in ADVANCE mode fires autonomously against whatever the server's own search finds nearest — which can be a tile this client has never had vision of. The skirmish overlay required already knowing that tile's owner, so it silently skipped rendering for the whole ~30s countdown, only appearing once the resolution broadcast finally revealed the tile — reading as \"no animation until it resolves\", exactly for the fire-and-forget flags ADVANCE mode is meant for.",
+    changes: [
+      "An ADVANCE-fired attack now shows its own skirmish animation for the full countdown, the same as a manual attack, even when you haven't scouted the target tile yourself.",
+      "The dot colors briefly use a placeholder until real tile data arrives (typically within the countdown), then switch to the correct owner colors."
+    ]
+  },
+  {
+    createdAt: 1787296000000, // 2026.08.21.2 — frozen; was Date.now() in the merged commit
+    introducedIn: "2026.08.21.2",
+    title: "Relay beacons are now destroyed when their tile is captured",
+    why: "Every other structure kept its old survive-capture behavior, but a relay beacon transferring intact to the attacker let a single capture instantly hand over both the tile and a working reach anchor on it — same treatment siege outposts already get.",
+    changes: [
+      "Capturing a tile with a relay beacon on it now destroys the beacon instead of transferring ownership.",
+      "The attacker still takes the tile itself; they'll need to rebuild a relay beacon there to project reach from it."
+    ]
+  },
+  {
+    createdAt: 1787295212839, // 2026.08.21.1 — frozen from a live Date.now() call left in by the merged commit
+    introducedIn: "2026.08.21.1",
+    title: "Fixed research (tech/domain) picks being lost on server restart or deploy",
+    why: "On startup, the simulation server rebuilds state from the latest checkpoint snapshot and then replays any events recorded after that checkpoint. That replay step had no handler for tech or domain research events, so a research pick made after the last checkpoint but before a restart or deploy was silently dropped instead of being reapplied — the player would come back with an earlier set of researched techs/domains than they actually had.",
+    changes: [
+      "Tech and domain research chosen shortly before a server restart or deploy is now correctly preserved instead of sometimes reverting to an earlier state."
+    ]
+  },
+  {
+    createdAt: 1787345991317,
+    introducedIn: "2026.08.21",
+    title: "War music no longer flickers back to calm music during an ongoing war",
+    why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
+    changes: [
+      "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
+    ]
+  },
+  {
+    createdAt: 1787322201580, // 2026.08.21 — frozen; was Date.now() in the merged commit
+    introducedIn: "2026.08.21",
+    title: "Border-expansion pylon animation is slower and more dramatic",
+    why: "The survey pylon rise/sink and laser on/off animation that plays when your border expands or contracts was over in about 1.3 seconds per pylon, which made it easy to miss entirely.",
+    changes: [
+      "Retiring pylons now take about 3 seconds to fade their laser and sink into the ground, and arriving pylons take about 3.2 seconds to rise and power their laser on.",
+      "New pylons/lasers along an expanding border now stagger in more visibly, one at a time, instead of all rising together."
+    ]
+  },
+  {
+    createdAt: 1787259991319,
+    introducedIn: "2026.08.20",
+    title: "Rush-buy button is no longer a bare unstyled control, and its gold icon no longer looks like silver",
+    why: "The tile progress card's rush-buy button had no CSS at all, so it rendered as a plain browser-default button instead of matching the card's other pill-shaped controls. Its price label also used the 🪙 coin emoji, which renders as a plain silver/steel coin in most fonts and read as a different currency than gold.",
+    changes: [
+      "The rush-buy button now uses a gold-gradient pill style matching the rest of the tile progress card's buttons.",
+      "The rush-buy price label now uses 💰 instead of 🪙 so it reads unambiguously as gold."
+    ]
+  },
+  {
+    createdAt: 1787259991318,
+    introducedIn: "2026.08.20.3",
+    title: "Fixed a frame-rate drop from the survey-sweep ping overlay",
+    why: "The 3D map's per-frame render loop re-uploaded the survey-sweep ping overlay's four GPU instance buffers every single frame, even on the vast majority of frames where no ping was active — a real WebGL bufferSubData call for zero visual change, 60 times a second. A capture from a live session showed WebGL buffer uploads consuming over 80% of total frame CPU time, with the game sustaining only ~11-12fps.",
+    changes: [
+      "The survey-sweep ping overlay now skips its GPU buffer upload on any frame where no ping was active last frame either, instead of re-uploading empty data unconditionally every frame."
+    ]
+  },
+  {
+    createdAt: 1787259991317,
+    introducedIn: "2026.08.20.2",
+    title: "Removed the out-of-reach dim overlay on rival tiles",
+    why: "Rival-owned tiles that were visible but outside your reach radius were darkened with a dimming/hatch treatment (the Aether Survey Line's out-of-reach indicator). We decided this visual signal wasn't pulling its weight and removed it, in both the 2D and 3D map renderers.",
+    changes: [
+      "Removed the out-of-reach dim overlay on rival tiles that used to darken visible-but-unreachable enemy/neutral territory. Reach itself, dormant-frontier tiles, and the reach boundary line are unaffected."
+    ]
+  },
+  {
+    createdAt: 1787259991316, // 2026.08.20
+    introducedIn: "2026.08.20",
+    title: "Auto-fill now respects your reach/border",
+    why: "Sealing off a pocket of land used to auto-settle it regardless of whether your empire's reach actually extended there — you could end up with settled tiles outside your reach, or see a burst of unrelated-looking tiles suddenly fill in when your reach shifted somewhere else entirely. Auto-fill now only settles a pocket once its entire boundary — not just the land inside it — is within your reach, so it only ever triggers from something happening near that pocket's own edge.",
+    changes: [
+      "Auto-fill no longer settles tiles outside your reach/border.",
+      "A pocket only auto-fills once every part of its sealing boundary (your own territory and/or coastline/mountains) is within your reach — a boundary tile that's still out of reach means the whole pocket waits, rather than filling in partially."
+    ]
+  },
+  {
+    createdAt: 1787176861000, // 2026.08.20
+    introducedIn: "2026.08.20",
+    title: "Fixed: EXPAND onto a connected dock or across an active Aether Bridge was silently impossible",
+    why: "EXPAND has always required the target tile to be inside your persistent reach border, and that check applied unconditionally to dock and Aether Bridge crossings too — but a bridge or dock crossing lands you on a landmass with no anchor of your own there yet, by design (that's the entire point of both). The reach check therefore always failed for a genuinely connected dock's paired tile or a bridge's landing tile, making it impossible to ever claim either.",
+    changes: [
+      "EXPAND across a connected dock link, or across an active Aether Bridge, no longer requires the target tile to already be inside your reach border — matching the adjacency and Aether-wall-shield exemptions those crossings already had."
+    ]
+  },
+  {
+    createdAt: 1787170756951, // 2026.08.19.2
+    introducedIn: "2026.08.19.2",
+    title: "Town gold production: fixed the Mintworks flat bonus for real this time",
+    why: "The previous fix for this (2026.08.19) only patched apps/simulation/src/live-town-summary.ts — but the tile-click popup is served by a separate gateway path (apps/realtime-gateway/src/tile-detail-snapshot.ts) whenever the cached snapshot's townJson doesn't carry a fresh goldPerMinute, and that path has its own independent copy of the same formula, explicitly commented 'keep in sync with buildTownSummary' — which still dropped each Mintworks' flat +1 gold/day-per-copy bonus. A live screenshot after the first fix still showed the old, wrong number, which is what surfaced this second copy.",
+    changes: [
+      "The gateway's tile-detail fallback gold calculation now includes each active Mintworks' flat gold bonus, matching the simulation's authoritative formula."
+    ]
+  },
+  {
+    createdAt: 1787132874001, // 2026.08.19
+    introducedIn: "2026.08.19",
+    title: "Town gold production now includes each Mintworks' flat bonus, and settled-town copy cleaned up",
+    why: "A town's displayed gold production silently dropped each active Mintworks' flat +1 gold/day-per-copy bonus — the town-summary formula that feeds the client only applied Mintworks' % production multiplier, duplicating (and drifting from) the authoritative formula used elsewhere in the sim, which always included the flat bonus. Separately, a settled town's overview always opened with a generic \"Settled land is defended and fully part of your empire\" line even though the stat grid right below it already says everything that line does.",
+    changes: [
+      "Town gold production now correctly includes every active Mintworks' flat gold bonus, not just its production-percentage multiplier.",
+      "A settled town's overview no longer shows the generic \"Settled land is defended...\" line — plain settled land with no town still does."
+    ]
+  },
+  {
+    createdAt: 1787084630235, // 2026.08.18
+    introducedIn: "2026.08.18",
+    title: "Removed a stale \"gold paused until manpower is full\" message that could no longer appear",
+    why: "The town info panel had leftover copy and a data field for a gold-pause condition the server never actually sends, so it was permanently dead code. Removed it to keep the panel's messaging accurate to what the server can report.",
+    changes: [
+      "The tile info panel no longer has an unreachable \"Town is fed but gold is paused until your empire manpower is full\" line.",
+      "No mechanical change — this condition was never triggered by the server."
+    ]
+  },
+  {
+    createdAt: 1787085726552, // 2026.08.18.2
+    introducedIn: "2026.08.18.2",
+    title: "Town overview now explains partial support and unbuilt Trade Nexuses",
+    why: "Two real gold-production penalties were invisible on the tile panel: a town under-full on Support silently produces less gold (supportRatio is a direct multiplier in the sim), and a connected-town network with no Caravanary anywhere in it pays a flat +0% bonus — but the panel said nothing in either case, so there was no way to tell why gold looked low. The panel also never showed a town's FOOD slot count, only a prose warning once it was already unfed.",
+    changes: [
+      "Partial Support (e.g. 7/8) now shows its real gold-production cost as a Modifiers line instead of staying silent.",
+      "A connected-town network with no built Trade Nexus (Caravanary) now shows a neutral +0% line explaining why the connection bonus isn't paying out, instead of nothing at all.",
+      "A settled town's overview tab now shows its FOOD slot count (e.g. \"Food 4/4 slots\") next to Support."
+    ]
+  },
+  {
+    createdAt: 1787083759893, // 2026.08.18.1
+    introducedIn: "2026.08.18.1",
+    title: "Town overview now shows manpower",
+    why: "The tile overview panel listed Population, Growth, Support, Production, and Upkeep for a settled town, but never said anything about the town's manpower contribution to your empire — a stat players had no way to see anywhere on the tile itself.",
+    changes: [
+      "A settled town's overview tab now shows its base manpower cap and regen contribution, right after Population and Growth."
+    ]
+  },
+  {
+    createdAt: 1787041917435, // 2026.08.17.3
+    introducedIn: "2026.08.17.3",
+    title: "Battle dots no longer pop when the clash hands off into rout",
+    why: "The clash phase sways each dot back and forth (spread + a forward jostle so the two lines press together instead of overlapping), but the instant rout began that whole oscillation was dropped in favor of a clean push-through/scatter position — a small but real positional snap right at the clash/rout boundary, on top of the exact same seam that was already fixed between the pre-resolution skirmish and the clash phase.",
+    changes: [
+      "Dots now settle out of the clash's sway over the first ~140ms of rout instead of dropping it instantly, so the clash and rout phases read as one continuous motion rather than two animations stitched together."
+    ]
+  },
   {
     createdAt: 1786960037000, // 2026.08.17.1
     introducedIn: "2026.08.17.1",
@@ -65,314 +388,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786811200000, // 2026.08.15.5
-    introducedIn: "2026.08.15.5",
-    title: "Battle dots now actually approach and meet in the middle before fighting",
-    why: "The pre-resolution skirmish loop — what an attacker or defender watches for nearly all of a ~30s siege, per 2026.08.14.1 — rendered dots already oscillating in melee at the tile center from its very first frame, with no approach. Only a bystander with no stake in the fight (who only ever sees the post-resolution combat broadcast) got the intended approach-then-clash sequence, because that path already had one. So the two players actually fighting never saw the dots close the distance; the fight just appeared already underway, which read as broken rather than as a fight starting. Separately, the handoff from skirmish to resolved battle only ever checked the defender's own siege-tracking map, so an attacker's resolved battle always restarted its approach from scratch even after their dots had already been fighting for the whole countdown — snapping them back out to the tile edge right as the fight was supposed to conclude.",
-    changes: [
-      "The pre-resolution skirmish now plays the same converge-on-the-target-tile approach as a resolved battle before settling into its ongoing melee, instead of starting the melee immediately.",
-      "The approach plays once per skirmish as seen by this client, so reloading mid-siege still shows a fresh approach instead of a jump-cut into an already-oscillating fight.",
-      "An attacker's own resolved battle now continues seamlessly from their already-visible skirmish instead of restarting its approach animation, matching what defenders already saw."
-    ]
-  },
-  {
-    createdAt: 1786810965877, // 2026.08.15.4
-    introducedIn: "2026.08.15.4",
-    title: "The Mustering overlay now updates every second instead of every ~30 seconds",
-    why: "A muster flag's manpower only ticks on the server's regular ~30-second global schedule, which is why the overlay always felt jaggy — long flat stretches then a jump. The server already has a mechanism for fast per-second ticks on a specific flag a player is actively watching, but it was only ever triggered by tapping that exact tile's action menu — never by simply having an attack parked and waiting on it, which is when the overlay is actually on screen.",
-    changes: [
-      "Parking a manual attack behind a muster flag now tells the server to watch that flag, so its manpower ticks every 1 second instead of every ~30 while the attack is waiting on it — the overlay should track real progress far more smoothly.",
-      "The fast tick automatically stops once the attack fires, is dropped, or is cancelled."
-    ]
-  },
-  {
-    createdAt: 1786796146676, // 2026.08.15.3
-    introducedIn: "2026.08.15.3",
-    title: "Mustering overlay no longer shows \"ready\" before it actually is; ambient audio now defaults off",
-    why: "The Mustering overlay's staged/required readout is smoothed between the sparse (~30s-cadence) server updates by extrapolating from the last observed accumulation rate. That extrapolation was capped at `required`, so once the prediction crossed the threshold — commonly well before the next real server tick, since the rate estimate from a short first sample tends to overshoot — the bar showed a false \"ready\" state for a long stretch before the attack that number is supposed to represent actually fired. Separately, ambient background audio defaulted to on for anyone who'd never touched the setting.",
-    changes: [
-      "The Mustering overlay's staged/required number can no longer visually reach or exceed what's required before a real server update confirms it — it always stays a hair behind reality instead of occasionally lying ahead of it.",
-      "Ambient background audio now defaults to muted; turn it on from Settings if you want it."
-    ]
-  },
-  {
-    createdAt: 1786792818601, // 2026.08.15.2
-    introducedIn: "2026.08.15.2",
-    title: "A muster flag reaching full manpower now actually launches the attack",
-    why: "Once a muster flag finished staging, the attack was promoted from the waiting list into the real dispatch queue — but nothing then told the queue to actually process it. The 300ms heartbeat that runs the promotion check returns immediately afterward on a guard meant for an unrelated case (handling a stuck server acknowledgement while an attack is already in flight), so a freshly promoted attack just sat in the queue doing nothing unless some unrelated event happened to nudge it — a different click, an incoming tile update, anything. Visibly, the flag would fill up and the attack would simply never fire.",
-    changes: [
-      "A muster flag that finishes staging now dispatches its attack immediately instead of potentially sitting queued indefinitely."
-    ]
-  },
-  {
-    createdAt: 1786792013605, // 2026.08.15.1
-    introducedIn: "2026.08.15.1",
-    title: "A stuck manual attack now cancels itself after 5 minutes instead of parking forever",
-    why: "A parked attack waiting on a muster flag only had an expiry if the client had just requested a brand-new flag for it. An attack parked against a flag that already existed at queue time had no expiry at all — if that flag never accumulated enough manpower (or the amount/requirement otherwise never converged), the \"Mustering...\" overlay could sit frozen indefinitely with no way out short of a reload. Separately, that overlay's staged/required text was unreadable — the number defaults to near-black text sized for the lighter default capture-bar background, but Mustering uses a dark blue background.",
-    changes: [
-      "A parked attack now cancels itself with a feed message if it hasn't staged enough manpower within 5 minutes, regardless of why it stalled — instead of sitting frozen forever.",
-      "Fixed: the staged/required number on the Mustering overlay was rendered in near-black text on a dark blue background, making it unreadable."
-    ]
-  },
-  {
-    createdAt: 1786710132407, // 2026.08.14.1
-    introducedIn: "2026.08.14.1",
-    title: "Battle dots now animate for the whole attack, not just its last two seconds",
-    why: "The pre-resolution skirmish animation added in 2026.08.11 was effectively never visible to anyone. Two independent bugs killed it. First, the client tracked an in-progress siege in a map that was wiped by *any* tile delta touching that tile — and a tile under attack keeps receiving routine yield, population, and muster tick deltas throughout its ~30s countdown, so the siege was usually evicted seconds after it registered, taking the dots and the red under-attack cross with it. Second, the attacker never had a siege entry to begin with: the server addresses its attack alert to the defender only, which is correct for an \"under attack\" warning but left the attacking player's own fight with nothing to render until the outcome broadcast arrived. What survived both was the ~2.3s resolution flourish, which is driven separately — so an attack looked like it only animated at the very end.",
-    changes: [
-      "Battle dots now animate for the full duration of an attack instead of only the final ~2.3s resolution flourish.",
-      "Attackers now see the fight on the tile they are attacking, not just defenders.",
-      "An in-progress siege now ends only when the combat actually resolves or the tile changes hands — no longer cancelled by unrelated yield/population/muster updates on the same tile. The red under-attack cross also stays visible for the whole countdown.",
-      "The under-attack cross now pulses faster as the attack becomes imminent, which it previously never did."
-    ]
-  },
-  {
-    createdAt: 1786647377657, // 2026.08.13.4
-    introducedIn: "2026.08.13.4",
-    title: "Fixed a manual attack permanently stuck showing only a queue-position badge",
-    why: "A dead local variable (`allowOptimisticOrigin`, computed but never passed) meant every queued attack — not just EXPANDs — always looked up its origin with confirmed-ownership-only rules, even though attacks were always meant to allow an optimistic (not-yet-acked) origin. When the only adjacent origin tile was itself still an unconfirmed optimistic claim, the queue entry could never resolve an origin: it just re-armed a 900ms wait and requeued itself forever, with no cap. Because the promotion out of \"Mustering...\" happens before that wait loop is reached, the capture overlay had already disappeared, leaving only the small numeric queue-position badge (e.g. \"1\") with nothing visibly ahead of it — looking permanently stuck. Separately, the \"Mustering...\" progress bar itself only updates when a server tile delta lands, and muster accumulation only ticks server-side once per 30s, so the displayed percentage held flat for up to 30s and then jumped instead of visibly progressing.",
-    changes: [
-      "Attacks (as opposed to EXPANDs onto a neutral tile) now correctly allow dispatching from an optimistic origin immediately, instead of always requiring a confirmed one.",
-      "As a backstop for any other case that could still stall this way: after ~13.5s of repeated waits for a confirmed origin, the queue falls back to the optimistic origin and dispatches rather than waiting indefinitely.",
-      "The \"Mustering...\" progress bar now linearly extrapolates between server ticks using the last observed accumulation rate, instead of holding flat and jumping once a delta arrives."
-    ]
-  },
-  {
-    createdAt: 1786633566657, // 2026.08.13.3
-    introducedIn: "2026.08.13.3",
-    title: "Manual attacks now reuse a nearby muster flag instead of demanding a new one",
-    why: "Launching a manual attack only ever considered a flag \"usable\" if it sat directly adjacent to the target — anything else, even a fully-funded flag two tiles away, was ignored, and the client auto-created a brand new flag right next to the target instead. With players already at the 3-muster-flag cap (e.g. mid an ADVANCE chain), that new flag request was silently rejected by the server (MUSTER_LIMIT), and the attack sat parked forever pointing at a flag that would never exist — the new \"Mustering...\" overlay (2026.08.13.2) stuck at 0 staged with no way to clear it short of reloading. The server, however, already auto-funds an attack from any owned flag within 10 tiles of wherever it's launched from (the same mechanism ADVANCE relies on) — the client just never used it for manual attacks.",
-    changes: [
-      "A manual attack now fires from the normal border tile and lets the server fund it remotely from any nearby flag with enough manpower, instead of requiring that exact flag to sit adjacent to the target — no more redundant flags for something an existing one already covers.",
-      "Falling back to auto-creating a new flag only happens when nothing nearby has the manpower to fund the attack at all.",
-      "As a safety net for the remaining case: a parked attack now gives up and cancels itself, with a feed message, if the flag it auto-requested still hasn't shown up a few seconds later — instead of sitting on a permanently stuck \"Mustering 0/N\" overlay."
-    ]
-  },
-  {
-    createdAt: 1786616905363, // 2026.08.13.2
-    introducedIn: "2026.08.13.2",
-    title: "Manual attacks now show a \"Mustering...\" overlay while manpower stages",
-    why: "Launching a manual attack against a target whose adjacent muster flag wasn't fully staged used to give almost no feedback — the big capture overlay only appeared once the attack actually fired, so the wait beforehand looked like nothing was happening. Fixing this also surfaced (and fixed) a related bug: the flag was judged \"ready\" using a flat 60-manpower threshold instead of the target's real requirement, so an attack on a garrisoned fort could fire early and get rejected by the server even with manpower still visibly staged.",
-    changes: [
-      "Launching a manual attack now immediately shows the capture overlay in a \"Mustering...\" state, with a bar that fills toward the actual manpower this target requires (higher for a garrisoned enemy fort) and hands off to \"Capturing Territory...\" the moment it fires — no more silent wait in between.",
-      "Cancel during mustering now just drops that queued target, leaving the flag and its staged manpower in place for another attack.",
-      "Dismiss is also available during mustering, hiding the overlay while the flag keeps filling in the background — same as it already worked for the Capturing phase.",
-      "Fixed: a muster flag could be judged ready off a flat 60-manpower threshold and fire early against a garrisoned fort, getting rejected by the server instead of waiting for the fort's real requirement."
-    ]
-  },
-  {
-    createdAt: 1786582800000, // 2026.08.13.2
-    introducedIn: "2026.08.13.2",
-    title: "Fixed: a town's Modifier totals never actually reached the tile popup",
-    why: "The unified modifier catalog computed a town's combined stat totals (e.g. 3 Garrison Halls -> \"Manpower cap: +450\") correctly on the server, but the tile popup (REQUEST_TILE_DETAIL) is served by a separate gateway code path that reconstructs the town object from a persisted, redacted copy stripped down to 8 basic fields — townModifierTotals was never one of them, and this path never recomputed it the way it already does for support/gold/population numbers. The totals silently never reached any player's tile popup, including a town's own owner. Also found while fixing this: a stray non-numeric \"higher production raises gold cap\" line sitting inside the Modifiers list, and an old hand-written paragraph under Upkeep that restated the same Mintworks/Granary/Clearing House numbers the new Modifiers section already shows.",
-    changes: [
-      "A town's Modifier totals (manpower cap, gold, empire attack/defense, etc. from its support-ring buildings) now actually show on the tile popup.",
-      "The aggregation math itself moved into the shared catalog so the simulation and the tile-popup path can't compute it two different (and driftable) ways again.",
-      "Removed a non-numeric line that was sitting inside Mintworks's Modifiers list instead of being a real stat.",
-      "Removed a duplicate paragraph under Upkeep that restated numbers the Modifiers section already shows for Mintworks, Granary, and Clearing House."
-    ]
-  },
-  {
-    createdAt: 1786579200000, // 2026.08.13.1
-    introducedIn: "2026.08.13.1",
-    title: "Fixed: most buildings still showed no Modifier section on their own tile",
-    why: "The unified modifier catalog (2026.08.12.14) was reachable from the tech-tree/build-menu info panel for every building, but the tile-overview popup you get from clicking a built tile in-game still gated behind a small hardcoded allowlist of 8 building types left over from before the catalog existed — so most buildings (Garrison Hall, Census Hall, Foundry, Governor's Office, the Weapons Workshop family, synthesizers, Airport, Ambaric Tower, Resonance Grid, and more) showed an empty Modifier section when checked the normal way, in-game.",
-    changes: [
-      "Clicking any built structure's own tile now shows its full Modifier section, not just the small set of buildings that happened to be allowlisted before.",
-      "Observatory tiles were never checked at all by the tile popup — its vision and crystal-range modifiers now show correctly.",
-      "Relay Beacon was missing its vision bonus from the catalog (only offense showed) — both now show."
-    ]
-  },
-  {
-    createdAt: 1786575600000, // 2026.08.12.14
-    introducedIn: "2026.08.12.14",
-    title: "Unified building modifier display across tile popup and tech tree",
-    why: "Building effect numbers (\"Manpower +150\", \"+50% farm food\", etc.) were hand-written in up to three separate places with no shared source of truth, so the tile-detail popup, the tech-tree structure panel, and the town summary could each show slightly different or missing numbers for the same building.",
-    changes: [
-      "Every building's tile-overview popup now shows a Modifiers section with the same white-label/green-value styling for every structure, not just the ~15 that used to be covered.",
-      "The structure-info panel (opened from the build menu or tech tree) now shows the exact same modifier numbers in the same style, instead of separately hand-written prose.",
-      "A town's support-ring buildings that stack across the whole town (e.g. multiple Garrison Halls) now show their combined total next to the town's Support/Population/Growth summary — widened to cover every stat a support building contributes, including Mintworks gold production and the Weapons Workshop family's empire attack/defense, combined across every building that feeds the same stat.",
-      "Fort and Siege Outpost defense/offense lines now use the same \"stat: value\" format as every other modifier (e.g. \"Defense: 2.5x\") instead of folding the stat name into the colored value text."
-    ]
-  },
-  {
-    createdAt: 1786572000000, // 2026.08.12.13
-    introducedIn: "2026.08.12.13",
-    title: "Fixed: manual attack could stay queued forever behind a non-adjacent muster flag",
-    why: "The NOT_ADJACENT fix (2026.08.12.12) made processActionQueue require a ready flag to actually be adjacent before firing, but the queue-promotion step that runs beforehand didn't check adjacency at all. Whenever the only fully-mustered flag near a target wasn't adjacent to it, the attack got promoted, rejected, and re-parked in an endless loop — the exact \"stuck forever\" symptom the original fix was meant to resolve.",
-    changes: [
-      "A pending muster attack now only promotes to fire once its funded flag is actually adjacent to the target (or a valid dock crossing), matching the check that decides whether it's allowed to fire.",
-      "A funded-but-not-adjacent flag keeps the attack parked instead of bouncing it between the queues."
-    ]
-  },
-  {
-    createdAt: 1786568215911, // 2026.08.12.12
-    introducedIn: "2026.08.12.12",
-    title: "Fixed: manually targeted attacks rejected as NOT_ADJACENT from a ready flag",
-    why: "The previous fix for stuck manual attacks (2026.08.12.11) made a fully mustered flag fire immediately whenever it was merely \"in range\" of the target (up to 20 tiles), not actually next to it. The server correctly rejects a non-adjacent attack, so those attacks failed outright instead of firing.",
-    changes: [
-      "A ready flag now only fires an attack directly when it's actually adjacent to the target (or a valid dock crossing).",
-      "A ready flag that's in range but not adjacent stages/parks as before, so it can march into position instead of being rejected."
-    ]
-  },
-  {
-    createdAt: 1786550100000, // 2026.08.12.11
-    introducedIn: "2026.08.12.11",
-    title: "Fixed: manually targeted attacks from a ready muster flag never fired",
-    why: "Steering an attack onto a specific enemy tile — rather than letting a flag's ADVANCE mode auto-pick a target — silently re-queued the attack forever instead of sending it, even once the flag held well over the required manpower. The flag would just sit there fully mustered and nothing would happen.",
-    changes: [
-      "Manually targeting an attack now fires immediately once a muster flag in range already has enough manpower staged, instead of endlessly re-parking the attack.",
-      "Applies to both close-range flags and flags reached via a dock sea crossing."
-    ]
-  },
-  {
-    createdAt: 1786546500000, // 2026.08.12.10
-    introducedIn: "2026.08.12.10",
-    title: "Market renamed to Mintworks, with a new 3D overlay and icon",
-    why: "\"Market\" read as a trading post, which isn't what the building does — it's the empire's gold-minting workshop, easy to confuse with the unrelated Market town archetype. Renamed the structure to Mintworks (town archetype naming is unaffected) and gave it a dedicated look worthy of the name: a giant mechanical coin press instead of the old fruit-stall-with-an-awning placeholder.",
-    changes: [
-      "The Market structure is now called Mintworks everywhere — build menu, tile info, tooltips, and the Development queue.",
-      "Added a dedicated 3D overlay for Mintworks: a dark-iron industrial hall with a giant brass coin press, flywheel, gear train, rear furnace, ingot stocks, coin trays, and coin crates.",
-      "Added a matching 2D flat-color Mintworks icon for the overlay gallery.",
-      "Existing Market structures on the map keep working under the new name — no rebuild needed."
-    ]
-  },
-  {
-    createdAt: 1786545979000, // 2026.08.12.9
-    introducedIn: "2026.08.12.9",
-    title: "Fixed: Titanium/Umbrite Weapons Factory bonus was silently scoped to a single town network instead of empire-wide",
-    why: "Titanium/Umbrite Weapons Factories were combat-relevant only if they happened to sit in the connected-town network nearest whichever tile was attacking or defending — build one at a second, disconnected town and it contributed nothing to a fight fought elsewhere. Nothing in the game ever told players this; the build tooltip and structure-info text actually claimed the opposite ('scoped to this town's connected network' read as intentional, not as a gotcha), and the just-added combat breakdown panel would have shown a number that quietly changed depending on which tile you attacked from. Weapons Workshop, the structure these replaced, was always empire-wide — this brings Weapons Factories in line with it.",
-    changes: [
-      "Titanium/Umbrite Weapons Factory attack/defense bonuses are now empire-wide: every active copy you own counts toward every fight, regardless of which town network it's connected to or how far it is from the battle.",
-      "Build tooltips and structure-info text for both factories updated to say 'empire-wide' instead of the old (now incorrect) 'scoped to this town's connected network' claim.",
-      "The live Launch Attack preview now actually includes Weapons Workshop/Weapons Factory bonuses and the 'no war industry' vulnerability penalty in its win-chance number — previously the preview omitted all three and only the resolved combat applied them, so the number shown before committing to an attack could be meaningfully wrong."
-    ]
-  },
-  {
-    createdAt: 1786543467000, // 2026.08.12.8
-    introducedIn: "2026.08.12.8",
-    title: "Added: a full \"show your work\" breakdown for combat power and win chance",
-    why: "Win chance showed up as a single percentage with no way to see what produced it, and the Attack/Defense stats in the tech tab were shown as vague % deltas that didn't even correspond to the numbers combat actually used — worse, a couple of domains (Titanium Dominion, War Foundries) promised a flat attack/defense bonus in their description that silently never applied to any fight. Both are now the same real numbers: BASE_COMBAT_POWER x persistent infrastructure x this-battle modifiers.",
-    changes: [
-      "Tech tab's Attack/Defense stats now show the actual effective combat-power number (e.g. \"11.8\") instead of a % delta — press either stat to inspect every contributing multiplier.",
-      "The Launch Attack button now shows a breakdown panel: each side's calculated base power (the same number the tech tab shows), the modifiers specific to this fight as a signed %, the resulting effective attack/defense, and the win-chance formula itself.",
-      "Fixed: tech/domain flat attack/defense bonuses (e.g. Titanium Dominion's +18%/+18%, War Foundries' +8% attack) now actually apply to combat instead of only being displayed."
-    ]
-  },
-  {
-    createdAt: 1786536900000, // 2026.08.12.7
-    introducedIn: "2026.08.12.7",
-    title: "Fixed: Aether Purge (and other Observatory abilities) still asking for gold/crystal",
-    why: "An earlier release dropped the stale price tags from the ability info panel, but the tile-targeting menu — the button you actually click to cast — had its own separate gold/crystal checks that were never touched, so Aether Purge still refused to fire below 3,000 gold. Aether EMP, Retort Recast, Create/Remove Mountain, and Launch Satellite had the same leftover checks.",
-    changes: [
-      "Removed the stale client-side gold/crystal gates on Aether Purge, Aether EMP, Retort Recast, Create Mountain, Remove Mountain, and Launch Satellite — casting them no longer requires resources they don't actually cost."
-    ]
-  },
-  {
-    createdAt: 1786533000000, // 2026.08.12.6
-    introducedIn: "2026.08.12.6",
-    title: "Fixed: zoom/pan stutter from the ownership tint overlay",
-    why: "A CPU profile taken mid-zoom showed bufferSubData eating 65% of main-thread time. The ownership overlay's commit() set needsUpdate on its position/color/index buffers without scoping the upload range, so every terrain rebuild reuploaded the full worst-case buffer (sized for the whole tile budget across 4 mesh targets) instead of just the tiles actually written that frame — the same bug class as the heightfield skirt-buffer fix, in a different overlay.",
-    changes: [
-      "Ownership overlay buffer uploads are now scoped to the written tile range instead of reuploading the whole allocation on every rebuild, cutting zoom/pan jank."
-    ]
-  },
-  {
-    createdAt: 1786530294000, // 2026.08.12.5
-    introducedIn: "2026.08.12.5",
-    title: "Fixed: Activity Feed timestamps stuck showing raw minutes forever",
-    why: "Feed entries persist for a session, so their age can run from seconds to months, but the timestamp label only ever scaled up to whole minutes — an entry from 14 hours ago read as '833m ago' instead of converting to hours, days, weeks, or months.",
-    changes: [
-      "Activity Feed timestamps now scale through s/m/h/d/w/mo depending on age, instead of showing raw minutes no matter how old the entry is."
-    ]
-  },
-  {
-    createdAt: 1786528967000, // 2026.08.12.4
-    introducedIn: "2026.08.12.4",
-    title: "Fixed: attack outcomes (manpower spent, gold/resources plundered) never actually reached the Activity Feed",
-    why: "The simulation computed a full combat outcome for every resolved attack — manpower spent, gold and resources plundered — but the gateway never forwarded that event to the attacker. combatResolutionAlert() and the client's COMBAT_RESULT listener had been dead code on the wire since the rewrite-stack gateway shipped; the only feedback an attacker ever got was the tile silently changing hands.",
-    changes: [
-      "Attack results now post a real Activity Feed entry naming manpower lost and, on a win, gold/resources plundered — not just a tile flip.",
-      "The player being raided now also gets their own Activity Feed entry (with a Go to tile button) naming the attacker and what was pillaged from them — previously they got nothing beyond the pre-resolution 'under attack' alert."
-    ]
-  },
-  {
-    createdAt: 1786526599000, // 2026.08.12.3
-    introducedIn: "2026.08.12.3",
-    title: "Development queue now fills silently once it hits its total cap",
-    why: "The total dev-queue cap exists as a defensive backstop, not something players are meant to actually hit in normal play — but the 'Development queue is full' Activity Feed warning fired as if it were a real, expected rejection, which read as broken rather than as the edge case it is.",
-    changes: [
-      "Queuing an action once the development queue is at its total cap no longer posts an Activity Feed warning — the action is silently dropped, matching how an already-queued action is already handled."
-    ]
-  },
-  {
-    createdAt: 1786519200000, // 2026.08.12.2
-    introducedIn: "2026.08.12.2",
-    title: "Titanium/Umbrite Weapons Factory attack/defense bonuses are now visible",
-    why: "The Weapons Factories were already granting real attack/defense multipliers server-side, but nothing in the client ever displayed that — a built factory looked like it did nothing, and the Tech tab's Attack/Defense chips never mentioned it either.",
-    changes: [
-      "A built, active Weapons Factory now shows its own per-copy attack/defense contribution in its tile overview.",
-      "A town's overview now shows the connected network's total Titanium and Umbrite Weapons Factory count and combined attack/defense bonus.",
-      "The Tech tab's Attack/Defense chips now list your empire's Weapons Factory count as an inspectable bonus source (labeled as the network-connected maximum, since the real bonus is scoped per attack to the connected town network involved)."
-    ]
-  },
-  {
-    createdAt: 1786510994546, // 2026.08.12.1
-    introducedIn: "2026.08.12.1",
-    title: "Merged the Shard tab's Recent Events into the Activity Feed, and dropped noisy self-action entries",
-    why: "The Shard tab had its own 'Recent Events' panel (town captures, levy hits, monument/wonder claims) that duplicated the Activity Feed instead of feeding it, so players had two places to check. Separately, several self-initiated, non-war actions — choosing a domain, a redundant 'already sending' guard, and every development-queue enqueue — were pushing feed entries that told the player nothing they didn't already see happen on their own screen.",
-    changes: [
-      "The Shard tab no longer has its own 'Recent Events' card; all server-pushed events (town losses, Imperial Exchange Levy hits/casts, monument and natural wonder claims) now appear in the Activity Feed instead.",
-      "Removed the 'Domain chosen: ...', 'Already sending a domain choice...', '... is already queued.', and '... queued. It will start when a development slot frees up.' Activity Feed entries — they fired on your own clicks and added no information beyond what was already visible.",
-      "Tile-scoped events echoed into the Activity Feed (town losses, monument/wonder claims, levy hits) now carry a 'Go to tile' button when the server supplies coordinates, matching combat alerts."
-    ]
-  },
-  {
-    createdAt: 1786528000000, // 2026.08.12.1
-    introducedIn: "2026.08.12.1",
-    title: "Aether abilities are now free of gold and crystal cost",
-    why: "Most Observatory aether abilities were already free server-side, but the info panel still showed stale gold/crystal price tags. A few abilities (mountain shaping, satellite launch) did charge real gold. Both are now free, and the panel no longer shows a Cost row for any ability.",
-    changes: [
-      "Removed the gold cost checks for Create Mountain, Remove Mountain, and Launch Satellite — they're free to cast now.",
-      "The ability info panel no longer shows a Cost row for any Observatory ability."
-    ]
-  },
-  {
-    createdAt: 1786622000000, // 2026.08.13.3
-    introducedIn: "2026.08.13.3",
-    title: "Mintworks flywheels and Umbrite reactor cores now move",
-    why: "The relay beacon's slowly rotating mirror array reads beautifully on the landscape, but the other high-tier buildings sat perfectly still. The mintworks' brass flywheel and the Umbrite weapons factory's reactor core both deserved a small touch of the same idle motion, so the world keeps a consistent, living feel at gameplay distance.",
-    changes: [
-      "The Mintworks flywheel assembly (wheel, spokes, hub and rim) now spins slowly, like its drive machinery is running.",
-      "The Umbrite weapons factory's reactor core now gently pulses — the core, fissures and embers breathe in and out like contained power.",
-      "Every structure picks its own phase from its tile, so neighbouring buildings never pulse or spin in sync."
-    ]
-  },
-  {
-    createdAt: 1786723412408, // 2026.08.14
-    introducedIn: "2026.08.14",
-    title: "Towns now grow from a frontier settlement into a magnificent steampunk metropolis",
-    why: "Towns all shared one generic hut-cluster look, so the biggest, most important settlements on the map were visually indistinguishable from the smallest. Each tier of your civilization is now a cohesive miniature city built in a single evolving steampunk style — dark iron, weathered brass, timber, stone, warm amber lamps and glowing aether machinery — from a frontier aether workshop up to a colossal three-part wonder.",
-    changes: [
-      "SETTLEMENT — Frontier Spark: a compact aether-powered workshop with a glowing aether core, brass machinery, pressure tanks, timber cottages and warm lamps.",
-      "TOWN — Growing Industry: a clockwork aether hall with turret, mechanical crane, elevated walkway and expanding pipe networks.",
-      "CITY — Industrial Metropolis: a dense civic engine with factories, brass towers, elevated bridges and steam vents.",
-      "GREAT_CITY — Imperial Powerhouse: a domed civic complex with an elevated transit loop, gear spire, beacon and clock tower.",
-      "METROPOLIS — Wonder of the World: the colossal three-part Monument towers over dense districts, transit bridges and glowing aether conduits.",
-      "The 2D town icons match the new 3D look tier-for-tier, and settlement growth is otherwise mechanically unchanged."
-    ]
-  },
-  {
-    createdAt: 1786739629437, // 2026.08.14
-    introducedIn: "2026.08.14",
-    title: "The Monumental City now truly towers over the map as a wonder of the world",
-    why: "The top-tier Monumental City was impressive but not dramatic enough to feel like a wonder of the world. The Monument now rises far above the skyline as an unmistakable three-part wonder, dwarfing the Great City below it.",
-    changes: [
-      "METROPOLIS — Wonder of the World: the central Monument is now much taller and grander, with extra stepped brass shafts, integrated gear decks and a soaring needle crowned by a luminous aether orb.",
-      "The 2D metropolis icon was redrawn to match the taller Monument, and everything remains mechanically unchanged."
-    ]
-  },
-  {
     createdAt: 1786905792661, // 2026.08.16
     introducedIn: "2026.08.16",
     title: "The Caravanary is now the Trade Nexus, with a new commercial-hub look",
@@ -381,6 +396,108 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The Caravanary structure is renamed Trade Nexus everywhere in the UI (build menu, tile info, tech tree). Its behavior — enabling the connected-town road network and income bonus — is unchanged.",
       "New 3D overlay: a grand domed trading hall on an octagonal stone plinth, ringed by six converging trade roads, merchants' warehouses, stacked cargo, brass jib cranes, feed pipes, warm hanging lamps and a slowly winding brass clockwork seal atop the dome — replacing the old fortified-inn look.",
       "A matching flat-color 2D icon (trading hall, converging routes, cargo and brass machinery) accompanies the 3D asset."
+    ]
+  },
+  {
+    createdAt: 1787356800001, // 2026.08.21, after the entries below
+    introducedIn: "2026.08.21",
+    title: "Shard rain impact sites now show on the map, even before you've explored them",
+    why: "A shard rain event's landing sites were previously only ever shown as a text notice (\"Nearest site is ~N tiles NE\") or as an in-tile icon once you'd actually explored that tile. There was no way to see where the other sites were at a glance, or to navigate straight to one.",
+    changes: [
+      "Every active shard rain site now shows as an arrow-shaped badge pointing off-screen toward it, the same locator system muster flags use — click it to jump the camera there.",
+      "Once you scroll a site on-screen, a small shield badge hovers over that exact tile, bobbing gently in place — the same badge style as the unfed-town warning, with a shard icon instead. It's just a positional blip from the event broadcast, not confirmation the shard is still there, especially on a tile you haven't explored yet.",
+      "Both the off-screen badge and the on-screen badge stay up for the full ~30-minute life of the shard rain event, not just the first moments after landing."
+    ]
+  },
+  {
+    createdAt: 1787122800000, // 2026.08.21
+    introducedIn: "2026.08.21",
+    title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",
+    why: "Expanding onto a dock connected to one you already own always failed with an out-of-reach error, since a dock only contributed to your reach once you already owned it -- there was no way to ever take the first step onto the far side. Separately, an Aether Bridge only ever opened a single-tile crossing at its landing point, so it couldn't be used to establish a real foothold for further expansion.",
+    changes: [
+      "You can now EXPAND onto an unowned dock that's connected to a dock you already own.",
+      "Casting Aether Bridge onto neutral ground now grants a small radius of reach around the landing tile, so you can expand into the surrounding land and build a Relay Beacon there -- the grant persists even after the bridge itself expires, though it can still be overtaken if a rival establishes their own reach (e.g. a Relay Beacon) over that ground.",
+      "Casting a bridge onto ground already inside a rival's territory still opens the crossing for an attack, but no longer grants any reach there."
+    ]
+  },
+  {
+    createdAt: 1787295247575, // 2026.08.21.3
+    introducedIn: "2026.08.21.3",
+    title: "Map zoom is now smooth and responsive",
+    why: "Zooming used to feel sluggish for two compounding reasons: each wheel notch only moved the zoom level by 1 out of a 10-192 range, so crossing the range took roughly 180 notches; and every single notch tore down and re-uploaded the entire visible terrain to the GPU, which alone cost ~74ms and pinned the frame rate around 10fps for the whole gesture.",
+    changes: [
+      "A wheel notch now moves zoom by a proportional step instead of a flat ±1, so the full zoom range crosses in about 15-20 notches instead of ~180.",
+      "The 3D renderer now only rebuilds the visible terrain when the camera actually needs tiles outside what's already loaded, instead of on every zoom or pan change -- zooming in no longer triggers a rebuild at all, and frame rate stays smooth while zooming or making small-to-moderate pans."
+    ]
+  },
+  {
+    createdAt: 1787323800000,
+    introducedIn: "2026.08.21.4",
+    title: "Fixed border pylons and structures drifting away from the ground while panning",
+    why: "The zoom-smoothness fix above let the terrain skip a rebuild for any pan that stayed inside a padded window, but every other 3D overlay (ownership border pylons/walls, flags, badges, selection markers) still repositions itself every single frame off the live camera with no such padding. Mid-pan, that left the terrain's baked geometry pinned to wherever it was last rebuilt while border pylons and structures kept gliding on with the live camera, so towers and border lines visibly separated from the tiles under them until the pan stopped.",
+    changes: [
+      "Panning the 3D map now always rebuilds the terrain to match the live camera, so border pylons, structures, and the ground they sit on stay locked together while scrolling. The zoom-only rebuild savings from the fix above are unaffected."
+    ]
+  },
+  {
+    createdAt: 1787346768128, // 2026.08.21.8 (frozen; was a live Date.now() call — see check-client-changelog-update.mjs)
+    introducedIn: "2026.08.21.8",
+    title: "Border-expansion pylons now rise and light up again mid-game, not just retire",
+    why: "A caller-side flag meant to skip the arrival animation on the very first frame (so the whole starting boundary didn't rise out of the ground on page load) was being passed on every single frame instead of just the first one, so any pylon or laser line added by a later border expansion popped straight into its fully-lit state instead of playing the rise-then-power-on animation -- only retiring pylons ever animated.",
+    changes: [
+      "Newly-added border pylons and laser lines now rise out of the ground and power on with the same staggered wave animation you see in Storybook, instead of popping in instantly, for every border change after the map first loads."
+    ]
+  },
+  {
+    createdAt: 1787346768129, // 2026.08.21.9
+    introducedIn: "2026.08.21.9",
+    title: "Removed the unused \"frontier collapsing\" decay countdown",
+    why: "Frontier tiles carried a natural-decay countdown UI (a header timer and tile-menu warning saying the tile would soon collapse) left over from an early design that the server never actually implemented — no frontier tile has ever expired this way, so the warning could never legitimately appear. Removed the dead client code so it can't be confused with the real encirclement cut-off warning, which still applies: a frontier tile cut off from your supply chain is still claimed by an enemy after 60 seconds if it stays disconnected.",
+    changes: [
+      "Removed the unused \"Frontier collapsing in Ns\" countdown and \"unsupported and will soon decay\" tile-menu line — this never actually triggered in play.",
+      "The encirclement (\"Cut off from supply\") warning and its 60-second countdown are unchanged."
+    ]
+  },
+  {
+    createdAt: 1787334600000,
+    introducedIn: "2026.08.21.6",
+    title: "Your border is now the server's real border, and out-of-reach waypoints no longer get stuck forever",
+    why: "The yellow reach border was drawn from a client-side approximation that re-derived your anchors from whatever tiles happened to be cached locally. It could not see contested-tile clipping against other players' anchors, so it sometimes showed a tile as inside your border that the server would refuse to let you claim. The waypoint planner used that same approximation to pick its next hop, so it kept sending an expand the server kept rejecting with OUT_OF_REACH. The retry counter was also reset on every reconnect, and the waypoint queue lives server-side, so the loop restarted from zero each time you reconnected -- a wedged waypoint blocked every waypoint behind it and refreshing could not clear it.",
+    changes: [
+      "The reach border you see is now pushed by the server and matches exactly what it will let you claim, so a tile shown inside your border can actually be expanded onto.",
+      "A waypoint step the server rejects as out of reach now cancels that waypoint instead of retrying it forever, and the cancellation is mirrored server-side so it cannot come back after a reconnect.",
+      "A halted waypoint no longer blocks the waypoints queued behind it, and the 'Waypoint halted' message appears once instead of repeating on every tick."
+    ]
+  },
+  {
+    createdAt: 1787349946710,
+    introducedIn: "2026.08.21.10",
+    title: "You can now attempt to expand toward out-of-reach frontier tiles",
+    why: "Expanding was rejected outright as OUT_OF_REACH the moment a target tile fell outside your reach border, even though claiming a neutral tile has never itself granted reach (only a settled town/outpost/dock does) -- so the rejection didn't actually protect anything, it just hid a button. Settling and building outposts are still gated on reach, since those are what actually extend your border, and a Relay Beacon (or other siege outpost) still can't be built directly on an out-of-reach frontier tile -- that loophole would have let a single out-of-reach expand leapfrog your reach indefinitely.",
+    changes: [
+      "\"Expand To\" now always shows on a neutral tile, in or out of reach, instead of being hidden outside reach.",
+      "On a frontier tile you already own but is outside reach, \"Settle Land\", \"Settle Connected\", and outpost-family build actions (Relay Beacon, siege outposts) now show disabled with an \"Outside your reach\" reason instead of disappearing.",
+      "The tile menu and both map views now flag a selected out-of-reach tile so it's clear why those actions are disabled."
+    ]
+  },
+  {
+    createdAt: 1787374761566, // 2026.08.22.1 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.1",
+    title: "Renamed the distant-attack waypoint button from \"Add Waypoint\" to \"Expand To & Attack\"",
+    why: "This button now only ever appears for an enemy-owned attack target -- the neutral-tile case was folded into \"Expand To\" in the previous release -- but it kept the old generic \"Add Waypoint\" label, which read as a leftover duplicate rather than the attack action it actually is.",
+    changes: [
+      "The multi-step waypoint action on a distant enemy tile is now labeled \"Expand To & Attack\" instead of \"Add Waypoint\"."
+    ]
+  },
+  {
+    createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.2",
+    title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
+    why: "A season previously had no limit on how many empires could join, which meant a season already crowded with players kept quietly admitting more instead of ever being \"full.\" There was also no way to find out when a fresh, uncrowded season was starting if you missed joining one.",
+    changes: [
+      "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
+      "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
+      "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
     ]
   }
 ];

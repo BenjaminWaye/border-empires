@@ -1,5 +1,6 @@
 import { isForestTile } from "./client-constants.js";
 import { updateMusicForGameState } from "./client-audio/client-audio.js";
+import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
@@ -26,6 +27,12 @@ import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
+import { resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
+import {
+  drawDormantFrontierTreatment,
+  drawReachBoundaryLine,
+  isDormantFrontierTile
+} from "./client-reach-overlay/client-reach-overlay.js";
 import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
@@ -257,6 +264,15 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
       dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
     }
+    // Reach overlay: recompute only when tiles or server reach actually
+    // changed. String key (not tilesRevision + serverReachRevision * 1e6) to
+    // avoid collisions once tilesRevision outgrows the multiplier.
+    const reachCacheKey = `${state.tilesRevision}:${state.serverReachRevision}`;
+    if (!isTrue3DRendererActive() && state.myReachRevisionAtCompute !== reachCacheKey) {
+      state.myReach = resolveMyReach(state);
+      state.myReachRevisionAtCompute = reachCacheKey;
+    }
+    const myReach = state.myReach;
     const crystalTargetingActive = state.crystalTargeting.active;
     const crystalTone = crystalTargetingActive ? deps.crystalTargetingTone(state.crystalTargeting.ability) : "amber";
     const debugWindow = typeof window !== "undefined" ? (window as Window & { __be3dCanvasOverlayDebug?: unknown }) : undefined;
@@ -636,6 +652,22 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         wrapX: deps.wrapX,
         wrapY: deps.wrapY
       });
+
+      // Fixed-borders-via-reach overlay. Boundary renders over fogged tiles
+      // too (a fixed claim, not fog-dependent) but stays hidden over unexplored.
+      if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+        if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
+          drawDormantFrontierTreatment(deps.ctx, px, py, size);
+        }
+        if (t.ownerId === state.me) {
+          drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, {
+            tiles: state.tiles,
+            keyFor: deps.keyFor,
+            wrapX: deps.wrapX,
+            wrapY: deps.wrapY
+          });
+        }
+      }
       if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
         const exposedSides = exposedSidesForTile(t, {
           tiles: state.tiles,
@@ -685,10 +717,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
           deps.ctx.fillRect(px, py, size, size);
         } else {
-          deps.ctx.strokeStyle = "#ffd166";
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
-          deps.ctx.lineWidth = 1;
+          const selectedOutOfReach = Boolean(myReach) && !myReach!.has(deps.keyFor(wx, wy)); // fixed-border reach: dashed orange outside reach
+          if (selectedOutOfReach) deps.ctx.setLineDash([4, 3]);
+          deps.ctx.strokeStyle = selectedOutOfReach ? "#ff8a3d" : "#ffd166"; deps.ctx.lineWidth = 2; deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1); deps.ctx.lineWidth = 1;
+          if (selectedOutOfReach) deps.ctx.setLineDash([]);
         }
       } else if (state.selected) {
         const selected = state.tiles.get(deps.keyFor(state.selected.x, state.selected.y));
@@ -1147,6 +1179,21 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           wrapX: deps.wrapX,
           wrapY: deps.wrapY
         });
+
+        // Fixed-borders-via-reach overlay -- see the main pass above.
+        if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+          if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
+            drawDormantFrontierTreatment(deps.ctx, px, py, size);
+          }
+          if (t.ownerId === state.me) {
+            drawReachBoundaryLine(deps.ctx, wx, wy, px, py, size, myReach, {
+              tiles: state.tiles,
+              keyFor: deps.keyFor,
+              wrapX: deps.wrapX,
+              wrapY: deps.wrapY
+            });
+          }
+        }
         if (state.showWeakDefensibility && vis === "visible" && isOwnedSettledLandTile(t, state.me)) {
           const exposedSides = exposedSidesForTile(t, {
             tiles: state.tiles,
@@ -1835,14 +1882,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   }, 300);
 
   setInterval(() => {
-    updateMusicForGameState({
-      combat: state.activeBattles.size > 0,
-      tension:
-        state.incomingAttacksByTile.size > 0 ||
-        state.musterTransitByTile.size > 0 ||
-        state.deferredAttackByTile.size > 0 ||
-        state.pendingMusterAttacks.length > 0
-    });
+    updateMusicForGameState(computeWarMusicSignals(state));
   }, 500);
 
   setInterval(() => {

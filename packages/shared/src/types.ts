@@ -6,7 +6,7 @@ export type PlayerId = string;
 export type LandBiome = "GRASS" | "SAND" | "COASTAL_SAND" | "TUNDRA";
 export type ClusterType = "FERTILE_PLAINS" | "TITANIUM_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS" | "COASTAL_SHOALS";
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
-export type FrontierDecayKind = "NATURAL" | "ENCIRCLEMENT";
+export type FrontierDecayKind = "ENCIRCLEMENT";
 export type FortStatus = "under_construction" | "active" | "removing";
 export type SiegeOutpostStatus = "under_construction" | "active" | "removing";
 export type FortVariant = "FORT" | "TITANIUM_BASTION" | "THUNDER_BASTION" | "WOODEN_FORT";
@@ -272,7 +272,6 @@ export interface Tile {
     // scope combat actually reads from).
     connectedTitaniumWeaponsFactoryCount?: number;
     connectedUmbriteWeaponsFactoryCount?: number;
-    goldIncomePausedReason?: "MANPOWER_NOT_FULL";
     manpowerCurrent?: number;
     manpowerCap?: number;
     hasMintworks: boolean;
@@ -365,7 +364,7 @@ export interface Tile {
   muster?: {
     ownerId: string;
     amount: number;
-    mode: "HOLD" | "ADVANCE";
+    mode: "HOLD" | "ADVANCE" | "MARCH";
     targetX?: number;
     targetY?: number;
     setAt?: number;
