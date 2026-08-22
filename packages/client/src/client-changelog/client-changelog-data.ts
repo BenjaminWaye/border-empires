@@ -13,14 +13,50 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1787412371498, // 2026.08.22.7 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.7",
+    createdAt: 1787412371498, // 2026.08.22.11 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.11",
     title: "Muster flags can now march on a chosen target instead of just the nearest enemy tile",
     why: "A muster flag's ADVANCE mode always auto-fired on whatever enemy tile happened to be nearest, with no way to point it at a specific target -- useful for holding a line, but not for actually pushing an offensive toward somewhere particular.",
     changes: [
       "New \"March To...\" muster action: pick a flag, choose \"March To...\", then click a destination tile.",
       "A marching flag fights its way toward that destination one attack at a time, always picking whichever reachable enemy tile is closest to the target -- it never crosses neutral ground, since a muster flag only ever attacks enemy territory.",
       "The flag automatically returns to HOLD once it captures the target tile, or you can cancel the march early from the tile menu."
+    ]
+  },
+  {
+    createdAt: 1787430800000,
+    introducedIn: "2026.08.22.10",
+    title: "Your galaxy planet now shows what it's specialized in",
+    why: "The galaxy view showed which victory path crowned your planet, but not what that meant going forward -- part of the early galactic meta-layer groundwork (docs/galactic-campaign-design.md), where each victory path is meant to grant a distinct planet specialization.",
+    changes: [
+      "Your galaxy planet (named or not-yet-named) now shows a specialization badge -- Industrial, Trade, Extraction, Logistics, or Capital -- based on which victory condition crowned it."
+    ]
+  },
+  {
+    createdAt: 1787430700000,
+    introducedIn: "2026.08.22.9",
+    title: "Muster flags now clear reliably after losing a tile in combat",
+    why: "Losing an attack could hand your attacking tile to the enemy, and if that tile then fell outside your visible area in the same instant, the server's notice that the tile (and its staged muster flag) changed hands never reached your client -- the flag stayed stuck on ground you no longer owned until you happened to re-scout it.",
+    changes: [
+      "The server now always tells you when a tile you just lost -- whether your attack's origin was overrun or a target you held was captured -- changes hands, even if you no longer have vision of it, so a cleared muster flag (and the rest of that tile's state) updates immediately instead of going stale."
+    ]
+  },
+  {
+    createdAt: 1787430600000,
+    introducedIn: "2026.08.22.8",
+    title: "Creating a mountain now clears any muster flag staged on the tile",
+    why: "Turning a tile into a mountain destroyed the tile's ownership, but the muster flag staged on it stuck around, showing a stale muster icon on ground you no longer held.",
+    changes: [
+      "Creating a mountain on a tile with a staged muster flag now clears the flag along with the tile's ownership, matching how bombardment, capture, and tile shedding already handle it."
+    ]
+  },
+  {
+    createdAt: 1787430500000,
+    introducedIn: "2026.08.22.7",
+    title: "Stage Muster now sits above Disable on structure tiles",
+    why: "On a tile with both a muster flag and a disable-able structure (e.g. Relay Beacon), Stage Muster/Set Hold/Set Advance showed up below the Disable button, making the muster controls easy to miss.",
+    changes: [
+      "The tile action menu now lists Stage Muster (and Set Hold/Set Advance/Clear Muster) above Disable/Enable for the tile's structure."
     ]
   },
   {

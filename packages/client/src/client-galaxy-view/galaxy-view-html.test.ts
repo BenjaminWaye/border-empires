@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { GALAXY_SPECIALIZATION_NAME } from "@border-empires/sim-protocol";
 
-import { renderGalaxyViewHtml, renderEmperorSectionHtml, type GalaxyViewPlanet, type GalaxyEmperorViewModel } from "./galaxy-view-html.js";
+import {
+  renderGalaxyViewHtml,
+  renderEmperorSectionHtml,
+  SPECIALIZATION_LABEL,
+  type GalaxyViewPlanet,
+  type GalaxyEmperorViewModel
+} from "./galaxy-view-html.js";
 
 const unnamed: GalaxyViewPlanet = {
   seasonId: "season-1",
@@ -64,6 +71,36 @@ describe("renderGalaxyViewHtml", () => {
     const html = renderGalaxyViewHtml({ planets: [malicious], focusedSeasonId: "season-2" });
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("renders a specialization badge with its display label when present", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [{ ...named, specialization: "CAPITAL" }],
+      focusedSeasonId: "season-2"
+    });
+    expect(html).toContain("gx-specialization");
+    expect(html).toContain("Capital World");
+  });
+
+  it("renders no specialization badge when the field is absent (pre-specialization archives)", () => {
+    const html = renderGalaxyViewHtml({ planets: [named], focusedSeasonId: "season-2" });
+    expect(html).not.toContain("gx-specialization");
+  });
+
+  it("falls back to the raw specialization id when it has no known display label", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [{ ...named, specialization: "FUTURE_ID" }],
+      focusedSeasonId: "season-2"
+    });
+    expect(html).toContain("FUTURE_ID World");
+  });
+
+  it("keeps its local specialization label copy in sync with @border-empires/sim-protocol's GALAXY_SPECIALIZATION_NAME", () => {
+    // SPECIALIZATION_LABEL is duplicated here rather than imported at runtime
+    // (see the comment above its definition) to avoid pulling sim-protocol's
+    // dependency graph into the client bundle. This test is what stands in
+    // for that import: it fails the moment the two definitions diverge.
+    expect(SPECIALIZATION_LABEL).toEqual(GALAXY_SPECIALIZATION_NAME);
   });
 });
 

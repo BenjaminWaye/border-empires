@@ -131,4 +131,64 @@ describe("filterTileDeltasForPlayer ownership-clearing passthrough", () => {
 
     expect(filtered).toHaveLength(0);
   });
+
+  it("forceVisibleForPlayerId delivers the full delta to that player even for a non-visible tile with a live ownerId, but not to anyone else", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 60_000,
+      initialPlayers: new Map([
+        [
+          "player-1",
+          {
+            id: "player-1",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ],
+        [
+          "player-2",
+          {
+            id: "player-2",
+            isAi: false,
+            points: 100,
+            manpower: 100,
+            techIds: new Set<string>(),
+            domainIds: new Set<string>(),
+            mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+            techRootId: "rewrite-local",
+            allies: new Set<string>()
+          }
+        ]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    // Simulates a tile far outside player-1's territory that just changed
+    // owner to player-2 (e.g. player-1's attack origin, overrun by player-2's
+    // counter-attack) and still carries a muster flag that needs to be
+    // cleared client-side, even though the tile itself is invisible to
+    // player-1 now that they no longer own it.
+    const deltas = [
+      { x: 50, y: 50, terrain: "LAND" as const, ownerId: "player-2" as const, ownershipState: "FRONTIER" as const, musterJson: "", forceVisibleForPlayerId: "player-1" }
+    ];
+
+    const forPlayer1 = runtime.filterTileDeltasForPlayer(deltas, "player-1");
+    expect(forPlayer1).toHaveLength(1);
+    expect(forPlayer1[0]).toEqual(deltas[0]);
+
+    const forPlayer2 = runtime.filterTileDeltasForPlayer(deltas, "player-2");
+    expect(forPlayer2).toHaveLength(0);
+  });
 });
