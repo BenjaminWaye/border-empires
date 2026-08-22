@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787422800000, // 2026.08.22.12 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.12",
+    title: "Fixed: another player's town could show your \"ready to upgrade\" badge",
+    why: "The map's green up-arrow badge and the food-shortage badge only checked that a town had an owner, not that the owner was you, so a rival town that happened to qualify lit up on your map the same way one of your own towns would.",
+    changes: [
+      "The population-tier upgrade badge and the unfed-town food badge now only appear on towns you own, on both the 3D map and the classic 2D map."
+    ]
+  },
+  {
     createdAt: 1787411986658,
     introducedIn: "2026.08.22.8",
     title: "Beta season countdown screen",
