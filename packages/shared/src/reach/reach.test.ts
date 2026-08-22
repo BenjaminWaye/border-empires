@@ -133,15 +133,22 @@ describe("grantAnchorToBorder", () => {
     expect(overtaken).toEqual([{ tileKey: tileKey(5, 5), fromOwnerId: "defender", toOwnerId: "attacker" }]);
   });
 
+  // The defended case must not hand the slot over either: granting the border
+  // while skipping the downgrade would leave the defender's SETTLED tile inside
+  // the attacker's border with nothing left to dislodge it — the very state
+  // this whole guard exists to prevent.
   it("empty border slot over a rival's SETTLED tile still respects live defense", () => {
     const anchor: ReachAnchor = { x: 5, y: 5, ownerId: "attacker", activatedAt: 2, kind: "DOCK" };
-    const { overtaken } = grantAnchorToBorder(
+    const { border, overtaken } = grantAnchorToBorder(
       new Map(),
       anchor,
       (ownerId) => (ownerId === "defender" ? new Set([tileKey(5, 5)]) : new Set()),
       (key) => (key === tileKey(5, 5) ? "defender" : undefined)
     );
     expect(overtaken).toEqual([]);
+    expect(border.get(tileKey(5, 5))).toBeUndefined();
+    // Neighbouring tiles in the same disk are unaffected and still granted.
+    expect(border.get(tileKey(5, 6))).toBe("attacker");
   });
 
   it("empty border slot over the anchor owner's own SETTLED tile is not a contest", () => {
