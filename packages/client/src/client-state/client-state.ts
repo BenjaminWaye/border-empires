@@ -590,11 +590,8 @@ export const createInitialState = () => ({
     direction: "N" as "N" | "E" | "S" | "W",
     length: 1 as 1 | 2 | 3
   },
-  airportTargeting: {
-    active: false,
-    originKey: "",
-    validTargets: new Set<string>()
-  },
+  airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
+  musterMarchTargeting: { active: false, originX: 0, originY: 0 },
   guide: {
     open: storageGet(GUIDE_STORAGE_KEY) !== "1",
     stepIndex: 0,

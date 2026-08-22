@@ -317,7 +317,7 @@ export type Tile = {
   muster?: {
     ownerId: string;
     amount: number;
-    mode: "HOLD" | "ADVANCE";
+    mode: "HOLD" | "ADVANCE" | "MARCH";
     targetX?: number;
     targetY?: number;
     setAt?: number;
@@ -701,8 +701,7 @@ export type TileActionDef = {
     | "build_relay_beacon_frontier"
     | "enable_converter_structure"
     | "disable_converter_structure" | "set_converter_structure_mode"
-    | "muster_hold"
-    | "muster_advance"
+    | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel"
     | "muster_clear"
     | "offer_truce_12h"
     | "offer_truce_24h"

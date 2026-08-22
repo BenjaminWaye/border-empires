@@ -364,7 +364,7 @@ export interface Tile {
   muster?: {
     ownerId: string;
     amount: number;
-    mode: "HOLD" | "ADVANCE";
+    mode: "HOLD" | "ADVANCE" | "MARCH";
     targetX?: number;
     targetY?: number;
     setAt?: number;
