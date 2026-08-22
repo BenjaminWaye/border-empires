@@ -980,13 +980,13 @@ export const drawTownOverlay = (
   px: number,
   py: number,
   size: number,
-  ownerColor = "#C44937"
+  localPlayerId: string, ownerColor = "#C44937"
 ): void => {
   const town = townIdentityForTile(tile);
   if (!town) return;
   if (size < 16) {
     drawTownMarker(ctx, px, py, size, true);
-    if (shouldShowTownUnfedWarning(tile)) {
+    if (shouldShowTownUnfedWarning(tile, localPlayerId)) {
       const badgeSize = Math.max(6, size * 0.24);
       const badgeX = px + size - badgeSize - 1;
       const badgeY = py + 1;
@@ -1040,7 +1040,7 @@ export const drawTownOverlay = (
   ctx.lineTo(px + size * 0.78, py + size * 0.88);
   ctx.stroke();
   ctx.lineWidth = 1;
-  if (shouldShowTownUnfedWarning(tile)) {
+  if (shouldShowTownUnfedWarning(tile, localPlayerId)) {
     const badgeSize = Math.max(8, size * 0.24);
     const badgeX = px + size * 0.72;
     const badgeY = py + size * 0.08;
