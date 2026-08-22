@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { credentials, loadPackageDefinition } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 
 import { createSimulationService } from "./simulation-service.js";
@@ -475,5 +477,24 @@ describe("prepare player integration", () => {
       spawned: false,
       full: false
     });
+  });
+
+  it("checks the season-ended branch before the player-cap gate, so an ended season never reports SEASON_FULL", () => {
+    // Regression: the cap check used to run before the `status !== "ended"`
+    // guard, so a new player joining after the season ended (with the cap
+    // also reached) got a misleading SEASON_FULL instead of the normal
+    // ended-season handling. Source-text assertion (see
+    // simulation-service.season-end-autopilot.test.ts for the same pattern)
+    // because forcing a real season-ended state requires a full victory
+    // rollover, which is out of scope for this handler-level regression.
+    const here = dirname(fileURLToPath(import.meta.url));
+    const file = readFileSync(resolve(here, "simulation-service.ts"), "utf8");
+    const prepareStart = file.indexOf("PreparePlayer(");
+    const prepareBody = file.slice(prepareStart, prepareStart + 800);
+    const endedGuardIndex = prepareBody.indexOf('currentSeasonState.status !== "ended"');
+    const capGateIndex = prepareBody.indexOf("seasonIsAtPlayerCap(");
+    expect(endedGuardIndex).toBeGreaterThan(-1);
+    expect(capGateIndex).toBeGreaterThan(-1);
+    expect(capGateIndex).toBeGreaterThan(endedGuardIndex);
   });
 });

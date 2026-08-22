@@ -2309,8 +2309,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       const prepareStartedAt = Date.now();
       let spawned = false;
       try {
-        if (seasonIsAtPlayerCap(maxSeasonPlayers, runtime, call.request.player_id)) { log.info({ playerId: call.request.player_id, maxSeasonPlayers }, "prepare player rejected: season is full"); callback(null, { ok: true, player_id: call.request.player_id, playerId: call.request.player_id, spawned: false, full: true }); return; }
         if (currentSeasonState.status !== "ended") {
+          if (seasonIsAtPlayerCap(maxSeasonPlayers, runtime, call.request.player_id)) { log.info({ playerId: call.request.player_id, maxSeasonPlayers }, "prepare player rejected: season is full"); callback(null, { ok: true, player_id: call.request.player_id, playerId: call.request.player_id, spawned: false, full: true }); return; }
           const spawnStartedAt = Date.now();
           const rallyAnchor = parseRallyAnchor(call.request.rally_anchor_json);
           spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id, rallyAnchor);
