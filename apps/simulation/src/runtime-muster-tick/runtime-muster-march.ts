@@ -40,7 +40,7 @@ export const maybeMarchFire = (input: MusterTickInput, musterTile: DomainTileSta
     input.replaceTileState(originKey, clearedTile);
     input.emitEvent({
       eventType: "TILE_DELTA_BATCH",
-      commandId: `muster-march-complete:${playerId}:${input.nowMs}`,
+      commandId: `muster-march-complete:${playerId}:${originKey}:${input.nowMs}`,
       playerId,
       tileDeltas: [input.tileDeltaFromState(clearedTile)]
     });
