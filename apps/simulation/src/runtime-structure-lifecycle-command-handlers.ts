@@ -162,9 +162,16 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     rejectCommand(context, command, "MUSTER_INVALID", "owned LAND tile required to muster");
     return;
   }
-  if (payload.mode === "MARCH" && payload.targetX === payload.x && payload.targetY === payload.y) {
-    rejectCommand(context, command, "MUSTER_INVALID", "march target must differ from the flag tile");
-    return;
+  if (payload.mode === "MARCH") {
+    if (payload.targetX === payload.x && payload.targetY === payload.y) {
+      rejectCommand(context, command, "MUSTER_INVALID", "march target must differ from the flag tile");
+      return;
+    }
+    const marchTarget = context.tiles.get(simulationTileKey(payload.targetX!, payload.targetY!));
+    if (!marchTarget || marchTarget.terrain !== "LAND") {
+      rejectCommand(context, command, "MUSTER_INVALID", "march target must be a LAND tile");
+      return;
+    }
   }
   const isNewMuster = target.muster?.ownerId !== command.playerId;
   if (isNewMuster) {
