@@ -52,12 +52,6 @@ export class InMemoryGalaxyEconomyStore implements GalaxyEconomyStore {
   private readonly balances = new Map<string, GalaxyEconomyBalance>();
   private readonly stability = new Map<string, GalaxyTerritoryStability>();
 
-  private readonly now: () => number;
-
-  constructor(now: () => number = () => Date.now()) {
-    this.now = now;
-  }
-
   async getBalance(authUid: string): Promise<GalaxyEconomyBalance | undefined> {
     const existing = this.balances.get(authUid);
     return existing ? { ...existing } : undefined;
@@ -94,7 +88,6 @@ export class InMemoryGalaxyEconomyStore implements GalaxyEconomyStore {
     if (existing) return { ...existing };
     const record: GalaxyTerritoryStability = { authUid: input.authUid, seasonId: input.seasonId, tier: input.tier, stability: 100 };
     this.stability.set(key, record);
-    void this.now; // reserved: no timestamp currently needed on this row
     return { ...record };
   }
 
