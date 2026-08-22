@@ -293,9 +293,19 @@ const SAND_PALETTE: Palette4 = [
   [255, 252, 236]  // sunlit highlight (near-white)
 ] as const;
 
+// Pale frost blue-grey-green permafrost palette — cold and desaturated,
+// distinct from both the warm sand and the sunny grass corners.
+const TUNDRA_PALETTE: Palette4 = [
+  [162, 182, 178], // frosted sage
+  [178, 196, 192], // pale frost
+  [150, 172, 168], // shadowed permafrost
+  [190, 206, 200]  // sunlit rime highlight
+] as const;
+
 export type TerrainDetailMaps = {
   readonly grassColorMap: CanvasTexture | null;
   readonly sandColorMap: CanvasTexture | null;
+  readonly tundraColorMap: CanvasTexture | null;
   readonly normalMap: CanvasTexture | null;
   readonly roughnessMap: CanvasTexture | null;
   readonly tilesPerRepeat: number;
@@ -498,6 +508,7 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
     return {
       grassColorMap: null,
       sandColorMap: null,
+      tundraColorMap: null,
       normalMap: null,
       roughnessMap: null,
       tilesPerRepeat: TERRAIN_DETAIL_TILES_PER_REPEAT,
@@ -549,10 +560,32 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
     grainStrength: 0.28
   });
 
-  // Normal + roughness use a composite of grass and sand height fields so a
-  // single shared pair works for both biomes (the fragment shader applies
-  // them after the color blend). Averaging keeps the lighting subtle on both
-  // sides; a per-biome split here would burden VRAM with little extra payoff.
+  const tundra = createPainterlyBiomeTexture(size, TUNDRA_PALETTE, {
+    seed: 89,
+    // Broad, soft patches — permafrost ground cover, not grass clumps.
+    cellularCellSize: size / 14,
+    cellularStrength: 0.14,
+    bladeStripeFreq: 0,
+    bladeStripeStrength: 0,
+    rippleFreqX: 0,
+    rippleFreqY: 0,
+    rippleStrength: 0,
+    // Sparse, low-contrast speckle — a hint of scattered lichen/scrub
+    // rather than grass's dense blade texture.
+    speckleCellSize: size / 30,
+    speckleStrength: 0.22,
+    // Frost-crack stamps: sparse, wide, faint dark cracks in the permafrost.
+    stampDensity: 5,
+    stampDarkness: 0.12,
+    stampRadius: size / 16,
+    grainStrength: 0.32
+  });
+
+  // Normal + roughness use a composite of grass, sand, and tundra height
+  // fields so a single shared pair works for all three biomes (the fragment
+  // shader applies them after the color blend). Averaging keeps the lighting
+  // subtle on every side; a per-biome split here would burden VRAM with
+  // little extra payoff.
   const normalCanvas = document.createElement("canvas");
   const roughnessCanvas = document.createElement("canvas");
   normalCanvas.width = normalCanvas.height = size;
@@ -567,7 +600,7 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
 
   const composite = new Float32Array(size * size);
   for (let i = 0; i < composite.length; i += 1) {
-    composite[i] = (grass.heights[i]! + sand.heights[i]!) * 0.5;
+    composite[i] = (grass.heights[i]! + sand.heights[i]! + tundra.heights[i]!) / 3;
   }
 
   const normalStrength = 3.6;
@@ -626,6 +659,14 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
   sandColorMap.anisotropy = 8;
   sandColorMap.needsUpdate = true;
 
+  const tundraColorMap = new CanvasTexture(tundra.canvas);
+  tundraColorMap.colorSpace = SRGBColorSpace;
+  tundraColorMap.wrapS = RepeatWrapping;
+  tundraColorMap.wrapT = RepeatWrapping;
+  tundraColorMap.repeat.set(1 / TERRAIN_DETAIL_TILES_PER_REPEAT, 1 / TERRAIN_DETAIL_TILES_PER_REPEAT);
+  tundraColorMap.anisotropy = 8;
+  tundraColorMap.needsUpdate = true;
+
   const normalMap = new CanvasTexture(normalCanvas);
   normalMap.colorSpace = LinearSRGBColorSpace;
   normalMap.wrapS = RepeatWrapping;
@@ -645,6 +686,7 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
   const dispose = (): void => {
     grassColorMap.dispose();
     sandColorMap.dispose();
+    tundraColorMap.dispose();
     normalMap.dispose();
     roughnessMap.dispose();
   };
@@ -652,6 +694,7 @@ export const createTerrainDetailMaps = (): TerrainDetailMaps => {
   return {
     grassColorMap,
     sandColorMap,
+    tundraColorMap,
     normalMap,
     roughnessMap,
     tilesPerRepeat: TERRAIN_DETAIL_TILES_PER_REPEAT,

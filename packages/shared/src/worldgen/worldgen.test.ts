@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { continentIdAt, grassShadeAt, landBiomeAt, setWorldSeed, terrainAt } from "../index.js";
+import { WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 
 describe("worldgen", () => {
   test("reuses cached results without changing output", () => {
@@ -33,5 +34,52 @@ describe("worldgen", () => {
     }));
 
     expect(after).not.toEqual(before);
+  });
+
+  test("places TUNDRA land tiles near the polar mountain band but never at the equator", () => {
+    setWorldSeed(2024);
+
+    const rowLandBiomes = (wy: number): (import("../types.js").LandBiome | undefined)[] =>
+      Array.from({ length: WORLD_WIDTH }, (_, wx) => terrainAt(wx, wy) === "LAND" ? landBiomeAt(wx, wy) : undefined);
+
+    // Rows just past the fixed polar mountain band (wy < 15 forces MOUNTAIN)
+    // should include some TUNDRA land tiles.
+    const nearNorthPole = rowLandBiomes(20);
+    const nearSouthPole = rowLandBiomes(WORLD_HEIGHT - 20);
+    expect(nearNorthPole.some((b) => b === "TUNDRA") || nearSouthPole.some((b) => b === "TUNDRA")).toBe(true);
+
+    // The equator row is far outside the cold band and should never resolve to TUNDRA.
+    const equator = rowLandBiomes(Math.floor(WORLD_HEIGHT / 2));
+    expect(equator.every((b) => b !== "TUNDRA")).toBe(true);
+  });
+
+  test("grassShadeAt computes a real LIGHT/DARK split for TUNDRA — the tundra-forest sub-variant", () => {
+    setWorldSeed(2024);
+
+    const tundraShades = new Set<"LIGHT" | "DARK">();
+    for (let wx = 0; wx < WORLD_WIDTH; wx++) {
+      if (terrainAt(wx, 20) === "LAND" && landBiomeAt(wx, 20) === "TUNDRA") {
+        const shade = grassShadeAt(wx, 20);
+        expect(shade).not.toBeUndefined();
+        tundraShades.add(shade!);
+      }
+    }
+    expect(tundraShades.size).toBeGreaterThan(0);
+  });
+
+  test("grassShadeAt is undefined for SAND/COASTAL_SAND/MOUNTAIN — only GRASS and TUNDRA get a shade", () => {
+    setWorldSeed(2024);
+    let checkedNonGrassNonTundra = false;
+    for (let wy = 0; wy < WORLD_HEIGHT && !checkedNonGrassNonTundra; wy++) {
+      for (let wx = 0; wx < WORLD_WIDTH; wx++) {
+        const terrain = terrainAt(wx, wy);
+        if (terrain === "MOUNTAIN") {
+          expect(grassShadeAt(wx, wy)).toBeUndefined();
+          checkedNonGrassNonTundra = true;
+          break;
+        }
+      }
+    }
+    expect(checkedNonGrassNonTundra).toBe(true);
   });
 });

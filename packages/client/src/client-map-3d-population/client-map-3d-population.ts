@@ -1,3 +1,4 @@
+import { grassShadeAt } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 type TownPopulationTier = NonNullable<NonNullable<Tile["town"]>["populationTier"]>;
@@ -94,7 +95,7 @@ export const resourceFor3DPopulation = (
   terrain: Tile["terrain"],
   tile: Tile | undefined,
   syntheticEnabled: boolean,
-  biome: "GRASS" | "SAND" | "COASTAL_SAND" | undefined,
+  biome: "GRASS" | "SAND" | "COASTAL_SAND" | "TUNDRA" | undefined,
   forestTile: boolean
 ): Tile["resource"] | undefined => {
   if (tile?.resource) return tile.resource;
@@ -107,6 +108,7 @@ export const resourceFor3DPopulation = (
     if (biome === "COASTAL_SAND") return roll < 0.03 ? "FISH" : undefined;
     if (forestTile) return roll < 0.03 ? "UMBRITE" : undefined;
     if (biome === "SAND") return roll < 0.025 ? "GEMS" : undefined;
+    if (biome === "TUNDRA") return roll < 0.02 ? (grassShadeAt(wx, wy) === "DARK" ? "UMBRITE" : "TITANIUM") : undefined;
     return roll < 0.02 ? "FARM" : undefined;
   }
   if (biome === "COASTAL_SAND") {
@@ -114,6 +116,11 @@ export const resourceFor3DPopulation = (
   }
   if (biome === "SAND") {
     return chooseClusterResource(resourceCluster.clusterId, ["GEMS", "TITANIUM", "UMBRITE"], ["GEMS", "TITANIUM"]);
+  }
+  if (biome === "TUNDRA") {
+    // Tundra-forest (dark shade) is the richer half of the biome — real
+    // TITANIUM+UMBRITE affinity, mirroring server-worldgen-terrain.ts.
+    return grassShadeAt(wx, wy) === "DARK" ? chooseClusterResource(resourceCluster.clusterId, ["TITANIUM", "UMBRITE"], ["TITANIUM", "UMBRITE"]) : "TITANIUM";
   }
   if (forestTile) {
     return chooseClusterResource(resourceCluster.clusterId, ["UMBRITE", "FARM"], ["UMBRITE", "FARM", "TITANIUM"]);
