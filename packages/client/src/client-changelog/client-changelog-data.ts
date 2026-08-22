@@ -369,26 +369,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786910628146, // 2026.08.16.1
-    introducedIn: "2026.08.16.1",
-    title: "Swapped the waypoint and mustering flag overlays",
-    why: "The elaborate steampunk tower — banner, medallion, cannons, dome, spire — used to mark a single movement waypoint, while mustering tiles got a small pennant. That was backwards: a big banner-bearing tower reads as a rallying point, not a mere movement destination, and mustering tiles can appear several at once across a border while a waypoint queue is just one player's own path.",
-    changes: [
-      "Mustering tiles now show the full tower/banner assembly, with the marching soldier dots still converging on it as manpower fills.",
-      "Waypoint queue entries now show a small pennant instead — no soldier dots, since a waypoint isn't accumulating troops.",
-      "The tower now renders efficiently across many simultaneous mustering tiles instead of being limited to a handful of instances."
-    ]
-  },
-  {
-    createdAt: 1786924800000, // 2026.08.16.2
-    introducedIn: "2026.08.16.2",
-    title: "Fogged sea tiles no longer render as a solid black hole",
-    why: "Sea tiles were never part of the 3D heightfield mesh (the water plane sits over a deliberate hole in it), so the fog-of-war darken overlay — which works by tinting a land tile's already-drawn remembered terrain — had nothing underneath it for sea. The result was a fully opaque black quad over an empty hole, on top of the scene's own black fog background: indistinguishable from unexplored fog, right at any coastline your vision doesn't currently reach.",
-    changes: [
-      "Fogged SEA/COASTAL_SEA tiles now draw the same live water surface visible sea gets instead of a black darken overlay, so remembered coastline reads as water again."
-    ]
-  },
-  {
     createdAt: 1786965132570, // 2026.08.16.3
     introducedIn: "2026.08.16.3",
     title: "Battle dots: attacker and defender no longer disappear into each other during the clash",
@@ -489,6 +469,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A strong runner-up -- leading a different victory path than the one that won, with real hold-progress on it -- now claims a minor permanent Outpost, specialized by their own leading path and shown alongside your Planets in the galaxy view.",
       "Any other empire that meaningfully engaged with a victory path, without getting close to winning, now gets a one-time Stipend of Influence and Production instead, scaled to how far they got.",
       "Outposts appear in the public galaxy listing as territory, like Planets; Stipends are a one-time payout and only show up in your own galaxy view."
+    ]
+  },
+  {
+    createdAt: 1787419536000, // 2026.08.22.4 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.4",
+    title: "Winning a season now gives your next empire a starting head start",
+    why: "Claiming a Planet previously ended with the galaxy view -- nothing about winning carried forward into how your next empire actually played. This is a first, deliberately small step toward the galaxy's full Wonder system (a permanent Production economy is still to come); for now the reward for winning is a one-time boost, not a lasting building.",
+    changes: [
+      "The most recent season's Planet winner now starts their next empire with a permanent manpower-regen head start and an expanded starting vision radius.",
+      "It's a one-time grant, applied automatically the moment you spawn your next empire -- nothing to claim or activate."
     ]
   }
 ];

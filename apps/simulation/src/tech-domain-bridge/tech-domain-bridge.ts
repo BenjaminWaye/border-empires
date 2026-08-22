@@ -367,8 +367,8 @@ export const outpostVisionRadiusBonusForPlayer = (
 ): number => additiveEffectForPlayer(player, "outpostVisionRadiusBonus");
 
 export const effectiveVisionRadiusForPlayer = (
-  player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds" | "wonderVisionRadiusBonus">
-): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player) + (player.wonderVisionRadiusBonus ?? 0));
+  player: Pick<DomainPlayer, "mods" | "techIds" | "domainIds" | "wonderVisionRadiusBonus" | "galacticWonderVisionRadiusBonus">
+): number => Math.max(1, Math.floor(VISION_RADIUS * (player.mods?.vision ?? 1)) + visionRadiusBonusForPlayer(player) + (player.wonderVisionRadiusBonus ?? 0) + (player.galacticWonderVisionRadiusBonus ?? 0));
 
 /**
  * Effective crystal-observatory cast radius for a player, mirroring the client's

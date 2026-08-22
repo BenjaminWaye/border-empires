@@ -12,6 +12,26 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1786910628146, // 2026.08.16.1
+    introducedIn: "2026.08.16.1",
+    title: "Swapped the waypoint and mustering flag overlays",
+    why: "The elaborate steampunk tower — banner, medallion, cannons, dome, spire — used to mark a single movement waypoint, while mustering tiles got a small pennant. That was backwards: a big banner-bearing tower reads as a rallying point, not a mere movement destination, and mustering tiles can appear several at once across a border while a waypoint queue is just one player's own path.",
+    changes: [
+      "Mustering tiles now show the full tower/banner assembly, with the marching soldier dots still converging on it as manpower fills.",
+      "Waypoint queue entries now show a small pennant instead — no soldier dots, since a waypoint isn't accumulating troops.",
+      "The tower now renders efficiently across many simultaneous mustering tiles instead of being limited to a handful of instances."
+    ]
+  },
+  {
+    createdAt: 1786924800000, // 2026.08.16.2
+    introducedIn: "2026.08.16.2",
+    title: "Fogged sea tiles no longer render as a solid black hole",
+    why: "Sea tiles were never part of the 3D heightfield mesh (the water plane sits over a deliberate hole in it), so the fog-of-war darken overlay — which works by tinting a land tile's already-drawn remembered terrain — had nothing underneath it for sea. The result was a fully opaque black quad over an empty hole, on top of the scene's own black fog background: indistinguishable from unexplored fog, right at any coastline your vision doesn't currently reach.",
+    changes: [
+      "Fogged SEA/COASTAL_SEA tiles now draw the same live water surface visible sea gets instead of a black darken overlay, so remembered coastline reads as water again."
+    ]
+  },
+  {
     createdAt: 1787346768128, // 2026.08.21.8 (frozen; was a live Date.now() call — see check-client-changelog-update.mjs)
     introducedIn: "2026.08.21.8",
     title: "Border-expansion pylons now rise and light up again mid-game, not just retire",

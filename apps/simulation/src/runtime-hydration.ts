@@ -72,6 +72,12 @@ export const createPlayersFromRecoveredState = (
             : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
           ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
+          ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number"
+            ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute }
+            : {}),
+          ...(typeof player.galacticWonderVisionRadiusBonus === "number"
+            ? { galacticWonderVisionRadiusBonus: player.galacticWonderVisionRadiusBonus }
+            : {}),
           ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
           strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 }
         }
