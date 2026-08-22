@@ -22,7 +22,7 @@ import { registerGalaxyRoutes } from "../galaxy-routes/galaxy-routes.js";
 import { registerGalaxyEndorsementRoutes } from "../galaxy-endorsement-routes/galaxy-endorsement-routes.js";
 import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
-import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
+import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js"; import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
 
@@ -98,7 +98,7 @@ export type RegisterGatewayHttpRoutesDeps = {
     player?: { name?: string };
     tiles: Array<{ x: number; y: number; ownerId?: string | undefined; ownershipState?: string | undefined; townType?: string | undefined }>;
   }>;
-  galaxyPlanetStore?: GalaxyPlanetStore;
+  galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: GalaxyEconomyStore;
   galaxyEndorsementStore?: GalaxyEndorsementStore;
   authBindingStore?: GatewayAuthBindingStore;
   worldEngineStrikeStore?: WorldEngineStrikeStore;
@@ -543,7 +543,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
     listSeasonArchives: deps.listSeasonArchives,
     getCurrentSeasonSummary: deps.getCurrentSeasonSummary,
     ...(deps.authenticateBearer ? { authenticateBearer: deps.authenticateBearer } : {}),
-    ...(deps.galaxyPlanetStore ? { galaxyPlanetStore: deps.galaxyPlanetStore } : {}),
+    ...(deps.galaxyPlanetStore ? { galaxyPlanetStore: deps.galaxyPlanetStore } : {}), ...(deps.galaxyEconomyStore ? { galaxyEconomyStore: deps.galaxyEconomyStore } : {}),
     ...(deps.authBindingStore ? { authBindingStore: deps.authBindingStore } : {})
   });
 
