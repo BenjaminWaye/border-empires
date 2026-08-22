@@ -13,8 +13,8 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1787430200000,
-    introducedIn: "2026.08.22.4",
+    createdAt: 1787430300000,
+    introducedIn: "2026.08.22.5",
     title: "Growing your territory over an enemy tile that was settled out of reach now takes it properly",
     why: "A tile could end up settled by an empire that never held any territory claim over it, which left no claim recorded for that tile at all. When your own territory later grew across it, the game treated the ground as empty and simply handed you the claim -- but because nothing was recorded as changing hands, the enemy's settled tile was never knocked back to a frontier tile. The result was an enemy town sitting inside your border that your territory could never dislodge, no matter how far your reach grew.",
     changes: [
@@ -23,13 +23,23 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787430100000,
-    introducedIn: "2026.08.22.3",
+    createdAt: 1787430200000,
+    introducedIn: "2026.08.22.4",
     title: "Auto-settle no longer fires on tiles that have drifted out of reach",
     why: "Queuing a settle-then-build (or letting an AI empire's frontier auto-settle) could still fire once the tile had fallen out of reach in the meantime -- the server always rejected it as out-of-reach, but nothing checked first, so it just silently failed instead of being dropped up front.",
     changes: [
       "Both the player's queued auto-settle and an AI empire's automatic frontier settlement now check reach before sending a settle command, dropping the queued action instead of sending one that's guaranteed to be rejected.",
       "When a settled tile gets overtaken and reverts to a frontier tile because a rival's territory grew over it, it now plays a brief collapsing pylon effect on the map instead of changing silently."
+    ]
+  },
+  {
+    createdAt: 1787430100000,
+    introducedIn: "2026.08.22.3",
+    title: "Fixed the reach border dodging around fog of war and unexplored tiles",
+    why: "Your reach border is a fixed, server-authoritative line -- it shouldn't move depending on what you can currently see. But the 2D map only drew the border on tiles it considered fully visible, so on any fogged or unexplored patch inside your own territory the line simply stopped, making it look like the border itself was carving around the fog instead of following your actual claim.",
+    changes: [
+      "The reach border now renders on top of fogged territory (dimmed, same as the rest of a fogged tile) instead of disappearing there.",
+      "It still stays hidden over fully unexplored tiles, since there's nothing remembered there to draw it against."
     ]
   },
   {
