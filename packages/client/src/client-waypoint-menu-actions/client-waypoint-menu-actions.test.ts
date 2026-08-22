@@ -24,7 +24,7 @@ const view = (overrides: Partial<TileMenuView> = {}): TileMenuView => ({
   ...overrides
 });
 
-type StateShape = Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint">;
+type StateShape = Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint" | "serverReach" | "serverReachRevision">;
 
 const stateWith = (tiles: Tile[], overrides: Partial<StateShape> = {}): StateShape => ({
   me: "me",
@@ -33,6 +33,10 @@ const stateWith = (tiles: Tile[], overrides: Partial<StateShape> = {}): StateSha
   allies: [],
   activeTruces: [],
   waypoint: [],
+  // undefined serverReach = no REACH_UPDATE yet, so resolveMyReach falls back
+  // to the local anchor-derived approximation these fixtures already set up.
+  serverReach: undefined,
+  serverReachRevision: 0,
   ...overrides
 });
 
@@ -143,7 +147,7 @@ describe("injectWaypointActions", () => {
       expect(v.actions).toHaveLength(0);
     });
 
-    it("prepends Add Waypoint on a different enemy tile when a waypoint is already queued", () => {
+    it("prepends March to Attack on a different enemy tile when a waypoint is already queued", () => {
       // (9,3) is a beacon anchor (radius 5) rather than a plain explored
       // tile, so the second target (12,3, distance 3 from the anchor) has
       // real reach coverage along its approach.
@@ -171,7 +175,7 @@ describe("injectWaypointActions", () => {
         pickOriginForTarget: noAdjacentOrigin
       });
       expect(v.actions[0]?.id).toBe("expand_here");
-      expect(v.actions[0]?.label).toBe("Add Waypoint");
+      expect(v.actions[0]?.label).toBe("Expand To & Attack");
       expect(v.tabs[0]).toBe("actions");
     });
   });

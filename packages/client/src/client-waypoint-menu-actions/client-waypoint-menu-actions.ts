@@ -1,5 +1,5 @@
 import { planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
-import { localReachIsInReach } from "../client-reach-overlay/client-reach-overlay.js";
+import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuView } from "../client-types.js";
 import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
@@ -27,7 +27,7 @@ export const formatWaypointSummary = (plan: WaypointPlan): string => {
 
 const waypointPlanForTile = (
   tile: Tile,
-  state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint">,
+  state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint" | "serverReach" | "serverReachRevision">,
   deps: WaypointMenuDeps
 ): WaypointPlan | undefined => {
   // tile.fogged (currently-obscured, but previously-confirmed terrain) does
@@ -50,7 +50,7 @@ const waypointPlanForTile = (
     deps.pickOriginForTarget(tile.x, tile.y, false) ??
     deps.pickOriginForTarget(tile.x, tile.y, false, true);
   if (adjacentOrigin) return;
-  const isInReach = localReachIsInReach(state.tiles, state.me, deps.keyFor);
+  const isInReach = authoritativeIsInReach(state, deps.keyFor);
   // ATTACK is deliberately not reach-gated (see the fixed-borders-via-reach
   // plan), so an enemy-owned target skips the reach pre-check entirely (the
   // FINAL-target check below). The only neutral case that still reaches
@@ -82,7 +82,7 @@ const prependWaypointAction = (view: TileMenuView, action: TileActionDef): void 
 export const injectWaypointActions = (
   view: TileMenuView,
   tile: Tile,
-  state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint">,
+  state: Pick<ClientState, "me" | "tiles" | "dockPairs" | "allies" | "activeTruces" | "waypoint" | "serverReach" | "serverReachRevision">,
   deps: WaypointMenuDeps
 ): void => {
   // Idempotent: renderTileActionMenu fires repeatedly for the same
@@ -97,9 +97,12 @@ export const injectWaypointActions = (
   }
   // Already the destination of a later (not-yet-active) queued waypoint --
   // its progress/cancel/jump-to-front controls live on the "progress" tab
-  // (queuedWaypointProgressForTile), so don't also offer "Add Waypoint" here.
+  // (queuedWaypointProgressForTile), so don't also offer this action here.
   if (state.waypoint.some((entry) => entry.target.x === tile.x && entry.target.y === tile.y)) return;
   const plan = waypointPlanForTile(tile, state, deps);
   if (!plan) return;
-  prependWaypointAction(view, { id: "expand_here", label: "Add Waypoint", detail: formatWaypointSummary(plan) });
+  // This module only ever fires for enemy-owned attack targets now -- the
+  // neutral-tile case was folded into "Expand To" (client-tile-action-
+  // neutral.ts). Label it accordingly instead of the old generic name.
+  prependWaypointAction(view, { id: "expand_here", label: "Expand To & Attack", detail: formatWaypointSummary(plan) });
 };

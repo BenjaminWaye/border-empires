@@ -1,152 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { credentials, loadPackageDefinition } from "@grpc/grpc-js";
-import { loadSync } from "@grpc/proto-loader";
-import { fileURLToPath } from "node:url";
-
 
 import { createSimulationService } from "./simulation-service.js";
-
-const silentLog = {
-  info: () => undefined,
-  error: () => undefined
-};
-
-type RawSimulationClient = {
-  SubmitCommand?: (
-    request: { command_id: string; session_id: string; player_id: string; client_seq: number; issued_at: number; type: string; payload_json: string },
-    callback: (error: Error | null, response: { ok: boolean }) => void
-  ) => void;
-  submitCommand?: (
-    request: { command_id: string; session_id: string; player_id: string; client_seq: number; issued_at: number; type: string; payload_json: string },
-    callback: (error: Error | null, response: { ok: boolean }) => void
-  ) => void;
-  PreparePlayer?: (
-    request: { player_id: string },
-    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean; joined?: boolean }) => void
-  ) => void;
-  preparePlayer?: (
-    request: { player_id: string },
-    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean; joined?: boolean }) => void
-  ) => void;
-  JoinSeason?: (
-    request: { player_id: string },
-    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean }) => void
-  ) => void;
-  joinSeason?: (
-    request: { player_id: string },
-    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean }) => void
-  ) => void;
-  SubscribePlayer?: (
-    request: { player_id: string; subscription_json: string },
-    callback: (
-      error: Error | null,
-      response: {
-        ok: boolean;
-        player_id?: string;
-        world_status_json?: string;
-        tiles?: Array<{ x: number; y: number; terrain?: string; owner_id?: string; ownership_state?: string }>;
-      }
-    ) => void
-  ) => void;
-  subscribePlayer?: (
-    request: { player_id: string; subscription_json: string },
-    callback: (
-      error: Error | null,
-      response: {
-        ok: boolean;
-        player_id?: string;
-        world_status_json?: string;
-        tiles?: Array<{ x: number; y: number; terrain?: string; owner_id?: string; ownership_state?: string }>;
-      }
-    ) => void
-  ) => void;
-  UnsubscribePlayer?: (request: { player_id: string }, callback: (error: Error | null, response: { ok: boolean }) => void) => void;
-  unsubscribePlayer?: (request: { player_id: string }, callback: (error: Error | null, response: { ok: boolean }) => void) => void;
-  StreamEvents?: (request: { at: number }) => { on: (event: "data" | "error", handler: (value: any) => void) => void; cancel: () => void };
-  streamEvents?: (request: { at: number }) => { on: (event: "data" | "error", handler: (value: any) => void) => void; cancel: () => void };
-};
-
-const packageDefinition = loadSync(fileURLToPath(new URL("../../../../packages/sim-protocol/src/simulation.proto", import.meta.url)), {
-  keepCase: true,
-  longs: Number,
-  defaults: true,
-  enums: String,
-  oneofs: false
-});
-
-const proto = loadPackageDefinition(packageDefinition) as unknown as {
-  border_empires: {
-    simulation: {
-      SimulationService: new (address: string, creds: ReturnType<typeof credentials.createInsecure>) => RawSimulationClient;
-    };
-  };
-};
-
-const createRawSimulationClient = (address: string) =>
-  new proto.border_empires.simulation.SimulationService(address, credentials.createInsecure());
-
-const preparePlayer = async (client: RawSimulationClient, playerId: string): Promise<{ playerId: string; spawned: boolean; joined: boolean }> => {
-  const rpc = client.PreparePlayer ?? client.preparePlayer;
-  if (!rpc) throw new Error("PreparePlayer RPC unavailable in integration test");
-  return await new Promise((resolve, reject) => {
-    rpc.call(client, { player_id: playerId }, (error, response) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve({
-        playerId: response.player_id ?? playerId,
-        spawned: response.spawned === true,
-        joined: response.joined !== false
-      });
-    });
-  });
-};
-
-const joinSeason = async (client: RawSimulationClient, playerId: string): Promise<{ playerId: string; spawned: boolean }> => {
-  const rpc = client.JoinSeason ?? client.joinSeason;
-  if (!rpc) throw new Error("JoinSeason RPC unavailable in integration test");
-  return await new Promise((resolve, reject) => {
-    rpc.call(client, { player_id: playerId }, (error, response) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve({
-        playerId: response.player_id ?? playerId,
-        spawned: response.spawned === true
-      });
-    });
-  });
-};
-
-const subscribePlayer = async (
-  client: RawSimulationClient,
-  playerId: string,
-  subscriptionJson = "{}"
-): Promise<{ playerId: string; tiles: Array<{ x: number; y: number; terrain?: string; ownerId?: string; ownershipState?: string }>; worldStatus?: { leaderboard: { overall: unknown[] } } }> => {
-  const rpc = client.SubscribePlayer ?? client.subscribePlayer;
-  if (!rpc) throw new Error("SubscribePlayer RPC unavailable in integration test");
-  return await new Promise((resolve, reject) => {
-    rpc.call(client, { player_id: playerId, subscription_json: subscriptionJson }, (error, response) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve({
-        playerId: response.player_id ?? playerId,
-        tiles: (response.tiles ?? []).map((tile) => ({
-          x: tile.x,
-          y: tile.y,
-          ...(tile.terrain ? { terrain: tile.terrain } : {}),
-          ...(tile.owner_id ? { ownerId: tile.owner_id } : {}),
-          ...(tile.ownership_state ? { ownershipState: tile.ownership_state } : {})
-        })),
-        ...(response.world_status_json ? { worldStatus: JSON.parse(response.world_status_json) as { leaderboard: { overall: unknown[] } } } : {})
-      });
-    });
-  });
-};
+import {
+  createRawSimulationClient,
+  joinSeason,
+  preparePlayer,
+  silentLog,
+  subscribePlayer,
+  type RawSimulationClient
+} from "./prepare-player-test-client.js";
 
 const unsubscribePlayer = async (client: RawSimulationClient, playerId: string): Promise<void> => {
   const rpc = client.UnsubscribePlayer ?? client.unsubscribePlayer;
@@ -261,7 +123,8 @@ describe("prepare player integration", () => {
     await expect(preparePlayer(client, playerId)).resolves.toEqual({
       playerId,
       spawned: false,
-      joined: false
+      joined: false,
+      full: false
     });
 
     const ownedTiles = service.runtime.exportState().tiles.filter((tile) => tile.ownerId === playerId);
@@ -281,16 +144,19 @@ describe("prepare player integration", () => {
 
     await expect(joinSeason(client, playerId)).resolves.toEqual({
       playerId,
-      spawned: true
+      spawned: true,
+      full: false
     });
     await expect(joinSeason(client, playerId)).resolves.toEqual({
       playerId,
-      spawned: false
+      spawned: false,
+      full: false
     });
     await expect(preparePlayer(client, playerId)).resolves.toEqual({
       playerId,
       spawned: false,
-      joined: true
+      joined: true,
+      full: false
     });
 
     const ownedTiles = service.runtime.exportState().tiles.filter((tile) => tile.ownerId === playerId);

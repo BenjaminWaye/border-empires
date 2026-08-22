@@ -13,13 +13,32 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1787361500000,
-    introducedIn: "2026.08.22.1",
+    createdAt: 1787430200000,
+    introducedIn: "2026.08.22.4",
     title: "Joining a new season is now a deliberate choice",
     why: "Logging in used to silently spawn you into whatever season was active, even if you had never chosen to play it. Reconnecting was indistinguishable from joining.",
     changes: [
       "When you log in and haven't joined the current season yet, a \"Join Season\" prompt now appears instead of spawning you automatically.",
       "Confirming the prompt joins the season and spawns your starting territory; the prompt closes automatically once your empire appears."
+    ]
+  },
+  {
+    createdAt: 1787430100000,
+    introducedIn: "2026.08.22.3",
+    title: "Fixed the reach border dodging around fog of war and unexplored tiles",
+    why: "Your reach border is a fixed, server-authoritative line -- it shouldn't move depending on what you can currently see. But the 2D map only drew the border on tiles it considered fully visible, so on any fogged or unexplored patch inside your own territory the line simply stopped, making it look like the border itself was carving around the fog instead of following your actual claim.",
+    changes: [
+      "The reach border now renders on top of fogged territory (dimmed, same as the rest of a fogged tile) instead of disappearing there.",
+      "It still stays hidden over fully unexplored tiles, since there's nothing remembered there to draw it against."
+    ]
+  },
+  {
+    createdAt: 1787430000000,
+    introducedIn: "2026.08.22.2",
+    title: "An empire with no war industry is now also weaker on defense, not just on offense",
+    why: "Owning zero Titanium and zero Umbrite Weapons Factories empire-wide already doubled an attacker's effective attack against you -- but that bonus only ever helped the attacker. If you had no war industry and someone else attacked you, defending gave you no comparable penalty or advantage either way.",
+    changes: [
+      "Defending against an attacker who owns zero Titanium AND zero Umbrite Weapons Factories anywhere in their empire now doubles your effective defense, mirroring the existing attack-side vulnerability from the other direction. Missing one factory type or both gives the same flat bonus -- it doesn't stack higher for missing both."
     ]
   },
   {
@@ -313,6 +332,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787356800001, // 2026.08.21, after the entries below
+    introducedIn: "2026.08.21",
+    title: "Shard rain impact sites now show on the map, even before you've explored them",
+    why: "A shard rain event's landing sites were previously only ever shown as a text notice (\"Nearest site is ~N tiles NE\") or as an in-tile icon once you'd actually explored that tile. There was no way to see where the other sites were at a glance, or to navigate straight to one.",
+    changes: [
+      "Every active shard rain site now shows as an arrow-shaped badge pointing off-screen toward it, the same locator system muster flags use — click it to jump the camera there.",
+      "Once you scroll a site on-screen, a small shield badge hovers over that exact tile, bobbing gently in place — the same badge style as the unfed-town warning, with a shard icon instead. It's just a positional blip from the event broadcast, not confirmation the shard is still there, especially on a tile you haven't explored yet.",
+      "Both the off-screen badge and the on-screen badge stay up for the full ~30-minute life of the shard rain event, not just the first moments after landing."
+    ]
+  },
+  {
     createdAt: 1787122800000, // 2026.08.21
     introducedIn: "2026.08.21",
     title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",
@@ -343,12 +373,64 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787332288038,
-    introducedIn: "2026.08.21.5",
-    title: "Auto-settle no longer claims resources you haven't discovered yet",
-    why: "Auto-settle picked any owned frontier tile with a resource, town, or dock as a valuable target, without checking whether that tile was actually within the player's fog-of-war vision. That let it settle tiles whose resource the player had never actually seen revealed.",
+    createdAt: 1787346768128, // 2026.08.21.8 (frozen; was a live Date.now() call — see check-client-changelog-update.mjs)
+    introducedIn: "2026.08.21.8",
+    title: "Border-expansion pylons now rise and light up again mid-game, not just retire",
+    why: "A caller-side flag meant to skip the arrival animation on the very first frame (so the whole starting boundary didn't rise out of the ground on page load) was being passed on every single frame instead of just the first one, so any pylon or laser line added by a later border expansion popped straight into its fully-lit state instead of playing the rise-then-power-on animation -- only retiring pylons ever animated.",
     changes: [
-      "Auto-settle now only considers a frontier tile eligible once it's been revealed to the settling player -- an owned tile outside current vision coverage is skipped until it's actually discovered."
+      "Newly-added border pylons and laser lines now rise out of the ground and power on with the same staggered wave animation you see in Storybook, instead of popping in instantly, for every border change after the map first loads."
+    ]
+  },
+  {
+    createdAt: 1787346768129, // 2026.08.21.9
+    introducedIn: "2026.08.21.9",
+    title: "Removed the unused \"frontier collapsing\" decay countdown",
+    why: "Frontier tiles carried a natural-decay countdown UI (a header timer and tile-menu warning saying the tile would soon collapse) left over from an early design that the server never actually implemented — no frontier tile has ever expired this way, so the warning could never legitimately appear. Removed the dead client code so it can't be confused with the real encirclement cut-off warning, which still applies: a frontier tile cut off from your supply chain is still claimed by an enemy after 60 seconds if it stays disconnected.",
+    changes: [
+      "Removed the unused \"Frontier collapsing in Ns\" countdown and \"unsupported and will soon decay\" tile-menu line — this never actually triggered in play.",
+      "The encirclement (\"Cut off from supply\") warning and its 60-second countdown are unchanged."
+    ]
+  },
+  {
+    createdAt: 1787334600000,
+    introducedIn: "2026.08.21.6",
+    title: "Your border is now the server's real border, and out-of-reach waypoints no longer get stuck forever",
+    why: "The yellow reach border was drawn from a client-side approximation that re-derived your anchors from whatever tiles happened to be cached locally. It could not see contested-tile clipping against other players' anchors, so it sometimes showed a tile as inside your border that the server would refuse to let you claim. The waypoint planner used that same approximation to pick its next hop, so it kept sending an expand the server kept rejecting with OUT_OF_REACH. The retry counter was also reset on every reconnect, and the waypoint queue lives server-side, so the loop restarted from zero each time you reconnected -- a wedged waypoint blocked every waypoint behind it and refreshing could not clear it.",
+    changes: [
+      "The reach border you see is now pushed by the server and matches exactly what it will let you claim, so a tile shown inside your border can actually be expanded onto.",
+      "A waypoint step the server rejects as out of reach now cancels that waypoint instead of retrying it forever, and the cancellation is mirrored server-side so it cannot come back after a reconnect.",
+      "A halted waypoint no longer blocks the waypoints queued behind it, and the 'Waypoint halted' message appears once instead of repeating on every tick."
+    ]
+  },
+  {
+    createdAt: 1787349946710,
+    introducedIn: "2026.08.21.10",
+    title: "You can now attempt to expand toward out-of-reach frontier tiles",
+    why: "Expanding was rejected outright as OUT_OF_REACH the moment a target tile fell outside your reach border, even though claiming a neutral tile has never itself granted reach (only a settled town/outpost/dock does) -- so the rejection didn't actually protect anything, it just hid a button. Settling and building outposts are still gated on reach, since those are what actually extend your border, and a Relay Beacon (or other siege outpost) still can't be built directly on an out-of-reach frontier tile -- that loophole would have let a single out-of-reach expand leapfrog your reach indefinitely.",
+    changes: [
+      "\"Expand To\" now always shows on a neutral tile, in or out of reach, instead of being hidden outside reach.",
+      "On a frontier tile you already own but is outside reach, \"Settle Land\", \"Settle Connected\", and outpost-family build actions (Relay Beacon, siege outposts) now show disabled with an \"Outside your reach\" reason instead of disappearing.",
+      "The tile menu and both map views now flag a selected out-of-reach tile so it's clear why those actions are disabled."
+    ]
+  },
+  {
+    createdAt: 1787374761566, // 2026.08.22.1 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.1",
+    title: "Renamed the distant-attack waypoint button from \"Add Waypoint\" to \"Expand To & Attack\"",
+    why: "This button now only ever appears for an enemy-owned attack target -- the neutral-tile case was folded into \"Expand To\" in the previous release -- but it kept the old generic \"Add Waypoint\" label, which read as a leftover duplicate rather than the attack action it actually is.",
+    changes: [
+      "The multi-step waypoint action on a distant enemy tile is now labeled \"Expand To & Attack\" instead of \"Add Waypoint\"."
+    ]
+  },
+  {
+    createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.2",
+    title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
+    why: "A season previously had no limit on how many empires could join, which meant a season already crowded with players kept quietly admitting more instead of ever being \"full.\" There was also no way to find out when a fresh, uncrowded season was starting if you missed joining one.",
+    changes: [
+      "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
+      "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
+      "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
     ]
   }
 ];

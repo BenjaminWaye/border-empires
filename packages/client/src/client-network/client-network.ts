@@ -8,6 +8,10 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
+import { applyServerReachUpdate } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { buildServerErrorContext } from "../client-server-error-context/client-server-error-context.js";
+import { persistWaypointQueueForPlayer, waypointCancelWirePayload } from "../client-waypoint-planner/client-waypoint-persistence.js";
+import { cancelWaypointsBlockedByOutOfReach } from "../client-waypoint-out-of-reach/client-waypoint-out-of-reach.js";
 import { isRevealEmpireStatsView, surveySweepPingsFromPayload } from "./client-network-codec.js";
 import {
   applyGatewayRecoveryNextClientSeq,
@@ -47,7 +51,7 @@ import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-ca
 import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
-import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -683,6 +687,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     });
   };
 
+  // Deps for the OUT_OF_REACH waypoint teardown — see client-waypoint-out-of-reach.ts.
+  const outOfReachDeps = { keyFor, waypointCancelWirePayload, persistWaypointQueue: persistWaypointQueueForPlayer, pushFeed: pushFeedSafely, sendGameMessage: typeof sendGameMessage === "function" ? sendGameMessage : undefined };
+
   const clearQueuedDevelopmentDispatchPending = (): void => {
     state.queuedDevelopmentDispatchPending = false;
   };
@@ -739,7 +746,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
         breachShockUntil?: number;
         frontierDecayAt?: number | null;
-        frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" | null;
+        frontierDecayKind?: "ENCIRCLEMENT" | null;
       }>) ??
       [];
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
@@ -761,7 +768,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
       if (typeof change.frontierDecayAt === "number") incoming.frontierDecayAt = change.frontierDecayAt;
       else if ("frontierDecayAt" in change && !change.frontierDecayAt) delete incoming.frontierDecayAt;
-      if (change.frontierDecayKind === "NATURAL" || change.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = change.frontierDecayKind;
+      if (change.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = change.frontierDecayKind;
       else if ("frontierDecayKind" in change && !change.frontierDecayKind) delete incoming.frontierDecayKind;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
@@ -1288,6 +1295,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; } renderHud(); return; }
+    // Authoritative reach border (client-reach-authoritative.ts). Replaces the
+    // old client-side approximation that could disagree with the server and
+    // wedge waypoints on OUT_OF_REACH.
+    if (msg.type === "REACH_UPDATE") { if (applyServerReachUpdate(state, msg as Record<string, unknown>)) renderHud(); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       const prevGold = state.gold;
@@ -2480,28 +2491,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       }
       const errorTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : state.latestSettleTargetKey;
       const backendUnavailableError = errorCode === "SIMULATION_UNAVAILABLE" || errorCode === "SERVER_STARTING";
-      const serverErrorContext = {
-        code: msg.code,
-        message: msg.message,
-        playerGold: state.gold,
-        playerStrategicResources: { ...state.strategicResources },
-        actionInFlight: state.actionInFlight,
-        actionTargetKey: failedTargetKey,
-        actionTargetTile: failedTargetTile
-          ? {
-              x: failedTargetTile.x,
-              y: failedTargetTile.y,
-              ownerId: failedTargetTile.ownerId,
-              ownershipState: failedTargetTile.ownershipState,
-              optimisticPending: failedTargetTile.optimisticPending,
-              detailLevel: failedTargetTile.detailLevel
-            }
-          : undefined,
-        actionCurrent: state.actionCurrent,
-        queuedActions: state.actionQueue.length,
-        selected: state.selected,
-        hover: state.hover
-      };
+      const serverErrorContext = buildServerErrorContext(state, { code: msg.code, message: msg.message, failedTargetKey, failedTargetTile });
       const failedCurrentKey = state.actionCurrent ? keyFor(state.actionCurrent.x, state.actionCurrent.y) : "";
       const rollbackBackendUnavailableOptimisticState = (): Set<string> => {
         const targetKeys = new Set<string>();
@@ -2607,7 +2597,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           );
         }
       }
-      if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
+      if (errorCode === "SEASON_FULL") { state.joinSeasonPending = false; applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); return; } if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") && firebaseAuth?.currentUser) {
           state.connection = ws.readyState === ws.OPEN ? "connected" : "disconnected";
@@ -2719,6 +2709,15 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       } else if (errorCode === "TOWN_UNFED") {
         const townUnfedDetail = `${errorMessage.replace(/[.。]\s*$/, "")}. Check the warning badge on the affected town.`;
         showCaptureAlertSafely("Town unfed", townUnfedDetail, "warn");
+      } else if (errorCode === "OUT_OF_REACH") {
+        // Terminal, not retryable: reach only grows when the player builds a
+        // town/outpost/dock, so re-planning this step can never succeed. Cancel
+        // the waypoints depending on it (local + durable server mirror) so a
+        // reconnect cannot resurrect the loop (client-waypoint-out-of-reach.ts).
+        // failedTargetKey (the in-flight target) wins over errorTileKey, which
+        // falls back to a stale latestSettleTargetKey when no x/y is sent.
+        cancelWaypointsBlockedByOutOfReach(state, failedTargetKey || errorTileKey, outOfReachDeps);
+        showCaptureAlertSafely("Outside your borders", actionFailureExplanation, "warn");
       } else if (errorCode === "EXPAND_TARGET_OWNED" && failedTargetKey) {
         showCaptureAlertSafely(
           "Frontier sync mismatch",
@@ -2765,6 +2764,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         errorCode === "DOCK_COOLDOWN" ||
         errorCode === "INSUFFICIENT_MANPOWER" ||
         errorCode === "EXPAND_TARGET_OWNED" ||
+        errorCode === "OUT_OF_REACH" ||
         errorCode === "LOCKED";
       const shouldResetFrontierAction = shouldResetFrontierActionStateForError(errorCode);
       if (shouldResetFrontierAction) {

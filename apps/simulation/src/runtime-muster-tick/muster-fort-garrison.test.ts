@@ -211,4 +211,48 @@ describe("Phase 7: fort garrison containers", () => {
     expect(g).toBeLessThan(CAP);
     expect(g).toBeGreaterThanOrEqual(0);
   });
+
+  it("consumeOriginMuster spends the attack cost from the origin tile's staged muster and floors at zero", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1", 999)]]),
+      initialState: {
+        tiles: [
+          {
+            x: 5, y: 5,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 100, mode: "HOLD", updatedAt: 1_000 }
+          }
+        ],
+        activeLocks: []
+      }
+    });
+
+    const musterAmount = (): number | undefined => {
+      const tile = runtime.exportState().tiles.find((t) => t.x === 5 && t.y === 5);
+      if (!tile?.musterJson) return undefined;
+      const m = JSON.parse(tile.musterJson) as { amount?: number };
+      return m.amount;
+    };
+
+    const consume = (originKey: string, playerId: string, amount: number) =>
+      (runtime as unknown as { consumeOriginMuster(originKey: string, playerId: string, amount: number): void })
+        .consumeOriginMuster(originKey, playerId, amount);
+
+    expect(musterAmount()).toBe(100);
+
+    // Spending less than the staged amount reduces it by exactly that amount.
+    consume(simulationTileKey(5, 5), "player-1", MUSTER_ATTACK_COST);
+    expect(musterAmount()).toBe(100 - MUSTER_ATTACK_COST);
+
+    // Over-spending floors at zero rather than going negative.
+    consume(simulationTileKey(5, 5), "player-1", 100_000);
+    expect(musterAmount()).toBe(0);
+
+    // A mismatched owner is a no-op (guards against cross-player muster theft).
+    consume(simulationTileKey(5, 5), "player-2", 10);
+    expect(musterAmount()).toBe(0);
+  });
 });

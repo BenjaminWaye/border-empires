@@ -76,13 +76,8 @@ import { resourceFor3DPopulation } from "../client-map-3d-population/client-map-
 import { createRoadElevationAt } from "../client-map-3d-road-overlay/client-map-3d-road-elevation.js";
 import { createRoadOverlay } from "../client-map-3d-road-overlay/client-map-3d-road-overlay.js";
 import { createReachOverlay3D } from "../client-map-3d-aether-survey-line/client-map-3d-aether-survey-line.js";
-import {
-  computeLocalReachSet,
-  filterReachToLand,
-  isDormantFrontierTile,
-  samplePerimeterPylons,
-  traceReachBoundaryEdgeLoops
-} from "../client-reach-overlay/client-reach-overlay.js";
+import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { filterReachToLand, isDormantFrontierTile, samplePerimeterPylons, traceReachBoundaryEdgeLoops } from "../client-reach-overlay/client-reach-overlay.js";
 import { ARRIVE_STAGGER_MS, createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
 import { computeOtherOwnersReachPylons, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
@@ -96,7 +91,7 @@ import { createThreeRenderTarget } from "../client-map-3d-render-target/client-m
 import { createCrystalTargetingOverlay } from "../client-map-3d-crystal-targeting-overlay/client-map-3d-crystal-targeting-overlay.js"; import { createNaturalWonderOverlays } from "../client-map-3d-natural-wonders/client-map-3d-natural-wonder-overlays.js";
 import { lightenHex, parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
 import { createWaypointFlag } from "../client-map-3d-waypoint-flag/client-map-3d-waypoint-flag.js";
-import { WAYPOINT_QUEUE_CLIENT_CAP } from "../client-waypoint-planner/client-waypoint-persistence.js";
+import { WAYPOINT_QUEUE_CLIENT_CAP } from "../client-waypoint-planner/client-waypoint-persistence.js"; import { createShardRainBadgeOverlay, populateShardRainBadgeInstances } from "../client-map-3d-shard-rain-badge-overlay/client-map-3d-shard-rain-badge-overlay.js";
 
 type TileTimedProgress = {
   readonly startAt: number;
@@ -169,7 +164,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // on ClientState since the 2D path guards its own state.myReach update
   // with !isTrue3DRendererActive() and only one renderer is ever active.
   let reach3DCache: Set<string> | undefined;
-  let reach3DCacheRevision = -1;
+  let reach3DCacheRevision = "";
   // Sparse pylon placement points + connecting chords, sampled from the
   // traced reach-boundary perimeter (see client-reach-overlay.ts's
   // traceReachBoundaryEdgeLoops/samplePerimeterPylons). Recomputed only when
@@ -187,13 +182,14 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // rebuildVisibleTerrain()'s camera-move/reach-change throttle, or the
   // animation would freeze whenever the camera stops moving mid-transition.
   const reach3DPylonTracker = createTransitionTracker<{ x: number; y: number; ownerId: string }>();
-  const reach3DSegmentTracker = createTransitionTracker<{ fx: number; fy: number; tx: number; ty: number; ownerId: string }>();
+  const reach3DSegmentTracker = createTransitionTracker<{ fx: number; fy: number; tx: number; ty: number; ownerId: string }>(); let reach3DPylonsAnimateArrivals = false; // false only on the first diffTransitions() call (initial load)
   // §21.1: one badge overlay per resource icon, so a dormant Fort missing TITANIUM gets ⛏ while an unfed town still gets 🍞.
   const RESOURCE_BADGE_ICON: Record<SlotResource, string> = { FOOD: "🍞", TITANIUM: "⛏", CRYSTAL: "💎", UMBRITE: "🟣" };
   const resourceBadgeOverlays: Record<SlotResource, ResourceBadgeOverlay> = {
     FOOD: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.FOOD), TITANIUM: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.TITANIUM),
     CRYSTAL: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.CRYSTAL), UMBRITE: createResourceBadgeOverlay(scene, MAX_VISIBLE_TILES, RESOURCE_BADGE_ICON.UMBRITE)
   };
+  const shardRainBadgeOverlay = createShardRainBadgeOverlay(scene); const allBadgeOverlays = [...Object.values(resourceBadgeOverlays), shardRainBadgeOverlay]; // shares the clear/commit/tick/dispose loops below — see client-map-3d-shard-rain-badge-overlay.ts
   const observatoryCooldownBadgeOverlay = createObservatoryCooldownBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const upgradeReadyBadgeOverlay = createUpgradeReadyBadgeOverlay(scene, MAX_VISIBLE_TILES);
   const musterOverlay = createMusterOverlay(scene);
@@ -1354,7 +1350,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         dormantStructureResourceByTileKey.set(tileKey, resources[0]);
       }
     }
-    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.clear();
+    for (const overlay of allBadgeOverlays) overlay.clear();
     observatoryCooldownBadgeOverlay.clear();
     upgradeReadyBadgeOverlay.clear();
     musterOverlay.clear();
@@ -1386,21 +1382,22 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     let selectedOwnershipDebug: Record<string, unknown> | undefined;
 
     // Fixed-borders-via-reach 3D overlay data source. Reuses the exact same
-    // pure computeLocalReachSet/isDormantFrontierTile/isReachBoundaryTile
+    // pure resolveMyReach/isDormantFrontierTile/isReachBoundaryTile
     // helpers the 2D canvas path uses (client-reach-overlay.ts) so both
     // renderers always agree on what's in reach. Only computed while the
     // true-3D renderer is actually active.
     const reach3DActive = isTrue3DRendererActive();
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
     if (reach3DActive) {
-      if (reach3DCacheRevision !== deps.state.tilesRevision) {
+      const reach3DKey = `${deps.state.tilesRevision}:${deps.state.serverReachRevision}`; // string key avoids arithmetic collisions
+      if (reach3DCacheRevision !== reach3DKey) {
         // Land-only: reach is a purely geometric radius (no terrain
         // awareness), so a coastal anchor's disk legitimately extends over
         // open water -- filtered here so the boundary trace/pylons never
         // draw out into the sea. Gameplay legality (EXPAND requiring LAND
         // terrain) is unaffected; this only trims the visual reach set.
-        reach3DCache = filterReachToLand(computeLocalReachSet(deps.state.tiles, deps.state.me), deps.state.tiles, deps.keyFor);
-        reach3DCacheRevision = deps.state.tilesRevision;
+        reach3DCache = filterReachToLand(resolveMyReach(deps.state), deps.state.tiles, deps.keyFor);
+        reach3DCacheRevision = reach3DKey;
         const loops = traceReachBoundaryEdgeLoops(reach3DCache, reach3DDeps);
         const { pylons, segments } = samplePerimeterPylons(loops);
         reach3DPylons = pylons.flat();
@@ -1409,7 +1406,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       }
     } else {
       reach3DCache = undefined;
-      reach3DCacheRevision = -1;
+      reach3DCacheRevision = "";
       reach3DPylons = []; reach3DSegments = []; otherOwnersPylons = []; otherOwnersSegments = [];
     }
 
@@ -1899,8 +1896,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
       }
     }
-
-    const perTileLoopMs = performance.now() - perTileLoopStartAt;
+    populateShardRainBadgeInstances(shardRainBadgeOverlay, deps.state.shardRainStatus, { camX: deps.state.camX, camY: deps.state.camY, halfW, halfH, elevationAt: heightfield.elevationAt }); const perTileLoopMs = performance.now() - perTileLoopStartAt;
 
     // Aether Survey Line live pylons/segments are placed every frame now
     // (see renderReachOverlay3DPylons, called unconditionally from
@@ -1922,7 +1918,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townOverlay.commit();
     roadOverlay.commit();
     reachOverlay3D.commitTileOverlays();
-    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.commit();
+    for (const overlay of allBadgeOverlays) overlay.commit();
     observatoryCooldownBadgeOverlay.commit();
     upgradeReadyBadgeOverlay.commit();
     musterOverlay.commit();
@@ -2019,13 +2015,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       }
 
       const pylonFrames = diffTransitions(currentPylons, reach3DPylonTracker, nowMs, {
-        animateInitial: false,
+        animateInitial: reach3DPylonsAnimateArrivals,
         arriveStaggerMs: ARRIVE_STAGGER_MS
       });
       const segmentFrames = diffTransitions(currentSegments, reach3DSegmentTracker, nowMs, {
-        animateInitial: false,
+        animateInitial: reach3DPylonsAnimateArrivals,
         arriveStaggerMs: ARRIVE_STAGGER_MS
-      });
+      }); reach3DPylonsAnimateArrivals = true;
 
       // NOTE: corners sit at raw integer grid positions (tile (x,y)'s
       // center is at grid position x+TILE_CENTER_OFFSET, but its top-left
@@ -2093,7 +2089,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     // GL calls on a lost context are no-ops that still cost a frame of scene syncing.
     if (contextGuard.isContextLost()) return;
     const nowMs = performance.now();
-    maybeRebuild(nowMs);
+    maybeRebuild(nowMs); (selectedMarker.material as LineBasicMaterial).color.set(deps.state.selected && !resolveMyReach(deps.state).has(deps.keyFor(deps.state.selected.x, deps.state.selected.y)) ? "#ff8a3d" : "#ffd166"); // fixed-border reach: warning-orange outside reach
     syncHighlightMarker(selectedMarker, deps.state.selected, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncHighlightMarker(hoverMarker, deps.state.hover, MARKER_RISE_ABOVE_HEIGHTFIELD);
     syncTownSupportMarkers();
@@ -2145,7 +2141,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
     waterSurface.tick(nowMs);
-    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.tick(nowMs);
+    for (const overlay of allBadgeOverlays) overlay.tick(nowMs);
     observatoryCooldownBadgeOverlay.tick(nowMs);
     upgradeReadyBadgeOverlay.tick(nowMs);
     musterOverlay.tick(nowMs);
@@ -2213,7 +2209,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     townOverlay.dispose();
     roadOverlay.dispose();
     reachOverlay3D.dispose();
-    for (const overlay of Object.values(resourceBadgeOverlays)) overlay.dispose();
+    for (const overlay of allBadgeOverlays) overlay.dispose();
     observatoryCooldownBadgeOverlay.dispose();
     upgradeReadyBadgeOverlay.dispose();
     musterOverlay.dispose();

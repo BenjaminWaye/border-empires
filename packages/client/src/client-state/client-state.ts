@@ -42,22 +42,8 @@ import type {
 } from "../client-types.js";
 import type { WaypointPlan } from "../client-waypoint-planner/client-waypoint-planner.js";
 
-export type ClientWaypoint = {
-  target: { x: number; y: number };
-  plan: WaypointPlan;
-  // Last tile-key the waypoint asked the action queue to claim. The
-  // next top-up compares the planner's new first step against it: a
-  // match means ownership has not advanced (either a stale-snapshot
-  // race or a real reject), so we wait a few ticks before halting.
-  lastEnqueuedKey?: string;
-  // Consecutive top-ups where the planner re-emitted the same step we
-  // just enqueued. Resets to 0 the moment the plan advances.
-  consecutiveRetries?: number;
-  // When true, the waypoint dynamically retargets if the barbarian moves
-  // off the original coordinate. Set when the destination tile is owned
-  // by barbarian-1.
-  trackBarbarian?: boolean; pausedForManpower?: boolean; // pausedForManpower: paused on an unaffordable EXPAND leg — see client-waypoint-manpower-pause.ts.
-};
+export type { ClientWaypoint } from "./client-waypoint-state.js";
+import type { ClientWaypoint } from "./client-waypoint-state.js";
 
 type QueuedOptimisticKind = OptimisticStructureKind;
 type QueuedBuildPayload = { type: "BUILD_STRUCTURE"; x: number; y: number; structureType: string } | { type: "REMOVE_STRUCTURE"; x: number; y: number };
@@ -116,9 +102,9 @@ export const createInitialState = () => ({
   authError: "",
   authBusyTitle: "",
   authBusyDetail: "",
+  seasonFull: false, seasonFullNotifyAcknowledged: false, // SEASON_FULL rejection — see client-auth-ui.ts
   profileSetupRequired: false,
-  gold: 0,
-  level: 0,
+  gold: 0, level: 0,
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   modBreakdown: {
     attack: [{ label: "Base", mult: 1 }],
@@ -309,7 +295,7 @@ export const createInitialState = () => ({
   feedAttentionUntil: 0,
   persistentAlertLocators: [] as Array<{
     id: string;
-    kind: "town_unfed" | "muster_active" | "waypoint_manpower_paused";
+    kind: "town_unfed" | "muster_active" | "waypoint_manpower_paused" | "shard_rain";
     x: number;
     y: number;
     screenX: number;
@@ -390,11 +376,15 @@ export const createInitialState = () => ({
   activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings" | null,
   showWeakDefensibility: false,
   // Fixed-borders-via-reach overlay. `undefined` means "not computed for this
-  // frame yet" (client-runtime-loop.ts lazily fills it from
-  // computeLocalReachSet, see client-reach-overlay.ts's MOCK-DATA SEAM
-  // comment for how this gets replaced by live server-pushed reach data).
+  // frame yet" (client-runtime-loop.ts lazily fills it via resolveMyReach,
+  // which prefers serverReach below and only falls back to the local
+  // approximation before the first REACH_UPDATE arrives).
   myReach: undefined as Set<string> | undefined,
-  myReachRevisionAtCompute: -1,
+  myReachRevisionAtCompute: "" as string,
+  // Authoritative reach pushed by the simulation (REACH_UPDATE) — see
+  // client-reach-authoritative.ts. `undefined` until the first message lands.
+  serverReach: undefined as Set<string> | undefined,
+  serverReachRevision: 0,
   shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,
   shardAlert: undefined as ClientShardRainAlert | undefined, shardRainStatus: undefined as ClientShardRainAlert | undefined, // shardRainStatus survives toast dismissal, unlike shardAlert

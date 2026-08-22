@@ -17,7 +17,7 @@ describe("join-season overlay", () => {
       state: makeState() as any,
       overlayEl,
       renderHud: () => {},
-      joinSeason: () => {}
+      joinSeason: () => true
     });
     expect(overlayEl.style.display).toBe("none");
     expect(overlayEl.innerHTML).toBe("");
@@ -29,7 +29,7 @@ describe("join-season overlay", () => {
       state: makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: false }) as any,
       overlayEl,
       renderHud: () => {},
-      joinSeason: () => {}
+      joinSeason: () => true
     });
     expect(overlayEl.style.display).toBe("none");
   });
@@ -40,7 +40,7 @@ describe("join-season overlay", () => {
       state: makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-42" }) as any,
       overlayEl,
       renderHud: () => {},
-      joinSeason: () => {}
+      joinSeason: () => true
     });
     expect(overlayEl.style.display).toBe("grid");
     expect(overlayEl.innerHTML).toContain("season-42");
@@ -50,7 +50,7 @@ describe("join-season overlay", () => {
   it("calls joinSeason and marks pending when the confirm button is clicked", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-42" });
-    const joinSeason = vi.fn();
+    const joinSeason = vi.fn(() => true);
     const renderHud = vi.fn();
     renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason });
     const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
@@ -64,17 +64,29 @@ describe("join-season overlay", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true });
     const renderHud = vi.fn();
-    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason: () => {} });
+    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason: () => true });
     const closeBtn = overlayEl.querySelector("#join-season-close") as HTMLButtonElement;
     closeBtn.click();
     expect(state.joinSeasonOverlayOpen).toBe(false);
     expect(renderHud).toHaveBeenCalledTimes(1);
   });
 
+  it("does not mark pending when joinSeason fails to send (e.g. not authed yet)", () => {
+    const overlayEl = document.createElement("div");
+    const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true });
+    const joinSeason = vi.fn(() => false);
+    const renderHud = vi.fn();
+    renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud, joinSeason });
+    const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
+    confirmBtn.click();
+    expect(joinSeason).toHaveBeenCalledTimes(1);
+    expect(state.joinSeasonPending).toBe(false);
+  });
+
   it("does not re-trigger joinSeason while already pending", () => {
     const overlayEl = document.createElement("div");
     const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonPending: true });
-    const joinSeason = vi.fn();
+    const joinSeason = vi.fn(() => true);
     renderJoinSeasonOverlay({ state: state as any, overlayEl, renderHud: () => {}, joinSeason });
     const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
     confirmBtn.click();

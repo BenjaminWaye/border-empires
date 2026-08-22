@@ -200,6 +200,7 @@ export const hudMarkup = `
           <strong id="auth-busy-title">Connecting your empire...</strong>
           <p id="auth-busy-copy">Please wait while we finish sign-in and sync your starting state.</p>
           <button id="auth-busy-diagnostics" class="panel-btn map-loading-btn map-loading-btn-secondary" type="button" style="display:none;">Download diagnostics</button>
+          <button id="auth-busy-season-full-notify" class="panel-btn" type="button" style="display:none;">Alert me when next season starts</button>
         </div>
       </div>
     </div>

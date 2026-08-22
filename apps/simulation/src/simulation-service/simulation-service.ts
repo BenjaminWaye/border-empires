@@ -90,7 +90,7 @@ import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
 import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
 import { buildEventLoopBlockedPayload } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
-
+import { resolveMaxSeasonPlayers } from "../season-join-capacity.js";
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
@@ -240,7 +240,7 @@ type SimulationServiceOptions = {
   commandStore?: SimulationCommandStore;
   eventStore?: SimulationEventStore;
   snapshotStore?: SimulationSnapshotStore;
-  seasonSummaryStore?: SeasonSummaryStore;
+  seasonSummaryStore?: SeasonSummaryStore; maxSeasonPlayers?: number; // overrides SIMULATION_MAX_SEASON_PLAYERS
   runtimeOptions?: ConstructorParameters<typeof SimulationRuntime>[0];
   log?: Pick<Console, "error" | "info" | "warn">;
 };
@@ -1208,6 +1208,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   };
+  const maxSeasonPlayers = resolveMaxSeasonPlayers(options.maxSeasonPlayers);
   // 5s: Phase 3b broadcast uses cheap player-only path (no tile export).
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 5000;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
@@ -2293,20 +2294,20 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     PreparePlayer(
       call: { request: { player_id: string; rally_anchor_json?: string } },
-      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean }) => void
+      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean; full?: boolean }) => void
     ) {
       preparePlayerHandler(
-        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; } },
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers },
         call,
         callback
       );
     },
     JoinSeason(
       call: { request: { player_id: string; rally_anchor_json?: string } },
-      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean }) => void
+      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean }) => void
     ) {
       joinSeasonHandler(
-        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; } },
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers },
         call,
         callback
       );
@@ -2649,10 +2650,9 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         incomePerMinute: player.incomePerMinute,
         techs: player.techIds.length,
         manpower: player.manpower,
-        food: player.strategicResources.FOOD ?? 0,
-        titanium: player.strategicResources.TITANIUM ?? 0,
-        crystal: player.strategicResources.CRYSTAL ?? 0,
-        umbrite: player.strategicResources.UMBRITE ?? 0,
+        resourceSlotSupply: player.resourceSlotSupply,
+        resourceSlotDemand: player.resourceSlotDemand,
+        shardStockpile: player.shardStockpile,
         reachTiles: runtime.reachTileCountForPlayer(player.id),
         frontierTiles: Math.max(0, player.ownedTileCount - player.settledTileCount)
       }));

@@ -302,7 +302,7 @@ export const normalizeGatewayTileUpdate = (
   }
   if ("frontierDecayKind" in update) {
     normalized.frontierDecayKind =
-      update.frontierDecayKind === "NATURAL" || update.frontierDecayKind === "ENCIRCLEMENT" ? update.frontierDecayKind : undefined;
+      update.frontierDecayKind === "ENCIRCLEMENT" ? update.frontierDecayKind : undefined;
   }
   if ("yield" in update) normalized.yield = update.yield;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
