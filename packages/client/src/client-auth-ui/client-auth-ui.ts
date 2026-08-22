@@ -66,6 +66,9 @@ export const syncAuthOverlay = (
     | "authBusyDetail"
     | "activeBackend"
     | "bridgeDebugWsUrl"
+    | "seasonFull"
+    | "seasonFullNotifyAcknowledged"
+    | "authEmail"
   >,
   deps: {
     authOverlayEl: HTMLElement;
@@ -84,6 +87,7 @@ export const syncAuthOverlay = (
     authBusyTitleEl: HTMLElement;
     authBusyCopyEl: HTMLElement;
     authBusyDiagnosticsBtn: HTMLButtonElement;
+    authBusySeasonFullNotifyBtn: HTMLButtonElement;
     authStatusEl: HTMLElement;
     authDebugRouteEl: HTMLElement;
     wsUrl: string;
@@ -102,7 +106,14 @@ export const syncAuthOverlay = (
   // map-loading overlay there's no later "action affordance" stage; this is
   // the only chance to offer help before auth resolves or the user gives up.
   deps.authBusyDiagnosticsBtn.style.display =
-    state.authBusy && authBusyElapsedMs >= AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS ? "" : "none";
+    state.authBusy && !state.seasonFull && authBusyElapsedMs >= AUTH_BUSY_DIAGNOSTICS_THRESHOLD_MS ? "" : "none";
+  deps.authBusySeasonFullNotifyBtn.style.display = state.authBusy && state.seasonFull ? "" : "none";
+  deps.authBusySeasonFullNotifyBtn.disabled = state.seasonFullNotifyAcknowledged;
+  deps.authBusySeasonFullNotifyBtn.textContent = state.seasonFullNotifyAcknowledged
+    ? state.authEmail
+      ? `We'll email ${state.authEmail} when it starts`
+      : "We'll notify you when it starts"
+    : "Alert me when next season starts";
   const resolvedWsUrl = state.bridgeDebugWsUrl || deps.wsUrl;
   let resolvedFlyApp = "non-fly";
   try {

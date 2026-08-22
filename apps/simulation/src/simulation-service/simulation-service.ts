@@ -89,7 +89,7 @@ import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
 import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
 import { buildEventLoopBlockedPayload } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
-import { emitPerConnectHellos } from "./per-connect-hellos.js";
+import { emitPerConnectHellos } from "./per-connect-hellos.js"; import { resolveMaxSeasonPlayers, seasonIsAtPlayerCap } from "../season-join-capacity.js";
 
 const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
   if (!value) return undefined;
@@ -251,7 +251,7 @@ type SimulationServiceOptions = {
   commandStore?: SimulationCommandStore;
   eventStore?: SimulationEventStore;
   snapshotStore?: SimulationSnapshotStore;
-  seasonSummaryStore?: SeasonSummaryStore;
+  seasonSummaryStore?: SeasonSummaryStore; maxSeasonPlayers?: number; // overrides SIMULATION_MAX_SEASON_PLAYERS
   runtimeOptions?: ConstructorParameters<typeof SimulationRuntime>[0];
   log?: Pick<Console, "error" | "info" | "warn">;
 };
@@ -1219,7 +1219,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   };
-  const preparePlayerSlowLogMs = 250;
+  const preparePlayerSlowLogMs = 250; const maxSeasonPlayers = resolveMaxSeasonPlayers(options.maxSeasonPlayers);
   // 5s: Phase 3b broadcast uses cheap player-only path (no tile export).
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 5000;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
@@ -2305,11 +2305,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     PreparePlayer(
       call: { request: { player_id: string; rally_anchor_json?: string } },
-      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean }) => void
-    ) {
+      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean }) => void) {
       const prepareStartedAt = Date.now();
       let spawned = false;
       try {
+        if (seasonIsAtPlayerCap(maxSeasonPlayers, runtime, call.request.player_id)) { log.info({ playerId: call.request.player_id, maxSeasonPlayers }, "prepare player rejected: season is full"); callback(null, { ok: true, player_id: call.request.player_id, playerId: call.request.player_id, spawned: false, full: true }); return; }
         if (currentSeasonState.status !== "ended") {
           const spawnStartedAt = Date.now();
           const rallyAnchor = parseRallyAnchor(call.request.rally_anchor_json);

@@ -34,7 +34,10 @@ describe("syncAuthOverlay", () => {
         authBusyTitle: "Securing session",
         authBusyDetail: "Game server reached. Verifying your Google session...",
         activeBackend: "gateway",
-        bridgeDebugWsUrl: "wss://border-empires-combined-staging.fly.dev/ws"
+        bridgeDebugWsUrl: "wss://border-empires-combined-staging.fly.dev/ws",
+        seasonFull: false,
+        seasonFullNotifyAcknowledged: false,
+        authEmail: ""
       },
       {
         authOverlayEl,
@@ -53,6 +56,7 @@ describe("syncAuthOverlay", () => {
         authBusyTitleEl,
         authBusyCopyEl,
         authBusyDiagnosticsBtn: makeButton(),
+        authBusySeasonFullNotifyBtn: makeButton(),
         authStatusEl,
         authDebugRouteEl,
         wsUrl: "wss://border-empires.fly.dev/ws",
@@ -83,6 +87,7 @@ describe("syncAuthOverlay", () => {
     authProfileSaveBtn: makeButton(),
     authBusyTitleEl: makeElement(),
     authBusyCopyEl: makeElement(),
+    authBusySeasonFullNotifyBtn: makeButton(),
     authStatusEl: makeElement(),
     authDebugRouteEl: makeElement(),
     wsUrl: "wss://border-empires.fly.dev/ws",
@@ -101,7 +106,10 @@ describe("syncAuthOverlay", () => {
     authBusyTitle: "Finishing up...",
     authBusyDetail: "Building session data for a large empire (18s)…",
     activeBackend: "gateway" as const,
-    bridgeDebugWsUrl: "wss://border-empires-combined-staging.fly.dev/ws"
+    bridgeDebugWsUrl: "wss://border-empires-combined-staging.fly.dev/ws",
+    seasonFull: false,
+    seasonFullNotifyAcknowledged: false,
+    authEmail: ""
   });
 
   it("hides the diagnostics button before the 8s threshold (regression: this overlay used to never show it at all)", () => {

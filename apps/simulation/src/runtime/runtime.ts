@@ -460,7 +460,7 @@ import { buildRushBuyCommandContext } from "./runtime-rush-buy-command-context.j
 import {
   seedLiveBarbarians as seedLiveBarbariansImpl,
   type SeedLiveBarbariansResult
-} from "../runtime-live-barbarians.js";
+} from "../runtime-live-barbarians.js"; import { humanPlayerCountOf } from "../runtime-player-factory.js";
 import {
   ensurePlayerHasSpawnTerritory as ensurePlayerHasSpawnTerritoryImpl,
   finalizeRespawnNotice as finalizeRespawnNoticeImpl,
@@ -1799,7 +1799,7 @@ export class SimulationRuntime {
       // best-effort log; never throw from the diagnostic path
     }
   }
-
+  hasPlayer(playerId: string): boolean { return this.players.has(playerId); } humanPlayerCount(): number { return humanPlayerCountOf(this.players); } // join-capacity gate
   ensurePlayerHasSpawnTerritory(playerId: string, rallyAnchor?: { x: number; y: number }): boolean {
     const spawned = ensurePlayerHasSpawnTerritoryImpl(this.respawnContext(), playerId, rallyAnchor); if (spawned) wonderEffects.refreshPlayerWonders(playerId, this.settledTilesForPlayer(playerId), this.wonderCacheByPlayer, this.players);
     if (spawned && this.pendingImperialWard?.playerId === playerId) {

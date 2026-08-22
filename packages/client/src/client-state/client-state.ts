@@ -102,9 +102,9 @@ export const createInitialState = () => ({
   authError: "",
   authBusyTitle: "",
   authBusyDetail: "",
+  seasonFull: false, seasonFullNotifyAcknowledged: false, // SEASON_FULL rejection — see client-auth-ui.ts
   profileSetupRequired: false,
-  gold: 0,
-  level: 0,
+  gold: 0, level: 0,
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   modBreakdown: {
     attack: [{ label: "Base", mult: 1 }],
