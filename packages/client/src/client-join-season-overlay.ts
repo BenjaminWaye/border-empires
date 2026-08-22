@@ -4,7 +4,7 @@ type JoinSeasonOverlayDeps = {
   state: Pick<ClientState, "needsSeasonJoin" | "joinSeasonOverlayOpen" | "joinSeasonId" | "joinSeasonPending">;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
-  joinSeason: () => void;
+  joinSeason: () => boolean;
 };
 
 // Modeled on client-respawn-overlay.ts: a simple full-screen modal reusing
@@ -52,9 +52,12 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   if (confirmBtn) {
     confirmBtn.onclick = () => {
       if (state.joinSeasonPending) return;
+      // Only flip the pending flag if the message actually sent -- sendGameMessage
+      // returns false without sending when the session isn't authed yet, and
+      // no JOIN_SEASON_ACK/ERROR would ever arrive to clear the flag otherwise.
+      if (!joinSeason()) return;
       state.joinSeasonPending = true;
       renderHud();
-      joinSeason();
     };
   }
 };

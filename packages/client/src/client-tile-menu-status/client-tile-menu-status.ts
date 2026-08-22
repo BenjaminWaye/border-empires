@@ -50,32 +50,11 @@ export const encirclementRemainingMsForTile = (tile: Tile, nowMs = Date.now()): 
 export const isFrontierOriginCutOff = (tile: Tile, nowMs = Date.now()): boolean =>
   encirclementRemainingMsForTile(tile, nowMs) !== undefined;
 
-/**
- * Returns the remaining ms if this frontier tile is in the final 60 s of its
- * natural (~10 min) decay window. Matches the 3D map's blink threshold so the
- * on-tile flash and the header countdown light up together.
- */
-export const naturalDecayRemainingMsForTile = (tile: Tile, nowMs = Date.now()): number | undefined => {
-  if (tile.ownershipState !== "FRONTIER") return undefined;
-  if (typeof tile.frontierDecayAt !== "number") return undefined;
-  if (tile.frontierDecayKind !== "NATURAL") return undefined;
-  const remaining = tile.frontierDecayAt - nowMs;
-  if (remaining <= 0 || remaining > ENCIRCLEMENT_DECAY_MS) return undefined;
-  return remaining;
-};
-
-/**
- * Returns true if this frontier tile has an active natural decay timer —
- * i.e. it is unsupported for the full decay window, not just the final 60 s.
- */
-export const isFrontierNaturallyDecaying = (tile: Tile, nowMs = Date.now()): boolean => {
-  if (tile.ownershipState !== "FRONTIER") return false;
-  if (tile.frontierDecayKind !== "NATURAL") return false;
-  if (typeof tile.frontierDecayAt !== "number") return false;
-  return tile.frontierDecayAt > nowMs;
-};
-
-export const tileMenuHeaderStatusForTile = (tile: Tile, nowMs = Date.now()): TileMenuHeaderStatus | undefined => {
+export const tileMenuHeaderStatusForTile = (
+  tile: Tile,
+  nowMs = Date.now(),
+  isOwnedTileInReach?: (tile: Tile) => boolean
+): TileMenuHeaderStatus | undefined => {
   // Encirclement takes precedence over capture-recovery for the header status.
   const encirclementRemaining = encirclementRemainingMsForTile(tile, nowMs);
   if (encirclementRemaining !== undefined) {
@@ -86,19 +65,24 @@ export const tileMenuHeaderStatusForTile = (tile: Tile, nowMs = Date.now()): Til
     };
   }
 
-  const naturalRemaining = naturalDecayRemainingMsForTile(tile, nowMs);
-  if (naturalRemaining !== undefined) {
-    const seconds = Math.max(1, Math.ceil(naturalRemaining / 1000));
+  const remainingMs = captureRecoveryRemainingMsForTile(tile, nowMs);
+  if (remainingMs !== undefined) {
     return {
-      text: `Frontier collapsing in ${seconds}s`,
+      text: `Recently captured ${formatHeaderCountdown(remainingMs)}`,
       tone: "warning"
     };
   }
 
-  const remainingMs = captureRecoveryRemainingMsForTile(tile, nowMs);
-  if (remainingMs === undefined) return undefined;
-  return {
-    text: `Recently captured ${formatHeaderCountdown(remainingMs)}`,
-    tone: "warning"
-  };
+  // Fixed-border reach: settling/building an outpost on this FRONTIER tile
+  // is still blocked until reach catches up, even though EXPAND itself no
+  // longer is -- flag it so the header explains why those actions are
+  // disabled instead of leaving the player to guess.
+  if (tile.ownershipState === "FRONTIER" && isOwnedTileInReach && !isOwnedTileInReach(tile)) {
+    return {
+      text: "Outside reach",
+      tone: "warning"
+    };
+  }
+
+  return undefined;
 };

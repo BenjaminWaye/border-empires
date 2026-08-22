@@ -402,10 +402,9 @@ describe("gateway http routes", () => {
           incomePerMinute: 12.5,
           techs: 6,
           manpower: 300,
-          food: 120,
-          titanium: 30,
-          crystal: 5,
-          umbrite: 60
+          resourceSlotSupply: { FOOD: 120, TITANIUM: 30, CRYSTAL: 5, UMBRITE: 60 },
+          resourceSlotDemand: { FOOD: 100, TITANIUM: 20, CRYSTAL: 5, UMBRITE: 40 },
+          shardStockpile: 2
         },
         {
           id: "ai-1",
@@ -417,10 +416,9 @@ describe("gateway http routes", () => {
           incomePerMinute: 2.1,
           techs: 1,
           manpower: 40,
-          food: 10,
-          titanium: 0,
-          crystal: 0,
-          umbrite: 4
+          resourceSlotSupply: { FOOD: 10, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 },
+          resourceSlotDemand: { FOOD: 8, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 },
+          shardStockpile: 0
         }
       ],
       startNextSeason: async () => ({ seasonId: "season-2" })
@@ -438,8 +436,8 @@ describe("gateway http routes", () => {
     expect(authorizedResponse.json()).toEqual({
       ok: true,
       players: [
-        expect.objectContaining({ id: "player-1", gold: 1_250, settledTiles: 40, ownedTiles: 55, manpower: 300, food: 120, titanium: 30, crystal: 5, umbrite: 60 }),
-        expect.objectContaining({ id: "ai-1", isAi: true, gold: 80, settledTiles: 5, ownedTiles: 9, manpower: 40, food: 10, titanium: 0, crystal: 0, umbrite: 4 })
+        expect.objectContaining({ id: "player-1", gold: 1_250, settledTiles: 40, ownedTiles: 55, manpower: 300, resourceSlotSupply: { FOOD: 120, TITANIUM: 30, CRYSTAL: 5, UMBRITE: 60 }, resourceSlotDemand: { FOOD: 100, TITANIUM: 20, CRYSTAL: 5, UMBRITE: 40 }, shardStockpile: 2 }),
+        expect.objectContaining({ id: "ai-1", isAi: true, gold: 80, settledTiles: 5, ownedTiles: 9, manpower: 40, resourceSlotSupply: { FOOD: 10, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 }, resourceSlotDemand: { FOOD: 8, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 4 }, shardStockpile: 0 })
       ]
     });
 

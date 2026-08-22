@@ -1,6 +1,8 @@
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 
 import { hasPlayerJoinedSeason, withPlayerJoinedSeason } from "../season-lifecycle.js";
+import { seasonIsAtPlayerCap } from "../season-join-capacity.js";
+import { emitPerConnectHellos } from "./per-connect-hellos.js";
 import type { createSimulationMetrics } from "../metrics/metrics.js";
 import type { SimulationRuntime } from "../runtime/runtime.js";
 
@@ -23,6 +25,7 @@ type PrepareOrJoinDeps = {
   deleteCachedSnapshot: (playerId: string) => void;
   getSeasonState: () => SimulationSeasonState;
   setSeasonState: (seasonState: SimulationSeasonState) => void;
+  maxSeasonPlayers: number;
 };
 
 const spawnAndAnnounce = (
@@ -39,11 +42,7 @@ const spawnAndAnnounce = (
     deps.deleteCachedSnapshot(playerId);
     deps.log.info({ playerId }, logMessage);
   }
-  try {
-    deps.runtime.emitShardRainHelloFor(playerId);
-  } catch (error) {
-    deps.log.error({ err: error, playerId }, "shard rain hello failed");
-  }
+  emitPerConnectHellos(deps.runtime, playerId, deps.log);
   return spawned;
 };
 
@@ -52,11 +51,13 @@ const spawnAndAnnounce = (
 // otherwise any reconnect after a season rollover would carry that player
 // into the new season without them ever choosing to join it. Only a player
 // already known to the runtime (an existing record) or explicitly recorded
-// as joined (via JoinSeason) gets prepared/respawned here.
+// as joined (via JoinSeason) gets prepared/respawned here. It never spawns a
+// genuinely new player, so the season player cap is not checked here — that
+// gate belongs to JoinSeason, the only path that admits new players.
 export const preparePlayerHandler = (
   deps: PrepareOrJoinDeps,
   call: { request: { player_id: string; rally_anchor_json?: string } },
-  callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean }) => void
+  callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean; full?: boolean }) => void
 ): void => {
   const playerId = call.request.player_id;
   const prepareStartedAt = Date.now();
@@ -88,12 +89,15 @@ export const preparePlayerHandler = (
 };
 
 // JoinSeason is the only path that records season membership and spawns a
-// brand-new player's starting territory. Call it in response to a real
-// "join" action (today: login), never implicitly on any other RPC.
+// brand-new player's starting territory, so it is where the season player
+// cap is enforced: a genuinely new player is turned away with full:true (and
+// never recorded as joined) once the season is full, while a returning
+// player who already has runtime territory is never blocked (see
+// seasonIsAtPlayerCap).
 export const joinSeasonHandler = (
   deps: PrepareOrJoinDeps,
   call: { request: { player_id: string; rally_anchor_json?: string } },
-  callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean }) => void
+  callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean }) => void
 ): void => {
   const playerId = call.request.player_id;
   try {
@@ -101,8 +105,13 @@ export const joinSeasonHandler = (
       callback(new Error("cannot join an ended season"), { ok: false, player_id: playerId, playerId, spawned: false });
       return;
     }
+    if (seasonIsAtPlayerCap(deps.maxSeasonPlayers, deps.runtime, playerId)) {
+      deps.log.info({ playerId, maxSeasonPlayers: deps.maxSeasonPlayers }, "join season rejected: season is full");
+      callback(null, { ok: true, player_id: playerId, playerId, spawned: false, full: true });
+      return;
+    }
     deps.setSeasonState(withPlayerJoinedSeason(deps.getSeasonState(), playerId));
-    const spawned = spawnAndAnnounce(deps, playerId, parseRallyAnchor(call.request.rally_anchor_json), "spawned runtime territory for joined player");
+    const spawned = spawnAndAnnounce(deps, playerId, parseRallyAnchor(call.request.rally_anchor_json), "spawned runtime territory for joined player", true);
     callback(null, { ok: true, player_id: playerId, playerId, spawned });
   } catch (error) {
     deps.log.error({ playerId, error: error instanceof Error ? error.message : String(error) }, "join season failed");

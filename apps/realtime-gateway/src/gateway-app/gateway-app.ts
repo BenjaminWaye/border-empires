@@ -90,7 +90,7 @@ import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed
 import { attackPreviewResult } from "../attack-preview/attack-preview.js";
 import { createSeededAiTruceResponder } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
 import { createLoginQueue } from "../login-queue/login-queue.js";
-import { admitBootstrap } from "../login-queue/bootstrap-admission.js";
+import { admitBootstrap } from "../login-queue/bootstrap-admission.js"; import { seasonFullErrorPayload } from "../season-full-rejection/season-full-rejection.js";
 import { createWebSocketHeartbeat } from "./websocket-heartbeat.js";
 
 import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
@@ -102,6 +102,7 @@ type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   channel: "control" | "bulk";
   canToggleFog: boolean;
   fogDisabled: boolean; authInProgress: boolean;
+  rallyAnchor?: { x: number; y: number; island?: string } | undefined;
 };
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
@@ -2070,6 +2071,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 accepted: rallyReservation.accepted
               });
             }
+            session.rallyAnchor = rallyAnchor; // for a later JOIN_SEASON, since PreparePlayer above won't have spawned an unjoined player
             const prepareStartedAt = Date.now();
             loginTracer.stage("prepare_player_start");
             authTrace.startStep("prepare_player");
@@ -2093,10 +2095,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                   loginPhase.notify(socket, "Preparing your empire...", `Retrying with the simulation backend (attempt ${attempt})...`);
                 }
               );
-              if (acceptedRallyCode && !prepareResult.spawned) {
-                await rallyLinkStore.releaseUse(acceptedRallyCode);
-                acceptedRallyCode = undefined;
-              }
+              if (acceptedRallyCode && !prepareResult.spawned) { await rallyLinkStore.releaseUse(acceptedRallyCode); acceptedRallyCode = undefined; }
+              if (prepareResult.full) { recordGatewayEvent("info", "gateway_auth_prepare_season_full", { playerId: playerIdentity.playerId, channel, prepareDurationMs: Date.now() - prepareStartedAt }); sendJson(socket, seasonFullErrorPayload()); authTrace.endStep("prepare_player", false); authTrace.complete("rejected", "season_full"); return; }
               needsSeasonJoin = prepareResult.joined === false; const prepareDurationMs = Date.now() - prepareStartedAt;
               recordGatewayEvent(
                 prepareResult.spawned || prepareDurationMs >= 250 ? "warn" : "info",
@@ -2534,7 +2534,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ playerId: session.playerId, simulationClient, recordGatewayEvent, sendJson, socket }); return; }
+          if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ playerId: session.playerId, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload }); return; }
           if (message.type === "SET_TILE_COLOR") {
             const normalized = normalizeHex(message.color);
             if (!normalized) {

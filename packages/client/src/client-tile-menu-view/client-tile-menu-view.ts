@@ -22,7 +22,8 @@ import { economicStructureBuildMs, economicStructureName, resourceLabel, strateg
 import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
 import { displayTownPopulationTierLabel } from "../client-town-growth/client-town-growth.js";
 import { tileMenuOverviewIntroLines, tileMenuSubtitleText } from "../client-tile-menu-copy/client-tile-menu-copy.js";
-import { captureRecoveryRemainingMsForTile, isFrontierNaturallyDecaying, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
+import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "../client-tile-menu-status/client-tile-menu-status.js";
+import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js"; import { keyForTile } from "../client-app-runtime-utils.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
@@ -288,8 +289,7 @@ export const menuOverviewForTile = (
     productionLabel,
     resourceLabel: resourceLabelText,
     isDockEndpoint: Boolean(tile.dockId),
-    hasTown: Boolean(tile.town),
-    isDecaying: isFrontierNaturallyDecaying(tile)
+    hasTown: Boolean(tile.town)
   }).forEach(pushLine);
   if (tile.terrain === "SEA" || tile.terrain === "COASTAL_SEA" || tile.terrain === "MOUNTAIN") return lines;
   if (tile.ownershipState === "SETTLED" && tile.town?.populationTier === "SETTLEMENT") {
@@ -591,7 +591,7 @@ export const tileMenuViewForTile = (
     terrainLabel: (x: number, y: number, terrain: Tile["terrain"]) => string;
     isTileOwnedByAlly: (tile: Tile) => boolean;
     combatBreakdownForTile?: (tile: Tile) => TileCombatBreakdown | undefined;
-    state: { me: string };
+    state: { me: string } & Partial<ReachAuthoritativeState>;
     /**
      * True when this tile is the target of the player's own in-progress
      * frontier expansion — not owned yet, but about to be. Actions/tabs are
@@ -660,8 +660,7 @@ export const tileMenuViewForTile = (
         : tile.resource
           ? deps.prettyToken(resourceLabel(tile.resource))
           : deps.terrainLabel(tile.x, tile.y, tile.terrain);
-  const headerStatus = tileMenuHeaderStatusForTile(tile);
-  return {
+  const reachState = deps.state; const headerStatus = tile.ownerId === reachState.me && reachState.tiles ? tileMenuHeaderStatusForTile(tile, Date.now(), (t) => authoritativeIsInReach(reachState as ReachAuthoritativeState, keyForTile)(t.x, t.y)) : tileMenuHeaderStatusForTile(tile); return {
     title: `${titleLabel} (${tile.x}, ${tile.y})`,
     subtitle: tileMenuSubtitleText(ownerLabel, regionLabel),
     ...(subtitleHtml ? { subtitleHtml } : {}),

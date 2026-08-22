@@ -27,8 +27,8 @@ import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
 import { drawTileOwnershipAndBreachBorder } from "./client-tile-borders/client-tile-borders.js";
+import { resolveMyReach } from "./client-reach-authoritative/client-reach-authoritative.js";
 import {
-  computeLocalReachSet,
   drawDormantFrontierTreatment,
   drawReachBoundaryLine,
   isDormantFrontierTile
@@ -264,13 +264,13 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
       dockEndpointKeys.add(deps.keyFor(pair.bx, pair.by));
     }
-    // Reach overlay: recompute only when the tile set has actually changed
-    // (tilesRevision bump), not every frame. See client-reach-overlay.ts's
-    // MOCK-DATA SEAM comment — this is a client-local approximation until
-    // the server pushes real reach data.
-    if (!isTrue3DRendererActive() && state.myReachRevisionAtCompute !== state.tilesRevision) {
-      state.myReach = computeLocalReachSet(state.tiles, state.me);
-      state.myReachRevisionAtCompute = state.tilesRevision;
+    // Reach overlay: recompute only when tiles or server reach actually
+    // changed. String key (not tilesRevision + serverReachRevision * 1e6) to
+    // avoid collisions once tilesRevision outgrows the multiplier.
+    const reachCacheKey = `${state.tilesRevision}:${state.serverReachRevision}`;
+    if (!isTrue3DRendererActive() && state.myReachRevisionAtCompute !== reachCacheKey) {
+      state.myReach = resolveMyReach(state);
+      state.myReachRevisionAtCompute = reachCacheKey;
     }
     const myReach = state.myReach;
     const crystalTargetingActive = state.crystalTargeting.active;
@@ -653,10 +653,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         wrapY: deps.wrapY
       });
 
-      // Fixed-borders-via-reach overlay (dormant-frontier fill, reach
-      // boundary line). See client-reach-overlay.ts.
-      if (!isTrue3DRendererActive() && myReach && t && vis === "visible") {
-        if (t.ownerId === state.me && isDormantFrontierTile(t)) {
+      // Fixed-borders-via-reach overlay. Boundary renders over fogged tiles
+      // too (a fixed claim, not fog-dependent) but stays hidden over unexplored.
+      if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+        if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
           drawDormantFrontierTreatment(deps.ctx, px, py, size);
         }
         if (t.ownerId === state.me) {
@@ -717,10 +717,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           deps.ctx.fillStyle = "rgba(255, 209, 102, 0.18)";
           deps.ctx.fillRect(px, py, size, size);
         } else {
-          deps.ctx.strokeStyle = "#ffd166";
-          deps.ctx.lineWidth = 2;
-          deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1);
-          deps.ctx.lineWidth = 1;
+          const selectedOutOfReach = Boolean(myReach) && !myReach!.has(deps.keyFor(wx, wy)); // fixed-border reach: dashed orange outside reach
+          if (selectedOutOfReach) deps.ctx.setLineDash([4, 3]);
+          deps.ctx.strokeStyle = selectedOutOfReach ? "#ff8a3d" : "#ffd166"; deps.ctx.lineWidth = 2; deps.ctx.strokeRect(px + 0.5, py + 0.5, size - 1, size - 1); deps.ctx.lineWidth = 1;
+          if (selectedOutOfReach) deps.ctx.setLineDash([]);
         }
       } else if (state.selected) {
         const selected = state.tiles.get(deps.keyFor(state.selected.x, state.selected.y));
@@ -1180,9 +1180,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           wrapY: deps.wrapY
         });
 
-        // Fixed-borders-via-reach overlay — see client-reach-overlay.ts.
-        if (!isTrue3DRendererActive() && myReach && t && vis === "visible") {
-          if (t.ownerId === state.me && isDormantFrontierTile(t)) {
+        // Fixed-borders-via-reach overlay -- see the main pass above.
+        if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+          if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
             drawDormantFrontierTreatment(deps.ctx, px, py, size);
           }
           if (t.ownerId === state.me) {

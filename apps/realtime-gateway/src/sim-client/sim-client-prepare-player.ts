@@ -1,4 +1,4 @@
-export type ProtoPreparePlayerAck = { ok: boolean; player_id?: string; playerId?: string; spawned?: boolean; joined?: boolean };
+export type ProtoPreparePlayerAck = { ok: boolean; player_id?: string; playerId?: string; spawned?: boolean; joined?: boolean; full?: boolean };
 export type PreparePlayerRallyAnchor = { x: number; y: number; island?: string };
 
 type PrepareLikeRpc = (
@@ -11,7 +11,7 @@ const callPrepareLikeRpc = (
   rpcName: string,
   playerId: string,
   rallyAnchor: PreparePlayerRallyAnchor | undefined
-): Promise<{ playerId: string; spawned: boolean; joined?: boolean }> =>
+): Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }> =>
   new Promise((resolve, reject) => {
     if (!rpc) {
       reject(new Error(`simulation client ${rpcName} RPC is unavailable`));
@@ -30,7 +30,8 @@ const callPrepareLikeRpc = (
               ? response.playerId
               : playerId,
         spawned: response.spawned === true,
-        joined: response.joined !== false
+        joined: response.joined !== false,
+        full: response.full === true
       });
     });
   });
@@ -44,14 +45,15 @@ export const preparePlayer = (
   rpc: PrepareLikeRpc | undefined,
   playerId: string,
   rallyAnchor?: PreparePlayerRallyAnchor
-): Promise<{ playerId: string; spawned: boolean; joined?: boolean }> => callPrepareLikeRpc(rpc, "preparePlayer", playerId, rallyAnchor);
+): Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }> => callPrepareLikeRpc(rpc, "preparePlayer", playerId, rallyAnchor);
 
 // joinSeason explicitly records the player as a member of the active season
-// and spawns their starting territory. Call this in response to a real
-// player action (e.g. confirming "Join Season N"), never automatically on
-// every authenticated connection.
+// and spawns their starting territory (unless the season is at its player
+// cap, in which case it returns full:true and does not record membership).
+// Call this in response to a real player action (e.g. confirming "Join
+// Season N"), never automatically on every authenticated connection.
 export const joinSeason = (
   rpc: PrepareLikeRpc | undefined,
   playerId: string,
   rallyAnchor?: PreparePlayerRallyAnchor
-): Promise<{ playerId: string; spawned: boolean; joined?: boolean }> => callPrepareLikeRpc(rpc, "joinSeason", playerId, rallyAnchor);
+): Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }> => callPrepareLikeRpc(rpc, "joinSeason", playerId, rallyAnchor);

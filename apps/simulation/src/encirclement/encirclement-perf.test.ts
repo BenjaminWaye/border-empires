@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeEncirclementDeltas, ENCIRCLEMENT_BFS_CAP } from "./encirclement.js";
 
-type TileStub = { ownerId?: string; ownershipState?: string; frontierDecayAt?: number; frontierDecayKind?: "NATURAL" | "ENCIRCLEMENT" };
+type TileStub = { ownerId?: string; ownershipState?: string; frontierDecayAt?: number; frontierDecayKind?: "ENCIRCLEMENT" };
 
 const mkTileMap = (entries: Record<string, TileStub>): ((key: string) => TileStub | undefined) =>
   (key: string) => entries[key];

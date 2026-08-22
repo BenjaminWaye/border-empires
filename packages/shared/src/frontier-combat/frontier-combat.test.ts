@@ -172,6 +172,26 @@ describe("frontier combat", () => {
     expect(preview.atkMult).toBeCloseTo(1.03 * 2.0, 6);
   });
 
+  it("doubles defense effectiveness via noWarIndustryDefenseVulnerabilityMult when the attacker has no war industry", () => {
+    const baseline = buildFrontierCombatPreview({ terrain: "LAND", ownershipState: "SETTLED" });
+    const boosted = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { noWarIndustryDefenseVulnerabilityMult: 2.0 }
+    );
+
+    expect(baseline.defMult).toBeCloseTo(1.35, 6);
+    expect(boosted.defMult).toBeCloseTo(1.35 * 2.0, 6);
+    expect(boosted.winChance).toBeLessThan(baseline.winChance);
+  });
+
+  it("combines noWarIndustryDefenseVulnerabilityMult multiplicatively with other defense mults", () => {
+    const preview = buildFrontierCombatPreview(
+      { terrain: "LAND", ownershipState: "SETTLED" },
+      { titaniumWeaponsFactoryDefenseMult: 1.03, noWarIndustryDefenseVulnerabilityMult: 2.0 }
+    );
+    expect(preview.defMult).toBeCloseTo(1.35 * 1.03 * 2.0, 6);
+  });
+
   it("leaves atkMult unchanged when dockAttackMult is undefined", () => {
     const preview = buildFrontierCombatPreview(
       { terrain: "LAND", ownershipState: "SETTLED" },
