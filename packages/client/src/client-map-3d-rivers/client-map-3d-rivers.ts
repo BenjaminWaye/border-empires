@@ -48,6 +48,38 @@ const kindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
   return "GRASS";
 };
 
+// The real heightfield renders each *corner* as an average of its 4
+// surrounding tiles' elevations (client-map-3d-heightfield.ts), not a
+// single tile's own value — so a point sitting one tile from a MOUNTAIN
+// (elevation ~1.15, vs. ~0.07-0.20 for flat land) can have a real rendered
+// ground surface well above what heightfieldFlatTileElevation reports for
+// its own tile alone. Taking the max elevation over the tile and its 8
+// neighbours is a safe upper bound for any corner blend touching this point
+// — corner averaging can never exceed the highest contributing tile.
+// Exported (rather than a private closure) so this can be tested with a
+// synthetic tileKindAt, the same injection pattern client-map-3d-heightfield
+// tests already use, instead of needing real world-gen state.
+export const maxNearbyElevation = (
+  wx: number,
+  wy: number,
+  tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind
+): number => {
+  const tx = Math.floor(wx);
+  const ty = Math.floor(wy);
+  let maxElevation = Number.NEGATIVE_INFINITY;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      const nx = wrap(tx + dx, WORLD_WIDTH);
+      const ny = wrap(ty + dy, WORLD_HEIGHT);
+      const kind = tileKindAt(nx, ny);
+      if (kind === "SEA" || kind === "COASTAL_SEA") continue;
+      const elevation = heightfieldFlatTileElevation(nx, ny, kind);
+      if (elevation > maxElevation) maxElevation = elevation;
+    }
+  }
+  return maxElevation;
+};
+
 // Multi-source BFS from every SEA/COASTAL_SEA tile, 4-directional with
 // toroidal wrap. Guarantees a strictly-decreasing path exists from any land
 // tile to the coast, which is what makes walkRiver below terminate without
@@ -102,14 +134,37 @@ const isNearMountain = (x: number, y: number): boolean => {
   return false;
 };
 
-const findRiverStart = (seed: number, riverIndex: number): { x: number; y: number } | undefined => {
+// Most mountains on a given world turn out to sit fairly close to the coast
+// (land bands here rarely run more than ~40-50 tiles deep anywhere), so
+// returning the *first* near-mountain land tile found produced mostly short
+// stub rivers a handful of tiles long — technically valid but visually
+// unsatisfying, and prone to looking like disconnected scribbles when two
+// such stubs happen to land in the same view. Scanning further and keeping
+// the farthest-from-coast candidate biases toward rivers that actually
+// traverse a meaningful stretch of land, while the early-exit once "far
+// enough" is reached keeps the scan cheap in the common case.
+const MIN_RIVER_START_DISTANCE_TO_SEA = 12;
+
+const findRiverStart = (
+  distToSea: Uint16Array,
+  seed: number,
+  riverIndex: number
+): { x: number; y: number } | undefined => {
+  let best: { x: number; y: number } | undefined;
+  let bestDistance = -1;
   for (let attempt = 0; attempt < START_SCAN_ATTEMPTS_PER_RIVER; attempt += 1) {
     const hx = Math.floor(seeded01(riverIndex * 97 + attempt, 11, seed + 6301) * WORLD_WIDTH);
     const hy = Math.floor(seeded01(riverIndex * 131 + attempt, 23, seed + 6317) * WORLD_HEIGHT);
     if (terrainAt(hx, hy) !== "LAND") continue;
-    if (isNearMountain(hx, hy)) return { x: hx, y: hy };
+    if (!isNearMountain(hx, hy)) continue;
+    const distance = distToSea[hy * WORLD_WIDTH + hx]!;
+    if (distance > bestDistance) {
+      bestDistance = distance;
+      best = { x: hx, y: hy };
+      if (bestDistance >= MIN_RIVER_START_DISTANCE_TO_SEA) break;
+    }
   }
-  return undefined;
+  return best;
 };
 
 // Walks strictly toward the coast using the precomputed distance field, with
@@ -168,7 +223,7 @@ const buildRivers = (seed: number): readonly RiverPath[] => {
   const distToSea = buildDistanceToSea();
   const rivers: RiverPath[] = [];
   for (let i = 0; i < RIVER_START_ATTEMPTS && rivers.length < RIVER_COUNT_TARGET; i += 1) {
-    const start = findRiverStart(seed, i);
+    const start = findRiverStart(distToSea, seed, i);
     if (!start) continue;
     const path = walkRiver(start, distToSea, seed, i);
     if (path) rivers.push(path);
@@ -217,11 +272,11 @@ export const createRiverOverlay = (scene: Scene): RiverOverlay => {
   let mesh: Mesh | null = null;
   let geometry: BufferGeometry | null = null;
 
-  const surfaceYAt = (wx: number, wy: number): number => {
-    const tx = wrap(Math.floor(wx), WORLD_WIDTH);
-    const ty = wrap(Math.floor(wy), WORLD_HEIGHT);
-    return heightfieldFlatTileElevation(tx, ty, kindAt(tx, ty)) + SURFACE_LIFT_Y;
-  };
+  // Without accounting for nearby terrain (see maxNearbyElevation above),
+  // the ribbon rendered underground for a stretch near every mountain
+  // source, reading as the river getting "cut off" right where it should
+  // visibly begin.
+  const surfaceYAt = (wx: number, wy: number): number => maxNearbyElevation(wx, wy, kindAt) + SURFACE_LIFT_Y;
 
   const rebuild = (inputs: RiverOverlayRebuildInputs): void => {
     if (mesh) {
