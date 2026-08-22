@@ -197,6 +197,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       return value < 0.5 ? "#bfa36e" : "#c9b07a";
     }
     if (biome === "TUNDRA") {
+      if (grassShadeAt(x, y) === "DARK") return "#6f8c86";
       const value = groupedNoise(x, y, 32, 911);
       return value < 0.5 ? "#a9bcb8" : "#b6c8c2";
     }

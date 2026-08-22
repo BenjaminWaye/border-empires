@@ -600,12 +600,20 @@ export const regionTypeAt = (x: number, y: number): RegionType | undefined => {
   return region;
 };
 
+// Despite the name (kept to avoid renaming across every existing GRASS-only
+// consumer, all of which explicitly AND this with `landBiomeAt(...) ===
+// "GRASS"` and so are unaffected), this also computes a light/dark split for
+// TUNDRA — its "dark" variant is the tundra-forest concept: no FARM/GEMS,
+// but a real TITANIUM+UMBRITE affinity (see server-worldgen-terrain.ts). The
+// underlying noise formula below was already biome-agnostic; only this gate
+// restricted it to GRASS.
 export const grassShadeAt = (x: number, y: number): "LIGHT" | "DARK" | undefined => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
   const idx = worldIndex(wx, wy);
   if (grassShadeCacheReady[idx] === 1) return decodeGrassShade(grassShadeCache[idx]!);
-  if (landBiomeAt(wx, wy) !== "GRASS") {
+  const biome = landBiomeAt(wx, wy);
+  if (biome !== "GRASS" && biome !== "TUNDRA") {
     grassShadeCache[idx] = GRASS_NONE;
     grassShadeCacheReady[idx] = 1;
     return undefined;
