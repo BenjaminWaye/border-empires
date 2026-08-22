@@ -7,10 +7,16 @@ import {
   type GalaxyViewPlanet,
   type GalaxyViewOutpost,
   type GalaxyViewStipend,
+  type GalaxyViewEconomy,
   type GalaxyEmperorViewModel
 } from "./galaxy-view-html.js";
 
-type GalaxyMeResponse = { planets?: GalaxyViewPlanet[]; outposts?: GalaxyViewOutpost[]; stipends?: GalaxyViewStipend[] };
+type GalaxyMeResponse = {
+  planets?: GalaxyViewPlanet[];
+  outposts?: GalaxyViewOutpost[];
+  stipends?: GalaxyViewStipend[];
+  economy?: GalaxyViewEconomy;
+};
 type GalaxyNameResponse = { ok?: boolean; error?: string; planet?: { planetName: string } };
 type GalaxyEmperorResponse = Partial<GalaxyEmperorViewModel> & { ok?: boolean };
 type GalaxyEndorseResponse = { ok?: boolean; error?: string; endorsement?: { targetPlayerId: string; createdAt: number } };
@@ -62,6 +68,12 @@ const galaxyStyle = `
   .gx-switcher{position:relative;margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
   .gx-switcher-item{border:1px solid rgba(255,255,255,.18);border-radius:16px;background:transparent;color:#cbd5e1;font-size:12px;padding:6px 12px;cursor:pointer}
   .gx-switcher-item.is-active{background:#38bdf8;color:#082f49;border-color:#38bdf8}
+  .gx-stability{position:relative;margin:10px auto 0;max-width:200px;display:flex;flex-direction:column;gap:4px;align-items:center}
+  .gx-stability-label{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .gx-stability-bar{width:100%;height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+  .gx-stability-fill{display:block;height:100%;background:#38bdf8}
+  .gx-economy{position:relative;margin-top:16px;display:flex;gap:12px;justify-content:center}
+  .gx-economy-item{color:#f8fafc;font-size:13px;font-weight:600;background:rgba(255,255,255,.06);border-radius:8px;padding:4px 10px}
   .gx-holdings{position:relative;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.14);text-align:center}
   .gx-holding-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
   .gx-holding-row{color:#cbd5e1;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
@@ -121,13 +133,16 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
   let planets: GalaxyViewPlanet[] = [];
   let outposts: GalaxyViewOutpost[] = [];
   let stipends: GalaxyViewStipend[] = [];
+  let economy: GalaxyViewEconomy | undefined;
   let focusedSeasonId = "";
   let emperorModel: GalaxyEmperorViewModel = { emperor: null, windowOpenUntil: null, endorsement: null, isEmperor: false };
   let panel: { overlay: HTMLElement; body: HTMLElement; launcher: HTMLButtonElement } | undefined;
 
   const render = (): void => {
     if (!panel) return;
-    panel.body.innerHTML = renderGalaxyViewHtml({ planets, focusedSeasonId, outposts, stipends }) + renderEmperorSectionHtml(emperorModel);
+    panel.body.innerHTML =
+      renderGalaxyViewHtml({ planets, focusedSeasonId, outposts, stipends, ...(economy ? { economy } : {}) }) +
+      renderEmperorSectionHtml(emperorModel);
   };
 
   const christen = async (form: HTMLFormElement): Promise<void> => {
@@ -257,6 +272,7 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
       planets = fetched;
       outposts = fetchedOutposts;
       stipends = fetchedStipends;
+      economy = body?.economy;
       if (planets[0]) focusedSeasonId = planets[0].seasonId;
       ensureMounted();
       render();

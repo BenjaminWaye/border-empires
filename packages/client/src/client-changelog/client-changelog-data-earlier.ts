@@ -12,6 +12,27 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1786905792661, // 2026.08.16
+    introducedIn: "2026.08.16",
+    title: "The Caravanary is now the Trade Nexus, with a new commercial-hub look",
+    why: "The Caravanary still read as a humble road-station courtyard, while the trade network needed to sell concentrated wealth — a grand exchange hall where trade routes converge, with cargo and brass machinery at work. Renamed the building to Trade Nexus and gave it a look to match; the underlying road-network mechanics are unchanged.",
+    changes: [
+      "The Caravanary structure is renamed Trade Nexus everywhere in the UI (build menu, tile info, tech tree). Its behavior — enabling the connected-town road network and income bonus — is unchanged.",
+      "New 3D overlay: a grand domed trading hall on an octagonal stone plinth, ringed by six converging trade roads, merchants' warehouses, stacked cargo, brass jib cranes, feed pipes, warm hanging lamps and a slowly winding brass clockwork seal atop the dome — replacing the old fortified-inn look.",
+      "A matching flat-color 2D icon (trading hall, converging routes, cargo and brass machinery) accompanies the 3D asset."
+    ]
+  },
+  {
+    createdAt: 1787411986658,
+    introducedIn: "2026.08.22.8",
+    title: "Beta season countdown screen",
+    why: "The beta season now has a synchronized start time so everyone begins together instead of the first arrivals compounding a head start over testers in later timezones.",
+    changes: [
+      "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
+      "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
+    ]
+  },
+  {
     createdAt: 1786910628146, // 2026.08.16.1
     introducedIn: "2026.08.16.1",
     title: "Swapped the waypoint and mustering flag overlays",
@@ -59,6 +80,26 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "The reach border you see is now pushed by the server and matches exactly what it will let you claim, so a tile shown inside your border can actually be expanded onto.",
       "A waypoint step the server rejects as out of reach now cancels that waypoint instead of retrying it forever, and the cancellation is mirrored server-side so it cannot come back after a reconnect.",
       "A halted waypoint no longer blocks the waypoints queued behind it, and the 'Waypoint halted' message appears once instead of repeating on every tick."
+    ]
+  },
+  {
+    createdAt: 1787349946710,
+    introducedIn: "2026.08.21.10",
+    title: "You can now attempt to expand toward out-of-reach frontier tiles",
+    why: "Expanding was rejected outright as OUT_OF_REACH the moment a target tile fell outside your reach border, even though claiming a neutral tile has never itself granted reach (only a settled town/outpost/dock does) -- so the rejection didn't actually protect anything, it just hid a button. Settling and building outposts are still gated on reach, since those are what actually extend your border, and a Relay Beacon (or other siege outpost) still can't be built directly on an out-of-reach frontier tile -- that loophole would have let a single out-of-reach expand leapfrog your reach indefinitely.",
+    changes: [
+      "\"Expand To\" now always shows on a neutral tile, in or out of reach, instead of being hidden outside reach.",
+      "On a frontier tile you already own but is outside reach, \"Settle Land\", \"Settle Connected\", and outpost-family build actions (Relay Beacon, siege outposts) now show disabled with an \"Outside your reach\" reason instead of disappearing.",
+      "The tile menu and both map views now flag a selected out-of-reach tile so it's clear why those actions are disabled."
+    ]
+  },
+  {
+    createdAt: 1787374761566, // 2026.08.22.1 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.1",
+    title: "Renamed the distant-attack waypoint button from \"Add Waypoint\" to \"Expand To & Attack\"",
+    why: "This button now only ever appears for an enemy-owned attack target -- the neutral-tile case was folded into \"Expand To\" in the previous release -- but it kept the old generic \"Add Waypoint\" label, which read as a leftover duplicate rather than the attack action it actually is.",
+    changes: [
+      "The multi-step waypoint action on a distant enemy tile is now labeled \"Expand To & Attack\" instead of \"Add Waypoint\"."
     ]
   }
 ];

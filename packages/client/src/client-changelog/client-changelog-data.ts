@@ -13,8 +13,8 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1787422800000, // 2026.08.22.12 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.12",
+    createdAt: 1787435600000, // 2026.08.22.13 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.13",
     title: "Fixed: another player's town could show your \"ready to upgrade\" badge",
     why: "The map's green up-arrow badge and the food-shortage badge only checked that a town had an owner, not that the owner was you, so a rival town that happened to qualify lit up on your map the same way one of your own towns would.",
     changes: [
@@ -29,6 +29,26 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
       "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
+    ]
+  },
+  {
+    createdAt: 1787432000000,
+    introducedIn: "2026.08.22.12",
+    title: "Your galaxy planets and outposts now earn Influence and Production, and can lose Stability",
+    why: "The galaxy view previously showed your Planets/Outposts/Stipends as a static record with nothing ongoing attached to them -- the galactic meta-layer's actual economy (docs/galactic-campaign-design.md §4/§5/§7) wasn't running yet. This introduces the first slice of that economy: a weekly Cycle tick that trickles Influence/Production income from your held territory, charges Influence upkeep for spreading wide, and drains or recovers each territory's Stability accordingly.",
+    changes: [
+      "Your galaxy view now shows a running Influence/Production balance, updated once per weekly Cycle based on your held Planets' and Outposts' specializations.",
+      "Holding more Planets costs more Influence upkeep -- Outposts still cost nothing to hold, staying the cheap entry rung for newer empires.",
+      "Each held Planet and Outpost now has a Stability meter (0-100), shown as a bar under it in the galaxy view. Falling into an Influence deficit drains your weakest territory's Stability over time; a healthy Influence surplus recovers all of them."
+    ]
+  },
+  {
+    createdAt: 1787429155443,
+    introducedIn: "2026.08.22.12",
+    title: "Fixed a dark \"crack\" flickering at animated shorelines",
+    why: "Every coastline's animated water can dip deep enough at a wave trough to reveal the coastal skirt wall underneath it, which was shaded so dark that it read as a jarring black gap right at the shoreline.",
+    changes: [
+      "Brightened the coastal skirt wall's shading so it no longer looks near-black when the water's wave animation passes through a deep trough."
     ]
   },
   {
@@ -387,17 +407,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786905792661, // 2026.08.16
-    introducedIn: "2026.08.16",
-    title: "The Caravanary is now the Trade Nexus, with a new commercial-hub look",
-    why: "The Caravanary still read as a humble road-station courtyard, while the trade network needed to sell concentrated wealth — a grand exchange hall where trade routes converge, with cargo and brass machinery at work. Renamed the building to Trade Nexus and gave it a look to match; the underlying road-network mechanics are unchanged.",
-    changes: [
-      "The Caravanary structure is renamed Trade Nexus everywhere in the UI (build menu, tile info, tech tree). Its behavior — enabling the connected-town road network and income bonus — is unchanged.",
-      "New 3D overlay: a grand domed trading hall on an octagonal stone plinth, ringed by six converging trade roads, merchants' warehouses, stacked cargo, brass jib cranes, feed pipes, warm hanging lamps and a slowly winding brass clockwork seal atop the dome — replacing the old fortified-inn look.",
-      "A matching flat-color 2D icon (trading hall, converging routes, cargo and brass machinery) accompanies the 3D asset."
-    ]
-  },
-  {
     createdAt: 1787356800001, // 2026.08.21, after the entries below
     introducedIn: "2026.08.21",
     title: "Shard rain impact sites now show on the map, even before you've explored them",
@@ -439,26 +448,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787349946710,
-    introducedIn: "2026.08.21.10",
-    title: "You can now attempt to expand toward out-of-reach frontier tiles",
-    why: "Expanding was rejected outright as OUT_OF_REACH the moment a target tile fell outside your reach border, even though claiming a neutral tile has never itself granted reach (only a settled town/outpost/dock does) -- so the rejection didn't actually protect anything, it just hid a button. Settling and building outposts are still gated on reach, since those are what actually extend your border, and a Relay Beacon (or other siege outpost) still can't be built directly on an out-of-reach frontier tile -- that loophole would have let a single out-of-reach expand leapfrog your reach indefinitely.",
-    changes: [
-      "\"Expand To\" now always shows on a neutral tile, in or out of reach, instead of being hidden outside reach.",
-      "On a frontier tile you already own but is outside reach, \"Settle Land\", \"Settle Connected\", and outpost-family build actions (Relay Beacon, siege outposts) now show disabled with an \"Outside your reach\" reason instead of disappearing.",
-      "The tile menu and both map views now flag a selected out-of-reach tile so it's clear why those actions are disabled."
-    ]
-  },
-  {
-    createdAt: 1787374761566, // 2026.08.22.1 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.1",
-    title: "Renamed the distant-attack waypoint button from \"Add Waypoint\" to \"Expand To & Attack\"",
-    why: "This button now only ever appears for an enemy-owned attack target -- the neutral-tile case was folded into \"Expand To\" in the previous release -- but it kept the old generic \"Add Waypoint\" label, which read as a leftover duplicate rather than the attack action it actually is.",
-    changes: [
-      "The multi-step waypoint action on a distant enemy tile is now labeled \"Expand To & Attack\" instead of \"Add Waypoint\"."
-    ]
-  },
-  {
     createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.2",
     title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
@@ -488,6 +477,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The most recent season's Planet winner now starts their next empire with a permanent manpower-regen head start and an expanded starting vision radius.",
       "It's a one-time grant, applied automatically the moment you spawn your next empire -- nothing to claim or activate."
+    ]
+  },
+  {
+    createdAt: 1787428700000,
+    introducedIn: "2026.08.22.5",
+    title: "Fixed a bogus 'Outside your borders' error after auto-settle finished a capture, and made unsettled tiles from a rival's border push show up live",
+    why: "Auto-settle could still fire a doomed settle command right after a capture landed if the captured tile turned out to be outside your reach (e.g. a Relay Beacon chain dying mid-capture), surfacing a confusing 'Outside your borders' error even though nothing was actually wrong. Separately, when a rival's expanding border overtook one of your settled tiles and downgraded it to frontier, that change was only ever applied on the server -- it was never pushed to either player's client, so it silently went stale until you clicked the tile and forced a refresh.",
+    changes: [
+      "Auto-settle now checks reach before firing the settle right after a capture, same as it already does elsewhere, instead of sending a command the server was always going to reject.",
+      "A settled tile downgraded to frontier by a rival's border push now updates live on both players' maps instead of only after clicking the tile."
     ]
   }
 ];

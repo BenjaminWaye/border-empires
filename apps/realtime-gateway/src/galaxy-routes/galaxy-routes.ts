@@ -2,8 +2,6 @@ import type {
   CurrentSeasonSummary,
   GalaxySpecialization,
   SeasonArchiveRow,
-  SeasonGalaxyTierSnapshot,
-  SeasonWinnerSnapshot,
   SeasonWinnerStats
 } from "@border-empires/sim-protocol";
 import type { FastifyInstance } from "fastify";
@@ -12,7 +10,9 @@ import { specializationForVictoryPath } from "@border-empires/sim-protocol";
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
+import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import { validatePlanetName } from "../galaxy-name-policy/galaxy-name-policy.js";
+import { resolveEndedSeasons, winnerAuthUid } from "../galaxy-holdings/galaxy-holdings.js";
 
 export type RegisterGalaxyRoutesDeps = {
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
@@ -26,22 +26,11 @@ export type RegisterGalaxyRoutesDeps = {
   authenticateBearer?: (authorizationHeader: string | undefined) => Promise<GatewayResolvedIdentity | undefined>;
   galaxyPlanetStore?: GalaxyPlanetStore;
   authBindingStore?: GatewayAuthBindingStore;
-};
-
-type WonSeason = {
-  seasonId: string;
-  seasonSequence: number;
-  winner: SeasonWinnerSnapshot;
-};
-
-// Seasons carrying galaxyTiers (§3 Outpost/Stipend records for non-winners),
-// resolved the same way WonSeason is: archived rows plus the current season
-// if it ended but hasn't rolled over yet (see resolveEndedSeasons).
-type TieredSeason = {
-  seasonId: string;
-  seasonSequence: number;
-  endedAt: number;
-  galaxyTiers: SeasonGalaxyTierSnapshot[];
+  // Influence/Production balance + per-territory Stability (galactic v1,
+  // docs/galactic-campaign-design.md §4/§7). Optional like the other galaxy
+  // deps: /hq/galaxy/me degrades to the v0 shape (no `economy` field) if
+  // this isn't wired up.
+  galaxyEconomyStore?: GalaxyEconomyStore;
 };
 
 type GalaxyMePlanetView = {
@@ -54,6 +43,7 @@ type GalaxyMePlanetView = {
   planetName: string | null;
   named: boolean;
   stats?: SeasonWinnerStats;
+  stability?: number;
 };
 
 type GalaxyPublicPlanetView = {
@@ -78,6 +68,14 @@ type GalaxyOutpostView = {
   specialization: GalaxySpecialization;
   awardedAt: number;
   holderName: string;
+  stability?: number;
+};
+
+// Player's current galactic economy balance (§4). Only present on
+// /hq/galaxy/me when galaxyEconomyStore is wired up.
+type GalaxyEconomyView = {
+  influence: number;
+  production: number;
 };
 
 type GalaxyStipendView = {
@@ -91,55 +89,6 @@ type GalaxyStipendView = {
 
 const bearerHeader = (request: { headers: Record<string, unknown> }): string | undefined =>
   typeof request.headers.authorization === "string" ? request.headers.authorization : undefined;
-
-// Combines archived (rolled-over) seasons with the current season if it has
-// ended but hasn't rolled over yet, so a season sitting on the season-end
-// screen is visible in the galaxy immediately rather than only after the next
-// season successfully starts. Fetches `listSeasonArchives`/`getCurrentSeasonSummary`
-// exactly once per request and derives both the winner view (Planets) and the
-// galaxyTiers view (Outposts/Stipends) from that single pass — each of those
-// deps hits the sim client plus a display-name hydration pass, so resolving
-// them twice would double backend calls per request for no benefit.
-const resolveEndedSeasons = async (
-  deps: RegisterGalaxyRoutesDeps
-): Promise<{ won: WonSeason[]; tiered: TieredSeason[] }> => {
-  const archives = await deps.listSeasonArchives();
-  const won: WonSeason[] = [];
-  const tiered: TieredSeason[] = [];
-  for (const archive of archives) {
-    if (archive.winner) won.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, winner: archive.winner });
-    if (archive.galaxyTiers && archive.galaxyTiers.length > 0) {
-      tiered.push({ seasonId: archive.seasonId, seasonSequence: archive.seasonSequence, endedAt: archive.endedAt, galaxyTiers: archive.galaxyTiers });
-    }
-  }
-
-  if (deps.getCurrentSeasonSummary) {
-    const current = await deps.getCurrentSeasonSummary();
-    if (current.status === "ended") {
-      if (current.seasonWinner && !won.some((season) => season.seasonId === current.seasonId)) {
-        won.push({ seasonId: current.seasonId, seasonSequence: current.seasonSequence, winner: current.seasonWinner });
-      }
-      if (current.seasonGalaxyTiers && current.seasonGalaxyTiers.length > 0 && !tiered.some((season) => season.seasonId === current.seasonId)) {
-        tiered.push({
-          seasonId: current.seasonId,
-          seasonSequence: current.seasonSequence,
-          endedAt: current.endedAt ?? current.updatedAt,
-          galaxyTiers: current.seasonGalaxyTiers
-        });
-      }
-    }
-  }
-  return { won, tiered };
-};
-
-// Resolves the durable authUid that won a given season, or undefined if the
-// winner has no bound account (an AI/unclaimed win — "unclaimed frontier").
-// This is the sole bridge between the per-season playerId and the galaxy's
-// cross-season authUid identity.
-const winnerAuthUid = async (season: WonSeason, authBindingStore: GatewayAuthBindingStore): Promise<string | undefined> => {
-  const binding = await authBindingStore.getByPlayerId(season.winner.playerId);
-  return binding?.uid;
-};
 
 export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyRoutesDeps): void => {
   app.get("/hq/galaxy/me", async (request, reply) => {
@@ -161,6 +110,9 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       const uid = await winnerAuthUid(season, authBindingStore);
       if (uid !== authUid) continue;
       const record = await deps.galaxyPlanetStore.getBySeasonId(season.seasonId);
+      const stability = deps.galaxyEconomyStore
+        ? (await deps.galaxyEconomyStore.ensureStability({ authUid, seasonId: season.seasonId, tier: "PLANET" })).stability
+        : undefined;
       planets.push({
         seasonId: season.seasonId,
         seasonSequence: season.seasonSequence,
@@ -170,7 +122,8 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
         crownedAt: season.winner.crownedAt,
         planetName: record?.planetName ?? null,
         named: Boolean(record),
-        ...(season.winner.stats ? { stats: season.winner.stats } : {})
+        ...(season.winner.stats ? { stats: season.winner.stats } : {}),
+        ...(stability !== undefined ? { stability } : {})
       });
     }
     planets.sort((a, b) => b.crownedAt - a.crownedAt);
@@ -201,7 +154,18 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
       for (const tier of season.galaxyTiers) {
         if (tierUidByPlayerId.get(tier.playerId) !== authUid) continue;
         if (tier.tier === "OUTPOST" && tier.specialization) {
-          outposts.push({ seasonId: season.seasonId, seasonSequence: season.seasonSequence, tier: "OUTPOST", specialization: tier.specialization, awardedAt: season.endedAt, holderName: tier.playerName });
+          const outpostStability = deps.galaxyEconomyStore
+            ? (await deps.galaxyEconomyStore.ensureStability({ authUid, seasonId: season.seasonId, tier: "OUTPOST" })).stability
+            : undefined;
+          outposts.push({
+            seasonId: season.seasonId,
+            seasonSequence: season.seasonSequence,
+            tier: "OUTPOST",
+            specialization: tier.specialization,
+            awardedAt: season.endedAt,
+            holderName: tier.playerName,
+            ...(outpostStability !== undefined ? { stability: outpostStability } : {})
+          });
         } else if (tier.tier === "STIPEND") {
           stipends.push({ seasonId: season.seasonId, seasonSequence: season.seasonSequence, tier: "STIPEND", awardedAt: season.endedAt, influence: tier.influence ?? 0, production: tier.production ?? 0 });
         }
@@ -209,7 +173,15 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
     }
     outposts.sort((a, b) => b.awardedAt - a.awardedAt);
     stipends.sort((a, b) => b.awardedAt - a.awardedAt);
-    return { planets, outposts, stipends };
+
+    let economy: GalaxyEconomyView | undefined;
+    const economyStore = deps.galaxyEconomyStore;
+    if (economyStore) {
+      const balance = await economyStore.getBalance(authUid);
+      economy = { influence: balance?.influence ?? 0, production: balance?.production ?? 0 };
+    }
+
+    return { planets, outposts, stipends, ...(economy ? { economy } : {}) };
   });
 
   app.post("/hq/galaxy/planets/:seasonId/name", async (request, reply) => {
