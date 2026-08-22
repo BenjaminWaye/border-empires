@@ -40,11 +40,13 @@ const crownedDateLabel = (crownedAt: number): string =>
   new Date(crownedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
 // Display names for GalaxySpecialization (@border-empires/sim-protocol's
-// GALAXY_SPECIALIZATION_NAME) — kept as a local copy rather than a new
-// package dependency, since this is display text only. Falls back to the raw
-// value for a specialization id introduced server-side before the client
-// knows its label.
-const SPECIALIZATION_LABEL: Record<string, string> = {
+// GALAXY_SPECIALIZATION_NAME) — kept as a local copy rather than a runtime
+// dependency on sim-protocol (which would drag its client-protocol/zod
+// dependency graph into the client bundle just for a label lookup), but
+// pinned against the real source of truth by galaxy-view-html.test.ts so the
+// two cannot silently drift. Falls back to the raw value for a
+// specialization id introduced server-side before the client knows its label.
+export const SPECIALIZATION_LABEL: Record<string, string> = {
   INDUSTRIAL: "Industrial",
   TRADE: "Trade",
   EXTRACTION: "Extraction",

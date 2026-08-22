@@ -352,7 +352,7 @@ export const computeSeasonVictory = (
       progressLabel = `${leaderValue}/${ctx.townTarget} towns`;
       thresholdLabel = `Need ${ctx.townTarget} towns`;
       conditionMet = Boolean(leaderPlayerId && leaderValue >= ctx.townTarget);
-      progress = clamp01(ctx.townTarget > 0 ? leaderValue / ctx.townTarget : 0);
+      progress = clamp01(leaderValue / ctx.townTarget); // townTarget is always >= 1 (Math.max floor in buildSeasonVictoryContext)
     } else if (def.id === "RESOURCE_MONOPOLY") {
       const monopoly = resourceMonopolyLeader(ctx.ownedResourceCountsByPlayerId, ctx.totalResourceCounts);
       leaderPlayerId = monopoly.leaderPlayerId;
@@ -372,7 +372,7 @@ export const computeSeasonVictory = (
       progressLabel = maritimeSupremacyProgressLabel(leaderValue, ctx.maritimeDockTarget);
       thresholdLabel = maritimeSupremacyThresholdLabel(SEASON_VICTORY_MARITIME_DOCK_SHARE, ctx.maritimeDockTarget);
       conditionMet = Boolean(leaderPlayerId && leaderValue >= ctx.maritimeDockTarget);
-      progress = clamp01(ctx.maritimeDockTarget > 0 ? leaderValue / ctx.maritimeDockTarget : 0);
+      progress = clamp01(leaderValue / ctx.maritimeDockTarget); // always >= SEASON_VICTORY_MARITIME_MIN_DOCKS (Math.max floor)
     } else {
       const diplomatic = diplomaticDominanceLeader(ctx.metricsByPlayerId, ctx.playerAlliesById, ctx.competitivePlayerIds);
       leaderPlayerId = diplomatic.leaderPlayerId;
@@ -386,7 +386,7 @@ export const computeSeasonVictory = (
       });
       thresholdLabel = diplomaticDominanceThresholdLabel(SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE, ctx.diplomaticControlTarget);
       conditionMet = Boolean(leaderPlayerId && diplomatic.blocControlledTiles >= ctx.diplomaticControlTarget);
-      progress = clamp01(ctx.diplomaticControlTarget > 0 ? diplomatic.blocControlledTiles / ctx.diplomaticControlTarget : 0);
+      progress = clamp01(diplomatic.blocControlledTiles / ctx.diplomaticControlTarget); // always >= 1 (Math.max floor)
     }
 
     const objective: SeasonVictoryObjectiveSnapshot = {
