@@ -219,9 +219,7 @@ describe("simulation event stream supervisor", () => {
     };
     const client = createSimulationClientFromRpcClient(rpcClient);
 
-    await expect(client.preparePlayer("player-1")).resolves.toEqual({
-      playerId: "player-1", spawned: true, full: false
-    });
+    await expect(client.preparePlayer("player-1")).resolves.toEqual({ playerId: "player-1", spawned: true, joined: true, full: false });
     await expect(client.subscribePlayer("player-1", "{\"radius\":2}")).resolves.toEqual({
       playerId: "player-1",
       tiles: [{ x: 10, y: 10 }]
