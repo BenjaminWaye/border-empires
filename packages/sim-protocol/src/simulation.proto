@@ -180,6 +180,10 @@ message PreparePlayerAck {
   bool ok = 1;
   string player_id = 2;
   bool spawned = 3;
+  // True when this would-be-new player was rejected because the season is
+  // already at its player cap (see SIMULATION_MAX_SEASON_PLAYERS). Never set
+  // for a returning player who already has territory this season.
+  bool full = 4;
 }
 
 message SimulationEvent {
