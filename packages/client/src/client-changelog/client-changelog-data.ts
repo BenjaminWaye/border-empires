@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787430100000,
+    introducedIn: "2026.08.22.3",
+    title: "Auto-settle no longer fires on tiles that have drifted out of reach",
+    why: "Queuing a settle-then-build (or letting an AI empire's frontier auto-settle) could still fire once the tile had fallen out of reach in the meantime -- the server always rejected it as out-of-reach, but nothing checked first, so it just silently failed instead of being dropped up front.",
+    changes: [
+      "Both the player's queued auto-settle and an AI empire's automatic frontier settlement now check reach before sending a settle command, dropping the queued action instead of sending one that's guaranteed to be rejected.",
+      "When a settled tile gets overtaken and reverts to a frontier tile because a rival's territory grew over it, it now plays a brief collapsing pylon effect on the map instead of changing silently."
+    ]
+  },
+  {
     createdAt: 1787430000000,
     introducedIn: "2026.08.22.2",
     title: "An empire with no war industry is now also weaker on defense, not just on offense",
