@@ -4,6 +4,7 @@ import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim
 
 import { registerGalaxyRoutes } from "./galaxy-routes.js";
 import { InMemoryGalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
+import { InMemoryGalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
 
@@ -30,6 +31,7 @@ const buildApp = (options: {
   archives: SeasonArchiveRow[];
   identityForToken?: (token: string | undefined) => GatewayResolvedIdentity | undefined;
   galaxyPlanetStore?: InMemoryGalaxyPlanetStore;
+  galaxyEconomyStore?: InMemoryGalaxyEconomyStore;
   authBindingStore?: InMemoryGatewayAuthBindingStore;
   currentSeasonSummary?: Partial<CurrentSeasonSummary> & Pick<CurrentSeasonSummary, "seasonId" | "seasonSequence" | "status">;
 }) => {
@@ -42,6 +44,7 @@ const buildApp = (options: {
     authenticateBearer: async (authorizationHeader) =>
       options.identityForToken?.(authorizationHeader) ?? undefined,
     galaxyPlanetStore: options.galaxyPlanetStore ?? new InMemoryGalaxyPlanetStore(),
+    ...(options.galaxyEconomyStore ? { galaxyEconomyStore: options.galaxyEconomyStore } : {}),
     authBindingStore: options.authBindingStore ?? new InMemoryGatewayAuthBindingStore()
   });
   return app;
@@ -437,5 +440,41 @@ describe("galaxy routes", () => {
     });
     expect(meResponse.json().outposts).toEqual([]);
     expect(meResponse.json().stipends).toEqual([]);
+  });
+
+  it("surfaces economy balance and per-Planet Stability on /hq/galaxy/me when a galaxyEconomyStore is wired up", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-1", influence: 12, production: 40, lastCycleAt: 1_000 });
+    await galaxyEconomyStore.ensureStability({ authUid: "uid-1", seasonId: "season-1", tier: "PLANET" });
+    await galaxyEconomyStore.setStability("uid-1", "season-1", 63);
+
+    const app = buildApp({
+      archives: [wonArchive()],
+      identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
+      authBindingStore,
+      galaxyEconomyStore
+    });
+
+    const response = await app.inject({ method: "GET", url: "/hq/galaxy/me", headers: { authorization: "Bearer good-token" } });
+    const body = response.json();
+    expect(body.economy).toEqual({ influence: 12, production: 40 });
+    expect(body.planets[0].stability).toBe(63);
+  });
+
+  it("omits economy/stability fields when no galaxyEconomyStore is wired up", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    const app = buildApp({
+      archives: [wonArchive()],
+      identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
+      authBindingStore
+    });
+
+    const response = await app.inject({ method: "GET", url: "/hq/galaxy/me", headers: { authorization: "Bearer good-token" } });
+    const body = response.json();
+    expect(body.economy).toBeUndefined();
+    expect(body.planets[0].stability).toBeUndefined();
   });
 });

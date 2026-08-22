@@ -10,6 +10,7 @@ import type { ResolvedGatewayAuthBinding } from "../gateway-auth-binding-resolut
 import type { GatewayPlayerProfileStore } from "../player-profile-store/player-profile-store.js";
 import type { RallyLinkStore } from "../rally-link-store/rally-link-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
+import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
@@ -50,6 +51,7 @@ export type BuildGatewayHttpRoutesDepsContext = {
   resolveHttpBearerIdentity: (authorizationHeader: string | undefined) => Promise<ResolvedGatewayAuthBinding | undefined>;
   rallyLinkStore: RallyLinkStore;
   galaxyPlanetStore: GalaxyPlanetStore;
+  galaxyEconomyStore: GalaxyEconomyStore;
   galaxyEndorsementStore: GalaxyEndorsementStore;
   authBindingStore: GatewayAuthBindingStore;
   worldEngineStrikeStore: WorldEngineStrikeStore;
@@ -128,6 +130,7 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     ...(ctx.simDiagnostics ? { simDiagnostics: ctx.simDiagnostics } : {}),
     ...(ctx.adminApiToken ? { adminApiToken: ctx.adminApiToken } : {}),
     galaxyPlanetStore: ctx.galaxyPlanetStore,
+    galaxyEconomyStore: ctx.galaxyEconomyStore,
     galaxyEndorsementStore: ctx.galaxyEndorsementStore,
     authBindingStore: ctx.authBindingStore,
     worldEngineStrikeStore: ctx.worldEngineStrikeStore
