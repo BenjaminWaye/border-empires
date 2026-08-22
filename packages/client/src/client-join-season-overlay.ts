@@ -1,13 +1,26 @@
 import type { ClientState } from "./client-state/client-state.js";
+import type { FeedType, FeedSeverity } from "./client-types.js";
+import { renderSeasonLobbyPanelHtml, bindSeasonLobbyPanel } from "./client-season-lobby-panel.js";
 
 type JoinSeasonOverlayDeps = {
   state: Pick<
     ClientState,
-    "needsSeasonJoin" | "joinSeasonOverlayOpen" | "joinSeasonId" | "joinSeasonPending" | "seasonPending" | "seasonPendingScheduledStartAt"
+    | "needsSeasonJoin"
+    | "joinSeasonOverlayOpen"
+    | "joinSeasonId"
+    | "joinSeasonPending"
+    | "seasonPending"
+    | "seasonPendingScheduledStartAt"
+    | "seasonLobbyWaitingCount"
+    | "seasonLobbyMaxPlayers"
+    | "seasonLobbyRoster"
+    | "myCountryFlag"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
   joinSeason: () => boolean;
+  setCountryFlag: (countryFlag: string) => boolean;
+  pushFeed?: ((message: string, type: FeedType, severity?: FeedSeverity) => void) | undefined;
 };
 
 const formatCountdown = (remainingMs: number): string => {
@@ -37,7 +50,7 @@ const clearCountdownTimer = (): void => {
 // "join now" prompt, and auto-retries JOIN_SEASON a few seconds after the
 // scheduled time passes.
 export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
-  const { state, overlayEl, renderHud, joinSeason } = deps;
+  const { state, overlayEl, renderHud, joinSeason, setCountryFlag, pushFeed } = deps;
   const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen;
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible) {
@@ -66,10 +79,12 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
               ${formatCountdown(scheduledStartAt - Date.now())}
             </div>
           </section>
+          ${renderSeasonLobbyPanelHtml(state)}
         </div>
       </div>
     `;
 
+    bindSeasonLobbyPanel({ overlayEl, state, setCountryFlag, pushFeed });
     clearCountdownTimer();
     const tick = (): void => {
       const countdownEl = overlayEl.querySelector("#join-season-countdown") as HTMLElement | null;

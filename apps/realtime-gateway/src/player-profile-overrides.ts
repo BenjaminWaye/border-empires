@@ -1,6 +1,7 @@
 export type PlayerProfileOverride = {
   name?: string;
   tileColor?: string;
+  countryFlag?: string;
   profileComplete?: boolean;
 };
 
@@ -9,6 +10,7 @@ export type PlayerProfileOverrides = {
   upsert: (playerId: string, override: PlayerProfileOverride) => PlayerProfileOverride;
   setTileColor: (playerId: string, tileColor: string) => PlayerProfileOverride;
   setProfile: (playerId: string, name: string, tileColor: string) => PlayerProfileOverride;
+  setCountryFlag: (playerId: string, countryFlag: string) => PlayerProfileOverride;
   entries: () => IterableIterator<[string, PlayerProfileOverride]>;
 };
 
@@ -31,12 +33,18 @@ export const createPlayerProfileOverrides = (): PlayerProfileOverrides => {
       const existing = getOrCreate(playerId);
       if (typeof override.name === "string") existing.name = override.name;
       if (typeof override.tileColor === "string") existing.tileColor = override.tileColor;
+      if (typeof override.countryFlag === "string") existing.countryFlag = override.countryFlag;
       if (typeof override.profileComplete === "boolean") existing.profileComplete = override.profileComplete;
       return existing;
     },
     setTileColor(playerId, tileColor) {
       const override = getOrCreate(playerId);
       override.tileColor = tileColor;
+      return override;
+    },
+    setCountryFlag(playerId, countryFlag) {
+      const override = getOrCreate(playerId);
+      override.countryFlag = countryFlag;
       return override;
     },
     setProfile(playerId, name, tileColor) {

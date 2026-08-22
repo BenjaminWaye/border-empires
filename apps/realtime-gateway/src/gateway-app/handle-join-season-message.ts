@@ -19,10 +19,28 @@ export type JoinSeasonMessageDeps = {
   socket: import("ws").WebSocket;
   seasonFullErrorPayload: () => { type: "ERROR"; code: "SEASON_FULL"; message: string };
   seasonPendingErrorPayload: (scheduledStartAt: number) => { type: "ERROR"; code: "SEASON_PENDING"; message: string; scheduledStartAt: number };
+  // Hitting JOIN_SEASON while the season is pending is treated as an
+  // implicit "I'm waiting" check-in into the lobby roster (see
+  // season-lobby-roster.ts) -- no separate confirm step. All three are
+  // optional so existing callers/tests that don't care about the lobby
+  // keep working unchanged.
+  checkIntoLobby?: (playerId: string) => Promise<{ name: string; countryFlag?: string }>;
+  broadcastLobbyUpdate?: () => void;
 };
 
 export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Promise<void> => {
-  const { playerId, rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload } = deps;
+  const {
+    playerId,
+    rallyAnchor,
+    simulationClient,
+    recordGatewayEvent,
+    sendJson,
+    socket,
+    seasonFullErrorPayload,
+    seasonPendingErrorPayload,
+    checkIntoLobby,
+    broadcastLobbyUpdate
+  } = deps;
   try {
     const joinFn = simulationClient.joinSeason ?? simulationClient.preparePlayer;
     const result = await joinFn(playerId, rallyAnchor);
@@ -30,6 +48,10 @@ export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Prom
       const scheduledStartAt = typeof result.scheduledStartAt === "number" ? result.scheduledStartAt : Date.now();
       recordGatewayEvent("info", "gateway_join_season_pending", { playerId, scheduledStartAt });
       sendJson(socket, seasonPendingErrorPayload(scheduledStartAt));
+      if (checkIntoLobby && broadcastLobbyUpdate) {
+        await checkIntoLobby(playerId);
+        broadcastLobbyUpdate();
+      }
       return;
     }
     if (result.full) {
