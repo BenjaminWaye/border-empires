@@ -44,6 +44,7 @@ export const createInitialSeasonState = ({
 export const cloneSeasonState = (seasonState: SimulationSeasonState): SimulationSeasonState => ({
   ...seasonState,
   ...(seasonState.winner ? { winner: { ...seasonState.winner } } : {}),
+  ...(seasonState.galaxyTiers ? { galaxyTiers: seasonState.galaxyTiers.map((tier) => ({ ...tier })) } : {}),
   victoryTrackers: seasonState.victoryTrackers.map((tracker) => ({ ...tracker })),
   ...(seasonState.joinedPlayerIds ? { joinedPlayerIds: [...seasonState.joinedPlayerIds] } : {})
 });

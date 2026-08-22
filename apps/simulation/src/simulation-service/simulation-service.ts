@@ -74,9 +74,8 @@ import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers, readScheduledSeasonStartAtEnv, applyPendingSeasonActivation } from "../season-lifecycle.js";
+import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
 import { parseRallyAnchor, preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
-import { computeSeasonWinnerStats } from "../season-winner-stats.js";
-import { computeLongestRoad, findMostDeadlyTile } from "../season-stats/season-stats.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
@@ -1439,26 +1438,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       now: baseSummary.updatedAt
     });
     currentSeasonState = trackerResult.seasonState;
-    // Capture the winner's economy/population/monuments the moment they're
-    // crowned, while runtimeState still reflects this season's world — this
-    // is the base "planet stats" a christened planet carries forward
-    // (see galaxy-routes.ts). Guarded so a season sitting on "ended" doesn't
-    // re-scan tiles on every subsequent recompute.
+    // Capture winner stats + galactic Outpost/Stipend tiers (see season-crowning.ts).
     if (trackerResult.crownedWinner && currentSeasonState.winner && !currentSeasonState.winner.stats) {
-      const mostDeadlyTile = findMostDeadlyTile(runtime.manpowerLossByTileKey);
-      const longestRoad = computeLongestRoad(runtimeState.tiles);
-      currentSeasonState = {
-        ...currentSeasonState,
-        winner: {
-          ...currentSeasonState.winner,
-          stats: computeSeasonWinnerStats(runtimeState, currentSeasonState.winner.playerId),
-          // Persist alongside the winner (not just the ephemeral summary) so
-          // it survives a reconnect/fresh-login INIT — see SeasonWinnerSnapshot.
-          ...((mostDeadlyTile || longestRoad)
-            ? { seasonStats: { ...(mostDeadlyTile ? { mostDeadlyTile } : {}), ...(longestRoad ? { longestRoad } : {}) } }
-            : {})
-        }
-      };
+      currentSeasonState = captureSeasonWinnerAtCrowning({
+        seasonState: currentSeasonState, winner: currentSeasonState.winner, runtime, runtimeState, worldStatus, objectives: trackerResult.objectives
+      });
     }
     scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
     const finalSummary = (trackerResult.changed || trackerResult.crownedWinner

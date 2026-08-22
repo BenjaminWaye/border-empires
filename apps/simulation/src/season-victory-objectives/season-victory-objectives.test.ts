@@ -256,6 +256,59 @@ describe("seasonVictoryForBroadcast", () => {
   });
 });
 
+describe("selfProgressByPlayerId (numeric companion to selfProgressLabelsByPlayerId)", () => {
+  it("computes a non-leader's own numeric TOWN_CONTROL progress, and omits the leader's own path", () => {
+    // 4 total town tiles -> townTarget = ceil(4 * 0.5) = 2. player-1 (leader)
+    // owns 1 (progress 0.5, surfaced on the objective itself, not this map);
+    // player-2 owns 1 too but is not the leader (tie broken by id), so their
+    // own numeric progress on TOWN_CONTROL should also be 0.5.
+    const worldTiles: WorldTileFixture[] = [
+      { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "SETTLEMENT" },
+      { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", townType: "SETTLEMENT" },
+      { x: 2, y: 0, terrain: "LAND", townType: "SETTLEMENT" },
+      { x: 3, y: 0, terrain: "LAND", townType: "SETTLEMENT" }
+    ] as WorldTileFixture[];
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-1", name: "Leader", tiles: 1, incomePerMinute: 0, techs: 0, score: 0, rank: 1 },
+      { id: "player-2", name: "Runner Up", tiles: 1, incomePerMinute: 0, techs: 0, score: 0, rank: 2 }
+    ];
+    const players: PlayersFixture = [
+      { id: "player-1", allies: [] },
+      { id: "player-2", allies: [] }
+    ] as PlayersFixture;
+
+    const { objectives, selfProgressByPlayerId } = computeSeasonVictory(worldTiles, leaderboardOverall, players);
+    const townControl = objectives.find((o) => o.id === "TOWN_CONTROL");
+    expect(townControl?.leaderPlayerId).toBe("player-1");
+    expect(selfProgressByPlayerId.get("player-2")?.get("TOWN_CONTROL")).toBe(0.5);
+    // The leader never gets an entry for a path they lead, same as the labels map.
+    expect(selfProgressByPlayerId.get("player-1")?.has("TOWN_CONTROL")).toBe(false);
+  });
+
+  it("clamps every self-progress fraction to 0..1", () => {
+    const worldTiles: WorldTileFixture[] = [
+      { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "SETTLEMENT" },
+      { x: 1, y: 0, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", townType: "SETTLEMENT" }
+    ] as WorldTileFixture[];
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-1", name: "Leader", tiles: 1, incomePerMinute: 0, techs: 0, score: 0, rank: 1 },
+      { id: "player-2", name: "Runner Up", tiles: 1, incomePerMinute: 0, techs: 0, score: 0, rank: 2 }
+    ];
+    const players: PlayersFixture = [
+      { id: "player-1", allies: [] },
+      { id: "player-2", allies: [] }
+    ] as PlayersFixture;
+
+    const { selfProgressByPlayerId } = computeSeasonVictory(worldTiles, leaderboardOverall, players);
+    for (const progresses of selfProgressByPlayerId.values()) {
+      for (const value of progresses.values()) {
+        expect(value).toBeGreaterThanOrEqual(0);
+        expect(value).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+});
+
 describe("mergeSelfProgress", () => {
   const baseObjective = {
     id: "ECONOMIC_HEGEMONY" as const,

@@ -147,3 +147,44 @@ describe("renderEmperorSectionHtml", () => {
     expect(html).toContain("&lt;script&gt;");
   });
 });
+
+describe("renderGalaxyViewHtml — Outpost/Stipend tiers (§3)", () => {
+  it("renders an Outpost row with its specialization badge", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [],
+      focusedSeasonId: "",
+      outposts: [{ seasonId: "season-2", seasonSequence: 2, specialization: "EXTRACTION", awardedAt: 1_000 }],
+      stipends: []
+    });
+    expect(html).toContain("data-galaxy-outpost");
+    expect(html).toContain("Season 2 Outpost");
+    expect(html).toContain(GALAXY_SPECIALIZATION_NAME.EXTRACTION);
+  });
+
+  it("renders a one-line Stipend row with its Inf/Prod payout", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [],
+      focusedSeasonId: "",
+      outposts: [],
+      stipends: [{ seasonId: "season-3", seasonSequence: 3, influence: 9, production: 36, awardedAt: 1_000 }]
+    });
+    expect(html).toContain("data-galaxy-stipend");
+    expect(html).toContain("9 Inf");
+    expect(html).toContain("36 Prod");
+  });
+
+  it("renders nothing when there are no planets, outposts, or stipends", () => {
+    expect(renderGalaxyViewHtml({ planets: [], focusedSeasonId: "", outposts: [], stipends: [] })).toBe("");
+  });
+
+  it("renders outposts/stipends alongside a focused planet hero", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [{ seasonId: "s1", seasonSequence: 1, objectiveName: "Conquest", crownedAt: 1_000, planetName: "Home", named: true }],
+      focusedSeasonId: "s1",
+      outposts: [{ seasonId: "season-2", seasonSequence: 2, awardedAt: 1_000 }],
+      stipends: []
+    });
+    expect(html).toContain("data-galaxy-starfield");
+    expect(html).toContain("data-galaxy-outpost");
+  });
+});

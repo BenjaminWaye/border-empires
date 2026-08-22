@@ -346,6 +346,23 @@ export const SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE = 0.8;
 export const SEASON_VICTORY_MARITIME_DOCK_SHARE = 0.55;
 export const SEASON_VICTORY_MARITIME_MIN_DOCKS = 3;
 export const SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE = 0.66;
+
+// Galactic meta-layer v0 tiering (docs/galactic-campaign-design.md §3, §13).
+// §13 does not pin these two cutoffs — its Stipend formula is playtested-as-
+// internally-consistent, not these thresholds — so treat them as a starting
+// point, not a settled balance number.
+//
+// A non-winning competitive player who leads a DIFFERENT victory path than
+// the one that won, with that path's progress at or above this fraction,
+// gets an Outpost (§3 "came within a threshold of winning").
+export const GALAXY_OUTPOST_PROGRESS_THRESHOLD = 0.5;
+// Any player whose own best-path progress fraction is strictly above this
+// floor (and who didn't qualify for an Outpost) gets a Stipend; a player at
+// exactly 0 (never engaged with any objective) gets no galactic record.
+export const GALAXY_STIPEND_MIN_PROGRESS = 0;
+// Stipend payout formula (§13): (10 × progress) Inf + (40 × progress) Prod.
+export const GALAXY_STIPEND_INFLUENCE_PER_PROGRESS = 10;
+export const GALAXY_STIPEND_PRODUCTION_PER_PROGRESS = 40;
 export const VICTORY_PRESSURE_DEFS: VictoryPressureDefinition[] = [
   {
     id: "TOWN_CONTROL",
