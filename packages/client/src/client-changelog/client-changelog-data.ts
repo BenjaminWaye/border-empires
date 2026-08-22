@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787430600000,
+    introducedIn: "2026.08.22.8",
+    title: "Creating a mountain now clears any muster flag staged on the tile",
+    why: "Turning a tile into a mountain destroyed the tile's ownership, but the muster flag staged on it stuck around, showing a stale muster icon on ground you no longer held.",
+    changes: [
+      "Creating a mountain on a tile with a staged muster flag now clears the flag along with the tile's ownership, matching how bombardment, capture, and tile shedding already handle it."
+    ]
+  },
+  {
     createdAt: 1787430500000,
     introducedIn: "2026.08.22.7",
     title: "Stage Muster now sits above Disable on structure tiles",
