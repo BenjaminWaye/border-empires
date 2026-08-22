@@ -102,6 +102,7 @@ export const filterTileDeltasForPlayer = <
     terrain?: Terrain | undefined;
     ownerId?: string | undefined;
     resource?: string | undefined;
+    forceVisibleForPlayerId?: string | undefined;
   }
 >(
   deps: TileDeltaVisibilityFilterDeps,
@@ -171,6 +172,15 @@ export const filterTileDeltasForPlayer = <
 
   const filtered: TDelta[] = [];
   for (const delta of tileDeltas) {
+    // A player who just lost this exact tile (origin overrun, or target
+    // captured out from under them) needs the full resolved delta — including
+    // any muster flag being cleared — even though losing ownership may have
+    // simultaneously dropped their fog-of-war coverage of it. See
+    // SimulationTileWireDelta.forceVisibleForPlayerId's doc comment.
+    if (delta.forceVisibleForPlayerId === playerId) {
+      filtered.push(delta);
+      continue;
+    }
     const tileKey = simulationTileKey(delta.x, delta.y);
     let visible = false;
     let viaLockTargetOnly = false;
