@@ -297,18 +297,17 @@ const umbriteWeaponsFactoryAttackMultForPlayer = (ctx: RuntimeCombatSupportConte
 const umbriteWeaponsFactoryDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
   playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "UMBRITE_WEAPONS_FACTORY") * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
 
-// "Unarmed" vulnerability (design doc, confirmed scope): a defender who owns
-// zero of a given factory type ANYWHERE in their empire (an existence check,
-// not network-scoped — this is about whether the tech/building line was
-// ever invested in at all) is markedly easier to attack. Missing one type or
-// both applies the same flat multiplier — does not stack to a larger number
-// if both are missing.
-const noWarIndustryVulnerabilityMultForDefender = (ctx: RuntimeCombatSupportContext, defenderOwnerId: string | undefined): number => {
-  if (!defenderOwnerId) return 1;
-  const hasTitanium = ctx.ownedStructureCountForPlayer(defenderOwnerId, "TITANIUM_WEAPONS_FACTORY") > 0;
-  const hasUmbrite = ctx.ownedStructureCountForPlayer(defenderOwnerId, "UMBRITE_WEAPONS_FACTORY") > 0;
-  return hasTitanium && hasUmbrite ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT;
-};
+// "Unarmed" vulnerability (design doc, confirmed scope): owning zero of a
+// factory type ANYWHERE in one's empire (existence check, not network-scoped)
+// hands the OTHER side the same flat multiplier on their effective power.
+// Missing one type or both is the same flat multiplier — no stacking to 4x.
+const hasWarIndustry = (ctx: RuntimeCombatSupportContext, ownerId: string): boolean =>
+  ctx.ownedStructureCountForPlayer(ownerId, "TITANIUM_WEAPONS_FACTORY") > 0 &&
+  ctx.ownedStructureCountForPlayer(ownerId, "UMBRITE_WEAPONS_FACTORY") > 0;
+const noWarIndustryVulnerabilityMultForDefender = (ctx: RuntimeCombatSupportContext, defenderOwnerId: string | undefined): number =>
+  defenderOwnerId && !hasWarIndustry(ctx, defenderOwnerId) ? NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT : 1;
+const noWarIndustryVulnerabilityMultForAttacker = (ctx: RuntimeCombatSupportContext, attackerOwnerId: string): number =>
+  hasWarIndustry(ctx, attackerOwnerId) ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT;
 
 const resolveAttackCombat = (
   ctx: RuntimeCombatSupportContext,
@@ -349,6 +348,7 @@ const resolveAttackCombat = (
     umbriteWeaponsFactoryAttackMult: umbriteWeaponsFactoryAttackMultForPlayer(ctx, lock.playerId),
     umbriteWeaponsFactoryDefenseMult: umbriteWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId),
     noWarIndustryVulnerabilityMult: noWarIndustryVulnerabilityMultForDefender(ctx, defenderOwnerId),
+    noWarIndustryDefenseVulnerabilityMult: noWarIndustryVulnerabilityMultForAttacker(ctx, lock.playerId),
     // General tech/domain "attack"/"defense" stat mods (e.g. Titanium Dominion's
     // +18% attack/defense) — persistent infrastructure, same tier as weapons
     // factories, previously computed but never actually applied to combat.
