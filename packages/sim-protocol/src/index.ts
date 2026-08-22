@@ -158,7 +158,7 @@ export type GetAiDecisionDiagnosticsResponse = {
   diagnostics: AiDecisionDiagnostic[];
 };
 
-export type SeasonLifecycleStatus = "active" | "ended";
+export type SeasonLifecycleStatus = "pending" | "active" | "ended";
 
 type SeasonVictoryPathId =
   | "TOWN_CONTROL"
@@ -252,6 +252,10 @@ export type SimulationSeasonState = {
   status: SeasonLifecycleStatus;
   startedAt: number;
   endedAt?: number;
+  /** Set when this season was created with a future start time and is
+   *  currently `"pending"`. Absent once the season is `"active"`/`"ended"`
+   *  or if it was never gated on a scheduled start. */
+  scheduledStartAt?: number;
   winner?: SeasonWinnerSnapshot;
   /** Outpost/Stipend tier records for every non-winning competitive player,
    *  computed once at the moment `winner` is crowned (§3 of

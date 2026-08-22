@@ -5,20 +5,33 @@ export type JoinSeasonMessageDeps = {
   playerId: string;
   rallyAnchor?: { x: number; y: number; island?: string } | undefined;
   simulationClient: {
-    preparePlayer: (playerId: string, rallyAnchor?: { x: number; y: number; island?: string }) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }>;
-    joinSeason?: (playerId: string, rallyAnchor?: { x: number; y: number; island?: string }) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }>;
+    preparePlayer: (
+      playerId: string,
+      rallyAnchor?: { x: number; y: number; island?: string }
+    ) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; pending?: boolean; scheduledStartAt?: number }>;
+    joinSeason?: (
+      playerId: string,
+      rallyAnchor?: { x: number; y: number; island?: string }
+    ) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean; pending?: boolean; scheduledStartAt?: number }>;
   };
   recordGatewayEvent: (level: "info" | "warn" | "error", event: string, payload: Record<string, unknown>) => void;
   sendJson: (socket: import("ws").WebSocket, payload: unknown) => void;
   socket: import("ws").WebSocket;
   seasonFullErrorPayload: () => { type: "ERROR"; code: "SEASON_FULL"; message: string };
+  seasonPendingErrorPayload: (scheduledStartAt: number) => { type: "ERROR"; code: "SEASON_PENDING"; message: string; scheduledStartAt: number };
 };
 
 export const handleJoinSeasonMessage = async (deps: JoinSeasonMessageDeps): Promise<void> => {
-  const { playerId, rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload } = deps;
+  const { playerId, rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload } = deps;
   try {
     const joinFn = simulationClient.joinSeason ?? simulationClient.preparePlayer;
     const result = await joinFn(playerId, rallyAnchor);
+    if (result.pending) {
+      const scheduledStartAt = typeof result.scheduledStartAt === "number" ? result.scheduledStartAt : Date.now();
+      recordGatewayEvent("info", "gateway_join_season_pending", { playerId, scheduledStartAt });
+      sendJson(socket, seasonPendingErrorPayload(scheduledStartAt));
+      return;
+    }
     if (result.full) {
       recordGatewayEvent("info", "gateway_join_season_full", { playerId });
       sendJson(socket, seasonFullErrorPayload());

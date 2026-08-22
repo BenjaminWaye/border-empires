@@ -73,7 +73,7 @@ import type { RecoveredSimulationState } from "../event-recovery/event-recovery.
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
-import { createInitialSeasonState, updateSeasonVictoryTrackers } from "../season-lifecycle.js";
+import { createInitialSeasonState, updateSeasonVictoryTrackers, readScheduledSeasonStartAtEnv, applyPendingSeasonActivation } from "../season-lifecycle.js";
 import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
 import { parseRallyAnchor, preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
@@ -328,12 +328,12 @@ const buildBootstrapSeason = async ({
     ...(typeof aiPlayerCount === "number" ? { aiPlayerCount } : {}),
     ...(onYield ? { onYield } : {})
   });
-  const seasonState = createInitialSeasonState({
+  const scheduledStartAt = readScheduledSeasonStartAtEnv(); const seasonState = createInitialSeasonState({
     seasonSequence,
     rulesetId,
     worldSeed: generatedWorld.worldSeed,
     mapStyle: generatedWorld.mapStyle,
-    startedAt: now
+    startedAt: now, ...(typeof scheduledStartAt === "number" ? { scheduledStartAt } : {})
   });
   return {
     seasonState,
@@ -1387,8 +1387,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const scheduleSeasonVictoryRecheck = (at: number | undefined): void => {
     clearSeasonVictoryTimer();
     if (currentSeasonState.status === "ended") return;
-    // `at` undefined = no contested objective; 5-min fallback keeps season-victory fresh (Phase 3b).
-    const delayMs = typeof at === "number" ? Math.max(0, at - Date.now()) : 300_000;
+    // `at` undefined = no contested objective (or a pending season, recheck at scheduledStartAt); 5-min fallback keeps season-victory fresh (Phase 3b).
+    const effectiveAt = at ?? (currentSeasonState.status === "pending" ? currentSeasonState.scheduledStartAt : undefined), delayMs = typeof effectiveAt === "number" ? Math.max(0, effectiveAt - Date.now()) : 300_000;
     seasonVictoryTimer = setTimeout(() => {
       void recomputeAndPersistCurrentSummary({ forcePersist: true, commandId: `season-victory:${Date.now()}` });
     }, delayMs);
@@ -1411,7 +1411,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     commandId?: string;
     /** Pass an already-fetched export to avoid a redundant O(202k-tile) scan. */
     runtimeState?: ReturnType<SimulationRuntime["exportState"]>;
-  } = {}): Promise<CurrentSeasonSummary> => {
+  } = {}): Promise<CurrentSeasonSummary> => { currentSeasonState = applyPendingSeasonActivation(currentSeasonState, log);
     // Reuse a caller-provided export snapshot to skip the expensive O(202k) tile
     // scan when the caller already holds a fresh snapshot (e.g. flushGlobalStatusBroadcast).
     // Use the async chunked path when no snapshot is provided — avoids blocking the
