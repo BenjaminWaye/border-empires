@@ -187,4 +187,31 @@ describe("renderGalaxyViewHtml — Outpost/Stipend tiers (§3)", () => {
     expect(html).toContain("data-galaxy-starfield");
     expect(html).toContain("data-galaxy-outpost");
   });
+
+  it("renders a Stability readout on the named medallion when stability is present", () => {
+    const html = renderGalaxyViewHtml({ planets: [{ ...named, stability: 63 }], focusedSeasonId: "season-2" });
+    expect(html).toContain("data-galaxy-stability");
+    expect(html).toContain("Stability 63");
+  });
+
+  it("omits the Stability readout when stability is absent (v0-only gateway)", () => {
+    const html = renderGalaxyViewHtml({ planets: [named], focusedSeasonId: "season-2" });
+    expect(html).not.toContain("data-galaxy-stability");
+  });
+
+  it("renders an Influence/Production readout when economy is present", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [named],
+      focusedSeasonId: "season-2",
+      economy: { influence: 12, production: 40 }
+    });
+    expect(html).toContain("data-galaxy-economy");
+    expect(html).toContain("12 Inf");
+    expect(html).toContain("40 Prod");
+  });
+
+  it("omits the economy readout when economy is absent", () => {
+    const html = renderGalaxyViewHtml({ planets: [named], focusedSeasonId: "season-2" });
+    expect(html).not.toContain("data-galaxy-economy");
+  });
 });
