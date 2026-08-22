@@ -211,15 +211,26 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // synchronously blocks the sim's event loop for 150-800ms+ and has caused
     // gateway submit timeouts (SIMULATION_UNAVAILABLE) during rapid-fire
     // expand chains.
+    // The previous owner (if this was a real capture, not an EXPAND onto
+    // neutral land) just lost this exact tile and needs to see its resolved
+    // state — including any muster flag being cleared — even if losing it
+    // dropped their fog-of-war coverage in the same instant. See
+    // SimulationTileWireDelta.forceVisibleForPlayerId's doc comment.
+    const capturedFromPlayerId = previousOwnerId && previousOwnerId !== lock.playerId ? previousOwnerId : undefined;
     if (isAiControlledActor(lock.playerId, attacker?.isAi) || lock.actionType === "EXPAND" || lock.actionType === "ATTACK") {
       tileDeltas = [{
         ...context.tileDeltaFromState(resolvedTarget),
-        ...(combatBroadcastJson ? { combatJson: combatBroadcastJson } : {})
+        ...(combatBroadcastJson ? { combatJson: combatBroadcastJson } : {}),
+        ...(capturedFromPlayerId ? { forceVisibleForPlayerId: capturedFromPlayerId } : {})
       }];
     } else {
       const measure = Boolean(context.onCaptureRevealBuilt);
       const startedAt = measure ? context.now() : 0;
       tileDeltas = context.buildCaptureRevealTileDeltas(lock.playerId, lock.targetX, lock.targetY);
+      if (capturedFromPlayerId) {
+        const targetIndex = tileDeltas.findIndex((delta) => delta.x === lock.targetX && delta.y === lock.targetY);
+        if (targetIndex >= 0) tileDeltas[targetIndex]!.forceVisibleForPlayerId = capturedFromPlayerId;
+      }
       if (measure) {
         context.onCaptureRevealBuilt?.({
           commandId: lock.commandId,
@@ -301,7 +312,14 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
   context.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
   if (originOwnershipState === "FRONTIER") context.extendFortPatrolGrace(lock.originKey, context.now() + FORT_PATROL_GRACE_MS);
   else context.clearFortPatrolGrace(lock.originKey);
-  const tileDeltas = [context.tileDeltaFromState(resolvedOrigin)];
+  // lock.playerId (the attacker) just lost this exact tile — force it visible
+  // to them even if losing ownership dropped their fog-of-war coverage of it
+  // in the same instant, so they actually see the muster flag getting
+  // cleared below instead of it lingering stale in their client cache. See
+  // SimulationTileWireDelta.forceVisibleForPlayerId's doc comment.
+  const originDelta = context.tileDeltaFromState(resolvedOrigin);
+  originDelta.forceVisibleForPlayerId = lock.playerId;
+  const tileDeltas = [originDelta];
 
   // The origin's muster flag (already stripped via `_discardMuster` above) is
   // destroyed along with its staged manpower — no refund to the player who

@@ -179,6 +179,15 @@ export type SeasonVictoryObjectiveSnapshot = {
   holdRemainingSeconds?: number;
   statusLabel: string;
   conditionMet: boolean;
+  /** The current leader's progress toward this objective's win threshold, as a
+   *  0..1 fraction (1 once conditionMet is true; clamped, never negative or
+   *  above 1). Optional so older cached/broadcast objective snapshots that
+   *  predate this field (see mergeSelfProgress/seasonVictoryForBroadcast in
+   *  apps/simulation/src/season-victory-objectives) remain valid without a
+   *  migration. Introduced for the galactic meta-layer's Outpost/Stipend
+   *  tiering (docs/galactic-campaign-design.md §3), which needs a numeric
+   *  progress measure — the existing progressLabel is display text only. */
+  progress?: number;
 };
 
 // A point-in-time snapshot of the winning player's economy, taken at the
@@ -296,6 +305,11 @@ export type SeasonArchiveRow = {
 
 // Moved to simulation-event.ts (this file is already over the file-line cap).
 export type { SimulationEvent, CombatBroadcastPayload } from "./simulation-event.js";
+
+// Galactic meta-layer: victory-path -> planet specialization mapping (§3 of
+// docs/galactic-campaign-design.md). Kept in its own module, same reason.
+export type { GalaxySpecialization } from "./galaxy-specialization.js";
+export { GALAXY_SPECIALIZATION_NAME, specializationForVictoryPath } from "./galaxy-specialization.js";
 
 export type PlayerSubscriptionDock = {
   dockId: string;
