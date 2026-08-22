@@ -69,8 +69,8 @@ describe("season player cap integration", () => {
     const here = dirname(fileURLToPath(import.meta.url));
     const file = readFileSync(resolve(here, "prepare-and-join-player.ts"), "utf8");
     const joinStart = file.indexOf("export const joinSeasonHandler");
-    const joinBody = file.slice(joinStart, joinStart + 800);
-    const endedGuardIndex = joinBody.indexOf('.status === "ended"');
+    const joinBody = file.slice(joinStart, joinStart + 1200);
+    const endedGuardIndex = joinBody.indexOf("isSeasonEnded(");
     const capGateIndex = joinBody.indexOf("seasonIsAtPlayerCap(");
     expect(endedGuardIndex).toBeGreaterThan(-1);
     expect(capGateIndex).toBeGreaterThan(-1);

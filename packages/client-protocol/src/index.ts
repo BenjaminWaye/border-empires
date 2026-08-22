@@ -84,4 +84,7 @@ export type CommandRejectedMessage = {
   commandId?: string;
   code: string;
   message: string;
+  // Present when code === "SEASON_PENDING": the season's scheduled start
+  // time (epoch ms). See handle-join-season-message.ts / SEASON_PENDING.
+  scheduledStartAt?: number;
 };
