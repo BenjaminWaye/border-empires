@@ -14,6 +14,7 @@ import {
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
 import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
+import { armMusterMarchTargeting, handleMusterMarchTargetClick } from "./client-muster-march-targeting.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
@@ -1536,6 +1537,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
     }
     if (actionId === "muster_hold" || actionId === "muster_advance") { sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" }); if (state.discoveryTipQueue) announceDiscoveryTip(state.discoveryTipQueue, "FIRST_MUSTER", state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def)); }
+    if (actionId === "muster_march") armMusterMarchTargeting(state, selected.x, selected.y, { pushFeed, sendGameMessage }); else if (actionId === "muster_march_cancel") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "HOLD" });
     if (actionId === "muster_clear") sendGameMessage({ type: "CLEAR_MUSTER", x: selected.x, y: selected.y });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
@@ -1730,13 +1732,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
-    if (state.buildingPlacement.active) {
-      state.buildingPlacement.x = wx;
-      state.buildingPlacement.y = wy;
-      state.selected = { x: wx, y: wy };
-      renderHud();
-      return;
-    }
+    if (state.musterMarchTargeting.active) { handleMusterMarchTargetClick(state, wx, wy, vis, { pushFeed, sendGameMessage }); renderHud(); return; }
+    if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderHud(); return; }
     // True when (x,y) falls inside the local player's fixed-border reach --
     // see client-reach-overlay.ts's MOCK-DATA SEAM comment for why this is a
     // client-local approximation of the server's authoritative reach, not

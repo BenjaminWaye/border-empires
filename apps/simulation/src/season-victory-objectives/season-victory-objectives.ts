@@ -145,6 +145,11 @@ const objectiveSelfProgressLabel = (
 
 const economicHegemonyDef = VICTORY_PRESSURE_DEFS.find((def) => def.id === "ECONOMIC_HEGEMONY")!;
 
+// Progress fractions (§3's Outpost/Stipend tiering) are always clamped to
+// 0..1 — a leader who has already cleared a threshold reports 1, never a
+// value that overshoots it.
+const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
+
 // Derives the Economic Hegemony objective purely from the leaderboard's live
 // incomePerMinute figures — no tile scan required. This is the single source
 // of truth: both the full computeSeasonVictory() pass (5-min cadence) and the
@@ -169,6 +174,16 @@ export const buildEconomicHegemonyObjective = (
       runnerUp.incomePerMinute > 0 &&
       leaderValue >= runnerUp.incomePerMinute * SEASON_VICTORY_ECONOMY_LEAD_MULT
   );
+  // Two independent constraints (minimum income, and a lead over the runner-up)
+  // both have to clear before the objective is won, so progress is the harder
+  // (smaller) of the two fractions — clearing one constraint alone isn't real
+  // progress if the other is still far off.
+  const incomeFraction = SEASON_VICTORY_ECONOMY_MIN_INCOME > 0 ? leaderValue / SEASON_VICTORY_ECONOMY_MIN_INCOME : 1;
+  const leadFraction =
+    runnerUp && runnerUp.incomePerMinute > 0
+      ? leaderValue / (runnerUp.incomePerMinute * SEASON_VICTORY_ECONOMY_LEAD_MULT)
+      : 1;
+  const progress = clamp01(Math.min(incomeFraction, leadFraction));
   const objective: SeasonVictoryObjectiveSnapshot = {
     id: "ECONOMIC_HEGEMONY",
     name: economicHegemonyDef.name,
@@ -178,7 +193,8 @@ export const buildEconomicHegemonyObjective = (
     thresholdLabel,
     holdDurationSeconds: economicHegemonyDef.holdDurationSeconds,
     statusLabel: conditionMet ? "Threshold met" : leaderValue > 0 ? "Pressure building" : "No contender",
-    conditionMet
+    conditionMet,
+    progress
   };
   if (leaderPlayerId) objective.leaderPlayerId = leaderPlayerId;
   return objective;
@@ -326,6 +342,7 @@ export const computeSeasonVictory = (
     let progressLabel = "";
     let thresholdLabel = "";
     let conditionMet = false;
+    let progress = 0;
 
     if (def.id === "TOWN_CONTROL") {
       const ranked = [...ctx.metricsByPlayerId.entries()].sort((a, b) => (b[1].towns - a[1].towns) || a[0].localeCompare(b[0]));
@@ -335,6 +352,7 @@ export const computeSeasonVictory = (
       progressLabel = `${leaderValue}/${ctx.townTarget} towns`;
       thresholdLabel = `Need ${ctx.townTarget} towns`;
       conditionMet = Boolean(leaderPlayerId && leaderValue >= ctx.townTarget);
+      progress = clamp01(leaderValue / ctx.townTarget); // townTarget is always >= 1 (Math.max floor in buildSeasonVictoryContext)
     } else if (def.id === "RESOURCE_MONOPOLY") {
       const monopoly = resourceMonopolyLeader(ctx.ownedResourceCountsByPlayerId, ctx.totalResourceCounts);
       leaderPlayerId = monopoly.leaderPlayerId;
@@ -343,6 +361,9 @@ export const computeSeasonVictory = (
       progressLabel = resourceMonopolyProgressLabel(monopoly);
       thresholdLabel = resourceMonopolyThresholdLabel(SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE);
       conditionMet = resourceMonopolyConditionMet(monopoly, SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE);
+      progress = clamp01(
+        SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE > 0 ? monopoly.bestShare / SEASON_VICTORY_RESOURCE_MONOPOLY_SHARE : 0
+      );
     } else if (def.id === "MARITIME_SUPREMACY") {
       const ranked = [...ctx.metricsByPlayerId.entries()].sort((a, b) => (b[1].dockTiles - a[1].dockTiles) || a[0].localeCompare(b[0]));
       leaderPlayerId = ranked[0]?.[0];
@@ -351,6 +372,7 @@ export const computeSeasonVictory = (
       progressLabel = maritimeSupremacyProgressLabel(leaderValue, ctx.maritimeDockTarget);
       thresholdLabel = maritimeSupremacyThresholdLabel(SEASON_VICTORY_MARITIME_DOCK_SHARE, ctx.maritimeDockTarget);
       conditionMet = Boolean(leaderPlayerId && leaderValue >= ctx.maritimeDockTarget);
+      progress = clamp01(leaderValue / ctx.maritimeDockTarget); // always >= SEASON_VICTORY_MARITIME_MIN_DOCKS (Math.max floor)
     } else {
       const diplomatic = diplomaticDominanceLeader(ctx.metricsByPlayerId, ctx.playerAlliesById, ctx.competitivePlayerIds);
       leaderPlayerId = diplomatic.leaderPlayerId;
@@ -364,6 +386,7 @@ export const computeSeasonVictory = (
       });
       thresholdLabel = diplomaticDominanceThresholdLabel(SEASON_VICTORY_DIPLOMATIC_CONTROL_SHARE, ctx.diplomaticControlTarget);
       conditionMet = Boolean(leaderPlayerId && diplomatic.blocControlledTiles >= ctx.diplomaticControlTarget);
+      progress = clamp01(diplomatic.blocControlledTiles / ctx.diplomaticControlTarget); // always >= 1 (Math.max floor)
     }
 
     const objective: SeasonVictoryObjectiveSnapshot = {
@@ -375,7 +398,8 @@ export const computeSeasonVictory = (
       thresholdLabel,
       holdDurationSeconds: def.holdDurationSeconds,
       statusLabel: conditionMet ? "Threshold met" : leaderValue > 0 ? "Pressure building" : "No contender",
-      conditionMet
+      conditionMet,
+      progress
     };
     if (leaderPlayerId) objective.leaderPlayerId = leaderPlayerId;
     return objective;
