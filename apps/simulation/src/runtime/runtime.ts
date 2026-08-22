@@ -297,6 +297,20 @@ import {
   type RuntimeVisibilityClassification
 } from "../runtime-visibility-classifier.js";
 import {
+  aiPlayerMetricsSnapshotForRuntime,
+  empireTileCountsForRuntime,
+  exportStateAsyncForRuntime,
+  exportStateForRuntime,
+  leaderboardPlayersForRuntime,
+  playerDebugSnapshotForRuntime,
+  plannerPlayerViewsForRuntime,
+  plannerWorldViewForRuntime,
+  snapshotSectionsAsyncForRuntime,
+  snapshotSectionsForRuntime,
+  tilesForKeysForRuntime,
+  type RuntimeExportContext
+} from "./runtime-export.js";
+import {
   repairZeroGrossIncomeSettlements as repairZeroGrossIncomeSettlementsImpl,
   type GrossIncomeRepairResult
 } from "../runtime-gross-income-repair.js";
@@ -2661,118 +2675,13 @@ export class SimulationRuntime {
     };
   }
 
-  exportSnapshotSections(): SimulationSnapshotSections {
-    return buildRuntimeSnapshotSections({
-      tiles: this.tiles,
-      locksByCommandId: this.locksByCommandId,
-      players: this.players,
-      pendingSettlementsByTile: this.pendingSettlementsByTile,
-      tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
-      playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
-      docks: this.docks,
-      recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
-      incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId)
-    });
-  }
-
-  async exportSnapshotSectionsAsync(yieldToEventLoop: () => Promise<void>): Promise<SimulationSnapshotSections> {
-    return buildRuntimeSnapshotSectionsAsync({
-      tiles: this.tiles,
-      locksByCommandId: this.locksByCommandId,
-      players: this.players,
-      pendingSettlementsByTile: this.pendingSettlementsByTile,
-      tileYieldCollectedAtByTile: this.tileYieldCollectedAtByTile,
-      playerYieldCollectionEpochByPlayer: this.lastIncomeTickAtMsByPlayer,
-      docks: this.docks,
-      recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
-      incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      prebuiltTiles: this.snapshotTileCache
-    }, yieldToEventLoop);
-  }
-
-  exportPlannerWorldView(playerIds: string[]): PlannerWorldView {
-    return buildRuntimePlannerWorldView({
-      playerIds,
-      tiles: this.tiles,
-      docks: this.docks,
-      players: this.players,
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      plannerGatingLockPlayerIds: () => this.plannerGatingLockPlayerIds(),
-      refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
-      plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
-      ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
-      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
-      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
-      neutralBeaconTileKeys: this.neutralBeaconTileKeys,
-      beaconGeneration: this.beaconGeneration,
-      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
-      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer,
-      musterTilesByOwner: this.musterTilesByOwner
-    });
-  }
-
-  // Cheap O(players) aggregate of empire sizes for the scale metric. Uses the
-  // incrementally-maintained per-player territory Sets (Set.size is O(1)); does
-  // NOT iterate the 202,500-tile world. Excludes barbarians (not real empires).
-  empireTileCounts(): { totalOwnedTiles: number; maxEmpireTiles: number } {
-    let totalOwnedTiles = 0;
-    let maxEmpireTiles = 0;
-    for (const [playerId, summary] of this.playerSummaries) {
-      if (playerId.startsWith("barbarian")) continue;
-      const size = summary.territoryTileKeys.size;
-      totalOwnedTiles += size;
-      if (size > maxEmpireTiles) maxEmpireTiles = size;
-    }
-    return { totalOwnedTiles, maxEmpireTiles };
-  }
-
-  // Cumulative count of boot-time manpowerCapSnapshot corrections — see
-  // manpowerCapBootstrapRestampedCount's declaration for why this exists.
-  manpowerCapBootstrapRestampedTotal(): number {
-    return this.manpowerCapBootstrapRestampedCount;
-  }
-
-  exportPlannerPlayerViews(playerIds: string[]): PlannerPlayerView[] {
-    return buildRuntimePlannerPlayerViews({
-      playerIds,
-      tiles: this.tiles,
-      docks: this.docks,
-      players: this.players,
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      plannerGatingLockPlayerIds: () => this.plannerGatingLockPlayerIds(),
-      refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
-      plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
-      ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
-      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
-      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
-      neutralBeaconTileKeys: this.neutralBeaconTileKeys, beaconGeneration: this.beaconGeneration, yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
-      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer, musterTilesByOwner: this.musterTilesByOwner,
-      playerManpowerCap: (playerId) => { const player = this.players.get(playerId); return player ? this.playerManpowerCap(player) : 0; }, // §9 (see PlannerExportInput's doc comments)
-      playerManpowerRegenPerMinute: (playerId) => { const player = this.players.get(playerId); return player ? this.playerManpowerRegenPerMinute(player) : 0; },
-      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
-      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId), ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
-    });
-  }
-
-  exportPlayerDebugSnapshot(): RuntimePlayerDebugSnapshot {
-    return buildRuntimePlayerDebugSnapshot({
-      locksByTile: this.locksByTile, players: this.players,
-      refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
-      summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
-      playerManpowerCap: (player) => this.playerManpowerCap(player),
-      playerManpowerRegenPerMinute: (player) => this.playerManpowerRegenPerMinute(player),
-      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
-      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId), resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId) });
-  }
-
-  // Lean per-second metrics row (skips exportPlayerDebugSnapshot's sort/clone/lock-scan work; see RuntimeAiPlayerMetricsRow doc comment).
-  exportAiPlayerMetricsSnapshot(): RuntimeAiPlayerMetricsRow[] { return [...this.players.values()].filter((p) => p.isAi === true).map((p) => { const summary = this.summaryForPlayer(p.id); return { id: p.id, isAi: true, points: p.points, incomePerMinute: this.estimatedIncomePerMinuteForPlayer(p.id), settledTileCount: summary.settledTileCount, ownedTileCount: summary.territoryTileKeys.size }; }); }
-
-  exportTilesForKeys(tileKeys: Iterable<string>): PlannerTileView[] { return exportPlannerTilesForKeys(this.tiles, tileKeys); }
-
-  private buildExportInput() {
+  // Shared context builder for the export-surface free functions in
+  // runtime-export.ts, mirroring townNetworkContext()'s pattern (Stage 4).
+  // Superset of what any single export function needs — matches
+  // RuntimeExportContext, which is itself derived from the impl functions'
+  // own parameter types, so a mismatch here is a compile error, not a
+  // silent drift.
+  private exportContext(): RuntimeExportContext {
     return {
       tiles: this.tiles,
       locksByCommandId: this.locksByCommandId,
@@ -2790,20 +2699,80 @@ export class SimulationRuntime {
       playerManpowerBreakdown: this.playerManpowerBreakdown.bind(this),
       incomePerMinuteForPlayer: this.incomePerMinuteForPlayer.bind(this),
       summaryForPlayer: this.summaryForPlayer.bind(this),
-      growthStalledNoFoodCounter: this.growthStalledNoFoodCounter
+      growthStalledNoFoodCounter: this.growthStalledNoFoodCounter,
+      recordedEventsByCommandId: this.replayCache.recordedEventsByCommandId,
+      prebuiltTiles: this.snapshotTileCache,
+      plannerGatingLockPlayerIds: () => this.plannerGatingLockPlayerIds(),
+      refreshManpowerOnly: (player) => this.refreshManpowerOnly(player),
+      plannerPlayerTileKeys: (playerId, summary) => this.plannerPlayerTileKeys(playerId, summary),
+      ownedStructureCountsForPlayer: (playerId) => this.ownedStructureCountsForPlayer(playerId),
+      estimatedIncomePerMinuteForPlayer: (playerId) => this.estimatedIncomePerMinuteForPlayer(playerId),
+      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
+      neutralBeaconTileKeys: this.neutralBeaconTileKeys,
+      beaconGeneration: this.beaconGeneration,
+      yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
+      expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer,
+      musterTilesByOwner: this.musterTilesByOwner,
+      locksByTile: this.locksByTile,
+      resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
+      playerSummaries: this.playerSummaries,
+      ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
     };
   }
 
+  exportSnapshotSections(): SimulationSnapshotSections {
+    return snapshotSectionsForRuntime(this.exportContext());
+  }
+
+  async exportSnapshotSectionsAsync(yieldToEventLoop: () => Promise<void>): Promise<SimulationSnapshotSections> {
+    return snapshotSectionsAsyncForRuntime(this.exportContext(), yieldToEventLoop);
+  }
+
+  exportPlannerWorldView(playerIds: string[]): PlannerWorldView {
+    return plannerWorldViewForRuntime(this.exportContext(), playerIds);
+  }
+
+  // Cheap O(players) aggregate of empire sizes for the scale metric. Uses the
+  // incrementally-maintained per-player territory Sets (Set.size is O(1)); does
+  // NOT iterate the 202,500-tile world. Excludes barbarians (not real empires).
+  empireTileCounts(): { totalOwnedTiles: number; maxEmpireTiles: number } {
+    return empireTileCountsForRuntime(this.playerSummaries);
+  }
+
+  // Cumulative count of boot-time manpowerCapSnapshot corrections — see
+  // manpowerCapBootstrapRestampedCount's declaration for why this exists.
+  manpowerCapBootstrapRestampedTotal(): number {
+    return this.manpowerCapBootstrapRestampedCount;
+  }
+
+  exportPlannerPlayerViews(playerIds: string[]): PlannerPlayerView[] {
+    return plannerPlayerViewsForRuntime(this.exportContext(), playerIds);
+  }
+
+  exportPlayerDebugSnapshot(): RuntimePlayerDebugSnapshot {
+    return playerDebugSnapshotForRuntime(this.exportContext());
+  }
+
+  // Lean per-second metrics row (skips exportPlayerDebugSnapshot's sort/clone/lock-scan work; see RuntimeAiPlayerMetricsRow doc comment).
+  exportAiPlayerMetricsSnapshot(): RuntimeAiPlayerMetricsRow[] {
+    return aiPlayerMetricsSnapshotForRuntime(this.exportContext());
+  }
+
+  exportTilesForKeys(tileKeys: Iterable<string>): PlannerTileView[] {
+    return tilesForKeysForRuntime(this.exportContext(), tileKeys);
+  }
+
   exportState(): RuntimeExportState {
-    return buildRuntimeExportState(this.buildExportInput());
+    return exportStateForRuntime(this.exportContext());
   }
 
   async exportStateAsync(yieldToEventLoop: () => Promise<void>): Promise<RuntimeExportState> {
-    return buildRuntimeExportStateAsync(this.buildExportInput(), yieldToEventLoop);
+    return exportStateAsyncForRuntime(this.exportContext(), yieldToEventLoop);
   }
 
   getPlayersForLeaderboard(): RuntimeExportState["players"] {
-    return buildRuntimeExportPlayers(this.buildExportInput());
+    return leaderboardPlayersForRuntime(this.exportContext());
   }
 
   private classifyVisibilityForPlayer(playerId: string): RuntimeVisibilityClassification {
