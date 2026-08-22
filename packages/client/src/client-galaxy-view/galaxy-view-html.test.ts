@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { GALAXY_SPECIALIZATION_NAME } from "@border-empires/sim-protocol";
 
-import { renderGalaxyViewHtml, renderEmperorSectionHtml, type GalaxyViewPlanet, type GalaxyEmperorViewModel } from "./galaxy-view-html.js";
+import {
+  renderGalaxyViewHtml,
+  renderEmperorSectionHtml,
+  SPECIALIZATION_LABEL,
+  type GalaxyViewPlanet,
+  type GalaxyEmperorViewModel
+} from "./galaxy-view-html.js";
 
 const unnamed: GalaxyViewPlanet = {
   seasonId: "season-1",
@@ -86,6 +93,14 @@ describe("renderGalaxyViewHtml", () => {
       focusedSeasonId: "season-2"
     });
     expect(html).toContain("FUTURE_ID World");
+  });
+
+  it("keeps its local specialization label copy in sync with @border-empires/sim-protocol's GALAXY_SPECIALIZATION_NAME", () => {
+    // SPECIALIZATION_LABEL is duplicated here rather than imported at runtime
+    // (see the comment above its definition) to avoid pulling sim-protocol's
+    // dependency graph into the client bundle. This test is what stands in
+    // for that import: it fails the moment the two definitions diverge.
+    expect(SPECIALIZATION_LABEL).toEqual(GALAXY_SPECIALIZATION_NAME);
   });
 });
 
