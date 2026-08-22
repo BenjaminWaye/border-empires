@@ -12,6 +12,16 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787411986658,
+    introducedIn: "2026.08.22.8",
+    title: "Beta season countdown screen",
+    why: "The beta season now has a synchronized start time so everyone begins together instead of the first arrivals compounding a head start over testers in later timezones.",
+    changes: [
+      "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
+      "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
+    ]
+  },
+  {
     createdAt: 1786910628146, // 2026.08.16.1
     introducedIn: "2026.08.16.1",
     title: "Swapped the waypoint and mustering flag overlays",

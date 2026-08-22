@@ -22,16 +22,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787411986658,
-    introducedIn: "2026.08.22.8",
-    title: "Beta season countdown screen",
-    why: "The beta season now has a synchronized start time so everyone begins together instead of the first arrivals compounding a head start over testers in later timezones.",
-    changes: [
-      "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
-      "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
-    ]
-  },
-  {
     createdAt: 1787412371498, // 2026.08.22.11 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.11",
     title: "Muster flags can now march on a chosen target instead of just the nearest enemy tile",
@@ -488,6 +478,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The most recent season's Planet winner now starts their next empire with a permanent manpower-regen head start and an expanded starting vision radius.",
       "It's a one-time grant, applied automatically the moment you spawn your next empire -- nothing to claim or activate."
+    ]
+  },
+  {
+    createdAt: 1787428700000,
+    introducedIn: "2026.08.22.5",
+    title: "Fixed a bogus 'Outside your borders' error after auto-settle finished a capture, and made unsettled tiles from a rival's border push show up live",
+    why: "Auto-settle could still fire a doomed settle command right after a capture landed if the captured tile turned out to be outside your reach (e.g. a Relay Beacon chain dying mid-capture), surfacing a confusing 'Outside your borders' error even though nothing was actually wrong. Separately, when a rival's expanding border overtook one of your settled tiles and downgraded it to frontier, that change was only ever applied on the server -- it was never pushed to either player's client, so it silently went stale until you clicked the tile and forced a refresh.",
+    changes: [
+      "Auto-settle now checks reach before firing the settle right after a capture, same as it already does elsewhere, instead of sending a command the server was always going to reject.",
+      "A settled tile downgraded to frontier by a rival's border push now updates live on both players' maps instead of only after clicking the tile."
     ]
   }
 ];
