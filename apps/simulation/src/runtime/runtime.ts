@@ -7,7 +7,7 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
-import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
+import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, applyUnsettleDowngrade, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
 import {
   gatherReachAnchors as gatherReachAnchorsImpl,
   newlyActivatedReachAnchors as newlyActivatedReachAnchorsImpl,
@@ -2995,17 +2995,17 @@ export class SimulationRuntime {
 
   // Border mutation lives in runtime-reach-border-apply.ts, next to the
   // REACH_UPDATE push it feeds. This is the runtime-side adapter: it supplies
-  // the world lookups and routes the unsettle downgrade back through
-  // replaceTileState, so the usual cache-invalidation side effects still fire.
+  // the world lookups and routes the unsettle downgrade back through replaceTileState.
   private reachBorderApplyContext(): ReachBorderApplyContext {
     return {
       gatherReachAnchors: () => this.gatherReachAnchors(),
       rivalOwnerIds: () => [...this.playerSummaries.keys()].filter((id) => !id.startsWith("barbarian-")).sort(),
       tileOwnership: (tileKey) => this.tiles.get(tileKey),
-      downgradeToFrontier: (tileKey, causeCommandId) => {
-        const t = this.tiles.get(tileKey);
-        if (t) this.replaceTileState(tileKey, { ...t, ownershipState: "FRONTIER" }, `unsettle:${causeCommandId}:${tileKey}`);
-      }
+      downgradeToFrontier: (tileKey, causeCommandId) =>
+        applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, causeCommandId, {
+          getTile: (k) => this.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid),
+          tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e)
+        })
     };
   }
 
