@@ -75,7 +75,14 @@ const kindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
 export const maxNearbyElevation = (
   wx: number,
   wy: number,
-  tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind
+  tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind,
+  // Hills are a dome mesh bolted on top of the flat grid (see
+  // client-map-3d-hills.ts), invisible to heightfieldFlatTileElevation —
+  // without this bonus the river ribbon renders under the dome bulge
+  // wherever its path crosses a hills tile. Injectable (like tileKindAt
+  // above) so this stays testable with synthetic tile state instead of
+  // needing real world-gen.
+  isHillsAt: (wx: number, wy: number) => boolean = isHillsTileAt
 ): number => {
   const tx = Math.floor(wx);
   const ty = Math.floor(wy);
@@ -86,12 +93,8 @@ export const maxNearbyElevation = (
       const ny = wrap(ty + dy, WORLD_HEIGHT);
       const kind = tileKindAt(nx, ny);
       if (kind === "SEA" || kind === "COASTAL_SEA") continue;
-      // Hills are a dome mesh bolted on top of the flat grid (see
-      // client-map-3d-hills.ts), invisible to heightfieldFlatTileElevation —
-      // without this bonus the river ribbon renders under the dome bulge
-      // wherever its path crosses a hills tile.
       const elevation =
-        heightfieldFlatTileElevation(nx, ny, kind) + (isHillsTileAt(nx, ny) ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0);
+        heightfieldFlatTileElevation(nx, ny, kind) + (isHillsAt(nx, ny) ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0);
       if (elevation > maxElevation) maxElevation = elevation;
     }
   }
