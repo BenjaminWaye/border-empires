@@ -251,7 +251,7 @@ export type DomainTileState = {
     | {
         ownerId: string;
         amount: number;
-        mode: "HOLD" | "ADVANCE";
+        mode: "HOLD" | "ADVANCE" | "MARCH";
         targetX?: number;
         targetY?: number;
         setAt?: number;

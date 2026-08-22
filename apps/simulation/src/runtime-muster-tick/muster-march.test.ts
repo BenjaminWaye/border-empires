@@ -1,0 +1,137 @@
+import { describe, expect, it, vi } from "vitest";
+
+vi.hoisted(() => {
+  process.env.MUSTER_SYSTEM_ENABLED = "true";
+});
+
+import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { SimulationRuntime } from "../runtime/runtime.js";
+
+const makePlayer = (id: string) => ({
+  id,
+  isAi: false,
+  points: 10_000,
+  manpower: 150,
+  techIds: new Set<string>(),
+  domainIds: new Set<string>(),
+  mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+  techRootId: "rewrite-local",
+  allies: new Set<string>()
+});
+
+const acceptedAttackTargets = (events: SimulationEvent[]): string[] =>
+  events
+    .filter(
+      (event): event is Extract<SimulationEvent, { eventType: "COMMAND_ACCEPTED" }> =>
+        event.eventType === "COMMAND_ACCEPTED" && event.commandId.includes(":muster-march:")
+    )
+    .map((event) => event.commandId.split(":muster-march:")[1]!.split(":")[1]!);
+
+describe("muster MARCH auto-fire", () => {
+  it("attacks the enemy tile closest to the march target, not the one closest to the flag", () => {
+    // Flag at (10,10). Two attackable enemy tiles: (11,10) is nearest the
+    // flag itself, (10,14) is farther from the flag but much closer to the
+    // march target at (10,20). MARCH should steer toward the target and fire
+    // on (10,14), not the nearer-to-origin (11,10).
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 10, targetY: 20, updatedAt: 1_000 }
+          },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" },
+          // Owned corridor south toward the target.
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 12, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 13, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          { x: 10, y: 14, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    const targets = acceptedAttackTargets(seen);
+    expect(targets).toEqual(["10,14"]);
+  });
+
+  it("never routes an attack through a neutral tile even when that would be the shorter path", () => {
+    // The only way to reach an enemy tile near the target is by crossing a
+    // neutral (unowned) tile at (10,12) — MARCH must not treat that as
+    // traversable, so no attack should be fired even though the enemy tile
+    // is otherwise attackable.
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", makePlayer("player-1")],
+        ["player-2", makePlayer("player-2")]
+      ]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 10, targetY: 20, updatedAt: 1_000 }
+          },
+          { x: 10, y: 11, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" },
+          // Neutral gap: no ownerId at all.
+          { x: 10, y: 12, terrain: "LAND", ownershipState: "FRONTIER" },
+          { x: 10, y: 13, terrain: "LAND", ownerId: "player-2", ownershipState: "FRONTIER" }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen: SimulationEvent[] = [];
+    runtime.onEvent((event) => seen.push(event));
+
+    runtime.tickMuster(1_000);
+
+    expect(acceptedAttackTargets(seen)).toEqual([]);
+    const neutralTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 12);
+    expect(neutralTile?.ownerId).toBeFalsy();
+  });
+
+  it("falls back to HOLD once the flag has fought its way onto the march target", () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            muster: { ownerId: "player-1", amount: 60, mode: "MARCH", targetX: 11, targetY: 10, updatedAt: 1_000 }
+          },
+          { x: 11, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+        ],
+        activeLocks: []
+      }
+    });
+
+    runtime.tickMuster(1_000);
+
+    const flagTile = runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10);
+    const muster = flagTile?.musterJson ? JSON.parse(flagTile.musterJson) : undefined;
+    expect(muster?.mode).toBe("HOLD");
+    expect(muster?.targetX).toBeUndefined();
+  });
+});
