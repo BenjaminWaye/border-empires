@@ -588,9 +588,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       "info",
       "info"
     );
-    // processAutoSettleTargets fires requestSettlement itself once the tile
-    // actually becomes owned FRONTIER territory (see the runtime tick loop);
-    // calling it here would fail since ownership hasn't landed yet.
+    // processAutoSettleTargets fires requestSettlement itself once owned (tick loop).
     if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);
     hideTileActionMenu();
   };
@@ -610,8 +608,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     }
   };
 
-  // Checked on the runtime loop's periodic tick: when waypoint reaches a target
-  // and it's now owned, trigger settlement if it's queued in autoSettleTargets.
+  // Runtime loop's periodic tick: once a waypoint target is owned, settle it if queued.
   const processAutoSettleTargets = (): void => {
     if (state.autoSettleTargets.size === 0) return;
     const reach = resolveMyReach(state);
@@ -754,8 +751,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     let handedOffToSettle = false;
     if (targetKey && state.autoSettleTargets.has(targetKey)) {
       const settledTile = state.tiles.get(targetKey);
+      // Can land outside reach (e.g. a Relay Beacon dying mid-capture); mirror
+      // processAutoSettleTargets and drop the doomed settle instead of sending it.
       if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
-        if (requestSettlement(settledTile.x, settledTile.y)) {
+        if (!resolveMyReach(state).has(targetKey)) state.autoBuildTargets.delete(targetKey);
+        else if (requestSettlement(settledTile.x, settledTile.y)) {
           handedOffToSettle = true;
           pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
         }
