@@ -61,16 +61,34 @@ const settleOvertaken = (
   }
 };
 
-/** Applies one anchor ACTIVATION, returning the updated border. */
+/**
+ * Applies one anchor ACTIVATION, returning the updated border.
+ *
+ * `contestSettledOnUnclaimed` (default true) enables the empty-slot contest
+ * described in grantAnchorToBorder: an unclaimed border slot sitting over a
+ * rival's SETTLED tile is resolved as a real contest instead of being granted
+ * silently. Pass false for the world-init seeding pass — that rebuilds the
+ * border for an already-consistent world by replaying every anchor against an
+ * empty map, so every settled tile would look "unclaimed" and the whole pass
+ * would turn into a world-wide re-contest rather than a reconstruction.
+ */
 export const applyReachAnchorActivationToBorder = (
   border: ReadonlyMap<string, string>,
   anchor: ReachAnchor,
   reachUpdateState: ReachUpdateState,
   context: ReachBorderApplyContext,
-  causeCommandId: string
+  causeCommandId: string,
+  options?: { contestSettledOnUnclaimed?: boolean }
 ): Map<string, string> => {
   const defenderLiveReach = liveReachLookup(context.gatherReachAnchors());
-  const result = grantAnchorToBorder(border, anchor, defenderLiveReach);
+  const settledOwnerAt =
+    options?.contestSettledOnUnclaimed === false
+      ? undefined
+      : (tileKey: string): string | undefined => {
+          const tile = context.tileOwnership(tileKey);
+          return tile?.ownershipState === "SETTLED" ? tile.ownerId : undefined;
+        };
+  const result = grantAnchorToBorder(border, anchor, defenderLiveReach, settledOwnerAt);
   markReachDirty(reachUpdateState, anchor.ownerId);
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
   return result.border;

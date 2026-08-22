@@ -257,12 +257,7 @@ export const createInitialState = () => ({
   retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "UMBRITE" | "TITANIUM" | "GEMS"; queuedAt: number }>,
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  bombardFxQueue: [] as Array<{
-    x: number;
-    y: number;
-    queuedAt: number;
-    tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }>;
-  }>,
+  bombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number; tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> }>,
   worldEngineStrikeFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   // Drives the global camera-shake trigger (client-map-3d-camera-shake-fx.ts) —
   // pushed once per newly-seen WORLD_ENGINE_STRIKE_ANNOUNCEMENT broadcast, for
@@ -279,6 +274,7 @@ export const createInitialState = () => ({
   imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
