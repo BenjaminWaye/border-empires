@@ -136,6 +136,7 @@ export const attackPreviewResult = (
   const attackerFactoryCounts = weaponsFactoryCountsForPlayer(playerId, tileMap.values());
   const defenderFactoryCounts = target.ownerId ? weaponsFactoryCountsForPlayer(target.ownerId, tileMap.values()) : { titanium: 0, umbrite: 0 };
   const defenderHasWarIndustry = defenderFactoryCounts.titanium > 0 && defenderFactoryCounts.umbrite > 0;
+  const attackerHasWarIndustry = attackerFactoryCounts.titanium > 0 && attackerFactoryCounts.umbrite > 0;
   const factoryModifiers = {
     weaponsWorkshopAttackMult: 1 + ownedWeaponsWorkshopCount(playerId) * WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
     weaponsWorkshopDefenseMult: 1 + (target.ownerId ? ownedWeaponsWorkshopCount(target.ownerId) : 0) * WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
@@ -143,7 +144,8 @@ export const attackPreviewResult = (
     titaniumWeaponsFactoryDefenseMult: 1 + defenderFactoryCounts.titanium * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
     umbriteWeaponsFactoryAttackMult: 1 + attackerFactoryCounts.umbrite * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
     umbriteWeaponsFactoryDefenseMult: 1 + defenderFactoryCounts.umbrite * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
-    noWarIndustryVulnerabilityMult: defenderHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT
+    noWarIndustryVulnerabilityMult: defenderHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
+    noWarIndustryDefenseVulnerabilityMult: attackerHasWarIndustry ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT
   };
   const targetHasActiveFort = Boolean(target.fort && target.fort.status === "active" && target.fort.ownerId === target.ownerId);
   const preview = buildFrontierCombatPreview(
