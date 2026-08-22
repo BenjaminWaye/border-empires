@@ -2912,7 +2912,7 @@ export class SimulationRuntime {
     );
   }
 
-  filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined }>(
+  filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined; forceVisibleForPlayerId?: string | undefined }>(
     tileDeltas: readonly TDelta[], playerId: string, options?: TileDeltaVisibilityFilterOptions
   ): TDelta[] {
     return filterTileDeltasForPlayerImpl(
