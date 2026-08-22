@@ -1,3 +1,4 @@
+import { Scene } from "three";
 import { describe, expect, it } from "vitest";
 import {
   HEIGHTFIELD_HILLS_ELEVATION_BONUS,
@@ -6,6 +7,7 @@ import {
   heightfieldTileColor,
   type HeightfieldTerrainKind
 } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
+import { createHillTerrain } from "../client-map-3d-hills.js";
 
 describe("3d TUNDRA rendering regression guard", () => {
   it("heightfieldTileBaseElevation and heightfieldTileColor don't crash for TUNDRA and differ from GRASS/SAND", () => {
@@ -55,6 +57,68 @@ describe("3d TUNDRA rendering regression guard", () => {
     expect(bonusAboveCorners).toBeLessThan(HEIGHTFIELD_HILLS_ELEVATION_BONUS + 0.1);
 
     heightfield.dispose();
+  });
+
+  it("actually builds dome geometry for a TUNDRA hill tile, not just the elevation math", () => {
+    // client-map-3d-hills.ts has two separate GRASS/SAND-only gates: one for
+    // corner-averaging exclusion (which the elevation test above covers) and
+    // a second, independent one gating which tiles get a dome built at all.
+    // Missing the second one leaves a genuine hole — the elevation numbers
+    // for a *non-existent* dome would still look right if computed by hand,
+    // so this has to check the actual built mesh, not derived elevations.
+    const scene = new Scene();
+    const heightfield = createHeightfield();
+    const hillTerrain = createHillTerrain(scene, 64, heightfield.material);
+    const allTundra = (): HeightfieldTerrainKind => "TUNDRA";
+    const onlyOriginIsHill = (wx: number, wy: number): boolean => wx === 0 && wy === 0;
+
+    const shared = {
+      camX: 0, camY: 0, halfW: 3, halfH: 3,
+      worldWidth: 450, worldHeight: 450,
+      tileKindAt: allTundra,
+      isHillsAt: onlyOriginIsHill
+    };
+    heightfield.rebuild(shared);
+    hillTerrain.rebuild(shared);
+
+    expect(hillTerrain.mesh.geometry.drawRange.count).toBeGreaterThan(0);
+
+    heightfield.dispose();
+    hillTerrain.dispose();
+  });
+
+  it("carries a tundraZone attribute on the dome mesh so its shared-shader color reads as TUNDRA, not SAND", () => {
+    // The dome shares the main heightfield's MeshStandardMaterial (and thus
+    // its onBeforeCompile shader, which requires a tundraZone attribute) but
+    // has its own separate BufferGeometry. Without tundraZone on that
+    // geometry too, the shader falls back to inferring grass-vs-sand from
+    // vertex color alone — and TUNDRA's pale blend lands on the SAND side of
+    // that inference, so a TUNDRA dome silently rendered tan/cream instead
+    // of its own frost palette.
+    const scene = new Scene();
+    const heightfield = createHeightfield();
+    const hillTerrain = createHillTerrain(scene, 64, heightfield.material);
+    const allTundra = (): HeightfieldTerrainKind => "TUNDRA";
+    const onlyOriginIsHill = (wx: number, wy: number): boolean => wx === 0 && wy === 0;
+
+    const shared = {
+      camX: 0, camY: 0, halfW: 3, halfH: 3,
+      worldWidth: 450, worldHeight: 450,
+      tileKindAt: allTundra,
+      isHillsAt: onlyOriginIsHill
+    };
+    heightfield.rebuild(shared);
+    hillTerrain.rebuild(shared);
+
+    const domeTundraZoneAttr = hillTerrain.mesh.geometry.getAttribute("tundraZone");
+    expect(domeTundraZoneAttr).toBeDefined();
+    // Every tile in this synthetic world is TUNDRA, so the dome's own
+    // bilinear-blended corner value should be fully 1, not left at the
+    // buffer's zero-initialized default.
+    expect(domeTundraZoneAttr.getX(0)).toBe(1);
+
+    heightfield.dispose();
+    hillTerrain.dispose();
   });
 
   it("marks tundraZone 1 at a corner fully surrounded by TUNDRA tiles and 0 surrounded by GRASS", () => {
