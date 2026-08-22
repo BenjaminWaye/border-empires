@@ -13,9 +13,11 @@ export const TERRAIN_LAND = 1;
 export const TERRAIN_MOUNTAIN = 2;
 const TERRAIN_COASTAL_SEA = 3;
 const POLAR_BAND = 15; // rows from each edge that form polar mountain zones
+const TUNDRA_BAND_WIDTH = 55; // rows beyond the polar mountain band where cold can still win out over sand/grass
 const BIOME_GRASS = 0;
 const BIOME_SAND = 1;
 const BIOME_COASTAL_SAND = 2;
+const BIOME_TUNDRA = 3;
 const BIOME_NONE = UNSET_U8;
 const GRASS_DARK = 0;
 const GRASS_LIGHT = 1;
@@ -95,12 +97,14 @@ const encodeBiome = (biome: LandBiome | undefined): number => {
   if (biome === "GRASS") return BIOME_GRASS;
   if (biome === "SAND") return BIOME_SAND;
   if (biome === "COASTAL_SAND") return BIOME_COASTAL_SAND;
+  if (biome === "TUNDRA") return BIOME_TUNDRA;
   return BIOME_NONE;
 };
 const decodeBiome = (biome: number): LandBiome | undefined => {
   if (biome === BIOME_GRASS) return "GRASS";
   if (biome === BIOME_SAND) return "SAND";
   if (biome === BIOME_COASTAL_SAND) return "COASTAL_SAND";
+  if (biome === BIOME_TUNDRA) return "TUNDRA";
   return undefined;
 };
 const encodeGrassShade = (shade: "LIGHT" | "DARK" | undefined): number => {
@@ -537,18 +541,30 @@ export const landBiomeAt = (x: number, y: number): LandBiome | undefined => {
   } else if (region === "DEEP_FOREST") {
     biome = "GRASS";
   } else {
-    const macro = valueNoise(wx, wy, 72, worldSeed() + 303);
-    const micro = valueNoise(wx - 41, wy + 29, 26, worldSeed() + 317);
-    const sandField = macro * 0.7 + micro * 0.3;
-    const sandThreshold =
-      region === "CRYSTAL_WASTES"
-        ? 0.52
-        : region === "BROKEN_HIGHLANDS"
-          ? 0.58
-          : region === "ANCIENT_HEARTLAND"
-            ? 0.72
-            : 0.78;
-    biome = sandField > sandThreshold ? "SAND" : "GRASS";
+    // Cold band: rows just past the polar mountains fade from full tundra
+    // coverage down to none over TUNDRA_BAND_WIDTH rows. WORLD_HEIGHT wraps
+    // in y, so the two poles are really one toroidal seam — distToPole is
+    // the wrap-aware distance to whichever edge is closer.
+    const distToPole = Math.min(wy, WORLD_HEIGHT - wy);
+    const coldness = Math.max(0, 1 - (distToPole - POLAR_BAND) / TUNDRA_BAND_WIDTH);
+    const coldNoise = valueNoise(wx + 211, wy - 157, 46, worldSeed() + 811);
+    const tundraField = coldness * coldness * 0.75 + coldNoise * 0.25;
+    if (coldness > 0 && tundraField > 0.5) {
+      biome = "TUNDRA";
+    } else {
+      const macro = valueNoise(wx, wy, 72, worldSeed() + 303);
+      const micro = valueNoise(wx - 41, wy + 29, 26, worldSeed() + 317);
+      const sandField = macro * 0.7 + micro * 0.3;
+      const sandThreshold =
+        region === "CRYSTAL_WASTES"
+          ? 0.52
+          : region === "BROKEN_HIGHLANDS"
+            ? 0.58
+            : region === "ANCIENT_HEARTLAND"
+              ? 0.72
+              : 0.78;
+      biome = sandField > sandThreshold ? "SAND" : "GRASS";
+    }
   }
   biomeCache[idx] = encodeBiome(biome);
   biomeCacheReady[idx] = 1;
@@ -584,12 +600,20 @@ export const regionTypeAt = (x: number, y: number): RegionType | undefined => {
   return region;
 };
 
+// Despite the name (kept to avoid renaming across every existing GRASS-only
+// consumer, all of which explicitly AND this with `landBiomeAt(...) ===
+// "GRASS"` and so are unaffected), this also computes a light/dark split for
+// TUNDRA — its "dark" variant is the tundra-forest concept: no FARM/GEMS,
+// but a real TITANIUM+UMBRITE affinity (see server-worldgen-terrain.ts). The
+// underlying noise formula below was already biome-agnostic; only this gate
+// restricted it to GRASS.
 export const grassShadeAt = (x: number, y: number): "LIGHT" | "DARK" | undefined => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
   const idx = worldIndex(wx, wy);
   if (grassShadeCacheReady[idx] === 1) return decodeGrassShade(grassShadeCache[idx]!);
-  if (landBiomeAt(wx, wy) !== "GRASS") {
+  const biome = landBiomeAt(wx, wy);
+  if (biome !== "GRASS" && biome !== "TUNDRA") {
     grassShadeCache[idx] = GRASS_NONE;
     grassShadeCacheReady[idx] = 1;
     return undefined;

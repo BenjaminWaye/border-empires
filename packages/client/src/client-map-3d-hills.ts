@@ -99,6 +99,14 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   const colors = new Float32Array(maxTiles * vertsPerTile * 3);
   const uvs = new Float32Array(maxTiles * vertsPerTile * 2);
   const forestZones = new Float32Array(maxTiles * vertsPerTile);
+  // The shared material's fragment shader (client-map-3d-heightfield.ts's
+  // onBeforeCompile) reads a `tundraZone` attribute to pick the TUNDRA
+  // texture explicitly rather than inferring it from vertex color — without
+  // this, a TUNDRA dome's bilinear-blended pale color reads as SAND in that
+  // color-inferred fallback (its greenBias lands just below the grass
+  // threshold), same misclassification risk the main grid's own tundraZone
+  // was added to avoid.
+  const tundraZones = new Float32Array(maxTiles * vertsPerTile);
   // Own normals buffer, filled by accumulateHeightfieldNormals (bounded by
   // the *actual* index count) — never geometry.computeVertexNormals(),
   // which walks the whole preallocated index attribute regardless of
@@ -110,6 +118,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
   geometry.setAttribute("color", new BufferAttribute(colors, 3));
   geometry.setAttribute("uv", new BufferAttribute(uvs, 2));
   geometry.setAttribute("forestZone", new BufferAttribute(forestZones, 1));
+  geometry.setAttribute("tundraZone", new BufferAttribute(tundraZones, 1));
   geometry.setAttribute("normal", new BufferAttribute(normals, 3));
   geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
@@ -178,7 +187,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
       if (!exploredAt(nwx, nwy)) return false;
       const nk = tileKindAt(nwx, nwy);
       if (nk === "SEA" || nk === "COASTAL_SEA") return false;
-      if ((nk === "GRASS" || nk === "SAND") && isHillsAt(nwx, nwy)) return false;
+      if ((nk === "GRASS" || nk === "SAND" || nk === "TUNDRA") && isHillsAt(nwx, nwy)) return false;
       return true;
     };
     // Real ground elevation/colour at world grid corner (cx, cz), averaged
@@ -203,12 +212,13 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     const flatCorner = (
       cx: number,
       cz: number,
-      fallback: { e: number; r: number; g: number; b: number }
-    ): { e: number; r: number; g: number; b: number } => {
+      fallback: { e: number; r: number; g: number; b: number; t: number }
+    ): { e: number; r: number; g: number; b: number; t: number } => {
       let sumE = 0;
       let sumR = 0;
       let sumG = 0;
       let sumB = 0;
+      let sumT = 0;
       let count = 0;
       for (const [dx, dz] of [[-1, -1], [0, -1], [-1, 0], [0, 0]] as const) {
         const nwx = wrap(cx + dx, worldWidth);
@@ -218,6 +228,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
         const [nr, ng, nb] = heightfieldTileColor(nk, terrainShadeVariantAt(nwx, nwz));
         sumE += heightfieldFlatTileElevation(nwx, nwz, nk);
         sumR += nr / 255; sumG += ng / 255; sumB += nb / 255;
+        sumT += nk === "TUNDRA" ? 1 : 0;
         count += 1;
       }
       if (count === 0) {
@@ -232,12 +243,13 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
           const [nr, ng, nb] = heightfieldTileColor(nk, terrainShadeVariantAt(nwx, nwz));
           sumE += heightfieldFlatTileElevation(nwx, nwz, nk);
           sumR += nr / 255; sumG += ng / 255; sumB += nb / 255;
+          sumT += nk === "TUNDRA" ? 1 : 0;
           count += 1;
         }
       }
       if (count === 0) return fallback;
       const inv = 1 / count;
-      return { e: sumE * inv, r: sumR * inv, g: sumG * inv, b: sumB * inv };
+      return { e: sumE * inv, r: sumR * inv, g: sumG * inv, b: sumB * inv, t: sumT * inv };
     };
 
     // Mirrors isHole in client-map-3d-heightfield.ts's own skirt pass
@@ -297,7 +309,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
         const wy = wrap(camY + offsetY + dj, worldHeight);
         if (!exploredAt(wx, wy)) continue;
         const kind = tileKindAt(wx, wy);
-        if ((kind !== "GRASS" && kind !== "SAND") || !isHillsAt(wx, wy)) continue;
+        if ((kind !== "GRASS" && kind !== "SAND" && kind !== "TUNDRA") || !isHillsAt(wx, wy)) continue;
         if (vertCount + vertsPerTile > maxTiles * vertsPerTile || idxCount + indicesPerTile > indices.length) continue;
 
         const peak = hillPeakBonus();
@@ -310,7 +322,8 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
           e: heightfieldFlatTileElevation(wx, wy, kind),
           r: ownR / 255,
           g: ownG / 255,
-          b: ownB / 255
+          b: ownB / 255,
+          t: kind === "TUNDRA" ? 1 : 0
         };
         // This tile's 4 real corner values (height + colour), matching
         // the main grid exactly.
@@ -350,6 +363,9 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
             const bTop = cTL.b + (cTR.b - cTL.b) * fx;
             const bBottom = cBL.b + (cBR.b - cBL.b) * fx;
             const cb = bTop + (bBottom - bTop) * fz;
+            const tTop = cTL.t + (cTR.t - cTL.t) * fx;
+            const tBottom = cBL.t + (cBR.t - cBL.t) * fx;
+            const ct = tTop + (tBottom - tTop) * fz;
 
             const vi = vertCount;
             const p = vi * 3;
@@ -359,6 +375,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
             colors[p + 0] = cr;
             colors[p + 1] = cg;
             colors[p + 2] = cb;
+            tundraZones[vi] = ct;
             // World-tile-coordinate UV (matches the main heightfield's
             // convention) so the shared material's painted texture blend
             // samples the same painterly grass/sand look, not a flat tint.
@@ -402,6 +419,7 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
     const colorAttr = geometry.getAttribute("color") as BufferAttribute | undefined;
     const uvAttr = geometry.getAttribute("uv") as BufferAttribute | undefined;
     const normalAttr = geometry.getAttribute("normal") as BufferAttribute | undefined;
+    const tundraZoneAttr = geometry.getAttribute("tundraZone") as BufferAttribute | undefined;
     const indexAttr = geometry.index;
     if (posAttr) {
       posAttr.clearUpdateRanges();
@@ -422,6 +440,11 @@ export const createHillTerrain = (scene: Scene, maxTiles: number, sharedMaterial
       normalAttr.clearUpdateRanges();
       normalAttr.addUpdateRange(0, vertCount * 3);
       normalAttr.needsUpdate = true;
+    }
+    if (tundraZoneAttr) {
+      tundraZoneAttr.clearUpdateRanges();
+      tundraZoneAttr.addUpdateRange(0, vertCount);
+      tundraZoneAttr.needsUpdate = true;
     }
     if (indexAttr) {
       indexAttr.clearUpdateRanges();
