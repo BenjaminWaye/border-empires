@@ -909,6 +909,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
     }
+    // ── Own-tile feature actions: add new own-tile actions here ──
+    out.push(...buildMusterActions(tile, state));
+    // ─────────────────────────────────────────────────────────────
     if (tile.economicStructure) {
       out.push(
         ...converterStructureMenuEntries(tile, {
@@ -2032,9 +2035,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     out.push(...retortRecastActions());
     out.push(...crystalCoreActions());
     out.push(createMountainAction());
-    // ── Own-tile feature actions: add new own-tile actions here ──
-    out.push(...buildMusterActions(tile, state));
-    // ─────────────────────────────────────────────────────────────
     if (tile.town?.populationTier !== "SETTLEMENT") out.push({ id: "abandon_territory", label: "Abandon Territory" });
     return out;
   }
