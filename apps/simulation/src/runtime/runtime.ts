@@ -3774,6 +3774,10 @@ export class SimulationRuntime {
       if (target.frontierDecayKind === "ENCIRCLEMENT") continue;
       if (target.terrain !== "LAND") continue;
       if (this.pendingSettlementsByTile.has(targetKey)) continue;
+      // Fixed-border reach: same OUT_OF_REACH gate handleSettleCommand applies
+      // to a human's SETTLE command (see its comment above) -- this path
+      // bypasses that handler entirely, so the check must be repeated here.
+      if (!this.isPlayerTileInReach(playerId, target.x, target.y)) continue;
       const commandId = this.nextTerritoryAutomationCommandId("auto-settle", playerId, targetKey, nowMs);
       this.startSettlementProcess({
         commandId,
