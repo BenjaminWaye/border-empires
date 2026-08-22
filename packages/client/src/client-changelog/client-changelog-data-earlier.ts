@@ -12,6 +12,47 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787041917435, // 2026.08.17.3
+    introducedIn: "2026.08.17.3",
+    title: "Battle dots no longer pop when the clash hands off into rout",
+    why: "The clash phase sways each dot back and forth (spread + a forward jostle so the two lines press together instead of overlapping), but the instant rout began that whole oscillation was dropped in favor of a clean push-through/scatter position — a small but real positional snap right at the clash/rout boundary, on top of the exact same seam that was already fixed between the pre-resolution skirmish and the clash phase.",
+    changes: [
+      "Dots now settle out of the clash's sway over the first ~140ms of rout instead of dropping it instantly, so the clash and rout phases read as one continuous motion rather than two animations stitched together."
+    ]
+  },
+  {
+    createdAt: 1786960037000, // 2026.08.17.1
+    introducedIn: "2026.08.17.1",
+    title: "World Engine strikes now shake the map and broadcast to everyone",
+    why: "Firing the World Engine used to be a private moment — only the caster's own client got any indication a city had been leveled, via a local pulse effect that never reached anyone else, including the city's owner. A strike that levels a city and costs real population is exactly the kind of moment every empire should hear about, not just the two sides involved.",
+    changes: [
+      "Landing a World Engine strike on an enemy city now shakes the map once, live, for every connected player — not just the caster.",
+      "A new destruction-themed popup announces who fired it, what city was hit, how many lives were lost, and who owned the town.",
+      "That announcement stays visible in the Activity Feed's new \"World Events\" section for 12 hours, so logging in after the fact still tells you what happened."
+    ]
+  },
+  {
+    createdAt: 1787003302865, // 2026.08.17.2
+    introducedIn: "2026.08.17.2",
+    title: "Battle animation reworked: troops line up, march, clash with casualties, then rout",
+    why: "The battle overlay's approach phase was a single 550ms beat — dots barely had time to read as \"forming up\" before they were already marching. And the clash itself, while it now threw glyph bursts into the air, never lost a single dot: the swarm stayed exactly DOTS_PER_SIDE strong right up until rout, so a fight that had clearly been decided (attackerWon is known from the very first frame) never showed any sign of a cost.",
+    changes: [
+      "Both sides now form up at their own tile-local edge for ~2.5s before marching — previously they started marching almost immediately.",
+      "The march itself now takes ~0.9s (previously ~550ms combined with forming up), so the two sides visibly close the distance instead of snapping into position.",
+      "Once the outcome is known, some dots now fall during the clash — a fixed 2 of 10 for the winning side, 4 of 10 for the losing side, so the losing side visibly thins before rout confirms it, and both sides always keep enough survivors for rout to have something to actually push through or scatter.",
+      "The clash window is now ~1.3s (previously 800ms), giving the glyph bursts and new casualties room to read clearly instead of feeling rushed."
+    ]
+  },
+  {
+    createdAt: 1786965132570, // 2026.08.16.3
+    introducedIn: "2026.08.16.3",
+    title: "Battle dots: attacker and defender no longer disappear into each other during the clash",
+    why: "The clash-phase oscillation only ever varied a dot's position along the perpendicular spread across the tile, never along the attacker-defender line itself. That meant an attacker dot and a defender dot with the same per-dot spread value landed on the exact same point, every frame, for the whole clash — the two swarms were genuinely coincident, not just visually crowded. With depth testing disabled on both dot materials (needed so they always render on top of the terrain), whichever side's mesh happened to draw second fully hid the other, so the entire clash read as a single-color blob with no visible fight between two sides — confirmed with the new Storybook \"Full Attack Lifecycle\" story, where the attacker's dots were invisible for the whole clash and only reappeared once rout physically separated the two sides.",
+    changes: [
+      "Each side now holds a small, jostling offset along the attack line during the clash, so attacker and defender read as two distinct lines pressed together instead of one side fully hiding the other."
+    ]
+  },
+  {
     createdAt: 1786905792661, // 2026.08.16
     introducedIn: "2026.08.16",
     title: "The Caravanary is now the Trade Nexus, with a new commercial-hub look",

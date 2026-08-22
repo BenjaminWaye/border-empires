@@ -2,6 +2,10 @@ export type StoredPlayerProfile = {
   playerId: string;
   name?: string;
   tileColor?: string;
+  // Optional 2-letter uppercase ISO country code (e.g. "US"), used to render
+  // a flag emoji next to the player's name in the season lobby roster. Never
+  // inferred -- unset means no flag is shown.
+  countryFlag?: string;
   profileComplete?: boolean;
   // Season id (CurrentSeasonSummary.seasonId) the display name was last
   // actually changed in, once the player has completed initial setup — used
@@ -27,6 +31,7 @@ export type GatewayPlayerProfileStore = {
   // in (for the once-per-season throttle); omit it for the player's initial
   // profile setup, which doesn't consume that season's allowance.
   setProfile(playerId: string, name: string, tileColor: string, nameChangedSeasonId?: string, colorChangedSeasonId?: string): Promise<StoredPlayerProfile>;
+  setCountryFlag(playerId: string, countryFlag: string): Promise<StoredPlayerProfile>;
 };
 
 export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileStore {
@@ -60,6 +65,7 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       playerId,
       ...(existing?.name ? { name: existing.name } : {}),
       tileColor,
+      ...(existing?.countryFlag ? { countryFlag: existing.countryFlag } : {}),
       ...(typeof existing?.profileComplete === "boolean" ? { profileComplete: existing.profileComplete } : {}),
       ...(existing?.nameChangedSeasonId ? { nameChangedSeasonId: existing.nameChangedSeasonId } : {}),
       ...(resolvedSeasonId ? { colorChangedSeasonId: resolvedSeasonId } : {}),
@@ -77,9 +83,26 @@ export class InMemoryGatewayPlayerProfileStore implements GatewayPlayerProfileSt
       playerId,
       name,
       tileColor,
+      ...(existing?.countryFlag ? { countryFlag: existing.countryFlag } : {}),
       profileComplete: true,
       ...(resolvedNameSeasonId ? { nameChangedSeasonId: resolvedNameSeasonId } : {}),
       ...(resolvedColorSeasonId ? { colorChangedSeasonId: resolvedColorSeasonId } : {}),
+      updatedAt: Date.now()
+    };
+    this.profiles.set(playerId, updated);
+    return { ...updated };
+  }
+
+  async setCountryFlag(playerId: string, countryFlag: string): Promise<StoredPlayerProfile> {
+    const existing = this.profiles.get(playerId);
+    const updated: StoredPlayerProfile = {
+      playerId,
+      ...(existing?.name ? { name: existing.name } : {}),
+      ...(existing?.tileColor ? { tileColor: existing.tileColor } : {}),
+      countryFlag,
+      ...(typeof existing?.profileComplete === "boolean" ? { profileComplete: existing.profileComplete } : {}),
+      ...(existing?.nameChangedSeasonId ? { nameChangedSeasonId: existing.nameChangedSeasonId } : {}),
+      ...(existing?.colorChangedSeasonId ? { colorChangedSeasonId: existing.colorChangedSeasonId } : {}),
       updatedAt: Date.now()
     };
     this.profiles.set(playerId, updated);

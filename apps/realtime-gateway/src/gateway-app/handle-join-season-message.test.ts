@@ -57,6 +57,31 @@ describe("handleJoinSeasonMessage", () => {
     expect((deps.sent[0] as { code: string }).code).toBe("SEASON_PENDING");
   });
 
+  it("checks the player into the lobby roster and broadcasts when pending and deps are provided", async () => {
+    const checkIntoLobby = vi.fn(async () => ({ name: "Alice", countryFlag: "US" }));
+    const broadcastLobbyUpdate = vi.fn();
+    const deps = buildDeps({
+      simulationClient: {
+        preparePlayer: vi.fn(),
+        joinSeason: vi.fn(async () => ({ playerId: "player-1", spawned: false, pending: true, scheduledStartAt: 1_800_000_000_000 }))
+      },
+      checkIntoLobby,
+      broadcastLobbyUpdate
+    });
+    await handleJoinSeasonMessage(deps);
+    expect(checkIntoLobby).toHaveBeenCalledWith("player-1");
+    expect(broadcastLobbyUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not touch the lobby roster when the join is not pending", async () => {
+    const checkIntoLobby = vi.fn(async () => ({ name: "Alice" }));
+    const broadcastLobbyUpdate = vi.fn();
+    const deps = buildDeps({ checkIntoLobby, broadcastLobbyUpdate });
+    await handleJoinSeasonMessage(deps);
+    expect(checkIntoLobby).not.toHaveBeenCalled();
+    expect(broadcastLobbyUpdate).not.toHaveBeenCalled();
+  });
+
   it("sends SEASON_FULL when the join is rejected as full", async () => {
     const deps = buildDeps({
       simulationClient: {
