@@ -13,6 +13,7 @@
  */
 
 import type { GatewayMetricsSnapshot } from "../metrics/metrics.js";
+import { gatewayRoutineAlertNotifier } from "../routine-alert/routine-alert.js";
 
 export type SlowLoginRecentEvent = {
   at: number;
@@ -161,6 +162,9 @@ export const createSlowLoginAlerter = (options: SlowLoginAlerterOptions): SlowLo
       if (since < cooldownMs) return;
     }
     lastFiredAt = now();
+    gatewayRoutineAlertNotifier.notify(
+      `Slow login: ${(totalElapsedMs / 1000).toFixed(1)}s (player ${trace.playerId ?? "unauthenticated"}, outcome ${outcome})`
+    );
     const metrics = options.metricsSnapshot();
     const events = options.recentEvents();
     const sessionEvents = events

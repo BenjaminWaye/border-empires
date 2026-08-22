@@ -11,6 +11,7 @@
  */
 
 import type { GatewayMetricsSnapshot } from "../metrics/metrics.js";
+import { gatewayRoutineAlertNotifier } from "../routine-alert/routine-alert.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -360,6 +361,7 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
     });
 
     void post(eventKey, payload);
+    if ((input.eventName ?? eventKey) === "gateway_command_submit_latency_high" || (input.eventName ?? eventKey) === "analyze_iter_total_high") gatewayRoutineAlertNotifier.notify(`${input.summary}: ${input.triggerDetail}`);
   };
 
   return {
