@@ -97,9 +97,12 @@ export const injectWaypointActions = (
   }
   // Already the destination of a later (not-yet-active) queued waypoint --
   // its progress/cancel/jump-to-front controls live on the "progress" tab
-  // (queuedWaypointProgressForTile), so don't also offer "Add Waypoint" here.
+  // (queuedWaypointProgressForTile), so don't also offer this action here.
   if (state.waypoint.some((entry) => entry.target.x === tile.x && entry.target.y === tile.y)) return;
   const plan = waypointPlanForTile(tile, state, deps);
   if (!plan) return;
-  prependWaypointAction(view, { id: "expand_here", label: "Add Waypoint", detail: formatWaypointSummary(plan) });
+  // This module only ever fires for enemy-owned attack targets now -- the
+  // neutral-tile case was folded into "Expand To" (client-tile-action-
+  // neutral.ts). Label it accordingly instead of the old generic name.
+  prependWaypointAction(view, { id: "expand_here", label: "Expand To & Attack", detail: formatWaypointSummary(plan) });
 };
