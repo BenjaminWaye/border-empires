@@ -204,6 +204,11 @@ message JoinSeasonAck {
   // its player cap (see SIMULATION_MAX_SEASON_PLAYERS) — membership is not
   // recorded and no territory is spawned when this is set.
   bool full = 4;
+  // True when the season is "pending" (has a future scheduledStartAt) and
+  // has not started yet — membership is not recorded and no territory is
+  // spawned when this is set. See scheduled_start_at for the start time.
+  bool pending = 5;
+  double scheduled_start_at = 6;
 }
 
 message SimulationEvent {

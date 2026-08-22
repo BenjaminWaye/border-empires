@@ -90,7 +90,7 @@ import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed
 import { attackPreviewResult } from "../attack-preview/attack-preview.js";
 import { createSeededAiTruceResponder } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
 import { createLoginQueue } from "../login-queue/login-queue.js";
-import { admitBootstrap } from "../login-queue/bootstrap-admission.js"; import { seasonFullErrorPayload } from "../season-full-rejection/season-full-rejection.js";
+import { admitBootstrap } from "../login-queue/bootstrap-admission.js"; import { seasonFullErrorPayload } from "../season-full-rejection/season-full-rejection.js"; import { seasonPendingErrorPayload } from "../season-full-rejection/season-pending-rejection.js"; import { startPendingSeasonNotifyTimer } from "../season-start-notify/pending-season-notify-timer.js";
 import { createWebSocketHeartbeat } from "./websocket-heartbeat.js";
 
 import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
@@ -1809,7 +1809,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     endorsementStore: galaxyEndorsementStore,
     onError: (error) => app.log.error({ err: error }, "imperial ward auto-start tick failed")
   });
-
+  const pendingSeasonNotifyTimer = startPendingSeasonNotifyTimer({ getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), notifySeasonStarted, onError: (error) => app.log.error({ err: error }, "pending season notify tick failed") });
   const databaseKeepAlive = startDatabaseKeepAlive({
     nextClientSeqForPlayer: (playerId) => commandStore.nextClientSeqForPlayer(playerId),
     recordGatewayEvent
@@ -1880,7 +1880,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
-    allianceBreakFinalize.stop(); truceExpirySync.stop(); imperialWardAutoStart.stop();
+    allianceBreakFinalize.stop(); truceExpirySync.stop(); imperialWardAutoStart.stop(); pendingSeasonNotifyTimer.stop();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
     simBacklogStatusPoller?.stop(); slackAlertLatencyPoll.stop();
@@ -2534,7 +2534,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ playerId: session.playerId, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload }); return; }
+          if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ playerId: session.playerId, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload }); return; }
           if (message.type === "SET_TILE_COLOR") {
             const normalized = normalizeHex(message.color);
             if (!normalized) {

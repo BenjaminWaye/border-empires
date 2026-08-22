@@ -18,7 +18,7 @@ import {
   type StrategicResourceKey
 } from "@border-empires/sim-protocol";
 import type { Terrain, VisibilityState } from "@border-empires/shared";
-import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor } from "./sim-client-prepare-player.js";
+import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeResult } from "./sim-client-prepare-player.js";
 
 type ProtoAck = { ok: boolean };
 type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
@@ -841,8 +841,8 @@ export type FetchTileDetailResult = {
 
 export const createSimulationClientFromRpcClient = (client: SimulationClientLike): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
-  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }>;
-  joinSeason?: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }>;
+  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<PrepareLikeResult>;
+  joinSeason?: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<PrepareLikeResult>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
@@ -1111,8 +1111,8 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
 
 export const createSimulationClient = (address: string): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
-  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }>;
-  joinSeason?: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean; joined?: boolean; full?: boolean }>;
+  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<PrepareLikeResult>;
+  joinSeason?: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<PrepareLikeResult>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;

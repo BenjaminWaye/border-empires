@@ -1,6 +1,6 @@
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 
-import { hasPlayerJoinedSeason, withPlayerJoinedSeason } from "../season-lifecycle.js";
+import { hasPlayerJoinedSeason, withPlayerJoinedSeason, isSeasonActive, isSeasonPending, isSeasonEnded } from "../season-lifecycle.js";
 import { seasonIsAtPlayerCap } from "../season-join-capacity.js";
 import { emitPerConnectHellos } from "./per-connect-hellos.js";
 import type { createSimulationMetrics } from "../metrics/metrics.js";
@@ -66,7 +66,7 @@ export const preparePlayerHandler = (
   const seasonState = deps.getSeasonState();
   const joined = deps.runtime.hasPlayer(playerId) || hasPlayerJoinedSeason(seasonState, playerId);
   try {
-    if (seasonState.status !== "ended" && joined) {
+    if (isSeasonActive(seasonState) && joined) {
       spawned = spawnAndAnnounce(deps, playerId, parseRallyAnchor(call.request.rally_anchor_json), "spawned runtime territory for prepared player", true);
     }
     const prepareDurationMs = Date.now() - prepareStartedAt;
@@ -97,12 +97,28 @@ export const preparePlayerHandler = (
 export const joinSeasonHandler = (
   deps: PrepareOrJoinDeps,
   call: { request: { player_id: string; rally_anchor_json?: string } },
-  callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean }) => void
+  callback: (
+    error: Error | null,
+    response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean; pending?: boolean; scheduled_start_at?: number }
+  ) => void
 ): void => {
   const playerId = call.request.player_id;
   try {
-    if (deps.getSeasonState().status === "ended") {
+    const seasonState = deps.getSeasonState();
+    if (isSeasonEnded(seasonState)) {
       callback(new Error("cannot join an ended season"), { ok: false, player_id: playerId, playerId, spawned: false });
+      return;
+    }
+    if (isSeasonPending(seasonState)) {
+      deps.log.info({ playerId, scheduledStartAt: seasonState.scheduledStartAt }, "join season rejected: season is pending");
+      callback(null, {
+        ok: true,
+        player_id: playerId,
+        playerId,
+        spawned: false,
+        pending: true,
+        ...(typeof seasonState.scheduledStartAt === "number" ? { scheduled_start_at: seasonState.scheduledStartAt } : {})
+      });
       return;
     }
     if (seasonIsAtPlayerCap(deps.maxSeasonPlayers, deps.runtime, playerId)) {
