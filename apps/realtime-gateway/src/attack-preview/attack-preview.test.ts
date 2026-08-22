@@ -44,11 +44,13 @@ describe("attackPreviewResult", () => {
     const fortJson = JSON.stringify({ ownerId: "player-2", status: "active", variant: "FORT" });
     const tilesWithFort = [
       { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
-      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED", fortJson }
+      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED", fortJson },
+      ...warIndustryTiles("player-1")
     ];
     const tilesWithoutFort = [
       { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
-      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" }
+      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" },
+      ...warIndustryTiles("player-1")
     ];
     const message = { fromX: 0, fromY: 0, toX: 1, toY: 0 };
 
@@ -69,7 +71,8 @@ describe("attackPreviewResult", () => {
       "player-1",
       [
         { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
-        { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED", fortJson: inactiveFortJson }
+        { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED", fortJson: inactiveFortJson },
+        ...warIndustryTiles("player-1")
       ],
       undefined,
       message,
@@ -80,7 +83,8 @@ describe("attackPreviewResult", () => {
       "player-1",
       [
         { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
-        { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED", fortJson: wrongOwnerFortJson }
+        { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED", fortJson: wrongOwnerFortJson },
+        ...warIndustryTiles("player-1")
       ],
       undefined,
       message,
@@ -90,5 +94,20 @@ describe("attackPreviewResult", () => {
 
     expect(inactivePreview.defMult).toBeCloseTo(1.35, 6);
     expect(wrongOwnerPreview.defMult).toBeCloseTo(1.35, 6);
+  });
+
+  it("doubles the defender's defMult when the attacker has no war industry, and clears once both factory types exist", () => {
+    const message = { fromX: 0, fromY: 0, toX: 1, toY: 0 };
+    const buildTiles = (attackerFactories: ReturnType<typeof warIndustryTiles>) => [
+      { x: 0, y: 0, ownerId: "player-1", ownershipState: "SETTLED" },
+      { x: 1, y: 0, ownerId: "player-2", ownershipState: "SETTLED" },
+      ...attackerFactories
+    ];
+
+    const noWarIndustry = attackPreviewResult("player-1", buildTiles([]), undefined, message, [], []);
+    const bothFactoryTypes = attackPreviewResult("player-1", buildTiles(warIndustryTiles("player-1")), undefined, message, [], []);
+
+    expect(noWarIndustry.defMult).toBeCloseTo(1.35 * 2.0, 6);
+    expect(bothFactoryTypes.defMult).toBeCloseTo(1.35, 6);
   });
 });
