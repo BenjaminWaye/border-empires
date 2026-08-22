@@ -79,7 +79,7 @@ export type Tile = {
   frontierDecayKind?: FrontierDecayKind;
   clusterId?: string;
   clusterType?: string;
-  landBiome?: "GRASS" | "SAND" | "COASTAL_SAND";
+  landBiome?: "GRASS" | "SAND" | "COASTAL_SAND" | "TUNDRA";
   regionType?: "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
   dockId?: string;
   townType?: "MARKET" | "FARMING";
@@ -317,7 +317,7 @@ export type Tile = {
   muster?: {
     ownerId: string;
     amount: number;
-    mode: "HOLD" | "ADVANCE";
+    mode: "HOLD" | "ADVANCE" | "MARCH";
     targetX?: number;
     targetY?: number;
     setAt?: number;
@@ -617,7 +617,8 @@ export type TerrainTextureId =
   | "SAND"
   | "GRASS_LIGHT"
   | "GRASS_DARK"
-  | "MOUNTAIN";
+  | "MOUNTAIN"
+  | "TUNDRA";
 
 export type TileActionDef = {
   id:
@@ -701,8 +702,7 @@ export type TileActionDef = {
     | "build_relay_beacon_frontier"
     | "enable_converter_structure"
     | "disable_converter_structure" | "set_converter_structure_mode"
-    | "muster_hold"
-    | "muster_advance"
+    | "muster_hold" | "muster_advance" | "muster_march" | "muster_march_cancel"
     | "muster_clear"
     | "offer_truce_12h"
     | "offer_truce_24h"

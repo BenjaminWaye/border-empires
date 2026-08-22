@@ -89,11 +89,12 @@ export const parseSiegeOutpostAutoAttackPayload = parseConverterTogglePayload;
 
 export const parseSetMusterPayload = (
   payloadJson: string
-): { x: number; y: number; mode: "HOLD" | "ADVANCE"; targetX?: number; targetY?: number } | null => {
+): { x: number; y: number; mode: "HOLD" | "ADVANCE" | "MARCH"; targetX?: number; targetY?: number } | null => {
   try {
     const parsed = JSON.parse(payloadJson) as Record<string, unknown>;
     if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return null;
-    if (parsed.mode !== "HOLD" && parsed.mode !== "ADVANCE") return null;
+    if (parsed.mode !== "HOLD" && parsed.mode !== "ADVANCE" && parsed.mode !== "MARCH") return null;
+    if (parsed.mode === "MARCH" && (typeof parsed.targetX !== "number" || typeof parsed.targetY !== "number")) return null;
     return {
       x: parsed.x,
       y: parsed.y,

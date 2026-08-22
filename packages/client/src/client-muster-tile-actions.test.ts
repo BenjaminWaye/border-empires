@@ -47,6 +47,24 @@ describe("buildMusterActions", () => {
       ownTile({ muster: { ownerId: "me", amount: 40, mode: "HOLD", updatedAt: 0 } }),
       { me: "me", authEmail: "a@example.com" }
     );
-    expect(actions.map((a) => a.id)).toEqual(["muster_advance", "muster_clear"]);
+    expect(actions.map((a) => a.id)).toEqual(["muster_advance", "muster_march", "muster_clear"]);
+  });
+
+  it("offers Set Hold and March To for an ADVANCE flag", () => {
+    stubWindowStorage();
+    const actions = buildMusterActions(
+      ownTile({ muster: { ownerId: "me", amount: 40, mode: "ADVANCE", updatedAt: 0 } }),
+      { me: "me", authEmail: "a@example.com" }
+    );
+    expect(actions.map((a) => a.id)).toEqual(["muster_hold", "muster_march", "muster_clear"]);
+  });
+
+  it("offers Cancel March instead of the mode toggle for a MARCH flag", () => {
+    stubWindowStorage();
+    const actions = buildMusterActions(
+      ownTile({ muster: { ownerId: "me", amount: 40, mode: "MARCH", targetX: 5, targetY: 5, updatedAt: 0 } }),
+      { me: "me", authEmail: "a@example.com" }
+    );
+    expect(actions.map((a) => a.id)).toEqual(["muster_march_cancel", "muster_clear"]);
   });
 });

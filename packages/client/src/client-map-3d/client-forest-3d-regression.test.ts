@@ -39,7 +39,10 @@ const createMockContext = (): { ctx: CanvasRenderingContext2D; fillRectCalls: nu
   };
 };
 
-const seededForestTile = { x: 24, y: 15 };
+// Chosen well away from the polar mountain bands (rows < 15 / >= 435) —
+// a coordinate near them can resolve to TUNDRA instead of forest now that
+// landBiomeAt blends a coldness gradient in near the poles.
+const seededForestTile = { x: 361, y: 100 };
 
 beforeAll(async () => {
   class MockImage {

@@ -3,7 +3,7 @@ export const isSeaTerrain = (terrain: Terrain): terrain is "SEA" | "COASTAL_SEA"
 export type ResourceType = "FARM" | "TITANIUM" | "GEMS" | "FISH" | "UMBRITE";
 export type TileKey = `${number},${number}`;
 export type PlayerId = string;
-export type LandBiome = "GRASS" | "SAND" | "COASTAL_SAND";
+export type LandBiome = "GRASS" | "SAND" | "COASTAL_SAND" | "TUNDRA";
 export type ClusterType = "FERTILE_PLAINS" | "TITANIUM_HILLS" | "CRYSTAL_BASIN" | "HORSE_STEPPES" | "ANCIENT_RUINS" | "COASTAL_SHOALS";
 export type RegionType = "FERTILE_PLAINS" | "BROKEN_HIGHLANDS" | "DEEP_FOREST" | "ANCIENT_HEARTLAND" | "CRYSTAL_WASTES";
 export type FrontierDecayKind = "ENCIRCLEMENT";
@@ -364,7 +364,7 @@ export interface Tile {
   muster?: {
     ownerId: string;
     amount: number;
-    mode: "HOLD" | "ADVANCE";
+    mode: "HOLD" | "ADVANCE" | "MARCH";
     targetX?: number;
     targetY?: number;
     setAt?: number;

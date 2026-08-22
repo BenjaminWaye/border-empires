@@ -30,6 +30,7 @@ import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createHillTerrain } from "../client-map-3d-hills.js";
 import { createWaterSurface, WATER_SURFACE_Y } from "../client-map-3d-water-surface.js";
+import { createRiverOverlay } from "../client-map-3d-rivers/client-map-3d-rivers.js";
 import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "../client-map-3d-town-support-coins.js";
@@ -136,6 +137,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const mountainMassifs = createMountainMassifs(scene, MAX_VISIBLE_TILES);
   const hillTerrain = createHillTerrain(scene, MAX_VISIBLE_TILES, heightfield.material);
   const waterSurface = createWaterSurface(scene, MAX_VISIBLE_TILES);
+  const riverOverlay = createRiverOverlay(scene);
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);
   const townSupportCoins = createTownSupportCoinLayer(scene);
@@ -650,6 +652,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
     return biome === "SAND" || biome === "COASTAL_SAND";
   };
+  const isTundraTile = (wx: number, wy: number): boolean => {
+    const tile = deps.state.tiles.get(deps.keyFor(wx, wy));
+    const terrain = tile?.terrain ?? terrainForWorldTile(wx, wy);
+    if (terrain !== "LAND") return false;
+    const biome = tile?.landBiome ?? landBiomeAt(wx, wy);
+    return biome === "TUNDRA";
+  };
   const heightfieldKindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
     const terrain = terrainForWorldTile(wx, wy);
     if (terrain === "SEA" || terrain === "COASTAL_SEA") {
@@ -658,6 +667,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     }
     if (terrain === "MOUNTAIN") return "MOUNTAIN";
     if (isSandTile(wx, wy)) return "SAND";
+    if (isTundraTile(wx, wy)) return "TUNDRA";
     return "GRASS";
   };
   const syncHighlightMarker = (
@@ -1322,6 +1332,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const heightfieldStartAt = performance.now();
     heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: isForestTile, isHillsAt: isHillsTile });
     hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile });
+    riverOverlay.rebuild({ camX: deps.state.camX, camY: deps.state.camY, halfW, halfH });
     const heightfieldMs = performance.now() - heightfieldStartAt;
 
     mountainMassifs.clear();
@@ -2243,6 +2254,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     floatingText.dispose();
     townSupportCoins.dispose();
     waterSurface.dispose();
+    riverOverlay.dispose();
     mountainMassifs.dispose();
     hillTerrain.dispose();
     heightfield.dispose();

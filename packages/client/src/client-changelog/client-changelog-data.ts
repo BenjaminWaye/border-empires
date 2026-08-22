@@ -23,6 +23,44 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787412371498, // 2026.08.22.11 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.11",
+    title: "Muster flags can now march on a chosen target instead of just the nearest enemy tile",
+    why: "A muster flag's ADVANCE mode always auto-fired on whatever enemy tile happened to be nearest, with no way to point it at a specific target -- useful for holding a line, but not for actually pushing an offensive toward somewhere particular.",
+    changes: [
+      "New \"March To...\" muster action: pick a flag, choose \"March To...\", then click a destination tile.",
+      "A marching flag fights its way toward that destination one attack at a time, always picking whichever reachable enemy tile is closest to the target -- it never crosses neutral ground, since a muster flag only ever attacks enemy territory.",
+      "The flag automatically returns to HOLD once it captures the target tile, or you can cancel the march early from the tile menu."
+    ]
+  },
+  {
+    createdAt: 1787430800000,
+    introducedIn: "2026.08.22.10",
+    title: "Your galaxy planet now shows what it's specialized in",
+    why: "The galaxy view showed which victory path crowned your planet, but not what that meant going forward -- part of the early galactic meta-layer groundwork (docs/galactic-campaign-design.md), where each victory path is meant to grant a distinct planet specialization.",
+    changes: [
+      "Your galaxy planet (named or not-yet-named) now shows a specialization badge -- Industrial, Trade, Extraction, Logistics, or Capital -- based on which victory condition crowned it."
+    ]
+  },
+  {
+    createdAt: 1787430700000,
+    introducedIn: "2026.08.22.9",
+    title: "Muster flags now clear reliably after losing a tile in combat",
+    why: "Losing an attack could hand your attacking tile to the enemy, and if that tile then fell outside your visible area in the same instant, the server's notice that the tile (and its staged muster flag) changed hands never reached your client -- the flag stayed stuck on ground you no longer owned until you happened to re-scout it.",
+    changes: [
+      "The server now always tells you when a tile you just lost -- whether your attack's origin was overrun or a target you held was captured -- changes hands, even if you no longer have vision of it, so a cleared muster flag (and the rest of that tile's state) updates immediately instead of going stale."
+    ]
+  },
+  {
+    createdAt: 1787430600000,
+    introducedIn: "2026.08.22.8",
+    title: "Creating a mountain now clears any muster flag staged on the tile",
+    why: "Turning a tile into a mountain destroyed the tile's ownership, but the muster flag staged on it stuck around, showing a stale muster icon on ground you no longer held.",
+    changes: [
+      "Creating a mountain on a tile with a staged muster flag now clears the flag along with the tile's ownership, matching how bombardment, capture, and tile shedding already handle it."
+    ]
+  },
+  {
     createdAt: 1787430500000,
     introducedIn: "2026.08.22.7",
     title: "Stage Muster now sits above Disable on structure tiles",
@@ -409,36 +447,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The zoom-smoothness fix above let the terrain skip a rebuild for any pan that stayed inside a padded window, but every other 3D overlay (ownership border pylons/walls, flags, badges, selection markers) still repositions itself every single frame off the live camera with no such padding. Mid-pan, that left the terrain's baked geometry pinned to wherever it was last rebuilt while border pylons and structures kept gliding on with the live camera, so towers and border lines visibly separated from the tiles under them until the pan stopped.",
     changes: [
       "Panning the 3D map now always rebuilds the terrain to match the live camera, so border pylons, structures, and the ground they sit on stay locked together while scrolling. The zoom-only rebuild savings from the fix above are unaffected."
-    ]
-  },
-  {
-    createdAt: 1787346768128, // 2026.08.21.8 (frozen; was a live Date.now() call — see check-client-changelog-update.mjs)
-    introducedIn: "2026.08.21.8",
-    title: "Border-expansion pylons now rise and light up again mid-game, not just retire",
-    why: "A caller-side flag meant to skip the arrival animation on the very first frame (so the whole starting boundary didn't rise out of the ground on page load) was being passed on every single frame instead of just the first one, so any pylon or laser line added by a later border expansion popped straight into its fully-lit state instead of playing the rise-then-power-on animation -- only retiring pylons ever animated.",
-    changes: [
-      "Newly-added border pylons and laser lines now rise out of the ground and power on with the same staggered wave animation you see in Storybook, instead of popping in instantly, for every border change after the map first loads."
-    ]
-  },
-  {
-    createdAt: 1787346768129, // 2026.08.21.9
-    introducedIn: "2026.08.21.9",
-    title: "Removed the unused \"frontier collapsing\" decay countdown",
-    why: "Frontier tiles carried a natural-decay countdown UI (a header timer and tile-menu warning saying the tile would soon collapse) left over from an early design that the server never actually implemented — no frontier tile has ever expired this way, so the warning could never legitimately appear. Removed the dead client code so it can't be confused with the real encirclement cut-off warning, which still applies: a frontier tile cut off from your supply chain is still claimed by an enemy after 60 seconds if it stays disconnected.",
-    changes: [
-      "Removed the unused \"Frontier collapsing in Ns\" countdown and \"unsupported and will soon decay\" tile-menu line — this never actually triggered in play.",
-      "The encirclement (\"Cut off from supply\") warning and its 60-second countdown are unchanged."
-    ]
-  },
-  {
-    createdAt: 1787334600000,
-    introducedIn: "2026.08.21.6",
-    title: "Your border is now the server's real border, and out-of-reach waypoints no longer get stuck forever",
-    why: "The yellow reach border was drawn from a client-side approximation that re-derived your anchors from whatever tiles happened to be cached locally. It could not see contested-tile clipping against other players' anchors, so it sometimes showed a tile as inside your border that the server would refuse to let you claim. The waypoint planner used that same approximation to pick its next hop, so it kept sending an expand the server kept rejecting with OUT_OF_REACH. The retry counter was also reset on every reconnect, and the waypoint queue lives server-side, so the loop restarted from zero each time you reconnected -- a wedged waypoint blocked every waypoint behind it and refreshing could not clear it.",
-    changes: [
-      "The reach border you see is now pushed by the server and matches exactly what it will let you claim, so a tile shown inside your border can actually be expanded onto.",
-      "A waypoint step the server rejects as out of reach now cancels that waypoint instead of retrying it forever, and the cancellation is mirrored server-side so it cannot come back after a reconnect.",
-      "A halted waypoint no longer blocks the waypoints queued behind it, and the 'Waypoint halted' message appears once instead of repeating on every tick."
     ]
   },
   {
