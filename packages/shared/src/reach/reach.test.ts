@@ -114,6 +114,54 @@ describe("grantAnchorToBorder", () => {
     expect(border.get(tileKey(5, 5))).toBe("attacker");
     expect(overtaken).toEqual([{ tileKey: tileKey(5, 5), fromOwnerId: "defender", toOwnerId: "attacker" }]);
   });
+
+  // Regression: a tile can be SETTLED by a player who never held reach over it
+  // (the pre-fix AI auto-settle path settled its own FRONTIER tiles with no
+  // reach check), so no border entry was ever written for that key. When a
+  // rival's reach later covered it, the empty-slot branch granted the ground
+  // silently with no overtaken entry — leaving the settled tile sitting inside
+  // the new owner's border forever, since only overtaken tiles get downgraded.
+  it("empty border slot over a rival's SETTLED tile is a contest, not free ground", () => {
+    const anchor: ReachAnchor = { x: 5, y: 5, ownerId: "attacker", activatedAt: 2, kind: "DOCK" };
+    const { border, overtaken } = grantAnchorToBorder(
+      new Map(), // no border entry at all for (5,5)
+      anchor,
+      () => new Set(), // the settled owner has no live coverage there
+      (key) => (key === tileKey(5, 5) ? "defender" : undefined)
+    );
+    expect(border.get(tileKey(5, 5))).toBe("attacker");
+    expect(overtaken).toEqual([{ tileKey: tileKey(5, 5), fromOwnerId: "defender", toOwnerId: "attacker" }]);
+  });
+
+  it("empty border slot over a rival's SETTLED tile still respects live defense", () => {
+    const anchor: ReachAnchor = { x: 5, y: 5, ownerId: "attacker", activatedAt: 2, kind: "DOCK" };
+    const { overtaken } = grantAnchorToBorder(
+      new Map(),
+      anchor,
+      (ownerId) => (ownerId === "defender" ? new Set([tileKey(5, 5)]) : new Set()),
+      (key) => (key === tileKey(5, 5) ? "defender" : undefined)
+    );
+    expect(overtaken).toEqual([]);
+  });
+
+  it("empty border slot over the anchor owner's own SETTLED tile is not a contest", () => {
+    const anchor: ReachAnchor = { x: 5, y: 5, ownerId: "p1", activatedAt: 2, kind: "DOCK" };
+    const { border, overtaken } = grantAnchorToBorder(
+      new Map(),
+      anchor,
+      () => new Set(),
+      (key) => (key === tileKey(5, 5) ? "p1" : undefined)
+    );
+    expect(border.get(tileKey(5, 5))).toBe("p1");
+    expect(overtaken).toEqual([]);
+  });
+
+  it("omitting settledOwnerAt keeps the original silent-grant behavior", () => {
+    const anchor: ReachAnchor = { x: 5, y: 5, ownerId: "attacker", activatedAt: 2, kind: "DOCK" };
+    const { border, overtaken } = grantAnchorToBorder(new Map(), anchor, () => new Set());
+    expect(border.get(tileKey(5, 5))).toBe("attacker");
+    expect(overtaken).toEqual([]);
+  });
 });
 
 describe("applyAnchorEvents — sticky border scenarios", () => {
