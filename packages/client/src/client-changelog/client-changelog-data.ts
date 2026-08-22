@@ -392,6 +392,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The multi-step waypoint action on a distant enemy tile is now labeled \"Expand To & Attack\" instead of \"Add Waypoint\"."
     ]
+  },
+  {
+    createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.2",
+    title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
+    why: "A season previously had no limit on how many empires could join, which meant a season already crowded with players kept quietly admitting more instead of ever being \"full.\" There was also no way to find out when a fresh, uncrowded season was starting if you missed joining one.",
+    changes: [
+      "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
+      "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
+      "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

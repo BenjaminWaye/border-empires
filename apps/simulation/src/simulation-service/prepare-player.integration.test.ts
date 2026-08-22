@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { credentials, loadPackageDefinition } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 
 import { createSimulationService } from "./simulation-service.js";
@@ -22,11 +24,11 @@ type RawSimulationClient = {
   ) => void;
   PreparePlayer?: (
     request: { player_id: string },
-    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean }) => void
+    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean; full?: boolean }) => void
   ) => void;
   preparePlayer?: (
     request: { player_id: string },
-    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean }) => void
+    callback: (error: Error | null, response: { ok: boolean; player_id?: string; spawned?: boolean; full?: boolean }) => void
   ) => void;
   SubscribePlayer?: (
     request: { player_id: string; subscription_json: string },
@@ -77,7 +79,10 @@ const proto = loadPackageDefinition(packageDefinition) as unknown as {
 const createRawSimulationClient = (address: string) =>
   new proto.border_empires.simulation.SimulationService(address, credentials.createInsecure());
 
-const preparePlayer = async (client: RawSimulationClient, playerId: string): Promise<{ playerId: string; spawned: boolean }> => {
+const preparePlayer = async (
+  client: RawSimulationClient,
+  playerId: string
+): Promise<{ playerId: string; spawned: boolean; full: boolean }> => {
   const rpc = client.PreparePlayer ?? client.preparePlayer;
   if (!rpc) throw new Error("PreparePlayer RPC unavailable in integration test");
   return await new Promise((resolve, reject) => {
@@ -88,7 +93,8 @@ const preparePlayer = async (client: RawSimulationClient, playerId: string): Pro
       }
       resolve({
         playerId: response.player_id ?? playerId,
-        spawned: response.spawned === true
+        spawned: response.spawned === true,
+        full: response.full === true
       });
     });
   });
@@ -231,11 +237,13 @@ describe("prepare player integration", () => {
 
     await expect(preparePlayer(client, playerId)).resolves.toEqual({
       playerId,
-      spawned: true
+      spawned: true,
+      full: false
     });
     await expect(preparePlayer(client, playerId)).resolves.toEqual({
       playerId,
-      spawned: false
+      spawned: false,
+      full: false
     });
 
     const ownedTiles = service.runtime.exportState().tiles.filter((tile) => tile.ownerId === playerId);
@@ -431,5 +439,62 @@ describe("prepare player integration", () => {
     // full-world export. This guards the login/rally-anchor bootstrap-retry
     // optimization the reveal-map fix must not regress.
     expect(retryDurationMs).toBeLessThan(1_000);
+  });
+
+  it("rejects a new player once the season is at its player cap, but still admits a returning one", async () => {
+    // The default seed profile already seeds one human ("player-1"), so a cap
+    // of 2 leaves exactly one open slot for firstPlayerId below.
+    const service = await createSimulationService({
+      host: "127.0.0.1",
+      port: 0,
+      maxSeasonPlayers: 2,
+      log: silentLog
+    });
+    cleanup.push(() => service.close());
+    const started = await service.start();
+    const client = createRawSimulationClient(started.address);
+    const firstPlayerId = "firebase-user-cap-1";
+    const secondPlayerId = "firebase-user-cap-2";
+
+    // Fills the single available slot.
+    await expect(preparePlayer(client, firstPlayerId)).resolves.toEqual({
+      playerId: firstPlayerId,
+      spawned: true,
+      full: false
+    });
+
+    // A genuinely new player is turned away — never spawned, no territory granted.
+    await expect(preparePlayer(client, secondPlayerId)).resolves.toEqual({
+      playerId: secondPlayerId,
+      spawned: false,
+      full: true
+    });
+    expect(service.runtime.exportState().tiles.some((tile) => tile.ownerId === secondPlayerId)).toBe(false);
+
+    // The player who already has territory this season is never blocked by the cap.
+    await expect(preparePlayer(client, firstPlayerId)).resolves.toEqual({
+      playerId: firstPlayerId,
+      spawned: false,
+      full: false
+    });
+  });
+
+  it("checks the season-ended branch before the player-cap gate, so an ended season never reports SEASON_FULL", () => {
+    // Regression: the cap check used to run before the `status !== "ended"`
+    // guard, so a new player joining after the season ended (with the cap
+    // also reached) got a misleading SEASON_FULL instead of the normal
+    // ended-season handling. Source-text assertion (see
+    // simulation-service.season-end-autopilot.test.ts for the same pattern)
+    // because forcing a real season-ended state requires a full victory
+    // rollover, which is out of scope for this handler-level regression.
+    const here = dirname(fileURLToPath(import.meta.url));
+    const file = readFileSync(resolve(here, "simulation-service.ts"), "utf8");
+    const prepareStart = file.indexOf("PreparePlayer(");
+    const prepareBody = file.slice(prepareStart, prepareStart + 800);
+    const endedGuardIndex = prepareBody.indexOf('currentSeasonState.status !== "ended"');
+    const capGateIndex = prepareBody.indexOf("seasonIsAtPlayerCap(");
+    expect(endedGuardIndex).toBeGreaterThan(-1);
+    expect(capGateIndex).toBeGreaterThan(-1);
+    expect(capGateIndex).toBeGreaterThan(endedGuardIndex);
   });
 });

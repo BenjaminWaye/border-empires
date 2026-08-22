@@ -42,7 +42,7 @@ export type SeedBarbariansResult = {
   placed: number;
   detail: Record<string, unknown>;
 };
-type ProtoPreparePlayerAck = { ok: boolean; player_id?: string; playerId?: string; spawned?: boolean };
+type ProtoPreparePlayerAck = { ok: boolean; player_id?: string; playerId?: string; spawned?: boolean; full?: boolean };
 export type PreparePlayerRallyAnchor = { x: number; y: number; island?: string };
 type ProtoTileDelta = {
   x: number;
@@ -837,7 +837,7 @@ export type FetchTileDetailResult = {
 
 export const createSimulationClientFromRpcClient = (client: SimulationClientLike): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
-  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean }>;
+  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean; full?: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
@@ -871,7 +871,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
     });
   },
   preparePlayer(playerId, rallyAnchor) {
-    return new Promise<{ playerId: string; spawned: boolean }>((resolve, reject) => {
+    return new Promise<{ playerId: string; spawned: boolean; full: boolean }>((resolve, reject) => {
       const preparePlayerRpc =
         (typeof client.PreparePlayer === "function" ? client.PreparePlayer.bind(client) : undefined) ??
         (
@@ -897,7 +897,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
               : typeof response.playerId === "string"
                 ? response.playerId
                 : playerId,
-          spawned: response.spawned === true
+          spawned: response.spawned === true, full: response.full === true
         });
       });
     });
@@ -1126,7 +1126,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
 
 export const createSimulationClient = (address: string): {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
-  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean }>;
+  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<{ playerId: string; spawned: boolean; full?: boolean }>;
   subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
   fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
   unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
