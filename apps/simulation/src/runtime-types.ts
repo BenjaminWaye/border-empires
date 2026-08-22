@@ -175,6 +175,10 @@ export type SimulationRuntimeOptions = {
   // first time this playerId spawns territory in the new season (see
   // ensurePlayerHasSpawnTerritory in runtime.ts).
   pendingImperialWard?: { playerId: string; charges: number };
+  // Galactic meta-layer v0 (§5, §12): granted once, the first time this
+  // playerId spawns territory in the new season, mirroring
+  // pendingImperialWard's lifecycle — see ensurePlayerHasSpawnTerritory.
+  pendingGalacticWonderBonus?: { playerId: string };
   commandTrace?: (sample: Record<string, unknown>) => void;
   onOwnershipChange?: (sample: OwnershipChangeSample) => void;
   onQueueDrain?: (sample: {

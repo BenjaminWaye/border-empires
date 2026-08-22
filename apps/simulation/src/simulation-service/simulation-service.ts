@@ -2137,7 +2137,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         onVisibilityAudit: handleVisibilityAudit,
         trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
         onCaptureRevealBuilt: captureRevealBuildSample,
-        ...(pendingImperialWard ? { pendingImperialWard } : {}),
+        ...(pendingImperialWard ? { pendingImperialWard } : {}), ...(currentSeasonState.winner ? { pendingGalacticWonderBonus: { playerId: currentSeasonState.winner.playerId } } : {}), // v0 Wonder-style starting bonus (§5, §12)
         shouldPauseBackground: () => {
           if (loginExportsInFlight > 0) {
             simulationMetrics.incrementSimLoginExportPausedDrain();

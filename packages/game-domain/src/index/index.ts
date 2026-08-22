@@ -55,6 +55,16 @@ export type DomainPlayer = {
   wonderFortDefenseBonus?: number;
   wonderTechGoldDiscount?: number;
   wonderLastFreeRushBuyAt?: number;
+  // Galactic meta-layer v0 (docs/galactic-campaign-design.md §5, §12): a
+  // simplified stand-in for the full Wonder system, which needs a persistent
+  // Production economy, supersession, and Influence/Senate that don't exist
+  // yet. These two are NOT in-season map Wonders (the wonder* fields above,
+  // e.g. wonderVisionRadiusBonus for CARTOGRAPHERS_LENS) — they are one-time,
+  // claimed-once starting bonuses granted to the most recent season's Planet
+  // winner (§3) for their *next* season, consumed at their first spawn (see
+  // pendingGalacticWonderBonus in apps/simulation/src/runtime/runtime.ts).
+  galacticWonderManpowerRegenBonusPerMinute?: number;
+  galacticWonderVisionRadiusBonus?: number;
   techIds: Set<string>;
   domainIds?: Set<string>;
   mods?: {

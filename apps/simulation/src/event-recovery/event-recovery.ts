@@ -75,6 +75,9 @@ export type RecoveredSimulationState = {
     chosenTrickleResource?: ChosenTrickleResource;
     imperialWardCharges?: number;
     wonderLastFreeRushBuyAt?: number;
+    // Galactic meta-layer v0 (§5, §12) — see DomainPlayer in game-domain.
+    galacticWonderManpowerRegenBonusPerMinute?: number;
+    galacticWonderVisionRadiusBonus?: number;
     eventLog?: PlayerEventLogEntry[];
     allies?: string[];
     vision?: number;
