@@ -113,6 +113,7 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     return;
   }
   context.stampObservatoryCooldown(observatoryKey, TERRAIN_SHAPING_COOLDOWN_MS, now, command.commandId, command.playerId);
+  const hadMuster = Boolean(target.muster);
   const updatedTile: DomainTileState = {
     ...target,
     terrain: "MOUNTAIN",
@@ -123,16 +124,15 @@ export function handleCreateMountainCommand(context: RuntimeMapCommandContext, c
     observatory: undefined,
     naturalWonder: undefined,
     siegeOutpost: undefined,
-    economicStructure: undefined
+    economicStructure: undefined,
+    muster: undefined // mirrors bombardment/capture/shed: ownership loss destroys a staged muster flag
   };
   context.replaceTileState(targetKey, updatedTile);
   context.bumpTerrainEpoch();
-  context.emitEvent({
-    eventType: "TILE_DELTA_BATCH",
-    commandId: command.commandId,
-    playerId: command.playerId,
-    tileDeltas: [context.tileDeltaFromState(updatedTile)]
-  });
+  context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: command.commandId, playerId: command.playerId, tileDeltas: [context.tileDeltaFromState(updatedTile)] });
+  if (hadMuster) {
+    context.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `${command.commandId}:bc`, playerId: "__broadcast__", tileDeltas: [{ x: updatedTile.x, y: updatedTile.y, ownerId: "", ownershipState: "", musterJson: "" }] });
+  }
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 }
 
