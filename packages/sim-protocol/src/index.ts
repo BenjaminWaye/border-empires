@@ -297,6 +297,11 @@ export type SeasonArchiveRow = {
 // Moved to simulation-event.ts (this file is already over the file-line cap).
 export type { SimulationEvent, CombatBroadcastPayload } from "./simulation-event.js";
 
+// Galactic meta-layer: victory-path -> planet specialization mapping (§3 of
+// docs/galactic-campaign-design.md). Kept in its own module, same reason.
+export type { GalaxySpecialization } from "./galaxy-specialization.js";
+export { GALAXY_SPECIALIZATION_NAME, specializationForVictoryPath } from "./galaxy-specialization.js";
+
 export type PlayerSubscriptionDock = {
   dockId: string;
   tileKey: string;

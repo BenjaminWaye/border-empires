@@ -65,6 +65,28 @@ describe("renderGalaxyViewHtml", () => {
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
   });
+
+  it("renders a specialization badge with its display label when present", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [{ ...named, specialization: "CAPITAL" }],
+      focusedSeasonId: "season-2"
+    });
+    expect(html).toContain("gx-specialization");
+    expect(html).toContain("Capital World");
+  });
+
+  it("renders no specialization badge when the field is absent (pre-specialization archives)", () => {
+    const html = renderGalaxyViewHtml({ planets: [named], focusedSeasonId: "season-2" });
+    expect(html).not.toContain("gx-specialization");
+  });
+
+  it("falls back to the raw specialization id when it has no known display label", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [{ ...named, specialization: "FUTURE_ID" }],
+      focusedSeasonId: "season-2"
+    });
+    expect(html).toContain("FUTURE_ID World");
+  });
 });
 
 const baseEmperorModel: GalaxyEmperorViewModel = {

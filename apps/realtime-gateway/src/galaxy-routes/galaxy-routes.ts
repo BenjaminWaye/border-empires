@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import type { CurrentSeasonSummary, SeasonArchiveRow, SeasonWinnerSnapshot, SeasonWinnerStats } from "@border-empires/sim-protocol";
+import type { CurrentSeasonSummary, GalaxySpecialization, SeasonArchiveRow, SeasonWinnerSnapshot, SeasonWinnerStats } from "@border-empires/sim-protocol";
+import { specializationForVictoryPath } from "@border-empires/sim-protocol";
 
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
@@ -30,6 +31,7 @@ type GalaxyMePlanetView = {
   seasonId: string;
   seasonSequence: number;
   objectiveName: string;
+  specialization: GalaxySpecialization;
   crownedAt: number;
   planetName: string | null;
   named: boolean;
@@ -40,6 +42,7 @@ type GalaxyPublicPlanetView = {
   seasonId: string;
   seasonSequence: number;
   objectiveName: string;
+  specialization: GalaxySpecialization;
   crownedAt: number;
   claimed: boolean;
   planetName: string | null;
@@ -101,6 +104,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
         seasonId: season.seasonId,
         seasonSequence: season.seasonSequence,
         objectiveName: season.winner.objectiveName,
+        specialization: specializationForVictoryPath(season.winner.objectiveId),
         crownedAt: season.winner.crownedAt,
         planetName: record?.planetName ?? null,
         named: Boolean(record),
@@ -170,6 +174,7 @@ export const registerGalaxyRoutes = (app: FastifyInstance, deps: RegisterGalaxyR
         seasonId: season.seasonId,
         seasonSequence: season.seasonSequence,
         objectiveName: season.winner.objectiveName,
+        specialization: specializationForVictoryPath(season.winner.objectiveId),
         crownedAt: season.winner.crownedAt,
         claimed: Boolean(record),
         planetName: record?.planetName ?? null,
