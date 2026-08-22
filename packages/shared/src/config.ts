@@ -119,6 +119,24 @@ export const STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE = 0.4;
 // town's contribution the way MANPOWER_BASE_REGEN_PER_MINUTE would if reused
 // here — see §4.3's "critical implementation trap" note.
 export const MANPOWER_REGEN_GLOBAL_FLOOR = 0.15;
+
+// --- Galactic meta-layer v0: Wonder-style starting bonuses (§5, §12) ---
+// docs/galactic-campaign-design.md §5 describes 6 globally-unique Wonders
+// bought with a persistent Production economy that doesn't exist yet (no
+// Production wallet, no supersession, no Influence/Senate). v0's stand-in
+// (§12 "Production funding 1-2 Wonder-style starting bonuses for the
+// claimant's next season") is much smaller: the most recent season's Planet
+// winner (§3) gets two fixed, one-time starting bonuses applied at their
+// next JoinSeason spawn — see pendingGalacticWonderBonus in
+// apps/simulation/src/runtime/runtime.ts. Not tunable per-Wonder-tier like
+// §13's Prod costs; a flat grant is the whole v0 simplification.
+// Dyson Array stand-in: a manpower-regen head start, same order of magnitude
+// as STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE above (doubles it).
+export const GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE = 0.4;
+// Deep Sensor Array stand-in: reuses the Observatory vision-radius model
+// (OBSERVATORY_VISION_BONUS below) at half its magnitude — a head start, not
+// a full Observatory-equivalent bonus.
+export const GALACTIC_WONDER_VISION_RADIUS_BONUS = 2;
 export const TOWN_MANPOWER_BY_TIER: Record<
   "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS",
   { cap: number; regenPerMinute: number }
