@@ -52,7 +52,7 @@ import { createSiphonFxLayer } from "../client-map-3d-siphon-fx/client-map-3d-si
 import { createRetortRecastFxLayer } from "../client-map-3d-retort-recast-fx/client-map-3d-retort-recast-fx.js";
 import { createRevealEmpireFxLayer } from "../client-map-3d-reveal-empire-fx/client-map-3d-reveal-empire-fx.js";
 import { createMonumentPulseFxLayer } from "../client-map-3d-monument-pulse-fx/client-map-3d-monument-pulse-fx.js";
-import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
+import { createUnsettleFxLayer } from "../client-map-3d-unsettle-fx/client-map-3d-unsettle-fx.js"; import { createCameraShakeFx } from "../client-map-3d-camera-shake-fx/client-map-3d-camera-shake-fx.js";
 import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-map-3d-aegis-lock-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
@@ -208,7 +208,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const worldEngineShakeFx = createCameraShakeFx(camera);
   const imperialExchangeLevyFx = createMonumentPulseFxLayer(scene, "#ffd166", "imperial-exchange-levy-fx");
   const astralDockLaunchFx = createRevealEmpireFxLayer(scene);
-  const aegisLockFx = createAegisLockFxLayer(scene);
+  const aegisLockFx = createAegisLockFxLayer(scene); const unsettleFx = createUnsettleFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt);
@@ -1119,6 +1119,11 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       imperialExchangeLevyFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
+  const syncUnsettleFxQueue = (): void => {
+    while (deps.state.unsettleFxQueue.length > 0) {
+      const cast = deps.state.unsettleFxQueue.shift()!;
+      unsettleFx.spawn(toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
+    } };
   const syncAstralDockLaunchFxQueue = (): void => {
     while (deps.state.astralDockLaunchFxQueue.length > 0) {
       const cast = deps.state.astralDockLaunchFxQueue.shift()!;
@@ -2115,13 +2120,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncWorldEngineStrikeShakeQueue(nowMs);
     syncImperialExchangeLevyFxQueue();
     syncAstralDockLaunchFxQueue();
-    syncAegisLockFxQueue();
-    crystalTargetingOverlay.sync({
-      ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected,
-      keyFor: deps.keyFor, camX: deps.state.camX, camY: deps.state.camY,
-      cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY,
-      toroidDelta
-    });
+    syncAegisLockFxQueue(); syncUnsettleFxQueue();
+    crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: deps.state.camX, camY: deps.state.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY, toroidDelta });
     villageEffects.update(nowMs);
     shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs);
     renderReachOverlay3DPylons(nowMs);
@@ -2136,7 +2136,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     worldEngineShakeFx.update(nowMs);
     imperialExchangeLevyFx.update(nowMs);
     astralDockLaunchFx.update(nowMs);
-    aegisLockFx.update(nowMs);
+    aegisLockFx.update(nowMs); unsettleFx.update(nowMs);
     floatingText.update(nowMs);
     attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
@@ -2227,7 +2227,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     worldEngineStrikeFx.dispose();
     imperialExchangeLevyFx.dispose();
     astralDockLaunchFx.dispose();
-    aegisLockFx.dispose();
+    aegisLockFx.dispose(); unsettleFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
     shardOverlay.dispose(); watchtowerOverlay.dispose(); naturalWonderOverlays.dispose();

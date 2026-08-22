@@ -1149,7 +1149,7 @@ export class SimulationRuntime {
     // worlds start from a consistent state), but if it ever does, it's
     // correct to let it — the tile genuinely isn't defended by anyone else.
     for (const anchor of this.gatherReachAnchors()) {
-      this.applyReachAnchorActivation(anchor, "world-init");
+      this.applyReachAnchorActivation(anchor, "world-init", { contestSettledOnUnclaimed: false });
     }
     // Moved here (see the long comment above, right after this.tiles is
     // assigned) from immediately after `this.players` was built: this is the
@@ -3009,8 +3009,8 @@ export class SimulationRuntime {
     };
   }
 
-  private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string): void {
-    this.reachBorder = applyReachAnchorActivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId);
+  private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { contestSettledOnUnclaimed?: boolean }): void {
+    this.reachBorder = applyReachAnchorActivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId, options);
   }
 
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
@@ -3774,6 +3774,10 @@ export class SimulationRuntime {
       if (target.frontierDecayKind === "ENCIRCLEMENT") continue;
       if (target.terrain !== "LAND") continue;
       if (this.pendingSettlementsByTile.has(targetKey)) continue;
+      // Fixed-border reach: same OUT_OF_REACH gate handleSettleCommand applies
+      // to a human's SETTLE command (see its comment above) -- this path
+      // bypasses that handler entirely, so the check must be repeated here.
+      if (!this.isPlayerTileInReach(playerId, target.x, target.y)) continue;
       const commandId = this.nextTerritoryAutomationCommandId("auto-settle", playerId, targetKey, nowMs);
       this.startSettlementProcess({
         commandId,

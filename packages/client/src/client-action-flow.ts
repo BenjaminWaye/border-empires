@@ -613,6 +613,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
   // and it's now owned, trigger settlement if it's queued in autoSettleTargets.
   const processAutoSettleTargets = (): void => {
     if (state.autoSettleTargets.size === 0) return;
+    const reach = resolveMyReach(state);
     for (const targetKey of [...state.autoSettleTargets]) {
       const tile = state.tiles.get(targetKey);
       if (!tile) continue;
@@ -627,6 +628,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         continue;
       }
       if (tile.ownerId === state.me && tile.ownershipState === "FRONTIER" && !tile.optimisticPending) {
+        // The tile can drift out of reach between the click that queued this
+        // (e.g. a Relay Beacon chain, or a build queued ahead of ownership
+        // landing) and the tick where ownership actually arrives -- the server
+        // would reject the SETTLE as OUT_OF_REACH anyway, so drop the queued
+        // settle (and any dependent build) instead of sending a doomed command.
+        if (!reach.has(targetKey)) {
+          state.autoSettleTargets.delete(targetKey);
+          state.autoBuildTargets.delete(targetKey);
+          continue;
+        }
         state.autoSettleTargets.delete(targetKey);
         requestSettlement(tile.x, tile.y);
       }
