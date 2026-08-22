@@ -283,17 +283,10 @@ import * as wonderEffects from "../runtime-natural-wonders.js"; import {
   type SnapshotTile
 } from "../runtime-snapshot-sections.js";
 import {
-  emitVisibilityAudit as emitVisibilityAuditImpl,
-  exportBarbActivationVisibleUnion as exportBarbActivationVisibleUnionImpl,
-  exportTilesInAreaForPlayer as exportTilesInAreaForPlayerImpl,
-  exportVisibleStateForPlayer as exportVisibleStateForPlayerImpl,
-  exportVisibleStateForPlayerAsync as exportVisibleStateForPlayerAsyncImpl,
-  getBarbActivationVisionSignature as getBarbActivationVisionSignatureImpl,
   type BarbActivationVisibilityCache
 } from "../runtime-visible-state.js";
 import { RuntimeReplayCache } from "../runtime-replay-cache.js";
 import {
-  classifyVisibilityForPlayer as classifyVisibilityForPlayerImpl,
   type RuntimeVisibilityClassification
 } from "../runtime-visibility-classifier.js";
 import {
@@ -310,6 +303,18 @@ import {
   tilesForKeysForRuntime,
   type RuntimeExportContext
 } from "./runtime-export.js";
+import {
+  classifyVisibilityForPlayerForRuntime,
+  emitVisibilityAuditForRuntime,
+  exportBarbActivationVisibleUnionForRuntime,
+  exportTilesInAreaForPlayerForRuntime,
+  exportVisibleStateForPlayerAsyncForRuntime,
+  exportVisibleStateForPlayerForRuntime,
+  getBarbActivationVisionSignatureForRuntime,
+  settledTilesForPlayerForRuntime,
+  type RuntimeClassifyVisibilityContext,
+  type RuntimeVisibleStateContext
+} from "./runtime-visibility.js";
 import {
   repairZeroGrossIncomeSettlements as repairZeroGrossIncomeSettlementsImpl,
   type GrossIncomeRepairResult
@@ -2775,29 +2780,31 @@ export class SimulationRuntime {
     return leaderboardPlayersForRuntime(this.exportContext());
   }
 
-  private classifyVisibilityForPlayer(playerId: string): RuntimeVisibilityClassification {
-    const run = (): RuntimeVisibilityClassification => classifyVisibilityForPlayerImpl({
-      playerId,
+  // Shared context builder for the visibility-surface free functions in
+  // runtime-visibility.ts, mirroring townNetworkContext()'s pattern (Stage
+  // 4) and exportContext()'s pattern above (Stage 5a). visibilityCoverage
+  // and barbActivationVisibilityCache stay owned by SimulationRuntime and
+  // are threaded in by reference — see runtime-visibility.ts's header
+  // comment for why ownership must not move.
+  private classifyVisibilityContext(): RuntimeClassifyVisibilityContext {
+    return {
       players: this.players,
       tiles: this.tiles,
       locksByTile: this.locksByTile,
       docks: this.docks,
       dockLinksByDockTileKey: this.dockLinksByDockTileKey,
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-      visibilityCoverage: this.visibilityCoverage
-    });
-    // Named so an event_loop_blocked incident can see this instead of an
-    // empty mainThreadTasks — classification itself is now an O(territory)
-    // read of the incrementally-maintained coverage cache (see
-    // visibility-coverage-cache.ts), but dock-reveal collection can still
-    // scan every dock link, so this stays wrapped.
-    return this.trackSyncMainThreadTask
-      ? this.trackSyncMainThreadTask("classify_visibility_for_player", { playerId }, run)
-      : run();
+      visibilityCoverage: this.visibilityCoverage,
+      ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {})
+    };
+  }
+
+  private classifyVisibilityForPlayer(playerId: string): RuntimeVisibilityClassification {
+    return classifyVisibilityForPlayerForRuntime(this.classifyVisibilityContext(), playerId);
   }
 
   getBarbActivationVisionSignature(): string {
-    return getBarbActivationVisionSignatureImpl({
+    return getBarbActivationVisionSignatureForRuntime({
       players: this.players,
       tileCollectionVersionForPlayer: (playerId) =>
         this.territoryVersionByPlayer.get(playerId) ?? 0
@@ -2805,7 +2812,7 @@ export class SimulationRuntime {
   }
 
   exportBarbActivationVisibleUnion(): { keys: string[]; signature: string } {
-    return exportBarbActivationVisibleUnionImpl({
+    return exportBarbActivationVisibleUnionForRuntime({
       players: this.players,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       tileCollectionVersionForPlayer: (playerId) =>
@@ -2821,7 +2828,7 @@ export class SimulationRuntime {
     redacted: boolean,
     classification: ReturnType<SimulationRuntime["classifyVisibilityForPlayer"]>
   ): void {
-    emitVisibilityAuditImpl({
+    emitVisibilityAuditForRuntime({
       onVisibilityAudit: this.onVisibilityAudit,
       playerId,
       tile,
@@ -2832,12 +2839,11 @@ export class SimulationRuntime {
   }
 
   exportVisibleStateForPlayer(playerId: string): ReturnType<SimulationRuntime["exportState"]> {
-    return exportVisibleStateForPlayerImpl(this.visibleStateDeps(playerId));
+    return exportVisibleStateForPlayerForRuntime(this.visibleStateDeps(), playerId);
   }
 
-  private visibleStateDeps(playerId: string) {
+  private visibleStateDeps(): RuntimeVisibleStateContext {
     return {
-      playerId,
       tiles: this.tiles,
       locksByCommandId: this.locksByCommandId,
       players: this.players,
@@ -2878,10 +2884,7 @@ export class SimulationRuntime {
     playerId: string,
     yieldToEventLoop: () => Promise<void>
   ): Promise<ReturnType<SimulationRuntime["exportState"]>> {
-    return exportVisibleStateForPlayerAsyncImpl({
-      ...this.visibleStateDeps(playerId),
-      yieldToEventLoop
-    });
+    return exportVisibleStateForPlayerAsyncForRuntime(this.visibleStateDeps(), playerId, yieldToEventLoop);
   }
 
   exportTilesInAreaForPlayer(
@@ -2891,18 +2894,20 @@ export class SimulationRuntime {
     radius: number,
     options?: { fullVisibility?: boolean }
   ): SimulationTileWireDelta[] {
-    return exportTilesInAreaForPlayerImpl({
+    return exportTilesInAreaForPlayerForRuntime(
+      {
+        tiles: this.tiles,
+        players: this.players,
+        tileDeltaFromState: (tile, context) => this.tileDeltaFromState(tile, context),
+        tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
+        filterTileDeltasForPlayer: (tileDeltas, visiblePlayerId) => this.filterTileDeltasForPlayer(tileDeltas, visiblePlayerId)
+      },
       playerId,
       centerX,
       centerY,
       radius,
-      fullVisibility: options?.fullVisibility,
-      tiles: this.tiles,
-      players: this.players,
-      tileDeltaFromState: (tile, context) => this.tileDeltaFromState(tile, context),
-      tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
-      filterTileDeltasForPlayer: (tileDeltas, visiblePlayerId) => this.filterTileDeltasForPlayer(tileDeltas, visiblePlayerId)
-    });
+      options
+    );
   }
 
   filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined }>(
@@ -2927,9 +2932,7 @@ export class SimulationRuntime {
   }
 
   private settledTilesForPlayer(playerId: string): DomainTileState[] {
-    return [...this.summaryForPlayer(playerId).territoryTileKeys]
-      .map((tileKey) => this.tiles.get(tileKey))
-      .filter((tile): tile is DomainTileState => Boolean(tile && tile.ownerId === playerId && tile.ownershipState === "SETTLED"));
+    return settledTilesForPlayerForRuntime(this.tiles, (id) => this.summaryForPlayer(id), playerId);
   }
 
   // --- Fixed-border reach (packages/shared/src/reach/reach.ts) ---
