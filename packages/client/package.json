@@ -16,6 +16,7 @@
     "three": "^0.179.1"
   },
   "devDependencies": {
+    "@border-empires/sim-protocol": "workspace:*",
     "@types/three": "^0.179.0",
     "happy-dom": "^20.10.6",
     "typescript": "^5.6.3",

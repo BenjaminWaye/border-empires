@@ -44,6 +44,123 @@ describe("computeSeasonVictory", () => {
   });
 });
 
+describe("objective progress (docs/galactic-campaign-design.md §3 Outpost/Stipend tiering)", () => {
+  it("computes ECONOMIC_HEGEMONY progress as the harder of the income and lead-over-runner-up constraints", () => {
+    // MIN_INCOME is 1000/1440 gold/min and LEAD_MULT is 1.33. The leader (top
+    // earner by income) clears MIN_INCOME comfortably (1200 >= 1000, fraction
+    // 1.2) but a close runner-up at 1000 leaves the lead requirement short
+    // (1200 < 1000*1.33 = 1330) -- the lead fraction (~0.90) is the binding,
+    // smaller constraint, so progress should track it, not the looser income
+    // fraction, and conditionMet should still be false.
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-1", name: "Leader", tiles: 1, incomePerMinute: 1200 / 1440, techs: 0, score: 0, rank: 1 },
+      { id: "player-2", name: "Runner Up", tiles: 1, incomePerMinute: 1000 / 1440, techs: 0, score: 0, rank: 2 }
+    ];
+    const objective = buildEconomicHegemonyObjective(leaderboardOverall);
+    expect(objective.progress).toBeCloseTo(1200 / (1000 * 1.33), 5);
+    expect(objective.conditionMet).toBe(false);
+  });
+
+  it("reports ECONOMIC_HEGEMONY progress of 1 once the condition is met", () => {
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-1", name: "Leader", tiles: 1, incomePerMinute: 2000 / 1440, techs: 0, score: 0, rank: 1 },
+      { id: "player-2", name: "Runner Up", tiles: 1, incomePerMinute: 100 / 1440, techs: 0, score: 0, rank: 2 }
+    ];
+    const objective = buildEconomicHegemonyObjective(leaderboardOverall);
+    expect(objective.conditionMet).toBe(true);
+    expect(objective.progress).toBe(1);
+  });
+
+  it("computes TOWN_CONTROL progress as leader towns over the 50%-of-all-towns target", () => {
+    // 4 total town tiles -> townTarget = ceil(4 * 0.5) = 2. player-1 owns 1.
+    const worldTiles: WorldTileFixture[] = [
+      { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "SETTLEMENT" },
+      { x: 1, y: 0, terrain: "LAND", townType: "SETTLEMENT" },
+      { x: 2, y: 0, terrain: "LAND", townType: "SETTLEMENT" },
+      { x: 3, y: 0, terrain: "LAND", townType: "SETTLEMENT" }
+    ] as WorldTileFixture[];
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-1", name: "Leader", tiles: 1, incomePerMinute: 0, techs: 0, score: 0, rank: 1 }
+    ];
+    const players: PlayersFixture = [{ id: "player-1", allies: [] }] as PlayersFixture;
+
+    const { objectives } = computeSeasonVictory(worldTiles, leaderboardOverall, players);
+    const townControl = objectives.find((o) => o.id === "TOWN_CONTROL");
+    expect(townControl?.progress).toBe(0.5);
+  });
+
+  it("computes RESOURCE_MONOPOLY progress as the leader's best resource share over the 80% target", () => {
+    // 5 GEMS tiles total, player-1 owns 2 -> share = 0.4, progress = 0.4/0.8 = 0.5.
+    const worldTiles: WorldTileFixture[] = [
+      { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", resource: "GEMS" },
+      { x: 1, y: 0, terrain: "LAND", ownerId: "player-1", resource: "GEMS" },
+      { x: 2, y: 0, terrain: "LAND", resource: "GEMS" },
+      { x: 3, y: 0, terrain: "LAND", resource: "GEMS" },
+      { x: 4, y: 0, terrain: "LAND", resource: "GEMS" }
+    ] as WorldTileFixture[];
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-1", name: "Leader", tiles: 2, incomePerMinute: 0, techs: 0, score: 0, rank: 1 }
+    ];
+    const players: PlayersFixture = [{ id: "player-1", allies: [] }] as PlayersFixture;
+
+    const { objectives } = computeSeasonVictory(worldTiles, leaderboardOverall, players);
+    const resourceMonopoly = objectives.find((o) => o.id === "RESOURCE_MONOPOLY");
+    expect(resourceMonopoly?.progress).toBeCloseTo(0.5, 5);
+  });
+
+  it("computes MARITIME_SUPREMACY progress as leader docks over the dock target", () => {
+    // 10 dock tiles total -> target = max(3, ceil(10 * 0.55)) = 6. player-1 owns 3.
+    const worldTiles: WorldTileFixture[] = Array.from({ length: 10 }, (_, i) => ({
+      x: i,
+      y: 0,
+      terrain: "LAND",
+      dockId: `dock-${i}`,
+      ...(i < 3 ? { ownerId: "player-1", ownershipState: "SETTLED" } : {})
+    })) as WorldTileFixture[];
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-1", name: "Leader", tiles: 3, incomePerMinute: 0, techs: 0, score: 0, rank: 1 }
+    ];
+    const players: PlayersFixture = [{ id: "player-1", allies: [] }] as PlayersFixture;
+
+    const { objectives } = computeSeasonVictory(worldTiles, leaderboardOverall, players);
+    const maritimeSupremacy = objectives.find((o) => o.id === "MARITIME_SUPREMACY");
+    expect(maritimeSupremacy?.progress).toBeCloseTo(0.5, 5);
+  });
+
+  it("computes DIPLOMATIC_DOMINANCE progress as bloc-controlled tiles over the 66%-of-land target", () => {
+    // 10 land tiles total -> target = ceil(10 * 0.66) = 7. player-1 controls 3.
+    const worldTiles: WorldTileFixture[] = Array.from({ length: 10 }, (_, i) => ({
+      x: i,
+      y: 0,
+      terrain: "LAND",
+      ...(i < 3 ? { ownerId: "player-1", ownershipState: "SETTLED" } : {})
+    })) as WorldTileFixture[];
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-1", name: "Leader", tiles: 3, incomePerMinute: 0, techs: 0, score: 0, rank: 1 }
+    ];
+    const players: PlayersFixture = [{ id: "player-1", allies: [] }] as PlayersFixture;
+
+    const { objectives } = computeSeasonVictory(worldTiles, leaderboardOverall, players);
+    const diplomaticDominance = objectives.find((o) => o.id === "DIPLOMATIC_DOMINANCE");
+    expect(diplomaticDominance?.progress).toBeCloseTo(3 / 7, 5);
+  });
+
+  it("clamps progress to 1 and never reports a value above it once a threshold is overshot", () => {
+    const worldTiles: WorldTileFixture[] = [
+      { x: 0, y: 0, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", townType: "SETTLEMENT" }
+    ] as WorldTileFixture[];
+    const leaderboardOverall: LeaderboardFixture = [
+      { id: "player-1", name: "Leader", tiles: 1, incomePerMinute: 0, techs: 0, score: 0, rank: 1 }
+    ];
+    const players: PlayersFixture = [{ id: "player-1", allies: [] }] as PlayersFixture;
+
+    const { objectives } = computeSeasonVictory(worldTiles, leaderboardOverall, players);
+    const townControl = objectives.find((o) => o.id === "TOWN_CONTROL");
+    expect(townControl?.conditionMet).toBe(true);
+    expect(townControl?.progress).toBe(1);
+  });
+});
+
 describe("buildEconomicHegemonyObjective", () => {
   it("derives the same ECONOMIC_HEGEMONY objective as computeSeasonVictory from just the leaderboard", () => {
     // Regression for the leaderboard-panel bug where the "Overall" income column
