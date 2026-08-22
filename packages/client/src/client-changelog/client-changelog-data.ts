@@ -13,6 +13,25 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787435600000, // 2026.08.22.13 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.13",
+    title: "Fixed: another player's town could show your \"ready to upgrade\" badge",
+    why: "The map's green up-arrow badge and the food-shortage badge only checked that a town had an owner, not that the owner was you, so a rival town that happened to qualify lit up on your map the same way one of your own towns would.",
+    changes: [
+      "The population-tier upgrade badge and the unfed-town food badge now only appear on towns you own, on both the 3D map and the classic 2D map."
+    ]
+  },
+  {
+    createdAt: 1787411986658,
+    introducedIn: "2026.08.22.8",
+    title: "Beta season countdown screen",
+    why: "The beta season now has a synchronized start time so everyone begins together instead of the first arrivals compounding a head start over testers in later timezones.",
+    changes: [
+      "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
+      "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
+    ]
+  },
+  {
     createdAt: 1787432000000,
     introducedIn: "2026.08.22.12",
     title: "Your galaxy planets and outposts now earn Influence and Production, and can lose Stability",
@@ -385,17 +404,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The clash-phase oscillation only ever varied a dot's position along the perpendicular spread across the tile, never along the attacker-defender line itself. That meant an attacker dot and a defender dot with the same per-dot spread value landed on the exact same point, every frame, for the whole clash — the two swarms were genuinely coincident, not just visually crowded. With depth testing disabled on both dot materials (needed so they always render on top of the terrain), whichever side's mesh happened to draw second fully hid the other, so the entire clash read as a single-color blob with no visible fight between two sides — confirmed with the new Storybook \"Full Attack Lifecycle\" story, where the attacker's dots were invisible for the whole clash and only reappeared once rout physically separated the two sides.",
     changes: [
       "Each side now holds a small, jostling offset along the attack line during the clash, so attacker and defender read as two distinct lines pressed together instead of one side fully hiding the other."
-    ]
-  },
-  {
-    createdAt: 1786905792661, // 2026.08.16
-    introducedIn: "2026.08.16",
-    title: "The Caravanary is now the Trade Nexus, with a new commercial-hub look",
-    why: "The Caravanary still read as a humble road-station courtyard, while the trade network needed to sell concentrated wealth — a grand exchange hall where trade routes converge, with cargo and brass machinery at work. Renamed the building to Trade Nexus and gave it a look to match; the underlying road-network mechanics are unchanged.",
-    changes: [
-      "The Caravanary structure is renamed Trade Nexus everywhere in the UI (build menu, tile info, tech tree). Its behavior — enabling the connected-town road network and income bonus — is unchanged.",
-      "New 3D overlay: a grand domed trading hall on an octagonal stone plinth, ringed by six converging trade roads, merchants' warehouses, stacked cargo, brass jib cranes, feed pipes, warm hanging lamps and a slowly winding brass clockwork seal atop the dome — replacing the old fortified-inn look.",
-      "A matching flat-color 2D icon (trading hall, converging routes, cargo and brass machinery) accompanies the 3D asset."
     ]
   },
   {
