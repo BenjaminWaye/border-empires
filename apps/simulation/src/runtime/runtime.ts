@@ -25,16 +25,12 @@ import {
 } from "@border-empires/game-domain";
 import {
   ATTACK_MANPOWER_MIN,
-  BARBARIAN_RAID_COST,
   BREAKTHROUGH_ENABLED,
   EMPIRE_INTEGRITY_ENABLED,
   empireIntegrity,
   integrityGrowthMult,
-  MUSTER_ATTACK_COST,
-  FORT_GARRISON_ATTRITION_MIN,
-  FORT_GARRISON_ATTRITION_MAX,
   DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_ATTACK_MUSTER_COST, FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST,
+  FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST,
   SETTLE_COST,
   structureSlotRequirements,
   WORLD_HEIGHT,
@@ -467,6 +463,12 @@ import {
   type RuntimeLockResolutionContext
 } from "../runtime-lock-resolution.js";
 import { applyResourceTileSteal as applyResourceTileStealImpl, type RuntimeResourceStealContext } from "../runtime-resource-steal.js";
+import {
+  applyFortGarrisonAttrition as applyFortGarrisonAttritionImpl,
+  consumeOriginMuster as consumeOriginMusterImpl,
+  requiredMusterForTarget as requiredMusterForTargetImpl,
+  type RuntimeCombatResolutionContext
+} from "../runtime-combat-resolution.js";
 import {
   handleFrontierCommandImpl,
   type RuntimeFrontierCommandContext
@@ -4587,11 +4589,7 @@ export class SimulationRuntime {
    * for barbarian raids (Phase 8) and FRONTIER targets (forts only defend once SETTLED).
    */
   private requiredMusterForTarget(target: DomainTileState): number {
-    // Barbarian tiles are raided cheaply from the pool (handled in validateFrontierCommand).
-    if (target.ownerId === "barbarian-1") return BARBARIAN_RAID_COST;
-    if (target.ownershipState === "FRONTIER") return FRONTIER_ATTACK_MUSTER_COST;
-    const fortGarrison = (target.fort?.status === "active" && target.fort.garrison != null) ? target.fort.garrison : 0;
-    return Math.max(MUSTER_ATTACK_COST, Math.ceil(fortGarrison));
+    return requiredMusterForTargetImpl(target);
   }
 
   /**
@@ -4600,20 +4598,7 @@ export class SimulationRuntime {
    * muster during accumulation).
    */
   private consumeOriginMuster(originKey: string, playerId: string, amount: number): void {
-    const tile = this.tiles.get(originKey);
-    if (!tile?.muster || tile.muster.ownerId !== playerId) return;
-    const nextAmount = Math.max(0, tile.muster.amount - amount);
-    const updatedTile: DomainTileState = {
-      ...tile,
-      muster: { ...tile.muster, amount: nextAmount, updatedAt: this.now() }
-    };
-    this.replaceTileState(originKey, updatedTile);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: `muster-spend:${originKey}:${this.now()}`,
-      playerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
+    consumeOriginMusterImpl(this.combatResolutionContext(), originKey, playerId, amount);
   }
 
   /**
@@ -4621,22 +4606,17 @@ export class SimulationRuntime {
    * The attrittion fraction is a random draw in [MIN, MAX] applied to the attacking force.
    */
   private applyFortGarrisonAttrition(targetKey: string, attackingForce: number): void {
-    const tile = this.tiles.get(targetKey);
-    if (!tile?.fort || tile.fort.status !== "active" || tile.fort.garrison == null) return;
-    const fraction = FORT_GARRISON_ATTRITION_MIN +
-      Math.random() * (FORT_GARRISON_ATTRITION_MAX - FORT_GARRISON_ATTRITION_MIN);
-    const loss = fraction * attackingForce;
-    const updatedTile: DomainTileState = {
-      ...tile,
-      fort: { ...tile.fort, garrison: Math.max(0, tile.fort.garrison - loss), garrisonUpdatedAt: this.now() }
+    applyFortGarrisonAttritionImpl(this.combatResolutionContext(), targetKey, attackingForce);
+  }
+
+  private combatResolutionContext(): RuntimeCombatResolutionContext {
+    return {
+      tiles: this.tiles,
+      now: this.now,
+      replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
+      emitEvent: (event) => this.emitEvent(event),
+      tileDeltaFromState: (tile) => this.tileDeltaFromState(tile)
     };
-    this.replaceTileState(targetKey, updatedTile);
-    this.emitEvent({
-      eventType: "TILE_DELTA_BATCH",
-      commandId: `fort-attrition:${targetKey}:${this.now()}`,
-      playerId: tile.fort.ownerId,
-      tileDeltas: [this.tileDeltaFromState(updatedTile)]
-    });
   }
 
   private respawnIfEliminated(playerId: string, commandId: string): void { respawnIfEliminatedImpl(this.respawnContext(), playerId, commandId); }
