@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787430500000,
+    introducedIn: "2026.08.22.7",
+    title: "Stage Muster now sits above Disable on structure tiles",
+    why: "On a tile with both a muster flag and a disable-able structure (e.g. Relay Beacon), Stage Muster/Set Hold/Set Advance showed up below the Disable button, making the muster controls easy to miss.",
+    changes: [
+      "The tile action menu now lists Stage Muster (and Set Hold/Set Advance/Clear Muster) above Disable/Enable for the tile's structure."
+    ]
+  },
+  {
     createdAt: 1787430400000,
     introducedIn: "2026.08.22.6",
     title: "Joining a new season is now a deliberate choice",
