@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import { BufferGeometry, Mesh, Scene } from "three";
 import { describe, expect, it } from "vitest";
 import { setWorldSeed } from "@border-empires/shared";
-import { createRiverOverlay } from "./client-map-3d-rivers.js";
+import { createRiverOverlay, maxNearbyElevation } from "./client-map-3d-rivers.js";
+import { heightfieldFlatTileElevation, type HeightfieldTerrainKind } from "../client-map-3d-heightfield-terrain.js";
 
 const clientSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -70,6 +71,48 @@ describe("decorative river overlay", () => {
 
     overlayA.dispose();
     overlayB.dispose();
+  });
+
+  it("maxNearbyElevation clears a neighbouring MOUNTAIN's elevation, not just the point's own tile", () => {
+    // A river point one tile from a MOUNTAIN has a real corner-blended
+    // ground surface well above its own flat-land tile's elevation — using
+    // only the point's own tile rendered the ribbon underground there.
+    const kindAt = (wx: number, wy: number): HeightfieldTerrainKind => (wx === 5 && wy === 5 ? "MOUNTAIN" : "GRASS");
+    const elevationAtPointOwnTile = heightfieldFlatTileElevation(4, 4, "GRASS");
+    const elevationOfNeighbourMountain = heightfieldFlatTileElevation(5, 5, "MOUNTAIN");
+
+    // (4.5, 4.5) sits in tile (4,4), diagonally adjacent to the mountain at (5,5).
+    const result = maxNearbyElevation(4.5, 4.5, kindAt);
+
+    expect(result).toBeGreaterThan(elevationAtPointOwnTile);
+    expect(result).toBe(elevationOfNeighbourMountain);
+  });
+
+  it("produces meaningfully longer rivers, not mostly short stubs near the coast", () => {
+    // Regression for findRiverStart preferring the *first* near-mountain
+    // land tile it found rather than the farthest-from-coast candidate: on
+    // a world where most mountains sit close to the coast (land bands here
+    // rarely run more than ~40-50 tiles deep anywhere), that produced mostly
+    // short stub rivers a handful of tiles long, which read as disconnected
+    // scribbles rather than a river reaching the sea from somewhere inland.
+    //
+    // Total vertex count (4 vertices per ribbon segment) is used as a proxy
+    // for total river length here — the merged geometry doesn't carry
+    // per-river boundaries to check any single river's span directly. For
+    // this seed, the unfixed algorithm produces 10 rivers totalling 77
+    // segments (308 vertices); the fix raises that to 116 segments (464
+    // vertices) by finding a meaningfully longer source for one of them.
+    setWorldSeed(555);
+    const scene = new Scene();
+    const overlay = createRiverOverlay(scene);
+    overlay.rebuild(WIDE_WINDOW);
+    const positions = positionsOf(riverMesh(scene));
+    expect(positions).toBeDefined();
+
+    const vertexCount = positions!.length / 3;
+    expect(vertexCount).toBeGreaterThan(350);
+
+    overlay.dispose();
   });
 
   it("only renders geometry near the requested camera window, not the whole world", () => {

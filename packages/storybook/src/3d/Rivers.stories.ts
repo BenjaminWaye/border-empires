@@ -105,12 +105,12 @@ const meta: Meta<Args> = {
     cameraTilt: { control: { type: "range", min: 0.05, max: 1.4, step: 0.05 } }
   },
   args: {
-    seed: 555,
-    camX: 150,
-    camY: 100,
+    seed: 3141,
+    camX: 82,
+    camY: 143,
     halfSpan: 20,
     showGridlines: false,
-    cameraDistance: 40,
+    cameraDistance: 50,
     cameraTilt: 0.6
   },
   render
@@ -119,12 +119,17 @@ const meta: Meta<Args> = {
 export default meta;
 type Story = StoryObj<Args>;
 
-// Seed 555 at (150, 100) was picked by scanning for a window with a
-// substantial visible river — rivers are sparse (~10 across the whole
-// 450x450 world), so most random seed/camera combinations show nothing.
+// Seed 3141 at (82, 143) was picked by scanning for a window that contains
+// one river's *entire* path, mountain source to coastal mouth, with no
+// other river overlapping the same view (two independent rivers can
+// otherwise land in the same view and look like one river cut into random
+// disconnected pieces) and away from the polar TUNDRA band, where a river's
+// blue tends to blend into TUNDRA's own similarly cool palette. Most random
+// seed/camera combinations either show nothing (rivers are sparse, ~10
+// across the whole 450x450 world) or only a fragment of a much longer path.
 export const RiverNearMountain: Story = {};
 
-export const WiderView: Story = { args: { halfSpan: 35, cameraDistance: 65 } };
+export const WiderView: Story = { args: { halfSpan: 35, cameraDistance: 70 } };
 
 export const DifferentSeed: Story = { args: { seed: 2024, camX: 100, camY: 150, halfSpan: 25, cameraDistance: 50 } };
 
