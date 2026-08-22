@@ -5,7 +5,11 @@ import { BufferGeometry, Mesh, Scene } from "three";
 import { describe, expect, it } from "vitest";
 import { setWorldSeed, terrainAt, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { createRiverOverlay, maxNearbyElevation } from "./client-map-3d-rivers.js";
-import { heightfieldFlatTileElevation, type HeightfieldTerrainKind } from "../client-map-3d-heightfield-terrain.js";
+import {
+  heightfieldFlatTileElevation,
+  HEIGHTFIELD_HILLS_ELEVATION_BONUS,
+  type HeightfieldTerrainKind
+} from "../client-map-3d-heightfield-terrain.js";
 
 const clientSource = (): string => {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -86,6 +90,21 @@ describe("decorative river overlay", () => {
 
     expect(result).toBeGreaterThan(elevationAtPointOwnTile);
     expect(result).toBe(elevationOfNeighbourMountain);
+  });
+
+  it("maxNearbyElevation adds the hills dome bonus for a neighbouring hills tile", () => {
+    // Hills are rendered as a dome mesh bolted on top of the flat grid
+    // (client-map-3d-hills.ts), invisible to heightfieldFlatTileElevation.
+    // Without accounting for it here, a river crossing a hills tile
+    // rendered underground relative to the dome bulge.
+    const kindAt = (): HeightfieldTerrainKind => "GRASS";
+    const isHillsAt = (wx: number, wy: number): boolean => wx === 5 && wy === 5;
+    const flatElevation = heightfieldFlatTileElevation(5, 5, "GRASS");
+
+    // (4.5, 4.5) sits in tile (4,4), diagonally adjacent to the hill at (5,5).
+    const result = maxNearbyElevation(4.5, 4.5, kindAt, isHillsAt);
+
+    expect(result).toBe(flatElevation + HEIGHTFIELD_HILLS_ELEVATION_BONUS);
   });
 
   it("produces meaningfully longer rivers, not mostly short stubs near the coast", () => {
