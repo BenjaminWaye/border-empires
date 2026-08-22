@@ -26,6 +26,7 @@
       "@client/client-map-3d-heightfield.js": ["../client/src/client-map-3d-heightfield/client-map-3d-heightfield.ts"],
       "@client/client-map-3d-mountain-massif.js": ["../client/src/client-map-3d-mountain-massif.ts"],
       "@client/client-map-3d-observatory-cooldown-badge-overlay.js": ["../client/src/client-map-3d-observatory-cooldown-badge-overlay/client-map-3d-observatory-cooldown-badge-overlay.ts"],
+      "@client/client-map-3d-ownership-border-overlay.js": ["../client/src/client-map-3d-ownership-border-overlay.ts"],
       "@client/client-map-3d-ownership-overlay.js": ["../client/src/client-map-3d-ownership-overlay.ts"],
       "@client/client-map-3d-resource-overlay.js": ["../client/src/client-map-3d-resource-overlay.ts"],
       "@client/client-map-3d-retort-recast-fx.js": ["../client/src/client-map-3d-retort-recast-fx/client-map-3d-retort-recast-fx.ts"],
