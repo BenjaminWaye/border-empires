@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787519694045, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.8",
+    title: "Trimmed two noisy activity feed messages",
+    why: "\"Unlocking: X\" and \"could not start and was removed from queue\" fired on routine, expected actions and just added clutter to the feed without telling you anything new.",
+    changes: [
+      "Choosing a tech no longer posts an \"Unlocking: X\" line to the activity feed.",
+      "A queued build/settlement that fails to start no longer posts a \"could not start and was removed from queue\" line to the activity feed."
+    ]
+  },
+  {
     createdAt: 1787518529221, // frozen from a live Date.now() call
     introducedIn: "2026.08.23.6",
     title: "New town theme sound",
