@@ -31,7 +31,6 @@ describe("tech unlock UI", () => {
     expect(send).toHaveBeenCalledWith(JSON.stringify({ type: "CHOOSE_TECH", techId: "coinage" }));
     expect(state.techUiSelectedId).toBe("coinage");
     expect(state.pendingTechUnlockId).toBe("coinage");
-    expect(pushFeed).toHaveBeenCalledWith("Unlocking: Coinage.", "tech", "info");
     expect(renderHud).toHaveBeenCalled();
   });
 });

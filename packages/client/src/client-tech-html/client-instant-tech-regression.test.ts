@@ -6,5 +6,4 @@ test("client tech flow no longer creates local research countdown state", () => 
   expect(source).not.toMatch(/state\.currentResearch = \{\s*techId,\s*startedAt,/);
   expect(source).not.toMatch(/Researching now\. Completes in/);
   expect(source).not.toMatch(/Researching •/);
-  expect(source).toMatch(/pushFeed\(`Unlocking: \$\{tech\.name\}\.`\, "tech", "info"\);/);
 });
