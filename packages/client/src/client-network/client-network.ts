@@ -2,7 +2,7 @@ import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdo
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
-import { clearCameraLocation } from "../client-view-refresh.js";
+import { clearCameraLocation } from "../client-view-refresh.js"; import { applyJoinSeasonSpawnRecenter } from "../client-join-season-spawn-recenter.js";
 import { feedEntryForEventLogEntry } from "../client-event-log-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
@@ -1294,7 +1294,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       for (const chunk of chunks) applyChunkTiles(chunk.tilesMaskedByFog);
       return;
     }
-    if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; } renderHud(); return; }
+    if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, msg.spawnTile as { x: number; y: number } | undefined, requestViewRefreshSafely); } renderHud(); return; }
     // Authoritative reach border (client-reach-authoritative.ts). Replaces the
     // old client-side approximation that could disagree with the server and
     // wedge waypoints on OUT_OF_REACH.

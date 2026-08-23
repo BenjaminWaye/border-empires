@@ -13,6 +13,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787489000059, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.3",
+    title: "Fixed camera not recentering when you spawn mid-session",
+    why: "Joining a season while already connected (rather than on a fresh page load) spawned your starting territory, but the camera stayed wherever you'd been panning beforehand and never moved to your new settlement -- and since the camera controls which map area loads, you could end up looking at empty, unloaded darkness with no way to find your own empire.",
+    changes: [
+      "Joining a season mid-session now recenters the camera on your new settlement as soon as it spawns.",
+      "The map around your new settlement now loads immediately instead of requiring a manual pan to trigger it.",
+      "The stale pre-spawn camera position is no longer saved for next time you load the game."
+    ]
+  },
+  {
     createdAt: 1787476076398, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
     introducedIn: "2026.08.23.2",
     title: "Expand is gated to your reach again, with a new way to reach an out-of-reach rival",
@@ -426,17 +437,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Every active shard rain site now shows as an arrow-shaped badge pointing off-screen toward it, the same locator system muster flags use — click it to jump the camera there.",
       "Once you scroll a site on-screen, a small shield badge hovers over that exact tile, bobbing gently in place — the same badge style as the unfed-town warning, with a shard icon instead. It's just a positional blip from the event broadcast, not confirmation the shard is still there, especially on a tile you haven't explored yet.",
       "Both the off-screen badge and the on-screen badge stay up for the full ~30-minute life of the shard rain event, not just the first moments after landing."
-    ]
-  },
-  {
-    createdAt: 1787122800000, // 2026.08.21
-    introducedIn: "2026.08.21",
-    title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",
-    why: "Expanding onto a dock connected to one you already own always failed with an out-of-reach error, since a dock only contributed to your reach once you already owned it -- there was no way to ever take the first step onto the far side. Separately, an Aether Bridge only ever opened a single-tile crossing at its landing point, so it couldn't be used to establish a real foothold for further expansion.",
-    changes: [
-      "You can now EXPAND onto an unowned dock that's connected to a dock you already own.",
-      "Casting Aether Bridge onto neutral ground now grants a small radius of reach around the landing tile, so you can expand into the surrounding land and build a Relay Beacon there -- the grant persists even after the bridge itself expires, though it can still be overtaken if a rival establishes their own reach (e.g. a Relay Beacon) over that ground.",
-      "Casting a bridge onto ground already inside a rival's territory still opens the crossing for an attack, but no longer grants any reach there."
     ]
   },
   {
