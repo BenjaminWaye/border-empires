@@ -2,7 +2,14 @@
 /* Bug report modal                                                       */
 /* ---------------------------------------------------------------------- */
 
-#bug-report-overlay {
+/* #hud #suggestion-overlay needs its own pointer-events: auto (style.css
+   only opts #bug-report-overlay in, and that file is at its line cap). */
+#hud #suggestion-overlay {
+  pointer-events: auto;
+}
+
+#bug-report-overlay,
+#suggestion-overlay {
   position: fixed;
   inset: 0;
   z-index: 9000;
@@ -13,14 +20,17 @@
   transition: opacity 0.18s ease;
 }
 
-#bug-report-overlay[data-open="true"] {
+#bug-report-overlay[data-open="true"],
+#suggestion-overlay[data-open="true"] {
   opacity: 1;
 }
 
-/* Overrides #hud #bug-report-overlay's unconditional pointer-events: auto
-   (style.css) -- without this, the emptied-but-still-in-the-DOM overlay div
-   keeps intercepting clicks over the whole screen after it's closed. */
-#hud #bug-report-overlay:not([data-open="true"]) {
+/* Overrides #hud #bug-report-overlay/#suggestion-overlay's unconditional
+   pointer-events: auto (style.css) -- without this, the emptied-but-still-
+   in-the-DOM overlay div keeps intercepting clicks over the whole screen
+   after it's closed. */
+#hud #bug-report-overlay:not([data-open="true"]),
+#hud #suggestion-overlay:not([data-open="true"]) {
   pointer-events: none;
 }
 
@@ -48,7 +58,8 @@
   transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease;
 }
 
-#bug-report-overlay[data-open="true"] .bug-report-modal {
+#bug-report-overlay[data-open="true"] .bug-report-modal,
+#suggestion-overlay[data-open="true"] .bug-report-modal {
   transform: translateY(0) scale(1);
   opacity: 1;
 }
@@ -246,4 +257,43 @@
     padding: 28px 28px 26px;
     gap: 16px;
   }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Suggest Improvement button + modal (green variant)                     */
+/* ---------------------------------------------------------------------- */
+
+.suggest-improvement-btn.panel-btn {
+  border-color: rgba(34, 197, 94, 0.4) !important;
+}
+
+.suggestion-modal {
+  border: 1px solid rgba(158, 239, 158, 0.16);
+  background:
+    radial-gradient(circle at top left, rgba(34, 197, 94, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(20, 30, 20, 0.98), rgba(14, 19, 14, 0.98));
+}
+
+.suggestion-modal .bug-report-icon {
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  color: #7be0a3;
+}
+
+.suggestion-modal .bug-report-textarea:focus {
+  border-color: rgba(34, 197, 94, 0.55);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
+}
+
+.suggestion-modal .bug-report-submit-btn {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: linear-gradient(180deg, #86efac, #22c55e 88%);
+  color: #06210f;
+  box-shadow: 0 12px 26px rgba(34, 197, 94, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.suggestion-modal .bug-report-submit-btn:disabled {
+  background: linear-gradient(180deg, rgba(134, 239, 172, 0.5), rgba(34, 197, 94, 0.5) 88%);
+  color: rgba(6, 33, 15, 0.7);
+  box-shadow: none;
 }
