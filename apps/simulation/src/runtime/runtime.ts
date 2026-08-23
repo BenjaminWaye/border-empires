@@ -8,7 +8,7 @@ import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
 import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
-import { cancelOutOfReachDecayInAnchorDisk, outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js";
+import { cancelOutOfReachDecayInAnchorDisk, outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import {
   gatherReachAnchors as gatherReachAnchorsImpl,
   newlyActivatedReachAnchors as newlyActivatedReachAnchorsImpl,
@@ -1763,7 +1763,7 @@ export class SimulationRuntime {
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId),
       maybeDrainClaimContinuation: (targetKey, x, y, playerId) => tryDrainClaimContinuationImpl(this.devQueueCommandContext(), playerId, targetKey, x, y),
-      outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now() }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => this.runtimeLogInfo(p, m)),
+      outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now() }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => this.runtimeLogInfo(p, m)), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl({ getPlayer: (id) => this.players.get(id), hasAvailableDevelopmentSlot: (id) => this.hasAvailableDevelopmentSlot(id), startSettlementProcess: (i) => this.startSettlementProcess(i), now: () => this.now() }, playerId), autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl({ getPlayer: (id) => this.players.get(id), hasAvailableDevelopmentSlot: (id) => this.hasAvailableDevelopmentSlot(id), startSettlementProcess: (i) => this.startSettlementProcess(i), now: () => this.now() }, playerId, targetKey, target, commandId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({
             capturedTile,
@@ -3011,7 +3011,8 @@ export class SimulationRuntime {
 
   private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { contestSettledOnUnclaimed?: boolean }): void {
     this.reachBorder = applyReachAnchorActivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId, options);
-    // Reach caught up over this anchor's disk: anything decaying there for being out of reach is now held ground. O(radius²), not a sweep. cancelOutOfReachDecayInAnchorDisk({ tiles: this.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }, anchor, causeCommandId);
+    // Reach caught up over this anchor's disk: anything decaying there for being out of reach is now held ground. O(radius²), not a sweep.
+    cancelOutOfReachDecayInAnchorDisk({ tiles: this.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) }, anchor, causeCommandId);
   }
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
     this.reachBorder = applyReachAnchorDeactivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId);
