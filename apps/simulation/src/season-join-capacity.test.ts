@@ -8,9 +8,9 @@ describe("resolveMaxSeasonPlayers", () => {
     else process.env.SIMULATION_MAX_SEASON_PLAYERS = originalEnv;
   });
 
-  it("defaults to 120 (headroom above the ~100-tester beta cohort) when unset", () => {
+  it("defaults to 50 when unset", () => {
     delete process.env.SIMULATION_MAX_SEASON_PLAYERS;
-    expect(resolveMaxSeasonPlayers(undefined)).toBe(120);
+    expect(resolveMaxSeasonPlayers(undefined)).toBe(50);
   });
 
   it("prefers an explicitly configured value over the env var", () => {
