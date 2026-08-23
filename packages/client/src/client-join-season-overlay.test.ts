@@ -37,6 +37,26 @@ describe("join-season overlay", () => {
     expect(overlayEl.style.display).toBe("none");
   });
 
+  it("is hidden while profile setup (name/color) is still required, even when a season needs joining", () => {
+    // Regression test: a brand-new player needs a name and tile color before
+    // joining a season and appearing in its roster. The join-season overlay
+    // going full-screen (setSeasonLobbyFullscreen) hides every #hud child
+    // except itself, including #auth-overlay -- so if this overlay showed
+    // itself before profile setup finished, the name/color picker had no
+    // screen left to render on and silently never appeared.
+    const overlayEl = document.createElement("div");
+    document.body.classList.remove("season-lobby-active");
+    renderJoinSeasonOverlay({
+      state: makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, profileSetupRequired: true }) as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true
+    });
+    expect(overlayEl.style.display).toBe("none");
+    expect(overlayEl.innerHTML).toBe("");
+    expect(document.body.classList.contains("season-lobby-active")).toBe(false);
+  });
+
   it("renders the join prompt with the season id when needed", () => {
     const overlayEl = document.createElement("div");
     renderJoinSeasonOverlay({
