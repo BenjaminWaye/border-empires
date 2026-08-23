@@ -120,8 +120,10 @@ export const landGatedTileKeysInDisk = (
   const included = new Set<string>([tileKey(ax, ay)]);
   const visited = new Set<string>([tileKey(ax, ay)]);
   const queue: Array<{ x: number; y: number }> = [{ x: ax, y: ay }];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
+  let head = 0;
+  while (head < queue.length) {
+    const current = queue[head]!;
+    head += 1;
     for (const { dx, dy } of REACH_NEIGHBOR_OFFSETS) {
       const nx = wrapCoord(current.x + dx, WORLD_WIDTH);
       const ny = wrapCoord(current.y + dy, WORLD_HEIGHT);
