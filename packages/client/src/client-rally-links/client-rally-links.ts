@@ -73,6 +73,7 @@ const createPanel = (variant: "new" | "invite"): HTMLElement => {
   panel.dataset.variant = variant;
   panel.innerHTML = `
     <div class="rally-link-card">
+      <button type="button" class="rally-link-dismiss" data-rally-dismiss aria-label="Close">&times;</button>
       <h2>Rally link</h2>
       <p data-rally-status>Sign in to create a rally link.</p>
       <dl data-rally-details hidden>
@@ -90,8 +91,10 @@ const createPanel = (variant: "new" | "invite"): HTMLElement => {
   const style = document.createElement("style");
   style.textContent = `
     .rally-link-panel{position:fixed;inset:0;z-index:29;display:grid;place-items:center;pointer-events:none}
-    .rally-link-card{width:min(420px,calc(100vw - 32px));background:rgba(11,18,32,.94);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:18px;color:#f8fafc;box-shadow:0 18px 54px rgba(0,0,0,.38);pointer-events:auto}
-    .rally-link-card h2{font-size:20px;line-height:1.2;margin:0 0 8px}
+    .rally-link-card{position:relative;width:min(420px,calc(100vw - 32px));background:rgba(11,18,32,.94);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:18px;color:#f8fafc;box-shadow:0 18px 54px rgba(0,0,0,.38);pointer-events:auto}
+    .rally-link-dismiss{position:absolute;top:8px;right:8px;width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:#94a3b8;font-size:20px;line-height:1;cursor:pointer}
+    .rally-link-dismiss:hover{background:rgba(255,255,255,.1);color:#f8fafc}
+    .rally-link-card h2{font-size:20px;line-height:1.2;margin:0 0 8px;padding-right:24px}
     .rally-link-card p{margin:0 0 12px;color:#cbd5e1}
     .rally-link-card dl{display:grid;grid-template-columns:1fr;gap:8px;margin:0 0 14px}
     .rally-link-card dl[hidden]{display:none}
@@ -107,6 +110,13 @@ const createPanel = (variant: "new" | "invite"): HTMLElement => {
   return panel;
 };
 
+const dismissPanel = (panel: HTMLElement): void => {
+  panel.remove();
+  if (typeof window !== "undefined" && window.history?.replaceState) {
+    window.history.replaceState(null, "", "/");
+  }
+};
+
 export const mountRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {
   if (typeof window === "undefined" || !isRallyNewRoute(window.location)) return;
   const panel = createPanel("new");
@@ -114,6 +124,8 @@ export const mountRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string })
   const output = panel.querySelector<HTMLElement>("[data-rally-output]")!;
   const input = panel.querySelector<HTMLInputElement>("[data-rally-url]")!;
   const copy = panel.querySelector<HTMLButtonElement>("[data-rally-copy]")!;
+  const dismiss = panel.querySelector<HTMLButtonElement>("[data-rally-dismiss]")!;
+  dismiss.addEventListener("click", () => dismissPanel(panel));
   let mintInFlight = false;
   let minted = false;
 
@@ -167,6 +179,8 @@ export const mountRallyInvitePanel = (deps: { firebaseAuth?: Auth; wsUrl: string
   const owner = panel.querySelector<HTMLElement>("[data-rally-owner]")!;
   const uses = panel.querySelector<HTMLElement>("[data-rally-uses]")!;
   const anchor = panel.querySelector<HTMLElement>("[data-rally-anchor]")!;
+  const dismiss = panel.querySelector<HTMLButtonElement>("[data-rally-dismiss]")!;
+  dismiss.addEventListener("click", () => dismissPanel(panel));
   title.textContent = "Join a rally";
   status.textContent = "Loading rally invite...";
 

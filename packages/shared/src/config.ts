@@ -108,11 +108,11 @@ export const AI_AUTO_CLAIM_MANPOWER_RESERVE = SETTLE_MANPOWER_COST;
 // town's contribution, unconditionally (see playerManpowerCapFromSummary /
 // playerManpowerRegenPerMinuteFromSummary in apps/simulation/src/runtime-manpower.ts).
 // Sized so a new player can expand ~40 tiles and settle ~8 before waiting on
-// regen: 40 * EXPAND_MANPOWER_COST + 8 * SETTLE_MANPOWER_COST = 560; the 576
-// cap leaves a small margin. Regen 0.4/min implies a 24h fill window
-// (576 = 0.4 * 1440), a deliberate departure from the 12h SETTLEMENT-tier
+// regen: 40 * EXPAND_MANPOWER_COST + 8 * SETTLE_MANPOWER_COST = 560; the 720
+// cap leaves a larger margin. Regen 0.4/min implies a 30h fill window
+// (720 = 0.4 * 1800), a deliberate departure from the 12h SETTLEMENT-tier
 // convention — see §4.3 for the full onboarding-math writeup.
-export const STARTING_CAPITAL_MANPOWER_CAP = 576;
+export const STARTING_CAPITAL_MANPOWER_CAP = 720;
 export const STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE = 0.4;
 // Global regen safety floor. Deliberately kept low (below every real tier's
 // regenPerMinute, including SETTLEMENT's ~0.208) so it never masks a captured
