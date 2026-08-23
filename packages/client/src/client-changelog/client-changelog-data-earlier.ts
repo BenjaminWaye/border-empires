@@ -12,6 +12,37 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787259991319,
+    introducedIn: "2026.08.20",
+    title: "Rush-buy button is no longer a bare unstyled control, and its gold icon no longer looks like silver",
+    why: "The tile progress card's rush-buy button had no CSS at all, so it rendered as a plain browser-default button instead of matching the card's other pill-shaped controls. Its price label also used the 🪙 coin emoji, which renders as a plain silver/steel coin in most fonts and read as a different currency than gold.",
+    changes: [
+      "The rush-buy button now uses a gold-gradient pill style matching the rest of the tile progress card's buttons.",
+      "The rush-buy price label now uses 💰 instead of 🪙 so it reads unambiguously as gold."
+    ]
+  },
+  {
+    createdAt: 1787294902457, // 2026.08.20.1
+    introducedIn: "2026.08.20.1",
+    title: "ADVANCE-mode muster attacks now show the skirmish animation too",
+    why: "A manual attack is almost always against a tile you're currently looking at, so it's already loaded client-side. But a muster flag in ADVANCE mode fires autonomously against whatever the server's own search finds nearest — which can be a tile this client has never had vision of. The skirmish overlay required already knowing that tile's owner, so it silently skipped rendering for the whole ~30s countdown, only appearing once the resolution broadcast finally revealed the tile — reading as \"no animation until it resolves\", exactly for the fire-and-forget flags ADVANCE mode is meant for.",
+    changes: [
+      "An ADVANCE-fired attack now shows its own skirmish animation for the full countdown, the same as a manual attack, even when you haven't scouted the target tile yourself.",
+      "The dot colors briefly use a placeholder until real tile data arrives (typically within the countdown), then switch to the correct owner colors."
+    ]
+  },
+  {
+    createdAt: 1787122800000, // 2026.08.21
+    introducedIn: "2026.08.21",
+    title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",
+    why: "Expanding onto a dock connected to one you already own always failed with an out-of-reach error, since a dock only contributed to your reach once you already owned it -- there was no way to ever take the first step onto the far side. Separately, an Aether Bridge only ever opened a single-tile crossing at its landing point, so it couldn't be used to establish a real foothold for further expansion.",
+    changes: [
+      "You can now EXPAND onto an unowned dock that's connected to a dock you already own.",
+      "Casting Aether Bridge onto neutral ground now grants a small radius of reach around the landing tile, so you can expand into the surrounding land and build a Relay Beacon there -- the grant persists even after the bridge itself expires, though it can still be overtaken if a rival establishes their own reach (e.g. a Relay Beacon) over that ground.",
+      "Casting a bridge onto ground already inside a rival's territory still opens the crossing for an attack, but no longer grants any reach there."
+    ]
+  },
+  {
     createdAt: 1787476075398, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23",
     title: "Redesigned the bug report form",
@@ -265,15 +296,4 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "A pocket only auto-fills once every part of its sealing boundary (your own territory and/or coastline/mountains) is within your reach — a boundary tile that's still out of reach means the whole pocket waits, rather than filling in partially."
     ]
   },
-  {
-    createdAt: 1787122800000, // 2026.08.21
-    introducedIn: "2026.08.21",
-    title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",
-    why: "Expanding onto a dock connected to one you already own always failed with an out-of-reach error, since a dock only contributed to your reach once you already owned it -- there was no way to ever take the first step onto the far side. Separately, an Aether Bridge only ever opened a single-tile crossing at its landing point, so it couldn't be used to establish a real foothold for further expansion.",
-    changes: [
-      "You can now EXPAND onto an unowned dock that's connected to a dock you already own.",
-      "Casting Aether Bridge onto neutral ground now grants a small radius of reach around the landing tile, so you can expand into the surrounding land and build a Relay Beacon there -- the grant persists even after the bridge itself expires, though it can still be overtaken if a rival establishes their own reach (e.g. a Relay Beacon) over that ground.",
-      "Casting a bridge onto ground already inside a rival's territory still opens the crossing for an attack, but no longer grants any reach there."
-    ]
-  }
 ];

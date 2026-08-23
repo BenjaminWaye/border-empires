@@ -13,6 +13,26 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787501551525, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
+    introducedIn: "2026.08.23.5",
+    title: "AI empires no longer play ahead during the season lobby countdown",
+    why: "Locking new human players out of a season until the lobby countdown finished didn't also stop AI empires from acting -- they kept building, expanding, and fighting during the countdown, so by the time human players were let in the AI had a head start nobody could see coming.",
+    changes: [
+      "AI empires now stay locked out of taking any actions during the lobby countdown, just like new human players, until the season actually starts."
+    ]
+  },
+  {
+    createdAt: 1787489000059, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.3",
+    title: "Fixed camera not recentering when you spawn mid-session",
+    why: "Joining a season while already connected (rather than on a fresh page load) spawned your starting territory, but the camera stayed wherever you'd been panning beforehand and never moved to your new settlement -- and since the camera controls which map area loads, you could end up looking at empty, unloaded darkness with no way to find your own empire.",
+    changes: [
+      "Joining a season mid-session now recenters the camera on your new settlement as soon as it spawns.",
+      "The map around your new settlement now loads immediately instead of requiring a manual pan to trigger it.",
+      "The stale pre-spawn camera position is no longer saved for next time you load the game."
+    ]
+  },
+  {
     createdAt: 1787501551524, // frozen one ms after the incoming "Lowered the season player cap to 50" entry
     introducedIn: "2026.08.23.4",
     title: "\"Maybe your empire is in ruins\" no longer fires while you're still waiting in the pre-game lobby, and the lobby fits mobile screens properly",
@@ -29,15 +49,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The lobby was hitting the prior 120-player cap; capping seasons at 50 keeps them a manageable size.",
     changes: [
       "New seasons now stop admitting new players once 50 human players have joined, down from 120."
-    ]
-  },
-  {
-    createdAt: 1787501551525, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
-    introducedIn: "2026.08.23.5",
-    title: "AI empires no longer play ahead during the season lobby countdown",
-    why: "Locking new human players out of a season until the lobby countdown finished didn't also stop AI empires from acting -- they kept building, expanding, and fighting during the countdown, so by the time human players were let in the AI had a head start nobody could see coming.",
-    changes: [
-      "AI empires now stay locked out of taking any actions during the lobby countdown, just like new human players, until the season actually starts."
     ]
   },
   {
@@ -186,16 +197,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The map's green up-arrow badge and the food-shortage badge only checked that a town had an owner, not that the owner was you, so a rival town that happened to qualify lit up on your map the same way one of your own towns would.",
     changes: [
       "The population-tier upgrade badge and the unfed-town food badge now only appear on towns you own, on both the 3D map and the classic 2D map."
-    ]
-  },
-  {
-    createdAt: 1787411986658,
-    introducedIn: "2026.08.22.8",
-    title: "Beta season countdown screen",
-    why: "The beta season now has a synchronized start time so everyone begins together instead of the first arrivals compounding a head start over testers in later timezones.",
-    changes: [
-      "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
-      "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
     ]
   },
   {
@@ -389,16 +390,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787294902457, // 2026.08.20.1
-    introducedIn: "2026.08.20.1",
-    title: "ADVANCE-mode muster attacks now show the skirmish animation too",
-    why: "A manual attack is almost always against a tile you're currently looking at, so it's already loaded client-side. But a muster flag in ADVANCE mode fires autonomously against whatever the server's own search finds nearest — which can be a tile this client has never had vision of. The skirmish overlay required already knowing that tile's owner, so it silently skipped rendering for the whole ~30s countdown, only appearing once the resolution broadcast finally revealed the tile — reading as \"no animation until it resolves\", exactly for the fire-and-forget flags ADVANCE mode is meant for.",
-    changes: [
-      "An ADVANCE-fired attack now shows its own skirmish animation for the full countdown, the same as a manual attack, even when you haven't scouted the target tile yourself.",
-      "The dot colors briefly use a placeholder until real tile data arrives (typically within the countdown), then switch to the correct owner colors."
-    ]
-  },
-  {
     createdAt: 1787296000000, // 2026.08.21.2 — frozen; was Date.now() in the merged commit
     introducedIn: "2026.08.21.2",
     title: "Relay beacons are now destroyed when their tile is captured",
@@ -434,16 +425,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Retiring pylons now take about 3 seconds to fade their laser and sink into the ground, and arriving pylons take about 3.2 seconds to rise and power their laser on.",
       "New pylons/lasers along an expanding border now stagger in more visibly, one at a time, instead of all rising together."
-    ]
-  },
-  {
-    createdAt: 1787259991319,
-    introducedIn: "2026.08.20",
-    title: "Rush-buy button is no longer a bare unstyled control, and its gold icon no longer looks like silver",
-    why: "The tile progress card's rush-buy button had no CSS at all, so it rendered as a plain browser-default button instead of matching the card's other pill-shaped controls. Its price label also used the 🪙 coin emoji, which renders as a plain silver/steel coin in most fonts and read as a different currency than gold.",
-    changes: [
-      "The rush-buy button now uses a gold-gradient pill style matching the rest of the tile progress card's buttons.",
-      "The rush-buy price label now uses 💰 instead of 🪙 so it reads unambiguously as gold."
     ]
   },
   {
