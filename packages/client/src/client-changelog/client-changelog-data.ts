@@ -24,6 +24,44 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787501551523, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.4",
+    title: "Lowered the season player cap to 50",
+    why: "The lobby was hitting the prior 120-player cap; capping seasons at 50 keeps them a manageable size.",
+    changes: [
+      "New seasons now stop admitting new players once 50 human players have joined, down from 120."
+    ]
+  },
+  {
+    createdAt: 1787487792786, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.3",
+    title: "Punched up the season-lobby copy",
+    why: "The 'Season starts soon' text was accurate but flat -- it read like a disclaimer instead of hyping up the moment everyone's about to launch together.",
+    changes: [
+      "The join-season overlay now reads \"Same starting line for everyone -- the whole season kicks off in one shot, no head starts,\" with the timezone caveat kept as a short aside."
+    ]
+  },
+  {
+    createdAt: 1787485929859, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.3",
+    title: "Fixed the name/color picker not showing for new players joining a season",
+    why: "The season lobby's full-screen treatment hides every other overlay on screen while it's up -- including the name/color setup screen, which needs to run first for a brand-new player. A new player hitting a pending or newly-started season had no screen left to pick a name and color on, so it silently never appeared.",
+    changes: [
+      "The season lobby now waits for name/color setup to finish before taking over the screen, instead of hiding it."
+    ]
+  },
+  {
+    createdAt: 1787484620520, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.2",
+    title: "Fixed the season lobby's cog vibrating instead of turning, and the invite button appearing to do nothing",
+    why: "The season lobby overlay rebuilt its entire DOM on every render pass, most of which fire from ordinary background traffic unrelated to the lobby itself -- that reset the brass cog's CSS animation before it ever completed a visible rotation (looked like vibrating), and wiped out the invite button's \"Copied!\" confirmation within milliseconds of clicking it, making the button look broken even though the copy succeeded. Separately, reloading the page while waiting in the lobby dropped you back to a plain \"Join Season?\" prompt with an empty player list instead of returning you straight to the countdown you were already in.",
+    changes: [
+      "The season lobby's cog now spins smoothly, and the countdown/roster no longer flicker on every background update.",
+      "The \"Bring a friend\" button's \"Copied!\" confirmation is now visible long enough to actually see it.",
+      "Reloading the page (or reconnecting) while waiting in the pending-season lobby now returns you straight to the countdown with the live player count and roster, instead of showing an empty \"Join Season?\" prompt first."
+    ]
+  },
+  {
     createdAt: 1787476076398, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
     introducedIn: "2026.08.23.2",
     title: "Expand is gated to your reach again, with a new way to reach an out-of-reach rival",
@@ -401,34 +439,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787259991318,
-    introducedIn: "2026.08.20.3",
-    title: "Fixed a frame-rate drop from the survey-sweep ping overlay",
-    why: "The 3D map's per-frame render loop re-uploaded the survey-sweep ping overlay's four GPU instance buffers every single frame, even on the vast majority of frames where no ping was active — a real WebGL bufferSubData call for zero visual change, 60 times a second. A capture from a live session showed WebGL buffer uploads consuming over 80% of total frame CPU time, with the game sustaining only ~11-12fps.",
-    changes: [
-      "The survey-sweep ping overlay now skips its GPU buffer upload on any frame where no ping was active last frame either, instead of re-uploading empty data unconditionally every frame."
-    ]
-  },
-  {
-    createdAt: 1787259991317,
-    introducedIn: "2026.08.20.2",
-    title: "Removed the out-of-reach dim overlay on rival tiles",
-    why: "Rival-owned tiles that were visible but outside your reach radius were darkened with a dimming/hatch treatment (the Aether Survey Line's out-of-reach indicator). We decided this visual signal wasn't pulling its weight and removed it, in both the 2D and 3D map renderers.",
-    changes: [
-      "Removed the out-of-reach dim overlay on rival tiles that used to darken visible-but-unreachable enemy/neutral territory. Reach itself, dormant-frontier tiles, and the reach boundary line are unaffected."
-    ]
-  },
-  {
-    createdAt: 1787259991316, // 2026.08.20
-    introducedIn: "2026.08.20",
-    title: "Auto-fill now respects your reach/border",
-    why: "Sealing off a pocket of land used to auto-settle it regardless of whether your empire's reach actually extended there — you could end up with settled tiles outside your reach, or see a burst of unrelated-looking tiles suddenly fill in when your reach shifted somewhere else entirely. Auto-fill now only settles a pocket once its entire boundary — not just the land inside it — is within your reach, so it only ever triggers from something happening near that pocket's own edge.",
-    changes: [
-      "Auto-fill no longer settles tiles outside your reach/border.",
-      "A pocket only auto-fills once every part of its sealing boundary (your own territory and/or coastline/mountains) is within your reach — a boundary tile that's still out of reach means the whole pocket waits, rather than filling in partially."
-    ]
-  },
-  {
     createdAt: 1787356800001, // 2026.08.21, after the entries below
     introducedIn: "2026.08.21",
     title: "Shard rain impact sites now show on the map, even before you've explored them",
@@ -481,17 +491,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
     ]
   },
-  {
-    createdAt: 1787476075398, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Redesigned the bug report form",
-    why: "The Report a Bug dialog was unstyled -- a bare textarea and buttons popping in and out instantly with no visual feedback -- which felt broken for a tool meant to inspire confidence while reporting something broken.",
-    changes: [
-      "The bug report dialog now fades and scales in/out instead of snapping open and closed, and closes on Escape or by clicking its new close button.",
-      "Redesigned the dialog with a proper card layout, icon, and a styled textarea that matches the game's other overlays instead of looking like an unstyled default form.",
-      "Submitting now shows a spinner while gathering logs and sending, and a clear checkmark or error icon once it finishes."
-    ]
-  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
