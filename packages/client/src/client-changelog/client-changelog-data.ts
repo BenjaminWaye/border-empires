@@ -23,12 +23,28 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787518529221, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.6",
+    title: "New town theme sound",
+    why: "The old town location theme was swapped out for a new one-shot cue.",
+    changes: ["Looking at a town now plays a new, updated town theme sound instead of the old one."]
+  },
+  {
     createdAt: 1787501551525, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
     introducedIn: "2026.08.23.5",
     title: "AI empires no longer play ahead during the season lobby countdown",
     why: "Locking new human players out of a season until the lobby countdown finished didn't also stop AI empires from acting -- they kept building, expanding, and fighting during the countdown, so by the time human players were let in the AI had a head start nobody could see coming.",
     changes: [
       "AI empires now stay locked out of taking any actions during the lobby countdown, just like new human players, until the season actually starts."
+    ]
+  },
+  {
+    createdAt: 1787501551526, // frozen just after the entry above
+    introducedIn: "2026.08.21",
+    title: "Village smoke and capital banners are now animated on the GPU instead of the CPU",
+    why: "Village smoke puffs, captured-town smoke columns, and capital banner positions were recomputed and re-uploaded to the GPU (bufferSubData) every single frame for every visible instance — up to ~7,000 combined smoke puffs — regardless of whether the camera or game state changed at all. A CPU trace from a live session showed WebGL buffer uploads as the dominant per-frame cost, correlating with a sustained ~11-12fps. The rise/drift/scale/fade animation now runs entirely in a GPU vertex shader driven by a single time value; the CPU only writes each puff's base position once, when villages or captured towns actually change (not every frame). Capital banner positions — which never moved — were also being needlessly rewritten every frame; they're now set once too. Visually identical to before.",
+    changes: [
+      "No visible change — this is a performance fix for the 3D map's frame rate. Village smoke, captured-town smoke, and capital banners render identically, just far cheaper per frame."
     ]
   },
   {
@@ -476,6 +492,25 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Closing the redesigned bug report dialog (including automatically, after a successful submit) only cleared its contents -- the full-screen invisible container div stayed in the DOM with pointer-events left on, silently intercepting every click across the entire game until you reloaded the page.",
     changes: [
       "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
+    ]
+  },
+  {
+    createdAt: 1787509343955, // frozen from `date +%s%3N`
+    introducedIn: "2026.08.23.3",
+    title: "Reach no longer spreads across open water",
+    why: "A town, outpost, or dock's reach radius was purely geometric with no terrain awareness, so a coastal or island anchor's disk routinely covered land on the far side of a bay or strait even with no unbroken land route to it -- letting you EXPAND/SETTLE onto land you had no real connection to.",
+    changes: [
+      "A normal reach anchor's radius now only extends onto land reachable by an unbroken land path from the anchor, within the radius -- water is still included right at the coastline, it just can't act as a stepping-stone onto land further out.",
+      "The Aether Bridge's water-crossing reach grant is unaffected -- bridging across water without a land connection is still exactly what it's for."
+    ]
+  },
+  {
+    createdAt: 1787509994281, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.3",
+    title: "Fixed queued settlements/builds sometimes sitting stalled after logging back in",
+    why: "A queued SETTLE or BUILD only starts once an earlier one in your queue finishes, and that hand-off only happens when the server notices a slot just freed up. If a slot freed up while you were disconnected, nobody was around to trigger that hand-off, so your next queued action could sit stalled -- looking untouched -- until some unrelated action elsewhere happened to free another slot.",
+    changes: [
+      "Logging back in now immediately checks your queue for anything that's actually free to start, instead of waiting on an unrelated event to notice."
     ]
   }
 ];
