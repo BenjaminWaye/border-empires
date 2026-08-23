@@ -43,7 +43,7 @@ import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-p
 import { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js"; import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js";
 import { createWorldEngineStrikeGatewayIntegration } from "../world-engine-strike-broadcast/world-engine-strike-broadcast.js";
-import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js";
+import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
 import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
 import { startImperialWardAutoStartTimer } from "../galaxy-endorsement-auto-start/galaxy-endorsement-auto-start.js";
@@ -2050,7 +2050,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.complete("rejected", admission.reason === "rate" || admission.reason === "queue_full" ? "bootstrap_admission" : "queue_socket_closed");
               return;
             }
-            let bootstrapInitialState; let needsSeasonJoin = false;
+            let bootstrapInitialState; let needsSeasonJoin = false; let seasonPending = false; let seasonPendingScheduledStartAt: number | undefined; let seasonPendingRoster: SeasonLobbyUpdatePayload | undefined;
             try {
             let rallyAnchor: { x: number; y: number; island?: string } | undefined;
             let acceptedRallyCode: string | undefined;
@@ -2097,7 +2097,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               );
               if (acceptedRallyCode && !prepareResult.spawned) { await rallyLinkStore.releaseUse(acceptedRallyCode); acceptedRallyCode = undefined; }
               if (prepareResult.full) { recordGatewayEvent("info", "gateway_auth_prepare_season_full", { playerId: playerIdentity.playerId, channel, prepareDurationMs: Date.now() - prepareStartedAt }); sendJson(socket, seasonFullErrorPayload()); authTrace.endStep("prepare_player", false); authTrace.complete("rejected", "season_full"); return; }
-              needsSeasonJoin = prepareResult.joined === false; const prepareDurationMs = Date.now() - prepareStartedAt;
+              needsSeasonJoin = prepareResult.joined === false; if (prepareResult.pending) { seasonPending = true; seasonPendingScheduledStartAt = prepareResult.scheduledStartAt; seasonPendingRoster = await handlePrepareResultSeasonPending(playerIdentity.playerId, { checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, rosterEntries: () => seasonLobby.roster.entries() }); } const prepareDurationMs = Date.now() - prepareStartedAt;
               recordGatewayEvent(
                 prepareResult.spawned || prepareDurationMs >= 250 ? "warn" : "info",
                 "gateway_auth_prepare_ready",
@@ -2303,7 +2303,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 simulationSeedProfile,
                 legacySnapshotBootstrap,
                 profileOverrides,
-                socialState, session.canToggleFog, needsSeasonJoin
+                socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster
               );
               recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
                 playerId: playerIdentity.playerId,

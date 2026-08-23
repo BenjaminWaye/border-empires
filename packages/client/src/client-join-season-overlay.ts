@@ -14,6 +14,7 @@ type JoinSeasonOverlayDeps = {
     | "seasonLobbyWaitingCount"
     | "seasonLobbyMaxPlayers"
     | "seasonLobbyRoster"
+    | "profileSetupRequired"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
@@ -40,6 +41,39 @@ const clearCountdownTimer = (): void => {
   countdownTimer = undefined;
 };
 
+// renderJoinSeasonOverlay is called on every renderHud() pass -- which fires
+// many times a second from ordinary socket/state traffic, not just when this
+// overlay's own content changes. Rebuilding overlayEl.innerHTML on every one
+// of those calls tore down and recreated the war-room shell's cog element
+// each time, restarting its CSS animation from frame 0 before it ever
+// completed a visible rotation -- the "vibrating instead of turning" bug.
+// This tracks what was actually rendered last time so the expensive rebuild
+// (and the animation restart that comes with it) only happens when the
+// overlay's actual content changes -- a new roster entry, the count ticking
+// up, the branch switching -- not on every unrelated render pass. The live
+// countdown digits still update every second via the tick() below, which
+// only touches #join-season-countdown's text and never touches the cog.
+//
+// Stored as a dataset attribute on overlayEl itself, not a module-level
+// variable -- this module has no per-instance state otherwise, and a plain
+// module-level `let` would leak between independent render sequences (e.g.
+// two different overlay elements, or successive unrelated test cases in the
+// same module instance) instead of tracking "what THIS element last showed".
+const RENDER_KEY_ATTR = "seasonLobbyRenderKey";
+
+const computeRenderKey = (state: JoinSeasonOverlayDeps["state"], visible: boolean): string =>
+  !visible
+    ? "hidden"
+    : JSON.stringify([
+        state.seasonPending,
+        state.joinSeasonId,
+        state.seasonPendingScheduledStartAt,
+        state.joinSeasonPending,
+        state.seasonLobbyWaitingCount,
+        state.seasonLobbyMaxPlayers,
+        state.seasonLobbyRoster
+      ]);
+
 // While the join-season overlay is up (either branch), this becomes the ONLY
 // thing on screen: client-runtime-loop.ts checks it to skip canvas/world
 // rendering entirely, and client-season-lobby-style.css uses it to hide
@@ -61,16 +95,30 @@ const setSeasonLobbyFullscreen = (active: boolean): void => {
 // scheduledStartAt to count down to, so its dial reads "Ready" instead.
 export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   const { state, overlayEl, renderHud, joinSeason, pushFeed } = deps;
-  const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen;
+  // Profile setup (name/color) must complete before the join-season overlay
+  // ever takes over the screen -- a brand-new player needs both a name and a
+  // tile color before joining a season and appearing in its roster. Without
+  // this check, a new player hitting a pending/newly-started season saw the
+  // join-season overlay go full-screen (see setSeasonLobbyFullscreen below)
+  // and hide #auth-overlay along with the rest of #hud, silently skipping
+  // the name/color picker entirely -- there was simply no screen left to
+  // show it on.
+  const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen && !state.profileSetupRequired;
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";
     clearCountdownTimer();
     setSeasonLobbyFullscreen(false);
+    delete overlayEl.dataset[RENDER_KEY_ATTR];
     return;
   }
 
   setSeasonLobbyFullscreen(true);
+
+  const renderKey = computeRenderKey(state, visible);
+  if (renderKey === overlayEl.dataset[RENDER_KEY_ATTR]) return;
+  overlayEl.dataset[RENDER_KEY_ATTR] = renderKey;
+
   const seasonLabel = state.joinSeasonId ? `Season ${state.joinSeasonId}` : "the current season";
 
   if (state.seasonPending) {

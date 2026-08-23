@@ -22,6 +22,7 @@ import {
   notifyRecentAllianceBreaksOnInit
 } from "../client-diplomacy-notifications.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
 import { clearStoredDiscoveredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 
@@ -105,6 +106,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.needsSeasonJoin = Boolean((msg as { needsSeasonJoin?: unknown }).needsSeasonJoin);
   state.joinSeasonId = incomingSeason?.seasonId ?? "";
   state.joinSeasonOverlayOpen = state.needsSeasonJoin;
+  applyInitSeasonPending(state, msg);
   const incomingRuntimeIdentity =
     (msg.runtimeIdentity as
       | {
