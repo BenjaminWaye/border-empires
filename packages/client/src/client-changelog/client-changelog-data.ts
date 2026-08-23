@@ -13,13 +13,22 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1787487792787, // frozen one ms after the incoming "Punched up the season-lobby copy" entry
-    introducedIn: "2026.08.23.3",
+    createdAt: 1787501551524, // frozen one ms after the incoming "Lowered the season player cap to 50" entry
+    introducedIn: "2026.08.23.4",
     title: "\"Maybe your empire is in ruins\" no longer fires while you're still waiting in the pre-game lobby, and the lobby fits mobile screens properly",
     why: "Income is naturally zero before a world has started, but the respawn prompt only checked income, so everyone waiting for a season to begin got told their empire might be in ruins. Separately, on narrow phone screens the lobby's roster/ID text could get clipped at the edge of the screen and the \"Join the Discord\" button wrapped its label onto two lines.",
     changes: [
       "The respawn prompt now also checks that you're not still waiting to join a season before suggesting a respawn.",
       "The pre-game lobby now reclaims horizontal space on narrow phones and stacks its action buttons full-width, so \"Join the Discord\" and roster/ID rows no longer wrap or run off the edge of the screen."
+    ]
+  },
+  {
+    createdAt: 1787501551523, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.4",
+    title: "Lowered the season player cap to 50",
+    why: "The lobby was hitting the prior 120-player cap; capping seasons at 50 keeps them a manageable size.",
+    changes: [
+      "New seasons now stop admitting new players once 50 human players have joined, down from 120."
     ]
   },
   {
