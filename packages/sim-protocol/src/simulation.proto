@@ -189,6 +189,14 @@ message PreparePlayerAck {
   // PreparePlayer will spawn territory for them. Always true for a season
   // persisted before season membership tracking existed.
   bool joined = 5;
+  // True when the reason `joined` is false is specifically that the season
+  // is "pending" (has a future scheduledStartAt) and hasn't started yet --
+  // lets a reconnecting client go straight back to the countdown lobby
+  // instead of showing the generic "Join Season?" prompt and only learning
+  // about the pending state after a separate JoinSeason round trip. See
+  // scheduled_start_at for the start time. Mirrors JoinSeasonAck.pending.
+  bool pending = 6;
+  double scheduled_start_at = 7;
 }
 
 message JoinSeasonRequest {

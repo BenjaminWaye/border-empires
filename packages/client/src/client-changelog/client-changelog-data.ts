@@ -13,6 +13,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787484620520, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.2",
+    title: "Fixed the season lobby's cog vibrating instead of turning, and the invite button appearing to do nothing",
+    why: "The season lobby overlay rebuilt its entire DOM on every render pass, most of which fire from ordinary background traffic unrelated to the lobby itself -- that reset the brass cog's CSS animation before it ever completed a visible rotation (looked like vibrating), and wiped out the invite button's \"Copied!\" confirmation within milliseconds of clicking it, making the button look broken even though the copy succeeded. Separately, reloading the page while waiting in the lobby dropped you back to a plain \"Join Season?\" prompt with an empty player list instead of returning you straight to the countdown you were already in.",
+    changes: [
+      "The season lobby's cog now spins smoothly, and the countdown/roster no longer flicker on every background update.",
+      "The \"Bring a friend\" button's \"Copied!\" confirmation is now visible long enough to actually see it.",
+      "Reloading the page (or reconnecting) while waiting in the pending-season lobby now returns you straight to the countdown with the live player count and roster, instead of showing an empty \"Join Season?\" prompt first."
+    ]
+  },
+  {
     createdAt: 1787462378800, // frozen from a live Date.now() call
     introducedIn: "2026.08.23",
     title: "Clearer Build Relay Beacon button text",

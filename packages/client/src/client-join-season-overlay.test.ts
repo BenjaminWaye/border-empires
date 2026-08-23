@@ -223,4 +223,35 @@ describe("join-season overlay", () => {
     });
     expect(overlayEl2.querySelector("#season-lobby-flag-select")).toBeFalsy();
   });
+
+  it("skips rebuilding the DOM on a re-render with unchanged content (renderHud fires many times a second)", () => {
+    // Regression test: rebuilding overlayEl.innerHTML on every renderHud()
+    // pass -- most of which are triggered by ordinary socket/state traffic
+    // unrelated to this overlay -- tore down and recreated the war-room
+    // shell's cog element each time, restarting its CSS animation before it
+    // ever completed a visible rotation ("vibrating instead of turning").
+    // The same churn also wiped out the invite button's transient "Copied!"
+    // feedback within milliseconds of a click, making it look like the
+    // button did nothing.
+    const overlayEl = document.createElement("div");
+    const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, seasonPending: true, seasonPendingScheduledStartAt: Date.now() + 60_000 }) as any;
+    renderJoinSeasonOverlay({ state, overlayEl, renderHud: () => {}, joinSeason: () => true });
+    const cogHost = overlayEl.querySelector(".respawn-modal");
+    expect(cogHost).toBeTruthy();
+
+    renderJoinSeasonOverlay({ state, overlayEl, renderHud: () => {}, joinSeason: () => true });
+    expect(overlayEl.querySelector(".respawn-modal")).toBe(cogHost); // same node instance -- not torn down and recreated
+  });
+
+  it("does rebuild when the overlay's actual content changes (e.g. the roster updates)", () => {
+    const overlayEl = document.createElement("div");
+    const state = makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, seasonPending: true, seasonPendingScheduledStartAt: Date.now() + 60_000, seasonLobbyWaitingCount: 1 }) as any;
+    renderJoinSeasonOverlay({ state, overlayEl, renderHud: () => {}, joinSeason: () => true });
+    const firstNode = overlayEl.querySelector(".respawn-modal");
+
+    state.seasonLobbyWaitingCount = 2;
+    renderJoinSeasonOverlay({ state, overlayEl, renderHud: () => {}, joinSeason: () => true });
+    expect(overlayEl.querySelector(".respawn-modal")).not.toBe(firstNode);
+    expect(overlayEl.textContent).toContain("2");
+  });
 });
