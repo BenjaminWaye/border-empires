@@ -115,6 +115,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+  ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   ...(tile.fort ? { fort: tile.fort } : {}),
   ...(tile.observatory ? { observatory: tile.observatory } : {}),
@@ -216,7 +217,7 @@ const applyTileDeltaToRecoveredAccumulator = (
         ? { frontierDecayAt: existing.frontierDecayAt }
         : {}),
     ...("frontierDecayKind" in tileDelta
-      ? tileDelta.frontierDecayKind === "ENCIRCLEMENT"
+      ? tileDelta.frontierDecayKind
         ? { frontierDecayKind: tileDelta.frontierDecayKind }
         : {}
       : existing?.frontierDecayKind
