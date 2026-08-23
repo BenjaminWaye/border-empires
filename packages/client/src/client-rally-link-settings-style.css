@@ -1,0 +1,20 @@
+/* Styles for the "Get Rally Link" entry on the Settings -> Gameplay page
+   (see rallyLinkCardHtml in client-hud-settings-panel.ts). Split into its
+   own file rather than style.css, which is already over the repo's
+   500-line cap. */
+.auth-rally-link {
+  display: grid;
+  gap: 6px;
+}
+
+.auth-rally-link p {
+  margin: 0;
+  color: rgba(200, 225, 255, 0.82);
+}
+
+.auth-rally-link .panel-btn {
+  display: inline-block;
+  justify-self: start;
+  text-decoration: none;
+  text-align: center;
+}

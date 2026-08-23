@@ -77,7 +77,7 @@ export const rallyLinkCardHtml = (state: Pick<ClientState, "authSessionReady">):
   if (!state.authSessionReady) return "";
   return `
     <div class="auth-rally-link">
-      <a class="panel-btn" href="/rally/new" data-settings-rally-link>Get Rally Link</a>
+      <a class="panel-btn" href="/rally/new">Get Rally Link</a>
       <p>Invite others to a rally point on the map.</p>
     </div>
   `;
