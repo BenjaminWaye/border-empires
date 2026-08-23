@@ -3732,7 +3732,7 @@ export class SimulationRuntime {
   // Dev/waypoint queue command handling + drain logic lives in
   // runtime-dev-queue-command-handlers.ts / runtime-waypoint-queue-command-handlers.ts
   // (this file is already oversized) -- these just build their context.
-  private devQueueCommandContext(): RuntimeDevQueueCommandContext {
+  devQueueCommandContext(): RuntimeDevQueueCommandContext {
     return {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       now: () => this.now(),
