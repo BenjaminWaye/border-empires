@@ -115,6 +115,7 @@ export const AI_TICK_THROTTLE_REASONS = [
   "loop_lag",
   "plan_timeout",
   "season_ended",
+  "season_pending",
   "checkpoint_in_flight"
 ] as const;
 export type AiTickThrottleReason = (typeof AI_TICK_THROTTLE_REASONS)[number];

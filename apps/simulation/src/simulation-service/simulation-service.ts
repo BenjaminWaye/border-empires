@@ -74,6 +74,7 @@ import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
 import { createInitialSeasonState, updateSeasonVictoryTrackers, readScheduledSeasonStartAtEnv, applyPendingSeasonActivation } from "../season-lifecycle.js";
+import { createAiAndSystemShouldRun } from "./ai-and-system-should-run.js";
 import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
 import { parseRallyAnchor, preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
@@ -1598,53 +1599,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const useAiWorker = options.useAiWorker ?? false;
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
 
-  // Event-loop-lag observer. Uses hrtime to detect when the sim
-  // main thread is too busy to run AI on schedule.
-  let lastAiShouldRunHr = process.hrtime.bigint();
-  let aiShouldRunFirstCall = true;
-  const baseAiTickMs = options.aiTickMs ?? 250;
-
-  const aiShouldRun = () => {
-    if (currentSeasonState.status === "ended") {
-      simulationMetrics.incrementSimAiTickThrottled("season_ended");
-      return false;
-    }
-    const hrNow = process.hrtime.bigint();
-    if (aiShouldRunFirstCall) {
-      aiShouldRunFirstCall = false;
-      lastAiShouldRunHr = hrNow;
-    } else {
-      const gapMs = Number(hrNow - lastAiShouldRunHr) / 1e6;
-      lastAiShouldRunHr = hrNow;
-      // Only flag loop lag when tick is at or near the base interval.
-      // When adaptive backoff is active (gap > baseInterval * 1.5),
-      // the adaptive throttle already handles the load — skip the check.
-      if (gapMs > baseAiTickMs + 20 && gapMs < baseAiTickMs * 1.5) {
-        simulationMetrics.incrementSimAiTickThrottled("loop_lag");
-        return false;
-      }
-    }
-
-    if (snapshotCheckpointManager.isCheckpointInFlight()) { simulationMetrics.incrementSimAiTickThrottled("checkpoint_in_flight"); return false; }
-    return (
-      !persistenceQueue.isDegraded() &&
-      persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
-      latestEventLoopLagMs <= aiMaxEventLoopLagMs
-    );
-  };
-
-  const systemShouldRun = () => {
-    if (currentSeasonState.status === "ended") {
-      simulationMetrics.incrementSimAiTickThrottled("season_ended");
-      return false;
-    }
-    if (snapshotCheckpointManager.isCheckpointInFlight()) { simulationMetrics.incrementSimAiTickThrottled("checkpoint_in_flight"); return false; }
-    return (
-      !persistenceQueue.isDegraded() &&
-      persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
-      latestEventLoopLagMs <= aiMaxEventLoopLagMs
-    );
-  };
+  const { aiShouldRun, systemShouldRun } = createAiAndSystemShouldRun({
+    getSeasonState: () => currentSeasonState,
+    incrementThrottled: (reason) => simulationMetrics.incrementSimAiTickThrottled(reason),
+    isCheckpointInFlight: () => snapshotCheckpointManager.isCheckpointInFlight(),
+    isPersistenceDegraded: () => persistenceQueue.isDegraded(),
+    persistencePendingCount: () => persistenceQueue.pendingCount(),
+    autopilotMaxPersistencePending,
+    getLatestEventLoopLagMs: () => latestEventLoopLagMs,
+    aiMaxEventLoopLagMs,
+    aiTickMs: options.aiTickMs ?? 250
+  });
   let aiCommandProducer:
     | ReturnType<typeof createAiCommandProducer>
     | ReturnType<typeof createWorkerAiCommandProducer>
