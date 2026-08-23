@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeBorderContactPylons, computeBorderContactSegments, segmentTouchesAnySeam } from "./client-reach-overlay-border-contact.js";
+import { computeBorderContactPylons, computeBorderContactSegments, segmentTouchesAnySeam, splitSegmentByContact } from "./client-reach-overlay-border-contact.js";
 
 describe("computeBorderContactSegments", () => {
   it("clips to the overlap when two walls are the same length and fully coincide", () => {
@@ -73,6 +73,51 @@ describe("segmentTouchesAnySeam", () => {
     const seams = [{ from: { x: 12, y: 10 }, to: { x: 12, y: 15 }, ownerIdA: "p1", ownerIdB: "p2" }];
 
     expect(segmentTouchesAnySeam({ x: 12, y: 15 }, { x: 12, y: 20 }, seams)).toBe(false);
+  });
+});
+
+// The bug this locks in: a rendered wall can run PAST its own overlap with
+// a rival (e.g. one owner's wall clipped short by a coastline while the
+// other's continues on where the first no longer reaches). Recoloring the
+// WHOLE wall once any part touched a seam grayed out a stretch of border
+// that was never actually in contact with anything -- splitSegmentByContact
+// is what fixes that, by only tagging the actual overlap sub-range.
+describe("splitSegmentByContact", () => {
+  it("returns the whole wall untouched when there is no overlap at all", () => {
+    const seams = [{ from: { x: 12, y: 10 }, to: { x: 12, y: 15 }, ownerIdA: "p1", ownerIdB: "p2" }];
+
+    expect(splitSegmentByContact({ x: 20, y: 10 }, { x: 20, y: 15 }, seams)).toEqual([{ from: { x: 20, y: 10 }, to: { x: 20, y: 15 }, atContact: false }]);
+  });
+
+  it("returns the whole wall at contact when the wall exactly equals the seam", () => {
+    const seams = [{ from: { x: 12, y: 10 }, to: { x: 12, y: 15 }, ownerIdA: "p1", ownerIdB: "p2" }];
+
+    expect(splitSegmentByContact({ x: 12, y: 10 }, { x: 12, y: 15 }, seams)).toEqual([{ from: { x: 12, y: 10 }, to: { x: 12, y: 15 }, atContact: true }]);
+  });
+
+  it("splits a wall that runs past its overlap into a contact piece and a non-contact remainder", () => {
+    // Rival's wall is the longer (12,10)-(12,17); the seam (my clipped-short overlap) is (12,10)-(12,15).
+    // The (12,15)-(12,17) remainder is real border but never touched me -- it must stay solid, not gray.
+    const seams = [{ from: { x: 12, y: 10 }, to: { x: 12, y: 15 }, ownerIdA: "p1", ownerIdB: "p2" }];
+
+    const result = splitSegmentByContact({ x: 12, y: 10 }, { x: 12, y: 17 }, seams);
+
+    expect(result).toEqual([
+      { from: { x: 12, y: 10 }, to: { x: 12, y: 15 }, atContact: true },
+      { from: { x: 12, y: 15 }, to: { x: 12, y: 17 }, atContact: false }
+    ]);
+  });
+
+  it("splits a wall with the overlap in the middle into three pieces", () => {
+    const seams = [{ from: { x: 12, y: 8 }, to: { x: 12, y: 12 }, ownerIdA: "p1", ownerIdB: "p2" }];
+
+    const result = splitSegmentByContact({ x: 12, y: 5 }, { x: 12, y: 15 }, seams);
+
+    expect(result).toEqual([
+      { from: { x: 12, y: 5 }, to: { x: 12, y: 8 }, atContact: false },
+      { from: { x: 12, y: 8 }, to: { x: 12, y: 12 }, atContact: true },
+      { from: { x: 12, y: 12 }, to: { x: 12, y: 15 }, atContact: false }
+    ]);
   });
 });
 

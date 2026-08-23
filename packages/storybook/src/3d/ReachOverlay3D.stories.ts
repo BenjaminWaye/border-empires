@@ -19,7 +19,7 @@ import {
   computeBorderContactRenderState,
   resolveBorderContactVisual,
   pointKey,
-  segmentTouchesAnySeam,
+  splitSegmentByContact,
   BORDER_CONTACT_BEAM_COLOR,
   BORDER_CONTACT_OPACITY_MULT
 } from "@client/client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
@@ -419,8 +419,10 @@ const renderBorderContactDemo = (args: Args): HTMLElement => {
       overlay.addPylon(p.x - ORIGIN_X, p.y - ORIGIN_Y, 0, 1, nowMs, v.color, 1, v.laser);
     }
     for (const s of segments) {
-      const v = resolveBorderContactVisual(segmentTouchesAnySeam(s.from, s.to, contactState.seams), effectiveOverlayColor(ownerId), 1, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT);
-      overlay.addLineSegment(s.from.x - ORIGIN_X, s.from.y - ORIGIN_Y, 0, s.to.x - ORIGIN_X, s.to.y - ORIGIN_Y, 0, v.color, v.laser);
+      for (const piece of splitSegmentByContact(s.from, s.to, contactState.seams)) {
+        const v = resolveBorderContactVisual(piece.atContact, effectiveOverlayColor(ownerId), 1, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT);
+        overlay.addLineSegment(piece.from.x - ORIGIN_X, piece.from.y - ORIGIN_Y, 0, piece.to.x - ORIGIN_X, piece.to.y - ORIGIN_Y, 0, v.color, v.laser);
+      }
     }
   }
   overlay.commitPylons();
