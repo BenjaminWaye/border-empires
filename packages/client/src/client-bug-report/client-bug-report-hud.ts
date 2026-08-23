@@ -15,6 +15,7 @@ type HudDom = {
 // ---------------------------------------------------------------------------
 
 const OVERLAY_ID = "bug-report-overlay";
+const CLOSE_TRANSITION_MS = 200;
 
 export const renderBugReportOverlay = (args: {
   state: ClientState;
@@ -35,16 +36,28 @@ export const renderBugReportOverlay = (args: {
     if (!overlayEl) {
       overlayEl = document.createElement("div");
       overlayEl.id = OVERLAY_ID;
-      overlayEl.style.cssText = "display:grid;position:fixed;inset:0;z-index:9000;place-items:center;";
       dom.hud.appendChild(overlayEl);
     }
-    overlayEl.style.display = "grid";
-    if (!overlayEl.innerHTML) {
+    // Rebuild whenever there's no live, non-closing instance. This covers a
+    // reopen that lands while the previous instance's close transition (and
+    // teardown) was still pending -- that old instance already had its
+    // listeners torn down by close(), so it must not be reused as-is.
+    if (!overlayEl.dataset.rendered || overlayEl.dataset.closing === "true") {
       overlayEl.innerHTML = bugReportModalHtml();
+      overlayEl.dataset.rendered = "true";
+      delete overlayEl.dataset.closing;
       bindBugReportModal({ state, wsUrl, overlayEl, onClose: renderHud });
+      requestAnimationFrame(() => { overlayEl?.setAttribute("data-open", "true"); });
     }
-  } else if (overlayEl) {
-    overlayEl.style.display = "none";
-    overlayEl.innerHTML = "";
+  } else if (overlayEl && overlayEl.dataset.rendered && overlayEl.dataset.closing !== "true") {
+    overlayEl.removeAttribute("data-open");
+    overlayEl.dataset.closing = "true";
+    setTimeout(() => {
+      if (!isBugReportOpen() && overlayEl!.dataset.closing === "true") {
+        overlayEl!.innerHTML = "";
+        delete overlayEl!.dataset.rendered;
+        delete overlayEl!.dataset.closing;
+      }
+    }, CLOSE_TRANSITION_MS);
   }
 };
