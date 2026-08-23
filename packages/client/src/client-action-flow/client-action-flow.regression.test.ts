@@ -127,6 +127,26 @@ describe("client action flow regressions", () => {
     );
   });
 
+  it("does not fire a duplicate client-side build once an auto-settled tile lands SETTLED, avoiding a race with the server's own claim-continuation build", () => {
+    const source = actionFlowSource();
+
+    // Previously processAutoBuildTargets called triggerBuildForStructureType
+    // (which dispatches a BUILD command) unconditionally once the tile
+    // landed SETTLED -- racing the server-durable claim continuation's own
+    // build-on-settle (see runtime-claim-continuation-command-handlers.ts's
+    // tryDrainClaimContinuationBuildTail). Whichever command lost the race
+    // got rejected with BUILD_INVALID "tile already has structure", even
+    // though the structure was actually built successfully by the winner.
+    // FOUNDRY/WATERWORKS are the one exception -- those need the player to
+    // pick an exact adjacent tile via the placement overlay, so they still
+    // trigger locally.
+    const fnStart = source.indexOf("const processAutoBuildTargets = ()");
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = source.slice(fnStart, source.indexOf("\n  };", fnStart));
+    expect(fnBody).not.toContain("        triggerBuildForStructureType(structureType, tile);\n");
+    expect(fnBody).toContain('if (structureType === "FOUNDRY" || structureType === "WATERWORKS") triggerBuildForStructureType(structureType, tile);');
+  });
+
   it("delegates settle_land on a non-adjacent-but-in-reach neutral tile into the waypoint machinery instead of a doomed direct claim", () => {
     const source = actionFlowSource();
 

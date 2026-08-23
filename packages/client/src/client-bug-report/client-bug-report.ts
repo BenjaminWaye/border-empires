@@ -139,9 +139,15 @@ export const submitBugReport = async (args: {
 
 export const bugReportModalHtml = (): string => `
   <div class="bug-report-backdrop" data-bug-report-backdrop></div>
-  <div class="bug-report-modal card" role="dialog" aria-modal="true" aria-labelledby="bug-report-title">
+  <div class="bug-report-modal" role="dialog" aria-modal="true" aria-labelledby="bug-report-title">
     <div class="bug-report-modal-scroll">
-      <h3 id="bug-report-title">Report a Bug</h3>
+      <div class="bug-report-header">
+        <div class="bug-report-heading">
+          <div class="bug-report-icon" aria-hidden="true">🐞</div>
+          <h3 id="bug-report-title">Report a Bug</h3>
+        </div>
+        <button type="button" class="bug-report-close-btn" data-bug-report-cancel aria-label="Close">&times;</button>
+      </div>
       <p class="bug-report-hint">Describe what went wrong. Recent client and server logs are attached automatically.</p>
       <textarea
         class="bug-report-textarea"
@@ -149,6 +155,7 @@ export const bugReportModalHtml = (): string => `
         placeholder="What happened? What did you expect?"
         maxlength="${MAX_DESCRIPTION_LENGTH}"
         rows="4"
+        autofocus
       ></textarea>
       <div class="bug-report-char-count"><span data-bug-report-char-count>0</span>/${MAX_DESCRIPTION_LENGTH}</div>
       <div class="bug-report-actions">
@@ -184,48 +191,58 @@ export const bindBugReportModal = (args: {
     });
   }
 
-  const setStatus = (message: string, isError = false): void => {
+  type StatusKind = "busy" | "success" | "error" | "";
+
+  const setStatus = (message: string, kind: StatusKind = ""): void => {
     if (statusEl) {
       statusEl.textContent = message;
-      statusEl.className = `bug-report-status${isError ? " bug-report-status-error" : ""}`;
+      statusEl.className = `bug-report-status${kind ? ` bug-report-status-${kind}` : ""}`;
     }
   };
 
   const close = (): void => {
     setBugReportOpen(false);
-    overlayEl.innerHTML = "";
+    document.removeEventListener("keydown", onKeydown);
     onClose();
   };
 
+  const onKeydown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") close();
+  };
+  document.addEventListener("keydown", onKeydown);
+
   if (backdrop) backdrop.addEventListener("click", close);
   if (cancelBtn) cancelBtn.addEventListener("click", close);
+
+  textarea?.focus();
 
   if (submitBtn && textarea) {
     submitBtn.addEventListener("click", async () => {
       const description = textarea.value.trim();
       if (description.length === 0) {
-        setStatus("Please describe the bug.", true);
+        setStatus("Please describe the bug.", "error");
+        textarea.focus();
         return;
       }
 
       submitBtn.disabled = true;
       submitBtn.textContent = "Submitting…";
-      setStatus("Gathering logs…");
+      setStatus("Gathering logs…", "busy");
 
       try {
         const payload = await buildBugReportPayload({ state, wsUrl, description });
-        setStatus("Sending report…");
+        setStatus("Sending report…", "busy");
         const result = await submitBugReport({ payload, wsUrl });
         if (result.ok) {
-          setStatus("Report submitted. Thank you!");
-          setTimeout(close, 1_500);
+          setStatus("Report submitted. Thank you!", "success");
+          setTimeout(close, 1_200);
         } else {
-          setStatus(`Failed: ${result.error ?? "unknown error"}`, true);
+          setStatus(`Failed: ${result.error ?? "unknown error"}`, "error");
           submitBtn.disabled = false;
           submitBtn.textContent = "Submit Report";
         }
       } catch (error) {
-        setStatus(`Failed: ${error instanceof Error ? error.message : "unknown error"}`, true);
+        setStatus(`Failed: ${error instanceof Error ? error.message : "unknown error"}`, "error");
         submitBtn.disabled = false;
         submitBtn.textContent = "Submit Report";
       }
