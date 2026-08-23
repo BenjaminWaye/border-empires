@@ -22,6 +22,25 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787474961956, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Higher starting manpower for new capitals",
+    why: "New capitals started with 576 manpower, an odd number derived from expansion-cost math -- raising it to a round 720 gives new players more early room to expand and settle.",
+    changes: [
+      "A new capital's starting manpower cap (and starting manpower, which fills it) is now 720, up from 576."
+    ]
+  },
+  {
+    createdAt: 1787472289089, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Settled resource tiles now show their real slot production instead of stale prose",
+    why: "A settled Farm/Fish/Titanium/Gems/Umbrite tile's overview said \"Resource node can produce food once developed and collected\" even after being settled -- a holdover from the old per-day yield model. FOOD/TITANIUM/CRYSTAL/UMBRITE production moved to the slot-supply system a while ago, so that line was permanently stale and never resolved into a real number.",
+    changes: [
+      "A settled resource tile's overview now shows a \"Production:\" line with the actual FOOD/TITANIUM/CRYSTAL/UMBRITE slot count it contributes (e.g. \"Production: 🍞 Food +1\"), matching the format already used for buildings, instead of the old \"can produce ... once developed and collected\" prose.",
+      "A Farmstead/Mine/Umbrite Rig built on its tile now visibly bumps that slot count (e.g. a Farmstead on a Farm tile shows \"Food +2\")."
+    ]
+  },
+  {
     createdAt: 1787463213160, // 2026.08.22.15 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.15",
     title: "Fixed a spurious build error when settling into a Relay Beacon (or any settle+build)",
@@ -463,18 +482,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A clear \"You're in\" confirmation replaces the ambiguous bare countdown -- your empire will be placed the moment the world begins.",
       "Added a Discord link and a \"Bring a friend\" button that copies a shareable link to the game.",
       "Added an optional flag: set a 2-letter country code in the pending-season screen and it shows next to your name in the roster for everyone else waiting."
-    ]
-  },
-  {
-    createdAt: 1787441000000, // 2026.08.22.7 — frozen; was Date.now() left in by the merged commit
-    introducedIn: "2026.08.22.7",
-    title: "The pending-season lobby is now its own full-screen war room, and its title no longer repeats the season id",
-    why: "The lobby previously rendered as a translucent overlay with the game map, minimap, and HUD still visible underneath -- distracting for a screen players can sit on for a while, and it kept the client doing pointless map rendering for someone who isn't in the game yet. Separately, the lobby's heading duplicated the raw internal season id (e.g. \"Season season-8 starts soon\").",
-    changes: [
-      "While the pending-season lobby is open it now fully replaces the game view -- no canvas, minimap, or HUD bleeding through -- and returns to normal the instant your empire is placed.",
-      "The game no longer renders the map/world underneath while the lobby is up, saving battery and CPU for players who are just waiting.",
-      "Redesigned the lobby's look: a brass-and-gunmetal war-room panel with riveted corners, a glowing amber countdown dial, and a subtle cog motif, layered over the game's existing dark command-center theme.",
-      "Fixed the lobby heading showing the raw season id twice (e.g. \"Season season-8 starts soon\") -- it now reads simply \"Season starts soon\"."
     ]
   },
   {
