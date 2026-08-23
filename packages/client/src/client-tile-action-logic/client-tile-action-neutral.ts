@@ -101,7 +101,7 @@ export const neutralTileActions = (
     out.push({
       id: "build_relay_beacon_frontier" as TileActionDef["id"],
       label: "Build Relay Beacon",
-      detail: `Push into the unknown • expand + settle + build • +${RELAY_BEACON_VISION_BONUS} vision`,
+      detail: `Expand your borders • +${RELAY_BEACON_VISION_BONUS} vision`,
       ...tileActionAvailability(
         exploreEnabled,
         state.manpower < totalExploreManpower
