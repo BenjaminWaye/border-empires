@@ -2,6 +2,7 @@ import type { SimulationSeasonState } from "@border-empires/sim-protocol";
 
 import { hasPlayerJoinedSeason, withPlayerJoinedSeason, isSeasonActive, isSeasonPending, isSeasonEnded } from "../season-lifecycle.js";
 import { seasonIsAtPlayerCap } from "../season-join-capacity.js";
+import { tryDrainDevQueue } from "../runtime-dev-queue-command-handlers.js";
 import { emitPerConnectHellos } from "./per-connect-hellos.js";
 import type { createSimulationMetrics } from "../metrics/metrics.js";
 import type { SimulationRuntime } from "../runtime/runtime.js";
@@ -42,7 +43,15 @@ const spawnAndAnnounce = (
     deps.deleteCachedSnapshot(playerId);
     deps.log.info({ playerId }, logMessage);
   }
-  emitPerConnectHellos(deps.runtime, playerId, deps.log);
+  emitPerConnectHellos(
+    {
+      emitShardRainHelloFor: (id) => deps.runtime.emitShardRainHelloFor(id),
+      resendReachForPlayer: (id) => deps.runtime.resendReachForPlayer(id),
+      drainDevQueueForPlayer: (id) => tryDrainDevQueue(deps.runtime.devQueueCommandContext(), id)
+    },
+    playerId,
+    deps.log
+  );
   return spawned;
 };
 
