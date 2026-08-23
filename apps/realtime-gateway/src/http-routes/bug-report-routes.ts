@@ -15,13 +15,16 @@ type AlertFn = (report: BugReportInput) => void;
 
 let recentEventsFn: RecentEventsFn | undefined;
 let alertFn: AlertFn | undefined;
+let suggestionAlertFn: AlertFn | undefined;
 
 export const setBugReportAlerter = (args: {
   recentEvents: RecentEventsFn;
   alertPlayerBugReport: AlertFn;
+  alertPlayerSuggestion: AlertFn;
 }): void => {
   recentEventsFn = args.recentEvents;
   alertFn = args.alertPlayerBugReport;
+  suggestionAlertFn = args.alertPlayerSuggestion;
 };
 
 // ---------------------------------------------------------------------------
@@ -48,13 +51,20 @@ const BUG_REPORT_LIFECYCLE_EVENTS = new Set([
 // Route registration
 // ---------------------------------------------------------------------------
 
-export const registerBugReportRoutes = (app: FastifyInstance): void => {
+const registerPlayerReportRoute = (
+  app: FastifyInstance,
+  path: string,
+  unavailableError: string,
+  rateMapWarnEvent: string,
+  getAlertFn: () => AlertFn | undefined
+): void => {
   const rateLimit = new Map<string, number[]>();
 
-  app.post("/api/bug-reports", async (request, reply) => {
-    if (!alertFn || !recentEventsFn) {
+  app.post(path, async (request, reply) => {
+    const alert = getAlertFn();
+    if (!alert || !recentEventsFn) {
       reply.code(503);
-      return { ok: false, error: "bug reports are unavailable" };
+      return { ok: false, error: unavailableError };
     }
 
     const ip = request.ip ?? "unknown";
@@ -74,7 +84,7 @@ export const registerBugReportRoutes = (app: FastifyInstance): void => {
       const oldestIp = rateLimit.keys().next().value;
       if (oldestIp !== undefined) {
         rateLimit.delete(oldestIp);
-        app.log.warn({ trackedIps: rateLimit.size }, "bug_report_rate_map_evicted");
+        app.log.warn({ trackedIps: rateLimit.size }, rateMapWarnEvent);
       }
     }
 
@@ -100,7 +110,7 @@ export const registerBugReportRoutes = (app: FastifyInstance): void => {
       .filter((e) => e.level !== "info" || BUG_REPORT_LIFECYCLE_EVENTS.has(e.event))
       .slice(-100);
 
-    alertFn({
+    alert({
       description: description.slice(0, 1_000),
       playerName: typeof clientContext.meName === "string" ? clientContext.meName : "unknown",
       playerId: typeof clientContext.me === "string" ? clientContext.me : "unknown",
@@ -112,4 +122,9 @@ export const registerBugReportRoutes = (app: FastifyInstance): void => {
 
     return { ok: true };
   });
+};
+
+export const registerBugReportRoutes = (app: FastifyInstance): void => {
+  registerPlayerReportRoute(app, "/api/bug-reports", "bug reports are unavailable", "bug_report_rate_map_evicted", () => alertFn);
+  registerPlayerReportRoute(app, "/api/suggestions", "suggestions are unavailable", "suggestion_rate_map_evicted", () => suggestionAlertFn);
 };

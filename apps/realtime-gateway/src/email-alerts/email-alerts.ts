@@ -1,6 +1,6 @@
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
-import { sendBugReportEmail } from "./bug-report-email-alert.js";
+import { sendPlayerReportEmail } from "./bug-report-email-alert.js";
 import { escapeHtml } from "./escape-html.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 
@@ -20,6 +20,7 @@ export type EmailAlertService = {
   sendAttackAlert: (input: AttackAlertInput) => Promise<EmailAlertOutcome>;
   sendSeasonStartAlert: (input: SeasonStartAlertInput) => Promise<EmailAlertOutcome>;
   sendBugReportAlert: (report: BugReportInput) => void;
+  sendSuggestionAlert: (report: BugReportInput) => void;
 };
 
 export type EmailAlertOutcome = "sent" | "disabled" | "recipient_missing" | "throttled" | "send_failed";
@@ -380,7 +381,17 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
 
   return {
     sendBugReportAlert(report) {
-      void sendBugReportEmail(report, {
+      void sendPlayerReportEmail("bug", report, {
+        ...(apiKey ? { resendApiKey: apiKey } : {}),
+        ...(from ? { from } : {}),
+        ...(options.bugReportEmailTo ? { to: options.bugReportEmailTo } : {}),
+        ...(options.appLabel ? { appLabel: options.appLabel } : {}),
+        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+        ...(options.log ? { log: options.log } : {})
+      });
+    },
+    sendSuggestionAlert(report) {
+      void sendPlayerReportEmail("suggestion", report, {
         ...(apiKey ? { resendApiKey: apiKey } : {}),
         ...(from ? { from } : {}),
         ...(options.bugReportEmailTo ? { to: options.bugReportEmailTo } : {}),
