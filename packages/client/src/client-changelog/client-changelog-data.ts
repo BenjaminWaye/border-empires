@@ -13,6 +13,13 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787518529221, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.6",
+    title: "New town theme sound",
+    why: "The old town location theme was swapped out for a new one-shot cue.",
+    changes: ["Looking at a town now plays a new, updated town theme sound instead of the old one."]
+  },
+  {
     createdAt: 1787501551525, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
     introducedIn: "2026.08.23.5",
     title: "AI empires no longer play ahead during the season lobby countdown",
