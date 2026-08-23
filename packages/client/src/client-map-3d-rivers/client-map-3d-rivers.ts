@@ -13,8 +13,21 @@ import {
   MeshStandardMaterial,
   Scene
 } from "three";
-import { getWorldSeed, landBiomeAt, seeded01, terrainAt, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { heightfieldFlatTileElevation, wrap, type HeightfieldTerrainKind } from "../client-map-3d-heightfield-terrain.js";
+import {
+  getWorldSeed,
+  isHillsTileAt,
+  landBiomeAt,
+  seeded01,
+  terrainAt,
+  WORLD_HEIGHT,
+  WORLD_WIDTH
+} from "@border-empires/shared";
+import {
+  heightfieldFlatTileElevation,
+  HEIGHTFIELD_HILLS_ELEVATION_BONUS,
+  wrap,
+  type HeightfieldTerrainKind
+} from "../client-map-3d-heightfield-terrain.js";
 import { toroidDelta } from "../client-map-3d-pointer-pick.js";
 
 const RIVER_COUNT_TARGET = 10;
@@ -62,7 +75,14 @@ const kindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
 export const maxNearbyElevation = (
   wx: number,
   wy: number,
-  tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind
+  tileKindAt: (wx: number, wy: number) => HeightfieldTerrainKind,
+  // Hills are a dome mesh bolted on top of the flat grid (see
+  // client-map-3d-hills.ts), invisible to heightfieldFlatTileElevation —
+  // without this bonus the river ribbon renders under the dome bulge
+  // wherever its path crosses a hills tile. Injectable (like tileKindAt
+  // above) so this stays testable with synthetic tile state instead of
+  // needing real world-gen.
+  isHillsAt: (wx: number, wy: number) => boolean = isHillsTileAt
 ): number => {
   const tx = Math.floor(wx);
   const ty = Math.floor(wy);
@@ -73,7 +93,8 @@ export const maxNearbyElevation = (
       const ny = wrap(ty + dy, WORLD_HEIGHT);
       const kind = tileKindAt(nx, ny);
       if (kind === "SEA" || kind === "COASTAL_SEA") continue;
-      const elevation = heightfieldFlatTileElevation(nx, ny, kind);
+      const elevation =
+        heightfieldFlatTileElevation(nx, ny, kind) + (isHillsAt(nx, ny) ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0);
       if (elevation > maxElevation) maxElevation = elevation;
     }
   }
