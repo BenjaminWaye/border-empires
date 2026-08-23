@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787520325005, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.9",
+    title: "Rivers no longer render through unexplored fog",
+    why: "Decorative rivers were drawn as one continuous overlay that only culled by camera distance, with no idea what the player had actually explored -- so a river's path stayed visible cutting through black, unexplored tiles instead of disappearing into the fog like the surrounding terrain.",
+    changes: [
+      "River segments now only render where both ends sit on a tile you've explored or previously seen, matching the terrain's own fog-of-war."
+    ]
+  },
+  {
     createdAt: 1787519694045, // frozen from a live Date.now() call
     introducedIn: "2026.08.23.8",
     title: "Trimmed two noisy activity feed messages",
@@ -403,26 +412,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Tension (\"war is coming\") music used to be driven by short-lived, per-attack timers (an attack in transit, a deferred send, an incoming-attack tracker) that clear the instant that specific attack resolves, so it kept dropping back to calm music between attacks even while a muster flag was still staged and ready to fire.",
     changes: [
       "Tension music now plays for as long as any muster flag is raised and set to Hold (staged, not yet advancing), which is a stable signal instead of one that clears after every individual attack."
-    ]
-  },
-  {
-    createdAt: 1787326342941, // 2026.08.21.4 — frozen from a live Date.now() call
-    introducedIn: "2026.08.21.4",
-    title: "AI opponents now build a wider range of structures, and beacon relays more often",
-    why: "AI opponents could previously only ever build 5 kinds of structures (Farmstead, Umbrite Rig, Mine, Mintworks, Granary), scored by fixed numbers instead of what the AI's economy actually needed. Their Relay Beacon building was also just as likely at any time, whether or not there was still good territory left nearby to claim.",
-    changes: [
-      "AI opponents can now also build Waterworks, Ministry Hall (Governors Office), Ancillary Factory (Garrison Hall), Logistics Guild, Caravanary, and the Umbrite/Titanium/Crystal Synthesizers, chosen based on which resource or manpower shortfall is most acute rather than a fixed priority list.",
-      "AI opponents now favor Relay Beacon construction in bursts — several in a row, then a pause where other buildings get priority — instead of a flat, constant likelihood throughout the game."
-    ]
-  },
-  {
-    createdAt: 1787296000000, // 2026.08.21.2 — frozen; was Date.now() in the merged commit
-    introducedIn: "2026.08.21.2",
-    title: "Relay beacons are now destroyed when their tile is captured",
-    why: "Every other structure kept its old survive-capture behavior, but a relay beacon transferring intact to the attacker let a single capture instantly hand over both the tile and a working reach anchor on it — same treatment siege outposts already get.",
-    changes: [
-      "Capturing a tile with a relay beacon on it now destroys the beacon instead of transferring ownership.",
-      "The attacker still takes the tile itself; they'll need to rebuild a relay beacon there to project reach from it."
     ]
   },
   {
