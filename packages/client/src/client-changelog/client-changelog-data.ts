@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787475219678, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Rally link dialog can now be dismissed, and rally links are reachable from Settings",
+    why: "The rally-create and rally-invite dialogs had no way to close once you'd copied the link -- the only way out was navigating away entirely. And minting a rally link required knowing the /rally/new URL by hand.",
+    changes: [
+      "The rally link dialog now has a close (×) button in the top-right corner that dismisses it and clears the rally URL from the address bar.",
+      "Signed-in players can now open \"Get Rally Link\" from Settings → Gameplay instead of typing /rally/new."
+    ]
+  },
+  {
     createdAt: 1787472289089, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23",
     title: "Settled resource tiles now show their real slot production instead of stale prose",
@@ -421,17 +431,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
       "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
       "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
-    ]
-  },
-  {
-    createdAt: 1787415992729, // 2026.08.22.3 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.3",
-    title: "Non-winning seasons now leave a mark on your galaxy too: Outposts and Stipends",
-    why: "The galaxy previously only recorded a season's outright winner as a permanent Planet, so every other empire's season vanished without a trace once it ended -- even a season played well but not won.",
-    changes: [
-      "A strong runner-up -- leading a different victory path than the one that won, with real hold-progress on it -- now claims a minor permanent Outpost, specialized by their own leading path and shown alongside your Planets in the galaxy view.",
-      "Any other empire that meaningfully engaged with a victory path, without getting close to winning, now gets a one-time Stipend of Influence and Production instead, scaled to how far they got.",
-      "Outposts appear in the public galaxy listing as territory, like Planets; Stipends are a one-time payout and only show up in your own galaxy view."
     ]
   },
   {

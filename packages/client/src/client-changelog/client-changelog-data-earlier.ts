@@ -12,6 +12,17 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787415992729, // 2026.08.22.3 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.3",
+    title: "Non-winning seasons now leave a mark on your galaxy too: Outposts and Stipends",
+    why: "The galaxy previously only recorded a season's outright winner as a permanent Planet, so every other empire's season vanished without a trace once it ended -- even a season played well but not won.",
+    changes: [
+      "A strong runner-up -- leading a different victory path than the one that won, with real hold-progress on it -- now claims a minor permanent Outpost, specialized by their own leading path and shown alongside your Planets in the galaxy view.",
+      "Any other empire that meaningfully engaged with a victory path, without getting close to winning, now gets a one-time Stipend of Influence and Production instead, scaled to how far they got.",
+      "Outposts appear in the public galaxy listing as territory, like Planets; Stipends are a one-time payout and only show up in your own galaxy view."
+    ]
+  },
+  {
     createdAt: 1787132874001, // 2026.08.19
     introducedIn: "2026.08.19",
     title: "Town gold production now includes each Mintworks' flat bonus, and settled-town copy cleaned up",
