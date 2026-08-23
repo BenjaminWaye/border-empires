@@ -16,6 +16,7 @@ import {
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 import { rushBuyLabel, type QuickforgeRushBuyContext } from "./client-tile-menu-quickforge-rush-buy.js";
+import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
 import { converterModeLockLine, converterModeStatusLine, isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
@@ -418,10 +419,9 @@ export const menuOverviewForTile = (
         `<button type="button" class="tile-town-debug-btn" data-tile-debug-download="${tileKey}">Download debug log</button>` +
         `</div>`
     });
-  } else if (tile.resource) {
-    if (tile.ownershipState === "SETTLED" && !productionHtml) {
-      pushLine(`Resource node can produce ${(resourceLabelText ?? "resources").toLowerCase()} once developed and collected.`);
-    }
+  } else if (tile.resource && tile.ownershipState === "SETTLED" && !productionHtml) {
+    const slotHtml = resourceSlotProductionHtml(tile);
+    if (slotHtml) pushLine(`Production: ${slotHtml}`);
   }
   if (tile.dockId && tile.ownershipState === "SETTLED") {
     const connectedDockCount = tile.dock?.connectedDockCount ?? deps.connectedDockCountForTile(tile);
