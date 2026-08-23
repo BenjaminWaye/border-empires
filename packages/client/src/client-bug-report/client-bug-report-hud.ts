@@ -38,15 +38,26 @@ export const renderBugReportOverlay = (args: {
       overlayEl.id = OVERLAY_ID;
       dom.hud.appendChild(overlayEl);
     }
-    if (!overlayEl.innerHTML) {
+    // Rebuild whenever there's no live, non-closing instance. This covers a
+    // reopen that lands while the previous instance's close transition (and
+    // teardown) was still pending -- that old instance already had its
+    // listeners torn down by close(), so it must not be reused as-is.
+    if (!overlayEl.dataset.rendered || overlayEl.dataset.closing === "true") {
       overlayEl.innerHTML = bugReportModalHtml();
+      overlayEl.dataset.rendered = "true";
+      delete overlayEl.dataset.closing;
       bindBugReportModal({ state, wsUrl, overlayEl, onClose: renderHud });
       requestAnimationFrame(() => { overlayEl?.setAttribute("data-open", "true"); });
     }
-  } else if (overlayEl && overlayEl.innerHTML) {
+  } else if (overlayEl && overlayEl.dataset.rendered && overlayEl.dataset.closing !== "true") {
     overlayEl.removeAttribute("data-open");
+    overlayEl.dataset.closing = "true";
     setTimeout(() => {
-      if (!isBugReportOpen()) overlayEl!.innerHTML = "";
+      if (!isBugReportOpen() && overlayEl!.dataset.closing === "true") {
+        overlayEl!.innerHTML = "";
+        delete overlayEl!.dataset.rendered;
+        delete overlayEl!.dataset.closing;
+      }
     }, CLOSE_TRANSITION_MS);
   }
 };
