@@ -151,7 +151,8 @@ body.season-lobby-active #hud > *:not(#join-season-overlay) {
 
 #join-season-overlay .season-lobby-roster-scroll {
   margin-top: 12px;
-  max-height: 180px;
+  max-height: min(180px, 40vh);
+  min-height: 44px;
   overflow-y: auto;
   border-top: 1px solid rgba(214, 168, 92, 0.2);
   border-bottom: 1px solid rgba(214, 168, 92, 0.2);
@@ -185,6 +186,10 @@ body.season-lobby-active #hud > *:not(#join-season-overlay) {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 16px;
+}
+
+#join-season-overlay .season-lobby-actions .panel-btn {
+  white-space: nowrap;
 }
 
 /* Riveted brass buttons/links (matches the panel-btn contract but with the
@@ -238,5 +243,26 @@ body.season-lobby-active #hud > *:not(#join-season-overlay) {
     width: 132px;
     height: 132px;
     font-size: 22px;
+  }
+
+  /* Reclaim horizontal room on narrow phones: the modal's own 28px side
+     padding (.respawn-modal) plus this panel's 18px padding left very
+     little width for the roster and action buttons, which is what made
+     "Join the Discord" wrap onto two lines instead of fitting on one. */
+  #join-season-overlay .season-lobby-panel {
+    padding: 14px 12px;
+  }
+
+  #join-season-overlay .season-lobby-roster-scroll {
+    max-height: min(220px, 45vh);
+  }
+
+  #join-season-overlay .season-lobby-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #join-season-overlay .season-lobby-actions .panel-btn {
+    text-align: center;
   }
 }
