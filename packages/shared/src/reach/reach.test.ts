@@ -63,6 +63,44 @@ describe("tileKeysInReach", () => {
   });
 });
 
+describe("tileKeysInReach with land-gating", () => {
+  // A radius-5 OUTPOST anchor at (0,0) with a strip of SEA at x=2 splitting
+  // land at x=0..1 from land at x=3..10 on the same row.
+  const isLandExceptStrip = (x: number, _y: number): boolean => x !== 2;
+
+  it("does not cross a water strip to reach land on the far side within radius", () => {
+    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    const keys = new Set(tileKeysInReach(anchor, isLandExceptStrip));
+    // (3,0) is LAND, within the radius-5 disk, but only reachable by
+    // stepping across the water strip at x=2 -- must NOT be included.
+    expect(keys.has(tileKey(3, 0))).toBe(false);
+    expect(keys.has(tileKey(4, 0))).toBe(false);
+  });
+
+  it("still includes a water tile directly adjacent to reached land (coastal edge)", () => {
+    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    const keys = new Set(tileKeysInReach(anchor, isLandExceptStrip));
+    // (1,0) is LAND and land-connected to the anchor; (2,0) is the water
+    // strip directly adjacent to it -- included as a coastal edge tile, even
+    // though it can't itself propagate reach any further.
+    expect(keys.has(tileKey(1, 0))).toBe(true);
+    expect(keys.has(tileKey(2, 0))).toBe(true);
+  });
+
+  it("crossesWater anchors ignore land-gating entirely", () => {
+    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST", crossesWater: true };
+    const keys = new Set(tileKeysInReach(anchor, isLandExceptStrip));
+    expect(keys.has(tileKey(3, 0))).toBe(true);
+    expect(keys.has(tileKey(2, 0))).toBe(true);
+  });
+
+  it("without a landConnectivity query stays purely geometric (back-compat)", () => {
+    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    const keys = new Set(tileKeysInReach(anchor));
+    expect(keys.has(tileKey(3, 0))).toBe(true);
+  });
+});
+
 describe("chebyshevWithWrap", () => {
   it("wraps around world edges to give a short distance", () => {
     expect(chebyshevWithWrap(0, 0, WORLD_WIDTH - 1, 0)).toBe(1);

@@ -138,6 +138,40 @@ describe("computeLocalReachSet", () => {
     expect(reach.has(keyFor(13, 10))).toBe(true);
     expect(reach.has(keyFor(14, 10))).toBe(false);
   });
+
+  it("does not cross a known water gap to reach land on the far side within radius", () => {
+    // Mirrors the server's land-gating (packages/shared/src/reach/reach.ts):
+    // a town's disk must not flood across water it has actually seen to
+    // reach land beyond it, even within TOWN_REACH_RADIUS. The whole
+    // radius-3 box around the town is populated as known tiles (a full sea
+    // band at y=11..12 across every x in range) -- an unloaded tile defaults
+    // to "assume land" (see computeLocalReachSet's isLand), so leaving gaps
+    // in this synthetic map would let the BFS route around the water
+    // through unexplored ground instead of actually being blocked by it.
+    const tiles = new Map<string, Tile>([
+      [
+        keyFor(10, 10),
+        {
+          x: 10,
+          y: 10,
+          terrain: "LAND",
+          ownerId: "me",
+          ownershipState: "SETTLED",
+          town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
+        } as unknown as Tile
+      ]
+    ]);
+    for (let x = 7; x <= 13; x += 1) {
+      for (const y of [11, 12]) tiles.set(keyFor(x, y), { x, y, terrain: "SEA" } as unknown as Tile);
+    }
+    tiles.set(keyFor(10, 13), { x: 10, y: 13, terrain: "LAND" } as unknown as Tile);
+    const reach = computeLocalReachSet(tiles, "me");
+    // Coastal edge: the water tile directly touching the town is still included.
+    expect(reach.has(keyFor(10, 11))).toBe(true);
+    // The water band must not be a stepping-stone onto land beyond it.
+    expect(reach.has(keyFor(10, 12))).toBe(false);
+    expect(reach.has(keyFor(10, 13))).toBe(false);
+  });
 });
 
 describe("traceReachBoundaryEdgeLoops", () => {
