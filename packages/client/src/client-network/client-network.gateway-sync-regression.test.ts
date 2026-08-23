@@ -276,7 +276,7 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(pushFeed.mock.calls.length).toBe(feedCallCount + 1);
+    expect(pushFeed.mock.calls.length).toBe(feedCallCount); // repeat INIT must not re-push: persisted dedupe in client-diplomacy-notifications.ts (#571)
   });
 
   it("shows a prominent alert for live incoming alliance and truce requests", () => {
@@ -416,7 +416,7 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(pushFeed.mock.calls.length).toBe(feedCallCount + 1);
+    expect(pushFeed.mock.calls.length).toBe(feedCallCount); // repeat INIT must not re-push: persisted dedupe in client-diplomacy-notifications.ts (#571)
   });
 
   it("notifies offline players about completed alliance breaks on INIT", () => {
@@ -469,7 +469,7 @@ describe("client gateway sync regression", () => {
       })
     });
 
-    expect(pushFeed.mock.calls.length).toBe(feedCallCount + 1);
+    expect(pushFeed.mock.calls.length).toBe(feedCallCount); // repeat INIT must not re-push: persisted dedupe in client-diplomacy-notifications.ts (#571)
   });
 
   it("resolves an in-flight attack from post-combat tile sync even when the target stays barbarian", () => {
