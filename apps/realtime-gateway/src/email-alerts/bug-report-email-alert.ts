@@ -1,4 +1,5 @@
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
+import { escapeHtml } from "./escape-html.js";
 
 export type BugReportEmailConfig = {
   resendApiKey?: string;
@@ -11,10 +12,7 @@ export type BugReportEmailConfig = {
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 const POST_TIMEOUT_MS = 5_000;
-export const DEFAULT_BUG_REPORT_EMAIL_TO = "bw199005@gmail.com";
-
-const escapeHtml = (value: string): string =>
-  value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+const DEFAULT_APP_LABEL = "border-empires-combined-staging";
 
 const buildBugReportEmailBody = (report: BugReportInput, appLabel: string): { subject: string; text: string } => {
   const serverErrorEvents = report.serverEvents.filter((e) => e.level === "error");
@@ -35,11 +33,11 @@ const buildBugReportEmailBody = (report: BugReportInput, appLabel: string): { su
 export const sendBugReportEmail = async (report: BugReportInput, config: BugReportEmailConfig): Promise<void> => {
   const apiKey = config.resendApiKey?.trim();
   const from = config.from?.trim();
-  const to = config.to?.trim() || DEFAULT_BUG_REPORT_EMAIL_TO;
+  const to = config.to?.trim();
   const fetchImpl = config.fetchImpl ?? globalThis.fetch;
-  if (!apiKey || !from || !fetchImpl) return;
+  if (!apiKey || !from || !to || !fetchImpl) return;
 
-  const { subject, text } = buildBugReportEmailBody(report, config.appLabel ?? "border-empires");
+  const { subject, text } = buildBugReportEmailBody(report, config.appLabel ?? DEFAULT_APP_LABEL);
   const html = `<pre>${escapeHtml(text)}</pre>`;
 
   const ac = new AbortController();

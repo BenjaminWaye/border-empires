@@ -1,6 +1,7 @@
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
 import { sendBugReportEmail } from "./bug-report-email-alert.js";
+import { escapeHtml } from "./escape-html.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 
 export type EmailAlertConfig = {
@@ -173,13 +174,6 @@ export const readAttackAlert = (payload: Record<string, unknown>): IncomingAttac
   };
 };
 
-const escapeHtml = (value: string): string =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 
 const baseUrl = (value: string | undefined): string => {
   const trimmed = value?.trim();
