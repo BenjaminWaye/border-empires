@@ -18,10 +18,20 @@ export type MapLoadingView = {
 // every one of those blips is worse than the disconnect itself. Skips the
 // grace entirely on the very first boot (hasEverInitialized === false),
 // since there's nothing on screen yet to protect.
+//
+// A player waiting in the pending-season lobby (state.seasonPending) has no
+// tiles by design -- they haven't spawned yet, so firstChunkAt legitimately
+// stays 0 for as long as the countdown runs. Without this check that reads
+// as a stalled map sync and fires the "Map sync stalled" warning on every
+// beta tester sitting in the lobby, which is a false alarm, not a real sync
+// failure -- the season lobby overlay is already covering the whole screen
+// at that point (see client-season-lobby-style.css) with its own explicit
+// waiting state, so this overlay has nothing useful to add.
 export const isMapLoadingOverlayActive = (
-  state: Pick<ClientState, "connection" | "firstChunkAt" | "hasEverInitialized" | "disconnectedSince">,
+  state: Pick<ClientState, "connection" | "firstChunkAt" | "hasEverInitialized" | "disconnectedSince" | "seasonPending">,
   now: number = Date.now()
 ): boolean => {
+  if (state.seasonPending) return false;
   const rawActive = state.connection !== "initialized" || state.firstChunkAt === 0;
   if (!rawActive) return false;
   if (!state.hasEverInitialized) return true;
