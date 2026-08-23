@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787462189036, // 2026.08.22.14 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.14",
+    title: "Fixed a false \"Map sync stalled\" warning while waiting in the season lobby",
+    why: "A player waiting in the pending-season lobby hasn't spawned yet, so no map tiles have arrived for them by design -- but the map-loading watchdog didn't know that, and treated it the same as a real stuck sync, firing a \"Map sync stalled\" warning over the lobby after a few seconds.",
+    changes: [
+      "The map-sync watchdog now stays quiet while you're waiting in the season lobby, since there's nothing to sync yet."
+    ]
+  },
+  {
     createdAt: 1787435600000, // 2026.08.22.13 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.13",
     title: "Fixed: another player's town could show your \"ready to upgrade\" badge",
@@ -461,7 +470,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1787441000000, // 2026.08.22.7 — frozen; was Date.now() left in by the merged commit
     introducedIn: "2026.08.22.7",
     title: "The pending-season lobby is now its own full-screen war room, and its title no longer repeats the season id",
     why: "The lobby previously rendered as a translucent overlay with the game map, minimap, and HUD still visible underneath -- distracting for a screen players can sit on for a while, and it kept the client doing pointless map rendering for someone who isn't in the game yet. Separately, the lobby's heading duplicated the raw internal season id (e.g. \"Season season-8 starts soon\").",
