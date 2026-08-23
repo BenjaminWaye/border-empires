@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787476076399, // frozen one ms after the prior latest entry
+    introducedIn: "2026.08.23.3",
+    title: "\"Maybe your empire is in ruins\" no longer fires while you're still waiting in the pre-game lobby",
+    why: "Income is naturally zero before a world has started, but the respawn prompt only checked income, so everyone waiting for a season to begin got told their empire might be in ruins.",
+    changes: [
+      "The respawn prompt now also checks that you're not still waiting to join a season before suggesting a respawn."
+    ]
+  },
+  {
     createdAt: 1787476076398, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
     introducedIn: "2026.08.23.2",
     title: "Expand is gated to your reach again, with a new way to reach an out-of-reach rival",
@@ -479,17 +488,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Closing the redesigned bug report dialog (including automatically, after a successful submit) only cleared its contents -- the full-screen invisible container div stayed in the DOM with pointer-events left on, silently intercepting every click across the entire game until you reloaded the page.",
     changes: [
       "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
-    ]
-  },
-  {
-    createdAt: 1787476075398, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Redesigned the bug report form",
-    why: "The Report a Bug dialog was unstyled -- a bare textarea and buttons popping in and out instantly with no visual feedback -- which felt broken for a tool meant to inspire confidence while reporting something broken.",
-    changes: [
-      "The bug report dialog now fades and scales in/out instead of snapping open and closed, and closes on Escape or by clicking its new close button.",
-      "Redesigned the dialog with a proper card layout, icon, and a styled textarea that matches the game's other overlays instead of looking like an unstyled default form.",
-      "Submitting now shows a spinner while gathering logs and sending, and a clear checkmark or error icon once it finishes."
     ]
   }
 ];
