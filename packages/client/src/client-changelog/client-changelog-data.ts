@@ -24,6 +24,31 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787431431635, // frozen from a live Date.now() call
+    introducedIn: "2026.08.22.12",
+    title: "Fixed rivers clipping through hills",
+    why: "River ribbons rendered at the flat ground elevation, ignoring the raised dome mesh used for hill tiles, so a river crossing a hill looked like jagged glued-together rectangles instead of a smooth ribbon.",
+    changes: ["Rivers now render above the hill dome wherever their path crosses a hills tile."]
+  },
+  {
+    createdAt: 1787462871189, // 2026.08.23.05 — frozen from a live Date.now() call
+    introducedIn: "2026.08.23.05",
+    title: "Turned off rivers in new map generation",
+    why: "Generated rivers didn't fully work -- they could cut land in ways that broke territory shapes and pathing, so we're disabling them until the generator is fixed.",
+    changes: [
+      "New maps no longer generate rivers; existing maps are unaffected."
+    ]
+  },
+  {
+    createdAt: 1787475367888, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Corrected the lobby's timezone claim",
+    why: "The join-season overlay said a synchronized start means \"the first move isn't decided by timezone\" -- that's wrong, a shared start time doesn't erase timezone effects on when players are actually online. What it actually guarantees is that everyone gets the same starting line, not the same impact from timezone.",
+    changes: [
+      "The lobby's \"Season starts soon\" text now says a synchronized start gives everyone the same chance from the same starting line, rather than incorrectly claiming timezone has no effect on the first move."
+    ]
+  },
+  {
     createdAt: 1787475219678, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23",
     title: "Rally link dialog can now be dismissed, and rally links are reachable from Settings",
@@ -436,38 +461,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787419536000, // 2026.08.22.4 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.4",
-    title: "Winning a season now gives your next empire a starting head start",
-    why: "Claiming a Planet previously ended with the galaxy view -- nothing about winning carried forward into how your next empire actually played. This is a first, deliberately small step toward the galaxy's full Wonder system (a permanent Production economy is still to come); for now the reward for winning is a one-time boost, not a lasting building.",
-    changes: [
-      "The most recent season's Planet winner now starts their next empire with a permanent manpower-regen head start and an expanded starting vision radius.",
-      "It's a one-time grant, applied automatically the moment you spawn your next empire -- nothing to claim or activate."
-    ]
-  },
-  {
-    createdAt: 1787428700000,
-    introducedIn: "2026.08.22.5",
-    title: "Fixed a bogus 'Outside your borders' error after auto-settle finished a capture, and made unsettled tiles from a rival's border push show up live",
-    why: "Auto-settle could still fire a doomed settle command right after a capture landed if the captured tile turned out to be outside your reach (e.g. a Relay Beacon chain dying mid-capture), surfacing a confusing 'Outside your borders' error even though nothing was actually wrong. Separately, when a rival's expanding border overtook one of your settled tiles and downgraded it to frontier, that change was only ever applied on the server -- it was never pushed to either player's client, so it silently went stale until you clicked the tile and forced a refresh.",
-    changes: [
-      "Auto-settle now checks reach before firing the settle right after a capture, same as it already does elsewhere, instead of sending a command the server was always going to reject.",
-      "A settled tile downgraded to frontier by a rival's border push now updates live on both players' maps instead of only after clicking the tile."
-    ]
-  },
-  {
-    createdAt: 1787440000000, // 2026.08.22.6 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.6",
-    title: "The pending-season countdown is now a lobby: player count, roster, Discord, and an invite button",
-    why: "Waiting for a pending season to start previously showed a bare countdown with nothing to confirm you actually had a spot, and no sense of who else was waiting with you.",
-    changes: [
-      "The pending-season screen now shows a live \"X / Y PLAYERS\" count and a scrollable roster of names currently waiting, alongside the countdown.",
-      "A clear \"You're in\" confirmation replaces the ambiguous bare countdown -- your empire will be placed the moment the world begins.",
-      "Added a Discord link and a \"Bring a friend\" button that copies a shareable link to the game.",
-      "Added an optional flag: set a 2-letter country code in the pending-season screen and it shows next to your name in the roster for everyone else waiting."
-    ]
-  },
-  {
     createdAt: 1787463828305, // frozen from `date +%s%3N`
     introducedIn: "2026.08.23",
     title: "Fixed the season lobby not covering the full screen, removed the flag picker, fixed the invite button, and unified the join-season screens",
@@ -477,6 +470,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Removed the \"Show your flag in the lobby?\" picker and the flag emoji next to roster names.",
       "The \"Bring a friend\" invite button now always gives visible feedback: it swaps to \"Copied!\" inline (with a manual-copy fallback if the clipboard API isn't available) instead of silently doing nothing.",
       "The plain \"Join Season?\" prompt (shown when a season is already running and you haven't joined yet) now shares the same full-screen war-room look as the pending-season lobby, and shows the live player count and roster alongside its Join button."
+    ]
+  },
+  {
+    createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.2",
+    title: "Fixed the whole screen becoming unclickable after submitting a bug report",
+    why: "Closing the redesigned bug report dialog (including automatically, after a successful submit) only cleared its contents -- the full-screen invisible container div stayed in the DOM with pointer-events left on, silently intercepting every click across the entire game until you reloaded the page.",
+    changes: [
+      "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
     ]
   },
   {

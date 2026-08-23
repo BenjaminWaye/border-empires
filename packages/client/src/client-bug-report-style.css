@@ -17,6 +17,13 @@
   opacity: 1;
 }
 
+/* Overrides #hud #bug-report-overlay's unconditional pointer-events: auto
+   (style.css) -- without this, the emptied-but-still-in-the-DOM overlay div
+   keeps intercepting clicks over the whole screen after it's closed. */
+#hud #bug-report-overlay:not([data-open="true"]) {
+  pointer-events: none;
+}
+
 .bug-report-backdrop {
   position: absolute;
   inset: 0;

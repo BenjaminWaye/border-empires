@@ -50,6 +50,38 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787419536000, // 2026.08.22.4 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.4",
+    title: "Winning a season now gives your next empire a starting head start",
+    why: "Claiming a Planet previously ended with the galaxy view -- nothing about winning carried forward into how your next empire actually played. This is a first, deliberately small step toward the galaxy's full Wonder system (a permanent Production economy is still to come); for now the reward for winning is a one-time boost, not a lasting building.",
+    changes: [
+      "The most recent season's Planet winner now starts their next empire with a permanent manpower-regen head start and an expanded starting vision radius.",
+      "It's a one-time grant, applied automatically the moment you spawn your next empire -- nothing to claim or activate."
+    ]
+  },
+  {
+    createdAt: 1787428700000,
+    introducedIn: "2026.08.22.5",
+    title: "Fixed a bogus 'Outside your borders' error after auto-settle finished a capture, and made unsettled tiles from a rival's border push show up live",
+    why: "Auto-settle could still fire a doomed settle command right after a capture landed if the captured tile turned out to be outside your reach (e.g. a Relay Beacon chain dying mid-capture), surfacing a confusing 'Outside your borders' error even though nothing was actually wrong. Separately, when a rival's expanding border overtook one of your settled tiles and downgraded it to frontier, that change was only ever applied on the server -- it was never pushed to either player's client, so it silently went stale until you clicked the tile and forced a refresh.",
+    changes: [
+      "Auto-settle now checks reach before firing the settle right after a capture, same as it already does elsewhere, instead of sending a command the server was always going to reject.",
+      "A settled tile downgraded to frontier by a rival's border push now updates live on both players' maps instead of only after clicking the tile."
+    ]
+  },
+  {
+    createdAt: 1787440000000, // 2026.08.22.6 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.6",
+    title: "The pending-season countdown is now a lobby: player count, roster, Discord, and an invite button",
+    why: "Waiting for a pending season to start previously showed a bare countdown with nothing to confirm you actually had a spot, and no sense of who else was waiting with you.",
+    changes: [
+      "The pending-season screen now shows a live \"X / Y PLAYERS\" count and a scrollable roster of names currently waiting, alongside the countdown.",
+      "A clear \"You're in\" confirmation replaces the ambiguous bare countdown -- your empire will be placed the moment the world begins.",
+      "Added a Discord link and a \"Bring a friend\" button that copies a shareable link to the game.",
+      "Added an optional flag: set a 2-letter country code in the pending-season screen and it shows next to your name in the roster for everyone else waiting."
+    ]
+  },
+  {
     createdAt: 1787441000000, // 2026.08.22.7 — frozen; was Date.now() left in by the merged commit
     introducedIn: "2026.08.22.7",
     title: "The pending-season lobby is now its own full-screen war room, and its title no longer repeats the season id",
@@ -111,17 +143,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786960037000, // 2026.08.17.1
-    introducedIn: "2026.08.17.1",
-    title: "World Engine strikes now shake the map and broadcast to everyone",
-    why: "Firing the World Engine used to be a private moment — only the caster's own client got any indication a city had been leveled, via a local pulse effect that never reached anyone else, including the city's owner. A strike that levels a city and costs real population is exactly the kind of moment every empire should hear about, not just the two sides involved.",
-    changes: [
-      "Landing a World Engine strike on an enemy city now shakes the map once, live, for every connected player — not just the caster.",
-      "A new destruction-themed popup announces who fired it, what city was hit, how many lives were lost, and who owned the town.",
-      "That announcement stays visible in the Activity Feed's new \"World Events\" section for 12 hours, so logging in after the fact still tells you what happened."
-    ]
-  },
-  {
     createdAt: 1787003302865, // 2026.08.17.2
     introducedIn: "2026.08.17.2",
     title: "Battle animation reworked: troops line up, march, clash with casualties, then rout",
@@ -131,15 +152,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "The march itself now takes ~0.9s (previously ~550ms combined with forming up), so the two sides visibly close the distance instead of snapping into position.",
       "Once the outcome is known, some dots now fall during the clash — a fixed 2 of 10 for the winning side, 4 of 10 for the losing side, so the losing side visibly thins before rout confirms it, and both sides always keep enough survivors for rout to have something to actually push through or scatter.",
       "The clash window is now ~1.3s (previously 800ms), giving the glyph bursts and new casualties room to read clearly instead of feeling rushed."
-    ]
-  },
-  {
-    createdAt: 1786965132570, // 2026.08.16.3
-    introducedIn: "2026.08.16.3",
-    title: "Battle dots: attacker and defender no longer disappear into each other during the clash",
-    why: "The clash-phase oscillation only ever varied a dot's position along the perpendicular spread across the tile, never along the attacker-defender line itself. That meant an attacker dot and a defender dot with the same per-dot spread value landed on the exact same point, every frame, for the whole clash — the two swarms were genuinely coincident, not just visually crowded. With depth testing disabled on both dot materials (needed so they always render on top of the terrain), whichever side's mesh happened to draw second fully hid the other, so the entire clash read as a single-color blob with no visible fight between two sides — confirmed with the new Storybook \"Full Attack Lifecycle\" story, where the attacker's dots were invisible for the whole clash and only reappeared once rout physically separated the two sides.",
-    changes: [
-      "Each side now holds a small, jostling offset along the attack line during the clash, so attacker and defender read as two distinct lines pressed together instead of one side fully hiding the other."
     ]
   },
   {
