@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787462871189, // 2026.08.23.05 — frozen from a live Date.now() call
+    introducedIn: "2026.08.23.05",
+    title: "Turned off rivers in new map generation",
+    why: "Generated rivers didn't fully work -- they could cut land in ways that broke territory shapes and pathing, so we're disabling them until the generator is fixed.",
+    changes: [
+      "New maps no longer generate rivers; existing maps are unaffected."
+    ]
+  },
+  {
     createdAt: 1787462189036, // 2026.08.22.14 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.14",
     title: "Fixed a false \"Map sync stalled\" warning while waiting in the season lobby",
