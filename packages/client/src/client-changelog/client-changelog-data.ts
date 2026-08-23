@@ -458,6 +458,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Redesigned the lobby's look: a brass-and-gunmetal war-room panel with riveted corners, a glowing amber countdown dial, and a subtle cog motif, layered over the game's existing dark command-center theme.",
       "Fixed the lobby heading showing the raw season id twice (e.g. \"Season season-8 starts soon\") -- it now reads simply \"Season starts soon\"."
     ]
+  },
+  {
+    createdAt: 1787463828305, // frozen from `date +%s%3N`
+    introducedIn: "2026.08.23",
+    title: "Fixed the season lobby not covering the full screen, removed the flag picker, fixed the invite button, and unified the join-season screens",
+    why: "Beta feedback: the lobby was rendering as a small card in the corner over plain black space instead of filling the screen; the optional country-flag picker wasn't wanted in the lobby UI; the \"Bring a friend\" button did nothing when the clipboard API wasn't available and gave no feedback either way; and the plain \"Join Season?\" prompt (for a season that's already running) looked like a completely different, plainer screen than the war-room lobby.",
+    changes: [
+      "The season lobby now actually fills the screen edge-to-edge instead of floating as a small card over empty black space.",
+      "Removed the \"Show your flag in the lobby?\" picker and the flag emoji next to roster names.",
+      "The \"Bring a friend\" invite button now always gives visible feedback: it swaps to \"Copied!\" inline (with a manual-copy fallback if the clipboard API isn't available) instead of silently doing nothing.",
+      "The plain \"Join Season?\" prompt (shown when a season is already running and you haven't joined yet) now shares the same full-screen war-room look as the pending-season lobby, and shows the live player count and roster alongside its Join button."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
