@@ -8,7 +8,7 @@ import type { StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-import type { SlotResource, Terrain } from "@border-empires/shared";
+import type { FrontierDecayKind, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
@@ -39,7 +39,7 @@ export type RuntimeExportState = {
     ownerId?: string;
     ownershipState?: string;
     frontierDecayAt?: number;
-    frontierDecayKind?: "ENCIRCLEMENT";
+    frontierDecayKind?: FrontierDecayKind;
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;

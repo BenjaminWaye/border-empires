@@ -1,4 +1,4 @@
-import { type Terrain } from "@border-empires/shared";
+import { type FrontierDecayKind, type Terrain } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { overlayCamelClearFields, overlaySnakeClearFields, overlaySnakeTruthyFields } from "./proto-overlay-fields.js";
 
@@ -65,7 +65,7 @@ export type ProtoSimulationEvent = {
     ownerId?: string | null | undefined;
     ownershipState?: string | null | undefined;
     frontierDecayAt?: number | null | undefined;
-    frontierDecayKind?: "ENCIRCLEMENT" | null | undefined;
+    frontierDecayKind?: FrontierDecayKind | null | undefined;
     townJson?: string | undefined;
     townType?: string | undefined;
     townName?: string | undefined;
@@ -106,7 +106,7 @@ export type SimulationTileDelta = {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   frontierDecayAt?: number | undefined;
-  frontierDecayKind?: "ENCIRCLEMENT" | undefined;
+  frontierDecayKind?: FrontierDecayKind | undefined;
   townJson?: string | undefined;
   townType?: "MARKET" | "FARMING";
   townName?: string | undefined;

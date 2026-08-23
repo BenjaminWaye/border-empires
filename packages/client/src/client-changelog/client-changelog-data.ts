@@ -491,6 +491,19 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Settings > Diagnostics now has a green-bordered \"Suggest Improvement\" button below \"Report Bug\", opening the same style of form (with client/server context attached automatically) but posting to a separate suggestions inbox."
     ]
+  },
+  {
+    createdAt: 1787510053323, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.3",
+    title: "You can now expand beyond your reach -- but the land decays if you can't hold it",
+    why: "Expanding outside your reach was simply blocked, which made reach feel like an arbitrary wall rather than a real decision. Now you can push into open land whenever you like, and the risk -- not a hard rule -- is what stops you from blobbing across the map.",
+    changes: [
+      "You can now claim and capture tiles outside your reach. Land taken out there is unstable: it decays away after 2 minutes unless your reach catches up to it.",
+      "Extending your reach over a decaying tile -- with a nearby Town, Dock, or Outpost -- makes it stable again and stops the countdown.",
+      "Decaying tiles pulse amber on the map and show a countdown in the tile menu, so you can see exactly how long you have.",
+      "Contested borders are exempt: if your reach overlaps a rival's where you're expanding, the land does not decay. Fighting over a shared border works as it always has.",
+      "The first time it happens, a tip explains what's going on."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

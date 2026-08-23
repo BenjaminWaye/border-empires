@@ -8,16 +8,21 @@
  * is settled. Connectivity uses 8-neighbors (diagonals count). The path may
  * NOT traverse another player's settled tiles.
  *
- * When a frontier tile loses connectivity it is "cut off" and gets a short
- * decay timer (ENCIRCLEMENT_DECAY_MS = 60 s). Reconnection clears the timer.
- * The natural 10-min decay and the encirclement timer share the same
- * `frontierDecayAt` field; `frontierDecayKind` records which mechanic owns
- * the active timer.
+ * When a frontier tile loses connectivity it is "cut off" and loses ownership
+ * **immediately**, on the same tick the encirclement is computed (see
+ * applyEncirclement). Encirclement sets no timer: it once used a 60 s
+ * `ENCIRCLEMENT_DECAY_MS` window, but the tick that expired those timers was
+ * removed in PR #627 (a 9 s event-loop block), so the timer would never have
+ * fired and the mechanic was made instant instead.
+ *
+ * `frontierDecayAt`/`frontierDecayKind` are therefore not written by this
+ * module; they belong to out-of-reach decay, which is timer-based and drains
+ * through a deadline queue rather than a sweep (runtime-out-of-reach-decay.ts).
+ * The reconnection paths here still *read* `frontierDecayKind === "ENCIRCLEMENT"`
+ * so any such tile left over from an older snapshot is cleaned up correctly.
  */
 
-import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
-
-export const ENCIRCLEMENT_DECAY_MS = 60_000;
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type FrontierDecayKind } from "@border-empires/shared";
 
 /** 8-neighbor coordinate offsets. */
 const NEIGHBOR_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
@@ -56,7 +61,10 @@ const connectedNeighborKeys = (tileKey: string, extraNeighborKeys?: ExtraNeighbo
 export interface EncirclementTileView {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
-  frontierDecayKind?: "ENCIRCLEMENT" | undefined;
+  // Widened to the shared union because tiles can also carry "OUT_OF_REACH"
+  // (see runtime-out-of-reach-decay.ts). Encirclement only ever reads/acts on
+  // "ENCIRCLEMENT" — an out-of-reach timer is none of its business.
+  frontierDecayKind?: FrontierDecayKind | undefined;
   dockId?: string | undefined;
 }
 

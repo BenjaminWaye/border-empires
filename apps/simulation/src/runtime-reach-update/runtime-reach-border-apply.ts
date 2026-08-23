@@ -40,6 +40,25 @@ export type ReachBorderApplyContext = {
   isLandTile?: LandConnectivityQuery;
 };
 
+/**
+ * Builds a ReachBorderApplyContext from the runtime's own primitives. Lives
+ * here rather than in the runtime class so the border-mutation wiring sits
+ * with the rules it feeds (and to keep the 4.7k-line runtime from growing).
+ */
+export const createReachBorderApplyContext = (deps: {
+  gatherReachAnchors: () => ReachAnchor[];
+  playerSummaryIds: () => Iterable<string>;
+  getTile: (tileKey: string) => { ownerId?: string | undefined; ownershipState?: string | undefined } | undefined;
+  downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
+  isLandTile?: LandConnectivityQuery;
+}): ReachBorderApplyContext => ({
+  gatherReachAnchors: deps.gatherReachAnchors,
+  rivalOwnerIds: () => [...deps.playerSummaryIds()].filter((id) => !id.startsWith("barbarian-")).sort(),
+  tileOwnership: deps.getTile,
+  downgradeToFrontier: deps.downgradeToFrontier,
+  ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {})
+});
+
 /** Memoised live-coverage lookup, shared by both apply paths. */
 const liveReachLookup = (
   anchors: ReachAnchor[],
