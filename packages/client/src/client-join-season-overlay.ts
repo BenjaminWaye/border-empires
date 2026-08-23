@@ -14,6 +14,7 @@ type JoinSeasonOverlayDeps = {
     | "seasonLobbyWaitingCount"
     | "seasonLobbyMaxPlayers"
     | "seasonLobbyRoster"
+    | "profileSetupRequired"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
@@ -94,7 +95,15 @@ const setSeasonLobbyFullscreen = (active: boolean): void => {
 // scheduledStartAt to count down to, so its dial reads "Ready" instead.
 export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   const { state, overlayEl, renderHud, joinSeason, pushFeed } = deps;
-  const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen;
+  // Profile setup (name/color) must complete before the join-season overlay
+  // ever takes over the screen -- a brand-new player needs both a name and a
+  // tile color before joining a season and appearing in its roster. Without
+  // this check, a new player hitting a pending/newly-started season saw the
+  // join-season overlay go full-screen (see setSeasonLobbyFullscreen below)
+  // and hide #auth-overlay along with the rest of #hud, silently skipping
+  // the name/color picker entirely -- there was simply no screen left to
+  // show it on.
+  const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen && !state.profileSetupRequired;
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible) {
     if (overlayEl.innerHTML) overlayEl.innerHTML = "";
