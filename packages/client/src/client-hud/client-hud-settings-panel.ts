@@ -99,6 +99,7 @@ export const settingsDiagnosticsPageHtml = (state: AuthDebugState, wsUrl: string
     <button type="button" class="panel-btn" data-settings-download-diagnostics>Download Diagnostics</button>
     <button type="button" class="panel-btn" data-settings-download-disconnect-history>Download Disconnect History</button>
     <button type="button" class="panel-btn" data-settings-report-bug>Report Bug</button>
+    <button type="button" class="panel-btn suggest-improvement-btn" data-settings-suggest-improvement>Suggest Improvement</button>
   </div>
 `;
 

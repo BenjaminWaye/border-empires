@@ -57,16 +57,18 @@ export type BuildGatewayHttpRoutesDepsContext = {
   worldEngineStrikeStore: WorldEngineStrikeStore;
   adminApiToken?: string;
   alertPlayerBugReport?: (report: BugReportInput) => void;
+  alertPlayerSuggestion?: (report: BugReportInput) => void;
   alertSeasonStarted?: (seasonId: string, force: boolean) => void;
   onSeasonStarted?: () => void;
   simDiagnostics?: () => unknown[];
 };
 
 export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatewayHttpRoutesDepsContext): RegisterGatewayHttpRoutesDeps => {
-  if (ctx.alertPlayerBugReport) {
+  if (ctx.alertPlayerBugReport && ctx.alertPlayerSuggestion) {
     setBugReportAlerter({
       recentEvents: () => ctx.recentGatewayEvents,
-      alertPlayerBugReport: ctx.alertPlayerBugReport
+      alertPlayerBugReport: ctx.alertPlayerBugReport,
+      alertPlayerSuggestion: ctx.alertPlayerSuggestion
     });
   }
   registerBugReportRoutes(app);
