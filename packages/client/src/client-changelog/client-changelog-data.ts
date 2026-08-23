@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787501551525, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
+    introducedIn: "2026.08.23.5",
+    title: "AI empires no longer play ahead during the season lobby countdown",
+    why: "Locking new human players out of a season until the lobby countdown finished didn't also stop AI empires from acting -- they kept building, expanding, and fighting during the countdown, so by the time human players were let in the AI had a head start nobody could see coming.",
+    changes: [
+      "AI empires now stay locked out of taking any actions during the lobby countdown, just like new human players, until the season actually starts."
+    ]
+  },
+  {
     createdAt: 1787489000059, // frozen from a live Date.now() call
     introducedIn: "2026.08.23.3",
     title: "Fixed camera not recentering when you spawn mid-session",
