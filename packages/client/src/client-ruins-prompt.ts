@@ -1,5 +1,8 @@
 // Lightweight one-off modal shown when a PLAYER_UPDATE arrives with
 // incomePerMinute === 0, suggesting the player's empire has been eliminated.
+// Callers must also check the player isn't still waiting in the pre-game
+// lobby (state.needsSeasonJoin / state.seasonPending) — income is legitimately
+// zero before the world has started.
 // Shown at most once per session; dismissing suppresses it for the rest of
 // the session. Reconnecting (yes path) re-triggers the server's preparePlayer
 // flow which calls ensurePlayerHasSpawnTerritory and respawns the player if
