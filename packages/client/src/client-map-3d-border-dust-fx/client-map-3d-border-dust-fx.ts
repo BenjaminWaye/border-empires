@@ -13,10 +13,10 @@ import { normalizeColorForThree } from "../client-three-color/client-three-color
 // side's owner color so red/green empires read as red dust and green dust
 // mingling through the shared beam, rather than one more colored line.
 
-const PARTICLES_PER_SEAM = 8; // sparse by design -- see doc comment above
+const PARTICLES_PER_SEAM = 32; // still one Points draw call regardless of count -- cheap client-side-only cost (server never sees this), capped by MAX_SEAMS below
 const MAX_SEAMS = 24; // bounds pool size; extra seams beyond this just aren't seeded this frame
 const MAX_PARTICLES = PARTICLES_PER_SEAM * MAX_SEAMS;
-const PARTICLE_SIZE = 0.045; // "tiny" per the brief -- a fraction of the pylon's own scale
+const PARTICLE_SIZE = 0.0018; // "tiny" per the brief -- true dust motes, not visible blobs
 const PARTICLE_OPACITY = 0.55;
 const DRIFT_PERIOD_MS = 9_000; // one slow pass along the seam and back
 const BOB_AMPLITUDE = 0.05; // small perpendicular/vertical wander, not a straight line

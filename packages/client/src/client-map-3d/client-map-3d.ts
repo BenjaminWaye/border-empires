@@ -82,7 +82,7 @@ import { filterReachToLand, isDormantFrontierTile, samplePerimeterPylons, traceR
 import { ARRIVE_STAGGER_MS, createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
 import { computeOtherOwnersReachPylons, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
 import { createBorderDustFxLayer } from "../client-map-3d-border-dust-fx/client-map-3d-border-dust-fx.js";
-import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, undirectedSegmentKey, EMPTY_BORDER_CONTACT_STATE, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
+import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, segmentTouchesAnySeam, EMPTY_BORDER_CONTACT_STATE, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
@@ -124,9 +124,6 @@ const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
 const OVERLAY_RISE_ABOVE_HEIGHTFIELD = 0.012;
-// Border-contact seam treatment -- see client-map-3d-border-contact-render.ts.
-const BORDER_CONTACT_BEAM_COLOR = "#f5f0ff";
-const BORDER_CONTACT_OPACITY_MULT = 0.5;
 
 export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendererDeps) => {
   const { glCanvas, renderer, contextGuard } = createThreeRenderTarget(deps.canvas, deps.onContextLost);
@@ -2061,7 +2058,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const sz0 = toroidDelta(deps.state.camY, sf.fy, WORLD_HEIGHT);
         const sx1 = toroidDelta(deps.state.camX, sf.tx, WORLD_WIDTH);
         const sz1 = toroidDelta(deps.state.camY, sf.ty, WORLD_HEIGHT);
-        const atContact = borderContactState.segmentKeys.has(undirectedSegmentKey({ x: sf.fx, y: sf.fy }, { x: sf.tx, y: sf.ty }));
+        const atContact = segmentTouchesAnySeam({ x: sf.fx, y: sf.fy }, { x: sf.tx, y: sf.ty }, borderContactState.seams);
         const v = resolveBorderContactVisual(atContact, deps.effectiveOverlayColor(sf.ownerId), sf.laserFraction, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT);
         reachOverlay3D.addLineSegment(sx0, sz0, surfaceYForCorner(sf.fx, sf.fy), sx1, sz1, surfaceYForCorner(sf.tx, sf.ty), v.color, v.laser, sf.riseFraction, sf.riseFraction);
       }

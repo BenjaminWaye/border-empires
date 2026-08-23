@@ -10,24 +10,35 @@ import {
   computeBorderContactPylons,
   computeBorderContactSegments,
   pointKey,
-  undirectedSegmentKey,
+  segmentTouchesAnySeam,
   type BorderContactSegment
 } from "../client-reach-overlay-border-contact/client-reach-overlay-border-contact.js";
 import type { BorderDustSeam } from "../client-map-3d-border-dust-fx/client-map-3d-border-dust-fx.js";
 
 export type BorderContactRenderState = {
-  readonly segmentKeys: ReadonlySet<string>;
   readonly pylonKeys: ReadonlySet<string>;
   readonly seams: readonly BorderContactSegment[];
 };
 
-export const EMPTY_BORDER_CONTACT_STATE: BorderContactRenderState = { segmentKeys: new Set(), pylonKeys: new Set(), seams: [] };
+export const EMPTY_BORDER_CONTACT_STATE: BorderContactRenderState = { pylonKeys: new Set(), seams: [] };
 
-// Re-exported so callers checking membership for a single rendered
-// pylon/segment (client-map-3d.ts) use the exact same key format this
-// module used to build the sets above, instead of a second hand-rolled copy
-// that could silently drift out of sync.
-export { pointKey, undirectedSegmentKey };
+// Single source of truth for the contact-seam color/opacity tuning, shared
+// by client-map-3d.ts's real renderer and the storybook demo -- a duplicated
+// literal in the story once drifted out of sync with the tuned value here.
+// Near-white reads far brighter than a hue at equal alpha, so the multiplier
+// needs to sit well below the owner lines' own opacity (0.8), not just
+// under 1, or the "shared, fading beam" reads as "the strongest line on
+// screen" instead.
+export const BORDER_CONTACT_BEAM_COLOR = "#f5f0ff";
+export const BORDER_CONTACT_OPACITY_MULT = 0.2;
+
+// Re-exported so callers checking pylon membership (client-map-3d.ts) use
+// the exact same key format this module used to build pylonKeys above,
+// instead of a second hand-rolled copy that could silently drift out of
+// sync. Segment membership uses segmentTouchesAnySeam instead of a key set
+// -- see its doc comment for why exact-key matching doesn't work once seams
+// are clipped to the overlap range.
+export { pointKey, segmentTouchesAnySeam };
 
 export const computeBorderContactRenderState = (
   myOwnerId: string,
@@ -39,8 +50,7 @@ export const computeBorderContactRenderState = (
   const seams = computeBorderContactSegments(myOwnerId, mySegments, otherSegments);
   return {
     seams,
-    segmentKeys: new Set(seams.map((seam) => undirectedSegmentKey(seam.from, seam.to))),
-    pylonKeys: new Set(computeBorderContactPylons(myOwnerId, myPylons, otherPylons).map((p) => pointKey(p)))
+    pylonKeys: new Set(computeBorderContactPylons(myOwnerId, myPylons, otherPylons, seams).map((p) => pointKey(p)))
   };
 };
 
