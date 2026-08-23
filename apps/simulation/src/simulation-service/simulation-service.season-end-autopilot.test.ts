@@ -50,29 +50,19 @@ describe("Fix 1 — autopilots stop on season end and restart on rollover", () =
     expect(startAutopilotsFn.slice(0, 200)).toContain("closeAutopilots()");
   });
 
-  it("aiShouldRun returns false and increments season_ended counter when season is ended", () => {
+  it("aiShouldRun/systemShouldRun are built via the shared should-run factory, which guards on season_ended", () => {
     const file = source();
-    // Belt-and-suspenders guard at the top of aiShouldRun
-    expect(file).toContain(
-      [
-        "  const aiShouldRun = () => {",
-        '    if (currentSeasonState.status === "ended") {',
-        '      simulationMetrics.incrementSimAiTickThrottled("season_ended");',
-        "      return false;",
-        "    }"
-      ].join("\n")
+    expect(file).toContain("const { aiShouldRun, systemShouldRun } = createAiAndSystemShouldRun({");
+    const factorySource = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "ai-and-system-should-run.ts"),
+      "utf8"
     );
-  });
-
-  it("systemShouldRun returns false and increments season_ended counter when season is ended", () => {
-    const file = source();
-    // Belt-and-suspenders guard at the top of systemShouldRun
-    expect(file).toContain(
+    // Belt-and-suspenders guard shared by both aiShouldRun and systemShouldRun
+    expect(factorySource).toContain(
       [
-        "  const systemShouldRun = () => {",
-        '    if (currentSeasonState.status === "ended") {',
-        '      simulationMetrics.incrementSimAiTickThrottled("season_ended");',
-        "      return false;",
+        "    if (seasonState.status === \"ended\") {",
+        '      deps.incrementThrottled("season_ended");',
+        "      return true;",
         "    }"
       ].join("\n")
     );
