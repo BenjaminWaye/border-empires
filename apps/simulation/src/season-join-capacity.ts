@@ -2,10 +2,10 @@
 // PreparePlayer. 0/unset disables the cap. Only gates a genuinely new spawn —
 // a returning player who already has territory this season is never
 // rejected by it (see resolveMaxSeasonPlayers/seasonIsAtPlayerCap callers).
-// Default 120: ~100 invited beta testers plus headroom for a second account
-// or a stale binding, so a real invitee never hits SEASON_FULL at launch.
+// Default 50: lowered from 120 once the lobby hit the prior cap, to keep
+// season size manageable.
 export const resolveMaxSeasonPlayers = (configured: number | undefined): number =>
-  Math.max(0, Number(configured ?? process.env.SIMULATION_MAX_SEASON_PLAYERS ?? 120));
+  Math.max(0, Number(configured ?? process.env.SIMULATION_MAX_SEASON_PLAYERS ?? 50));
 
 export const seasonIsAtPlayerCap = (
   maxSeasonPlayers: number,
