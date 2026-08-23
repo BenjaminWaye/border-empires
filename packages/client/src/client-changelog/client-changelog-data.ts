@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787472289089, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Settled resource tiles now show their real slot production instead of stale prose",
+    why: "A settled Farm/Fish/Titanium/Gems/Umbrite tile's overview said \"Resource node can produce food once developed and collected\" even after being settled -- a holdover from the old per-day yield model. FOOD/TITANIUM/CRYSTAL/UMBRITE production moved to the slot-supply system a while ago, so that line was permanently stale and never resolved into a real number.",
+    changes: [
+      "A settled resource tile's overview now shows a \"Production:\" line with the actual FOOD/TITANIUM/CRYSTAL/UMBRITE slot count it contributes (e.g. \"Production: 🍞 Food +1\"), matching the format already used for buildings, instead of the old \"can produce ... once developed and collected\" prose.",
+      "A Farmstead/Mine/Umbrite Rig built on its tile now visibly bumps that slot count (e.g. a Farmstead on a Farm tile shows \"Food +2\")."
+    ]
+  },
+  {
     createdAt: 1787463213160, // 2026.08.22.15 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.15",
     title: "Fixed a spurious build error when settling into a Relay Beacon (or any settle+build)",
