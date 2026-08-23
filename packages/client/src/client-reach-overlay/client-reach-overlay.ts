@@ -1,6 +1,13 @@
-import { isSeaTerrain, tileKey, WORLD_HEIGHT, WORLD_WIDTH, type ReachAnchorKind } from "@border-empires/shared";
+import { isSeaTerrain, tileKey } from "@border-empires/shared";
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import type { Tile } from "../client-types.js";
+import {
+  tileKeysAroundAnchor,
+  type LocalAnchor,
+  type LocalLandConnectivityQuery
+} from "./client-reach-overlay-anchor-disk.js";
+
+export { tileKeysAroundAnchor, type LocalAnchor, type LocalLandConnectivityQuery };
 
 // Fixed-borders-via-reach client overlay. Renders the boundary of the local
 // player's reach set (union of radius disks from towns/outposts/docks — see
@@ -40,28 +47,6 @@ import type { Tile } from "../client-types.js";
 export type ReachOverlayTileMap = ReadonlyMap<string, Tile>;
 
 export const OUTPOST_STRUCTURE_TYPES = new Set(["RELAY_BEACON", "SIEGE_OUTPOST", "SIEGE_TOWER", "DREAD_TOWER"]);
-
-export type LocalAnchor = { x: number; y: number; kind: ReachAnchorKind };
-
-const REACH_RADIUS_BY_KIND: Record<ReachAnchorKind, number> = {
-  TOWN: 3,
-  OUTPOST: 5,
-  DOCK: 1
-};
-
-/** Every wrapped tile key within an anchor's radius, inclusive of its own tile. */
-export const tileKeysAroundAnchor = (anchor: LocalAnchor): string[] => {
-  const radius = REACH_RADIUS_BY_KIND[anchor.kind];
-  const keys: string[] = [];
-  for (let dy = -radius; dy <= radius; dy += 1) {
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      const x = ((anchor.x + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
-      const y = ((anchor.y + dy) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
-      keys.push(tileKey(x, y));
-    }
-  }
-  return keys;
-};
 
 /**
  * Scans currently-known tiles for this player's own reach anchors (towns,
@@ -109,9 +94,19 @@ export const computeLocalReachSet = (tiles: ReachOverlayTileMap, me: string): Se
     const isActiveSiegeOutpost = isSettled && tile.siegeOutpost?.ownerId === me && tile.siegeOutpost?.status === "active";
     if (isActiveOutpostEconomic || isActiveSiegeOutpost) anchors.push({ x: tile.x, y: tile.y, kind: "OUTPOST" });
   }
+  // Land-gate every anchor's disk to mirror the server (see reach.ts). Unlike
+  // the server, the client only has partial map knowledge (fog of war), so
+  // an unloaded tile defaults to "assume land" rather than "assume water" --
+  // the server's fallback would falsely narrow this preview for perfectly
+  // normal unexplored ground, which is worse than the rare case of this
+  // preview optimistically including a water tile it hasn't seen yet.
+  const isLand: LocalLandConnectivityQuery = (x, y) => {
+    const tile = tiles.get(tileKey(x, y));
+    return tile ? tile.terrain === "LAND" : true;
+  };
   const reach = new Set<string>();
   for (const anchor of anchors) {
-    for (const key of tileKeysAroundAnchor(anchor)) reach.add(key);
+    for (const key of tileKeysAroundAnchor(anchor, isLand)) reach.add(key);
   }
   return reach;
 };

@@ -45,7 +45,20 @@ export type ReachAnchor = {
    * but at a smaller radius than OUTPOST_REACH_RADIUS.
    */
   radiusOverride?: number;
+  /**
+   * Opts this specific anchor OUT of land-gating even when a caller passes a
+   * `LandConnectivityQuery` to tileKeysInReach/grantAnchorToBorder/etc — its
+   * disk stays pure Chebyshev geometry, free to spread across water. Used by
+   * the Aether Bridge landing grant (and any other explicitly water-crossing
+   * ability): its entire purpose is to bridge reach across water without a
+   * land connection, so it must be exempt from the land-connectivity
+   * requirement normal TOWN/OUTPOST/DOCK anchors are gated on.
+   */
+  crossesWater?: boolean;
 };
+
+/** Answers "is the tile at this world position LAND terrain?" for land-gating a reach disk. */
+export type LandConnectivityQuery = (x: number, y: number) => boolean;
 
 export const reachRadiusForKind = (kind: ReachAnchorKind): number => {
   if (kind === "TOWN") return TOWN_REACH_RADIUS;
@@ -69,13 +82,78 @@ export const chebyshevWithWrap = (ax: number, ay: number, bx: number, by: number
   return Math.max(dx, dy);
 };
 
+/** 8-neighbor coordinate offsets, matching encirclement.ts's adjacency convention. */
+const REACH_NEIGHBOR_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
+  { dx: -1, dy: -1 },
+  { dx: 0, dy: -1 },
+  { dx: 1, dy: -1 },
+  { dx: -1, dy: 0 },
+  { dx: 1, dy: 0 },
+  { dx: -1, dy: 1 },
+  { dx: 0, dy: 1 },
+  { dx: 1, dy: 1 }
+];
+
+/**
+ * Land-gated variant of the disk: a tile within `radius` of the anchor only
+ * counts as in-reach if it is reachable from the anchor's own tile via a
+ * path of LAND tiles (8-connected), staying within the radius throughout —
+ * water can never be a stepping-stone that extends reach onto land past it.
+ * A water tile itself IS still included when it's directly adjacent to a
+ * reached land tile (or is the anchor's own tile) — coastal edges are fine,
+ * they just can't propagate further. Same O(radius²) bound as the pure
+ * geometric disk: the BFS never leaves the anchor's local bounding box.
+ *
+ * Exported (not just used internally by `tileKeysInReach`) so client-side
+ * reach previews (`computeLocalReachSet`) can share this exact algorithm
+ * instead of re-implementing it against `Tile.terrain` — keeping client
+ * and server/shared reach predictions in sync by construction.
+ */
+export const landGatedTileKeysInDisk = (
+  anchorX: number,
+  anchorY: number,
+  radius: number,
+  isLand: LandConnectivityQuery
+): string[] => {
+  const ax = wrapCoord(anchorX, WORLD_WIDTH);
+  const ay = wrapCoord(anchorY, WORLD_HEIGHT);
+  const included = new Set<string>([tileKey(ax, ay)]);
+  const visited = new Set<string>([tileKey(ax, ay)]);
+  const queue: Array<{ x: number; y: number }> = [{ x: ax, y: ay }];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const { dx, dy } of REACH_NEIGHBOR_OFFSETS) {
+      const nx = wrapCoord(current.x + dx, WORLD_WIDTH);
+      const ny = wrapCoord(current.y + dy, WORLD_HEIGHT);
+      if (chebyshevWithWrap(ax, ay, nx, ny) > radius) continue;
+      const nk = tileKey(nx, ny);
+      if (visited.has(nk)) continue;
+      visited.add(nk);
+      included.add(nk);
+      // Only propagate the BFS through LAND tiles -- a water tile is still
+      // included (coastal edge) but never used as a stepping-stone onward.
+      if (isLand(nx, ny)) queue.push({ x: nx, y: ny });
+    }
+  }
+  return [...included];
+};
+
 /**
  * Every wrapped tile key within `anchor`'s radius (inclusive), including the
  * anchor's own tile. Iterates only the anchor's local bounding box, not the
  * world grid, so cost is O(radius²) per anchor regardless of world size.
+ *
+ * When `landConnectivity` is supplied AND the anchor is not marked
+ * `crossesWater`, the disk is additionally gated to tiles land-connected to
+ * the anchor within the radius (see `landGatedTileKeysInDisk`). Omitting
+ * `landConnectivity` (the default) keeps the pure geometric disk — every
+ * existing caller that doesn't pass it is unaffected.
  */
-export const tileKeysInReach = (anchor: ReachAnchor): string[] => {
+export const tileKeysInReach = (anchor: ReachAnchor, landConnectivity?: LandConnectivityQuery): string[] => {
   const radius = reachRadiusForAnchor(anchor);
+  if (landConnectivity && !anchor.crossesWater) {
+    return landGatedTileKeysInDisk(anchor.x, anchor.y, radius, landConnectivity);
+  }
   const keys: string[] = [];
   for (let dy = -radius; dy <= radius; dy += 1) {
     for (let dx = -radius; dx <= radius; dx += 1) {
@@ -95,12 +173,13 @@ export const tileKeysInReach = (anchor: ReachAnchor): string[] => {
  */
 export const liveReachForOwner = (
   ownerId: string,
-  activeAnchors: ReadonlyArray<ReachAnchor>
+  activeAnchors: ReadonlyArray<ReachAnchor>,
+  landConnectivity?: LandConnectivityQuery
 ): Set<string> => {
   const set = new Set<string>();
   for (const anchor of activeAnchors) {
     if (anchor.ownerId !== ownerId) continue;
-    for (const key of tileKeysInReach(anchor)) set.add(key);
+    for (const key of tileKeysInReach(anchor, landConnectivity)) set.add(key);
   }
   return set;
 };
@@ -138,11 +217,12 @@ export const grantAnchorToBorder = (
   border: ReadonlyMap<string, string>,
   anchor: ReachAnchor,
   defenderLiveReach: (claimantOwnerId: string) => ReadonlySet<string>,
-  settledOwnerAt?: (tileKey: string) => string | undefined
+  settledOwnerAt?: (tileKey: string) => string | undefined,
+  landConnectivity?: LandConnectivityQuery
 ): { border: Map<string, string>; overtaken: OvertakenTile[] } => {
   const next = new Map(border);
   const overtaken: OvertakenTile[] = [];
-  for (const key of tileKeysInReach(anchor)) {
+  for (const key of tileKeysInReach(anchor, landConnectivity)) {
     const existingOwner = next.get(key);
     if (!existingOwner) {
       const settledOwner = settledOwnerAt?.(key);
@@ -203,11 +283,12 @@ export const reassessBorderOnAnchorDeactivation = (
   deactivatedAnchor: ReachAnchor,
   ownerLiveReach: ReadonlySet<string>,
   rivalLiveReachFor: (rivalOwnerId: string) => ReadonlySet<string>,
-  rivalOwnerIds: ReadonlyArray<string>
+  rivalOwnerIds: ReadonlyArray<string>,
+  landConnectivity?: LandConnectivityQuery
 ): { border: Map<string, string>; overtaken: OvertakenTile[] } => {
   const next = new Map(border);
   const overtaken: OvertakenTile[] = [];
-  for (const key of tileKeysInReach(deactivatedAnchor)) {
+  for (const key of tileKeysInReach(deactivatedAnchor, landConnectivity)) {
     if (next.get(key) !== deactivatedAnchor.ownerId) continue; // not (still) mine in the border
     if (ownerLiveReach.has(key)) continue; // still defended by another of my own anchors
     for (const rivalId of rivalOwnerIds) {
@@ -249,7 +330,8 @@ export const reconcileBorderAgainstLiveReach = (
   border: ReadonlyMap<string, string>,
   settledTiles: ReadonlyArray<{ tileKey: string; ownerId: string }>,
   anchors: ReadonlyArray<ReachAnchor>,
-  ownerIds: ReadonlyArray<string>
+  ownerIds: ReadonlyArray<string>,
+  landConnectivity?: LandConnectivityQuery
 ): { border: Map<string, string>; overtaken: OvertakenTile[] } => {
   const next = new Map(border);
   const overtaken: OvertakenTile[] = [];
@@ -257,7 +339,7 @@ export const reconcileBorderAgainstLiveReach = (
   const liveReachForOwnerCached = (ownerId: string): ReadonlySet<string> => {
     let set = liveReachCache.get(ownerId);
     if (!set) {
-      set = liveReachForOwner(ownerId, anchors);
+      set = liveReachForOwner(ownerId, anchors, landConnectivity);
       liveReachCache.set(ownerId, set);
     }
     return set;
@@ -291,7 +373,8 @@ export type AnchorEvent =
  * event as it happens, which is what this function does internally.
  */
 export const applyAnchorEvents = (
-  events: ReadonlyArray<AnchorEvent>
+  events: ReadonlyArray<AnchorEvent>,
+  landConnectivity?: LandConnectivityQuery
 ): { border: Map<string, string>; overtaken: OvertakenTile[] } => {
   let border = new Map<string, string>();
   const active: ReachAnchor[] = [];
@@ -299,8 +382,12 @@ export const applyAnchorEvents = (
   for (const event of events) {
     if (event.type === "ACTIVATE") {
       active.push(event.anchor);
-      const result = grantAnchorToBorder(border, event.anchor, (ownerId) =>
-        liveReachForOwner(ownerId, active)
+      const result = grantAnchorToBorder(
+        border,
+        event.anchor,
+        (ownerId) => liveReachForOwner(ownerId, active, landConnectivity),
+        undefined,
+        landConnectivity
       );
       border = result.border;
       allOvertaken.push(...result.overtaken);
