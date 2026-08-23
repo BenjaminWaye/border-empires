@@ -1167,8 +1167,8 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-a" },
-          { x: 49, y: 49, terrain: "LAND" },
-          { x: 50, y: 49, terrain: "LAND" },
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Anchor Town" } }, // reach over (10,10) -- DOCK anchors now require SETTLED
+          { x: 49, y: 49, terrain: "LAND" }, { x: 50, y: 49, terrain: "LAND" },
           { x: 51, y: 49, terrain: "LAND" },
           { x: 49, y: 50, terrain: "LAND" },
           { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },

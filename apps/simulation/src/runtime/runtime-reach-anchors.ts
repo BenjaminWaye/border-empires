@@ -48,8 +48,7 @@ export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] 
       // without this check a dormant/downgraded structure would keep
       // functioning as a full reach anchor forever — contradicting the
       // same SETTLED-only dormancy rule already enforced for combat aura
-      // in outpost-aura.ts. Gate TOWN and OUTPOST anchors on it; DOCK is
-      // deliberately left ungated (see the dock loop below).
+      // in outpost-aura.ts. Gate TOWN, OUTPOST, and DOCK anchors on it.
       if (!tile || tile.ownerId !== playerId || tile.ownershipState !== "SETTLED") continue;
       anchors.push({ x: tile.x, y: tile.y, ownerId: playerId, activatedAt: tileSettledAtByKey.get(tileKey) ?? now, kind: "TOWN" });
     }
@@ -70,14 +69,12 @@ export function gatherReachAnchors(deps: GatherReachAnchorsDeps): ReachAnchor[] 
   }
   for (const dock of docks) {
     const tile = tiles.get(dock.tileKey);
-    // Deliberately NOT gated on ownershipState === "SETTLED": a freshly
-    // captured dock tile always lands FRONTIER (capture rule, see
-    // runtime-lock-resolution.ts), and requiring SETTLE first would make a
-    // dock's small reach bubble unavailable exactly when it's most useful
-    // (right after taking it). Docks aren't part of the SETTLED-dormancy
-    // precedent this plan established for outposts/towns — see the plan
-    // doc's "Reach computation" section.
-    if (!tile?.ownerId) continue;
+    // Gated on ownershipState === "SETTLED", same as TOWN/OUTPOST above. A
+    // captured dock tile lands FRONTIER first; it needs to actually be
+    // settled (including via the out-of-reach auto-settle path in
+    // runtime-lock-resolution.ts) before it projects reach, so a raw
+    // capture can't instantly bootstrap territory nobody chose to hold.
+    if (!tile?.ownerId || tile.ownershipState !== "SETTLED") continue;
     anchors.push({ x: tile.x, y: tile.y, ownerId: tile.ownerId, activatedAt: tileSettledAtByKey.get(dock.tileKey) ?? now, kind: "DOCK" });
   }
   return anchors;
@@ -123,9 +120,11 @@ export function newlyActivatedReachAnchors(previous: DomainTileState | undefined
   if (isActiveBeacon && isActiveBeacon !== wasActiveBeacon) {
     anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveBeacon, activatedAt: tile.economicStructure?.activatedAt ?? now, kind: "OUTPOST" });
   }
-  // DOCK deliberately not gated on ownershipState — see gatherReachAnchors.
-  if (tile.dockId && tile.ownerId && (!previous?.dockId || previous.ownerId !== tile.ownerId)) {
-    anchors.push({ x: tile.x, y: tile.y, ownerId: tile.ownerId, activatedAt: now, kind: "DOCK" });
+  // DOCK now gated on SETTLED, same as TOWN/OUTPOST — see gatherReachAnchors.
+  const wasActiveDock = wasSettled && previous?.dockId ? previous.ownerId : undefined;
+  const isActiveDock = isSettled && tile.dockId ? tile.ownerId : undefined;
+  if (isActiveDock && isActiveDock !== wasActiveDock) {
+    anchors.push({ x: tile.x, y: tile.y, ownerId: isActiveDock, activatedAt: now, kind: "DOCK" });
   }
   return anchors;
 }
@@ -165,9 +164,11 @@ export function newlyDeactivatedReachAnchors(previous: DomainTileState | undefin
   if (wasActiveBeacon && wasActiveBeacon !== isActiveBeacon) {
     anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveBeacon, activatedAt: now, kind: "OUTPOST" });
   }
-  // DOCK deliberately not gated on ownershipState — see gatherReachAnchors.
-  if (previous?.dockId && previous.ownerId && (!tile.dockId || tile.ownerId !== previous.ownerId)) {
-    anchors.push({ x: previous.x, y: previous.y, ownerId: previous.ownerId, activatedAt: now, kind: "DOCK" });
+  // DOCK now gated on SETTLED, same as TOWN/OUTPOST — see gatherReachAnchors.
+  const wasActiveDock = wasSettled && previous?.dockId ? previous.ownerId : undefined;
+  const isActiveDock = isSettled && tile.dockId ? tile.ownerId : undefined;
+  if (wasActiveDock && wasActiveDock !== isActiveDock) {
+    anchors.push({ x: tile.x, y: tile.y, ownerId: wasActiveDock, activatedAt: now, kind: "DOCK" });
   }
   return anchors;
 }

@@ -62,6 +62,14 @@ export type RuntimeLockResolutionContext = {
   // may not be able to hold.
   outOfReachDecayDeadline: (playerId: string, x: number, y: number) => number | undefined;
   registerOutOfReachDecay: (tileKey: string, deadlineAt: number) => void;
+  // Out-of-reach auto-settle for a captured/claimed town or dock tile (see
+  // runtime.ts's canAutoSettleCapturedAnchor / autoSettleCapturedAnchor).
+  // Pure eligibility check first (can the player pay + do they have a free
+  // development slot), then the mutating start -- kept separate so the
+  // caller can decide whether to stamp a decay timer BEFORE attempting the
+  // mutation, never after (no reason to pay a settle cost only to also decay).
+  canAutoSettleCapturedAnchor: (playerId: string) => boolean;
+  autoSettleCapturedAnchor: (playerId: string, targetKey: string, target: DomainTileState, commandId: string) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -177,6 +185,15 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       lock.playerId === "barbarian-1"
         ? undefined
         : context.outOfReachDecayDeadline(lock.playerId, lock.targetX, lock.targetY);
+    // Towns and docks are the reach anchors themselves -- decaying one away
+    // for being out of reach is a dead end (no reach to grow into it with),
+    // so a captured/claimed town or dock tries to auto-settle instead of
+    // decaying, provided the player can pay the usual settle cost and has a
+    // free development slot. If not, it falls back to decaying like any
+    // other out-of-reach tile -- see canAutoSettleCapturedAnchor's doc comment.
+    const isAnchorStructureTile = Boolean(townAftermath.town) || Boolean(previousTarget?.dockId);
+    const willAutoSettle =
+      outOfReachDecayAt !== undefined && isAnchorStructureTile && context.canAutoSettleCapturedAnchor(lock.playerId);
     const resolvedTarget: DomainTileState = {
       x: lock.targetX,
       y: lock.targetY,
@@ -190,7 +207,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ...capturedStructureFields(previousTarget, lock.playerId, context.now()),
       ownerId: lock.playerId,
       ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER",
-      ...(outOfReachDecayAt !== undefined
+      ...(outOfReachDecayAt !== undefined && !willAutoSettle
         ? { frontierDecayAt: outOfReachDecayAt, frontierDecayKind: "OUT_OF_REACH" as const }
         : {})
     };
@@ -200,7 +217,8 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // itself is already gone; this just drops the pooled manpower with it.
     const hadMuster = Boolean(previousTarget?.muster);
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
-    if (outOfReachDecayAt !== undefined) context.registerOutOfReachDecay(lock.targetKey, outOfReachDecayAt);
+    if (willAutoSettle) context.autoSettleCapturedAnchor(lock.playerId, lock.targetKey, resolvedTarget, lock.commandId);
+    else if (outOfReachDecayAt !== undefined) context.registerOutOfReachDecay(lock.targetKey, outOfReachDecayAt);
     if (resolvedTarget.ownershipState === "FRONTIER") context.extendFortPatrolGrace(lock.targetKey, context.now() + FORT_PATROL_GRACE_MS);
     else context.clearFortPatrolGrace(lock.targetKey);
     if (lock.actionType === "EXPAND") {
