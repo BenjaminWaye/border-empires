@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encirclementRemainingMsForTile, isFrontierOriginCutOff, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
+import { encirclementRemainingMsForTile, isFrontierOriginCutOff, outOfReachDecayRemainingMsForTile, tileMenuHeaderStatusForTile } from "./client-tile-menu-status.js";
 import type { Tile } from "../client-types.js";
 
 const makeFrontierTile = (overrides: Partial<Tile> = {}): Tile => ({
@@ -91,5 +91,60 @@ describe("tileMenuHeaderStatusForTile — priority", () => {
     };
     const status = tileMenuHeaderStatusForTile(tile, nowMs);
     expect(status?.text).toMatch(/Cut off from supply/);
+  });
+});
+
+describe("outOfReachDecayRemainingMsForTile", () => {
+  it("returns remaining ms for a tile decaying outside reach", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 90_000, frontierDecayKind: "OUT_OF_REACH" });
+    expect(outOfReachDecayRemainingMsForTile(tile, nowMs)).toBe(90_000);
+  });
+
+  it("ignores an ENCIRCLEMENT timer", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
+    expect(outOfReachDecayRemainingMsForTile(tile, nowMs)).toBeUndefined();
+  });
+
+  it("returns undefined once the deadline has passed", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs - 1, frontierDecayKind: "OUT_OF_REACH" });
+    expect(outOfReachDecayRemainingMsForTile(tile, nowMs)).toBeUndefined();
+  });
+
+  it("returns undefined for settled tiles", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ ownershipState: "SETTLED", frontierDecayAt: nowMs + 90_000, frontierDecayKind: "OUT_OF_REACH" });
+    expect(outOfReachDecayRemainingMsForTile(tile, nowMs)).toBeUndefined();
+  });
+});
+
+describe("tileMenuHeaderStatusForTile — out-of-reach decay precedence", () => {
+  it("shows the decay countdown for an out-of-reach decaying tile", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 90_000, frontierDecayKind: "OUT_OF_REACH" });
+    expect(tileMenuHeaderStatusForTile(tile, nowMs)).toEqual({
+      text: "Beyond your reach — decays in 90s",
+      tone: "warning"
+    });
+  });
+
+  it("lets encirclement outrank the out-of-reach countdown", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 30_000, frontierDecayKind: "ENCIRCLEMENT" });
+    expect(tileMenuHeaderStatusForTile(tile, nowMs)?.text).toBe("Cut off from supply — disappears in 30s");
+  });
+
+  it("prefers the decay countdown over the bare \"Outside reach\" message", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile({ frontierDecayAt: nowMs + 90_000, frontierDecayKind: "OUT_OF_REACH" });
+    expect(tileMenuHeaderStatusForTile(tile, nowMs, () => false)?.text).toBe("Beyond your reach — decays in 90s");
+  });
+
+  it("still shows the bare \"Outside reach\" message when no timer is running", () => {
+    const nowMs = 1_000;
+    const tile = makeFrontierTile();
+    expect(tileMenuHeaderStatusForTile(tile, nowMs, () => false)?.text).toBe("Outside reach");
   });
 });

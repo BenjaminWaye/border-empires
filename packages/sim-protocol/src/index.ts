@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
-import type { ChosenTrickleResource, MonumentalStructureType, PlayerRespawnNotice, SlotResource, VisibilityState, WorldStyle } from "@border-empires/shared";
+import type { ChosenTrickleResource, FrontierDecayKind, MonumentalStructureType, PlayerRespawnNotice, SlotResource, VisibilityState, WorldStyle } from "@border-empires/shared";
 import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
@@ -437,7 +437,7 @@ export type PlayerSubscriptionSnapshot = {
     ownerId?: string | undefined;
     ownershipState?: string | undefined;
     frontierDecayAt?: number | undefined;
-    frontierDecayKind?: "ENCIRCLEMENT" | undefined;
+    frontierDecayKind?: FrontierDecayKind | undefined;
     breachShockUntil?: number | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";
