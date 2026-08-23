@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787485929859, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.3",
+    title: "Fixed the name/color picker not showing for new players joining a season",
+    why: "The season lobby's full-screen treatment hides every other overlay on screen while it's up -- including the name/color setup screen, which needs to run first for a brand-new player. A new player hitting a pending or newly-started season had no screen left to pick a name and color on, so it silently never appeared.",
+    changes: [
+      "The season lobby now waits for name/color setup to finish before taking over the screen, instead of hiding it."
+    ]
+  },
+  {
     createdAt: 1787484620520, // frozen from a live Date.now() call
     introducedIn: "2026.08.23.2",
     title: "Fixed the season lobby's cog vibrating instead of turning, and the invite button appearing to do nothing",
