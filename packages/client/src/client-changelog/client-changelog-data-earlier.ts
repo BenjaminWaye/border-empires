@@ -12,6 +12,18 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787441000000, // 2026.08.22.7 — frozen; was Date.now() left in by the merged commit
+    introducedIn: "2026.08.22.7",
+    title: "The pending-season lobby is now its own full-screen war room, and its title no longer repeats the season id",
+    why: "The lobby previously rendered as a translucent overlay with the game map, minimap, and HUD still visible underneath -- distracting for a screen players can sit on for a while, and it kept the client doing pointless map rendering for someone who isn't in the game yet. Separately, the lobby's heading duplicated the raw internal season id (e.g. \"Season season-8 starts soon\").",
+    changes: [
+      "While the pending-season lobby is open it now fully replaces the game view -- no canvas, minimap, or HUD bleeding through -- and returns to normal the instant your empire is placed.",
+      "The game no longer renders the map/world underneath while the lobby is up, saving battery and CPU for players who are just waiting.",
+      "Redesigned the lobby's look: a brass-and-gunmetal war-room panel with riveted corners, a glowing amber countdown dial, and a subtle cog motif, layered over the game's existing dark command-center theme.",
+      "Fixed the lobby heading showing the raw season id twice (e.g. \"Season season-8 starts soon\") -- it now reads simply \"Season starts soon\"."
+    ]
+  },
+  {
     createdAt: 1787132874001, // 2026.08.19
     introducedIn: "2026.08.19",
     title: "Town gold production now includes each Mintworks' flat bonus, and settled-town copy cleaned up",
