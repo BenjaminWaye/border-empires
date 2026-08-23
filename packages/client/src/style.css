@@ -808,7 +808,7 @@ body {
 #hud #guide-overlay,
 #hud #respawn-overlay,
 #hud #intel-overlay,
-#hud #season-end-overlay,
+#hud #season-end-overlay, #hud #join-season-overlay,
 #hud #structure-info-overlay,
 #hud #tech-detail-overlay,
 #hud #bug-report-overlay {
@@ -1498,7 +1498,7 @@ body {
 #guide-overlay,
 #respawn-overlay,
 #intel-overlay,
-#season-end-overlay {
+#season-end-overlay, #join-season-overlay {
   position: fixed;
   inset: 0;
   display: none;

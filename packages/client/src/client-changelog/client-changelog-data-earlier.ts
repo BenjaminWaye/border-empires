@@ -12,23 +12,144 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
-    createdAt: 1786910628146, // 2026.08.16.1
-    introducedIn: "2026.08.16.1",
-    title: "Swapped the waypoint and mustering flag overlays",
-    why: "The elaborate steampunk tower — banner, medallion, cannons, dome, spire — used to mark a single movement waypoint, while mustering tiles got a small pennant. That was backwards: a big banner-bearing tower reads as a rallying point, not a mere movement destination, and mustering tiles can appear several at once across a border while a waypoint queue is just one player's own path.",
+    createdAt: 1787176861000, // 2026.08.20
+    introducedIn: "2026.08.20",
+    title: "Fixed: EXPAND onto a connected dock or across an active Aether Bridge was silently impossible",
+    why: "EXPAND has always required the target tile to be inside your persistent reach border, and that check applied unconditionally to dock and Aether Bridge crossings too — but a bridge or dock crossing lands you on a landmass with no anchor of your own there yet, by design (that's the entire point of both). The reach check therefore always failed for a genuinely connected dock's paired tile or a bridge's landing tile, making it impossible to ever claim either.",
     changes: [
-      "Mustering tiles now show the full tower/banner assembly, with the marching soldier dots still converging on it as manpower fills.",
-      "Waypoint queue entries now show a small pennant instead — no soldier dots, since a waypoint isn't accumulating troops.",
-      "The tower now renders efficiently across many simultaneous mustering tiles instead of being limited to a handful of instances."
+      "EXPAND across a connected dock link, or across an active Aether Bridge, no longer requires the target tile to already be inside your reach border — matching the adjacency and Aether-wall-shield exemptions those crossings already had."
     ]
   },
   {
-    createdAt: 1786924800000, // 2026.08.16.2
-    introducedIn: "2026.08.16.2",
-    title: "Fogged sea tiles no longer render as a solid black hole",
-    why: "Sea tiles were never part of the 3D heightfield mesh (the water plane sits over a deliberate hole in it), so the fog-of-war darken overlay — which works by tinting a land tile's already-drawn remembered terrain — had nothing underneath it for sea. The result was a fully opaque black quad over an empty hole, on top of the scene's own black fog background: indistinguishable from unexplored fog, right at any coastline your vision doesn't currently reach.",
+    createdAt: 1787170756951, // 2026.08.19.2
+    introducedIn: "2026.08.19.2",
+    title: "Town gold production: fixed the Mintworks flat bonus for real this time",
+    why: "The previous fix for this (2026.08.19) only patched apps/simulation/src/live-town-summary.ts — but the tile-click popup is served by a separate gateway path (apps/realtime-gateway/src/tile-detail-snapshot.ts) whenever the cached snapshot's townJson doesn't carry a fresh goldPerMinute, and that path has its own independent copy of the same formula, explicitly commented 'keep in sync with buildTownSummary' — which still dropped each Mintworks' flat +1 gold/day-per-copy bonus. A live screenshot after the first fix still showed the old, wrong number, which is what surfaced this second copy.",
     changes: [
-      "Fogged SEA/COASTAL_SEA tiles now draw the same live water surface visible sea gets instead of a black darken overlay, so remembered coastline reads as water again."
+      "The gateway's tile-detail fallback gold calculation now includes each active Mintworks' flat gold bonus, matching the simulation's authoritative formula."
+    ]
+  },
+  {
+    createdAt: 1787323800000,
+    introducedIn: "2026.08.21.4",
+    title: "Fixed border pylons and structures drifting away from the ground while panning",
+    why: "The zoom-smoothness fix above let the terrain skip a rebuild for any pan that stayed inside a padded window, but every other 3D overlay (ownership border pylons/walls, flags, badges, selection markers) still repositions itself every single frame off the live camera with no such padding. Mid-pan, that left the terrain's baked geometry pinned to wherever it was last rebuilt while border pylons and structures kept gliding on with the live camera, so towers and border lines visibly separated from the tiles under them until the pan stopped.",
+    changes: [
+      "Panning the 3D map now always rebuilds the terrain to match the live camera, so border pylons, structures, and the ground they sit on stay locked together while scrolling. The zoom-only rebuild savings from the fix above are unaffected."
+    ]
+  },
+  {
+    createdAt: 1787415992729, // 2026.08.22.3 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.3",
+    title: "Non-winning seasons now leave a mark on your galaxy too: Outposts and Stipends",
+    why: "The galaxy previously only recorded a season's outright winner as a permanent Planet, so every other empire's season vanished without a trace once it ended -- even a season played well but not won.",
+    changes: [
+      "A strong runner-up -- leading a different victory path than the one that won, with real hold-progress on it -- now claims a minor permanent Outpost, specialized by their own leading path and shown alongside your Planets in the galaxy view.",
+      "Any other empire that meaningfully engaged with a victory path, without getting close to winning, now gets a one-time Stipend of Influence and Production instead, scaled to how far they got.",
+      "Outposts appear in the public galaxy listing as territory, like Planets; Stipends are a one-time payout and only show up in your own galaxy view."
+    ]
+  },
+  {
+    createdAt: 1787441000000, // 2026.08.22.7 — frozen; was Date.now() left in by the merged commit
+    introducedIn: "2026.08.22.7",
+    title: "The pending-season lobby is now its own full-screen war room, and its title no longer repeats the season id",
+    why: "The lobby previously rendered as a translucent overlay with the game map, minimap, and HUD still visible underneath -- distracting for a screen players can sit on for a while, and it kept the client doing pointless map rendering for someone who isn't in the game yet. Separately, the lobby's heading duplicated the raw internal season id (e.g. \"Season season-8 starts soon\").",
+    changes: [
+      "While the pending-season lobby is open it now fully replaces the game view -- no canvas, minimap, or HUD bleeding through -- and returns to normal the instant your empire is placed.",
+      "The game no longer renders the map/world underneath while the lobby is up, saving battery and CPU for players who are just waiting.",
+      "Redesigned the lobby's look: a brass-and-gunmetal war-room panel with riveted corners, a glowing amber countdown dial, and a subtle cog motif, layered over the game's existing dark command-center theme.",
+      "Fixed the lobby heading showing the raw season id twice (e.g. \"Season season-8 starts soon\") -- it now reads simply \"Season starts soon\"."
+    ]
+  },
+  {
+    createdAt: 1787132874001, // 2026.08.19
+    introducedIn: "2026.08.19",
+    title: "Town gold production now includes each Mintworks' flat bonus, and settled-town copy cleaned up",
+    why: "A town's displayed gold production silently dropped each active Mintworks' flat +1 gold/day-per-copy bonus — the town-summary formula that feeds the client only applied Mintworks' % production multiplier, duplicating (and drifting from) the authoritative formula used elsewhere in the sim, which always included the flat bonus. Separately, a settled town's overview always opened with a generic \"Settled land is defended and fully part of your empire\" line even though the stat grid right below it already says everything that line does.",
+    changes: [
+      "Town gold production now correctly includes every active Mintworks' flat gold bonus, not just its production-percentage multiplier.",
+      "A settled town's overview no longer shows the generic \"Settled land is defended...\" line — plain settled land with no town still does."
+    ]
+  },
+  {
+    createdAt: 1787084630235, // 2026.08.18
+    introducedIn: "2026.08.18",
+    title: "Removed a stale \"gold paused until manpower is full\" message that could no longer appear",
+    why: "The town info panel had leftover copy and a data field for a gold-pause condition the server never actually sends, so it was permanently dead code. Removed it to keep the panel's messaging accurate to what the server can report.",
+    changes: [
+      "The tile info panel no longer has an unreachable \"Town is fed but gold is paused until your empire manpower is full\" line.",
+      "No mechanical change — this condition was never triggered by the server."
+    ]
+  },
+  {
+    createdAt: 1787085726552, // 2026.08.18.2
+    introducedIn: "2026.08.18.2",
+    title: "Town overview now explains partial support and unbuilt Trade Nexuses",
+    why: "Two real gold-production penalties were invisible on the tile panel: a town under-full on Support silently produces less gold (supportRatio is a direct multiplier in the sim), and a connected-town network with no Caravanary anywhere in it pays a flat +0% bonus — but the panel said nothing in either case, so there was no way to tell why gold looked low. The panel also never showed a town's FOOD slot count, only a prose warning once it was already unfed.",
+    changes: [
+      "Partial Support (e.g. 7/8) now shows its real gold-production cost as a Modifiers line instead of staying silent.",
+      "A connected-town network with no built Trade Nexus (Caravanary) now shows a neutral +0% line explaining why the connection bonus isn't paying out, instead of nothing at all.",
+      "A settled town's overview tab now shows its FOOD slot count (e.g. \"Food 4/4 slots\") next to Support."
+    ]
+  },
+  {
+    createdAt: 1787083759893, // 2026.08.18.1
+    introducedIn: "2026.08.18.1",
+    title: "Town overview now shows manpower",
+    why: "The tile overview panel listed Population, Growth, Support, Production, and Upkeep for a settled town, but never said anything about the town's manpower contribution to your empire — a stat players had no way to see anywhere on the tile itself.",
+    changes: [
+      "A settled town's overview tab now shows its base manpower cap and regen contribution, right after Population and Growth."
+    ]
+  },
+  {
+    createdAt: 1787041917435, // 2026.08.17.3
+    introducedIn: "2026.08.17.3",
+    title: "Battle dots no longer pop when the clash hands off into rout",
+    why: "The clash phase sways each dot back and forth (spread + a forward jostle so the two lines press together instead of overlapping), but the instant rout began that whole oscillation was dropped in favor of a clean push-through/scatter position — a small but real positional snap right at the clash/rout boundary, on top of the exact same seam that was already fixed between the pre-resolution skirmish and the clash phase.",
+    changes: [
+      "Dots now settle out of the clash's sway over the first ~140ms of rout instead of dropping it instantly, so the clash and rout phases read as one continuous motion rather than two animations stitched together."
+    ]
+  },
+  {
+    createdAt: 1786960037000, // 2026.08.17.1
+    introducedIn: "2026.08.17.1",
+    title: "World Engine strikes now shake the map and broadcast to everyone",
+    why: "Firing the World Engine used to be a private moment — only the caster's own client got any indication a city had been leveled, via a local pulse effect that never reached anyone else, including the city's owner. A strike that levels a city and costs real population is exactly the kind of moment every empire should hear about, not just the two sides involved.",
+    changes: [
+      "Landing a World Engine strike on an enemy city now shakes the map once, live, for every connected player — not just the caster.",
+      "A new destruction-themed popup announces who fired it, what city was hit, how many lives were lost, and who owned the town.",
+      "That announcement stays visible in the Activity Feed's new \"World Events\" section for 12 hours, so logging in after the fact still tells you what happened."
+    ]
+  },
+  {
+    createdAt: 1787003302865, // 2026.08.17.2
+    introducedIn: "2026.08.17.2",
+    title: "Battle animation reworked: troops line up, march, clash with casualties, then rout",
+    why: "The battle overlay's approach phase was a single 550ms beat — dots barely had time to read as \"forming up\" before they were already marching. And the clash itself, while it now threw glyph bursts into the air, never lost a single dot: the swarm stayed exactly DOTS_PER_SIDE strong right up until rout, so a fight that had clearly been decided (attackerWon is known from the very first frame) never showed any sign of a cost.",
+    changes: [
+      "Both sides now form up at their own tile-local edge for ~2.5s before marching — previously they started marching almost immediately.",
+      "The march itself now takes ~0.9s (previously ~550ms combined with forming up), so the two sides visibly close the distance instead of snapping into position.",
+      "Once the outcome is known, some dots now fall during the clash — a fixed 2 of 10 for the winning side, 4 of 10 for the losing side, so the losing side visibly thins before rout confirms it, and both sides always keep enough survivors for rout to have something to actually push through or scatter.",
+      "The clash window is now ~1.3s (previously 800ms), giving the glyph bursts and new casualties room to read clearly instead of feeling rushed."
+    ]
+  },
+  {
+    createdAt: 1786965132570, // 2026.08.16.3
+    introducedIn: "2026.08.16.3",
+    title: "Battle dots: attacker and defender no longer disappear into each other during the clash",
+    why: "The clash-phase oscillation only ever varied a dot's position along the perpendicular spread across the tile, never along the attacker-defender line itself. That meant an attacker dot and a defender dot with the same per-dot spread value landed on the exact same point, every frame, for the whole clash — the two swarms were genuinely coincident, not just visually crowded. With depth testing disabled on both dot materials (needed so they always render on top of the terrain), whichever side's mesh happened to draw second fully hid the other, so the entire clash read as a single-color blob with no visible fight between two sides — confirmed with the new Storybook \"Full Attack Lifecycle\" story, where the attacker's dots were invisible for the whole clash and only reappeared once rout physically separated the two sides.",
+    changes: [
+      "Each side now holds a small, jostling offset along the attack line during the clash, so attacker and defender read as two distinct lines pressed together instead of one side fully hiding the other."
+    ]
+  },
+  {
+    createdAt: 1787411986658,
+    introducedIn: "2026.08.22.8",
+    title: "Beta season countdown screen",
+    why: "The beta season now has a synchronized start time so everyone begins together instead of the first arrivals compounding a head start over testers in later timezones.",
+    changes: [
+      "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
+      "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
     ]
   },
   {
@@ -59,6 +180,26 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "The reach border you see is now pushed by the server and matches exactly what it will let you claim, so a tile shown inside your border can actually be expanded onto.",
       "A waypoint step the server rejects as out of reach now cancels that waypoint instead of retrying it forever, and the cancellation is mirrored server-side so it cannot come back after a reconnect.",
       "A halted waypoint no longer blocks the waypoints queued behind it, and the 'Waypoint halted' message appears once instead of repeating on every tick."
+    ]
+  },
+  {
+    createdAt: 1787349946710,
+    introducedIn: "2026.08.21.10",
+    title: "You can now attempt to expand toward out-of-reach frontier tiles",
+    why: "Expanding was rejected outright as OUT_OF_REACH the moment a target tile fell outside your reach border, even though claiming a neutral tile has never itself granted reach (only a settled town/outpost/dock does) -- so the rejection didn't actually protect anything, it just hid a button. Settling and building outposts are still gated on reach, since those are what actually extend your border, and a Relay Beacon (or other siege outpost) still can't be built directly on an out-of-reach frontier tile -- that loophole would have let a single out-of-reach expand leapfrog your reach indefinitely.",
+    changes: [
+      "\"Expand To\" now always shows on a neutral tile, in or out of reach, instead of being hidden outside reach.",
+      "On a frontier tile you already own but is outside reach, \"Settle Land\", \"Settle Connected\", and outpost-family build actions (Relay Beacon, siege outposts) now show disabled with an \"Outside your reach\" reason instead of disappearing.",
+      "The tile menu and both map views now flag a selected out-of-reach tile so it's clear why those actions are disabled."
+    ]
+  },
+  {
+    createdAt: 1787374761566, // 2026.08.22.1 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.1",
+    title: "Renamed the distant-attack waypoint button from \"Add Waypoint\" to \"Expand To & Attack\"",
+    why: "This button now only ever appears for an enemy-owned attack target -- the neutral-tile case was folded into \"Expand To\" in the previous release -- but it kept the old generic \"Add Waypoint\" label, which read as a leftover duplicate rather than the attack action it actually is.",
+    changes: [
+      "The multi-step waypoint action on a distant enemy tile is now labeled \"Expand To & Attack\" instead of \"Add Waypoint\"."
     ]
   }
 ];

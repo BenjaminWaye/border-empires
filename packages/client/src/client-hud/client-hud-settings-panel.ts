@@ -33,7 +33,7 @@ export const mapRevealCardHtml = (
 
 const SETTINGS_NAV_ITEMS: Array<{ id: SettingsSubPage; title: string; desc: string }> = [
   { id: "account", title: "Account", desc: "Name and empire colour" },
-  { id: "gameplay", title: "Gameplay", desc: "Ambient sound, map reveal" },
+  { id: "gameplay", title: "Gameplay", desc: "Ambient sound, map reveal, rally link" },
   { id: "diagnostics", title: "Diagnostics & Support", desc: "Connection status, downloads, report a bug" }
 ];
 
@@ -73,12 +73,23 @@ export const settingsAccountPageHtml = (
   `;
 };
 
+export const rallyLinkCardHtml = (state: Pick<ClientState, "authSessionReady">): string => {
+  if (!state.authSessionReady) return "";
+  return `
+    <div class="auth-rally-link">
+      <a class="panel-btn" href="/rally/new">Get Rally Link</a>
+      <p>Invite others to a rally point on the map.</p>
+    </div>
+  `;
+};
+
 export const settingsGameplayPageHtml = (
   state: Pick<ClientState, "mapRevealEligible" | "authSessionReady" | "mapRevealEnabled" | "fogDisabled">
 ): string => `
   <div class="card auth-settings-card">
     ${audioSettingsFieldHtml()}
     ${mapRevealCardHtml(state)}
+    ${rallyLinkCardHtml(state)}
   </div>
 `;
 

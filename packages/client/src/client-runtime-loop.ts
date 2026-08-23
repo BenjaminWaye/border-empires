@@ -9,11 +9,7 @@ import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-ren
 import { STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
-import {
-  RENDERER_PROMPT_FPS_THRESHOLD,
-  RENDERER_PROMPT_LOW_FPS_MS,
-  shouldShowRendererPrompt
-} from "./client-renderer-prompt/client-renderer-prompt.js";
+import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3d-population.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import {
@@ -39,6 +35,7 @@ import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
 import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFallbackSource } from "./client-muster-transit/client-muster-transit.js";
 import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
+import { isSeasonLobbyFullscreenActive } from "./client-season-lobby-fullscreen.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/client-visible-tile-detail.js";
@@ -205,6 +202,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   });
 
   const draw = (): void => {
+    if (isSeasonLobbyFullscreenActive(state)) { requestAnimationFrame(draw); return; }
     const nowMs = performance.now();
     recordFpsFrame(nowMs);
     const minFrameGap = deps.isMobile() ? 40 : 24;

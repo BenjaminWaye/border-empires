@@ -1667,7 +1667,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // Mirror the "Town is unfed" line in the tile-menu — see
           // shouldShowTownUnfedWarning in client-town-growth.ts. A dormant
           // non-town structure on this tile takes priority if both apply.
-          if (tile && shouldShowTownUnfedWarning(tile) && !dormantStructureResourceByTileKey.has(tileKey)) {
+          if (tile && shouldShowTownUnfedWarning(tile, deps.state.me) && !dormantStructureResourceByTileKey.has(tileKey)) {
             resourceBadgeOverlays.FOOD.addInstance(x, z, surfaceY);
           }
           // Mirror of the "Upgrade Town to City"-style action in the tile-menu —
@@ -1676,7 +1676,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // its next tier. Kept independent of the unfed badge above: a town
           // ready to grow is very rarely also stalled, and if both apply the two
           // badges bob in the same band without conflicting.
-          if (tile && shouldShowTownUpgradeReadyBadge(tile)) {
+          if (tile && shouldShowTownUpgradeReadyBadge(tile, deps.state.me)) {
             upgradeReadyBadgeOverlay.addInstance(x, z, surfaceY);
           }
         }

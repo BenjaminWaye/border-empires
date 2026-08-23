@@ -43,14 +43,14 @@ const MAX_INDEX_COUNT = QUAD_COUNT * 6;
 // land edge drops to, well below the lowest water displacement, so that
 // riser is always covered by solid (if unlit) geometry instead of empty
 // canvas.
-//
 // Exported so client-map-3d-hills.ts's own skirt (hill dome edges bordering
 // a hole have exactly the same zero-thickness problem, and previously had
 // no skirt at all) drops to the identical depth and shade — two different
 // skirts meeting at a shared tile boundary need to agree, or the seam
 // between them becomes its own crack.
 export const SKIRT_BOTTOM_Y = -0.6;
-export const SKIRT_SHADE = 0.55;
+// 0.55 read near-black under the water's dark tint at a wave trough (#1482).
+export const SKIRT_SHADE = 0.72;
 
 export type HeightfieldRebuildInputs = {
   readonly camX: number;
