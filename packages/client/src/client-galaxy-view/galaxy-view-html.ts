@@ -14,6 +14,10 @@ export type GalaxyViewPlanet = {
   crownedAt: number;
   planetName: string | null;
   named: boolean;
+  // Galactic meta-layer v1 (docs/galactic-campaign-design.md §7): 0-100,
+  // absent when the gateway has no galaxyEconomyStore wired up yet (older
+  // deploys / v0-only servers) — renders no Stability readout in that case.
+  stability?: number;
 };
 
 // Galactic meta-layer v0 Outpost/Stipend tiers (docs/galactic-campaign-design.md
@@ -26,6 +30,7 @@ export type GalaxyViewOutpost = {
   seasonSequence: number;
   specialization?: string;
   awardedAt: number;
+  stability?: number;
 };
 
 export type GalaxyViewStipend = {
@@ -36,11 +41,17 @@ export type GalaxyViewStipend = {
   awardedAt: number;
 };
 
+// Galactic meta-layer v1 (docs/galactic-campaign-design.md §4): the player's
+// current Influence/Production balance, absent under the same "gateway not
+// wired up yet" condition as GalaxyViewPlanet.stability above.
+export type GalaxyViewEconomy = { influence: number; production: number };
+
 export type GalaxyViewModel = {
   planets: GalaxyViewPlanet[];
   focusedSeasonId: string;
   outposts?: GalaxyViewOutpost[];
   stipends?: GalaxyViewStipend[];
+  economy?: GalaxyViewEconomy;
 };
 
 // Phase 1: the "Emperor" (winner of the most recently ended season) can
@@ -74,6 +85,28 @@ export const SPECIALIZATION_LABEL: Record<string, string> = {
   EXTRACTION: "Extraction",
   LOGISTICS: "Logistics",
   CAPITAL: "Capital"
+};
+
+// Minimal Stability readout (§7): a number + a filled bar, no color coding
+// or drain/recovery detail — that's downstream of this slice (Defense
+// Campaigns aren't built yet, so there's nothing more to explain here).
+const stabilityHtml = (stability: number | undefined): string => {
+  if (stability === undefined) return "";
+  const clamped = Math.max(0, Math.min(100, stability));
+  return `
+    <div class="gx-stability" data-galaxy-stability title="Stability ${clamped}/100">
+      <span class="gx-stability-label">Stability ${clamped}</span>
+      <span class="gx-stability-bar"><span class="gx-stability-fill" style="width:${clamped}%"></span></span>
+    </div>`;
+};
+
+const economyHtml = (economy: GalaxyViewEconomy | undefined): string => {
+  if (!economy) return "";
+  return `
+    <div class="gx-economy" data-galaxy-economy>
+      <span class="gx-economy-item" data-galaxy-influence>${economy.influence} Inf</span>
+      <span class="gx-economy-item" data-galaxy-production>${economy.production} Prod</span>
+    </div>`;
 };
 
 const specializationBadgeHtml = (specialization: string | undefined): string => {
@@ -123,6 +156,7 @@ const namedMedallionHtml = (planet: GalaxyViewPlanet): string => `
     <p class="gx-planet-name">${escapeHtml(planet.planetName ?? "")}</p>
     ${specializationBadgeHtml(planet.specialization)}
     <p class="gx-planet-meta">Crowned via ${escapeHtml(planet.objectiveName)} · ${crownedDateLabel(planet.crownedAt)}</p>
+    ${stabilityHtml(planet.stability)}
   </div>`;
 
 const switcherHtml = (planets: GalaxyViewPlanet[], focusedSeasonId: string): string => {
@@ -185,6 +219,7 @@ const outpostRowHtml = (outpost: GalaxyViewOutpost): string => `
   <li class="gx-holding-row" data-galaxy-outpost>
     <span>Season ${outpost.seasonSequence} Outpost</span>
     ${specializationBadgeHtml(outpost.specialization)}
+    ${stabilityHtml(outpost.stability)}
   </li>`;
 
 const stipendRowHtml = (stipend: GalaxyViewStipend): string => `
@@ -207,13 +242,15 @@ const outpostsAndStipendsHtml = (outposts: GalaxyViewOutpost[], stipends: Galaxy
 export const renderGalaxyViewHtml = (model: GalaxyViewModel): string => {
   const outposts = model.outposts ?? [];
   const stipends = model.stipends ?? [];
+  const economy = economyHtml(model.economy);
   const focused = model.planets.find((planet) => planet.seasonId === model.focusedSeasonId) ?? model.planets[0];
-  if (!focused) return outpostsAndStipendsHtml(outposts, stipends);
+  if (!focused) return economy + outpostsAndStipendsHtml(outposts, stipends);
   return `
     <div class="gx-starfield" data-galaxy-starfield>
       <div class="gx-stars" aria-hidden="true"></div>
       ${focused.named ? namedMedallionHtml(focused) : christenFormHtml(focused)}
       ${switcherHtml(model.planets, focused.seasonId)}
     </div>
+    ${economy}
     ${outpostsAndStipendsHtml(outposts, stipends)}`;
 };

@@ -2397,13 +2397,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-    if (msg.type === "SEASON_START_VOTE_UPDATE") {
-      const votedBy = Array.isArray((msg as any).votedBy) ? ((msg as any).votedBy as unknown[]) : [];
-      state.seasonStartVoteCount = (msg as any).voteCount as number ?? state.seasonStartVoteCount;
-      state.seasonStartVoted = votedBy.includes(state.me);
-      renderHud();
-      return;
-    }
+    if (msg.type === "SEASON_START_VOTE_UPDATE") { const votedBy = Array.isArray((msg as any).votedBy) ? ((msg as any).votedBy as unknown[]) : []; state.seasonStartVoteCount = (msg as any).voteCount as number ?? state.seasonStartVoteCount; state.seasonStartVoted = votedBy.includes(state.me); renderHud(); return; }
+    if (msg.type === "SEASON_LOBBY_UPDATE") { state.seasonLobbyWaitingCount = (msg as any).waitingCount as number ?? state.seasonLobbyWaitingCount; state.seasonLobbyMaxPlayers = (msg as any).maxPlayers as number ?? state.seasonLobbyMaxPlayers; state.seasonLobbyRoster = Array.isArray((msg as any).roster) ? (msg as any).roster : state.seasonLobbyRoster; renderHud(); return; }
     if (msg.type === "ERROR") {
       // Defense-in-depth against upstream labeling bugs (see #233 / the
       // TILE_YIELD_ANCHOR_UPDATED fallthrough). Every legitimate rejection

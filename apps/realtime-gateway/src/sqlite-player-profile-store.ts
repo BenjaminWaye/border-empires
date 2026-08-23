@@ -9,6 +9,7 @@ type Row = {
   profile_complete: number | null;
   name_changed_season_id: string | null;
   color_changed_season_id: string | null;
+  country_flag: string | null;
   updated_at: number;
 };
 
@@ -16,6 +17,7 @@ const toProfile = (row: Row): StoredPlayerProfile => ({
   playerId: row.player_id,
   ...(row.display_name ? { name: row.display_name } : {}),
   ...(row.tile_color ? { tileColor: row.tile_color } : {}),
+  ...(row.country_flag ? { countryFlag: row.country_flag } : {}),
   ...(row.profile_complete !== null ? { profileComplete: row.profile_complete === 1 } : {}),
   ...(row.name_changed_season_id ? { nameChangedSeasonId: row.name_changed_season_id } : {}),
   ...(row.color_changed_season_id ? { colorChangedSeasonId: row.color_changed_season_id } : {}),
@@ -46,11 +48,16 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     } catch {
       // Column already exists from a previous applySchema() call.
     }
+    try {
+      this.db.exec(`ALTER TABLE player_profiles ADD COLUMN country_flag TEXT;`);
+    } catch {
+      // Column already exists from a previous applySchema() call.
+    }
   }
 
   async get(playerId: string): Promise<StoredPlayerProfile | undefined> {
     const row = this.db
-      .prepare(`SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at FROM player_profiles WHERE player_id = ?`)
+      .prepare(`SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, updated_at FROM player_profiles WHERE player_id = ?`)
       .get(playerId) as Row | undefined;
     return row ? toProfile(row) : undefined;
   }
@@ -61,7 +68,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
     const placeholders = ids.map(() => "?").join(",");
     const rows = this.db
       .prepare(
-        `SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at
+        `SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, updated_at
          FROM player_profiles
          WHERE player_id IN (${placeholders})`
       )
@@ -72,7 +79,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
   async listAllNamed(): Promise<StoredPlayerProfile[]> {
     const rows = this.db
       .prepare(
-        `SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at
+        `SELECT player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, updated_at
          FROM player_profiles
          WHERE display_name IS NOT NULL AND length(display_name) > 0`
       )
@@ -90,7 +97,7 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
            tile_color = excluded.tile_color,
            color_changed_season_id = COALESCE(excluded.color_changed_season_id, player_profiles.color_changed_season_id),
            updated_at = excluded.updated_at
-         RETURNING player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at`
+         RETURNING player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, updated_at`
       )
       .get(playerId, tileColor, colorChangedSeasonId ?? null, now) as Row;
     return toProfile(row);
@@ -109,9 +116,24 @@ export class SqliteGatewayPlayerProfileStore implements GatewayPlayerProfileStor
            name_changed_season_id = COALESCE(excluded.name_changed_season_id, player_profiles.name_changed_season_id),
            color_changed_season_id = COALESCE(excluded.color_changed_season_id, player_profiles.color_changed_season_id),
            updated_at = excluded.updated_at
-         RETURNING player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, updated_at`
+         RETURNING player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, updated_at`
       )
       .get(playerId, name, tileColor, nameChangedSeasonId ?? null, colorChangedSeasonId ?? null, now) as Row;
+    return toProfile(row);
+  }
+
+  async setCountryFlag(playerId: string, countryFlag: string): Promise<StoredPlayerProfile> {
+    const now = this.now();
+    const row = this.db
+      .prepare(
+        `INSERT INTO player_profiles (player_id, country_flag, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(player_id) DO UPDATE SET
+           country_flag = excluded.country_flag,
+           updated_at = excluded.updated_at
+         RETURNING player_id, display_name, tile_color, profile_complete, name_changed_season_id, color_changed_season_id, country_flag, updated_at`
+      )
+      .get(playerId, countryFlag, now) as Row;
     return toProfile(row);
   }
 }

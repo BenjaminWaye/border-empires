@@ -1199,10 +1199,10 @@ export const renderClientHud = (deps: HudDeps): void => {
     state, overlayEl: dom.respawnOverlayEl, renderHud: () => renderClientHud(deps),
     centerOnOwnedTile, pushFeed, downloadRespawnBugReport
   });
-
   renderJoinSeasonOverlay({
     state, overlayEl: dom.joinSeasonOverlayEl, renderHud: () => renderClientHud(deps),
-    joinSeason: () => sendGameMessage({ type: "JOIN_SEASON" }, "Finish sign-in before joining the season.")
+    joinSeason: () => sendGameMessage({ type: "JOIN_SEASON" }, "Finish sign-in before joining the season."),
+    pushFeed
   });
   renderSeasonEndOverlay({
     state, overlayEl: dom.seasonEndOverlayEl, renderHud: () => renderClientHud(deps),

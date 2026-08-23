@@ -7,6 +7,9 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   joinSeasonOverlayOpen: false,
   joinSeasonId: "",
   joinSeasonPending: false,
+  seasonLobbyWaitingCount: 0,
+  seasonLobbyMaxPlayers: 0,
+  seasonLobbyRoster: [],
   ...overrides
 });
 
@@ -91,5 +94,133 @@ describe("join-season overlay", () => {
     const confirmBtn = overlayEl.querySelector("#join-season-confirm") as HTMLButtonElement;
     confirmBtn.click();
     expect(joinSeason).not.toHaveBeenCalled();
+  });
+
+  it("shows the You're in confirmation, player count, and roster while pending", () => {
+    const overlayEl = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({
+        needsSeasonJoin: true,
+        joinSeasonOverlayOpen: true,
+        seasonPending: true,
+        seasonPendingScheduledStartAt: Date.now() + 60_000,
+        seasonLobbyWaitingCount: 3,
+        seasonLobbyMaxPlayers: 120,
+        seasonLobbyRoster: [
+          { playerId: "p1", name: "Alice" },
+          { playerId: "p2", name: "Bob" }
+        ]
+      }) as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true
+    });
+    expect(overlayEl.innerHTML).toContain("You're in");
+    expect(overlayEl.innerHTML).toContain("3 / 120 PLAYERS");
+    expect(overlayEl.innerHTML).toContain("Alice");
+    expect(overlayEl.innerHTML).toContain("Bob");
+    expect(overlayEl.querySelector("#season-lobby-discord")).toBeTruthy();
+    expect(overlayEl.querySelector("#season-lobby-invite")).toBeTruthy();
+  });
+
+  it("shows a single clean title, not the raw season id duplicated, while pending", () => {
+    const overlayEl = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({
+        needsSeasonJoin: true,
+        joinSeasonOverlayOpen: true,
+        joinSeasonId: "season-8",
+        seasonPending: true,
+        seasonPendingScheduledStartAt: Date.now() + 60_000
+      }) as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true
+    });
+    const title = overlayEl.querySelector("#join-season-title") as HTMLElement;
+    expect(title.textContent).toBe("Season starts soon");
+    expect(title.textContent).not.toContain("season-8");
+  });
+
+  it("makes the lobby a full-screen page while pending, and restores the normal view once it stops being active", () => {
+    document.body.classList.remove("season-lobby-active");
+    const overlayEl = document.createElement("div");
+    const state = makeState({
+      needsSeasonJoin: true,
+      joinSeasonOverlayOpen: true,
+      seasonPending: true,
+      seasonPendingScheduledStartAt: Date.now() + 60_000
+    });
+    renderJoinSeasonOverlay({
+      state: state as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true
+    });
+    expect(document.body.classList.contains("season-lobby-active")).toBe(true);
+
+    // Player joins: seasonPending clears, overlay closes -> back to the
+    // normal game view, canvas/HUD no longer suppressed.
+    renderJoinSeasonOverlay({
+      state: makeState() as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true
+    });
+    expect(document.body.classList.contains("season-lobby-active")).toBe(false);
+  });
+
+  it("is ALSO full-screen for the plain join-now prompt -- both branches share the same war-room shell", () => {
+    document.body.classList.remove("season-lobby-active");
+    const overlayEl = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, joinSeasonId: "season-42" }) as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true
+    });
+    expect(document.body.classList.contains("season-lobby-active")).toBe(true);
+  });
+
+  it("plain join-now branch shows the lobby panel (count/roster) alongside its Join button, without a countdown", () => {
+    const overlayEl = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({
+        needsSeasonJoin: true,
+        joinSeasonOverlayOpen: true,
+        joinSeasonId: "season-42",
+        seasonLobbyWaitingCount: 5,
+        seasonLobbyMaxPlayers: 100,
+        seasonLobbyRoster: [{ playerId: "p1", name: "Alice" }]
+      }) as any,
+      overlayEl,
+      renderHud: () => {},
+      joinSeason: () => true
+    });
+    expect(overlayEl.innerHTML).toContain("5 / 100 PLAYERS");
+    expect(overlayEl.innerHTML).toContain("Alice");
+    // Hasn't joined yet -- must not claim "You're in".
+    expect(overlayEl.innerHTML).not.toContain("You're in");
+    expect(overlayEl.querySelector("#join-season-confirm")).toBeTruthy();
+  });
+
+  it("never renders a flag picker or flag emoji in either branch", () => {
+    const overlayEl1 = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true, seasonPending: true, seasonPendingScheduledStartAt: Date.now() + 60_000 }) as any,
+      overlayEl: overlayEl1,
+      renderHud: () => {},
+      joinSeason: () => true
+    });
+    expect(overlayEl1.querySelector("#season-lobby-flag-select")).toBeFalsy();
+
+    const overlayEl2 = document.createElement("div");
+    renderJoinSeasonOverlay({
+      state: makeState({ needsSeasonJoin: true, joinSeasonOverlayOpen: true }) as any,
+      overlayEl: overlayEl2,
+      renderHud: () => {},
+      joinSeason: () => true
+    });
+    expect(overlayEl2.querySelector("#season-lobby-flag-select")).toBeFalsy();
   });
 });
