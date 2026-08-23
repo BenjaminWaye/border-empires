@@ -23,6 +23,17 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787476075398, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Redesigned the bug report form",
+    why: "The Report a Bug dialog was unstyled -- a bare textarea and buttons popping in and out instantly with no visual feedback -- which felt broken for a tool meant to inspire confidence while reporting something broken.",
+    changes: [
+      "The bug report dialog now fades and scales in/out instead of snapping open and closed, and closes on Escape or by clicking its new close button.",
+      "Redesigned the dialog with a proper card layout, icon, and a styled textarea that matches the game's other overlays instead of looking like an unstyled default form.",
+      "Submitting now shows a spinner while gathering logs and sending, and a clear checkmark or error icon once it finishes."
+    ]
+  },
+  {
     createdAt: 1787176861000, // 2026.08.20
     introducedIn: "2026.08.20",
     title: "Fixed: EXPAND onto a connected dock or across an active Aether Bridge was silently impossible",
@@ -223,6 +234,45 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     why: "This button now only ever appears for an enemy-owned attack target -- the neutral-tile case was folded into \"Expand To\" in the previous release -- but it kept the old generic \"Add Waypoint\" label, which read as a leftover duplicate rather than the attack action it actually is.",
     changes: [
       "The multi-step waypoint action on a distant enemy tile is now labeled \"Expand To & Attack\" instead of \"Add Waypoint\"."
+    ]
+  },
+  {
+    createdAt: 1787259991318,
+    introducedIn: "2026.08.20.3",
+    title: "Fixed a frame-rate drop from the survey-sweep ping overlay",
+    why: "The 3D map's per-frame render loop re-uploaded the survey-sweep ping overlay's four GPU instance buffers every single frame, even on the vast majority of frames where no ping was active — a real WebGL bufferSubData call for zero visual change, 60 times a second. A capture from a live session showed WebGL buffer uploads consuming over 80% of total frame CPU time, with the game sustaining only ~11-12fps.",
+    changes: [
+      "The survey-sweep ping overlay now skips its GPU buffer upload on any frame where no ping was active last frame either, instead of re-uploading empty data unconditionally every frame."
+    ]
+  },
+  {
+    createdAt: 1787259991317,
+    introducedIn: "2026.08.20.2",
+    title: "Removed the out-of-reach dim overlay on rival tiles",
+    why: "Rival-owned tiles that were visible but outside your reach radius were darkened with a dimming/hatch treatment (the Aether Survey Line's out-of-reach indicator). We decided this visual signal wasn't pulling its weight and removed it, in both the 2D and 3D map renderers.",
+    changes: [
+      "Removed the out-of-reach dim overlay on rival tiles that used to darken visible-but-unreachable enemy/neutral territory. Reach itself, dormant-frontier tiles, and the reach boundary line are unaffected."
+    ]
+  },
+  {
+    createdAt: 1787259991316, // 2026.08.20
+    introducedIn: "2026.08.20",
+    title: "Auto-fill now respects your reach/border",
+    why: "Sealing off a pocket of land used to auto-settle it regardless of whether your empire's reach actually extended there — you could end up with settled tiles outside your reach, or see a burst of unrelated-looking tiles suddenly fill in when your reach shifted somewhere else entirely. Auto-fill now only settles a pocket once its entire boundary — not just the land inside it — is within your reach, so it only ever triggers from something happening near that pocket's own edge.",
+    changes: [
+      "Auto-fill no longer settles tiles outside your reach/border.",
+      "A pocket only auto-fills once every part of its sealing boundary (your own territory and/or coastline/mountains) is within your reach — a boundary tile that's still out of reach means the whole pocket waits, rather than filling in partially."
+    ]
+  },
+  {
+    createdAt: 1787122800000, // 2026.08.21
+    introducedIn: "2026.08.21",
+    title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",
+    why: "Expanding onto a dock connected to one you already own always failed with an out-of-reach error, since a dock only contributed to your reach once you already owned it -- there was no way to ever take the first step onto the far side. Separately, an Aether Bridge only ever opened a single-tile crossing at its landing point, so it couldn't be used to establish a real foothold for further expansion.",
+    changes: [
+      "You can now EXPAND onto an unowned dock that's connected to a dock you already own.",
+      "Casting Aether Bridge onto neutral ground now grants a small radius of reach around the landing tile, so you can expand into the surrounding land and build a Relay Beacon there -- the grant persists even after the bridge itself expires, though it can still be overtaken if a rival establishes their own reach (e.g. a Relay Beacon) over that ground.",
+      "Casting a bridge onto ground already inside a rival's territory still opens the crossing for an attack, but no longer grants any reach there."
     ]
   }
 ];
