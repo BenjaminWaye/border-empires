@@ -462,6 +462,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.2",
+    title: "Fixed the whole screen becoming unclickable after submitting a bug report",
+    why: "Closing the redesigned bug report dialog (including automatically, after a successful submit) only cleared its contents -- the full-screen invisible container div stayed in the DOM with pointer-events left on, silently intercepting every click across the entire game until you reloaded the page.",
+    changes: [
+      "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
+    ]
+  },
+  {
     createdAt: 1787476075398, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23",
     title: "Redesigned the bug report form",
