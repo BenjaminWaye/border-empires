@@ -2,6 +2,7 @@ import {
   grantAnchorToBorder,
   liveReachForOwner,
   reassessBorderOnAnchorDeactivation,
+  type LandConnectivityQuery,
   type ReachAnchor
 } from "@border-empires/shared";
 import { markReachDirty, type ReachUpdateState } from "./runtime-reach-update.js";
@@ -29,15 +30,26 @@ export type ReachBorderApplyContext = {
   tileOwnership: (tileKey: string) => { ownerId?: string | undefined; ownershipState?: string | undefined } | undefined;
   /** Applies the SETTLED -> FRONTIER downgrade through the runtime's own path. */
   downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
+  /**
+   * True when the tile at (x, y) is LAND terrain. Gates every non-
+   * `crossesWater` anchor's disk to a land-connected path (see
+   * `LandConnectivityQuery`, `ReachAnchor.crossesWater`). Optional purely so
+   * existing test callers that don't care about terrain keep working; real
+   * runtime wiring always supplies it.
+   */
+  isLandTile?: LandConnectivityQuery;
 };
 
 /** Memoised live-coverage lookup, shared by both apply paths. */
-const liveReachLookup = (anchors: ReachAnchor[]): ((ownerId: string) => ReadonlySet<string>) => {
+const liveReachLookup = (
+  anchors: ReachAnchor[],
+  landConnectivity?: LandConnectivityQuery
+): ((ownerId: string) => ReadonlySet<string>) => {
   const cache = new Map<string, ReadonlySet<string>>();
   return (ownerId: string): ReadonlySet<string> => {
     let set = cache.get(ownerId);
     if (!set) {
-      set = liveReachForOwner(ownerId, anchors);
+      set = liveReachForOwner(ownerId, anchors, landConnectivity);
       cache.set(ownerId, set);
     }
     return set;
@@ -80,7 +92,7 @@ export const applyReachAnchorActivationToBorder = (
   causeCommandId: string,
   options?: { contestSettledOnUnclaimed?: boolean }
 ): Map<string, string> => {
-  const defenderLiveReach = liveReachLookup(context.gatherReachAnchors());
+  const defenderLiveReach = liveReachLookup(context.gatherReachAnchors(), context.isLandTile);
   const settledOwnerAt =
     options?.contestSettledOnUnclaimed === false
       ? undefined
@@ -88,7 +100,7 @@ export const applyReachAnchorActivationToBorder = (
           const tile = context.tileOwnership(tileKey);
           return tile?.ownershipState === "SETTLED" ? tile.ownerId : undefined;
         };
-  const result = grantAnchorToBorder(border, anchor, defenderLiveReach, settledOwnerAt);
+  const result = grantAnchorToBorder(border, anchor, defenderLiveReach, settledOwnerAt, context.isLandTile);
   markReachDirty(reachUpdateState, anchor.ownerId);
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
   return result.border;
@@ -109,13 +121,14 @@ export const applyReachAnchorDeactivationToBorder = (
 ): Map<string, string> => {
   // gatherReachAnchors already reflects the deactivation: the runtime updates
   // its tile state before this hook runs.
-  const liveReach = liveReachLookup(context.gatherReachAnchors());
+  const liveReach = liveReachLookup(context.gatherReachAnchors(), context.isLandTile);
   const result = reassessBorderOnAnchorDeactivation(
     border,
     anchor,
     liveReach(anchor.ownerId),
     liveReach,
-    context.rivalOwnerIds()
+    context.rivalOwnerIds(),
+    context.isLandTile
   );
   markReachDirty(reachUpdateState, anchor.ownerId);
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);

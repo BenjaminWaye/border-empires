@@ -252,4 +252,69 @@ describe("email alerts", () => {
       y: 4
     });
   });
+
+  it("emails a player bug report straight to the fixed admin inbox via Resend", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    const calls: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      calls.push({ url, body: JSON.parse(String(init?.body)) });
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+
+    const alerts = createEmailAlertService({
+      authBindingStore,
+      resendApiKey: "test-key",
+      from: "Border Empires <alerts@borderempires.com>",
+      bugReportEmailTo: "admin@borderempires.com",
+      fetchImpl
+    });
+
+    alerts.sendBugReportAlert({
+      description: "The map froze after placing a fort",
+      playerName: "Nauticus",
+      playerId: "player-1",
+      clientEvents: [],
+      serverEvents: [],
+      clientContext: {},
+      metadata: {}
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(calls).toEqual([
+      {
+        url: "https://api.resend.com/emails",
+        body: expect.objectContaining({
+          to: ["admin@borderempires.com"],
+          subject: expect.stringContaining("Nauticus"),
+          text: expect.stringContaining("The map froze after placing a fort")
+        })
+      }
+    ]);
+  });
+
+  it("does not send a bug report email when no Resend API key is configured", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    let called = false;
+    const fetchImpl = (async () => {
+      called = true;
+      return new Response(null, { status: 200 });
+    }) as typeof fetch;
+
+    const alerts = createEmailAlertService({ authBindingStore, fetchImpl });
+
+    alerts.sendBugReportAlert({
+      description: "desc",
+      playerName: "Nauticus",
+      playerId: "player-1",
+      clientEvents: [],
+      serverEvents: [],
+      clientContext: {},
+      metadata: {}
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(called).toBe(false);
+  });
 });
