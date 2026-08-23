@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787462564744, // 2026.08.22.15 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.15",
+    title: "Fixed the same false \"Map sync stalled\" warning on the plain \"Join Season?\" prompt",
+    why: "The previous fix only covered the pending-season countdown lobby. The plain \"Join Season?\" prompt -- shown once a season is already active but you haven't clicked join yet -- has the same reason for zero map tiles (you haven't spawned), and hit the same false alarm.",
+    changes: [
+      "The map-sync watchdog now also stays quiet behind the \"Join Season?\" prompt, not just the countdown lobby."
+    ]
+  },
+  {
     createdAt: 1787462189036, // 2026.08.22.14 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.14",
     title: "Fixed a false \"Map sync stalled\" warning while waiting in the season lobby",
