@@ -22,6 +22,26 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787485929859, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.3",
+    title: "Fixed the name/color picker not showing for new players joining a season",
+    why: "The season lobby's full-screen treatment hides every other overlay on screen while it's up -- including the name/color setup screen, which needs to run first for a brand-new player. A new player hitting a pending or newly-started season had no screen left to pick a name and color on, so it silently never appeared.",
+    changes: [
+      "The season lobby now waits for name/color setup to finish before taking over the screen, instead of hiding it."
+    ]
+  },
+  {
+    createdAt: 1787484620520, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.2",
+    title: "Fixed the season lobby's cog vibrating instead of turning, and the invite button appearing to do nothing",
+    why: "The season lobby overlay rebuilt its entire DOM on every render pass, most of which fire from ordinary background traffic unrelated to the lobby itself -- that reset the brass cog's CSS animation before it ever completed a visible rotation (looked like vibrating), and wiped out the invite button's \"Copied!\" confirmation within milliseconds of clicking it, making the button look broken even though the copy succeeded. Separately, reloading the page while waiting in the lobby dropped you back to a plain \"Join Season?\" prompt with an empty player list instead of returning you straight to the countdown you were already in.",
+    changes: [
+      "The season lobby's cog now spins smoothly, and the countdown/roster no longer flicker on every background update.",
+      "The \"Bring a friend\" button's \"Copied!\" confirmation is now visible long enough to actually see it.",
+      "Reloading the page (or reconnecting) while waiting in the pending-season lobby now returns you straight to the countdown with the live player count and roster, instead of showing an empty \"Join Season?\" prompt first."
+    ]
+  },
+  {
     createdAt: 1787476076398, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
     introducedIn: "2026.08.23.2",
     title: "Expand is gated to your reach again, with a new way to reach an out-of-reach rival",
@@ -399,34 +419,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787259991318,
-    introducedIn: "2026.08.20.3",
-    title: "Fixed a frame-rate drop from the survey-sweep ping overlay",
-    why: "The 3D map's per-frame render loop re-uploaded the survey-sweep ping overlay's four GPU instance buffers every single frame, even on the vast majority of frames where no ping was active — a real WebGL bufferSubData call for zero visual change, 60 times a second. A capture from a live session showed WebGL buffer uploads consuming over 80% of total frame CPU time, with the game sustaining only ~11-12fps.",
-    changes: [
-      "The survey-sweep ping overlay now skips its GPU buffer upload on any frame where no ping was active last frame either, instead of re-uploading empty data unconditionally every frame."
-    ]
-  },
-  {
-    createdAt: 1787259991317,
-    introducedIn: "2026.08.20.2",
-    title: "Removed the out-of-reach dim overlay on rival tiles",
-    why: "Rival-owned tiles that were visible but outside your reach radius were darkened with a dimming/hatch treatment (the Aether Survey Line's out-of-reach indicator). We decided this visual signal wasn't pulling its weight and removed it, in both the 2D and 3D map renderers.",
-    changes: [
-      "Removed the out-of-reach dim overlay on rival tiles that used to darken visible-but-unreachable enemy/neutral territory. Reach itself, dormant-frontier tiles, and the reach boundary line are unaffected."
-    ]
-  },
-  {
-    createdAt: 1787259991316, // 2026.08.20
-    introducedIn: "2026.08.20",
-    title: "Auto-fill now respects your reach/border",
-    why: "Sealing off a pocket of land used to auto-settle it regardless of whether your empire's reach actually extended there — you could end up with settled tiles outside your reach, or see a burst of unrelated-looking tiles suddenly fill in when your reach shifted somewhere else entirely. Auto-fill now only settles a pocket once its entire boundary — not just the land inside it — is within your reach, so it only ever triggers from something happening near that pocket's own edge.",
-    changes: [
-      "Auto-fill no longer settles tiles outside your reach/border.",
-      "A pocket only auto-fills once every part of its sealing boundary (your own territory and/or coastline/mountains) is within your reach — a boundary tile that's still out of reach means the whole pocket waits, rather than filling in partially."
-    ]
-  },
-  {
     createdAt: 1787356800001, // 2026.08.21, after the entries below
     introducedIn: "2026.08.21",
     title: "Shard rain impact sites now show on the map, even before you've explored them",
@@ -435,17 +427,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Every active shard rain site now shows as an arrow-shaped badge pointing off-screen toward it, the same locator system muster flags use — click it to jump the camera there.",
       "Once you scroll a site on-screen, a small shield badge hovers over that exact tile, bobbing gently in place — the same badge style as the unfed-town warning, with a shard icon instead. It's just a positional blip from the event broadcast, not confirmation the shard is still there, especially on a tile you haven't explored yet.",
       "Both the off-screen badge and the on-screen badge stay up for the full ~30-minute life of the shard rain event, not just the first moments after landing."
-    ]
-  },
-  {
-    createdAt: 1787122800000, // 2026.08.21
-    introducedIn: "2026.08.21",
-    title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",
-    why: "Expanding onto a dock connected to one you already own always failed with an out-of-reach error, since a dock only contributed to your reach once you already owned it -- there was no way to ever take the first step onto the far side. Separately, an Aether Bridge only ever opened a single-tile crossing at its landing point, so it couldn't be used to establish a real foothold for further expansion.",
-    changes: [
-      "You can now EXPAND onto an unowned dock that's connected to a dock you already own.",
-      "Casting Aether Bridge onto neutral ground now grants a small radius of reach around the landing tile, so you can expand into the surrounding land and build a Relay Beacon there -- the grant persists even after the bridge itself expires, though it can still be overtaken if a rival establishes their own reach (e.g. a Relay Beacon) over that ground.",
-      "Casting a bridge onto ground already inside a rival's territory still opens the crossing for an attack, but no longer grants any reach there."
     ]
   },
   {
