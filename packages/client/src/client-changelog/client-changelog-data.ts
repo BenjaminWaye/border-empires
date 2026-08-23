@@ -353,46 +353,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787132874001, // 2026.08.19
-    introducedIn: "2026.08.19",
-    title: "Town gold production now includes each Mintworks' flat bonus, and settled-town copy cleaned up",
-    why: "A town's displayed gold production silently dropped each active Mintworks' flat +1 gold/day-per-copy bonus — the town-summary formula that feeds the client only applied Mintworks' % production multiplier, duplicating (and drifting from) the authoritative formula used elsewhere in the sim, which always included the flat bonus. Separately, a settled town's overview always opened with a generic \"Settled land is defended and fully part of your empire\" line even though the stat grid right below it already says everything that line does.",
-    changes: [
-      "Town gold production now correctly includes every active Mintworks' flat gold bonus, not just its production-percentage multiplier.",
-      "A settled town's overview no longer shows the generic \"Settled land is defended...\" line — plain settled land with no town still does."
-    ]
-  },
-  {
-    createdAt: 1787084630235, // 2026.08.18
-    introducedIn: "2026.08.18",
-    title: "Removed a stale \"gold paused until manpower is full\" message that could no longer appear",
-    why: "The town info panel had leftover copy and a data field for a gold-pause condition the server never actually sends, so it was permanently dead code. Removed it to keep the panel's messaging accurate to what the server can report.",
-    changes: [
-      "The tile info panel no longer has an unreachable \"Town is fed but gold is paused until your empire manpower is full\" line.",
-      "No mechanical change — this condition was never triggered by the server."
-    ]
-  },
-  {
-    createdAt: 1787085726552, // 2026.08.18.2
-    introducedIn: "2026.08.18.2",
-    title: "Town overview now explains partial support and unbuilt Trade Nexuses",
-    why: "Two real gold-production penalties were invisible on the tile panel: a town under-full on Support silently produces less gold (supportRatio is a direct multiplier in the sim), and a connected-town network with no Caravanary anywhere in it pays a flat +0% bonus — but the panel said nothing in either case, so there was no way to tell why gold looked low. The panel also never showed a town's FOOD slot count, only a prose warning once it was already unfed.",
-    changes: [
-      "Partial Support (e.g. 7/8) now shows its real gold-production cost as a Modifiers line instead of staying silent.",
-      "A connected-town network with no built Trade Nexus (Caravanary) now shows a neutral +0% line explaining why the connection bonus isn't paying out, instead of nothing at all.",
-      "A settled town's overview tab now shows its FOOD slot count (e.g. \"Food 4/4 slots\") next to Support."
-    ]
-  },
-  {
-    createdAt: 1787083759893, // 2026.08.18.1
-    introducedIn: "2026.08.18.1",
-    title: "Town overview now shows manpower",
-    why: "The tile overview panel listed Population, Growth, Support, Production, and Upkeep for a settled town, but never said anything about the town's manpower contribution to your empire — a stat players had no way to see anywhere on the tile itself.",
-    changes: [
-      "A settled town's overview tab now shows its base manpower cap and regen contribution, right after Population and Growth."
-    ]
-  },
-  {
     createdAt: 1787356800001, // 2026.08.21, after the entries below
     introducedIn: "2026.08.21",
     title: "Shard rain impact sites now show on the map, even before you've explored them",
