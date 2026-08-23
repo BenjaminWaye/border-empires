@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787520325005, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.6",
+    title: "Rivers no longer render through unexplored fog",
+    why: "Decorative rivers were drawn as one continuous overlay that only culled by camera distance, with no idea what the player had actually explored -- so a river's path stayed visible cutting through black, unexplored tiles instead of disappearing into the fog like the surrounding terrain.",
+    changes: [
+      "River segments now only render where both ends sit on a tile you've explored or previously seen, matching the terrain's own fog-of-war."
+    ]
+  },
+  {
     createdAt: 1787501551525, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
     introducedIn: "2026.08.23.5",
     title: "AI empires no longer play ahead during the season lobby countdown",

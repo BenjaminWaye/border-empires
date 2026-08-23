@@ -36,7 +36,8 @@ describe("decorative river overlay", () => {
   // A window covering most of the 450x450 world so the test reliably
   // captures at least one of the ~10 generated rivers regardless of exactly
   // where they happen to fall for a given seed.
-  const WIDE_WINDOW = { camX: 225, camY: 225, halfW: 225, halfH: 225 };
+  const ALWAYS_EXPLORED = (): boolean => true;
+  const WIDE_WINDOW = { camX: 225, camY: 225, halfW: 225, halfH: 225, isExploredAt: ALWAYS_EXPLORED };
 
   it("produces the same river geometry across repeated rebuilds for the same seed (no per-rebuild re-randomization)", () => {
     setWorldSeed(2024);
@@ -152,7 +153,7 @@ describe("decorative river overlay", () => {
     setWorldSeed(3141);
     const scene = new Scene();
     const overlay = createRiverOverlay(scene);
-    const window = { camX: 82, camY: 143, halfW: 20, halfH: 20 };
+    const window = { camX: 82, camY: 143, halfW: 20, halfH: 20, isExploredAt: ALWAYS_EXPLORED };
     overlay.rebuild(window);
     const positions = positionsOf(riverMesh(scene));
     expect(positions).toBeDefined();
@@ -174,7 +175,7 @@ describe("decorative river overlay", () => {
     const scene = new Scene();
     const overlay = createRiverOverlay(scene);
 
-    overlay.rebuild({ camX: 225, camY: 225, halfW: 100, halfH: 100 });
+    overlay.rebuild({ camX: 225, camY: 225, halfW: 100, halfH: 100, isExploredAt: ALWAYS_EXPLORED });
     const mesh = riverMesh(scene);
     const geometry = mesh?.geometry as BufferGeometry | undefined;
     const positions = geometry?.getAttribute("position").array as Float32Array | undefined;
@@ -187,5 +188,29 @@ describe("decorative river overlay", () => {
     }
 
     overlay.dispose();
+  });
+
+  it("does not draw river segments over tiles the isExploredAt predicate reports as unexplored", () => {
+    // Regression for the river overlay bleeding through fog: it only ever
+    // culled by camera distance, never checked what the player had actually
+    // explored, so segments drew straight through black unexplored tiles
+    // the terrain-rebuild loop was skipping.
+    setWorldSeed(2024);
+    const sceneAll = new Scene();
+    const overlayAll = createRiverOverlay(sceneAll);
+    overlayAll.rebuild(WIDE_WINDOW);
+    const allPositions = positionsOf(riverMesh(sceneAll));
+    expect(allPositions).toBeDefined();
+    overlayAll.dispose();
+
+    const sceneNoneExplored = new Scene();
+    const overlayNoneExplored = createRiverOverlay(sceneNoneExplored);
+    overlayNoneExplored.rebuild({ ...WIDE_WINDOW, isExploredAt: (): boolean => false });
+    const mesh = riverMesh(sceneNoneExplored);
+
+    // No segment has both endpoints explored, so nothing should render at all.
+    expect(mesh).toBeUndefined();
+
+    overlayNoneExplored.dispose();
   });
 });
