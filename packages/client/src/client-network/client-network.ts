@@ -1320,7 +1320,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.mods = (msg.mods as typeof state.mods) ?? state.mods;
       state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
       state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
-      if (state.incomePerMinute === 0) maybeShowRuinsPrompt();
+      if (state.incomePerMinute === 0 && !state.needsSeasonJoin && !state.seasonPending) maybeShowRuinsPrompt();
       state.strategicResources = (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
       if (msg.storageCap && typeof msg.storageCap === "object") {
         state.storageCap = msg.storageCap as typeof state.storageCap;
