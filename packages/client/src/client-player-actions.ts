@@ -90,7 +90,6 @@ export const chooseTechFromUi = (techIdRaw: string | undefined, deps: PlayerActi
   deps.state.pendingTechUnlockId = techId;
   console.info("[tech] sending CHOOSE_TECH", { techId });
   deps.ws.send(JSON.stringify({ type: "CHOOSE_TECH", techId }));
-  deps.pushFeed(`Unlocking: ${tech.name}.`, "tech", "info");
   deps.renderHud();
 };
 
