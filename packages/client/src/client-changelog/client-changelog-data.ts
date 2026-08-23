@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787462378800, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23",
+    title: "Clearer Build Relay Beacon button text",
+    why: "The frontier Build Relay Beacon button described its internal mechanics (\"expand + settle + build\") instead of what it does for the player.",
+    changes: [
+      "The Build Relay Beacon button on unclaimed tiles now reads \"Expand your borders\" instead of the old internal-mechanics description."
+    ]
+  },
+  {
     createdAt: 1787462189036, // 2026.08.22.14 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.14",
     title: "Fixed a false \"Map sync stalled\" warning while waiting in the season lobby",
