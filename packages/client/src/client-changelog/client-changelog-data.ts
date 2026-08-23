@@ -485,6 +485,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The \"Bring a friend\" invite button now always gives visible feedback: it swaps to \"Copied!\" inline (with a manual-copy fallback if the clipboard API isn't available) instead of silently doing nothing.",
       "The plain \"Join Season?\" prompt (shown when a season is already running and you haven't joined yet) now shares the same full-screen war-room look as the pending-season lobby, and shows the live player count and roster alongside its Join button."
     ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.08.23",
+    title: "Redesigned the bug report form",
+    why: "The Report a Bug dialog was unstyled -- a bare textarea and buttons popping in and out instantly with no visual feedback -- which felt broken for a tool meant to inspire confidence while reporting something broken.",
+    changes: [
+      "The bug report dialog now fades and scales in/out instead of snapping open and closed, and closes on Escape or by clicking its new close button.",
+      "Redesigned the dialog with a proper card layout, icon, and a styled textarea that matches the game's other overlays instead of looking like an unstyled default form.",
+      "Submitting now shows a spinner while gathering logs and sending, and a clear checkmark or error icon once it finishes."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
