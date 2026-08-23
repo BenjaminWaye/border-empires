@@ -14,6 +14,16 @@
 import { clearCameraLocation } from "./client-view-refresh.js";
 import type { ClientState } from "./client-state/client-state.js";
 
+// msg.spawnTile arrives off the wire as unknown -- validate it here rather
+// than trusting a bare cast, since a malformed/tampered payload would
+// otherwise write NaN/undefined straight into camX/camY.
+export const parseJoinSeasonAckSpawnTile = (value: unknown): { x: number; y: number } | undefined => {
+  if (typeof value !== "object" || value === null) return undefined;
+  const { x, y } = value as { x?: unknown; y?: unknown };
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return undefined;
+  return { x: Number(x), y: Number(y) };
+};
+
 export const applyJoinSeasonSpawnRecenter = (
   state: Pick<ClientState, "homeTile" | "camX" | "camY" | "selected">,
   spawnTile: { x: number; y: number } | undefined,
