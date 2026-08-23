@@ -1702,7 +1702,7 @@ export class SimulationRuntime {
       resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred),
       requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
-      isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y)
+      isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
     };
   }
 

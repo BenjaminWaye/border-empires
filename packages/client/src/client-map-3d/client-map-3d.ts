@@ -81,6 +81,8 @@ import { resolveMyReach } from "../client-reach-authoritative/client-reach-autho
 import { filterReachToLand, isDormantFrontierTile, samplePerimeterPylons, traceReachBoundaryEdgeLoops } from "../client-reach-overlay/client-reach-overlay.js";
 import { ARRIVE_STAGGER_MS, createTransitionTracker, diffTransitions } from "../client-reach-overlay/client-reach-overlay-transitions.js";
 import { computeOtherOwnersReachPylons, type OwnedPylonPoint, type OwnedPylonSegment } from "../client-reach-overlay-3d-multi/client-reach-overlay-3d-multi.js";
+import { createBorderDustFxLayer } from "../client-map-3d-border-dust-fx/client-map-3d-border-dust-fx.js";
+import { borderContactSeamsToDustSeams, computeBorderContactRenderState, resolveBorderContactVisual, pointKey, undirectedSegmentKey, EMPTY_BORDER_CONTACT_STATE, type BorderContactRenderState } from "../client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
 import { createDefensibilityOverlay } from "../client-map-3d-defensibility-overlay.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "../client-defensibility-tile.js";
 import { buildRoadNetwork } from "../client-road-network/client-road-network.js";
@@ -122,6 +124,9 @@ const TILE_CENTER_OFFSET = 0.5;
 const OWNERSHIP_RISE_ABOVE_HEIGHTFIELD = 0.022;
 const MARKER_RISE_ABOVE_HEIGHTFIELD = 0.012;
 const OVERLAY_RISE_ABOVE_HEIGHTFIELD = 0.012;
+// Border-contact seam treatment -- see client-map-3d-border-contact-render.ts.
+const BORDER_CONTACT_BEAM_COLOR = "#f5f0ff";
+const BORDER_CONTACT_OPACITY_MULT = 0.5;
 
 export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendererDeps) => {
   const { glCanvas, renderer, contextGuard } = createThreeRenderTarget(deps.canvas, deps.onContextLost);
@@ -175,6 +180,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   let reach3DPylons: { x: number; y: number }[] = [];
   let reach3DSegments: { from: { x: number; y: number }; to: { x: number; y: number } }[] = [];
   let otherOwnersPylons: OwnedPylonPoint[] = []; let otherOwnersSegments: OwnedPylonSegment[] = []; // every OTHER visible owner's border -- client-reach-overlay-3d-multi.ts
+  let borderContactState: BorderContactRenderState = EMPTY_BORDER_CONTACT_STATE; // chords on both my border loop and a rival's -- client-map-3d-border-contact-render.ts
   // Border-transition animation state (client-reach-overlay-transitions.ts),
   // persisted across frames -- a pylon/segment that drops out of
   // reach3DPylons/reach3DSegments keeps rendering here (sinking) until its
@@ -210,7 +216,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const worldEngineShakeFx = createCameraShakeFx(camera);
   const imperialExchangeLevyFx = createMonumentPulseFxLayer(scene, "#ffd166", "imperial-exchange-levy-fx");
   const astralDockLaunchFx = createRevealEmpireFxLayer(scene);
-  const aegisLockFx = createAegisLockFxLayer(scene); const unsettleFx = createUnsettleFxLayer(scene);
+  const aegisLockFx = createAegisLockFxLayer(scene); const unsettleFx = createUnsettleFxLayer(scene); const borderDustFx = createBorderDustFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt);
@@ -1419,11 +1425,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         reach3DPylons = pylons.flat();
         reach3DSegments = segments.flat();
         ({ pylons: otherOwnersPylons, segments: otherOwnersSegments } = computeOtherOwnersReachPylons(deps.state.tiles, deps.state.me, reach3DDeps, deps.keyFor));
+        borderContactState = computeBorderContactRenderState(deps.state.me, reach3DPylons, otherOwnersPylons, reach3DSegments, otherOwnersSegments);
       }
     } else {
       reach3DCache = undefined;
       reach3DCacheRevision = "";
-      reach3DPylons = []; reach3DSegments = []; otherOwnersPylons = []; otherOwnersSegments = [];
+      reach3DPylons = []; reach3DSegments = []; otherOwnersPylons = []; otherOwnersSegments = []; borderContactState = EMPTY_BORDER_CONTACT_STATE;
     }
 
     const perTileLoopStartAt = performance.now();
@@ -2046,27 +2053,20 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       for (const pf of pylonFrames.values()) {
         const sx = toroidDelta(deps.state.camX, pf.x, WORLD_WIDTH);
         const sz = toroidDelta(deps.state.camY, pf.y, WORLD_HEIGHT);
-        reachOverlay3D.addPylon(sx, sz, surfaceYForCorner(pf.x, pf.y), 1, nowMs, deps.effectiveOverlayColor(pf.ownerId), pf.riseFraction, pf.laserFraction);
+        const v = resolveBorderContactVisual(borderContactState.pylonKeys.has(pointKey(pf)), deps.effectiveOverlayColor(pf.ownerId), pf.laserFraction, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT);
+        reachOverlay3D.addPylon(sx, sz, surfaceYForCorner(pf.x, pf.y), 1, nowMs, v.color, pf.riseFraction, v.laser);
       }
       for (const sf of segmentFrames.values()) {
         const sx0 = toroidDelta(deps.state.camX, sf.fx, WORLD_WIDTH);
         const sz0 = toroidDelta(deps.state.camY, sf.fy, WORLD_HEIGHT);
         const sx1 = toroidDelta(deps.state.camX, sf.tx, WORLD_WIDTH);
         const sz1 = toroidDelta(deps.state.camY, sf.ty, WORLD_HEIGHT);
-        reachOverlay3D.addLineSegment(
-          sx0,
-          sz0,
-          surfaceYForCorner(sf.fx, sf.fy),
-          sx1,
-          sz1,
-          surfaceYForCorner(sf.tx, sf.ty),
-          deps.effectiveOverlayColor(sf.ownerId),
-          sf.laserFraction,
-          sf.riseFraction,
-          sf.riseFraction
-        );
+        const atContact = borderContactState.segmentKeys.has(undirectedSegmentKey({ x: sf.fx, y: sf.fy }, { x: sf.tx, y: sf.ty }));
+        const v = resolveBorderContactVisual(atContact, deps.effectiveOverlayColor(sf.ownerId), sf.laserFraction, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT);
+        reachOverlay3D.addLineSegment(sx0, sz0, surfaceYForCorner(sf.fx, sf.fy), sx1, sz1, surfaceYForCorner(sf.tx, sf.ty), v.color, v.laser, sf.riseFraction, sf.riseFraction);
       }
-    }
+      borderDustFx.setSeams(borderContactSeamsToDustSeams(borderContactState.seams, { toroidDelta, camX: deps.state.camX, camY: deps.state.camY, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, surfaceYForCorner, effectiveOverlayColor: deps.effectiveOverlayColor }));
+    } else { borderDustFx.setSeams([]); }
     reachOverlay3D.commitPylons();
   };
 
@@ -2147,7 +2147,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     worldEngineShakeFx.update(nowMs);
     imperialExchangeLevyFx.update(nowMs);
     astralDockLaunchFx.update(nowMs);
-    aegisLockFx.update(nowMs); unsettleFx.update(nowMs);
+    aegisLockFx.update(nowMs); unsettleFx.update(nowMs); borderDustFx.update(nowMs);
     floatingText.update(nowMs);
     attackOverlay.tick(Date.now()); // epoch ms: pulses off server resolvesAt, not uptime — see client-map-3d-attack-overlay.ts
     settleOverlay.tick(nowMs);
@@ -2238,7 +2238,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     worldEngineStrikeFx.dispose();
     imperialExchangeLevyFx.dispose();
     astralDockLaunchFx.dispose();
-    aegisLockFx.dispose(); unsettleFx.dispose();
+    aegisLockFx.dispose(); unsettleFx.dispose(); borderDustFx.dispose();
     dockOverlay.dispose();
     barbarianOverlay.dispose();
     shardOverlay.dispose(); watchtowerOverlay.dispose(); naturalWonderOverlays.dispose();
