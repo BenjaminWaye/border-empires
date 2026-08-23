@@ -12,6 +12,17 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787122800000, // 2026.08.21
+    introducedIn: "2026.08.21",
+    title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",
+    why: "Expanding onto a dock connected to one you already own always failed with an out-of-reach error, since a dock only contributed to your reach once you already owned it -- there was no way to ever take the first step onto the far side. Separately, an Aether Bridge only ever opened a single-tile crossing at its landing point, so it couldn't be used to establish a real foothold for further expansion.",
+    changes: [
+      "You can now EXPAND onto an unowned dock that's connected to a dock you already own.",
+      "Casting Aether Bridge onto neutral ground now grants a small radius of reach around the landing tile, so you can expand into the surrounding land and build a Relay Beacon there -- the grant persists even after the bridge itself expires, though it can still be overtaken if a rival establishes their own reach (e.g. a Relay Beacon) over that ground.",
+      "Casting a bridge onto ground already inside a rival's territory still opens the crossing for an attack, but no longer grants any reach there."
+    ]
+  },
+  {
     createdAt: 1787176861000, // 2026.08.20
     introducedIn: "2026.08.20",
     title: "Fixed: EXPAND onto a connected dock or across an active Aether Bridge was silently impossible",
