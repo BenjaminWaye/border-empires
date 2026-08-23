@@ -19,19 +19,26 @@ export type MapLoadingView = {
 // grace entirely on the very first boot (hasEverInitialized === false),
 // since there's nothing on screen yet to protect.
 //
-// A player waiting in the pending-season lobby (state.seasonPending) has no
-// tiles by design -- they haven't spawned yet, so firstChunkAt legitimately
-// stays 0 for as long as the countdown runs. Without this check that reads
-// as a stalled map sync and fires the "Map sync stalled" warning on every
-// beta tester sitting in the lobby, which is a false alarm, not a real sync
-// failure -- the season lobby overlay is already covering the whole screen
-// at that point (see client-season-lobby-style.css) with its own explicit
-// waiting state, so this overlay has nothing useful to add.
+// A player who hasn't joined the season yet has no tiles by design, so
+// firstChunkAt legitimately stays 0 the whole time the join-season overlay
+// is up -- both branches of it: the SEASON_PENDING countdown/lobby
+// (state.seasonPending) AND the plain "Join Season X?" prompt shown once
+// the season is already active but the player just hasn't clicked join yet
+// (state.needsSeasonJoin && state.joinSeasonOverlayOpen, see
+// client-join-season-overlay.ts's `visible` check -- seasonPending is a
+// stricter subset of this, not a separate condition). Without this check
+// both cases read as a stalled map sync and fire the "Map sync stalled"
+// warning, which is a false alarm, not a real sync failure -- the
+// join-season overlay is already covering the screen with its own explicit
+// state at that point, so this overlay has nothing useful to add.
 export const isMapLoadingOverlayActive = (
-  state: Pick<ClientState, "connection" | "firstChunkAt" | "hasEverInitialized" | "disconnectedSince" | "seasonPending">,
+  state: Pick<
+    ClientState,
+    "connection" | "firstChunkAt" | "hasEverInitialized" | "disconnectedSince" | "seasonPending" | "needsSeasonJoin" | "joinSeasonOverlayOpen"
+  >,
   now: number = Date.now()
 ): boolean => {
-  if (state.seasonPending) return false;
+  if (state.seasonPending || (state.needsSeasonJoin && state.joinSeasonOverlayOpen)) return false;
   const rawActive = state.connection !== "initialized" || state.firstChunkAt === 0;
   if (!rawActive) return false;
   if (!state.hasEverInitialized) return true;
