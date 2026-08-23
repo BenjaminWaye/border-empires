@@ -12,6 +12,128 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787176861000, // 2026.08.20
+    introducedIn: "2026.08.20",
+    title: "Fixed: EXPAND onto a connected dock or across an active Aether Bridge was silently impossible",
+    why: "EXPAND has always required the target tile to be inside your persistent reach border, and that check applied unconditionally to dock and Aether Bridge crossings too — but a bridge or dock crossing lands you on a landmass with no anchor of your own there yet, by design (that's the entire point of both). The reach check therefore always failed for a genuinely connected dock's paired tile or a bridge's landing tile, making it impossible to ever claim either.",
+    changes: [
+      "EXPAND across a connected dock link, or across an active Aether Bridge, no longer requires the target tile to already be inside your reach border — matching the adjacency and Aether-wall-shield exemptions those crossings already had."
+    ]
+  },
+  {
+    createdAt: 1787170756951, // 2026.08.19.2
+    introducedIn: "2026.08.19.2",
+    title: "Town gold production: fixed the Mintworks flat bonus for real this time",
+    why: "The previous fix for this (2026.08.19) only patched apps/simulation/src/live-town-summary.ts — but the tile-click popup is served by a separate gateway path (apps/realtime-gateway/src/tile-detail-snapshot.ts) whenever the cached snapshot's townJson doesn't carry a fresh goldPerMinute, and that path has its own independent copy of the same formula, explicitly commented 'keep in sync with buildTownSummary' — which still dropped each Mintworks' flat +1 gold/day-per-copy bonus. A live screenshot after the first fix still showed the old, wrong number, which is what surfaced this second copy.",
+    changes: [
+      "The gateway's tile-detail fallback gold calculation now includes each active Mintworks' flat gold bonus, matching the simulation's authoritative formula."
+    ]
+  },
+  {
+    createdAt: 1787323800000,
+    introducedIn: "2026.08.21.4",
+    title: "Fixed border pylons and structures drifting away from the ground while panning",
+    why: "The zoom-smoothness fix above let the terrain skip a rebuild for any pan that stayed inside a padded window, but every other 3D overlay (ownership border pylons/walls, flags, badges, selection markers) still repositions itself every single frame off the live camera with no such padding. Mid-pan, that left the terrain's baked geometry pinned to wherever it was last rebuilt while border pylons and structures kept gliding on with the live camera, so towers and border lines visibly separated from the tiles under them until the pan stopped.",
+    changes: [
+      "Panning the 3D map now always rebuilds the terrain to match the live camera, so border pylons, structures, and the ground they sit on stay locked together while scrolling. The zoom-only rebuild savings from the fix above are unaffected."
+    ]
+  },
+  {
+    createdAt: 1787415992729, // 2026.08.22.3 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.3",
+    title: "Non-winning seasons now leave a mark on your galaxy too: Outposts and Stipends",
+    why: "The galaxy previously only recorded a season's outright winner as a permanent Planet, so every other empire's season vanished without a trace once it ended -- even a season played well but not won.",
+    changes: [
+      "A strong runner-up -- leading a different victory path than the one that won, with real hold-progress on it -- now claims a minor permanent Outpost, specialized by their own leading path and shown alongside your Planets in the galaxy view.",
+      "Any other empire that meaningfully engaged with a victory path, without getting close to winning, now gets a one-time Stipend of Influence and Production instead, scaled to how far they got.",
+      "Outposts appear in the public galaxy listing as territory, like Planets; Stipends are a one-time payout and only show up in your own galaxy view."
+    ]
+  },
+  {
+    createdAt: 1787419536000, // 2026.08.22.4 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.4",
+    title: "Winning a season now gives your next empire a starting head start",
+    why: "Claiming a Planet previously ended with the galaxy view -- nothing about winning carried forward into how your next empire actually played. This is a first, deliberately small step toward the galaxy's full Wonder system (a permanent Production economy is still to come); for now the reward for winning is a one-time boost, not a lasting building.",
+    changes: [
+      "The most recent season's Planet winner now starts their next empire with a permanent manpower-regen head start and an expanded starting vision radius.",
+      "It's a one-time grant, applied automatically the moment you spawn your next empire -- nothing to claim or activate."
+    ]
+  },
+  {
+    createdAt: 1787428700000,
+    introducedIn: "2026.08.22.5",
+    title: "Fixed a bogus 'Outside your borders' error after auto-settle finished a capture, and made unsettled tiles from a rival's border push show up live",
+    why: "Auto-settle could still fire a doomed settle command right after a capture landed if the captured tile turned out to be outside your reach (e.g. a Relay Beacon chain dying mid-capture), surfacing a confusing 'Outside your borders' error even though nothing was actually wrong. Separately, when a rival's expanding border overtook one of your settled tiles and downgraded it to frontier, that change was only ever applied on the server -- it was never pushed to either player's client, so it silently went stale until you clicked the tile and forced a refresh.",
+    changes: [
+      "Auto-settle now checks reach before firing the settle right after a capture, same as it already does elsewhere, instead of sending a command the server was always going to reject.",
+      "A settled tile downgraded to frontier by a rival's border push now updates live on both players' maps instead of only after clicking the tile."
+    ]
+  },
+  {
+    createdAt: 1787440000000, // 2026.08.22.6 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.6",
+    title: "The pending-season countdown is now a lobby: player count, roster, Discord, and an invite button",
+    why: "Waiting for a pending season to start previously showed a bare countdown with nothing to confirm you actually had a spot, and no sense of who else was waiting with you.",
+    changes: [
+      "The pending-season screen now shows a live \"X / Y PLAYERS\" count and a scrollable roster of names currently waiting, alongside the countdown.",
+      "A clear \"You're in\" confirmation replaces the ambiguous bare countdown -- your empire will be placed the moment the world begins.",
+      "Added a Discord link and a \"Bring a friend\" button that copies a shareable link to the game.",
+      "Added an optional flag: set a 2-letter country code in the pending-season screen and it shows next to your name in the roster for everyone else waiting."
+    ]
+  },
+  {
+    createdAt: 1787441000000, // 2026.08.22.7 — frozen; was Date.now() left in by the merged commit
+    introducedIn: "2026.08.22.7",
+    title: "The pending-season lobby is now its own full-screen war room, and its title no longer repeats the season id",
+    why: "The lobby previously rendered as a translucent overlay with the game map, minimap, and HUD still visible underneath -- distracting for a screen players can sit on for a while, and it kept the client doing pointless map rendering for someone who isn't in the game yet. Separately, the lobby's heading duplicated the raw internal season id (e.g. \"Season season-8 starts soon\").",
+    changes: [
+      "While the pending-season lobby is open it now fully replaces the game view -- no canvas, minimap, or HUD bleeding through -- and returns to normal the instant your empire is placed.",
+      "The game no longer renders the map/world underneath while the lobby is up, saving battery and CPU for players who are just waiting.",
+      "Redesigned the lobby's look: a brass-and-gunmetal war-room panel with riveted corners, a glowing amber countdown dial, and a subtle cog motif, layered over the game's existing dark command-center theme.",
+      "Fixed the lobby heading showing the raw season id twice (e.g. \"Season season-8 starts soon\") -- it now reads simply \"Season starts soon\"."
+    ]
+  },
+  {
+    createdAt: 1787132874001, // 2026.08.19
+    introducedIn: "2026.08.19",
+    title: "Town gold production now includes each Mintworks' flat bonus, and settled-town copy cleaned up",
+    why: "A town's displayed gold production silently dropped each active Mintworks' flat +1 gold/day-per-copy bonus — the town-summary formula that feeds the client only applied Mintworks' % production multiplier, duplicating (and drifting from) the authoritative formula used elsewhere in the sim, which always included the flat bonus. Separately, a settled town's overview always opened with a generic \"Settled land is defended and fully part of your empire\" line even though the stat grid right below it already says everything that line does.",
+    changes: [
+      "Town gold production now correctly includes every active Mintworks' flat gold bonus, not just its production-percentage multiplier.",
+      "A settled town's overview no longer shows the generic \"Settled land is defended...\" line — plain settled land with no town still does."
+    ]
+  },
+  {
+    createdAt: 1787084630235, // 2026.08.18
+    introducedIn: "2026.08.18",
+    title: "Removed a stale \"gold paused until manpower is full\" message that could no longer appear",
+    why: "The town info panel had leftover copy and a data field for a gold-pause condition the server never actually sends, so it was permanently dead code. Removed it to keep the panel's messaging accurate to what the server can report.",
+    changes: [
+      "The tile info panel no longer has an unreachable \"Town is fed but gold is paused until your empire manpower is full\" line.",
+      "No mechanical change — this condition was never triggered by the server."
+    ]
+  },
+  {
+    createdAt: 1787085726552, // 2026.08.18.2
+    introducedIn: "2026.08.18.2",
+    title: "Town overview now explains partial support and unbuilt Trade Nexuses",
+    why: "Two real gold-production penalties were invisible on the tile panel: a town under-full on Support silently produces less gold (supportRatio is a direct multiplier in the sim), and a connected-town network with no Caravanary anywhere in it pays a flat +0% bonus — but the panel said nothing in either case, so there was no way to tell why gold looked low. The panel also never showed a town's FOOD slot count, only a prose warning once it was already unfed.",
+    changes: [
+      "Partial Support (e.g. 7/8) now shows its real gold-production cost as a Modifiers line instead of staying silent.",
+      "A connected-town network with no built Trade Nexus (Caravanary) now shows a neutral +0% line explaining why the connection bonus isn't paying out, instead of nothing at all.",
+      "A settled town's overview tab now shows its FOOD slot count (e.g. \"Food 4/4 slots\") next to Support."
+    ]
+  },
+  {
+    createdAt: 1787083759893, // 2026.08.18.1
+    introducedIn: "2026.08.18.1",
+    title: "Town overview now shows manpower",
+    why: "The tile overview panel listed Population, Growth, Support, Production, and Upkeep for a settled town, but never said anything about the town's manpower contribution to your empire — a stat players had no way to see anywhere on the tile itself.",
+    changes: [
+      "A settled town's overview tab now shows its base manpower cap and regen contribution, right after Population and Growth."
+    ]
+  },
+  {
     createdAt: 1787041917435, // 2026.08.17.3
     introducedIn: "2026.08.17.3",
     title: "Battle dots no longer pop when the clash hands off into rout",
@@ -53,17 +175,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1786905792661, // 2026.08.16
-    introducedIn: "2026.08.16",
-    title: "The Caravanary is now the Trade Nexus, with a new commercial-hub look",
-    why: "The Caravanary still read as a humble road-station courtyard, while the trade network needed to sell concentrated wealth — a grand exchange hall where trade routes converge, with cargo and brass machinery at work. Renamed the building to Trade Nexus and gave it a look to match; the underlying road-network mechanics are unchanged.",
-    changes: [
-      "The Caravanary structure is renamed Trade Nexus everywhere in the UI (build menu, tile info, tech tree). Its behavior — enabling the connected-town road network and income bonus — is unchanged.",
-      "New 3D overlay: a grand domed trading hall on an octagonal stone plinth, ringed by six converging trade roads, merchants' warehouses, stacked cargo, brass jib cranes, feed pipes, warm hanging lamps and a slowly winding brass clockwork seal atop the dome — replacing the old fortified-inn look.",
-      "A matching flat-color 2D icon (trading hall, converging routes, cargo and brass machinery) accompanies the 3D asset."
-    ]
-  },
-  {
     createdAt: 1787411986658,
     introducedIn: "2026.08.22.8",
     title: "Beta season countdown screen",
@@ -71,26 +182,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     changes: [
       "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
       "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
-    ]
-  },
-  {
-    createdAt: 1786910628146, // 2026.08.16.1
-    introducedIn: "2026.08.16.1",
-    title: "Swapped the waypoint and mustering flag overlays",
-    why: "The elaborate steampunk tower — banner, medallion, cannons, dome, spire — used to mark a single movement waypoint, while mustering tiles got a small pennant. That was backwards: a big banner-bearing tower reads as a rallying point, not a mere movement destination, and mustering tiles can appear several at once across a border while a waypoint queue is just one player's own path.",
-    changes: [
-      "Mustering tiles now show the full tower/banner assembly, with the marching soldier dots still converging on it as manpower fills.",
-      "Waypoint queue entries now show a small pennant instead — no soldier dots, since a waypoint isn't accumulating troops.",
-      "The tower now renders efficiently across many simultaneous mustering tiles instead of being limited to a handful of instances."
-    ]
-  },
-  {
-    createdAt: 1786924800000, // 2026.08.16.2
-    introducedIn: "2026.08.16.2",
-    title: "Fogged sea tiles no longer render as a solid black hole",
-    why: "Sea tiles were never part of the 3D heightfield mesh (the water plane sits over a deliberate hole in it), so the fog-of-war darken overlay — which works by tinting a land tile's already-drawn remembered terrain — had nothing underneath it for sea. The result was a fully opaque black quad over an empty hole, on top of the scene's own black fog background: indistinguishable from unexplored fog, right at any coastline your vision doesn't currently reach.",
-    changes: [
-      "Fogged SEA/COASTAL_SEA tiles now draw the same live water surface visible sea gets instead of a black darken overlay, so remembered coastline reads as water again."
     ]
   },
   {

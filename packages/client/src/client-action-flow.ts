@@ -593,9 +593,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     hideTileActionMenu();
   };
 
-  // Checked on the runtime loop's periodic tick: once a tile queued via
-  // handleBuildAction finishes settling, fire its build automatically so the
-  // user doesn't have to reopen the tile menu.
+  // Once a tile queued via handleBuildAction lands SETTLED, clear its bookkeeping.
+  // The BUILD is not sent from here -- CLAIM_CONTINUATION_SET's server-side tail
+  // fires it (sending it here too raced that: BUILD_INVALID "tile already has structure"). FOUNDRY/WATERWORKS need player-picked placement, so still fire here.
   const processAutoBuildTargets = (): void => {
     if (state.autoBuildTargets.size === 0) return;
     for (const [targetKey, structureType] of [...state.autoBuildTargets]) {
@@ -603,7 +603,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       if (!tile) continue;
       if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && !tile.optimisticPending) {
         state.autoBuildTargets.delete(targetKey);
-        triggerBuildForStructureType(structureType, tile);
+        if (structureType === "FOUNDRY" || structureType === "WATERWORKS") triggerBuildForStructureType(structureType, tile);
       }
     }
   };
