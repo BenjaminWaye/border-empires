@@ -10,7 +10,7 @@ import {
   computeBorderContactPylons,
   computeBorderContactSegments,
   pointKey,
-  segmentTouchesAnySeam,
+  splitSegmentByContact,
   type BorderContactSegment
 } from "../client-reach-overlay-border-contact/client-reach-overlay-border-contact.js";
 import type { BorderDustSeam } from "../client-map-3d-border-dust-fx/client-map-3d-border-dust-fx.js";
@@ -35,10 +35,10 @@ export const BORDER_CONTACT_OPACITY_MULT = 0.2;
 // Re-exported so callers checking pylon membership (client-map-3d.ts) use
 // the exact same key format this module used to build pylonKeys above,
 // instead of a second hand-rolled copy that could silently drift out of
-// sync. Segment membership uses segmentTouchesAnySeam instead of a key set
-// -- see its doc comment for why exact-key matching doesn't work once seams
-// are clipped to the overlap range.
-export { pointKey, segmentTouchesAnySeam };
+// sync. Segment rendering uses splitSegmentByContact -- a wall must be
+// split into sub-pieces, not recolored wholesale, since a wall can run
+// past its own overlap with a rival (see that function's doc comment).
+export { pointKey, splitSegmentByContact };
 
 export const computeBorderContactRenderState = (
   myOwnerId: string,
