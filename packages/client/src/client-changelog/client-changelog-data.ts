@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787501551523, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.4",
+    title: "Lowered the season player cap to 50",
+    why: "The lobby was hitting the prior 120-player cap; capping seasons at 50 keeps them a manageable size.",
+    changes: [
+      "New seasons now stop admitting new players once 50 human players have joined, down from 120."
+    ]
+  },
+  {
     createdAt: 1787487792786, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.3",
     title: "Punched up the season-lobby copy",
