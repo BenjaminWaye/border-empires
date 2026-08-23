@@ -34,6 +34,10 @@ export const RUNTIME_DASHBOARD_HTML = String.raw`<!doctype html>
   td.v.bad { color: #f85149; }
   .controls { display: flex; gap: 10px; align-items: baseline; }
   button, select { font: inherit; background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; padding: 3px 8px; cursor: pointer; }
+  button.danger { border-color: #f85149; color: #f85149; }
+  button.danger:hover { background: #f85149; color: #0d1117; }
+  button:disabled { opacity: .5; cursor: default; }
+  .season-status { margin-left: auto; }
 </style>
 </head>
 <body>
@@ -51,6 +55,11 @@ export const RUNTIME_DASHBOARD_HTML = String.raw`<!doctype html>
       </select>
     </label>
     <button id="refresh">refresh now</button>
+  </span>
+  <span class="controls season-status">
+    <label><input type="checkbox" id="seasonForce" checked /> force</label>
+    <button id="seasonStartNext" class="danger">start next season</button>
+    <span class="err" id="seasonResult"></span>
   </span>
 </header>
 <main id="grid"></main>
@@ -219,6 +228,40 @@ document.getElementById("interval").addEventListener("change", schedule);
 document.getElementById("refresh").addEventListener("click", tick);
 tick();
 schedule();
+
+// Ends the current live season immediately and starts a new one in "pending"
+// status. Destructive and irreversible from this page, so it's gated behind
+// a typed confirmation rather than a plain confirm() dialog.
+document.getElementById("seasonStartNext").addEventListener("click", async () => {
+  const resultEl = document.getElementById("seasonResult");
+  const typed = window.prompt(
+    "This ENDS THE CURRENT LIVE SEASON immediately and starts a new pending one.\n" +
+    "Real players in the current season will see it end now.\n\n" +
+    "Type START to confirm:"
+  );
+  if (typed !== "START") {
+    resultEl.textContent = "cancelled";
+    return;
+  }
+  const btn = document.getElementById("seasonStartNext");
+  btn.disabled = true;
+  resultEl.textContent = "starting…";
+  const force = document.getElementById("seasonForce").checked;
+  try {
+    const res = await fetch("/admin/season/start-next?force=" + force, {
+      method: "POST",
+      headers: token ? { Authorization: "Bearer " + token } : {}
+    });
+    const body = await res.json().catch(() => ({}));
+    resultEl.textContent = res.ok
+      ? "started: " + (body.seasonId || "(no id)")
+      : "HTTP " + res.status + " — " + (body.error || "failed");
+  } catch (e) {
+    resultEl.textContent = "error: " + (e.message || e);
+  } finally {
+    btn.disabled = false;
+  }
+});
 </script>
 </body>
 </html>`;
