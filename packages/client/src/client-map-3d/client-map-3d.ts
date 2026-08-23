@@ -1335,7 +1335,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const heightfieldStartAt = performance.now();
     heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: isForestTile, isHillsAt: isHillsTile });
     hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile });
-    riverOverlay.rebuild({ camX: deps.state.camX, camY: deps.state.camY, halfW, halfH });
+    riverOverlay.rebuild({ camX: deps.state.camX, camY: deps.state.camY, halfW, halfH, isExploredAt: isExploredForHeightfield });
     const heightfieldMs = performance.now() - heightfieldStartAt;
 
     mountainMassifs.clear();

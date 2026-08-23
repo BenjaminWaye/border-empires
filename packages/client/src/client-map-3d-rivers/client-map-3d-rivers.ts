@@ -276,6 +276,11 @@ export type RiverOverlayRebuildInputs = {
   readonly camY: number;
   readonly halfW: number;
   readonly halfH: number;
+  // Same explored/fogged predicate the heightfield uses (client-map-3d.ts's
+  // isExploredForHeightfield) — without it river segments drew straight
+  // through unexplored fog since this overlay only ever culled by camera
+  // distance, never by what the player has actually seen.
+  readonly isExploredAt: (wx: number, wy: number) => boolean;
 };
 
 export type RiverOverlay = {
@@ -316,7 +321,7 @@ export const createRiverOverlay = (scene: Scene): RiverOverlay => {
       geometry = null;
     }
 
-    const { camX, camY, halfW, halfH } = inputs;
+    const { camX, camY, halfW, halfH, isExploredAt } = inputs;
     const marginW = halfW + 2;
     const marginH = halfH + 2;
     const rivers = riversForCurrentSeed();
@@ -338,6 +343,11 @@ export const createRiverOverlay = (scene: Scene): RiverOverlay => {
           (Math.abs(x0) > marginW || Math.abs(z0) > marginH) &&
           (Math.abs(x1) > marginW || Math.abs(z1) > marginH)
         ) {
+          continue;
+        }
+        // Don't draw segments the player hasn't explored — otherwise the
+        // river bleeds into black fog tiles the terrain loop already skips.
+        if (!isExploredAt(Math.floor(p0.wx), Math.floor(p0.wy)) || !isExploredAt(Math.floor(p1.wx), Math.floor(p1.wy))) {
           continue;
         }
         const dx = x1 - x0;
