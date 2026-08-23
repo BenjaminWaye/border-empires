@@ -32,6 +32,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787501551525, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
+    introducedIn: "2026.08.23.5",
+    title: "AI empires no longer play ahead during the season lobby countdown",
+    why: "Locking new human players out of a season until the lobby countdown finished didn't also stop AI empires from acting -- they kept building, expanding, and fighting during the countdown, so by the time human players were let in the AI had a head start nobody could see coming.",
+    changes: [
+      "AI empires now stay locked out of taking any actions during the lobby countdown, just like new human players, until the season actually starts."
+    ]
+  },
+  {
     createdAt: 1787487792786, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.3",
     title: "Punched up the season-lobby copy",
@@ -467,18 +476,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
       "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
       "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
-    ]
-  },
-  {
-    createdAt: 1787463828305, // frozen from `date +%s%3N`
-    introducedIn: "2026.08.23",
-    title: "Fixed the season lobby not covering the full screen, removed the flag picker, fixed the invite button, and unified the join-season screens",
-    why: "Beta feedback: the lobby was rendering as a small card in the corner over plain black space instead of filling the screen; the optional country-flag picker wasn't wanted in the lobby UI; the \"Bring a friend\" button did nothing when the clipboard API wasn't available and gave no feedback either way; and the plain \"Join Season?\" prompt (for a season that's already running) looked like a completely different, plainer screen than the war-room lobby.",
-    changes: [
-      "The season lobby now actually fills the screen edge-to-edge instead of floating as a small card over empty black space.",
-      "Removed the \"Show your flag in the lobby?\" picker and the flag emoji next to roster names.",
-      "The \"Bring a friend\" invite button now always gives visible feedback: it swaps to \"Copied!\" inline (with a manual-copy fallback if the clipboard API isn't available) instead of silently doing nothing.",
-      "The plain \"Join Season?\" prompt (shown when a season is already running and you haven't joined yet) now shares the same full-screen war-room look as the pending-season lobby, and shows the live player count and roster alongside its Join button."
     ]
   },
   {
