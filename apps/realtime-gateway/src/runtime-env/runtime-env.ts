@@ -23,6 +23,8 @@ export type RealtimeGatewayRuntimeEnv = {
     replyTo?: string;
     appUrl?: string;
     dailyLimit?: number;
+    bugReportEmailTo?: string;
+    appLabel?: string;
   };
 };
 
@@ -121,7 +123,9 @@ export const parseRealtimeGatewayRuntimeEnv = (
       from: emailAlertsFrom,
       ...(env.GATEWAY_EMAIL_ALERTS_REPLY_TO ? { replyTo: env.GATEWAY_EMAIL_ALERTS_REPLY_TO } : {}),
       appUrl: emailAlertsAppUrl,
-      ...(env.GATEWAY_EMAIL_ALERTS_DAILY_LIMIT ? { dailyLimit: Number(env.GATEWAY_EMAIL_ALERTS_DAILY_LIMIT) } : {})
+      ...(env.GATEWAY_EMAIL_ALERTS_DAILY_LIMIT ? { dailyLimit: Number(env.GATEWAY_EMAIL_ALERTS_DAILY_LIMIT) } : {}),
+      bugReportEmailTo: (env.GATEWAY_BUG_REPORT_EMAIL_TO ?? "bw199005@gmail.com").trim(),
+      appLabel: env.GATEWAY_SLOW_LOGIN_ALERT_LABEL ?? "border-empires-combined-staging"
     }
   };
 };
