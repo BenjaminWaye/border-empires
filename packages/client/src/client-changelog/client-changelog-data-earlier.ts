@@ -12,6 +12,33 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787176861000, // 2026.08.20
+    introducedIn: "2026.08.20",
+    title: "Fixed: EXPAND onto a connected dock or across an active Aether Bridge was silently impossible",
+    why: "EXPAND has always required the target tile to be inside your persistent reach border, and that check applied unconditionally to dock and Aether Bridge crossings too — but a bridge or dock crossing lands you on a landmass with no anchor of your own there yet, by design (that's the entire point of both). The reach check therefore always failed for a genuinely connected dock's paired tile or a bridge's landing tile, making it impossible to ever claim either.",
+    changes: [
+      "EXPAND across a connected dock link, or across an active Aether Bridge, no longer requires the target tile to already be inside your reach border — matching the adjacency and Aether-wall-shield exemptions those crossings already had."
+    ]
+  },
+  {
+    createdAt: 1787170756951, // 2026.08.19.2
+    introducedIn: "2026.08.19.2",
+    title: "Town gold production: fixed the Mintworks flat bonus for real this time",
+    why: "The previous fix for this (2026.08.19) only patched apps/simulation/src/live-town-summary.ts — but the tile-click popup is served by a separate gateway path (apps/realtime-gateway/src/tile-detail-snapshot.ts) whenever the cached snapshot's townJson doesn't carry a fresh goldPerMinute, and that path has its own independent copy of the same formula, explicitly commented 'keep in sync with buildTownSummary' — which still dropped each Mintworks' flat +1 gold/day-per-copy bonus. A live screenshot after the first fix still showed the old, wrong number, which is what surfaced this second copy.",
+    changes: [
+      "The gateway's tile-detail fallback gold calculation now includes each active Mintworks' flat gold bonus, matching the simulation's authoritative formula."
+    ]
+  },
+  {
+    createdAt: 1787323800000,
+    introducedIn: "2026.08.21.4",
+    title: "Fixed border pylons and structures drifting away from the ground while panning",
+    why: "The zoom-smoothness fix above let the terrain skip a rebuild for any pan that stayed inside a padded window, but every other 3D overlay (ownership border pylons/walls, flags, badges, selection markers) still repositions itself every single frame off the live camera with no such padding. Mid-pan, that left the terrain's baked geometry pinned to wherever it was last rebuilt while border pylons and structures kept gliding on with the live camera, so towers and border lines visibly separated from the tiles under them until the pan stopped.",
+    changes: [
+      "Panning the 3D map now always rebuilds the terrain to match the live camera, so border pylons, structures, and the ground they sit on stay locked together while scrolling. The zoom-only rebuild savings from the fix above are unaffected."
+    ]
+  },
+  {
     createdAt: 1787415992729, // 2026.08.22.3 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.3",
     title: "Non-winning seasons now leave a mark on your galaxy too: Outposts and Stipends",
