@@ -12,6 +12,17 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787476075398, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Redesigned the bug report form",
+    why: "The Report a Bug dialog was unstyled -- a bare textarea and buttons popping in and out instantly with no visual feedback -- which felt broken for a tool meant to inspire confidence while reporting something broken.",
+    changes: [
+      "The bug report dialog now fades and scales in/out instead of snapping open and closed, and closes on Escape or by clicking its new close button.",
+      "Redesigned the dialog with a proper card layout, icon, and a styled textarea that matches the game's other overlays instead of looking like an unstyled default form.",
+      "Submitting now shows a spinner while gathering logs and sending, and a clear checkmark or error icon once it finishes."
+    ]
+  },
+  {
     createdAt: 1787176861000, // 2026.08.20
     introducedIn: "2026.08.20",
     title: "Fixed: EXPAND onto a connected dock or across an active Aether Bridge was silently impossible",
