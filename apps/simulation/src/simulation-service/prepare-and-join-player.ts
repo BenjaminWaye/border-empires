@@ -57,7 +57,10 @@ const spawnAndAnnounce = (
 export const preparePlayerHandler = (
   deps: PrepareOrJoinDeps,
   call: { request: { player_id: string; rally_anchor_json?: string } },
-  callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean; full?: boolean }) => void
+  callback: (
+    error: Error | null,
+    response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean; full?: boolean; pending?: boolean; scheduled_start_at?: number }
+  ) => void
 ): void => {
   const playerId = call.request.player_id;
   const prepareStartedAt = Date.now();
@@ -66,6 +69,26 @@ export const preparePlayerHandler = (
   const seasonState = deps.getSeasonState();
   const joined = deps.runtime.hasPlayer(playerId) || hasPlayerJoinedSeason(seasonState, playerId);
   try {
+    // A reconnecting client that hasn't joined the pending season yet needs
+    // to know that up front, on this same PreparePlayer round trip -- not
+    // discover it only after the client separately tries JOIN_SEASON and
+    // gets rejected. Without this, every page reload during the pending
+    // countdown showed the generic "Join Season?" prompt instead of jumping
+    // straight back into the countdown lobby the player was already in.
+    if (!joined && isSeasonPending(seasonState)) {
+      const prepareDurationMs = Date.now() - prepareStartedAt;
+      deps.simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
+      callback(null, {
+        ok: true,
+        player_id: playerId,
+        playerId,
+        spawned: false,
+        joined: false,
+        pending: true,
+        ...(typeof seasonState.scheduledStartAt === "number" ? { scheduled_start_at: seasonState.scheduledStartAt } : {})
+      });
+      return;
+    }
     if (isSeasonActive(seasonState) && joined) {
       spawned = spawnAndAnnounce(deps, playerId, parseRallyAnchor(call.request.rally_anchor_json), "spawned runtime territory for prepared player", true);
     }

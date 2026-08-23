@@ -99,15 +99,12 @@ const isPointOnInterval = (p: TileCoord, interval: AxisInterval): boolean =>
 
 /**
  * True if `segment` (one full rendered wall, e.g. an owner's whole straight
- * stretch between corner turns) touches any of `seams` -- used instead of
- * exact segment-key membership because a seam is CLIPPED to the overlap
- * range, so it will rarely equal either owner's full original wall exactly.
- * The renderer draws one full wall as a single chord (it can't currently
- * split a wall mid-render to recolor only the touching sub-range), so this
- * intentionally answers "does this whole wall touch a rival anywhere",
- * which recolors the entire wall once any part of it is a real seam --
- * simpler to predict for a player ("this stretch of border touches a
- * rival") than a partial-length blend would be.
+ * stretch between corner turns) touches any of `seams` at all -- a cheap
+ * pre-check before bothering to split. See splitSegmentByContact below for
+ * the actual per-piece treatment; this alone is NOT what render code should
+ * use to decide a whole wall's color (see splitSegmentByContact's doc
+ * comment for why: a wall can extend past its own overlap with a rival,
+ * and that non-touching remainder must stay the owner's solid color).
  */
 export const segmentTouchesAnySeam = (from: TileCoord, to: TileCoord, seams: ReadonlyArray<BorderContactSegment>): boolean => {
   const segInterval = toAxisInterval({ from, to });
@@ -116,6 +113,51 @@ export const segmentTouchesAnySeam = (from: TileCoord, to: TileCoord, seams: Rea
     const seamInterval = toAxisInterval(seam);
     return seamInterval !== null && seamInterval.axis === segInterval.axis && seamInterval.line === segInterval.line && seamInterval.lo < segInterval.hi && segInterval.lo < seamInterval.hi;
   });
+};
+
+export type SegmentPiece = { from: TileCoord; to: TileCoord; atContact: boolean };
+
+/**
+ * Splits one rendered wall into ordered sub-pieces along its own line,
+ * each tagged with whether that specific stretch is on a contact seam.
+ * Needed because a wall can run PAST its overlap with a rival -- e.g. my
+ * wall got clipped short by a coastline while the rival's equivalent wall
+ * (or vice versa) continues on where mine no longer reaches -- and that
+ * non-overlapping remainder is not touching anyone, so recoloring the
+ * WHOLE wall (this module's earlier segmentTouchesAnySeam-only approach)
+ * grayed out a stretch of border that was never actually in contact with
+ * anything. The renderer draws one addLineSegment call per piece instead
+ * of one per wall; all pieces share the wall's own transition
+ * rise/laser-fraction (see client-map-3d.ts), only color/opacity differs
+ * per piece.
+ */
+export const splitSegmentByContact = (from: TileCoord, to: TileCoord, seams: ReadonlyArray<BorderContactSegment>): SegmentPiece[] => {
+  const segInterval = toAxisInterval({ from, to });
+  if (!segInterval) return [{ from, to, atContact: false }];
+
+  const overlaps = seams
+    .map((seam) => toAxisInterval(seam))
+    .filter((seamInterval): seamInterval is AxisInterval => seamInterval !== null && seamInterval.axis === segInterval.axis && seamInterval.line === segInterval.line)
+    .map((seamInterval) => ({ lo: Math.max(segInterval.lo, seamInterval.lo), hi: Math.min(segInterval.hi, seamInterval.hi) }))
+    .filter((range) => range.hi > range.lo)
+    .sort((a, b) => a.lo - b.lo);
+
+  const pieces: SegmentPiece[] = [];
+  let cursor = segInterval.lo;
+  for (const range of overlaps) {
+    if (range.lo > cursor) {
+      pieces.push({ ...intervalToSegment({ axis: segInterval.axis, line: segInterval.line, lo: cursor, hi: range.lo }), atContact: false });
+    }
+    const contactLo = Math.max(cursor, range.lo);
+    if (range.hi > contactLo) {
+      pieces.push({ ...intervalToSegment({ axis: segInterval.axis, line: segInterval.line, lo: contactLo, hi: range.hi }), atContact: true });
+    }
+    cursor = Math.max(cursor, range.hi);
+  }
+  if (cursor < segInterval.hi) {
+    pieces.push({ ...intervalToSegment({ axis: segInterval.axis, line: segInterval.line, lo: cursor, hi: segInterval.hi }), atContact: false });
+  }
+  return pieces.length > 0 ? pieces : [{ from, to, atContact: false }];
 };
 
 /**
