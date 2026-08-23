@@ -97,6 +97,7 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       authBusyTitleEl: makeElement(),
       authBusyCopyEl: makeElement(),
       authBusyDiagnosticsBtn: makeButton(),
+      authBusySeasonFullNotifyBtn: makeButton(),
       authStatusEl: makeElement(),
       authDebugRouteEl: makeElement(),
       authPanelEl: makeElement(),
@@ -117,7 +118,10 @@ describe("email-link sign-in on Safari with blocked storage", () => {
       profileSetupRequired: false,
       suggestedColors: [],
       activeBackend: "gateway",
-      bridgeDebugWsUrl: ""
+      bridgeDebugWsUrl: "",
+      authEmail: "",
+      seasonFull: false,
+      seasonFullNotifyAcknowledged: false
     }) as unknown as Parameters<typeof import("./client-auth-flow.js").createClientAuthFlow>[0]["state"];
 
   afterEach(() => {

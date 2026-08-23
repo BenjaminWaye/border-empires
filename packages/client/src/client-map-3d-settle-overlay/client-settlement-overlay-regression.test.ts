@@ -28,8 +28,14 @@ describe("settlement overlay regression guard", () => {
     const tileMenuSource = clientSource("../client-tile-menu-view/client-tile-menu-view.ts");
     expect(originSelectionSource).toContain('if (candidate.town.populationTier === "SETTLEMENT") continue;');
     expect(roadNetworkSource).toContain('tile.town.populationTier !== "SETTLEMENT"');
-    expect(tileMenuSource).toContain('if (hasOwnedLandState && isSettled && hasOwnerEconomyData && tile.town.populationTier !== "SETTLEMENT") {');
-    expect(tileMenuSource).toContain('pushLine(`Support ${supportCurrent}/${supportMax}`)');
+    // The support row is emitted through a structured stat grid rather than a
+    // formatted line, and has been reshaped more than once. Assert the actual
+    // invariant -- support is only ever emitted for a non-SETTLEMENT tier --
+    // with a whitespace-tolerant regex, so a harmless reformat doesn't fail
+    // this guard while genuinely dropping the SETTLEMENT check still does.
+    expect(tileMenuSource).toMatch(
+      /populationTier\s*!==\s*"SETTLEMENT"\s*\?\s*\{\s*support:\s*\{\s*current:\s*supportCurrent,\s*max:\s*supportMax\s*\}\s*\}/
+    );
     expect(overviewModifierSource).toContain('tile.town.populationTier !== "SETTLEMENT" && tile.town.connectedTownCount > 0');
     expect(tileActionLogicSource).toContain('tile.town?.populationTier !== "SETTLEMENT"');
   });
