@@ -14,12 +14,10 @@ type JoinSeasonOverlayDeps = {
     | "seasonLobbyWaitingCount"
     | "seasonLobbyMaxPlayers"
     | "seasonLobbyRoster"
-    | "myCountryFlag"
   >;
   overlayEl: HTMLDivElement;
   renderHud: () => void;
   joinSeason: () => boolean;
-  setCountryFlag: (countryFlag: string) => boolean;
   pushFeed?: ((message: string, type: FeedType, severity?: FeedSeverity) => void) | undefined;
 };
 
@@ -42,26 +40,27 @@ const clearCountdownTimer = (): void => {
   countdownTimer = undefined;
 };
 
-// While the pending-season lobby is up, this becomes the ONLY thing on
-// screen: client-runtime-loop.ts checks it to skip canvas/world rendering
-// entirely, and client-season-lobby-style.css uses it to hide #game-surface
-// and every other #hud child. Cleared as soon as the lobby stops being the
-// active view (join succeeds, overlay closes, or we drop back to the plain
-// "join now" prompt).
+// While the join-season overlay is up (either branch), this becomes the ONLY
+// thing on screen: client-runtime-loop.ts checks it to skip canvas/world
+// rendering entirely, and client-season-lobby-style.css uses it to hide
+// #game-surface and every other #hud child. Cleared as soon as the overlay
+// stops being the active view (join succeeds or the overlay closes).
 const setSeasonLobbyFullscreen = (active: boolean): void => {
   if (typeof document === "undefined") return;
   document.body.classList.toggle("season-lobby-active", active);
 };
 
-// Modeled on client-respawn-overlay.ts: a simple full-screen modal reusing
-// the generic .card / .panel-btn / .guide-close-btn classes rather than a
-// bespoke themed component. When state.seasonPending is set (the gateway
-// rejected JOIN_SEASON with SEASON_PENDING), this renders a countdown to the
-// scheduled start time in the viewer's local timezone instead of the normal
-// "join now" prompt, and auto-retries JOIN_SEASON a few seconds after the
-// scheduled time passes.
+// Both branches below share the same full-screen "war room" shell
+// (client-season-lobby-style.css, scoped under #join-season-overlay /
+// body.season-lobby-active) and the same lobby panel content
+// (renderSeasonLobbyPanelHtml/bindSeasonLobbyPanel: player count + roster).
+// They differ only in the join trigger: state.seasonPending shows a live
+// countdown to scheduledStartAt and auto-retries JOIN_SEASON once it elapses;
+// the plain branch (season already active, player just hasn't joined yet)
+// shows a "Join now" button the player clicks themselves -- there's no
+// scheduledStartAt to count down to, so its dial reads "Ready" instead.
 export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
-  const { state, overlayEl, renderHud, joinSeason, setCountryFlag, pushFeed } = deps;
+  const { state, overlayEl, renderHud, joinSeason, pushFeed } = deps;
   const visible = state.needsSeasonJoin && state.joinSeasonOverlayOpen;
   overlayEl.style.display = visible ? "grid" : "none";
   if (!visible) {
@@ -71,10 +70,10 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
     return;
   }
 
+  setSeasonLobbyFullscreen(true);
   const seasonLabel = state.joinSeasonId ? `Season ${state.joinSeasonId}` : "the current season";
 
   if (state.seasonPending) {
-    setSeasonLobbyFullscreen(true);
     const scheduledStartAt = state.seasonPendingScheduledStartAt;
     const localStartLabel = new Date(scheduledStartAt).toLocaleString(undefined, {
       dateStyle: "medium",
@@ -97,7 +96,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
       </div>
     `;
 
-    bindSeasonLobbyPanel({ overlayEl, state, setCountryFlag, pushFeed });
+    bindSeasonLobbyPanel({ overlayEl, pushFeed });
     clearCountdownTimer();
     const tick = (): void => {
       const countdownEl = overlayEl.querySelector("#join-season-countdown") as HTMLElement | null;
@@ -119,7 +118,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
     return;
   }
 
-  setSeasonLobbyFullscreen(false);
+  clearCountdownTimer();
   overlayEl.innerHTML = `
     <div class="respawn-backdrop" id="join-season-backdrop"></div>
     <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
@@ -129,6 +128,10 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
         <h2 id="join-season-title" class="respawn-title">Join ${seasonLabel}?</h2>
         <p class="respawn-summary">A new season has started. Join now to get your empire?</p>
         <section class="respawn-section respawn-actions">
+          <div id="join-season-countdown" class="respawn-title season-lobby-ready-dial">Ready</div>
+        </section>
+        ${renderSeasonLobbyPanelHtml(state, false)}
+        <section class="respawn-section respawn-actions">
           <button id="join-season-confirm" class="panel-btn" type="button" ${state.joinSeasonPending ? "disabled" : ""}>
             ${state.joinSeasonPending ? "Joining..." : `Join ${seasonLabel}`}
           </button>
@@ -136,6 +139,8 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
       </div>
     </div>
   `;
+
+  bindSeasonLobbyPanel({ overlayEl, pushFeed });
 
   const close = (): void => {
     state.joinSeasonOverlayOpen = false;
