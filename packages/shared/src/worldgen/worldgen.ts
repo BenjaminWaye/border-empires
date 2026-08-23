@@ -313,54 +313,10 @@ const isOceanChannel = (x: number, y: number): boolean => {
   return d1 <= w1 || d2 <= w2 || d3 <= w3;
 };
 
-const riverCenterX = (y: number, index: number): number => {
-  const yn = y / WORLD_HEIGHT;
-  if (index === 0) return WORLD_WIDTH * 0.14 + Math.sin(yn * TAU * 1.8 + 0.3) * 45 + Math.sin(yn * TAU * 4.1) * 11;
-  if (index === 1) return WORLD_WIDTH * 0.29 + Math.sin(yn * TAU * 1.4 + 1.7) * 42 + Math.sin(yn * TAU * 3.4) * 13;
-  if (index === 2) return WORLD_WIDTH * 0.46 + Math.sin(yn * TAU * 1.6 + 2.4) * 40 + Math.sin(yn * TAU * 3.8) * 10;
-  if (index === 3) return WORLD_WIDTH * 0.61 + Math.sin(yn * TAU * 1.2 + 0.9) * 44 + Math.sin(yn * TAU * 4.6) * 12;
-  if (index === 4) return WORLD_WIDTH * 0.76 + Math.sin(yn * TAU * 1.9 + 2.9) * 41 + Math.sin(yn * TAU * 4.8) * 10;
-  if (index === 5) return WORLD_WIDTH * 0.9 + Math.sin(yn * TAU * 1.5 + 1.4) * 38 + Math.sin(yn * TAU * 3.6) * 11;
-  if (index === 6) return WORLD_WIDTH * 0.52 + Math.sin(yn * TAU * 1.1 + 2.1) * 38 + Math.sin(yn * TAU * 4.4) * 12;
-  if (index === 7) return WORLD_WIDTH * 0.35 + Math.sin(yn * TAU * 1.7 + 1.1) * 40 + Math.sin(yn * TAU * 3.9) * 12;
-  if (index === 8) return WORLD_WIDTH * 0.22 + Math.sin(yn * TAU * 1.3 + 0.5) * 36 + Math.sin(yn * TAU * 4.3) * 11;
-  return WORLD_WIDTH * 0.72 + Math.sin(yn * TAU * 1.55 + 2.6) * 38 + Math.sin(yn * TAU * 4.0) * 10;
-};
+// Rivers are disabled: generation doesn't fully work yet.
+const isRiver = (_x: number, _y: number): boolean => false;
 
-const isRiver = (x: number, y: number): boolean => {
-  const cField = continentField(x, y);
-  if (cField < 0.07) return false;
-  for (let i = 0; i < 14; i += 1) {
-    const cx = wrapX(Math.floor(riverCenterX(y, i)), WORLD_WIDTH);
-    const width = 1 + Math.floor(valueNoise(x + i * 113, y, 140, worldSeed() + 75 + i) * 3); // 1..3 tiles
-    const lane = Math.floor((y + i * 19) / 50); // ~50-tile strip segments
-    const active = seeded01(lane, i, worldSeed() + 332) > 0.10;
-    if (active && toroidDx(x, cx) <= width) return true;
-  }
-  return false;
-};
-
-const isMicroRiver = (x: number, y: number): boolean => {
-  if (continentField(x, y) < 0.1) return false;
-  const cell = 18;
-  const gx = Math.floor(x / cell);
-  const gy = Math.floor(y / cell);
-  if (seeded01(gx, gy, worldSeed() + 2601) < 0.965) return false;
-  const ox = Math.floor(seeded01(gx, gy, worldSeed() + 2602) * cell);
-  const oy = Math.floor(seeded01(gx, gy, worldSeed() + 2603) * cell);
-  const startX = gx * cell + ox;
-  const startY = gy * cell + oy;
-  const horizontal = seeded01(gx, gy, worldSeed() + 2604) > 0.5;
-  const len = 8 + Math.floor(seeded01(gx, gy, worldSeed() + 2605) * 3); // 8..10
-  if (horizontal) {
-    const dx = Math.abs(x - startX);
-    const dy = Math.abs(y - startY);
-    return dx <= len && dy <= 0;
-  }
-  const dx = Math.abs(x - startX);
-  const dy = Math.abs(y - startY);
-  return dy <= len && dx <= 0;
-};
+const isMicroRiver = (_x: number, _y: number): boolean => false;
 
 const isLake = (x: number, y: number): boolean => {
   if (continentField(x, y) < 0.09) return false;
