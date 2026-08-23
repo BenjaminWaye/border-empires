@@ -3001,6 +3001,7 @@ export class SimulationRuntime {
       gatherReachAnchors: () => this.gatherReachAnchors(),
       rivalOwnerIds: () => [...this.playerSummaries.keys()].filter((id) => !id.startsWith("barbarian-")).sort(),
       tileOwnership: (tileKey) => this.tiles.get(tileKey),
+      isLandTile: (x, y) => { const t = this.tiles.get(simulationTileKey(x, y)); return t ? t.terrain === "LAND" : true; }, // land-gates normal anchors, see ReachAnchor.crossesWater
       downgradeToFrontier: (tileKey, causeCommandId) =>
         applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, causeCommandId, {
           getTile: (k) => this.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid),
@@ -3012,7 +3013,6 @@ export class SimulationRuntime {
   private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { contestSettledOnUnclaimed?: boolean }): void {
     this.reachBorder = applyReachAnchorActivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId, options);
   }
-
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
     this.reachBorder = applyReachAnchorDeactivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId);
   }

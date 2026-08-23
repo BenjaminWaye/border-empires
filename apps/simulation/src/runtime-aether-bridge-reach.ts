@@ -28,5 +28,9 @@ export const aetherBridgeReachAnchor = (ownerId: string, x: number, y: number, n
   ownerId,
   activatedAt: now,
   kind: "OUTPOST",
-  radiusOverride: AETHER_BRIDGE_REACH_RADIUS
+  radiusOverride: AETHER_BRIDGE_REACH_RADIUS,
+  // The bridge's entire purpose is to bridge reach across water without a
+  // land connection -- exempt it from the land-gating normal TOWN/OUTPOST/
+  // DOCK anchors are subject to. See ReachAnchor.crossesWater.
+  crossesWater: true
 });
