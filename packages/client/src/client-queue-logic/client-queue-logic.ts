@@ -777,7 +777,6 @@ export const processDevelopmentQueue = (
       state.developmentQueue.shift();
       persistDevelopmentQueueForPlayer(state.me, state.developmentQueue);
       deps.sendGameMessage?.(devQueueCancelWirePayload(next.tileKey));
-      deps.pushFeed(`${next.label} could not start and was removed from queue.`, "combat", "warn");
     }
     break;
   }

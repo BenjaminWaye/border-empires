@@ -14,11 +14,21 @@ export type ClientChangelogEntry = {
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1787520325005, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.7",
+    introducedIn: "2026.08.23.9",
     title: "Rivers no longer render through unexplored fog",
     why: "Decorative rivers were drawn as one continuous overlay that only culled by camera distance, with no idea what the player had actually explored -- so a river's path stayed visible cutting through black, unexplored tiles instead of disappearing into the fog like the surrounding terrain.",
     changes: [
       "River segments now only render where both ends sit on a tile you've explored or previously seen, matching the terrain's own fog-of-war."
+    ]
+  },
+  {
+    createdAt: 1787519694045, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.8",
+    title: "Trimmed two noisy activity feed messages",
+    why: "\"Unlocking: X\" and \"could not start and was removed from queue\" fired on routine, expected actions and just added clutter to the feed without telling you anything new.",
+    changes: [
+      "Choosing a tech no longer posts an \"Unlocking: X\" line to the activity feed.",
+      "A queued build/settlement that fails to start no longer posts a \"could not start and was removed from queue\" line to the activity feed."
     ]
   },
   {
@@ -435,16 +445,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787295247575, // 2026.08.21.3
-    introducedIn: "2026.08.21.3",
-    title: "Map zoom is now smooth and responsive",
-    why: "Zooming used to feel sluggish for two compounding reasons: each wheel notch only moved the zoom level by 1 out of a 10-192 range, so crossing the range took roughly 180 notches; and every single notch tore down and re-uploaded the entire visible terrain to the GPU, which alone cost ~74ms and pinned the frame rate around 10fps for the whole gesture.",
-    changes: [
-      "A wheel notch now moves zoom by a proportional step instead of a flat ±1, so the full zoom range crosses in about 15-20 notches instead of ~180.",
-      "The 3D renderer now only rebuilds the visible terrain when the camera actually needs tiles outside what's already loaded, instead of on every zoom or pan change -- zooming in no longer triggers a rebuild at all, and frame rate stays smooth while zooming or making small-to-moderate pans."
-    ]
-  },
-  {
     createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.2",
     title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
@@ -481,6 +481,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A queued SETTLE or BUILD only starts once an earlier one in your queue finishes, and that hand-off only happens when the server notices a slot just freed up. If a slot freed up while you were disconnected, nobody was around to trigger that hand-off, so your next queued action could sit stalled -- looking untouched -- until some unrelated action elsewhere happened to free another slot.",
     changes: [
       "Logging back in now immediately checks your queue for anything that's actually free to start, instead of waiting on an unrelated event to notice."
+    ]
+  },
+  {
+    createdAt: 1787519500000, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.8",
+    title: "Added a \"Suggest Improvement\" button next to Report Bug",
+    why: "Players had a way to report bugs from Settings, but no equivalent in-app way to send us an improvement idea -- feedback ended up scattered across Discord instead.",
+    changes: [
+      "Settings > Diagnostics now has a green-bordered \"Suggest Improvement\" button below \"Report Bug\", opening the same style of form (with client/server context attached automatically) but posting to a separate suggestions inbox."
     ]
   }
 ];

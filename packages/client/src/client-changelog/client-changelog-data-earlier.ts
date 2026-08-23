@@ -12,6 +12,25 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787295212839, // 2026.08.21.1 — frozen from a live Date.now() call left in by the merged commit
+    introducedIn: "2026.08.21.1",
+    title: "Fixed research (tech/domain) picks being lost on server restart or deploy",
+    why: "On startup, the simulation server rebuilds state from the latest checkpoint snapshot and then replays any events recorded after that checkpoint. That replay step had no handler for tech or domain research events, so a research pick made after the last checkpoint but before a restart or deploy was silently dropped instead of being reapplied — the player would come back with an earlier set of researched techs/domains than they actually had.",
+    changes: [
+      "Tech and domain research chosen shortly before a server restart or deploy is now correctly preserved instead of sometimes reverting to an earlier state."
+    ]
+  },
+  {
+    createdAt: 1787295247575, // 2026.08.21.3
+    introducedIn: "2026.08.21.3",
+    title: "Map zoom is now smooth and responsive",
+    why: "Zooming used to feel sluggish for two compounding reasons: each wheel notch only moved the zoom level by 1 out of a 10-192 range, so crossing the range took roughly 180 notches; and every single notch tore down and re-uploaded the entire visible terrain to the GPU, which alone cost ~74ms and pinned the frame rate around 10fps for the whole gesture.",
+    changes: [
+      "A wheel notch now moves zoom by a proportional step instead of a flat ±1, so the full zoom range crosses in about 15-20 notches instead of ~180.",
+      "The 3D renderer now only rebuilds the visible terrain when the camera actually needs tiles outside what's already loaded, instead of on every zoom or pan change -- zooming in no longer triggers a rebuild at all, and frame rate stays smooth while zooming or making small-to-moderate pans."
+    ]
+  },
+  {
     createdAt: 1787259991319,
     introducedIn: "2026.08.20",
     title: "Rush-buy button is no longer a bare unstyled control, and its gold icon no longer looks like silver",
@@ -294,35 +313,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     changes: [
       "Auto-fill no longer settles tiles outside your reach/border.",
       "A pocket only auto-fills once every part of its sealing boundary (your own territory and/or coastline/mountains) is within your reach — a boundary tile that's still out of reach means the whole pocket waits, rather than filling in partially."
-    ]
-  },
-  {
-    createdAt: 1787326342941, // 2026.08.21.4 — frozen from a live Date.now() call
-    introducedIn: "2026.08.21.4",
-    title: "AI opponents now build a wider range of structures, and beacon relays more often",
-    why: "AI opponents could previously only ever build 5 kinds of structures (Farmstead, Umbrite Rig, Mine, Mintworks, Granary), scored by fixed numbers instead of what the AI's economy actually needed. Their Relay Beacon building was also just as likely at any time, whether or not there was still good territory left nearby to claim.",
-    changes: [
-      "AI opponents can now also build Waterworks, Ministry Hall (Governors Office), Ancillary Factory (Garrison Hall), Logistics Guild, Caravanary, and the Umbrite/Titanium/Crystal Synthesizers, chosen based on which resource or manpower shortfall is most acute rather than a fixed priority list.",
-      "AI opponents now favor Relay Beacon construction in bursts — several in a row, then a pause where other buildings get priority — instead of a flat, constant likelihood throughout the game."
-    ]
-  },
-  {
-    createdAt: 1787296000000, // 2026.08.21.2 — frozen; was Date.now() in the merged commit
-    introducedIn: "2026.08.21.2",
-    title: "Relay beacons are now destroyed when their tile is captured",
-    why: "Every other structure kept its old survive-capture behavior, but a relay beacon transferring intact to the attacker let a single capture instantly hand over both the tile and a working reach anchor on it — same treatment siege outposts already get.",
-    changes: [
-      "Capturing a tile with a relay beacon on it now destroys the beacon instead of transferring ownership.",
-      "The attacker still takes the tile itself; they'll need to rebuild a relay beacon there to project reach from it."
-    ]
-  },
-  {
-    createdAt: 1787295212839, // 2026.08.21.1 — frozen from a live Date.now() call left in by the merged commit
-    introducedIn: "2026.08.21.1",
-    title: "Fixed research (tech/domain) picks being lost on server restart or deploy",
-    why: "On startup, the simulation server rebuilds state from the latest checkpoint snapshot and then replays any events recorded after that checkpoint. That replay step had no handler for tech or domain research events, so a research pick made after the last checkpoint but before a restart or deploy was silently dropped instead of being reapplied — the player would come back with an earlier set of researched techs/domains than they actually had.",
-    changes: [
-      "Tech and domain research chosen shortly before a server restart or deploy is now correctly preserved instead of sometimes reverting to an earlier state."
     ]
   },
 ];
