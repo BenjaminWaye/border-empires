@@ -85,7 +85,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
         <div class="respawn-modal-scroll">
           <div class="respawn-kicker">Beta season</div>
           <h2 id="join-season-title" class="respawn-title">Season starts soon</h2>
-          <p class="respawn-summary">Everyone begins together so the first move isn't decided by timezone. Starting at <strong>${localStartLabel}</strong> your local time.</p>
+          <p class="respawn-summary">Everyone begins together so no one gets a head start — your timezone can still affect when you're online, but everyone gets the same chance from the same starting line. Starting at <strong>${localStartLabel}</strong> your local time.</p>
           <section class="respawn-section respawn-actions">
             <div id="join-season-countdown" class="respawn-title" style="font-variant-numeric: tabular-nums;">
               ${formatCountdown(scheduledStartAt - Date.now())}
