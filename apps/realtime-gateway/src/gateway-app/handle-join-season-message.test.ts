@@ -93,6 +93,37 @@ describe("handleJoinSeasonMessage", () => {
     expect(deps.sent).toEqual([{ type: "ERROR", code: "SEASON_FULL", message: "full" }]);
   });
 
+  it("includes spawnTile in the ack when the join spawned territory and resolveSpawnTile resolves", async () => {
+    const resolveSpawnTile = vi.fn(async () => ({ x: 155, y: 227 }));
+    const deps = buildDeps({ resolveSpawnTile });
+    await handleJoinSeasonMessage(deps);
+    expect(resolveSpawnTile).toHaveBeenCalledWith("player-1");
+    expect(deps.sent).toEqual([{ type: "JOIN_SEASON_ACK", spawned: true, spawnTile: { x: 155, y: 227 } }]);
+  });
+
+  it("omits spawnTile when the join did not spawn territory, without calling resolveSpawnTile", async () => {
+    const resolveSpawnTile = vi.fn(async () => ({ x: 155, y: 227 }));
+    const deps = buildDeps({
+      simulationClient: {
+        preparePlayer: vi.fn(),
+        joinSeason: vi.fn(async () => ({ playerId: "player-1", spawned: false, joined: true }))
+      },
+      resolveSpawnTile
+    });
+    await handleJoinSeasonMessage(deps);
+    expect(resolveSpawnTile).not.toHaveBeenCalled();
+    expect(deps.sent).toEqual([{ type: "JOIN_SEASON_ACK", spawned: false }]);
+  });
+
+  it("still sends the ack without spawnTile when resolveSpawnTile rejects", async () => {
+    const resolveSpawnTile = vi.fn(async () => {
+      throw new Error("sim unavailable");
+    });
+    const deps = buildDeps({ resolveSpawnTile });
+    await handleJoinSeasonMessage(deps);
+    expect(deps.sent).toEqual([{ type: "JOIN_SEASON_ACK", spawned: true }]);
+  });
+
   it("sends JOIN_SEASON_FAILED when the simulation call throws", async () => {
     const deps = buildDeps({
       simulationClient: {
