@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787463213160, // 2026.08.22.15 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.15",
+    title: "Fixed a spurious build error when settling into a Relay Beacon (or any settle+build)",
+    why: "Queuing a settle-then-build (e.g. the frontier \"Build Relay Beacon\" action) made the client fire its own build command the moment the tile finished settling, racing the server's own durable build-on-settle. Whichever lost the race got rejected with a confusing \"tile already has structure\" error, even though the beacon still ended up built.",
+    changes: [
+      "The client no longer sends its own duplicate build command after an auto-settle -- the server's durable continuation now owns firing that build, so there's no race and no spurious error."
+    ]
+  },
+  {
     createdAt: 1787462378800, // frozen from a live Date.now() call
     introducedIn: "2026.08.23",
     title: "Clearer Build Relay Beacon button text",
