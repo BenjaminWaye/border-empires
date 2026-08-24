@@ -55,6 +55,7 @@ describe("client auth flow regression guard", () => {
 vi.mock("firebase/auth", () => ({
   browserLocalPersistence: {},
   createUserWithEmailAndPassword: vi.fn(),
+  getAdditionalUserInfo: vi.fn(() => null),
   isSignInWithEmailLink: vi.fn(() => true),
   onAuthStateChanged: vi.fn(),
   sendSignInLinkToEmail: vi.fn(),
@@ -63,6 +64,10 @@ vi.mock("firebase/auth", () => ({
   signInWithEmailLink: vi.fn(),
   signInWithPopup: vi.fn(),
   updateProfile: vi.fn()
+}));
+
+vi.mock("firebase/analytics", () => ({
+  logEvent: vi.fn()
 }));
 
 describe("email-link sign-in on Safari with blocked storage", () => {

@@ -13,6 +13,34 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787584599966, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
+    introducedIn: "2026.08.24.6",
+    title: "\"Expand To\" no longer shows \"0 gold\" when expanding costs no gold",
+    why: "The multi-step Expand To cost line always showed a gold figure even when the plan was pure EXPAND steps, which cost manpower only. That made it look like the action was free (misleading) or like gold was being charged (confusing) instead of simply not being part of the cost.",
+    changes: [
+      "The Expand To cost summary now omits the gold amount entirely when the plan costs 0 gold, showing only manpower and time."
+    ]
+  },
+  {
+    createdAt: 1787584599965, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.5",
+    title: "Fixed frontier tiles auto-settling on undiscovered resources",
+    why: "Auto-settle was supposed to skip a resource tile until you'd actually revealed it (scouted it into your fog-of-war coverage), but a refactor had silently dropped that check, so a frontier tile could auto-settle the instant it became eligible even if you hadn't seen what was on it yet.",
+    changes: [
+      "Auto-settle no longer claims a frontier tile with a resource on it until that resource has actually been revealed to you. Town, dock, and town-supported frontier tiles are unaffected since those were always visible to their owner."
+    ]
+  },
+  {
+    createdAt: 1787572138647, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
+    introducedIn: "2026.08.24.4",
+    title: "Easier to find food",
+    why: "FARM and FISH clusters were rare enough (52 of each, scattered across the whole map) that players crossing open land or coastline could go a long way without spotting any food.",
+    changes: [
+      "New small single-tile FARM deposits now appear in each of the 4 directions around most farm clusters, 7-11 tiles out, so open land near a farm cluster has more food to find. There are now fewer, but larger-footprint, farm clusters overall to keep the total farmland roughly in balance.",
+      "New small single-tile FISH deposits now appear on either side of existing fish clusters, roughly 10 tiles out along the coast, so a coastline with fish has a couple of easier follow-up spots nearby. Fish clusters themselves are slightly smaller to keep the total fishing grounds unchanged."
+    ]
+  },
+  {
     createdAt: 1787572037117, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.24.2",
     title: "Removed the misleading \"+0 gold cap\" from the Mintworks build description",
@@ -379,61 +407,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787324700000,
-    introducedIn: "2026.08.21.5",
-    title: "Players now get a season-start email, and the previous champion gets a victory email",
-    why: "When a season rolled over, nothing told players by email that the map had reset -- they'd only find out by opening the game. And the player who was just crowned champion had no record of their win beyond the in-game season-end screen.",
-    changes: [
-      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one and pointing them to the season recap screen to browse final stats for friends and foes.",
-      "The player who won the previous season gets that same email with a victory recap folded in, calling out the objective they won through, instead of a separate message."
-    ]
-  },
-  {
-    createdAt: 1787360000000,
-    introducedIn: "2026.08.21.7",
-    title: "Fixed the settle animation not showing until you panned the camera",
-    why: "Pressing Settle on a frontier tile marks it optimistically pending without changing its owner or ownership state (both already belonged to you), but the 3D map only rebuilt its terrain and overlays when ownership actually changed. That left the new settle overlay instance uncreated until something else -- like panning -- forced a rebuild for an unrelated reason.",
-    changes: [
-      "The settlement animation now plays immediately when you press Settle, instead of waiting for the next camera pan."
-    ]
-  },
-  {
-    createdAt: 1787340000000,
-    introducedIn: "2026.08.21.6",
-    title: "The rush-buy price preview now accounts for the Quickforge discount",
-    why: "The tile menu's rush-buy price chip always showed the full server price estimate, even for a player who owns a Quickforge with today's discount still unused — the number shown was different from what got charged.",
-    changes: [
-      "The rush-buy price chip now shows the discounted price when you own a Quickforge and haven't used its once-per-day discount yet."
-    ]
-  },
-  {
-    createdAt: 1787330000000,
-    introducedIn: "2026.08.21.5",
-    title: "The Quickforge wonder now discounts a rush-buy instead of making it free",
-    why: "The Quickforge's once-per-UTC-day rush-buy perk waived the gold cost entirely, which trivialized cheap rush-buys (like a Settle at 10 gold) and scaled unevenly across rush-buy prices.",
-    changes: [
-      "Once per UTC day, the Quickforge's controller now gets 40 gold off their next rush-buy (floored at 0) instead of that rush-buy being completely free."
-    ]
-  },
-  {
-    createdAt: 1787356800000,
-    introducedIn: "2026.08.21.3",
-    title: "Fixed a crash when switching apps and back while a location theme was playing",
-    why: "Backgrounding the tab pauses playback; returning to it resumes both the music bed and any location theme. The location theme's resume call didn't catch play() rejections the way the music bed's did, so a fast switch-away-and-back (interrupting that play() with a pause()) threw an unhandled rejection that tripped the app's error boundary, showing \"Border Empires hit a problem loading\".",
-    changes: [
-      "Switching to another app and back no longer crashes the game to the error screen."
-    ]
-  },
-  {
-    createdAt: 1787345991317,
-    introducedIn: "2026.08.21",
-    title: "War music no longer flickers back to calm music during an ongoing war",
-    why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
-    changes: [
-      "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
-    ]
-  },
-  {
     createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.2",
     title: "Fixed the whole screen becoming unclickable after submitting a bug report",
@@ -480,8 +453,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787521933455,
-    introducedIn: "2026.08.24.2",
+    createdAt: 1787584599966, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.24.6",
+    title: "Added basic sign-up analytics",
+    why: "We had no way to see where new players were coming from, or how many visitors from a shared link actually created an account -- link attribution and conversion were both invisible.",
+    changes: [
+      "The client now reports page landings and a sign-up event (for new accounts created by email, Google, or email-link sign-in) to Google Analytics, so shared links can be attributed by source/campaign and tracked through to conversion."
+    ]
+  },
+  {
+    createdAt: 1787584599967, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.24.7",
     title: "Renamed AI empires to first names only",
     why: "AI empire names paired a first name with a surname that read as a fantasy/game surname (e.g. \"Sigrid Storm\", \"Edvin Frost\"), which looked out of place next to real players' names on the leaderboard.",
     changes: [
