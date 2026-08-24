@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787572138646, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.3",
+    title: "Settle Land's tooltip no longer name-drops \"production\"",
+    why: "The Settle Land tooltip said it \"activates production,\" which is internal jargon that didn't mean anything concrete to players -- what gets produced, and how much, differs per tile (food, titanium, crystal, town growth) and was never spelled out here anyway.",
+    changes: [
+      "Settle Land's tooltip now just says \"Makes this tile defendable,\" dropping the vague \"activates production\" clause."
+    ]
+  },
+  {
     createdAt: 1787322201581,
     introducedIn: "2026.08.21",
     title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",

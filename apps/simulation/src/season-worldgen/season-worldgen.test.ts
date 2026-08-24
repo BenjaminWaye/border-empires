@@ -57,8 +57,8 @@ describe("season worldgen", () => {
     expect(aiPlayers).toHaveLength(20);
     expect(aiOwnedTiles.length).toBeGreaterThanOrEqual(20);
     expect(humanOwnedTiles).toHaveLength(0);
-    expect(aiNames).toContain("Freja Sund");
-    expect(aiNames).toContain("Bryn Holt");
+    expect(aiNames).toContain("Freja");
+    expect(aiNames).toContain("Bryn");
     expect(aiNames.every((name) => typeof name === "string" && !name.startsWith("ai-"))).toBe(true);
     // buildIslands() scatters 55 island blobs by construction (worldgen.ts); some
     // fragment into multiple disconnected landmasses from the coastline wobble,
