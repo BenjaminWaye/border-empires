@@ -89,7 +89,7 @@ import { createCommandApplyTracker } from "../command-apply-tracker.js";
 import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
 import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
-import { buildEventLoopBlockedPayload } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
+import { buildEventLoopBlockedPayload, eventLoopBlockWarnMs } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
 import { resolveMaxSeasonPlayers } from "../season-join-capacity.js";
 
 export type SimulationRuntimeIdentity = {
@@ -2845,7 +2845,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // contained zero stall attribution because this event was log-only.
         // durationMs is set so the ring entry (which strips most payload fields)
         // still carries the block length.
-        if (lagMs >= 2_000) {
+        if (lagMs >= eventLoopBlockWarnMs) {
           const blockedPayload = buildEventLoopBlockedPayload({
             lagMs,
             detectedAtMs: now,
