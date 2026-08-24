@@ -1,4 +1,4 @@
-import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
@@ -695,7 +695,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
         breachShockUntil?: number;
         frontierDecayAt?: number | null;
-        frontierDecayKind?: "ENCIRCLEMENT" | null;
+        frontierDecayKind?: FrontierDecayKind | null;
       }>) ??
       [];
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
@@ -715,13 +715,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       else if (!c.ownerId) delete incoming.ownershipState;
       if (typeof c.breachShockUntil === "number") incoming.breachShockUntil = c.breachShockUntil;
       else if ("breachShockUntil" in c && !c.breachShockUntil) delete incoming.breachShockUntil;
-      if (typeof c.frontierDecayAt === "number") incoming.frontierDecayAt = c.frontierDecayAt;
-      else if ("frontierDecayAt" in c && !c.frontierDecayAt) delete incoming.frontierDecayAt;
-      if (c.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = c.frontierDecayKind;
-      else if ("frontierDecayKind" in c && !c.frontierDecayKind) delete incoming.frontierDecayKind;
+      if (typeof c.frontierDecayAt === "number") incoming.frontierDecayAt = c.frontierDecayAt; else if ("frontierDecayAt" in c && !c.frontierDecayAt) delete incoming.frontierDecayAt;
+      if (c.frontierDecayKind) incoming.frontierDecayKind = c.frontierDecayKind; else if ("frontierDecayKind" in c && !c.frontierDecayKind) delete incoming.frontierDecayKind;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
+      // Keyed off the SERVER's stamp, so the contested-border exemption never fires a false warning.
+      if (merged.frontierDecayKind === "OUT_OF_REACH" && merged.ownerId === state.me && state.discoveryTipQueue) announceDiscoveryTip(state.discoveryTipQueue, "OUT_OF_REACH_EXPAND", state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def));
     }
     const resultAlert = combatResolutionAlert(msg, {
       targetTileBefore: targetBefore,

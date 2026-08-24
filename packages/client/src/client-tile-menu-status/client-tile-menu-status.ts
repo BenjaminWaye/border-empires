@@ -1,7 +1,12 @@
+import { OUT_OF_REACH_DECAY_MS } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
 
 const CAPTURE_RECOVERY_WINDOW_MS = 11 * 60_000;
-/** Must match ENCIRCLEMENT_DECAY_MS in apps/simulation/src/encirclement.ts */
+/**
+ * Historical encirclement window. Encirclement itself is instant now (see
+ * apps/simulation/src/encirclement/encirclement.ts), so this only bounds the
+ * display of an ENCIRCLEMENT stamp left over from an older snapshot.
+ */
 const ENCIRCLEMENT_DECAY_MS = 60_000;
 
 export type TileMenuHeaderStatus = {
@@ -45,6 +50,20 @@ export const encirclementRemainingMsForTile = (tile: Tile, nowMs = Date.now()): 
   return remaining;
 };
 
+/**
+ * Remaining ms for a frontier tile decaying because it was claimed outside its
+ * owner's reach. Unlike encirclement this timer is live: the sim expires the
+ * tile when it runs out unless reach catches up first.
+ */
+export const outOfReachDecayRemainingMsForTile = (tile: Tile, nowMs = Date.now()): number | undefined => {
+  if (tile.ownershipState !== "FRONTIER") return undefined;
+  if (typeof tile.frontierDecayAt !== "number") return undefined;
+  if (tile.frontierDecayKind !== "OUT_OF_REACH") return undefined;
+  const remaining = tile.frontierDecayAt - nowMs;
+  if (remaining <= 0 || remaining > OUT_OF_REACH_DECAY_MS) return undefined;
+  return remaining;
+};
+
 /** True iff this owned tile is an encircled (cut-off-from-supply) frontier
  *  tile, which the sim rejects as an ATTACK/EXPAND origin (ORIGIN_CUT_OFF). */
 export const isFrontierOriginCutOff = (tile: Tile, nowMs = Date.now()): boolean =>
@@ -61,6 +80,18 @@ export const tileMenuHeaderStatusForTile = (
     const seconds = Math.max(1, Math.ceil(encirclementRemaining / 1000));
     return {
       text: `Cut off from supply — disappears in ${seconds}s`,
+      tone: "warning"
+    };
+  }
+
+  // Out-of-reach decay outranks capture recovery for the same reason
+  // encirclement does: the tile is about to be lost outright, which matters
+  // more than a temporary structure debuff.
+  const outOfReachRemaining = outOfReachDecayRemainingMsForTile(tile, nowMs);
+  if (outOfReachRemaining !== undefined) {
+    const seconds = Math.max(1, Math.ceil(outOfReachRemaining / 1000));
+    return {
+      text: `Beyond your reach — decays in ${seconds}s`,
       tone: "warning"
     };
   }

@@ -7,7 +7,8 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
-import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, applyUnsettleDowngrade, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
+import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
+import { cancelOutOfReachDecayInAnchorDisk, outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import {
   gatherReachAnchors as gatherReachAnchorsImpl,
   newlyActivatedReachAnchors as newlyActivatedReachAnchorsImpl,
@@ -719,6 +720,8 @@ export class SimulationRuntime {
   private reachBorder: Map<string, string> = new Map();
   // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
   private readonly reachUpdateState: ReachUpdateState = createReachUpdateState();
+  private outOfReachDecayQueue: OutOfReachDecayQueue = createOutOfReachDecayQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted
+  private readonly isLandTileQuery = (x: number, y: number): boolean => { const t = this.tiles.get(simulationTileKey(x, y)); return t ? t.terrain === "LAND" : true; }; // land-gates reach anchors, see ReachAnchor.crossesWater
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   // Throttle per-tick respawn attempts for eliminated AI players. Spawn
   // placement is an O(n-tile) scan; 30 s cooldown keeps it from running
@@ -1151,6 +1154,7 @@ export class SimulationRuntime {
     for (const anchor of this.gatherReachAnchors()) {
       this.applyReachAnchorActivation(anchor, "world-init", { contestSettledOnUnclaimed: false });
     }
+    this.outOfReachDecayQueue = rebuildOutOfReachDecayQueue(this.tiles); // anchors above already cleared timers they now cover
     // Moved here (see the long comment above, right after this.tiles is
     // assigned) from immediately after `this.players` was built: this is the
     // first point where garrisonHallTilesByOwner/railDepotTilesByOwner/
@@ -1553,7 +1557,7 @@ export class SimulationRuntime {
       if (yieldToEventLoop) await yieldToEventLoop();
     }
     this.tickMuster(nowMs);
-    this.tickFortGarrison(nowMs);
+    this.tickFortGarrison(nowMs); this.tickOutOfReachDecay(nowMs);
     // tickMuster/tickFortGarrison mutate many players' tiles via
     // replaceTileState in tight per-tile loops without ever calling
     // emitPlayerStateUpdate themselves (unlike command-driven mutations) — so
@@ -1563,6 +1567,7 @@ export class SimulationRuntime {
     this.flushAllOutpostVisionDormancyResyncs();
   }
 
+  tickOutOfReachDecay(nowMs: number = this.now()): number { return tickOutOfReachDecayImpl({ queue: this.outOfReachDecayQueue, nowMs, tiles: this.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m) }); }
   tickFortGarrison(nowMs: number = this.now()): void {
     tickFortGarrisonImpl({
       nowMs,
@@ -1725,7 +1730,7 @@ export class SimulationRuntime {
   }
 
   private lockResolutionContext(): RuntimeLockResolutionContext {
-    return {
+    const autoSettleDeps: AutoSettleCapturedAnchorDeps = { getPlayer: (id) => this.players.get(id), hasAvailableDevelopmentSlot: (id) => this.hasAvailableDevelopmentSlot(id), startSettlementProcess: (i) => this.startSettlementProcess(i), now: () => this.now() }; return {
       players: this.players,
       tiles: this.tiles,
       locksByTile: this.locksByTile,
@@ -1759,6 +1764,7 @@ export class SimulationRuntime {
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId),
       maybeDrainClaimContinuation: (targetKey, x, y, playerId) => tryDrainClaimContinuationImpl(this.devQueueCommandContext(), playerId, targetKey, x, y),
+      outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now(), isLandTile: this.isLandTileQuery }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => this.runtimeLogInfo(p, m)), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({
             capturedTile,
@@ -2997,21 +3003,15 @@ export class SimulationRuntime {
   // REACH_UPDATE push it feeds. This is the runtime-side adapter: it supplies
   // the world lookups and routes the unsettle downgrade back through replaceTileState.
   private reachBorderApplyContext(): ReachBorderApplyContext {
-    return {
-      gatherReachAnchors: () => this.gatherReachAnchors(),
-      rivalOwnerIds: () => [...this.playerSummaries.keys()].filter((id) => !id.startsWith("barbarian-")).sort(),
-      tileOwnership: (tileKey) => this.tiles.get(tileKey),
-      isLandTile: (x, y) => { const t = this.tiles.get(simulationTileKey(x, y)); return t ? t.terrain === "LAND" : true; }, // land-gates normal anchors, see ReachAnchor.crossesWater
-      downgradeToFrontier: (tileKey, causeCommandId) =>
-        applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, causeCommandId, {
-          getTile: (k) => this.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid),
-          tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e)
-        })
-    };
+    return createReachBorderApplyContext({
+      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.tiles.get(k), isLandTile: this.isLandTileQuery, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) })
+    });
   }
 
   private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { contestSettledOnUnclaimed?: boolean }): void {
     this.reachBorder = applyReachAnchorActivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId, options);
+    // Reach caught up over this anchor's disk: anything decaying there for being out of reach is now held ground. O(radius²), not a sweep.
+    cancelOutOfReachDecayInAnchorDisk({ tiles: this.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), isLandTile: this.isLandTileQuery }, anchor, causeCommandId);
   }
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
     this.reachBorder = applyReachAnchorDeactivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId);

@@ -353,4 +353,57 @@ describe("recoverSimulationStateFromEvents", () => {
     expect(player?.domainIds).toEqual(["mercantile"]);
     expect(player?.points).toBe(40);
   });
+
+  it("replays an OUT_OF_REACH frontierDecayKind from a TILE_DELTA_BATCH, not just ENCIRCLEMENT", () => {
+    // Regression: the merge below used to hardcode `=== "ENCIRCLEMENT"`, so
+    // any other kind (including OUT_OF_REACH) fell into the "explicit clear"
+    // branch and silently vanished on recovery -- the tile kept its
+    // frontierDecayAt deadline but lost the kind that says what it means.
+    const recovered = applySimulationEventsToRecoveredState(
+      {
+        tiles: [{ x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
+        activeLocks: [],
+        players: [],
+        pendingSettlements: [],
+        tileYieldCollectedAtByTile: [],
+        playerYieldCollectionEpochByPlayer: []
+      },
+      [
+        {
+          eventType: "TILE_DELTA_BATCH",
+          commandId: "claim-1",
+          playerId: "player-1",
+          tileDeltas: [{ x: 10, y: 10, frontierDecayAt: 120_000, frontierDecayKind: "OUT_OF_REACH" }]
+        }
+      ]
+    );
+
+    const tile = recovered.tiles.find((t) => t.x === 10 && t.y === 10);
+    expect(tile?.frontierDecayAt).toBe(120_000);
+    expect(tile?.frontierDecayKind).toBe("OUT_OF_REACH");
+  });
+
+  it("preserves an already-decaying tile's frontierDecayKind straight through recovery with no replayed events", () => {
+    // Regression: cloneRecoveredTile (used both to seed the accumulator from
+    // baseState.tiles and to build the final output array) never copied
+    // frontierDecayKind at all -- it silently dropped on every recovery,
+    // independent of any TILE_DELTA_BATCH replay logic.
+    const recovered = applySimulationEventsToRecoveredState(
+      {
+        tiles: [
+          { x: 20, y: 20, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: 60_000, frontierDecayKind: "OUT_OF_REACH" }
+        ],
+        activeLocks: [],
+        players: [],
+        pendingSettlements: [],
+        tileYieldCollectedAtByTile: [],
+        playerYieldCollectionEpochByPlayer: []
+      },
+      []
+    );
+
+    const tile = recovered.tiles.find((t) => t.x === 20 && t.y === 20);
+    expect(tile?.frontierDecayAt).toBe(60_000);
+    expect(tile?.frontierDecayKind).toBe("OUT_OF_REACH");
+  });
 });

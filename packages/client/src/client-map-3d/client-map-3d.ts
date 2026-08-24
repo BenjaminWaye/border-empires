@@ -12,7 +12,7 @@ import {
   PlaneGeometry,
   Scene
 } from "three";
-import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type ResourceType, type SlotResource } from "@border-empires/shared";
+import { OBSERVATORY_RANGE_MAX, OUT_OF_REACH_DECAY_MS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS, MIN_ZOOM } from "../client-constants.js";
@@ -1309,7 +1309,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // Hoisted Color temps reused per rebuild to avoid per-tile allocation.
   const tmpSettleOwnerColor = new Color();
   const tmpOwnerColor = new Color();
-  const tmpWhite = new Color("#ffffff");
+  const tmpWhite = new Color("#ffffff"), tmpDecayAmber = new Color("#ffb03b");
   const tmpBlack = new Color("#000000");
   const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
 
@@ -1831,9 +1831,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const ownerColor = tmpOwnerColor.set(normalizedColor);
           if (ownershipState === "FRONTIER" && typeof tile.frontierDecayAt === "number") {
             const remainingMs = tile.frontierDecayAt - Date.now();
-            if (remainingMs > 0 && remainingMs <= 60_000) {
-              const blink = 0.5 + 0.5 * Math.sin((Date.now() / 2_000) * Math.PI * 2);
-              ownerColor.lerp(tmpWhite, blink * 0.35);
+            if (remainingMs > 0 && remainingMs <= (tile.frontierDecayKind === "OUT_OF_REACH" ? OUT_OF_REACH_DECAY_MS : 60_000)) {
+              const blink = 0.5 + 0.5 * Math.sin((Date.now() / 2_000) * Math.PI * 2); // out-of-reach pulses amber for its full 2 min; legacy encirclement keeps white
+              ownerColor.lerp(tile.frontierDecayKind === "OUT_OF_REACH" ? tmpDecayAmber : tmpWhite, blink * 0.35);
             }
           }
           const wxOwn = deps.wrapX(wx + 1);

@@ -51,7 +51,11 @@ function createContext(tiles: Map<string, DomainTileState>) {
     respawnIfEliminated: () => {},
     ensureGrossIncomeSettlementForPlayer: () => false,
     maybeActivateWatchtower: () => {},
-    maybeDrainClaimContinuation: () => {}
+    maybeDrainClaimContinuation: () => {},
+    outOfReachDecayDeadline: () => undefined,
+    registerOutOfReachDecay: () => {},
+    canAutoSettleCapturedAnchor: () => false,
+    autoSettleCapturedAnchor: () => {}
   };
   return { context, events };
 }

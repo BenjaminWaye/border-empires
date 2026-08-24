@@ -9,7 +9,7 @@ import { NATURAL_WONDER_LABELS, type NaturalWonderType } from "@border-empires/s
 import type { Tile } from "../client-types.js";
 import { isDiscoveryTipSeen, isDiscoveryTipsMuted, markDiscoveryTipSeen, muteDiscoveryTips } from "./client-discovery-tips-storage.js";
 
-export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | NaturalWonderType;
+export type DiscoveryTipId = "TOWN" | "DOCK" | "BARBARIAN" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "FIRST_MUSTER" | "ENEMY_EMPIRE" | "OUT_OF_REACH_EXPAND" | NaturalWonderType;
 
 export type DiscoveryTipDef = { id: DiscoveryTipId; title: string; body: string };
 
@@ -74,6 +74,11 @@ export const DISCOVERY_TIPS: Record<DiscoveryTipId, DiscoveryTipDef> = {
     id: "ENEMY_EMPIRE",
     title: "First Contact!",
     body: "You've found a rival empire! Mustering is now unlocked — place a Muster Flag on your border to gather manpower and attack."
+  },
+  OUT_OF_REACH_EXPAND: {
+    id: "OUT_OF_REACH_EXPAND",
+    title: "Beyond Your Reach",
+    body: "This land sits outside your reach, so your hold on it is slipping — it will decay away in two minutes. Extend your reach with a nearby Town, Dock, or Outpost to keep it. Contested borders, where your reach overlaps a rival's, are exempt."
   },
   ...NATURAL_WONDER_DISCOVERY_TIPS
 };
