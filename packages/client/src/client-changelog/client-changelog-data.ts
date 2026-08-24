@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787572138647, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
+    introducedIn: "2026.08.24.4",
+    title: "Easier to find food",
+    why: "FARM and FISH clusters were rare enough (52 of each, scattered across the whole map) that players crossing open land or coastline could go a long way without spotting any food.",
+    changes: [
+      "New small single-tile FARM deposits now appear in each of the 4 directions around most farm clusters, 7-11 tiles out, so open land near a farm cluster has more food to find. There are now fewer, but larger-footprint, farm clusters overall to keep the total farmland roughly in balance.",
+      "New small single-tile FISH deposits now appear on either side of existing fish clusters, roughly 10 tiles out along the coast, so a coastline with fish has a couple of easier follow-up spots nearby. Fish clusters themselves are slightly smaller to keep the total fishing grounds unchanged."
+    ]
+  },
+  {
     createdAt: 1787572138646, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.24.3",
     title: "Settle Land's tooltip no longer name-drops \"production\"",
@@ -385,61 +395,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Owning zero Titanium and zero Umbrite Weapons Factories empire-wide already doubled an attacker's effective attack against you -- but that bonus only ever helped the attacker. If you had no war industry and someone else attacked you, defending gave you no comparable penalty or advantage either way.",
     changes: [
       "Defending against an attacker who owns zero Titanium AND zero Umbrite Weapons Factories anywhere in their empire now doubles your effective defense, mirroring the existing attack-side vulnerability from the other direction. Missing one factory type or both gives the same flat bonus -- it doesn't stack higher for missing both."
-    ]
-  },
-  {
-    createdAt: 1787324700000,
-    introducedIn: "2026.08.21.5",
-    title: "Players now get a season-start email, and the previous champion gets a victory email",
-    why: "When a season rolled over, nothing told players by email that the map had reset -- they'd only find out by opening the game. And the player who was just crowned champion had no record of their win beyond the in-game season-end screen.",
-    changes: [
-      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one and pointing them to the season recap screen to browse final stats for friends and foes.",
-      "The player who won the previous season gets that same email with a victory recap folded in, calling out the objective they won through, instead of a separate message."
-    ]
-  },
-  {
-    createdAt: 1787360000000,
-    introducedIn: "2026.08.21.7",
-    title: "Fixed the settle animation not showing until you panned the camera",
-    why: "Pressing Settle on a frontier tile marks it optimistically pending without changing its owner or ownership state (both already belonged to you), but the 3D map only rebuilt its terrain and overlays when ownership actually changed. That left the new settle overlay instance uncreated until something else -- like panning -- forced a rebuild for an unrelated reason.",
-    changes: [
-      "The settlement animation now plays immediately when you press Settle, instead of waiting for the next camera pan."
-    ]
-  },
-  {
-    createdAt: 1787340000000,
-    introducedIn: "2026.08.21.6",
-    title: "The rush-buy price preview now accounts for the Quickforge discount",
-    why: "The tile menu's rush-buy price chip always showed the full server price estimate, even for a player who owns a Quickforge with today's discount still unused — the number shown was different from what got charged.",
-    changes: [
-      "The rush-buy price chip now shows the discounted price when you own a Quickforge and haven't used its once-per-day discount yet."
-    ]
-  },
-  {
-    createdAt: 1787330000000,
-    introducedIn: "2026.08.21.5",
-    title: "The Quickforge wonder now discounts a rush-buy instead of making it free",
-    why: "The Quickforge's once-per-UTC-day rush-buy perk waived the gold cost entirely, which trivialized cheap rush-buys (like a Settle at 10 gold) and scaled unevenly across rush-buy prices.",
-    changes: [
-      "Once per UTC day, the Quickforge's controller now gets 40 gold off their next rush-buy (floored at 0) instead of that rush-buy being completely free."
-    ]
-  },
-  {
-    createdAt: 1787356800000,
-    introducedIn: "2026.08.21.3",
-    title: "Fixed a crash when switching apps and back while a location theme was playing",
-    why: "Backgrounding the tab pauses playback; returning to it resumes both the music bed and any location theme. The location theme's resume call didn't catch play() rejections the way the music bed's did, so a fast switch-away-and-back (interrupting that play() with a pause()) threw an unhandled rejection that tripped the app's error boundary, showing \"Border Empires hit a problem loading\".",
-    changes: [
-      "Switching to another app and back no longer crashes the game to the error screen."
-    ]
-  },
-  {
-    createdAt: 1787345991317,
-    introducedIn: "2026.08.21",
-    title: "War music no longer flickers back to calm music during an ongoing war",
-    why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
-    changes: [
-      "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
     ]
   },
   {
