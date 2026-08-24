@@ -13,13 +13,50 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1787557882812, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.1",
+    createdAt: 1787572138647, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
+    introducedIn: "2026.08.24.4",
     title: "Easier to find food",
     why: "FARM and FISH clusters were rare enough (52 of each, scattered across the whole map) that players crossing open land or coastline could go a long way without spotting any food.",
     changes: [
       "New small single-tile FARM deposits now appear in each of the 4 directions around most farm clusters, 7-11 tiles out, so open land near a farm cluster has more food to find. There are now fewer, but larger-footprint, farm clusters overall to keep the total farmland roughly in balance.",
       "New small single-tile FISH deposits now appear on either side of existing fish clusters, roughly 10 tiles out along the coast, so a coastline with fish has a couple of easier follow-up spots nearby. Fish clusters themselves are slightly smaller to keep the total fishing grounds unchanged."
+    ]
+  },
+  {
+    createdAt: 1787572138646, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.3",
+    title: "Settle Land's tooltip no longer name-drops \"production\"",
+    why: "The Settle Land tooltip said it \"activates production,\" which is internal jargon that didn't mean anything concrete to players -- what gets produced, and how much, differs per tile (food, titanium, crystal, town growth) and was never spelled out here anyway.",
+    changes: [
+      "Settle Land's tooltip now just says \"Makes this tile defendable,\" dropping the vague \"activates production\" clause."
+    ]
+  },
+  {
+    createdAt: 1787572037117, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.2",
+    title: "Removed the misleading \"+0 gold cap\" from the Mintworks build description",
+    why: "The Build Mintworks panel and its tile-menu detail text both tacked on a \"+N gold cap\" figure computed from the target town's current gold/min, which is 0 (or otherwise unrelated to what Mintworks actually grants) in the normal build-preview case, showing up as a nonsensical \"+0 gold cap\" and implying Mintworks adds a flat cap it doesn't.",
+    changes: [
+      "Build Mintworks descriptions now only show the actual +town gold production % bonus, dropping the bogus gold cap figure."
+    ]
+  },
+  {
+    createdAt: 1787548762402, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.1",
+    title: "Fixed border sometimes not expanding right after a Relay Beacon finished",
+    why: "A Relay Beacon (and other structures) finish building on their own timer rather than as part of a normal command, and the server-authoritative border push only used to fire alongside a command being processed. So the border update sat ready but unsent until some other action happened to trigger it -- which could take a while, and looked like lag.",
+    changes: [
+      "Finishing a Relay Beacon (or any structure that changes your reach) now pushes the updated border to your client immediately, instead of waiting on an unrelated command to trigger the push."
+    ]
+  },
+  {
+    createdAt: 1787553808483, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.2",
+    title: "Settle Land now shows its manpower cost, and stays hidden until you actually need it",
+    why: "Settle Land and Settle Connected only showed their gold cost, hiding the manpower they actually spend, and were shown from turn one even though manual settling has nothing to offer that early -- it's really only useful once you have a town and food running, for cheap defense, connecting towns, or consolidating territory. New players kept settling exposed frontier tiles in the opening minutes for no benefit, burning manpower they needed elsewhere.",
+    changes: [
+      "The manpower cost of settling is now shown on Settle Connected's total cost line -- previously only the gold cost was shown, so it looked cheaper than it was. The multi-select bulk \"Settle Land\" button (which claims unowned land) now correctly shows its own claim cost instead of the settle cost.",
+      "Settle Land and Settle Connected are now hidden from the tile menu until you have a settled town and a settled food tile (farm or fish), and appear at the very bottom of the actions list once they do."
     ]
   },
   {
@@ -407,41 +444,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787322800000,
-    introducedIn: "2026.08.21.1",
-    title: "Composite settle+build orders (e.g. Build Relay Beacon) now survive logging out mid-order",
-    why: "Clicking a composite action like \"Build Relay Beacon\" on an unowned tile sends the expand immediately, then relied purely on this client's own in-memory bookkeeping to notice the expand land and fire the follow-up settle, then notice the settlement land and fire the build. If you logged out (or your connection dropped) between the click and either of those follow-ups, nothing server-side was watching to continue the chain, so the order silently stalled.",
-    changes: [
-      "Settle+build orders (fresh expand-then-settle-then-build, and settle-then-build on an already-owned tile) now also register server-side, so they keep completing even if you disconnect right after clicking."
-    ]
-  },
-  {
-    createdAt: 1787322201581,
-    introducedIn: "2026.08.21",
-    title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",
-    why: "Tension (\"war is coming\") music used to be driven by short-lived, per-attack timers (an attack in transit, a deferred send, an incoming-attack tracker) that clear the instant that specific attack resolves, so it kept dropping back to calm music between attacks even while a muster flag was still staged and ready to fire.",
-    changes: [
-      "Tension music now plays for as long as any muster flag is raised and set to Hold (staged, not yet advancing), which is a stable signal instead of one that clears after every individual attack."
-    ]
-  },
-  {
     createdAt: 1787345991317,
     introducedIn: "2026.08.21",
     title: "War music no longer flickers back to calm music during an ongoing war",
     why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
     changes: [
       "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
-    ]
-  },
-  {
-    createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.2",
-    title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
-    why: "A season previously had no limit on how many empires could join, which meant a season already crowded with players kept quietly admitting more instead of ever being \"full.\" There was also no way to find out when a fresh, uncrowded season was starting if you missed joining one.",
-    changes: [
-      "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
-      "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
-      "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
     ]
   },
   {
@@ -482,16 +490,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787510053323, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.3",
-    title: "You can now expand beyond your reach -- but the land decays if you can't hold it",
-    why: "Expanding outside your reach was simply blocked, which made reach feel like an arbitrary wall rather than a real decision. Now you can push into open land whenever you like, and the risk -- not a hard rule -- is what stops you from blobbing across the map.",
+    createdAt: 1787557977223, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.1",
+    title: "Fixed laggy panning/zooming on wide monitors",
+    why: "The map's per-frame draw loop redrew every on-screen tile with no ceiling on how many tiles that could be. On a wide or ultrawide monitor zoomed all the way out, that meant tens of thousands of tiles redrawn every single frame -- pegging the main thread and making panning and zooming visibly stutter, especially on larger screens.",
     changes: [
-      "You can now claim and capture tiles outside your reach. Land taken out there is unstable: it decays away after 2 minutes unless your reach catches up to it.",
-      "Extending your reach over a decaying tile -- with a nearby Town, Dock, or Outpost -- makes it stable again and stops the countdown.",
-      "Decaying tiles pulse amber on the map and show a countdown in the tile menu, so you can see exactly how long you have.",
-      "Contested borders are exempt: if your reach overlaps a rival's where you're expanding, the land does not decay. Fighting over a shared border works as it always has.",
-      "The first time it happens, a tip explains what's going on."
+      "The map now caps how many tiles it draws per frame to the same budget already used elsewhere in the renderer, shrinking the visible radius slightly (rather than stalling) only in the most zoomed-out state on unusually wide screens."
     ]
   }
 ];

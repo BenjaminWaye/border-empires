@@ -72,6 +72,17 @@ const stateWithTownAndFrontierTile = (frontierX: number, frontierY: number): {
     ownershipState: "SETTLED",
     town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
   } as Tile);
+  // Settle Land/Settle Connected are hidden until the player has an established
+  // economy (a settled town + a settled grain tile) -- give this fixture a
+  // settled FARM tile too, so these reach-gate assertions can still see the row.
+  state.tiles.set(keyFor(0, 1), {
+    x: 0,
+    y: 1,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    resource: "FARM"
+  } as Tile);
   const target: Tile = { x: frontierX, y: frontierY, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER" } as Tile;
   state.tiles.set(keyFor(frontierX, frontierY), target);
   return { state, target };

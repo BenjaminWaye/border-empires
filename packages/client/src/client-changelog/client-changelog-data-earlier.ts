@@ -12,6 +12,48 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787322201581,
+    introducedIn: "2026.08.21",
+    title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",
+    why: "Tension (\"war is coming\") music used to be driven by short-lived, per-attack timers (an attack in transit, a deferred send, an incoming-attack tracker) that clear the instant that specific attack resolves, so it kept dropping back to calm music between attacks even while a muster flag was still staged and ready to fire.",
+    changes: [
+      "Tension music now plays for as long as any muster flag is raised and set to Hold (staged, not yet advancing), which is a stable signal instead of one that clears after every individual attack."
+    ]
+  },
+  {
+    createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.2",
+    title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
+    why: "A season previously had no limit on how many empires could join, which meant a season already crowded with players kept quietly admitting more instead of ever being \"full.\" There was also no way to find out when a fresh, uncrowded season was starting if you missed joining one.",
+    changes: [
+      "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
+      "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
+      "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
+    ]
+  },
+  {
+    createdAt: 1787510053323, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.3",
+    title: "You can now expand beyond your reach -- but the land decays if you can't hold it",
+    why: "Expanding outside your reach was simply blocked, which made reach feel like an arbitrary wall rather than a real decision. Now you can push into open land whenever you like, and the risk -- not a hard rule -- is what stops you from blobbing across the map.",
+    changes: [
+      "You can now claim and capture tiles outside your reach. Land taken out there is unstable: it decays away after 2 minutes unless your reach catches up to it.",
+      "Extending your reach over a decaying tile -- with a nearby Town, Dock, or Outpost -- makes it stable again and stops the countdown.",
+      "Decaying tiles pulse amber on the map and show a countdown in the tile menu, so you can see exactly how long you have.",
+      "Contested borders are exempt: if your reach overlaps a rival's where you're expanding, the land does not decay. Fighting over a shared border works as it always has.",
+      "The first time it happens, a tip explains what's going on."
+    ]
+  },
+  {
+    createdAt: 1787322800000,
+    introducedIn: "2026.08.21.1",
+    title: "Composite settle+build orders (e.g. Build Relay Beacon) now survive logging out mid-order",
+    why: "Clicking a composite action like \"Build Relay Beacon\" on an unowned tile sends the expand immediately, then relied purely on this client's own in-memory bookkeeping to notice the expand land and fire the follow-up settle, then notice the settlement land and fire the build. If you logged out (or your connection dropped) between the click and either of those follow-ups, nothing server-side was watching to continue the chain, so the order silently stalled.",
+    changes: [
+      "Settle+build orders (fresh expand-then-settle-then-build, and settle-then-build on an already-owned tile) now also register server-side, so they keep completing even if you disconnect right after clicking."
+    ]
+  },
+  {
     createdAt: 1787295212839, // 2026.08.21.1 — frozen from a live Date.now() call left in by the merged commit
     introducedIn: "2026.08.21.1",
     title: "Fixed research (tech/domain) picks being lost on server restart or deploy",
@@ -204,27 +246,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     why: "The tile overview panel listed Population, Growth, Support, Production, and Upkeep for a settled town, but never said anything about the town's manpower contribution to your empire — a stat players had no way to see anywhere on the tile itself.",
     changes: [
       "A settled town's overview tab now shows its base manpower cap and regen contribution, right after Population and Growth."
-    ]
-  },
-  {
-    createdAt: 1787041917435, // 2026.08.17.3
-    introducedIn: "2026.08.17.3",
-    title: "Battle dots no longer pop when the clash hands off into rout",
-    why: "The clash phase sways each dot back and forth (spread + a forward jostle so the two lines press together instead of overlapping), but the instant rout began that whole oscillation was dropped in favor of a clean push-through/scatter position — a small but real positional snap right at the clash/rout boundary, on top of the exact same seam that was already fixed between the pre-resolution skirmish and the clash phase.",
-    changes: [
-      "Dots now settle out of the clash's sway over the first ~140ms of rout instead of dropping it instantly, so the clash and rout phases read as one continuous motion rather than two animations stitched together."
-    ]
-  },
-  {
-    createdAt: 1787003302865, // 2026.08.17.2
-    introducedIn: "2026.08.17.2",
-    title: "Battle animation reworked: troops line up, march, clash with casualties, then rout",
-    why: "The battle overlay's approach phase was a single 550ms beat — dots barely had time to read as \"forming up\" before they were already marching. And the clash itself, while it now threw glyph bursts into the air, never lost a single dot: the swarm stayed exactly DOTS_PER_SIDE strong right up until rout, so a fight that had clearly been decided (attackerWon is known from the very first frame) never showed any sign of a cost.",
-    changes: [
-      "Both sides now form up at their own tile-local edge for ~2.5s before marching — previously they started marching almost immediately.",
-      "The march itself now takes ~0.9s (previously ~550ms combined with forming up), so the two sides visibly close the distance instead of snapping into position.",
-      "Once the outcome is known, some dots now fall during the clash — a fixed 2 of 10 for the winning side, 4 of 10 for the losing side, so the losing side visibly thins before rout confirms it, and both sides always keep enough survivors for rout to have something to actually push through or scatter.",
-      "The clash window is now ~1.3s (previously 800ms), giving the glyph bursts and new casualties room to read clearly instead of feeling rushed."
     ]
   },
   {

@@ -424,6 +424,10 @@ export function completeStructureRemoval(context: RuntimeStructureCommandContext
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   // A removed Relay Beacon's vision bonus is dropped by reconcileOutpostVisionBonus
   // via the replaceTileState call above — runtime-outpost-vision.ts.
+  // Same timer-completion flush requirement as completeStructureBuild: this
+  // runs off scheduleAfter, not queueCommandForProcessing, so the border
+  // contraction from deactivating a reach anchor must be flushed explicitly.
+  context.flushReachUpdates(`reach-update:${commandId}`);
 }
 
 export function handleCancelSiegeOutpostBuildCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {
