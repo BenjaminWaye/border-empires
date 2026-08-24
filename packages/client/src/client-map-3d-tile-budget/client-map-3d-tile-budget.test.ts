@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { MAX_TILE_BUDGET, MIN_TILE_BUDGET, tileBudgetForScreen, tileBudgetOverride } from "./client-map-3d-tile-budget.js";
+import {
+  MAX_TILE_BUDGET,
+  MIN_TILE_BUDGET,
+  clampedTileHalfExtents,
+  tileBudgetForScreen,
+  tileBudgetOverride
+} from "./client-map-3d-tile-budget.js";
 
 const MIN_ZOOM = 10;
 
@@ -67,5 +73,37 @@ describe("tile budget override", () => {
 
   it("ignores junk rather than allocating something nonsensical", () => {
     expect(tileBudgetOverride("?tilebudget=abc")).toBeUndefined();
+  });
+});
+
+describe("clampedTileHalfExtents", () => {
+  it("leaves the window untouched when it's already within budget", () => {
+    expect(clampedTileHalfExtents(40, 20, MAX_TILE_BUDGET)).toEqual({ halfW: 40, halfH: 20 });
+  });
+
+  it("clamps an ultrawide desktop's MIN_ZOOM window to the 2D loop's per-frame budget", () => {
+    // 3440x1440 at MIN_ZOOM (10 px/tile) naively wants ~50k tiles/frame —
+    // this is the exact case from the laggy-panning trace this fix targets.
+    const naiveHalfW = Math.floor(3440 / 10 / 2);
+    const naiveHalfH = Math.floor(1440 / 10 / 2);
+    const naiveTileCount = (2 * naiveHalfW + 1) * (2 * naiveHalfH + 1);
+    expect(naiveTileCount).toBeGreaterThan(MAX_TILE_BUDGET);
+
+    const { halfW, halfH } = clampedTileHalfExtents(naiveHalfW, naiveHalfH, MAX_TILE_BUDGET);
+    const clampedTileCount = (2 * halfW + 1) * (2 * halfH + 1);
+    expect(clampedTileCount).toBeLessThanOrEqual(MAX_TILE_BUDGET);
+    expect(halfW).toBeLessThan(naiveHalfW);
+    expect(halfH).toBeLessThan(naiveHalfH);
+  });
+
+  it("preserves the viewport aspect ratio instead of cropping one axis", () => {
+    const { halfW, halfH } = clampedTileHalfExtents(200, 50, 4000);
+    expect(halfW / halfH).toBeCloseTo(200 / 50, 0);
+  });
+
+  it("never collapses an axis to zero, even under an extreme budget", () => {
+    const { halfW, halfH } = clampedTileHalfExtents(500, 500, 10);
+    expect(halfW).toBeGreaterThanOrEqual(1);
+    expect(halfH).toBeGreaterThanOrEqual(1);
   });
 });

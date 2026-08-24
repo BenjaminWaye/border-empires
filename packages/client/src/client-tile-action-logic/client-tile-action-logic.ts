@@ -35,7 +35,7 @@ import {
 } from "@border-empires/shared";
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 import { converterStructureMenuEntries } from "../client-converter-menu.js";
-import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS, canAffordCost, isForestTile } from "../client-constants.js";
+import { AIRPORT_BOMBARD_RADIUS, OBSERVATORY_VISION_BONUS } from "../client-constants.js";
 import { tileSyncDebugEnabled } from "../client-debug/client-debug.js";
 import { connectedEnemyRegionKeys } from "../client-connected-region/client-connected-region.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
@@ -60,6 +60,7 @@ import { canBuildPlacementStructure } from "../client-structure-effects/client-s
 import { hasFreeResourceSlotsForRelayBeacon, missingRelayBeaconSlotReason } from "../client-relay-beacon-food-slot/client-relay-beacon-food-slot.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { neutralTileActions } from "./client-tile-action-neutral.js";
+import { settleActionsForFrontierTile } from "./client-tile-action-settle-visibility.js";
 
 type BuildableStructureId = BuildableStructureType;
 type AbilityCooldownId = keyof ClientState["abilityCooldowns"];
@@ -1006,46 +1007,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
     }
-    if (tile.ownershipState === "FRONTIER" && !queuedSettlement)
-      out.push({
-        id: "settle_land",
-        label: "Settle Land",
-        detail: deps.buildDetailTextForAction("settle_land", tile),
-        ...tileActionAvailabilityWithDevelopmentSlot(
-          ...withReachGate([
-            canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
-            state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} gold`,
-            `${SETTLE_COST} gold, ${SETTLE_MANPOWER_COST} manpower • ${Math.round(settleDurationMsForState(state, tile) / 1000)}s${isForestTile(tile.x, tile.y) ? " (Forest)" : ""}`
-          ]),
-          slots,
-          deps
-        )
-      });
-    if (tile.ownershipState === "FRONTIER" && !queuedSettlement) {
-      const connectedKeys = deps.connectedOwnedFrontierKeysFor(tile);
-      const actionableKeys = connectedKeys.filter(
-        (k) =>
-          !state.settleProgressByTile.has(k) &&
-          !hasQueuedSettlementForTile(state.developmentQueue, k)
-      );
-      if (actionableKeys.length >= 2) {
-        const totalCost = SETTLE_COST * actionableKeys.length;
-        out.push({
-          id: "settle_connected_frontier",
-          label: `Settle Connected (${actionableKeys.length})`,
-          detail: deps.buildDetailTextForAction("settle_connected_frontier", tile),
-          ...tileActionAvailabilityWithDevelopmentSlot(
-            ...withReachGate([
-              canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
-              state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} gold`,
-              `${totalCost} gold total • fills slots, rest queue`
-            ]),
-            slots,
-            deps
-          )
-        });
-      }
-    }
     const townGrowthAction = tile.town?.populationTier && typeof tile.town.population === "number"
       ? townGrowthActionForUpgrade(state, nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population))
       : undefined;
@@ -1722,7 +1683,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : !state.techIds.includes("trade")
                 ? "Requires Merchant Charters"
                 : missingResourceSlotReason(state, "MINTWORKS") ?? "Unavailable",
-            `${deps.structureCostText("MINTWORKS")} • ${Math.round(economicStructureBuildMs("MINTWORKS") / 60000)}m • +${Math.round((mintworksGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive)) - 1) * 100)}% town gold production (stacks) • +${Math.round((townBuildSource.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap`
+            `${deps.structureCostText("MINTWORKS")} • ${Math.round(economicStructureBuildMs("MINTWORKS") / 60000)}m • +${Math.round((mintworksGoldProductionMultiplier(1, Boolean(townBuildSource.town?.clearingHouseActive)) - 1) * 100)}% town gold production (stacks)`
           ),
           slots,
           deps
@@ -2032,6 +1993,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         )
       });
     }
+    // Settle Land / Settle Connected are pushed last (bottom of the actions list) and hidden
+    // until the player has an established economy -- see client-tile-action-settle-visibility.ts.
+    out.push(...settleActionsForFrontierTile(state, tile, deps, slots, queuedSettlement));
     out.push(...retortRecastActions());
     out.push(...crystalCoreActions());
     out.push(createMountainAction());
