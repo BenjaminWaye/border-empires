@@ -163,4 +163,10 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
   if (structureType === "GRANARY") {
     grantGranaryPopulationBurst(context, ownerId, completedTile.x, completedTile.y, commandId);
   }
+  // Relay Beacon (and other reach-anchor) activations happened synchronously
+  // inside replaceTileState above, but this completion itself runs off a
+  // scheduleAfter timer rather than queueCommandForProcessing, so the border
+  // change must be flushed explicitly here or it sits dirty until some other
+  // command happens to trigger a flush.
+  context.flushReachUpdates(`reach-update:${commandId}`);
 }

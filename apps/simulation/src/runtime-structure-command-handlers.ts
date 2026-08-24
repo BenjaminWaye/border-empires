@@ -71,6 +71,9 @@ export type RuntimeStructureCommandContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   completeStructureBuild: (targetKey: string, ownerId: string, structureType: string, commandId: string) => void;
   completeStructureRemoval: (targetKey: string, ownerId: string, commandId: string) => void;
+  // Timer completions (scheduleAfter) skip queueCommandForProcessing's flush, so
+  // completion handlers must flush reach updates themselves (Relay Beacon border lag).
+  flushReachUpdates: (causeCommandId: string) => void;
   // §20/§16: durable per-player log entry, used here for monument-claim/
   // race-consolation notices broadcast to every player.
   appendPlayerEventLogEntry: (
