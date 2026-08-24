@@ -3337,9 +3337,7 @@ export class SimulationRuntime {
       const cached = this.autoSettlementQueueCacheByPlayer.get(playerId);
       if (cached && this.now() - cached.computedAtMs < AI_DERIVED_CACHE_COALESCE_MS) return cached.value;
     }
-    // Use frontierTilesByOwner to avoid iterating all territory tiles (O(settled) → O(frontier))
-    // orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway, so passing only
-    // frontier keys is semantically equivalent but O(frontier) instead of O(territory).
+    // frontierTilesByOwner keeps this O(frontier) instead of O(territory) — orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway.
     const frontierKeys = this.frontierTilesByOwner.get(playerId) ?? new Set<string>();
     let supportLookupCalls = 0;
     // AI-only read-through cache for the per-tile eligibility result (see
@@ -3369,6 +3367,7 @@ export class SimulationRuntime {
             return Boolean(town && town.populationTier !== "SETTLEMENT");
           });
         },
+        isRevealedToPlayer: (tile) => this.visibilityCoverage.isVisible(playerId, simulationTileKey(tile.x, tile.y)), // fog-of-war gate
         eligibilityCache
       })
         .map((tileKey) => {
