@@ -1,4 +1,4 @@
-import { SETTLE_COST, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
+import { EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import { tileActionMenuHtml } from "../client-tile-menu-html.js";
 import { playLocationTheme } from "../client-audio/client-audio.js";
 import { tileMenuRenderSignature } from "../client-tile-menu-render-signature/client-tile-menu-render-signature.js";
@@ -302,7 +302,11 @@ export const openBulkTileActionMenu = (
   }
   const actions: TileActionDef[] = [];
   if (neutralCount > 0) {
-    actions.push({ id: "settle_land", label: `Settle Land (${neutralCount})`, cost: `${SETTLE_COST} gold each` });
+    actions.push({
+      id: "settle_land",
+      label: `Settle Land (${neutralCount})`,
+      cost: `${FRONTIER_CLAIM_COST} gold, ${EXPAND_MANPOWER_COST} manpower each`
+    });
   }
   if (enemyCount > 0) {
     actions.push({ id: "launch_attack", label: `Launch Attack (${enemyCount})` });
