@@ -13,13 +13,13 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1787548320717, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.1",
-    title: "Settle Land now warns you it doesn't defend the tile",
-    why: "The tile menu said settling \"makes this tile defended,\" which isn't true -- a settled tile has zero defense until you build a Fort on it, and settling actually makes it a more valuable, cheaper-to-crack target for attackers than leaving it as frontier. Players kept settling exposed border tiles expecting protection they weren't getting, then losing them along with the manpower spent.",
+    createdAt: 1787553808483, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.2",
+    title: "Settle Land now shows its manpower cost, and stays hidden until you actually need it",
+    why: "Settle Land and Settle Connected only showed their gold cost, hiding the manpower they actually spend, and were shown from turn one even though manual settling has nothing to offer that early -- it's really only useful once you have a town and food running, for cheap defense, connecting towns, or consolidating territory. New players kept settling exposed frontier tiles in the opening minutes for no benefit, burning manpower they needed elsewhere.",
     changes: [
-      "Settle Land and Settle Connected detail text now says the tile stays undefended until fortified, instead of claiming it becomes \"defended.\"",
-      "The manpower cost of settling is now shown on the multi-select bulk Settle Land button and on Settle Connected's total cost line -- previously only the gold cost was shown, so it looked cheaper than it was."
+      "The manpower cost of settling is now shown on the multi-select bulk Settle Land button and on Settle Connected's total cost line -- previously only the gold cost was shown, so it looked cheaper than it was.",
+      "Settle Land and Settle Connected are now hidden from the tile menu until you have a settled town and a settled grain tile, and appear at the very bottom of the actions list once they do."
     ]
   },
   {
