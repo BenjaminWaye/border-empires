@@ -1,20 +1,20 @@
 {
-  "at": "2026-08-24T02:57:57.041Z",
+  "at": "2026-08-24T17:01:14.025Z",
   "soak": {
     "wsUrl": "ws://127.0.0.1:13101/ws",
-    "startedAt": "2026-08-24T02:57:57.041Z",
-    "endedAt": "2026-08-24T03:27:57.080Z",
-    "soakMinutes": 30,
+    "startedAt": "2026-08-24T17:01:14.025Z",
+    "endedAt": "2026-08-24T17:21:14.141Z",
+    "soakMinutes": 20,
     "minAcceptedSamples": 30,
     "waitForResult": false,
     "settleAfterAcceptedMs": 250,
     "refreshOnEmptyFrontier": false,
     "acceptedSamples": 214,
     "acceptedP95Ms": 3,
-    "acceptedP99Ms": 10,
-    "acceptedMaxMs": 23,
+    "acceptedP99Ms": 12,
+    "acceptedMaxMs": 15,
     "diagnostics": {
-      "openedSessions": 153,
+      "openedSessions": 162,
       "frontierRefreshes": 0,
       "emptyFrontierRejections": 0,
       "speculativeInvalidTargets": 0,
@@ -22,12 +22,12 @@
     },
     "batches": [
       {
-        "at": 1787540318956,
+        "at": 1787590916074,
         "iterations": 120,
         "acceptedSamples": 120,
         "acceptedP95Ms": 5,
-        "acceptedP99Ms": 11,
-        "acceptedMaxMs": 23,
+        "acceptedP99Ms": 12,
+        "acceptedMaxMs": 15,
         "diagnostics": {
           "openedSessions": 1,
           "frontierRefreshes": 0,
@@ -37,7 +37,7 @@
         }
       },
       {
-        "at": 1787540364246,
+        "at": 1787590960843,
         "iterations": 120,
         "acceptedSamples": 68,
         "acceptedP95Ms": 2,
@@ -52,12 +52,12 @@
         }
       },
       {
-        "at": 1787540390642,
+        "at": 1787590987240,
         "iterations": 120,
         "acceptedSamples": 20,
         "acceptedP95Ms": 2,
-        "acceptedP99Ms": 4,
-        "acceptedMaxMs": 4,
+        "acceptedP99Ms": 3,
+        "acceptedMaxMs": 3,
         "diagnostics": {
           "openedSessions": 1,
           "frontierRefreshes": 0,
@@ -67,7 +67,7 @@
         }
       },
       {
-        "at": 1787540412747,
+        "at": 1787591009348,
         "iterations": 120,
         "acceptedSamples": 6,
         "acceptedP95Ms": 2,
@@ -82,7 +82,7 @@
         }
       },
       {
-        "at": 1787540432965,
+        "at": 1787591029556,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -97,7 +97,7 @@
         }
       },
       {
-        "at": 1787540453145,
+        "at": 1787591049746,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -112,7 +112,7 @@
         }
       },
       {
-        "at": 1787540473362,
+        "at": 1787591069910,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -127,7 +127,7 @@
         }
       },
       {
-        "at": 1787540493527,
+        "at": 1787591090112,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -142,7 +142,7 @@
         }
       },
       {
-        "at": 1787540513702,
+        "at": 1787591110313,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -157,7 +157,7 @@
         }
       },
       {
-        "at": 1787540533869,
+        "at": 1787591130484,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -172,7 +172,7 @@
         }
       },
       {
-        "at": 1787540554031,
+        "at": 1787591150655,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -187,7 +187,7 @@
         }
       },
       {
-        "at": 1787540574199,
+        "at": 1787591170827,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -202,7 +202,7 @@
         }
       },
       {
-        "at": 1787540594386,
+        "at": 1787591191010,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -217,7 +217,7 @@
         }
       },
       {
-        "at": 1787540614570,
+        "at": 1787591211182,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -232,7 +232,7 @@
         }
       },
       {
-        "at": 1787540634723,
+        "at": 1787591231347,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -247,7 +247,7 @@
         }
       },
       {
-        "at": 1787540654879,
+        "at": 1787591251521,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -262,7 +262,7 @@
         }
       },
       {
-        "at": 1787540675085,
+        "at": 1787591271689,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -277,7 +277,7 @@
         }
       },
       {
-        "at": 1787540695287,
+        "at": 1787591291851,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -292,7 +292,7 @@
         }
       },
       {
-        "at": 1787540715463,
+        "at": 1787591312010,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -307,7 +307,7 @@
         }
       },
       {
-        "at": 1787540735638,
+        "at": 1787591332171,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -322,7 +322,7 @@
         }
       },
       {
-        "at": 1787540755812,
+        "at": 1787591352614,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -337,7 +337,7 @@
         }
       },
       {
-        "at": 1787540775993,
+        "at": 1787591372784,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -352,7 +352,7 @@
         }
       },
       {
-        "at": 1787540796164,
+        "at": 1787591392947,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -367,7 +367,7 @@
         }
       },
       {
-        "at": 1787540816320,
+        "at": 1787591413123,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -382,7 +382,7 @@
         }
       },
       {
-        "at": 1787540836485,
+        "at": 1787591433288,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -397,7 +397,7 @@
         }
       },
       {
-        "at": 1787540856638,
+        "at": 1787591453458,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -412,7 +412,7 @@
         }
       },
       {
-        "at": 1787540877065,
+        "at": 1787591473614,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -427,7 +427,7 @@
         }
       },
       {
-        "at": 1787540897221,
+        "at": 1787591493770,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -442,7 +442,7 @@
         }
       },
       {
-        "at": 1787540917392,
+        "at": 1787591513930,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -457,7 +457,7 @@
         }
       },
       {
-        "at": 1787540937550,
+        "at": 1787591534094,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -472,7 +472,7 @@
         }
       },
       {
-        "at": 1787540957712,
+        "at": 1787591554258,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -487,7 +487,7 @@
         }
       },
       {
-        "at": 1787540977865,
+        "at": 1787591574427,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -502,7 +502,7 @@
         }
       },
       {
-        "at": 1787540998027,
+        "at": 1787591594852,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -517,7 +517,7 @@
         }
       },
       {
-        "at": 1787541018179,
+        "at": 1787591615015,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -532,7 +532,7 @@
         }
       },
       {
-        "at": 1787541038346,
+        "at": 1787591635258,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -547,7 +547,7 @@
         }
       },
       {
-        "at": 1787541058510,
+        "at": 1787591655465,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -562,7 +562,7 @@
         }
       },
       {
-        "at": 1787541078668,
+        "at": 1787591675623,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -577,7 +577,7 @@
         }
       },
       {
-        "at": 1787541098821,
+        "at": 1787591695794,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -592,7 +592,7 @@
         }
       },
       {
-        "at": 1787541118979,
+        "at": 1787591715953,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -607,7 +607,7 @@
         }
       },
       {
-        "at": 1787541139142,
+        "at": 1787591736120,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -622,7 +622,7 @@
         }
       },
       {
-        "at": 1787541159299,
+        "at": 1787591756273,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -637,7 +637,7 @@
         }
       },
       {
-        "at": 1787541179458,
+        "at": 1787591776462,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -652,7 +652,7 @@
         }
       },
       {
-        "at": 1787541199895,
+        "at": 1787591796889,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -667,7 +667,7 @@
         }
       },
       {
-        "at": 1787541220057,
+        "at": 1787591817047,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -682,7 +682,7 @@
         }
       },
       {
-        "at": 1787541240214,
+        "at": 1787591837205,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -697,7 +697,7 @@
         }
       },
       {
-        "at": 1787541260362,
+        "at": 1787591857354,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -712,7 +712,7 @@
         }
       },
       {
-        "at": 1787541280523,
+        "at": 1787591877556,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -727,7 +727,7 @@
         }
       },
       {
-        "at": 1787541300676,
+        "at": 1787591897752,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -742,7 +742,7 @@
         }
       },
       {
-        "at": 1787541320853,
+        "at": 1787591917928,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -757,7 +757,7 @@
         }
       },
       {
-        "at": 1787541341069,
+        "at": 1787591938138,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -772,7 +772,7 @@
         }
       },
       {
-        "at": 1787541361240,
+        "at": 1787591958293,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -787,7 +787,7 @@
         }
       },
       {
-        "at": 1787541381407,
+        "at": 1787591978448,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -802,7 +802,7 @@
         }
       },
       {
-        "at": 1787541401557,
+        "at": 1787591998606,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -817,7 +817,7 @@
         }
       },
       {
-        "at": 1787541421716,
+        "at": 1787592018783,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -832,7 +832,7 @@
         }
       },
       {
-        "at": 1787541441877,
+        "at": 1787592038964,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -847,7 +847,7 @@
         }
       },
       {
-        "at": 1787541462028,
+        "at": 1787592059144,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -862,7 +862,7 @@
         }
       },
       {
-        "at": 1787541482463,
+        "at": 1787592059290,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -877,7 +877,7 @@
         }
       },
       {
-        "at": 1787541502623,
+        "at": 1787592059443,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -892,7 +892,7 @@
         }
       },
       {
-        "at": 1787541522777,
+        "at": 1787592059577,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -907,7 +907,7 @@
         }
       },
       {
-        "at": 1787541542934,
+        "at": 1787592059714,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -922,7 +922,7 @@
         }
       },
       {
-        "at": 1787541563086,
+        "at": 1787592059855,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -937,7 +937,7 @@
         }
       },
       {
-        "at": 1787541583241,
+        "at": 1787592060014,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -952,7 +952,7 @@
         }
       },
       {
-        "at": 1787541603396,
+        "at": 1787592060152,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -967,7 +967,7 @@
         }
       },
       {
-        "at": 1787541623549,
+        "at": 1787592060293,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -982,7 +982,7 @@
         }
       },
       {
-        "at": 1787541643703,
+        "at": 1787592060429,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -997,7 +997,7 @@
         }
       },
       {
-        "at": 1787541663883,
+        "at": 1787592060568,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1012,7 +1012,7 @@
         }
       },
       {
-        "at": 1787541684033,
+        "at": 1787592060701,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1027,7 +1027,7 @@
         }
       },
       {
-        "at": 1787541704188,
+        "at": 1787592060835,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1042,7 +1042,7 @@
         }
       },
       {
-        "at": 1787541724377,
+        "at": 1787592061010,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1057,7 +1057,7 @@
         }
       },
       {
-        "at": 1787541744544,
+        "at": 1787592061160,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1072,7 +1072,7 @@
         }
       },
       {
-        "at": 1787541764697,
+        "at": 1787592061300,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1087,7 +1087,7 @@
         }
       },
       {
-        "at": 1787541785123,
+        "at": 1787592061435,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1102,7 +1102,7 @@
         }
       },
       {
-        "at": 1787541805272,
+        "at": 1787592061571,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1117,7 +1117,7 @@
         }
       },
       {
-        "at": 1787541825427,
+        "at": 1787592061713,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1132,7 +1132,7 @@
         }
       },
       {
-        "at": 1787541845598,
+        "at": 1787592061851,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1147,7 +1147,7 @@
         }
       },
       {
-        "at": 1787541865755,
+        "at": 1787592061987,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1162,7 +1162,7 @@
         }
       },
       {
-        "at": 1787541885917,
+        "at": 1787592062121,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1177,7 +1177,7 @@
         }
       },
       {
-        "at": 1787541906075,
+        "at": 1787592062298,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1192,7 +1192,7 @@
         }
       },
       {
-        "at": 1787541926227,
+        "at": 1787592062450,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1207,7 +1207,7 @@
         }
       },
       {
-        "at": 1787541946414,
+        "at": 1787592062584,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1222,7 +1222,7 @@
         }
       },
       {
-        "at": 1787541966621,
+        "at": 1787592062719,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1237,7 +1237,7 @@
         }
       },
       {
-        "at": 1787541986793,
+        "at": 1787592062851,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1252,7 +1252,7 @@
         }
       },
       {
-        "at": 1787542006997,
+        "at": 1787592062989,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1267,7 +1267,7 @@
         }
       },
       {
-        "at": 1787542027151,
+        "at": 1787592063126,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1282,7 +1282,7 @@
         }
       },
       {
-        "at": 1787542047314,
+        "at": 1787592063263,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1297,7 +1297,7 @@
         }
       },
       {
-        "at": 1787542067472,
+        "at": 1787592063400,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1312,7 +1312,7 @@
         }
       },
       {
-        "at": 1787542067607,
+        "at": 1787592063638,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1327,7 +1327,7 @@
         }
       },
       {
-        "at": 1787542067783,
+        "at": 1787592063775,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1342,7 +1342,7 @@
         }
       },
       {
-        "at": 1787542067918,
+        "at": 1787592063909,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1357,7 +1357,7 @@
         }
       },
       {
-        "at": 1787542068090,
+        "at": 1787592064053,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1372,7 +1372,7 @@
         }
       },
       {
-        "at": 1787542068225,
+        "at": 1787592064188,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1387,7 +1387,7 @@
         }
       },
       {
-        "at": 1787542068371,
+        "at": 1787592064320,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1402,7 +1402,7 @@
         }
       },
       {
-        "at": 1787542068511,
+        "at": 1787592064456,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1417,7 +1417,7 @@
         }
       },
       {
-        "at": 1787542068645,
+        "at": 1787592064604,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1432,7 +1432,7 @@
         }
       },
       {
-        "at": 1787542068842,
+        "at": 1787592064777,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1447,7 +1447,7 @@
         }
       },
       {
-        "at": 1787542069120,
+        "at": 1787592064927,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1462,7 +1462,7 @@
         }
       },
       {
-        "at": 1787542069253,
+        "at": 1787592065059,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1477,7 +1477,7 @@
         }
       },
       {
-        "at": 1787542069385,
+        "at": 1787592065194,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1492,7 +1492,7 @@
         }
       },
       {
-        "at": 1787542069552,
+        "at": 1787592065360,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1507,7 +1507,7 @@
         }
       },
       {
-        "at": 1787542069696,
+        "at": 1787592065558,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1522,7 +1522,7 @@
         }
       },
       {
-        "at": 1787542069846,
+        "at": 1787592065693,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1537,7 +1537,7 @@
         }
       },
       {
-        "at": 1787542069979,
+        "at": 1787592065829,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1552,7 +1552,7 @@
         }
       },
       {
-        "at": 1787542070113,
+        "at": 1787592065962,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1567,7 +1567,7 @@
         }
       },
       {
-        "at": 1787542070253,
+        "at": 1787592066094,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1582,7 +1582,7 @@
         }
       },
       {
-        "at": 1787542070421,
+        "at": 1787592066245,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1597,7 +1597,7 @@
         }
       },
       {
-        "at": 1787542070559,
+        "at": 1787592066381,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1612,7 +1612,7 @@
         }
       },
       {
-        "at": 1787542070694,
+        "at": 1787592066515,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1627,7 +1627,7 @@
         }
       },
       {
-        "at": 1787542070832,
+        "at": 1787592066651,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1642,7 +1642,7 @@
         }
       },
       {
-        "at": 1787542070969,
+        "at": 1787592066784,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1657,7 +1657,7 @@
         }
       },
       {
-        "at": 1787542071123,
+        "at": 1787592066917,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1672,7 +1672,7 @@
         }
       },
       {
-        "at": 1787542071268,
+        "at": 1787592067061,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1687,7 +1687,7 @@
         }
       },
       {
-        "at": 1787542071405,
+        "at": 1787592067196,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1702,7 +1702,7 @@
         }
       },
       {
-        "at": 1787542071537,
+        "at": 1787592067351,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1717,7 +1717,7 @@
         }
       },
       {
-        "at": 1787542071666,
+        "at": 1787592067491,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1732,7 +1732,7 @@
         }
       },
       {
-        "at": 1787542071816,
+        "at": 1787592067639,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1747,7 +1747,7 @@
         }
       },
       {
-        "at": 1787542071950,
+        "at": 1787592067774,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1762,7 +1762,7 @@
         }
       },
       {
-        "at": 1787542072083,
+        "at": 1787592067911,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1777,7 +1777,7 @@
         }
       },
       {
-        "at": 1787542072216,
+        "at": 1787592068047,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1792,7 +1792,7 @@
         }
       },
       {
-        "at": 1787542072349,
+        "at": 1787592068180,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1807,7 +1807,7 @@
         }
       },
       {
-        "at": 1787542072494,
+        "at": 1787592068314,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1822,7 +1822,7 @@
         }
       },
       {
-        "at": 1787542072640,
+        "at": 1787592068456,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1837,7 +1837,7 @@
         }
       },
       {
-        "at": 1787542072776,
+        "at": 1787592068590,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1852,7 +1852,7 @@
         }
       },
       {
-        "at": 1787542072908,
+        "at": 1787592068728,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1867,7 +1867,7 @@
         }
       },
       {
-        "at": 1787542073040,
+        "at": 1787592068861,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1882,7 +1882,7 @@
         }
       },
       {
-        "at": 1787542073168,
+        "at": 1787592069006,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1897,7 +1897,7 @@
         }
       },
       {
-        "at": 1787542073320,
+        "at": 1787592069138,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1912,7 +1912,7 @@
         }
       },
       {
-        "at": 1787542073457,
+        "at": 1787592069275,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1927,7 +1927,7 @@
         }
       },
       {
-        "at": 1787542073591,
+        "at": 1787592069406,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1942,7 +1942,7 @@
         }
       },
       {
-        "at": 1787542073726,
+        "at": 1787592069544,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1957,7 +1957,7 @@
         }
       },
       {
-        "at": 1787542073858,
+        "at": 1787592069682,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1972,7 +1972,7 @@
         }
       },
       {
-        "at": 1787542074009,
+        "at": 1787592069845,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -1987,7 +1987,7 @@
         }
       },
       {
-        "at": 1787542074139,
+        "at": 1787592069978,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2002,7 +2002,7 @@
         }
       },
       {
-        "at": 1787542074275,
+        "at": 1787592070116,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2017,7 +2017,7 @@
         }
       },
       {
-        "at": 1787542074407,
+        "at": 1787592070252,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2032,7 +2032,7 @@
         }
       },
       {
-        "at": 1787542074543,
+        "at": 1787592070398,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2047,7 +2047,7 @@
         }
       },
       {
-        "at": 1787542074680,
+        "at": 1787592070534,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2062,7 +2062,7 @@
         }
       },
       {
-        "at": 1787542074838,
+        "at": 1787592070672,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2077,7 +2077,7 @@
         }
       },
       {
-        "at": 1787542074973,
+        "at": 1787592070811,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2092,7 +2092,7 @@
         }
       },
       {
-        "at": 1787542075112,
+        "at": 1787592070947,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2107,7 +2107,7 @@
         }
       },
       {
-        "at": 1787542075260,
+        "at": 1787592071107,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2122,7 +2122,7 @@
         }
       },
       {
-        "at": 1787542075394,
+        "at": 1787592071250,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2137,7 +2137,7 @@
         }
       },
       {
-        "at": 1787542075560,
+        "at": 1787592071383,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2152,7 +2152,7 @@
         }
       },
       {
-        "at": 1787542075692,
+        "at": 1787592071523,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2167,7 +2167,7 @@
         }
       },
       {
-        "at": 1787542075823,
+        "at": 1787592071659,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2182,7 +2182,7 @@
         }
       },
       {
-        "at": 1787542075953,
+        "at": 1787592071813,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2197,7 +2197,7 @@
         }
       },
       {
-        "at": 1787542076092,
+        "at": 1787592071952,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2212,7 +2212,7 @@
         }
       },
       {
-        "at": 1787542076221,
+        "at": 1787592072088,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2227,7 +2227,7 @@
         }
       },
       {
-        "at": 1787542076375,
+        "at": 1787592072226,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2242,7 +2242,7 @@
         }
       },
       {
-        "at": 1787542076525,
+        "at": 1787592072363,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2257,7 +2257,7 @@
         }
       },
       {
-        "at": 1787542076659,
+        "at": 1787592072496,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2272,7 +2272,7 @@
         }
       },
       {
-        "at": 1787542076793,
+        "at": 1787592072635,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2287,7 +2287,7 @@
         }
       },
       {
-        "at": 1787542076922,
+        "at": 1787592072772,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2302,7 +2302,142 @@
         }
       },
       {
-        "at": 1787542077072,
+        "at": 1787592072903,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1787592073035,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1787592073181,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1787592073315,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1787592073450,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1787592073597,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1787592073732,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1787592073864,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1787592074001,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1787592074135,
         "iterations": 120,
         "acceptedSamples": 0,
         "acceptedP95Ms": null,
@@ -2330,12 +2465,18 @@
       "lastGatewayEventLoopMaxMs": 1,
       "lastSimEventLoopMaxMs": 1
     },
-    "sampleCount": 901,
+    "sampleCount": 601,
     "sampleErrors": [],
-    "gatewayEventLoopMaxMs": 13,
-    "simEventLoopMaxMs": 193,
+    "gatewayEventLoopMaxMs": 15,
+    "simEventLoopMaxMs": 50,
+    "simEventLoopMaxAt": "2026-08-24T17:13:38.406Z",
+    "simEventLoopDelayQuantilesMs": {
+      "p50": 0,
+      "p95": 1,
+      "p99": 3
+    },
     "simHumanInteractiveBacklogMaxMs": 0,
-    "simCheckpointRssMaxMb": 612.023
+    "simCheckpointRssMaxMb": 546.566
   },
   "gates": {
     "acceptedSamplesAtLeastMinimum": true,
@@ -2343,9 +2484,9 @@
     "actionAcceptedP99Under500": true,
     "actionAcceptedMaxUnder1000": true,
     "gatewayEventLoopMaxUnder500": true,
-    "simEventLoopMaxUnder150": false,
+    "simEventLoopMaxUnder150": true,
     "simHumanInteractiveBacklogMaxUnder500": true,
     "simCheckpointRssMaxUnder800": true
   },
-  "allGatesGreen": false
+  "allGatesGreen": true
 }
