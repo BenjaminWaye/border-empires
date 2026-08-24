@@ -12,12 +12,23 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
-    createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.2",
-    title: "Fixed the whole screen becoming unclickable after submitting a bug report",
-    why: "Closing the redesigned bug report dialog (including automatically, after a successful submit) only cleared its contents -- the full-screen invisible container div stayed in the DOM with pointer-events left on, silently intercepting every click across the entire game until you reloaded the page.",
+    createdAt: 1787322201581,
+    introducedIn: "2026.08.21",
+    title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",
+    why: "Tension (\"war is coming\") music used to be driven by short-lived, per-attack timers (an attack in transit, a deferred send, an incoming-attack tracker) that clear the instant that specific attack resolves, so it kept dropping back to calm music between attacks even while a muster flag was still staged and ready to fire.",
     changes: [
-      "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
+      "Tension music now plays for as long as any muster flag is raised and set to Hold (staged, not yet advancing), which is a stable signal instead of one that clears after every individual attack."
+    ]
+  },
+  {
+    createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.2",
+    title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
+    why: "A season previously had no limit on how many empires could join, which meant a season already crowded with players kept quietly admitting more instead of ever being \"full.\" There was also no way to find out when a fresh, uncrowded season was starting if you missed joining one.",
+    changes: [
+      "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
+      "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
+      "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
     ]
   },
   {
