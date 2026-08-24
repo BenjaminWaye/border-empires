@@ -315,4 +315,25 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "A pocket only auto-fills once every part of its sealing boundary (your own territory and/or coastline/mountains) is within your reach — a boundary tile that's still out of reach means the whole pocket waits, rather than filling in partially."
     ]
   },
+  {
+    createdAt: 1787322201580, // 2026.08.21 — frozen; was Date.now() in the merged commit
+    introducedIn: "2026.08.21",
+    title: "Border-expansion pylon animation is slower and more dramatic",
+    why: "The survey pylon rise/sink and laser on/off animation that plays when your border expands or contracts was over in about 1.3 seconds per pylon, which made it easy to miss entirely.",
+    changes: [
+      "Retiring pylons now take about 3 seconds to fade their laser and sink into the ground, and arriving pylons take about 3.2 seconds to rise and power their laser on.",
+      "New pylons/lasers along an expanding border now stagger in more visibly, one at a time, instead of all rising together."
+    ]
+  },
+  {
+    createdAt: 1787356800001, // 2026.08.21, after the entries below
+    introducedIn: "2026.08.21",
+    title: "Shard rain impact sites now show on the map, even before you've explored them",
+    why: "A shard rain event's landing sites were previously only ever shown as a text notice (\"Nearest site is ~N tiles NE\") or as an in-tile icon once you'd actually explored that tile. There was no way to see where the other sites were at a glance, or to navigate straight to one.",
+    changes: [
+      "Every active shard rain site now shows as an arrow-shaped badge pointing off-screen toward it, the same locator system muster flags use — click it to jump the camera there.",
+      "Once you scroll a site on-screen, a small shield badge hovers over that exact tile, bobbing gently in place — the same badge style as the unfed-town warning, with a shard icon instead. It's just a positional blip from the event broadcast, not confirmation the shard is still there, especially on a tile you haven't explored yet.",
+      "Both the off-screen badge and the on-screen badge stay up for the full ~30-minute life of the shard rain event, not just the first moments after landing."
+    ]
+  },
 ];
