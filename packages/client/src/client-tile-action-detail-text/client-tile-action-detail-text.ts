@@ -27,7 +27,7 @@ const structureNameForTile = (tile: Tile): string | undefined => {
 
 export const buildDetailTextForAction = (actionId: string, tile: Tile, supportedTown?: Tile): string | undefined => {
   const supportedTownLabel = supportedTown?.town?.name ? supportedTown.town.name : supportedTown ? `town at (${supportedTown.x}, ${supportedTown.y})` : "supported town";
-  if (actionId === "settle_land") return "Makes this tile defendable and activates production.";
+  if (actionId === "settle_land") return "Makes this tile defendable.";
   if (actionId === "settle_connected_frontier") return "Queues a settlement on every connected frontier tile you own.";
   if (actionId === "build_fortification") {
     // Only show upgrade text when a fort already exists on the tile.
