@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787548762402, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.1",
+    title: "Fixed border sometimes not expanding right after a Relay Beacon finished",
+    why: "A Relay Beacon (and other structures) finish building on their own timer rather than as part of a normal command, and the server-authoritative border push only used to fire alongside a command being processed. So the border update sat ready but unsent until some other action happened to trigger it -- which could take a while, and looked like lag.",
+    changes: [
+      "Finishing a Relay Beacon (or any structure that changes your reach) now pushes the updated border to your client immediately, instead of waiting on an unrelated command to trigger the push."
+    ]
+  },
+  {
     createdAt: 1787520325005, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.9",
     title: "Rivers no longer render through unexplored fog",
