@@ -21,7 +21,8 @@ export type SnapshotExportInput = {
   incomePerMinuteForPlayer: (playerId: string) => number;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   // Phase 3c: pre-serialized tile cache, updated on every replaceTileState call.
-  // When provided, the async export skips the O(202k-tile) yield loop entirely.
+  // When provided, the async export skips per-tile mapTile() work (see
+  // buildRuntimeSnapshotSectionsAsync for why the copy is still yield-chunked).
   prebuiltTiles?: ReadonlyMap<string, SnapshotTile>;
 };
 
@@ -130,12 +131,24 @@ export async function buildRuntimeSnapshotSectionsAsync(
   input: SnapshotExportInput,
   yieldToEventLoop: () => Promise<void>
 ): Promise<SimulationSnapshotSections> {
-  // Phase 3c: if a pre-serialized tile cache is wired in, skip the O(202k-tile)
-  // yield loop. On prod the 101 setImmediate yields each wait ~400-900 ms behind
-  // AI ticks, making the checkpoint take 43-93 s. With the cache the only EL
-  // block is the sort (~50 ms) before handing off to the stringify worker.
+  // Phase 3c: if a pre-serialized tile cache is wired in, skip the per-tile
+  // mapTile() work (already done). The array copy still has to visit every
+  // tile though, and on a full-size world (202,500 tiles) that copy alone
+  // measured a 209ms synchronous block in the nightly load harness (2026-08-24,
+  // gate limit 150ms) — worse than the "~50ms sort" this comment used to
+  // promise, and invisible to event_loop_blocked's mainThreadTasks because
+  // nothing here was tracked. Chunk the copy with the same yield cadence the
+  // non-prebuilt path below uses so a full-world checkpoint can't block the
+  // loop in one shot; the sort itself (on cheap pre-built objects) stays
+  // synchronous, matching the original ~50ms budget.
   if (input.prebuiltTiles) {
-    const tiles = [...input.prebuiltTiles.values()];
+    const tiles: SnapshotTile[] = [];
+    let prebuiltIndex = 0;
+    for (const tile of input.prebuiltTiles.values()) {
+      if (shouldYieldAt(prebuiltIndex, 20_000)) await yieldToEventLoop();
+      tiles.push(tile);
+      prebuiltIndex += 1;
+    }
     tiles.sort((a, b) => a.x - b.x || a.y - b.y);
     return buildSnapshotBody(input, tiles);
   }
