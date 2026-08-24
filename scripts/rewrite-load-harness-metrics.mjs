@@ -10,6 +10,18 @@ export const quantile = (values, q) => {
   return sorted[index] ?? null;
 };
 
+/**
+ * Finds the sample (and its timestamp) where `sample[group][metricKey]` was
+ * highest. Result files historically kept only the bare Math.max of a metric
+ * across all samples, with no way to tell a single spike from sustained load
+ * or when it happened relative to warmup/soak/checkpointing.
+ */
+export const maxMetricSample = (samples, group, metricKey) =>
+  samples.reduce((max, sample) => {
+    const value = sample[group]?.[metricKey] ?? 0;
+    return !max || value > max.value ? { at: sample.at, value } : max;
+  }, null);
+
 export const parsePrometheus = (text) => {
   const metrics = {};
   for (const line of text.split(/\r?\n/)) {
