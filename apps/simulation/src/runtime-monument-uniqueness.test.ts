@@ -65,6 +65,7 @@ function createContext(players: DomainPlayer[], tiles: DomainTileState[]) {
     completeStructureBuild: (targetKey: string, ownerId: string, structureType: string, commandId: string) =>
       completeStructureBuild(context, targetKey, ownerId, structureType, commandId),
     completeStructureRemoval: () => {},
+    flushReachUpdates: () => {},
     appendPlayerEventLogEntry: (player: DomainPlayer, input: { type: string; text: string; occurredAt: number }) => {
       eventLogAppends.push({ playerId: player.id, type: input.type, text: input.text });
     }
