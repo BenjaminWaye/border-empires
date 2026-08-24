@@ -83,6 +83,18 @@ const richState = (): ReturnType<typeof createInitialState> => {
     ownershipState: "SETTLED",
     town: { name: "Capital", type: "FARMING", populationTier: "SETTLEMENT" }
   } as Tile);
+  // Settle Land/Settle Connected are hidden until the player has an established
+  // economy (a settled town + a settled grain tile) -- give these fixtures a
+  // settled FARM tile too, so the manpower-gate assertions below can still see
+  // the action row.
+  state.tiles.set(keyFor(1, 0), {
+    x: 1,
+    y: 0,
+    terrain: "LAND",
+    ownerId: "me",
+    ownershipState: "SETTLED",
+    resource: "FARM"
+  } as Tile);
   return state;
 };
 
