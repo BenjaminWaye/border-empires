@@ -140,7 +140,7 @@ const state = createInitialState();
 // re-jumping to a stale linked tile.
 clearUrlTileFocus();
 const { dom, miniMapReplayEl } = createClientAppRuntimeDom(state);
-const { firebaseAuth, googleProvider } = createClientFirebaseSetup();
+const { firebaseAuth, googleProvider, analytics } = createClientFirebaseSetup();
 const { ws, wsUrl } = createClientSocketSetup(state);
 
 dom.miniMapBase.width = dom.miniMapEl.width;
@@ -330,6 +330,7 @@ bootstrapClientApp({
   wsUrl,
   firebaseAuth,
   googleProvider,
+  analytics,
   storageSet,
   isMobile,
   rateToneClass,
