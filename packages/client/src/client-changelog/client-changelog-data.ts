@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787572138646, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.3",
+    title: "Settle Land's tooltip no longer name-drops \"production\"",
+    why: "The Settle Land tooltip said it \"activates production,\" which is internal jargon that didn't mean anything concrete to players -- what gets produced, and how much, differs per tile (food, titanium, crystal, town growth) and was never spelled out here anyway.",
+    changes: [
+      "Settle Land's tooltip now just says \"Makes this tile defendable,\" dropping the vague \"activates production\" clause."
+    ]
+  },
+  {
     createdAt: 1787548762402, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.24.1",
     title: "Fixed border sometimes not expanding right after a Relay Beacon finished",
@@ -442,15 +451,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
       "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
       "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
-    ]
-  },
-  {
-    createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.2",
-    title: "Fixed the whole screen becoming unclickable after submitting a bug report",
-    why: "Closing the redesigned bug report dialog (including automatically, after a successful submit) only cleared its contents -- the full-screen invisible container div stayed in the DOM with pointer-events left on, silently intercepting every click across the entire game until you reloaded the page.",
-    changes: [
-      "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
     ]
   },
   {
