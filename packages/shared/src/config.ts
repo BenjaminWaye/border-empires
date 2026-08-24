@@ -218,6 +218,12 @@ export const DOCK_REACH_RADIUS = 1;
 // runtime.ts for why this grant is one-shot rather than a persistent anchor.
 export const AETHER_BRIDGE_REACH_RADIUS = 3;
 
+// Decay window for a FRONTIER tile claimed/captured outside the owner's
+// current reach (distinct from encirclement decay, which is
+// connectivity-based and lives in apps/simulation). See reach.ts's
+// reachOwnerCountAt for the contested-zone exception that suppresses this.
+export const OUT_OF_REACH_DECAY_MS = 120_000;
+
 export const DOCK_DEFENSE_MULT = 1.5;
 export const DOCK_CROSSING_COOLDOWN_MS = 30_000;
 export const DOCK_PAIRS_MIN = 15;

@@ -1,5 +1,5 @@
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
-import type { Terrain, VisibilityState } from "@border-empires/shared";
+import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
 import type { DomainPlayer, DomainStrategicResourceKey, FrontierCommandType } from "@border-empires/game-domain";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { RecoveredCommandHistory } from "./command-recovery/command-recovery.js";
@@ -249,7 +249,7 @@ export type SimulationTileWireDelta = {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   frontierDecayAt?: number | undefined;
-  frontierDecayKind?: "ENCIRCLEMENT" | undefined;
+  frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;

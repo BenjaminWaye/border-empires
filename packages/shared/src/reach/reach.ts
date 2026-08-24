@@ -419,3 +419,37 @@ export const isInReach = (
   y: number,
   border: ReadonlyMap<string, string>
 ): boolean => border.get(tileKey(wrapCoord(x, WORLD_WIDTH), wrapCoord(y, WORLD_HEIGHT))) === playerId;
+
+/**
+ * Number of distinct owners whose currently-active anchors cover (x, y) right
+ * now, independent of who holds the tile in the persistent border. Used to
+ * detect an actively contested reach zone (2+ overlapping owners) — e.g. to
+ * exempt tiles claimed there from a decay penalty that otherwise applies only
+ * to true no-man's-land expansion.
+ *
+ * The Chebyshev distance check is a cheap O(1) pre-filter per anchor; only
+ * anchors that pass it (normally a handful near (x, y), not every anchor in
+ * the game) pay the O(radius²) land-gated disk cost below, so this stays far
+ * cheaper than materialising every owner's full reach set
+ * (O(owners × anchors × radius²)) while still agreeing with the real,
+ * land-gated persistent border `landConnectivity` supplies — without it, a
+ * tile across open water from an anchor could wrongly count as covered.
+ */
+export const reachOwnerCountAt = (
+  x: number,
+  y: number,
+  anchors: ReadonlyArray<ReachAnchor>,
+  landConnectivity?: LandConnectivityQuery
+): number => {
+  const target = tileKey(wrapCoord(x, WORLD_WIDTH), wrapCoord(y, WORLD_HEIGHT));
+  const owners = new Set<string>();
+  for (const anchor of anchors) {
+    if (owners.has(anchor.ownerId)) continue;
+    if (chebyshevWithWrap(x, y, anchor.x, anchor.y) > reachRadiusForAnchor(anchor)) continue;
+    if (landConnectivity && !anchor.crossesWater) {
+      if (!landGatedTileKeysInDisk(anchor.x, anchor.y, reachRadiusForAnchor(anchor), landConnectivity).includes(target)) continue;
+    }
+    owners.add(anchor.ownerId);
+  }
+  return owners.size;
+};
