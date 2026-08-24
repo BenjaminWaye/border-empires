@@ -104,111 +104,106 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
       }
     }
 
-    // FARM satellite deposits — for every full FARM cluster, try to drop
-    // one small single-tile deposit in each of the 4 cardinal directions,
-    // 7-11 tiles out, so a player who finds a farm cluster also finds a
-    // handful of easier "next stops" nearby rather than open land going
-    // dark until the next full cluster. Mirrors the FISH satellite pass
-    // below, but with fixed cardinal directions (matching the game design
-    // ask of "one in each direction") instead of FISH's two random-angle
-    // sides — land isn't as constrained to a thin strip as coastline is,
-    // so all 4 directions are worth trying independently.
-    {
-      const farmDef = defByResource.get("FARM");
-      if (farmDef) {
-        const farmClusterCenters = [...clustersById.values()]
-          .filter((cluster) => cluster.resourceType === "FARM")
-          .map((cluster) => ({ x: cluster.centerX, y: cluster.centerY }));
-        const directions: Array<{ dx: number; dy: number }> = [
-          { dx: 0, dy: -1 },
-          { dx: 1, dy: 0 },
-          { dx: 0, dy: 1 },
-          { dx: -1, dy: 0 }
-        ];
-        let satelliteSeed = attemptSeed;
-        for (const center of farmClusterCenters) {
-          for (const direction of directions) {
-            let placed = false;
-            for (let tries = 0; tries < 150 && !placed; tries += 1) {
-              const dist = 7 + Math.floor(seeded01(satelliteSeed + tries * 11, satelliteSeed + tries * 13, seed + 5651) * 5);
-              const jitter = Math.floor(seeded01(satelliteSeed + tries * 17, satelliteSeed + tries * 19, seed + 5661) * 3) - 1;
-              const cx = center.x + direction.dx * dist + direction.dy * jitter;
-              const cy = center.y + direction.dy * dist + direction.dx * jitter;
-              const wx = ((cx % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
-              const wy = ((cy % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
-              const tk = key(wx, wy);
-              if (clusterByTile.has(tk)) continue;
-              if (!clusterRuleMatch(wx, wy, "FARM")) continue;
-              const clusterId = `cl-${clustersById.size}`;
-              clustersById.set(clusterId, {
-                clusterId,
-                clusterType: farmDef.type,
-                resourceType: farmDef.resourceType,
-                centerX: wx,
-                centerY: wy,
-                radius: 1,
-                controlThreshold: farmDef.threshold
-              });
-              clusterByTile.set(tk, clusterId);
-              placed = true;
-            }
-            satelliteSeed += 251;
+    // Satellite deposits — for every full FARM/FISH cluster, try to drop a
+    // small single-tile deposit at each configured attempt offset (a
+    // direction, for FARM; a coastal side, for FISH) so a player who finds
+    // a cluster also finds a handful of easier "next stops" nearby rather
+    // than the surrounding land/coast going dark until the next full
+    // cluster. Shared between FARM and FISH below so the placement
+    // mechanics (collision check, tries budget, clusterId assignment, seed
+    // threading) can't drift out of sync between the two.
+    const placeSatelliteDeposits = (
+      resource: "FARM" | "FISH",
+      attemptOffsets: Array<(center: { x: number; y: number }, attemptSeed: number, tries: number) => { x: number; y: number }>,
+      triesPerAttempt: number,
+      startSeed: number
+    ): number => {
+      const def = defByResource.get(resource);
+      if (!def) return startSeed;
+      const clusterCenters = [...clustersById.values()]
+        .filter((cluster) => cluster.resourceType === resource)
+        .map((cluster) => ({ x: cluster.centerX, y: cluster.centerY }));
+      let satelliteSeed = startSeed;
+      for (const center of clusterCenters) {
+        for (const nextOffset of attemptOffsets) {
+          let placed = false;
+          for (let tries = 0; tries < triesPerAttempt && !placed; tries += 1) {
+            const { x: cx, y: cy } = nextOffset(center, satelliteSeed, tries);
+            const wx = ((cx % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
+            const wy = ((cy % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
+            const tk = key(wx, wy);
+            if (clusterByTile.has(tk)) continue;
+            if (!clusterRuleMatch(wx, wy, resource)) continue;
+            const clusterId = `cl-${clustersById.size}`;
+            clustersById.set(clusterId, {
+              clusterId,
+              clusterType: def.type,
+              resourceType: def.resourceType,
+              centerX: wx,
+              centerY: wy,
+              radius: 1,
+              controlThreshold: def.threshold
+            });
+            clusterByTile.set(tk, clusterId);
+            placed = true;
           }
+          satelliteSeed += 251;
         }
-        attemptSeed = satelliteSeed;
       }
-    }
+      return satelliteSeed;
+    };
 
-    // FISH satellite deposits — since FISH only spawns on thin coastal
-    // strips, a free-scatter pass (like FARM's above) would rarely land.
-    // Instead, for every full FISH cluster, try to drop one small
-    // single-tile deposit on each side, roughly SATELLITE_DISTANCE tiles
-    // out along the coast, so a player who finds a fish cluster also finds
-    // a couple of easier "next stops" nearby rather than the coast going
-    // dark until the next full cluster. Up to 2 satellites * 52 FISH
-    // clusters = 104 tiles, which is exactly what trimming
+    // FARM: one attempt per cardinal direction, 7-11 tiles out (matches the
+    // game design ask of "one in each direction") — land isn't as
+    // constrained to a thin strip as coastline is, so all 4 directions are
+    // worth trying independently.
+    const farmDirections: Array<{ dx: number; dy: number }> = [
+      { dx: 0, dy: -1 },
+      { dx: 1, dy: 0 },
+      { dx: 0, dy: 1 },
+      { dx: -1, dy: 0 }
+    ];
+    attemptSeed = placeSatelliteDeposits(
+      "FARM",
+      farmDirections.map(
+        (direction) =>
+          (center: { x: number; y: number }, satelliteSeed: number, tries: number) => {
+            const dist = 7 + Math.floor(seeded01(satelliteSeed + tries * 11, satelliteSeed + tries * 13, seed + 5651) * 5);
+            const jitter = Math.floor(seeded01(satelliteSeed + tries * 17, satelliteSeed + tries * 19, seed + 5661) * 3) - 1;
+            return {
+              x: center.x + direction.dx * dist + direction.dy * jitter,
+              y: center.y + direction.dy * dist + direction.dx * jitter
+            };
+          }
+      ),
+      150,
+      attemptSeed
+    );
+
+    // FISH: since FISH only spawns on thin coastal strips, fixed cardinal
+    // directions (like FARM's above) would rarely land — instead, try one
+    // random-angle attempt on each side of the cluster, ~10 tiles out along
+    // whichever direction the coast actually runs. Up to 2 satellites * 52
+    // FISH clusters = 104 tiles, which is exactly what trimming
     // clusterTileCountForResource's FISH case (8 -> 6 tiles/cluster) freed
     // up, so total FISH tile count doesn't change — it's redistributed.
-    {
-      const fishDef = defByResource.get("FISH");
-      if (fishDef) {
-        const fishClusterCenters = [...clustersById.values()]
-          .filter((cluster) => cluster.resourceType === "FISH")
-          .map((cluster) => ({ x: cluster.centerX, y: cluster.centerY }));
-        const SATELLITE_DISTANCE = 10;
-        let satelliteSeed = attemptSeed;
-        for (const center of fishClusterCenters) {
-          for (const side of [1, -1] as const) {
-            let placed = false;
-            for (let tries = 0; tries < 200 && !placed; tries += 1) {
-              const angle = seeded01(satelliteSeed + tries * 3, satelliteSeed + tries * 7, seed + 6101) * Math.PI;
-              const dist = SATELLITE_DISTANCE + Math.floor(seeded01(satelliteSeed + tries * 11, satelliteSeed + tries * 13, seed + 6151) * 3) - 1;
-              const cx = Math.round(center.x + side * Math.cos(angle) * dist);
-              const cy = Math.round(center.y + side * Math.sin(angle) * dist);
-              const wx = ((cx % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
-              const wy = ((cy % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
-              const tk = key(wx, wy);
-              if (clusterByTile.has(tk)) continue;
-              if (!clusterRuleMatch(wx, wy, "FISH")) continue;
-              const clusterId = `cl-${clustersById.size}`;
-              clustersById.set(clusterId, {
-                clusterId,
-                clusterType: fishDef.type,
-                resourceType: fishDef.resourceType,
-                centerX: wx,
-                centerY: wy,
-                radius: 1,
-                controlThreshold: fishDef.threshold
-              });
-              clusterByTile.set(tk, clusterId);
-              placed = true;
-            }
-            satelliteSeed += 251;
+    const FISH_SATELLITE_DISTANCE = 10;
+    attemptSeed = placeSatelliteDeposits(
+      "FISH",
+      [1, -1].map(
+        (side) =>
+          (center: { x: number; y: number }, satelliteSeed: number, tries: number) => {
+            const angle = seeded01(satelliteSeed + tries * 3, satelliteSeed + tries * 7, seed + 6101) * Math.PI;
+            const dist = FISH_SATELLITE_DISTANCE + Math.floor(seeded01(satelliteSeed + tries * 11, satelliteSeed + tries * 13, seed + 6151) * 3) - 1;
+            return {
+              x: Math.round(center.x + side * Math.cos(angle) * dist),
+              y: Math.round(center.y + side * Math.sin(angle) * dist)
+            };
           }
-        }
-        attemptSeed = satelliteSeed;
-      }
-    }
+      ),
+      200,
+      attemptSeed
+    );
 
     // A handful of hilltop deposits for UMBRITE and GEMS — 1 or 2 of each,
     // map-wide, never a full cluster. Kept as its own pass (rather than
