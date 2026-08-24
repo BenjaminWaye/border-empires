@@ -460,6 +460,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The map now caps how many tiles it draws per frame to the same budget already used elsewhere in the renderer, shrinking the visible radius slightly (rather than stalling) only in the most zoomed-out state on unusually wide screens."
     ]
+  },
+  {
+    createdAt: 1787584599966, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.24.6",
+    title: "Added basic sign-up analytics",
+    why: "We had no way to see where new players were coming from, or how many visitors from a shared link actually created an account -- link attribution and conversion were both invisible.",
+    changes: [
+      "The client now reports page landings and a sign-up event (for new accounts created by email, Google, or email-link sign-in) to Google Analytics, so shared links can be attributed by source/campaign and tracked through to conversion."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
