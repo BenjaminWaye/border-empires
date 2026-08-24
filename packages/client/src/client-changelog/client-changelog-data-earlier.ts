@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787519500000, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.8",
+    title: "Added a \"Suggest Improvement\" button next to Report Bug",
+    why: "Players had a way to report bugs from Settings, but no equivalent in-app way to send us an improvement idea -- feedback ended up scattered across Discord instead.",
+    changes: [
+      "Settings > Diagnostics now has a green-bordered \"Suggest Improvement\" button below \"Report Bug\", opening the same style of form (with client/server context attached automatically) but posting to a separate suggestions inbox."
+    ]
+  },
+  {
     createdAt: 1787510053323, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.3",
     title: "You can now expand beyond your reach -- but the land decays if you can't hold it",
@@ -226,15 +235,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     why: "The tile overview panel listed Population, Growth, Support, Production, and Upkeep for a settled town, but never said anything about the town's manpower contribution to your empire — a stat players had no way to see anywhere on the tile itself.",
     changes: [
       "A settled town's overview tab now shows its base manpower cap and regen contribution, right after Population and Growth."
-    ]
-  },
-  {
-    createdAt: 1787041917435, // 2026.08.17.3
-    introducedIn: "2026.08.17.3",
-    title: "Battle dots no longer pop when the clash hands off into rout",
-    why: "The clash phase sways each dot back and forth (spread + a forward jostle so the two lines press together instead of overlapping), but the instant rout began that whole oscillation was dropped in favor of a clean push-through/scatter position — a small but real positional snap right at the clash/rout boundary, on top of the exact same seam that was already fixed between the pre-resolution skirmish and the clash phase.",
-    changes: [
-      "Dots now settle out of the clash's sway over the first ~140ms of rout instead of dropping it instantly, so the clash and rout phases read as one continuous motion rather than two animations stitched together."
     ]
   },
   {

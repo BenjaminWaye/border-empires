@@ -279,13 +279,27 @@ export const hideTechLockedTileAction = (
   return /^Requires\b/i.test(action.disabledReason) || /^Need reveal capability\b/i.test(action.disabledReason);
 };
 
+const PRIORITY_ACTION_IDS: ReadonlySet<TileActionDef["id"]> = new Set([
+  "build_relay_beacon_frontier",
+  "settle_land",
+  "settle_connected_frontier"
+]);
+
+// Frontier tiles: when Build Relay Beacon / Settle are affordable right now, surface them
+// first so the most common frontier action isn't buried below always-available rows like
+// abandon/reveal. Stable sort keeps everything else in its original push order.
+const actionRowPriority = (action: TileActionDef): number =>
+  PRIORITY_ACTION_IDS.has(action.id) && !action.disabled ? 0 : 1;
+
 export const splitTileActionsIntoTabs = (
   actions: TileActionDef[],
   state: Pick<ClientState, "techIds" | "localhostDevAetherWall">
 ): Pick<TileMenuView, "actions" | "buildings" | "crystal"> => {
   const filtered = actions.filter((action) => !hideTechLockedTileAction(action, state));
   const visibleIfShown = (action: TileActionDef): boolean => !action.disabled;
-  const actionRows = filtered.filter((action) => !tileActionIsBuilding(action.id) && !tileActionIsCrystal(action.id));
+  const actionRows = filtered
+    .filter((action) => !tileActionIsBuilding(action.id) && !tileActionIsCrystal(action.id))
+    .sort((a, b) => actionRowPriority(a) - actionRowPriority(b));
   const buildingRows = filtered
     .filter((action) => tileActionIsBuilding(action.id))
     .sort((a, b) => {

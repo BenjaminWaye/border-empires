@@ -165,6 +165,38 @@ describe("splitTileActionsIntoTabs", () => {
     ]);
   });
 
+  it("moves in-reach Build Relay Beacon and Settle actions to the top of the Actions tab", () => {
+    const rows: TileActionDef[] = [
+      {
+        id: "abandon_territory",
+        label: "Abandon",
+        disabled: false
+      },
+      {
+        id: "settle_connected_frontier",
+        label: "Settle Connected",
+        disabled: false
+      },
+      {
+        id: "build_relay_beacon_frontier",
+        label: "Build Relay Beacon",
+        disabled: false
+      },
+      {
+        id: "settle_land",
+        label: "Settle Land",
+        disabled: true // out of reach -- stays in place
+      }
+    ];
+
+    expect(splitTileActionsIntoTabs(rows, state).actions.map((row) => row.id)).toEqual([
+      "settle_connected_frontier",
+      "build_relay_beacon_frontier",
+      "abandon_territory",
+      "settle_land"
+    ]);
+  });
+
   it("shows remove-structure actions in the Actions tab", () => {
     const rows: TileActionDef[] = [
       {
