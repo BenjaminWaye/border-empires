@@ -1038,7 +1038,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             ...withReachGate([
               canAffordCost(state.gold, SETTLE_COST) && state.manpower >= SETTLE_MANPOWER_COST,
               state.manpower < SETTLE_MANPOWER_COST ? `Need ${SETTLE_MANPOWER_COST} manpower` : `Need ${SETTLE_COST} gold`,
-              `${totalCost} gold total • fills slots, rest queue`
+              `${totalCost} gold, ${SETTLE_MANPOWER_COST * actionableKeys.length} manpower total • fills slots, rest queue`
             ]),
             slots,
             deps

@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787548320717, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.1",
+    title: "Settle Land now warns you it doesn't defend the tile",
+    why: "The tile menu said settling \"makes this tile defended,\" which isn't true -- a settled tile has zero defense until you build a Fort on it, and settling actually makes it a more valuable, cheaper-to-crack target for attackers than leaving it as frontier. Players kept settling exposed border tiles expecting protection they weren't getting, then losing them along with the manpower spent.",
+    changes: [
+      "Settle Land and Settle Connected detail text now says the tile stays undefended until fortified, instead of claiming it becomes \"defended.\"",
+      "The manpower cost of settling is now shown on the multi-select bulk Settle Land button and on Settle Connected's total cost line -- previously only the gold cost was shown, so it looked cheaper than it was."
+    ]
+  },
+  {
     createdAt: 1787520325005, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.9",
     title: "Rivers no longer render through unexplored fog",
@@ -469,19 +479,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Players had a way to report bugs from Settings, but no equivalent in-app way to send us an improvement idea -- feedback ended up scattered across Discord instead.",
     changes: [
       "Settings > Diagnostics now has a green-bordered \"Suggest Improvement\" button below \"Report Bug\", opening the same style of form (with client/server context attached automatically) but posting to a separate suggestions inbox."
-    ]
-  },
-  {
-    createdAt: 1787510053323, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.3",
-    title: "You can now expand beyond your reach -- but the land decays if you can't hold it",
-    why: "Expanding outside your reach was simply blocked, which made reach feel like an arbitrary wall rather than a real decision. Now you can push into open land whenever you like, and the risk -- not a hard rule -- is what stops you from blobbing across the map.",
-    changes: [
-      "You can now claim and capture tiles outside your reach. Land taken out there is unstable: it decays away after 2 minutes unless your reach catches up to it.",
-      "Extending your reach over a decaying tile -- with a nearby Town, Dock, or Outpost -- makes it stable again and stops the countdown.",
-      "Decaying tiles pulse amber on the map and show a countdown in the tile menu, so you can see exactly how long you have.",
-      "Contested borders are exempt: if your reach overlaps a rival's where you're expanding, the land does not decay. Fighting over a shared border works as it always has.",
-      "The first time it happens, a tip explains what's going on."
     ]
   }
 ];
