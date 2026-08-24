@@ -18,26 +18,26 @@ export const parseSimulationMapStyle = (value: string | undefined): SimulationMa
   value === "islands" || value === "continents" ? value : "continents";
 
 const SEASONAL_AI_NAMES = [
-  "Alden Vale",
-  "Sigrid Storm",
-  "Milo Ash",
-  "Freja Sund",
-  "Edvin Frost",
-  "Clara North",
-  "Hugo Bjork",
-  "Linnea Skald",
-  "Rowan Hale",
-  "Tove Falk",
-  "Astrid Wold",
-  "Niko Reed",
-  "Maren Dusk",
-  "Ivar Stone",
-  "Elin Birch",
-  "Rasmus Pike",
-  "Kara Venn",
-  "Oskar Flint",
-  "Solveig Moor",
-  "Bryn Holt"
+  "Alden",
+  "Sigrid",
+  "Milo",
+  "Freja",
+  "Edvin",
+  "Clara",
+  "Hugo",
+  "Linnea",
+  "Rowan",
+  "Tove",
+  "Astrid",
+  "Niko",
+  "Maren",
+  "Ivar",
+  "Elin",
+  "Rasmus",
+  "Kara",
+  "Oskar",
+  "Solveig",
+  "Bryn"
 ] as const;
 
 export const seasonalAiNameForId = (id: string): string | undefined => {
