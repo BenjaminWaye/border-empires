@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { buildEventLoopBlockedPayload, type EventLoopBlockedParams } from "./event-loop-block-diagnostic.js";
+import { buildEventLoopBlockedPayload, eventLoopBlockWarnMs, type EventLoopBlockedParams } from "./event-loop-block-diagnostic.js";
 
 const MB = 1024 * 1024;
 
@@ -16,6 +16,34 @@ const baseParams = (overrides: Partial<EventLoopBlockedParams> = {}): EventLoopB
   mainThreadTasks: [],
   lagDiagRing: [],
   ...overrides
+});
+
+describe("eventLoopBlockWarnMs", () => {
+  const originalEnv = process.env.SIMULATION_EVENT_LOOP_BLOCK_WARN_MS;
+
+  afterEach(() => {
+    if (originalEnv === undefined) delete process.env.SIMULATION_EVENT_LOOP_BLOCK_WARN_MS;
+    else process.env.SIMULATION_EVENT_LOOP_BLOCK_WARN_MS = originalEnv;
+    vi.resetModules();
+  });
+
+  it("defaults to 2000ms (prod multi-second-stall attribution)", () => {
+    expect(eventLoopBlockWarnMs).toBe(2_000);
+  });
+
+  it("honors a lower CI-friendly override so gate-scale spikes get attribution", async () => {
+    vi.resetModules();
+    process.env.SIMULATION_EVENT_LOOP_BLOCK_WARN_MS = "100";
+    const reloaded = await import("./event-loop-block-diagnostic.js");
+    expect(reloaded.eventLoopBlockWarnMs).toBe(100);
+  });
+
+  it("floors at 50ms even if a caller sets it lower or invalid", async () => {
+    vi.resetModules();
+    process.env.SIMULATION_EVENT_LOOP_BLOCK_WARN_MS = "0";
+    const reloadedZero = await import("./event-loop-block-diagnostic.js");
+    expect(reloadedZero.eventLoopBlockWarnMs).toBe(50);
+  });
 });
 
 describe("buildEventLoopBlockedPayload", () => {

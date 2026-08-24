@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parsePrometheus, quantile, safeCollectMetricsSample } from "./rewrite-load-harness-metrics.mjs";
+import { maxMetricSample, parsePrometheus, quantile, safeCollectMetricsSample } from "./rewrite-load-harness-metrics.mjs";
 
 describe("parsePrometheus", () => {
   it("parses simple metric lines", () => {
@@ -30,6 +30,29 @@ describe("quantile", () => {
   it("computes p95 over a sorted set", () => {
     const values = Array.from({ length: 100 }, (_, i) => i + 1);
     assert.strictEqual(quantile(values, 0.95), 95);
+  });
+});
+
+describe("maxMetricSample", () => {
+  it("returns null for no samples", () => {
+    assert.strictEqual(maxMetricSample([], "simulation", "sim_event_loop_max_ms"), null);
+  });
+
+  // Regression: result files kept only Math.max(...values) with no timestamp,
+  // so a gate-failing spike like the 2026-08-24 nightly (simEventLoopMaxMs: 193)
+  // gave no way to tell when it happened relative to warmup/soak/checkpointing.
+  it("returns the sample's timestamp alongside the peak value", () => {
+    const samples = [
+      { at: 100, simulation: { sim_event_loop_max_ms: 20 } },
+      { at: 200, simulation: { sim_event_loop_max_ms: 193 } },
+      { at: 300, simulation: { sim_event_loop_max_ms: 40 } }
+    ];
+    assert.deepStrictEqual(maxMetricSample(samples, "simulation", "sim_event_loop_max_ms"), { at: 200, value: 193 });
+  });
+
+  it("treats a missing metric key on a sample as 0", () => {
+    const samples = [{ at: 100, simulation: {} }, { at: 200, simulation: { sim_event_loop_max_ms: 5 } }];
+    assert.deepStrictEqual(maxMetricSample(samples, "simulation", "sim_event_loop_max_ms"), { at: 200, value: 5 });
   });
 });
 
