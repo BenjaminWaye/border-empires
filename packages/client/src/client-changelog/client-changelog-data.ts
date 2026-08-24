@@ -13,12 +13,40 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787584599965, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.5",
+    title: "Fixed frontier tiles auto-settling on undiscovered resources",
+    why: "Auto-settle was supposed to skip a resource tile until you'd actually revealed it (scouted it into your fog-of-war coverage), but a refactor had silently dropped that check, so a frontier tile could auto-settle the instant it became eligible even if you hadn't seen what was on it yet.",
+    changes: [
+      "Auto-settle no longer claims a frontier tile with a resource on it until that resource has actually been revealed to you. Town, dock, and town-supported frontier tiles are unaffected since those were always visible to their owner."
+    ]
+  },
+  {
+    createdAt: 1787572138647, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
+    introducedIn: "2026.08.24.4",
+    title: "Easier to find food",
+    why: "FARM and FISH clusters were rare enough (52 of each, scattered across the whole map) that players crossing open land or coastline could go a long way without spotting any food.",
+    changes: [
+      "New small single-tile FARM deposits now appear in each of the 4 directions around most farm clusters, 7-11 tiles out, so open land near a farm cluster has more food to find. There are now fewer, but larger-footprint, farm clusters overall to keep the total farmland roughly in balance.",
+      "New small single-tile FISH deposits now appear on either side of existing fish clusters, roughly 10 tiles out along the coast, so a coastline with fish has a couple of easier follow-up spots nearby. Fish clusters themselves are slightly smaller to keep the total fishing grounds unchanged."
+    ]
+  },
+  {
     createdAt: 1787572138646, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.24.3",
     title: "Settle Land's tooltip no longer name-drops \"production\"",
     why: "The Settle Land tooltip said it \"activates production,\" which is internal jargon that didn't mean anything concrete to players -- what gets produced, and how much, differs per tile (food, titanium, crystal, town growth) and was never spelled out here anyway.",
     changes: [
       "Settle Land's tooltip now just says \"Makes this tile defendable,\" dropping the vague \"activates production\" clause."
+    ]
+  },
+  {
+    createdAt: 1787572037117, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.2",
+    title: "Removed the misleading \"+0 gold cap\" from the Mintworks build description",
+    why: "The Build Mintworks panel and its tile-menu detail text both tacked on a \"+N gold cap\" figure computed from the target town's current gold/min, which is 0 (or otherwise unrelated to what Mintworks actually grants) in the normal build-preview case, showing up as a nonsensical \"+0 gold cap\" and implying Mintworks adds a flat cap it doesn't.",
+    changes: [
+      "Build Mintworks descriptions now only show the actual +town gold production % bonus, dropping the bogus gold cap figure."
     ]
   },
   {
@@ -379,68 +407,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787360000000,
-    introducedIn: "2026.08.21.7",
-    title: "Fixed the settle animation not showing until you panned the camera",
-    why: "Pressing Settle on a frontier tile marks it optimistically pending without changing its owner or ownership state (both already belonged to you), but the 3D map only rebuilt its terrain and overlays when ownership actually changed. That left the new settle overlay instance uncreated until something else -- like panning -- forced a rebuild for an unrelated reason.",
+    createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.2",
+    title: "Fixed the whole screen becoming unclickable after submitting a bug report",
+    why: "Closing the redesigned bug report dialog (including automatically, after a successful submit) only cleared its contents -- the full-screen invisible container div stayed in the DOM with pointer-events left on, silently intercepting every click across the entire game until you reloaded the page.",
     changes: [
-      "The settlement animation now plays immediately when you press Settle, instead of waiting for the next camera pan."
-    ]
-  },
-  {
-    createdAt: 1787340000000,
-    introducedIn: "2026.08.21.6",
-    title: "The rush-buy price preview now accounts for the Quickforge discount",
-    why: "The tile menu's rush-buy price chip always showed the full server price estimate, even for a player who owns a Quickforge with today's discount still unused — the number shown was different from what got charged.",
-    changes: [
-      "The rush-buy price chip now shows the discounted price when you own a Quickforge and haven't used its once-per-day discount yet."
-    ]
-  },
-  {
-    createdAt: 1787330000000,
-    introducedIn: "2026.08.21.5",
-    title: "The Quickforge wonder now discounts a rush-buy instead of making it free",
-    why: "The Quickforge's once-per-UTC-day rush-buy perk waived the gold cost entirely, which trivialized cheap rush-buys (like a Settle at 10 gold) and scaled unevenly across rush-buy prices.",
-    changes: [
-      "Once per UTC day, the Quickforge's controller now gets 40 gold off their next rush-buy (floored at 0) instead of that rush-buy being completely free."
-    ]
-  },
-  {
-    createdAt: 1787356800000,
-    introducedIn: "2026.08.21.3",
-    title: "Fixed a crash when switching apps and back while a location theme was playing",
-    why: "Backgrounding the tab pauses playback; returning to it resumes both the music bed and any location theme. The location theme's resume call didn't catch play() rejections the way the music bed's did, so a fast switch-away-and-back (interrupting that play() with a pause()) threw an unhandled rejection that tripped the app's error boundary, showing \"Border Empires hit a problem loading\".",
-    changes: [
-      "Switching to another app and back no longer crashes the game to the error screen."
-    ]
-  },
-  {
-    createdAt: 1787322201581,
-    introducedIn: "2026.08.21",
-    title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",
-    why: "Tension (\"war is coming\") music used to be driven by short-lived, per-attack timers (an attack in transit, a deferred send, an incoming-attack tracker) that clear the instant that specific attack resolves, so it kept dropping back to calm music between attacks even while a muster flag was still staged and ready to fire.",
-    changes: [
-      "Tension music now plays for as long as any muster flag is raised and set to Hold (staged, not yet advancing), which is a stable signal instead of one that clears after every individual attack."
-    ]
-  },
-  {
-    createdAt: 1787345991317,
-    introducedIn: "2026.08.21",
-    title: "War music no longer flickers back to calm music during an ongoing war",
-    why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
-    changes: [
-      "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
-    ]
-  },
-  {
-    createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.2",
-    title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
-    why: "A season previously had no limit on how many empires could join, which meant a season already crowded with players kept quietly admitting more instead of ever being \"full.\" There was also no way to find out when a fresh, uncrowded season was starting if you missed joining one.",
-    changes: [
-      "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
-      "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
-      "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
+      "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
     ]
   },
   {
@@ -481,8 +453,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787573551984, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.2",
+    createdAt: 1787584599966, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.24.6",
     title: "Added basic sign-up analytics",
     why: "We had no way to see where new players were coming from, or how many visitors from a shared link actually created an account -- link attribution and conversion were both invisible.",
     changes: [

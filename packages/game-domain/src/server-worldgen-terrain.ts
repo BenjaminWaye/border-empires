@@ -307,6 +307,12 @@ export const createServerWorldgenTerrain = (deps: ServerWorldgenTerrainDeps): Se
     if (resource === "TITANIUM" && isTundraForestTile(x, y)) return 8;
     if (resource === "TITANIUM") return 6;
     if (resource === "GEMS") return 5;
+    // FISH is trimmed from the default 8 to 6: the 2 tiles shaved off each
+    // of the 52 FISH clusters (104 total) are exactly the budget handed to
+    // the per-cluster satellite pass in server-worldgen-clusters.ts (up to
+    // 2 satellites per cluster), so total FISH tile count doesn't change —
+    // it's redistributed, not added on top.
+    if (resource === "FISH") return 6;
     return 8;
   };
 
