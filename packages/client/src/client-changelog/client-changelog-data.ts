@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787575725153, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.5",
+    title: "\"Expand To\" no longer shows \"0 gold\" when expanding costs no gold",
+    why: "The multi-step Expand To cost line always showed a gold figure even when the plan was pure EXPAND steps, which cost manpower only. That made it look like the action was free (misleading) or like gold was being charged (confusing) instead of simply not being part of the cost.",
+    changes: [
+      "The Expand To cost summary now omits the gold amount entirely when the plan costs 0 gold, showing only manpower and time."
+    ]
+  },
+  {
     createdAt: 1787572138647, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
     introducedIn: "2026.08.24.4",
     title: "Easier to find food",
