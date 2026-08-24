@@ -33,6 +33,7 @@ describe("orderedAutoSettlementTileKeys — eligibility cache", () => {
         hasTownSupportCalls += 1;
         return false;
       },
+      isRevealedToPlayer: () => true,
       eligibilityCache: {
         get: (tileKey: string) => cacheStore.get(tileKey),
         set: (tileKey: string, eligible: boolean) => { cacheStore.set(tileKey, eligible); }
@@ -49,18 +50,24 @@ describe("orderedAutoSettlementTileKeys — eligibility cache", () => {
     expect(hasTownSupportCalls).toBe(1);
   });
 
-  it("never caches or calls hasTownSupport when the tile is cheaply eligible via resource/town/dockId", () => {
+  it("never calls hasTownSupport when the tile is cheaply eligible via resource/town/dockId, but still requires resources to be revealed", () => {
     const tiles = new Map<string, DomainTileState>([
       ["1,1", resourceTile(1, 1, "player-1")]
     ]);
     let hasTownSupportCalls = 0;
-    const result = orderedAutoSettlementTileKeys("player-1", ["1,1"], {
+    const baseDeps = {
       getTile: (tileKey: string) => tiles.get(tileKey),
       isBlocked: () => false,
       hasTownSupport: () => { hasTownSupportCalls += 1; return false; }
-    });
-    expect(result).toEqual(["1,1"]);
+    };
+
+    const revealed = orderedAutoSettlementTileKeys("player-1", ["1,1"], { ...baseDeps, isRevealedToPlayer: () => true });
+    expect(revealed).toEqual(["1,1"]);
     expect(hasTownSupportCalls).toBe(0); // short-circuited by tile.resource
+
+    const unrevealed = orderedAutoSettlementTileKeys("player-1", ["1,1"], { ...baseDeps, isRevealedToPlayer: () => false });
+    expect(unrevealed).toEqual([]); // resource tile not yet revealed to the player must not auto-settle
+    expect(hasTownSupportCalls).toBe(0);
   });
 
   it("always checks isBlocked fresh even when eligibility is cached (locks/pending settlements are transient)", () => {
@@ -73,6 +80,7 @@ describe("orderedAutoSettlementTileKeys — eligibility cache", () => {
       getTile: (tileKey: string) => tiles.get(tileKey),
       isBlocked: () => blocked,
       hasTownSupport: () => true,
+      isRevealedToPlayer: () => true,
       eligibilityCache: {
         get: (tileKey: string) => cacheStore.get(tileKey),
         set: (tileKey: string, eligible: boolean) => { cacheStore.set(tileKey, eligible); }
@@ -98,7 +106,8 @@ describe("orderedAutoSettlementTileKeys — eligibility cache", () => {
     const deps = {
       getTile: (tileKey: string) => tiles.get(tileKey),
       isBlocked: () => false,
-      hasTownSupport: () => { hasTownSupportCalls += 1; return true; }
+      hasTownSupport: () => { hasTownSupportCalls += 1; return true; },
+      isRevealedToPlayer: () => true
     };
     orderedAutoSettlementTileKeys("player-1", ["3,3"], deps);
     orderedAutoSettlementTileKeys("player-1", ["3,3"], deps);
