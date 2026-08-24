@@ -13,6 +13,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787557882812, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.1",
+    title: "Easier to find food",
+    why: "FARM and FISH clusters were rare enough (52 of each, scattered across the whole map) that players crossing open land or coastline could go a long way without spotting any food.",
+    changes: [
+      "New small single-tile FARM deposits are now scattered between the full farm clusters, so open land has more food to stumble onto.",
+      "New small single-tile FISH deposits now appear on either side of existing fish clusters, roughly 10 tiles out along the coast, so a coastline with fish has a couple of easier follow-up spots nearby."
+    ]
+  },
+  {
     createdAt: 1787520325005, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.9",
     title: "Rivers no longer render through unexplored fog",

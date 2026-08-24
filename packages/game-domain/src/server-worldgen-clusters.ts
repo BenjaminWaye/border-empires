@@ -99,6 +99,102 @@ export const createServerWorldgenClusters = (deps: ServerWorldgenClustersDeps): 
       }
     }
 
+    // Stepping-stone FARM deposits — small single-tile finds scattered
+    // between the sparse full FARM clusters (52 across the whole map) so
+    // players crossing open land run into food along the way instead of
+    // only at the rare full clusters. Uses a tighter min-distance
+    // (dx+dy < 4 vs. 9 for full clusters) so these can sit closer to each
+    // other and to full clusters, and is capped well below the full
+    // clusterPlan count so it can't be mistaken for one. FISH doesn't use
+    // this pass — coastline is too thin a strip for a free scatter to
+    // reliably land on, so it gets a per-cluster satellite pass below
+    // instead.
+    {
+      const def = defByResource.get("FARM");
+      if (def) {
+        const steppingStoneCount = 24;
+        const steppingStones: Array<{ x: number; y: number }> = [];
+        const tooCloseToSteppingStone = (cx: number, cy: number): boolean =>
+          steppingStones.some((stone) => {
+            const dx = Math.min(Math.abs(stone.x - cx), WORLD_WIDTH - Math.abs(stone.x - cx));
+            const dy = Math.min(Math.abs(stone.y - cy), WORLD_HEIGHT - Math.abs(stone.y - cy));
+            return dx + dy < 4;
+          });
+        let placedCount = 0;
+        for (let tries = 0; tries < 8000 && placedCount < steppingStoneCount; tries += 1) {
+          const cx = Math.floor(seeded01((attemptSeed + tries) * 13, (attemptSeed + tries) * 59, seed + 5501) * WORLD_WIDTH);
+          const cy = Math.floor(seeded01((attemptSeed + tries) * 61, (attemptSeed + tries) * 71, seed + 5551) * WORLD_HEIGHT);
+          const tk = key(cx, cy);
+          if (clusterByTile.has(tk)) continue;
+          if (!clusterRuleMatch(cx, cy, "FARM")) continue;
+          if (tooCloseToExistingCenter(cx, cy)) continue;
+          if (tooCloseToSteppingStone(cx, cy)) continue;
+          const clusterId = `cl-${clustersById.size}`;
+          clustersById.set(clusterId, {
+            clusterId,
+            clusterType: def.type,
+            resourceType: def.resourceType,
+            centerX: cx,
+            centerY: cy,
+            radius: 1,
+            controlThreshold: def.threshold
+          });
+          clusterByTile.set(tk, clusterId);
+          steppingStones.push({ x: cx, y: cy });
+          placedCount += 1;
+        }
+        attemptSeed += 1601;
+      }
+    }
+
+    // FISH satellite deposits — since FISH only spawns on thin coastal
+    // strips, a free-scatter pass (like FARM's above) would rarely land.
+    // Instead, for every full FISH cluster, try to drop one small
+    // single-tile deposit on each side, roughly SATELLITE_DISTANCE tiles
+    // out along the coast, so a player who finds a fish cluster also finds
+    // a couple of easier "next stops" nearby rather than the coast going
+    // dark until the next full cluster.
+    {
+      const fishDef = defByResource.get("FISH");
+      if (fishDef) {
+        const fishClusterCenters = [...clustersById.values()]
+          .filter((cluster) => cluster.resourceType === "FISH")
+          .map((cluster) => ({ x: cluster.centerX, y: cluster.centerY }));
+        const SATELLITE_DISTANCE = 10;
+        let satelliteSeed = attemptSeed;
+        for (const center of fishClusterCenters) {
+          for (const side of [1, -1] as const) {
+            let placed = false;
+            for (let tries = 0; tries < 200 && !placed; tries += 1) {
+              const angle = seeded01(satelliteSeed + tries * 3, satelliteSeed + tries * 7, seed + 6101) * Math.PI;
+              const dist = SATELLITE_DISTANCE + Math.floor(seeded01(satelliteSeed + tries * 11, satelliteSeed + tries * 13, seed + 6151) * 3) - 1;
+              const cx = Math.round(center.x + side * Math.cos(angle) * dist);
+              const cy = Math.round(center.y + side * Math.sin(angle) * dist);
+              const wx = ((cx % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
+              const wy = ((cy % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
+              const tk = key(wx, wy);
+              if (clusterByTile.has(tk)) continue;
+              if (!clusterRuleMatch(wx, wy, "FISH")) continue;
+              const clusterId = `cl-${clustersById.size}`;
+              clustersById.set(clusterId, {
+                clusterId,
+                clusterType: fishDef.type,
+                resourceType: fishDef.resourceType,
+                centerX: wx,
+                centerY: wy,
+                radius: 1,
+                controlThreshold: fishDef.threshold
+              });
+              clusterByTile.set(tk, clusterId);
+              placed = true;
+            }
+            satelliteSeed += 251;
+          }
+        }
+        attemptSeed = satelliteSeed;
+      }
+    }
+
     // A handful of hilltop deposits for UMBRITE and GEMS — 1 or 2 of each,
     // map-wide, never a full cluster. Kept as its own pass (rather than
     // folding hills into clusterRuleMatch above) so it can't accidentally
