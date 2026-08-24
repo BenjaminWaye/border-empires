@@ -1,3 +1,4 @@
+import type { Analytics } from "firebase/analytics";
 import type { Auth } from "firebase/auth";
 import type { GoogleAuthProvider } from "firebase/auth";
 import type { User } from "firebase/auth";
@@ -19,6 +20,7 @@ export type AuthFlowDeps = {
   dom: ClientDom;
   firebaseAuth?: Auth;
   googleProvider?: GoogleAuthProvider | undefined;
+  analytics?: Analytics | undefined;
   ws: RealtimeSocket;
   wsUrl: string;
   requireAuthedSession: (message?: string) => boolean;

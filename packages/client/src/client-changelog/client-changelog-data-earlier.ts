@@ -12,6 +12,16 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787324700000,
+    introducedIn: "2026.08.21.5",
+    title: "Players now get a season-start email, and the previous champion gets a victory email",
+    why: "When a season rolled over, nothing told players by email that the map had reset -- they'd only find out by opening the game. And the player who was just crowned champion had no record of their win beyond the in-game season-end screen.",
+    changes: [
+      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one and pointing them to the season recap screen to browse final stats for friends and foes.",
+      "The player who won the previous season gets that same email with a victory recap folded in, calling out the objective they won through, instead of a separate message."
+    ]
+  },
+  {
     createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.2",
     title: "Fixed the whole screen becoming unclickable after submitting a bug report",

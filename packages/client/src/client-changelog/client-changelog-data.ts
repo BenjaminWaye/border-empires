@@ -379,16 +379,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787324700000,
-    introducedIn: "2026.08.21.5",
-    title: "Players now get a season-start email, and the previous champion gets a victory email",
-    why: "When a season rolled over, nothing told players by email that the map had reset -- they'd only find out by opening the game. And the player who was just crowned champion had no record of their win beyond the in-game season-end screen.",
-    changes: [
-      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one and pointing them to the season recap screen to browse final stats for friends and foes.",
-      "The player who won the previous season gets that same email with a victory recap folded in, calling out the objective they won through, instead of a separate message."
-    ]
-  },
-  {
     createdAt: 1787360000000,
     introducedIn: "2026.08.21.7",
     title: "Fixed the settle animation not showing until you panned the camera",
@@ -488,6 +478,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The map's per-frame draw loop redrew every on-screen tile with no ceiling on how many tiles that could be. On a wide or ultrawide monitor zoomed all the way out, that meant tens of thousands of tiles redrawn every single frame -- pegging the main thread and making panning and zooming visibly stutter, especially on larger screens.",
     changes: [
       "The map now caps how many tiles it draws per frame to the same budget already used elsewhere in the renderer, shrinking the visible radius slightly (rather than stalling) only in the most zoomed-out state on unusually wide screens."
+    ]
+  },
+  {
+    createdAt: 1787573551984, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.2",
+    title: "Added basic sign-up analytics",
+    why: "We had no way to see where new players were coming from, or how many visitors from a shared link actually created an account -- link attribution and conversion were both invisible.",
+    changes: [
+      "The client now reports page landings and a sign-up event (for new accounts created by email, Google, or email-link sign-in) to Google Analytics, so shared links can be attributed by source/campaign and tracked through to conversion."
     ]
   }
 ];

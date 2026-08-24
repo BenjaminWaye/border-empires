@@ -29,6 +29,7 @@ import {
 } from "../client-inapp-browser/client-inapp-browser.js";
 import { clearStoredMapReveal, getMapRevealEnabled } from "../client-map-reveal/client-map-reveal.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
+import { logSignUpConversion, logSignUpIfNewUser } from "./client-auth-flow-analytics.js";
 import { createSocketAuthenticator } from "./client-authenticate-socket.js";
 import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-flow-types.js";
 
@@ -40,6 +41,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     dom,
     firebaseAuth,
     googleProvider,
+    analytics,
     ws,
     wsUrl,
     requireAuthedSession,
@@ -194,7 +196,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
     setAuthStatus("Completing email link sign-in...");
     syncAuthOverlay();
     try {
-      await signInWithEmailLink(firebaseAuth, email, window.location.href);
+      const cred = await signInWithEmailLink(firebaseAuth, email, window.location.href);
+      logSignUpIfNewUser(analytics, cred, "email-link");
       authSession.emailLinkPending = false;
       authSession.emailLinkSentTo = "";
       safeLocalStorageRemove(EMAIL_LINK_STORAGE_KEY);
@@ -239,6 +242,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       } else {
         const cred = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         if (displayName) await updateProfile(cred.user, { displayName });
+        logSignUpConversion(analytics, "password");
       }
       authSucceeded = true;
     } catch (error) {
@@ -273,7 +277,8 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       syncAuthOverlay();
       let authSucceeded = false;
       try {
-        await signInWithPopup(firebaseAuth, googleProvider);
+        const cred = await signInWithPopup(firebaseAuth, googleProvider);
+        logSignUpIfNewUser(analytics, cred, "google.com");
         authSucceeded = true;
         setAuthStatus("Google sign-in complete. Authorizing empire...");
       } catch (error) {
