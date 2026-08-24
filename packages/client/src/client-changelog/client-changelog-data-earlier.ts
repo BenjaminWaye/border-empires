@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787322201581,
+    introducedIn: "2026.08.21",
+    title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",
+    why: "Tension (\"war is coming\") music used to be driven by short-lived, per-attack timers (an attack in transit, a deferred send, an incoming-attack tracker) that clear the instant that specific attack resolves, so it kept dropping back to calm music between attacks even while a muster flag was still staged and ready to fire.",
+    changes: [
+      "Tension music now plays for as long as any muster flag is raised and set to Hold (staged, not yet advancing), which is a stable signal instead of one that clears after every individual attack."
+    ]
+  },
+  {
     createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.2",
     title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
