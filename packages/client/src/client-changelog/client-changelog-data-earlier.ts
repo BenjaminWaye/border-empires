@@ -12,22 +12,23 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
-    createdAt: 1787324700000,
-    introducedIn: "2026.08.21.5",
-    title: "Players now get a season-start email, and the previous champion gets a victory email",
-    why: "When a season rolled over, nothing told players by email that the map had reset -- they'd only find out by opening the game. And the player who was just crowned champion had no record of their win beyond the in-game season-end screen.",
+    createdAt: 1787322201581,
+    introducedIn: "2026.08.21",
+    title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",
+    why: "Tension (\"war is coming\") music used to be driven by short-lived, per-attack timers (an attack in transit, a deferred send, an incoming-attack tracker) that clear the instant that specific attack resolves, so it kept dropping back to calm music between attacks even while a muster flag was still staged and ready to fire.",
     changes: [
-      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one and pointing them to the season recap screen to browse final stats for friends and foes.",
-      "The player who won the previous season gets that same email with a victory recap folded in, calling out the objective they won through, instead of a separate message."
+      "Tension music now plays for as long as any muster flag is raised and set to Hold (staged, not yet advancing), which is a stable signal instead of one that clears after every individual attack."
     ]
   },
   {
-    createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.2",
-    title: "Fixed the whole screen becoming unclickable after submitting a bug report",
-    why: "Closing the redesigned bug report dialog (including automatically, after a successful submit) only cleared its contents -- the full-screen invisible container div stayed in the DOM with pointer-events left on, silently intercepting every click across the entire game until you reloaded the page.",
+    createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.2",
+    title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
+    why: "A season previously had no limit on how many empires could join, which meant a season already crowded with players kept quietly admitting more instead of ever being \"full.\" There was also no way to find out when a fresh, uncrowded season was starting if you missed joining one.",
     changes: [
-      "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
+      "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
+      "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
+      "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
     ]
   },
   {
@@ -356,4 +357,59 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "Both the off-screen badge and the on-screen badge stay up for the full ~30-minute life of the shard rain event, not just the first moments after landing."
     ]
   },
+  {
+    createdAt: 1787324700000,
+    introducedIn: "2026.08.21.5",
+    title: "Players now get a season-start email, and the previous champion gets a victory email",
+    why: "When a season rolled over, nothing told players by email that the map had reset -- they'd only find out by opening the game. And the player who was just crowned champion had no record of their win beyond the in-game season-end screen.",
+    changes: [
+      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one and pointing them to the season recap screen to browse final stats for friends and foes.",
+      "The player who won the previous season gets that same email with a victory recap folded in, calling out the objective they won through, instead of a separate message."
+    ]
+  },
+  {
+    createdAt: 1787360000000,
+    introducedIn: "2026.08.21.7",
+    title: "Fixed the settle animation not showing until you panned the camera",
+    why: "Pressing Settle on a frontier tile marks it optimistically pending without changing its owner or ownership state (both already belonged to you), but the 3D map only rebuilt its terrain and overlays when ownership actually changed. That left the new settle overlay instance uncreated until something else -- like panning -- forced a rebuild for an unrelated reason.",
+    changes: [
+      "The settlement animation now plays immediately when you press Settle, instead of waiting for the next camera pan."
+    ]
+  },
+  {
+    createdAt: 1787340000000,
+    introducedIn: "2026.08.21.6",
+    title: "The rush-buy price preview now accounts for the Quickforge discount",
+    why: "The tile menu's rush-buy price chip always showed the full server price estimate, even for a player who owns a Quickforge with today's discount still unused — the number shown was different from what got charged.",
+    changes: [
+      "The rush-buy price chip now shows the discounted price when you own a Quickforge and haven't used its once-per-day discount yet."
+    ]
+  },
+  {
+    createdAt: 1787330000000,
+    introducedIn: "2026.08.21.5",
+    title: "The Quickforge wonder now discounts a rush-buy instead of making it free",
+    why: "The Quickforge's once-per-UTC-day rush-buy perk waived the gold cost entirely, which trivialized cheap rush-buys (like a Settle at 10 gold) and scaled unevenly across rush-buy prices.",
+    changes: [
+      "Once per UTC day, the Quickforge's controller now gets 40 gold off their next rush-buy (floored at 0) instead of that rush-buy being completely free."
+    ]
+  },
+  {
+    createdAt: 1787356800000,
+    introducedIn: "2026.08.21.3",
+    title: "Fixed a crash when switching apps and back while a location theme was playing",
+    why: "Backgrounding the tab pauses playback; returning to it resumes both the music bed and any location theme. The location theme's resume call didn't catch play() rejections the way the music bed's did, so a fast switch-away-and-back (interrupting that play() with a pause()) threw an unhandled rejection that tripped the app's error boundary, showing \"Border Empires hit a problem loading\".",
+    changes: [
+      "Switching to another app and back no longer crashes the game to the error screen."
+    ]
+  },
+  {
+    createdAt: 1787345991317,
+    introducedIn: "2026.08.21",
+    title: "War music no longer flickers back to calm music during an ongoing war",
+    why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
+    changes: [
+      "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
+    ]
+  }
 ];

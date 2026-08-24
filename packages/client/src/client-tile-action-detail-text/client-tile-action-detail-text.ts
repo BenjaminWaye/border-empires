@@ -68,7 +68,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     // (stacks additively with any other Mintworks already supporting the
     // town), not the town's total post-build multiplier.
     const perMintworksPercent = Math.round((mintworksGoldProductionMultiplier(1, Boolean(supportedTown?.town?.clearingHouseActive)) - 1) * 100);
-    return `Build on this support tile for ${supportedTownLabel}. Grants +${perMintworksPercent}% town gold production (stacks with other Mintworks) and +${Math.round((supportedTown?.town?.goldPerMinute ?? 0) * 360).toLocaleString()} gold cap.`;
+    return `Build on this support tile for ${supportedTownLabel}. Grants +${perMintworksPercent}% town gold production (stacks with other Mintworks).`;
   }
   if (actionId === "build_granary") {
     // Incubation Engine (Granary) grants an instant one-time population
