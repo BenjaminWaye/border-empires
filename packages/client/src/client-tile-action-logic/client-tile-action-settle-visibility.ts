@@ -1,10 +1,10 @@
 // Split out of client-tile-action-logic.ts (file-line-cap task): Settle Land /
 // Settle Connected are pushed last (bottom of the actions list) and hidden
 // until the player has an established economy (a settled town + a settled
-// grain tile) -- players kept manually settling exposed frontier tiles in the
-// opening minutes expecting some benefit, when in the early game there's
-// nothing to gain from it. Once shown, manual settling is really only for
-// cheap defense, connecting towns, or consolidating territory.
+// food tile, farm or fish) -- players kept manually settling exposed frontier
+// tiles in the opening minutes expecting some benefit, when in the early game
+// there's nothing to gain from it. Once shown, manual settling is really only
+// for cheap defense, connecting towns, or consolidating territory.
 import { SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 import { canAffordCost, isForestTile } from "../client-constants.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
@@ -16,12 +16,12 @@ import { tileActionAvailabilityWithDevelopmentSlot, type TileActionLogicDeps } f
 
 export const hasEstablishedTownAndFoodTile = (state: ClientState): boolean => {
   let hasTown = false;
-  let hasGrainTile = false;
+  let hasFoodTile = false;
   for (const t of state.tiles.values()) {
     if (t.ownerId !== state.me || t.ownershipState !== "SETTLED") continue;
     if (t.town) hasTown = true;
-    if (t.resource === "FARM") hasGrainTile = true;
-    if (hasTown && hasGrainTile) return true;
+    if (t.resource === "FARM" || t.resource === "FISH") hasFoodTile = true;
+    if (hasTown && hasFoodTile) return true;
   }
   return false;
 };

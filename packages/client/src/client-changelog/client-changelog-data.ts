@@ -18,8 +18,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Settle Land now shows its manpower cost, and stays hidden until you actually need it",
     why: "Settle Land and Settle Connected only showed their gold cost, hiding the manpower they actually spend, and were shown from turn one even though manual settling has nothing to offer that early -- it's really only useful once you have a town and food running, for cheap defense, connecting towns, or consolidating territory. New players kept settling exposed frontier tiles in the opening minutes for no benefit, burning manpower they needed elsewhere.",
     changes: [
-      "The manpower cost of settling is now shown on the multi-select bulk Settle Land button and on Settle Connected's total cost line -- previously only the gold cost was shown, so it looked cheaper than it was.",
-      "Settle Land and Settle Connected are now hidden from the tile menu until you have a settled town and a settled grain tile, and appear at the very bottom of the actions list once they do."
+      "The manpower cost of settling is now shown on Settle Connected's total cost line -- previously only the gold cost was shown, so it looked cheaper than it was. The multi-select bulk \"Settle Land\" button (which claims unowned land) now correctly shows its own claim cost instead of the settle cost.",
+      "Settle Land and Settle Connected are now hidden from the tile menu until you have a settled town and a settled food tile (farm or fish), and appear at the very bottom of the actions list once they do."
     ]
   },
   {
