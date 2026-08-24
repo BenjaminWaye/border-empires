@@ -1,4 +1,4 @@
-import { isForestTile } from "./client-constants.js";
+import { MIN_ZOOM, isForestTile } from "./client-constants.js";
 import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
@@ -43,6 +43,7 @@ import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery/client-
 import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrainAt } from "@border-empires/shared";
 import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-queue-badge-index.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
+import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 
 // Persistent-alert tile scan is O(all tiles ever discovered this session,
 // up to WORLD_WIDTH*WORLD_HEIGHT) and measured at ~5.78ms avg / 20.5ms p99
@@ -255,8 +256,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     const size = state.zoom;
-    const halfW = Math.floor(deps.canvas.width / size / 2);
-    const halfH = Math.floor(deps.canvas.height / size / 2);
+    const { halfW, halfH } = clampedTileHalfExtents(Math.floor(deps.canvas.width / size / 2), Math.floor(deps.canvas.height / size / 2), resolveTileBudget(MIN_ZOOM));
     const dockEndpointKeys = new Set<string>();
     for (const pair of state.dockPairs) {
       dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
