@@ -159,6 +159,30 @@ describe("reachOwnerCountAt", () => {
     const anchors: ReachAnchor[] = [{ x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "DOCK" }];
     expect(reachOwnerCountAt(WORLD_WIDTH - 1, 0, anchors)).toBe(1);
   });
+
+  it("without landConnectivity, counts a tile within geometric radius even across water", () => {
+    const anchors: ReachAnchor[] = [{ x: 10, y: 10, ownerId: "p1", activatedAt: 1, kind: "TOWN" }];
+    expect(reachOwnerCountAt(13, 10, anchors)).toBe(1); // within TOWN_REACH_RADIUS=3, no terrain check
+  });
+
+  it("with landConnectivity, does not count a tile only reachable by crossing water", () => {
+    // A full water column at x=11 severs every path (including diagonals) from the anchor to (12,10).
+    const isLand = (x: number) => x !== 11;
+    const anchors: ReachAnchor[] = [{ x: 10, y: 10, ownerId: "p1", activatedAt: 1, kind: "TOWN" }];
+    expect(reachOwnerCountAt(12, 10, anchors, isLand)).toBe(0);
+  });
+
+  it("with landConnectivity, still counts a tile reachable by an unbroken land path", () => {
+    const isLand = () => true;
+    const anchors: ReachAnchor[] = [{ x: 10, y: 10, ownerId: "p1", activatedAt: 1, kind: "TOWN" }];
+    expect(reachOwnerCountAt(12, 10, anchors, isLand)).toBe(1);
+  });
+
+  it("with landConnectivity, a crossesWater anchor is exempt from land-gating", () => {
+    const isLand = (x: number, y: number) => x !== 11 || y !== 10;
+    const anchors: ReachAnchor[] = [{ x: 10, y: 10, ownerId: "p1", activatedAt: 1, kind: "OUTPOST", crossesWater: true }];
+    expect(reachOwnerCountAt(12, 10, anchors, isLand)).toBe(1);
+  });
 });
 
 describe("grantAnchorToBorder", () => {
