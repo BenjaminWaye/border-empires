@@ -12,6 +12,17 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.2",
+    title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
+    why: "A season previously had no limit on how many empires could join, which meant a season already crowded with players kept quietly admitting more instead of ever being \"full.\" There was also no way to find out when a fresh, uncrowded season was starting if you missed joining one.",
+    changes: [
+      "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
+      "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
+      "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
+    ]
+  },
+  {
     createdAt: 1787510053323, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.3",
     title: "You can now expand beyond your reach -- but the land decays if you can't hold it",
@@ -226,15 +237,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     why: "The tile overview panel listed Population, Growth, Support, Production, and Upkeep for a settled town, but never said anything about the town's manpower contribution to your empire — a stat players had no way to see anywhere on the tile itself.",
     changes: [
       "A settled town's overview tab now shows its base manpower cap and regen contribution, right after Population and Growth."
-    ]
-  },
-  {
-    createdAt: 1787041917435, // 2026.08.17.3
-    introducedIn: "2026.08.17.3",
-    title: "Battle dots no longer pop when the clash hands off into rout",
-    why: "The clash phase sways each dot back and forth (spread + a forward jostle so the two lines press together instead of overlapping), but the instant rout began that whole oscillation was dropped in favor of a clean push-through/scatter position — a small but real positional snap right at the clash/rout boundary, on top of the exact same seam that was already fixed between the pre-resolution skirmish and the clash phase.",
-    changes: [
-      "Dots now settle out of the clash's sway over the first ~140ms of rout instead of dropping it instantly, so the clash and rout phases read as one continuous motion rather than two animations stitched together."
     ]
   },
   {

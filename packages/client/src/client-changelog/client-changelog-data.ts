@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787572037117, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.2",
+    title: "Removed the misleading \"+0 gold cap\" from the Mintworks build description",
+    why: "The Build Mintworks panel and its tile-menu detail text both tacked on a \"+N gold cap\" figure computed from the target town's current gold/min, which is 0 (or otherwise unrelated to what Mintworks actually grants) in the normal build-preview case, showing up as a nonsensical \"+0 gold cap\" and implying Mintworks adds a flat cap it doesn't.",
+    changes: [
+      "Build Mintworks descriptions now only show the actual +town gold production % bonus, dropping the bogus gold cap figure."
+    ]
+  },
+  {
     createdAt: 1787548762402, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.24.1",
     title: "Fixed border sometimes not expanding right after a Relay Beacon finished",
@@ -431,17 +440,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
     changes: [
       "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
-    ]
-  },
-  {
-    createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.2",
-    title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
-    why: "A season previously had no limit on how many empires could join, which meant a season already crowded with players kept quietly admitting more instead of ever being \"full.\" There was also no way to find out when a fresh, uncrowded season was starting if you missed joining one.",
-    changes: [
-      "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
-      "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
-      "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
     ]
   },
   {
