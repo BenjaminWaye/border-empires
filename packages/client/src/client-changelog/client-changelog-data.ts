@@ -41,15 +41,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787572138646, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.3",
-    title: "Settle Land's tooltip no longer name-drops \"production\"",
-    why: "The Settle Land tooltip said it \"activates production,\" which is internal jargon that didn't mean anything concrete to players -- what gets produced, and how much, differs per tile (food, titanium, crystal, town growth) and was never spelled out here anyway.",
-    changes: [
-      "Settle Land's tooltip now just says \"Makes this tile defendable,\" dropping the vague \"activates production\" clause."
-    ]
-  },
-  {
     createdAt: 1787572037117, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.24.2",
     title: "Removed the misleading \"+0 gold cap\" from the Mintworks build description",
@@ -468,6 +459,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "We had no way to see where new players were coming from, or how many visitors from a shared link actually created an account -- link attribution and conversion were both invisible.",
     changes: [
       "The client now reports page landings and a sign-up event (for new accounts created by email, Google, or email-link sign-in) to Google Analytics, so shared links can be attributed by source/campaign and tracked through to conversion."
+    ]
+  },
+  {
+    createdAt: 1787584599967, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.24.7",
+    title: "Renamed AI empires to first names only",
+    why: "AI empire names paired a first name with a surname that read as a fantasy/game surname (e.g. \"Sigrid Storm\", \"Edvin Frost\"), which looked out of place next to real players' names on the leaderboard.",
+    changes: [
+      "AI-controlled empires on the leaderboard now show a single first name (e.g. \"Sigrid\", \"Edvin\") instead of a first-plus-surname combo."
     ]
   }
 ];
