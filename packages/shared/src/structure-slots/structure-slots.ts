@@ -195,12 +195,15 @@ export const BASE_SLOTS_BY_TILE_RESOURCE: Partial<Record<ResourceType, { slotRes
   UMBRITE: { slotResource: "UMBRITE", baseSlots: 1 }
 };
 
-// Farmstead/Mine/Camp all add +1 slot to the tile they sit on (§5.2: "one
-// rule, all resources"). Waterworks/Foundry instead boost every Farmstead/
-// Mine within their radius by a further bonus (§5.3/§12) — a radius effect,
-// not a same-tile one, so neither is part of this per-tile-structure map.
+// Mine/Camp add +1 slot to the tile they sit on (§5.2: "one rule, all
+// resources"). Farmstead adds +2 (user decision — a bigger same-tile boost
+// than Mine/Camp, on top of which Waterworks still adds its own separate
+// +2-per-Farmstead-in-radius bonus below). Waterworks/Foundry instead boost
+// every Farmstead/Mine within their radius by a further bonus (§5.3/§12) — a
+// radius effect, not a same-tile one, so neither is part of this
+// per-tile-structure map.
 export const TILE_SLOT_BOOST_STRUCTURES: Partial<Record<BuildableStructureType, number>> = {
-  FARMSTEAD: 1,
+  FARMSTEAD: 2,
   MINE: 1,
   UMBRITE_RIG: 1
 };
