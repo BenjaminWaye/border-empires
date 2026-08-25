@@ -50,7 +50,7 @@ export const townStatGridHtml = (input: TownStatGridInput): string => {
       `<div class="tile-stat tile-stat-span2">` +
         `<span class="tile-stat-label">Population · ${escapeHtml(input.populationTierLabel)}</span>` +
         `<span class="tile-stat-value">${input.population.toLocaleString()}<span class="tile-stat-unit">/ ${populationTarget.toLocaleString()}</span></span>` +
-        `<div class="tile-stat-meter"><span class="${tierReached ? "is-tier-ready" : ""}" style="width:${populationPct.toFixed(1)}%"></span></div>` +
+        `<div class="tile-stat-meter"><span${tierReached ? ` class="is-tier-ready"` : ""} style="width:${populationPct.toFixed(1)}%"></span></div>` +
         `<span class="tile-stat-sub is-${input.growthTone}">${escapeHtml(input.growthText)}</span>` +
       `</div>` +
       `<div class="tile-stat tile-stat-span2">` +
