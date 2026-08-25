@@ -187,7 +187,7 @@ import {
   handleDevQueueMoveToFrontCommand as handleDevQueueMoveToFrontCommandImpl,
   tryDrainDevQueue as tryDrainDevQueueImpl,
   type RuntimeDevQueueCommandContext
-} from "../runtime-dev-queue-command-handlers.js"; import { devQueueBuildReservationContext } from "../runtime-dev-queue-build-reservation.js";
+} from "../runtime-dev-queue-command-handlers.js"; import { devQueueBuildReservationContext } from "../runtime-dev-queue-build-reservation.js"; import { restoreDevQueuesFromInitialState } from "../runtime-dev-queue-restore.js";
 import {
   handleWaypointCancelAllCommand as handleWaypointCancelAllCommandImpl,
   handleWaypointCancelCommand as handleWaypointCancelCommandImpl,
@@ -1177,7 +1177,7 @@ export class SimulationRuntime {
         this.manpowerCapBootstrapRestampedCount += 1;
       }
     }
-    for (const player of options.initialState?.players ?? []) {
+    restoreDevQueuesFromInitialState(options.initialState, (playerId) => this.summaryForPlayer(playerId)); /* reservations must survive restart -- runtime-dev-queue-restore.ts */ for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
       const summary = this.summaryForPlayer(player.id);
       const currentTowns = new Map(summary.ownedTownTierByTile);

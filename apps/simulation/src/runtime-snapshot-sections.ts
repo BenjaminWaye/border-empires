@@ -6,6 +6,7 @@ import type { PendingSettlementRecord, PlayerRuntimeSummary } from "./player-run
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import { shouldYieldAt } from "./event-loop-yield.js";
+import { toPersistedDevQueueEntries } from "./runtime-dev-queue-restore.js";
 
 export type SnapshotTile = SimulationSnapshotSections["initialState"]["tiles"][number];
 
@@ -94,7 +95,15 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           visionRadiusBonus: visionRadiusBonusForPlayer(player),
           incomeMultiplier: player.mods?.income ?? 1,
           incomePerMinute: input.incomePerMinuteForPlayer(player.id),
-          ownedTownTileKeys: [...input.summaryForPlayer(player.id).ownedTownTierByTile.keys()]
+          ownedTownTileKeys: [...input.summaryForPlayer(player.id).ownedTownTierByTile.keys()],
+          // Queued BUILD entries hold real reserved manpower (deducted from
+          // the `manpower` field above) plus the slot they claim. This is the
+          // snapshot that actually survives a restart, so the entries owing
+          // those refunds have to be in it -- otherwise every restart
+          // silently burns the reserve. See runtime-dev-queue-restore.ts.
+          ...(input.summaryForPlayer(player.id).devQueue.length
+            ? { devQueue: toPersistedDevQueueEntries(input.summaryForPlayer(player.id).devQueue) }
+            : {})
         }))
         .sort((a, b) => a.id.localeCompare(b.id)),
       pendingSettlements: [...input.pendingSettlementsByTile.values()]

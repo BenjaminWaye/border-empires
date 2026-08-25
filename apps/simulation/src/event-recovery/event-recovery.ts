@@ -1,12 +1,13 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
-import { type DomainTileState, type PlayerEventLogEntry } from "@border-empires/game-domain";
+import { type DomainTileState } from "@border-empires/game-domain";
 
 import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
 import { hydrateRecoveredTown, parseOptionalJson, recoverTownState } from "./event-recovery-town-helpers.js";
 import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progression-helpers.js";
-import type { ChosenTrickleResource } from "@border-empires/shared";
+import { toPersistedDevQueueEntries } from "../runtime-dev-queue-restore.js";
+import type { RecoveredPlayerState } from "./recovered-player-state.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PendingSettlementRecord } from "../player-runtime-summary.js";
 
@@ -61,30 +62,7 @@ export type RecoveredSimulationState = {
   docks?: DockRouteDefinition[];
   activeLocks: RecoveredLock[];
   season?: SimulationSeasonState;
-  players?: Array<{
-    id: string;
-    name?: string;
-    isAi?: boolean;
-    points?: number;
-    manpower?: number;
-    manpowerUpdatedAt?: number;
-    manpowerCapSnapshot?: number;
-    techIds?: string[];
-    domainIds?: string[];
-    strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-    chosenTrickleResource?: ChosenTrickleResource;
-    imperialWardCharges?: number;
-    wonderLastFreeRushBuyAt?: number;
-    // Galactic meta-layer v0 (§5, §12) — see DomainPlayer in game-domain.
-    galacticWonderManpowerRegenBonusPerMinute?: number;
-    galacticWonderVisionRadiusBonus?: number;
-    eventLog?: PlayerEventLogEntry[];
-    allies?: string[];
-    vision?: number;
-    incomeMultiplier?: number;
-    incomePerMinute?: number;
-    ownedTownTileKeys?: string[];
-  }>;
+  players?: RecoveredPlayerState[];
   pendingSettlements?: PendingSettlementRecord[];
   tileYieldCollectedAtByTile?: Array<{ tileKey: string; collectedAt: number }>;
   playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
@@ -147,7 +125,8 @@ export const createRecoveredSimulationAccumulator = (
           ...(player.domainIds ? { domainIds: [...player.domainIds] } : {}),
           ...(player.strategicResources ? { strategicResources: { ...player.strategicResources } } : {}),
           ...(player.allies ? { allies: [...player.allies] } : {}),
-          ...(player.ownedTownTileKeys ? { ownedTownTileKeys: [...player.ownedTownTileKeys] } : {})
+          ...(player.ownedTownTileKeys ? { ownedTownTileKeys: [...player.ownedTownTileKeys] } : {}),
+          ...(player.devQueue ? { devQueue: toPersistedDevQueueEntries(player.devQueue) } : {})
         }))
       : [],
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],

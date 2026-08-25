@@ -107,6 +107,26 @@ describe("handleDevQueueEnqueueCommand -- MP/slot reservation", () => {
     expect(rejections).toEqual([{ code: "INSUFFICIENT_SLOT", message: "no free TITANIUM slot" }]);
   });
 
+  it("refunds the reservation if anything throws between taking it and the entry owning it", () => {
+    const { context, summary, getManpower } = makeContext({ manpower: 1000 });
+    // now() is called while building the queue entry -- i.e. after the
+    // manpower is debited but before the queue owns the refund obligation.
+    context.now = () => { throw new Error("boom"); };
+    expect(() => handleDevQueueEnqueueCommand(context, enqueueCommand(1, 1, "FORT"))).toThrow("boom");
+    expect(getManpower()).toBe(1000); // never stranded
+    expect(summary.devQueue).toEqual([]);
+  });
+
+  it("does not double-refund when the entry was queued successfully but a later step throws", () => {
+    const { context, summary, getManpower } = makeContext({ manpower: 1000 });
+    // emitEvent runs after the entry owns the reservation -- the queued entry
+    // still owes that refund, so it must NOT be handed back here too.
+    context.emitEvent = () => { throw new Error("emit failed"); };
+    expect(() => handleDevQueueEnqueueCommand(context, enqueueCommand(1, 1, "FORT"))).toThrow("emit failed");
+    expect(getManpower()).toBe(700);
+    expect(summary.devQueue).toEqual([expect.objectContaining({ tileKey: "1,1", reservedManpower: 300 })]);
+  });
+
   it("refunds the reservation on cancel", () => {
     const { context, summary, getManpower } = makeContext({ manpower: 1000 });
     handleDevQueueEnqueueCommand(context, enqueueCommand(1, 1, "FORT"));

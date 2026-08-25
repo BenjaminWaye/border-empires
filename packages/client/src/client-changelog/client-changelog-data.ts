@@ -479,6 +479,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Queuing a building now reserves its manpower cost and a resource slot immediately, refunded in full if you cancel it while queued.",
       "You can no longer queue more buildings than you can currently afford or have slots for -- the queue now rejects an addition it can't reserve for, instead of accepting it and failing silently later."
     ]
+  },
+  {
+    createdAt: 1787584599969, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.2",
+    title: "Fixed queued buildings losing their reserved manpower across a server restart",
+    why: "Manpower reserved by a queued building was saved, but the queue entry that owed it back was not -- so any server restart while you had buildings queued quietly destroyed that manpower for good. Since this game is played idle, with builds sitting queued for hours while you're offline, that loss could repeat and stack up invisibly.",
+    changes: [
+      "Your building queue -- including the manpower and resource slot each queued build has reserved -- now survives server restarts, so a queued build always still owes you its refund when you cancel it.",
+      "Reserved manpower is now also handed back if anything goes wrong while queuing, so it can never be lost to an unexpected error."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
