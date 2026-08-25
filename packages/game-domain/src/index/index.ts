@@ -299,13 +299,12 @@ export type ValidateFrontierCommandInput = {
   requiredMuster?: number | undefined;
   /**
    * Fixed-border reach (packages/shared/src/reach/reach.ts): whether `to` is
-   * a legal EXPAND target. Checked for EXPAND only (ATTACK deliberately
-   * ignores it) -- rejected as OUT_OF_REACH when explicitly `false`.
-   * Optional so callers/tests that predate reach gating keep compiling
-   * unchanged -- omitting the field skips the gate entirely. Production's
-   * only caller (runtime-frontier-command.ts) always supplies it, folding in
-   * the actor's own reach, the dock/bridge-crossing bypass, and the
-   * enemy-border-contact carve-out (see that file's doc comment).
+   * inside the actor's reach. No longer gates EXPAND (out-of-reach EXPAND is
+   * allowed and instead subject to out-of-reach frontier decay -- see
+   * runtime-out-of-reach-decay/runtime-out-of-reach-decay.ts) or ATTACK
+   * (which deliberately ignores it). Kept on the input/passed by the caller
+   * (runtime-frontier-command.ts) for downstream consumers that still care
+   * whether the target sits inside the actor's reach.
    */
   isInReach?: boolean | undefined;
 };
@@ -362,17 +361,14 @@ export const validateFrontierCommand = (
   if (input.actionType === "EXPAND" && input.to.ownerId) {
     return { ok: false, code: "EXPAND_TARGET_OWNED", message: "expand only targets neutral land" };
   }
-  // Fixed-border reach: EXPAND requires the target inside the actor's
-  // resolved reach set. `isInReach` is computed by the caller (see
-  // runtime-frontier-command.ts) and already folds in dock/bridge crossings
-  // (always true) and the enemy-border-contact carve-out (true when the
-  // target sits inside a rival's reach but the origin sits inside the
-  // actor's own reach -- i.e. the two borders actually touch here, which is
-  // what lets a player open an ATTACK lane into a rival they can't
-  // otherwise reach without granting them free colonization elsewhere).
-  if (input.actionType === "EXPAND" && input.isInReach === false) {
-    return { ok: false, code: "OUT_OF_REACH", message: "target is outside your reach" };
-  }
+  // EXPAND is intentionally NOT reach-gated: claiming land outside the
+  // actor's fixed-border reach is allowed, at the cost of out-of-reach
+  // frontier decay unless reach catches up to it (see
+  // runtime-out-of-reach-decay/runtime-out-of-reach-decay.ts). `isInReach`
+  // is still computed and passed by the caller, but EXPAND deliberately
+  // ignores it here -- do not reintroduce an OUT_OF_REACH gate for EXPAND
+  // without also revisiting the out-of-reach decay feature it would make
+  // unreachable.
   if (input.actionType === "ATTACK" && (!input.to.ownerId || input.to.ownerId === input.actor.id)) {
     return { ok: false, code: "ATTACK_TARGET_INVALID", message: "target must be enemy-controlled land" };
   }
