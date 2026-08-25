@@ -409,15 +409,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787430600000,
-    introducedIn: "2026.08.22.8",
-    title: "Creating a mountain now clears any muster flag staged on the tile",
-    why: "Turning a tile into a mountain destroyed the tile's ownership, but the muster flag staged on it stuck around, showing a stale muster icon on ground you no longer held.",
-    changes: [
-      "Creating a mountain on a tile with a staged muster flag now clears the flag along with the tile's ownership, matching how bombardment, capture, and tile shedding already handle it."
-    ]
-  },
-  {
     createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.2",
     title: "Fixed the whole screen becoming unclickable after submitting a bug report",
@@ -489,6 +480,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
     changes: [
       "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
+    ]
+  },
+  {
+    createdAt: 1787691503245, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.3",
+    title: "Added a Discord link to the settings menu",
+    why: "The community Discord invite was only reachable from the season lobby overlay, so players already in a game had no in-app way to find it.",
+    changes: [
+      "Settings now has a \"Join the Discord\" link alongside Log Out."
     ]
   }
 ];
