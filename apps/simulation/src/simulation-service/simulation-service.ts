@@ -91,7 +91,7 @@ import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
 import { buildEventLoopBlockedPayload, eventLoopBlockWarnMs } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
 import { resolveMaxSeasonPlayers } from "../season-join-capacity.js";
-import { registerLiveSubscribeAndPushReach } from "./live-subscribe-reach-push.js";
+import { registerSubscribeAndMaybePushReach } from "./live-subscribe-reach-push.js";
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
@@ -2293,8 +2293,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         return;
       }
       const subscribeOptions = parseSubscribeOptions(call.request.subscription_json);
-      // First handshake step with the socket attached, so the only one that can actually deliver reach (see module docs).
-      if (subscribeOptions.mode !== "bootstrap-only") registerLiveSubscribeAndPushReach(subscriptionRegistry, runtime, call.request.player_id, subscribeOptions.subscriptionKey, log);
+      // Registers the subscription and, only for the gateway's actual connect (see module docs), pushes reach.
+      registerSubscribeAndMaybePushReach(subscriptionRegistry, runtime, call.request.player_id, subscribeOptions, log);
       // Dedupe concurrent subscribes for the same (player, mode, visibility).
       // The bootstrap retry loop in the gateway can fire 3-4 RPCs while the
       // first build is still running; sharing the in-flight promise prevents

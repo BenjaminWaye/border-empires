@@ -35,6 +35,16 @@
  * payload in `session.pendingPayloads` and flushes it after init, so arriving
  * "early" within step 4 is safe.
  *
+ * `registerSubscribeAndMaybePushReach` is scoped to the gateway's actual
+ * connect subscribe (`trigger: "gateway_live_subscribe"`) internally, not
+ * every non-bootstrap SubscribePlayer call. Fog-toggle and reveal-map
+ * resubscribes also land on SubscribePlayer with a non-bootstrap mode and no
+ * such trigger, and the fog one in particular re-fires roughly once per
+ * second while a player has full visibility on and is actively acting —
+ * pushing from there would force-flush a full, unfiltered REACH_UPDATE
+ * (hundreds of keys for a large empire) on that cadence instead of the
+ * intended "once per connect."
+ *
  * The PreparePlayer hello is deliberately left in place rather than moved:
  * JOIN_SEASON also routes through it, and a season join happens long after
  * login with the socket already attached, so there the hello does land. The
@@ -61,25 +71,36 @@ export type LiveSubscribeReachLog = {
   error: (payload: Record<string, unknown>, message: string) => void;
 };
 
+/** The parsed fields of a SubscribePlayer call this module needs to route on. */
+export type SubscribeCallOptions = {
+  mode?: string;
+  trigger?: string;
+  subscriptionKey?: string;
+};
+
 /**
- * Registers a live subscription and pushes the player's authoritative reach.
+ * Registers a subscription for any non-bootstrap SubscribePlayer call, and —
+ * only when it is the gateway's actual connect subscribe — also pushes the
+ * player's authoritative reach.
  *
- * Bootstrap-only subscribes must not call this — they run before the socket is
- * attached (step 2 above) and do not register a subscription at all.
+ * A bootstrap-only call is a no-op here — it runs before the socket is
+ * attached (step 2 above) and must not register a subscription.
  *
  * The reach push is isolated so a failure cannot take down the subscribe RPC
  * that carries the player's whole world state; a client that misses reach
  * falls back to its local approximation, which is degraded but playable,
  * whereas a failed subscribe rejects the login outright.
  */
-export const registerLiveSubscribeAndPushReach = (
+export const registerSubscribeAndMaybePushReach = (
   registry: LiveSubscribeRegistry,
   runtime: LiveSubscribeReachRuntime,
   playerId: string,
-  subscriptionKey: string | undefined,
+  options: SubscribeCallOptions,
   log: LiveSubscribeReachLog
 ): void => {
-  registry.subscribe(playerId, subscriptionKey);
+  if (options.mode === "bootstrap-only") return;
+  registry.subscribe(playerId, options.subscriptionKey);
+  if (options.trigger !== "gateway_live_subscribe") return;
   try {
     runtime.resendReachForPlayer(playerId);
   } catch (error) {
