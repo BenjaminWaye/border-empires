@@ -49,7 +49,7 @@ import { createSupplyLineOverlay } from "../client-map-3d-supply-line-overlay.js
 import { createAetherBridgePylonOverlay } from "../client-map-3d-aether-bridge-pylon-overlay.js";
 import { createAetherPurgeFxLayer } from "../client-map-3d-aether-purge-fx/client-map-3d-aether-purge-fx.js";
 import { createSurveySweepFxLayer } from "../client-map-3d-survey-sweep-fx/client-map-3d-survey-sweep-fx.js";
-import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping-overlay.js"; import { filterAndLogSurveySweepPings } from "../survey-sweep-debug-log/survey-sweep-debug-log.js";
+import { createSurveySweepPingOverlay } from "../client-map-3d-survey-sweep-ping-overlay.js"; import { filterAndLogSurveySweepPings } from "../survey-sweep-debug-log/survey-sweep-debug-log.js"; import { createOnboardingChecklistHighlightOverlay } from "../client-map-3d-onboarding-checklist-highlight.js";
 import { createSiphonFxLayer } from "../client-map-3d-siphon-fx/client-map-3d-siphon-fx.js";
 import { createRetortRecastFxLayer } from "../client-map-3d-retort-recast-fx/client-map-3d-retort-recast-fx.js";
 import { createRevealEmpireFxLayer } from "../client-map-3d-reveal-empire-fx/client-map-3d-reveal-empire-fx.js";
@@ -205,7 +205,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const aetherBridgePylonOverlay = createAetherBridgePylonOverlay(scene, MAX_BRIDGE_PYLONS);
   const aetherLanceFx = createAetherPurgeFxLayer(scene);
   const surveySweepFx = createSurveySweepFxLayer(scene);
-  const surveySweepPingOverlay = createSurveySweepPingOverlay(scene);
+  const surveySweepPingOverlay = createSurveySweepPingOverlay(scene); const onboardingChecklistHighlightOverlay = createOnboardingChecklistHighlightOverlay(scene);
   const siphonFx = createSiphonFxLayer(scene);
   const retortRecastFx = createRetortRecastFxLayer(scene);
   const revealEmpireFx = createRevealEmpireFxLayer(scene);
@@ -2124,7 +2124,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncWorldEngineStrikeShakeQueue(nowMs);
     syncImperialExchangeLevyFxQueue();
     syncAstralDockLaunchFxQueue();
-    syncAegisLockFxQueue(); syncUnsettleFxQueue();
+    syncAegisLockFxQueue(); syncUnsettleFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(deps.state.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(deps.state.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs);
     crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: deps.state.camX, camY: deps.state.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY, toroidDelta });
     villageEffects.update(nowMs);
     shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs);
@@ -2223,7 +2223,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     aetherBridgePylonOverlay.dispose();
     aetherLanceFx.dispose();
     surveySweepFx.dispose();
-    surveySweepPingOverlay.dispose();
+    surveySweepPingOverlay.dispose(); onboardingChecklistHighlightOverlay.dispose();
     siphonFx.dispose();
     retortRecastFx.dispose();
     revealEmpireFx.dispose();
