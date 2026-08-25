@@ -3,6 +3,7 @@
 // client-changelog.ts sorts by createdAt. Move old entries to
 // client-changelog-data-earlier.ts when this file approaches the cap.
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER } from "./client-changelog-data-earlier.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_2 } from "./client-changelog-data-earlier-2.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -448,16 +449,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787376000000, // 2026.08.22.2 — frozen; was Date.now() in the merged commit
-    introducedIn: "2026.08.22.2",
-    title: "3D ownership territory now has a crisp border line, not just a color wash",
-    why: "The 3D map's ownership fill was a flat, opaque color tint with no edge treatment, so territory read as a soft colored blob rather than a defined claim -- the 2D map already draws a solid outline along exactly this boundary, but the 3D map had no equivalent.",
-    changes: [
-      "Owned territory in the 3D map now gets a bright border ribbon along its exposed edges (the same boundary the 2D map already outlines), on top of the existing fill tint.",
-      "This is a first pass on making 3D ownership read more clearly -- fill gradient/fade and a frontier-vs-settled line style are natural next steps."
-    ]
-  },
-  {
     createdAt: 1787380000000,
     introducedIn: "2026.08.22.3",
     title: "Battle preview dots now throw glyphs and take casualties during the siege countdown",
@@ -486,9 +477,19 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "River paths are now smoothed with a Catmull-Rom curve and resampled at higher density, removing the faceted straight-segment look.",
       "River width now tapers from narrow at the source to wide at the mouth, based on how far each point has flowed toward the sea."
     ]
+  },
+  {
+    createdAt: 1787678904061, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.4",
+    title: "Fixed \"Expand To\" being blocked on tiles outside your reach again",
+    why: "Expand was opened up to out-of-reach frontier tiles (claimed land there just decays after 2 minutes unless your reach catches up), but a later change restored an OUT_OF_REACH server rejection for EXPAND without updating the client, so \"Expand To\" silently failed or wasn't offered on tiles adjacent to your border but outside your town/outpost's fixed reach radius.",
+    changes: [
+      "EXPAND is no longer reach-gated server-side. Claiming land outside your reach is allowed again, at the risk of it decaying back to neutral if your reach doesn't catch up to it in time."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2
 ];
