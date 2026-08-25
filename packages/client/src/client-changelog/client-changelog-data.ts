@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787689447704, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.7",
+    title: "Fixed flickering at the coastline where the water and land skirts overlapped",
+    why: "The water skirt wall added in 2026.08.25.5/.6 drew a wall on all 4 sides of every exposed water tile, including north/east/west edges that sat right where the land's own coastal skirt wall already runs. Two near-coplanar unlit walls animating independently z-fought against each other every frame, flickering.",
+    changes: [
+      "The water skirt now only draws its south-facing edge (the side that actually faces the camera at the default view angle), leaving the land skirt to cover the other three sides instead of overlapping it."
+    ]
+  },
+  {
     createdAt: 1787688715010, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.6",
     title: "Fixed the water skirt wall leaving a gap at wave crests",
@@ -473,15 +482,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A Relay Beacon (or any reach anchor) that finished building while you were disconnected expanded your border on the server, but the update was sent before your connection was ready to receive it and was silently dropped. Reconnecting did not recover it, so the game kept showing your old border -- and because the waypoint planner uses the same border, queued expansions could stall against territory the server had already granted you.",
     changes: [
       "Your authoritative border is now pushed once your connection is fully established, so a reach anchor that completed while you were offline shows up as soon as you log back in."
-    ]
-  },
-  {
-    createdAt: 1787616000000, // 2026.08.25.1 — frozen; was Date.now() in the merged commit
-    introducedIn: "2026.08.25.1",
-    title: "Fixed sea tiles rendering as solid black from some camera angles",
-    why: "The 3D water surface only got its color from directional lighting, with a near-black fallback (emissive 0x030e18) for anything that fell into shadow. Viewed from the south -- opposite the sun and fill light -- water faces caught neither light and the near-black fallback read as a black hole instead of dark sea.",
-    changes: [
-      "The water material's shadow-floor color is now a dim tint of the actual deep-water color instead of near-black, so unlit sea tiles read as dark water at any camera angle."
     ]
   }
 ];
