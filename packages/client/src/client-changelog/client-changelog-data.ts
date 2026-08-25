@@ -32,12 +32,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787650830571, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.1",
-    title: "Farmstead now grants +2 FOOD slots instead of +1",
-    why: "Farmstead's same-tile FOOD slot boost was tied with Mine/Umbrite Rig's +1, even though it's a dedicated food building -- a bigger boost makes it more worth building and gives Waterworks (which multiplies Farmstead's bonus) more to amplify.",
+    createdAt: 1787682600000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.4",
+    title: "Fixed the out-of-reach decay pulse jumping every time you panned the camera",
+    why: "The amber/white frontier-decay countdown pulse was baked into the ownership overlay's mesh colors inside the same rebuild that also fires on every camera pan or zoom (not just on actual game-state changes), sampling the wall clock fresh each time -- so panning the map made the pulse visibly jump or restart instead of animating smoothly.",
     changes: [
-      "An active Farmstead on a FARM tile now adds +2 FOOD slots to that tile instead of +1. Waterworks' separate +2-per-Farmstead-in-radius bonus is unchanged and stacks on top."
+      "The decay pulse now animates from a per-frame update independent of camera movement, the same pattern already used for the reach-border pylon animation -- it only reacts to the tile's actual decay state, never to panning or zooming."
     ]
   },
   {
