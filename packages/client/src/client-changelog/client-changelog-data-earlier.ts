@@ -240,15 +240,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787170756951, // 2026.08.19.2
-    introducedIn: "2026.08.19.2",
-    title: "Town gold production: fixed the Mintworks flat bonus for real this time",
-    why: "The previous fix for this (2026.08.19) only patched apps/simulation/src/live-town-summary.ts — but the tile-click popup is served by a separate gateway path (apps/realtime-gateway/src/tile-detail-snapshot.ts) whenever the cached snapshot's townJson doesn't carry a fresh goldPerMinute, and that path has its own independent copy of the same formula, explicitly commented 'keep in sync with buildTownSummary' — which still dropped each Mintworks' flat +1 gold/day-per-copy bonus. A live screenshot after the first fix still showed the old, wrong number, which is what surfaced this second copy.",
-    changes: [
-      "The gateway's tile-detail fallback gold calculation now includes each active Mintworks' flat gold bonus, matching the simulation's authoritative formula."
-    ]
-  },
-  {
     createdAt: 1787323800000,
     introducedIn: "2026.08.21.4",
     title: "Fixed border pylons and structures drifting away from the ground while panning",
@@ -493,6 +484,15 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     changes: [
       "The reach border now renders on top of fogged territory (dimmed, same as the rest of a fogged tile) instead of disappearing there.",
       "It still stays hidden over fully unexplored tiles, since there's nothing remembered there to draw it against."
+    ]
+  },
+  {
+    createdAt: 1787678904061, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.4",
+    title: "Fixed \"Expand To\" being blocked on tiles outside your reach again",
+    why: "Expand was opened up to out-of-reach frontier tiles (claimed land there just decays after 2 minutes unless your reach catches up), but a later change restored an OUT_OF_REACH server rejection for EXPAND without updating the client, so \"Expand To\" silently failed or wasn't offered on tiles adjacent to your border but outside your town/outpost's fixed reach radius.",
+    changes: [
+      "EXPAND is no longer reach-gated server-side. Claiming land outside your reach is allowed again, at the risk of it decaying back to neutral if your reach doesn't catch up to it in time."
     ]
   }
 ];

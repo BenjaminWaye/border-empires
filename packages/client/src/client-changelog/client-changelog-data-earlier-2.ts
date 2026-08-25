@@ -12,6 +12,52 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.3",
+    title: "Fixed borders not expanding after a reach anchor finished while you were away",
+    why: "A Relay Beacon (or any reach anchor) that finished building while you were disconnected expanded your border on the server, but the update was sent before your connection was ready to receive it and was silently dropped. Reconnecting did not recover it, so the game kept showing your old border -- and because the waypoint planner uses the same border, queued expansions could stall against territory the server had already granted you.",
+    changes: [
+      "Your authoritative border is now pushed once your connection is fully established, so a reach anchor that completed while you were offline shows up as soon as you log back in."
+    ]
+  },
+  {
+    createdAt: 1787616000000, // 2026.08.25.1 — frozen; was Date.now() in the merged commit
+    introducedIn: "2026.08.25.1",
+    title: "Fixed sea tiles rendering as solid black from some camera angles",
+    why: "The 3D water surface only got its color from directional lighting, with a near-black fallback (emissive 0x030e18) for anything that fell into shadow. Viewed from the south -- opposite the sun and fill light -- water faces caught neither light and the near-black fallback read as a black hole instead of dark sea.",
+    changes: [
+      "The water material's shadow-floor color is now a dim tint of the actual deep-water color instead of near-black, so unlit sea tiles read as dark water at any camera angle."
+    ]
+  },
+  {
+    createdAt: 1787678887251, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.3",
+    title: "Rivers now curve smoothly and taper toward the sea instead of looking like glued-together rectangles",
+    why: "The 3D river ribbon connected each walked point with a straight segment and a constant width the whole way, so every wobble step in the path showed up as a hard kink and every river read as a uniform-width strip regardless of how far it had traveled -- the classic 'blue rectangles' look rather than a real river.",
+    changes: [
+      "River paths are now smoothed with a Catmull-Rom curve and resampled at higher density, removing the faceted straight-segment look.",
+      "River width now tapers from narrow at the source to wide at the mouth, based on how far each point has flowed toward the sea."
+    ]
+  },
+  {
+    createdAt: 1787643819307, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.2",
+    title: "Fixed spawns landing next to resources across water",
+    why: "A new player's starting position only had to be within straight-line distance of a farm or fishing spot to count as \"nearby\" -- so a spawn could land on a coastline whose closest food was actually on the far side of a strait or a separate island, unreachable without crossing water.",
+    changes: [
+      "Spawn placement now requires that nearby food and towns be on the same landmass as the spawn point, not just within range as the crow flies."
+    ]
+  },
+  {
+    createdAt: 1787429155443,
+    introducedIn: "2026.08.22.12",
+    title: "Fixed a dark \"crack\" flickering at animated shorelines",
+    why: "Every coastline's animated water can dip deep enough at a wave trough to reveal the coastal skirt wall underneath it, which was shaded so dark that it read as a jarring black gap right at the shoreline.",
+    changes: [
+      "Brightened the coastal skirt wall's shading so it no longer looks near-black when the water's wave animation passes through a deep trough."
+    ]
+  },
+  {
     createdAt: 1787380000000,
     introducedIn: "2026.08.22.3",
     title: "Battle preview dots now throw glyphs and take casualties during the siege countdown",
@@ -23,16 +69,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787376000000, // 2026.08.22.2 — frozen; was Date.now() in the merged commit
-    introducedIn: "2026.08.22.2",
-    title: "3D ownership territory now has a crisp border line, not just a color wash",
-    why: "The 3D map's ownership fill was a flat, opaque color tint with no edge treatment, so territory read as a soft colored blob rather than a defined claim -- the 2D map already draws a solid outline along exactly this boundary, but the 3D map had no equivalent.",
-    changes: [
-      "Owned territory in the 3D map now gets a bright border ribbon along its exposed edges (the same boundary the 2D map already outlines), on top of the existing fill tint.",
-      "This is a first pass on making 3D ownership read more clearly -- fill gradient/fade and a frontier-vs-settled line style are natural next steps."
-    ]
-  },
-  {
     createdAt: 1787430200000,
     introducedIn: "2026.08.22.4",
     title: "Auto-settle no longer fires on tiles that have drifted out of reach",
@@ -40,6 +76,15 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     changes: [
       "Both the player's queued auto-settle and an AI empire's automatic frontier settlement now check reach before sending a settle command, dropping the queued action instead of sending one that's guaranteed to be rejected.",
       "When a settled tile gets overtaken and reverts to a frontier tile because a rival's territory grew over it, it now plays a brief collapsing pylon effect on the map instead of changing silently."
+    ]
+  },
+  {
+    createdAt: 1787650830571, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.1",
+    title: "Farmstead now grants +2 FOOD slots instead of +1",
+    why: "Farmstead's same-tile FOOD slot boost was tied with Mine/Umbrite Rig's +1, even though it's a dedicated food building -- a bigger boost makes it more worth building and gives Waterworks (which multiplies Farmstead's bonus) more to amplify.",
+    changes: [
+      "An active Farmstead on a FARM tile now adds +2 FOOD slots to that tile instead of +1. Waterworks' separate +2-per-Farmstead-in-radius bonus is unchanged and stacks on top."
     ]
   }
 ];

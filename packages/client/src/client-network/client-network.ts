@@ -675,7 +675,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       errorMessage === "tile must be owned" &&
       ((state.actionInFlight && state.actionTargetKey === errorTileKey) ||
         (state.capture && keyFor(state.capture.target.x, state.capture.target.y) === errorTileKey));
-    if (!transientOwnershipFailure && errorMessage !== "tile is locked in combat" && errorMessage !== "tile already settling") return false;
+    if (!transientOwnershipFailure && errorMessage !== "tile is locked in combat" && errorMessage !== "tile is already settling") return false;
     clearOptimisticTileStateSafely(errorTileKey, true);
     clearSettlementProgressSafely(errorTileKey);
     state.queuedDevelopmentDispatchPending = false;
