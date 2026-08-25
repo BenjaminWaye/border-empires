@@ -26,20 +26,13 @@ const phase4NonDurable = [
   "TRUCE_BREAK"
 ];
 
-// Dev/waypoint-queue commands mutate PlayerRuntimeSummary.devQueue/
-// waypointQueue, which is rebuilt fresh from tiles/players on every boot
-// (not part of the sqlite snapshot) -- durable across a disconnect/reconnect
-// but not across a cold process restart. See the exclusion comment in
-// command-coverage-sets.ts.
-const notRestartDurable = [
-  "DEV_QUEUE_ENQUEUE",
-  "DEV_QUEUE_CANCEL",
-  "DEV_QUEUE_MOVE_TO_FRONT",
-  "WAYPOINT_ENQUEUE",
-  "WAYPOINT_CANCEL",
-  "WAYPOINT_CANCEL_ALL",
-  "CLAIM_CONTINUATION_SET"
-];
+// CLAIM_CONTINUATION_SET mutates PlayerRuntimeSummary.claimContinuations,
+// which is rebuilt fresh from tiles/players on every boot (not part of the
+// sqlite snapshot) -- durable across a disconnect/reconnect but not across a
+// cold process restart. DEV_QUEUE_*/WAYPOINT_* commands used to share this
+// exclusion but are now snapshotted (see the exclusion comment in
+// command-coverage-sets.ts), so only CLAIM_CONTINUATION_SET remains here.
+const notRestartDurable = ["CLAIM_CONTINUATION_SET"];
 
 describe("phase-4 command coverage rails", () => {
   const durable = sortedUnique(DurableCommandTypeSchema.options);
