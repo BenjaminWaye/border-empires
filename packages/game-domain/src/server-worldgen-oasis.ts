@@ -7,8 +7,13 @@ import type { ServerWorldgenOasisDeps, ServerWorldgenOasisRuntime } from "./serv
 // a 2x2 water tile with a ring of GRASS+FARM tiles around it, indistinguishable
 // downstream from a natural cluster to ensureBaselineEconomyCoverage's
 // hasFood check (radius > 1) and to town/dock food-proximity scoring.
+// Deliberately kept a rare relief valve, not a routine fix, so desert stays
+// scarcer land than grassland: only a fraction of qualifying blocks actually
+// get one (OASIS_TRIGGER_CHANCE), and the sand-fraction bar is high
+// (OASIS_SAND_FRACTION_THRESHOLD) so it only fires in solidly desert blocks.
 const OASIS_BLOCK_SIZE = 30;
-const OASIS_SAND_FRACTION_THRESHOLD = 0.6;
+const OASIS_SAND_FRACTION_THRESHOLD = 0.75;
+const OASIS_TRIGGER_CHANCE = 0.35;
 const OASIS_MAX_ATTEMPTS_PER_BLOCK = 200;
 
 export const createServerWorldgenOasis = (deps: ServerWorldgenOasisDeps): ServerWorldgenOasisRuntime => {
@@ -37,6 +42,7 @@ export const createServerWorldgenOasis = (deps: ServerWorldgenOasisDeps): Server
         }
         if (landCount === 0 || hasFood) continue;
         if (sandCount / landCount < OASIS_SAND_FRACTION_THRESHOLD) continue;
+        if (seeded01(bx + 5, by + 5, seed + 8291) >= OASIS_TRIGGER_CHANCE) continue;
 
         // Candidates are drawn from the full block, not just its interior:
         // the pond+ring free-land check below is wrap-aware and absolute, so

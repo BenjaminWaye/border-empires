@@ -148,3 +148,23 @@ describe("generateTowns food proximity", () => {
     expect(deps.townsByTile.size).toBeGreaterThan(0);
   });
 });
+
+describe("generateTowns sparse biomes", () => {
+  it("places noticeably fewer towns on the SAND half of a map than the GRASS half", () => {
+    // Split the board down the middle (equal land area either side) so the
+    // comparison isolates the biome effect from the global town target,
+    // which stays fixed regardless of biome mix.
+    const deps = { ...buildDeps(), landBiomeAt: (x: number): LandBiome => (x < WORLD_WIDTH / 2 ? "GRASS" : "SAND") };
+
+    createServerWorldgenTowns(deps).generateTowns(11);
+
+    let grassHalfCount = 0;
+    let sandHalfCount = 0;
+    for (const town of deps.townsByTile.values()) {
+      const [x] = deps.parseKey(town.tileKey);
+      if (x < WORLD_WIDTH / 2) grassHalfCount += 1;
+      else sandHalfCount += 1;
+    }
+    expect(grassHalfCount).toBeGreaterThan(sandHalfCount);
+  });
+});

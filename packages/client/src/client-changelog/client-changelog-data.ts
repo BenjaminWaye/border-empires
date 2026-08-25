@@ -19,7 +19,8 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Towns could spawn far from any FARM or FISH cluster with no realistic way to feed themselves, and desert regions had no food-bearing terrain at all, leaving some map areas structurally unable to support a town.",
     changes: [
       "New towns now prefer sites within reach of a real FARM or FISH cluster; a map-wide fallback pass still fills in any remaining town quota if a spot's food-starved. Multiple towns can share the same food cluster.",
-      "Desert regions with no natural food source now sometimes grow a small oasis: a 2x2 pool of water ringed by grass and farmland, giving those areas a real place to build a town."
+      "Desert and tundra now settle noticeably sparser than grassland, on top of already having far less farmland naturally.",
+      "Desert regions with no natural food source now rarely grow a small oasis: a 2x2 pool of water ringed by grass and farmland, giving a lucky few of those areas a real place to build a town."
     ]
   },
   {
