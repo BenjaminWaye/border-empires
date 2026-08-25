@@ -188,7 +188,7 @@ import {
   handleDevQueueMoveToFrontCommand as handleDevQueueMoveToFrontCommandImpl,
   tryDrainDevQueue as tryDrainDevQueueImpl,
   type RuntimeDevQueueCommandContext
-} from "../runtime-dev-queue-command-handlers.js";
+} from "../runtime-dev-queue-command-handlers.js"; import { devQueueBuildReservationContext } from "../runtime-dev-queue-build-reservation.js";
 import {
   handleWaypointCancelAllCommand as handleWaypointCancelAllCommandImpl,
   handleWaypointCancelCommand as handleWaypointCancelCommandImpl,
@@ -3740,7 +3740,7 @@ export class SimulationRuntime {
       nextDrainCommandId: (playerId, tileKey) => this.nextTerritoryAutomationCommandId("dev-queue-drain", playerId, tileKey, this.now()),
       dispatchSettle: (command) => this.handleSettleCommand(command),
       dispatchBuild: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
-      dispatchRemoveStructure: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command)
+      dispatchRemoveStructure: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command), ...devQueueBuildReservationContext(this.structureCommandContext())
     };
   }
 

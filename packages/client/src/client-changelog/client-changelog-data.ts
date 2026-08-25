@@ -384,15 +384,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787519500000, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23.8",
-    title: "Added a \"Suggest Improvement\" button next to Report Bug",
-    why: "Players had a way to report bugs from Settings, but no equivalent in-app way to send us an improvement idea -- feedback ended up scattered across Discord instead.",
-    changes: [
-      "Settings > Diagnostics now has a green-bordered \"Suggest Improvement\" button below \"Report Bug\", opening the same style of form (with client/server context attached automatically) but posting to a separate suggestions inbox."
-    ]
-  },
-  {
     createdAt: 1787557977223, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.24.1",
     title: "Fixed laggy panning/zooming on wide monitors",
@@ -422,10 +413,21 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1787584599968, // frozen just after this file's prior latest entry, to avoid a createdAt collision
     introducedIn: "2026.08.25.1",
-    title: "Fixed the Expand To / dev queue silently emptying after a server restart",
-    why: "The frontier expand queue (\"Expand To\") and the development queue were only ever held in the simulation server's memory. They survived a player disconnecting and reconnecting, but a cold restart of the game server reset both queues to empty with no warning -- queued expand targets and build/settle orders were just gone.",
+    title: "Queued buildings now reserve manpower and a resource slot up front",
+    why: "A BUILD queued behind another in-progress build didn't cost anything until it actually started -- so nothing stopped you from queuing far more than you could afford, and since players often queue things up and go offline, a shortfall could sit hidden for a long time before finally surfacing as a silently dropped build once its turn came.",
     changes: [
-      "The Expand To queue and the development queue now survive a server restart -- both are saved with the rest of your empire's state and restored exactly as you left them."
+      "Queuing a building now reserves its manpower cost and a resource slot immediately, refunded in full if you cancel it while queued.",
+      "You can no longer queue more buildings than you can currently afford or have slots for -- the queue now rejects an addition it can't reserve for, instead of accepting it and failing silently later.",
+      "Reserved manpower is also handed back if anything goes wrong while queuing, so it can never be lost to an unexpected error."
+    ]
+  },
+  {
+    createdAt: 1787584599969, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.2",
+    title: "Fixed the Expand To / dev queue silently emptying after a server restart",
+    why: "The frontier expand queue (\"Expand To\") and the development queue were only ever held in the simulation server's memory. They survived a player disconnecting and reconnecting, but a cold restart of the game server reset both queues to empty with no warning -- queued expand targets and build/settle orders were just gone, including any manpower and resource slot a queued build had reserved.",
+    changes: [
+      "The Expand To queue and the development queue now survive a server restart -- both are saved with the rest of your empire's state and restored exactly as you left them, including a queued building's reserved manpower and resource slot."
     ]
   },
   {

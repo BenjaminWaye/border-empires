@@ -2,18 +2,22 @@
 // (which is already over the repo's per-file line cap) following the same
 // context-object pattern as runtime-structure-command-handlers.ts and
 // runtime-frontier-command.ts. See runtime-dev-queue.ts for the pure
-// enqueue/cancel/move-to-front array ops this delegates to.
+// enqueue/cancel/move-to-front array ops this delegates to, and
+// runtime-dev-queue-build-reservation.ts for the MP/slot reservation logic
+// a BUILD entry now holds while queued (§ queued-buildings-mp-reimbursement).
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import {
   devQueueCancel,
   devQueueEnqueue,
+  devQueueEntryForTileKey,
   devQueueMoveToFront,
   parseDevQueueEnqueuePayload,
   parseDevQueueTileKeyPayload
 } from "./runtime-dev-queue.js";
-import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import { reservedSlotDemandForQueue, type RuntimeDevQueueReservationContext } from "./runtime-dev-queue-build-reservation.js";
+import type { PlayerRuntimeSummary, ServerDevQueueEntry } from "./player-runtime-summary.js";
 
-export type RuntimeDevQueueCommandContext = {
+export type RuntimeDevQueueCommandContext = RuntimeDevQueueReservationContext & {
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   now: () => number;
   emitEvent: (event: SimulationEvent) => void;
@@ -25,17 +29,59 @@ export type RuntimeDevQueueCommandContext = {
   dispatchRemoveStructure: (command: CommandEnvelope) => void;
 };
 
+/** True for a BUILD entry that reserves MP/a slot -- SETTLE and REMOVE_STRUCTURE never do (removal frees a slot, it doesn't consume one; SETTLE costs no manpower per docs/manpower-economy-rewrite-plan.md §4.2). */
+function isReservableBuildEntry(kind: ServerDevQueueEntry["kind"], structureType: string | undefined): structureType is string {
+  return kind === "BUILD" && !!structureType && structureType !== "REMOVE_STRUCTURE";
+}
+
+function refundEntryReservation(context: RuntimeDevQueueCommandContext, playerId: string, entry: ServerDevQueueEntry | undefined): void {
+  if (entry?.reservedManpower) context.refundManpowerReservation(playerId, entry.reservedManpower);
+}
+
 export const handleDevQueueEnqueueCommand = (context: RuntimeDevQueueCommandContext, command: CommandEnvelope): void => {
   const payload = parseDevQueueEnqueuePayload(command.payloadJson);
   if (!payload) { context.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
   const summary = context.summaryForPlayer(command.playerId);
-  const { queue, accepted } = devQueueEnqueue(summary.devQueue, payload, context.now());
-  summary.devQueue = queue;
-  if (!accepted) {
+  if (summary.devQueue.some((e) => e.tileKey === payload.tileKey)) {
     context.rejectCommand(command, "DEV_QUEUE_FULL", "dev queue is full or already contains this tile");
     return;
   }
-  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+
+  let reservedManpower: number | undefined;
+  let reservedSlotRequirements: ServerDevQueueEntry["reservedSlotRequirements"];
+  if (isReservableBuildEntry(payload.kind, payload.structureType)) {
+    const extraSlotDemand = reservedSlotDemandForQueue(summary.devQueue);
+    const reservation = context.estimateBuildReservation(command.playerId, payload.structureType, payload.x, payload.y, extraSlotDemand);
+    if (!reservation.ok) { context.rejectCommand(command, reservation.code, reservation.message); return; }
+    context.applyManpowerReservation(command.playerId, reservation.manpowerCost);
+    reservedManpower = reservation.manpowerCost;
+    reservedSlotRequirements = reservation.slotRequirements;
+  }
+
+  // From here the manpower is already debited but not yet owed by anything in
+  // the queue -- so every exit out of this section, including an unexpected
+  // throw, has to hand it back. Losing a player's manpower to a transient
+  // error is never acceptable; double-refunding is prevented by clearing the
+  // local `reservedManpower` the moment the entry takes ownership of it.
+  let unownedReservation = reservedManpower;
+  try {
+    const { queue, accepted } = devQueueEnqueue(
+      summary.devQueue,
+      { ...payload, ...(reservedManpower ? { reservedManpower } : {}), ...(reservedSlotRequirements ? { reservedSlotRequirements } : {}) },
+      context.now()
+    );
+    if (!accepted) {
+      context.rejectCommand(command, "DEV_QUEUE_FULL", "dev queue is full or already contains this tile");
+      return;
+    }
+    summary.devQueue = queue;
+    unownedReservation = undefined; // the queued entry now carries the refund obligation
+    context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  } finally {
+    if (unownedReservation) context.refundManpowerReservation(command.playerId, unownedReservation);
+  }
+  // Drained outside the try: by here the reservation is owned by the queue
+  // entry, and tryDrainDevQueue does its own refund-before-dispatch.
   tryDrainDevQueue(context, command.playerId);
 };
 
@@ -43,6 +89,7 @@ export const handleDevQueueCancelCommand = (context: RuntimeDevQueueCommandConte
   const payload = parseDevQueueTileKeyPayload(command.payloadJson);
   if (!payload) { context.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
   const summary = context.summaryForPlayer(command.playerId);
+  refundEntryReservation(context, command.playerId, devQueueEntryForTileKey(summary.devQueue, payload.tileKey));
   summary.devQueue = devQueueCancel(summary.devQueue, payload.tileKey);
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 };
@@ -69,6 +116,12 @@ export const handleDevQueueMoveToFrontCommand = (context: RuntimeDevQueueCommand
  * independent human writer) can safely do. Calling the handler impls
  * directly skips that hazard entirely while still reusing their full
  * validation/application logic.
+ *
+ * Any reservedManpower this entry holds is refunded first, immediately
+ * before dispatch -- the dispatched BUILD_STRUCTURE command then re-derives
+ * and re-charges the exact, current cost itself (fort/siege tier, tech,
+ * Quartermaster's Office discount, tile eligibility, ...), so the queue-time
+ * estimate never needs to be exactly right, only a fair soft hold.
  */
 export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerId: string): void => {
   const summary = context.summaryForPlayer(playerId);
@@ -76,6 +129,7 @@ export const tryDrainDevQueue = (context: RuntimeDevQueueCommandContext, playerI
   if (!context.hasAvailableDevelopmentSlot(playerId)) return;
   const entry = summary.devQueue[0]!;
   summary.devQueue = summary.devQueue.slice(1);
+  refundEntryReservation(context, playerId, entry);
   const nowMs = context.now();
   const isRemoval = entry.kind === "BUILD" && entry.structureType === "REMOVE_STRUCTURE";
   // "BUILD_STRUCTURE" is the internal normalized build type (see
