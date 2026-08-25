@@ -563,20 +563,6 @@ export class SimulationRuntime {
   // own territory-dilation cache, so unrelated per-tick mutations don't bust it.
   private readonly territoryVersionByPlayer = new Map<string, number>();
   private readonly visionFootprintTable = createVisionFootprintTableForRuntime(WORLD_WIDTH, WORLD_HEIGHT, () => this.state.tiles, () => this.terrainEpoch); // see vision-footprint-table.ts
-  // O(radius²)-per-change coverage for the TILE_DELTA_BATCH hot path (see visibility-coverage-cache.ts).
-  private readonly visibilityCoverage = new VisibilityCoverageTracker(WORLD_WIDTH, WORLD_HEIGHT, {
-    visionRadiusForPlayer: (id) => { const p = this.state.players.get(id); return p ? effectiveVisionRadiusForPlayer(p) : 1; },
-    getPlayer: (id) => this.state.players.get(id),
-    territoryTileKeysForPlayer: (id) => this.summaryForPlayer(id).territoryTileKeys,
-    settledTileKeysForPlayer: (id) => {
-      const summary = this.summaryForPlayer(id);
-      if (summary.frontierTileKeys.size === 0) return summary.territoryTileKeys;
-      const settled = new Set<string>();
-      for (const key of summary.territoryTileKeys) if (!summary.frontierTileKeys.has(key)) settled.add(key);
-      return settled;
-    },
-    frontierTileKeysForPlayer: (id) => this.summaryForPlayer(id).frontierTileKeys
-  }, this.visionFootprintTable);
   private readonly visionTransitions = new VisionTransitionAccumulator(); // fog-of-war vision edges; see runtime-vision-transition.ts
   // Watchtower "flicker" reveals in flight — see runtime-watchtower-reveal-tick.ts. Self-draining, bounded, never persisted.
   private readonly pendingWatchtowerReveals: PendingWatchtowerReveal[] = [];
@@ -965,7 +951,21 @@ export class SimulationRuntime {
       ),
       docks: initDocks,
       dockLinksByDockTileKey: buildDockLinksByDockTileKey(initDocks),
-      locksByTile: createLocksFromInitialState(options.initialState)
+      locksByTile: createLocksFromInitialState(options.initialState),
+      // O(radius²)-per-change coverage for the TILE_DELTA_BATCH hot path (see visibility-coverage-cache.ts).
+      visibilityCoverage: new VisibilityCoverageTracker(WORLD_WIDTH, WORLD_HEIGHT, {
+        visionRadiusForPlayer: (id) => { const p = this.state.players.get(id); return p ? effectiveVisionRadiusForPlayer(p) : 1; },
+        getPlayer: (id) => this.state.players.get(id),
+        territoryTileKeysForPlayer: (id) => this.summaryForPlayer(id).territoryTileKeys,
+        settledTileKeysForPlayer: (id) => {
+          const summary = this.summaryForPlayer(id);
+          if (summary.frontierTileKeys.size === 0) return summary.territoryTileKeys;
+          const settled = new Set<string>();
+          for (const key of summary.territoryTileKeys) if (!summary.frontierTileKeys.has(key)) settled.add(key);
+          return settled;
+        },
+        frontierTileKeysForPlayer: (id) => this.summaryForPlayer(id).frontierTileKeys
+      }, this.visionFootprintTable)
     });
     for (const [key, tile] of this.state.tiles) this.snapshotTileCache.set(key, mapTile(tile));
     // applyManpowerRegen (which calls playerManpowerCap ->
@@ -1019,9 +1019,9 @@ export class SimulationRuntime {
     // neighbour regardless of iteration order.
     for (const [tileKey, tile] of this.state.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
-      this.visibilityCoverage.tileOwnershipChanged(undefined, tile.ownerId, tile.x, tile.y, undefined, { nextOwnershipState: tile.ownershipState });
+      this.state.visibilityCoverage.tileOwnershipChanged(undefined, tile.ownerId, tile.x, tile.y, undefined, { nextOwnershipState: tile.ownershipState });
       // Seed town +1 vision for any player-owned town present at boot.
-      seedTownVisionBonus({ players: this.state.players, coverage: this.visibilityCoverage }, tile);
+      seedTownVisionBonus({ players: this.state.players, coverage: this.state.visibilityCoverage }, tile);
       // Seed Light/Siege Outpost vision bonus for any owned active outpost present at boot.
       seedOutpostVisionBonus(this.outpostVisionDeps(), tile);
       const site = tile.shardSite;
@@ -1505,7 +1505,7 @@ export class SimulationRuntime {
       now: this.now,
       tiles: this.state.tiles,
       pendingWatchtowerReveals: this.pendingWatchtowerReveals,
-      visibilityCoverage: this.visibilityCoverage,
+      visibilityCoverage: this.state.visibilityCoverage,
       visionTransitionCallbacks: this.visionTransitions.callbacks,
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       emitEvent: (event) => this.emitEvent(event),
@@ -1891,7 +1891,7 @@ export class SimulationRuntime {
   private outpostVisionDeps(): OutpostVisionCoverageDeps {
     return {
       players: this.state.players,
-      coverage: this.visibilityCoverage,
+      coverage: this.state.visibilityCoverage,
       isStructureDormant: (ownerId, tileKey, field) => this.isStructureDormant(ownerId, tileKey, field),
       callbacks: this.visionTransitions.callbacks
     };
@@ -2191,7 +2191,7 @@ export class SimulationRuntime {
     // same-owner ownershipState flip — most importantly SETTLE, which grants
     // the tile's footprint for the first time even though ownerId never changes.
     if (!sameOwner || previous?.ownershipState !== tile.ownershipState) {
-      this.visibilityCoverage.tileOwnershipChanged(previous?.ownerId, tile.ownerId, tile.x, tile.y, this.visionTransitions.callbacks, {
+      this.state.visibilityCoverage.tileOwnershipChanged(previous?.ownerId, tile.ownerId, tile.x, tile.y, this.visionTransitions.callbacks, {
         previousOwnershipState: previous?.ownershipState,
         nextOwnershipState: tile.ownershipState
       });
@@ -2268,7 +2268,7 @@ export class SimulationRuntime {
       }
     }
     flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.state.tiles, dockLinksByDockTileKey: this.state.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
-    reconcileTownVisionBonus({ players: this.state.players, coverage: this.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
+    reconcileTownVisionBonus({ players: this.state.players, coverage: this.state.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
     reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
     // §5.4: this tile's own mutation can change either owner's FOOD/UMBRITE
     // slot totals (a resource tile gained/lost, a new demand consumer built)
@@ -2798,7 +2798,7 @@ export class SimulationRuntime {
       docks: this.state.docks,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-      visibilityCoverage: this.visibilityCoverage,
+      visibilityCoverage: this.state.visibilityCoverage,
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSyncMainThreadTask: this.trackSyncMainThreadTask } : {})
     };
   }
@@ -2925,7 +2925,7 @@ export class SimulationRuntime {
         docks: this.state.docks,
         dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
         summaryForPlayer: (id) => this.summaryForPlayer(id),
-        visibilityCoverage: this.visibilityCoverage,
+        visibilityCoverage: this.state.visibilityCoverage,
         hasFullVision: (pid) => this.getAbilityCooldownUntil(pid, ASTRAL_DOCK_LAUNCH_ACTIVE_UNTIL_KEY) > this.now(),
         ...(this.onVisibilityAudit ? { onVisibilityAudit: this.onVisibilityAudit } : {})
       },
@@ -3363,7 +3363,7 @@ export class SimulationRuntime {
             return Boolean(town && town.populationTier !== "SETTLEMENT");
           });
         },
-        isRevealedToPlayer: (tile) => this.visibilityCoverage.isVisible(playerId, simulationTileKey(tile.x, tile.y)) && isAutoSettlementResourceTechRevealed(tile, player), // fog-of-war + tech-reveal gates
+        isRevealedToPlayer: (tile) => this.state.visibilityCoverage.isVisible(playerId, simulationTileKey(tile.x, tile.y)) && isAutoSettlementResourceTechRevealed(tile, player), // fog-of-war + tech-reveal gates
         eligibilityCache
       })
         .map((tileKey) => {
@@ -3462,7 +3462,7 @@ export class SimulationRuntime {
       actor.allies.delete(target.id);
       target.allies.delete(actor.id);
     }
-    if (wasAllied !== payload.allied) this.visibilityCoverage.syncAllianceChange(actor.id, target.id, payload.allied, this.visionTransitions.callbacks);
+    if (wasAllied !== payload.allied) this.state.visibilityCoverage.syncAllianceChange(actor.id, target.id, payload.allied, this.visionTransitions.callbacks);
 
     this.emitPlayerMessage(
       { commandId: command.commandId, playerId: actor.id },
@@ -3972,7 +3972,7 @@ export class SimulationRuntime {
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       settledTilesForPlayer: (playerId) => this.settledTilesForPlayer(playerId),
       outpostVisionDeps: () => this.outpostVisionDeps(),
-      visibilityCoverage: this.visibilityCoverage,
+      visibilityCoverage: this.state.visibilityCoverage,
       visionTransitionCallbacks: this.visionTransitions.callbacks,
       now: () => this.now(),
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
