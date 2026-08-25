@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787650830571, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.1",
+    title: "Farmstead now grants +2 FOOD slots instead of +1",
+    why: "Farmstead's same-tile FOOD slot boost was tied with Mine/Umbrite Rig's +1, even though it's a dedicated food building -- a bigger boost makes it more worth building and gives Waterworks (which multiplies Farmstead's bonus) more to amplify.",
+    changes: [
+      "An active Farmstead on a FARM tile now adds +2 FOOD slots to that tile instead of +1. Waterworks' separate +2-per-Farmstead-in-radius bonus is unchanged and stacks on top."
+    ]
+  },
+  {
     createdAt: 1787584599966, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
     introducedIn: "2026.08.24.6",
     title: "\"Expand To\" no longer shows \"0 gold\" when expanding costs no gold",
@@ -437,6 +446,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A new player's starting position only had to be within straight-line distance of a farm or fishing spot to count as \"nearby\" -- so a spawn could land on a coastline whose closest food was actually on the far side of a strait or a separate island, unreachable without crossing water.",
     changes: [
       "Spawn placement now requires that nearby food and towns be on the same landmass as the spawn point, not just within range as the crow flies."
+    ]
+  },
+  {
+    createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.3",
+    title: "Fixed borders not expanding after a reach anchor finished while you were away",
+    why: "A Relay Beacon (or any reach anchor) that finished building while you were disconnected expanded your border on the server, but the update was sent before your connection was ready to receive it and was silently dropped. Reconnecting did not recover it, so the game kept showing your old border -- and because the waypoint planner uses the same border, queued expansions could stall against territory the server had already granted you.",
+    changes: [
+      "Your authoritative border is now pushed once your connection is fully established, so a reach anchor that completed while you were offline shows up as soon as you log back in."
     ]
   }
 ];
