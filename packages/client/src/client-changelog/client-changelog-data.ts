@@ -358,26 +358,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787430400000,
-    introducedIn: "2026.08.22.6",
-    title: "Joining a new season is now a deliberate choice",
-    why: "Logging in used to silently spawn you into whatever season was active, even if you had never chosen to play it. Reconnecting was indistinguishable from joining.",
-    changes: [
-      "When you log in and haven't joined the current season yet, a \"Join Season\" prompt now appears instead of spawning you automatically.",
-      "Confirming the prompt joins the season and spawns your starting territory; the prompt closes automatically once your empire appears."
-    ]
-  },
-  {
-    createdAt: 1787430300000,
-    introducedIn: "2026.08.22.5",
-    title: "Growing your territory over an enemy tile that was settled out of reach now takes it properly",
-    why: "A tile could end up settled by an empire that never held any territory claim over it, which left no claim recorded for that tile at all. When your own territory later grew across it, the game treated the ground as empty and simply handed you the claim -- but because nothing was recorded as changing hands, the enemy's settled tile was never knocked back to a frontier tile. The result was an enemy town sitting inside your border that your territory could never dislodge, no matter how far your reach grew.",
-    changes: [
-      "When your territory grows over an enemy tile that was settled without a claim behind it, that tile now reverts to a frontier tile, the same as any other tile your border takes over.",
-      "An enemy tile that is still genuinely defended by their own town, outpost or dock is unaffected -- it stays theirs, exactly as before."
-    ]
-  },
-  {
     createdAt: 1787430200000,
     introducedIn: "2026.08.22.4",
     title: "Auto-settle no longer fires on tiles that have drifted out of reach",

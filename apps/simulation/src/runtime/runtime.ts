@@ -187,9 +187,7 @@ import {
   handleDevQueueMoveToFrontCommand as handleDevQueueMoveToFrontCommandImpl,
   tryDrainDevQueue as tryDrainDevQueueImpl,
   type RuntimeDevQueueCommandContext
-} from "../runtime-dev-queue-command-handlers.js";
-import { devQueueBuildReservationContext } from "../runtime-dev-queue-build-reservation.js";
-import { restoreDevQueuesFromInitialState } from "../runtime-dev-queue-restore.js";
+} from "../runtime-dev-queue-command-handlers.js"; import { devQueueBuildReservationContext } from "../runtime-dev-queue-build-reservation.js"; import { restoreDevQueuesFromInitialState } from "../runtime-dev-queue-restore.js";
 import {
   handleWaypointCancelAllCommand as handleWaypointCancelAllCommandImpl,
   handleWaypointCancelCommand as handleWaypointCancelCommandImpl,
@@ -1179,9 +1177,7 @@ export class SimulationRuntime {
         this.manpowerCapBootstrapRestampedCount += 1;
       }
     }
-    // Reservations must survive a restart -- see runtime-dev-queue-restore.ts.
-    restoreDevQueuesFromInitialState(options.initialState, (playerId) => this.summaryForPlayer(playerId));
-    for (const player of options.initialState?.players ?? []) {
+    restoreDevQueuesFromInitialState(options.initialState, (playerId) => this.summaryForPlayer(playerId)); /* reservations must survive restart -- runtime-dev-queue-restore.ts */ for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
       const summary = this.summaryForPlayer(player.id);
       const currentTowns = new Map(summary.ownedTownTierByTile);
@@ -3745,8 +3741,7 @@ export class SimulationRuntime {
       nextDrainCommandId: (playerId, tileKey) => this.nextTerritoryAutomationCommandId("dev-queue-drain", playerId, tileKey, this.now()),
       dispatchSettle: (command) => this.handleSettleCommand(command),
       dispatchBuild: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
-      dispatchRemoveStructure: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command),
-      ...devQueueBuildReservationContext(this.structureCommandContext())
+      dispatchRemoveStructure: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command), ...devQueueBuildReservationContext(this.structureCommandContext())
     };
   }
 
