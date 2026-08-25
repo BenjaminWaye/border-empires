@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildRuntimeSnapshotSectionsAsync, type SnapshotExportInput } from "./runtime-snapshot-sections.js";
-import { restoreDevQueuesFromInitialState } from "./runtime-dev-queue-restore.js";
-import { createEmptyPlayerRuntimeSummary, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import { createEmptyPlayerRuntimeSummary, createPlayerRuntimeSummaryFromRecovered, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { DomainPlayer } from "@border-empires/game-domain";
 
 const PLAYER_ID = "player-1";
@@ -28,48 +27,33 @@ function summaryWithQueue(): PlayerRuntimeSummary {
   return summary;
 }
 
-describe("restoreDevQueuesFromInitialState", () => {
-  it("restores queued entries with their reservation intact, and does NOT re-deduct manpower", () => {
-    const summary = createEmptyPlayerRuntimeSummary();
-    const player = makePlayer();
-    restoreDevQueuesFromInitialState(
-      {
-        players: [
-          {
-            id: PLAYER_ID,
-            devQueue: [
-              { tileKey: "1,1", x: 1, y: 1, kind: "BUILD", structureType: "FORT", queuedAt: 1000, reservedManpower: 300, reservedSlotRequirements: [{ resource: "TITANIUM", count: 1 }] }
-            ]
-          }
-        ]
-      },
-      () => summary
-    );
-    expect(summary.devQueue).toEqual([
+describe("createPlayerRuntimeSummaryFromRecovered -- dev-queue reservation fields", () => {
+  it("restores queued entries with their reservation intact", () => {
+    const restored = createPlayerRuntimeSummaryFromRecovered({
+      devQueue: [
+        { tileKey: "1,1", x: 1, y: 1, kind: "BUILD", structureType: "FORT", queuedAt: 1000, reservedManpower: 300, reservedSlotRequirements: [{ resource: "TITANIUM", count: 1 }] }
+      ]
+    });
+    expect(restored.devQueue).toEqual([
       { tileKey: "1,1", x: 1, y: 1, kind: "BUILD", structureType: "FORT", queuedAt: 1000, reservedManpower: 300, reservedSlotRequirements: [{ resource: "TITANIUM", count: 1 }] }
     ]);
-    // The reserve was already taken before the snapshot -- restoring must not charge it again.
-    expect(player.manpower).toBe(700);
   });
 
-  it("leaves the queue untouched for players with no persisted queue", () => {
-    const summary = createEmptyPlayerRuntimeSummary();
-    restoreDevQueuesFromInitialState({ players: [{ id: PLAYER_ID }] }, () => summary);
-    expect(summary.devQueue).toEqual([]);
+  it("leaves the queue empty for a player with no persisted queue", () => {
+    expect(createPlayerRuntimeSummaryFromRecovered({ waypointQueue: [] }).devQueue).toEqual([]);
   });
 
-  it("tolerates a missing initialState", () => {
-    const summary = createEmptyPlayerRuntimeSummary();
-    expect(() => restoreDevQueuesFromInitialState(undefined, () => summary)).not.toThrow();
-    expect(summary.devQueue).toEqual([]);
+  it("tolerates a missing recovered record", () => {
+    expect(() => createPlayerRuntimeSummaryFromRecovered(undefined)).not.toThrow();
+    expect(createPlayerRuntimeSummaryFromRecovered(undefined).devQueue).toEqual([]);
   });
 });
 
 describe("dev-queue reservation survives a snapshot round-trip", () => {
   // The bug this guards: player.manpower is persisted with the reserve
-  // already deducted, but the snapshot used to omit devQueue entirely -- so
-  // every restart destroyed the entry that owed the refund and burned the
-  // reserved manpower permanently.
+  // already deducted, so the entry that owes the matching refund has to
+  // round-trip through the snapshot -- including reservedManpower/
+  // reservedSlotRequirements -- or a restart burns that manpower for good.
   it("persists reservedManpower/reservedSlotRequirements into the snapshot and restores them", async () => {
     const summary = summaryWithQueue();
     const input: SnapshotExportInput = {
@@ -93,8 +77,7 @@ describe("dev-queue reservation survives a snapshot round-trip", () => {
     ]);
 
     // ...and the restore side puts it back byte-for-byte.
-    const restored = createEmptyPlayerRuntimeSummary();
-    restoreDevQueuesFromInitialState(sections.initialState, () => restored);
+    const restored = createPlayerRuntimeSummaryFromRecovered(persistedPlayer);
     expect(restored.devQueue).toEqual(summary.devQueue);
   });
 });
