@@ -32,11 +32,11 @@ describe("resourceSlotSupplyForPlayer", () => {
     expect(totals).toEqual({ FOOD: 0, TITANIUM: 1, CRYSTAL: 1, UMBRITE: 1 });
   });
 
-  it("an active Farmstead adds +1 FOOD slot to its own FARM tile", () => {
+  it("an active Farmstead adds +2 FOOD slots to its own FARM tile", () => {
     const totals = resourceSlotSupplyForPlayer([
       tile({ x: 0, y: 0, resource: "FARM", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } })
     ]);
-    expect(totals.FOOD).toBe(2);
+    expect(totals.FOOD).toBe(3);
   });
 
   it("a Farmstead still under construction does not yet boost its tile", () => {
@@ -55,16 +55,16 @@ describe("resourceSlotSupplyForPlayer", () => {
     expect(totals.UMBRITE).toBe(2);
   });
 
-  it("an active Farmstead within Waterworks radius jumps from 2 to 4 FOOD slots", () => {
+  it("an active Farmstead within Waterworks radius jumps from 3 to 5 FOOD slots", () => {
     const farmstead = tile({ x: 5, y: 5, resource: "FARM", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } });
     const totals = resourceSlotSupplyForPlayer([farmstead], new Set(["5,6"]));
-    expect(totals.FOOD).toBe(4);
+    expect(totals.FOOD).toBe(5);
   });
 
   it("Waterworks radius bonus does not apply outside WATERWORKS_RADIUS", () => {
     const farmstead = tile({ x: 5, y: 5, resource: "FARM", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } });
     const totals = resourceSlotSupplyForPlayer([farmstead], new Set(["5,100"]));
-    expect(totals.FOOD).toBe(2);
+    expect(totals.FOOD).toBe(3);
   });
 
   it("FISH gets no Farmstead or Waterworks bonus (fixed 2 slots forever)", () => {

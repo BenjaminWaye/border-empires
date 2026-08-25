@@ -68,7 +68,9 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
         }))
         .sort((a, b) => a.commandId.localeCompare(b.commandId)),
       players: [...input.players.values()]
-        .map((player) => ({
+        .map((player) => {
+          const summary = input.summaryForPlayer(player.id);
+          return {
           id: player.id,
           ...(player.name ? { name: player.name } : {}),
           isAi: player.isAi,
@@ -94,8 +96,18 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           visionRadiusBonus: visionRadiusBonusForPlayer(player),
           incomeMultiplier: player.mods?.income ?? 1,
           incomePerMinute: input.incomePerMinuteForPlayer(player.id),
-          ownedTownTileKeys: [...input.summaryForPlayer(player.id).ownedTownTierByTile.keys()]
-        }))
+          ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
+          // Restart-durable: DEV_QUEUE_*/WAYPOINT_* commands only ever mutate
+          // in-memory PlayerRuntimeSummary (see command-coverage-sets.ts) --
+          // snapshotting the current queue contents here, current-value style
+          // like strategicResources above, is what makes them survive a cold
+          // process restart instead of silently emptying on boot.
+          ...(summary.waypointQueue.length
+            ? { waypointQueue: summary.waypointQueue.map((entry) => ({ ...entry, target: { ...entry.target } })) }
+            : {}),
+          ...(summary.devQueue.length ? { devQueue: summary.devQueue.map((entry) => ({ ...entry })) } : {})
+          };
+        })
         .sort((a, b) => a.id.localeCompare(b.id)),
       pendingSettlements: [...input.pendingSettlementsByTile.values()]
         .map((s) => ({ ...s }))
