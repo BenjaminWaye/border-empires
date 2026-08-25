@@ -469,6 +469,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "AI-controlled empires on the leaderboard now show a single first name (e.g. \"Sigrid\", \"Edvin\") instead of a first-plus-surname combo."
     ]
+  },
+  {
+    createdAt: 1787584599968, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.1",
+    title: "Queued buildings now reserve manpower and a resource slot up front",
+    why: "A BUILD queued behind another in-progress build didn't cost anything until it actually started -- so nothing stopped you from queuing far more than you could afford, and since players often queue things up and go offline, a shortfall could sit hidden for a long time before finally surfacing as a silently dropped build once its turn came.",
+    changes: [
+      "Queuing a building now reserves its manpower cost and a resource slot immediately, refunded in full if you cancel it while queued.",
+      "You can no longer queue more buildings than you can currently afford or have slots for -- the queue now rejects an addition it can't reserve for, instead of accepting it and failing silently later."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
