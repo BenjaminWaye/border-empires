@@ -24,7 +24,7 @@ describe("registerActiveBattleFromTileDelta", () => {
     // tile edge straight to full formation. startAt must stay pinned to the
     // skirmish's own seenAt so the approach math resumes exactly where it was.
     const seenAt = 1000;
-    const nowMs = seenAt + 200; // still mid-approach: 200 < APPROACH_MS (550)
+    const nowMs = seenAt + 200;
     const state = { activeBattles: new Map(), skirmishSeenAt: new Map([["5,5", seenAt]]) };
 
     registerActiveBattleFromTileDelta(state, keyFor, { x: 5, y: 5, combatJson: combatJson() }, nowMs);
@@ -32,6 +32,7 @@ describe("registerActiveBattleFromTileDelta", () => {
     const battle = state.activeBattles.get("5,5")!;
     expect(battle.startAt).toBe(seenAt);
     expect(battle.clashAt).toBe(seenAt + APPROACH_MS);
+    expect(battle.fromSkirmish).toBe(true);
   });
 
   it("skips straight to the clash phase when the skirmish's approach had already finished", () => {
@@ -43,6 +44,7 @@ describe("registerActiveBattleFromTileDelta", () => {
 
     const battle = state.activeBattles.get("5,5")!;
     expect(battle.clashAt).toBe(nowMs);
+    expect(battle.fromSkirmish).toBe(true);
   });
 
   it("plays a full fresh approach for a bystander with no preceding skirmish", () => {
@@ -54,5 +56,6 @@ describe("registerActiveBattleFromTileDelta", () => {
     const battle = state.activeBattles.get("5,5")!;
     expect(battle.startAt).toBe(nowMs);
     expect(battle.clashAt).toBe(nowMs + APPROACH_MS);
+    expect(battle.fromSkirmish).toBe(false);
   });
 });

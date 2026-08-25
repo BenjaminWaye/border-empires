@@ -123,7 +123,7 @@ describe("battle overlay skirmish sourcing", () => {
           {
             originX: 4, originY: 5, targetX: 5, targetY: 5,
             attackerOwnerId: "me", defenderOwnerId: "victim", attackerWon: true,
-            startAt: 1000, clashAt: 1000, endAt: 9999
+            startAt: 1000, clashAt: 1000, endAt: 9999, fromSkirmish: true
           }
         ]
       ])

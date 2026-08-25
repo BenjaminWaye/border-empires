@@ -34,6 +34,7 @@ export type ActiveBattleOverlay = {
   startAt: number;
   clashAt: number;
   endAt: number;
+  fromSkirmish: boolean;
 };
 
 /** Parses a tile delta's raw `combatJson` field (if present) and, when valid,
@@ -81,7 +82,8 @@ export const registerActiveBattleFromTileDelta = (
     attackerWon: parsed.attackerWon,
     startAt,
     clashAt,
-    endAt: clashAt + CLASH_MS + ROUT_MS
+    endAt: clashAt + CLASH_MS + ROUT_MS,
+    fromSkirmish: seenAt !== undefined,
   });
 };
 

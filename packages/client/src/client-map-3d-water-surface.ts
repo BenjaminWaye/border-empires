@@ -93,7 +93,10 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
     clearcoatRoughness: 0.4,
     transparent: true,
     opacity: 0.78,
-    emissive: new Color(0x030e18), // faint inner glow so deep water stays alive in shadow
+    // Floor brightness = a dim tint of DEEP_COLOR (not near-black) so water
+    // reads as dark sea, not a black hole, when lit faces turn away from
+    // the camera (e.g. viewed from the south, opposite the sun/fill lights).
+    emissive: DEEP_COLOR.clone().multiplyScalar(0.4),
     emissiveIntensity: 1.0,
     normalMap: swellMap,
     normalScale: new Vector2(0.32, 0.32),
