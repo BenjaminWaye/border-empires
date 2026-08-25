@@ -3,6 +3,7 @@
 // client-changelog.ts sorts by createdAt. Move old entries to
 // client-changelog-data-earlier.ts when this file approaches the cap.
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER } from "./client-changelog-data-earlier.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_2 } from "./client-changelog-data-earlier-2.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -365,25 +366,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787509343955, // frozen from `date +%s%3N`
-    introducedIn: "2026.08.23.3",
-    title: "Reach no longer spreads across open water",
-    why: "A town, outpost, or dock's reach radius was purely geometric with no terrain awareness, so a coastal or island anchor's disk routinely covered land on the far side of a bay or strait even with no unbroken land route to it -- letting you EXPAND/SETTLE onto land you had no real connection to.",
-    changes: [
-      "A normal reach anchor's radius now only extends onto land reachable by an unbroken land path from the anchor, within the radius -- water is still included right at the coastline, it just can't act as a stepping-stone onto land further out.",
-      "The Aether Bridge's water-crossing reach grant is unaffected -- bridging across water without a land connection is still exactly what it's for."
-    ]
-  },
-  {
-    createdAt: 1787509994281, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.3",
-    title: "Fixed queued settlements/builds sometimes sitting stalled after logging back in",
-    why: "A queued SETTLE or BUILD only starts once an earlier one in your queue finishes, and that hand-off only happens when the server notices a slot just freed up. If a slot freed up while you were disconnected, nobody was around to trigger that hand-off, so your next queued action could sit stalled -- looking untouched -- until some unrelated action elsewhere happened to free another slot.",
-    changes: [
-      "Logging back in now immediately checks your queue for anything that's actually free to start, instead of waiting on an unrelated event to notice."
-    ]
-  },
-  {
     createdAt: 1787557977223, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.24.1",
     title: "Fixed laggy panning/zooming on wide monitors",
@@ -478,7 +460,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787678904060, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1787616000000, // 2026.08.25.1 — frozen; was Date.now() in the merged commit
     introducedIn: "2026.08.25.1",
     title: "Fixed sea tiles rendering as solid black from some camera angles",
     why: "The 3D water surface only got its color from directional lighting, with a near-black fallback (emissive 0x030e18) for anything that fell into shadow. Viewed from the south -- opposite the sun and fill light -- water faces caught neither light and the near-black fallback read as a black hole instead of dark sea.",
@@ -487,8 +469,18 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787665177075,
+    createdAt: 1787678887251, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.3",
+    title: "Rivers now curve smoothly and taper toward the sea instead of looking like glued-together rectangles",
+    why: "The 3D river ribbon connected each walked point with a straight segment and a constant width the whole way, so every wobble step in the path showed up as a hard kink and every river read as a uniform-width strip regardless of how far it had traveled -- the classic 'blue rectangles' look rather than a real river.",
+    changes: [
+      "River paths are now smoothed with a Catmull-Rom curve and resampled at higher density, removing the faceted straight-segment look.",
+      "River width now tapers from narrow at the source to wide at the mouth, based on how far each point has flowed toward the sea."
+    ]
+  },
+  {
+    createdAt: 1787678904061, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.4",
     title: "Fixed \"Expand To\" being blocked on tiles outside your reach again",
     why: "Expand was opened up to out-of-reach frontier tiles (claimed land there just decays after 2 minutes unless your reach catches up), but a later change restored an OUT_OF_REACH server rejection for EXPAND without updating the client, so \"Expand To\" silently failed or wasn't offered on tiles adjacent to your border but outside your town/outpost's fixed reach radius.",
     changes: [
@@ -498,5 +490,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2
 ];
