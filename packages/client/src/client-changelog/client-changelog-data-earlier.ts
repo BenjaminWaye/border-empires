@@ -274,16 +274,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787132874001, // 2026.08.19
-    introducedIn: "2026.08.19",
-    title: "Town gold production now includes each Mintworks' flat bonus, and settled-town copy cleaned up",
-    why: "A town's displayed gold production silently dropped each active Mintworks' flat +1 gold/day-per-copy bonus — the town-summary formula that feeds the client only applied Mintworks' % production multiplier, duplicating (and drifting from) the authoritative formula used elsewhere in the sim, which always included the flat bonus. Separately, a settled town's overview always opened with a generic \"Settled land is defended and fully part of your empire\" line even though the stat grid right below it already says everything that line does.",
-    changes: [
-      "Town gold production now correctly includes every active Mintworks' flat gold bonus, not just its production-percentage multiplier.",
-      "A settled town's overview no longer shows the generic \"Settled land is defended...\" line — plain settled land with no town still does."
-    ]
-  },
-  {
     createdAt: 1787411986658,
     introducedIn: "2026.08.22.8",
     title: "Beta season countdown screen",

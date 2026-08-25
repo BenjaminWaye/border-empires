@@ -91,3 +91,26 @@ export const elevationJitter = (wx: number, wy: number, kind: HeightfieldTerrain
 // blend its dome edges against real jittered neighbours, not a flat seam.
 export const heightfieldFlatTileElevation = (wx: number, wy: number, kind: HeightfieldTerrainKind): number =>
   heightfieldTileBaseElevation(kind) + elevationJitter(wx, wy, kind);
+
+// A "coast corner" vertex (some explored sea + some explored land touching
+// it) is normally pinned flush to coastEdgeY so flat land bevels smoothly
+// into the water. When a hill sits on the land side, that pin sinks the
+// corner tens of units below the hill dome's actual surface — anything
+// anchored via cornerYAt at that corner (the ownership overlay's draped
+// hill tint, gridlines) ends up buried inside the terrain and invisible,
+// which is why a settled coastal hill's ownership colour can appear to
+// never render. Tapering to the hills' own base elevation (bonus
+// subtracted, matching the dome's tapered-to-zero edge) instead keeps the
+// corner near the dome surface while still never rising above it.
+export const coastCornerElevation = (
+  s00: { elevation: number; isExplored: boolean; isHills: boolean },
+  s10: { elevation: number; isExplored: boolean; isHills: boolean },
+  s01: { elevation: number; isExplored: boolean; isHills: boolean },
+  s11: { elevation: number; isExplored: boolean; isHills: boolean },
+  coastEdgeY: number
+): number => {
+  const hills = [s00, s10, s01, s11].filter((s) => s.isExplored && s.isHills);
+  if (hills.length === 0) return coastEdgeY;
+  const avg = hills.reduce((sum, s) => sum + (s.elevation - HEIGHTFIELD_HILLS_ELEVATION_BONUS), 0) / hills.length;
+  return Math.max(coastEdgeY, avg);
+};
