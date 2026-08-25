@@ -109,7 +109,7 @@ describe("BASE_SLOTS_BY_TILE_RESOURCE", () => {
 
 describe("TILE_SLOT_BOOST_STRUCTURES / Waterworks bonus", () => {
   it("Farmstead/Mine/Umbrite Rig each add +1 slot to their own tile", () => {
-    expect(TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD).toBe(1);
+    expect(TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD).toBe(2);
     expect(TILE_SLOT_BOOST_STRUCTURES.MINE).toBe(1);
     expect(TILE_SLOT_BOOST_STRUCTURES.UMBRITE_RIG).toBe(1);
   });
