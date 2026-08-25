@@ -60,8 +60,8 @@ const SURFACE_LIFT_Y = 0.025;
 // doesn't need the ocean's animated chop.
 const RIVER_COLOR = new Color(0x3f7fa0);
 
-type RiverPoint = { readonly wx: number; readonly wy: number; readonly halfWidth: number };
-type RiverPath = readonly RiverPoint[];
+export type RiverPoint = { readonly wx: number; readonly wy: number; readonly halfWidth: number };
+export type RiverPath = readonly RiverPoint[];
 
 const kindAt = (wx: number, wy: number): HeightfieldTerrainKind => {
   const terrain = terrainAt(wx, wy);
@@ -283,7 +283,7 @@ const catmullRom1D = (p0: number, p1: number, p2: number, p3: number, t: number)
 // straight-line-between-wobbled-points look with a smooth meander. Endpoints
 // clamp their missing neighbour to themselves (standard Catmull-Rom
 // treatment) so the curve still starts/ends exactly on the source and mouth.
-const smoothRiverPath = (path: RiverPath): RiverPath => {
+export const smoothRiverPath = (path: RiverPath): RiverPath => {
   if (path.length < 3) return path;
   const at = (i: number): RiverPoint => path[Math.min(Math.max(i, 0), path.length - 1)]!;
   const smoothed: RiverPoint[] = [];
@@ -292,11 +292,25 @@ const smoothRiverPath = (path: RiverPath): RiverPath => {
     const p1 = at(i);
     const p2 = at(i + 1);
     const p3 = at(i + 2);
+    // walkRiver's neighbour steps wrap toroidally, so a path that reaches a
+    // world edge can jump from e.g. x=449.5 straight to x=0.5. Interpolating
+    // those raw coordinates directly would make the curve extrapolate across
+    // the whole map instead of the one real tile step it represents.
+    // toroidDelta expresses every control point as a short offset from p1
+    // (the segment's start) so the fit only ever sees the true, short
+    // distance between neighbours; wrap() folds the sampled result back into
+    // world range afterward.
+    const p0dx = toroidDelta(p1.wx, p0.wx, WORLD_WIDTH);
+    const p0dy = toroidDelta(p1.wy, p0.wy, WORLD_HEIGHT);
+    const p2dx = toroidDelta(p1.wx, p2.wx, WORLD_WIDTH);
+    const p2dy = toroidDelta(p1.wy, p2.wy, WORLD_HEIGHT);
+    const p3dx = toroidDelta(p1.wx, p3.wx, WORLD_WIDTH);
+    const p3dy = toroidDelta(p1.wy, p3.wy, WORLD_HEIGHT);
     for (let s = 0; s < CURVE_SAMPLES_PER_SEGMENT; s += 1) {
       const t = s / CURVE_SAMPLES_PER_SEGMENT;
       smoothed.push({
-        wx: catmullRom1D(p0.wx, p1.wx, p2.wx, p3.wx, t),
-        wy: catmullRom1D(p0.wy, p1.wy, p2.wy, p3.wy, t),
+        wx: wrap(p1.wx + catmullRom1D(p0dx, 0, p2dx, p3dx, t), WORLD_WIDTH),
+        wy: wrap(p1.wy + catmullRom1D(p0dy, 0, p2dy, p3dy, t), WORLD_HEIGHT),
         // Width tapers monotonically with flow already; linear interpolation
         // (rather than another Catmull-Rom pass) is enough to avoid a
         // stepped width change at each original sample point.
@@ -391,29 +405,34 @@ export const createRiverOverlay = (scene: Scene): RiverOverlay => {
     const indices: number[] = [];
 
     type ScenePoint = { readonly x: number; readonly z: number; readonly y: number; readonly halfWidth: number };
+    type StripVertex = { readonly leftX: number; readonly leftZ: number; readonly rightX: number; readonly rightZ: number; readonly y: number };
 
-    // Culling (view margin, fog-of-war) is per-point, which can chop one
-    // river into several disjoint visible stretches. Each stretch is built
-    // as its own shared-vertex ribbon strip — sharing a vertex between
-    // consecutive segments (rather than each segment owning independent
-    // corners, as before) is what removes the gap/overlap at every bend,
-    // the same technique client-map-3d-road-overlay.ts uses for road arms.
-    const pushRibbonStrip = (run: readonly ScenePoint[]): void => {
+    // Left/right offsets are computed from the *full* path's neighbours
+    // before any view/fog culling, not from a run truncated by that culling.
+    // Deriving the tangent from a run-local neighbour instead would make the
+    // ribbon's end cap snap to a one-sided (and often wrong) direction right
+    // at every camera-margin or fog boundary, since that boundary is a
+    // rendering artifact, not a real bend in the river.
+    const vertexAt = (points: readonly ScenePoint[], i: number): StripVertex => {
+      const prev = points[Math.max(i - 1, 0)]!;
+      const next = points[Math.min(i + 1, points.length - 1)]!;
+      const tx = next.x - prev.x;
+      const tz = next.z - prev.z;
+      const tlen = Math.hypot(tx, tz) || 1;
+      const cur = points[i]!;
+      const px = (-tz / tlen) * cur.halfWidth;
+      const pz = (tx / tlen) * cur.halfWidth;
+      return { leftX: cur.x - px, leftZ: cur.z - pz, rightX: cur.x + px, rightZ: cur.z + pz, y: cur.y };
+    };
+
+    // Sharing a vertex between consecutive segments (rather than each
+    // segment owning independent corners, as before) is what removes the
+    // gap/overlap at every bend, the same technique
+    // client-map-3d-road-overlay.ts uses for road arms.
+    const pushRibbonStrip = (run: readonly StripVertex[]): void => {
       if (run.length < 2) return;
       const base = positions.length / 3;
-      for (let i = 0; i < run.length; i += 1) {
-        const prev = run[Math.max(i - 1, 0)]!;
-        const next = run[Math.min(i + 1, run.length - 1)]!;
-        const tx = next.x - prev.x;
-        const tz = next.z - prev.z;
-        const tlen = Math.hypot(tx, tz) || 1;
-        const cur = run[i]!;
-        // Perpendicular unit vector (in the XZ plane) to the local tangent,
-        // scaled by this point's own taper width.
-        const px = (-tz / tlen) * cur.halfWidth;
-        const pz = (tx / tlen) * cur.halfWidth;
-        positions.push(cur.x - px, cur.y, cur.z - pz, cur.x + px, cur.y, cur.z + pz);
-      }
+      for (const v of run) positions.push(v.leftX, v.y, v.leftZ, v.rightX, v.y, v.rightZ);
       for (let i = 0; i < run.length - 1; i += 1) {
         const li = base + i * 2;
         const ri = li + 1;
@@ -424,21 +443,29 @@ export const createRiverOverlay = (scene: Scene): RiverOverlay => {
     };
 
     for (const path of rivers) {
-      let run: ScenePoint[] = [];
-      for (const p of path) {
-        const x = toroidDelta(camX, p.wx, WORLD_WIDTH);
-        const z = toroidDelta(camY, p.wy, WORLD_HEIGHT);
-        // Drop (and break the run at) points outside the visible window or
-        // unexplored fog — same two guards the old per-segment loop applied,
-        // now checked per-point so a run only ever contains drawable points.
-        const inView = Math.abs(x) <= marginW && Math.abs(z) <= marginH;
-        const explored = isExploredAt(Math.floor(p.wx), Math.floor(p.wy));
-        if (!inView || !explored) {
+      const scenePoints = path.map((p) => ({
+        x: toroidDelta(camX, p.wx, WORLD_WIDTH),
+        z: toroidDelta(camY, p.wy, WORLD_HEIGHT),
+        y: surfaceYAt(p.wx, p.wy),
+        halfWidth: p.halfWidth
+      }));
+      const inView = scenePoints.map((p) => Math.abs(p.x) <= marginW && Math.abs(p.z) <= marginH);
+      const explored = path.map((p) => isExploredAt(Math.floor(p.wx), Math.floor(p.wy)));
+      // A point renders if it (or an immediate neighbour) is within the view
+      // margin — mirroring the old per-*segment* rule, which kept a segment
+      // as long as at least one of its two endpoints was inside. Checking
+      // only the point itself would clip a couple of tiles earlier than
+      // before right at the edge of the camera window. Fog-of-war has no
+      // such leniency: an unexplored point is a hard cut, same as before.
+      let run: StripVertex[] = [];
+      for (let i = 0; i < scenePoints.length; i += 1) {
+        const keepForView = inView[i] || (i > 0 && inView[i - 1]) || (i < scenePoints.length - 1 && inView[i + 1]);
+        if (!keepForView || !explored[i]) {
           pushRibbonStrip(run);
           run = [];
           continue;
         }
-        run.push({ x, z, y: surfaceYAt(p.wx, p.wy), halfWidth: p.halfWidth });
+        run.push(vertexAt(scenePoints, i));
       }
       pushRibbonStrip(run);
     }
