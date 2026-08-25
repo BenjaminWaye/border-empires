@@ -102,17 +102,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787122800000, // 2026.08.21
-    introducedIn: "2026.08.21",
-    title: "Expanding onto a connected dock now works, and Aether Bridge landings open up nearby territory",
-    why: "Expanding onto a dock connected to one you already own always failed with an out-of-reach error, since a dock only contributed to your reach once you already owned it -- there was no way to ever take the first step onto the far side. Separately, an Aether Bridge only ever opened a single-tile crossing at its landing point, so it couldn't be used to establish a real foothold for further expansion.",
-    changes: [
-      "You can now EXPAND onto an unowned dock that's connected to a dock you already own.",
-      "Casting Aether Bridge onto neutral ground now grants a small radius of reach around the landing tile, so you can expand into the surrounding land and build a Relay Beacon there -- the grant persists even after the bridge itself expires, though it can still be overtaken if a rival establishes their own reach (e.g. a Relay Beacon) over that ground.",
-      "Casting a bridge onto ground already inside a rival's territory still opens the crossing for an attack, but no longer grants any reach there."
-    ]
-  },
-  {
     createdAt: 1787476075398, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23",
     title: "Redesigned the bug report form",
@@ -225,36 +214,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     changes: [
       "Town gold production now correctly includes every active Mintworks' flat gold bonus, not just its production-percentage multiplier.",
       "A settled town's overview no longer shows the generic \"Settled land is defended...\" line — plain settled land with no town still does."
-    ]
-  },
-  {
-    createdAt: 1787084630235, // 2026.08.18
-    introducedIn: "2026.08.18",
-    title: "Removed a stale \"gold paused until manpower is full\" message that could no longer appear",
-    why: "The town info panel had leftover copy and a data field for a gold-pause condition the server never actually sends, so it was permanently dead code. Removed it to keep the panel's messaging accurate to what the server can report.",
-    changes: [
-      "The tile info panel no longer has an unreachable \"Town is fed but gold is paused until your empire manpower is full\" line.",
-      "No mechanical change — this condition was never triggered by the server."
-    ]
-  },
-  {
-    createdAt: 1787085726552, // 2026.08.18.2
-    introducedIn: "2026.08.18.2",
-    title: "Town overview now explains partial support and unbuilt Trade Nexuses",
-    why: "Two real gold-production penalties were invisible on the tile panel: a town under-full on Support silently produces less gold (supportRatio is a direct multiplier in the sim), and a connected-town network with no Caravanary anywhere in it pays a flat +0% bonus — but the panel said nothing in either case, so there was no way to tell why gold looked low. The panel also never showed a town's FOOD slot count, only a prose warning once it was already unfed.",
-    changes: [
-      "Partial Support (e.g. 7/8) now shows its real gold-production cost as a Modifiers line instead of staying silent.",
-      "A connected-town network with no built Trade Nexus (Caravanary) now shows a neutral +0% line explaining why the connection bonus isn't paying out, instead of nothing at all.",
-      "A settled town's overview tab now shows its FOOD slot count (e.g. \"Food 4/4 slots\") next to Support."
-    ]
-  },
-  {
-    createdAt: 1787083759893, // 2026.08.18.1
-    introducedIn: "2026.08.18.1",
-    title: "Town overview now shows manpower",
-    why: "The tile overview panel listed Population, Growth, Support, Production, and Upkeep for a settled town, but never said anything about the town's manpower contribution to your empire — a stat players had no way to see anywhere on the tile itself.",
-    changes: [
-      "A settled town's overview tab now shows its base manpower cap and regen contribution, right after Population and Growth."
     ]
   },
   {
