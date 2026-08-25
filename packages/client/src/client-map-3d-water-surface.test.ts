@@ -33,4 +33,49 @@ describe("createWaterSurface", () => {
 
     water.dispose();
   });
+
+  // Regression test for black artifacts under coastal sea tiles: the water
+  // surface is a flat, zero-thickness sheet with no underside geometry of
+  // its own -- it relied entirely on the *land* skirt (a wall dropped along
+  // every coastal land edge) to hide the void beneath it. Anywhere water
+  // bordered non-water without an adjacent drawn land tile this frame (mid-
+  // sea, a fog/window boundary, etc.) there was nothing there, so a grazing
+  // or below-water view saw straight through to empty background.
+  it("adds its own skirt wall along tile edges that border non-water", () => {
+    const scene = new Scene();
+    const water = createWaterSurface(scene, 4);
+    water.addTile(0.5, 0.5, false); // a single water tile: every edge is exposed
+    water.commit();
+
+    const meshes = scene.children.filter((child): child is Mesh => child instanceof Mesh);
+    expect(meshes.length).toBe(2); // surface + skirt
+    const skirt = meshes.find((m) => m.renderOrder === 11);
+    expect(skirt).toBeDefined();
+    // 4 exposed edges * 4 verts/edge = 16 skirt vertices.
+    expect(skirt!.geometry.attributes["position"]!.count).toBe(16);
+
+    water.dispose();
+  });
+
+  it("adds no skirt wall when every tile edge borders another water tile", () => {
+    const scene = new Scene();
+    const water = createWaterSurface(scene, 9);
+    // A fully-interior 1x1 patch surrounded on all 4 sides: no exposed edges.
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        water.addTile(dx + 0.5, dz + 0.5, false);
+      }
+    }
+    water.commit();
+
+    const meshes = scene.children.filter((child): child is Mesh => child instanceof Mesh);
+    // Surface mesh only -- the interior tile's own edges are all covered,
+    // and the outer ring's edges get a skirt, but the center tile shouldn't.
+    const skirt = meshes.find((m) => m.renderOrder === 11);
+    expect(skirt).toBeDefined();
+    // Outer ring: 8 tiles * up-to-4 exposed edges (corners expose 2, edges expose 1) = 12 exposed edges.
+    expect(skirt!.geometry.attributes["position"]!.count).toBe(12 * 4);
+
+    water.dispose();
+  });
 });
