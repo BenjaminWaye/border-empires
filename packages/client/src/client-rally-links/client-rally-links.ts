@@ -67,10 +67,9 @@ const formatExpiry = (expiresAt: number): string => {
   return `Expires ${date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
 };
 
-const createPanel = (variant: "new" | "invite"): HTMLElement => {
+const createPanel = (): HTMLElement => {
   const panel = document.createElement("section");
   panel.className = "rally-link-panel";
-  panel.dataset.variant = variant;
   panel.innerHTML = `
     <div class="rally-link-card">
       <button type="button" class="rally-link-dismiss" data-rally-dismiss aria-label="Close">
@@ -80,18 +79,19 @@ const createPanel = (variant: "new" | "invite"): HTMLElement => {
       </button>
       <h2>Rally link</h2>
       <p data-rally-status>Sign in to create a rally link.</p>
-      <dl data-rally-details hidden>
-        <div><dt>Host</dt><dd data-rally-owner></dd></div>
-        <div><dt>Spawns</dt><dd data-rally-uses></dd></div>
-        <div><dt>Anchor</dt><dd data-rally-anchor></dd></div>
-      </dl>
       <div data-rally-output hidden>
         <input data-rally-url readonly />
         <button type="button" data-rally-copy>Copy</button>
       </div>
     </div>
   `;
-  document.body.append(panel);
+  // Mounted inside #hud (not document.body) so its z-index is compared
+  // against #auth-overlay's within the same stacking context. #hud is
+  // `position: fixed` with `z-index: auto`, which still forms its own
+  // stacking context -- a body-level sibling with an explicit z-index
+  // (even one numerically below #auth-overlay's) paints above everything
+  // inside #hud regardless, hiding the sign-in form behind this panel.
+  (document.getElementById("hud") ?? document.body).append(panel);
   const style = document.createElement("style");
   style.textContent = `
     .rally-link-panel{position:fixed;inset:0;z-index:29;display:grid;place-items:center;pointer-events:none}
@@ -100,11 +100,6 @@ const createPanel = (variant: "new" | "invite"): HTMLElement => {
     .rally-link-dismiss:hover{background:rgba(255,255,255,.1);color:#f8fafc}
     .rally-link-card h2{font-size:20px;line-height:1.2;margin:0 0 8px;padding-right:24px}
     .rally-link-card p{margin:0 0 12px;color:#cbd5e1}
-    .rally-link-card dl{display:grid;grid-template-columns:1fr;gap:8px;margin:0 0 14px}
-    .rally-link-card dl[hidden]{display:none}
-    .rally-link-card dl div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-top:1px solid rgba(255,255,255,.12);padding-top:8px}
-    .rally-link-card dt{color:#94a3b8;font-size:12px;text-transform:uppercase}
-    .rally-link-card dd{margin:0;text-align:right;color:#f8fafc}
     .rally-link-card [data-rally-output]{display:grid;grid-template-columns:1fr auto;gap:8px}
     .rally-link-card [data-rally-output][hidden]{display:none}
     .rally-link-card input{min-width:0;border:1px solid rgba(255,255,255,.18);border-radius:6px;background:#020617;color:#f8fafc;padding:10px}
@@ -122,7 +117,7 @@ const dismissPanel = (panel: HTMLElement): void => {
 };
 
 const openRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {
-  const panel = createPanel("new");
+  const panel = createPanel();
   const status = panel.querySelector<HTMLElement>("[data-rally-status]")!;
   const output = panel.querySelector<HTMLElement>("[data-rally-output]")!;
   const input = panel.querySelector<HTMLInputElement>("[data-rally-url]")!;
@@ -191,29 +186,32 @@ export const mountRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string })
   openRallyNewPanel(deps);
 };
 
-export const mountRallyInvitePanel = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {
-  if (typeof window === "undefined") return;
-  const code = rallyCodeFromLocation(window.location);
-  if (!code) return;
+// Shown inline inside the sign-in card rather than as its own overlay: a
+// floating full-screen panel here used to sit on top of #auth-overlay
+// (see bindRallyLinkOpenClicks's comment on stacking contexts -- #auth-card
+// lives inside #hud, so a body-level popup with a numerically lower
+// z-index still painted over it), hiding the "Continue with Google" button
+// a rally guest actually needs to click.
+const mountRallyInviteBanner = (deps: { firebaseAuth?: Auth; wsUrl: string }, code: string): void => {
+  const authPanelHead = document.querySelector<HTMLElement>(".auth-panel-head");
+  if (!authPanelHead) return;
 
-  const panel = createPanel("invite");
-  const title = panel.querySelector<HTMLHeadingElement>("h2")!;
-  const status = panel.querySelector<HTMLElement>("[data-rally-status]")!;
-  const details = panel.querySelector<HTMLElement>("[data-rally-details]")!;
-  const owner = panel.querySelector<HTMLElement>("[data-rally-owner]")!;
-  const uses = panel.querySelector<HTMLElement>("[data-rally-uses]")!;
-  const anchor = panel.querySelector<HTMLElement>("[data-rally-anchor]")!;
-  const dismiss = panel.querySelector<HTMLButtonElement>("[data-rally-dismiss]")!;
-  dismiss.addEventListener("click", () => dismissPanel(panel));
-  title.textContent = "Join a rally";
-  status.textContent = "Loading rally invite...";
+  const banner = document.createElement("div");
+  banner.className = "rally-invite-banner";
+  banner.innerHTML = `<p data-rally-invite-status>Loading rally invite...</p>`;
+  authPanelHead.before(banner);
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .rally-invite-banner{margin-bottom:14px;padding:10px 14px;border-radius:10px;border:1px solid rgba(56,189,248,.35);background:rgba(56,189,248,.1);color:#e0f2fe}
+    .rally-invite-banner p{margin:0;font-size:14px;line-height:1.4}
+  `;
+  document.head.append(style);
+
+  const status = banner.querySelector<HTMLElement>("[data-rally-invite-status]")!;
 
   const renderAuthStatus = (): void => {
-    if (deps.firebaseAuth?.currentUser) {
-      panel.remove();
-      return;
-    }
-    status.textContent = "Sign in or create an account to join through this rally invite.";
+    if (deps.firebaseAuth?.currentUser) banner.remove();
   };
 
   void fetch(rallyLinkEndpoint(deps.wsUrl, code), {
@@ -227,10 +225,9 @@ export const mountRallyInvitePanel = (deps: { firebaseAuth?: Auth; wsUrl: string
         status.textContent = "This rally invite is expired or no longer available.";
         return;
       }
-      owner.textContent = body.ownerName;
-      uses.textContent = `${body.usesRemaining} remaining`;
-      anchor.textContent = `${body.anchor.x}, ${body.anchor.y} · ${formatExpiry(body.expiresAt)}`;
-      details.hidden = false;
+      status.textContent =
+        `${body.ownerName} invited you to a rally -- sign in to spawn right next to them. ` +
+        `${body.usesRemaining} joins remaining, ${formatExpiry(body.expiresAt)}.`;
       renderAuthStatus();
     })
     .catch(() => {
@@ -238,4 +235,11 @@ export const mountRallyInvitePanel = (deps: { firebaseAuth?: Auth; wsUrl: string
     });
 
   if (deps.firebaseAuth) onAuthStateChanged(deps.firebaseAuth, renderAuthStatus);
+};
+
+export const mountRallyInvitePanel = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  const code = rallyCodeFromLocation(window.location);
+  if (!code) return;
+  mountRallyInviteBanner(deps, code);
 };
