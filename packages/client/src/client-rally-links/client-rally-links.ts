@@ -73,7 +73,11 @@ const createPanel = (variant: "new" | "invite"): HTMLElement => {
   panel.dataset.variant = variant;
   panel.innerHTML = `
     <div class="rally-link-card">
-      <button type="button" class="rally-link-dismiss" data-rally-dismiss aria-label="Close">&times;</button>
+      <button type="button" class="rally-link-dismiss" data-rally-dismiss aria-label="Close">
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+          <path d="M2 2 L14 14 M14 2 L2 14" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+        </svg>
+      </button>
       <h2>Rally link</h2>
       <p data-rally-status>Sign in to create a rally link.</p>
       <dl data-rally-details hidden>
@@ -92,7 +96,7 @@ const createPanel = (variant: "new" | "invite"): HTMLElement => {
   style.textContent = `
     .rally-link-panel{position:fixed;inset:0;z-index:29;display:grid;place-items:center;pointer-events:none}
     .rally-link-card{position:relative;width:min(420px,calc(100vw - 32px));background:rgba(11,18,32,.94);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:18px;color:#f8fafc;box-shadow:0 18px 54px rgba(0,0,0,.38);pointer-events:auto}
-    .rally-link-dismiss{position:absolute;top:8px;right:8px;width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:#94a3b8;font-size:20px;line-height:1;cursor:pointer}
+    .rally-link-dismiss{position:absolute;top:8px;right:8px;width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:#94a3b8;padding:0;cursor:pointer}
     .rally-link-dismiss:hover{background:rgba(255,255,255,.1);color:#f8fafc}
     .rally-link-card h2{font-size:20px;line-height:1.2;margin:0 0 8px;padding-right:24px}
     .rally-link-card p{margin:0 0 12px;color:#cbd5e1}
@@ -117,8 +121,7 @@ const dismissPanel = (panel: HTMLElement): void => {
   }
 };
 
-export const mountRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {
-  if (typeof window === "undefined" || !isRallyNewRoute(window.location)) return;
+const openRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {
   const panel = createPanel("new");
   const status = panel.querySelector<HTMLElement>("[data-rally-status]")!;
   const output = panel.querySelector<HTMLElement>("[data-rally-output]")!;
@@ -165,6 +168,27 @@ export const mountRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string })
   });
   if (deps.firebaseAuth) onAuthStateChanged(deps.firebaseAuth, () => void mint());
   void mint();
+};
+
+// Delegated so it also catches the "Get Rally Link" settings-panel button:
+// that button opens the panel in place (no navigation), which keeps the
+// already-signed-in Firebase session intact instead of racing a page reload.
+export const bindRallyLinkOpenClicks = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {
+  if (typeof document === "undefined") return;
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.closest("[data-rally-link-open]")) return;
+    if (typeof window !== "undefined" && window.history?.pushState) {
+      window.history.pushState(null, "", "/rally/new");
+    }
+    openRallyNewPanel(deps);
+  });
+};
+
+export const mountRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {
+  bindRallyLinkOpenClicks(deps);
+  if (typeof window === "undefined" || !isRallyNewRoute(window.location)) return;
+  openRallyNewPanel(deps);
 };
 
 export const mountRallyInvitePanel = (deps: { firebaseAuth?: Auth; wsUrl: string }): void => {

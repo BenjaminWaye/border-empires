@@ -84,4 +84,20 @@ describe("settings panel regression guard", () => {
     expect(hudSource).toContain('type: "REQUEST_REVEAL_MAP"');
     expect(hudSource).toContain('type: "SET_FOG_DISABLED"');
   });
+
+  it("opens the rally link panel in place instead of a full page navigation", () => {
+    // Regression: "Get Rally Link" used to be a plain <a href="/rally/new">,
+    // which forced a full page reload and re-raced Firebase Auth rehydration
+    // -- already-signed-in players briefly saw "Sign in, then this page will
+    // create your rally link." It must stay a button bound (via a delegated
+    // click listener in client-rally-links.ts) to open the panel in-page,
+    // not a navigating anchor.
+    const settingsPanelSource = sourceFor("./client-hud-settings-panel.ts");
+    const rallyLinksSource = sourceFor("../client-rally-links/client-rally-links.ts");
+
+    expect(settingsPanelSource).not.toContain('href="/rally/new"');
+    expect(settingsPanelSource).toContain("data-rally-link-open");
+    expect(rallyLinksSource).toContain("bindRallyLinkOpenClicks");
+    expect(rallyLinksSource).toContain('"[data-rally-link-open]"');
+  });
 });
