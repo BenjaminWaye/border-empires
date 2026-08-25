@@ -14,6 +14,11 @@ import { computeRssHeapGapMb } from "../mem-gap-diagnostic/mem-gap-diagnostic.js
 // told apart from a single log line instead of manual timestamp correlation.
 const MAIN_THREAD_TASK_LIMIT = 16;
 
+// Below this, an event-loop lag spike is silently rolled into sim_event_loop_max_ms with no
+// attribution payload. 2000 is tuned for prod multi-second stalls; the nightly load harness
+// gates at 150ms, so it overrides this lower to see what's behind a gate-failing spike.
+export const eventLoopBlockWarnMs = Math.max(50, Number(process.env.SIMULATION_EVENT_LOOP_BLOCK_WARN_MS ?? 2_000));
+
 export type EventLoopBlockedParams = {
   lagMs: number;
   detectedAtMs: number;
