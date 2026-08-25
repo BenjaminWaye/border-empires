@@ -29,7 +29,7 @@ import {
   drawReachBoundaryLine,
   isDormantFrontierTile
 } from "./client-reach-overlay/client-reach-overlay.js";
-import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js";
+import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
@@ -1661,7 +1661,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       halfH,
       nowMs,
       precomputedAlerts: persistentAlertsCache
-    });
+    }); drawOnboardingChecklistHighlights(state.onboardingHighlightTiles, { ctx: deps.ctx, worldToScreen: deps.worldToScreen, size, halfW, halfH, nowMs });
     const minimapAlertsMs = phaseMs();
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     const tileDetailMs = phaseMs();

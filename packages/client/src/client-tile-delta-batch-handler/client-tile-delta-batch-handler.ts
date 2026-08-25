@@ -3,6 +3,7 @@ import type { Tile } from "../client-types.js";
 import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gateway-sync.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
+import { renderOnboardingChecklistOverlay } from "../client-onboarding-checklist/client-onboarding-checklist-overlay.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
 import { pushDiscoveryTipFeedEntry } from "../client-alerts/client-alerts.js";
 
@@ -148,5 +149,6 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     });
   }
   renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, () => deps.renderHud(), (def) => pushDiscoveryTipFeedEntry(state, def));
+  state.onboardingHighlightTiles = renderOnboardingChecklistOverlay(state.tiles.values(), state.me, state.authEmail);
   deps.renderHud();
 };
