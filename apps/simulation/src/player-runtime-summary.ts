@@ -24,8 +24,11 @@ export type PendingSettlementRecord = {
 };
 
 /** Server-durable dev-queue entry -- see runtime-dev-queue.ts. Mirrors the
- *  shared DevQueueEntry shape but is tracked per-player here, in-memory only
- *  (not restart-durable, see the plan doc's scope-boundary note). */
+ *  shared DevQueueEntry shape but is tracked per-player here. Snapshotted
+ *  (current-value, like strategicResources) into initialState.players[]
+ *  and reseeded on boot -- see event-recovery-player-state.ts and
+ *  createPlayerRuntimeSummaryFromRecovered -- so it survives a cold
+ *  process restart. */
 export type ServerDevQueueEntry = {
   tileKey: string;
   x: number;
