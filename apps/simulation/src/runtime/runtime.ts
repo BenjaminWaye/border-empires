@@ -1655,7 +1655,7 @@ export class SimulationRuntime {
       incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.(),
       coastalLandKeys: () => this.spawnPlacementIndex.coastalLandKeys(this.tiles),
       hasNearbySettled: (x, y, radius) => this.spawnPlacementIndex.hasNearbySettled(x, y, radius),
-      hasNearbyTown: (x, y, radius) => this.spawnPlacementIndex.hasNearbyTown(x, y, radius),
+      hasNearbyTown: (x, y, radius) => this.spawnPlacementIndex.hasNearbyTown(this.tiles, x, y, radius),
       hasNearbyFood: (x, y, radius) => this.spawnPlacementIndex.hasNearbyFood(this.tiles, x, y, radius)
     };
   }
