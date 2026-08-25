@@ -26,15 +26,12 @@ import {
 //   [LINEUP_MS, APPROACH_MS)                — march: both sides advance from their edge toward the target tile's center
 //   [APPROACH_MS, APPROACH_MS+CLASH_MS)     — clash: oscillating melee at the tile center + glyph bursts; some dots are lost
 //   [APPROACH_MS+CLASH_MS, endAt)           — rout: winner pushes through, loser scatters/collapses
-// A battle that picks up from an already-visible pre-resolution skirmish (see
-// BattleOverlaySkirmishEntry and client-battle-overlay.ts) continues that
-// skirmish's own lineup/march/clash trajectory exactly (same startAt) instead
-// of restarting it — in the overwhelmingly common case the skirmish's own
-// lineup+march already finished, so this lands straight in the clash phase,
-// but either way the dots never jump. Casualties (see WINNER/LOSER_DEATH_
-// FRACTION) only ever happen once the outcome is known — the skirmish's own
-// indefinite pre-resolution clash loop never kills a dot, since attrition
-// implies a fight that's ending and this one deliberately isn't yet.
+// A resolved battle that picks up from an already-visible pre-resolution
+// skirmish continues its own approach/clash trajectory (same startAt)
+// instead of restarting — the skirmish plays the same lineup→march→clash
+// with glyph bursts and first-cycle casualties (WINNER_DEATHS per side), so
+// the transition is seamless: the loser takes 2 more casualties and the rout
+// begins.
 export const LINEUP_MS = 2500;
 export const MARCH_MS = 900;
 export const APPROACH_MS = LINEUP_MS + MARCH_MS;
@@ -96,6 +93,11 @@ export type BattleOverlayRenderEntry = {
   startAt: number;
   clashAt: number;
   endAt: number;
+  // When true the battle continues a pre-resolution skirmish that already
+  // shed WINNER_DEATHS dots per side during its first clash cycle — those dots
+  // stay at scale 0 rather than re-fading, and only the loser's 2 remaining
+  // deaths emerge over the battle's own clash window.
+  fromSkirmish: boolean;
   // Stable per-tile hash seed (target tile coordinates), NOT an array index —
   // see BattleOverlaySkirmishEntry.hashSeed below for why. Also, critically,
   // this must be derived the same way a preceding skirmish's hashSeed was:
@@ -105,14 +107,10 @@ export type BattleOverlayRenderEntry = {
   hashSeed: number;
 };
 
-// A siege still counting down to its resolution tick — the server hasn't
-// broadcast a CombatBroadcastPayload yet (that only fires once, at
-// resolveLock), so the outcome is unknown. Plays the same lineup-then-march
-// approach as a resolved battle (see LINEUP_MS/APPROACH_MS below) once,
-// starting from `startAt`, then settles into an indefinite clash-oscillation
-// loop at the tile center for the rest of the countdown, with no rout phase,
-// no glyph bursts, and no casualties, so it reads as "still contested" rather
-// than "just resolved".
+// A siege still counting down — outcome unknown. Plays the same lineup→march
+// approach as a resolved battle, then indefinite clash-oscillation at the tile
+// center with glyph bursts and first-cycle casualties (WINNER_DEATHS per side),
+// but no rout phase, so it reads as "still contested" rather than "resolved".
 export type BattleOverlaySkirmishEntry = {
   srcWorldX: number;
   srcWorldZ: number;
@@ -122,11 +120,9 @@ export type BattleOverlaySkirmishEntry = {
   tgtSurfaceY: number;
   attackerColor: string;
   defenderColor: string;
-  // When this client first started rendering this skirmish (its own clock,
-  // e.g. performance.now()) — drives the one-time approach phase below.
-  // Intentionally NOT tied to the siege's actual server-side start time: a
-  // client that opens mid-siege should still see a fresh approach on its
-  // first frame rather than a jump-cut into an already-oscillating melee.
+  // When this client first rendered this skirmish (performance.now(), not
+  // server epoch) — lets a mid-siege viewer see a fresh approach instead of
+  // jumping into an already-oscillating melee.
   startAt: number;
   // Stable per-tile hash seed (derived from target tile coordinates), NOT
   // an array index — unlike resolved battles, a skirmish can sit in the
@@ -321,6 +317,28 @@ export function createBattleOverlayFx(scene: Scene) {
     shardMeshB.count = 0;
   };
 
+  // Renders glyph/rune bursts during the clash phase. `clashT` cycles [0,1]
+  // every CLASH_MS for skirmishes (continuous spawns) or advances once for
+  // resolved battles. Returns per-mesh write counts so the caller can advance
+  // its own shard counters.
+  const renderShards = (seed: number, tx: number, ty: number, tz: number, ct: number, sa: number, sb: number): [number, number] => {
+    let a = 0, b = 0;
+    for (let j = 0; j < SHARDS_PER_BATTLE; j++) {
+      const k = shardKitFor(seed, j);
+      const lt = (ct - k.spawnT) / k.life;
+      if (lt < 0 || lt > 1) continue;
+      const rise = Math.sin(lt * Math.PI);
+      const r = k.dist * lt;
+      tmpPos.set(tx + clampLocal(Math.cos(k.angle) * r), ty + SHARD_Y_OFFSET + lt * 0.05, tz + clampLocal(Math.sin(k.angle) * r));
+      tmpScale.setScalar(rise);
+      tmpQuat.setFromAxisAngle(UP_AXIS, k.angle * 3 + lt * 4);
+      tmpM.compose(tmpPos, tmpQuat, tmpScale);
+      if (k.variant === 0) { shardMeshA.setMatrixAt(sa + a, tmpM); a++; }
+      else { shardMeshB.setMatrixAt(sb + b, tmpM); b++; }
+    }
+    return [a, b];
+  };
+
   const tick = (
     nowMs: number,
     battles: BattleOverlayRenderEntry[],
@@ -356,17 +374,15 @@ export function createBattleOverlayFx(scene: Scene) {
       for (let side = 0 as 0 | 1; side < 2; side++) {
         const isAttacker = side === 0;
         const winning = isAttacker ? b.attackerWon : !b.attackerWon;
-        // Attacker enters from the tile-local edge facing their origin;
-        // defender starts from the opposite edge. Both converge on the
-        // tile's own center for the clash.
         const entryLocalX = isAttacker ? -ux * TILE_LOCAL_MAX : ux * TILE_LOCAL_MAX;
         const entryLocalZ = isAttacker ? -uz * TILE_LOCAL_MAX : uz * TILE_LOCAL_MAX;
-        // Each side's own forward direction through the clash point.
         const fwdX = isAttacker ? ux : -ux;
         const fwdZ = isAttacker ? uz : -uz;
         const mesh = isAttacker ? attackerMesh : defenderMesh;
         tmpColor.set(isAttacker ? b.attackerColor : b.defenderColor);
         const dyingIndices = dyingIndicesFor((s, i) => deathKitFor(b.hashSeed, s, i), side, winning);
+        const preDeadIndices = (b.fromSkirmish && nowMs >= b.startAt + APPROACH_MS + CLASH_MS)
+          ? dyingIndicesFor((s, i) => deathKitFor(b.hashSeed, s, i), side, true) : null;
 
         for (let i = 0; i < DOTS_PER_SIDE; i++) {
           const kit = dotKitFor(b.hashSeed, side, i);
@@ -385,7 +401,8 @@ export function createBattleOverlayFx(scene: Scene) {
           } else if (nowMs < clashEndAt) {
             const clashT = clamp01((nowMs - b.clashAt) / CLASH_MS);
             [lx, lz] = clashLocalXZ(kit, nowMs, perpX, perpZ, fwdX, fwdZ);
-            if (dies && clashT >= deathKit.at) scale = 1 - clamp01((clashT - deathKit.at) / DEATH_FADE_T);
+            if (preDeadIndices && preDeadIndices.has(i)) scale = 0;
+            else if (dies && clashT >= deathKit.at) scale = 1 - clamp01((clashT - deathKit.at) / DEATH_FADE_T);
           } else if (dies) {
             // Already fell during the clash above — stays gone through rout.
             lx = 0;
@@ -406,12 +423,8 @@ export function createBattleOverlayFx(scene: Scene) {
               routLz = entryLocalZ - fwdZ * retreat + perpZ * kit.perpPos * scatter;
               scale = 1 - routT;
             }
-            // The clash oscillation (spread + forward jostle) doesn't just
-            // vanish the instant rout starts: blend from wherever it was
-            // frozen at the exact clash/rout boundary into the clean rout
-            // trajectory above, over the first ROUT_SETTLE_T of rout. Without
-            // this a dot mid-sway at clashEndAt would visibly pop straight
-            // onto the rout line.
+            // Blend from the clash oscillation (frozen at boundary) into the
+            // rout trajectory over ROUT_SETTLE_T to avoid a visible pop.
             const settleT = clamp01(routT / ROUT_SETTLE_T);
             if (settleT < 1) {
               const [clashLx, clashLz] = clashLocalXZ(kit, clashEndAt, perpX, perpZ, fwdX, fwdZ);
@@ -433,39 +446,19 @@ export function createBattleOverlayFx(scene: Scene) {
         }
       }
 
-      // Glyph/rune burst: only during the clash window, staggered per-shard
-      // via its own hashed spawn offset so bursts feel continuous rather than
-      // one synchronized pop.
+      // Glyph/rune bursts during the clash window.
       if (nowMs >= b.clashAt && nowMs < clashEndAt) {
         const clashT = clamp01((nowMs - b.clashAt) / CLASH_MS);
-        for (let j = 0; j < SHARDS_PER_BATTLE; j++) {
-          const kit = shardKitFor(b.hashSeed, j);
-          const localT = (clashT - kit.spawnT) / kit.life;
-          if (localT < 0 || localT > 1) continue;
-          const rise = Math.sin(localT * Math.PI); // 0 -> 1 -> 0 pop
-          const r = kit.dist * localT;
-          const x = tileX + clampLocal(Math.cos(kit.angle) * r);
-          const z = tileZ + clampLocal(Math.sin(kit.angle) * r);
-          const y = tileY + SHARD_Y_OFFSET + localT * 0.05;
-          tmpPos.set(x, y, z);
-          tmpScale.setScalar(rise);
-          tmpQuat.setFromAxisAngle(UP_AXIS, kit.angle * 3 + localT * 4);
-          tmpM.compose(tmpPos, tmpQuat, tmpScale);
-          if (kit.variant === 0) { shardMeshA.setMatrixAt(shardAWrite, tmpM); shardAWrite++; }
-          else { shardMeshB.setMatrixAt(shardBWrite, tmpM); shardBWrite++; }
-        }
+        const [sa, sb2] = renderShards(b.hashSeed, tileX, tileY, tileZ, clashT, shardAWrite, shardBWrite);
+        shardAWrite += sa; shardBWrite += sb2;
       }
     }
 
-    // Sieges still counting down with no resolved outcome yet: a one-time
-    // lineup-then-march (both sides form up, then advance to the tile center
-    // — same formula as a resolved battle's lineup/march phases) followed by
-    // an indefinite clash-oscillation loop for the rest of the countdown —
-    // no rout, no glyph bursts, no casualties, visually distinct from a
-    // battle that's resolving. Uses the exact same tile-local clash formula
-    // (and hashSeed) as the resolved-battle clash phase above, so a battle
-    // that picks up from a live skirmish (see client-battle-overlay.ts)
-    // continues seamlessly instead of jumping.
+    // Mirrors the resolved battle's clash phase (glyph bursts + casualties)
+    // so the skirmish is visually rich throughout the siege countdown and the
+    // outcome transition is seamless. Both sides shed WINNER_DEATHS in the
+    // first clash cycle; the resolved battle only needs to shed 2 more on the
+    // loser's side.
     for (let s = 0; s < skirmishes.length && slot < MAX_CONCURRENT_BATTLES; s++, slot++) {
       const b = skirmishes[s]!;
       const dirX = b.tgtWorldX - b.srcWorldX;
@@ -480,22 +473,21 @@ export function createBattleOverlayFx(scene: Scene) {
       const tileZ = b.tgtWorldZ;
       const tileY = b.tgtSurfaceY + DOT_Y_OFFSET;
       const elapsed = nowMs - b.startAt;
+      const firstClashT = (nowMs - (b.startAt + APPROACH_MS)) / CLASH_MS;
 
       for (let side = 0 as 0 | 1; side < 2; side++) {
         const isAttacker = side === 0;
-        // Same tile-local entry edges as the resolved-battle lineup: the
-        // attacker enters facing their origin, the defender from the
-        // opposite edge, both converging on the tile center.
         const entryLocalX = isAttacker ? -ux * TILE_LOCAL_MAX : ux * TILE_LOCAL_MAX;
         const entryLocalZ = isAttacker ? -uz * TILE_LOCAL_MAX : uz * TILE_LOCAL_MAX;
-        // Each side's own forward direction through the clash point.
         const fwdX = isAttacker ? ux : -ux;
         const fwdZ = isAttacker ? uz : -uz;
         const mesh = isAttacker ? attackerMesh : defenderMesh;
         tmpColor.set(isAttacker ? b.attackerColor : b.defenderColor);
+        const skirmishDying = dyingIndicesFor((s2, i) => deathKitFor(b.hashSeed, s2, i), side, true);
 
         for (let i = 0; i < DOTS_PER_SIDE; i++) {
           const kit = dotKitFor(b.hashSeed, side, i);
+          const deathKit = deathKitFor(b.hashSeed, side, i);
           let lx: number;
           let lz: number;
           let scale = 1;
@@ -508,6 +500,8 @@ export function createBattleOverlayFx(scene: Scene) {
             [lx, lz] = marchLocalXZ(entryLocalX, entryLocalZ, marchT, kit, perpX, perpZ);
           } else {
             [lx, lz] = clashLocalXZ(kit, nowMs, perpX, perpZ, fwdX, fwdZ);
+            if (skirmishDying.has(i) && firstClashT >= deathKit.at)
+              scale = 1 - clamp01((firstClashT - deathKit.at) / DEATH_FADE_T);
           }
 
           tmpPos.set(tileX + clampLocal(lx), tileY, tileZ + clampLocal(lz));
@@ -518,6 +512,12 @@ export function createBattleOverlayFx(scene: Scene) {
           mesh.setColorAt(writeIndex, tmpColor);
           if (isAttacker) atkWrite++; else defWrite++;
         }
+      }
+
+      if (elapsed >= APPROACH_MS) {
+        const skirmishCycleT = ((elapsed - APPROACH_MS) % CLASH_MS) / CLASH_MS;
+        const [sa, sb2] = renderShards(b.hashSeed, tileX, tileY, tileZ, skirmishCycleT, shardAWrite, shardBWrite);
+        shardAWrite += sa; shardBWrite += sb2;
       }
     }
 
