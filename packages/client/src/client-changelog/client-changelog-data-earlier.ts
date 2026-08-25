@@ -231,15 +231,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787170756951, // 2026.08.19.2
-    introducedIn: "2026.08.19.2",
-    title: "Town gold production: fixed the Mintworks flat bonus for real this time",
-    why: "The previous fix for this (2026.08.19) only patched apps/simulation/src/live-town-summary.ts — but the tile-click popup is served by a separate gateway path (apps/realtime-gateway/src/tile-detail-snapshot.ts) whenever the cached snapshot's townJson doesn't carry a fresh goldPerMinute, and that path has its own independent copy of the same formula, explicitly commented 'keep in sync with buildTownSummary' — which still dropped each Mintworks' flat +1 gold/day-per-copy bonus. A live screenshot after the first fix still showed the old, wrong number, which is what surfaced this second copy.",
-    changes: [
-      "The gateway's tile-detail fallback gold calculation now includes each active Mintworks' flat gold bonus, matching the simulation's authoritative formula."
-    ]
-  },
-  {
     createdAt: 1787323800000,
     introducedIn: "2026.08.21.4",
     title: "Fixed border pylons and structures drifting away from the ground while panning",

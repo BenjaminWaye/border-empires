@@ -41,7 +41,13 @@ describe("createWaterSurface", () => {
   // bordered non-water without an adjacent drawn land tile this frame (mid-
   // sea, a fog/window boundary, etc.) there was nothing there, so a grazing
   // or below-water view saw straight through to empty background.
-  it("adds its own skirt wall along tile edges that border non-water", () => {
+  //
+  // Only the south edge gets a skirt (see the loop in commit()) -- the
+  // other three sat right where the land skirt's own coastal wall runs and
+  // the two z-fought/flickered against each other during the wave
+  // animation, so north/east/west were dropped in favor of just not
+  // reproducing the flicker.
+  it("adds a skirt wall only along the south-facing tile edge", () => {
     const scene = new Scene();
     const water = createWaterSurface(scene, 4);
     water.addTile(0.5, 0.5, false); // a single water tile: every edge is exposed
@@ -51,8 +57,8 @@ describe("createWaterSurface", () => {
     expect(meshes.length).toBe(2); // surface + skirt
     const skirt = meshes.find((m) => m.renderOrder === 11);
     expect(skirt).toBeDefined();
-    // 4 exposed edges * 4 verts/edge = 16 skirt vertices.
-    expect(skirt!.geometry.attributes["position"]!.count).toBe(16);
+    // 1 south edge * 4 verts/edge = 4 skirt vertices.
+    expect(skirt!.geometry.attributes["position"]!.count).toBe(4);
 
     water.dispose();
   });
@@ -69,12 +75,11 @@ describe("createWaterSurface", () => {
     water.commit();
 
     const meshes = scene.children.filter((child): child is Mesh => child instanceof Mesh);
-    // Surface mesh only -- the interior tile's own edges are all covered,
-    // and the outer ring's edges get a skirt, but the center tile shouldn't.
     const skirt = meshes.find((m) => m.renderOrder === 11);
     expect(skirt).toBeDefined();
-    // Outer ring: 8 tiles * up-to-4 exposed edges (corners expose 2, edges expose 1) = 12 exposed edges.
-    expect(skirt!.geometry.attributes["position"]!.count).toBe(12 * 4);
+    // Only the bottom row (dz=1) of the 3x3 grid has an exposed south edge:
+    // 3 tiles * 4 verts/edge = 12 skirt vertices.
+    expect(skirt!.geometry.attributes["position"]!.count).toBe(3 * 4);
 
     water.dispose();
   });
@@ -97,8 +102,13 @@ describe("createWaterSurface", () => {
     const skirt = meshes.find((m) => m.renderOrder === 11)!;
 
     const surfacePos = surface.geometry.attributes["position"]!.array;
-    // Surface vertex at world (0, *, 0) is the first vertex written in commit().
-    const surfaceY = surfacePos[1];
+    // Surface vertex at world (0, *, 1) -- the south edge of the single
+    // water tile spanning x:[0,1] z:[0,1] -- is where the south skirt sits.
+    const surfaceSouthEdgeIndex = surfacePos.findIndex((_, i) =>
+      i % 3 === 0 && surfacePos[i] === 0 && surfacePos[i + 2] === 1
+    );
+    expect(surfaceSouthEdgeIndex).toBeGreaterThanOrEqual(0);
+    const surfaceY = surfacePos[surfaceSouthEdgeIndex + 1];
 
     // Every skirt top-row vertex (index % 4 < 2) at the same world (x, z)
     // should match the surface's wave displacement exactly, not sit at the
@@ -109,7 +119,7 @@ describe("createWaterSurface", () => {
       if (i % 4 >= 2) continue;
       const x = skirtPos[i * 3]!;
       const z = skirtPos[i * 3 + 2]!;
-      if (x === 0 && z === 0) {
+      if (x === 0 && z === 1) {
         sawTopVertex = true;
         expect(skirtPos[i * 3 + 1]).toBeCloseTo(surfaceY!, 6);
       }
