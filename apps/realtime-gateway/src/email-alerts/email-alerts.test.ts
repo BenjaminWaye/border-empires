@@ -265,7 +265,7 @@ describe("email alerts", () => {
       authBindingStore,
       resendApiKey: "test-key",
       from: "Border Empires <alerts@borderempires.com>",
-      bugReportEmailTo: "bw199005@gmail.com",
+      bugReportEmailTo: "admin@borderempires.com",
       fetchImpl
     });
 
@@ -285,7 +285,7 @@ describe("email alerts", () => {
       {
         url: "https://api.resend.com/emails",
         body: expect.objectContaining({
-          to: ["bw199005@gmail.com"],
+          to: ["admin@borderempires.com"],
           subject: expect.stringContaining("Nauticus"),
           text: expect.stringContaining("The map froze after placing a fort")
         })

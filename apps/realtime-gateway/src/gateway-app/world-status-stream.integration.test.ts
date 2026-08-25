@@ -161,7 +161,7 @@ describe("rewrite gateway world-status stream", () => {
     const benjaminId = "qwe9OiQwxGS5LKwcAwG5wzNCd3P3";
     const benjaminFallback = anonymizedEmpireNameForId(benjaminId);
     const profileStore = new InMemoryGatewayPlayerProfileStore();
-    await profileStore.setProfile(benjaminId, "Benjamin Waye", "#654321");
+    await profileStore.setProfile(benjaminId, "Test Player", "#654321");
     let worldStatus = {
       leaderboard: {
         overall: [{ id: "player-1", name: "Nauticus", tiles: 4, incomePerMinute: 2.4, techs: 0, score: 11.2, rank: 1 }],
@@ -288,10 +288,10 @@ describe("rewrite gateway world-status stream", () => {
     const liveUpdate = await firstSocket.nextJsonMessage("recovered live status update");
     expect(liveUpdate.type).toBe("GLOBAL_STATUS_UPDATE");
     expect((liveUpdate.leaderboard as { overall: Array<{ id: string; name: string }> }).overall).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: benjaminId, name: "Benjamin Waye" })])
+      expect.arrayContaining([expect.objectContaining({ id: benjaminId, name: "Test Player" })])
     );
     expect((liveUpdate.seasonVictory as Array<{ leaderPlayerId?: string; leaderName: string }>)).toEqual(
-      expect.arrayContaining([expect.objectContaining({ leaderPlayerId: benjaminId, leaderName: "Benjamin Waye" })])
+      expect.arrayContaining([expect.objectContaining({ leaderPlayerId: benjaminId, leaderName: "Test Player" })])
     );
 
     const secondSocket = await openSocket(gatewayAddress.wsUrl);
@@ -300,10 +300,10 @@ describe("rewrite gateway world-status stream", () => {
     const secondInit = await secondSocket.nextJsonMessage("second recovered init");
     expect(secondInit.type).toBe("INIT");
     expect((secondInit.leaderboard as { overall: Array<{ id: string; name: string }> }).overall).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: benjaminId, name: "Benjamin Waye" })])
+      expect.arrayContaining([expect.objectContaining({ id: benjaminId, name: "Test Player" })])
     );
     expect((secondInit.seasonVictory as Array<{ leaderPlayerId?: string; leaderName: string }>)).toEqual(
-      expect.arrayContaining([expect.objectContaining({ leaderPlayerId: benjaminId, leaderName: "Benjamin Waye" })])
+      expect.arrayContaining([expect.objectContaining({ leaderPlayerId: benjaminId, leaderName: "Test Player" })])
     );
   });
 

@@ -5,9 +5,9 @@ snapshots
 .DS_Store
 .vercel
 .localhost-seasons/
-.env.production
-.env.local
-.env.*.local
+.env
+.env.*
+!.env.example
 .codex-worktrees/
 .worktrees/
 
@@ -24,3 +24,12 @@ packages/client/public/__build_sha.txt
 package-lock.json
 packages/storybook/storybook-static/
 docs/load-results/
+
+# Internal-only engineering notes (infra/access details, planning docs) —
+# not meant for the public repo. Kept locally, excluded from git.
+docs/plans/
+docs/combined-stack-admin-access.md
+docs/agents/topics/staging-access.md
+docs/agents/topics/staging-login-cpu-contention.md
+docs/branch-protection-audit-*.md
+docs/season-rollover-runbook.md
