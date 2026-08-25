@@ -37,13 +37,16 @@ describe("SpawnPlacementIndex", () => {
     // townCoords derivation never filtered on ownership either.
     const neutralTown: DomainTileState = { x: 40, y: 40, terrain: "LAND", town: { name: "Ruins", type: "FARMING", populationTier: "SETTLEMENT" } };
     index.refreshForTileChange(simulationTileKey(40, 40), neutralTown);
+    const tiles = new Map<string, DomainTileState>();
+    for (let y = 39; y <= 41; y += 1) for (let x = 39; x <= 47; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });
+    tiles.set(simulationTileKey(40, 40), neutralTown);
 
     // Manhattan distance from (40,40) to (45,40) is 5.
-    expect(index.hasNearbyTown(45, 40, 5)).toBe(true);
-    expect(index.hasNearbyTown(46, 40, 5)).toBe(false);
+    expect(index.hasNearbyTown(tiles, 45, 40, 5)).toBe(true);
+    expect(index.hasNearbyTown(tiles, 46, 40, 5)).toBe(false);
 
     index.refreshForTileChange(simulationTileKey(40, 40), { ...neutralTown, town: undefined });
-    expect(index.hasNearbyTown(45, 40, 5)).toBe(false);
+    expect(index.hasNearbyTown(tiles, 45, 40, 5)).toBe(false);
   });
 
   it("hasNearbyFood is cached from the full tile map and matches a Manhattan distance <= radius scan", () => {
@@ -88,7 +91,7 @@ describe("SpawnPlacementIndex", () => {
       tiles,
       coastalLandKeys: index.coastalLandKeys(tileMap),
       hasNearbySettled: (x, y, radius) => index.hasNearbySettled(x, y, radius),
-      hasNearbyTown: (x, y, radius) => index.hasNearbyTown(x, y, radius),
+      hasNearbyTown: (x, y, radius) => index.hasNearbyTown(tileMap, x, y, radius),
       hasNearbyFood: (x, y, radius) => index.hasNearbyFood(tileMap, x, y, radius)
     });
 

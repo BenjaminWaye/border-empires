@@ -73,9 +73,16 @@ const payloadForCommand = (type: RestartCommandType): Record<string, unknown> =>
     case "REVEAL_EMPIRE":
     case "REVEAL_EMPIRE_STATS":
       return { targetPlayerId: "ai-1" };
-    // DEV_QUEUE_*/WAYPOINT_* are intentionally excluded from
-    // RESTART_PARITY_COMMAND_TYPES -- see the comment in
-    // command-coverage-sets.ts -- so they never reach this switch.
+    case "DEV_QUEUE_ENQUEUE":
+      return { x: 10, y: 10, tileKey: "10,10", kind: "SETTLE" };
+    case "DEV_QUEUE_CANCEL":
+    case "DEV_QUEUE_MOVE_TO_FRONT":
+      return { tileKey: "10,10" };
+    case "WAYPOINT_ENQUEUE":
+    case "WAYPOINT_CANCEL":
+      return { x: 10, y: 10 };
+    case "WAYPOINT_CANCEL_ALL":
+      return {};
   }
 };
 
