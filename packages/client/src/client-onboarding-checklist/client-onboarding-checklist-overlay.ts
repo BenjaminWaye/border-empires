@@ -6,8 +6,10 @@
 // short detail card without competing for screen space the way an
 // always-open panel would.
 //
-// Positioned bottom-left so it doesn't collide with the discovery-tip toast
-// (bottom-right) or the galaxy-view launcher (right, above the minimap).
+// Positioned bottom-left, stacked above #floating-info (the "Center / Jump
+// to your banner" panel, also fixed to left:12/bottom:12 in style.css) so it
+// doesn't collide with the discovery-tip toast (bottom-right) or the
+// galaxy-view launcher (right, above the minimap).
 
 import type { Tile } from "../client-types.js";
 import { onboardingChecklistState, completeOnboardingChecklist, type OnboardingChecklistState } from "./client-onboarding-checklist.js";
@@ -24,7 +26,7 @@ const remainingSteps = (state: OnboardingChecklistState): number => {
 };
 
 const stepLabel = (state: OnboardingChecklistState): string =>
-  state.step === "SETTLE_TOWN" ? "Settle your first town" : `Claim ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food slots`;
+  state.step === "SETTLE_TOWN" ? "Grow your settlement into a town" : `Claim ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food slots`;
 
 const removeOnboardingChecklistOverlay = (): void => {
   if (typeof document === "undefined") return;
@@ -95,7 +97,7 @@ const injectStyles = (): void => {
 };
 
 const styles = `
-.onb-root { position: fixed; left: 16px; bottom: 16px; z-index: 23; pointer-events: none; }
+.onb-root { position: fixed; left: 16px; bottom: 190px; z-index: 23; pointer-events: none; }
 .onb-launcher {
   position: relative; pointer-events: auto;
   width: 44px; height: 44px; padding: 0; margin: 0; appearance: none; border-radius: 50%;
