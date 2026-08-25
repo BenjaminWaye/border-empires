@@ -35,7 +35,7 @@ import { createVillageEffects } from "../client-map-3d-village-fx.js";
 import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-map-3d-floating-text.js";
 import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "../client-map-3d-town-support-coins.js";
 import { createForest } from "../client-map-3d-forest.js";
-import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js"; import { createOwnershipBorderOverlay, addOwnershipBorderEdgesForTile } from "../client-map-3d-ownership-border-overlay.js";
+import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
 import { debugTileLog, debugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js";
@@ -152,7 +152,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // pinned coordinate — any tile whose rendered ownerId flips gets logged.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
   const forest = createForest(scene, MAX_VISIBLE_TILES);
-  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES); const ownershipBorderOverlay = createOwnershipBorderOverlay(scene, MAX_VISIBLE_TILES * 4); // border ribbon: 4 edges/tile worst case
+  const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
   const frontierDecayPulse = createFrontierDecayPulseTracker();
   // Fogged tiles get a black darkening quad (always full opacity 0.65,
   // regardless of frontier/settled -- reuses both mesh buckets identically)
@@ -1342,7 +1342,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainMassifs.clear();
     villageEffects.clear();
     forest.clear();
-    ownershipOverlay.clear(); ownershipBorderOverlay.clear(); frontierDecayPulse.reset();
+    ownershipOverlay.clear(); frontierDecayPulse.reset();
     fogDarkenOverlay.clear();
     fogOwnershipOverlay.clear();
     townOverlay.clear();
@@ -1876,7 +1876,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             );
             if (isDecayingFrontierTile && flatIndex >= 0) frontierDecayPulse.track({ index: flatIndex, isHill: false, frontierDecayAt: tile.frontierDecayAt as number, frontierDecayKind: tile.frontierDecayKind, baseColor: ownerColor.clone() });
           }
-          if (tile) addOwnershipBorderEdgesForTile(ownershipBorderOverlay, tile, { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY }, x0, x1, z0, z1, corner00Y, corner10Y, corner01Y, corner11Y, ownerColor); if (selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y && selectedOwnershipDebug) {
+          if (selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y && selectedOwnershipDebug) {
             selectedOwnershipDebug = {
               ...selectedOwnershipDebug,
               renderedOwnershipLayer: true,
@@ -1930,7 +1930,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainMassifs.commit();
     villageEffects.commit();
     forest.commit();
-    ownershipOverlay.commit(); ownershipBorderOverlay.commit();
+    ownershipOverlay.commit();
     fogDarkenOverlay.commit();
     fogOwnershipOverlay.commit();
     townOverlay.commit();
@@ -2168,7 +2168,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     if (rafId !== undefined) cancelAnimationFrame(rafId);
     contextGuard.dispose();
     renderer.dispose();
-    ownershipOverlay.dispose(); ownershipBorderOverlay.dispose();
+    ownershipOverlay.dispose();
     fogDarkenOverlay.dispose();
     fogOwnershipOverlay.dispose();
     selectedMarker.geometry.dispose();

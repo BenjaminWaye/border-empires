@@ -104,7 +104,9 @@ const meta: Meta<Args> = {
     withFog: { control: "boolean" },
     withWater: { control: "boolean" },
     cameraDistance: { control: { type: "range", min: 10, max: 60, step: 2 } },
-    cameraTilt: { control: { type: "range", min: 0.05, max: 1.4, step: 0.05 } }
+    // Beyond PI/2 tips the camera below the water plane, looking up at its
+    // underside -- the DoubleSide regression story below uses this range.
+    cameraTilt: { control: { type: "range", min: 0.05, max: Math.PI, step: 0.05 } }
   },
   args: { pattern: "mixed", showGridlines: false, withFog: false, withWater: false, cameraDistance: 24, cameraTilt: 0.6 },
   render
@@ -125,4 +127,13 @@ export const AllSand: Story = { args: { pattern: "all-sand" } };
 // no-skirt manually if you need to see the bug reproduced.
 export const GrazingCoastline: Story = {
   args: { pattern: "coastline", withWater: true, cameraTilt: 1.3, cameraDistance: 18 }
+};
+
+// Camera parked below the water plane looking up at its underside -- the
+// exact angle that used to render solid black (the water mesh only wound a
+// front face, and its material never set side: DoubleSide, so anything
+// catching the back face saw straight through to empty background) before
+// the fix in client-map-3d-water-surface.ts.
+export const WaterViewedFromBelow: Story = {
+  args: { pattern: "coastline", withWater: true, cameraTilt: 2.6, cameraDistance: 10 }
 };
