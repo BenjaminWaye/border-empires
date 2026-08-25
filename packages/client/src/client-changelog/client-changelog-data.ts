@@ -358,35 +358,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787430500000,
-    introducedIn: "2026.08.22.7",
-    title: "Stage Muster now sits above Disable on structure tiles",
-    why: "On a tile with both a muster flag and a disable-able structure (e.g. Relay Beacon), Stage Muster/Set Hold/Set Advance showed up below the Disable button, making the muster controls easy to miss.",
-    changes: [
-      "The tile action menu now lists Stage Muster (and Set Hold/Set Advance/Clear Muster) above Disable/Enable for the tile's structure."
-    ]
-  },
-  {
-    createdAt: 1787430400000,
-    introducedIn: "2026.08.22.6",
-    title: "Joining a new season is now a deliberate choice",
-    why: "Logging in used to silently spawn you into whatever season was active, even if you had never chosen to play it. Reconnecting was indistinguishable from joining.",
-    changes: [
-      "When you log in and haven't joined the current season yet, a \"Join Season\" prompt now appears instead of spawning you automatically.",
-      "Confirming the prompt joins the season and spawns your starting territory; the prompt closes automatically once your empire appears."
-    ]
-  },
-  {
-    createdAt: 1787430300000,
-    introducedIn: "2026.08.22.5",
-    title: "Growing your territory over an enemy tile that was settled out of reach now takes it properly",
-    why: "A tile could end up settled by an empire that never held any territory claim over it, which left no claim recorded for that tile at all. When your own territory later grew across it, the game treated the ground as empty and simply handed you the claim -- but because nothing was recorded as changing hands, the enemy's settled tile was never knocked back to a frontier tile. The result was an enemy town sitting inside your border that your territory could never dislodge, no matter how far your reach grew.",
-    changes: [
-      "When your territory grows over an enemy tile that was settled without a claim behind it, that tile now reverts to a frontier tile, the same as any other tile your border takes over.",
-      "An enemy tile that is still genuinely defended by their own town, outpost or dock is unaffected -- it stays theirs, exactly as before."
-    ]
-  },
-  {
     createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.2",
     title: "Fixed the whole screen becoming unclickable after submitting a bug report",
@@ -448,17 +419,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A BUILD queued behind another in-progress build didn't cost anything until it actually started -- so nothing stopped you from queuing far more than you could afford, and since players often queue things up and go offline, a shortfall could sit hidden for a long time before finally surfacing as a silently dropped build once its turn came.",
     changes: [
       "Queuing a building now reserves its manpower cost and a resource slot immediately, refunded in full if you cancel it while queued.",
-      "You can no longer queue more buildings than you can currently afford or have slots for -- the queue now rejects an addition it can't reserve for, instead of accepting it and failing silently later."
+      "You can no longer queue more buildings than you can currently afford or have slots for -- the queue now rejects an addition it can't reserve for, instead of accepting it and failing silently later.",
+      "Reserved manpower is also handed back if anything goes wrong while queuing, so it can never be lost to an unexpected error."
     ]
   },
   {
     createdAt: 1787584599969, // frozen just after this file's prior latest entry, to avoid a createdAt collision
     introducedIn: "2026.08.25.2",
-    title: "Fixed queued buildings losing their reserved manpower across a server restart",
-    why: "Manpower reserved by a queued building was saved, but the queue entry that owed it back was not -- so any server restart while you had buildings queued quietly destroyed that manpower for good. Since this game is played idle, with builds sitting queued for hours while you're offline, that loss could repeat and stack up invisibly.",
+    title: "Fixed the Expand To / dev queue silently emptying after a server restart",
+    why: "The frontier expand queue (\"Expand To\") and the development queue were only ever held in the simulation server's memory. They survived a player disconnecting and reconnecting, but a cold restart of the game server reset both queues to empty with no warning -- queued expand targets and build/settle orders were just gone, including any manpower and resource slot a queued build had reserved.",
     changes: [
-      "Your building queue -- including the manpower and resource slot each queued build has reserved -- now survives server restarts, so a queued build always still owes you its refund when you cancel it.",
-      "Reserved manpower is now also handed back if anything goes wrong while queuing, so it can never be lost to an unexpected error."
+      "The Expand To queue and the development queue now survive a server restart -- both are saved with the rest of your empire's state and restored exactly as you left them, including a queued building's reserved manpower and resource slot."
     ]
   },
   {

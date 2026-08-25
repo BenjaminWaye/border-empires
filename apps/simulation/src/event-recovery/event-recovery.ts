@@ -6,8 +6,7 @@ import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
 import { hydrateRecoveredTown, parseOptionalJson, recoverTownState } from "./event-recovery-town-helpers.js";
 import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progression-helpers.js";
-import { toPersistedDevQueueEntries } from "../runtime-dev-queue-restore.js";
-import type { RecoveredPlayerState } from "./recovered-player-state.js";
+import { cloneRecoveredPlayerState, type RecoveredPlayerState } from "./event-recovery-player-state.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PendingSettlementRecord } from "../player-runtime-summary.js";
 
@@ -118,17 +117,7 @@ export const createRecoveredSimulationAccumulator = (
     docks: baseState.docks ? baseState.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) : [],
     activeLocks,
     ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker: SimulationSeasonState["victoryTrackers"][number]) => ({ ...tracker })) } } : {}),
-    players: baseState.players
-      ? baseState.players.map((player) => ({
-          ...player,
-          ...(player.techIds ? { techIds: [...player.techIds] } : {}),
-          ...(player.domainIds ? { domainIds: [...player.domainIds] } : {}),
-          ...(player.strategicResources ? { strategicResources: { ...player.strategicResources } } : {}),
-          ...(player.allies ? { allies: [...player.allies] } : {}),
-          ...(player.ownedTownTileKeys ? { ownedTownTileKeys: [...player.ownedTownTileKeys] } : {}),
-          ...(player.devQueue ? { devQueue: toPersistedDevQueueEntries(player.devQueue) } : {})
-        }))
-      : [],
+    players: baseState.players ? baseState.players.map(cloneRecoveredPlayerState) : [],
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
     tileYieldCollectedAtByTile: new Map(
       (baseState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt])

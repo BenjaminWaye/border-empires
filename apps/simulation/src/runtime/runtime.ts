@@ -80,6 +80,7 @@ import {
   addPendingSettlementToSummary,
   applyTileToPlayerSummary,
   createEmptyPlayerRuntimeSummary,
+  createPlayerRuntimeSummaryFromRecovered,
   removePendingSettlementFromSummary,
   removeTileFromPlayerSummary,
   type PendingSettlementRecord,
@@ -187,7 +188,7 @@ import {
   handleDevQueueMoveToFrontCommand as handleDevQueueMoveToFrontCommandImpl,
   tryDrainDevQueue as tryDrainDevQueueImpl,
   type RuntimeDevQueueCommandContext
-} from "../runtime-dev-queue-command-handlers.js"; import { devQueueBuildReservationContext } from "../runtime-dev-queue-build-reservation.js"; import { restoreDevQueuesFromInitialState } from "../runtime-dev-queue-restore.js";
+} from "../runtime-dev-queue-command-handlers.js"; import { devQueueBuildReservationContext } from "../runtime-dev-queue-build-reservation.js";
 import {
   handleWaypointCancelAllCommand as handleWaypointCancelAllCommandImpl,
   handleWaypointCancelCommand as handleWaypointCancelCommandImpl,
@@ -1006,14 +1007,12 @@ export class SimulationRuntime {
     this.locksByTile = createLocksFromInitialState(options.initialState);
     // Populate the commandId index from the just-created locksByTile map.
     for (const lock of this.locksByTile.values()) this.locksByCommandId.set(lock.commandId, lock);
-    for (const yieldEntry of options.initialState?.tileYieldCollectedAtByTile ?? []) {
-      this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
-    }
-    for (const yieldEntry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) {
-      this.lastIncomeTickAtMsByPlayer.set(yieldEntry.playerId, yieldEntry.collectedAt);
-    }
+    for (const entry of options.initialState?.tileYieldCollectedAtByTile ?? []) this.tileYieldCollectedAtByTile.set(entry.tileKey, entry.collectedAt);
+    for (const entry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) this.lastIncomeTickAtMsByPlayer.set(entry.playerId, entry.collectedAt);
+    // Indexed once: a linear find() per player would be O(players^2) at boot.
+    const recoveredPlayersById = new Map((options.initialState?.players ?? []).map((player) => [player.id, player]));
     for (const playerId of this.players.keys()) {
-      this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
+      this.playerSummaries.set(playerId, createPlayerRuntimeSummaryFromRecovered(recoveredPlayersById.get(playerId)));
       this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
       this.territoryVersionByPlayer.set(playerId, 0);
     }
@@ -1177,7 +1176,7 @@ export class SimulationRuntime {
         this.manpowerCapBootstrapRestampedCount += 1;
       }
     }
-    restoreDevQueuesFromInitialState(options.initialState, (playerId) => this.summaryForPlayer(playerId)); /* reservations must survive restart -- runtime-dev-queue-restore.ts */ for (const player of options.initialState?.players ?? []) {
+    for (const player of options.initialState?.players ?? []) {
       if (!player.ownedTownTileKeys?.length) continue;
       const summary = this.summaryForPlayer(player.id);
       const currentTowns = new Map(summary.ownedTownTierByTile);

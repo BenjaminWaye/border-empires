@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildRuntimeSnapshotSectionsAsync, mapTile, type SnapshotExportInput, type SnapshotTile } from "./runtime-snapshot-sections.js";
-import type { DomainTileState } from "@border-empires/game-domain";
+import { buildRuntimeSnapshotSections, buildRuntimeSnapshotSectionsAsync, mapTile, type SnapshotExportInput, type SnapshotTile } from "./runtime-snapshot-sections.js";
+import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
+import { applySimulationEventsToRecoveredState } from "./event-recovery/event-recovery.js";
+import { createEmptyPlayerRuntimeSummary, createPlayerRuntimeSummaryFromRecovered, type PlayerRuntimeSummary } from "./player-runtime-summary.js";
 
 const baseInput = (overrides: Partial<SnapshotExportInput> = {}): SnapshotExportInput => ({
   tiles: new Map(),
@@ -60,5 +62,47 @@ describe("buildRuntimeSnapshotSectionsAsync — prebuiltTiles path", () => {
     ]);
     const sections = await buildRuntimeSnapshotSectionsAsync(baseInput({ prebuiltTiles }), async () => {});
     expect(sections.initialState.tiles.map((t) => t.x)).toEqual([0, 1, 2]);
+  });
+});
+
+// Regression: waypointQueue/devQueue used to live only in the live
+// PlayerRuntimeSummary and were never written into initialState.players[],
+// so a cold process restart silently reset both to [].
+describe("waypointQueue/devQueue restart persistence", () => {
+  const player: DomainPlayer = {
+    id: "player-1",
+    isAi: false,
+    points: 100,
+    manpower: 10,
+    techIds: new Set(),
+    allies: new Set()
+  };
+
+  const summaryWithQueues = (): PlayerRuntimeSummary => ({
+    ...createEmptyPlayerRuntimeSummary(),
+    waypointQueue: [{ target: { x: 5, y: 6 }, trackBarbarian: true, queuedAt: 42 }],
+    devQueue: [{ tileKey: "7,8", x: 7, y: 8, kind: "SETTLE", queuedAt: 43 }]
+  });
+
+  it("writes the live queue contents into initialState.players[] (write side)", () => {
+    const sections = buildRuntimeSnapshotSections(
+      baseInput({ players: new Map([["player-1", player]]), summaryForPlayer: () => summaryWithQueues() })
+    );
+    const [recoveredPlayer] = sections.initialState.players ?? [];
+    expect(recoveredPlayer?.waypointQueue).toEqual([{ target: { x: 5, y: 6 }, trackBarbarian: true, queuedAt: 42 }]);
+    expect(recoveredPlayer?.devQueue).toEqual([{ tileKey: "7,8", x: 7, y: 8, kind: "SETTLE", queuedAt: 43 }]);
+  });
+
+  it("survives a snapshot -> recovery -> boot round trip with no events replayed (cold restart)", () => {
+    const sections = buildRuntimeSnapshotSections(
+      baseInput({ players: new Map([["player-1", player]]), summaryForPlayer: () => summaryWithQueues() })
+    );
+    // No events since the checkpoint -- exactly what a cold restart replays
+    // when the process died right after the last snapshot.
+    const recoveredState = applySimulationEventsToRecoveredState(sections.initialState, []);
+    const recoveredPlayer = recoveredState.players?.find((p) => p.id === "player-1");
+    const bootedSummary = createPlayerRuntimeSummaryFromRecovered(recoveredPlayer);
+    expect(bootedSummary.waypointQueue).toEqual([{ target: { x: 5, y: 6 }, trackBarbarian: true, queuedAt: 42 }]);
+    expect(bootedSummary.devQueue).toEqual([{ tileKey: "7,8", x: 7, y: 8, kind: "SETTLE", queuedAt: 43 }]);
   });
 });
