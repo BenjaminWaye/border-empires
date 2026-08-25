@@ -489,6 +489,24 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Your building queue -- including the manpower and resource slot each queued build has reserved -- now survives server restarts, so a queued build always still owes you its refund when you cancel it.",
       "Reserved manpower is now also handed back if anything goes wrong while queuing, so it can never be lost to an unexpected error."
     ]
+  },
+  {
+    createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.1",
+    title: "Auto-settle no longer claims resource tiles before you've researched them",
+    why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
+    changes: [
+      "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
+    ]
+  },
+  {
+    createdAt: 1787643819307, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.2",
+    title: "Fixed spawns landing next to resources across water",
+    why: "A new player's starting position only had to be within straight-line distance of a farm or fishing spot to count as \"nearby\" -- so a spawn could land on a coastline whose closest food was actually on the far side of a strait or a separate island, unreachable without crossing water.",
+    changes: [
+      "Spawn placement now requires that nearby food and towns be on the same landmass as the spawn point, not just within range as the crow flies."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

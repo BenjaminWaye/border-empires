@@ -13,7 +13,7 @@ describe("gateway profile recovery", () => {
     const benjaminId = "qwe9OiQwxGS5LKwcAwG5wzNCd3P3";
     const objectiveLeaderId = "obj9OiQwxGS5LKwcAwG5wzNCd3P9";
     const profileStore = new InMemoryGatewayPlayerProfileStore();
-    await profileStore.setProfile(benjaminId, "Benjamin Waye", "#654321");
+    await profileStore.setProfile(benjaminId, "Test Player", "#654321");
     await profileStore.setProfile(objectiveLeaderId, "Nauticus", "#123456");
     const profileOverrides = createPlayerProfileOverrides();
     const initialState = {
@@ -70,10 +70,10 @@ describe("gateway profile recovery", () => {
     );
 
     expect(init.leaderboard.overall).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: benjaminId, name: "Benjamin Waye" })])
+      expect.arrayContaining([expect.objectContaining({ id: benjaminId, name: "Test Player" })])
     );
     expect(init.playerStyles).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: benjaminId, name: "Benjamin Waye" })])
+      expect.arrayContaining([expect.objectContaining({ id: benjaminId, name: "Test Player" })])
     );
     expect(init.seasonVictory).toEqual(
       expect.arrayContaining([expect.objectContaining({ leaderPlayerId: objectiveLeaderId, leaderName: "Nauticus" })])
