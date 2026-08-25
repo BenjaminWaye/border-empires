@@ -598,7 +598,6 @@ export class SimulationRuntime {
     topologyVersionByPlayer: this.plannerPlayerTopologyVersionByPlayer,
     topologyDirtyTilesByPlayer: this.plannerPlayerTopologyDirtyTilesByPlayer
   };
-  private readonly locksByTile: Map<string, LockRecord>;
   // Deduplicated view of locksByTile keyed by commandId (a lock is stored under TWO tile keys — originKey + targetKey); gives O(1) unique-lock iteration for exportState's activeLocks projection.
   private readonly locksByCommandId = new Map<string, LockRecord>();
   private readonly frontierTilesByOwner = new Map<string, Set<string>>();
@@ -965,7 +964,8 @@ export class SimulationRuntime {
         options.initialState, options.seedTiles ?? seedWorld!.tiles, options.mergeSeedTilesWithInitialState ?? true
       ),
       docks: initDocks,
-      dockLinksByDockTileKey: buildDockLinksByDockTileKey(initDocks)
+      dockLinksByDockTileKey: buildDockLinksByDockTileKey(initDocks),
+      locksByTile: createLocksFromInitialState(options.initialState)
     });
     for (const [key, tile] of this.state.tiles) this.snapshotTileCache.set(key, mapTile(tile));
     // applyManpowerRegen (which calls playerManpowerCap ->
@@ -1002,9 +1002,8 @@ export class SimulationRuntime {
     // nothing above this point calls into it anymore.
     this.townNetworkCacheByPlayer.clear();
     this.townConnectivityStateByPlayer.clear();
-    this.locksByTile = createLocksFromInitialState(options.initialState);
     // Populate the commandId index from the just-created locksByTile map.
-    for (const lock of this.locksByTile.values()) this.locksByCommandId.set(lock.commandId, lock);
+    for (const lock of this.state.locksByTile.values()) this.locksByCommandId.set(lock.commandId, lock);
     for (const entry of options.initialState?.tileYieldCollectedAtByTile ?? []) this.tileYieldCollectedAtByTile.set(entry.tileKey, entry.collectedAt);
     for (const entry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) this.lastIncomeTickAtMsByPlayer.set(entry.playerId, entry.collectedAt);
     // Indexed once: a linear find() per player would be O(players^2) at boot.
@@ -1281,7 +1280,7 @@ export class SimulationRuntime {
     });
     this.replayCache.rebuildTerminalReplayIndex();
     this.replayCache.pruneReplayCaches();
-    for (const lock of uniqueLocksByCommandId(this.locksByTile.values())) {
+    for (const lock of uniqueLocksByCommandId(this.state.locksByTile.values())) {
       this.scheduleLockResolution(lock);
     }
     requeueRecoveredCommands({
@@ -1309,7 +1308,7 @@ export class SimulationRuntime {
       nowMs,
       players: this.state.players,
       tiles: this.state.tiles,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       tileSettledAtByKey: this.tileSettledAtByKey,
       applyEconomyAccrual: (player, at) => this.applyEconomyAccrual(player, at),
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -1328,7 +1327,7 @@ export class SimulationRuntime {
     return tickOrphanedLockSweepImpl({
       nowMs,
       orphanLockGraceMs: ORPHAN_LOCK_GRACE_MS,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       locksByCommandId: this.locksByCommandId
     });
   }
@@ -1399,7 +1398,7 @@ export class SimulationRuntime {
       nowMs,
       players: this.state.players,
       tiles: this.state.tiles,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       townLastGrowthTickAtByKey: this.townLastGrowthTickAtByKey,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       invalidateTileStringifyCache: (tileKey) => this.tileDeltaStringifyCache.invalidate(tileKey),
@@ -1528,7 +1527,7 @@ export class SimulationRuntime {
       nowMs,
       players: this.state.players,
       tiles: this.state.tiles,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       activeFortAnchorsByOwner: this.activeFortAnchorsByOwner,
       playerCandidateIndex: this.playerCandidateIndex,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -1599,7 +1598,7 @@ export class SimulationRuntime {
       nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, at: number) =>
         this.nextTerritoryAutomationCommandId(label, playerId, tileKey, at),
       handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => this.handleFrontierCommand(command, actionType),
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       advanceCooldowns: this.musterAdvanceCooldowns as MusterAdvanceCooldowns,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       isStructureDormant: (playerId: string, tileKey: string, field: "siegeOutpost" | "economicStructure") =>
@@ -1637,7 +1636,7 @@ export class SimulationRuntime {
       pendingRespawnNoticeByPlayerId: this.pendingRespawnNoticeByPlayerId,
       lastRespawnNoticeByPlayerId: this.lastRespawnNoticeByPlayerId,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       rememberedAutomationVictoryPathByPlayer: this.rememberedAutomationVictoryPathByPlayer,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       setTileYieldCollectedAt: (commandId, playerId, tileKey, collectedAt) => this.setTileYieldCollectedAt(commandId, playerId, tileKey, collectedAt),
@@ -1662,7 +1661,7 @@ export class SimulationRuntime {
       now: this.now,
       players: this.state.players,
       tiles: this.state.tiles,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       locksByCommandId: this.locksByCommandId,
       barbarianTileProgress: this.barbarianTileProgress,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
@@ -1682,7 +1681,7 @@ export class SimulationRuntime {
       now: this.now,
       players: this.state.players,
       tiles: this.state.tiles,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       locksByCommandId: this.locksByCommandId,
       musterReservedByKey: this.musterReservedByKey,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
@@ -1730,7 +1729,7 @@ export class SimulationRuntime {
     const autoSettleDeps: AutoSettleCapturedAnchorDeps = { getPlayer: (id) => this.state.players.get(id), hasAvailableDevelopmentSlot: (id) => this.hasAvailableDevelopmentSlot(id), startSettlementProcess: (i) => this.startSettlementProcess(i), now: () => this.now() }; return {
       players: this.state.players,
       tiles: this.state.tiles,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       locksByCommandId: this.locksByCommandId,
       musterReservedByKey: this.musterReservedByKey,
       barbarianTileProgress: this.barbarianTileProgress,
@@ -2496,7 +2495,7 @@ export class SimulationRuntime {
     issuedAt: number,
     sessionPrefix: "ai-runtime" | "system-runtime"
   ): CommandEnvelope | undefined {
-    for (const lock of this.locksByTile.values()) {
+    for (const lock of this.state.locksByTile.values()) {
       if (lock.playerId === playerId) return undefined;
     }
     const ownedTiles = this.tileKeySetToTiles(this.summaryForPlayer(playerId).territoryTileKeys);
@@ -2542,7 +2541,7 @@ export class SimulationRuntime {
     // Allocating a Set for one .has() lookup would be wasteful in the AI
     // planner hot path (per AI per planner tick).
     let hasActiveLock = false;
-    for (const lock of this.locksByTile.values()) {
+    for (const lock of this.state.locksByTile.values()) {
       if (lock.playerId !== playerId) continue;
       if (lock.source === "automation") continue;
       hasActiveLock = true;
@@ -2723,7 +2722,7 @@ export class SimulationRuntime {
       yieldBearingTilesByOwner: this.yieldBearingTilesByOwner,
       expansionObjectiveCacheByPlayer: this.expansionObjectiveCacheByPlayer,
       musterTilesByOwner: this.musterTilesByOwner,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
       playerSummaries: this.playerSummaries,
@@ -2795,7 +2794,7 @@ export class SimulationRuntime {
     return {
       players: this.state.players,
       tiles: this.state.tiles,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       docks: this.state.docks,
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
@@ -2922,7 +2921,7 @@ export class SimulationRuntime {
       {
         players: this.state.players,
         tiles: this.state.tiles,
-        locksByTile: this.locksByTile,
+        locksByTile: this.state.locksByTile,
         docks: this.state.docks,
         dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
         summaryForPlayer: (id) => this.summaryForPlayer(id),
@@ -3356,7 +3355,7 @@ export class SimulationRuntime {
     const rebuild = (): Array<{ x: number; y: number }> => {
       return orderedAutoSettlementTileKeys(playerId, frontierKeys, {
         getTile: (tileKey) => this.state.tiles.get(tileKey),
-        isBlocked: (tileKey) => this.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey),
+        isBlocked: (tileKey) => this.state.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey),
         hasTownSupport: (tile) => {
           supportLookupCalls += 1;
           return this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
@@ -3657,7 +3656,7 @@ export class SimulationRuntime {
     return buildRushBuyCommandContext({
       players: this.state.players,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       tiles: this.state.tiles,
       wonderCacheByPlayer: this.wonderCacheByPlayer,
       now: () => this.now(),
@@ -3867,7 +3866,7 @@ export class SimulationRuntime {
     return buildEconomicStructureCommandContext({
       players: this.state.players,
       tiles: this.state.tiles,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       now: this.now,
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
       emitEvent: (event) => this.emitEvent(event),
@@ -4374,7 +4373,7 @@ export class SimulationRuntime {
       players: this.state.players,
       tiles: this.state.tiles,
       musterTilesByOwner: this.musterTilesByOwner,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       locksByCommandId: this.locksByCommandId,
       now: this.now,
       emitEvent: (event) => this.emitEvent(event),
@@ -4430,7 +4429,7 @@ export class SimulationRuntime {
   // that should gate the AI strategic planner. Automation combat locks are
   // filtered so defensive sweeps do not starve the planner.
   private plannerGatingLockPlayerIds(): Set<string> {
-    return plannerGatingLockPlayerIdsImpl(this.locksByTile);
+    return plannerGatingLockPlayerIdsImpl(this.state.locksByTile);
   }
 
   private handleCancelCaptureCommand(command: CommandEnvelope): void { handleCancelCaptureCommandImpl(this.combatSupportContext(), command); }
@@ -4700,7 +4699,7 @@ export class SimulationRuntime {
       players: this.state.players,
       tiles: this.state.tiles,
       pendingSettlementsByTile: this.pendingSettlementsByTile,
-      locksByTile: this.locksByTile,
+      locksByTile: this.state.locksByTile,
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       replaceTileState: (tileKey, tile, cid) => this.replaceTileState(tileKey, tile, cid),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
