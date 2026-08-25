@@ -467,16 +467,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787376000000, // 2026.08.22.2 — frozen; was Date.now() in the merged commit
-    introducedIn: "2026.08.22.2",
-    title: "3D ownership territory now has a crisp border line, not just a color wash",
-    why: "The 3D map's ownership fill was a flat, opaque color tint with no edge treatment, so territory read as a soft colored blob rather than a defined claim -- the 2D map already draws a solid outline along exactly this boundary, but the 3D map had no equivalent.",
-    changes: [
-      "Owned territory in the 3D map now gets a bright border ribbon along its exposed edges (the same boundary the 2D map already outlines), on top of the existing fill tint.",
-      "This is a first pass on making 3D ownership read more clearly -- fill gradient/fade and a frontier-vs-settled line style are natural next steps."
-    ]
-  },
-  {
     createdAt: 1787380000000,
     introducedIn: "2026.08.22.3",
     title: "Battle preview dots now throw glyphs and take casualties during the siege countdown",
@@ -488,12 +478,21 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1787678904060, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.1",
     title: "Fixed sea tiles rendering as solid black from some camera angles",
     why: "The 3D water surface only got its color from directional lighting, with a near-black fallback (emissive 0x030e18) for anything that fell into shadow. Viewed from the south -- opposite the sun and fill light -- water faces caught neither light and the near-black fallback read as a black hole instead of dark sea.",
     changes: [
       "The water material's shadow-floor color is now a dim tint of the actual deep-water color instead of near-black, so unlit sea tiles read as dark water at any camera angle."
+    ]
+  },
+  {
+    createdAt: 1787665177075,
+    introducedIn: "2026.08.25.3",
+    title: "Fixed \"Expand To\" being blocked on tiles outside your reach again",
+    why: "Expand was opened up to out-of-reach frontier tiles (claimed land there just decays after 2 minutes unless your reach catches up), but a later change restored an OUT_OF_REACH server rejection for EXPAND without updating the client, so \"Expand To\" silently failed or wasn't offered on tiles adjacent to your border but outside your town/outpost's fixed reach radius.",
+    changes: [
+      "EXPAND is no longer reach-gated server-side. Claiming land outside your reach is allowed again, at the risk of it decaying back to neutral if your reach doesn't catch up to it in time."
     ]
   }
 ];

@@ -343,12 +343,12 @@ describe("game domain frontier validation", () => {
       allies: new Set<string>()
     };
 
-    // EXPAND is reach-gated again: OUT_OF_REACH fires whenever the caller
-    // resolves isInReach to false. Dock/bridge crossings and the
-    // enemy-border-contact carve-out are resolved by the caller
-    // (runtime-frontier-command.ts) before isInReach is ever passed in here
-    // -- this pure function only reacts to the boolean it's given.
-    it("rejects EXPAND out of reach via plain adjacency", () => {
+    // EXPAND is intentionally NOT reach-gated: claiming land outside reach is
+    // allowed and instead subject to out-of-reach frontier decay elsewhere
+    // (runtime-out-of-reach-decay/runtime-out-of-reach-decay.ts). This pure
+    // function must let it through regardless of the isInReach value it's
+    // given.
+    it("allows EXPAND out of reach via plain adjacency", () => {
       const result = validateFrontierCommand({
         now: 1_000,
         actor,
@@ -364,7 +364,7 @@ describe("game domain frontier validation", () => {
         isInReach: false
       });
 
-      expect(result).toMatchObject({ ok: false, code: "OUT_OF_REACH" });
+      expect(result).toMatchObject({ ok: true });
     });
 
     // Production's call site always resolves isInReach to true for a dock
