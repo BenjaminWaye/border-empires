@@ -91,8 +91,9 @@ const setSeasonLobbyFullscreen = (active: boolean): void => {
 // They differ only in the join trigger: state.seasonPending shows a live
 // countdown to scheduledStartAt and auto-retries JOIN_SEASON once it elapses;
 // the plain branch (season already active, player just hasn't joined yet)
-// shows a "Join now" button the player clicks themselves -- there's no
-// scheduledStartAt to count down to, so its dial reads "Ready" instead.
+// shows narrative intro copy and a "Let's go!" button the player clicks
+// themselves -- there's no scheduledStartAt to count down to, so it has no
+// countdown dial at all.
 export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
   const { state, overlayEl, renderHud, joinSeason, pushFeed } = deps;
   // Profile setup (name/color) must complete before the join-season overlay
@@ -172,16 +173,13 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
     <div class="respawn-modal card" role="dialog" aria-modal="true" aria-labelledby="join-season-title">
       <button id="join-season-close" class="guide-close-btn" type="button" aria-label="Close join season prompt">×</button>
       <div class="respawn-modal-scroll">
-        <div class="respawn-kicker">New season</div>
-        <h2 id="join-season-title" class="respawn-title">Join ${seasonLabel}?</h2>
-        <p class="respawn-summary">A new season has started. Join now to get your empire?</p>
-        <section class="respawn-section respawn-actions">
-          <div id="join-season-countdown" class="respawn-title season-lobby-ready-dial">Ready</div>
-        </section>
+        <div class="respawn-kicker">${seasonLabel}</div>
+        <h2 id="join-season-title" class="respawn-title">The Emperor has opened the planet for contestation</h2>
+        <p class="respawn-summary">You have heard the call and brought your people to the challenge. No one empire will win alone. Good luck.</p>
         ${renderSeasonLobbyPanelHtml(state, false)}
         <section class="respawn-section respawn-actions">
-          <button id="join-season-confirm" class="panel-btn" type="button" ${state.joinSeasonPending ? "disabled" : ""}>
-            ${state.joinSeasonPending ? "Joining..." : `Join ${seasonLabel}`}
+          <button id="join-season-confirm" class="panel-btn season-lobby-lets-go-btn" type="button" ${state.joinSeasonPending ? "disabled" : ""}>
+            ${state.joinSeasonPending ? "Joining..." : "Let's go!"}
           </button>
         </section>
       </div>

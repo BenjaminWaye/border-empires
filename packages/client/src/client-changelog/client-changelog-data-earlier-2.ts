@@ -12,6 +12,44 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787584599966, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.24.6",
+    title: "Added basic sign-up analytics",
+    why: "We had no way to see where new players were coming from, or how many visitors from a shared link actually created an account -- link attribution and conversion were both invisible.",
+    changes: [
+      "The client now reports page landings and a sign-up event (for new accounts created by email, Google, or email-link sign-in) to Google Analytics, so shared links can be attributed by source/campaign and tracked through to conversion."
+    ]
+  },
+  {
+    createdAt: 1787584599967, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.24.7",
+    title: "Renamed AI empires to first names only",
+    why: "AI empire names paired a first name with a surname that read as a fantasy/game surname (e.g. \"Sigrid Storm\", \"Edvin Frost\"), which looked out of place next to real players' names on the leaderboard.",
+    changes: [
+      "AI-controlled empires on the leaderboard now show a single first name (e.g. \"Sigrid\", \"Edvin\") instead of a first-plus-surname combo."
+    ]
+  },
+  {
+    createdAt: 1787584599968, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.1",
+    title: "Queued buildings now reserve manpower and a resource slot up front",
+    why: "A BUILD queued behind another in-progress build didn't cost anything until it actually started -- so nothing stopped you from queuing far more than you could afford, and since players often queue things up and go offline, a shortfall could sit hidden for a long time before finally surfacing as a silently dropped build once its turn came.",
+    changes: [
+      "Queuing a building now reserves its manpower cost and a resource slot immediately, refunded in full if you cancel it while queued.",
+      "You can no longer queue more buildings than you can currently afford or have slots for -- the queue now rejects an addition it can't reserve for, instead of accepting it and failing silently later.",
+      "Reserved manpower is also handed back if anything goes wrong while queuing, so it can never be lost to an unexpected error."
+    ]
+  },
+  {
+    createdAt: 1787584599969, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.2",
+    title: "Fixed the Expand To / dev queue silently emptying after a server restart",
+    why: "The frontier expand queue (\"Expand To\") and the development queue were only ever held in the simulation server's memory. They survived a player disconnecting and reconnecting, but a cold restart of the game server reset both queues to empty with no warning -- queued expand targets and build/settle orders were just gone, including any manpower and resource slot a queued build had reserved.",
+    changes: [
+      "The Expand To queue and the development queue now survive a server restart -- both are saved with the rest of your empire's state and restored exactly as you left them, including a queued building's reserved manpower and resource slot."
+    ]
+  },
+  {
     createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
     introducedIn: "2026.08.25.3",
     title: "Fixed borders not expanding after a reach anchor finished while you were away",

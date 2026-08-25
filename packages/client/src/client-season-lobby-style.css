@@ -223,13 +223,14 @@ body.season-lobby-active #hud > *:not(#join-season-overlay) {
   color: rgba(20, 16, 10, 0.6);
 }
 
-/* Plain "join now" branch: no scheduledStartAt to count down to, so the
-   brass dial reads "Ready" instead of a timer -- same shell, no countdown
-   math. */
-#join-season-overlay .season-lobby-ready-dial {
-  font-size: clamp(18px, 3vw, 24px);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+/* Plain "join now" branch: no scheduledStartAt to count down to and no
+   roster wait, so there's no dial -- the confirm button IS the call to
+   action, sized up to carry that weight on its own. */
+#join-season-overlay .season-lobby-lets-go-btn {
+  padding: 14px 28px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
 }
 
 #join-season-overlay .season-lobby-invite-status {
