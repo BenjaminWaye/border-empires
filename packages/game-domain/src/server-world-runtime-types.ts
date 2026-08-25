@@ -74,10 +74,31 @@ export interface ServerWorldgenDocksDeps {
   docksByTile: Map<TileKey, Dock>;
   dockById: Map<string, Dock>;
   getDockLinkedTileKeysByDockTileKey: () => Map<TileKey, TileKey[]>;
+  clustersById?: Map<string, ClusterDefinition>;
+  clusterResourceType?: (cluster: ClusterDefinition) => ResourceType;
 }
 
 export interface ServerWorldgenDocksRuntime {
   generateDocks: (seed: number) => void;
+}
+
+export interface ServerWorldgenOasisDeps {
+  seeded01: (x: number, y: number, seed: number) => number;
+  WORLD_WIDTH: number;
+  WORLD_HEIGHT: number;
+  wrapX: (x: number, width: number) => number;
+  wrapY: (y: number, height: number) => number;
+  terrainAt: (x: number, y: number) => Tile["terrain"];
+  overrideTerrainAt: (x: number, y: number, terrain: Tile["terrain"]) => void;
+  landBiomeAt: (x: number, y: number) => LandBiome | undefined;
+  overrideLandBiomeAt: (x: number, y: number, biome: LandBiome) => void;
+  key: (x: number, y: number) => TileKey;
+  clusterByTile: Map<TileKey, string>;
+  clustersById: Map<string, ClusterDefinition>;
+}
+
+export interface ServerWorldgenOasisRuntime {
+  generateOases: (seed: number) => void;
 }
 
 export interface ServerWorldgenIslandConnectivityDeps {

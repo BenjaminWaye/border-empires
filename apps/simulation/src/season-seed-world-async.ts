@@ -14,7 +14,6 @@ import {
 } from "@border-empires/shared";
 
 import {
-  LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
   POPULATION_MAX,
   POPULATION_TOWN_MIN,
   WORLD_TOWN_POPULATION_MIN,
@@ -28,7 +27,6 @@ import {
   type TownDefinition,
   type WatchtowerSiteState,
   createServerWorldgenClusters,
-  createServerWorldgenDocks,
   createServerWorldgenIslandConnectivity,
   createServerWorldgenTowns,
   createServerWorldgenWatchtowers,
@@ -48,6 +46,8 @@ import {
   type GeneratedSeasonSeedWorld
 } from "./season-seed-world.js";
 import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js"; import { createSeasonNaturalWondersRuntime } from "./season-seed-natural-wonders.js";
+import { createSeasonDocksRuntime } from "./season-seed-docks.js";
+import { createSeasonOasisRuntime } from "./season-seed-oasis.js";
 import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
 
 // This is createSeasonSeedWorld (season-seed-world.ts) with cooperative
@@ -137,6 +137,7 @@ export const createSeasonSeedWorldAsync = async (
     key,
     clusterResourceType: terrainRuntime.clusterResourceType
   });
+  const oasisRuntime = createSeasonOasisRuntime(terrainRuntime, clusterByTile, clustersById);
   const islandConnectivityRuntime = createServerWorldgenIslandConnectivity({
     WORLD_WIDTH,
     WORLD_HEIGHT,
@@ -145,23 +146,7 @@ export const createSeasonSeedWorldAsync = async (
     terrainAt,
     overrideTerrainAt
   });
-  const docksRuntime = createServerWorldgenDocks({
-    seeded01: terrainRuntime.seeded01,
-    WORLD_WIDTH,
-    WORLD_HEIGHT,
-    key,
-    wrapX,
-    wrapY,
-    worldIndex: (x, y) => y * WORLD_WIDTH + x,
-    terrainAt,
-    adjacentOceanSea: terrainRuntime.adjacentOceanSea,
-    largestSeaComponentMask: terrainRuntime.largestSeaComponentMask,
-    clusterByTile,
-    LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
-    docksByTile: docksByTile as Map<TileKey, never>,
-    dockById: dockById as Map<string, never>,
-    getDockLinkedTileKeysByDockTileKey: () => new Map()
-  });
+  const docksRuntime = createSeasonDocksRuntime(terrainRuntime, clusterByTile, docksByTile as Map<TileKey, never>, dockById as Map<string, never>, clustersById);
   const townsRuntime = createServerWorldgenTowns({
     seeded01: terrainRuntime.seeded01,
     regionTypeAtLocal: terrainRuntime.regionTypeAtLocal,
@@ -209,6 +194,8 @@ export const createSeasonSeedWorldAsync = async (
     setWorldSeed(worldSeed, style);
     islandConnectivityRuntime.ensureLandMassesReachSea();
     clustersRuntime.generateClusters(worldSeed);
+    await onYield?.();
+    oasisRuntime.generateOases(worldSeed);
     await onYield?.();
     docksRuntime.generateDocks(worldSeed);
     await onYield?.();

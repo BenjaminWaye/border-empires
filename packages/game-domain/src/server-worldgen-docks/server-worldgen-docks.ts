@@ -27,8 +27,28 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
     LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
     docksByTile,
     dockById,
-    getDockLinkedTileKeysByDockTileKey
+    getDockLinkedTileKeysByDockTileKey,
+    clustersById,
+    clusterResourceType
   } = deps;
+
+  // A dock siting a town's port should favor land next to food, same as
+  // town placement itself (server-worldgen-towns.ts). Optional because
+  // existing test fixtures construct docks deps without cluster lookups —
+  // when absent, candidates keep their original pool order (spacing only).
+  const foodClusterDistance = (x: number, y: number): number => {
+    if (!clustersById || !clusterResourceType) return 0;
+    let best = Number.POSITIVE_INFINITY;
+    for (const cluster of clustersById.values()) {
+      if (cluster.radius <= 1) continue;
+      const resource = clusterResourceType(cluster);
+      if (resource !== "FARM" && resource !== "FISH") continue;
+      const dx = Math.min(Math.abs(cluster.centerX - x), WORLD_WIDTH - Math.abs(cluster.centerX - x));
+      const dy = Math.min(Math.abs(cluster.centerY - y), WORLD_HEIGHT - Math.abs(cluster.centerY - y));
+      best = Math.min(best, dx + dy);
+    }
+    return best === Number.POSITIVE_INFINITY ? 0 : best;
+  };
 
   const selectSpacedDockCandidates = (candidates: DockCandidate[], count: number, seed: number): DockCandidate[] => {
     if (count <= 0 || candidates.length === 0) return [];
@@ -149,7 +169,8 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
       const seenTileKeys = new Set<string>();
       const orderedCandidates: DockCandidate[] = [];
       for (const pool of preferredPools) {
-        for (const candidate of pool) {
+        const sortedPool = [...pool].sort((a, b) => foodClusterDistance(a.x, a.y) - foodClusterDistance(b.x, b.y));
+        for (const candidate of sortedPool) {
           const candidateTileKey = key(candidate.x, candidate.y);
           if (seenTileKeys.has(candidateTileKey)) continue;
           seenTileKeys.add(candidateTileKey);

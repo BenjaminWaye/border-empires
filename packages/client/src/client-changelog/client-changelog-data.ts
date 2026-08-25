@@ -13,6 +13,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787646417055, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.1",
+    title: "Towns now settle near food, and deserts grow oases",
+    why: "Towns could spawn far from any FARM or FISH cluster with no realistic way to feed themselves, and desert regions had no food-bearing terrain at all, leaving some map areas structurally unable to support a town.",
+    changes: [
+      "New towns now prefer sites within reach of a real FARM or FISH cluster; a map-wide fallback pass still fills in any remaining town quota if a spot's food-starved.",
+      "Docks now favor landing sites closer to nearby food when choosing between otherwise-equal candidates, so a town's port doesn't strand it far from its farmland or fishing grounds.",
+      "Desert regions with no natural food source now sometimes grow a small oasis: a 2x2 pool of water ringed by grass and farmland, giving those areas a real place to build a town."
+    ]
+  },
+  {
     createdAt: 1787584599966, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
     introducedIn: "2026.08.24.6",
     title: "\"Expand To\" no longer shows \"0 gold\" when expanding costs no gold",

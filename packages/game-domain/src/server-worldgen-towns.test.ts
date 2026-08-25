@@ -108,3 +108,43 @@ describe("ensureBaselineEconomyCoverage", () => {
     expect(foodClusters).toHaveLength(1);
   });
 });
+
+describe("generateTowns food proximity", () => {
+  it("only places towns within range of a real food cluster when food covers the map", () => {
+    const deps = buildDeps();
+    // A 3x3 grid of FARM clusters (10 tiles apart, well within the toroidal
+    // 30x30 board), spaced so every tile is within TOWN_FOOD_MAX_DISTANCE
+    // (12) of one of them. Registered by center only (no clusterByTile
+    // tiles) so they can't block town placement themselves — only the
+    // distance check matters for this test.
+    const centers: Array<{ x: number; y: number }> = [];
+    for (const cx of [0, 10, 20]) {
+      for (const cy of [0, 10, 20]) {
+        const clusterId = `cl-food-${cx}-${cy}`;
+        deps.clustersById.set(clusterId, { clusterId, clusterType: "FERTILE_PLAINS", resourceType: "FARM", centerX: cx, centerY: cy, radius: 3, controlThreshold: 3 });
+        centers.push({ x: cx, y: cy });
+      }
+    }
+
+    createServerWorldgenTowns(deps).generateTowns(11);
+
+    expect(deps.townsByTile.size).toBeGreaterThan(0);
+    for (const town of deps.townsByTile.values()) {
+      const [x, y] = deps.parseKey(town.tileKey);
+      const nearestDistance = Math.min(
+        ...centers.map((center) => {
+          const dx = Math.min(Math.abs(center.x - x), WORLD_WIDTH - Math.abs(center.x - x));
+          const dy = Math.min(Math.abs(center.y - y), WORLD_HEIGHT - Math.abs(center.y - y));
+          return dx + dy;
+        })
+      );
+      expect(nearestDistance).toBeLessThanOrEqual(12);
+    }
+  });
+
+  it("still fills the town quota when the map has no food at all", () => {
+    const deps = buildDeps();
+    createServerWorldgenTowns(deps).generateTowns(11);
+    expect(deps.townsByTile.size).toBeGreaterThan(0);
+  });
+});
