@@ -253,3 +253,7 @@ pnpm ops:staging:drift-check
 ```
 
 Exits non-zero on any drift, including stale secret overrides.
+
+## License
+
+Licensed under the [GNU Affero General Public License v3.0](LICENSE).
