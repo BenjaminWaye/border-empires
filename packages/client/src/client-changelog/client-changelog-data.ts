@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787693198227, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.8",
+    title: "Fixed Crystal staying hidden on tiles you could already see when Aetheric Resonance finished",
+    why: "Researching a resource-revealing tech only recomputed vision radius, not the resource data of tiles already inside your vision. Since the crystal reveal only rode along on a fresh tile delta, a crystal tile you could already see stayed masked forever once Aetheric Resonance completed -- nothing ever mutated that tile again to trigger a resend, and even a fresh login pulled the same stale masked state.",
+    changes: [
+      "Completing a tech that reveals a resource (Aetheric Resonance/Crystal, Masonry/Titanium, Leatherworking/Umbrite) now re-sends every already-visible tile of that resource type, so it shows up immediately instead of only on tiles you scout afterward."
+    ]
+  },
+  {
     createdAt: 1787689447704, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.7",
     title: "Fixed flickering at the coastline where the water and land skirts overlapped",
@@ -453,24 +462,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Queuing a building now reserves its manpower cost and a resource slot immediately, refunded in full if you cancel it while queued.",
       "You can no longer queue more buildings than you can currently afford or have slots for -- the queue now rejects an addition it can't reserve for, instead of accepting it and failing silently later.",
       "Reserved manpower is also handed back if anything goes wrong while queuing, so it can never be lost to an unexpected error."
-    ]
-  },
-  {
-    createdAt: 1787584599969, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.2",
-    title: "Fixed the Expand To / dev queue silently emptying after a server restart",
-    why: "The frontier expand queue (\"Expand To\") and the development queue were only ever held in the simulation server's memory. They survived a player disconnecting and reconnecting, but a cold restart of the game server reset both queues to empty with no warning -- queued expand targets and build/settle orders were just gone, including any manpower and resource slot a queued build had reserved.",
-    changes: [
-      "The Expand To queue and the development queue now survive a server restart -- both are saved with the rest of your empire's state and restored exactly as you left them, including a queued building's reserved manpower and resource slot."
-    ]
-  },
-  {
-    createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.1",
-    title: "Auto-settle no longer claims resource tiles before you've researched them",
-    why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
-    changes: [
-      "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
     ]
   },
   {

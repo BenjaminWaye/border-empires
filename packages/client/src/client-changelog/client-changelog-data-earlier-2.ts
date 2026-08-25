@@ -12,6 +12,24 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787584599969, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.2",
+    title: "Fixed the Expand To / dev queue silently emptying after a server restart",
+    why: "The frontier expand queue (\"Expand To\") and the development queue were only ever held in the simulation server's memory. They survived a player disconnecting and reconnecting, but a cold restart of the game server reset both queues to empty with no warning -- queued expand targets and build/settle orders were just gone, including any manpower and resource slot a queued build had reserved.",
+    changes: [
+      "The Expand To queue and the development queue now survive a server restart -- both are saved with the rest of your empire's state and restored exactly as you left them, including a queued building's reserved manpower and resource slot."
+    ]
+  },
+  {
+    createdAt: 1787643819307, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.1",
+    title: "Auto-settle no longer claims resource tiles before you've researched them",
+    why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
+    changes: [
+      "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
+    ]
+  },
+  {
     createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
     introducedIn: "2026.08.25.3",
     title: "Fixed borders not expanding after a reach anchor finished while you were away",
