@@ -5,8 +5,8 @@
 How the nightly load harness (`.github/workflows/nightly-load-harness.yml`,
 `scripts/rewrite-load-harness.mjs`) works, why it runs against a local fixture
 instead of staging, and how to update the fixture. Does not cover reading
-live metrics/admin endpoints from the combined staging/prod app — see
-`docs/combined-stack-admin-access.md` for that (separate mechanism).
+live metrics/admin endpoints from the combined staging/prod app — that's a
+separate, internal-only mechanism.
 
 ## Why local fixture, not staging
 

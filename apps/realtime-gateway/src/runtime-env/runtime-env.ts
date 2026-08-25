@@ -113,7 +113,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
     simulationSeedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
     allowNonAuthoritativeInitialState,
     ...(env.ADMIN_API_TOKEN ? { adminApiToken: env.ADMIN_API_TOKEN } : {}),
-    fogAdminEmail: (env.FOG_ADMIN_EMAIL ?? "bw199005@gmail.com").trim().toLowerCase(),
+    fogAdminEmail: (env.FOG_ADMIN_EMAIL ?? "admin@borderempires.com").trim().toLowerCase(),
     ...(() => {
       const count = parseOptionalAiPlayerCount(env.SIMULATION_AI_PLAYER_COUNT);
       return count !== undefined ? { aiPlayerCount: count } : {};
@@ -124,7 +124,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
       ...(env.GATEWAY_EMAIL_ALERTS_REPLY_TO ? { replyTo: env.GATEWAY_EMAIL_ALERTS_REPLY_TO } : {}),
       appUrl: emailAlertsAppUrl,
       ...(env.GATEWAY_EMAIL_ALERTS_DAILY_LIMIT ? { dailyLimit: Number(env.GATEWAY_EMAIL_ALERTS_DAILY_LIMIT) } : {}),
-      bugReportEmailTo: (env.GATEWAY_BUG_REPORT_EMAIL_TO ?? "bw199005@gmail.com").trim(),
+      bugReportEmailTo: (env.GATEWAY_BUG_REPORT_EMAIL_TO ?? "admin@borderempires.com").trim(),
       appLabel: env.GATEWAY_SLOW_LOGIN_ALERT_LABEL ?? "border-empires-combined-staging"
     }
   };
