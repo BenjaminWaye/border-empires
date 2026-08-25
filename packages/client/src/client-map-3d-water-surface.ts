@@ -3,6 +3,7 @@ import {
   BufferGeometry,
   CanvasTexture,
   Color,
+  DoubleSide,
   DynamicDrawUsage,
   Mesh,
   MeshPhysicalMaterial,
@@ -102,6 +103,12 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
     normalScale: new Vector2(0.32, 0.32),
     clearcoatNormalMap: choppyMap,
     clearcoatNormalScale: new Vector2(0.12, 0.12),
+    // The mesh only winds a front face (normal pointing up, see commit()
+    // below) — without DoubleSide, any view angle that catches the
+    // underside (looking up from below water level, or a steep enough
+    // camera angle) renders nothing at all, showing empty background
+    // through the hole instead of water.
+    side: DoubleSide,
     depthWrite: false
   });
 
