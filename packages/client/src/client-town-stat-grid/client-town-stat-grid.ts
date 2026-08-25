@@ -9,6 +9,11 @@
 export type TownStatGridInput = {
   population: number;
   maxPopulation: number;
+  // Population threshold for the next growth tier, e.g. CITY_POPULATION_MIN
+  // (see nextTownGrowthUpgrade in town-growth.ts). Undefined once the town
+  // is already at METROPOLIS — the top tier has no "next" to progress toward,
+  // so the meter falls back to population/maxPopulation.
+  nextTierPopulation?: number;
   populationTierLabel: string;
   growthText: string;
   growthTone: "positive" | "warn" | "neutral";
@@ -25,7 +30,9 @@ const escapeHtml = (value: string): string =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 export const townStatGridHtml = (input: TownStatGridInput): string => {
-  const populationPct = input.maxPopulation > 0 ? Math.max(0, Math.min(100, (input.population / input.maxPopulation) * 100)) : 0;
+  const populationTarget = input.nextTierPopulation ?? input.maxPopulation;
+  const tierReached = input.nextTierPopulation !== undefined && input.population >= input.nextTierPopulation;
+  const populationPct = populationTarget > 0 ? Math.max(0, Math.min(100, (input.population / populationTarget) * 100)) : 0;
   const miniRow: string[] = [];
   if (input.support) {
     miniRow.push(
@@ -42,8 +49,8 @@ export const townStatGridHtml = (input: TownStatGridInput): string => {
     `<div class="tile-stat-grid">` +
       `<div class="tile-stat tile-stat-span2">` +
         `<span class="tile-stat-label">Population · ${escapeHtml(input.populationTierLabel)}</span>` +
-        `<span class="tile-stat-value">${input.population.toLocaleString()}<span class="tile-stat-unit">/ ${input.maxPopulation.toLocaleString()}</span></span>` +
-        `<div class="tile-stat-meter"><span style="width:${populationPct.toFixed(1)}%"></span></div>` +
+        `<span class="tile-stat-value">${input.population.toLocaleString()}<span class="tile-stat-unit">/ ${populationTarget.toLocaleString()}</span></span>` +
+        `<div class="tile-stat-meter"><span class="${tierReached ? "is-tier-ready" : ""}" style="width:${populationPct.toFixed(1)}%"></span></div>` +
         `<span class="tile-stat-sub is-${input.growthTone}">${escapeHtml(input.growthText)}</span>` +
       `</div>` +
       `<div class="tile-stat tile-stat-span2">` +
