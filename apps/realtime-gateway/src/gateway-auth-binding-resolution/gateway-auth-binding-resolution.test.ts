@@ -71,26 +71,26 @@ describe("reconcileGatewayAuthBinding", () => {
     const firstUser = await reconcileGatewayAuthBinding(
       {
         playerId: "player-1",
-        playerName: "Benjamin Waye",
+        playerName: "Test Player",
         authUid: "firebase-uid-a",
-        authEmail: "bw199005@gmail.com"
+        authEmail: "admin@borderempires.com"
       },
       store
     );
     expect(firstUser).toEqual({
       playerId: "player-1",
-      playerName: "Benjamin Waye",
+      playerName: "Test Player",
       authUid: "firebase-uid-a",
-      authEmail: "bw199005@gmail.com",
+      authEmail: "admin@borderempires.com",
       bindingSource: "new"
     });
 
     const secondUser = await reconcileGatewayAuthBinding(
       {
         playerId: "player-1",
-        playerName: "Benjamin Waye",
+        playerName: "Test Player",
         authUid: "firebase-uid-b",
-        authEmail: "benjamin.waye@mobileinteraction.se"
+        authEmail: "player@example.com"
       },
       store
     );

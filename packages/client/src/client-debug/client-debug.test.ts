@@ -40,7 +40,7 @@ describe("client debug tile controls", () => {
   });
 
   it("follows the selected tile for the admin account when enabled", () => {
-    setDebugAuthEmail("bw199005@gmail.com");
+    setDebugAuthEmail("admin@borderempires.com");
     setDebugTileLoggingEnabled(true);
     setDebugTileKey(undefined);
 
