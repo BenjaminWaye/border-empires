@@ -6,6 +6,7 @@ import {
   DoubleSide,
   DynamicDrawUsage,
   Mesh,
+  MeshBasicMaterial,
   MeshPhysicalMaterial,
   RepeatWrapping,
   Scene,
@@ -13,6 +14,26 @@ import {
 } from "three";
 
 export const WATER_SURFACE_Y = -0.06;
+
+// The water mesh itself is a flat, zero-thickness sheet (see commit() below)
+// — unlike land tiles, which get their own vertical "skirt" wall dropped at
+// every coastal edge (client-map-3d-heightfield.ts) so they read as solid
+// from any angle. Water relied entirely on that land-side skirt to hide the
+// void beneath it, which only covers edges where land is actually adjacent
+// this frame — anywhere water borders water-that-isn't-drawn-this-tick, a
+// different owner's fog boundary, or simply sits mid-sea, there was no wall
+// at all, so a grazing/underside view saw straight through to empty
+// background (black) right under the water surface. Matches the land
+// skirt's own depth so the two skirts meet with no gap at the coastline.
+const WATER_SKIRT_BOTTOM_Y = -0.6;
+// Skirt color is the tile's own water color dimmed by a flat, non-lit
+// factor (baked into the vertex color, not computed from scene lighting) —
+// the same technique the land skirt uses and for the same reason: a
+// lit material here would read solid from some angles and black from
+// others depending on where the sun happens to be, which is the exact bug
+// class DoubleSide above was added to fix. Baking the shade into the vertex
+// color guarantees a consistent look regardless of camera or light angle.
+const WATER_SKIRT_SHADE = 0.55;
 
 // Normal map repeats every UV_WORLD_SCALE world units (tiles).
 const UV_WORLD_SCALE = 6.0;
@@ -111,6 +132,13 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
     side: DoubleSide,
     depthWrite: false
   });
+
+  // toneMapped: false — this is a flat gameplay-legibility fill (baked
+  // shade, not lit geometry), not something the scene's filmic tone curve
+  // should touch. See client-map-3d-tone-mapping-regression.test.ts.
+  const skirtMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, side: DoubleSide });
+  let skirtMesh: Mesh | null = null;
+  let skirtGeometry: BufferGeometry | null = null;
 
   let mesh: Mesh | null = null;
   let geometry: BufferGeometry | null = null;
@@ -237,6 +265,54 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
     mesh.frustumCulled = false;
     mesh.renderOrder = 12;
     scene.add(mesh);
+
+    // Skirt: a vertical wall dropped to WATER_SKIRT_BOTTOM_Y along every
+    // tile edge that doesn't border another water tile — see
+    // WATER_SKIRT_BOTTOM_Y above for why the flat sheet needs this.
+    if (skirtMesh) {
+      scene.remove(skirtMesh);
+      skirtMesh = null;
+    }
+    if (skirtGeometry) {
+      skirtGeometry.dispose();
+      skirtGeometry = null;
+    }
+
+    const skirtPositions: number[] = [];
+    const skirtColors: number[] = [];
+    const skirtIndices: number[] = [];
+    const tmpColor = new Color();
+
+    const emitSkirtEdge = (ax: number, az: number, bx: number, bz: number, shallow: boolean): void => {
+      tmpColor.copy(shallow ? SHALLOW_COLOR : DEEP_COLOR).multiplyScalar(WATER_SKIRT_SHADE);
+      const base = skirtPositions.length / 3;
+      skirtPositions.push(
+        ax, WATER_SURFACE_Y, az,
+        bx, WATER_SURFACE_Y, bz,
+        ax, WATER_SKIRT_BOTTOM_Y, az,
+        bx, WATER_SKIRT_BOTTOM_Y, bz
+      );
+      for (let v = 0; v < 4; v++) skirtColors.push(tmpColor.r, tmpColor.g, tmpColor.b);
+      skirtIndices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
+    };
+
+    for (const { gc, gr, shallow } of tiles) {
+      if (!tileMap.has(tileKey(gc, gr - 1))) emitSkirtEdge(gc, gr, gc + 1, gr, shallow);
+      if (!tileMap.has(tileKey(gc, gr + 1))) emitSkirtEdge(gc + 1, gr + 1, gc, gr + 1, shallow);
+      if (!tileMap.has(tileKey(gc - 1, gr))) emitSkirtEdge(gc, gr + 1, gc, gr, shallow);
+      if (!tileMap.has(tileKey(gc + 1, gr))) emitSkirtEdge(gc + 1, gr, gc + 1, gr + 1, shallow);
+    }
+
+    if (skirtPositions.length > 0) {
+      skirtGeometry = new BufferGeometry();
+      skirtGeometry.setAttribute("position", new BufferAttribute(new Float32Array(skirtPositions), 3));
+      skirtGeometry.setAttribute("color", new BufferAttribute(new Float32Array(skirtColors), 3));
+      skirtGeometry.setIndex(skirtIndices);
+      skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
+      skirtMesh.frustumCulled = false;
+      skirtMesh.renderOrder = 11;
+      scene.add(skirtMesh);
+    }
   };
 
   const tick = (nowMs: number): void => {
@@ -265,8 +341,11 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
 
   const dispose = (): void => {
     if (mesh) scene.remove(mesh);
+    if (skirtMesh) scene.remove(skirtMesh);
     geometry?.dispose();
+    skirtGeometry?.dispose();
     material.dispose();
+    skirtMaterial.dispose();
     swellMap.dispose();
     choppyMap.dispose();
   };

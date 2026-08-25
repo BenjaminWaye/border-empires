@@ -23,6 +23,24 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787688074263, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Fixed black artifacts under coastal sea tiles",
+    why: "The water surface is a flat, zero-thickness sheet with no underside geometry of its own -- it relied entirely on the neighboring land's own coastal skirt wall to hide the void beneath it. Anywhere water bordered non-water without a drawn land tile covering that edge this frame (open sea, a fog/window boundary, etc.), there was nothing there, so a grazing or below-water view saw straight through to empty background.",
+    changes: [
+      "Water tiles now get their own skirt wall along every edge that doesn't border another water tile, so the sea never shows a black gap underneath regardless of camera angle."
+    ]
+  },
+  {
+    createdAt: 1787687420759, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.4",
+    title: "Reverted the crisp border-ribbon prototype on the 3D ownership overlay",
+    why: "The prototype border ribbon along exposed territory edges (#1474) didn't read well in practice -- pulled back out to the flat fill-tint look while a better edge treatment is worked out.",
+    changes: [
+      "3D territory tiles no longer draw a bright border ribbon along exposed edges; back to the fill-only look."
+    ]
+  },
+  {
     createdAt: 1787682505307, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.3",
     title: "Fixed sea tiles rendering solid black from underneath",
@@ -41,12 +59,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787650830571, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.1",
-    title: "Farmstead now grants +2 FOOD slots instead of +1",
-    why: "Farmstead's same-tile FOOD slot boost was tied with Mine/Umbrite Rig's +1, even though it's a dedicated food building -- a bigger boost makes it more worth building and gives Waterworks (which multiplies Farmstead's bonus) more to amplify.",
+    createdAt: 1787682600000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.4",
+    title: "Fixed the out-of-reach decay pulse jumping every time you panned the camera",
+    why: "The amber/white frontier-decay countdown pulse was baked into the ownership overlay's mesh colors inside the same rebuild that also fires on every camera pan or zoom (not just on actual game-state changes), sampling the wall clock fresh each time -- so panning the map made the pulse visibly jump or restart instead of animating smoothly.",
     changes: [
-      "An active Farmstead on a FARM tile now adds +2 FOOD slots to that tile instead of +1. Waterworks' separate +2-per-Farmstead-in-radius bonus is unchanged and stacks on top."
+      "The decay pulse now animates from a per-frame update independent of camera movement, the same pattern already used for the reach-border pylon animation -- it only reacts to the tile's actual decay state, never to panning or zooming."
     ]
   },
   {
@@ -449,15 +467,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787643819307, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.2",
-    title: "Fixed spawns landing next to resources across water",
-    why: "A new player's starting position only had to be within straight-line distance of a farm or fishing spot to count as \"nearby\" -- so a spawn could land on a coastline whose closest food was actually on the far side of a strait or a separate island, unreachable without crossing water.",
-    changes: [
-      "Spawn placement now requires that nearby food and towns be on the same landmass as the spawn point, not just within range as the crow flies."
-    ]
-  },
-  {
     createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
     introducedIn: "2026.08.25.3",
     title: "Fixed borders not expanding after a reach anchor finished while you were away",
@@ -474,15 +483,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "River paths are now smoothed with a Catmull-Rom curve and resampled at higher density, removing the faceted straight-segment look.",
       "River width now tapers from narrow at the source to wide at the mouth, based on how far each point has flowed toward the sea."
-    ]
-  },
-  {
-    createdAt: 1787678904061, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.4",
-    title: "Fixed \"Expand To\" being blocked on tiles outside your reach again",
-    why: "Expand was opened up to out-of-reach frontier tiles (claimed land there just decays after 2 minutes unless your reach catches up), but a later change restored an OUT_OF_REACH server rejection for EXPAND without updating the client, so \"Expand To\" silently failed or wasn't offered on tiles adjacent to your border but outside your town/outpost's fixed reach radius.",
-    changes: [
-      "EXPAND is no longer reach-gated server-side. Claiming land outside your reach is allowed again, at the risk of it decaying back to neutral if your reach doesn't catch up to it in time."
     ]
   }
 ];
