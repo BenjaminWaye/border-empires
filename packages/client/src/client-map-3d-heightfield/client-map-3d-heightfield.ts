@@ -15,7 +15,7 @@ import {
 import { terrainShadeVariantAt } from "../client-map-3d-terrain-variation/client-map-3d-terrain-variation.js";
 import { accumulateHeightfieldNormals } from "../client-map-3d-heightfield-normals.js";
 import {
-  elevationJitter,
+  coastCornerElevation, elevationJitter,
   heightfieldTileBaseElevation,
   heightfieldTileColor,
   wrap,
@@ -533,7 +533,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
           const landR = landSumR * invLand;
           const landG = landSumG * invLand;
           const landB = landSumB * invLand;
-          elevation = coastEdgeY;
+          elevation = coastCornerElevation(s00, s10, s01, s11, coastEdgeY);
           r = landR * (1 - beachMix) + beachR * beachMix;
           g = landG * (1 - beachMix) + beachG * beachMix;
           b = landB * (1 - beachMix) + beachB * beachMix;
