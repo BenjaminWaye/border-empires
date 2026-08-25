@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787688715010, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Fixed the water skirt wall leaving a gap at wave crests",
+    why: "The water skirt wall added moments earlier (2026.08.25.5) closed the black gap under coastal sea tiles, but its top edge was drawn once and never touched again, while the water surface itself bobs up and down every frame with the wave animation. Whenever the wave lifted the surface above the skirt's static top, the same black gap reappeared.",
+    changes: [
+      "The water skirt's top edge now rides the same wave animation as the surface, so it stays flush with the water at every frame instead of only when the sea happens to be at rest."
+    ]
+  },
+  {
     createdAt: 1787688074263, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.5",
     title: "Fixed black artifacts under coastal sea tiles",
@@ -473,16 +482,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The 3D water surface only got its color from directional lighting, with a near-black fallback (emissive 0x030e18) for anything that fell into shadow. Viewed from the south -- opposite the sun and fill light -- water faces caught neither light and the near-black fallback read as a black hole instead of dark sea.",
     changes: [
       "The water material's shadow-floor color is now a dim tint of the actual deep-water color instead of near-black, so unlit sea tiles read as dark water at any camera angle."
-    ]
-  },
-  {
-    createdAt: 1787678887251, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.3",
-    title: "Rivers now curve smoothly and taper toward the sea instead of looking like glued-together rectangles",
-    why: "The 3D river ribbon connected each walked point with a straight segment and a constant width the whole way, so every wobble step in the path showed up as a hard kink and every river read as a uniform-width strip regardless of how far it had traveled -- the classic 'blue rectangles' look rather than a real river.",
-    changes: [
-      "River paths are now smoothed with a Catmull-Rom curve and resampled at higher density, removing the faceted straight-segment look.",
-      "River width now tapers from narrow at the source to wide at the mouth, based on how far each point has flowed toward the sea."
     ]
   }
 ];
