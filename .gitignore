@@ -30,4 +30,6 @@ docs/load-results/
 docs/plans/
 docs/combined-stack-admin-access.md
 docs/agents/topics/staging-access.md
+docs/agents/topics/staging-login-cpu-contention.md
 docs/branch-protection-audit-*.md
+docs/season-rollover-runbook.md
