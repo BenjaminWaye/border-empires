@@ -194,6 +194,10 @@ describe("frontier queue regressions", () => {
     expect(state.tiles.get("12,18")?.ownershipState).toBeUndefined();
   });
 
+  // EXPAND's optimistic-manpower-deduction regression test moved to
+  // client-queued-expand-manpower-regression.test.ts to keep this file from
+  // crossing the repo's 500-line cap.
+
   it("waits for confirmed ownership when only an optimistic origin is available", () => {
     const state = createInitialState();
     state.authSessionReady = true;
