@@ -54,9 +54,9 @@ describe("onboardingChecklistState", () => {
     expect(state.highlightTiles).toEqual([]);
   });
 
-  it("moves to SECURE_FOOD once a town is owned, highlighting the town plus unclaimed food tiles", () => {
+  it("moves to SECURE_FOOD once a TOWN-tier town is owned, highlighting the town plus unclaimed food tiles", () => {
     const tiles = [
-      tile(5, 5, { ownerId: ME, town: { type: "FARMING" } as never }),
+      tile(5, 5, { ownerId: ME, town: { type: "FARMING", populationTier: "TOWN" } as never }),
       tile(6, 5, { resource: "FARM" }),
       tile(7, 5, { resource: "FISH" }),
       tile(8, 5, { resource: "TITANIUM" })
@@ -72,9 +72,23 @@ describe("onboardingChecklistState", () => {
     ]);
   });
 
+  // Every new empire spawns with a free SETTLEMENT-tier tile (see
+  // runtime-respawn-helpers.ts) — that's handed to the player, not settled
+  // by them, so it must not satisfy "settle your first town" on its own.
+  it("stays on SETTLE_TOWN, highlighting the settlement, when the player only owns a SETTLEMENT-tier tile", () => {
+    const tiles = [
+      tile(2, 2, { ownerId: ME, town: { type: "FARMING", populationTier: "SETTLEMENT" } as never }),
+      tile(3, 2, { resource: "FARM" })
+    ];
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.step).toBe("SETTLE_TOWN");
+    expect(state.foodSlotsClaimed).toBe(0);
+    expect(state.highlightTiles).toEqual([{ x: 2, y: 2 }]);
+  });
+
   it("reaches DONE once 4 food slots are claimed (any mix of grain/fish)", () => {
     const tiles = [
-      tile(0, 0, { ownerId: ME, town: { type: "FARMING" } as never }),
+      tile(0, 0, { ownerId: ME, town: { type: "FARMING", populationTier: "TOWN" } as never }),
       tile(1, 0, { resource: "FARM", ownerId: ME }),
       tile(2, 0, { resource: "FARM", ownerId: ME }),
       tile(3, 0, { resource: "FARM", ownerId: ME }),
