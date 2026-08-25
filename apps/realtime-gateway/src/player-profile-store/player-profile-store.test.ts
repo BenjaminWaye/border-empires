@@ -92,12 +92,12 @@ describe("InMemoryGatewayPlayerProfileStore", () => {
     vi.setSystemTime(4_000);
     const store = new InMemoryGatewayPlayerProfileStore();
     await store.setProfile("player-1", "Nauticus", "#123456");
-    await store.setProfile("player-2", "Benjamin Waye", "#654321");
+    await store.setProfile("player-2", "Test Player", "#654321");
 
     await expect(store.getMany(["player-2", "missing", "player-1", "player-2"])).resolves.toEqual([
       {
         playerId: "player-2",
-        name: "Benjamin Waye",
+        name: "Test Player",
         tileColor: "#654321",
         profileComplete: true,
         updatedAt: 4_000
