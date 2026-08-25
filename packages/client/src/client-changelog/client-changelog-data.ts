@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787689447704, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.7",
+    title: "Fixed flickering at the coastline where the water and land skirts overlapped",
+    why: "The water skirt wall added in 2026.08.25.5/.6 drew a wall on all 4 sides of every exposed water tile, including north/east/west edges that sat right where the land's own coastal skirt wall already runs. Two near-coplanar unlit walls animating independently z-fought against each other every frame, flickering.",
+    changes: [
+      "The water skirt now only draws its south-facing edge (the side that actually faces the camera at the default view angle), leaving the land skirt to cover the other three sides instead of overlapping it."
+    ]
+  },
+  {
     createdAt: 1787688556298, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.5",
     title: "Hid the redundant \"0 gold\" in the Build Relay Beacon action cost",
@@ -473,15 +482,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
     changes: [
       "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
-    ]
-  },
-  {
-    createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.3",
-    title: "Fixed borders not expanding after a reach anchor finished while you were away",
-    why: "A Relay Beacon (or any reach anchor) that finished building while you were disconnected expanded your border on the server, but the update was sent before your connection was ready to receive it and was silently dropped. Reconnecting did not recover it, so the game kept showing your old border -- and because the waypoint planner uses the same border, queued expansions could stall against territory the server had already granted you.",
-    changes: [
-      "Your authoritative border is now pushed once your connection is fully established, so a reach anchor that completed while you were offline shows up as soon as you log back in."
     ]
   }
 ];
