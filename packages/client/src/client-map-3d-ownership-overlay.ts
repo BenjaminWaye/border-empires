@@ -54,6 +54,10 @@ export type OwnershipOverlay = {
   readonly settledMesh: Mesh;
   readonly frontierMesh: Mesh;
   readonly clear: () => void;
+  // Returns the tile's ordinal index within its bucket (frontier vs settled),
+  // or -1 if the bucket is already at capacity -- callers that need to
+  // re-color this exact tile later without a full rebuild (see
+  // setFrontierTileColor) must capture this return value at insert time.
   readonly addTile: (
     corner00X: number, corner00Y: number, corner00Z: number,
     corner10X: number, corner10Y: number, corner10Z: number,
@@ -61,17 +65,28 @@ export type OwnershipOverlay = {
     corner11X: number, corner11Y: number, corner11Z: number,
     color: Color,
     isFrontier: boolean
-  ) => void;
+  ) => number;
   // Same footprint as addTile (an axis-aligned tile spanning x0..x1,z0..z1),
   // but corner*Y are *ground* height only (no hill bonus) -- the dome bump
   // is added per-vertex internally so the overlay traces the same curve as
   // the hill mesh itself, rather than one flat plane between the corners.
+  // Return value is the hill bucket's own ordinal index (see addTile).
   readonly addHillTile: (
     x0: number, x1: number, z0: number, z1: number,
     corner00Y: number, corner10Y: number, corner01Y: number, corner11Y: number,
     color: Color,
     isFrontier: boolean
-  ) => void;
+  ) => number;
+  // Partial-update path for animating a single already-committed frontier
+  // tile's color every frame (e.g. the out-of-reach decay pulse) without
+  // paying for a full rebuild -- writes straight into the existing color
+  // buffer and marks only that tile's vertex range dirty. No-ops silently
+  // on a stale/out-of-range index (e.g. the tile's bucket was cleared and
+  // rebuilt since the index was captured). Call beginFrontierColorUpdates()
+  // once before each batch (see its own doc comment).
+  readonly beginFrontierColorUpdates: () => void;
+  readonly setFrontierTileColor: (index: number, color: Color) => void;
+  readonly setFrontierHillTileColor: (index: number, color: Color) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -150,10 +165,10 @@ export const createOwnershipOverlay = (
     corner11X: number, corner11Y: number, corner11Z: number,
     color: Color,
     isFrontier: boolean
-  ): void => {
+  ): number => {
     const target = isFrontier ? frontier : settled;
     const count = isFrontier ? frontierCount : settledCount;
-    if (count >= maxTiles) return;
+    if (count >= maxTiles) return -1;
 
     const baseVertex = count * VERTS_PER_TILE;
     const baseFloat = baseVertex * 3;
@@ -188,6 +203,7 @@ export const createOwnershipOverlay = (
 
     if (isFrontier) frontierCount += 1;
     else settledCount += 1;
+    return count;
   };
 
   const addHillTile = (
@@ -195,10 +211,10 @@ export const createOwnershipOverlay = (
     corner00Y: number, corner10Y: number, corner01Y: number, corner11Y: number,
     color: Color,
     isFrontier: boolean
-  ): void => {
+  ): number => {
     const target = isFrontier ? frontierHill : settledHill;
     const count = isFrontier ? frontierHillCount : settledHillCount;
-    if (count >= maxHillTiles) return;
+    if (count >= maxHillTiles) return -1;
 
     const vertsPerRow = HILL_SUBDIV + 1;
     const baseVertex = count * HILL_VERTS_PER_TILE;
@@ -242,6 +258,42 @@ export const createOwnershipOverlay = (
 
     if (isFrontier) frontierHillCount += 1;
     else settledHillCount += 1;
+    return count;
+  };
+
+  // Must be called once before a batch of setFrontierTileColor/
+  // setFrontierHillTileColor calls (e.g. once per animation frame) --
+  // addUpdateRange accumulates ranges rather than replacing them, so
+  // skipping this would grow the pending-range list forever across frames.
+  const beginFrontierColorUpdates = (): void => {
+    (frontier.geometry.getAttribute("color") as BufferAttribute).clearUpdateRanges();
+    (frontierHill.geometry.getAttribute("color") as BufferAttribute).clearUpdateRanges();
+  };
+
+  const setFrontierTileColor = (index: number, color: Color): void => {
+    if (index < 0 || index >= frontierCount) return;
+    const baseFloat = index * VERTS_PER_TILE * 3;
+    for (let v = 0; v < VERTS_PER_TILE; v += 1) {
+      frontier.colors[baseFloat + v * 3 + 0] = color.r;
+      frontier.colors[baseFloat + v * 3 + 1] = color.g;
+      frontier.colors[baseFloat + v * 3 + 2] = color.b;
+    }
+    const colorAttr = frontier.geometry.getAttribute("color") as BufferAttribute;
+    colorAttr.addUpdateRange(baseFloat, VERTS_PER_TILE * 3);
+    colorAttr.needsUpdate = true;
+  };
+
+  const setFrontierHillTileColor = (index: number, color: Color): void => {
+    if (index < 0 || index >= frontierHillCount) return;
+    const baseFloat = index * HILL_VERTS_PER_TILE * 3;
+    for (let v = 0; v < HILL_VERTS_PER_TILE; v += 1) {
+      frontierHill.colors[baseFloat + v * 3 + 0] = color.r;
+      frontierHill.colors[baseFloat + v * 3 + 1] = color.g;
+      frontierHill.colors[baseFloat + v * 3 + 2] = color.b;
+    }
+    const colorAttr = frontierHill.geometry.getAttribute("color") as BufferAttribute;
+    colorAttr.addUpdateRange(baseFloat, HILL_VERTS_PER_TILE * 3);
+    colorAttr.needsUpdate = true;
   };
 
   const commit = (): void => {
@@ -295,5 +347,16 @@ export const createOwnershipOverlay = (
     }
   };
 
-  return { settledMesh: settled.mesh, frontierMesh: frontier.mesh, clear, addTile, addHillTile, commit, dispose };
+  return {
+    settledMesh: settled.mesh,
+    frontierMesh: frontier.mesh,
+    clear,
+    addTile,
+    addHillTile,
+    beginFrontierColorUpdates,
+    setFrontierTileColor,
+    setFrontierHillTileColor,
+    commit,
+    dispose
+  };
 };
