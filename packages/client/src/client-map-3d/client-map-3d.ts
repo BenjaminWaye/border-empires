@@ -109,8 +109,7 @@ type ClientThreeTerrainRendererDeps = {
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
   settlementProgressForTile: (x: number, y: number) => TileTimedProgress | undefined;
   isPlacementValidForTile: (tile: Tile | undefined) => boolean;
-  // Fires when the GPU drops the WebGL context; the host tears this instance
-  // down and falls back to 2D (client-map-3d-render-target.ts).
+  // Fires when the GPU drops the WebGL context; the host tears this instance down and falls back to 2D (client-map-3d-render-target.ts).
   onContextLost?: (reason: string) => void;
 };
 
@@ -139,34 +138,26 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);
   const townSupportCoins = createTownSupportCoinLayer(scene);
-  // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns
-  // (capture event) so the floating "-pop" indicator fires once per capture.
+  // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns (capture event) so the floating "-pop" indicator fires once per capture.
   const lastSeenCaptureShockByTile = new Map<string, number>();
-  // Per-tile last-seen ownerId, used only to auto-detect and log ownership
-  // changes as they render (debug-tile logging) without needing a manually
-  // pinned coordinate — any tile whose rendered ownerId flips gets logged.
+  // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
   const forest = createForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
-  // Fogged tiles get a black darkening quad (always full opacity 0.65,
-  // regardless of frontier/settled -- reuses both mesh buckets identically)
-  // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept
-  // as distinct overlay instances from `ownershipOverlay` so the live
+  // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
+  // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
   // SETTLED_OPACITY (0.85) constant is never touched by fog rendering.
   const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.65, frontier: 0.65 });
   const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 });
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
   const reachOverlay3D = createReachOverlay3D(scene, MAX_VISIBLE_TILES);
-  // Cache of the client-local reach approximation, recomputed only when
-  // tiles actually changed (same revision-gated pattern as the 2D path's
-  // state.myReach in client-runtime-loop.ts). Kept as a local rather than
-  // on ClientState since the 2D path guards its own state.myReach update
+  // Cache of the client-local reach approximation, recomputed only when tiles actually changed (same revision-gated pattern as the 2D path's
+  // state.myReach in client-runtime-loop.ts). Kept as a local rather than on ClientState since the 2D path guards its own state.myReach update
   // with !isTrue3DRendererActive() and only one renderer is ever active.
   let reach3DCache: Set<string> | undefined;
   let reach3DCacheRevision = "";
-  // Sparse pylon placement points + connecting chords, sampled from the
-  // traced reach-boundary perimeter (see client-reach-overlay.ts's
+  // Sparse pylon placement points + connecting chords, sampled from the traced reach-boundary perimeter (see client-reach-overlay.ts's
   // traceReachBoundaryEdgeLoops/samplePerimeterPylons). Recomputed only when
   // reach3DCache itself is recomputed -- the perimeter walk is more work
   // than a per-tile boundary check, so it must not run every frame.
@@ -207,6 +198,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const worldEngineStrikeFx = createMonumentPulseFxLayer(scene, "#ff5533", "world-engine-strike-fx");
   const worldEngineShakeFx = createCameraShakeFx(camera);
   const imperialExchangeLevyFx = createMonumentPulseFxLayer(scene, "#ffd166", "imperial-exchange-levy-fx");
+  // "Fell out of reach" collapse pulse (client-tile-unsettle-pulse.ts) — cool blue, distinct from the combat/monument-ability reds and golds above.
+  const reachLossFx = createMonumentPulseFxLayer(scene, "#38bdf8", "reach-loss-fx");
   const astralDockLaunchFx = createRevealEmpireFxLayer(scene);
   const aegisLockFx = createAegisLockFxLayer(scene);
   const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
@@ -1117,6 +1110,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
       const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
       imperialExchangeLevyFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
+    }
+  };
+  const syncReachLossFxQueue = (): void => {
+    while (deps.state.reachLossPulseQueue.length > 0) {
+      const lost = deps.state.reachLossPulseQueue.shift()!;
+      const sceneX = toroidDelta(deps.state.camX, lost.x, WORLD_WIDTH) + TILE_CENTER_OFFSET; const sceneZ = toroidDelta(deps.state.camY, lost.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      reachLossFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(lost.x, lost.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
     }
   };
   const syncAstralDockLaunchFxQueue = (): void => {
@@ -2113,7 +2113,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncBombardFxQueue();
     syncWorldEngineStrikeFxQueue();
     syncWorldEngineStrikeShakeQueue(nowMs);
-    syncImperialExchangeLevyFxQueue();
+    syncImperialExchangeLevyFxQueue(); syncReachLossFxQueue();
     syncAstralDockLaunchFxQueue();
     syncAegisLockFxQueue();
     crystalTargetingOverlay.sync({
@@ -2134,7 +2134,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     bombardFx.update(nowMs);
     worldEngineStrikeFx.update(nowMs);
     worldEngineShakeFx.update(nowMs);
-    imperialExchangeLevyFx.update(nowMs);
+    imperialExchangeLevyFx.update(nowMs); reachLossFx.update(nowMs);
     astralDockLaunchFx.update(nowMs);
     aegisLockFx.update(nowMs);
     floatingText.update(nowMs);
@@ -2225,7 +2225,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     revealEmpireStatsFx.dispose();
     bombardFx.dispose();
     worldEngineStrikeFx.dispose();
-    imperialExchangeLevyFx.dispose();
+    imperialExchangeLevyFx.dispose(); reachLossFx.dispose();
     astralDockLaunchFx.dispose();
     aegisLockFx.dispose();
     dockOverlay.dispose();

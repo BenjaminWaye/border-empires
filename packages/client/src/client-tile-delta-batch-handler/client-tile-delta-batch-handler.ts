@@ -5,6 +5,7 @@ import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-ca
 import { renderDiscoveryTipOverlay } from "../client-discovery-tips/client-discovery-tip-overlay.js";
 import { registerActiveBattleFromTileDelta } from "../client-battle-overlay/client-battle-overlay.js";
 import { pushDiscoveryTipFeedEntry } from "../client-alerts/client-alerts.js";
+import { isReachLossUnsettleTransition, queueReachLossPulse } from "../client-tile-unsettle-pulse/client-tile-unsettle-pulse.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
@@ -44,14 +45,20 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       updates: tileUpdates?.map((update) => ({ key: keyFor(update.x, update.y), ownerId: update.ownerId, ownershipState: update.ownershipState }))
     });
   }
-  const previousTileByKey = new Map<string, { ownerId?: string; town?: Tile["town"] } | undefined>();
+  const previousTileByKey = new Map<string, { ownerId?: string; ownershipState?: Tile["ownershipState"]; town?: Tile["town"] } | undefined>();
   if (Array.isArray(tileUpdates)) {
     for (const update of tileUpdates) {
       const updateKey = keyFor(update.x, update.y);
       const existing = state.tiles.get(updateKey);
       previousTileByKey.set(
         updateKey,
-        existing ? { ...(existing.ownerId ? { ownerId: existing.ownerId } : {}), ...(existing.town ? { town: existing.town } : {}) } : undefined
+        existing
+          ? {
+              ...(existing.ownerId ? { ownerId: existing.ownerId } : {}),
+              ...(existing.ownershipState ? { ownershipState: existing.ownershipState } : {}),
+              ...(existing.town ? { town: existing.town } : {})
+            }
+          : undefined
       );
     }
   }
@@ -74,6 +81,7 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
       const updateKey = keyFor(update.x, update.y);
       const resolved = state.tiles.get(updateKey);
       if (resolved) state.tiles.set(updateKey, resolved);
+      if (isReachLossUnsettleTransition(previousTileByKey.get(updateKey), resolved)) queueReachLossPulse(state, update.x, update.y);
       if (resolved?.ownerId === state.me && (resolved.ownershipState === "FRONTIER" || resolved.ownershipState === "SETTLED")) {
         state.frontierSyncWaitUntilByTarget.delete(updateKey);
         deps.clearLateFrontierAck(updateKey);

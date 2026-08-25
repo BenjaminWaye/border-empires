@@ -102,9 +102,18 @@ export const isValuableAutoSettlementTarget = (
 export const isAutoSettlementEligibleTarget = (
   tile: DomainTileState | undefined,
   playerId: string,
-  hasTownSupport: (tile: DomainTileState) => boolean
+  hasTownSupport: (tile: DomainTileState) => boolean,
+  // Fixed-border reach gate (packages/shared/src/reach/reach.ts) — same check
+  // handleSettleCommand applies to a human-dispatched SETTLE. Auto-settle
+  // (both the AI's own driver and the queue the client auto-fills SETTLE
+  // commands from) previously skipped this: a tile claimed while in reach
+  // stays FRONTIER-owned forever if never settled, and a shrinking/contested
+  // border could leave it outside reach by the time auto-settle got to it,
+  // silently converting a tile the player couldn't legally SETTLE by hand.
+  isInReach: (tile: DomainTileState) => boolean = () => true
 ): tile is DomainTileState => {
   if (!isAutoSettlementTarget(tile, playerId)) return false;
+  if (!isInReach(tile)) return false;
   return Boolean(tile.resource || tile.town || tile.dockId || hasTownSupport(tile));
 };
 
@@ -115,23 +124,29 @@ export const orderedAutoSettlementTileKeys = (
     getTile: (tileKey: string) => DomainTileState | undefined;
     isBlocked: (tileKey: string) => boolean;
     hasTownSupport: (tile: DomainTileState) => boolean;
+    // Fixed-border reach check, forwarded to isAutoSettlementEligibleTarget.
+    // Optional (defaults to always-true) so existing callers/tests that don't
+    // care about reach keep working unchanged.
+    isInReach?: (tile: DomainTileState) => boolean;
     // Optional read-through cache for the (resource || town || dockId ||
     // hasTownSupport) eligibility result, keyed by tileKey. hasTownSupport is
     // the dominant per-tile cost (an 8-neighbor scan) and its result rarely
     // changes between calls, so a caller that knows a rejected/accepted tile
-    // is still valid can skip recomputing it. isBlocked is intentionally NOT
-    // cached here — it's cheap (O(1) map lookups) and genuinely transient
-    // (locks/pending settlements come and go), so it's always checked fresh.
+    // is still valid can skip recomputing it. isBlocked and isInReach are
+    // intentionally NOT cached here — both are cheap (O(1) map/border
+    // lookups) and genuinely transient (locks/pending settlements and the
+    // reach border both come and go), so they're always checked fresh.
     eligibilityCache?: { get: (tileKey: string) => boolean | undefined; set: (tileKey: string, eligible: boolean) => void } | undefined;
   }
 ): string[] => {
   const output: string[] = [];
   for (const tileKey of territoryTileKeys) {
     if (deps.isBlocked(tileKey)) continue;
+    const tile = deps.getTile(tileKey);
+    if (tile && deps.isInReach && !deps.isInReach(tile)) continue;
     let eligible = deps.eligibilityCache?.get(tileKey);
     if (eligible === undefined) {
-      const tile = deps.getTile(tileKey);
-      eligible = isAutoSettlementEligibleTarget(tile, playerId, deps.hasTownSupport);
+      eligible = isAutoSettlementEligibleTarget(tile, playerId, deps.hasTownSupport, deps.isInReach);
       deps.eligibilityCache?.set(tileKey, eligible);
     }
     if (eligible) output.push(tileKey);
