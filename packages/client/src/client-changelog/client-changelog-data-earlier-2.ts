@@ -12,6 +12,24 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.3",
+    title: "Fixed borders not expanding after a reach anchor finished while you were away",
+    why: "A Relay Beacon (or any reach anchor) that finished building while you were disconnected expanded your border on the server, but the update was sent before your connection was ready to receive it and was silently dropped. Reconnecting did not recover it, so the game kept showing your old border -- and because the waypoint planner uses the same border, queued expansions could stall against territory the server had already granted you.",
+    changes: [
+      "Your authoritative border is now pushed once your connection is fully established, so a reach anchor that completed while you were offline shows up as soon as you log back in."
+    ]
+  },
+  {
+    createdAt: 1787616000000, // 2026.08.25.1 — frozen; was Date.now() in the merged commit
+    introducedIn: "2026.08.25.1",
+    title: "Fixed sea tiles rendering as solid black from some camera angles",
+    why: "The 3D water surface only got its color from directional lighting, with a near-black fallback (emissive 0x030e18) for anything that fell into shadow. Viewed from the south -- opposite the sun and fill light -- water faces caught neither light and the near-black fallback read as a black hole instead of dark sea.",
+    changes: [
+      "The water material's shadow-floor color is now a dim tint of the actual deep-water color instead of near-black, so unlit sea tiles read as dark water at any camera angle."
+    ]
+  },
+  {
     createdAt: 1787678887251, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.3",
     title: "Rivers now curve smoothly and taper toward the sea instead of looking like glued-together rectangles",

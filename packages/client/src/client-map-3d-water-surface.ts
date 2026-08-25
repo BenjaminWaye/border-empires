@@ -296,11 +296,16 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
       skirtIndices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
     };
 
+    // Only the south edge (gr+1, the side facing the default isometric
+    // camera) gets a skirt. North/east/west skirts sat right where the
+    // land skirt's own coastal wall runs (client-map-3d-heightfield.ts) —
+    // two near-coplanar unlit walls animating independently z-fought and
+    // flickered against each other every frame. South-facing coastline is
+    // also where the camera actually needs the wall (the far/back edges
+    // are rarely seen edge-on), so dropping the other three is the
+    // pragmatic fix rather than trying to reconcile two skirts' depths.
     for (const { gc, gr, shallow } of tiles) {
-      if (!tileMap.has(tileKey(gc, gr - 1))) emitSkirtEdge(gc, gr, gc + 1, gr, shallow);
       if (!tileMap.has(tileKey(gc, gr + 1))) emitSkirtEdge(gc + 1, gr + 1, gc, gr + 1, shallow);
-      if (!tileMap.has(tileKey(gc - 1, gr))) emitSkirtEdge(gc, gr + 1, gc, gr, shallow);
-      if (!tileMap.has(tileKey(gc + 1, gr))) emitSkirtEdge(gc + 1, gr, gc + 1, gr + 1, shallow);
     }
 
     if (skirtPositions.length > 0) {
