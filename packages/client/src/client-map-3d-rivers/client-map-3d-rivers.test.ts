@@ -213,4 +213,33 @@ describe("decorative river overlay", () => {
 
     overlayNoneExplored.dispose();
   });
+
+  it("tapers ribbon width from a narrow source to a wide mouth, instead of a constant width", () => {
+    // Regression for the fixed-width ribbon (RIVER_HALF_WIDTH the whole
+    // length) that made every river the same thickness from source to sea.
+    // Vertices are pushed in left/right pairs per path point (see
+    // pushRibbonStrip), so the distance between each pair is that point's
+    // rendered width — a real river should show both a narrow end and a
+    // noticeably wider end within the same mesh.
+    setWorldSeed(2024);
+    const scene = new Scene();
+    const overlay = createRiverOverlay(scene);
+    overlay.rebuild(WIDE_WINDOW);
+    const positions = positionsOf(riverMesh(scene));
+    expect(positions).toBeDefined();
+
+    let minWidth = Number.POSITIVE_INFINITY;
+    let maxWidth = 0;
+    for (let i = 0; i + 5 < positions!.length; i += 6) {
+      const dx = positions![i]! - positions![i + 3]!;
+      const dz = positions![i + 2]! - positions![i + 5]!;
+      const width = Math.hypot(dx, dz);
+      if (width < minWidth) minWidth = width;
+      if (width > maxWidth) maxWidth = width;
+    }
+
+    expect(maxWidth).toBeGreaterThan(minWidth * 2);
+
+    overlay.dispose();
+  });
 });
