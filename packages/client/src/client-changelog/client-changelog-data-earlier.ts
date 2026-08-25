@@ -12,6 +12,25 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787509343955, // frozen from `date +%s%3N`
+    introducedIn: "2026.08.23.3",
+    title: "Reach no longer spreads across open water",
+    why: "A town, outpost, or dock's reach radius was purely geometric with no terrain awareness, so a coastal or island anchor's disk routinely covered land on the far side of a bay or strait even with no unbroken land route to it -- letting you EXPAND/SETTLE onto land you had no real connection to.",
+    changes: [
+      "A normal reach anchor's radius now only extends onto land reachable by an unbroken land path from the anchor, within the radius -- water is still included right at the coastline, it just can't act as a stepping-stone onto land further out.",
+      "The Aether Bridge's water-crossing reach grant is unaffected -- bridging across water without a land connection is still exactly what it's for."
+    ]
+  },
+  {
+    createdAt: 1787509994281, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.3",
+    title: "Fixed queued settlements/builds sometimes sitting stalled after logging back in",
+    why: "A queued SETTLE or BUILD only starts once an earlier one in your queue finishes, and that hand-off only happens when the server notices a slot just freed up. If a slot freed up while you were disconnected, nobody was around to trigger that hand-off, so your next queued action could sit stalled -- looking untouched -- until some unrelated action elsewhere happened to free another slot.",
+    changes: [
+      "Logging back in now immediately checks your queue for anything that's actually free to start, instead of waiting on an unrelated event to notice."
+    ]
+  },
+  {
     createdAt: 1787412371498, // 2026.08.22.11 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.11",
     title: "Muster flags can now march on a chosen target instead of just the nearest enemy tile",
