@@ -498,7 +498,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The checklist bubble overlapped the \"Center / Jump to your banner\" button in the bottom-left corner, its first step counted the free starting settlement (SETTLEMENT tier) as an already-settled town so it skipped straight to the food step, and its map highlight ring was drawn with flat 2D isometric math that put it in the wrong place entirely when playing in true-3D mode.",
     changes: [
       "The checklist bubble now sits above the Center/banner button instead of on top of it.",
-      "The \"settle your first town\" step now requires actually growing past SETTLEMENT tier -- the free starting settlement no longer counts on its own.",
+      "The \"find your first town\" step now requires reaching TOWN tier -- the free starting settlement no longer counts on its own.",
       "In true-3D mode, the highlight is now a real ring mesh placed on the terrain instead of a flat 2D overlay."
     ]
   }

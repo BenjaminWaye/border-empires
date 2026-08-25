@@ -26,7 +26,7 @@ const remainingSteps = (state: OnboardingChecklistState): number => {
 };
 
 const stepLabel = (state: OnboardingChecklistState): string =>
-  state.step === "SETTLE_TOWN" ? "Grow your settlement into a town" : `Claim ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food slots`;
+  state.step === "SETTLE_TOWN" ? "Find your first town" : `Claim ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food slots`;
 
 const removeOnboardingChecklistOverlay = (): void => {
   if (typeof document === "undefined") return;

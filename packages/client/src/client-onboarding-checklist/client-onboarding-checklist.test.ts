@@ -86,6 +86,15 @@ describe("onboardingChecklistState", () => {
     expect(state.highlightTiles).toEqual([{ x: 2, y: 2 }]);
   });
 
+  it("only TOWN tier satisfies SETTLE_TOWN -- CITY tier does not count", () => {
+    const tiles = [tile(9, 9, { ownerId: ME, town: { type: "FARMING", populationTier: "CITY" } as never })];
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.step).toBe("SETTLE_TOWN");
+    // A CITY tile isn't a SETTLEMENT either, so it isn't tracked as a
+    // grow-this-tile target -- there's nothing to highlight for it.
+    expect(state.highlightTiles).toEqual([]);
+  });
+
   it("reaches DONE once 4 food slots are claimed (any mix of grain/fish)", () => {
     const tiles = [
       tile(0, 0, { ownerId: ME, town: { type: "FARMING", populationTier: "TOWN" } as never }),
