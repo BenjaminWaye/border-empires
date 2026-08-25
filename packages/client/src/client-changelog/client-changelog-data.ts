@@ -22,6 +22,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787650830571, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.1",
+    title: "Farmstead now grants +2 FOOD slots instead of +1",
+    why: "Farmstead's same-tile FOOD slot boost was tied with Mine/Umbrite Rig's +1, even though it's a dedicated food building -- a bigger boost makes it more worth building and gives Waterworks (which multiplies Farmstead's bonus) more to amplify.",
+    changes: [
+      "An active Farmstead on a FARM tile now adds +2 FOOD slots to that tile instead of +1. Waterworks' separate +2-per-Farmstead-in-radius bonus is unchanged and stacks on top."
+    ]
+  },
+  {
     createdAt: 1787584599966, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
     introducedIn: "2026.08.24.6",
     title: "\"Expand To\" no longer shows \"0 gold\" when expanding costs no gold",
@@ -358,64 +367,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787430500000,
-    introducedIn: "2026.08.22.7",
-    title: "Stage Muster now sits above Disable on structure tiles",
-    why: "On a tile with both a muster flag and a disable-able structure (e.g. Relay Beacon), Stage Muster/Set Hold/Set Advance showed up below the Disable button, making the muster controls easy to miss.",
-    changes: [
-      "The tile action menu now lists Stage Muster (and Set Hold/Set Advance/Clear Muster) above Disable/Enable for the tile's structure."
-    ]
-  },
-  {
-    createdAt: 1787430400000,
-    introducedIn: "2026.08.22.6",
-    title: "Joining a new season is now a deliberate choice",
-    why: "Logging in used to silently spawn you into whatever season was active, even if you had never chosen to play it. Reconnecting was indistinguishable from joining.",
-    changes: [
-      "When you log in and haven't joined the current season yet, a \"Join Season\" prompt now appears instead of spawning you automatically.",
-      "Confirming the prompt joins the season and spawns your starting territory; the prompt closes automatically once your empire appears."
-    ]
-  },
-  {
-    createdAt: 1787430300000,
-    introducedIn: "2026.08.22.5",
-    title: "Growing your territory over an enemy tile that was settled out of reach now takes it properly",
-    why: "A tile could end up settled by an empire that never held any territory claim over it, which left no claim recorded for that tile at all. When your own territory later grew across it, the game treated the ground as empty and simply handed you the claim -- but because nothing was recorded as changing hands, the enemy's settled tile was never knocked back to a frontier tile. The result was an enemy town sitting inside your border that your territory could never dislodge, no matter how far your reach grew.",
-    changes: [
-      "When your territory grows over an enemy tile that was settled without a claim behind it, that tile now reverts to a frontier tile, the same as any other tile your border takes over.",
-      "An enemy tile that is still genuinely defended by their own town, outpost or dock is unaffected -- it stays theirs, exactly as before."
-    ]
-  },
-  {
-    createdAt: 1787430200000,
-    introducedIn: "2026.08.22.4",
-    title: "Auto-settle no longer fires on tiles that have drifted out of reach",
-    why: "Queuing a settle-then-build (or letting an AI empire's frontier auto-settle) could still fire once the tile had fallen out of reach in the meantime -- the server always rejected it as out-of-reach, but nothing checked first, so it just silently failed instead of being dropped up front.",
-    changes: [
-      "Both the player's queued auto-settle and an AI empire's automatic frontier settlement now check reach before sending a settle command, dropping the queued action instead of sending one that's guaranteed to be rejected.",
-      "When a settled tile gets overtaken and reverts to a frontier tile because a rival's territory grew over it, it now plays a brief collapsing pylon effect on the map instead of changing silently."
-    ]
-  },
-  {
-    createdAt: 1787430100000,
-    introducedIn: "2026.08.22.3",
-    title: "Fixed the reach border dodging around fog of war and unexplored tiles",
-    why: "Your reach border is a fixed, server-authoritative line -- it shouldn't move depending on what you can currently see. But the 2D map only drew the border on tiles it considered fully visible, so on any fogged or unexplored patch inside your own territory the line simply stopped, making it look like the border itself was carving around the fog instead of following your actual claim.",
-    changes: [
-      "The reach border now renders on top of fogged territory (dimmed, same as the rest of a fogged tile) instead of disappearing there.",
-      "It still stays hidden over fully unexplored tiles, since there's nothing remembered there to draw it against."
-    ]
-  },
-  {
-    createdAt: 1787430000000,
-    introducedIn: "2026.08.22.2",
-    title: "An empire with no war industry is now also weaker on defense, not just on offense",
-    why: "Owning zero Titanium and zero Umbrite Weapons Factories empire-wide already doubled an attacker's effective attack against you -- but that bonus only ever helped the attacker. If you had no war industry and someone else attacked you, defending gave you no comparable penalty or advantage either way.",
-    changes: [
-      "Defending against an attacker who owns zero Titanium AND zero Umbrite Weapons Factories anywhere in their empire now doubles your effective defense, mirroring the existing attack-side vulnerability from the other direction. Missing one factory type or both gives the same flat bonus -- it doesn't stack higher for missing both."
-    ]
-  },
-  {
     createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.2",
     title: "Fixed the whole screen becoming unclickable after submitting a bug report",
@@ -480,12 +431,39 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787584599968, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.1",
+    title: "Fixed the Expand To / dev queue silently emptying after a server restart",
+    why: "The frontier expand queue (\"Expand To\") and the development queue were only ever held in the simulation server's memory. They survived a player disconnecting and reconnecting, but a cold restart of the game server reset both queues to empty with no warning -- queued expand targets and build/settle orders were just gone.",
+    changes: [
+      "The Expand To queue and the development queue now survive a server restart -- both are saved with the rest of your empire's state and restored exactly as you left them."
+    ]
+  },
+  {
     createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.1",
     title: "Auto-settle no longer claims resource tiles before you've researched them",
     why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
     changes: [
       "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
+    ]
+  },
+  {
+    createdAt: 1787643819307, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.2",
+    title: "Fixed spawns landing next to resources across water",
+    why: "A new player's starting position only had to be within straight-line distance of a farm or fishing spot to count as \"nearby\" -- so a spawn could land on a coastline whose closest food was actually on the far side of a strait or a separate island, unreachable without crossing water.",
+    changes: [
+      "Spawn placement now requires that nearby food and towns be on the same landmass as the spawn point, not just within range as the crow flies."
+    ]
+  },
+  {
+    createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.3",
+    title: "Fixed borders not expanding after a reach anchor finished while you were away",
+    why: "A Relay Beacon (or any reach anchor) that finished building while you were disconnected expanded your border on the server, but the update was sent before your connection was ready to receive it and was silently dropped. Reconnecting did not recover it, so the game kept showing your old border -- and because the waypoint planner uses the same border, queued expansions could stall against territory the server had already granted you.",
+    changes: [
+      "Your authoritative border is now pushed once your connection is fully established, so a reach anchor that completed while you were offline shows up as soon as you log back in."
     ]
   }
 ];

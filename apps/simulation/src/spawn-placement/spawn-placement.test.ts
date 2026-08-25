@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 
-import { chooseLegacySpawnPlacement } from "./spawn-placement.js";
+import { chooseLegacySpawnPlacement, computeLandRegions } from "./spawn-placement.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
 const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number =>
@@ -141,6 +141,40 @@ describe("chooseLegacySpawnPlacement", () => {
 
     expect(spawn).toBeDefined();
     expect(spawn!.x).toBeGreaterThanOrEqual(34);
+  });
+
+  it("computeLandRegions assigns different region ids to landmasses split by sea, and the same id within one landmass", () => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 5; y += 1) {
+      for (let x = 0; x < 5; x += 1) tiles.push({ x, y, terrain: "LAND" });
+      for (let x = 5; x < 7; x += 1) tiles.push({ x, y, terrain: "SEA" });
+      for (let x = 7; x < 12; x += 1) tiles.push({ x, y, terrain: "LAND" });
+    }
+
+    const regions = computeLandRegions(tiles);
+    expect(regions.get(simulationTileKey(0, 0))).toBe(regions.get(simulationTileKey(4, 4)));
+    expect(regions.get(simulationTileKey(0, 0))).not.toBe(regions.get(simulationTileKey(7, 0)));
+  });
+
+  it("never spawns next to a resource that is only reachable by crossing water, even when it is the closest one by straight-line distance", () => {
+    // Land A (0-19,0-19) has no food or town anywhere on it. Land B (22-24,0-19),
+    // separated from Land A by a 2-tile-wide sea strait, has the only FARM in
+    // the world at (22,10) — well within Manhattan radius 10 of Land A's coast
+    // (e.g. (19,10) is only 3 tiles away as the crow flies), but unreachable by
+    // land. A correct implementation must never accept a Land A spawn on the
+    // strength of that food, since hasNearbyFood requires land connectivity.
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 20; y += 1) {
+      for (let x = 0; x < 20; x += 1) tiles.push({ x, y, terrain: "LAND" });
+      for (let x = 20; x < 22; x += 1) tiles.push({ x, y, terrain: "SEA" });
+      for (let x = 22; x < 25; x += 1) tiles.push({ x, y, terrain: "LAND", ...(x === 22 && y === 10 ? { resource: "FARM" as const } : {}) });
+    }
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const spawn = chooseLegacySpawnPlacement({ playerId: `firebase-user-water-${attempt}`, tiles });
+      expect(spawn).toBeDefined();
+      expect(spawn!.x).toBeGreaterThanOrEqual(22);
+    }
   });
 
   it("prefers open land near a rally anchor before default spawn placement", () => {
