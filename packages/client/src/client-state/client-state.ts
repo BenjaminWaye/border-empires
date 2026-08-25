@@ -285,7 +285,7 @@ export const createInitialState = () => ({
   replayLastTickAt: 0,
   replayOwnershipByTile: new Map<string, { ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }>(),
   socialInspectPlayerId: "" as string,
-  feed: [] as FeedEntry[],
+  feed: [] as FeedEntry[], onboardingHighlightTiles: [] as Array<{ x: number; y: number }>,
   feedUnreadCount: 0,
   spawnFeedShownSeasonId: "" as string,
   feedAttentionUntil: 0,

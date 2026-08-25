@@ -329,17 +329,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787412371498, // 2026.08.22.11 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.11",
-    title: "Muster flags can now march on a chosen target instead of just the nearest enemy tile",
-    why: "A muster flag's ADVANCE mode always auto-fired on whatever enemy tile happened to be nearest, with no way to point it at a specific target -- useful for holding a line, but not for actually pushing an offensive toward somewhere particular.",
-    changes: [
-      "New \"March To...\" muster action: pick a flag, choose \"March To...\", then click a destination tile.",
-      "A marching flag fights its way toward that destination one attack at a time, always picking whichever reachable enemy tile is closest to the target -- it never crosses neutral ground, since a muster flag only ever attacks enemy territory.",
-      "The flag automatically returns to HOLD once it captures the target tile, or you can cancel the march early from the tile menu."
-    ]
-  },
-  {
     createdAt: 1787430800000,
     introducedIn: "2026.08.22.10",
     title: "Your galaxy planet now shows what it's specialized in",
@@ -448,6 +437,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
     changes: [
       "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
+    ]
+  },
+  {
+    createdAt: 1787651082566, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.2",
+    title: "Added a new-player checklist for founding your first town and securing food",
+    why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
+    changes: [
+      "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
     ]
   },
   {
