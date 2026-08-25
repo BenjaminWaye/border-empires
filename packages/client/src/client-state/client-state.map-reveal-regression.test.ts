@@ -17,8 +17,8 @@ describe("client state map reveal bootstrap regression", () => {
       }
     });
 
-    setDebugAuthEmail("bw199005@gmail.com");
-    storage.set("be-map-reveal:bw199005@gmail.com", "1");
+    setDebugAuthEmail("admin@borderempires.com");
+    storage.set("be-map-reveal:admin@borderempires.com", "1");
 
     expect(createInitialState().mapRevealEnabled).toBe(false);
   });

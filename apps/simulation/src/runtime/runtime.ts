@@ -73,7 +73,7 @@ import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import {
   isSettledTownAnchor,
   orderedAutoSettlementTileKeys,
-  TOWN_AUTO_FRONTIER_RADIUS
+  TOWN_AUTO_FRONTIER_RADIUS, isAutoSettlementResourceTechRevealed
 } from "../territory-automation/territory-automation.js";
 import type { PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import {
@@ -3367,7 +3367,7 @@ export class SimulationRuntime {
             return Boolean(town && town.populationTier !== "SETTLEMENT");
           });
         },
-        isRevealedToPlayer: (tile) => this.visibilityCoverage.isVisible(playerId, simulationTileKey(tile.x, tile.y)), // fog-of-war gate
+        isRevealedToPlayer: (tile) => this.visibilityCoverage.isVisible(playerId, simulationTileKey(tile.x, tile.y)) && isAutoSettlementResourceTechRevealed(tile, player), // fog-of-war + tech-reveal gates
         eligibilityCache
       })
         .map((tileKey) => {
