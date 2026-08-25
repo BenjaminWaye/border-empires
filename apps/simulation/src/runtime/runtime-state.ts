@@ -1,4 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
+import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { RuntimePlayer } from "../runtime-types.js";
 
 /**
@@ -16,12 +17,18 @@ import type { RuntimePlayer } from "../runtime-types.js";
 export class RuntimeState {
   readonly players: Map<string, RuntimePlayer>;
   readonly tiles: Map<string, DomainTileState>;
+  readonly docks: DockRouteDefinition[];
+  readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
 
   constructor(init: {
     players: Map<string, RuntimePlayer>;
     tiles: Map<string, DomainTileState>;
+    docks: DockRouteDefinition[];
+    dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
   }) {
     this.players = init.players;
     this.tiles = init.tiles;
+    this.docks = init.docks;
+    this.dockLinksByDockTileKey = init.dockLinksByDockTileKey;
   }
 }
