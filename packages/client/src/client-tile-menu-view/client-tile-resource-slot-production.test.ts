@@ -32,7 +32,7 @@ describe("resourceSlotProductionHtml", () => {
     expect(resourceSlotProductionHtml({ x: 0, y: 0, terrain: "LAND", resource: "FISH" })).toBe("🍞 Food +2");
   });
 
-  it("adds a Farmstead's +1 own-tile boost on top of the FARM base", () => {
+  it("adds a Farmstead's +2 own-tile boost on top of the FARM base", () => {
     const tile: Tile = {
       x: 0,
       y: 0,
@@ -40,7 +40,7 @@ describe("resourceSlotProductionHtml", () => {
       resource: "FARM",
       economicStructure: { ownerId: "me", type: "FARMSTEAD", status: "active" }
     };
-    expect(resourceSlotProductionHtml(tile)).toBe("🍞 Food +2");
+    expect(resourceSlotProductionHtml(tile)).toBe("🍞 Food +3");
   });
 
   it("returns TITANIUM/CRYSTAL/UMBRITE slot counts for the corresponding tile resources", () => {
