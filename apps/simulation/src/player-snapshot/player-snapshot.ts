@@ -328,7 +328,22 @@ export const buildPlayerSubscriptionSnapshot = (
             // runtime-waypoint-queue.ts. Seeds a fresh login/reconnect with
             // whatever survived while disconnected; the live PLAYER_UPDATE
             // stream (emitPlayerStateUpdate) keeps it current after that.
-            ...(livePlayer.devQueue?.length ? { devQueue: livePlayer.devQueue } : {}),
+            // reservedManpower/reservedSlotRequirements are deliberately
+            // stripped here: they are server-side refund bookkeeping (see
+            // runtime-dev-queue-build-reservation.ts), not something the
+            // client renders, so the wire shape stays lean.
+            ...(livePlayer.devQueue?.length
+              ? {
+                  devQueue: livePlayer.devQueue.map((entry) => ({
+                    tileKey: entry.tileKey,
+                    x: entry.x,
+                    y: entry.y,
+                    kind: entry.kind,
+                    ...(entry.structureType ? { structureType: entry.structureType } : {}),
+                    queuedAt: entry.queuedAt
+                  }))
+                }
+              : {}),
             ...(livePlayer.waypointQueue?.length ? { waypointQueue: livePlayer.waypointQueue } : {}),
             techIds: [...livePlayer.techIds],
             domainIds: [...livePlayer.domainIds],
