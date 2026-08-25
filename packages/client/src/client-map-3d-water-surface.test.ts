@@ -78,4 +78,44 @@ describe("createWaterSurface", () => {
 
     water.dispose();
   });
+
+  // Regression test for the wave animation leaving the skirt behind: the
+  // main surface's vertex Y bobs every frame in tick(), but the skirt's top
+  // row was written once in commit() and never touched again -- whenever
+  // the wave lifted the surface above that static top edge, the gap
+  // between them exposed the void underneath (the same black-artifact bug,
+  // just reintroduced by animation instead of by having no skirt at all).
+  it("keeps the skirt's top edge flush with the animated surface", () => {
+    const scene = new Scene();
+    const water = createWaterSurface(scene, 4);
+    water.addTile(0.5, 0.5, false);
+    water.commit();
+    water.tick(1234);
+
+    const meshes = scene.children.filter((child): child is Mesh => child instanceof Mesh);
+    const surface = meshes.find((m) => m.renderOrder === 12)!;
+    const skirt = meshes.find((m) => m.renderOrder === 11)!;
+
+    const surfacePos = surface.geometry.attributes["position"]!.array;
+    // Surface vertex at world (0, *, 0) is the first vertex written in commit().
+    const surfaceY = surfacePos[1];
+
+    // Every skirt top-row vertex (index % 4 < 2) at the same world (x, z)
+    // should match the surface's wave displacement exactly, not sit at the
+    // static WATER_SURFACE_Y baseline.
+    const skirtPos = skirt.geometry.attributes["position"]!.array;
+    let sawTopVertex = false;
+    for (let i = 0; i < skirtPos.length / 3; i++) {
+      if (i % 4 >= 2) continue;
+      const x = skirtPos[i * 3]!;
+      const z = skirtPos[i * 3 + 2]!;
+      if (x === 0 && z === 0) {
+        sawTopVertex = true;
+        expect(skirtPos[i * 3 + 1]).toBeCloseTo(surfaceY!, 6);
+      }
+    }
+    expect(sawTopVertex).toBe(true);
+
+    water.dispose();
+  });
 });
