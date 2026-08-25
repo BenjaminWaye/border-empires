@@ -13,6 +13,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787665177074, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.2",
+    title: "Fixed missing ownership colour on settled coastal hills",
+    why: "A shared map-corner vertex touching both sea and land was always flattened to beach height, even when the land side was a hill. That sank the hill's draped ownership tint (and its gridlines) below the visible dome surface, so a settled hill right next to the coast -- exactly where FISH resources spawn -- looked uncovered even though it was fully owned.",
+    changes: [
+      "Coastal hill tiles now keep their ownership colour and gridlines visible; the map corner tapers to the hill's own edge height instead of dropping to beach level."
+    ]
+  },
+  {
     createdAt: 1787584599966, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
     introducedIn: "2026.08.24.6",
     title: "\"Expand To\" no longer shows \"0 gold\" when expanding costs no gold",
