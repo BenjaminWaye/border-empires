@@ -113,6 +113,12 @@ export const nextNonBootstrapMessage = async (
     if (message.type === "PLAYER_UPDATE") {
       continue;
     }
+    // Ambient connect-time state push, not a response to the command under
+    // test: the live subscribe delivers the authoritative reach border to every
+    // socket as it joins (live-subscribe-reach-push.ts).
+    if (message.type === "REACH_UPDATE") {
+      continue;
+    }
     if (message.type === "TILE_DELTA_BATCH" && typeof message.commandId === "string" && message.commandId.startsWith("bootstrap:")) {
       continue;
     }

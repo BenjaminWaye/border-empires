@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787519500000, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.8",
+    title: "Added a \"Suggest Improvement\" button next to Report Bug",
+    why: "Players had a way to report bugs from Settings, but no equivalent in-app way to send us an improvement idea -- feedback ended up scattered across Discord instead.",
+    changes: [
+      "Settings > Diagnostics now has a green-bordered \"Suggest Improvement\" button below \"Report Bug\", opening the same style of form (with client/server context attached automatically) but posting to a separate suggestions inbox."
+    ]
+  },
+  {
     createdAt: 1787430400000,
     introducedIn: "2026.08.22.6",
     title: "Joining a new season is now a deliberate choice",
@@ -398,6 +407,35 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
     changes: [
       "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
+    ]
+  },
+  {
+    createdAt: 1787430000000,
+    introducedIn: "2026.08.22.2",
+    title: "An empire with no war industry is now also weaker on defense, not just on offense",
+    why: "Owning zero Titanium and zero Umbrite Weapons Factories empire-wide already doubled an attacker's effective attack against you -- but that bonus only ever helped the attacker. If you had no war industry and someone else attacked you, defending gave you no comparable penalty or advantage either way.",
+    changes: [
+      "Defending against an attacker who owns zero Titanium AND zero Umbrite Weapons Factories anywhere in their empire now doubles your effective defense, mirroring the existing attack-side vulnerability from the other direction. Missing one factory type or both gives the same flat bonus -- it doesn't stack higher for missing both."
+    ]
+  },
+  {
+    createdAt: 1787430100000,
+    introducedIn: "2026.08.22.3",
+    title: "Fixed the reach border dodging around fog of war and unexplored tiles",
+    why: "Your reach border is a fixed, server-authoritative line -- it shouldn't move depending on what you can currently see. But the 2D map only drew the border on tiles it considered fully visible, so on any fogged or unexplored patch inside your own territory the line simply stopped, making it look like the border itself was carving around the fog instead of following your actual claim.",
+    changes: [
+      "The reach border now renders on top of fogged territory (dimmed, same as the rest of a fogged tile) instead of disappearing there.",
+      "It still stays hidden over fully unexplored tiles, since there's nothing remembered there to draw it against."
+    ]
+  },
+  {
+    createdAt: 1787430200000,
+    introducedIn: "2026.08.22.4",
+    title: "Auto-settle no longer fires on tiles that have drifted out of reach",
+    why: "Queuing a settle-then-build (or letting an AI empire's frontier auto-settle) could still fire once the tile had fallen out of reach in the meantime -- the server always rejected it as out-of-reach, but nothing checked first, so it just silently failed instead of being dropped up front.",
+    changes: [
+      "Both the player's queued auto-settle and an AI empire's automatic frontier settlement now check reach before sending a settle command, dropping the queued action instead of sending one that's guaranteed to be rejected.",
+      "When a settled tile gets overtaken and reverts to a frontier tile because a rival's territory grew over it, it now plays a brief collapsing pylon effect on the map instead of changing silently."
     ]
   }
 ];
