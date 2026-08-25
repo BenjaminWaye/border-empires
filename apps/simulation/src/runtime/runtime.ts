@@ -80,6 +80,7 @@ import {
   addPendingSettlementToSummary,
   applyTileToPlayerSummary,
   createEmptyPlayerRuntimeSummary,
+  createPlayerRuntimeSummaryFromRecovered,
   removePendingSettlementFromSummary,
   removeTileFromPlayerSummary,
   type PendingSettlementRecord,
@@ -1006,14 +1007,12 @@ export class SimulationRuntime {
     this.locksByTile = createLocksFromInitialState(options.initialState);
     // Populate the commandId index from the just-created locksByTile map.
     for (const lock of this.locksByTile.values()) this.locksByCommandId.set(lock.commandId, lock);
-    for (const yieldEntry of options.initialState?.tileYieldCollectedAtByTile ?? []) {
-      this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
-    }
-    for (const yieldEntry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) {
-      this.lastIncomeTickAtMsByPlayer.set(yieldEntry.playerId, yieldEntry.collectedAt);
-    }
+    for (const entry of options.initialState?.tileYieldCollectedAtByTile ?? []) this.tileYieldCollectedAtByTile.set(entry.tileKey, entry.collectedAt);
+    for (const entry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) this.lastIncomeTickAtMsByPlayer.set(entry.playerId, entry.collectedAt);
+    // Indexed once: a linear find() per player would be O(players^2) at boot.
+    const recoveredPlayersById = new Map((options.initialState?.players ?? []).map((player) => [player.id, player]));
     for (const playerId of this.players.keys()) {
-      this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
+      this.playerSummaries.set(playerId, createPlayerRuntimeSummaryFromRecovered(recoveredPlayersById.get(playerId)));
       this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
       this.territoryVersionByPlayer.set(playerId, 0);
     }
