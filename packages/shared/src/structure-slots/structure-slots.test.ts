@@ -108,13 +108,13 @@ describe("BASE_SLOTS_BY_TILE_RESOURCE", () => {
 });
 
 describe("TILE_SLOT_BOOST_STRUCTURES / Waterworks bonus", () => {
-  it("Farmstead/Mine/Umbrite Rig each add +1 slot to their own tile", () => {
+  it("Farmstead adds +2 slots, Mine/Umbrite Rig each add +1 slot, to their own tile", () => {
     expect(TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD).toBe(2);
     expect(TILE_SLOT_BOOST_STRUCTURES.MINE).toBe(1);
     expect(TILE_SLOT_BOOST_STRUCTURES.UMBRITE_RIG).toBe(1);
   });
 
-  it("Waterworks adds +2 FOOD slots to Farmsteads in its radius, on top of Farmstead's own +1", () => {
+  it("Waterworks adds +2 FOOD slots to Farmsteads in its radius, on top of Farmstead's own +2", () => {
     expect(WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS).toBe(2);
   });
 });
