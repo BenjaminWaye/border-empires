@@ -173,6 +173,26 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   claimContinuations: new Map<string, ClaimContinuation>()
 });
 
+/**
+ * Boot-time constructor for a recovered player's summary. `waypointQueue`/
+ * `devQueue` are current-value snapshot fields (see event-recovery-player-
+ * state.ts) -- this is the read side that seeds them back into the live
+ * PlayerRuntimeSummary so DEV_QUEUE_* / WAYPOINT_* commands survive a cold
+ * process restart instead of resetting to `[]`. Accepts a structural type
+ * (rather than importing RecoveredPlayerState) to avoid a circular import
+ * with event-recovery-player-state.ts, which imports the queue entry types
+ * from this module.
+ */
+export const createPlayerRuntimeSummaryFromRecovered = (
+  recovered: { waypointQueue?: ServerWaypointQueueEntry[]; devQueue?: ServerDevQueueEntry[] } | undefined
+): PlayerRuntimeSummary => ({
+  ...createEmptyPlayerRuntimeSummary(),
+  ...(recovered?.waypointQueue?.length
+    ? { waypointQueue: recovered.waypointQueue.map((entry) => ({ ...entry, target: { ...entry.target } })) }
+    : {}),
+  ...(recovered?.devQueue?.length ? { devQueue: recovered.devQueue.map((entry) => ({ ...entry })) } : {})
+});
+
 export const cloneStrategicProduction = (
   value: Record<StrategicResourceKey, number>
 ): Record<StrategicResourceKey, number> => ({
