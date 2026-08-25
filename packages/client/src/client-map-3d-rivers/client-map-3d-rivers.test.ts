@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { BufferGeometry, Mesh, Scene } from "three";
 import { describe, expect, it } from "vitest";
 import { setWorldSeed, terrainAt, WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
-import { createRiverOverlay, maxNearbyElevation } from "./client-map-3d-rivers.js";
+import { createRiverOverlay, maxNearbyElevation, smoothRiverPath, type RiverPath } from "./client-map-3d-rivers.js";
 import {
   heightfieldFlatTileElevation,
   HEIGHTFIELD_HILLS_ELEVATION_BONUS,
@@ -241,5 +241,34 @@ describe("decorative river overlay", () => {
     expect(maxWidth).toBeGreaterThan(minWidth * 2);
 
     overlay.dispose();
+  });
+
+  it("smoothRiverPath stays wrap-aware across a world edge instead of extrapolating across the whole map", () => {
+    // Regression: walkRiver's neighbour steps wrap toroidally (see wrap()
+    // calls there), so a raw path that reaches a world edge can jump from
+    // e.g. x=449.5 straight to x=0.5 -- a real one-tile step, not a jump
+    // across the map. Fitting Catmull-Rom directly through those raw
+    // coordinates (rather than through a wrap-aware local delta) would make
+    // the curve extrapolate a segment stretching most of the way across the
+    // world instead of the true short step it represents.
+    setWorldSeed(2024);
+    const path: RiverPath = [
+      { wx: WORLD_WIDTH - 1.5, wy: 10.5, halfWidth: 0.1 },
+      { wx: WORLD_WIDTH - 0.5, wy: 10.5, halfWidth: 0.12 },
+      { wx: 0.5, wy: 10.5, halfWidth: 0.14 }, // wraps past the world edge
+      { wx: 1.5, wy: 10.5, halfWidth: 0.16 },
+      { wx: 2.5, wy: 10.5, halfWidth: 0.18 }
+    ];
+
+    const smoothed = smoothRiverPath(path);
+
+    for (let i = 0; i < smoothed.length - 1; i += 1) {
+      const dx = smoothed[i + 1]!.wx - smoothed[i]!.wx;
+      // A wrap-corrupted fit would swing wx by nearly WORLD_WIDTH between
+      // adjacent samples; a correct fit never moves more than a couple of
+      // tiles per sample along this straight, slow-moving path.
+      const wrappedDx = dx > WORLD_WIDTH / 2 ? dx - WORLD_WIDTH : dx < -WORLD_WIDTH / 2 ? dx + WORLD_WIDTH : dx;
+      expect(Math.abs(wrappedDx)).toBeLessThan(2);
+    }
   });
 });
