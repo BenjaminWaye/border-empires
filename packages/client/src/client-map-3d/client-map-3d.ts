@@ -12,7 +12,7 @@ import {
   PlaneGeometry,
   Scene
 } from "three";
-import { OBSERVATORY_RANGE_MAX, OUT_OF_REACH_DECAY_MS, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type ResourceType, type SlotResource } from "@border-empires/shared";
+import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS, MIN_ZOOM } from "../client-constants.js";
@@ -36,6 +36,7 @@ import { createFloatingTextLayer } from "../client-map-3d-floating-text/client-m
 import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "../client-map-3d-town-support-coins.js";
 import { createForest } from "../client-map-3d-forest.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
+import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
 import { debugTileLog, debugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js";
 import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
@@ -152,6 +153,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
   const forest = createForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
+  const frontierDecayPulse = createFrontierDecayPulseTracker();
   // Fogged tiles get a black darkening quad (always full opacity 0.65,
   // regardless of frontier/settled -- reuses both mesh buckets identically)
   // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept
@@ -1309,7 +1311,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // Hoisted Color temps reused per rebuild to avoid per-tile allocation.
   const tmpSettleOwnerColor = new Color();
   const tmpOwnerColor = new Color();
-  const tmpWhite = new Color("#ffffff"), tmpDecayAmber = new Color("#ffb03b");
   const tmpBlack = new Color("#000000");
   const SETTLE_FALLBACK_COLOR = new Color("#ffd166");
 
@@ -1341,7 +1342,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     mountainMassifs.clear();
     villageEffects.clear();
     forest.clear();
-    ownershipOverlay.clear();
+    ownershipOverlay.clear(); frontierDecayPulse.reset();
     fogDarkenOverlay.clear();
     fogOwnershipOverlay.clear();
     townOverlay.clear();
@@ -1829,13 +1830,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           // ownershipOverlay.addTile copies the colour, so we can reuse a
           // hoisted Color across tiles.
           const ownerColor = tmpOwnerColor.set(normalizedColor);
-          if (ownershipState === "FRONTIER" && typeof tile.frontierDecayAt === "number") {
-            const remainingMs = tile.frontierDecayAt - Date.now();
-            if (remainingMs > 0 && remainingMs <= (tile.frontierDecayKind === "OUT_OF_REACH" ? OUT_OF_REACH_DECAY_MS : 60_000)) {
-              const blink = 0.5 + 0.5 * Math.sin((Date.now() / 2_000) * Math.PI * 2); // out-of-reach pulses amber for its full 2 min; legacy encirclement keeps white
-              ownerColor.lerp(tile.frontierDecayKind === "OUT_OF_REACH" ? tmpDecayAmber : tmpWhite, blink * 0.35);
-            }
-          }
+          // Decay countdown pulse is applied every frame by frontierDecayPulse.render() instead of baked in here, so camera pan/zoom rebuilds can't make it jump -- see client-map-3d-frontier-decay-pulse.ts.
+          const isDecayingFrontierTile = ownershipState === "FRONTIER" && typeof tile.frontierDecayAt === "number";
           const wxOwn = deps.wrapX(wx + 1);
           const wyOwn = deps.wrapY(wy + 1);
           // cornerYAt returns the heightfield's *rendered* Y for each
@@ -1862,14 +1858,15 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           if (isHillsTile(wx, wy)) {
             // Drape the overlay over the dome's own curve instead of
             // bridging it with one flat plane (see addHillTile).
-            ownershipOverlay.addHillTile(
+            const hillIndex = ownershipOverlay.addHillTile(
               x0, x1, z0, z1,
               corner00Y, corner10Y, corner01Y, corner11Y,
               ownerColor,
               ownershipState === "FRONTIER"
             );
+            if (isDecayingFrontierTile && hillIndex >= 0) frontierDecayPulse.track({ index: hillIndex, isHill: true, frontierDecayAt: tile.frontierDecayAt as number, frontierDecayKind: tile.frontierDecayKind, baseColor: ownerColor.clone() });
           } else {
-            ownershipOverlay.addTile(
+            const flatIndex = ownershipOverlay.addTile(
               x0, corner00Y, z0,
               x1, corner10Y, z0,
               x0, corner01Y, z1,
@@ -1877,6 +1874,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
               ownerColor,
               ownershipState === "FRONTIER"
             );
+            if (isDecayingFrontierTile && flatIndex >= 0) frontierDecayPulse.track({ index: flatIndex, isHill: false, frontierDecayAt: tile.frontierDecayAt as number, frontierDecayKind: tile.frontierDecayKind, baseColor: ownerColor.clone() });
           }
           if (selectedCoord && wx === selectedCoord.x && wy === selectedCoord.y && selectedOwnershipDebug) {
             selectedOwnershipDebug = {
@@ -2131,6 +2129,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     villageEffects.update(nowMs);
     shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs);
     renderReachOverlay3DPylons(nowMs);
+    frontierDecayPulse.render(Date.now(), ownershipOverlay); // epoch ms, matches frontierDecayAt
     aetherLanceFx.update(nowMs);
     surveySweepFx.update(nowMs);
     siphonFx.update(nowMs);
