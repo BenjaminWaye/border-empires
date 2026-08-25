@@ -5,6 +5,7 @@
 // client-audio-settings-ui.ts and client-hud-debug.ts.
 import type { Auth } from "firebase/auth";
 import { audioSettingsFieldHtml } from "../client-audio/client-audio-settings-ui.js";
+import { DISCORD_INVITE_URL } from "../client-season-lobby-panel.js";
 import { effectiveFogDisabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import type { ClientState } from "../client-state/client-state.js";
 import { authDebugHtml, authDebugSnapshot, type AuthDebugState } from "./client-hud-debug.js";
@@ -53,6 +54,7 @@ export const settingsHubHtml = (state: Pick<ClientState, "meName" | "authUserLab
         <span class="settings-nav-item-desc">${item.desc}</span>
       </button>`
     ).join("")}
+    <a class="panel-btn" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener noreferrer">Join the Discord</a>
     <button type="button" class="panel-btn" data-auth-logout ${state.authReady ? "" : "disabled"}>Log Out</button>
   </div>
 `;
