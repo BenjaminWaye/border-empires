@@ -469,6 +469,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "AI-controlled empires on the leaderboard now show a single first name (e.g. \"Sigrid\", \"Edvin\") instead of a first-plus-surname combo."
     ]
+  },
+  {
+    createdAt: 1787584599968, // frozen just after this file's prior latest entry, to avoid a createdAt collision
+    introducedIn: "2026.08.25.1",
+    title: "Fixed borders not expanding after a reach anchor finished while you were away",
+    why: "A Relay Beacon (or any reach anchor) that finished building while you were disconnected expanded your border on the server, but the update was sent before your connection was ready to receive it and was silently dropped. Reconnecting did not recover it, so the game kept showing your old border -- and because the waypoint planner uses the same border, queued expansions could stall against territory the server had already granted you.",
+    changes: [
+      "Your authoritative border is now pushed once your connection is fully established, so a reach anchor that completed while you were offline shows up as soon as you log back in."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
