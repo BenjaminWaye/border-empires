@@ -23,6 +23,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787688556298, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Hid the redundant \"0 gold\" in the Build Relay Beacon action cost",
+    why: "The Build Relay Beacon action's cost string always prepended the gold cost, even when expand + settle + build all cost 0 gold, so the Actions tab showed a confusing \"0 gold, N m.p. ...\" line.",
+    changes: [
+      "The Build Relay Beacon action's cost text now omits the gold segment entirely when the gold cost is 0."
+    ]
+  },
+  {
     createdAt: 1787688715010, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.6",
     title: "Fixed the water skirt wall leaving a gap at wave crests",
@@ -47,6 +56,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The prototype border ribbon along exposed territory edges (#1474) didn't read well in practice -- pulled back out to the flat fill-tint look while a better edge treatment is worked out.",
     changes: [
       "3D territory tiles no longer draw a bright border ribbon along exposed edges; back to the fill-only look."
+    ]
+  },
+  {
+    createdAt: 1787688467708, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Fixed structure builds (like Relay Beacon) appearing stuck after expand+settle+build",
+    why: "Building a structure on a not-yet-settled frontier tile makes the client send a SETTLE command directly while the server independently auto-enqueues its own SETTLE step for the same tile, so whichever arrives second is rejected as a duplicate. The client's recovery logic for that expected rejection compared against a slightly wrong error string, so it never matched -- instead of quietly resuming, the client wiped its local settlement/build tracking and stopped refreshing, even though the server had already settled the tile and started building.",
+    changes: [
+      "The client now correctly recognizes a duplicate-settle rejection and resumes tracking instead of abandoning the tile, so builds like Relay Beacon started via expand+settle+build no longer appear stuck client-side while they're actually progressing on the server."
     ]
   },
   {
@@ -366,15 +384,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787429155443,
-    introducedIn: "2026.08.22.12",
-    title: "Fixed a dark \"crack\" flickering at animated shorelines",
-    why: "Every coastline's animated water can dip deep enough at a wave trough to reveal the coastal skirt wall underneath it, which was shaded so dark that it read as a jarring black gap right at the shoreline.",
-    changes: [
-      "Brightened the coastal skirt wall's shading so it no longer looks near-black when the water's wave animation passes through a deep trough."
-    ]
-  },
-  {
     createdAt: 1787430800000,
     introducedIn: "2026.08.22.10",
     title: "Your galaxy planet now shows what it's specialized in",
@@ -473,15 +482,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
     changes: [
       "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
-    ]
-  },
-  {
-    createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.3",
-    title: "Fixed borders not expanding after a reach anchor finished while you were away",
-    why: "A Relay Beacon (or any reach anchor) that finished building while you were disconnected expanded your border on the server, but the update was sent before your connection was ready to receive it and was silently dropped. Reconnecting did not recover it, so the game kept showing your old border -- and because the waypoint planner uses the same border, queued expansions could stall against territory the server had already granted you.",
-    changes: [
-      "Your authoritative border is now pushed once your connection is fully established, so a reach anchor that completed while you were offline shows up as soon as you log back in."
     ]
   }
 ];
