@@ -41,6 +41,13 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787689171531, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Fixed auto-settle trying to build on resource tiles outside your reach",
+    why: "The auto-settle queue included every owned frontier tile with a resource, town, or dock without checking reach, so a plain resource tile (which generates no reach of its own) claimed outside your reach border kept getting re-queued and rejected with an OUT_OF_REACH error.",
+    changes: ["Auto-settle no longer queues frontier tiles that are currently outside your reach border."]
+  },
+  {
     createdAt: 1787688074263, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.5",
     title: "Fixed black artifacts under coastal sea tiles",
