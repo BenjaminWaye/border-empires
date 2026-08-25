@@ -58,18 +58,30 @@ export const handleDevQueueEnqueueCommand = (context: RuntimeDevQueueCommandCont
     reservedSlotRequirements = reservation.slotRequirements;
   }
 
-  const { queue, accepted } = devQueueEnqueue(
-    summary.devQueue,
-    { ...payload, ...(reservedManpower ? { reservedManpower } : {}), ...(reservedSlotRequirements ? { reservedSlotRequirements } : {}) },
-    context.now()
-  );
-  summary.devQueue = queue;
-  if (!accepted) {
-    if (reservedManpower) context.refundManpowerReservation(command.playerId, reservedManpower);
-    context.rejectCommand(command, "DEV_QUEUE_FULL", "dev queue is full or already contains this tile");
-    return;
+  // From here the manpower is already debited but not yet owed by anything in
+  // the queue -- so every exit out of this section, including an unexpected
+  // throw, has to hand it back. Losing a player's manpower to a transient
+  // error is never acceptable; double-refunding is prevented by clearing the
+  // local `reservedManpower` the moment the entry takes ownership of it.
+  let unownedReservation = reservedManpower;
+  try {
+    const { queue, accepted } = devQueueEnqueue(
+      summary.devQueue,
+      { ...payload, ...(reservedManpower ? { reservedManpower } : {}), ...(reservedSlotRequirements ? { reservedSlotRequirements } : {}) },
+      context.now()
+    );
+    if (!accepted) {
+      context.rejectCommand(command, "DEV_QUEUE_FULL", "dev queue is full or already contains this tile");
+      return;
+    }
+    summary.devQueue = queue;
+    unownedReservation = undefined; // the queued entry now carries the refund obligation
+    context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  } finally {
+    if (unownedReservation) context.refundManpowerReservation(command.playerId, unownedReservation);
   }
-  context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  // Drained outside the try: by here the reservation is owned by the queue
+  // entry, and tryDrainDevQueue does its own refund-before-dispatch.
   tryDrainDevQueue(context, command.playerId);
 };
 
