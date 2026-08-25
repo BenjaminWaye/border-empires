@@ -51,7 +51,7 @@ import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-ca
 import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
-import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { isReachLossUnsettleTransition, queueReachLossPulse } from "../client-tile-unsettle-pulse/client-tile-unsettle-pulse.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -2082,6 +2082,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved); state.tilesRevision += 1;
+        if (isReachLossUnsettleTransition(existing, resolved)) queueReachLossPulse(state, resolved.x, resolved.y);
         if (previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType) {
           clearRenderCaches();
           buildMiniMapBase();
@@ -2137,8 +2138,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         markDockDiscovered(resolved);
         state.discoveredTiles.add(updateKey);
         // Stamp receivedAt whenever a full-detail tile lands so the action-flow
-        // sender's 60s freshness check and in-flight dedupe can short-circuit
-        // duplicate REQUEST_TILE_DETAIL on rapid re-clicks of the same tile.
+        // sender's 60s freshness check and in-flight dedupe can short-circuit duplicate REQUEST_TILE_DETAIL on rapid re-clicks of the same tile.
         if (resolved.detailLevel === "full") {
           state.tileDetailReceivedAt.set(updateKey, Date.now());
         }

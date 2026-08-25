@@ -412,6 +412,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
       "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
     ]
+  },
+  {
+    createdAt: 1787692499340, // frozen from a live Date.now() call
+    introducedIn: "2026.08.25.1",
+    title: "Auto-settle now respects your reach border, and losing reach unsettles ground you can no longer defend",
+    why: "Auto-settle (both the AI's own driver and the queue the client auto-fills SETTLE commands from) turned an owned frontier tile into a town regardless of whether it was still inside your reach border -- a check human-issued SETTLE commands already enforced. Separately, losing or disabling the last beacon/outpost/fort covering a tile left that ground permanently claimed even once nothing defended it, since the reach border only ever shrank when a rival actively contested it.",
+    changes: [
+      "Auto-settle (AI and the client's auto-fill queue) now skips a frontier tile that's outside your reach border, instead of settling it anyway.",
+      "A settled tile that falls entirely outside anyone's reach (its last covering beacon/outpost/fort is lost or disabled, and no rival covers it either) now reverts to frontier, with a brief blue collapse pulse where it happened.",
+      "A structure's own home tile is exempt from this -- disabling it never unsettles the tile the structure sits on, so re-enabling it still works."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
