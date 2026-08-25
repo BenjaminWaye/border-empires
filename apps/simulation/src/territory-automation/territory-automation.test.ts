@@ -15,7 +15,11 @@ const player = (id: string, points = 1_000, manpower = 1_000) => ({
   isAi: false,
   points,
   manpower,
-  techIds: new Set<string>(),
+  // masonry reveals TITANIUM tiles -- several tests here place a TITANIUM
+  // resource tile and expect it to be auto-settle eligible once within fog-
+  // of-war vision; without the tech those tiles would also fail the (newer)
+  // tech-reveal gate, which is not what those tests are exercising.
+  techIds: new Set<string>(["masonry"]),
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
@@ -351,6 +355,32 @@ describe("territory automation", () => {
       (tile) => tile.ownerId === "player-1" && tile.ownershipState === "FRONTIER"
     );
     expect(claimed).toHaveLength(3);
+  });
+
+  it("excludes an owned, visible frontier resource tile whose resource tech has not been researched", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", { ...player("player-1", 1_000), techIds: new Set<string>() }]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" },
+          { x: 45, y: 45, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: SimulationEvent[] = [];
+    runtime.onEvent((event) => events.push(event));
+
+    await runtime.tickTerritoryAutomation(1_000);
+
+    // The TITANIUM tile is within fog-of-war vision (it's owned frontier
+    // territory) but the player has not researched masonry, so it must not
+    // be auto-settled -- only the town tile (unaffected by tech-reveal) is.
+    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["45,45"]);
   });
 
   it("does not decay frontier while it is queued or pending for settlement", async () => {
