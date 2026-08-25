@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787519500000, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.8",
+    title: "Added a \"Suggest Improvement\" button next to Report Bug",
+    why: "Players had a way to report bugs from Settings, but no equivalent in-app way to send us an improvement idea -- feedback ended up scattered across Discord instead.",
+    changes: [
+      "Settings > Diagnostics now has a green-bordered \"Suggest Improvement\" button below \"Report Bug\", opening the same style of form (with client/server context attached automatically) but posting to a separate suggestions inbox."
+    ]
+  },
+  {
     createdAt: 1787430500000,
     introducedIn: "2026.08.22.7",
     title: "Stage Muster now sits above Disable on structure tiles",

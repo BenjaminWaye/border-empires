@@ -7,6 +7,7 @@ import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta
 import type { StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
+import { toPersistedDevQueueEntries, type ExportedDevQueueEntry } from "./runtime-dev-queue-restore.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { FrontierDecayKind, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
@@ -90,7 +91,11 @@ export type RuntimeExportState = {
     // exportState so player-snapshot.ts can seed a reconnecting/fresh-login
     // client with whatever survived while it was disconnected, the same way
     // emitPlayerStateUpdate already does for the live PLAYER_UPDATE stream.
-    devQueue?: Array<{ tileKey: string; x: number; y: number; kind: "SETTLE" | "BUILD"; structureType?: string; queuedAt: number }>;
+    // reservedManpower/reservedSlotRequirements MUST round-trip: the reserve
+    // was already deducted from the persisted player.manpower above, so a
+    // restore that dropped them would owe a refund it no longer knows about
+    // and burn that manpower permanently (see runtime-dev-queue-restore.ts).
+    devQueue?: ExportedDevQueueEntry[];
     waypointQueue?: Array<{ x: number; y: number; trackBarbarian?: boolean; queuedAt: number }>;
   }>;
   pendingSettlements: Array<PendingSettlementRecord>;
@@ -215,18 +220,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number" ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute } : {}),
         ...(typeof player.galacticWonderVisionRadiusBonus === "number" ? { galacticWonderVisionRadiusBonus: player.galacticWonderVisionRadiusBonus } : {}),
         ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
-        ...(summary.devQueue.length
-          ? {
-              devQueue: summary.devQueue.map((entry) => ({
-                tileKey: entry.tileKey,
-                x: entry.x,
-                y: entry.y,
-                kind: entry.kind,
-                ...(entry.structureType ? { structureType: entry.structureType } : {}),
-                queuedAt: entry.queuedAt
-              }))
-            }
-          : {}),
+        ...(summary.devQueue.length ? { devQueue: toPersistedDevQueueEntries(summary.devQueue) } : {}),
         ...(summary.waypointQueue.length
           ? {
               waypointQueue: summary.waypointQueue.map((entry) => ({
