@@ -109,7 +109,7 @@ export const neutralTileActions = (
           : !canAffordCost(state.gold, totalExploreGold)
             ? `Need ${totalExploreGold} gold`
             : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
-        `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
+        `${totalExploreGold > 0 ? `${totalExploreGold} gold, ` : ""}${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
       )
     });
   }
