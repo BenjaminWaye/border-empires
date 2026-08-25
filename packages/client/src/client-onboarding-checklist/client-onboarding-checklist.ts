@@ -2,8 +2,8 @@
 // empire is food-secure.
 //
 //   1. SETTLE_TOWN — grow your starting SETTLEMENT-tier tile (every new
-//      empire spawns with one, free) into TOWN tier. A bare SETTLEMENT does
-//      not count: it's handed to the player, not settled by them.
+//      empire spawns with one, free) to exactly TOWN tier. A bare SETTLEMENT
+//      does not count: it's handed to the player, not settled by them.
 //   2. SECURE_FOOD — claim 4 food slots (FARM "grain" and/or FISH tiles,
 //      any mix) toward the ~4 food slots a town needs to stay powered/fed
 //      (see resource-slot-view.ts §5.3, townFoodSlotDemandForTier).
@@ -11,9 +11,11 @@
 // Each step highlights its own tiles on the map until satisfied: the
 // player's SETTLEMENT tile(s) while step 1 is open, then the player's towns
 // plus unclaimed FARM/FISH tiles while step 2 is open. The checklist is for
-// brand-new empires only (gated by `me` owning no TOWN-tier-or-higher tile
-// before step 1 starts) and, once both steps are done, is marked complete
-// in storage and never shown again.
+// brand-new empires only (gated by `me` owning no TOWN-tier tile before
+// step 1 starts -- CITY/GREAT_CITY/METROPOLIS aren't checked for since the
+// checklist has already moved past step 1 by the time a town could grow
+// that far) and, once both steps are done, is marked complete in storage
+// and never shown again.
 
 import type { Tile } from "../client-types.js";
 import { isOnboardingChecklistCompleted, markOnboardingChecklistCompleted } from "./client-onboarding-checklist-storage.js";
@@ -64,16 +66,19 @@ export const onboardingChecklistState = (
   const ownSettlements: Array<{ x: number; y: number }> = [];
   const foodCandidates: Array<{ x: number; y: number }> = [];
   let foodSlotsClaimed = 0;
-  let hasGrownTown = false;
+  let hasTownTierTown = false;
 
   for (const tile of tiles) {
     if (tile.ownerId === playerId && tile.town) {
       ownTowns.push({ x: tile.x, y: tile.y });
       // Every new empire spawns with a free SETTLEMENT-tier tile, so a
-      // SETTLEMENT alone doesn't satisfy "settle your first town" — the
-      // player still has to grow it (or settle elsewhere) into TOWN tier.
-      if (tile.town.populationTier === "SETTLEMENT") ownSettlements.push({ x: tile.x, y: tile.y });
-      else hasGrownTown = true;
+      // SETTLEMENT alone doesn't satisfy "find your first town" — the
+      // player still has to grow it (or settle elsewhere) to TOWN tier.
+      // Only TOWN itself counts here, not CITY/GREAT_CITY/METROPOLIS, since
+      // this step is done and dusted the moment the player reaches TOWN
+      // and the checklist never re-checks it once step 2 has started.
+      if (tile.town.populationTier === "TOWN") hasTownTierTown = true;
+      else if (tile.town.populationTier === "SETTLEMENT") ownSettlements.push({ x: tile.x, y: tile.y });
     }
     if (isFoodResource(tile.resource)) {
       if (tile.ownerId === playerId) foodSlotsClaimed += 1;
@@ -81,7 +86,7 @@ export const onboardingChecklistState = (
     }
   }
 
-  if (!hasGrownTown) {
+  if (!hasTownTierTown) {
     return { step: "SETTLE_TOWN", foodSlotsClaimed: 0, foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET, highlightTiles: ownSettlements };
   }
 
