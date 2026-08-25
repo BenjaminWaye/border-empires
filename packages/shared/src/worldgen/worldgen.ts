@@ -28,12 +28,11 @@ const REGION_BROKEN_HIGHLANDS = 2;
 const REGION_ANCIENT_HEARTLAND = 3;
 const REGION_CRYSTAL_WASTES = 4;
 const REGION_NONE = UNSET_U8;
-
 const terrainCache = new Uint8Array(WORLD_TILE_COUNT);
-export const biomeCache = new Uint8Array(WORLD_TILE_COUNT); // see worldgen-biome-override.ts
+const biomeCache = new Uint8Array(WORLD_TILE_COUNT);
 const grassShadeCache = new Uint8Array(WORLD_TILE_COUNT);
 const regionTypeCache = new Uint8Array(WORLD_TILE_COUNT);
-export const biomeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
+const biomeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 const grassShadeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 const regionTypeCacheReady = new Uint8Array(WORLD_TILE_COUNT);
 const continentIndexCache = new Int16Array(WORLD_TILE_COUNT);
@@ -93,7 +92,7 @@ export const terrainCodeAt = (x: number, y: number): number => {
   if (cached !== UNSET_U8) return cached;
   return encodeTerrain(terrainAt(x, y));
 };
-export const encodeBiome = (biome: LandBiome | undefined): number => {
+const encodeBiome = (biome: LandBiome | undefined): number => {
   if (biome === "GRASS") return BIOME_GRASS;
   if (biome === "SAND") return BIOME_SAND;
   if (biome === "COASTAL_SAND") return BIOME_COASTAL_SAND;
@@ -468,6 +467,7 @@ export const overrideTerrainAt = (x: number, y: number, terrain: Terrain): void 
   terrainCache[worldIndex(wx, wy)] = encodeTerrain(terrain);
 };
 
+export const setBiomeCacheEntry = (worldTileIndex: number, biome: LandBiome): void => { biomeCache[worldTileIndex] = encodeBiome(biome); biomeCacheReady[worldTileIndex] = 1; }; // for worldgen-biome-override.ts; keeps the encode+ready invariant enclosed
 export const isCoastalLandAt = (x: number, y: number): boolean => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);

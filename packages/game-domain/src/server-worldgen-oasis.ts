@@ -10,7 +10,6 @@ import type { ServerWorldgenOasisDeps, ServerWorldgenOasisRuntime } from "./serv
 const OASIS_BLOCK_SIZE = 30;
 const OASIS_SAND_FRACTION_THRESHOLD = 0.6;
 const OASIS_MAX_ATTEMPTS_PER_BLOCK = 200;
-const OASIS_CANDIDATE_MARGIN = 3;
 
 export const createServerWorldgenOasis = (deps: ServerWorldgenOasisDeps): ServerWorldgenOasisRuntime => {
   const { seeded01, WORLD_WIDTH, WORLD_HEIGHT, wrapX, wrapY, terrainAt, overrideTerrainAt, landBiomeAt, overrideLandBiomeAt, key, clusterByTile, clustersById } = deps;
@@ -39,10 +38,14 @@ export const createServerWorldgenOasis = (deps: ServerWorldgenOasisDeps): Server
         if (landCount === 0 || hasFood) continue;
         if (sandCount / landCount < OASIS_SAND_FRACTION_THRESHOLD) continue;
 
-        const span = OASIS_BLOCK_SIZE - OASIS_CANDIDATE_MARGIN * 2;
+        // Candidates are drawn from the full block, not just its interior:
+        // the pond+ring free-land check below is wrap-aware and absolute, so
+        // a center near the block edge (with its ring spilling into the
+        // neighboring block) is just as valid — shrinking the search to the
+        // interior would silently miss desert that straddles a block seam.
         for (let tries = 0; tries < OASIS_MAX_ATTEMPTS_PER_BLOCK; tries += 1) {
-          const cx = wrapX(bx + OASIS_CANDIDATE_MARGIN + Math.floor(seeded01(bx + tries * 7, by + tries * 11, seed + 8301) * span), WORLD_WIDTH);
-          const cy = wrapY(by + OASIS_CANDIDATE_MARGIN + Math.floor(seeded01(bx + tries * 13, by + tries * 17, seed + 8351) * span), WORLD_HEIGHT);
+          const cx = wrapX(bx + Math.floor(seeded01(bx + tries * 7, by + tries * 11, seed + 8301) * OASIS_BLOCK_SIZE), WORLD_WIDTH);
+          const cy = wrapY(by + Math.floor(seeded01(bx + tries * 13, by + tries * 17, seed + 8351) * OASIS_BLOCK_SIZE), WORLD_HEIGHT);
           if (landBiomeAt(cx, cy) !== "SAND") continue;
 
           const pond = [

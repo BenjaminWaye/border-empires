@@ -86,9 +86,16 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
       });
     };
     const attemptPlacements = (requireFood: boolean): void => {
+      // The fallback pass uses a different seed offset than the strict pass
+      // (not the same one with requireFood just switched off) — otherwise it
+      // would replay the identical coordinate sequence, so most of its
+      // budget re-hits tiles the strict pass already accepted or rejected
+      // for other reasons (occupied, too close) instead of reaching fresh
+      // food-starved ground.
+      const seedOffset = requireFood ? 9301 : 40301;
       for (let index = 0; index < 120_000 && placed.length < target; index += 1) {
-        const x = Math.floor(seeded01(index * 13, index * 17, seed + 9301) * WORLD_WIDTH);
-        const y = Math.floor(seeded01(index * 19, index * 23, seed + 9311) * WORLD_HEIGHT);
+        const x = Math.floor(seeded01(index * 13, index * 17, seed + seedOffset) * WORLD_WIDTH);
+        const y = Math.floor(seeded01(index * 19, index * 23, seed + seedOffset + 10) * WORLD_HEIGHT);
         if (terrainAt(x, y) !== "LAND") continue;
         const tileKey = key(x, y);
         if (docksByTile.has(tileKey) || clusterByTile.has(tileKey)) continue;
