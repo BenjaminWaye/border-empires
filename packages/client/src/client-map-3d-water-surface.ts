@@ -305,7 +305,9 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
 
     if (skirtPositions.length > 0) {
       skirtGeometry = new BufferGeometry();
-      skirtGeometry.setAttribute("position", new BufferAttribute(new Float32Array(skirtPositions), 3));
+      const skirtPosAttr = new BufferAttribute(new Float32Array(skirtPositions), 3);
+      skirtPosAttr.setUsage(DynamicDrawUsage); // top row updated every frame in tick()
+      skirtGeometry.setAttribute("position", skirtPosAttr);
       skirtGeometry.setAttribute("color", new BufferAttribute(new Float32Array(skirtColors), 3));
       skirtGeometry.setIndex(skirtIndices);
       skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
@@ -313,6 +315,15 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
       skirtMesh.renderOrder = 11;
       scene.add(skirtMesh);
     }
+  };
+
+  // Same swell+chop formula the main surface uses in tick() below — shared
+  // so the skirt's top edge (see waveY use in tick()) stays flush with the
+  // surface instead of leaving a gap when the surface waves above it.
+  const waveY = (wx: number, wz: number, s: number): number => {
+    const swell = Math.sin(wx * 0.7 + s * 0.65) * Math.cos(wz * 0.55 + s * 0.5) * 0.16;
+    const chop  = Math.sin(wx * 1.4 - s * 0.45) * Math.cos(wz * 1.2 + s * 0.7) * 0.06;
+    return WATER_SURFACE_Y + swell + chop;
   };
 
   const tick = (nowMs: number): void => {
@@ -327,11 +338,26 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
       for (let i = 0; i < n; i++) {
         const wx = pos[i * 3] ?? 0;
         const wz = pos[i * 3 + 2] ?? 0;
-        const swell = Math.sin(wx * 0.7 + s * 0.65) * Math.cos(wz * 0.55 + s * 0.5) * 0.16;
-        const chop  = Math.sin(wx * 1.4 - s * 0.45) * Math.cos(wz * 1.2 + s * 0.7) * 0.06;
-        pos[i * 3 + 1] = WATER_SURFACE_Y + swell + chop;
+        pos[i * 3 + 1] = waveY(wx, wz, s);
       }
       posAttr.needsUpdate = true;
+    }
+
+    // Skirt top edge rides the same wave as the surface — every 4th/4th+1
+    // vertex pair is the top of a wall segment (see emitSkirtEdge above),
+    // the other two are the static bottom. Without this the skirt's flat
+    // top sits below the surface at wave crests, exposing a gap.
+    if (skirtGeometry) {
+      const skirtPosAttr = skirtGeometry.attributes["position"] as BufferAttribute;
+      const skirtPos = skirtPosAttr.array as Float32Array;
+      const n = skirtPos.length / 3;
+      for (let i = 0; i < n; i++) {
+        if (i % 4 >= 2) continue; // bottom-row vertex — stays put
+        const wx = skirtPos[i * 3] ?? 0;
+        const wz = skirtPos[i * 3 + 2] ?? 0;
+        skirtPos[i * 3 + 1] = waveY(wx, wz, s);
+      }
+      skirtPosAttr.needsUpdate = true;
     }
 
     // Normal map scroll for surface texture shimmer.
