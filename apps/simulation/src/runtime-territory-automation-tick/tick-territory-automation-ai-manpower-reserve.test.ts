@@ -97,7 +97,7 @@ const buildRuntimeWithManpower = (playerId: string, isAi: boolean, startingManpo
     seedDocks: []
   });
   runtime.exportPlayerDebugSnapshot(); // settle the one-time cap-grant quirk
-  const raw = (runtime as unknown as { players: Map<string, RawPlayerRef> }).players.get(playerId)!;
+  const raw = (runtime as unknown as { state: { players: Map<string, RawPlayerRef> } }).state.players.get(playerId)!;
   raw.manpower = startingManpower;
   return runtime;
 };
