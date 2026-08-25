@@ -146,7 +146,7 @@ export const createSeasonSeedWorldAsync = async (
     terrainAt,
     overrideTerrainAt
   });
-  const docksRuntime = createSeasonDocksRuntime(terrainRuntime, clusterByTile, docksByTile as Map<TileKey, never>, dockById as Map<string, never>, clustersById);
+  const docksRuntime = createSeasonDocksRuntime(terrainRuntime, clusterByTile, docksByTile as Map<TileKey, never>, dockById as Map<string, never>);
   const townsRuntime = createServerWorldgenTowns({
     seeded01: terrainRuntime.seeded01,
     regionTypeAtLocal: terrainRuntime.regionTypeAtLocal,

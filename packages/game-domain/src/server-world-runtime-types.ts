@@ -74,8 +74,6 @@ export interface ServerWorldgenDocksDeps {
   docksByTile: Map<TileKey, Dock>;
   dockById: Map<string, Dock>;
   getDockLinkedTileKeysByDockTileKey: () => Map<TileKey, TileKey[]>;
-  clustersById?: Map<string, ClusterDefinition>;
-  clusterResourceType?: (cluster: ClusterDefinition) => ResourceType;
 }
 
 export interface ServerWorldgenDocksRuntime {

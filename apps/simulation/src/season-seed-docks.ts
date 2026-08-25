@@ -1,5 +1,5 @@
-import { terrainAt, wrapX, wrapY, WORLD_HEIGHT, WORLD_WIDTH, type ResourceType, type TileKey } from "@border-empires/shared";
-import { createServerWorldgenDocks, key, LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD, type ClusterDefinition } from "@border-empires/game-domain";
+import { terrainAt, wrapX, wrapY, WORLD_HEIGHT, WORLD_WIDTH, type TileKey } from "@border-empires/shared";
+import { createServerWorldgenDocks, key, LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD } from "@border-empires/game-domain";
 
 /**
  * Shared factory for the docks worldgen runtime, called identically from
@@ -13,12 +13,10 @@ export const createSeasonDocksRuntime = (
     seeded01: (x: number, y: number, seed: number) => number;
     adjacentOceanSea: (x: number, y: number, oceanMask: Uint8Array) => { x: number; y: number } | undefined;
     largestSeaComponentMask: () => Uint8Array;
-    clusterResourceType: (cluster: ClusterDefinition) => ResourceType;
   },
   clusterByTile: Map<TileKey, string>,
   docksByTile: Map<TileKey, never>,
-  dockById: Map<string, never>,
-  clustersById: Map<string, ClusterDefinition>
+  dockById: Map<string, never>
 ) =>
   createServerWorldgenDocks({
     seeded01: terrainRuntime.seeded01,
@@ -35,7 +33,5 @@ export const createSeasonDocksRuntime = (
     LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD,
     docksByTile,
     dockById,
-    getDockLinkedTileKeysByDockTileKey: () => new Map(),
-    clustersById,
-    clusterResourceType: terrainRuntime.clusterResourceType
+    getDockLinkedTileKeysByDockTileKey: () => new Map()
   });
