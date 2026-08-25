@@ -49,7 +49,7 @@ describe("wonder bonus fields refresh on settle completion", () => {
     // Right after claiming as frontier the tile isn't SETTLED yet, so
     // refreshPlayerWonders (which only counts SETTLED tiles) correctly
     // reports the bonus as not-yet-active.
-    const rawAfterExpand = (runtime as unknown as { players: Map<string, RawPlayerRef> }).players.get("player-1")!;
+    const rawAfterExpand = (runtime as unknown as { state: { players: Map<string, RawPlayerRef> } }).state.players.get("player-1")!;
     expect(rawAfterExpand.wonderDockGoldMultiplier).toBe(1);
 
     // Now settle it — same owner throughout, only ownershipState changes.
@@ -68,7 +68,7 @@ describe("wonder bonus fields refresh on settle completion", () => {
     expect(runtime.exportState().tiles).toContainEqual(
       expect.objectContaining({ x: 1, y: 0, ownerId: "player-1", ownershipState: "SETTLED" })
     );
-    const rawAfterSettle = (runtime as unknown as { players: Map<string, RawPlayerRef> }).players.get("player-1")!;
+    const rawAfterSettle = (runtime as unknown as { state: { players: Map<string, RawPlayerRef> } }).state.players.get("player-1")!;
     expect(rawAfterSettle.wonderDockGoldMultiplier).toBe(2);
     expect(rawAfterSettle.wonderDockAttackMultiplier).toBe(1.15);
   });
