@@ -101,7 +101,9 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           // in-memory PlayerRuntimeSummary (see command-coverage-sets.ts) --
           // snapshotting the current queue contents here, current-value style
           // like strategicResources above, is what makes them survive a cold
-          // process restart instead of silently emptying on boot.
+          // process restart instead of silently emptying on boot. A queued
+          // BUILD entry's reservedManpower/reservedSlotRequirements ride
+          // along automatically since this spreads the whole entry.
           ...(summary.waypointQueue.length
             ? { waypointQueue: summary.waypointQueue.map((entry) => ({ ...entry, target: { ...entry.target } })) }
             : {}),
