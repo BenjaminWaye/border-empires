@@ -1,5 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { computeCoastalLandKeys } from "./spawn-placement.js";
+import { computeCoastalLandKeys, computeLandRegions } from "./spawn-placement.js";
+import { simulationTileKey } from "../seed-state/seed-state.js";
 
 export type SpawnPlacementCoord = { x: number; y: number };
 
@@ -88,6 +89,16 @@ class CoordGrid {
       return false;
     });
   }
+
+  // Same as hasWithinManhattan, but a candidate coord must also satisfy
+  // `matches` (used to require same-land-region membership so a resource
+  // across water doesn't count as "nearby").
+  hasWithinManhattanMatching(x: number, y: number, radius: number, matches: (coord: SpawnPlacementCoord) => boolean): boolean {
+    return this.forEachNearbyBucket(x, y, radius, (bucket) => {
+      for (const coord of bucket.values()) if (manhattanDistance(x, y, coord.x, coord.y) <= radius && matches(coord)) return true;
+      return false;
+    });
+  }
 }
 
 /**
@@ -117,6 +128,7 @@ export class SpawnPlacementIndex {
   private readonly townGrid = new CoordGrid(SpawnPlacementIndex.CELL_SIZE);
   private coastalLandKeysCache: ReadonlySet<string> | undefined;
   private foodGridCache: CoordGrid | undefined;
+  private landRegionByTileKeyCache: ReadonlyMap<string, number> | undefined;
 
   refreshForTileChange(tileKey: string, next: DomainTileState): void {
     if (isSettledCoordTile(next)) this.settledGrid.set(tileKey, { x: next.x, y: next.y });
@@ -129,18 +141,40 @@ export class SpawnPlacementIndex {
     return this.settledGrid.hasWithinChebyshev(x, y, radius);
   }
 
-  hasNearbyTown(x: number, y: number, radius: number): boolean {
-    return this.townGrid.hasWithinManhattan(x, y, radius);
+  // A town/food coord only counts as "nearby" if it's also on the same land
+  // region as (x,y) — otherwise a resource across water satisfies the
+  // Manhattan-distance check and a spawn gets accepted next to food/a town
+  // the player can't actually reach without crossing water.
+  hasNearbyTown(tiles: ReadonlyMap<string, DomainTileState>, x: number, y: number, radius: number): boolean {
+    const originRegion = this.landRegionOf(tiles, x, y);
+    return this.townGrid.hasWithinManhattanMatching(
+      x,
+      y,
+      radius,
+      (coord) => originRegion === undefined || this.landRegionOf(tiles, coord.x, coord.y) === originRegion
+    );
   }
 
   hasNearbyFood(tiles: ReadonlyMap<string, DomainTileState>, x: number, y: number, radius: number): boolean {
-    return this.foodGrid(tiles).hasWithinManhattan(x, y, radius);
+    const originRegion = this.landRegionOf(tiles, x, y);
+    return this.foodGrid(tiles).hasWithinManhattanMatching(
+      x,
+      y,
+      radius,
+      (coord) => originRegion === undefined || this.landRegionOf(tiles, coord.x, coord.y) === originRegion
+    );
   }
 
   coastalLandKeys(tiles: ReadonlyMap<string, DomainTileState>): ReadonlySet<string> {
     if (tiles.size === 0) return this.coastalLandKeysCache ?? new Set<string>();
     if (!this.coastalLandKeysCache) this.coastalLandKeysCache = computeCoastalLandKeys([...tiles.values()]);
     return this.coastalLandKeysCache;
+  }
+
+  private landRegionOf(tiles: ReadonlyMap<string, DomainTileState>, x: number, y: number): number | undefined {
+    if (tiles.size === 0) return this.landRegionByTileKeyCache?.get(simulationTileKey(x, y));
+    if (!this.landRegionByTileKeyCache) this.landRegionByTileKeyCache = computeLandRegions([...tiles.values()]);
+    return this.landRegionByTileKeyCache.get(simulationTileKey(x, y));
   }
 
   private foodGrid(tiles: ReadonlyMap<string, DomainTileState>): CoordGrid {

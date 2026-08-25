@@ -40,13 +40,13 @@ describe("client map reveal", () => {
 
     const options = {
       enabledForAccount: true,
-      authEmail: "bw199005@gmail.com"
+      authEmail: "admin@borderempires.com"
     };
 
     expect(getMapRevealEnabled(options)).toBe(false);
     setMapRevealEnabled(true, options);
     expect(getMapRevealEnabled(options)).toBe(true);
-    expect(storage.get("be-map-reveal:bw199005@gmail.com")).toBe("1");
+    expect(storage.get("be-map-reveal:admin@borderempires.com")).toBe("1");
     setMapRevealEnabled(false, options);
     expect(getMapRevealEnabled(options)).toBe(false);
   });

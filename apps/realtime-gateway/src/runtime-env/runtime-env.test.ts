@@ -12,7 +12,7 @@ describe("realtime gateway runtime env", () => {
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "default",
       allowNonAuthoritativeInitialState: true,
-      fogAdminEmail: "bw199005@gmail.com",
+      fogAdminEmail: "admin@borderempires.com",
       emailAlerts: {
         from: "Border Empires <alerts@borderempires.com>",
         appUrl: "https://staging.borderempires.com"
@@ -59,7 +59,7 @@ describe("realtime gateway runtime env", () => {
       applySchema: true,
       simulationSeedProfile: "season-20ai",
       allowNonAuthoritativeInitialState: false,
-      fogAdminEmail: "bw199005@gmail.com",
+      fogAdminEmail: "admin@borderempires.com",
       emailAlerts: {
         from: "Border Empires <alerts@borderempires.com>",
         appUrl: "https://staging.borderempires.com"
@@ -80,7 +80,7 @@ describe("realtime gateway runtime env", () => {
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "season-20ai",
       allowNonAuthoritativeInitialState: true,
-      fogAdminEmail: "bw199005@gmail.com",
+      fogAdminEmail: "admin@borderempires.com",
       emailAlerts: {
         from: "Border Empires <alerts@borderempires.com>",
         appUrl: "https://staging.borderempires.com"
@@ -127,7 +127,7 @@ describe("realtime gateway runtime env", () => {
       applySchema: false,
       simulationSeedProfile: "season-20ai",
       allowNonAuthoritativeInitialState: true,
-      fogAdminEmail: "bw199005@gmail.com",
+      fogAdminEmail: "admin@borderempires.com",
       emailAlerts: {
         from: "Border Empires <alerts@borderempires.com>",
         appUrl: "https://staging.borderempires.com"
