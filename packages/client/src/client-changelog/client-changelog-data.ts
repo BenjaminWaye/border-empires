@@ -23,6 +23,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787734129392, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Added a Founding Engineer tag",
+    why: "A small, fixed set of early contributors didn't have any way to be recognized in the game's social UI.",
+    changes: [
+      "Founding Engineer players now show a gold name and a top-hat tag next to their name in the season lobby roster, the tile detail owner label, and the leaderboard"
+    ]
+  },
+  {
     createdAt: 1787724124671, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.1",
     title: "Frontier tiles no longer decay while sitting inside anyone's live reach",
@@ -480,15 +489,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
     changes: [
       "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
-    ]
-  },
-  {
-    createdAt: 1787651082566, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.2",
-    title: "Added a new-player checklist for founding your first town and securing food",
-    why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
-    changes: [
-      "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
     ]
   },
   {
