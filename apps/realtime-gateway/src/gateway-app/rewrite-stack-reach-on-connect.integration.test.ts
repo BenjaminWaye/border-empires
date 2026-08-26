@@ -93,7 +93,7 @@ describe("rewrite stack reach on connect", () => {
       simulationAddress: simulationAddress.address,
       commandStore: new InMemoryGatewayCommandStore(),
       defaultHumanPlayerId: "player-1",
-      fogAdminEmail: "fog-admin@example.com"
+      adminEmail: "fog-admin@example.com"
     });
     cleanup.push(() => gateway.close());
     const gatewayAddress = await gateway.start();
