@@ -14,7 +14,7 @@ export const GAME_SHARE_URL = "https://play.borderempires.com?utm_source=share";
 const escapeHtml = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
 
 const rosterRowHtml = (entry: { playerId: string; name: string }): string =>
-  `<li class="season-lobby-roster-row">${foundingEngineerNameHtml(escapeHtml(entry.name), entry.name)}</li>`;
+  `<li class="season-lobby-roster-row">${foundingEngineerNameHtml(escapeHtml(entry.name), entry.playerId)}</li>`;
 
 // `joined` distinguishes the two callers: the pending-season countdown
 // branch (player already has a spot reserved, waiting for the world to
