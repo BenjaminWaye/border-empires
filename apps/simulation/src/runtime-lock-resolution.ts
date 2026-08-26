@@ -80,6 +80,12 @@ export function releaseMusterReservation(context: RuntimeLockResolutionContext, 
   else context.musterReservedByKey.set(lock.musterSourceKey, next);
 }
 
+/** Refunds an EXPAND lock's manpower cost, charged up front at lock creation (runtime-frontier-command.ts) -- called from every path that drops the lock before it reaches its own resolution deduction. */
+export function refundExpandManpower(context: RuntimeLockResolutionContext, lock: Pick<LockRecord, "playerId" | "manpowerCost">): void {
+  const player = context.players.get(lock.playerId);
+  if (player) player.manpower = Math.min(context.playerManpowerCap(player), player.manpower + lock.manpowerCost);
+}
+
 export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRecord): void {
   releaseMusterReservation(context, lock);
   const originLock = context.locksByTile.get(lock.originKey);
@@ -89,7 +95,13 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
   if (originMatches) context.locksByTile.delete(lock.originKey);
   if (targetMatches) context.locksByTile.delete(lock.targetKey);
   context.locksByCommandId.delete(lock.commandId);
-  if (!originMatches || !targetMatches) return;
+  if (!originMatches || !targetMatches) {
+    // Stale/superseded lock, never reaching the deduction below -- refund the
+    // EXPAND manpower charged up front at lock creation (runtime-frontier-
+    // command.ts) since this lock is being dropped, not resolved.
+    if (lock.actionType === "EXPAND") refundExpandManpower(context, lock);
+    return;
+  }
 
   const previousTarget = context.tiles.get(lock.targetKey);
   const previousOwnerId = previousTarget?.ownerId;
@@ -159,9 +171,11 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
         context.consumeOriginMuster(lock.musterSourceKey ?? lock.originKey, lock.playerId, lock.manpowerCost);
         if (!attackerWon) context.applyFortGarrisonAttrition(lock.targetKey, lock.manpowerCost);
       }
-    } else {
-      context.applyLockedManpowerDelta(attacker, combatResult.manpowerDelta);
     }
+    // EXPAND's manpower cost (combatResult.manpowerDelta) was already charged
+    // up front at lock creation (runtime-frontier-command.ts) -- resolution
+    // no longer re-applies it here, only echoes the value in the
+    // COMBAT_RESOLVED event above for client display.
   }
   if (attackerWon && attacker && defender && targetWasSettled && combatResolution) {
     context.applySettledCapturePlunder({

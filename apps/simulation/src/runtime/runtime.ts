@@ -1331,7 +1331,8 @@ export class SimulationRuntime {
       nowMs,
       orphanLockGraceMs: ORPHAN_LOCK_GRACE_MS,
       locksByTile: this.state.locksByTile,
-      locksByCommandId: this.locksByCommandId
+      locksByCommandId: this.locksByCommandId,
+      refundExpandManpower: (playerId, amount) => { const player = this.state.players.get(playerId); if (player) player.manpower += amount; } // reverses our prior EXPAND debit; next regen tick reclamps overcap
     });
   }
 
@@ -1645,8 +1646,7 @@ export class SimulationRuntime {
       setTileYieldCollectedAt: (commandId, playerId, tileKey, collectedAt) => this.setTileYieldCollectedAt(commandId, playerId, tileKey, collectedAt),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      emitEvent: (event) => this.emitEvent(event),
-      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
@@ -1655,7 +1655,8 @@ export class SimulationRuntime {
       coastalLandKeys: () => this.spawnPlacementIndex.coastalLandKeys(this.state.tiles),
       hasNearbySettled: (x, y, radius) => this.spawnPlacementIndex.hasNearbySettled(x, y, radius),
       hasNearbyTown: (x, y, radius) => this.spawnPlacementIndex.hasNearbyTown(this.state.tiles, x, y, radius),
-      hasNearbyFood: (x, y, radius) => this.spawnPlacementIndex.hasNearbyFood(this.state.tiles, x, y, radius)
+      hasNearbyFood: (x, y, radius) => this.spawnPlacementIndex.hasNearbyFood(this.state.tiles, x, y, radius),
+      claimFairSpawnSite: (isAvailable, rallyAnchor) => this.spawnPlacementIndex.claimFairSpawnSite(this.state.tiles, isAvailable, rallyAnchor)
     };
   }
 
@@ -1690,9 +1691,8 @@ export class SimulationRuntime {
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-      emitEvent: (event) => this.emitEvent(event),
-      commandTrace: this.commandTrace,
-      onMusterRemoteBlocked: this.onMusterRemoteBlocked,
+      emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      commandTrace: this.commandTrace, onMusterRemoteBlocked: this.onMusterRemoteBlocked,
       onMusterRemoteAttack: this.onMusterRemoteAttack,
       onMusterRemoteBlockedBarbarian: this.onMusterRemoteBlockedBarbarian,
       scheduleLockResolution: (lock) => this.scheduleLockResolution(lock),

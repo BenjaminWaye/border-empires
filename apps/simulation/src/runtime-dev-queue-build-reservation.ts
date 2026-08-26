@@ -18,6 +18,7 @@ import {
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   SYNTHESIZER_STRUCTURE_TYPES,
   QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
+  SETTLE_MANPOWER_COST,
   type BuildableStructureType,
   type SlotResource,
   type SlotStructureType
@@ -40,6 +41,7 @@ export type RuntimeDevQueueReservationContext = {
     y: number,
     extraSlotDemand: ResourceSlotTotals
   ) => DevQueueBuildReservation;
+  estimateSettleReservation: (playerId: string) => DevQueueBuildReservation;
   applyManpowerReservation: (playerId: string, amount: number) => void;
   refundManpowerReservation: (playerId: string, amount: number) => void;
 };
@@ -59,6 +61,7 @@ export function devQueueBuildReservationContext(context: RuntimeStructureCommand
   return {
     estimateBuildReservation: (playerId, structureType, x, y, extraSlotDemand) =>
       estimateDevQueueBuildReservation(context, playerId, structureType, x, y, extraSlotDemand),
+    estimateSettleReservation: (playerId) => estimateDevQueueSettleReservation(context, playerId),
     applyManpowerReservation: (playerId, amount) => {
       const player = context.players.get(playerId);
       if (player) player.manpower = Math.max(0, player.manpower - amount);
@@ -130,4 +133,20 @@ function estimateDevQueueBuildReservation(
     }
   }
   return { ok: true, manpowerCost, slotRequirements };
+}
+
+// SETTLE reserves only manpower (no resource slot -- the slot it will
+// eventually occupy is a settled-tile field slot, not a dev-queue build
+// slot). The gold cost (SETTLE_COST) is charged later, at
+// startSettlementProcess, same as today -- only the manpower half moved
+// earlier per the immediate-deduction-on-queue fix.
+function estimateDevQueueSettleReservation(context: RuntimeStructureCommandContext, playerId: string): DevQueueBuildReservation {
+  const actor = context.players.get(playerId);
+  if (!actor) {
+    return { ok: false, code: "UNKNOWN_STRUCTURE", message: "unknown player" };
+  }
+  if (actor.manpower < SETTLE_MANPOWER_COST) {
+    return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_MANPOWER_COST} manpower to settle` };
+  }
+  return { ok: true, manpowerCost: SETTLE_MANPOWER_COST, slotRequirements: [] };
 }

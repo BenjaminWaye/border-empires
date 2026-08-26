@@ -98,8 +98,8 @@ describe("loadSimulationStartupRecovery", () => {
       initialCommandHistory: startupRecovery.initialCommandHistory
     });
     const seen: string[] = [];
-    // REACH_UPDATE is a derived-state push, not command lifecycle -- skipped.
-    runtime.onEvent((e) => { if (e.messageType !== "REACH_UPDATE") seen.push(`${e.eventType}:${e.commandId}`); });
+    // REACH_UPDATE and PLAYER_UPDATE are derived-state pushes, not command lifecycle -- skipped.
+    runtime.onEvent((e) => { if (e.messageType !== "REACH_UPDATE" && e.messageType !== "PLAYER_UPDATE") seen.push(`${e.eventType}:${e.commandId}`); });
 
     runtime.submitCommand({
       commandId: "cmd-resolved",

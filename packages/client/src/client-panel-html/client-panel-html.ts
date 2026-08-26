@@ -63,7 +63,7 @@ const safePlayerColor = (value: string | undefined): string | undefined => {
 
 const playerNameBadgeHtml = (playerId: string | undefined, playerName: string, playerColors: ReadonlyMap<string, string>): string => {
   const safeColor = safePlayerColor(playerId ? playerColors.get(playerId) : undefined);
-  return `<span class="lb-player-name"><span class="lb-player-dot${safeColor ? "" : " is-unknown"}"${safeColor ? ` style="--player-color:${safeColor}"` : ""} aria-hidden="true"></span><span>${foundingEngineerNameHtml(escapeHtml(playerName), playerName)}</span></span>`;
+  return `<span class="lb-player-name"><span class="lb-player-dot${safeColor ? "" : " is-unknown"}"${safeColor ? ` style="--player-color:${safeColor}"` : ""} aria-hidden="true"></span><span>${foundingEngineerNameHtml(escapeHtml(playerName), playerId)}</span></span>`;
 };
 
 const feedDebugControlsHtml = (controls: FeedDebugControls): string => {

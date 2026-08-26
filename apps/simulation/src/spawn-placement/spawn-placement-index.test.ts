@@ -97,4 +97,45 @@ describe("SpawnPlacementIndex", () => {
 
     expect(indexed).toEqual(fallback);
   });
+
+  it("claimFairSpawnSite returns the nearest still-available precomputed site to a rally anchor", () => {
+    const tiles = new Map<string, DomainTileState>();
+    for (let y = 0; y < 60; y += 1) {
+      for (let x = 0; x < 60; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });
+    }
+    const index = new SpawnPlacementIndex();
+    const sites = index.fairSpawnSites(tiles);
+    expect(sites.length).toBeGreaterThan(0);
+
+    const isAvailable = (x: number, y: number): boolean => tiles.get(simulationTileKey(x, y))?.ownerId === undefined;
+    const anchor = sites[Math.floor(sites.length / 2)]!;
+    const claimed = index.claimFairSpawnSite(tiles, isAvailable, anchor);
+    expect(claimed).toBeDefined();
+
+    let expectedBest = sites[0]!;
+    let expectedDistance = Math.max(Math.abs(expectedBest.x - anchor.x), Math.abs(expectedBest.y - anchor.y));
+    for (const site of sites) {
+      const distance = Math.max(Math.abs(site.x - anchor.x), Math.abs(site.y - anchor.y));
+      if (distance < expectedDistance) {
+        expectedDistance = distance;
+        expectedBest = site;
+      }
+    }
+    expect(claimed).toEqual(expectedBest);
+  });
+
+  it("claimFairSpawnSite skips sites that are no longer available and returns undefined once every site is taken", () => {
+    const tiles = new Map<string, DomainTileState>();
+    for (let y = 0; y < 60; y += 1) {
+      for (let x = 0; x < 60; x += 1) tiles.set(simulationTileKey(x, y), { x, y, terrain: "LAND" });
+    }
+    const index = new SpawnPlacementIndex();
+    const sites = index.fairSpawnSites(tiles);
+    expect(sites.length).toBeGreaterThan(0);
+
+    const takenKeys = new Set(sites.map((site) => simulationTileKey(site.x, site.y)));
+    const isAvailable = (): boolean => false;
+    expect(index.claimFairSpawnSite(tiles, isAvailable)).toBeUndefined();
+    expect(takenKeys.size).toBe(sites.length);
+  });
 });

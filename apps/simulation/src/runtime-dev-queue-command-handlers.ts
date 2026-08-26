@@ -29,7 +29,7 @@ export type RuntimeDevQueueCommandContext = RuntimeDevQueueReservationContext & 
   dispatchRemoveStructure: (command: CommandEnvelope) => void;
 };
 
-/** True for a BUILD entry that reserves MP/a slot -- SETTLE and REMOVE_STRUCTURE never do (removal frees a slot, it doesn't consume one; SETTLE costs no manpower per docs/manpower-economy-rewrite-plan.md §4.2). */
+/** True for a BUILD entry that reserves MP/a slot -- REMOVE_STRUCTURE never does (removal frees a slot, it doesn't consume one). SETTLE reserves MP too, via a separate path below, since it has no slot requirements. */
 function isReservableBuildEntry(kind: ServerDevQueueEntry["kind"], structureType: string | undefined): structureType is string {
   return kind === "BUILD" && !!structureType && structureType !== "REMOVE_STRUCTURE";
 }
@@ -56,6 +56,11 @@ export const handleDevQueueEnqueueCommand = (context: RuntimeDevQueueCommandCont
     context.applyManpowerReservation(command.playerId, reservation.manpowerCost);
     reservedManpower = reservation.manpowerCost;
     reservedSlotRequirements = reservation.slotRequirements;
+  } else if (payload.kind === "SETTLE") {
+    const reservation = context.estimateSettleReservation(command.playerId);
+    if (!reservation.ok) { context.rejectCommand(command, reservation.code, reservation.message); return; }
+    context.applyManpowerReservation(command.playerId, reservation.manpowerCost);
+    reservedManpower = reservation.manpowerCost;
   }
 
   // From here the manpower is already debited but not yet owed by anything in

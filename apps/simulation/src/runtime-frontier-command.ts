@@ -57,6 +57,7 @@ export type RuntimeFrontierCommandContext = {
   rejectCommand: (command: CommandEnvelope, code: string, message: string) => void;
   applyManpowerRegen: (player: RuntimePlayer) => void;
   emitEvent: (event: SimulationEvent) => void;
+  emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
   commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   onMusterRemoteBlocked: (() => void) | undefined;
   onMusterRemoteAttack: (() => void) | undefined;
@@ -256,6 +257,18 @@ export const handleFrontierCommandImpl = (
       ctx.onMusterRemoteAttack?.();
     }
   }
+  // EXPAND has no muster reservation (that's an ATTACK-only concept), so its
+  // manpower cost is charged directly against the player's wallet here, at
+  // lock creation, instead of at resolution (previously up to ~90s later
+  // with forest/hills claim-time penalties) -- matching the immediate-
+  // deduction-on-queue behavior BUILD/SETTLE already have. `resolveLock`
+  // (runtime-lock-resolution.ts) no longer re-charges this cost; every path
+  // that removes an EXPAND lock before resolution must refund it instead
+  // (cancel-capture, the orphaned-lock sweep, and resolveLock's own
+  // stale-lock early return).
+  if (actionType === "EXPAND") {
+    actor.manpower = Math.max(0, actor.manpower - validation.manpowerCost);
+  }
   const combatResolution = actionType === "EXPAND" ? undefined : ctx.buildLockedCombatResolution(baseLock);
   const lock: LockRecord = {
     ...baseLock,
@@ -309,5 +322,12 @@ export const handleFrontierCommandImpl = (
     });
   }
   ctx.scheduleLockResolution(lock);
+  // EXPAND's manpower cost was just charged up front (above) instead of at
+  // resolution -- push the updated wallet now so a human player's HUD
+  // reflects it immediately rather than waiting for the next unrelated
+  // PLAYER_UPDATE.
+  if (actionType === "EXPAND" && !actor.isAi) {
+    ctx.emitPlayerStateUpdate({ commandId: command.commandId, playerId: actor.id });
+  }
   return true;
 };

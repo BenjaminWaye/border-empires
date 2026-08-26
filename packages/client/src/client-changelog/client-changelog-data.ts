@@ -24,6 +24,27 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787726484063, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "New player and respawn placements now draw from a precomputed, equal-opportunity spawn map",
+    why: "Spawn placement previously ran a fresh random search per player against the live map, so two players joining minutes apart could land with very different access to nearby food and towns purely by luck of that search. Worldgen now precomputes a roster of candidate spawn sites up front, all drawn from the same amenity tier and spread evenly across the map, so every new empire and every respawn starts on comparably fair footing.",
+    changes: [
+      "Worldgen now precomputes a roster of up to 50 candidate spawn sites, spread evenly across the map instead of clustering, and prioritized so every site with both a town and food nearby is used before a lesser site is ever added.",
+      "New players and eliminated players respawning now draw from this roster first, falling back to the previous random search only once it's exhausted.",
+      "Joining via a friend's rally link now also draws from that same precomputed roster first, picking whichever site is closest to the inviting player, before falling back to the random search when every site nearby is already taken or too close to another empire.",
+      "Worldgen now regenerates the entire map with a new seed (same as it already does for a bad island distribution or a bland map) if the candidate map can't secure a full 50-site roster, instead of shipping a season where late joiners are more likely to fall back to the plain random search from the start."
+    ]
+  },
+  {
+    createdAt: 1787739722417, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Fixed the Founding Engineer tag matching by display name instead of a stable id",
+    why: "The Founding Engineer badge matched on display name (case-insensitive), so it would disappear if that player renamed and could be picked up by anyone else who renamed to the same string. The tile detail check also skipped the ally check's sea/coastal-sea and self-tile guard, so it could show up next to the generic \"Open sea\"/\"Crossing route\" text on a tile they owned.",
+    changes: [
+      "The Founding Engineer badge now matches on the player's stable id everywhere it's shown (lobby roster, leaderboard, tile detail), and no longer appears on sea or coastal-sea tiles."
+    ]
+  },
+  {
     createdAt: 1787734461399, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
     title: "Allies can now share dock-network access",
@@ -462,30 +483,22 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787435600000, // 2026.08.22.13 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.13",
-    title: "Fixed: another player's town could show your \"ready to upgrade\" badge",
-    why: "The map's green up-arrow badge and the food-shortage badge only checked that a town had an owner, not that the owner was you, so a rival town that happened to qualify lit up on your map the same way one of your own towns would.",
-    changes: [
-      "The population-tier upgrade badge and the unfed-town food badge now only appear on towns you own, on both the 3D map and the classic 2D map."
-    ]
-  },
-  {
-    createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.1",
-    title: "Auto-settle no longer claims resource tiles before you've researched them",
-    why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
-    changes: [
-      "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
-    ]
-  },
-  {
     createdAt: 1787724130000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.1",
     title: "Restyled the settings menu's Discord button",
     why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
     changes: [
       "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
+    ]
+  },
+  {
+    createdAt: 1787688879680, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Manpower for Expand and Settle is now spent the moment you queue them",
+    why: "Building deducted manpower as soon as an action was queued, but Expand and Settle didn't -- Expand only charged it once the claim finished (up to ~90s later on forest/hills), and a queued Settle held nothing at all. Both let you queue more actions than your manpower could actually cover, since nothing showed as spent until each one individually went through.",
+    changes: [
+      "Expand now charges its manpower cost the moment the claim is accepted, refunded if you cancel it or it never resolves.",
+      "A queued Settle now reserves its manpower immediately, the same way a queued Build already did."
     ]
   }
 ];
