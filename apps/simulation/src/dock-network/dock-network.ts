@@ -30,6 +30,31 @@ export const buildDockLinksByDockTileKey = (
   return linksByDockTileKey;
 };
 
+// Connected components of the dock graph, keyed by every dock tile key in
+// the component to the shared member set. Lets a crossing-origin lookup ask
+// "does this player control any dock in the same network as this one" in
+// O(component size) instead of scanning the whole dock graph or the world.
+export const buildDockNetworkComponentByTileKey = (
+  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>
+): Map<string, ReadonlySet<string>> => {
+  const componentByTileKey = new Map<string, ReadonlySet<string>>();
+  for (const startTileKey of dockLinksByDockTileKey.keys()) {
+    if (componentByTileKey.has(startTileKey)) continue;
+    const members = new Set<string>([startTileKey]);
+    const queue = [startTileKey];
+    while (queue.length) {
+      const current = queue.pop() as string;
+      for (const linked of dockLinksByDockTileKey.get(current) ?? []) {
+        if (members.has(linked)) continue;
+        members.add(linked);
+        queue.push(linked);
+      }
+    }
+    for (const member of members) componentByTileKey.set(member, members);
+  }
+  return componentByTileKey;
+};
+
 export const dockCrossingCandidateTileKeys = (
   fromDockTileKey: string,
   dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>

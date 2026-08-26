@@ -20,6 +20,7 @@ export class RuntimeState {
   readonly tiles: Map<string, DomainTileState>;
   readonly docks: DockRouteDefinition[];
   readonly dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
+  readonly dockNetworkComponentByTileKey: ReadonlyMap<string, ReadonlySet<string>>;
   readonly locksByTile: Map<string, LockRecord>;
   readonly visibilityCoverage: VisibilityCoverageTracker;
 
@@ -28,6 +29,7 @@ export class RuntimeState {
     tiles: Map<string, DomainTileState>;
     docks: DockRouteDefinition[];
     dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
+    dockNetworkComponentByTileKey: ReadonlyMap<string, ReadonlySet<string>>;
     locksByTile: Map<string, LockRecord>;
     visibilityCoverage: VisibilityCoverageTracker;
   }) {
@@ -35,6 +37,7 @@ export class RuntimeState {
     this.tiles = init.tiles;
     this.docks = init.docks;
     this.dockLinksByDockTileKey = init.dockLinksByDockTileKey;
+    this.dockNetworkComponentByTileKey = init.dockNetworkComponentByTileKey;
     this.locksByTile = init.locksByTile;
     this.visibilityCoverage = init.visibilityCoverage;
   }
