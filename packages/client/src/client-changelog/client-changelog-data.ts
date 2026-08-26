@@ -23,6 +23,44 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787765310135, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Fixed: queued Expand/Attack orders now execute automatically",
+    why: "The waypoint/expand queue only stored your queued targets on the server -- it never actually walked the route for you while you were offline, so queued orders just sat there until you reopened the game and your client resumed dispatching them itself.",
+    changes: [
+      "A queued Expand/Attack now fires automatically as soon as it's your turn in the queue, including while you're completely offline.",
+      "A queued target that's no longer valid by the time it comes up (already taken, no longer reachable, etc.) is skipped instead of stalling the rest of your queue."
+    ]
+  },
+  {
+    createdAt: 1787755800000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.7",
+    title: "Fixed Crystal staying hidden on tiles you could already see when Aetheric Resonance finished",
+    why: "Researching a resource-revealing tech only recomputed vision radius, not the resource data of tiles already inside your vision. Since the crystal reveal only rode along on a fresh tile delta, a crystal tile you could already see stayed masked forever once Aetheric Resonance completed -- nothing ever mutated that tile again to trigger a resend, and even a fresh login pulled the same stale masked state.",
+    changes: [
+      "Completing a tech that reveals a resource (Aetheric Resonance/Crystal, Masonry/Titanium, Leatherworking/Umbrite) now re-sends every already-visible tile of that resource type, so it shows up immediately instead of only on tiles you scout afterward."
+    ]
+  },
+  {
+    createdAt: 1787765177459, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.7",
+    title: "Fixed \"Get Rally Link\" flashing a sign-in prompt for already-signed-in players",
+    why: "The button did a full page navigation to /rally/new, which reloaded the whole client and restarted Firebase Auth from scratch. The rally panel tried to mint a link before auth finished rehydrating, so it briefly showed \"Sign in, then this page will create your rally link\" even for players who were already signed in.",
+    changes: [
+      "Get Rally Link now opens the rally panel in place, without reloading the app, so already-signed-in players go straight to a minted link instead of seeing a sign-in flash.",
+      "Fixed the rally panel's close (×) icon rendering off-center in its button."
+    ]
+  },
+  {
+    createdAt: 1787765177460, // frozen from `node -e "console.log(Date.now())"`, +1ms to avoid a collision with the entry above
+    introducedIn: "2026.08.26.7",
+    title: "Fixed a rally invite link covering the sign-in button",
+    why: "Opening a rally invite link (/r/<code>) while signed out showed a floating \"Join a rally\" card on top of the sign-in screen. #auth-overlay lives inside #hud, which is position:fixed with z-index:auto and forms its own stacking context, so the invite card's z-index (29, meant to sit below the overlay's 30) was compared against #hud as a whole instead -- the card always painted on top, right over the Continue with Google button.",
+    changes: [
+      "The rally invite message now appears as a small banner inside the sign-in card itself instead of a separate floating popup, so it never blocks the sign-in buttons."
+    ]
+  },
+  {
     createdAt: 1787755721503, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.6",
     title: "Attack alerts now show the attacker's real display name",
@@ -419,68 +457,42 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787462871189, // 2026.08.23.05 — frozen from a live Date.now() call
-    introducedIn: "2026.08.23.05",
-    title: "Turned off rivers in new map generation",
-    why: "Generated rivers didn't fully work -- they could cut land in ways that broke territory shapes and pathing, so we're disabling them until the generator is fixed.",
+    createdAt: 1787749806338, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "AI empires can now unblock growth when out of FOOD slots",
+    why: "When an AI ran completely out of FOOD slots with no Farmstead/Waterworks/Granary build available to grow more, it had no way out -- every FOOD-costing build (including a new Relay Beacon, which is the AI's only path to claim more farmland) stayed permanently illegal, so a starved AI empire would just get stuck forever instead of expanding its way out of the shortage.",
     changes: [
-      "New maps no longer generate rivers; existing maps are unaffected."
+      "An AI empire that's fully out of FOOD slots, with no direct way to grow more, will now disable one of its own Relay Beacons that isn't covering any resources to free up the slot for further growth.",
+      "This is always a reversible disable, never a demolition -- the building stays intact and can be re-enabled once FOOD has headroom again."
     ]
   },
   {
-    createdAt: 1787475367888, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Corrected the lobby's timezone claim",
-    why: "The join-season overlay said a synchronized start means \"the first move isn't decided by timezone\" -- that's wrong, a shared start time doesn't erase timezone effects on when players are actually online. What it actually guarantees is that everyone gets the same starting line, not the same impact from timezone.",
-    changes: [
-      "The lobby's \"Season starts soon\" text now says a synchronized start gives everyone the same chance from the same starting line, rather than incorrectly claiming timezone has no effect on the first move."
-    ]
-  },
-  {
-    createdAt: 1787475219678, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Rally link dialog can now be dismissed, and rally links are reachable from Settings",
-    why: "The rally-create and rally-invite dialogs had no way to close once you'd copied the link -- the only way out was navigating away entirely. And minting a rally link required knowing the /rally/new URL by hand.",
-    changes: [
-      "The rally link dialog now has a close (×) button in the top-right corner that dismisses it and clears the rally URL from the address bar.",
-      "Signed-in players can now open \"Get Rally Link\" from Settings → Gameplay instead of typing /rally/new."
-    ]
-  },
-  {
-    createdAt: 1787472290597, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.1",
-    title: "Added a Slot Sources breakdown to the Economy panel for Food, Titanium, Crystal, and Umbrite",
-    why: "The Economy sidebar's slot-based resources only showed \"Occupied by\" (who's using your slots), with no way to see where the slot capacity itself came from -- unlike GOLD, which already lists its Income Sources.",
-    changes: [
-      "The Economy panel's detail card for FOOD/TITANIUM/CRYSTAL/UMBRITE now has a \"Slot Sources\" column listing which tiles and boost structures (Farmstead, Mine, Umbrite Rig, Waterworks/Foundry radius bonuses, active synthesizers) are contributing slot capacity, alongside the existing \"Occupied by\" column."
-    ]
-  },
-  {
-    createdAt: 1787474961956, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Higher starting manpower for new capitals",
-    why: "New capitals started with 576 manpower, an odd number derived from expansion-cost math -- raising it to a round 720 gives new players more early room to expand and settle.",
-    changes: [
-      "A new capital's starting manpower cap (and starting manpower, which fills it) is now 720, up from 576."
-    ]
-  },
-  {
-    createdAt: 1787472289089, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Settled resource tiles now show their real slot production instead of stale prose",
-    why: "A settled Farm/Fish/Titanium/Gems/Umbrite tile's overview said \"Resource node can produce food once developed and collected\" even after being settled -- a holdover from the old per-day yield model. FOOD/TITANIUM/CRYSTAL/UMBRITE production moved to the slot-supply system a while ago, so that line was permanently stale and never resolved into a real number.",
-    changes: [
-      "A settled resource tile's overview now shows a \"Production:\" line with the actual FOOD/TITANIUM/CRYSTAL/UMBRITE slot count it contributes (e.g. \"Production: 🍞 Food +1\"), matching the format already used for buildings, instead of the old \"can produce ... once developed and collected\" prose.",
-      "A Farmstead/Mine/Umbrite Rig built on its tile now visibly bumps that slot count (e.g. a Farmstead on a Farm tile shows \"Food +2\")."
-    ]
-  },
-  {
-    createdAt: 1787724130000, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1787693449098, // frozen one ms after the prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
     introducedIn: "2026.08.26.1",
-    title: "Restyled the settings menu's Discord button",
-    why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
+    title: "Rival borders in true-3D mode are now accurate, not guessed",
+    why: "The \"clashing borders\" effect where your reach meets a rival's needed to show exactly where your border ends and theirs begins, but a rival's border was only ever a rough client-side guess with no awareness of your own border -- so the two shapes almost never lined up: the seam effect either never appeared, or the two borders visually crossed through each other instead of meeting cleanly.",
     changes: [
-      "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
+      "The simulation now pushes each visible rival's real border to your client, clipped to what you can currently see -- the same authoritative treatment your own border already gets.",
+      "Rival border lines in true-3D mode now line up correctly with your own, so the clashing-borders seam renders where the two actually meet."
+    ]
+  },
+  {
+    createdAt: 1787766405640, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Settle now works on a captured town or dock outside your reach",
+    why: "A captured town or dock frontier tile (e.g. taken by Attack, which isn't reach-gated) could sit outside your reach border and keep getting rejected with \"tile is outside your reach\" every time Settle was attempted, even though settling it is exactly what would give it its own reach in the first place -- a Catch-22 that made some captured towns/docks permanently unsettleable.",
+    changes: [
+      "Settle no longer requires a captured town or dock tile to already be inside your reach -- only plain resource/support frontier tiles still need that."
+    ]
+  },
+  {
+    createdAt: 1787766488424, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Incubation Engine now grants ongoing population growth, not just a one-time burst",
+    why: "The Incubation Engine (Granary) only ever paid off once, on the tick it finished building, then sat there doing nothing for the rest of the game -- a Seed Granary's ongoing growth boost made the base building feel like a dead end once its instant burst was spent.",
+    changes: [
+      "A completed Incubation Engine now also grants a flat +10% ongoing population growth rate for its town, on top of the existing +10,000 instant population burst on completion.",
+      "A Seed Granary's own buffed-radius growth bonus still stacks on top of this when it applies."
     ]
   }
 ];

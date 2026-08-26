@@ -366,6 +366,20 @@ export const dormantEconomicStructureKeysFromDormancy = (dormancy: ResourceSlotD
   return result;
 };
 
+// FOOD-only subset of the above — feeds food-slot-relief.ts's
+// chooseDormantFoodStructureToDisable (AI fallback disable target when FOOD
+// slots are exhausted): disabling a structure dormant on e.g. CRYSTAL alone
+// wouldn't actually free a FOOD slot, so this must check dormancy.FOOD only.
+export const foodDormantEconomicStructureKeysFromDormancy = (dormancy: ResourceSlotDormancy | undefined): ReadonlySet<string> => {
+  const result = new Set<string>();
+  if (!dormancy) return result;
+  const suffix = ":economicStructure";
+  for (const key of dormancy.FOOD) {
+    if (key.endsWith(suffix)) result.add(key.slice(0, -suffix.length));
+  }
+  return result;
+};
+
 export const buildFedTownKeysByPlayer = (
   runtimeState: RuntimeState,
   dormancyByPlayer: ReadonlyMap<string, ResourceSlotDormancy>

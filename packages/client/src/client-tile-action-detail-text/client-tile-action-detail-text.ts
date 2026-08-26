@@ -72,10 +72,11 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   }
   if (actionId === "build_granary") {
     // Incubation Engine (Granary) grants an instant one-time population
-    // burst on completion, not an ongoing growth bonus — see
-    // granaryGrowthMultiplier in packages/game-domain (commit 7a51b06b,
-    // "Incubation Engine double-dip" fix).
-    return `Build on this support tile for ${supportedTownLabel}. Grants an instant +10,000 population burst on completion.`;
+    // burst on completion PLUS a flat ongoing growth-rate multiplier — see
+    // granaryGrowthMultiplier in packages/game-domain for the current
+    // formula and its history (commit 7a51b06b removed the ongoing bonus;
+    // reintroduced at a lower rate 2026-08-26).
+    return `Build on this support tile for ${supportedTownLabel}. Grants an instant +10,000 population burst on completion, plus +10% ongoing population growth.`;
   }
   if (actionId === "build_bank") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +50% city income and +1 flat income.`;

@@ -8,7 +8,7 @@ export const createAutomationCommand = (
   clientSeq: number,
   issuedAt: number,
   type: CommandEnvelope["type"],
-  payload: Record<string, number | string>
+  payload: Record<string, number | string | boolean>
 ): CommandEnvelope => ({
   commandId: `${sessionPrefix}-${playerId}-${clientSeq}-${issuedAt}`,
   sessionId: `${sessionPrefix}:${playerId}`,

@@ -340,6 +340,12 @@ export const QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT = 0.67;
 // Incubation Engine (Granary): instant one-time population burst on build
 // completion.
 export const GRANARY_INSTANT_POPULATION_BURST = 10_000;
+// Incubation Engine (Granary): ongoing population growth-rate multiplier for
+// its own town, on top of the instant burst above. Reintroduced 2026-08-26,
+// per explicit user decision, at a lower value than the pre-redesign flat
+// +15% that commit 7a51b06b ("fix: Incubation Engine double-dip") removed —
+// see granaryGrowthMultiplier's doc comment in game-domain for that history.
+export const GRANARY_ONGOING_GROWTH_MULT = 1.10;
 // Census Hall: population bonus per connected city with an active Granary
 // (Incubation Engine) — network-scoped, recomputed live (not a one-time
 // grant), so losing a connection or the neighbor's Granary shrinks it back.

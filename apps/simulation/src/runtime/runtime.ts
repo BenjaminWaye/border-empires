@@ -7,7 +7,9 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { RuntimeState } from "./runtime-state.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
-import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
+import { createReachUpdateState, flushReachUpdates, markReachForResend, takeReachChangedTileKeys as takeReachChangedTileKeysImpl, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
+import type { RivalReachPushRuntimeDeps } from "../rival-reach-push/rival-reach-push.js";
+import { railDepotPositionsFromKeys } from "./runtime-rail-depot-positions.js";
 import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
 import { cancelOutOfReachDecayInAnchorDisk, outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import {
@@ -16,7 +18,8 @@ import {
   newlyDeactivatedReachAnchors as newlyDeactivatedReachAnchorsImpl,
   isPlayerTileInReach as isPlayerTileInReachImpl,
   reachTileCountForPlayer as reachTileCountForPlayerImpl,
-  reachTileKeysForPlayer as reachTileKeysForPlayerImpl
+  reachTileKeysForPlayer as reachTileKeysForPlayerImpl,
+  reachTileKeysGroupedByOwner as reachTileKeysGroupedByOwnerImpl
 } from "./runtime-reach-anchors.js";
 import {
   appendPlayerEventLogEntry,
@@ -126,6 +129,7 @@ import {
   type ResourceSlotTotals
 } from "../resource-slot-view/resource-slot-view.js";
 import { refreshResourceSlotCachesForPlayer as refreshResourceSlotCachesForPlayerImpl } from "../resource-slot-view/resource-slot-cache-refresh.js";
+import { foodDormantEconomicStructureKeysFromDormancy } from "../snapshot-economy-helpers.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
 import { createVisionFootprintTableForRuntime } from "../vision-footprint-table.js";
@@ -196,7 +200,7 @@ import {
 import {
   handleWaypointCancelAllCommand as handleWaypointCancelAllCommandImpl,
   handleWaypointCancelCommand as handleWaypointCancelCommandImpl,
-  handleWaypointEnqueueCommand as handleWaypointEnqueueCommandImpl,
+  handleWaypointEnqueueCommand as handleWaypointEnqueueCommandImpl, tryDrainWaypointQueue as tryDrainWaypointQueueImpl,
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js";
 import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
@@ -487,7 +491,7 @@ import { buildRushBuyCommandContext } from "./runtime-rush-buy-command-context.j
 import {
   seedLiveBarbarians as seedLiveBarbariansImpl,
   type SeedLiveBarbariansResult
-} from "../runtime-live-barbarians.js"; import { humanPlayerCountOf } from "../runtime-player-factory.js";
+} from "../runtime-live-barbarians.js"; import { humanPlayerCountOf, isAlliedOrTruced } from "../runtime-player-factory.js";
 import {
   ensurePlayerHasSpawnTerritory as ensurePlayerHasSpawnTerritoryImpl,
   finalizeRespawnNotice as finalizeRespawnNoticeImpl,
@@ -508,50 +512,14 @@ const RESPAWN_MINIMUM_GOLD = 10;
 // Normal locks resolve inside their setTimeout window; anything still present
 // is a leak from a code path that bypassed validation.
 const ORPHAN_LOCK_GRACE_MS = 60_000;
-// How long an AI player's economy/defensibility/auto-settlement caches may
-// stay dirty-but-served before the next read pays a real rebuild (2026-07-29
-// login-stall investigation). Well under both consumers' own tick cadence —
-// passive income (15s) and population growth (60s) — so this never produces
-// gameplay-visible staleness; it just stops a continuously-settling AI from
-// paying a fresh O(settled-tiles) rebuild on nearly every command. Defined in
-// runtime-economy.ts (imported above) so both files share one value.
-// TTL for the per-tile auto-settlement eligibility cache (AI only, see
-// autoSettlementQueueForPlayer). Longer than AI_DERIVED_CACHE_COALESCE_MS
-// deliberately: that cache only avoids re-running the WHOLE rebuild within a
-// 5s window, but every rebuild after that window still re-checked every
-// frontier tile's (usually unchanged) eligibility from scratch, including
-// the O(8-neighbor-scan) hasTownSupport lookup for tiles already known to be
-// ineligible. 60s matches population growth's own tolerance for stale
-// derived data elsewhere in this file, so it's never gameplay-visible.
+// How long an AI player's economy/defensibility/auto-settlement caches may stay dirty-but-served before the next read pays a real rebuild (2026-07-29 login-stall investigation) — well under both consumers' own tick cadence (passive income 15s, population growth 60s), so never gameplay-visible; just stops a continuously-settling AI from paying a fresh O(settled-tiles) rebuild on nearly every command. Defined in runtime-economy.ts (imported above) so both files share one value.
+// TTL for the per-tile auto-settlement eligibility cache (AI only, see autoSettlementQueueForPlayer). Longer than AI_DERIVED_CACHE_COALESCE_MS deliberately: that cache only avoids re-running the WHOLE rebuild within a 5s window, but every rebuild after that window still re-checked every frontier tile's (usually unchanged) eligibility from scratch, including the O(8-neighbor-scan) hasTownSupport lookup for tiles already known ineligible. 60s matches population growth's own staleness tolerance elsewhere in this file, so it's never gameplay-visible.
 const AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS = 60_000;
 
 // Process-global monotonically increasing counter for unique runtime epochs and
 // fresh terrain mutation numbers. Consumers cache derived terrain structures by
 // epoch; cache misses are O(world tiles) but happen only when terrain changes.
 let nextTerrainEpoch = 1;
-
-/**
- * Convert a rail depot key index to position arrays for the muster tick.
- * §5.4: skips dormant Rail Depots — an unpowered depot can't grant the
- * muster boost.
- */
-const railDepotPositionsFromKeys = (
-  index: ReadonlyMap<string, Set<string>>,
-  tiles: ReadonlyMap<string, DomainTileState>,
-  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean
-): Map<string, Array<{ x: number; y: number }>> => {
-  const result = new Map<string, Array<{ x: number; y: number }>>();
-  for (const [ownerId, keys] of index) {
-    const positions: Array<{ x: number; y: number }> = [];
-    for (const key of keys) {
-      if (isStructureDormant(ownerId, key, "economicStructure")) continue;
-      const tile = tiles.get(key);
-      if (tile) positions.push({ x: tile.x, y: tile.y });
-    }
-    if (positions.length > 0) result.set(ownerId, positions);
-  }
-  return result;
-};
 
 export class SimulationRuntime {
   private readonly events = new EventEmitter();
@@ -1766,14 +1734,9 @@ export class SimulationRuntime {
       maybeDrainClaimContinuation: (targetKey, x, y, playerId) => tryDrainClaimContinuationImpl(this.devQueueCommandContext(), playerId, targetKey, x, y),
       outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now(), isLandTile: this.isLandTileQuery }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => this.runtimeLogInfo(p, m)), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
-        ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({
-            capturedTile,
-            attackerId,
-            nowMs: this.now(),
-            tiles: this.state.tiles,
-            invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key)
-          })
+        ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
+      tryDrainWaypointQueue: (playerId) => this.tryDrainWaypointQueue(playerId)
     };
   }
 
@@ -2601,6 +2564,11 @@ export class SimulationRuntime {
       // integration point from that change, now that isPlayerTileInReach
       // exists). ATTACK candidates are unaffected.
       reachLookup: { isInReach: (pid, x, y) => this.isPlayerTileInReach(pid, x, y) },
+      slotSupplyByResource: this.resourceSlotSupplyForPlayer(playerId),
+      slotDemandByResource: this.resourceSlotDemandForPlayer(playerId),
+      foodDormantEconomicStructureKeys: foodDormantEconomicStructureKeysFromDormancy(this.resourceSlotDormancyForPlayer(playerId)),
+      manpowerCapacity: this.playerManpowerCap(player),
+      manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
       playerScopeKeyCount,
       playerScopeTileCount: playerScopeKeyCount,
       previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),
@@ -2729,6 +2697,7 @@ export class SimulationRuntime {
       locksByTile: this.state.locksByTile,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
+      foodDormantEconomicStructureKeysForPlayer: (playerId) => foodDormantEconomicStructureKeysFromDormancy(this.resourceSlotDormancyForPlayer(playerId)),
       playerSummaries: this.playerSummaries,
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
     };
@@ -3062,6 +3031,20 @@ export class SimulationRuntime {
   // planning paths — see buildRuntimePlannerPlayerViews's reachTileKeys.
   reachTileKeysForPlayer(playerId: string): string[] {
     return reachTileKeysForPlayerImpl(playerId, this.reachBorder);
+  }
+
+  // rival-reach-push.ts's ONLY window into Runtime (that module lives at the
+  // service layer, which knows who is connected — Runtime doesn't). Mirrors
+  // reachBorderApplyContext() just above; never exposes reachBorder/visibilityCoverage directly.
+  rivalReachPushRuntimeDeps(): RivalReachPushRuntimeDeps {
+    return {
+      reachBorderTileKeysGroupedByOwner: () => reachTileKeysGroupedByOwnerImpl(this.reachBorder),
+      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
+      isTileVisibleToPlayer: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey),
+      takeReachChangedTileKeys: (ownerId) => takeReachChangedTileKeysImpl(this.reachUpdateState, ownerId),
+      emitRivalReachUpdate: (viewerId, ownerId, tileKeys, revision, causeCommandId) =>
+        this.emitPlayerMessage({ commandId: causeCommandId, playerId: viewerId }, { type: "RIVAL_REACH_UPDATE", ownerId, tileKeys, revision })
+    };
   }
 
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
@@ -3690,12 +3673,11 @@ export class SimulationRuntime {
     // frontier expiry also uses `frontierDecayAt`, so use the explicit owner.
     if (target.frontierDecayKind === "ENCIRCLEMENT") { this.rejectCommand(command, "ORIGIN_CUT_OFF", "tile is cut off from supply and cannot be settled"); return; }
     if (target.terrain !== "LAND") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not valid land"); return; }
-    // Fixed-border reach: SETTLE requires the tile to be inside the actor's
-    // resolved reach set (packages/shared/src/reach/reach.ts), same gate as
-    // EXPAND's OUT_OF_REACH check in validateFrontierCommand — SETTLE has its
-    // own handler (not routed through validateFrontierCommand) so the check
-    // is applied here directly.
-    if (!this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
+    // Fixed-border reach (packages/shared/src/reach/reach.ts), same gate as
+    // EXPAND's OUT_OF_REACH check. Town/dock tiles are exempt -- they produce
+    // their own reach once settled, so requiring pre-existing reach here is
+    // circular (mirrors isAutoSettlementEligibleTarget's exemption).
+    if (!(target.town || target.dockId) && !this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
       this.rejectCommand(command, "OUT_OF_REACH", "tile is outside your reach"); return;
     }
     if (this.pendingSettlementsByTile.has(targetKey)) { this.rejectCommand(command, "SETTLE_INVALID", "tile is already settling"); return; }
@@ -3747,7 +3729,12 @@ export class SimulationRuntime {
 
   // See runtime-claim-continuation-command-handlers.ts (context builder lives there; oversized file).
   private claimContinuationCommandContext() { return claimContinuationContextFromDevQueueContext(this.devQueueCommandContext(), this.state.tiles); }
-  private waypointQueueCommandContext(): RuntimeWaypointQueueCommandContext { return { summaryForPlayer: (playerId) => this.summaryForPlayer(playerId), now: () => this.now(), emitEvent: (event) => this.emitEvent(event), rejectCommand: (command, code, message) => this.rejectCommand(command, code, message) }; }
+  private isHostileTileOwner(playerId: string, targetOwnerId: string | undefined): boolean {
+    if (!targetOwnerId || targetOwnerId === playerId) return false;
+    const actor = this.state.players.get(playerId); return !actor || !isAlliedOrTruced(actor, targetOwnerId); }
+  private waypointQueueCommandContext(): RuntimeWaypointQueueCommandContext { return { summaryForPlayer: (playerId) => this.summaryForPlayer(playerId), now: () => this.now(), emitEvent: (event) => this.emitEvent(event), rejectCommand: (command, code, message) => this.rejectCommand(command, code, message), tileAt: (x, y) => this.state.tiles.get(simulationTileKey(x, y)), isHostileOwner: (playerId, targetOwnerId) => this.isHostileTileOwner(playerId, targetOwnerId), nextDrainCommandId: (playerId, x, y) => this.nextTerritoryAutomationCommandId("waypoint-queue-drain", playerId, simulationTileKey(x, y), this.now()), dispatchFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType) }; }
+  /** See runtime-waypoint-queue-command-handlers.ts's doc comment. */
+  private tryDrainWaypointQueue(playerId: string): void { tryDrainWaypointQueueImpl(this.waypointQueueCommandContext(), playerId); }
 
   /**
    * Server-side auto-settle for AI players. AI has no client, so unlike
@@ -3773,10 +3760,9 @@ export class SimulationRuntime {
       if (target.frontierDecayKind === "ENCIRCLEMENT") continue;
       if (target.terrain !== "LAND") continue;
       if (this.pendingSettlementsByTile.has(targetKey)) continue;
-      // Fixed-border reach: same OUT_OF_REACH gate handleSettleCommand applies
-      // to a human's SETTLE command (see its comment above) -- this path
-      // bypasses that handler entirely, so the check must be repeated here.
-      if (!this.isPlayerTileInReach(playerId, target.x, target.y)) continue;
+      // Same OUT_OF_REACH gate (and town/dock exemption) as handleSettleCommand
+      // above -- this path bypasses that handler, so it's repeated here.
+      if (!(target.town || target.dockId) && !this.isPlayerTileInReach(playerId, target.x, target.y)) continue;
       const commandId = this.nextTerritoryAutomationCommandId("auto-settle", playerId, targetKey, nowMs);
       this.startSettlementProcess({
         commandId,
@@ -3998,7 +3984,7 @@ export class SimulationRuntime {
       clearLastShardRainHello: () => this.lastShardRainHelloByPlayer.clear(),
       onShardCollected: this.onShardCollected,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
-      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId)
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId), tileDeltaRevealOnly: (tile, playerId) => this.tileDeltaRevealOnly(tile, playerId)
     });
   }
 

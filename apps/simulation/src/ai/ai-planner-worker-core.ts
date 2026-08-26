@@ -261,6 +261,9 @@ export const createAiPlannerWorkerCore = (post: (msg: Record<string, unknown>) =
         : {}),
       ...(player.slotSupplyByResource ? { slotSupplyByResource: player.slotSupplyByResource } : {}),
       ...(player.slotDemandByResource ? { slotDemandByResource: player.slotDemandByResource } : {}),
+      ...(player.foodDormantEconomicStructureKeys
+        ? { foodDormantEconomicStructureKeys: new Set(player.foodDormantEconomicStructureKeys) }
+        : {}),
       clientSeq,
       issuedAt,
       sessionPrefix: "ai-runtime",

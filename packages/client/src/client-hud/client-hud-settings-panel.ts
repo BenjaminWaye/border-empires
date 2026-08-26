@@ -83,22 +83,25 @@ export const settingsAccountPageHtml = (
 export const rallyLinkCardHtml = (state: Pick<ClientState, "authSessionReady">): string => {
   if (!state.authSessionReady) return "";
   return `
-    <div class="auth-rally-link">
-      <a class="panel-btn" href="/rally/new">Get Rally Link</a>
-      <p>Invite others to a rally point on the map.</p>
+    <div class="card auth-settings-card auth-rally-link">
+      <button type="button" class="panel-btn" data-rally-link-open>Get Rally Link</button>
+      <p>Invite your friends — a rally link drops them into the game right next to your starting location.</p>
     </div>
   `;
 };
 
 export const settingsGameplayPageHtml = (
   state: Pick<ClientState, "mapRevealEligible" | "authSessionReady" | "mapRevealEnabled" | "fogDisabled">
-): string => `
-  <div class="card auth-settings-card">
-    ${audioSettingsFieldHtml()}
-    ${mapRevealCardHtml(state)}
+): string => {
+  const mapRevealHtml = mapRevealCardHtml(state);
+  return `
+    <div class="card auth-settings-card">
+      ${audioSettingsFieldHtml()}
+    </div>
     ${rallyLinkCardHtml(state)}
-  </div>
-`;
+    ${mapRevealHtml ? `<div class="card auth-settings-card">${mapRevealHtml}</div>` : ""}
+  `;
+};
 
 export const settingsDiagnosticsPageHtml = (state: AuthDebugState, wsUrl: string, firebaseAuth: Auth | null | undefined): string => `
   <div class="card auth-settings-card">

@@ -48,6 +48,8 @@ const baseInputs: DecisionInputs = {
   hasRelayBeaconBuild: true,
   relayBeaconSiteValue: RICH_SITE_VALUE,
   beaconBoostActive: false,
+  foodSlotsExhausted: false,
+  hasFoodSlotReliefCandidate: false,
   techAffordable: false,
   momentumTicks: {},
   cooldown: {},
