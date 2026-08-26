@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787752754484, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Fixed food/crystal (and other resource slot) totals getting stuck wrong until you changed a tile",
+    why: "Resource slot totals and dormancy (what shows a structure as short on food/crystal/titanium/umbrite and disables further builds) are cached per player and only recomputed when a tile of yours changes. If that cache ever ended up wrong without a tile change to invalidate it, the wrong totals -- and any resulting build lockout -- stuck around indefinitely; a client refresh couldn't fix it since the bad value lived server-side, and the only known workaround was forcing a tile change yourself (e.g. abandoning a tile).",
+    changes: [
+      "Whenever a resource-slot dormancy check comes back reporting something as short on a resource, it's now immediately re-verified against a forced-fresh recompute before being trusted, since a wrong \"you're blocked\" is far more disruptive than briefly serving a wrong \"you're fine\" would be. This self-heals a stuck-wrong total without requiring any tile change, with no added cost on the normal, non-blocked path."
+    ]
+  },
+  {
     createdAt: 1787692499340, // frozen from a live Date.now() call
     introducedIn: "2026.08.25.8",
     title: "AI auto-settle now respects reach too, and losing reach unsettles ground you can no longer defend",
@@ -489,16 +498,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
     changes: [
       "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
-    ]
-  },
-  {
-    createdAt: 1787688879680, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.5",
-    title: "Manpower for Expand and Settle is now spent the moment you queue them",
-    why: "Building deducted manpower as soon as an action was queued, but Expand and Settle didn't -- Expand only charged it once the claim finished (up to ~90s later on forest/hills), and a queued Settle held nothing at all. Both let you queue more actions than your manpower could actually cover, since nothing showed as spent until each one individually went through.",
-    changes: [
-      "Expand now charges its manpower cost the moment the claim is accepted, refunded if you cancel it or it never resolves.",
-      "A queued Settle now reserves its manpower immediately, the same way a queued Build already did."
     ]
   }
 ];

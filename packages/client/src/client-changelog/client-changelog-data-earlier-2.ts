@@ -12,6 +12,16 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787688879680, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Manpower for Expand and Settle is now spent the moment you queue them",
+    why: "Building deducted manpower as soon as an action was queued, but Expand and Settle didn't -- Expand only charged it once the claim finished (up to ~90s later on forest/hills), and a queued Settle held nothing at all. Both let you queue more actions than your manpower could actually cover, since nothing showed as spent until each one individually went through.",
+    changes: [
+      "Expand now charges its manpower cost the moment the claim is accepted, refunded if you cancel it or it never resolves.",
+      "A queued Settle now reserves its manpower immediately, the same way a queued Build already did."
+    ]
+  },
+  {
     createdAt: 1787431431635, // frozen from a live Date.now() call
     introducedIn: "2026.08.22.12",
     title: "Fixed rivers clipping through hills",
