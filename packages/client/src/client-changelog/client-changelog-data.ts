@@ -33,6 +33,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787774400874, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.9",
+    title: "Converter structure tile panel no longer shows stale Refine-mode upkeep/modifiers while selling off",
+    why: "A converter structure (Aether Condenser, etc.) in Sell Off (EXCHANGE) mode still showed the Refine-mode gold upkeep rate in the Upkeep panel and \"Refine mode supplies: +1 <resource> slot\" in the Modifiers panel -- both computed by static lookup with no awareness of the structure's live mode, directly contradicting the structure's own status line, which correctly said it was selling off with no gold upkeep.",
+    changes: [
+      "The tile detail panel's Upkeep and Modifiers sections for a converter structure now match its actual current mode: no GOLD upkeep line and no \"Refine mode supplies\" modifier while it's in Sell Off mode."
+    ]
+  },
+  {
     createdAt: 1787772627368, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.9",
     title: "Aether Condenser (and other converter structures) no longer sit mode-locked right after construction",
@@ -479,26 +488,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Settle no longer requires a captured town or dock tile to already be inside your reach -- only plain resource/support frontier tiles still need that."
     ]
   },
-  {
-    createdAt: 1787766488424, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.2",
-    title: "Incubation Engine now grants ongoing population growth, not just a one-time burst",
-    why: "The Incubation Engine (Granary) only ever paid off once, on the tick it finished building, then sat there doing nothing for the rest of the game -- a Seed Granary's ongoing growth boost made the base building feel like a dead end once its instant burst was spent.",
-    changes: [
-      "A completed Incubation Engine now also grants a flat +10% ongoing population growth rate for its town, on top of the existing +10,000 instant population burst on completion.",
-      "A Seed Granary's own buffed-radius growth bonus still stacks on top of this when it applies."
-    ]
-  },
-  {
-    createdAt: 1787769924625, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.3",
-    title: "Aether Condensers can now stack on the same town",
-    why: "Every other support-ring economic building in a family (Umbrite Works, Titanium Works, etc.) was already unlimited empire-wide with only a one-per-town cap forcing you to found more towns for more supply -- but the Aether Condenser's rejection also surfaced the raw internal name (\"crystal synthesizer\") instead of its real name, and its one-per-town cap didn't need to be as tight since it has no network-wide effect to worry about stacking.",
-    changes: [
-      "A town can now host more than one Aether Condenser (or Advanced Aether Condenser), limited only by its open support tiles, instead of exactly one.",
-      "The \"town already has...\" rejection now says \"Aether Condenser\" instead of the internal \"crystal synthesizer\" name."
-    ]
-  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,

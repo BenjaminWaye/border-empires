@@ -78,4 +78,22 @@ describe("structureModifiersFor", () => {
     expect(modifiers).toContainEqual({ statLabel: "Offense", valueText: "+25%", tone: "positive", isTownWide: false });
     expect(modifiers).toContainEqual({ statLabel: "Local vision", valueText: "+5", tone: "positive", isTownWide: false });
   });
+
+  // Regression: a converter structure (Aether Condenser / CRYSTAL_SYNTHESIZER
+  // etc.) in EXCHANGE (Sell Off) mode still showed "Refine mode supplies:
+  // +1 CRYSTAL slot" -- synthesizerModifiers had no way to see the live
+  // converterMode, so the Modifiers panel contradicted the structure's own
+  // status line ("selling off its slot... No gold upkeep while selling off").
+  it("shows the Refine-mode slot modifier only in SYNTHESIZE mode, and omits it in EXCHANGE mode", () => {
+    const synth = structureModifiersFor("CRYSTAL_SYNTHESIZER", { tile: { converterMode: "SYNTHESIZE" } });
+    expect(synth).toContainEqual({ statLabel: "Refine mode supplies", valueText: "+1 CRYSTAL slot", tone: "positive", isTownWide: false });
+
+    const exchange = structureModifiersFor("CRYSTAL_SYNTHESIZER", { tile: { converterMode: "EXCHANGE" } });
+    expect(exchange.find((m) => m.statLabel === "Refine mode supplies")).toBeUndefined();
+  });
+
+  it("defaults to showing the Refine-mode slot modifier when no converterMode is supplied (back-compat)", () => {
+    const modifiers = structureModifiersFor("UMBRITE_SYNTHESIZER");
+    expect(modifiers).toContainEqual({ statLabel: "Refine mode supplies", valueText: "+1 UMBRITE slot", tone: "positive", isTownWide: false });
+  });
 });
