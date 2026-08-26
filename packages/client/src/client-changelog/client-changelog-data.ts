@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787755800000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.7",
+    title: "Fixed Crystal staying hidden on tiles you could already see when Aetheric Resonance finished",
+    why: "Researching a resource-revealing tech only recomputed vision radius, not the resource data of tiles already inside your vision. Since the crystal reveal only rode along on a fresh tile delta, a crystal tile you could already see stayed masked forever once Aetheric Resonance completed -- nothing ever mutated that tile again to trigger a resend, and even a fresh login pulled the same stale masked state.",
+    changes: [
+      "Completing a tech that reveals a resource (Aetheric Resonance/Crystal, Masonry/Titanium, Leatherworking/Umbrite) now re-sends every already-visible tile of that resource type, so it shows up immediately instead of only on tiles you scout afterward."
+    ]
+  },
+  {
     createdAt: 1787765177459, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.7",
     title: "Fixed \"Get Rally Link\" flashing a sign-in prompt for already-signed-in players",
@@ -463,16 +472,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
     changes: [
       "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
-    ]
-  },
-  {
-    createdAt: 1787688879680, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.5",
-    title: "Manpower for Expand and Settle is now spent the moment you queue them",
-    why: "Building deducted manpower as soon as an action was queued, but Expand and Settle didn't -- Expand only charged it once the claim finished (up to ~90s later on forest/hills), and a queued Settle held nothing at all. Both let you queue more actions than your manpower could actually cover, since nothing showed as spent until each one individually went through.",
-    changes: [
-      "Expand now charges its manpower cost the moment the claim is accepted, refunded if you cancel it or it never resolves.",
-      "A queued Settle now reserves its manpower immediately, the same way a queued Build already did."
     ]
   },
   {
