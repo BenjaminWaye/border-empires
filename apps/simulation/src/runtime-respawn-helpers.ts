@@ -49,10 +49,18 @@ export type RuntimeRespawnContext = {
   claimFairSpawnSite: (isAvailable: (x: number, y: number) => boolean, rallyAnchor?: { x: number; y: number }) => { x: number; y: number } | undefined;
 };
 
+// Same minSpawnDistance as chooseLegacySpawnPlacement's strictest search
+// pass (LEGACY_SPAWN_SEARCH_ORDER's first tier) — a precomputed site too
+// close to an already-settled empire is rejected here rather than handed
+// out, so it falls through to the legacy random search's own relaxation
+// passes instead of placing a new player right on someone's doorstep.
+const FAIR_SPAWN_SITE_MIN_SETTLED_DISTANCE = 50;
+
 const isSpawnableTile = (ctx: RuntimeRespawnContext, blockedTileKeys: ReadonlySet<string>) => (x: number, y: number): boolean => {
   const tile = ctx.tiles.get(simulationTileKey(x, y));
   if (!tile || tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
-  return !blockedTileKeys.has(simulationTileKey(x, y));
+  if (blockedTileKeys.has(simulationTileKey(x, y))) return false;
+  return !ctx.hasNearbySettled(x, y, FAIR_SPAWN_SITE_MIN_SETTLED_DISTANCE);
 };
 
 export const preparePlayerRespawnNotice = (

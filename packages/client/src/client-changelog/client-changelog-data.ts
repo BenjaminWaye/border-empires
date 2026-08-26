@@ -20,7 +20,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Spawn placement previously ran a fresh random search per player against the live map, so two players joining minutes apart could land with very different access to nearby food and towns purely by luck of that search. Worldgen now precomputes a roster of candidate spawn sites up front, all drawn from the same amenity tier and spread evenly across the map, so every new empire and every respawn starts on comparably fair footing.",
     changes: [
       "Worldgen now precomputes a roster of up to 50 candidate spawn sites, chosen to share similar nearby food/town access and to spread evenly across the map instead of clustering.",
-      "New players and eliminated players respawning now draw from this roster first, falling back to the previous random search only once it's exhausted."
+      "New players and eliminated players respawning now draw from this roster first, falling back to the previous random search only once it's exhausted.",
+      "Joining via a friend's rally link now also draws from that same precomputed roster first, picking whichever site is closest to the inviting player, before falling back to the random search when every site nearby is already taken or too close to another empire."
+    ]
+  },
+  {
+    createdAt: 1787724118006, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Rally-linked players now spawn near a real foothold, not just the nearest empty tile",
+    why: "Joining via a friend's rally link placed you on whichever open tile happened to be closest to their anchor, even a barren one with no town or food nearby -- while a normal spawn always looked for a town and food within reach.",
+    changes: [
+      "Rally spawns now search outward from the anchor for a spot with both a town and food nearby before falling back to a town-only, then food-only, then any-open-tile spot, all still within the rally radius"
     ]
   },
   {
