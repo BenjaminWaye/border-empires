@@ -358,6 +358,35 @@ describe("tileOverviewModifiersForTile", () => {
     expect(modifiers).toContainEqual({ reason: "Relay Beacon — Local vision", effect: "+5", tone: "positive" });
   });
 
+  // Regression: economicStructureModifiersForTile called structureModifiersFor
+  // with no ctx at all, so an Aether Condenser (CRYSTAL_SYNTHESIZER) in
+  // EXCHANGE (Sell Off) mode still showed "Refine mode supplies: +1 CRYSTAL
+  // slot" -- contradicting the structure's own status line, which correctly
+  // said it was selling off its slot for gold instead.
+  it("omits the Refine-mode slot modifier for an Aether Condenser in EXCHANGE (Sell Off) mode", () => {
+    const modifiers = tileOverviewModifiersForTile({
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: "me", type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "EXCHANGE" }
+    } satisfies Tile);
+    expect(modifiers.find((m) => m.reason === "Refine mode supplies")).toBeUndefined();
+  });
+
+  it("shows the Refine-mode slot modifier for an Aether Condenser in SYNTHESIZE (Refine) mode", () => {
+    const modifiers = tileOverviewModifiersForTile({
+      x: 10,
+      y: 12,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      economicStructure: { ownerId: "me", type: "CRYSTAL_SYNTHESIZER", status: "active", converterMode: "SYNTHESIZE" }
+    } satisfies Tile);
+    expect(modifiers).toContainEqual({ reason: "Refine mode supplies", effect: "+1 CRYSTAL slot", tone: "positive" });
+  });
+
   // Regression test: Observatory tiles were never checked at all by
   // tileOverviewModifiersForTile (no tile.observatory handling existed),
   // so an Observatory's vision/crystal-range modifiers never showed

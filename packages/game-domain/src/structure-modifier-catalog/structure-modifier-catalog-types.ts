@@ -5,7 +5,7 @@
 // game-domain must not depend on client-only types, so ModifierTileContext
 // is a minimal, self-contained shape carrying only the live fields the
 // catalog actually needs (not the client's full Tile type).
-import type { EconomicStructureType, FortVariant, SiegeOutpostVariant } from "@border-empires/shared";
+import type { ConverterMode, EconomicStructureType, FortVariant, SiegeOutpostVariant } from "@border-empires/shared";
 
 export type ModifierStructureType =
   | EconomicStructureType
@@ -46,6 +46,7 @@ export type ModifierTileContext = {
   resource?: string | undefined;
   fortVariant?: FortVariant;
   siegeOutpostVariant?: SiegeOutpostVariant;
+  converterMode?: ConverterMode;
 };
 
 export type ModifierContext = { tile?: ModifierTileContext };

@@ -4,9 +4,10 @@
  * - no-cap: a player can build and run more than one SYNTHESIZE-mode
  *   converter of the same resource, and flip several to SYNTHESIZE, with
  *   no rejection (Phase 8 regression test against the removed rule).
- * - cooldown: flips are gated by CONVERTER_MODE_FLIP_COOLDOWN_MS, including a
- *   fresh-build lock (modeLockedUntil is set on build completion, plan
- *   decision 4) and no-op flips must not restart the cooldown.
+ * - cooldown: flips are gated by CONVERTER_MODE_FLIP_COOLDOWN_MS. A freshly
+ *   built converter starts unlocked (no modeLockedUntil on build completion),
+ *   so the owner gets one free first mode choice; the lock is set after that
+ *   flip, same as any other flip. No-op flips must not restart the cooldown.
  * - upkeep: EXCHANGE-mode converters pay no gold upkeep, so they can be
  *   re-enabled with zero gold (Phase 4); SYNTHESIZE-mode ones still reject.
  * - back-compat: an absent converterMode behaves exactly like SYNTHESIZE.
@@ -179,7 +180,7 @@ describe("converter mode flips (Phase 7)", () => {
     }
   });
 
-  it("sets the mode lock on build completion, so a fresh converter cannot flip immediately", async () => {
+  it("does not lock on build completion, so a fresh converter can flip immediately, then locks after that flip", async () => {
     vi.useFakeTimers();
     try {
       const { runtime } = buildRuntime([], 5_000, ["workshops"]);
@@ -200,12 +201,23 @@ describe("converter mode flips (Phase 7)", () => {
       const exported = runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 17);
       const structure = JSON.parse(exported!.economicStructureJson);
       expect(structure.status).toBe("active");
-      expect(structure.modeLockedUntil).toBe(1_000 + CONVERTER_MODE_FLIP_COOLDOWN_MS);
+      expect(structure.modeLockedUntil).toBeUndefined();
 
       submitFlip(runtime, "flip-fresh", 2, 16, 17, "EXCHANGE");
       await Promise.resolve();
       const rejected = seen.find((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "flip-fresh");
-      expect(rejected).toMatchObject({ code: "STRUCTURE_MODE_LOCKED" });
+      expect(rejected).toBeUndefined();
+
+      const afterFlip = runtime.exportState().tiles.find((tile) => tile.x === 16 && tile.y === 17);
+      const flippedStructure = JSON.parse(afterFlip!.economicStructureJson);
+      expect(flippedStructure).toMatchObject({ converterMode: "EXCHANGE" });
+      expect(flippedStructure.modeLockedUntil).toBeGreaterThan(0);
+
+      // Now locked out — a second flip right away must be rejected.
+      submitFlip(runtime, "flip-fresh-again", 3, 16, 17, "SYNTHESIZE");
+      await Promise.resolve();
+      const rejectedAgain = seen.find((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "flip-fresh-again");
+      expect(rejectedAgain).toMatchObject({ code: "STRUCTURE_MODE_LOCKED" });
     } finally {
       vi.useRealTimers();
     }
