@@ -1400,7 +1400,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const reach3DActive = isTrue3DRendererActive();
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
     if (reach3DActive) {
-      const reach3DKey = `${deps.state.tilesRevision}:${deps.state.serverReachRevision}`; // string key avoids arithmetic collisions
+      const reach3DKey = `${deps.state.tilesRevision}:${deps.state.serverReachRevision}:${deps.state.rivalReachGlobalRevision}`; // string key; rivalReachGlobalRevision covers rival-only border changes
       if (reach3DCacheRevision !== reach3DKey) {
         // Land-only: reach is a purely geometric radius (no terrain
         // awareness), so a coastal anchor's disk legitimately extends over
@@ -1413,7 +1413,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const { pylons, segments } = samplePerimeterPylons(loops);
         reach3DPylons = pylons.flat();
         reach3DSegments = segments.flat();
-        ({ pylons: otherOwnersPylons, segments: otherOwnersSegments } = computeOtherOwnersReachPylons(deps.state.tiles, deps.state.me, reach3DDeps, deps.keyFor));
+        ({ pylons: otherOwnersPylons, segments: otherOwnersSegments } = computeOtherOwnersReachPylons(deps.state.tiles, deps.state.me, reach3DDeps, deps.keyFor, deps.state.rivalReach));
         borderContactState = computeBorderContactRenderState(deps.state.me, reach3DPylons, otherOwnersPylons, reach3DSegments, otherOwnersSegments);
       }
     } else {
