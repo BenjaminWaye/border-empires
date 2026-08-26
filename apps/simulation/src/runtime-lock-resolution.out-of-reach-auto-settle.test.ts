@@ -68,7 +68,8 @@ function createContext(tiles: Map<string, DomainTileState>, options: ContextOpti
     outOfReachDecayDeadline: () => (options.outOfReach ? OUT_OF_REACH_DEADLINE : undefined),
     registerOutOfReachDecay,
     canAutoSettleCapturedAnchor,
-    autoSettleCapturedAnchor
+    autoSettleCapturedAnchor,
+    tryDrainWaypointQueue: () => {}
   };
   return { context, events, registerOutOfReachDecay, autoSettleCapturedAnchor, canAutoSettleCapturedAnchor };
 }
