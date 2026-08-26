@@ -80,7 +80,7 @@ import { buildPendingInputToStateEvents, sweepStalePendingInputToState } from ".
 import { buildSnapshotTileDetail } from "../tile-detail-snapshot/tile-detail-snapshot.js";
 import { pushAuthoritativeTileDetail } from "../tile-detail-push/tile-detail-push.js";
 import { selfHealTargetFromRejection } from "../tile-detail-self-heal/tile-detail-self-heal.js";
-import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "../live-world-status-recovery.js";
+import { hydrateAndRecoverPlayerMessage } from "../live-world-status-recovery.js";
 import {
   hydrateCurrentSeasonSummaryDisplayNames,
   hydrateSeasonArchiveDisplayNames
@@ -134,7 +134,7 @@ type RealtimeGatewayAppOptions = {
   simulationSubmitTimeoutMs?: number;
   simulationRpcRetryAttempts?: number;
   adminApiToken?: string;
-  fogAdminEmail?: string;
+  adminEmail?: string;
   emailAlerts?: EmailAlertConfig;
   playOrigin?: string;
   simMetricsUrl?: string;
@@ -154,9 +154,9 @@ const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
 
 const loginPhase = createLoginPhaseNotifier(sendJson);
 
-const canToggleFogForEmail = (email: string | undefined, fogAdminEmail: string | undefined): boolean => {
+const canToggleFogForEmail = (email: string | undefined, adminEmail: string | undefined): boolean => {
   const normalized = (email ?? "").trim().toLowerCase();
-  const target = (fogAdminEmail ?? "").trim().toLowerCase();
+  const target = (adminEmail ?? "").trim().toLowerCase();
   return normalized.length > 0 && target.length > 0 && normalized === target;
 };
 
@@ -1388,6 +1388,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         }
       }
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "ATTACK_ALERT") {
+        // The simulation never learns a human's real display name, so hydrate
+        // it here unconditionally — the email alert needs it while the
+        // defender is offline too, not just when they have a live socket below.
+        event.payload = await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
+          timeoutMs: liveProfileHydrationTimeoutMs,
+          withTimeout,
+          onError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate attacker live profile override")
+        });
         const attackAlert = readAttackAlert(event.payload);
         if (attackAlert) {
           sendGameplayEmailAlert("attack", event.playerId, () =>
@@ -1433,19 +1441,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         return;
       }
       if (event.eventType === "PLAYER_MESSAGE") {
-        try {
-          await withTimeout(
-            hydrateVisibleLiveProfileOverrides(event.payload, profileStore, profileOverrides),
-            liveProfileHydrationTimeoutMs,
-            "hydrate live player profile overrides"
-          );
-        } catch (error) {
-          app.log.warn(
-            { err: error, commandId: event.commandId, playerId: event.playerId, messageType: event.messageType },
-            "failed to hydrate live player profile overrides; forwarding original player message"
-          );
-        }
-        const recoveredPayload = recoverLivePlayerMessage(event.payload, profileOverrides);
+        const recoveredPayload = event.messageType === "ATTACK_ALERT" ? event.payload : await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
+          timeoutMs: liveProfileHydrationTimeoutMs,
+          withTimeout,
+          onError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate live player profile overrides")
+        });
         for (const targetSocket of sockets) {
           const session = sessionsBySocket.get(targetSocket);
           if (!session?.playerId) continue;
@@ -2002,7 +2002,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             authTrace.setPlayerId(playerIdentity.playerId);
             session.playerId = playerIdentity.playerId;
             slackAlerter?.alertPlayerReconnected(playerIdentity.playerId);
-            session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);
+            session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.adminEmail);
             // Always start a new auth with fog ON — fog admins must explicitly re-toggle
             // SET_FOG_DISABLED each login (the client also clears its persisted reveal
             // preference on Firebase sign-in so it does not auto-resend the toggle).

@@ -26,12 +26,18 @@ export const hydrateVisibleLiveProfileOverrides = async (
   profileStore: GatewayPlayerProfileStore,
   profileOverrides: PlayerProfileOverrides
 ): Promise<void> => {
-  if (payload.type !== "GLOBAL_STATUS_UPDATE") return;
-  const leaderboard = payload.leaderboard as LeaderboardSnapshot | undefined;
-  const seasonVictory = payload.seasonVictory as SeasonVictorySnapshot | undefined;
-  const playerIds = new Set(visiblePlayerIdsInLeaderboard(leaderboard));
-  for (const objective of seasonVictory ?? []) {
-    if (objective.leaderPlayerId) playerIds.add(objective.leaderPlayerId);
+  const playerIds = new Set<string>();
+  if (payload.type === "GLOBAL_STATUS_UPDATE") {
+    const leaderboard = payload.leaderboard as LeaderboardSnapshot | undefined;
+    const seasonVictory = payload.seasonVictory as SeasonVictorySnapshot | undefined;
+    for (const id of visiblePlayerIdsInLeaderboard(leaderboard)) playerIds.add(id);
+    for (const objective of seasonVictory ?? []) {
+      if (objective.leaderPlayerId) playerIds.add(objective.leaderPlayerId);
+    }
+  } else if (payload.type === "ATTACK_ALERT" && typeof payload.attackerId === "string") {
+    playerIds.add(payload.attackerId);
+  } else {
+    return;
   }
   const missingPlayerIds = [...playerIds].filter((playerId) => !profileOverrides.get(playerId)?.name);
   if (missingPlayerIds.length === 0) return;
@@ -103,6 +109,11 @@ export const recoverLivePlayerMessage = (
   payload: Record<string, unknown>,
   profileOverrides: PlayerProfileOverrides
 ): Record<string, unknown> => {
+  if (payload.type === "ATTACK_ALERT" && typeof payload.attackerId === "string") {
+    const override = profileOverrides.get(payload.attackerId);
+    return override?.name ? { ...payload, attackerName: override.name } : payload;
+  }
+
   if (payload.type !== "GLOBAL_STATUS_UPDATE") return payload;
 
   const leaderboard = recoverLeaderboard(payload.leaderboard as LeaderboardSnapshot | undefined, profileOverrides);
@@ -112,4 +123,30 @@ export const recoverLivePlayerMessage = (
     ...(leaderboard ? { leaderboard } : {}),
     ...(seasonVictory ? { seasonVictory } : {})
   };
+};
+
+// Combines hydrateVisibleLiveProfileOverrides + recoverLivePlayerMessage with
+// the timeout/error handling both call sites in gateway-app.ts need, so a
+// PLAYER_MESSAGE payload gets its player names patched up to their live
+// profile names (falling back to the original payload on hydration failure).
+export const hydrateAndRecoverPlayerMessage = async (
+  payload: Record<string, unknown>,
+  profileStore: GatewayPlayerProfileStore,
+  profileOverrides: PlayerProfileOverrides,
+  options: {
+    timeoutMs: number;
+    withTimeout: <T>(promise: Promise<T>, timeoutMs: number, label: string) => Promise<T>;
+    onError: (error: unknown) => void;
+  }
+): Promise<Record<string, unknown>> => {
+  try {
+    await options.withTimeout(
+      hydrateVisibleLiveProfileOverrides(payload, profileStore, profileOverrides),
+      options.timeoutMs,
+      "hydrate live player profile overrides"
+    );
+  } catch (error) {
+    options.onError(error);
+  }
+  return recoverLivePlayerMessage(payload, profileOverrides);
 };
