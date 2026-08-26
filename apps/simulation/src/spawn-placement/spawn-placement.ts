@@ -1,7 +1,13 @@
-import { isSeaTerrain } from "@border-empires/shared";
 import type { DomainTileState } from "@border-empires/game-domain";
+import { computeCoastalLandKeys, computeLandRegions } from "@border-empires/game-domain";
 
 import { simulationTileKey } from "../seed-state/seed-state.js";
+
+// computeCoastalLandKeys/computeLandRegions/computeFairSpawnSites live in
+// game-domain (server-worldgen-fair-spawn-sites.ts) so apps/worldgen-lab can
+// share the exact same algorithm instead of re-approximating it — re-exported
+// here so existing callers in this app keep importing them from this module.
+export { computeCoastalLandKeys, computeLandRegions, computeFairSpawnSites, type FairSpawnSite } from "@border-empires/game-domain";
 
 type SpawnRequirements = {
   needsTown: boolean;
@@ -80,83 +86,6 @@ const hashString = (value: string): number => {
 };
 
 const nextSeed = (seed: number): number => (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-
-export const computeCoastalLandKeys = (tileList: readonly DomainTileState[]): Set<string> => {
-  const landByKey = new Map<string, DomainTileState>();
-  const seaKeys = new Set<string>();
-  for (const tile of tileList) {
-    const tileKey = simulationTileKey(tile.x, tile.y);
-    if (tile.terrain === "LAND") landByKey.set(tileKey, tile);
-    else if (isSeaTerrain(tile.terrain)) seaKeys.add(tileKey);
-  }
-  if (seaKeys.size === 0 || landByKey.size === 0) return new Set();
-  const coastal = new Set<string>();
-  const queue: DomainTileState[] = [];
-  for (const tile of landByKey.values()) {
-    const hasSeaNeighbor =
-      seaKeys.has(simulationTileKey(tile.x, tile.y - 1)) ||
-      seaKeys.has(simulationTileKey(tile.x + 1, tile.y)) ||
-      seaKeys.has(simulationTileKey(tile.x, tile.y + 1)) ||
-      seaKeys.has(simulationTileKey(tile.x - 1, tile.y));
-    if (!hasSeaNeighbor) continue;
-    const tileKey = simulationTileKey(tile.x, tile.y);
-    if (coastal.has(tileKey)) continue;
-    coastal.add(tileKey);
-    queue.push(tile);
-  }
-  while (queue.length > 0) {
-    const tile = queue.pop()!;
-    for (let dy = -1; dy <= 1; dy += 1) {
-      for (let dx = -1; dx <= 1; dx += 1) {
-        if (dx === 0 && dy === 0) continue;
-        const neighborKey = simulationTileKey(tile.x + dx, tile.y + dy);
-        if (coastal.has(neighborKey)) continue;
-        const neighbor = landByKey.get(neighborKey);
-        if (!neighbor) continue;
-        coastal.add(neighborKey);
-        queue.push(neighbor);
-      }
-    }
-  }
-  return coastal;
-};
-
-// Connected components of LAND tiles (8-directional, matching
-// computeCoastalLandKeys' adjacency), used to stop hasNearbyFood/hasNearbyTown
-// from treating a resource across water as "nearby" just because it's within
-// Manhattan radius — a coastal spawn's closest FARM/FISH by straight-line
-// distance can sit on a different landmass, on the far side of a bay or
-// strait, unreachable without crossing water.
-export const computeLandRegions = (tileList: readonly DomainTileState[]): Map<string, number> => {
-  const landByKey = new Map<string, DomainTileState>();
-  for (const tile of tileList) {
-    if (tile.terrain === "LAND") landByKey.set(simulationTileKey(tile.x, tile.y), tile);
-  }
-  const regionByKey = new Map<string, number>();
-  let nextRegionId = 0;
-  for (const [startKey, startTile] of landByKey) {
-    if (regionByKey.has(startKey)) continue;
-    const regionId = nextRegionId;
-    nextRegionId += 1;
-    const queue: DomainTileState[] = [startTile];
-    regionByKey.set(startKey, regionId);
-    while (queue.length > 0) {
-      const tile = queue.pop()!;
-      for (let dy = -1; dy <= 1; dy += 1) {
-        for (let dx = -1; dx <= 1; dx += 1) {
-          if (dx === 0 && dy === 0) continue;
-          const neighborKey = simulationTileKey(tile.x + dx, tile.y + dy);
-          if (regionByKey.has(neighborKey)) continue;
-          const neighbor = landByKey.get(neighborKey);
-          if (!neighbor) continue;
-          regionByKey.set(neighborKey, regionId);
-          queue.push(neighbor);
-        }
-      }
-    }
-  }
-  return regionByKey;
-};
 
 export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { x: number; y: number } | undefined => {
   const tileList = [...input.tiles];

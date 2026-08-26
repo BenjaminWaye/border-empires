@@ -29,7 +29,8 @@ const layers: Layers = {
   resources: false,
   towns: false,
   docks: false,
-  wonders: true
+  wonders: true,
+  spawnSites: true
 };
 
 const view: ViewConfig = {
@@ -50,7 +51,8 @@ const stats = {
   fish: "—",
   gems: "—",
   titanium: "—",
-  umbrite: "—"
+  umbrite: "—",
+  spawnSites: "—"
 };
 
 let lastData: WorkerResponse | null = null;
@@ -112,6 +114,10 @@ worker.onmessage = (event: MessageEvent<WorkerResponse>): void => {
   stats.titanium = `${d.titaniumSites.toLocaleString()} tiles`;
   stats.umbrite = `${d.umbriteSites.toLocaleString()} tiles`;
   stats.wonders = `${d.wonders.length} / 9 placed`;
+  stats.spawnSites =
+    d.spawnSiteIndices.length >= d.spawnSiteTarget
+      ? `${d.spawnSiteIndices.length} / ${d.spawnSiteTarget} (full roster)`
+      : `${d.spawnSiteIndices.length} / ${d.spawnSiteTarget} (map couldn't secure a full roster)`;
   renderWonderList(d.wonders);
 
   const seedLabel = d.actualSeed !== d.requestedSeed
@@ -181,6 +187,7 @@ layerFolder.addBinding(layers, "resources", { label: "Resources" }).on("change",
 layerFolder.addBinding(layers, "towns", { label: "Towns" }).on("change", redraw);
 layerFolder.addBinding(layers, "docks", { label: "Docks" }).on("change", redraw);
 layerFolder.addBinding(layers, "wonders", { label: "Natural Wonders" }).on("change", redraw);
+layerFolder.addBinding(layers, "spawnSites", { label: "Fair spawn sites" }).on("change", redraw);
 
 // Stats
 const statsFolder = pane.addFolder({ title: "Stats", expanded: true });
@@ -196,6 +203,7 @@ const settlementFolder = pane.addFolder({ title: "Settlements", expanded: true }
 settlementFolder.addBinding(stats, "towns", { label: "Towns", readonly: true });
 settlementFolder.addBinding(stats, "docks", { label: "Docks", readonly: true });
 settlementFolder.addBinding(stats, "wonders", { label: "Wonders", readonly: true });
+settlementFolder.addBinding(stats, "spawnSites", { label: "Fair spawn sites", readonly: true });
 
 // Resources (placed cluster tile counts)
 const resourceFolder = pane.addFolder({ title: "Resources", expanded: true });

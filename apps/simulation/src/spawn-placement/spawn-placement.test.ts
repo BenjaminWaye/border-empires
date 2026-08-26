@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DomainTileState } from "@border-empires/game-domain";
 
-import { chooseLegacySpawnPlacement, computeLandRegions } from "./spawn-placement.js";
+import { chooseLegacySpawnPlacement, computeFairSpawnSites, computeLandRegions } from "./spawn-placement.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
 const chebyshevDistance = (ax: number, ay: number, bx: number, by: number): number =>
@@ -219,5 +219,122 @@ describe("chooseLegacySpawnPlacement", () => {
     // Should land near the town/food cluster (within radius 10 of it), not just
     // be the nearest bare tile to the anchor at (71,70) or similar.
     expect(chebyshevDistance(spawn!.x, spawn!.y, 80, 70)).toBeLessThanOrEqual(10);
+  });
+});
+
+describe("computeFairSpawnSites", () => {
+  const buildLandGridWithAmenities = (size: number): DomainTileState[] => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) tiles.push({ x, y, terrain: "LAND" });
+    }
+    // Scatter towns/food densely enough that plenty of tiles qualify for the
+    // top amenity tier (town + food both within radius 10).
+    for (let y = 5; y < size; y += 10) {
+      for (let x = 5; x < size; x += 10) {
+        const town = tiles.find((tile) => tile.x === x && tile.y === y);
+        if (town) town.town = { type: "MARKET", populationTier: "SETTLEMENT", name: `Town ${x},${y}` };
+        const food = tiles.find((tile) => tile.x === x + 2 && tile.y === y);
+        if (food) food.resource = "FARM";
+      }
+    }
+    return tiles;
+  };
+
+  it("returns up to the requested count of sites, all distinct and on open land", () => {
+    const tiles = buildLandGridWithAmenities(140);
+    const sites = computeFairSpawnSites(tiles, 50);
+
+    expect(sites.length).toBe(50);
+    const seen = new Set<string>();
+    for (const site of sites) {
+      const key = simulationTileKey(site.x, site.y);
+      expect(seen.has(key)).toBe(false);
+      seen.add(key);
+      const tile = tiles.find((entry) => entry.x === site.x && entry.y === site.y);
+      expect(tile?.terrain).toBe("LAND");
+      expect(tile?.ownerId).toBeUndefined();
+      expect(tile?.town).toBeUndefined();
+    }
+  });
+
+  it("spreads sites out rather than clustering them in one region", () => {
+    const tiles = buildLandGridWithAmenities(140);
+    const sites = computeFairSpawnSites(tiles, 50);
+
+    // Every site should have some minimum separation from every other site —
+    // farthest-point sampling should never leave two sites stacked adjacent
+    // to each other when far larger open land is available.
+    for (let i = 0; i < sites.length; i += 1) {
+      let minDistance = Infinity;
+      for (let j = 0; j < sites.length; j += 1) {
+        if (i === j) continue;
+        const distance = chebyshevDistance(sites[i]!.x, sites[i]!.y, sites[j]!.x, sites[j]!.y);
+        if (distance < minDistance) minDistance = distance;
+      }
+      expect(minDistance).toBeGreaterThan(1);
+    }
+  });
+
+  it("is deterministic given the same tile list", () => {
+    const tiles = buildLandGridWithAmenities(140);
+    const first = computeFairSpawnSites(tiles, 50);
+    const second = computeFairSpawnSites(tiles, 50);
+    expect(second).toEqual(first);
+  });
+
+  it("returns fewer sites than requested rather than falling back to unsuitable tiles when land is scarce", () => {
+    const tiles: DomainTileState[] = [
+      { x: 0, y: 0, terrain: "LAND" },
+      { x: 1, y: 0, terrain: "LAND" },
+      { x: 0, y: 1, terrain: "SEA" }
+    ];
+    const sites = computeFairSpawnSites(tiles, 50);
+    expect(sites.length).toBeGreaterThan(0);
+    expect(sites.length).toBeLessThan(50);
+  });
+
+  it("returns an empty roster for an empty world", () => {
+    expect(computeFairSpawnSites([], 50)).toEqual([]);
+  });
+
+  it("uses up every tier-1 (town+food) site before pulling in any lower-tier site", () => {
+    const tiles: DomainTileState[] = [];
+    // Island A: a small 7x7 landmass entirely within amenity radius of its
+    // own town+food pair, so every open tile on it is tier 1.
+    for (let y = 0; y < 7; y += 1) {
+      for (let x = 0; x < 7; x += 1) tiles.push({ x, y, terrain: "LAND" });
+    }
+    const townTile = tiles.find((tile) => tile.x === 3 && tile.y === 3)!;
+    townTile.town = { type: "MARKET", populationTier: "SETTLEMENT", name: "IslandTown" };
+    const foodTile = tiles.find((tile) => tile.x === 5 && tile.y === 3)!;
+    foodTile.resource = "FARM";
+    const tier1CandidateCount = 7 * 7 - 1; // every island A tile except the town itself
+
+    // A 2-tile sea gap keeps island B a separate land region with no
+    // amenities anywhere on it, so all of it is tier 4.
+    for (let y = 0; y < 7; y += 1) {
+      for (let x = 7; x < 9; x += 1) tiles.push({ x, y, terrain: "SEA" });
+    }
+    for (let y = 0; y < 7; y += 1) {
+      for (let x = 9; x < 41; x += 1) tiles.push({ x, y, terrain: "LAND" });
+    }
+
+    const targetCount = tier1CandidateCount + 12;
+    const sites = computeFairSpawnSites(tiles, targetCount);
+
+    expect(sites.length).toBe(targetCount);
+    const chosenKeys = new Set(sites.map((site) => simulationTileKey(site.x, site.y)));
+    // Every island A tile other than the town must be in the roster --
+    // tier 1 is exhausted before any island B (tier 4) tile is considered.
+    for (let y = 0; y < 7; y += 1) {
+      for (let x = 0; x < 7; x += 1) {
+        if (x === 3 && y === 3) continue;
+        expect(chosenKeys.has(simulationTileKey(x, y))).toBe(true);
+      }
+    }
+    // The remaining 12 sites must come from island B, not double up on island A.
+    const islandBCount = sites.filter((site) => site.x >= 9).length;
+    expect(islandBCount).toBe(12);
   });
 });
