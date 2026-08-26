@@ -459,9 +459,9 @@ export const loadLegacySnapshotBootstrap = (snapshotDir: string): LegacySnapshot
             const logisticFactor = 1 - town.population / Math.max(1, town.maxPopulation);
             if (logisticFactor <= 0) return 0;
             // No Seed Granary buffed-radius detection on this legacy
-            // bootstrap path, so granaryGrowthMultiplier always resolves to
-            // 1 here — matching the "instant burst only" design (see
-            // granaryGrowthMultiplier doc comment in server-game-constants.ts).
+            // bootstrap path: granaryGrowthMultiplier only ever applies a
+            // plain Granary's flat ongoing bonus here, never Seed Granary's
+            // additional buffed-radius stacking (see server-game-constants.ts).
             const growthMult = (tier === "SETTLEMENT" ? 4 : 1) * granaryGrowthMultiplier(hasGranary, false);
             return town.population * POPULATION_GROWTH_BASE_RATE * growthMult * logisticFactor;
           })();

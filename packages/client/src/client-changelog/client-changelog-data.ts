@@ -457,15 +457,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787474961956, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Higher starting manpower for new capitals",
-    why: "New capitals started with 576 manpower, an odd number derived from expansion-cost math -- raising it to a round 720 gives new players more early room to expand and settle.",
-    changes: [
-      "A new capital's starting manpower cap (and starting manpower, which fills it) is now 720, up from 576."
-    ]
-  },
-  {
     createdAt: 1787724130000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.1",
     title: "Restyled the settings menu's Discord button",
@@ -492,6 +483,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The simulation now pushes each visible rival's real border to your client, clipped to what you can currently see -- the same authoritative treatment your own border already gets.",
       "Rival border lines in true-3D mode now line up correctly with your own, so the clashing-borders seam renders where the two actually meet."
+    ]
+  },
+  {
+    createdAt: 1787766488424, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Incubation Engine now grants ongoing population growth, not just a one-time burst",
+    why: "The Incubation Engine (Granary) only ever paid off once, on the tick it finished building, then sat there doing nothing for the rest of the game -- a Seed Granary's ongoing growth boost made the base building feel like a dead end once its instant burst was spent.",
+    changes: [
+      "A completed Incubation Engine now also grants a flat +10% ongoing population growth rate for its town, on top of the existing +10,000 instant population burst on completion.",
+      "A Seed Granary's own buffed-radius growth bonus still stacks on top of this when it applies."
     ]
   }
 ];

@@ -252,12 +252,13 @@ export const buildTownSummary = (
     }
     return false;
   })());
-  // Incubation Engine (Granary, tech-tree redesign) grants an instant
-  // one-time population burst on completion (GRANARY_INSTANT_POPULATION_BURST,
-  // runtime-structure-command-handlers.ts) instead of an ongoing growth
-  // multiplier — the old flat +15% ongoing bonus was a leftover from before
-  // the redesign and has been removed. Seed Granary's own buffed-radius
-  // multiplier is a separate, still-live mechanic.
+  // Incubation Engine (Granary) grants an instant one-time population burst
+  // on completion (GRANARY_INSTANT_POPULATION_BURST,
+  // runtime-structure-command-handlers.ts) PLUS a flat ongoing growth-rate
+  // multiplier (GRANARY_ONGOING_GROWTH_MULT). Seed Granary's own
+  // buffed-radius multiplier stacks on top when it applies — see
+  // granaryGrowthMultiplier's doc comment in server-game-constants.ts for
+  // the full formula and history.
   const granaryGrowthMult = granaryGrowthMultiplier(hasAnyGranary, seedGranaryBuffed);
   const clearingHouseTownNames = tile.ownerId ? clearingHouseSourceTownNames(tileKey, tile.ownerId, tilesByKey, townNetwork, dormantEconomicStructureKeys) : [], clearingHouseActive = clearingHouseTownNames.length > 0;
   const incomeMultiplier = player?.incomeMultiplier ?? 1;

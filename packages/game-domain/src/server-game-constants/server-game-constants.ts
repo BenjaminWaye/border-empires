@@ -14,6 +14,7 @@ import {
   QUARTERMASTERS_OFFICE_RADIUS as SHARED_QUARTERMASTERS_OFFICE_RADIUS,
   QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT as SHARED_QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT,
   GRANARY_INSTANT_POPULATION_BURST as SHARED_GRANARY_INSTANT_POPULATION_BURST,
+  GRANARY_ONGOING_GROWTH_MULT as SHARED_GRANARY_ONGOING_GROWTH_MULT,
   CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY as SHARED_CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY,
   CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT as SHARED_CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT,
   TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO as SHARED_TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO,
@@ -83,21 +84,21 @@ export const SEED_GRANARY_GROWTH_MULT = 1.30;
  * apps/simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.ts).
  *
  * granary-bonus-unification task: commit 7a51b06b ("fix: Incubation Engine
- * double-dip") established, per explicit user decision, that a plain
- * Granary grants ONLY its instant one-time GRANARY_INSTANT_POPULATION_BURST
- * on completion — the old flat +15% ongoing growth multiplier was a
- * pre-redesign leftover and was removed. That fix only touched
- * live-town-summary.ts; runtime-population-growth.ts (the authoritative
- * live-tick path actually driving population growth),
- * tile-detail-snapshot.ts, and legacy-snapshot-bootstrap.ts still
- * independently hardcoded the old flat 1.15 for `hasGranary` alone, so a
- * plain Granary was silently double-dipping (instant burst + ongoing +15%
- * forever) in the real economy despite the explicit decision to remove
- * that. This function is the corrected, single formula: no bonus without a
- * Seed Granary whose 3x3 buffed radius covers the town tile.
+ * double-dip") established, per explicit user decision at the time, that a
+ * plain Granary should grant ONLY its instant one-time
+ * GRANARY_INSTANT_POPULATION_BURST on completion — the pre-redesign flat
+ * +15% ongoing growth multiplier was removed as a double-dip on top of that
+ * burst. On 2026-08-26, per a new explicit user decision, that call was
+ * reversed at a lower value: a plain Granary now also grants a flat
+ * GRANARY_ONGOING_GROWTH_MULT (+10%) ongoing growth-rate multiplier for its
+ * town, stacking with the burst. A Seed Granary's buffed-radius bonus
+ * (SEED_GRANARY_GROWTH_MULT) stacks multiplicatively on top of that base
+ * when the tile is covered by an active Seed Granary's 3x3 buff radius.
  */
-export const granaryGrowthMultiplier = (hasAnyGranary: boolean, seedGranaryBuffed: boolean): number =>
-  hasAnyGranary && seedGranaryBuffed ? SEED_GRANARY_GROWTH_MULT : 1;
+export const granaryGrowthMultiplier = (hasAnyGranary: boolean, seedGranaryBuffed: boolean): number => {
+  if (!hasAnyGranary) return 1;
+  return seedGranaryBuffed ? GRANARY_ONGOING_GROWTH_MULT * SEED_GRANARY_GROWTH_MULT : GRANARY_ONGOING_GROWTH_MULT;
+};
 export const MANPOWER_EPSILON = 1e-6;
 export const MANPOWER_BASE_CAP = SHARED_MANPOWER_BASE_CAP;
 export const MANPOWER_BASE_REGEN_PER_MINUTE = SHARED_MANPOWER_BASE_REGEN_PER_MINUTE;
@@ -112,6 +113,7 @@ export const POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING = SHARED_POPULATION_B
 export const QUARTERMASTERS_OFFICE_RADIUS = SHARED_QUARTERMASTERS_OFFICE_RADIUS;
 export const QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT = SHARED_QUARTERMASTERS_OFFICE_WAR_STRUCTURE_MANPOWER_COST_MULT;
 export const GRANARY_INSTANT_POPULATION_BURST = SHARED_GRANARY_INSTANT_POPULATION_BURST;
+export const GRANARY_ONGOING_GROWTH_MULT = SHARED_GRANARY_ONGOING_GROWTH_MULT;
 export const CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY = SHARED_CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY;
 export const CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT = SHARED_CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT;
 export const TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO = SHARED_TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO;
