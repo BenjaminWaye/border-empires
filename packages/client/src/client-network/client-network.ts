@@ -668,19 +668,19 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     });
   };
 
+  const settleAlreadySettlingRetried = new Set<string>(); // one-shot per tile: repeat "already settling" rejections spammed SETTLE_INVALID/COMMAND_RATE_LIMITED forever
   const maybeRecoverTransientSettlementAttempt = (errorCode: string, errorMessage: string, errorTileKey: string): boolean => {
     if (errorCode !== "SETTLE_INVALID" || !errorTileKey) return false;
     const attempt = state.lastDevelopmentAttempt;
     if (!attempt || attempt.kind !== "SETTLE" || attempt.tileKey !== errorTileKey) return false;
     const transientOwnershipFailure =
-      errorMessage === "tile must be owned" &&
-      ((state.actionInFlight && state.actionTargetKey === errorTileKey) ||
-        (state.capture && keyFor(state.capture.target.x, state.capture.target.y) === errorTileKey));
-    if (!transientOwnershipFailure && errorMessage !== "tile is locked in combat" && errorMessage !== "tile is already settling") return false;
+      errorMessage === "tile must be owned" && ((state.actionInFlight && state.actionTargetKey === errorTileKey) || (state.capture && keyFor(state.capture.target.x, state.capture.target.y) === errorTileKey));
+    const alreadySettlingOnce =
+      errorMessage === "tile is already settling" && !settleAlreadySettlingRetried.has(errorTileKey) && settleAlreadySettlingRetried.add(errorTileKey);
+    if (!transientOwnershipFailure && errorMessage !== "tile is locked in combat" && !alreadySettlingOnce) return false;
     clearOptimisticTileStateSafely(errorTileKey, true);
     clearSettlementProgressSafely(errorTileKey);
-    state.queuedDevelopmentDispatchPending = false;
-    state.lastDevelopmentAttempt = undefined;
+    state.queuedDevelopmentDispatchPending = false; state.lastDevelopmentAttempt = undefined;
     return queueDevelopmentActionFromModule(state, attempt, {
       pushFeed: typeof pushFeed === "function" ? pushFeed : () => {},
       renderHud: typeof renderHud === "function" ? renderHud : () => {},
@@ -2688,7 +2688,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         clearOptimisticTileStateSafely(errorTileKey, true);
         clearSettlementProgressSafely(errorTileKey);
         state.queuedDevelopmentDispatchPending = false;
-        showCaptureAlertSafely("Action failed", errorMessage, "warn");
+        if (errorMessage !== "tile is already settling") showCaptureAlertSafely("Action failed", errorMessage, "warn");
         if (state.lastDevelopmentAttempt?.tileKey === errorTileKey) state.lastDevelopmentAttempt = undefined;
       } else if (isStructureActionError && errorTileKey) {
         clearOptimisticTileStateSafely(errorTileKey, true);

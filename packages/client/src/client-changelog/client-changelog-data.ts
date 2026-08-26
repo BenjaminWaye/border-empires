@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787773284493, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.9",
+    title: "Fixed settle commands spamming errors on a Relay Beacon build chain",
+    why: "A fix for a one-tick client/server duplicate-settle race made the client automatically resend a rejected SETTLE. When the rejection reflected a settlement that was genuinely still pending (not a one-tick race), the client kept resending the same doomed command every tick with no backoff -- flooding the connection with SETTLE_INVALID and COMMAND_RATE_LIMITED errors instead of ever succeeding.",
+    changes: [
+      "The automatic settle-retry now fires once per tile instead of looping forever.",
+      "A settlement that's genuinely still in progress no longer pops a false \"Action failed\" alert -- it's not actually a failure."
+    ]
+  },
+  {
     createdAt: 1787771594204, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.8",
     title: "Fixed a stray error toast on some waypoint/Expand steps",
@@ -420,17 +430,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Village smoke puffs, captured-town smoke columns, and capital banner positions were recomputed and re-uploaded to the GPU (bufferSubData) every single frame for every visible instance — up to ~7,000 combined smoke puffs — regardless of whether the camera or game state changed at all. A CPU trace from a live session showed WebGL buffer uploads as the dominant per-frame cost, correlating with a sustained ~11-12fps. The rise/drift/scale/fade animation now runs entirely in a GPU vertex shader driven by a single time value; the CPU only writes each puff's base position once, when villages or captured towns actually change (not every frame). Capital banner positions — which never moved — were also being needlessly rewritten every frame; they're now set once too. Visually identical to before.",
     changes: [
       "No visible change — this is a performance fix for the 3D map's frame rate. Village smoke, captured-town smoke, and capital banners render identically, just far cheaper per frame."
-    ]
-  },
-  {
-    createdAt: 1787489000059, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23.3",
-    title: "Fixed camera not recentering when you spawn mid-session",
-    why: "Joining a season while already connected (rather than on a fresh page load) spawned your starting territory, but the camera stayed wherever you'd been panning beforehand and never moved to your new settlement -- and since the camera controls which map area loads, you could end up looking at empty, unloaded darkness with no way to find your own empire.",
-    changes: [
-      "Joining a season mid-session now recenters the camera on your new settlement as soon as it spawns.",
-      "The map around your new settlement now loads immediately instead of requiring a manual pan to trigger it.",
-      "The stale pre-spawn camera position is no longer saved for next time you load the game."
     ]
   },
   {
