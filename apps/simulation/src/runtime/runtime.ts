@@ -125,7 +125,7 @@ import {
   type ResourceSlotDormancy,
   type ResourceSlotTotals
 } from "../resource-slot-view/resource-slot-view.js";
-import { isResourceSlotDormancyBlocking } from "../resource-slot-view/resource-slot-dormancy-confirm.js";
+import { refreshResourceSlotCachesForPlayer as refreshResourceSlotCachesForPlayerImpl } from "../resource-slot-view/resource-slot-cache-refresh.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
 import { createVisionFootprintTableForRuntime } from "../vision-footprint-table.js";
@@ -3101,12 +3101,12 @@ export class SimulationRuntime {
     });
   }
 
-  // §5.4: dormant structures/towns short on their resource; no build-gate consumer, so it always coalesces for AI. A blocking result gets a forced-fresh second look — see isResourceSlotDormancyBlocking.
+  // §5.4: dormant structures/towns short on their resource; no build-gate consumer, so it always coalesces for AI.
   private resourceSlotDormancyForPlayer(playerId: string): ResourceSlotDormancy {
-    const rebuild = (forceFreshSupply: boolean): ResourceSlotDormancy => { const supply = this.resourceSlotSupplyForPlayer(playerId, forceFreshSupply); const p = this.state.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply, waivers); };
-    const result = this.coalescedResourceSlotRead(this.resourceSlotDormancyCacheByPlayer, this.resourceSlotDormancyDirtyPlayerIds, this.resourceSlotDormancyLastRebuiltAtMsByPlayer, playerId, false, () => rebuild(false));
-    return isResourceSlotDormancyBlocking(result) ? this.coalescedResourceSlotRead(this.resourceSlotDormancyCacheByPlayer, this.resourceSlotDormancyDirtyPlayerIds, this.resourceSlotDormancyLastRebuiltAtMsByPlayer, playerId, true, () => rebuild(true)) : result;
+    return this.coalescedResourceSlotRead(this.resourceSlotDormancyCacheByPlayer, this.resourceSlotDormancyDirtyPlayerIds, this.resourceSlotDormancyLastRebuiltAtMsByPlayer, playerId, false, () => { const supply = this.resourceSlotSupplyForPlayer(playerId); const p = this.state.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply, waivers); });
   }
+  // Per-connect self-heal for a stale resource-slot cache — see resource-slot-cache-refresh.ts.
+  refreshResourceSlotCachesForPlayer(playerId: string): void { refreshResourceSlotCachesForPlayerImpl({ hasPlayer: (id) => this.state.players.has(id), refreshSupplyFresh: (id) => this.resourceSlotSupplyForPlayer(id, true), refreshDemandFresh: (id) => this.resourceSlotDemandForPlayer(id, true), clearDormancyCache: (id) => this.resourceSlotDormancyCacheByPlayer.delete(id), readDormancy: (id) => this.resourceSlotDormancyForPlayer(id) }, playerId); }
 
   isStructureDormant(playerId: string, tileKey: string, field: "fort" | "observatory" | "siegeOutpost" | "economicStructure"): boolean {
     const structure = this.state.tiles.get(tileKey)?.[field];
