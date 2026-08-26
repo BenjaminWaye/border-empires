@@ -3,7 +3,11 @@ import type { Tile } from "../client-types.js";
 const DEBUG_TILE_STORAGE_KEY = "debug_tile_key";
 const DEBUG_TILE_ENABLED_STORAGE_KEY = "debug_tile_enabled";
 const DEBUG_EMAIL_STORAGE_KEY = "debug_auth_email";
-const DEBUG_ACCOUNT_EMAIL = "admin@borderempires.com";
+// No baked-in default: an open-source checkout has debug tooling off until a
+// deployer sets their own admin email via VITE_DEBUG_ACCOUNT_EMAIL. Read lazily
+// (not as a module-level const) so env stubbing in tests takes effect.
+const debugAccountEmail = (): string =>
+  ((import.meta.env.VITE_DEBUG_ACCOUNT_EMAIL as string | undefined) ?? "").trim().toLowerCase();
 const MAX_CLIENT_DEBUG_EVENTS = 400;
 const lastLogAtByKey = new Map<string, number>();
 const clientDebugEvents: Array<{
@@ -107,8 +111,10 @@ export const debugAuthIdentityKeyForEmail = (email: string | undefined | null): 
   return normalized || "anonymous";
 };
 
-export const isDebugAccountEmail = (email: string | undefined | null): boolean =>
-  debugAuthIdentityKeyForEmail(email) === DEBUG_ACCOUNT_EMAIL;
+export const isDebugAccountEmail = (email: string | undefined | null): boolean => {
+  const configured = debugAccountEmail();
+  return configured !== "" && debugAuthIdentityKeyForEmail(email) === configured;
+};
 
 export const debugAuthIdentityKey = (): string => debugAuthIdentityKeyForEmail(debugAuthEmail());
 
