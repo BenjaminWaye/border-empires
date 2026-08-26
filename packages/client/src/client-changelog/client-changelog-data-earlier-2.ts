@@ -165,6 +165,15 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787429155443,
+    introducedIn: "2026.08.22.12",
+    title: "Fixed a dark \"crack\" flickering at animated shorelines",
+    why: "Every coastline's animated water can dip deep enough at a wave trough to reveal the coastal skirt wall underneath it, which was shaded so dark that it read as a jarring black gap right at the shoreline.",
+    changes: [
+      "Brightened the coastal skirt wall's shading so it no longer looks near-black when the water's wave animation passes through a deep trough."
+    ]
+  },
+  {
     createdAt: 1787430600000,
     introducedIn: "2026.08.22.8",
     title: "Creating a mountain now clears any muster flag staged on the tile",
