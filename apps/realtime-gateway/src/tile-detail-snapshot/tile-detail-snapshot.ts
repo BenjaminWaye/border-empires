@@ -190,8 +190,9 @@ const townPopulationGrowthPerMinute = (input: {
   // This fallback path doesn't detect Seed Granary / its buffed-radius state
   // (unlike runtime-population-growth.ts's authoritative live-tick check),
   // so it can only ever pass hasAnyGranary — never seedGranaryBuffed=true.
-  // granaryGrowthMultiplier() therefore always resolves to 1 here, matching
-  // the "instant burst only, no ongoing bonus" design for a plain Granary.
+  // granaryGrowthMultiplier() therefore only ever applies a plain Granary's
+  // flat GRANARY_ONGOING_GROWTH_MULT here, never the Seed Granary's
+  // additional buffed-radius stacking.
   const growth =
     input.population *
     POPULATION_GROWTH_BASE_RATE *

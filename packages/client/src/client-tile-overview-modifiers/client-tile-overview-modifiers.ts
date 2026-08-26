@@ -60,16 +60,19 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
   // both fed off the same live count, so the town-center tile always showed
   // two "Gold production" lines side by side. townModifierTotals is the
   // single source of truth for town-wide aggregates now; don't duplicate it.
-  // A plain Granary (Incubation Engine) grants ONLY its instant one-time
-  // population burst on completion — the old ongoing +15% growth bonus was
-  // removed (commit 7a51b06b, "Incubation Engine double-dip" fix). No
-  // ongoing-growth line is shown here unless a Seed Granary's buffed radius
-  // actually applies (matching granaryGrowthMultiplier's server-side
-  // behavior).
+  // A plain Granary (Incubation Engine) grants its instant one-time
+  // population burst on completion PLUS a flat ongoing growth-rate
+  // multiplier (GRANARY_ONGOING_GROWTH_MULT, reintroduced 2026-08-26 —
+  // see granaryGrowthMultiplier's doc comment in game-domain for the
+  // commit 7a51b06b "double-dip" history this revises). A Seed Granary's
+  // buffed-radius bonus stacks multiplicatively on top of that base when
+  // it applies, matching granaryGrowthMultiplier's server-side formula.
   if (tile.hasSeedGranary && tile.seedGranaryActive) {
     modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.SEED_GRANARY!, structureModifiersFor("SEED_GRANARY").filter((m) => m.statLabel === "Population growth")));
   } else if (tile.hasGranary && tile.granaryActive && tile.seedGranaryBuffed) {
-    modifiers.push({ reason: `${SUPPORT_STRUCTURE_LABELS.GRANARY} (Seed Granary boost)`, effect: "+30% population growth", tone: "positive" });
+    modifiers.push({ reason: `${SUPPORT_STRUCTURE_LABELS.GRANARY} (Seed Granary boost)`, effect: "+43% population growth", tone: "positive" });
+  } else if (tile.hasGranary && tile.granaryActive) {
+    modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.GRANARY!, structureModifiersFor("GRANARY").filter((m) => m.statLabel === "Population growth")));
   }
   if (tile.hasClearingHouse && tile.clearingHouseActive) {
     modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.CLEARING_HOUSE!, structureModifiersFor("CLEARING_HOUSE")));
