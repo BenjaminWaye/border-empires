@@ -163,18 +163,72 @@ export type FairSpawnSite = { x: number; y: number };
 const FAIR_SPAWN_SITE_TARGET_COUNT = 50;
 const FAIR_SPAWN_SITE_AMENITY_RADIUS = 10;
 
+// Adds up to (targetCount - chosen.length) more sites into `chosen`, drawn
+// from `candidates`, via greedy farthest-point sampling: each added site
+// maximizes its minimum Chebyshev distance to every site already chosen
+// (across every tier processed so far, not just this bucket) — so topping up
+// a thin tier still keeps the whole roster spread out instead of clustering
+// the fill-in sites together. If `chosen` starts empty, it's seeded with the
+// candidate closest to this bucket's centroid (not a map corner/edge tile) so
+// the roster spreads outward evenly in every direction. Order-independent and
+// deterministic given the same inputs (ties broken by lowest y, then x).
+const farthestPointFill = (chosen: FairSpawnSite[], candidates: readonly DomainTileState[], targetCount: number): void => {
+  if (candidates.length === 0 || chosen.length >= targetCount) return;
+  const remaining = [...candidates].sort((left, right) => left.y - right.y || left.x - right.x);
+  if (chosen.length === 0) {
+    const centroidX = remaining.reduce((sum, tile) => sum + tile.x, 0) / remaining.length;
+    const centroidY = remaining.reduce((sum, tile) => sum + tile.y, 0) / remaining.length;
+    let seedIndex = 0;
+    let seedDistance = chebyshevDistance(remaining[0]!.x, remaining[0]!.y, centroidX, centroidY);
+    for (let index = 1; index < remaining.length; index += 1) {
+      const distance = chebyshevDistance(remaining[index]!.x, remaining[index]!.y, centroidX, centroidY);
+      if (distance < seedDistance) {
+        seedDistance = distance;
+        seedIndex = index;
+      }
+    }
+    const seed = remaining[seedIndex]!;
+    chosen.push({ x: seed.x, y: seed.y });
+    remaining.splice(seedIndex, 1);
+  }
+  while (chosen.length < targetCount && remaining.length > 0) {
+    let bestIndex = 0;
+    let bestMinDistance = -1;
+    for (let index = 0; index < remaining.length; index += 1) {
+      const candidate = remaining[index]!;
+      let minDistance = Infinity;
+      for (const site of chosen) {
+        const distance = chebyshevDistance(candidate.x, candidate.y, site.x, site.y);
+        if (distance < minDistance) minDistance = distance;
+      }
+      if (minDistance > bestMinDistance) {
+        bestMinDistance = minDistance;
+        bestIndex = index;
+      }
+    }
+    const picked = remaining[bestIndex]!;
+    chosen.push({ x: picked.x, y: picked.y });
+    remaining.splice(bestIndex, 1);
+  }
+};
+
 /**
  * Precomputes a roster of spawn sites at worldgen time, instead of only
  * searching for one candidate per player as chooseLegacySpawnPlacement does.
  * Two properties the per-player random search doesn't guarantee on its own:
  *
- * - Equal opportunity: every site comes from the same amenity tier (the same
- *   "has a town nearby" / "has food nearby" tier chooseLegacySpawnPlacement's
- *   own search order relaxes through), so no site starts materially richer or
- *   poorer than another purely by luck of the search order.
- * - Even spread: sites are chosen by greedy farthest-point sampling (each
- *   next site maximizes its minimum Chebyshev distance to sites already
- *   chosen), so the roster doesn't cluster in one region and starve another.
+ * - Equal opportunity, prioritized: candidates are bucketed into four
+ *   mutually exclusive amenity tiers (town+food, town-only, food-only,
+ *   neither), and the roster is filled tier by tier in that order — every
+ *   town+food site the map can offer is used before a single town-only site
+ *   is, and so on. So the roster is never "some fraction of tier 1, some
+ *   fraction of tier 2 by luck of the search order" — it's as many tier-1
+ *   (best) sites as the map has, topped up with the next-best tier only when
+ *   tier 1 alone can't fill the roster.
+ * - Even spread: within and across tiers, sites are chosen by greedy
+ *   farthest-point sampling (each next site maximizes its minimum Chebyshev
+ *   distance to sites already chosen), so the roster doesn't cluster in one
+ *   region and starve another, even when multiple tiers are needed to fill it.
  *
  * Deterministic given the same tile list (no per-player seed) — this is
  * computed once per world, not once per player.
@@ -204,62 +258,22 @@ export const computeFairSpawnSites = (
     if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
     return coastalLandKeys.size === 0 || coastalLandKeys.has(tileKey);
   });
+  if (baseCandidates.length === 0) return [];
 
-  // Same relaxation order as LEGACY_SPAWN_SEARCH_ORDER's requirement tiers,
-  // but applied to the whole candidate pool at once (rather than per-attempt)
-  // so every site drawn from a given tier shares that tier's amenities —
-  // that's what makes the roster "equal opportunity".
-  const tiers: Array<(tile: DomainTileState) => boolean> = [
+  // Mutually exclusive, in priority order — every candidate falls into
+  // exactly one bucket, so filling tier by tier below never reconsiders a
+  // tile already claimed by a better tier.
+  const exclusiveTiers: Array<(tile: DomainTileState) => boolean> = [
     (tile) => isNearTown(tile.x, tile.y) && isNearFood(tile.x, tile.y),
-    (tile) => isNearTown(tile.x, tile.y),
-    (tile) => isNearFood(tile.x, tile.y),
-    () => true
+    (tile) => isNearTown(tile.x, tile.y) && !isNearFood(tile.x, tile.y),
+    (tile) => !isNearTown(tile.x, tile.y) && isNearFood(tile.x, tile.y),
+    (tile) => !isNearTown(tile.x, tile.y) && !isNearFood(tile.x, tile.y)
   ];
-  let pool: DomainTileState[] = [];
-  for (const matchesTier of tiers) {
-    pool = baseCandidates.filter(matchesTier);
-    if (pool.length >= targetCount) break;
-  }
-  if (pool.length === 0) return [];
 
-  // Greedy farthest-point sampling: start from the candidate closest to the
-  // pool's centroid (not a map corner/edge tile) so the roster spreads
-  // outward evenly in every direction instead of biasing away from one
-  // corner, then repeatedly add whichever remaining candidate maximizes its
-  // minimum distance to sites already chosen. Order-independent and
-  // deterministic given the same pool (ties broken by lowest y, then x).
-  const centroidX = pool.reduce((sum, tile) => sum + tile.x, 0) / pool.length;
-  const centroidY = pool.reduce((sum, tile) => sum + tile.y, 0) / pool.length;
-  const sorted = [...pool].sort((left, right) => left.y - right.y || left.x - right.x);
-  let seed = sorted[0]!;
-  let seedDistance = chebyshevDistance(seed.x, seed.y, centroidX, centroidY);
-  for (const tile of sorted) {
-    const distance = chebyshevDistance(tile.x, tile.y, centroidX, centroidY);
-    if (distance < seedDistance) {
-      seedDistance = distance;
-      seed = tile;
-    }
-  }
-  const chosen: FairSpawnSite[] = [{ x: seed.x, y: seed.y }];
-  const remaining = sorted.filter((tile) => tile !== seed);
-  while (chosen.length < targetCount && remaining.length > 0) {
-    let bestIndex = 0;
-    let bestMinDistance = -1;
-    for (let index = 0; index < remaining.length; index += 1) {
-      const candidate = remaining[index]!;
-      let minDistance = Infinity;
-      for (const site of chosen) {
-        const distance = chebyshevDistance(candidate.x, candidate.y, site.x, site.y);
-        if (distance < minDistance) minDistance = distance;
-      }
-      if (minDistance > bestMinDistance) {
-        bestMinDistance = minDistance;
-        bestIndex = index;
-      }
-    }
-    const picked = remaining[bestIndex]!;
-    chosen.push({ x: picked.x, y: picked.y });
-    remaining.splice(bestIndex, 1);
+  const chosen: FairSpawnSite[] = [];
+  for (const matchesTier of exclusiveTiers) {
+    if (chosen.length >= targetCount) break;
+    farthestPointFill(chosen, baseCandidates.filter(matchesTier), targetCount);
   }
   return chosen;
 };
