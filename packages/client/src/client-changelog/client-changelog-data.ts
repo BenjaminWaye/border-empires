@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787755721503, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.6",
+    title: "Attack alerts now show the attacker's real display name",
+    why: "Attack alerts (in-app and email) were built from the simulation's own player record, which is created equal to the player's raw account ID and never learns their actual display name -- so an attacker with a display name set still showed up as an unreadable string like \"VK5iriJAhickNf9ArrRweUDnq1W2\" instead of their chosen name.",
+    changes: [
+      "Attack alerts now look up the attacker's live profile name (the same source the leaderboard already uses) before falling back to a short anonymized empire label (e.g. \"Empire A1B2C3\") for players who haven't set one.",
+      "The attack alert email has also been restyled to match the season-start email's card design instead of being plain unstyled text."
+    ]
+  },
+  {
     createdAt: 1787754175140, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.5",
     title: "Pulsing badge on the Allies tab for pending alliance/truce requests",
