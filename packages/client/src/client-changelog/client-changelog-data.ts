@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787765310135, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Fixed: queued Expand/Attack orders now execute automatically",
+    why: "The waypoint/expand queue only stored your queued targets on the server -- it never actually walked the route for you while you were offline, so queued orders just sat there until you reopened the game and your client resumed dispatching them itself.",
+    changes: [
+      "A queued Expand/Attack now fires automatically as soon as it's your turn in the queue, including while you're completely offline.",
+      "A queued target that's no longer valid by the time it comes up (already taken, no longer reachable, etc.) is skipped instead of stalling the rest of your queue."
+    ]
+  },
+  {
     createdAt: 1787755721503, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.6",
     title: "Attack alerts now show the attacker's real display name",
@@ -453,16 +463,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "New capitals started with 576 manpower, an odd number derived from expansion-cost math -- raising it to a round 720 gives new players more early room to expand and settle.",
     changes: [
       "A new capital's starting manpower cap (and starting manpower, which fills it) is now 720, up from 576."
-    ]
-  },
-  {
-    createdAt: 1787472289089, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Settled resource tiles now show their real slot production instead of stale prose",
-    why: "A settled Farm/Fish/Titanium/Gems/Umbrite tile's overview said \"Resource node can produce food once developed and collected\" even after being settled -- a holdover from the old per-day yield model. FOOD/TITANIUM/CRYSTAL/UMBRITE production moved to the slot-supply system a while ago, so that line was permanently stale and never resolved into a real number.",
-    changes: [
-      "A settled resource tile's overview now shows a \"Production:\" line with the actual FOOD/TITANIUM/CRYSTAL/UMBRITE slot count it contributes (e.g. \"Production: 🍞 Food +1\"), matching the format already used for buildings, instead of the old \"can produce ... once developed and collected\" prose.",
-      "A Farmstead/Mine/Umbrite Rig built on its tile now visibly bumps that slot count (e.g. a Farmstead on a Farm tile shows \"Food +2\")."
     ]
   },
   {
