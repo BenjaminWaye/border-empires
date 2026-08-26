@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787734129392, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Added a Founding Engineer tag",
+    why: "A small, fixed set of early contributors didn't have any way to be recognized in the game's social UI.",
+    changes: [
+      "Founding Engineer players now show a gold name and a top-hat tag next to their name in the season lobby roster, the tile detail owner label, and the leaderboard"
+    ]
+  },
+  {
     createdAt: 1787733981707, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.4",
     title: "Aegis Dome shield radius reduced to 25 tiles",
@@ -107,6 +116,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Fixed auto-settle trying to build on resource tiles outside your reach",
     why: "The auto-settle queue included every owned frontier tile with a resource, town, or dock without checking reach, so a plain resource tile (which generates no reach of its own) claimed outside your reach border kept getting re-queued and rejected with an OUT_OF_REACH error.",
     changes: ["Auto-settle no longer queues frontier tiles that are currently outside your reach border."]
+  },
+  {
+    createdAt: 1787691972634, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Town population bar now shows progress toward the next tier",
+    why: "The town overview's population bar showed current population against the town's absolute population cap, which barely moved even as a town grew and gave no sense of how close it was to upgrading tiers.",
+    changes: [
+      "The population bar and its number now track progress toward the next population tier (e.g. Town → City) instead of the absolute population cap, and turns green once that tier's threshold is reached."
+    ]
   },
   {
     createdAt: 1787688074263, // frozen from `node -e "console.log(Date.now())"`
@@ -441,41 +459,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787432000000,
-    introducedIn: "2026.08.22.12",
-    title: "Your galaxy planets and outposts now earn Influence and Production, and can lose Stability",
-    why: "The galaxy view previously showed your Planets/Outposts/Stipends as a static record with nothing ongoing attached to them -- the galactic meta-layer's actual economy (docs/galactic-campaign-design.md §4/§5/§7) wasn't running yet. This introduces the first slice of that economy: a weekly Cycle tick that trickles Influence/Production income from your held territory, charges Influence upkeep for spreading wide, and drains or recovers each territory's Stability accordingly.",
-    changes: [
-      "Your galaxy view now shows a running Influence/Production balance, updated once per weekly Cycle based on your held Planets' and Outposts' specializations.",
-      "Holding more Planets costs more Influence upkeep -- Outposts still cost nothing to hold, staying the cheap entry rung for newer empires.",
-      "Each held Planet and Outpost now has a Stability meter (0-100), shown as a bar under it in the galaxy view. Falling into an Influence deficit drains your weakest territory's Stability over time; a healthy Influence surplus recovers all of them."
-    ]
-  },
-  {
-    createdAt: 1787430800000,
-    introducedIn: "2026.08.22.10",
-    title: "Your galaxy planet now shows what it's specialized in",
-    why: "The galaxy view showed which victory path crowned your planet, but not what that meant going forward -- part of the early galactic meta-layer groundwork (docs/galactic-campaign-design.md), where each victory path is meant to grant a distinct planet specialization.",
-    changes: [
-      "Your galaxy planet (named or not-yet-named) now shows a specialization badge -- Industrial, Trade, Extraction, Logistics, or Capital -- based on which victory condition crowned it."
-    ]
-  },
-  {
     createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.1",
     title: "Auto-settle no longer claims resource tiles before you've researched them",
     why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
     changes: [
       "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
-    ]
-  },
-  {
-    createdAt: 1787651082566, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.2",
-    title: "Added a new-player checklist for founding your first town and securing food",
-    why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
-    changes: [
-      "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
     ]
   },
   {
