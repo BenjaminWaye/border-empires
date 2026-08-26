@@ -128,6 +128,7 @@ jobs:
           SIMULATION_HOST=127.0.0.1 \
           SIMULATION_PORT=50051 \
           SIMULATION_METRICS_PORT=50052 \
+          SIMULATION_EVENT_LOOP_BLOCK_WARN_MS=100 \
           nohup pnpm --filter @border-empires/simulation run dev > /tmp/sim.log 2>&1 &
           echo "Simulation starting; log at /tmp/sim.log"
 
@@ -156,7 +157,15 @@ jobs:
 
       - name: Run load harness
         id: harness
+        # set -o pipefail: without it, `node ... | tee` under bash's default `-e {0}`
+        # returns tee's exit status (always 0), so this step's outcome was always
+        # "success" even when the harness exited 2 on gate failure or crashed
+        # outright. That silently made the two log-dump/upload steps below dead —
+        # `steps.harness.outcome == 'failure'` never fired, so a gate-failing or
+        # crashing run left zero artifacts to diagnose it with (see 2026-08-24 run:
+        # simEventLoopMaxUnder150 failed, 0 artifacts uploaded).
         run: |
+          set -o pipefail
           mkdir -p docs/load-results
           node scripts/rewrite-load-harness.mjs 2>&1 | tee /tmp/harness-output.txt
           RESULT_FILE="$(tail -1 /tmp/harness-output.txt | grep -o 'docs/load-results/[^ ]*' || true)"

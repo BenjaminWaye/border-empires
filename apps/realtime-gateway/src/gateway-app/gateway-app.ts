@@ -40,10 +40,10 @@ import { createGatewayRallyLinkStore } from "../rally-link-store-factory.js";
 import type { RallyAnchor } from "../rally-link-store/rally-link-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
 import { createGalaxyPlanetStore } from "../galaxy-planet-store-factory/galaxy-planet-store-factory.js";
-import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
+import { wireGalaxyEconomy } from "../galaxy-economy-wiring/galaxy-economy-wiring.js"; import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import { createGalaxyEndorsementStore } from "../galaxy-endorsement-store-factory/galaxy-endorsement-store-factory.js";
 import { createWorldEngineStrikeGatewayIntegration } from "../world-engine-strike-broadcast/world-engine-strike-broadcast.js";
-import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js";
+import { SeasonStartVoteTracker, SEASON_START_VOTE_THRESHOLD } from "../season-start-vote/season-start-vote.js"; import { createSeasonLobbyGatewayIntegration } from "../season-lobby-roster/season-lobby-gateway-integration.js"; import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js"; import { handlePrepareResultSeasonPending } from "./handle-prepare-result-season-pending.js";
 import { notifySeasonStarted as notifySeasonStartedImpl } from "../season-start-notify/season-start-notify.js";
 import { createGameplayEmailAlertSender } from "../gameplay-email-alert/gameplay-email-alert.js";
 import { startImperialWardAutoStartTimer } from "../galaxy-endorsement-auto-start/galaxy-endorsement-auto-start.js";
@@ -65,7 +65,7 @@ import { retryStartup } from "../startup-retry.js";
 import { resolveInitialState } from "../initial-state/initial-state.js";
 import { createFullVisibilityReplacementPayloadCache } from "../full-visibility-replacement-payload-cache/full-visibility-replacement-payload-cache.js";
 import { createRevealMapChunkCache, type RevealMapPayloadSet } from "../reveal-map-chunk-cache/reveal-map-chunk-cache.js";
-import { buildInitMessage } from "../reconnect-recovery/reconnect-recovery.js";
+import { buildInitMessage } from "../reconnect-recovery/reconnect-recovery.js"; import { handleJoinSeasonMessage } from "./handle-join-season-message.js";
 import { type SimulationSeedProfile } from "../seed-fallback.js";
 import { createSimulationClient, type SimulationClientEvent } from "../sim-client/sim-client.js";
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
@@ -90,7 +90,7 @@ import { createSeedPlayers, createSeedWorld } from "../../../simulation/src/seed
 import { attackPreviewResult } from "../attack-preview/attack-preview.js";
 import { createSeededAiTruceResponder } from "../seeded-ai-truce-responder/seeded-ai-truce-responder.js";
 import { createLoginQueue } from "../login-queue/login-queue.js";
-import { admitBootstrap } from "../login-queue/bootstrap-admission.js"; import { seasonFullErrorPayload } from "../season-full-rejection/season-full-rejection.js";
+import { admitBootstrap } from "../login-queue/bootstrap-admission.js"; import { seasonFullErrorPayload } from "../season-full-rejection/season-full-rejection.js"; import { seasonPendingErrorPayload } from "../season-full-rejection/season-pending-rejection.js"; import { startPendingSeasonNotifyTimer } from "../season-start-notify/pending-season-notify-timer.js";
 import { createWebSocketHeartbeat } from "./websocket-heartbeat.js";
 
 import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
@@ -102,6 +102,7 @@ type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   channel: "control" | "bulk";
   canToggleFog: boolean;
   fogDisabled: boolean; authInProgress: boolean;
+  rallyAnchor?: { x: number; y: number; island?: string } | undefined;
 };
 
 type SimulationClient = ReturnType<typeof createSimulationClient>;
@@ -116,7 +117,7 @@ type RealtimeGatewayAppOptions = {
   commandStore?: GatewayCommandStore;
   profileStore?: GatewayPlayerProfileStore;
   authBindingStore?: GatewayAuthBindingStore;
-  galaxyPlanetStore?: GalaxyPlanetStore;
+  galaxyPlanetStore?: GalaxyPlanetStore; galaxyEconomyStore?: Awaited<ReturnType<typeof wireGalaxyEconomy>>["galaxyEconomyStore"];
   galaxyEndorsementStore?: GalaxyEndorsementStore;
   socialStore?: import("../social-store/social-store.js").GatewaySocialStore;
   sqlitePath?: string;
@@ -615,7 +616,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const galaxyPlanetStore =
     options.galaxyPlanetStore ??
     (await createGalaxyPlanetStore(commandStoreFactoryOptions));
-  const galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions));
+  const { galaxyEconomyStore, stop: stopGalaxyCycleScheduler } = await wireGalaxyEconomy({ ...(options.galaxyEconomyStore ? { existingStore: options.galaxyEconomyStore } : {}), storeOptions: commandStoreFactoryOptions, authBindingStore, listSeasonArchives: () => simulationClient.listSeasonArchives(), getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), onError: (error) => app.log.error({ err: error }, "galaxy cycle tick failed") }), galaxyEndorsementStore = options.galaxyEndorsementStore ?? (await createGalaxyEndorsementStore(commandStoreFactoryOptions));
   const worldEngineStrike = await createWorldEngineStrikeGatewayIntegration(commandStoreFactoryOptions);
   const emailAlerts = createEmailAlertService({
     authBindingStore,
@@ -1066,7 +1067,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
   const ignoredLegacyMessageTypes = new Set<string>(
     supportedClientMessageTypes.filter((messageType) => !migratedDurableCommandTypes.has(messageType))
   );
-  const seasonStartVote = new SeasonStartVoteTracker();
+  const seasonStartVote = new SeasonStartVoteTracker(); const seasonLobby = createSeasonLobbyGatewayIntegration({ preSerializeBroadcast, allSockets: () => playerSubscriptions.allSockets(), queueOrSendSessionPayload: (s, p) => queueOrSendSessionPayload(s, p), profileOverrides, profileStore, invalidateProfileCache, fallbackName: (playerId) => socialRegistrationNameFor(playerId, playerId) });
 
   registerGatewayHttpRoutes(
     app,
@@ -1088,14 +1089,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
       ...(options.playOrigin ? { playOrigin: options.playOrigin } : {}),
       resolveHttpBearerIdentity,
       rallyLinkStore,
-      galaxyPlanetStore,
+      galaxyPlanetStore, galaxyEconomyStore,
       galaxyEndorsementStore,
       worldEngineStrikeStore: worldEngineStrike.store,
       authBindingStore,
       ...(options.adminApiToken ? { adminApiToken: options.adminApiToken } : {}),
-      ...(slackAlerter ? { alertPlayerBugReport: (report: BugReportInput) => slackAlerter!.alertPlayerBugReport(report) } : {}),
+      alertPlayerBugReport: (report: BugReportInput) => emailAlerts.sendBugReportAlert(report), alertPlayerSuggestion: (report: BugReportInput) => emailAlerts.sendSuggestionAlert(report),
       ...(slackAlerter ? { alertSeasonStarted: (seasonId: string, force: boolean) => { slackAlerter!.alertSeasonStarted(seasonId, force); seasonStartVote.reset(); } } : {}),
-      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); }
+      onSeasonStarted: () => { socialStore.clearSeasonData(); seasonStartVote.reset(); seasonLobby.roster.reset(); }
     })
   );
 
@@ -1800,7 +1801,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     startNextSeason: async (force, imperialWard) => {
       const result = await simulationClient.startNextSeason(force, imperialWard);
       socialStore.clearSeasonData();
-      seasonStartVote.reset();
+      seasonStartVote.reset(); seasonLobby.roster.reset();
       slackAlerter?.alertSeasonStarted(result.seasonId, force === true);
       notifySeasonStarted();
       return result;
@@ -1808,7 +1809,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
     endorsementStore: galaxyEndorsementStore,
     onError: (error) => app.log.error({ err: error }, "imperial ward auto-start tick failed")
   });
-
+  const pendingSeasonNotifyTimer = startPendingSeasonNotifyTimer({ getCurrentSeasonSummary: () => simulationClient.getCurrentSeasonSummary(), notifySeasonStarted, onError: (error) => app.log.error({ err: error }, "pending season notify tick failed") });
   const databaseKeepAlive = startDatabaseKeepAlive({
     nextClientSeqForPlayer: (playerId) => commandStore.nextClientSeqForPlayer(playerId),
     recordGatewayEvent
@@ -1879,7 +1880,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
 
   app.addHook("onClose", async () => {
     if (simulationHealthTimer) clearInterval(simulationHealthTimer);
-    allianceBreakFinalize.stop(); truceExpirySync.stop(); imperialWardAutoStart.stop();
+    allianceBreakFinalize.stop(); truceExpirySync.stop(); imperialWardAutoStart.stop(); pendingSeasonNotifyTimer.stop(); stopGalaxyCycleScheduler();
     if (gatewayMetricsTimer) clearInterval(gatewayMetricsTimer);
     if (gatewayEventLoopTimer) clearInterval(gatewayEventLoopTimer);
     simBacklogStatusPoller?.stop(); slackAlertLatencyPoll.stop();
@@ -2049,7 +2050,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
               authTrace.complete("rejected", admission.reason === "rate" || admission.reason === "queue_full" ? "bootstrap_admission" : "queue_socket_closed");
               return;
             }
-            let bootstrapInitialState;
+            let bootstrapInitialState; let needsSeasonJoin = false; let seasonPending = false; let seasonPendingScheduledStartAt: number | undefined; let seasonPendingRoster: SeasonLobbyUpdatePayload | undefined;
             try {
             let rallyAnchor: { x: number; y: number; island?: string } | undefined;
             let acceptedRallyCode: string | undefined;
@@ -2070,6 +2071,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 accepted: rallyReservation.accepted
               });
             }
+            session.rallyAnchor = rallyAnchor; // for a later JOIN_SEASON, since PreparePlayer above won't have spawned an unjoined player
             const prepareStartedAt = Date.now();
             loginTracer.stage("prepare_player_start");
             authTrace.startStep("prepare_player");
@@ -2079,7 +2081,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 channel
               });
               loginPhase.notify(socket, "Preparing your empire...", "Connecting to the simulation backend.");
-              const prepareResult = await retrySimulationRpc(
+              const prepareResult = await retrySimulationRpc( // login only prepares; explicit join happens via JOIN_SEASON
                 "gateway prepare player",
                 () => simulationClient.preparePlayer(playerIdentity.playerId, rallyAnchor),
                 simulationPrepareTimeoutMs,
@@ -2094,10 +2096,8 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 }
               );
               if (acceptedRallyCode && !prepareResult.spawned) { await rallyLinkStore.releaseUse(acceptedRallyCode); acceptedRallyCode = undefined; }
-              if (prepareResult.full) {
-                recordGatewayEvent("info", "gateway_auth_prepare_season_full", { playerId: playerIdentity.playerId, channel, prepareDurationMs: Date.now() - prepareStartedAt }); sendJson(socket, seasonFullErrorPayload()); authTrace.endStep("prepare_player", false); authTrace.complete("rejected", "season_full"); return;
-              }
-              const prepareDurationMs = Date.now() - prepareStartedAt;
+              if (prepareResult.full) { recordGatewayEvent("info", "gateway_auth_prepare_season_full", { playerId: playerIdentity.playerId, channel, prepareDurationMs: Date.now() - prepareStartedAt }); sendJson(socket, seasonFullErrorPayload()); authTrace.endStep("prepare_player", false); authTrace.complete("rejected", "season_full"); return; }
+              needsSeasonJoin = prepareResult.joined === false; if (prepareResult.pending) { seasonPending = true; seasonPendingScheduledStartAt = prepareResult.scheduledStartAt; seasonPendingRoster = await handlePrepareResultSeasonPending(playerIdentity.playerId, { checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, rosterEntries: () => seasonLobby.roster.entries() }); } const prepareDurationMs = Date.now() - prepareStartedAt;
               recordGatewayEvent(
                 prepareResult.spawned || prepareDurationMs >= 250 ? "warn" : "info",
                 "gateway_auth_prepare_ready",
@@ -2303,8 +2303,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
                 simulationSeedProfile,
                 legacySnapshotBootstrap,
                 profileOverrides,
-                socialState,
-                session.canToggleFog
+                socialState, session.canToggleFog, needsSeasonJoin, seasonPending, seasonPendingScheduledStartAt, seasonPendingRoster
               );
               recordGatewayAuthStepTiming("build_init_message", Date.now() - buildInitMessageStartedAt, {
                 playerId: playerIdentity.playerId,
@@ -2525,7 +2524,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             try {
               const result = await simulationClient.startNextSeason(false);
               socialStore.clearSeasonData();
-              seasonStartVote.reset();
+              seasonStartVote.reset(); seasonLobby.roster.reset();
               slackAlerter?.alertSeasonStarted(result.seasonId, false);
               notifySeasonStarted();
             } catch (error) {
@@ -2535,6 +2534,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
+          if (message.type === "JOIN_SEASON") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await handleJoinSeasonMessage({ playerId: session.playerId, rallyAnchor: session.rallyAnchor, simulationClient, recordGatewayEvent, sendJson, socket, seasonFullErrorPayload, seasonPendingErrorPayload, checkIntoLobby: seasonLobby.checkIntoLobby, broadcastLobbyUpdate: seasonLobby.broadcastLobbyUpdate, resolveSpawnTile: activeRallyAnchorForOwner }); return; } if (message.type === "SET_COUNTRY_FLAG") { if (!session.playerId) { sendJson(socket, { type: "ERROR", code: "NO_AUTH", message: "auth first" }); return; } await seasonLobby.setCountryFlag(session.playerId, message.countryFlag, (payload) => sendJson(socket, payload)); return; }
           if (message.type === "SET_TILE_COLOR") {
             const normalized = normalizeHex(message.color);
             if (!normalized) {

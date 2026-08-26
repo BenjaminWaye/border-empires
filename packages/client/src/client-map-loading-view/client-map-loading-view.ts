@@ -18,10 +18,27 @@ export type MapLoadingView = {
 // every one of those blips is worse than the disconnect itself. Skips the
 // grace entirely on the very first boot (hasEverInitialized === false),
 // since there's nothing on screen yet to protect.
+//
+// A player who hasn't joined the season yet has no tiles by design, so
+// firstChunkAt legitimately stays 0 the whole time the join-season overlay
+// is up -- both branches of it: the SEASON_PENDING countdown/lobby
+// (state.seasonPending) AND the plain "Join Season X?" prompt shown once
+// the season is already active but the player just hasn't clicked join yet
+// (state.needsSeasonJoin && state.joinSeasonOverlayOpen, see
+// client-join-season-overlay.ts's `visible` check -- seasonPending is a
+// stricter subset of this, not a separate condition). Without this check
+// both cases read as a stalled map sync and fire the "Map sync stalled"
+// warning, which is a false alarm, not a real sync failure -- the
+// join-season overlay is already covering the screen with its own explicit
+// state at that point, so this overlay has nothing useful to add.
 export const isMapLoadingOverlayActive = (
-  state: Pick<ClientState, "connection" | "firstChunkAt" | "hasEverInitialized" | "disconnectedSince">,
+  state: Pick<
+    ClientState,
+    "connection" | "firstChunkAt" | "hasEverInitialized" | "disconnectedSince" | "seasonPending" | "needsSeasonJoin" | "joinSeasonOverlayOpen"
+  >,
   now: number = Date.now()
 ): boolean => {
+  if (state.seasonPending || (state.needsSeasonJoin && state.joinSeasonOverlayOpen)) return false;
   const rawActive = state.connection !== "initialized" || state.firstChunkAt === 0;
   if (!rawActive) return false;
   if (!state.hasEverInitialized) return true;

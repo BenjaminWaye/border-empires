@@ -7,8 +7,9 @@ import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta
 import type { StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
+import { toPersistedDevQueueEntries, type ExportedDevQueueEntry } from "./runtime-dev-queue-restore.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
-import type { SlotResource, Terrain } from "@border-empires/shared";
+import type { FrontierDecayKind, SlotResource, Terrain } from "@border-empires/shared";
 import type { PlannerPlayerView, PlannerTileView, PlannerWorldView } from "./ai/planner-world-view.js";
 import type { PlannerOwnedStructureCounts } from "./ai/planner-owned-structure-counts.js";
 import { buildPlannerTileSlice, toPlannerTileView } from "./ai/planner-world-view-slice.js";
@@ -39,7 +40,7 @@ export type RuntimeExportState = {
     ownerId?: string;
     ownershipState?: string;
     frontierDecayAt?: number;
-    frontierDecayKind?: "ENCIRCLEMENT";
+    frontierDecayKind?: FrontierDecayKind;
     townJson?: string;
     townType?: "MARKET" | "FARMING";
     townName?: string;
@@ -82,13 +83,19 @@ export type RuntimeExportState = {
     // exact UTC-day gate quickforgeAdjustedRushPrice enforces server-side —
     // the server remains authoritative on the actual charged price.
     wonderLastFreeRushBuyAt?: number;
+    galacticWonderManpowerRegenBonusPerMinute?: number; // v0 Wonder stand-in (§5, §12) — see DomainPlayer.
+    galacticWonderVisionRadiusBonus?: number;
     eventLog?: PlayerEventLogEntry[];
     // Server-durable dev/expand queue tail (see player-runtime-summary.ts /
     // runtime-dev-queue.ts / runtime-waypoint-queue.ts) -- carried through
     // exportState so player-snapshot.ts can seed a reconnecting/fresh-login
     // client with whatever survived while it was disconnected, the same way
     // emitPlayerStateUpdate already does for the live PLAYER_UPDATE stream.
-    devQueue?: Array<{ tileKey: string; x: number; y: number; kind: "SETTLE" | "BUILD"; structureType?: string; queuedAt: number }>;
+    // reservedManpower/reservedSlotRequirements MUST round-trip: the reserve
+    // was already deducted from the persisted player.manpower above, so a
+    // restore that dropped them would owe a refund it no longer knows about
+    // and burn that manpower permanently (see runtime-dev-queue-restore.ts).
+    devQueue?: ExportedDevQueueEntry[];
     waypointQueue?: Array<{ x: number; y: number; trackBarbarian?: boolean; queuedAt: number }>;
   }>;
   pendingSettlements: Array<PendingSettlementRecord>;
@@ -210,19 +217,10 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
         ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
         ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
+        ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number" ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute } : {}),
+        ...(typeof player.galacticWonderVisionRadiusBonus === "number" ? { galacticWonderVisionRadiusBonus: player.galacticWonderVisionRadiusBonus } : {}),
         ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
-        ...(summary.devQueue.length
-          ? {
-              devQueue: summary.devQueue.map((entry) => ({
-                tileKey: entry.tileKey,
-                x: entry.x,
-                y: entry.y,
-                kind: entry.kind,
-                ...(entry.structureType ? { structureType: entry.structureType } : {}),
-                queuedAt: entry.queuedAt
-              }))
-            }
-          : {}),
+        ...(summary.devQueue.length ? { devQueue: toPersistedDevQueueEntries(summary.devQueue) } : {}),
         ...(summary.waypointQueue.length
           ? {
               waypointQueue: summary.waypointQueue.map((entry) => ({

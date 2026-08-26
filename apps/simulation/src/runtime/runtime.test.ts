@@ -1167,8 +1167,8 @@ describe("simulation runtime", () => {
       initialState: {
         tiles: [
           { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-a" },
-          { x: 49, y: 49, terrain: "LAND" },
-          { x: 50, y: 49, terrain: "LAND" },
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT", name: "Anchor Town" } }, // reach over (10,10) -- DOCK anchors now require SETTLED
+          { x: 49, y: 49, terrain: "LAND" }, { x: 50, y: 49, terrain: "LAND" },
           { x: 51, y: 49, terrain: "LAND" },
           { x: 49, y: 50, terrain: "LAND" },
           { x: 50, y: 50, terrain: "LAND", dockId: "dock-b" },
@@ -2815,7 +2815,7 @@ describe("simulation runtime", () => {
           fortJson: expect.any(String)
         })
       );
-      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.TOWN.cap - 300); // cap = capital + TOWN tier (876, §4.3) before Fort's 300 cost
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.TOWN.cap - 300); // cap = capital + TOWN tier (1020, §4.3) before Fort's 300 cost
 
       vi.advanceTimersByTime(structureBuildDurationMs("FORT"));
 
@@ -3285,7 +3285,7 @@ describe("simulation runtime", () => {
           siegeOutpostJson: expect.any(String)
         })
       );
-      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap - 60); // SETTLED w/no town still = SETTLEMENT tier (726, §4.3) before outpost's 60 cost
+      expect(runtime.exportState().players.find((player) => player.id === "player-1")?.manpower).toBe(STARTING_CAPITAL_MANPOWER_CAP + TOWN_MANPOWER_BY_TIER.SETTLEMENT.cap - 60); // SETTLED w/no town still = SETTLEMENT tier (870, §4.3) before outpost's 60 cost
 
       vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_OUTPOST"));
 

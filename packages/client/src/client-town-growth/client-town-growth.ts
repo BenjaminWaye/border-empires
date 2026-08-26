@@ -67,10 +67,10 @@ export const shouldShowTownSmoke = (tile: Tile): boolean => {
 // 3D map badges must only paint when the tile-menu would also show the
 // unfed warning — otherwise neutral, foreign, or unsettled towns light up
 // the map even though clicking them shows no fed/unfed info.
-export const shouldShowTownUnfedWarning = (tile: Tile): boolean => {
+export const shouldShowTownUnfedWarning = (tile: Tile, localPlayerId: string): boolean => {
   const town = tile.town;
   if (!town) return false;
-  if (!tile.ownerId) return false;
+  if (tile.ownerId !== localPlayerId) return false;
   if (tile.terrain !== "LAND") return false;
   if (tile.ownershipState !== "SETTLED") return false;
   if (town.populationTier === "SETTLEMENT") return false;
@@ -89,10 +89,12 @@ export const shouldShowTownUnfedWarning = (tile: Tile): boolean => {
 // population threshold for its next tier and the tile-menu upgrade action is
 // enabled on the population axis. Map badges must only paint when the tile-menu
 // would also offer the upgrade — same parity rule as shouldShowTownUnfedWarning.
-export const shouldShowTownUpgradeReadyBadge = (tile: Tile): boolean => {
+// The server stamps nextPopulationTierUpgrade for any owner's settled town, not
+// just the viewer's, so ownership against the local player must be checked here.
+export const shouldShowTownUpgradeReadyBadge = (tile: Tile, localPlayerId: string): boolean => {
   const town = tile.town;
   if (!town) return false;
-  if (!tile.ownerId) return false;
+  if (tile.ownerId !== localPlayerId) return false;
   if (tile.terrain !== "LAND") return false;
   if (tile.ownershipState !== "SETTLED") return false;
   if (town.populationTier === "SETTLEMENT") return false;

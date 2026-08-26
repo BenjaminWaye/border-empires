@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
-import type { ChosenTrickleResource, MonumentalStructureType, PlayerRespawnNotice, SlotResource, VisibilityState, WorldStyle } from "@border-empires/shared";
+import type { ChosenTrickleResource, FrontierDecayKind, MonumentalStructureType, PlayerRespawnNotice, SlotResource, VisibilityState, WorldStyle } from "@border-empires/shared";
 import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
   RESTART_PARITY_COMMAND_TYPES as RESTART_PARITY_COMMAND_TYPES_UNTYPED
 } from "./command-coverage-sets/command-coverage-sets.js";
+import type { GalaxySpecialization } from "./galaxy-specialization.js";
 
 // DEV_QUEUE_*/WAYPOINT_* now live on DurableCommandTypeSchema itself (see
 // @border-empires/client-protocol) now that the gateway forwards them like
@@ -157,7 +158,7 @@ export type GetAiDecisionDiagnosticsResponse = {
   diagnostics: AiDecisionDiagnostic[];
 };
 
-export type SeasonLifecycleStatus = "active" | "ended";
+export type SeasonLifecycleStatus = "pending" | "active" | "ended";
 
 type SeasonVictoryPathId =
   | "TOWN_CONTROL"
@@ -179,6 +180,15 @@ export type SeasonVictoryObjectiveSnapshot = {
   holdRemainingSeconds?: number;
   statusLabel: string;
   conditionMet: boolean;
+  /** The current leader's progress toward this objective's win threshold, as a
+   *  0..1 fraction (1 once conditionMet is true; clamped, never negative or
+   *  above 1). Optional so older cached/broadcast objective snapshots that
+   *  predate this field (see mergeSelfProgress/seasonVictoryForBroadcast in
+   *  apps/simulation/src/season-victory-objectives) remain valid without a
+   *  migration. Introduced for the galactic meta-layer's Outpost/Stipend
+   *  tiering (docs/galactic-campaign-design.md §3), which needs a numeric
+   *  progress measure — the existing progressLabel is display text only. */
+  progress?: number;
 };
 
 // A point-in-time snapshot of the winning player's economy, taken at the
@@ -215,6 +225,21 @@ export type SeasonVictoryTrackerSnapshot = {
   holdStartedAt?: number;
 };
 
+// Galactic meta-layer (docs/galactic-campaign-design.md §3): the record given
+// to every competitive player who did NOT win the season outright, one entry
+// per player, computed once at the moment a winner is crowned (see
+// updateSeasonVictoryTrackers / season-galaxy-tiers.ts). OUTPOST is a minor
+// permanent holding (specialization set); STIPEND is a one-time Inf/Prod
+// payout with no territory (influence/production set, no specialization).
+export type SeasonGalaxyTierSnapshot = {
+  playerId: string;
+  playerName: string;
+  tier: "OUTPOST" | "STIPEND";
+  specialization?: GalaxySpecialization;
+  influence?: number;
+  production?: number;
+};
+
 export type SimulationSeasonState = {
   seasonId: string;
   seasonSequence: number;
@@ -227,8 +252,23 @@ export type SimulationSeasonState = {
   status: SeasonLifecycleStatus;
   startedAt: number;
   endedAt?: number;
+  /** Set when this season was created with a future start time and is
+   *  currently `"pending"`. Absent once the season is `"active"`/`"ended"`
+   *  or if it was never gated on a scheduled start. */
+  scheduledStartAt?: number;
   winner?: SeasonWinnerSnapshot;
+  /** Outpost/Stipend tier records for every non-winning competitive player,
+   *  computed once at the moment `winner` is crowned (§3 of
+   *  docs/galactic-campaign-design.md). Absent before crowning and on seasons
+   *  archived before this field existed. */
+  galaxyTiers?: SeasonGalaxyTierSnapshot[];
   victoryTrackers: SeasonVictoryTrackerSnapshot[];
+  /** Player ids that have explicitly joined this season (via JoinSeason),
+   *  distinct from ids merely known to the runtime (e.g. AI/barbarian seed
+   *  players, which are never added here). Absent/undefined on seasons
+   *  persisted before this field existed — callers must treat that as "no
+   *  membership recorded" rather than "nobody has joined". */
+  joinedPlayerIds?: string[];
 };
 
 export type WorldStatusSnapshot = {
@@ -258,6 +298,7 @@ export type CurrentSeasonSummary = {
   worldSeed: number;
   rulesetId: string;
   seasonWinner?: SeasonWinnerSnapshot;
+  seasonGalaxyTiers?: SeasonGalaxyTierSnapshot[];
   leaderboard: WorldStatusSnapshot["leaderboard"];
   overall: LeaderboardOverallEntry[];
   byTiles: LeaderboardMetricEntry[];
@@ -282,6 +323,7 @@ export type SeasonArchiveRow = {
   endedAt: number;
   updatedAt: number;
   winner?: SeasonWinnerSnapshot;
+  galaxyTiers?: SeasonGalaxyTierSnapshot[];
   mostTerritory: Array<{ playerId: string; playerName: string; value: number }>;
   mostPoints: Array<{ playerId: string; playerName: string; value: number }>;
   longestSurvivalMs: Array<{ playerId: string; playerName: string; value: number }>;
@@ -290,6 +332,11 @@ export type SeasonArchiveRow = {
 
 // Moved to simulation-event.ts (this file is already over the file-line cap).
 export type { SimulationEvent, CombatBroadcastPayload } from "./simulation-event.js";
+
+// Galactic meta-layer: victory-path -> planet specialization mapping (§3 of
+// docs/galactic-campaign-design.md). Kept in its own module, same reason.
+export type { GalaxySpecialization } from "./galaxy-specialization.js";
+export { GALAXY_SPECIALIZATION_NAME, specializationForVictoryPath } from "./galaxy-specialization.js";
 
 export type PlayerSubscriptionDock = {
   dockId: string;
@@ -359,6 +406,14 @@ export type PlayerSubscriptionSnapshot = {
     // once-per-UTC-day discount gate (quickforgeAdjustedRushPrice in
     // @border-empires/shared) — the server remains authoritative on price.
     wonderLastFreeRushBuyAt?: number;
+    // Galactic meta-layer v0 (docs/galactic-campaign-design.md §5, §12): a
+    // one-time Wonder-style starting bonus granted to the most recent
+    // season's Planet winner (§3) for their next season — a manpower-regen
+    // head start (Dyson Array stand-in) and a vision-radius bump (Deep
+    // Sensor Array stand-in). Consumed/set once at their first spawn; not a
+    // recurring economy (v0 has no Production/Influence/Senate yet).
+    galacticWonderManpowerRegenBonusPerMinute?: number;
+    galacticWonderVisionRadiusBonus?: number;
     // §20: durable "what happened while I was away" feed — distinct from the
     // ephemeral PLAYER_MESSAGE toast. Most-recent-last on the wire (matches
     // the server's append order); the client reverses for most-recent-first
@@ -382,7 +437,7 @@ export type PlayerSubscriptionSnapshot = {
     ownerId?: string | undefined;
     ownershipState?: string | undefined;
     frontierDecayAt?: number | undefined;
-    frontierDecayKind?: "ENCIRCLEMENT" | undefined;
+    frontierDecayKind?: FrontierDecayKind | undefined;
     breachShockUntil?: number | undefined;
     townJson?: string | undefined;
     townType?: "MARKET" | "FARMING";

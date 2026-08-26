@@ -1,0 +1,65 @@
+import { describe, expect, it } from "vitest";
+import { Color, Scene } from "three";
+import { createOwnershipOverlay } from "./client-map-3d-ownership-overlay.js";
+
+const colorAt = (colors: Float32Array, vertexIndex: number): number[] => [
+  colors[vertexIndex * 3 + 0] ?? 0,
+  colors[vertexIndex * 3 + 1] ?? 0,
+  colors[vertexIndex * 3 + 2] ?? 0
+];
+
+describe("ownership overlay partial color update", () => {
+  it("re-colors a single already-committed frontier tile without touching its neighbors", () => {
+    const scene = new Scene();
+    const overlay = createOwnershipOverlay(scene, 10);
+
+    const green = new Color(0, 1, 0);
+    const blue = new Color(0, 0, 1);
+    const indexA = overlay.addTile(0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, green, true);
+    const indexB = overlay.addTile(2, 0, 0, 3, 0, 0, 2, 0, 1, 3, 0, 1, green, true);
+    overlay.commit();
+
+    expect(indexA).toBe(0);
+    expect(indexB).toBe(1);
+
+    overlay.beginFrontierColorUpdates();
+    overlay.setFrontierTileColor(indexA, blue);
+
+    const colors = (overlay.frontierMesh.geometry.getAttribute("color") as { array: Float32Array }).array;
+    // Tile A's 4 vertices flip to blue...
+    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual([0, 0, 1]);
+    // ...while tile B (a different, uninvolved tile) is untouched.
+    for (let v = 4; v < 8; v += 1) expect(colorAt(colors, v)).toEqual([0, 1, 0]);
+
+    overlay.dispose();
+  });
+
+  it("silently no-ops on a stale index instead of throwing or corrupting other tiles", () => {
+    const scene = new Scene();
+    const overlay = createOwnershipOverlay(scene, 5);
+    const green = new Color(0, 1, 0);
+    overlay.addTile(0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, green, true);
+    overlay.commit();
+
+    overlay.beginFrontierColorUpdates();
+    expect(() => overlay.setFrontierTileColor(-1, new Color(1, 0, 0))).not.toThrow();
+    expect(() => overlay.setFrontierTileColor(99, new Color(1, 0, 0))).not.toThrow();
+
+    const colors = (overlay.frontierMesh.geometry.getAttribute("color") as { array: Float32Array }).array;
+    for (let v = 0; v < 4; v += 1) expect(colorAt(colors, v)).toEqual([0, 1, 0]);
+
+    overlay.dispose();
+  });
+
+  it("addTile returns -1 once a bucket is at capacity, instead of silently overwriting an existing tile", () => {
+    const scene = new Scene();
+    const overlay = createOwnershipOverlay(scene, 1);
+    const first = overlay.addTile(0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, new Color(0, 1, 0), true);
+    const second = overlay.addTile(2, 0, 0, 3, 0, 0, 2, 0, 1, 3, 0, 1, new Color(0, 0, 1), true);
+
+    expect(first).toBe(0);
+    expect(second).toBe(-1);
+
+    overlay.dispose();
+  });
+});

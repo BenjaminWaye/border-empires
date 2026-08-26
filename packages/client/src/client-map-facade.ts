@@ -196,6 +196,11 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
       const value = groupedNoise(x, y, 32, 907);
       return value < 0.5 ? "#bfa36e" : "#c9b07a";
     }
+    if (biome === "TUNDRA") {
+      if (grassShadeAt(x, y) === "DARK") return "#6f8c86";
+      const value = groupedNoise(x, y, 32, 911);
+      return value < 0.5 ? "#a9bcb8" : "#b6c8c2";
+    }
     const shade = grassShadeAt(x, y);
     return shade === "DARK" ? "#3f8a5c" : "#4d976a";
   };
@@ -255,7 +260,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const drawIncomingAttackOverlay = (wx: number, wy: number, px: number, py: number, size: number, resolvesAt: number): void =>
     drawIncomingAttackOverlayOnCanvas(ctx, wx, wy, px, py, size, resolvesAt);
   const drawTownOverlay = (tile: Tile, px: number, py: number, size: number): void =>
-    drawTownOverlayOnCanvas(ctx, tile, px, py, size, tile.ownerId ? effectiveColor(tile.ownerId) : undefined);
+    drawTownOverlayOnCanvas(ctx, tile, px, py, size, state.me, tile.ownerId ? effectiveColor(tile.ownerId) : undefined);
   const drawCenteredOverlay = (overlay: HTMLImageElement | undefined, px: number, py: number, size: number, scale = 1.08): void =>
     drawCenteredOverlayOnCanvas(ctx, overlay, px, py, size, scale);
   const drawCenteredOverlayWithAlpha = (

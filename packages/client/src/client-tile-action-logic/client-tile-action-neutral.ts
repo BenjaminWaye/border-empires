@@ -101,7 +101,7 @@ export const neutralTileActions = (
     out.push({
       id: "build_relay_beacon_frontier" as TileActionDef["id"],
       label: "Build Relay Beacon",
-      detail: `Push into the unknown • expand + settle + build • +${RELAY_BEACON_VISION_BONUS} vision`,
+      detail: `Expand your borders • +${RELAY_BEACON_VISION_BONUS} vision`,
       ...tileActionAvailability(
         exploreEnabled,
         state.manpower < totalExploreManpower
@@ -109,7 +109,7 @@ export const neutralTileActions = (
           : !canAffordCost(state.gold, totalExploreGold)
             ? `Need ${totalExploreGold} gold`
             : (missingRelayBeaconSlotReason(state) ?? "Unavailable"),
-        `${totalExploreGold} gold, ${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
+        `${totalExploreGold > 0 ? `${totalExploreGold} gold, ` : ""}${totalExploreManpower} m.p. • expand + settle + build • ${Math.round(totalExploreMs / 60000)}m total`
       )
     });
   }

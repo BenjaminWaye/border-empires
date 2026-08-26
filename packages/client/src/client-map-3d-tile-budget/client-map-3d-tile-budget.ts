@@ -79,3 +79,23 @@ export const resolveTileBudget = (minZoom: number): number => {
     cap: MAX_TILE_BUDGET
   });
 };
+
+// The 2D canvas draw loop has no preallocated buffers, but it still walks
+// every tile in `[-halfW, halfW] x [-halfH, halfH]` on every animation
+// frame with no ceiling of its own. On a wide/ultrawide desktop screen at
+// MIN_ZOOM that window can exceed 50k tiles, each running a few hundred
+// lines of per-tile draw logic — that unbounded loop is what pegs the main
+// thread and makes panning/zooming feel laggy. Reuse the same budget the 3D
+// renderer already trusts, scaling both axes down together (not just
+// truncating one) so the clamp keeps the on-screen aspect ratio instead of
+// cropping one side of the viewport.
+export const clampedTileHalfExtents = (
+  halfW: number,
+  halfH: number,
+  budget: number
+): { halfW: number; halfH: number } => {
+  const tileCount = (2 * halfW + 1) * (2 * halfH + 1);
+  if (tileCount <= budget) return { halfW, halfH };
+  const scale = Math.sqrt(budget / tileCount);
+  return { halfW: Math.max(1, Math.floor(halfW * scale)), halfH: Math.max(1, Math.floor(halfH * scale)) };
+};

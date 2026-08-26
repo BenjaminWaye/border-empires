@@ -1,0 +1,104 @@
+import { describe, expect, it, vi } from "vitest";
+import { joinSeasonHandler, preparePlayerHandler } from "./prepare-and-join-player.js";
+import { createInitialSeasonState } from "../season-lifecycle.js";
+
+const buildDeps = (seasonState: ReturnType<typeof createInitialSeasonState>) => ({
+  runtime: {
+    ensurePlayerHasSpawnTerritory: vi.fn(() => true),
+    hasPlayer: vi.fn(() => false),
+    humanPlayerCount: vi.fn(() => 0)
+  } as unknown as Parameters<typeof joinSeasonHandler>[0]["runtime"],
+  log: { info: vi.fn(), error: vi.fn() },
+  simulationMetrics: { observeSimPreparePlayerLatencyMs: vi.fn() } as unknown as Parameters<typeof joinSeasonHandler>[0]["simulationMetrics"],
+  deleteCachedSnapshot: vi.fn(),
+  getSeasonState: () => seasonState,
+  setSeasonState: vi.fn(),
+  maxSeasonPlayers: 120
+});
+
+describe("joinSeasonHandler pending season", () => {
+  it("rejects with pending:true and scheduledStartAt, without recording membership or spawning", () => {
+    const seasonState = createInitialSeasonState({
+      seasonSequence: 1,
+      rulesetId: "standard",
+      worldSeed: 1,
+      startedAt: 1_000_000,
+      scheduledStartAt: 1_800_000_000_000
+    });
+    const deps = buildDeps(seasonState);
+    const callback = vi.fn();
+
+    joinSeasonHandler(deps, { request: { player_id: "new-player" } }, callback);
+
+    expect(callback).toHaveBeenCalledWith(null, {
+      ok: true,
+      player_id: "new-player",
+      playerId: "new-player",
+      spawned: false,
+      pending: true,
+      scheduled_start_at: 1_800_000_000_000
+    });
+    expect(deps.setSeasonState).not.toHaveBeenCalled();
+    expect(deps.runtime.ensurePlayerHasSpawnTerritory).not.toHaveBeenCalled();
+  });
+
+  it("joins normally once the season is active", () => {
+    const seasonState = createInitialSeasonState({ seasonSequence: 1, rulesetId: "standard", worldSeed: 1, startedAt: 1_000_000 });
+    const deps = buildDeps(seasonState);
+    const callback = vi.fn();
+
+    joinSeasonHandler(deps, { request: { player_id: "new-player" } }, callback);
+
+    expect(deps.setSeasonState).toHaveBeenCalled();
+    expect(deps.runtime.ensurePlayerHasSpawnTerritory).toHaveBeenCalled();
+    expect(callback).toHaveBeenCalledWith(null, expect.objectContaining({ ok: true, spawned: true }));
+  });
+});
+
+describe("preparePlayerHandler pending season", () => {
+  // Regression test: a reconnecting client (page refresh, tab reopen) calls
+  // PrepareLikeRpc on every authenticated connection, not JoinSeason. Before
+  // this fix, preparePlayerHandler had no idea the season was pending -- it
+  // just returned joined:false, indistinguishable from "you've simply never
+  // joined". The gateway showed the generic "Join Season?" prompt and only
+  // discovered the season was pending after the player clicked it and a
+  // separate JoinSeason round trip came back rejected. This surfaces
+  // pending/scheduled_start_at directly on the same PreparePlayer response.
+  it("surfaces pending:true and scheduled_start_at for a not-yet-joined player when the season is pending", () => {
+    const seasonState = createInitialSeasonState({
+      seasonSequence: 1,
+      rulesetId: "standard",
+      worldSeed: 1,
+      startedAt: 1_000_000,
+      scheduledStartAt: 1_800_000_000_000
+    });
+    const deps = buildDeps(seasonState);
+    const callback = vi.fn();
+
+    preparePlayerHandler(deps, { request: { player_id: "waiting-player" } }, callback);
+
+    expect(callback).toHaveBeenCalledWith(null, {
+      ok: true,
+      player_id: "waiting-player",
+      playerId: "waiting-player",
+      spawned: false,
+      joined: false,
+      pending: true,
+      scheduled_start_at: 1_800_000_000_000
+    });
+    expect(deps.runtime.ensurePlayerHasSpawnTerritory).not.toHaveBeenCalled();
+  });
+
+  it("prepares normally (no pending fields) once the season is active", () => {
+    const seasonState = createInitialSeasonState({ seasonSequence: 1, rulesetId: "standard", worldSeed: 1, startedAt: 1_000_000 });
+    const deps = buildDeps(seasonState);
+    deps.runtime.hasPlayer = vi.fn(() => true);
+    const callback = vi.fn();
+
+    preparePlayerHandler(deps, { request: { player_id: "returning-player" } }, callback);
+
+    const [, response] = callback.mock.calls[0]!;
+    expect(response).toMatchObject({ ok: true, joined: true, spawned: true });
+    expect(response.pending).toBeUndefined();
+  });
+});

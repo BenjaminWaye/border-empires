@@ -73,9 +73,10 @@ import type { RecoveredSimulationState } from "../event-recovery/event-recovery.
 import { createSeasonSummaryStore } from "../season-summary-store-factory.js";
 import type { SeasonSummaryStore } from "../season-summary-store.js";
 import { buildArchiveRow, buildCurrentSeasonSummary, leaderboardSignature } from "../season-summary/season-summary.js";
-import { createInitialSeasonState, updateSeasonVictoryTrackers } from "../season-lifecycle.js";
-import { computeSeasonWinnerStats } from "../season-winner-stats.js";
-import { computeLongestRoad, findMostDeadlyTile } from "../season-stats/season-stats.js";
+import { createInitialSeasonState, updateSeasonVictoryTrackers, readScheduledSeasonStartAtEnv, applyPendingSeasonActivation } from "../season-lifecycle.js";
+import { createAiAndSystemShouldRun } from "./ai-and-system-should-run.js";
+import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
+import { parseRallyAnchor, preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
 import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
@@ -88,20 +89,9 @@ import { createCommandApplyTracker } from "../command-apply-tracker.js";
 import { createLagDiagnostics, type LagDiagEntry } from "../lag-diagnostics.js";
 import { decodeGcKind } from "../gc-kind-label/gc-kind-label.js";
 import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnostic.js";
-import { buildEventLoopBlockedPayload } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
-import { emitPerConnectHellos } from "./per-connect-hellos.js"; import { resolveMaxSeasonPlayers, seasonIsAtPlayerCap } from "../season-join-capacity.js";
-
-const parseRallyAnchor = (value: string | undefined): { x: number; y: number } | undefined => {
-  if (!value) return undefined;
-  try {
-    const parsed = JSON.parse(value) as { x?: unknown; y?: unknown };
-    if (typeof parsed.x !== "number" || typeof parsed.y !== "number") return undefined;
-    if (!Number.isInteger(parsed.x) || !Number.isInteger(parsed.y)) return undefined;
-    return { x: parsed.x, y: parsed.y };
-  } catch {
-    return undefined;
-  }
-};
+import { buildEventLoopBlockedPayload, eventLoopBlockWarnMs } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
+import { resolveMaxSeasonPlayers } from "../season-join-capacity.js";
+import { registerSubscribeAndMaybePushReach } from "./live-subscribe-reach-push.js";
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
@@ -340,12 +330,12 @@ const buildBootstrapSeason = async ({
     ...(typeof aiPlayerCount === "number" ? { aiPlayerCount } : {}),
     ...(onYield ? { onYield } : {})
   });
-  const seasonState = createInitialSeasonState({
+  const scheduledStartAt = readScheduledSeasonStartAtEnv(); const seasonState = createInitialSeasonState({
     seasonSequence,
     rulesetId,
     worldSeed: generatedWorld.worldSeed,
     mapStyle: generatedWorld.mapStyle,
-    startedAt: now
+    startedAt: now, ...(typeof scheduledStartAt === "number" ? { scheduledStartAt } : {})
   });
   return {
     seasonState,
@@ -1219,7 +1209,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       );
     }
   };
-  const preparePlayerSlowLogMs = 250; const maxSeasonPlayers = resolveMaxSeasonPlayers(options.maxSeasonPlayers);
+  const maxSeasonPlayers = resolveMaxSeasonPlayers(options.maxSeasonPlayers);
   // 5s: Phase 3b broadcast uses cheap player-only path (no tile export).
   const globalStatusBroadcastDebounceMs = options.globalStatusBroadcastDebounceMs ?? 5000;
   let metricsTicker: ReturnType<typeof setInterval> | undefined;
@@ -1399,8 +1389,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const scheduleSeasonVictoryRecheck = (at: number | undefined): void => {
     clearSeasonVictoryTimer();
     if (currentSeasonState.status === "ended") return;
-    // `at` undefined = no contested objective; 5-min fallback keeps season-victory fresh (Phase 3b).
-    const delayMs = typeof at === "number" ? Math.max(0, at - Date.now()) : 300_000;
+    // `at` undefined = no contested objective (or a pending season, recheck at scheduledStartAt); 5-min fallback keeps season-victory fresh (Phase 3b).
+    const effectiveAt = at ?? (currentSeasonState.status === "pending" ? currentSeasonState.scheduledStartAt : undefined), delayMs = typeof effectiveAt === "number" ? Math.max(0, effectiveAt - Date.now()) : 300_000;
     seasonVictoryTimer = setTimeout(() => {
       void recomputeAndPersistCurrentSummary({ forcePersist: true, commandId: `season-victory:${Date.now()}` });
     }, delayMs);
@@ -1423,7 +1413,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     commandId?: string;
     /** Pass an already-fetched export to avoid a redundant O(202k-tile) scan. */
     runtimeState?: ReturnType<SimulationRuntime["exportState"]>;
-  } = {}): Promise<CurrentSeasonSummary> => {
+  } = {}): Promise<CurrentSeasonSummary> => { currentSeasonState = applyPendingSeasonActivation(currentSeasonState, log);
     // Reuse a caller-provided export snapshot to skip the expensive O(202k) tile
     // scan when the caller already holds a fresh snapshot (e.g. flushGlobalStatusBroadcast).
     // Use the async chunked path when no snapshot is provided — avoids blocking the
@@ -1450,26 +1440,11 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       now: baseSummary.updatedAt
     });
     currentSeasonState = trackerResult.seasonState;
-    // Capture the winner's economy/population/monuments the moment they're
-    // crowned, while runtimeState still reflects this season's world — this
-    // is the base "planet stats" a christened planet carries forward
-    // (see galaxy-routes.ts). Guarded so a season sitting on "ended" doesn't
-    // re-scan tiles on every subsequent recompute.
+    // Capture winner stats + galactic Outpost/Stipend tiers (see season-crowning.ts).
     if (trackerResult.crownedWinner && currentSeasonState.winner && !currentSeasonState.winner.stats) {
-      const mostDeadlyTile = findMostDeadlyTile(runtime.manpowerLossByTileKey);
-      const longestRoad = computeLongestRoad(runtimeState.tiles);
-      currentSeasonState = {
-        ...currentSeasonState,
-        winner: {
-          ...currentSeasonState.winner,
-          stats: computeSeasonWinnerStats(runtimeState, currentSeasonState.winner.playerId),
-          // Persist alongside the winner (not just the ephemeral summary) so
-          // it survives a reconnect/fresh-login INIT — see SeasonWinnerSnapshot.
-          ...((mostDeadlyTile || longestRoad)
-            ? { seasonStats: { ...(mostDeadlyTile ? { mostDeadlyTile } : {}), ...(longestRoad ? { longestRoad } : {}) } }
-            : {})
-        }
-      };
+      currentSeasonState = captureSeasonWinnerAtCrowning({
+        seasonState: currentSeasonState, winner: currentSeasonState.winner, runtime, runtimeState, worldStatus, objectives: trackerResult.objectives
+      });
     }
     scheduleSeasonVictoryRecheck(trackerResult.nextTimerAt);
     const finalSummary = (trackerResult.changed || trackerResult.crownedWinner
@@ -1625,53 +1600,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const useAiWorker = options.useAiWorker ?? false;
   const aiMaxEventLoopLagMs = Math.max(1, options.aiMaxEventLoopLagMs ?? 250);
 
-  // Event-loop-lag observer. Uses hrtime to detect when the sim
-  // main thread is too busy to run AI on schedule.
-  let lastAiShouldRunHr = process.hrtime.bigint();
-  let aiShouldRunFirstCall = true;
-  const baseAiTickMs = options.aiTickMs ?? 250;
-
-  const aiShouldRun = () => {
-    if (currentSeasonState.status === "ended") {
-      simulationMetrics.incrementSimAiTickThrottled("season_ended");
-      return false;
-    }
-    const hrNow = process.hrtime.bigint();
-    if (aiShouldRunFirstCall) {
-      aiShouldRunFirstCall = false;
-      lastAiShouldRunHr = hrNow;
-    } else {
-      const gapMs = Number(hrNow - lastAiShouldRunHr) / 1e6;
-      lastAiShouldRunHr = hrNow;
-      // Only flag loop lag when tick is at or near the base interval.
-      // When adaptive backoff is active (gap > baseInterval * 1.5),
-      // the adaptive throttle already handles the load — skip the check.
-      if (gapMs > baseAiTickMs + 20 && gapMs < baseAiTickMs * 1.5) {
-        simulationMetrics.incrementSimAiTickThrottled("loop_lag");
-        return false;
-      }
-    }
-
-    if (snapshotCheckpointManager.isCheckpointInFlight()) { simulationMetrics.incrementSimAiTickThrottled("checkpoint_in_flight"); return false; }
-    return (
-      !persistenceQueue.isDegraded() &&
-      persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
-      latestEventLoopLagMs <= aiMaxEventLoopLagMs
-    );
-  };
-
-  const systemShouldRun = () => {
-    if (currentSeasonState.status === "ended") {
-      simulationMetrics.incrementSimAiTickThrottled("season_ended");
-      return false;
-    }
-    if (snapshotCheckpointManager.isCheckpointInFlight()) { simulationMetrics.incrementSimAiTickThrottled("checkpoint_in_flight"); return false; }
-    return (
-      !persistenceQueue.isDegraded() &&
-      persistenceQueue.pendingCount() < autopilotMaxPersistencePending &&
-      latestEventLoopLagMs <= aiMaxEventLoopLagMs
-    );
-  };
+  const { aiShouldRun, systemShouldRun } = createAiAndSystemShouldRun({
+    getSeasonState: () => currentSeasonState,
+    incrementThrottled: (reason) => simulationMetrics.incrementSimAiTickThrottled(reason),
+    isCheckpointInFlight: () => snapshotCheckpointManager.isCheckpointInFlight(),
+    isPersistenceDegraded: () => persistenceQueue.isDegraded(),
+    persistencePendingCount: () => persistenceQueue.pendingCount(),
+    autopilotMaxPersistencePending,
+    getLatestEventLoopLagMs: () => latestEventLoopLagMs,
+    aiMaxEventLoopLagMs,
+    aiTickMs: options.aiTickMs ?? 250
+  });
   let aiCommandProducer:
     | ReturnType<typeof createAiCommandProducer>
     | ReturnType<typeof createWorkerAiCommandProducer>
@@ -2164,7 +2103,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         onVisibilityAudit: handleVisibilityAudit,
         trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
         onCaptureRevealBuilt: captureRevealBuildSample,
-        ...(pendingImperialWard ? { pendingImperialWard } : {}),
+        ...(pendingImperialWard ? { pendingImperialWard } : {}), ...(currentSeasonState.winner ? { pendingGalacticWonderBonus: { playerId: currentSeasonState.winner.playerId } } : {}), // v0 Wonder-style starting bonus (§5, §12)
         shouldPauseBackground: () => {
           if (loginExportsInFlight > 0) {
             simulationMetrics.incrementSimLoginExportPausedDrain();
@@ -2305,55 +2244,23 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     },
     PreparePlayer(
       call: { request: { player_id: string; rally_anchor_json?: string } },
-      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean }) => void) {
-      const prepareStartedAt = Date.now();
-      let spawned = false;
-      try {
-        if (currentSeasonState.status !== "ended") {
-          if (seasonIsAtPlayerCap(maxSeasonPlayers, runtime, call.request.player_id)) { log.info({ playerId: call.request.player_id, maxSeasonPlayers }, "prepare player rejected: season is full"); callback(null, { ok: true, player_id: call.request.player_id, playerId: call.request.player_id, spawned: false, full: true }); return; }
-          const spawnStartedAt = Date.now();
-          const rallyAnchor = parseRallyAnchor(call.request.rally_anchor_json);
-          spawned = runtime.ensurePlayerHasSpawnTerritory(call.request.player_id, rallyAnchor);
-          simulationMetrics.observeSimPreparePlayerLatencyMs("spawn", Date.now() - spawnStartedAt);
-          if (spawned) {
-            deleteCachedSnapshot(call.request.player_id);
-            log.info({ playerId: call.request.player_id }, "spawned runtime territory for prepared player");
-          }
-          emitPerConnectHellos(runtime, call.request.player_id, log);
-        }
-        const prepareDurationMs = Date.now() - prepareStartedAt;
-        simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
-        if (spawned || prepareDurationMs >= preparePlayerSlowLogMs) {
-          log.info({
-            playerId: call.request.player_id,
-            prepareDurationMs,
-            spawned
-          }, "prepare player completed");
-        }
-        callback(null, {
-          ok: true,
-          player_id: call.request.player_id,
-          playerId: call.request.player_id,
-          spawned
-        });
-      } catch (error) {
-        const prepareDurationMs = Date.now() - prepareStartedAt;
-        simulationMetrics.observeSimPreparePlayerLatencyMs("prepare", prepareDurationMs);
-        log.error(
-          {
-            playerId: call.request.player_id,
-            prepareDurationMs,
-            error: error instanceof Error ? error.message : String(error)
-          },
-          "prepare player failed"
-        );
-        callback(error instanceof Error ? error : new Error("failed to prepare simulation player"), {
-          ok: false,
-          player_id: call.request.player_id,
-          playerId: call.request.player_id,
-          spawned
-        });
-      }
+      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; joined: boolean; full?: boolean }) => void
+    ) {
+      preparePlayerHandler(
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers },
+        call,
+        callback
+      );
+    },
+    JoinSeason(
+      call: { request: { player_id: string; rally_anchor_json?: string } },
+      callback: (error: Error | null, response: { ok: boolean; player_id: string; playerId?: string; spawned: boolean; full?: boolean }) => void
+    ) {
+      joinSeasonHandler(
+        { runtime, log, simulationMetrics, deleteCachedSnapshot, getSeasonState: () => currentSeasonState, setSeasonState: (s) => { currentSeasonState = s; }, maxSeasonPlayers },
+        call,
+        callback
+      );
     },
     SubscribePlayer(
       call: { request: { player_id: string; subscription_json: string } },
@@ -2386,9 +2293,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         return;
       }
       const subscribeOptions = parseSubscribeOptions(call.request.subscription_json);
-      if (subscribeOptions.mode !== "bootstrap-only") {
-        subscriptionRegistry.subscribe(call.request.player_id, subscribeOptions.subscriptionKey);
-      }
+      // Registers the subscription and, only for the gateway's actual connect (see module docs), pushes reach.
+      registerSubscribeAndMaybePushReach(subscriptionRegistry, runtime, call.request.player_id, subscribeOptions, log);
       // Dedupe concurrent subscribes for the same (player, mode, visibility).
       // The bootstrap retry loop in the gateway can fire 3-4 RPCs while the
       // first build is still running; sharing the in-flight promise prevents
@@ -2939,7 +2845,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // contained zero stall attribution because this event was log-only.
         // durationMs is set so the ring entry (which strips most payload fields)
         // still carries the block length.
-        if (lagMs >= 2_000) {
+        if (lagMs >= eventLoopBlockWarnMs) {
           const blockedPayload = buildEventLoopBlockedPayload({
             lagMs,
             detectedAtMs: now,

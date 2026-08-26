@@ -1,6 +1,19 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY } from "@border-empires/shared";
-import type { DomainTileState } from "@border-empires/game-domain";
+import type { DomainTileState, DomainPlayer } from "@border-empires/game-domain";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
+import { hasRevealedResourceForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
+
+/**
+ * Tech-reveal gate for auto-settle: a resource tile is only eligible once
+ * the settling player has researched the tech that reveals that resource
+ * category (see hasRevealedResourceForPlayer) -- distinct from, and in
+ * addition to, the fog-of-war visibility gate callers layer on separately.
+ * Non-resource tiles (town/dock/support) are always tech-revealed.
+ */
+export const isAutoSettlementResourceTechRevealed = (
+  tile: DomainTileState,
+  player: Pick<DomainPlayer, "techIds"> | undefined
+): boolean => !tile.resource || (Boolean(player) && hasRevealedResourceForPlayer(player!, tile.resource));
 
 /**
  * Chebyshev distance between two points, without world-wrap (used for sweep
@@ -103,6 +116,7 @@ export const isAutoSettlementEligibleTarget = (
   tile: DomainTileState | undefined,
   playerId: string,
   hasTownSupport: (tile: DomainTileState) => boolean,
+  isRevealedToPlayer: (tile: DomainTileState) => boolean,
   // Fixed-border reach gate (packages/shared/src/reach/reach.ts) — same check
   // handleSettleCommand applies to a human-dispatched SETTLE. Auto-settle
   // (both the AI's own driver and the queue the client auto-fills SETTLE
@@ -114,7 +128,8 @@ export const isAutoSettlementEligibleTarget = (
 ): tile is DomainTileState => {
   if (!isAutoSettlementTarget(tile, playerId)) return false;
   if (!isInReach(tile)) return false;
-  return Boolean(tile.resource || tile.town || tile.dockId || hasTownSupport(tile));
+  if (tile.resource) return isRevealedToPlayer(tile);
+  return Boolean(tile.town || tile.dockId || hasTownSupport(tile));
 };
 
 export const orderedAutoSettlementTileKeys = (
@@ -124,6 +139,14 @@ export const orderedAutoSettlementTileKeys = (
     getTile: (tileKey: string) => DomainTileState | undefined;
     isBlocked: (tileKey: string) => boolean;
     hasTownSupport: (tile: DomainTileState) => boolean;
+    // Only gates resource tiles: a resource must have actually been revealed
+    // to the settling player — both currently within their fog-of-war vision
+    // coverage (see VisibilityCoverageTracker.isVisible) AND unlocked by the
+    // player's researched tech (see hasRevealedResourceForPlayer in
+    // tech-domain-bridge.ts) — before auto-settle may claim it. Town/dock/
+    // town-support tiles are always considered revealed since a player's own
+    // towns/docks are never hidden from them.
+    isRevealedToPlayer: (tile: DomainTileState) => boolean;
     // Fixed-border reach check, forwarded to isAutoSettlementEligibleTarget.
     // Optional (defaults to always-true) so existing callers/tests that don't
     // care about reach keep working unchanged.
@@ -146,7 +169,7 @@ export const orderedAutoSettlementTileKeys = (
     if (tile && deps.isInReach && !deps.isInReach(tile)) continue;
     let eligible = deps.eligibilityCache?.get(tileKey);
     if (eligible === undefined) {
-      eligible = isAutoSettlementEligibleTarget(tile, playerId, deps.hasTownSupport, deps.isInReach);
+      eligible = isAutoSettlementEligibleTarget(tile, playerId, deps.hasTownSupport, deps.isRevealedToPlayer, deps.isInReach);
       deps.eligibilityCache?.set(tileKey, eligible);
     }
     if (eligible) output.push(tileKey);

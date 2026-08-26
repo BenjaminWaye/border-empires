@@ -343,10 +343,11 @@ describe("game domain frontier validation", () => {
       allies: new Set<string>()
     };
 
-    // EXPAND is no longer reach-gated (only SETTLE and outpost-family builds
-    // still are — see runtime.ts's SETTLE gate and
-    // runtime-structure-command-handlers.ts's OUT_OF_REACH build gate), so
-    // these three now assert success even with isInReach: false.
+    // EXPAND is intentionally NOT reach-gated: claiming land outside reach is
+    // allowed and instead subject to out-of-reach frontier decay elsewhere
+    // (runtime-out-of-reach-decay/runtime-out-of-reach-decay.ts). This pure
+    // function must let it through regardless of the isInReach value it's
+    // given.
     it("allows EXPAND out of reach via plain adjacency", () => {
       const result = validateFrontierCommand({
         now: 1_000,
@@ -366,7 +367,12 @@ describe("game domain frontier validation", () => {
       expect(result).toMatchObject({ ok: true });
     });
 
-    it("allows EXPAND out of reach via a dock crossing", () => {
+    // Production's call site always resolves isInReach to true for a dock
+    // crossing (runtime-frontier-command.ts: "isDockCrossing || ... ? true
+    // : ..."), regardless of the raw reach check -- this just confirms
+    // validateFrontierCommand honors that resolved value rather than
+    // re-deriving reach itself from isDockCrossing.
+    it("allows EXPAND via a dock crossing when the caller resolves isInReach true", () => {
       const result = validateFrontierCommand({
         now: 1_000,
         actor,
@@ -379,13 +385,14 @@ describe("game domain frontier validation", () => {
         isBridgeCrossing: false,
         targetShielded: false,
         defenderIsAlliedOrTruced: false,
-        isInReach: false
+        isInReach: true
       });
 
       expect(result).toMatchObject({ ok: true });
     });
 
-    it("allows EXPAND out of reach via an aether bridge", () => {
+    // Same as the dock case above, for an aether bridge crossing.
+    it("allows EXPAND via an aether bridge when the caller resolves isInReach true", () => {
       const result = validateFrontierCommand({
         now: 1_000,
         actor,
@@ -398,7 +405,7 @@ describe("game domain frontier validation", () => {
         isBridgeCrossing: true,
         targetShielded: false,
         defenderIsAlliedOrTruced: false,
-        isInReach: false
+        isInReach: true
       });
 
       expect(result).toMatchObject({ ok: true });

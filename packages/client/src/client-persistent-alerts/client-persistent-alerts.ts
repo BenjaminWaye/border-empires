@@ -81,7 +81,7 @@ export const persistentAlertsForState = (
 ): PersistentAlert[] => {
   const alerts: PersistentAlert[] = [];
   for (const tile of state.tiles.values()) {
-    if (tile.ownerId === state.me && shouldShowTownUnfedWarning(tile)) {
+    if (tile.ownerId === state.me && shouldShowTownUnfedWarning(tile, state.me)) {
       alerts.push({
         id: `town_unfed:${tile.x},${tile.y}`,
         kind: "town_unfed",

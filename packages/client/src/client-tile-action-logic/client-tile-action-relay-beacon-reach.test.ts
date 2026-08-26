@@ -112,6 +112,19 @@ describe("build_relay_beacon_frontier — gated on reach, not fog exploration", 
   });
 });
 
+describe("build_relay_beacon_frontier — cost text", () => {
+  it("omits the gold segment when the combined expand+settle+build gold cost is 0", () => {
+    const state = stateWithTown(0, 0);
+    const target: Tile = { x: 2, y: 2, terrain: "LAND" } as Tile;
+    state.tiles.set(keyFor(2, 2), target);
+
+    const actions = menuActionsForSingleTile(state, target, baseDeps as never);
+    const action = findAction(actions, "build_relay_beacon_frontier" as TileActionDef["id"]);
+    expect(action?.cost).toBeDefined();
+    expect(action?.cost).not.toContain("gold");
+  });
+});
+
 describe("settle_land — always shown, since EXPAND is no longer reach-gated", () => {
   it("shows Settle Land on a tile inside reach", () => {
     const state = stateWithTown(0, 0);

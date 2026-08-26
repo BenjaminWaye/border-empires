@@ -53,6 +53,7 @@ export const buildPlayerSubscriptionSnapshot = (
             ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
             ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
             ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+            ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
             ...(tile.town ? { townJson: JSON.stringify(tile.town) } : {}),
             ...(tile.town?.type ? { townType: tile.town.type } : {}),
             ...(tile.town?.name ? { townName: tile.town.name } : {}),
@@ -204,6 +205,19 @@ export const buildPlayerSubscriptionSnapshot = (
           if (pendingSettlementTileKeys.has(tileKey) || activeLockTileKeys.has(tileKey)) return undefined;
           const tile = tileByKey.get(tileKey);
           if (!tile || tile.terrain !== "LAND" || tile.ownerId !== playerId || tile.ownershipState !== "FRONTIER") return undefined;
+          // This queue always dispatches a normal client-side SETTLE command
+          // (client-development-queue.ts), which handleSettleCommand rejects
+          // with OUT_OF_REACH unconditionally -- it has no exemption for
+          // town/dock anchor tiles. A captured town/dock anchor that would
+          // otherwise decay for being out of reach gets its own, separate,
+          // synchronous auto-settle at capture-resolution time instead (see
+          // canAutoSettleCapturedAnchor / autoSettleCapturedAnchor in
+          // runtime-out-of-reach-auto-settle.ts, invoked from resolveLock);
+          // if that one-shot attempt didn't happen or failed (no dev slot,
+          // can't afford it), the tile is already committed to decay and
+          // must not be re-queued here for a doomed retry. So this queue
+          // must skip every out-of-reach FRONTIER tile, not just resources.
+          if (tile.frontierDecayKind === "OUT_OF_REACH") return undefined;
           let hasTownSupport = false;
           forEachFrontierNeighbor(tile.x, tile.y, (nx, ny) => {
             if (!hasTownSupport) {
@@ -328,7 +342,22 @@ export const buildPlayerSubscriptionSnapshot = (
             // runtime-waypoint-queue.ts. Seeds a fresh login/reconnect with
             // whatever survived while disconnected; the live PLAYER_UPDATE
             // stream (emitPlayerStateUpdate) keeps it current after that.
-            ...(livePlayer.devQueue?.length ? { devQueue: livePlayer.devQueue } : {}),
+            // reservedManpower/reservedSlotRequirements are deliberately
+            // stripped here: they are server-side refund bookkeeping (see
+            // runtime-dev-queue-build-reservation.ts), not something the
+            // client renders, so the wire shape stays lean.
+            ...(livePlayer.devQueue?.length
+              ? {
+                  devQueue: livePlayer.devQueue.map((entry) => ({
+                    tileKey: entry.tileKey,
+                    x: entry.x,
+                    y: entry.y,
+                    kind: entry.kind,
+                    ...(entry.structureType ? { structureType: entry.structureType } : {}),
+                    queuedAt: entry.queuedAt
+                  }))
+                }
+              : {}),
             ...(livePlayer.waypointQueue?.length ? { waypointQueue: livePlayer.waypointQueue } : {}),
             techIds: [...livePlayer.techIds],
             domainIds: [...livePlayer.domainIds],

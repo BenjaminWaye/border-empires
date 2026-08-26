@@ -106,6 +106,43 @@ export const computeCoastalLandKeys = (tileList: readonly DomainTileState[]): Se
   return coastal;
 };
 
+// Connected components of LAND tiles (8-directional, matching
+// computeCoastalLandKeys' adjacency), used to stop hasNearbyFood/hasNearbyTown
+// from treating a resource across water as "nearby" just because it's within
+// Manhattan radius — a coastal spawn's closest FARM/FISH by straight-line
+// distance can sit on a different landmass, on the far side of a bay or
+// strait, unreachable without crossing water.
+export const computeLandRegions = (tileList: readonly DomainTileState[]): Map<string, number> => {
+  const landByKey = new Map<string, DomainTileState>();
+  for (const tile of tileList) {
+    if (tile.terrain === "LAND") landByKey.set(simulationTileKey(tile.x, tile.y), tile);
+  }
+  const regionByKey = new Map<string, number>();
+  let nextRegionId = 0;
+  for (const [startKey, startTile] of landByKey) {
+    if (regionByKey.has(startKey)) continue;
+    const regionId = nextRegionId;
+    nextRegionId += 1;
+    const queue: DomainTileState[] = [startTile];
+    regionByKey.set(startKey, regionId);
+    while (queue.length > 0) {
+      const tile = queue.pop()!;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          if (dx === 0 && dy === 0) continue;
+          const neighborKey = simulationTileKey(tile.x + dx, tile.y + dy);
+          if (regionByKey.has(neighborKey)) continue;
+          const neighbor = landByKey.get(neighborKey);
+          if (!neighbor) continue;
+          regionByKey.set(neighborKey, regionId);
+          queue.push(neighbor);
+        }
+      }
+    }
+  }
+  return regionByKey;
+};
+
 export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { x: number; y: number } | undefined => {
   const tileList = [...input.tiles];
   if (tileList.length === 0) return undefined;
@@ -120,17 +157,31 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
   });
   if (spawnCandidates.length === 0) return undefined;
 
+  let landRegionByTileKeyCache: Map<string, number> | undefined;
+  const landRegionByTileKey = (): Map<string, number> => {
+    if (!landRegionByTileKeyCache) landRegionByTileKeyCache = computeLandRegions(tileList);
+    return landRegionByTileKeyCache;
+  };
+  // A candidate is only "near" a food/town tile if it's within radius AND on
+  // the same land region — otherwise a resource across water satisfies the
+  // Manhattan-distance check and a spawn gets accepted next to food the
+  // player can't actually reach without crossing water.
+  const sameLandRegion = (ax: number, ay: number, bx: number, by: number): boolean => {
+    const regions = landRegionByTileKey();
+    const originRegion = regions.get(simulationTileKey(ax, ay));
+    return originRegion === undefined || regions.get(simulationTileKey(bx, by)) === originRegion;
+  };
   const hasNearbyTown =
     input.hasNearbyTown ??
     ((): ((x: number, y: number, radius: number) => boolean) => {
       const townCoords = tileList.filter((tile) => tile.town).map((tile) => ({ x: tile.x, y: tile.y }));
-      return (x, y, radius) => townCoords.some((town) => manhattanDistance(x, y, town.x, town.y) <= radius);
+      return (x, y, radius) => townCoords.some((town) => manhattanDistance(x, y, town.x, town.y) <= radius && sameLandRegion(x, y, town.x, town.y));
     })();
   const hasNearbyFood =
     input.hasNearbyFood ??
     ((): ((x: number, y: number, radius: number) => boolean) => {
       const foodCoords = tileList.filter((tile) => tile.resource === "FARM" || tile.resource === "FISH").map((tile) => ({ x: tile.x, y: tile.y }));
-      return (x, y, radius) => foodCoords.some((food) => manhattanDistance(x, y, food.x, food.y) <= radius);
+      return (x, y, radius) => foodCoords.some((food) => manhattanDistance(x, y, food.x, food.y) <= radius && sameLandRegion(x, y, food.x, food.y));
     })();
   const hasNearbySpawn =
     input.hasNearbySettled ??

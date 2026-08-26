@@ -3,7 +3,7 @@ import type { Tile } from "../client-types.js";
 const DEBUG_TILE_STORAGE_KEY = "debug_tile_key";
 const DEBUG_TILE_ENABLED_STORAGE_KEY = "debug_tile_enabled";
 const DEBUG_EMAIL_STORAGE_KEY = "debug_auth_email";
-const DEBUG_ACCOUNT_EMAIL = "bw199005@gmail.com";
+const DEBUG_ACCOUNT_EMAIL = "admin@borderempires.com";
 const MAX_CLIENT_DEBUG_EVENTS = 400;
 const lastLogAtByKey = new Map<string, number>();
 const clientDebugEvents: Array<{

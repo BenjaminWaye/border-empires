@@ -18,6 +18,7 @@ import {
   chooseDomainForPlayer,
   domainGrantedResourceSlots,
   domainHasResourceSubChoice,
+  effectiveVisionRadiusForPlayer,
   multiplicativeEffectForPlayer,
   recomputeMods,
   resolveDataPath
@@ -380,5 +381,31 @@ describe("AI progression choice prefers affordable options over higher-scored un
     expect(choice).toBeDefined();
     expect(choice!.affordable).toBe(true);
     expect(choice!.id).toBe("mercantile-charter");
+  });
+});
+
+// Galactic meta-layer v0 Deep Sensor Array stand-in (docs/galactic-campaign-design.md
+// §5, §12): galacticWonderVisionRadiusBonus is a one-time starting bonus for
+// the most recent season's Planet winner, additive with the in-season
+// CARTOGRAPHERS_LENS wonderVisionRadiusBonus and tech/domain bonuses.
+describe("effectiveVisionRadiusForPlayer — galactic Wonder vision bonus (v0)", () => {
+  const basePlayer = { mods: { attack: 1, defense: 1, income: 1, vision: 1 }, techIds: new Set<string>(), domainIds: new Set<string>() };
+
+  it("adds galacticWonderVisionRadiusBonus on top of the base radius", () => {
+    const withoutBonus = effectiveVisionRadiusForPlayer(basePlayer);
+    const withBonus = effectiveVisionRadiusForPlayer({ ...basePlayer, galacticWonderVisionRadiusBonus: 2 });
+    expect(withBonus).toBe(withoutBonus + 2);
+  });
+
+  it("stacks additively with the in-season natural-Wonder vision bonus", () => {
+    const withoutEither = effectiveVisionRadiusForPlayer(basePlayer);
+    const withBoth = effectiveVisionRadiusForPlayer({ ...basePlayer, wonderVisionRadiusBonus: 1, galacticWonderVisionRadiusBonus: 2 });
+    expect(withBoth).toBe(withoutEither + 3);
+  });
+
+  it("is a no-op when absent (undefined treated as 0)", () => {
+    expect(effectiveVisionRadiusForPlayer({ ...basePlayer, galacticWonderVisionRadiusBonus: undefined })).toBe(
+      effectiveVisionRadiusForPlayer(basePlayer)
+    );
   });
 });

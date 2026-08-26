@@ -63,7 +63,8 @@ export function playerManpowerRegenPerMinute(ctx: RuntimeManpowerEconomyContext,
     ctx.summaryForPlayer(player.id),
     railDepotNetworkLogisticsGuildCount,
     logisticsGuildCount,
-    populationBureauManpowerBuildingCount
+    populationBureauManpowerBuildingCount,
+    player.galacticWonderManpowerRegenBonusPerMinute ?? 0
   );
 }
 
@@ -86,7 +87,8 @@ export function playerManpowerBreakdown(ctx: RuntimeManpowerEconomyContext, play
     assemblyWorksNetworkGarrisonHallCount,
     railDepotNetworkLogisticsGuildCount,
     logisticsGuildCount,
-    populationBureauManpowerBuildingCount
+    populationBureauManpowerBuildingCount,
+    player.galacticWonderManpowerRegenBonusPerMinute ?? 0
   );
 }
 

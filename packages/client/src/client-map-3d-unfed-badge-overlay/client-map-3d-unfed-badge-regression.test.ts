@@ -71,7 +71,7 @@ describe("3d resource-dormancy badge regression guard", () => {
     // Parity with the tile-menu "Town is unfed" line: badge predicate must
     // come from shouldShowTownUnfedWarning so neutral, foreign, unsettled,
     // and SETTLEMENT-tier towns don't light up the map.
-    expect(source).toContain('shouldShowTownUnfedWarning(tile)');
+    expect(source).toContain('shouldShowTownUnfedWarning(tile, deps.state.me)');
     expect(source).toContain("resourceBadgeOverlays.FOOD.addInstance(x, z, surfaceY)");
   });
 
@@ -82,41 +82,46 @@ describe("3d resource-dormancy badge regression guard", () => {
   });
 
   it("paints for an owned, settled, unfed, stalled, non-SETTLEMENT town", () => {
-    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile())).toBe(true);
+    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile(), "me")).toBe(true);
   });
 
   it("does NOT paint on a neutral (unowned) town — matches tile-menu's 'Neutral town' branch", () => {
     const tile = ownedSettledUnfedTownTile();
     delete (tile as { ownerId?: string }).ownerId;
     delete (tile as { ownershipState?: Tile["ownershipState"] }).ownershipState;
-    expect(shouldShowTownUnfedWarning(tile)).toBe(false);
+    expect(shouldShowTownUnfedWarning(tile, "me")).toBe(false);
   });
 
   it("does NOT paint on a foreign town with no economy data — isFed missing/non-boolean", () => {
     const tile = ownedSettledUnfedTownTile({ ownerId: "enemy" });
     // Foreign satellite-reveal payloads strip isFed, so simulate that.
     delete (tile.town as { isFed?: boolean }).isFed;
-    expect(shouldShowTownUnfedWarning(tile)).toBe(false);
+    expect(shouldShowTownUnfedWarning(tile, "me")).toBe(false);
+  });
+
+  it("does NOT paint on another player's town, even though it is unfed and stalled", () => {
+    const tile = ownedSettledUnfedTownTile({ ownerId: "enemy" });
+    expect(shouldShowTownUnfedWarning(tile, "me")).toBe(false);
   });
 
   it("does NOT paint on a frontier (unsettled) tile we own", () => {
-    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ ownershipState: "FRONTIER" }))).toBe(false);
+    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ ownershipState: "FRONTIER" }), "me")).toBe(false);
   });
 
   it("does NOT paint on a SETTLEMENT-tier town — production line covers this case", () => {
-    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ town: { populationTier: "SETTLEMENT" } }))).toBe(false);
+    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ town: { populationTier: "SETTLEMENT" } }), "me")).toBe(false);
   });
 
   it("does NOT paint when the town is fed", () => {
-    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ town: { isFed: true } }))).toBe(false);
+    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ town: { isFed: true } }), "me")).toBe(false);
   });
 
   it("does NOT paint when the town is producing gold (not actually stalled)", () => {
-    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ town: { goldPerMinute: 0.5 } }))).toBe(false);
+    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ town: { goldPerMinute: 0.5 } }), "me")).toBe(false);
   });
 
   it("does NOT paint when population is still growing (not actually stalled)", () => {
-    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ town: { populationGrowthPerMinute: 1 } }))).toBe(false);
+    expect(shouldShowTownUnfedWarning(ownedSettledUnfedTownTile({ town: { populationGrowthPerMinute: 1 } }), "me")).toBe(false);
   });
 
   it("emits exactly one badge per instance and clears between frames", () => {

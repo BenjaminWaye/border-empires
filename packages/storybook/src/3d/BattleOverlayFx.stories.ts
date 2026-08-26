@@ -48,7 +48,8 @@ const buildEntry = (args: Args, startAt: number): BattleOverlayRenderEntry => {
     startAt,
     clashAt,
     endAt: clashAt + CLASH_MS + ROUT_MS,
-    hashSeed: 1
+    hashSeed: 1,
+    fromSkirmish: false
   };
 };
 
@@ -185,7 +186,8 @@ export const ConcurrentBattles: Story = {
         startAt,
         clashAt,
         endAt: clashAt + CLASH_MS + ROUT_MS,
-        hashSeed: i + 1
+        hashSeed: i + 1,
+        fromSkirmish: false
       };
     });
 
@@ -278,8 +280,8 @@ export const FullAttackLifecycle: StoryObj<LifecycleArgs> = {
     defenderColor: "#ff5d5d",
     attackerWon: true,
     cameraDistance: 5,
-    siegeDurationMs: 30_000,
-    playbackSpeed: 8,
+    siegeDurationMs: 8_000,
+    playbackSpeed: 1,
     autoPlay: true
   },
   render: (args) => {
@@ -310,7 +312,8 @@ export const FullAttackLifecycle: StoryObj<LifecycleArgs> = {
       defenderColor: args.defenderColor,
       attackerWon: args.attackerWon,
       startAt, clashAt, endAt,
-      hashSeed: 1
+      hashSeed: 1,
+      fromSkirmish: true
     };
 
     const tickAt = (t: number): void => {
@@ -329,7 +332,7 @@ export const FullAttackLifecycle: StoryObj<LifecycleArgs> = {
         }
         return {
           name: "SKIRMISH · clash loop",
-          detail: `${(t / 1000).toFixed(1)}s / ${(args.siegeDurationMs / 1000).toFixed(1)}s countdown — oscillating melee, outcome not yet known, no casualties yet`
+          detail: `${(t / 1000).toFixed(1)}s / ${(args.siegeDurationMs / 1000).toFixed(1)}s countdown — oscillating melee, glyph bursts, first-cycle casualties already shed (WINNER_DEATHS per side)`
         };
       }
       if (t < clashAt) {

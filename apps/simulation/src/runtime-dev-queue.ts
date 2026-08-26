@@ -13,6 +13,8 @@ export type DevQueueEnqueuePayload = {
   tileKey: string;
   kind: ServerDevQueueEntry["kind"];
   structureType?: string;
+  reservedManpower?: number;
+  reservedSlotRequirements?: ServerDevQueueEntry["reservedSlotRequirements"];
 };
 export type DevQueueTileKeyPayload = { tileKey: string };
 
@@ -59,13 +61,19 @@ export const devQueueEnqueue = (
     y: entry.y,
     kind: entry.kind,
     queuedAt,
-    ...(entry.structureType ? { structureType: entry.structureType } : {})
+    ...(entry.structureType ? { structureType: entry.structureType } : {}),
+    ...(entry.reservedManpower ? { reservedManpower: entry.reservedManpower } : {}),
+    ...(entry.reservedSlotRequirements ? { reservedSlotRequirements: entry.reservedSlotRequirements } : {})
   };
   return { queue: [...queue, next], accepted: true };
 };
 
 export const devQueueCancel = (queue: ServerDevQueueEntry[], tileKey: string): ServerDevQueueEntry[] =>
   queue.filter((entry) => entry.tileKey !== tileKey);
+
+/** Looks up an entry without removing it -- used to read its reservation before cancel/drain removes it from the array. */
+export const devQueueEntryForTileKey = (queue: ServerDevQueueEntry[], tileKey: string): ServerDevQueueEntry | undefined =>
+  queue.find((entry) => entry.tileKey === tileKey);
 
 export const devQueueMoveToFront = (queue: ServerDevQueueEntry[], tileKey: string): ServerDevQueueEntry[] => {
   const index = queue.findIndex((entry) => entry.tileKey === tileKey);

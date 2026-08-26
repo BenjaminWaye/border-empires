@@ -2,6 +2,7 @@
   "name": "border-empires",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-only",
   "packageManager": "pnpm@9.12.0",
   "scripts": {
     "dev": "pnpm --filter @border-empires/shared build && pnpm --parallel --filter @border-empires/simulation --filter @border-empires/realtime-gateway --filter @border-empires/client dev",

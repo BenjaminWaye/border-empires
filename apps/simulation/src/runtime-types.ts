@@ -1,5 +1,5 @@
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
-import type { Terrain, VisibilityState } from "@border-empires/shared";
+import type { FrontierDecayKind, Terrain, VisibilityState } from "@border-empires/shared";
 import type { DomainPlayer, DomainStrategicResourceKey, FrontierCommandType } from "@border-empires/game-domain";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { RecoveredCommandHistory } from "./command-recovery/command-recovery.js";
@@ -175,6 +175,10 @@ export type SimulationRuntimeOptions = {
   // first time this playerId spawns territory in the new season (see
   // ensurePlayerHasSpawnTerritory in runtime.ts).
   pendingImperialWard?: { playerId: string; charges: number };
+  // Galactic meta-layer v0 (§5, §12): granted once, the first time this
+  // playerId spawns territory in the new season, mirroring
+  // pendingImperialWard's lifecycle — see ensurePlayerHasSpawnTerritory.
+  pendingGalacticWonderBonus?: { playerId: string };
   commandTrace?: (sample: Record<string, unknown>) => void;
   onOwnershipChange?: (sample: OwnershipChangeSample) => void;
   onQueueDrain?: (sample: {
@@ -245,7 +249,7 @@ export type SimulationTileWireDelta = {
   ownerId?: string | undefined;
   ownershipState?: string | undefined;
   frontierDecayAt?: number | undefined;
-  frontierDecayKind?: "ENCIRCLEMENT" | undefined;
+  frontierDecayKind?: FrontierDecayKind | undefined;
   breachShockUntil?: number | undefined;
   fortJson?: string | undefined;
   observatoryJson?: string | undefined;
@@ -267,4 +271,13 @@ export type SimulationTileWireDelta = {
   ownershipClearOnly?: boolean;
   /** One-shot combat-broadcast payload (JSON-stringified CombatBroadcastPayload) — see simulation.proto's combat_json doc comment. */
   combatJson?: string | undefined;
+  // Internal filter hint, never sent to the wire (proto-serialization.ts only
+  // forwards fields it knows about): forces tile-delta-visibility-filter.ts to
+  // deliver the FULL delta to this one playerId even if the tile just fell
+  // outside their fog-of-war coverage — e.g. a player who just lost a tile in
+  // combat (their origin overrun, or their target captured) needs to see that
+  // tile's resolved state, including any muster flag being cleared, even
+  // though losing ownership may have simultaneously dropped their vision of
+  // it. See runtime-lock-resolution.ts's resolveLostOrigin/resolveLock.
+  forceVisibleForPlayerId?: string | undefined;
 };

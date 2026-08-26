@@ -108,17 +108,35 @@ export const AI_AUTO_CLAIM_MANPOWER_RESERVE = SETTLE_MANPOWER_COST;
 // town's contribution, unconditionally (see playerManpowerCapFromSummary /
 // playerManpowerRegenPerMinuteFromSummary in apps/simulation/src/runtime-manpower.ts).
 // Sized so a new player can expand ~40 tiles and settle ~8 before waiting on
-// regen: 40 * EXPAND_MANPOWER_COST + 8 * SETTLE_MANPOWER_COST = 560; the 576
-// cap leaves a small margin. Regen 0.4/min implies a 24h fill window
-// (576 = 0.4 * 1440), a deliberate departure from the 12h SETTLEMENT-tier
+// regen: 40 * EXPAND_MANPOWER_COST + 8 * SETTLE_MANPOWER_COST = 560; the 720
+// cap leaves a larger margin. Regen 0.4/min implies a 30h fill window
+// (720 = 0.4 * 1800), a deliberate departure from the 12h SETTLEMENT-tier
 // convention — see §4.3 for the full onboarding-math writeup.
-export const STARTING_CAPITAL_MANPOWER_CAP = 576;
+export const STARTING_CAPITAL_MANPOWER_CAP = 720;
 export const STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE = 0.4;
 // Global regen safety floor. Deliberately kept low (below every real tier's
 // regenPerMinute, including SETTLEMENT's ~0.208) so it never masks a captured
 // town's contribution the way MANPOWER_BASE_REGEN_PER_MINUTE would if reused
 // here — see §4.3's "critical implementation trap" note.
 export const MANPOWER_REGEN_GLOBAL_FLOOR = 0.15;
+
+// --- Galactic meta-layer v0: Wonder-style starting bonuses (§5, §12) ---
+// docs/galactic-campaign-design.md §5 describes 6 globally-unique Wonders
+// bought with a persistent Production economy that doesn't exist yet (no
+// Production wallet, no supersession, no Influence/Senate). v0's stand-in
+// (§12 "Production funding 1-2 Wonder-style starting bonuses for the
+// claimant's next season") is much smaller: the most recent season's Planet
+// winner (§3) gets two fixed, one-time starting bonuses applied at their
+// next JoinSeason spawn — see pendingGalacticWonderBonus in
+// apps/simulation/src/runtime/runtime.ts. Not tunable per-Wonder-tier like
+// §13's Prod costs; a flat grant is the whole v0 simplification.
+// Dyson Array stand-in: a manpower-regen head start, same order of magnitude
+// as STARTING_CAPITAL_MANPOWER_REGEN_PER_MINUTE above (doubles it).
+export const GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE = 0.4;
+// Deep Sensor Array stand-in: reuses the Observatory vision-radius model
+// (OBSERVATORY_VISION_BONUS below) at half its magnitude — a head start, not
+// a full Observatory-equivalent bonus.
+export const GALACTIC_WONDER_VISION_RADIUS_BONUS = 2;
 export const TOWN_MANPOWER_BY_TIER: Record<
   "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS",
   { cap: number; regenPerMinute: number }
@@ -199,6 +217,12 @@ export const DOCK_REACH_RADIUS = 1;
 // "OUTPOST") -- see reach.ts and applyReachAnchorActivation's caller in
 // runtime.ts for why this grant is one-shot rather than a persistent anchor.
 export const AETHER_BRIDGE_REACH_RADIUS = 3;
+
+// Decay window for a FRONTIER tile claimed/captured outside the owner's
+// current reach (distinct from encirclement decay, which is
+// connectivity-based and lives in apps/simulation). See reach.ts's
+// reachOwnerCountAt for the contested-zone exception that suppresses this.
+export const OUT_OF_REACH_DECAY_MS = 120_000;
 
 export const DOCK_DEFENSE_MULT = 1.5;
 export const DOCK_CROSSING_COOLDOWN_MS = 30_000;

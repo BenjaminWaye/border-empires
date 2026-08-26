@@ -1,4 +1,4 @@
-import { isForestTile } from "./client-constants.js";
+import { MIN_ZOOM, isForestTile } from "./client-constants.js";
 import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
@@ -9,11 +9,7 @@ import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-ren
 import { STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
-import {
-  RENDERER_PROMPT_FPS_THRESHOLD,
-  RENDERER_PROMPT_LOW_FPS_MS,
-  shouldShowRendererPrompt
-} from "./client-renderer-prompt/client-renderer-prompt.js";
+import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
 import { resourceFor3DPopulation } from "./client-map-3d-population/client-map-3d-population.js";
 import { effectiveFogDisabled } from "./client-map-reveal/client-map-reveal.js";
 import {
@@ -33,12 +29,13 @@ import {
   drawReachBoundaryLine,
   isDormantFrontierTile
 } from "./client-reach-overlay/client-reach-overlay.js";
-import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js";
+import { drawPersistentAlertLocators, persistentAlertsForState, type PersistentAlert } from "./client-persistent-alerts/client-persistent-alerts.js"; import { drawOnboardingChecklistHighlights } from "./client-onboarding-checklist/client-onboarding-checklist-highlight.js";
 import { pruneShardRainPings, visibleShardSiteForTile } from "./client-shard-rain-pings/client-shard-rain-pings.js";
 import { drawWatchtower2D } from "./client-map-2d-watchtower-overlay.js";
 import { drawNaturalWonderOverlay2D, naturalWonderOverlayForTile } from "./client-map-2d-natural-wonder-overlay.js";
 import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFallbackSource } from "./client-muster-transit/client-muster-transit.js";
 import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
+import { isSeasonLobbyFullscreenActive } from "./client-season-lobby-fullscreen.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/client-visible-tile-detail.js";
@@ -46,6 +43,7 @@ import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery/client-
 import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrainAt } from "@border-empires/shared";
 import { devQueueBadgeIndex } from "./client-dev-queue-badge-index/client-dev-queue-badge-index.js";
 import { attackSyncLog, debugTileLog, debugTileTimeline, recordClientDebugEvent, tileMatchesDebugKey, verboseTileDebugEnabled } from "./client-debug/client-debug.js";
+import { clampedTileHalfExtents, resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 
 // Persistent-alert tile scan is O(all tiles ever discovered this session,
 // up to WORLD_WIDTH*WORLD_HEIGHT) and measured at ~5.78ms avg / 20.5ms p99
@@ -205,6 +203,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   });
 
   const draw = (): void => {
+    if (isSeasonLobbyFullscreenActive(state)) { requestAnimationFrame(draw); return; }
     const nowMs = performance.now();
     recordFpsFrame(nowMs);
     const minFrameGap = deps.isMobile() ? 40 : 24;
@@ -257,8 +256,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     const size = state.zoom;
-    const halfW = Math.floor(deps.canvas.width / size / 2);
-    const halfH = Math.floor(deps.canvas.height / size / 2);
+    const { halfW, halfH } = clampedTileHalfExtents(Math.floor(deps.canvas.width / size / 2), Math.floor(deps.canvas.height / size / 2), resolveTileBudget(MIN_ZOOM));
     const dockEndpointKeys = new Set<string>();
     for (const pair of state.dockPairs) {
       dockEndpointKeys.add(deps.keyFor(pair.ax, pair.ay));
@@ -653,10 +651,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         wrapY: deps.wrapY
       });
 
-      // Fixed-borders-via-reach overlay (dormant-frontier fill, reach
-      // boundary line). See client-reach-overlay.ts.
-      if (!isTrue3DRendererActive() && myReach && t && vis === "visible") {
-        if (t.ownerId === state.me && isDormantFrontierTile(t)) {
+      // Fixed-borders-via-reach overlay. Boundary renders over fogged tiles
+      // too (a fixed claim, not fog-dependent) but stays hidden over unexplored.
+      if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+        if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
           drawDormantFrontierTreatment(deps.ctx, px, py, size);
         }
         if (t.ownerId === state.me) {
@@ -1180,9 +1178,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           wrapY: deps.wrapY
         });
 
-        // Fixed-borders-via-reach overlay — see client-reach-overlay.ts.
-        if (!isTrue3DRendererActive() && myReach && t && vis === "visible") {
-          if (t.ownerId === state.me && isDormantFrontierTile(t)) {
+        // Fixed-borders-via-reach overlay -- see the main pass above.
+        if (!isTrue3DRendererActive() && myReach && t && vis !== "unexplored") {
+          if (vis === "visible" && t.ownerId === state.me && isDormantFrontierTile(t)) {
             drawDormantFrontierTreatment(deps.ctx, px, py, size);
           }
           if (t.ownerId === state.me) {
@@ -1663,7 +1661,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       halfH,
       nowMs,
       precomputedAlerts: persistentAlertsCache
-    });
+    }); drawOnboardingChecklistHighlights(state.onboardingHighlightTiles, { ctx: deps.ctx, worldToScreen: deps.worldToScreen, size, halfW, halfH, nowMs });
     const minimapAlertsMs = phaseMs();
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     const tileDetailMs = phaseMs();

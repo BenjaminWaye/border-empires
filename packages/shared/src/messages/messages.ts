@@ -47,6 +47,10 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("TRUCE_CANCEL"), requestId: z.string().min(1) }),
   z.object({ type: z.literal("TRUCE_BREAK"), targetPlayerId: z.string().min(1) }),
   z.object({ type: z.literal("SET_TILE_COLOR"), color: z.string() }),
+  // Optional 2-letter uppercase ISO country code shown as a flag emoji next
+  // to the player's name in the season lobby roster (see
+  // client-join-season-overlay.ts). Gateway re-validates the shape.
+  z.object({ type: z.literal("SET_COUNTRY_FLAG"), countryFlag: z.string().min(2).max(2) }),
   z.object({
     type: z.literal("SET_PROFILE"),
     displayName: z.string().trim().min(2).max(24),
@@ -256,6 +260,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   // (global rollover). The sim only honours it once the current season has
   // ended (startNextSeason(force=false)), so it cannot reset an active season.
   z.object({ type: z.literal("START_NEW_SEASON") }),
+  z.object({ type: z.literal("JOIN_SEASON") }),
   z.object({
     type: z.literal("CHOOSE_DOMAIN"),
     domainId: z.string().min(1),

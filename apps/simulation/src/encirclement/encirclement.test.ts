@@ -8,8 +8,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import { COMBAT_LOCK_MS, FRONTIER_CLAIM_MS } from "@border-empires/shared";
 import { SimulationRuntime } from "../runtime/runtime.js";
-import { computeEncirclementDeltas, ENCIRCLEMENT_BFS_CAP, ENCIRCLEMENT_DECAY_MS, isFrontierConnected } from "./encirclement.js";
-
+import { computeEncirclementDeltas, ENCIRCLEMENT_BFS_CAP, isFrontierConnected } from "./encirclement.js";
+const ENCIRCLEMENT_DECAY_MS_LOCAL = 60_000; // historical window; encirclement is instant now, this is only a timer fixture
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -210,7 +210,7 @@ describe("encirclement timer semantics", () => {
     // The applyEncirclement path would compute: min(shorterDecayAt, nowMs + 60s) = shorterDecayAt.
     // Verify the min-wins logic: encirclementExpiresAt would be nowMs + 60_000 = 61_000.
     // shorterDecayAt = 31_000 < 61_000 → min is 31_000, so no update.
-    const encirclementExpiresAt = nowMs + ENCIRCLEMENT_DECAY_MS;
+    const encirclementExpiresAt = nowMs + ENCIRCLEMENT_DECAY_MS_LOCAL;
     const newDecayAt = Math.min(shorterDecayAt, encirclementExpiresAt);
     expect(newDecayAt).toBe(shorterDecayAt); // shorter wins, no overwrite
   });
@@ -227,15 +227,15 @@ describe("encirclement timer semantics", () => {
 
   it("F6: reconnect clears an encirclement timer at exactly the 60 s boundary", () => {
     // On reconnect, computeEncirclementDeltas should include the tile in
-    // `reconnected` because remaining time ≤ ENCIRCLEMENT_DECAY_MS.
+    // `reconnected` because remaining time ≤ ENCIRCLEMENT_DECAY_MS_LOCAL.
     const nowMs = 1_000;
-    const encirclementTimer = nowMs + ENCIRCLEMENT_DECAY_MS; // 61_000 — exactly 60 s
+    const encirclementTimer = nowMs + ENCIRCLEMENT_DECAY_MS_LOCAL; // 61_000 — exactly 60 s
     const tiles = mkTileMap({
       "10,10": { ownerId: "player-1", ownershipState: "SETTLED" },
       "11,10": { ownerId: "player-1", ownershipState: "FRONTIER", frontierDecayAt: encirclementTimer, frontierDecayKind: "ENCIRCLEMENT" }
     });
     const { reconnected } = computeEncirclementDeltas(["10,10"], "player-1", tiles, nowMs);
-    // Timer is exactly ENCIRCLEMENT_DECAY_MS remaining → encirclement set it → can be cleared.
+    // Timer is exactly ENCIRCLEMENT_DECAY_MS_LOCAL remaining → encirclement set it → can be cleared.
     expect(reconnected.has("11,10")).toBe(true);
   });
 });
@@ -260,7 +260,7 @@ describe("encirclement attack guard", () => {
           {
             x: 10, y: 10, terrain: "LAND",
             ownerId: "player-1", ownershipState: "FRONTIER",
-            frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS, // 60 s from now
+            frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS_LOCAL, // 60 s from now
             frontierDecayKind: "ENCIRCLEMENT"
           },
           // player-2 target
@@ -314,7 +314,7 @@ describe("encirclement attack guard", () => {
             {
               x: 11, y: 10, terrain: "LAND",
               ownerId: "player-2", ownershipState: "FRONTIER",
-              frontierDecayAt: Date.now() + ENCIRCLEMENT_DECAY_MS,
+              frontierDecayAt: Date.now() + ENCIRCLEMENT_DECAY_MS_LOCAL,
               frontierDecayKind: "ENCIRCLEMENT"
             }
           ],
@@ -356,7 +356,7 @@ describe("encirclement attack guard", () => {
       {
         x: 10, y: 10, terrain: "LAND",
         ownerId: "player-1", ownershipState: "FRONTIER",
-        frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS,
+        frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS_LOCAL,
         frontierDecayKind: "ENCIRCLEMENT"
       },
       // neutral target adjacent to origin
@@ -434,7 +434,7 @@ describe("encirclement settle guard", () => {
       {
         x: 10, y: 10, terrain: "LAND",
         ownerId: "player-1", ownershipState: "FRONTIER",
-        frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS,
+        frontierDecayAt: 1_000 + ENCIRCLEMENT_DECAY_MS_LOCAL,
         frontierDecayKind: "ENCIRCLEMENT"
       }
     ]);
@@ -585,7 +585,7 @@ describe("encirclement expand reconnection", () => {
             {
               x: 12, y: 10, terrain: "LAND",
               ownerId: "player-1", ownershipState: "FRONTIER",
-              frontierDecayAt: Date.now() + ENCIRCLEMENT_DECAY_MS,
+              frontierDecayAt: Date.now() + ENCIRCLEMENT_DECAY_MS_LOCAL,
               frontierDecayKind: "ENCIRCLEMENT"
             },
             // neutral tile that will become the bridge when expanded into

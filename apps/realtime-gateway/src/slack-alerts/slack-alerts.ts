@@ -73,8 +73,6 @@ export type SlackAlerter = {
   alertMachineRestart: (uptimeMs: number) => void;
   /** gateway_sqlite_retry_total rate > threshold per minute. */
   alertSqliteRetryHigh: (ratePerMin: number) => void;
-  /** Player-submitted bug report. */
-  alertPlayerBugReport: (report: BugReportInput) => void;
   /** Player was silently respawned (lost territory). */
   alertPlayerRespawned: (playerId: string, reason: string) => void;
   /** New season started. */
@@ -458,40 +456,6 @@ export const createSlackAlerter = (options: SlackAlerterOptions): SlackAlerter =
         targetLabel: "n/a",
         triggerDetail: `player ${playerId} authenticated a websocket session`
       });
-    },
-
-    alertPlayerBugReport(report: BugReportInput): void {
-      const serverErrorEvents = report.serverEvents.filter((e) => e.level === "error");
-      const serverWarnEvents = report.serverEvents.filter((e) => e.level === "warn");
-      const clientErrorEvents = report.clientEvents.filter((e) => e.level === "error");
-      const recentServerErrors = serverErrorEvents.slice(-5).map((e) => `  \`${e.event}\` ${e.payload.commandId ? `cmd:${e.payload.commandId}` : ""}`).join("\n");
-      const recentClientErrors = clientErrorEvents.slice(-5).map((e) => `  \`${e.scope}/${e.event}\``).join("\n");
-
-      const headerText = `:bug: ${appLabel} *Player bug report*`;
-      const bodyLines: string[] = [];
-      bodyLines.push(`*Player:* ${report.playerName || "unknown"} (\`${report.playerId}\`)`);
-      bodyLines.push(`*Description:* ${report.description.slice(0, 500)}`);
-      bodyLines.push(`*Server events:* ${report.serverEvents.length} total (${serverErrorEvents.length} errors, ${serverWarnEvents.length} warnings)`);
-      bodyLines.push(`*Client events:* ${report.clientEvents.length} total (${clientErrorEvents.length} errors)`);
-      if (recentServerErrors) bodyLines.push(`*Recent server errors:*\n${recentServerErrors}`);
-      if (recentClientErrors) bodyLines.push(`*Recent client errors:*\n${recentClientErrors}`);
-      if (options.buildSha) bodyLines.push(`*Build:* \`${options.buildSha}\``);
-
-      const payload = {
-        text: headerText,
-        blocks: [
-          { type: "header", text: { type: "plain_text", text: headerText, emoji: true } },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: bodyLines.join("\n")
-            }
-          }
-        ]
-      };
-
-      void post("player_bug_report", payload);
     }
   };
 };

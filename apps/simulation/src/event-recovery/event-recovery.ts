@@ -1,12 +1,12 @@
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
-import { type DomainTileState, type PlayerEventLogEntry } from "@border-empires/game-domain";
+import { type DomainTileState } from "@border-empires/game-domain";
 
 import { capturedTownAftermath } from "../runtime-capture-aftermath.js";
 import { createSeedWorld, type SimulationSeedProfile, simulationTileKey } from "../seed-state/seed-state.js";
 import { hydrateRecoveredTown, parseOptionalJson, recoverTownState } from "./event-recovery-town-helpers.js";
 import { applyProgressionUpdateToRecoveredPlayer } from "./event-recovery-progression-helpers.js";
-import type { ChosenTrickleResource } from "@border-empires/shared";
+import { cloneRecoveredPlayerState, type RecoveredPlayerState } from "./event-recovery-player-state.js";
 import type { DockRouteDefinition } from "../dock-network/dock-network.js";
 import type { PendingSettlementRecord } from "../player-runtime-summary.js";
 
@@ -61,27 +61,7 @@ export type RecoveredSimulationState = {
   docks?: DockRouteDefinition[];
   activeLocks: RecoveredLock[];
   season?: SimulationSeasonState;
-  players?: Array<{
-    id: string;
-    name?: string;
-    isAi?: boolean;
-    points?: number;
-    manpower?: number;
-    manpowerUpdatedAt?: number;
-    manpowerCapSnapshot?: number;
-    techIds?: string[];
-    domainIds?: string[];
-    strategicResources?: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD", number>>;
-    chosenTrickleResource?: ChosenTrickleResource;
-    imperialWardCharges?: number;
-    wonderLastFreeRushBuyAt?: number;
-    eventLog?: PlayerEventLogEntry[];
-    allies?: string[];
-    vision?: number;
-    incomeMultiplier?: number;
-    incomePerMinute?: number;
-    ownedTownTileKeys?: string[];
-  }>;
+  players?: RecoveredPlayerState[];
   pendingSettlements?: PendingSettlementRecord[];
   tileYieldCollectedAtByTile?: Array<{ tileKey: string; collectedAt: number }>;
   playerYieldCollectionEpochByPlayer?: Array<{ playerId: string; collectedAt: number }>;
@@ -112,6 +92,7 @@ const cloneRecoveredTile = (tile: RecoveredTileState): RecoveredTileState => ({
   ...(tile.ownerId ? { ownerId: tile.ownerId } : {}),
   ...(tile.ownershipState ? { ownershipState: tile.ownershipState } : {}),
   ...(typeof tile.frontierDecayAt === "number" ? { frontierDecayAt: tile.frontierDecayAt } : {}),
+  ...(tile.frontierDecayKind ? { frontierDecayKind: tile.frontierDecayKind } : {}),
   ...(tile.town ? { town: tile.town } : {}),
   ...(tile.fort ? { fort: tile.fort } : {}),
   ...(tile.observatory ? { observatory: tile.observatory } : {}),
@@ -136,16 +117,7 @@ export const createRecoveredSimulationAccumulator = (
     docks: baseState.docks ? baseState.docks.map((dock) => ({ ...dock, ...(dock.connectedDockIds ? { connectedDockIds: [...dock.connectedDockIds] } : {}) })) : [],
     activeLocks,
     ...(baseState.season ? { season: { ...baseState.season, ...(baseState.season.winner ? { winner: { ...baseState.season.winner } } : {}), victoryTrackers: baseState.season.victoryTrackers.map((tracker: SimulationSeasonState["victoryTrackers"][number]) => ({ ...tracker })) } } : {}),
-    players: baseState.players
-      ? baseState.players.map((player) => ({
-          ...player,
-          ...(player.techIds ? { techIds: [...player.techIds] } : {}),
-          ...(player.domainIds ? { domainIds: [...player.domainIds] } : {}),
-          ...(player.strategicResources ? { strategicResources: { ...player.strategicResources } } : {}),
-          ...(player.allies ? { allies: [...player.allies] } : {}),
-          ...(player.ownedTownTileKeys ? { ownedTownTileKeys: [...player.ownedTownTileKeys] } : {})
-        }))
-      : [],
+    players: baseState.players ? baseState.players.map(cloneRecoveredPlayerState) : [],
     pendingSettlements: baseState.pendingSettlements ? [...baseState.pendingSettlements] : [],
     tileYieldCollectedAtByTile: new Map(
       (baseState.tileYieldCollectedAtByTile ?? []).map((entry) => [entry.tileKey, entry.collectedAt])
@@ -213,7 +185,7 @@ const applyTileDeltaToRecoveredAccumulator = (
         ? { frontierDecayAt: existing.frontierDecayAt }
         : {}),
     ...("frontierDecayKind" in tileDelta
-      ? tileDelta.frontierDecayKind === "ENCIRCLEMENT"
+      ? tileDelta.frontierDecayKind
         ? { frontierDecayKind: tileDelta.frontierDecayKind }
         : {}
       : existing?.frontierDecayKind

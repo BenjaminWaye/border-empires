@@ -7,13 +7,19 @@ import {
   finalizeRecoveredSimulationAccumulator
 } from "../event-recovery/event-recovery.js";
 import { SimulationRuntime } from "../runtime/runtime.js";
+import { orderedAutoSettlementTileKeys } from "./territory-automation.js";
+import type { DomainTileState } from "@border-empires/game-domain";
 
 const player = (id: string, points = 1_000, manpower = 1_000) => ({
   id,
   isAi: false,
   points,
   manpower,
-  techIds: new Set<string>(),
+  // masonry reveals TITANIUM tiles -- several tests here place a TITANIUM
+  // resource tile and expect it to be auto-settle eligible once within fog-
+  // of-war vision; without the tech those tiles would also fail the (newer)
+  // tech-reveal gate, which is not what those tests are exercising.
+  techIds: new Set<string>(["masonry"]),
   domainIds: new Set<string>(),
   mods: { attack: 1, defense: 1, income: 1, vision: 1 },
   techRootId: "rewrite-local",
@@ -203,6 +209,59 @@ describe("territory automation", () => {
     expect(plainFrontier).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
   });
 
+  it("excludes an owned frontier resource tile that has not been revealed to the player", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [
+        "30,30",
+        { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" }
+      ],
+      [
+        "31,31",
+        { x: 31, y: 31, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" }
+      ]
+    ]);
+    const revealed = new Set(["31,31"]);
+
+    const result = orderedAutoSettlementTileKeys("player-1", ["30,30", "31,31"], {
+      getTile: (tileKey) => tiles.get(tileKey),
+      isBlocked: () => false,
+      hasTownSupport: () => false,
+      isRevealedToPlayer: (tile) => revealed.has(`${tile.x},${tile.y}`)
+    });
+
+    // Only the revealed tile is eligible — the unrevealed resource tile must
+    // never be auto-settled, regardless of how valuable it is.
+    expect(result).toEqual(["31,31"]);
+  });
+
+  it("does not require reveal for owned frontier town/dock tiles", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [
+        "30,30",
+        {
+          x: 30,
+          y: 30,
+          terrain: "LAND",
+          ownerId: "player-1",
+          ownershipState: "FRONTIER",
+          town: { type: "MARKET", populationTier: "TOWN" }
+        }
+      ],
+      ["31,31", { x: 31, y: 31, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-1" }]
+    ]);
+
+    const result = orderedAutoSettlementTileKeys("player-1", ["30,30", "31,31"], {
+      getTile: (tileKey) => tiles.get(tileKey),
+      isBlocked: () => false,
+      hasTownSupport: () => false,
+      isRevealedToPlayer: () => false
+    });
+
+    // A player's own towns and docks are never hidden from them, so they
+    // remain eligible even when isRevealedToPlayer reports false.
+    expect(result).toEqual(["30,30", "31,31"]);
+  });
+
   it("uses territory expansion order for the advertised auto-settlement queue", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,
@@ -348,6 +407,37 @@ describe("territory automation", () => {
       (tile) => tile.ownerId === "player-1" && tile.ownershipState === "FRONTIER"
     );
     expect(claimed).toHaveLength(3);
+  });
+
+  it("excludes an owned, visible frontier resource tile whose resource tech has not been researched", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([
+        ["player-1", { ...player("player-1", 1_000), techIds: new Set<string>() }]
+      ]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          // Reach-granting SETTLED town within TOWN_REACH_RADIUS of both
+          // candidates below — auto-settlement requires reach (see
+          // isAutoSettlementEligibleTarget) in addition to tech-reveal.
+          { x: 31, y: 31, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } },
+          { x: 46, y: 46, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } },
+          { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" },
+          { x: 45, y: 45, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: SimulationEvent[] = [];
+    runtime.onEvent((event) => events.push(event));
+
+    await runtime.tickTerritoryAutomation(1_000);
+
+    // The TITANIUM tile is within fog-of-war vision (it's owned frontier
+    // territory) but the player has not researched masonry, so it must not
+    // be auto-settled -- only the town tile (unaffected by tech-reveal) is.
+    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["45,45"]);
   });
 
   it("does not decay frontier while it is queued or pending for settlement", async () => {

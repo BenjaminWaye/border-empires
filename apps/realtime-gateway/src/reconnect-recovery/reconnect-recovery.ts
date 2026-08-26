@@ -2,6 +2,7 @@ import type { GatewayCommandStore } from "../command-store/command-store.js";
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import type { SeasonVictoryObjectiveView, SeasonWinnerView, WorldStyle } from "@border-empires/shared";
 import { buildGatewayInitPayload } from "../init-payload/init-payload.js";
+import type { SeasonLobbyUpdatePayload } from "../season-lobby-broadcast/season-lobby-broadcast.js";
 import type { LegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
 import type { PlayerProfileOverrides } from "../player-profile-overrides.js";
 import type { SimulationSeedProfile } from "../seed-fallback.js";
@@ -34,7 +35,11 @@ export const buildInitMessage = (
   snapshotBootstrap?: LegacySnapshotBootstrap,
   profileOverrides?: PlayerProfileOverrides,
   socialState?: SocialState,
-  canToggleFog = false
+  canToggleFog = false,
+  needsSeasonJoin = false,
+  seasonPending = false,
+  seasonPendingScheduledStartAt?: number,
+  seasonPendingRoster?: SeasonLobbyUpdatePayload
 ): Promise<{
   type: "INIT";
   // process.env.BUILD_SHA is injected via `fly deploy --env BUILD_SHA=…` in
@@ -85,6 +90,12 @@ export const buildInitMessage = (
   seasonStartVoteCount?: number;
   seasonStartVoted?: boolean;
   initialState?: PlayerSubscriptionSnapshot;
+  needsSeasonJoin?: boolean;
+  seasonPending?: boolean;
+  seasonPendingScheduledStartAt?: number;
+  seasonLobbyWaitingCount?: number;
+  seasonLobbyMaxPlayers?: number;
+  seasonLobbyRoster?: SeasonLobbyUpdatePayload["roster"];
 }> =>
   Promise.allSettled([
     withTimeout(commandStore.nextClientSeqForPlayer(playerIdentity.playerId), INIT_RECOVERY_TIMEOUT_MS, "nextClientSeqForPlayer"),
@@ -181,6 +192,13 @@ export const buildInitMessage = (
       mapMeta: bootstrap.mapMeta,
       ...(bootstrap.shardRainNotice ? { shardRainNotice: bootstrap.shardRainNotice } : {}),
       ...(initialState ? { initialState } : {}),
+      ...(needsSeasonJoin ? { needsSeasonJoin: true } : {}),
+      ...(seasonPending
+        ? { seasonPending: true, ...(typeof seasonPendingScheduledStartAt === "number" ? { seasonPendingScheduledStartAt } : {}) }
+        : {}),
+      ...(seasonPendingRoster
+        ? { seasonLobbyWaitingCount: seasonPendingRoster.waitingCount, seasonLobbyMaxPlayers: seasonPendingRoster.maxPlayers, seasonLobbyRoster: seasonPendingRoster.roster }
+        : {}),
       recovery: {
         nextClientSeq,
         pendingCommands: []

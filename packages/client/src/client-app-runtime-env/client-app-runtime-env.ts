@@ -1,4 +1,5 @@
 import { getApps, initializeApp, type FirebaseOptions } from "firebase/app";
+import { getAnalytics, type Analytics } from "firebase/analytics";
 import { GoogleAuthProvider, getAuth } from "firebase/auth";
 import { isStagingHostname, selectBackend } from "../client-backend-selector/client-backend-selector.js";
 import { createMultiplexWebSocket } from "../client-multiplex-websocket/client-multiplex-websocket.js";
@@ -35,13 +36,14 @@ const defaultAuthDomain = (): string => {
 export const createClientFirebaseSetup = (): {
   firebaseAuth: ReturnType<typeof getAuth> | undefined;
   googleProvider: GoogleAuthProvider | undefined;
+  analytics: Analytics | undefined;
 } => {
   const apiKey = (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined) ?? "AIzaSyCJP6fuxWLAHykFOTWDyxnkaNVnVAlNX8g";
   const authDomain = (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? defaultAuthDomain();
   const projectId = (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? "border-empires";
   const appId = (import.meta.env.VITE_FIREBASE_APP_ID as string | undefined) ?? "1:979056688511:web:d0af9a130d6eabacf36e4a";
   if (!apiKey || !authDomain || !projectId || !appId) {
-    return { firebaseAuth: undefined, googleProvider: undefined };
+    return { firebaseAuth: undefined, googleProvider: undefined, analytics: undefined };
   }
 
   const firebaseConfig: FirebaseOptions = { apiKey, authDomain, projectId, appId };
@@ -54,9 +56,24 @@ export const createClientFirebaseSetup = (): {
 
   const firebaseApp = getApps()[0] ?? initializeApp(firebaseConfig);
   const firebaseAuth = getAuth(firebaseApp);
+
+  // Analytics needs a measurementId and a real browser (IndexedDB + cookies)
+  // to boot; init can throw in unsupported contexts (e.g. some private-
+  // browsing modes, or the vitest/jsdom test environment), so this degrades
+  // to "no analytics" rather than aborting client setup.
+  let analytics: Analytics | undefined;
+  if (measurementId) {
+    try {
+      analytics = getAnalytics(firebaseApp);
+    } catch {
+      analytics = undefined;
+    }
+  }
+
   return {
     firebaseAuth,
-    googleProvider: new GoogleAuthProvider()
+    googleProvider: new GoogleAuthProvider(),
+    analytics
   };
 };
 

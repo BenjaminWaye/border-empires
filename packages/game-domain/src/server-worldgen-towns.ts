@@ -138,7 +138,11 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
             if (townsByTile.has(tileKey)) hasTown = true;
             const clusterId = clusterByTile.get(tileKey);
             const cluster = clusterId ? clustersById.get(clusterId) : undefined;
-            if (cluster && ["FARM", "FISH"].includes(clusterResourceType(cluster))) hasFood = true;
+            // radius > 1 excludes single-tile FARM/FISH satellite deposits
+            // (server-worldgen-clusters.ts) from counting as coverage — a
+            // stray satellite isn't the guaranteed real food cluster this
+            // fallback exists to backstop.
+            if (cluster && cluster.radius > 1 && ["FARM", "FISH"].includes(clusterResourceType(cluster))) hasFood = true;
           }
         }
         if (land.length === 0) continue;

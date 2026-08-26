@@ -273,7 +273,7 @@ describe("buildMapLoadingView", () => {
 describe("isMapLoadingOverlayActive", () => {
   it("shows immediately on the very first boot, even with no disconnect recorded", () => {
     const active = isMapLoadingOverlayActive(
-      { connection: "connecting", firstChunkAt: 0, hasEverInitialized: false, disconnectedSince: 0 },
+      { connection: "connecting", firstChunkAt: 0, hasEverInitialized: false, disconnectedSince: 0, seasonPending: false, needsSeasonJoin: false, joinSeasonOverlayOpen: false },
       1_000
     );
     expect(active).toBe(true);
@@ -281,7 +281,7 @@ describe("isMapLoadingOverlayActive", () => {
 
   it("suppresses the overlay for a brief reconnect within the grace window (the tab-switch case)", () => {
     const active = isMapLoadingOverlayActive(
-      { connection: "connected", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000 },
+      { connection: "connected", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000, seasonPending: false, needsSeasonJoin: false, joinSeasonOverlayOpen: false },
       1_500 // 500ms since the drop, under RECONNECT_OVERLAY_GRACE_MS
     );
     expect(active).toBe(false);
@@ -289,7 +289,7 @@ describe("isMapLoadingOverlayActive", () => {
 
   it("shows the overlay once a disconnect outlasts the grace window", () => {
     const active = isMapLoadingOverlayActive(
-      { connection: "connected", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000 },
+      { connection: "connected", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000, seasonPending: false, needsSeasonJoin: false, joinSeasonOverlayOpen: false },
       3_000 // 2s since the drop, past RECONNECT_OVERLAY_GRACE_MS
     );
     expect(active).toBe(true);
@@ -302,7 +302,7 @@ describe("isMapLoadingOverlayActive", () => {
     // so this window — the one the user actually saw as "Loading nearby
     // land... chunks 1" — stays suppressed too.
     const active = isMapLoadingOverlayActive(
-      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000 },
+      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000, seasonPending: false, needsSeasonJoin: false, joinSeasonOverlayOpen: false },
       1_600 // 600ms since the drop: socket gap + INIT already done
     );
     expect(active).toBe(false);
@@ -310,7 +310,7 @@ describe("isMapLoadingOverlayActive", () => {
 
   it("shows once a reconnect's resync drags past the grace window", () => {
     const active = isMapLoadingOverlayActive(
-      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000 },
+      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 1_000, seasonPending: false, needsSeasonJoin: false, joinSeasonOverlayOpen: false },
       5_000
     );
     expect(active).toBe(true);
@@ -318,7 +318,7 @@ describe("isMapLoadingOverlayActive", () => {
 
   it("shows immediately when there is no in-flight disconnect to debounce (e.g. a mid-session forced resync)", () => {
     const active = isMapLoadingOverlayActive(
-      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 0 },
+      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 0, seasonPending: false, needsSeasonJoin: false, joinSeasonOverlayOpen: false },
       1_000
     );
     expect(active).toBe(true);
@@ -326,9 +326,47 @@ describe("isMapLoadingOverlayActive", () => {
 
   it("stays hidden once fully initialized with data, regardless of a stale disconnectedSince", () => {
     const active = isMapLoadingOverlayActive(
-      { connection: "initialized", firstChunkAt: 500, hasEverInitialized: true, disconnectedSince: 999 },
+      { connection: "initialized", firstChunkAt: 500, hasEverInitialized: true, disconnectedSince: 999, seasonPending: false, needsSeasonJoin: false, joinSeasonOverlayOpen: false },
       1_000
     );
     expect(active).toBe(false);
+  });
+
+  it("stays hidden while waiting in the pending-season lobby, even though no chunks have arrived", () => {
+    // A player in the SEASON_PENDING countdown hasn't spawned, so
+    // firstChunkAt legitimately stays 0 for as long as the countdown runs --
+    // that's not a stalled map sync, it's the expected pre-join state, and
+    // the season lobby overlay already covers the screen with its own
+    // waiting UI (see client-season-lobby-style.css).
+    const active = isMapLoadingOverlayActive(
+      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 0, seasonPending: true, needsSeasonJoin: false, joinSeasonOverlayOpen: false },
+      60_000
+    );
+    expect(active).toBe(false);
+  });
+
+  it("stays hidden behind the plain \"Join Season?\" prompt (active season, not yet joined)", () => {
+    // seasonPending is false here -- the season is already active, the
+    // player just hasn't clicked "join" yet (client-join-season-overlay.ts's
+    // non-pending branch). They still have zero tiles for the same reason:
+    // they haven't spawned. This used to slip through the seasonPending-only
+    // guard and fire "Map sync stalled" behind this prompt too.
+    const active = isMapLoadingOverlayActive(
+      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 0, seasonPending: false, needsSeasonJoin: true, joinSeasonOverlayOpen: true },
+      60_000
+    );
+    expect(active).toBe(false);
+  });
+
+  it("still shows the stall warning if needsSeasonJoin is true but the overlay itself isn't open", () => {
+    // Guards against over-widening the fix: needsSeasonJoin alone (without
+    // joinSeasonOverlayOpen) doesn't mean the join prompt is actually
+    // covering the screen right now -- matches the `visible` check in
+    // client-join-season-overlay.ts, which requires both.
+    const active = isMapLoadingOverlayActive(
+      { connection: "initialized", firstChunkAt: 0, hasEverInitialized: true, disconnectedSince: 0, seasonPending: false, needsSeasonJoin: true, joinSeasonOverlayOpen: false },
+      60_000
+    );
+    expect(active).toBe(true);
   });
 });

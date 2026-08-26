@@ -1,9 +1,22 @@
 import { onAuthStateChanged, type Auth } from "firebase/auth";
 
 import { rallyApiOrigin } from "../client-rally-links/client-rally-links.js";
-import { renderGalaxyViewHtml, renderEmperorSectionHtml, type GalaxyViewPlanet, type GalaxyEmperorViewModel } from "./galaxy-view-html.js";
+import {
+  renderGalaxyViewHtml,
+  renderEmperorSectionHtml,
+  type GalaxyViewPlanet,
+  type GalaxyViewOutpost,
+  type GalaxyViewStipend,
+  type GalaxyViewEconomy,
+  type GalaxyEmperorViewModel
+} from "./galaxy-view-html.js";
 
-type GalaxyMeResponse = { planets?: GalaxyViewPlanet[] };
+type GalaxyMeResponse = {
+  planets?: GalaxyViewPlanet[];
+  outposts?: GalaxyViewOutpost[];
+  stipends?: GalaxyViewStipend[];
+  economy?: GalaxyViewEconomy;
+};
 type GalaxyNameResponse = { ok?: boolean; error?: string; planet?: { planetName: string } };
 type GalaxyEmperorResponse = Partial<GalaxyEmperorViewModel> & { ok?: boolean };
 type GalaxyEndorseResponse = { ok?: boolean; error?: string; endorsement?: { targetPlayerId: string; createdAt: number } };
@@ -37,6 +50,7 @@ const galaxyStyle = `
   .gx-starfield{position:relative;border-radius:10px;padding:32px 16px;text-align:center;background:radial-gradient(ellipse at center,#0f172a 0%,#020617 70%);overflow:hidden}
   .gx-stars{position:absolute;inset:0;background-image:radial-gradient(1px 1px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 65% 15%,#fff,transparent),radial-gradient(1.5px 1.5px at 80% 60%,#fff,transparent),radial-gradient(1px 1px at 40% 80%,#fff,transparent),radial-gradient(1px 1px at 90% 40%,#fff,transparent),radial-gradient(1.5px 1.5px at 10% 65%,#fff,transparent);opacity:.6}
   .gx-kicker{position:relative;margin:0 0 8px;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+  .gx-specialization{position:relative;margin:0 0 8px;display:inline-block;color:#7dd3fc;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 10px;border:1px solid rgba(125,211,252,.4);border-radius:10px}
   .gx-planet-figure{position:relative;width:132px;height:132px;margin:0 auto 18px;display:grid;place-items:center}
   .gx-ring{position:absolute;width:224px;height:72px;border-radius:50%;border:9px solid transparent;border-top-color:rgba(148,197,255,.55);border-bottom-color:rgba(56,110,168,.32);transform:rotate(-12deg);pointer-events:none}
   .gx-orb{position:relative;width:132px;height:132px;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 30% 26%,#a9ecff 0%,#38bdf8 32%,#0d6ab0 62%,#062a45 100%);box-shadow:0 0 46px rgba(56,189,248,.5)}
@@ -54,6 +68,15 @@ const galaxyStyle = `
   .gx-switcher{position:relative;margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
   .gx-switcher-item{border:1px solid rgba(255,255,255,.18);border-radius:16px;background:transparent;color:#cbd5e1;font-size:12px;padding:6px 12px;cursor:pointer}
   .gx-switcher-item.is-active{background:#38bdf8;color:#082f49;border-color:#38bdf8}
+  .gx-stability{position:relative;margin:10px auto 0;max-width:200px;display:flex;flex-direction:column;gap:4px;align-items:center}
+  .gx-stability-label{color:#94a3b8;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .gx-stability-bar{width:100%;height:6px;border-radius:3px;background:rgba(255,255,255,.12);overflow:hidden}
+  .gx-stability-fill{display:block;height:100%;background:#38bdf8}
+  .gx-economy{position:relative;margin-top:16px;display:flex;gap:12px;justify-content:center}
+  .gx-economy-item{color:#f8fafc;font-size:13px;font-weight:600;background:rgba(255,255,255,.06);border-radius:8px;padding:4px 10px}
+  .gx-holdings{position:relative;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.14);text-align:center}
+  .gx-holding-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .gx-holding-row{color:#cbd5e1;font-size:13px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
   .gx-emperor{position:relative;margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.14);text-align:center}
   .gx-emperor-copy{margin:0 0 8px;color:#cbd5e1;font-size:14px}
   .gx-emperor-countdown{margin:0 0 8px;color:#facc15;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
@@ -108,13 +131,18 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
   if (typeof window === "undefined") return;
 
   let planets: GalaxyViewPlanet[] = [];
+  let outposts: GalaxyViewOutpost[] = [];
+  let stipends: GalaxyViewStipend[] = [];
+  let economy: GalaxyViewEconomy | undefined;
   let focusedSeasonId = "";
   let emperorModel: GalaxyEmperorViewModel = { emperor: null, windowOpenUntil: null, endorsement: null, isEmperor: false };
   let panel: { overlay: HTMLElement; body: HTMLElement; launcher: HTMLButtonElement } | undefined;
 
   const render = (): void => {
     if (!panel) return;
-    panel.body.innerHTML = renderGalaxyViewHtml({ planets, focusedSeasonId }) + renderEmperorSectionHtml(emperorModel);
+    panel.body.innerHTML =
+      renderGalaxyViewHtml({ planets, focusedSeasonId, outposts, stipends, ...(economy ? { economy } : {}) }) +
+      renderEmperorSectionHtml(emperorModel);
   };
 
   const christen = async (form: HTMLFormElement): Promise<void> => {
@@ -234,12 +262,18 @@ export const mountGalaxyView = (deps: { firebaseAuth?: Auth; wsUrl: string }): v
       if (!response.ok) return;
       const body = (await response.json().catch(() => undefined)) as GalaxyMeResponse | undefined;
       const fetched = body?.planets ?? [];
-      // Launcher only mounts once the account owns at least one planet — no
-      // empty room for non-winners. `/hq/galaxy/me` returns newest-first, so
-      // the newest win is the default focused hero.
-      if (fetched.length === 0) return;
+      const fetchedOutposts = body?.outposts ?? [];
+      const fetchedStipends = body?.stipends ?? [];
+      // Launcher only mounts once the account owns at least one Planet,
+      // Outpost, or Stipend record — no empty room for non-participants.
+      // `/hq/galaxy/me` returns newest-first, so the newest win is the
+      // default focused hero (when there is one).
+      if (fetched.length === 0 && fetchedOutposts.length === 0 && fetchedStipends.length === 0) return;
       planets = fetched;
-      focusedSeasonId = planets[0]!.seasonId;
+      outposts = fetchedOutposts;
+      stipends = fetchedStipends;
+      economy = body?.economy;
+      if (planets[0]) focusedSeasonId = planets[0].seasonId;
       ensureMounted();
       render();
     } catch {

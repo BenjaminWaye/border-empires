@@ -164,6 +164,42 @@ describe("heightfield corners deep inside a hills cluster", () => {
   });
 });
 
+describe("heightfield coastal hill corners", () => {
+  it("does not flatten a coastal hill's corner to beach level", () => {
+    // Regression test: a corner touching both sea and a hill tile was
+    // unconditionally pinned to coastEdgeY (beach height), same as a flat
+    // coastline, ignoring the hill entirely. That sank anything anchored via
+    // cornerYAt -- notably the ownership overlay's draped hill tint -- below
+    // the hill dome's visible surface, making a settled coastal hill (the
+    // common case, since FISH resources spawn on coastal land) look
+    // uncovered even though it was fully owned.
+    const heightfield = createHeightfield();
+    const kinds: HeightfieldTerrainKind[][] = Array.from({ length: 9 }, () =>
+      Array.from({ length: 9 }, () => "SAND" as HeightfieldTerrainKind)
+    );
+    kinds[4]![5] = "SEA";
+
+    heightfield.rebuild({
+      camX: 0,
+      camY: 0,
+      halfW: 3,
+      halfH: 3,
+      worldWidth: WORLD_WIDTH,
+      worldHeight: WORLD_HEIGHT,
+      tileKindAt: buildKindMap(kinds),
+      isHillsAt: (wx, wy) => wx === 4 && wy === 4
+    });
+
+    const cornerY = heightfield.cornerYAt(5, 5);
+    // The buggy behaviour pinned this corner to coastEdgeY (-0.04) regardless
+    // of the hill. A fixed corner tapers to close to SAND's own base
+    // elevation (0.07, +/- jitter), clearly above that beach pin.
+    expect(cornerY).toBeGreaterThan(0.02);
+
+    heightfield.dispose();
+  });
+});
+
 describe("heightfield coastal skirt", () => {
   it("emits skirt geometry along a land/sea boundary and none for all-land", () => {
     const heightfield = createHeightfield();
