@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787768869848, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.8",
+    title: "Waterworks no longer claims a food-production boost it doesn't have",
+    why: "Waterworks's description said it boosts every nearby Farmstead's food production by +100%, the same dead per-tile production claim already corrected for Farmstead, Mine, and Umbrite Rig -- the resource-slot rewrite retired per-tile food production, so the multiplier never applies to anything.",
+    changes: [
+      "Waterworks's description, tech-tree copy (Hydraulic Works), and modifier chip now only show its real effect: +2 FOOD slots for every Farmstead within 10 tiles"
+    ]
+  },
+  {
     createdAt: 1787752754484, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
     title: "Fixed food/crystal (and other resource slot) totals getting stuck wrong until you changed a tile",
