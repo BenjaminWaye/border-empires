@@ -12,41 +12,75 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787462871189, // 2026.08.23.05 — frozen from a live Date.now() call
+    introducedIn: "2026.08.23.05",
+    title: "Turned off rivers in new map generation",
+    why: "Generated rivers didn't fully work -- they could cut land in ways that broke territory shapes and pathing, so we're disabling them until the generator is fixed.",
+    changes: [
+      "New maps no longer generate rivers; existing maps are unaffected."
+    ]
+  },
+  {
+    createdAt: 1787472289089, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Settled resource tiles now show their real slot production instead of stale prose",
+    why: "A settled Farm/Fish/Titanium/Gems/Umbrite tile's overview said \"Resource node can produce food once developed and collected\" even after being settled -- a holdover from the old per-day yield model. FOOD/TITANIUM/CRYSTAL/UMBRITE production moved to the slot-supply system a while ago, so that line was permanently stale and never resolved into a real number.",
+    changes: [
+      "A settled resource tile's overview now shows a \"Production:\" line with the actual FOOD/TITANIUM/CRYSTAL/UMBRITE slot count it contributes (e.g. \"Production: 🍞 Food +1\"), matching the format already used for buildings, instead of the old \"can produce ... once developed and collected\" prose.",
+      "A Farmstead/Mine/Umbrite Rig built on its tile now visibly bumps that slot count (e.g. a Farmstead on a Farm tile shows \"Food +2\")."
+    ]
+  },
+  {
+    createdAt: 1787688879680, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Manpower for Expand and Settle is now spent the moment you queue them",
+    why: "Building deducted manpower as soon as an action was queued, but Expand and Settle didn't -- Expand only charged it once the claim finished (up to ~90s later on forest/hills), and a queued Settle held nothing at all. Both let you queue more actions than your manpower could actually cover, since nothing showed as spent until each one individually went through.",
+    changes: [
+      "Expand now charges its manpower cost the moment the claim is accepted, refunded if you cancel it or it never resolves.",
+      "A queued Settle now reserves its manpower immediately, the same way a queued Build already did."
+    ]
+  },
+  {
+    createdAt: 1787462564744, // 2026.08.22.15 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.15",
+    title: "Fixed the same false \"Map sync stalled\" warning on the plain \"Join Season?\" prompt",
+    why: "The previous fix only covered the pending-season countdown lobby. The plain \"Join Season?\" prompt -- shown once a season is already active but you haven't clicked join yet -- has the same reason for zero map tiles (you haven't spawned), and hit the same false alarm.",
+    changes: [
+      "The map-sync watchdog now also stays quiet behind the \"Join Season?\" prompt, not just the countdown lobby."
+    ]
+  },
+  {
+    createdAt: 1787462189036, // 2026.08.22.14 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.14",
+    title: "Fixed a false \"Map sync stalled\" warning while waiting in the season lobby",
+    why: "A player waiting in the pending-season lobby hasn't spawned yet, so no map tiles have arrived for them by design -- but the map-loading watchdog didn't know that, and treated it the same as a real stuck sync, firing a \"Map sync stalled\" warning over the lobby after a few seconds.",
+    changes: [
+      "The map-sync watchdog now stays quiet while you're waiting in the season lobby, since there's nothing to sync yet."
+    ]
+  },
+  {
+    createdAt: 1787431431635, // frozen from a live Date.now() call
+    introducedIn: "2026.08.22.12",
+    title: "Fixed rivers clipping through hills",
+    why: "River ribbons rendered at the flat ground elevation, ignoring the raised dome mesh used for hill tiles, so a river crossing a hill looked like jagged glued-together rectangles instead of a smooth ribbon.",
+    changes: ["Rivers now render above the hill dome wherever their path crosses a hills tile."]
+  },
+  {
+    createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.1",
+    title: "Auto-settle no longer claims resource tiles before you've researched them",
+    why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
+    changes: [
+      "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
+    ]
+  },
+  {
     createdAt: 1787651082566, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.2",
     title: "Added a new-player checklist for founding your first town and securing food",
     why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
     changes: [
       "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
-    ]
-  },
-  {
-    createdAt: 1787691503245, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.3",
-    title: "Added a Discord link to the settings menu",
-    why: "The community Discord invite was only reachable from the season lobby overlay, so players already in a game had no in-app way to find it.",
-    changes: [
-      "Settings now has a \"Join the Discord\" link alongside Log Out."
-    ]
-  },
-  {
-    createdAt: 1787693449097, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.8",
-    title: "Fixed three bugs in the new-player checklist",
-    why: "The checklist bubble overlapped the \"Center / Jump to your banner\" button in the bottom-left corner, its first step counted the free starting settlement (SETTLEMENT tier) as an already-settled town so it skipped straight to the food step, and its map highlight ring was drawn with flat 2D isometric math that put it in the wrong place entirely when playing in true-3D mode.",
-    changes: [
-      "The checklist bubble now sits above the Center/banner button instead of on top of it.",
-      "The \"find your first town\" step now requires reaching TOWN tier -- the free starting settlement no longer counts on its own.",
-      "In true-3D mode, the highlight is now a real ring mesh placed on the terrain instead of a flat 2D overlay."
-    ]
-  },
-  {
-    createdAt: 1787584599966, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.24.6",
-    title: "Added basic sign-up analytics",
-    why: "We had no way to see where new players were coming from, or how many visitors from a shared link actually created an account -- link attribution and conversion were both invisible.",
-    changes: [
-      "The client now reports page landings and a sign-up event (for new accounts created by email, Google, or email-link sign-in) to Google Analytics, so shared links can be attributed by source/campaign and tracked through to conversion."
     ]
   },
   {
@@ -107,25 +141,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787616000000, // 2026.08.25.1 — frozen; was Date.now() in the merged commit
-    introducedIn: "2026.08.25.1",
-    title: "Fixed sea tiles rendering as solid black from some camera angles",
-    why: "The 3D water surface only got its color from directional lighting, with a near-black fallback (emissive 0x030e18) for anything that fell into shadow. Viewed from the south -- opposite the sun and fill light -- water faces caught neither light and the near-black fallback read as a black hole instead of dark sea.",
-    changes: [
-      "The water material's shadow-floor color is now a dim tint of the actual deep-water color instead of near-black, so unlit sea tiles read as dark water at any camera angle."
-    ]
-  },
-  {
-    createdAt: 1787678887251, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.3",
-    title: "Rivers now curve smoothly and taper toward the sea instead of looking like glued-together rectangles",
-    why: "The 3D river ribbon connected each walked point with a straight segment and a constant width the whole way, so every wobble step in the path showed up as a hard kink and every river read as a uniform-width strip regardless of how far it had traveled -- the classic 'blue rectangles' look rather than a real river.",
-    changes: [
-      "River paths are now smoothed with a Catmull-Rom curve and resampled at higher density, removing the faceted straight-segment look.",
-      "River width now tapers from narrow at the source to wide at the mouth, based on how far each point has flowed toward the sea."
-    ]
-  },
-  {
     createdAt: 1787643819307, // frozen just after this file's prior latest entry, to avoid a createdAt collision
     introducedIn: "2026.08.25.2",
     title: "Fixed spawns landing next to resources across water",
@@ -155,16 +170,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787430200000,
-    introducedIn: "2026.08.22.4",
-    title: "Auto-settle no longer fires on tiles that have drifted out of reach",
-    why: "Queuing a settle-then-build (or letting an AI empire's frontier auto-settle) could still fire once the tile had fallen out of reach in the meantime -- the server always rejected it as out-of-reach, but nothing checked first, so it just silently failed instead of being dropped up front.",
-    changes: [
-      "Both the player's queued auto-settle and an AI empire's automatic frontier settlement now check reach before sending a settle command, dropping the queued action instead of sending one that's guaranteed to be rejected.",
-      "When a settled tile gets overtaken and reverts to a frontier tile because a rival's territory grew over it, it now plays a brief collapsing pylon effect on the map instead of changing silently."
-    ]
-  },
-  {
     createdAt: 1787650830571, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.1",
     title: "Farmstead now grants +2 FOOD slots instead of +1",
@@ -174,21 +179,32 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787429155443,
-    introducedIn: "2026.08.22.12",
-    title: "Fixed a dark \"crack\" flickering at animated shorelines",
-    why: "Every coastline's animated water can dip deep enough at a wave trough to reveal the coastal skirt wall underneath it, which was shaded so dark that it read as a jarring black gap right at the shoreline.",
-    changes: [
-      "Brightened the coastal skirt wall's shading so it no longer looks near-black when the water's wave animation passes through a deep trough."
-    ]
-  },
-  {
     createdAt: 1787430600000,
     introducedIn: "2026.08.22.8",
     title: "Creating a mountain now clears any muster flag staged on the tile",
     why: "Turning a tile into a mountain destroyed the tile's ownership, but the muster flag staged on it stuck around, showing a stale muster icon on ground you no longer held.",
     changes: [
       "Creating a mountain on a tile with a staged muster flag now clears the flag along with the tile's ownership, matching how bombardment, capture, and tile shedding already handle it."
+    ]
+  },
+  {
+    createdAt: 1787432000000,
+    introducedIn: "2026.08.22.12",
+    title: "Your galaxy planets and outposts now earn Influence and Production, and can lose Stability",
+    why: "The galaxy view previously showed your Planets/Outposts/Stipends as a static record with nothing ongoing attached to them -- the galactic meta-layer's actual economy (docs/galactic-campaign-design.md §4/§5/§7) wasn't running yet. This introduces the first slice of that economy: a weekly Cycle tick that trickles Influence/Production income from your held territory, charges Influence upkeep for spreading wide, and drains or recovers each territory's Stability accordingly.",
+    changes: [
+      "Your galaxy view now shows a running Influence/Production balance, updated once per weekly Cycle based on your held Planets' and Outposts' specializations.",
+      "Holding more Planets costs more Influence upkeep -- Outposts still cost nothing to hold, staying the cheap entry rung for newer empires.",
+      "Each held Planet and Outpost now has a Stability meter (0-100), shown as a bar under it in the galaxy view. Falling into an Influence deficit drains your weakest territory's Stability over time; a healthy Influence surplus recovers all of them."
+    ]
+  },
+  {
+    createdAt: 1787430800000,
+    introducedIn: "2026.08.22.10",
+    title: "Your galaxy planet now shows what it's specialized in",
+    why: "The galaxy view showed which victory path crowned your planet, but not what that meant going forward -- part of the early galactic meta-layer groundwork (docs/galactic-campaign-design.md), where each victory path is meant to grant a distinct planet specialization.",
+    changes: [
+      "Your galaxy planet (named or not-yet-named) now shows a specialization badge -- Industrial, Trade, Extraction, Logistics, or Capital -- based on which victory condition crowned it."
     ]
   },
   {
@@ -219,23 +235,41 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787430800000,
-    introducedIn: "2026.08.22.10",
-    title: "Your galaxy planet now shows what it's specialized in",
-    why: "The galaxy view showed which victory path crowned your planet, but not what that meant going forward -- part of the early galactic meta-layer groundwork (docs/galactic-campaign-design.md), where each victory path is meant to grant a distinct planet specialization.",
+    createdAt: 1787691503245, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.3",
+    title: "Added a Discord link to the settings menu",
+    why: "The community Discord invite was only reachable from the season lobby overlay, so players already in a game had no in-app way to find it.",
     changes: [
-      "Your galaxy planet (named or not-yet-named) now shows a specialization badge -- Industrial, Trade, Extraction, Logistics, or Capital -- based on which victory condition crowned it."
+      "Settings now has a \"Join the Discord\" link alongside Log Out."
     ]
   },
   {
-    createdAt: 1787432000000,
-    introducedIn: "2026.08.22.12",
-    title: "Your galaxy planets and outposts now earn Influence and Production, and can lose Stability",
-    why: "The galaxy view previously showed your Planets/Outposts/Stipends as a static record with nothing ongoing attached to them -- the galactic meta-layer's actual economy (docs/galactic-campaign-design.md §4/§5/§7) wasn't running yet. This introduces the first slice of that economy: a weekly Cycle tick that trickles Influence/Production income from your held territory, charges Influence upkeep for spreading wide, and drains or recovers each territory's Stability accordingly.",
+    createdAt: 1787693449097, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.8",
+    title: "Fixed three bugs in the new-player checklist",
+    why: "The checklist bubble overlapped the \"Center / Jump to your banner\" button in the bottom-left corner, its first step counted the free starting settlement (SETTLEMENT tier) as an already-settled town so it skipped straight to the food step, and its map highlight ring was drawn with flat 2D isometric math that put it in the wrong place entirely when playing in true-3D mode.",
     changes: [
-      "Your galaxy view now shows a running Influence/Production balance, updated once per weekly Cycle based on your held Planets' and Outposts' specializations.",
-      "Holding more Planets costs more Influence upkeep -- Outposts still cost nothing to hold, staying the cheap entry rung for newer empires.",
-      "Each held Planet and Outpost now has a Stability meter (0-100), shown as a bar under it in the galaxy view. Falling into an Influence deficit drains your weakest territory's Stability over time; a healthy Influence surplus recovers all of them."
+      "The checklist bubble now sits above the Center/banner button instead of on top of it.",
+      "The \"find your first town\" step now requires reaching TOWN tier -- the free starting settlement no longer counts on its own.",
+      "In true-3D mode, the highlight is now a real ring mesh placed on the terrain instead of a flat 2D overlay."
     ]
-  }
+  },
+  {
+    createdAt: 1787435600000, // 2026.08.22.13 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.13",
+    title: "Fixed: another player's town could show your \"ready to upgrade\" badge",
+    why: "The map's green up-arrow badge and the food-shortage badge only checked that a town had an owner, not that the owner was you, so a rival town that happened to qualify lit up on your map the same way one of your own towns would.",
+    changes: [
+      "The population-tier upgrade badge and the unfed-town food badge now only appear on towns you own, on both the 3D map and the classic 2D map."
+    ]
+  },
+  {
+    createdAt: 1787472290597, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.1",
+    title: "Added a Slot Sources breakdown to the Economy panel for Food, Titanium, Crystal, and Umbrite",
+    why: "The Economy sidebar's slot-based resources only showed \"Occupied by\" (who's using your slots), with no way to see where the slot capacity itself came from -- unlike GOLD, which already lists its Income Sources.",
+    changes: [
+      "The Economy panel's detail card for FOOD/TITANIUM/CRYSTAL/UMBRITE now has a \"Slot Sources\" column listing which tiles and boost structures (Farmstead, Mine, Umbrite Rig, Waterworks/Foundry radius bonuses, active synthesizers) are contributing slot capacity, alongside the existing \"Occupied by\" column."
+    ]
+  },
 ];

@@ -9,6 +9,7 @@ import type { SeasonStatsView } from "../client-types.js";
 import { clearServerDeployingSession, setServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import type { RealtimeSocket } from "../client-socket-types.js";
 import { applyServerReachUpdate } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { applyRivalReachUpdate } from "../client-rival-reach-authoritative/client-rival-reach-authoritative.js";
 import { buildServerErrorContext } from "../client-server-error-context/client-server-error-context.js";
 import { persistWaypointQueueForPlayer, waypointCancelWirePayload } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import { cancelWaypointsBlockedByOutOfReach } from "../client-waypoint-out-of-reach/client-waypoint-out-of-reach.js";
@@ -1295,10 +1296,9 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       return;
     }
     if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
-    // Authoritative reach border (client-reach-authoritative.ts). Replaces the
-    // old client-side approximation that could disagree with the server and
-    // wedge waypoints on OUT_OF_REACH.
+    // Authoritative reach (client-reach-authoritative.ts) and RIVAL reach (client-rival-reach-authoritative.ts) — replaces the old client-side approximations.
     if (msg.type === "REACH_UPDATE") { if (applyServerReachUpdate(state, msg as Record<string, unknown>)) renderHud(); return; }
+    if (msg.type === "RIVAL_REACH_UPDATE") { applyRivalReachUpdate(state, msg as Record<string, unknown>); return; }
     if (msg.type === "PLAYER_UPDATE") {
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       const prevGold = state.gold;
@@ -2136,8 +2136,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         markDockDiscovered(resolved);
         state.discoveredTiles.add(updateKey);
         // Stamp receivedAt whenever a full-detail tile lands so the action-flow
-        // sender's 60s freshness check and in-flight dedupe can short-circuit
-        // duplicate REQUEST_TILE_DETAIL on rapid re-clicks of the same tile.
+        // sender's 60s freshness check and in-flight dedupe can short-circuit duplicate REQUEST_TILE_DETAIL on rapid re-clicks of the same tile.
         if (resolved.detailLevel === "full") {
           state.tileDetailReceivedAt.set(updateKey, Date.now());
         }

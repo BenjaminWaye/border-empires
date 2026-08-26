@@ -428,16 +428,21 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     },
     sendAttackAlert(input) {
       return send(input.defenderPlayerId, (to) =>
-        formatMessage({
+        formatSeasonMessage({
           to,
           subject: `${input.attackerName} is attacking your empire`,
-          intro: `${input.attackerName} launched an attack against your empire.`,
-          detail: `Target tile: ${input.x}, ${input.y}.`,
+          eyebrow: "Border Empires — Under Attack",
+          headline: "Your Empire Is Under Attack",
+          body: [
+            `${input.attackerName} launched an attack against your empire.`,
+            "Rally your defenses before the assault lands."
+          ],
+          highlight: { label: "Target Tile", value: `${input.x}, ${input.y}` },
           // Deep-links straight to the targeted tile: readUrlTileFocus() in
           // client-camera-storage.ts (packages/client) picks up ?x=&y= on
           // boot and centers the camera there instead of the player's home tile.
           linkUrl: `${appUrl}/?x=${input.x}&y=${input.y}`,
-          linkLabel: "Go to tile"
+          linkLabel: "Go to Tile"
         })
       );
     },

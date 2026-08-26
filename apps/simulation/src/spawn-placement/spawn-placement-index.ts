@@ -1,5 +1,5 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { computeCoastalLandKeys, computeLandRegions } from "./spawn-placement.js";
+import { computeCoastalLandKeys, computeFairSpawnSites, computeLandRegions, type FairSpawnSite } from "./spawn-placement.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 
 export type SpawnPlacementCoord = { x: number; y: number };
@@ -129,6 +129,7 @@ export class SpawnPlacementIndex {
   private coastalLandKeysCache: ReadonlySet<string> | undefined;
   private foodGridCache: CoordGrid | undefined;
   private landRegionByTileKeyCache: ReadonlyMap<string, number> | undefined;
+  private fairSpawnSitesCache: readonly FairSpawnSite[] | undefined;
 
   refreshForTileChange(tileKey: string, next: DomainTileState): void {
     if (isSettledCoordTile(next)) this.settledGrid.set(tileKey, { x: next.x, y: next.y });
@@ -175,6 +176,44 @@ export class SpawnPlacementIndex {
     if (tiles.size === 0) return this.landRegionByTileKeyCache?.get(simulationTileKey(x, y));
     if (!this.landRegionByTileKeyCache) this.landRegionByTileKeyCache = computeLandRegions([...tiles.values()]);
     return this.landRegionByTileKeyCache.get(simulationTileKey(x, y));
+  }
+
+  // Worldgen-time roster of pre-picked, equal-opportunity spawn sites — see
+  // computeFairSpawnSites. Computed once, lazily, on first real use (same
+  // caution as coastalLandKeysCache: never cache while the world hasn't
+  // hydrated yet), and reused for every player placement afterwards instead
+  // of each player running their own random search from scratch.
+  fairSpawnSites(tiles: ReadonlyMap<string, DomainTileState>): readonly FairSpawnSite[] {
+    if (tiles.size === 0) return this.fairSpawnSitesCache ?? [];
+    if (!this.fairSpawnSitesCache) this.fairSpawnSitesCache = computeFairSpawnSites([...tiles.values()]);
+    return this.fairSpawnSitesCache;
+  }
+
+  // Picks the best still-available precomputed site: nearest to rallyAnchor
+  // (Chebyshev) when given one, otherwise the first available in roster
+  // order. `isAvailable` is the caller's live-tile check (unowned/no
+  // town/no dock/not blocked) — a site is never marked "used" here, since
+  // that same live check already lets a site free up again if its player is
+  // later eliminated/abandons it, instead of retiring it from the roster
+  // forever.
+  claimFairSpawnSite(
+    tiles: ReadonlyMap<string, DomainTileState>,
+    isAvailable: (x: number, y: number) => boolean,
+    rallyAnchor?: SpawnPlacementCoord
+  ): FairSpawnSite | undefined {
+    const sites = this.fairSpawnSites(tiles);
+    if (!rallyAnchor) return sites.find((site) => isAvailable(site.x, site.y));
+    let best: FairSpawnSite | undefined;
+    let bestDistance = Infinity;
+    for (const site of sites) {
+      if (!isAvailable(site.x, site.y)) continue;
+      const distance = chebyshevDistance(site.x, site.y, rallyAnchor.x, rallyAnchor.y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = site;
+      }
+    }
+    return best;
   }
 
   private foodGrid(tiles: ReadonlyMap<string, DomainTileState>): CoordGrid {

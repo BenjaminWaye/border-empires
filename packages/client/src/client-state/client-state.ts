@@ -1,6 +1,7 @@
 import { CLIENT_CHANGELOG_STORAGE_KEY } from "../client-changelog/client-changelog.js";
 import { GUIDE_AUTO_OPEN_STORAGE_KEY, GUIDE_STORAGE_KEY, RENDERER_PROMPT_STORAGE_KEY } from "../client-constants.js";
 import { cameraLocationInitialState, readUrlTileFocus } from "./client-camera-storage.js";
+import { createInitialReachState } from "./client-reach-state-defaults.js";
 import { checkServerDeployingSession } from "../client-server-deploying-session/client-server-deploying-session.js";
 import { DEVELOPMENT_PROCESS_LIMIT, EMPIRE_STORAGE_FLOOR, MANPOWER_BASE_CAP, MANPOWER_BASE_REGEN_PER_MINUTE, type BuildableStructureType, type ChosenTrickleResource, type FrontierCombatSideBreakdown, type SlotResource } from "@border-empires/shared";
 import type { EconomyBreakdown } from "../client-economy-model.js";
@@ -125,8 +126,7 @@ export const createInitialState = () => ({
   resourceSlots: {
     supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<SlotResource, number>, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<SlotResource, number>
   },
-  // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which
-  // structures are dormant right now, and which resource(s) they're short
+  // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which structures are dormant right now, and which resource(s) they're short
   // on. Feeds the greyed-out/"unpowered" indicator in the tile detail view.
   dormantStructures: [] as Array<{ key: string; resources: SlotResource[] }>,
   eventLog: [] as Array<{ id: string; type: string; text: string; occurredAt: number; x?: number; y?: number }>, // §20: durable event log, most-recent-last
@@ -168,8 +168,7 @@ export const createInitialState = () => ({
   integrityWarningDismissed: false,
   settledT: 1,
   settledE: 4,
-  // Opens straight on a deep-linked tile (e.g. an attack alert email's
-  // "Go to tile" link — see readUrlTileFocus() in client-camera-storage.ts).
+  // Opens straight on a deep-linked tile (e.g. an attack alert email's "Go to tile" link — see readUrlTileFocus() in client-camera-storage.ts).
   selected: readUrlTileFocus() ?? undefined as { x: number; y: number } | undefined,
   tileDetailRequestedAt: new Map<string, number>(),
   // tileKey -> ms timestamp when a full-detail TILE_DELTA arrived. Used to
@@ -371,16 +370,7 @@ export const createInitialState = () => ({
   mobilePanel: "core" as "core" | "tech" | "domains" | "social" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings",
   activePanel: null as "tech" | "domains" | "alliance" | "economy" | "defensibility" | "leaderboard" | "feed" | "manpower" | "development" | "settings" | null,
   showWeakDefensibility: false,
-  // Fixed-borders-via-reach overlay. `undefined` means "not computed for this
-  // frame yet" (client-runtime-loop.ts lazily fills it via resolveMyReach,
-  // which prefers serverReach below and only falls back to the local
-  // approximation before the first REACH_UPDATE arrives).
-  myReach: undefined as Set<string> | undefined,
-  myReachRevisionAtCompute: "" as string,
-  // Authoritative reach pushed by the simulation (REACH_UPDATE) — see
-  // client-reach-authoritative.ts. `undefined` until the first message lands.
-  serverReach: undefined as Set<string> | undefined,
-  serverReachRevision: 0,
+  ...createInitialReachState(),
   shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,
   shardAlert: undefined as ClientShardRainAlert | undefined, shardRainStatus: undefined as ClientShardRainAlert | undefined, // shardRainStatus survives toast dismissal, unlike shardAlert

@@ -1561,7 +1561,7 @@ export const processActionQueue = (
         deps.renderHud();
         continue;
       }
-      deps.ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq }));
+      deps.ws.send(JSON.stringify({ type: "EXPAND", fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, commandId, clientSeq })); state.manpower = Math.max(0, state.manpower - EXPAND_MANPOWER_COST);
       attackSyncLog("send", {
         actionType: "EXPAND",
         target: { x: to.x, y: to.y },

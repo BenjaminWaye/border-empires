@@ -190,6 +190,23 @@ describe("SimulationRuntime outpost vision bonus", () => {
             ownerId: "player-1",
             ownershipState: "SETTLED" as const,
             economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const }
+          },
+          // Nearby SETTLED town, within TOWN_REACH_RADIUS of the beacon's own
+          // tile — keeps the beacon's tile in reach independently of the
+          // beacon itself, so disabling it doesn't also unsettle its own
+          // ground (reassessBorderOnAnchorDeactivation vacates a tile only
+          // when NOTHING covers it, own or rival). Without this, a beacon
+          // that is the *sole* anchor over its own tile anywhere would
+          // permanently lose that tile the moment it's disabled — this test
+          // is about the enable/disable → vision mechanism, not that edge
+          // case (see runtime-reach-loss-unsettle.test.ts for that one).
+          {
+            x: 11,
+            y: 11,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const,
+            town: { type: "FARMING", populationTier: "TOWN" }
           }
         ],
         activeLocks: []

@@ -106,9 +106,9 @@ export const handleCancelCaptureCommand = (ctx: RuntimeCombatSupportContext, com
   }
 
   for (const lock of activeLocks) {
-    ctx.locksByTile.delete(lock.originKey);
-    ctx.locksByTile.delete(lock.targetKey);
+    ctx.locksByTile.delete(lock.originKey); ctx.locksByTile.delete(lock.targetKey);
     ctx.locksByCommandId.delete(lock.commandId);
+    if (lock.actionType === "EXPAND") actor.manpower += lock.manpowerCost; // refunds the up-front EXPAND charge from runtime-frontier-command.ts
   }
 
   ctx.emitEvent({

@@ -15,7 +15,7 @@ export type RealtimeGatewayRuntimeEnv = {
   simulationSeedProfile: SimulationSeedProfile;
   allowNonAuthoritativeInitialState: boolean;
   adminApiToken?: string;
-  fogAdminEmail?: string;
+  adminEmail?: string;
   aiPlayerCount?: number;
   emailAlerts: {
     resendApiKey?: string;
@@ -70,6 +70,11 @@ export const parseRealtimeGatewayRuntimeEnv = (
     !isManagedRuntime;
   const emailAlertsFrom = env.GATEWAY_EMAIL_ALERTS_FROM ?? DEFAULT_EMAIL_ALERTS_FROM;
   const emailAlertsAppUrl = env.GATEWAY_EMAIL_ALERTS_APP_URL ?? env.PUBLIC_APP_URL ?? DEFAULT_EMAIL_ALERTS_APP_URL;
+  // No baked-in default: an open-source checkout has admin-only gateway
+  // features (fog toggle, bug-report destination fallback) off until a
+  // deployer sets their own address via ADMIN_EMAIL.
+  const adminEmail = (env.ADMIN_EMAIL ?? "").trim().toLowerCase() || undefined;
+  const bugReportEmailTo = (env.GATEWAY_BUG_REPORT_EMAIL_TO ?? adminEmail ?? "").trim();
 
   // GATEWAY_DEFAULT_HUMAN_PLAYER_ID collapses every distinct authenticated Firebase
   // uid without an explicit binding onto a single shared playerId. That is only ever
@@ -113,7 +118,7 @@ export const parseRealtimeGatewayRuntimeEnv = (
     simulationSeedProfile: parseSimulationSeedProfile(env.SIMULATION_SEED_PROFILE ?? "default"),
     allowNonAuthoritativeInitialState,
     ...(env.ADMIN_API_TOKEN ? { adminApiToken: env.ADMIN_API_TOKEN } : {}),
-    fogAdminEmail: (env.FOG_ADMIN_EMAIL ?? "admin@borderempires.com").trim().toLowerCase(),
+    ...(adminEmail ? { adminEmail } : {}),
     ...(() => {
       const count = parseOptionalAiPlayerCount(env.SIMULATION_AI_PLAYER_COUNT);
       return count !== undefined ? { aiPlayerCount: count } : {};
@@ -124,7 +129,10 @@ export const parseRealtimeGatewayRuntimeEnv = (
       ...(env.GATEWAY_EMAIL_ALERTS_REPLY_TO ? { replyTo: env.GATEWAY_EMAIL_ALERTS_REPLY_TO } : {}),
       appUrl: emailAlertsAppUrl,
       ...(env.GATEWAY_EMAIL_ALERTS_DAILY_LIMIT ? { dailyLimit: Number(env.GATEWAY_EMAIL_ALERTS_DAILY_LIMIT) } : {}),
-      bugReportEmailTo: (env.GATEWAY_BUG_REPORT_EMAIL_TO ?? "admin@borderempires.com").trim(),
+      // Falls back to the one ADMIN_EMAIL rather than a placeholder, so an
+      // unset GATEWAY_BUG_REPORT_EMAIL_TO can never silently route reports
+      // into a mailbox nobody owns.
+      ...(bugReportEmailTo ? { bugReportEmailTo } : {}),
       appLabel: env.GATEWAY_SLOW_LOGIN_ALERT_LABEL ?? "border-empires-combined-staging"
     }
   };

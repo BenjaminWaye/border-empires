@@ -12,10 +12,10 @@ type MapRevealOptions = {
 const resolveIdentityKey = (authEmail?: string | null): string => debugAuthIdentityKeyForEmail(authEmail);
 
 // The per-account gate is the server-side `canToggleFog` (keyed to
-// `FOG_ADMIN_EMAIL`), surfaced here as `enabledForAccount`. The hostname check
+// `ADMIN_EMAIL`), surfaced here as `enabledForAccount`. The hostname check
 // used to be a second line of defense, but that blocked the fog admin from
 // inspecting prod-only AI state. The server gate alone is sufficient because
-// `FOG_ADMIN_EMAIL` already scopes the capability to a single account.
+// `ADMIN_EMAIL` already scopes the capability to a single account.
 export const mapRevealAvailable = (options?: MapRevealOptions): boolean =>
   Boolean(options?.enabledForAccount);
 

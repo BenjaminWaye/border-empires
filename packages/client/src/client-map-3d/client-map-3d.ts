@@ -113,8 +113,7 @@ type ClientThreeTerrainRendererDeps = {
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
   settlementProgressForTile: (x: number, y: number) => TileTimedProgress | undefined;
   isPlacementValidForTile: (tile: Tile | undefined) => boolean;
-  // Fires when the GPU drops the WebGL context; the host tears this instance
-  // down and falls back to 2D (client-map-3d-render-target.ts).
+  // Fires when the GPU drops the WebGL context; the host tears this instance down and falls back to 2D (client-map-3d-render-target.ts).
   onContextLost?: (reason: string) => void;
 };
 
@@ -144,35 +143,27 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const villageEffects = createVillageEffects(scene);
   const floatingText = createFloatingTextLayer(scene);
   const townSupportCoins = createTownSupportCoinLayer(scene);
-  // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns
-  // (capture event) so the floating "-pop" indicator fires once per capture.
+  // Per-tile last-seen captureShockUntil. Used to detect newly-shocked towns (capture event) so the floating "-pop" indicator fires once per capture.
   const lastSeenCaptureShockByTile = new Map<string, number>();
-  // Per-tile last-seen ownerId, used only to auto-detect and log ownership
-  // changes as they render (debug-tile logging) without needing a manually
-  // pinned coordinate — any tile whose rendered ownerId flips gets logged.
+  // Per-tile last-seen ownerId, used only to auto-detect and log ownership changes as they render (debug-tile logging) without a manually pinned coordinate.
   const lastRenderedOwnerIdByTile = new Map<string, string | undefined>();
   const forest = createForest(scene, MAX_VISIBLE_TILES);
   const ownershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES);
   const frontierDecayPulse = createFrontierDecayPulseTracker();
-  // Fogged tiles get a black darkening quad (always full opacity 0.65,
-  // regardless of frontier/settled -- reuses both mesh buckets identically)
-  // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept
-  // as distinct overlay instances from `ownershipOverlay` so the live
+  // Fogged tiles get a black darkening quad (always full opacity 0.65, regardless of frontier/settled -- reuses both mesh buckets identically)
+  // plus a separate, dimmer ownership tint of the last-witnessed owner. Kept as distinct overlay instances from `ownershipOverlay` so the live
   // SETTLED_OPACITY (0.85) constant is never touched by fog rendering.
   const fogDarkenOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.65, frontier: 0.65 });
   const fogOwnershipOverlay = createOwnershipOverlay(scene, MAX_VISIBLE_TILES, { settled: 0.4, frontier: 0.12 });
   const townOverlay = createTownOverlay(scene, MAX_VISIBLE_TILES);
   const roadOverlay = createRoadOverlay(scene);
   const reachOverlay3D = createReachOverlay3D(scene, MAX_VISIBLE_TILES);
-  // Cache of the client-local reach approximation, recomputed only when
-  // tiles actually changed (same revision-gated pattern as the 2D path's
-  // state.myReach in client-runtime-loop.ts). Kept as a local rather than
-  // on ClientState since the 2D path guards its own state.myReach update
+  // Cache of the client-local reach approximation, recomputed only when tiles actually changed (same revision-gated pattern as the 2D path's
+  // state.myReach in client-runtime-loop.ts). Kept as a local rather than on ClientState since the 2D path guards its own state.myReach update
   // with !isTrue3DRendererActive() and only one renderer is ever active.
   let reach3DCache: Set<string> | undefined;
   let reach3DCacheRevision = "";
-  // Sparse pylon placement points + connecting chords, sampled from the
-  // traced reach-boundary perimeter (see client-reach-overlay.ts's
+  // Sparse pylon placement points + connecting chords, sampled from the traced reach-boundary perimeter (see client-reach-overlay.ts's
   // traceReachBoundaryEdgeLoops/samplePerimeterPylons). Recomputed only when
   // reach3DCache itself is recomputed -- the perimeter walk is more work
   // than a per-tile boundary check, so it must not run every frame.
@@ -1409,7 +1400,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const reach3DActive = isTrue3DRendererActive();
     const reach3DDeps = { tiles: deps.state.tiles, keyFor: deps.keyFor, wrapX: deps.wrapX, wrapY: deps.wrapY };
     if (reach3DActive) {
-      const reach3DKey = `${deps.state.tilesRevision}:${deps.state.serverReachRevision}`; // string key avoids arithmetic collisions
+      const reach3DKey = `${deps.state.tilesRevision}:${deps.state.serverReachRevision}:${deps.state.rivalReachGlobalRevision}`; // string key; rivalReachGlobalRevision covers rival-only border changes
       if (reach3DCacheRevision !== reach3DKey) {
         // Land-only: reach is a purely geometric radius (no terrain
         // awareness), so a coastal anchor's disk legitimately extends over
@@ -1422,7 +1413,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         const { pylons, segments } = samplePerimeterPylons(loops);
         reach3DPylons = pylons.flat();
         reach3DSegments = segments.flat();
-        ({ pylons: otherOwnersPylons, segments: otherOwnersSegments } = computeOtherOwnersReachPylons(deps.state.tiles, deps.state.me, reach3DDeps, deps.keyFor));
+        ({ pylons: otherOwnersPylons, segments: otherOwnersSegments } = computeOtherOwnersReachPylons(deps.state.tiles, deps.state.me, reach3DDeps, deps.keyFor, deps.state.rivalReach));
         borderContactState = computeBorderContactRenderState(deps.state.me, reach3DPylons, otherOwnersPylons, reach3DSegments, otherOwnersSegments);
       }
     } else {
