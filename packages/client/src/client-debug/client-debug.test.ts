@@ -12,6 +12,7 @@ import {
 
 describe("client debug tile controls", () => {
   beforeEach(() => {
+    vi.stubEnv("VITE_ADMIN_EMAIL", "admin@borderempires.com");
     const store = new Map<string, string>();
     vi.stubGlobal("window", {
       localStorage: {

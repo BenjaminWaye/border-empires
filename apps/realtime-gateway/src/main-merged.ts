@@ -164,7 +164,7 @@ const gateway = await createRealtimeGatewayApp({
   simulationSeedProfile: gatewayEnv.simulationSeedProfile,
   allowNonAuthoritativeInitialState: gatewayEnv.allowNonAuthoritativeInitialState,
   ...(gatewayEnv.adminApiToken ? { adminApiToken: gatewayEnv.adminApiToken } : {}),
-  ...(gatewayEnv.fogAdminEmail ? { fogAdminEmail: gatewayEnv.fogAdminEmail } : {}),
+  ...(gatewayEnv.adminEmail ? { adminEmail: gatewayEnv.adminEmail } : {}),
   ...(gatewayEnv.aiPlayerCount ? { aiPlayerCount: gatewayEnv.aiPlayerCount } : {}),
   emailAlerts: gatewayEnv.emailAlerts,
   simMetricsUrl: `http://${simReady.metricsHost}:${simReady.metricsPort}/metrics`,
