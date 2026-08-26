@@ -1,4 +1,4 @@
-import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
+import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 
 export function rejectCommand(
@@ -13,7 +13,7 @@ export function rejectCommand(
     playerId: command.playerId,
     code,
     message
-  } as SimulationEvent);
+  });
 }
 
 // Aether Condenser is the client-visible rename of CRYSTAL_SYNTHESIZER (see
