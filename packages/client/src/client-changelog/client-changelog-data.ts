@@ -14,6 +14,85 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787734461399, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Allies can now share dock-network access",
+    why: "Docks let you cross open water, but only from a dock you personally owned -- so an ally holding the far end of a shared shipping lane didn't help you reach it, even though your empire already had a foothold somewhere in that same connected network of docks.",
+    changes: [
+      "EXPAND and ATTACK can now launch from an allied dock, as long as you control at least one other dock in that dock's connected network"
+    ]
+  },
+  {
+    createdAt: 1787734129392, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Added a Founding Engineer tag",
+    why: "A small, fixed set of early contributors didn't have any way to be recognized in the game's social UI.",
+    changes: [
+      "Founding Engineer players now show a gold name and a top-hat tag next to their name in the season lobby roster, the tile detail owner label, and the leaderboard"
+    ]
+  },
+  {
+    createdAt: 1787733981707, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.4",
+    title: "Aegis Dome shield radius reduced to 25 tiles",
+    why: "The Aegis Dome's protection radius was 30 tiles in code while the build-menu description had always said 25 -- the two disagreed, and 25 is the intended number going forward.",
+    changes: ["Aegis Dome (and its Aegis Lock) now protects a 25-tile radius, down from 30"]
+  },
+  {
+    createdAt: 1787733981706, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.3",
+    title: "Corrected several building descriptions that no longer matched their real effects",
+    why: "An audit of every structure's build-menu and tech-tree copy against the actual simulation code turned up several descriptions left over from before the manpower-economy rewrite (§5), still advertising numbers or mechanics the current code doesn't implement.",
+    changes: [
+      "Astral Dock's satellite launch is now correctly described as free (it always was in code; the old copy claimed a 1,000 gold cost that was never actually charged)",
+      "Harbor Exchange's per-dock income is now correctly shown as +5 gold/day (was shown as +1,440 gold/day -- a 288x display error)",
+      "Trade Nexus's connected-town bonus now shows the real stepped +50%/+40%/+30% ladder instead of a flat, fictional +25%",
+      "Rail Depot's description no longer claims it auto-settles frontier tiles or grants connected-town income points -- neither was ever implemented",
+      "Ministry Hall (Governor's Office) and Seed Granary no longer claim a food-upkeep discount that was never implemented; Ministry Hall's real effect (reducing a nearby town's FOOD slot demand by its tier step) is unchanged and still shown",
+      "Mine and Umbrite Rig no longer claim a +50% production boost or flat resource caps retired by the resource-slot rewrite -- both now correctly show their real +1 resource-slot effect",
+      "Umbrite Works, Titanium Works, and Aether Condenser (and their Advanced tiers) no longer claim a daily resource-production rate in Refine mode that the economy no longer produces -- Refine mode is now correctly described as supplying +1 resource slot; Sell off mode's numbers were already accurate and are unchanged"
+    ]
+  },
+  {
+    createdAt: 1787731482829, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Agrarian Works now also boosts your fishing grounds",
+    why: "Researching Agrarian Works only ever unlocked the Farmstead, which has no effect on fish tiles at all -- fish-heavy empires got nothing out of the tech beyond an economy-branch checkbox.",
+    changes: [
+      "Agrarian Works now adds +1 FOOD slot on every owned fish tile, on top of unlocking the Farmstead",
+      "This is a flat tech bonus, independent of any structure -- it applies to bare fish tiles too, not just ones with a Farmstead built on them"
+    ]
+  },
+  {
+    createdAt: 1787724124671, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Frontier tiles no longer decay while sitting inside anyone's live reach",
+    why: "Out-of-reach frontier decay only checked reach coverage at the moment a tile was claimed. If another player's town/outpost reach later grew to cover that ground, the original claim's decay timer kept counting down regardless, so tiles that were clearly inside someone's live border still got auto-cleared to neutral.",
+    changes: [
+      "Re-checks reach coverage at the moment a frontier tile's decay timer would fire, not just at claim time",
+      "A tile inside any player's live reach -- the owner's own or another player's -- has its decay timer cleared instead of expiring"
+    ]
+  },
+  {
+    createdAt: 1787724118006, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Rally-linked players now spawn near a real foothold, not just the nearest empty tile",
+    why: "Joining via a friend's rally link placed you on whichever open tile happened to be closest to their anchor, even a barren one with no town or food nearby -- while a normal spawn always looked for a town and food within reach.",
+    changes: [
+      "Rally spawns now search outward from the anchor for a spot with both a town and food nearby before falling back to a town-only, then food-only, then any-open-tile spot, all still within the rally radius"
+    ]
+  },
+  {
+    createdAt: 1787692481411, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.8",
+    title: "Gave the \"join now\" season prompt a real intro instead of a bare confirmation dialog",
+    why: "The plain join-season overlay (season already live, player just hasn't clicked join yet) read as a placeholder-y \"Join Season season-23?\" dialog with a static \"Ready\" dial that did nothing -- no sense of occasion for what's actually your empire's founding moment.",
+    changes: [
+      "Replaced the title/summary with narrative flavor text introducing the season",
+      "Removed the static \"Ready\" dial and turned the confirm button itself into the focal call-to-action, relabeled \"Let's go!\""
+    ]
+  },
+  {
     createdAt: 1787689447704, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.7",
     title: "Fixed flickering at the coastline where the water and land skirts overlapped",
@@ -38,6 +117,22 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The water skirt wall added moments earlier (2026.08.25.5) closed the black gap under coastal sea tiles, but its top edge was drawn once and never touched again, while the water surface itself bobs up and down every frame with the wave animation. Whenever the wave lifted the surface above the skirt's static top, the same black gap reappeared.",
     changes: [
       "The water skirt's top edge now rides the same wave animation as the surface, so it stays flush with the water at every frame instead of only when the sea happens to be at rest."
+    ]
+  },
+  {
+    createdAt: 1787689171531, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Fixed auto-settle trying to build on resource tiles outside your reach",
+    why: "The auto-settle queue included every owned frontier tile with a resource, town, or dock without checking reach, so a plain resource tile (which generates no reach of its own) claimed outside your reach border kept getting re-queued and rejected with an OUT_OF_REACH error.",
+    changes: ["Auto-settle no longer queues frontier tiles that are currently outside your reach border."]
+  },
+  {
+    createdAt: 1787691972634, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Town population bar now shows progress toward the next tier",
+    why: "The town overview's population bar showed current population against the town's absolute population cap, which barely moved even as a town grew and gave no sense of how close it was to upgrading tiers.",
+    changes: [
+      "The population bar and its number now track progress toward the next population tier (e.g. Town → City) instead of the absolute population cap, and turns green once that tier's threshold is reached."
     ]
   },
   {
@@ -265,13 +360,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787431431635, // frozen from a live Date.now() call
-    introducedIn: "2026.08.22.12",
-    title: "Fixed rivers clipping through hills",
-    why: "River ribbons rendered at the flat ground elevation, ignoring the raised dome mesh used for hill tiles, so a river crossing a hill looked like jagged glued-together rectangles instead of a smooth ribbon.",
-    changes: ["Rivers now render above the hill dome wherever their path crosses a hills tile."]
-  },
-  {
     createdAt: 1787462871189, // 2026.08.23.05 — frozen from a live Date.now() call
     introducedIn: "2026.08.23.05",
     title: "Turned off rivers in new map generation",
@@ -373,91 +461,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787432000000,
-    introducedIn: "2026.08.22.12",
-    title: "Your galaxy planets and outposts now earn Influence and Production, and can lose Stability",
-    why: "The galaxy view previously showed your Planets/Outposts/Stipends as a static record with nothing ongoing attached to them -- the galactic meta-layer's actual economy (docs/galactic-campaign-design.md §4/§5/§7) wasn't running yet. This introduces the first slice of that economy: a weekly Cycle tick that trickles Influence/Production income from your held territory, charges Influence upkeep for spreading wide, and drains or recovers each territory's Stability accordingly.",
-    changes: [
-      "Your galaxy view now shows a running Influence/Production balance, updated once per weekly Cycle based on your held Planets' and Outposts' specializations.",
-      "Holding more Planets costs more Influence upkeep -- Outposts still cost nothing to hold, staying the cheap entry rung for newer empires.",
-      "Each held Planet and Outpost now has a Stability meter (0-100), shown as a bar under it in the galaxy view. Falling into an Influence deficit drains your weakest territory's Stability over time; a healthy Influence surplus recovers all of them."
-    ]
-  },
-  {
-    createdAt: 1787430800000,
-    introducedIn: "2026.08.22.10",
-    title: "Your galaxy planet now shows what it's specialized in",
-    why: "The galaxy view showed which victory path crowned your planet, but not what that meant going forward -- part of the early galactic meta-layer groundwork (docs/galactic-campaign-design.md), where each victory path is meant to grant a distinct planet specialization.",
-    changes: [
-      "Your galaxy planet (named or not-yet-named) now shows a specialization badge -- Industrial, Trade, Extraction, Logistics, or Capital -- based on which victory condition crowned it."
-    ]
-  },
-  {
-    createdAt: 1787430700000,
-    introducedIn: "2026.08.22.9",
-    title: "Muster flags now clear reliably after losing a tile in combat",
-    why: "Losing an attack could hand your attacking tile to the enemy, and if that tile then fell outside your visible area in the same instant, the server's notice that the tile (and its staged muster flag) changed hands never reached your client -- the flag stayed stuck on ground you no longer owned until you happened to re-scout it.",
-    changes: [
-      "The server now always tells you when a tile you just lost -- whether your attack's origin was overrun or a target you held was captured -- changes hands, even if you no longer have vision of it, so a cleared muster flag (and the rest of that tile's state) updates immediately instead of going stale."
-    ]
-  },
-  {
-    createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.2",
-    title: "Fixed the whole screen becoming unclickable after submitting a bug report",
-    why: "Closing the redesigned bug report dialog (including automatically, after a successful submit) only cleared its contents -- the full-screen invisible container div stayed in the DOM with pointer-events left on, silently intercepting every click across the entire game until you reloaded the page.",
-    changes: [
-      "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
-    ]
-  },
-  {
-    createdAt: 1787557977223, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.1",
-    title: "Fixed laggy panning/zooming on wide monitors",
-    why: "The map's per-frame draw loop redrew every on-screen tile with no ceiling on how many tiles that could be. On a wide or ultrawide monitor zoomed all the way out, that meant tens of thousands of tiles redrawn every single frame -- pegging the main thread and making panning and zooming visibly stutter, especially on larger screens.",
-    changes: [
-      "The map now caps how many tiles it draws per frame to the same budget already used elsewhere in the renderer, shrinking the visible radius slightly (rather than stalling) only in the most zoomed-out state on unusually wide screens."
-    ]
-  },
-  {
-    createdAt: 1787584599966, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.24.6",
-    title: "Added basic sign-up analytics",
-    why: "We had no way to see where new players were coming from, or how many visitors from a shared link actually created an account -- link attribution and conversion were both invisible.",
-    changes: [
-      "The client now reports page landings and a sign-up event (for new accounts created by email, Google, or email-link sign-in) to Google Analytics, so shared links can be attributed by source/campaign and tracked through to conversion."
-    ]
-  },
-  {
-    createdAt: 1787584599967, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.24.7",
-    title: "Renamed AI empires to first names only",
-    why: "AI empire names paired a first name with a surname that read as a fantasy/game surname (e.g. \"Sigrid Storm\", \"Edvin Frost\"), which looked out of place next to real players' names on the leaderboard.",
-    changes: [
-      "AI-controlled empires on the leaderboard now show a single first name (e.g. \"Sigrid\", \"Edvin\") instead of a first-plus-surname combo."
-    ]
-  },
-  {
-    createdAt: 1787584599968, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.1",
-    title: "Queued buildings now reserve manpower and a resource slot up front",
-    why: "A BUILD queued behind another in-progress build didn't cost anything until it actually started -- so nothing stopped you from queuing far more than you could afford, and since players often queue things up and go offline, a shortfall could sit hidden for a long time before finally surfacing as a silently dropped build once its turn came.",
-    changes: [
-      "Queuing a building now reserves its manpower cost and a resource slot immediately, refunded in full if you cancel it while queued.",
-      "You can no longer queue more buildings than you can currently afford or have slots for -- the queue now rejects an addition it can't reserve for, instead of accepting it and failing silently later.",
-      "Reserved manpower is also handed back if anything goes wrong while queuing, so it can never be lost to an unexpected error."
-    ]
-  },
-  {
-    createdAt: 1787584599969, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.2",
-    title: "Fixed the Expand To / dev queue silently emptying after a server restart",
-    why: "The frontier expand queue (\"Expand To\") and the development queue were only ever held in the simulation server's memory. They survived a player disconnecting and reconnecting, but a cold restart of the game server reset both queues to empty with no warning -- queued expand targets and build/settle orders were just gone, including any manpower and resource slot a queued build had reserved.",
-    changes: [
-      "The Expand To queue and the development queue now survive a server restart -- both are saved with the rest of your empire's state and restored exactly as you left them, including a queued building's reserved manpower and resource slot."
-    ]
-  },
-  {
     createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.1",
     title: "Auto-settle no longer claims resource tiles before you've researched them",
@@ -467,12 +470,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787651082566, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.2",
-    title: "Added a new-player checklist for founding your first town and securing food",
-    why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
+    createdAt: 1787724130000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Restyled the settings menu's Discord button",
+    why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
     changes: [
-      "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
+      "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
     ]
   },
   {

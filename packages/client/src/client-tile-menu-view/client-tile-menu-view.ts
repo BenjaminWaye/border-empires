@@ -9,6 +9,7 @@ import {
   structureBuildDurationMs,
   structureBuildManpowerCost,
   structureSlotRequirements,
+  nextTownGrowthUpgrade,
   TOWN_MANPOWER_BY_TIER,
   townFoodSlotDemandForTier,
   type SlotResource,
@@ -27,6 +28,7 @@ import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "
 import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js"; import { keyForTile } from "../client-app-runtime-utils.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
+import { isFoundingEngineerName, tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 
@@ -321,10 +323,8 @@ export const menuOverviewForTile = (
   // doesn't duplicate the grid's own Gold card for the same tile.
   let showsTownStatGrid = false;
   if (tile.town) {
-    // Foreign towns under satellite reveal carry only public fields
-    // (type/tier/population/maxPopulation/connected*). When the owner-only
-    // economy fields are absent we hide private-info lines instead of
-    // rendering misleading defaults like "Town is unfed" or "Support 0/0".
+    // Foreign towns under satellite reveal carry only public fields; absent owner-only economy
+    // fields hide private-info lines instead of rendering misleading defaults like "Town is unfed" or "Support 0/0".
     const hasOwnerEconomyData = typeof tile.town.isFed === "boolean";
     const hasFullFoodCoverage = (deps.state.upkeepLastTick?.foodCoverage ?? 1) >= 0.999;
     if (!hasOwnedLandState) {
@@ -360,21 +360,22 @@ export const menuOverviewForTile = (
       const townForGrowth = hasFullFoodCoverage && tile.town.isFed === false ? { ...tile.town, isFed: true } : tile.town;
       const effectiveFed = Boolean(townForGrowth.isFed);
       // Base manpower cap/regen this town's tier grants the empire (before
-      // Garrison Hall/Assembly Works cap bonuses, which surface separately
-      // via townModifierTotals below, and before the settle-order regen
-      // scaling in manpowerRegenWeightForSettlementIndex — that weight
-      // depends on this town's rank among all owned towns, which isn't
-      // available on the client, so this shows the unscaled base only).
+      // Garrison Hall/Assembly Works cap bonuses, which surface separately via
+      // townModifierTotals below, and before the settle-order regen scaling in
+      // manpowerRegenWeightForSettlementIndex — that weight depends on this
+      // town's rank among owned towns, unavailable client-side, so this shows the unscaled base only).
       const tierManpower = TOWN_MANPOWER_BY_TIER[tile.town.populationTier];
       // Matches tileProductionHtml's own gold math exactly (same
       // tile.yieldRate.goldPerMinute * 1440 source) so this card's number
       // never disagrees with any other gold/day figure shown elsewhere.
       const goldPerDay = (tile.yieldRate?.goldPerMinute ?? 0) * 1440;
+      const nextTierPopulation = nextTownGrowthUpgrade(tile.town.populationTier, tile.town.population)?.requiredPopulation;
       lines.push({
         kind: "statgrid",
         html: townStatGridHtml({
           population: Math.round(tile.town.population),
           maxPopulation: Math.round(tile.town.maxPopulation),
+          ...(nextTierPopulation !== undefined ? { nextTierPopulation } : {}),
           populationTierLabel: displayTownPopulationTierLabel(tile.town.populationTier),
           growthText: effectiveFed
             ? `${deps.populationPerMinuteLabel(tile.town.populationGrowthPerMinute ?? 0)} — ${deps.townNextGrowthEtaLabel(townForGrowth, { explainUnfed: tile.ownerId === deps.state.me })}`
@@ -644,13 +645,8 @@ export const tileMenuViewForTile = (
             : "Your settled land"
           : (foreignOwnerLabel ?? "Unknown empire");
   const ownerLabelIsAlly = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && deps.isTileOwnedByAlly(tile);
-  const subtitleHtml = ownerLabelIsAlly
-    ? [
-        `<span class="tile-owner-label is-ally">${ownerLabel}</span>`,
-        regionLabel ?? ""
-      ]
-        .filter(Boolean)
-        .join(" · ")
+  const subtitleHtml = ownerLabelIsAlly || isFoundingEngineerName(foreignOwnerLabel)
+    ? [tileOwnerLabelHtml(ownerLabel, foreignOwnerLabel, ownerLabelIsAlly), regionLabel ?? ""].filter(Boolean).join(" · ")
     : undefined;
   const titleLabel =
     tile.town

@@ -136,7 +136,7 @@ describe("Phase 7: fort garrison containers", () => {
       });
 
     const internalTile = (tile: SimulationRuntime) =>
-      (tile as unknown as { tiles: Map<string, unknown> }).tiles.get(simulationTileKey(10, 11));
+      (tile as unknown as { state: { tiles: Map<string, unknown> } }).state.tiles.get(simulationTileKey(10, 11));
 
     const requiredFor = (garrison: number): number => {
       const rt = buildRuntime(garrison);
@@ -168,7 +168,7 @@ describe("Phase 7: fort garrison containers", () => {
         }
       });
     const internalTile = (tile: SimulationRuntime) =>
-      (tile as unknown as { tiles: Map<string, unknown> }).tiles.get(simulationTileKey(10, 11));
+      (tile as unknown as { state: { tiles: Map<string, unknown> } }).state.tiles.get(simulationTileKey(10, 11));
     const requiredFor = (garrison: number): number => {
       const rt = buildRuntime(garrison);
       return (rt as unknown as { requiredMusterForTarget(t: unknown): number })

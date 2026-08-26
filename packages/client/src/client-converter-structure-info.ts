@@ -20,7 +20,7 @@ export const converterStructureInfoView = (
   if (type === "UMBRITE_SYNTHESIZER") {
     return structure({
       title: "Umbrite Works",
-      detail: "Umbrite Works occupy 1 umbrite slot and can point either way: Refine turns gold upkeep into 18 umbrite per day; Sell off consumes the slot for 8 gold per day instead. A 60-minute cooldown gates flipping direction.",
+      detail: "Umbrite Works can point either way: Refine (30 gold/day upkeep) supplies +1 UMBRITE slot; Sell off instead occupies 1 UMBRITE slot for 8 gold per day. A 60-minute cooldown gates flipping direction.",
       glyph: "📦",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -30,7 +30,7 @@ export const converterStructureInfoView = (
   if (type === "ADVANCED_UMBRITE_SYNTHESIZER") {
     return structure({
       title: "Advanced Umbrite Works",
-      detail: "Advanced Umbrite Works upgrade an existing Umbrite Works: Refine rises from 18 to 21.6 umbrite per day (45 gold upkeep); Sell off pays 12 gold per day instead. Same 60-minute flip cooldown.",
+      detail: "Advanced Umbrite Works upgrade an existing Umbrite Works: Refine (45 gold/day upkeep) supplies +1 UMBRITE slot; Sell off instead occupies 1 UMBRITE slot for 12 gold per day. Same 60-minute flip cooldown.",
       glyph: "🧵",
       placement: "Upgrade an existing Umbrite Works on its current support tile.",
       costBits: costBitsFor(type),
@@ -40,7 +40,7 @@ export const converterStructureInfoView = (
   if (type === "TITANIUM_WORKS") {
     return structure({
       title: "Titanium Works",
-      detail: "Titanium Works occupy 1 titanium slot and can point either way: Refine turns gold upkeep into 18 titanium per day; Sell off consumes the slot for 8 gold per day instead. A 60-minute cooldown gates flipping direction.",
+      detail: "Titanium Works can point either way: Refine (30 gold/day upkeep) supplies +1 TITANIUM slot; Sell off instead occupies 1 TITANIUM slot for 8 gold per day. A 60-minute cooldown gates flipping direction.",
       glyph: "⚙",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -50,7 +50,7 @@ export const converterStructureInfoView = (
   if (type === "ADVANCED_TITANIUM_WORKS") {
     return structure({
       title: "Advanced Titanium Works",
-      detail: "Advanced Titanium Works upgrade an existing Titanium Works: Refine rises from 18 to 21.6 titanium per day (45 gold upkeep); Sell off pays 12 gold per day instead. Same 60-minute flip cooldown.",
+      detail: "Advanced Titanium Works upgrade an existing Titanium Works: Refine (45 gold/day upkeep) supplies +1 TITANIUM slot; Sell off instead occupies 1 TITANIUM slot for 12 gold per day. Same 60-minute flip cooldown.",
       glyph: "⚙",
       placement: "Upgrade an existing Titanium Works on its current support tile.",
       costBits: costBitsFor(type),
@@ -60,7 +60,7 @@ export const converterStructureInfoView = (
   if (type === "CRYSTAL_SYNTHESIZER") {
     return structure({
       title: "Aether Condenser",
-      detail: "Aether Condensers occupy 1 crystal slot and can point either way: Refine turns gold upkeep into 12 crystal per day; Sell off consumes the slot for 10 gold per day instead. A 60-minute cooldown gates flipping direction.",
+      detail: "Aether Condensers can point either way: Refine (40 gold/day upkeep) supplies +1 CRYSTAL slot; Sell off instead occupies 1 CRYSTAL slot for 10 gold per day. A 60-minute cooldown gates flipping direction.",
       glyph: "💎",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -70,7 +70,7 @@ export const converterStructureInfoView = (
   if (type === "ADVANCED_CRYSTAL_SYNTHESIZER") {
     return structure({
       title: "Advanced Aether Condenser",
-      detail: "Advanced Aether Condensers upgrade an existing Aether Condenser: Refine rises from 12 to 14.4 crystal per day (60 gold upkeep); Sell off pays 15 gold per day instead. Same 60-minute flip cooldown.",
+      detail: "Advanced Aether Condensers upgrade an existing Aether Condenser: Refine (60 gold/day upkeep) supplies +1 CRYSTAL slot; Sell off instead occupies 1 CRYSTAL slot for 15 gold per day. Same 60-minute flip cooldown.",
       glyph: "💠",
       placement: "Upgrade an existing Aether Condenser on its current support tile.",
       costBits: costBitsFor(type),

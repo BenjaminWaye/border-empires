@@ -134,7 +134,7 @@ export const neutralTileActions = (
             : state.gold < deps.structureGoldCost("FOUNDRY")
               ? `Need ${deps.structureGoldCost("FOUNDRY")} gold`
               : `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`,
-      `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 5 tiles; boosted production raises iron/crystal cap`,
+      `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles active Mine slot output within 5 tiles`,
       deps.developmentSlotSummary(),
       deps
     )

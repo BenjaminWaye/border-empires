@@ -185,8 +185,12 @@ export const isSlotSinkConverter = (type: string, mode: ConverterMode): boolean 
   SYNTHESIZER_TYPE_SET.has(type as BuildableStructureType) && mode === "EXCHANGE";
 
 // §5.2/§5.3: base slot supply per raw resource tile, and the boost each
-// tile-sitting structure adds. FISH is deliberately fixed with no boost path
-// (§5.3) — FARM is the one worth developing for real scale.
+// tile-sitting structure adds. FISH has no per-tile-structure boost path
+// (§5.3, Farmstead/Waterworks don't touch it) — FARM is the one worth
+// developing for real scale via structures. FISH does get one flat,
+// tech-gated bonus instead: AGRICULTURE_FISH_FOOD_SLOT_BONUS below, applied
+// per owned FISH tile once the player has researched Agrarian Works
+// ("agriculture"), independent of any structure on the tile.
 export const BASE_SLOTS_BY_TILE_RESOURCE: Partial<Record<ResourceType, { slotResource: SlotResource; baseSlots: number }>> = {
   FARM: { slotResource: "FOOD", baseSlots: 1 },
   FISH: { slotResource: "FOOD", baseSlots: 2 },
@@ -194,6 +198,14 @@ export const BASE_SLOTS_BY_TILE_RESOURCE: Partial<Record<ResourceType, { slotRes
   GEMS: { slotResource: "CRYSTAL", baseSlots: 1 },
   UMBRITE: { slotResource: "UMBRITE", baseSlots: 1 }
 };
+
+// Agrarian Works ("agriculture" tech) grants +1 FOOD slot on every owned
+// settled FISH tile, flat, regardless of whether a Farmstead is built there
+// — a passive tech effect, not a structure boost (Farmstead itself still has
+// no effect on fish production, §5.3). See tech-domain-bridge.ts's
+// techGrantedFishFoodSlotBonus, which is what actually gates this on the
+// player having researched the tech.
+export const AGRICULTURE_FISH_FOOD_SLOT_BONUS = 1;
 
 // Mine/Camp add +1 slot to the tile they sit on (§5.2: "one rule, all
 // resources"). Farmstead adds +2 (user decision — a bigger same-tile boost

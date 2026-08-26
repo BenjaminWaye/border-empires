@@ -12,22 +12,11 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
-    createdAt: 1787430600000,
-    introducedIn: "2026.08.22.8",
-    title: "Creating a mountain now clears any muster flag staged on the tile",
-    why: "Turning a tile into a mountain destroyed the tile's ownership, but the muster flag staged on it stuck around, showing a stale muster icon on ground you no longer held.",
-    changes: [
-      "Creating a mountain on a tile with a staged muster flag now clears the flag along with the tile's ownership, matching how bombardment, capture, and tile shedding already handle it."
-    ]
-  },
-  {
-    createdAt: 1787429155443,
+    createdAt: 1787431431635, // frozen from a live Date.now() call
     introducedIn: "2026.08.22.12",
-    title: "Fixed a dark \"crack\" flickering at animated shorelines",
-    why: "Every coastline's animated water can dip deep enough at a wave trough to reveal the coastal skirt wall underneath it, which was shaded so dark that it read as a jarring black gap right at the shoreline.",
-    changes: [
-      "Brightened the coastal skirt wall's shading so it no longer looks near-black when the water's wave animation passes through a deep trough."
-    ]
+    title: "Fixed rivers clipping through hills",
+    why: "River ribbons rendered at the flat ground elevation, ignoring the raised dome mesh used for hill tiles, so a river crossing a hill looked like jagged glued-together rectangles instead of a smooth ribbon.",
+    changes: ["Rivers now render above the hill dome wherever their path crosses a hills tile."]
   },
   {
     createdAt: 1787509343955, // frozen from `date +%s%3N`
@@ -465,25 +454,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
     changes: [
       "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
-    ]
-  },
-  {
-    createdAt: 1787430000000,
-    introducedIn: "2026.08.22.2",
-    title: "An empire with no war industry is now also weaker on defense, not just on offense",
-    why: "Owning zero Titanium and zero Umbrite Weapons Factories empire-wide already doubled an attacker's effective attack against you -- but that bonus only ever helped the attacker. If you had no war industry and someone else attacked you, defending gave you no comparable penalty or advantage either way.",
-    changes: [
-      "Defending against an attacker who owns zero Titanium AND zero Umbrite Weapons Factories anywhere in their empire now doubles your effective defense, mirroring the existing attack-side vulnerability from the other direction. Missing one factory type or both gives the same flat bonus -- it doesn't stack higher for missing both."
-    ]
-  },
-  {
-    createdAt: 1787430100000,
-    introducedIn: "2026.08.22.3",
-    title: "Fixed the reach border dodging around fog of war and unexplored tiles",
-    why: "Your reach border is a fixed, server-authoritative line -- it shouldn't move depending on what you can currently see. But the 2D map only drew the border on tiles it considered fully visible, so on any fogged or unexplored patch inside your own territory the line simply stopped, making it look like the border itself was carving around the fog instead of following your actual claim.",
-    changes: [
-      "The reach border now renders on top of fogged territory (dimmed, same as the rest of a fogged tile) instead of disappearing there.",
-      "It still stays hidden over fully unexplored tiles, since there's nothing remembered there to draw it against."
     ]
   },
   {

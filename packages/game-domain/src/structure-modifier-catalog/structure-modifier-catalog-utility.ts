@@ -6,7 +6,7 @@
 // intermediates) carry no numeric effect of their own, so they return [].
 import {
   AEGIS_DOME_PROTECTION_RADIUS, AEGIS_LOCK_DURATION_MS, AETHER_TOWER_RADIUS, AIRPORT_BOMBARD_RANGE,
-  ASTRAL_DOCK_LAUNCH_GOLD_COST, IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS, POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING,
+  IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS, POPULATION_BUREAU_REGEN_PER_MANPOWER_BUILDING,
   RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS, TITANIUM_LEVY_MANPOWER_CONVERSION_RATIO, WORLD_ENGINE_STRIKE_GOLD_COST,
   WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO
 } from "../server-game-constants/server-game-constants.js";
@@ -28,7 +28,7 @@ export const utilityStructureModifiers = (type: ModifierStructureType): Structur
   if (type === "AIRPORT") return [{ statLabel: "Area-strip range", valueText: `${AIRPORT_BOMBARD_RANGE} tiles`, tone: "neutral", isTownWide: false }];
   if (type === "AETHER_TOWER") return [{ statLabel: "Power radius", valueText: `${AETHER_TOWER_RADIUS} tiles`, tone: "positive", isTownWide: false }];
   if (type === "RADAR_SYSTEM") return [{ statLabel: "Bombardment block radius", valueText: `${RADAR_SYSTEM_BOMBARD_BLOCK_RADIUS} tiles`, tone: "positive", isTownWide: false }];
-  if (type === "ASTRAL_DOCK") return [{ statLabel: "Full-map vision (24h)", valueText: `${ASTRAL_DOCK_LAUNCH_GOLD_COST.toLocaleString()} gold`, tone: "neutral", isTownWide: false }];
+  if (type === "ASTRAL_DOCK") return [{ statLabel: "Full-map vision (24h)", valueText: "Free", tone: "positive", isTownWide: false }];
   if (type === "IMPERIAL_EXCHANGE") return [{ statLabel: `Rival gold levy (every ${hoursFromMs(IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS)}h)`, valueText: "100%", tone: "positive", isTownWide: false }];
   if (type === "WORLD_ENGINE") {
     return [{

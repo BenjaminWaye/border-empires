@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import { OUT_OF_REACH_DECAY_MS } from "@border-empires/shared";
+import { OUT_OF_REACH_DECAY_MS, type ReachAnchor } from "@border-empires/shared";
 import { describe, expect, it } from "vitest";
 
 import type { SimulationTileWireDelta } from "../runtime-types.js";
@@ -36,7 +36,7 @@ type Harness = {
   tick: (nowMs: number) => number;
 };
 
-const harness = (): Harness => {
+const harness = (anchors: ReachAnchor[] = []): Harness => {
   const queue = createOutOfReachDecayQueue();
   const tiles = new Map<string, DomainTileState>();
   const events: SimulationEvent[] = [];
@@ -56,7 +56,8 @@ const harness = (): Harness => {
         emitEvent: (event) => {
           events.push(event);
         },
-        runtimeLogInfo: () => {}
+        runtimeLogInfo: () => {},
+        gatherReachAnchors: () => anchors
       })
   };
 };
@@ -96,6 +97,21 @@ describe("tickOutOfReachDecay — expiry", () => {
     expect(h.events).toHaveLength(2);
     const owners = h.events.map((e) => (e as { playerId: string }).playerId).sort();
     expect(owners).toEqual(["p1", "p2"]);
+  });
+
+  it("does not expire a tile inside another player's live reach, clearing the timer instead", () => {
+    const anchor: ReachAnchor = { ownerId: "p2", x: 10, y: 10, kind: "TOWN", activatedAt: 0 };
+    const h = harness([anchor]);
+    stamp(h, "10,10", 1_000);
+
+    expect(h.tick(1_000)).toBe(0);
+    const tile = h.tiles.get("10,10");
+    // Ownership held onto — the tile is still contested/covered ground, not decayed.
+    expect(tile?.ownerId).toBe("p1");
+    expect(tile?.ownershipState).toBe("FRONTIER");
+    // Timer cleared so it does not read as perpetually about to decay.
+    expect(tile?.frontierDecayAt).toBeUndefined();
+    expect(tile?.frontierDecayKind).toBeUndefined();
   });
 
   it("stops at the first entry that is not yet due", () => {
@@ -195,7 +211,8 @@ describe("tickOutOfReachDecay — performance guards", () => {
       },
       tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }) as SimulationTileWireDelta,
       emitEvent: () => {},
-      runtimeLogInfo: () => {}
+      runtimeLogInfo: () => {},
+      gatherReachAnchors: () => []
     });
 
     // Exactly one tile was due; the other 5,000 must not have been touched.

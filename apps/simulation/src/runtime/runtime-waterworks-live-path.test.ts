@@ -94,10 +94,10 @@ describe("waterworks live path (collectTileYield / tileDeltaFromState)", () => {
 
     const deltaYieldStrategicFood = (runtime: SimulationRuntime): number | undefined => {
       const internal = runtime as unknown as {
-        tiles: Map<string, { x: number; y: number }>;
+        state: { tiles: Map<string, { x: number; y: number }> };
         tileDeltaFromState(tile: { x: number; y: number }): { yield?: { strategic?: Partial<Record<string, number>> } };
       };
-      const tile = internal.tiles.get("5,5")!;
+      const tile = internal.state.tiles.get("5,5")!;
       return internal.tileDeltaFromState(tile).yield?.strategic?.FOOD;
     };
 
