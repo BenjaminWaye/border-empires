@@ -280,4 +280,13 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
       "The Economy panel's detail card for FOOD/TITANIUM/CRYSTAL/UMBRITE now has a \"Slot Sources\" column listing which tiles and boost structures (Farmstead, Mine, Umbrite Rig, Waterworks/Foundry radius bonuses, active synthesizers) are contributing slot capacity, alongside the existing \"Occupied by\" column."
     ]
   },
+  {
+    createdAt: 1787474961956, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Higher starting manpower for new capitals",
+    why: "New capitals started with 576 manpower, an odd number derived from expansion-cost math -- raising it to a round 720 gives new players more early room to expand and settle.",
+    changes: [
+      "A new capital's starting manpower cap (and starting manpower, which fills it) is now 720, up from 576."
+    ]
+  },
 ];

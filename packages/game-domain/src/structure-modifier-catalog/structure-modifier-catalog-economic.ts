@@ -8,7 +8,7 @@ import {
   RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS
 } from "@border-empires/shared";
 import {
-  FOUNDRY_OUTPUT_MULT, GOVERNORS_OFFICE_RADIUS, LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE,
+  FOUNDRY_OUTPUT_MULT, GOVERNORS_OFFICE_RADIUS, GRANARY_ONGOING_GROWTH_MULT, LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE,
   MINTWORKS_FLAT_GOLD_BONUS_PER_MIN, MINTWORKS_GOLD_PRODUCTION_BONUS, MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE,
   MINTWORKS_INSTANT_GOLD_BONUS, RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD,
   UPKEEP_MINUTES_PER_DAY
@@ -91,7 +91,12 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
   }
   if (type === "MINE") return mineModifiers(ctx);
   if (type === "MINTWORKS") return mintworksModifiers(ctx);
-  if (type === "GRANARY") return [{ statLabel: "Population", valueText: `+${GRANARY_INSTANT_POPULATION_BURST.toLocaleString()} (once, on completion)`, tone: "positive", isTownWide: true }];
+  if (type === "GRANARY") {
+    return [
+      { statLabel: "Population", valueText: `+${GRANARY_INSTANT_POPULATION_BURST.toLocaleString()} (once, on completion)`, tone: "positive", isTownWide: true },
+      { statLabel: "Population growth", valueText: percentLabel((GRANARY_ONGOING_GROWTH_MULT - 1) * 100), tone: "positive", isTownWide: true }
+    ];
+  }
   if (type === "SEED_GRANARY") {
     return [{ statLabel: "Population growth", valueText: "+30%", tone: "positive", isTownWide: true }];
   }
