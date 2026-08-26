@@ -47,7 +47,8 @@ const spawnAndAnnounce = (
     {
       emitShardRainHelloFor: (id) => deps.runtime.emitShardRainHelloFor(id),
       resendReachForPlayer: (id) => deps.runtime.resendReachForPlayer(id),
-      drainDevQueueForPlayer: (id) => tryDrainDevQueue(deps.runtime.devQueueCommandContext(), id)
+      drainDevQueueForPlayer: (id) => tryDrainDevQueue(deps.runtime.devQueueCommandContext(), id),
+      refreshResourceSlotCachesForPlayer: (id) => deps.runtime.refreshResourceSlotCachesForPlayer(id)
     },
     playerId,
     deps.log

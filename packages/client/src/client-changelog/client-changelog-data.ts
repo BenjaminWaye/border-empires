@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787752754484, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Fixed food/crystal (and other resource slot) totals getting stuck wrong until you changed a tile",
+    why: "Resource slot totals and dormancy (what shows a structure as short on food/crystal/titanium/umbrite and disables further builds) are cached per player and only recomputed when a tile of yours changes. If that cache ever ended up wrong without a tile change to invalidate it, the wrong totals -- and any resulting build lockout -- stuck around indefinitely; a client refresh couldn't fix it since the bad value lived server-side, and the only known workaround was forcing a tile change yourself (e.g. abandoning a tile).",
+    changes: [
+      "Connecting (or reconnecting) now forces one fresh resource-slot supply/demand/dormancy recompute straight from your live territory, bypassing the cache entirely. This self-heals a stuck-wrong total without requiring any tile change, and runs once per connect rather than on any repeated or per-check basis, so it adds no cost during normal play."
+    ]
+  },
+  {
     createdAt: 1787767880392, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.5",
     title: "Farmstead no longer claims a food-production boost it doesn't have",
@@ -453,16 +462,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "An AI empire that's fully out of FOOD slots, with no direct way to grow more, will now disable one of its own Relay Beacons that isn't covering any resources to free up the slot for further growth.",
       "This is always a reversible disable, never a demolition -- the building stays intact and can be re-enabled once FOOD has headroom again."
-    ]
-  },
-  {
-    createdAt: 1787693449098, // frozen one ms after the prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
-    introducedIn: "2026.08.26.1",
-    title: "Rival borders in true-3D mode are now accurate, not guessed",
-    why: "The \"clashing borders\" effect where your reach meets a rival's needed to show exactly where your border ends and theirs begins, but a rival's border was only ever a rough client-side guess with no awareness of your own border -- so the two shapes almost never lined up: the seam effect either never appeared, or the two borders visually crossed through each other instead of meeting cleanly.",
-    changes: [
-      "The simulation now pushes each visible rival's real border to your client, clipped to what you can currently see -- the same authoritative treatment your own border already gets.",
-      "Rival border lines in true-3D mode now line up correctly with your own, so the clashing-borders seam renders where the two actually meet."
     ]
   },
   {
