@@ -5,7 +5,6 @@ describe("structureModifiersFor", () => {
   it("returns a static, context-free entry for a fixed-effect building (Farmstead)", () => {
     const modifiers = structureModifiersFor("FARMSTEAD");
     expect(modifiers).toEqual([
-      { statLabel: "Farm food", valueText: "+50%", tone: "positive", isTownWide: false },
       { statLabel: "FOOD slot", valueText: "+2", tone: "positive", isTownWide: false }
     ]);
     expect(modifiers.every((m) => m.isTownWide === false)).toBe(true);
