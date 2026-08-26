@@ -473,6 +473,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The \"find your first town\" step now requires reaching TOWN tier -- the free starting settlement no longer counts on its own.",
       "In true-3D mode, the highlight is now a real ring mesh placed on the terrain instead of a flat 2D overlay."
     ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.08.26.1",
+    title: "Restyled the settings menu's Discord button",
+    why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
+    changes: [
+      "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
