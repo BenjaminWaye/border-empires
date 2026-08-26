@@ -229,6 +229,7 @@ Full deploy procedures, safety requirements, prod-shape gate workflow, Vercel en
 | Variable | Default | Purpose |
 |---|---|---|
 | `VITE_GATEWAY_WS_URL` | `ws://localhost:3101/ws` | Client WebSocket target |
+| `VITE_DEBUG_ACCOUNT_EMAIL` | *(unset)* | Auth email that unlocks client-side debug tooling (per-tile debug download, verbose tile logs). Unset disables it entirely — set to your own admin email locally/in your deploy env. |
 | `SIMULATION_SQLITE_PATH` | `/data/border-empires.db` | Simulation DB path |
 | `SIMULATION_AI_PLAYER_COUNT` | `5` | AI player count per season |
 | `SIMULATION_CHECKPOINT_MAX_RSS_MB` | `700` | Defer checkpoint above this RSS |
