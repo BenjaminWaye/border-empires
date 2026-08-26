@@ -7,6 +7,7 @@ import {
   buildTechUpdatePayload,
   chooseDomainForPlayer,
   chooseTechForPlayer,
+  revealResourceCategoryForTech,
   type ChosenTrickleResource
 } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { hasSupportedStructure } from "./economy-network/economy-network.js";
@@ -52,6 +53,13 @@ export type RuntimeProgressionCommandContext = {
   // waivers (fortTitaniumSlotWaiverCount etc), so the demand/dormancy caches
   // need dropping the same way a tile mutation would drop them.
   invalidateResourceSlotDemand: (playerId: string) => void;
+  // A revealResource tech (e.g. Aetheric Resonance -> "crystal") only
+  // unmasks the resource field on tiles as fresh deltas go out for them —
+  // tiles already inside the player's vision before the tech finished never
+  // get a delta, so they stay stale/masked until something else mutates
+  // them. Re-broadcasts every already-visible tile whose raw resource type
+  // maps to `category` so the client picks up the newly-revealed resource.
+  resyncRevealedResourceTilesForPlayer: (playerId: string, category: string) => void;
 };
 
 function rejectCommand(
@@ -226,6 +234,8 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
   context.invalidateUpkeepAccrual(actor.id);
   context.invalidateResourceSlotDemand(actor.id);
   context.resyncVisionRadius(actor.id);
+  const revealCategory = revealResourceCategoryForTech(techId);
+  if (revealCategory) context.resyncRevealedResourceTilesForPlayer(actor.id, revealCategory);
   context.emitEvent({
     eventType: "TECH_UPDATE",
     commandId: command.commandId,

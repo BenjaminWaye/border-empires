@@ -209,3 +209,22 @@ export function reachTileCountForPlayer(playerId: string, reachBorder: ReadonlyM
 export function reachTileKeysForPlayer(playerId: string, reachBorder: ReadonlyMap<string, string>): string[] {
   return [...reachSetForPlayer(playerId, reachBorder)];
 }
+
+// Every owner's tile keys, grouped in ONE pass over reachBorder — for
+// rival-reach-push.ts's connect-time push, which needs every OTHER owner's
+// border. Calling reachTileKeysForPlayer per owner there would be
+// O(owners x reachBorder size): each call rescans the entire global border
+// just to filter down to one owner. This does the equivalent work once,
+// regardless of how many owners are being looked up.
+export function reachTileKeysGroupedByOwner(reachBorder: ReadonlyMap<string, string>): Map<string, string[]> {
+  const grouped = new Map<string, string[]>();
+  for (const [tileKey, ownerId] of reachBorder) {
+    let keys = grouped.get(ownerId);
+    if (!keys) {
+      keys = [];
+      grouped.set(ownerId, keys);
+    }
+    keys.push(tileKey);
+  }
+  return grouped;
+}
