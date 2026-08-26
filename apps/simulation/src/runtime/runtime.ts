@@ -1332,7 +1332,8 @@ export class SimulationRuntime {
       nowMs,
       orphanLockGraceMs: ORPHAN_LOCK_GRACE_MS,
       locksByTile: this.state.locksByTile,
-      locksByCommandId: this.locksByCommandId
+      locksByCommandId: this.locksByCommandId,
+      refundExpandManpower: (playerId, amount) => { const player = this.state.players.get(playerId); if (player) player.manpower += amount; } // reverses our prior EXPAND debit; next regen tick reclamps overcap
     });
   }
 
@@ -1691,9 +1692,8 @@ export class SimulationRuntime {
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-      emitEvent: (event) => this.emitEvent(event),
-      commandTrace: this.commandTrace,
-      onMusterRemoteBlocked: this.onMusterRemoteBlocked,
+      emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      commandTrace: this.commandTrace, onMusterRemoteBlocked: this.onMusterRemoteBlocked,
       onMusterRemoteAttack: this.onMusterRemoteAttack,
       onMusterRemoteBlockedBarbarian: this.onMusterRemoteBlockedBarbarian,
       scheduleLockResolution: (lock) => this.scheduleLockResolution(lock),

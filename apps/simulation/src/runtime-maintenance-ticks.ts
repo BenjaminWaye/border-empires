@@ -152,14 +152,21 @@ export function tickOrphanedLockSweep(input: {
   orphanLockGraceMs: number;
   locksByTile: Map<string, LockRecord>;
   locksByCommandId: Map<string, LockRecord>;
+  // EXPAND charges its manpower cost up front at lock creation (runtime-
+  // frontier-command.ts), so an orphaned EXPAND lock swept here without ever
+  // resolving has to hand it back.
+  refundExpandManpower: (playerId: string, amount: number) => void;
 }): number {
   const cutoff = input.nowMs - input.orphanLockGraceMs;
   const droppedCommandIds = new Set<string>();
   for (const [tileKey, lock] of input.locksByTile) {
     if (lock.resolvesAt < cutoff) {
       input.locksByTile.delete(tileKey);
-      input.locksByCommandId.delete(lock.commandId);
-      droppedCommandIds.add(lock.commandId);
+      if (!droppedCommandIds.has(lock.commandId)) {
+        input.locksByCommandId.delete(lock.commandId);
+        if (lock.actionType === "EXPAND") input.refundExpandManpower(lock.playerId, lock.manpowerCost);
+        droppedCommandIds.add(lock.commandId);
+      }
     }
   }
   return droppedCommandIds.size;
