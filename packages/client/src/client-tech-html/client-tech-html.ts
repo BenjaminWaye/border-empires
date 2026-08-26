@@ -44,7 +44,7 @@ export const hasRevealedResourceCategory = (
 };
 
 export const effectSummaryLabel = (key: string, value: unknown): string | null => {
-  if (key === "unlockFarmstead" && value === true) return `Unlocks farmsteads (+50% farm food, +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
+  if (key === "unlockFarmstead" && value === true) return `Unlocks farmsteads (+${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
   if (key === "unlockUmbriteRig" && value === true) return "Unlocks umbrite rigs";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMintworks" && value === true) return "Unlocks mintworks";
