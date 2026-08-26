@@ -3673,12 +3673,11 @@ export class SimulationRuntime {
     // frontier expiry also uses `frontierDecayAt`, so use the explicit owner.
     if (target.frontierDecayKind === "ENCIRCLEMENT") { this.rejectCommand(command, "ORIGIN_CUT_OFF", "tile is cut off from supply and cannot be settled"); return; }
     if (target.terrain !== "LAND") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not valid land"); return; }
-    // Fixed-border reach: SETTLE requires the tile to be inside the actor's
-    // resolved reach set (packages/shared/src/reach/reach.ts), same gate as
-    // EXPAND's OUT_OF_REACH check in validateFrontierCommand — SETTLE has its
-    // own handler (not routed through validateFrontierCommand) so the check
-    // is applied here directly.
-    if (!this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
+    // Fixed-border reach (packages/shared/src/reach/reach.ts), same gate as
+    // EXPAND's OUT_OF_REACH check. Town/dock tiles are exempt -- they produce
+    // their own reach once settled, so requiring pre-existing reach here is
+    // circular (mirrors isAutoSettlementEligibleTarget's exemption).
+    if (!(target.town || target.dockId) && !this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
       this.rejectCommand(command, "OUT_OF_REACH", "tile is outside your reach"); return;
     }
     if (this.pendingSettlementsByTile.has(targetKey)) { this.rejectCommand(command, "SETTLE_INVALID", "tile is already settling"); return; }
@@ -3761,10 +3760,9 @@ export class SimulationRuntime {
       if (target.frontierDecayKind === "ENCIRCLEMENT") continue;
       if (target.terrain !== "LAND") continue;
       if (this.pendingSettlementsByTile.has(targetKey)) continue;
-      // Fixed-border reach: same OUT_OF_REACH gate handleSettleCommand applies
-      // to a human's SETTLE command (see its comment above) -- this path
-      // bypasses that handler entirely, so the check must be repeated here.
-      if (!this.isPlayerTileInReach(playerId, target.x, target.y)) continue;
+      // Same OUT_OF_REACH gate (and town/dock exemption) as handleSettleCommand
+      // above -- this path bypasses that handler, so it's repeated here.
+      if (!(target.town || target.dockId) && !this.isPlayerTileInReach(playerId, target.x, target.y)) continue;
       const commandId = this.nextTerritoryAutomationCommandId("auto-settle", playerId, targetKey, nowMs);
       this.startSettlementProcess({
         commandId,
