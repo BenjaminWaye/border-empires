@@ -9,8 +9,10 @@ import {
   FRONTIER_CLAIM_MS,
   HILLS_FRONTIER_CLAIM_PENALTY_MS,
   MUSTER_ATTACK_COST,
+  anonymizedEmpireNameForId,
   grassShadeAt,
   isHillsTileAt,
+  isOpaquePlayerId,
   landBiomeAt,
   terrainAt
 } from "@border-empires/shared";
@@ -38,6 +40,16 @@ export type MusterSourceResult = { sourceKey: string; available: number };
  * independently recompute the exact same value from a tile's coordinates
  * rather than needing to store it on LockRecord.
  */
+/**
+ * Resolves the attacker name shown in the defender's ATTACK_ALERT (in-app
+ * overlay and email). Falls back to an anonymized "Empire XXXXXX" label for
+ * opaque player IDs (e.g. raw Firebase UIDs) instead of leaking the ID.
+ */
+export const attackAlertDisplayName = (playerId: string, actorName?: string): string => {
+  if (actorName && actorName !== playerId) return actorName;
+  return isOpaquePlayerId(playerId) ? anonymizedEmpireNameForId(playerId) : playerId;
+};
+
 export const frontierClaimDurationMsForCoords = (x: number, y: number): number => {
   const isForestTarget = terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
   return (
@@ -312,7 +324,7 @@ export const handleFrontierCommandImpl = (
       payloadJson: JSON.stringify({
         type: "ATTACK_ALERT",
         attackerId: command.playerId,
-        attackerName: actor.name ?? command.playerId,
+        attackerName: attackAlertDisplayName(command.playerId, actor.name),
         x: validation.target.x,
         y: validation.target.y,
         fromX: validation.origin.x,

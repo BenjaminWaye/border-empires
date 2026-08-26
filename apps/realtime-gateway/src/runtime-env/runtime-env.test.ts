@@ -12,10 +12,10 @@ describe("realtime gateway runtime env", () => {
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "default",
       allowNonAuthoritativeInitialState: true,
-      fogAdminEmail: "admin@borderempires.com",
       emailAlerts: {
         from: "Border Empires <alerts@borderempires.com>",
-        appUrl: "https://staging.borderempires.com"
+        appUrl: "https://staging.borderempires.com",
+        appLabel: "border-empires-combined-staging"
       }
     });
   });
@@ -59,10 +59,10 @@ describe("realtime gateway runtime env", () => {
       applySchema: true,
       simulationSeedProfile: "season-20ai",
       allowNonAuthoritativeInitialState: false,
-      fogAdminEmail: "admin@borderempires.com",
       emailAlerts: {
         from: "Border Empires <alerts@borderempires.com>",
-        appUrl: "https://staging.borderempires.com"
+        appUrl: "https://staging.borderempires.com",
+        appLabel: "border-empires-combined-staging"
       }
     });
   });
@@ -80,18 +80,18 @@ describe("realtime gateway runtime env", () => {
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "season-20ai",
       allowNonAuthoritativeInitialState: true,
-      fogAdminEmail: "admin@borderempires.com",
       emailAlerts: {
         from: "Border Empires <alerts@borderempires.com>",
-        appUrl: "https://staging.borderempires.com"
+        appUrl: "https://staging.borderempires.com",
+        appLabel: "border-empires-combined-staging"
       }
     });
   });
 
-  it("parses explicit fog admin email override", () => {
+  it("parses explicit admin email override, and uses it as the bug-report fallback destination", () => {
     expect(
       parseRealtimeGatewayRuntimeEnv({
-        FOG_ADMIN_EMAIL: "  me@example.com  "
+        ADMIN_EMAIL: "  me@example.com  "
       })
     ).toEqual({
       host: "127.0.0.1",
@@ -101,12 +101,27 @@ describe("realtime gateway runtime env", () => {
       defaultHumanPlayerId: "player-1",
       simulationSeedProfile: "default",
       allowNonAuthoritativeInitialState: true,
-      fogAdminEmail: "me@example.com",
+      adminEmail: "me@example.com",
       emailAlerts: {
         from: "Border Empires <alerts@borderempires.com>",
-        appUrl: "https://staging.borderempires.com"
+        appUrl: "https://staging.borderempires.com",
+        appLabel: "border-empires-combined-staging",
+        bugReportEmailTo: "me@example.com"
       }
     });
+  });
+
+  it("prefers an explicit GATEWAY_BUG_REPORT_EMAIL_TO over ADMIN_EMAIL", () => {
+    expect(
+      parseRealtimeGatewayRuntimeEnv({
+        ADMIN_EMAIL: "me@example.com",
+        GATEWAY_BUG_REPORT_EMAIL_TO: "reports@example.com"
+      }).emailAlerts.bugReportEmailTo
+    ).toBe("reports@example.com");
+  });
+
+  it("leaves bugReportEmailTo unset when neither GATEWAY_BUG_REPORT_EMAIL_TO nor ADMIN_EMAIL is configured", () => {
+    expect(parseRealtimeGatewayRuntimeEnv({}).emailAlerts.bugReportEmailTo).toBeUndefined();
   });
 
   it("allows explicit override for non-authoritative fallback mode", () => {
@@ -127,10 +142,10 @@ describe("realtime gateway runtime env", () => {
       applySchema: false,
       simulationSeedProfile: "season-20ai",
       allowNonAuthoritativeInitialState: true,
-      fogAdminEmail: "admin@borderempires.com",
       emailAlerts: {
         from: "Border Empires <alerts@borderempires.com>",
-        appUrl: "https://staging.borderempires.com"
+        appUrl: "https://staging.borderempires.com",
+        appLabel: "border-empires-combined-staging"
       }
     });
   });
@@ -179,7 +194,8 @@ describe("realtime gateway runtime env", () => {
       from: "alerts@example.com",
       replyTo: "support@example.com",
       appUrl: "https://play.example",
-      dailyLimit: 2
+      dailyLimit: 2,
+      appLabel: "border-empires-combined-staging"
     });
   });
 });
