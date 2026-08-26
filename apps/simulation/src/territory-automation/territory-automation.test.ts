@@ -180,6 +180,13 @@ describe("territory automation", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
+          // Reach-granting SETTLED towns, one within TOWN_REACH_RADIUS of
+          // each candidate below — auto-settlement now requires reach (see
+          // isAutoSettlementEligibleTarget), so these anchors are what make
+          // 30,30 / 45,45 / 60,60 eligible at all.
+          { x: 31, y: 31, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } },
+          { x: 46, y: 46, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } },
+          { x: 61, y: 61, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } },
           { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" },
           { x: 45, y: 45, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } },
           { x: 60, y: 60, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-1" },
@@ -273,6 +280,12 @@ describe("territory automation", () => {
           { x: 79, y: 80, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 80, y: 79, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
           { x: 81, y: 80, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          // Reach-granting SETTLED towns, one within TOWN_REACH_RADIUS of
+          // each remote candidate below — auto-settlement now requires
+          // reach (see isAutoSettlementEligibleTarget).
+          { x: 31, y: 31, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } },
+          { x: 46, y: 46, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } },
+          { x: 61, y: 61, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } },
           { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" },
           { x: 45, y: 45, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } },
           { x: 60, y: 60, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-1" }
@@ -289,6 +302,71 @@ describe("territory automation", () => {
     expect(stateAfterTick.pendingSettlements).toEqual([]);
     expect(stateAfterTick.players.find((entry) => entry.id === "player-1")?.points).toBe(1_000);
     expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["79,80", "80,79", "81,80", "30,30", "45,45", "60,60"]);
+  });
+
+  it("never advertises or auto-settles an owned FRONTIER tile that is outside the player's reach border", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", player("player-1", 1_000)]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND",
+            ownerId: "player-1",
+            ownershipState: "SETTLED",
+            town: { type: "FARMING", populationTier: "TOWN" }
+          },
+          { x: 9, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" },
+          // Owned, valuable, and FRONTIER — but far outside TOWN_REACH_RADIUS
+          // of the only town, so no reach anchor ever covered it (e.g. it was
+          // claimed while a beacon/outpost reached this far, which has since
+          // been lost). Auto-settle must not resolve this the way it would a
+          // human's SETTLE command, which is gated on isPlayerTileInReach.
+          { x: 200, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: SimulationEvent[] = [];
+    runtime.onEvent((event) => events.push(event));
+
+    await runtime.tickTerritoryAutomation(1_000);
+
+    const stateAfterTick = runtime.exportState();
+    expect(stateAfterTick.pendingSettlements).toEqual([]);
+    expect(events.filter((event) => event.eventType === "SETTLEMENT_STARTED")).toHaveLength(0);
+    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["9,10"]);
+    const outOfReachTile = runtime.exportState().tiles.find((tile) => tile.x === 200 && tile.y === 200);
+    expect(outOfReachTile).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
+  });
+
+  it("still auto-settles an owned FRONTIER town/dock tile even when it's outside reach", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", player("player-1", 1_000)]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          // No reach-granting anchor anywhere near these — unlike a plain
+          // resource tile, a captured town/dock is allowed to auto-settle
+          // regardless of reach (it has no reach of its own to grant until
+          // settled, mirroring the capture-time bypass in
+          // runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.ts).
+          { x: 200, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } },
+          { x: 210, y: 210, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-1" }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: SimulationEvent[] = [];
+    runtime.onEvent((event) => events.push(event));
+
+    await runtime.tickTerritoryAutomation(1_000);
+
+    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["200,200", "210,210"]);
   });
 
   it("drops recovered pending settlements when combat changes the frontier tile owner before completion", async () => {
@@ -366,6 +444,11 @@ describe("territory automation", () => {
       seedTiles: new Map(),
       initialState: {
         tiles: [
+          // Reach-granting SETTLED town within TOWN_REACH_RADIUS of both
+          // candidates below — auto-settlement requires reach (see
+          // isAutoSettlementEligibleTarget) in addition to tech-reveal.
+          { x: 31, y: 31, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } },
+          { x: 46, y: 46, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "TOWN" } },
           { x: 30, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", resource: "TITANIUM" },
           { x: 45, y: 45, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } }
         ],

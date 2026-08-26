@@ -2136,8 +2136,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         markDockDiscovered(resolved);
         state.discoveredTiles.add(updateKey);
         // Stamp receivedAt whenever a full-detail tile lands so the action-flow
-        // sender's 60s freshness check and in-flight dedupe can short-circuit
-        // duplicate REQUEST_TILE_DETAIL on rapid re-clicks of the same tile.
+        // sender's 60s freshness check and in-flight dedupe can short-circuit duplicate REQUEST_TILE_DETAIL on rapid re-clicks of the same tile.
         if (resolved.detailLevel === "full") {
           state.tileDetailReceivedAt.set(updateKey, Date.now());
         }

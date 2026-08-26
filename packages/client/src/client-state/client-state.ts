@@ -125,8 +125,7 @@ export const createInitialState = () => ({
   resourceSlots: {
     supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<SlotResource, number>, demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 } as Record<SlotResource, number>
   },
-  // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which
-  // structures are dormant right now, and which resource(s) they're short
+  // §14.2: per-structure dormancy detail, keyed by "x,y:field" — which structures are dormant right now, and which resource(s) they're short
   // on. Feeds the greyed-out/"unpowered" indicator in the tile detail view.
   dormantStructures: [] as Array<{ key: string; resources: SlotResource[] }>,
   eventLog: [] as Array<{ id: string; type: string; text: string; occurredAt: number; x?: number; y?: number }>, // §20: durable event log, most-recent-last
@@ -168,8 +167,7 @@ export const createInitialState = () => ({
   integrityWarningDismissed: false,
   settledT: 1,
   settledE: 4,
-  // Opens straight on a deep-linked tile (e.g. an attack alert email's
-  // "Go to tile" link — see readUrlTileFocus() in client-camera-storage.ts).
+  // Opens straight on a deep-linked tile (e.g. an attack alert email's "Go to tile" link — see readUrlTileFocus() in client-camera-storage.ts).
   selected: readUrlTileFocus() ?? undefined as { x: number; y: number } | undefined,
   tileDetailRequestedAt: new Map<string, number>(),
   // tileKey -> ms timestamp when a full-detail TILE_DELTA arrived. Used to

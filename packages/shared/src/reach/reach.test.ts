@@ -332,7 +332,23 @@ describe("applyAnchorEvents — sticky border scenarios", () => {
 });
 
 describe("reassessBorderOnAnchorDeactivation", () => {
-  it("does nothing when no rival currently covers the vacated ground (stays sticky)", () => {
+  it("vacates peripheral ground when no rival currently covers it either (no longer sticky forever)", () => {
+    const beacon: ReachAnchor = { x: 200, y: 200, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    // A tile in the beacon's disk but NOT its own founding tile.
+    const peripheral = tileKey(202, 200);
+    const existing = new Map([[peripheral, "p1"]]);
+    const { border, overtaken } = reassessBorderOnAnchorDeactivation(
+      existing,
+      beacon,
+      new Set(), // p1 has no other coverage left here
+      () => new Set(), // no rival covers it either
+      ["p2"]
+    );
+    expect(border.has(peripheral)).toBe(false);
+    expect(overtaken).toEqual([{ tileKey: peripheral, fromOwnerId: "p1", toOwnerId: "" }]);
+  });
+
+  it("vacates the anchor's own founding tile too, same as any other ground it covered", () => {
     const beacon: ReachAnchor = { x: 200, y: 200, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
     const existing = new Map([[tileKey(200, 200), "p1"]]);
     const { border, overtaken } = reassessBorderOnAnchorDeactivation(
@@ -342,8 +358,11 @@ describe("reassessBorderOnAnchorDeactivation", () => {
       () => new Set(), // no rival covers it either
       ["p2"]
     );
-    expect(border.get(tileKey(200, 200))).toBe("p1");
-    expect(overtaken).toEqual([]);
+    // No exception for the anchor's own tile: recovering it means extending
+    // reach back over it (another anchor, or expanding in from elsewhere)
+    // and SETTLE-ing it again.
+    expect(border.has(tileKey(200, 200))).toBe(false);
+    expect(overtaken).toEqual([{ tileKey: tileKey(200, 200), fromOwnerId: "p1", toOwnerId: "" }]);
   });
 
   it("does nothing when the owner still has other live coverage over the tile", () => {

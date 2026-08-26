@@ -126,10 +126,12 @@ export const applyReachAnchorActivationToBorder = (
 };
 
 /**
- * Applies one anchor DEACTIVATION. Sticky by default (does nothing) unless a
- * rival's CURRENT live reach already covers ground this anchor used to help
- * defend and the owner can no longer defend it themselves — see
- * reassessBorderOnAnchorDeactivation's doc comment.
+ * Applies one anchor DEACTIVATION. No-op for any tile still covered by
+ * another of the owner's own live anchors. Otherwise: transfers to a rival
+ * whose CURRENT live reach already covers that ground, or — if no rival
+ * covers it either — vacates it outright, downgrading a SETTLED tile there
+ * back to FRONTIER via settleOvertaken. See reassessBorderOnAnchorDeactivation's
+ * doc comment.
  */
 export const applyReachAnchorDeactivationToBorder = (
   border: ReadonlyMap<string, string>,
