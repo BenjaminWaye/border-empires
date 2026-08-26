@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787739722417, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Fixed the Founding Engineer tag matching by display name instead of a stable id",
+    why: "The Founding Engineer badge matched on display name (case-insensitive), so it would disappear if that player renamed and could be picked up by anyone else who renamed to the same string. The tile detail check also skipped the ally check's sea/coastal-sea and self-tile guard, so it could show up next to the generic \"Open sea\"/\"Crossing route\" text on a tile they owned.",
+    changes: [
+      "The Founding Engineer badge now matches on the player's stable id everywhere it's shown (lobby roster, leaderboard, tile detail), and no longer appears on sea or coastal-sea tiles."
+    ]
+  },
+  {
     createdAt: 1787734461399, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
     title: "Allies can now share dock-network access",
@@ -465,15 +474,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The map's green up-arrow badge and the food-shortage badge only checked that a town had an owner, not that the owner was you, so a rival town that happened to qualify lit up on your map the same way one of your own towns would.",
     changes: [
       "The population-tier upgrade badge and the unfed-town food badge now only appear on towns you own, on both the 3D map and the classic 2D map."
-    ]
-  },
-  {
-    createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.1",
-    title: "Auto-settle no longer claims resource tiles before you've researched them",
-    why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
-    changes: [
-      "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
     ]
   },
   {
