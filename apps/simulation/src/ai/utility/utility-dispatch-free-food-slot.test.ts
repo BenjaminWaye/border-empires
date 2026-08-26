@@ -6,9 +6,8 @@ import type { AutomationStrategicSnapshot } from "../automation-strategic-snapsh
 import { runUtilityPolicy, type UtilityDispatchState } from "./utility-dispatch.js";
 
 /**
- * FREE_FOOD_SLOT dispatch: with a low-value beacon available, disable it
- * (reversible) rather than demolish a dormant structure. Only fall back to
- * REMOVE_STRUCTURE once there's no beacon left to disable. See
+ * FREE_FOOD_SLOT dispatch: always disables (SET_CONVERTER_STRUCTURE_ENABLED,
+ * reversible) whatever food-slot-relief.ts picked — never demolishes. See
  * food-slot-relief.ts and decisions-free-food-slot.test.ts (scorer gating).
  */
 const baseStrategic = (): AutomationStrategicSnapshot => ({
@@ -70,8 +69,7 @@ const buildState = (
     fortBuild: undefined,
     siegeOutpostBuild: undefined,
     relayBeaconBuild: undefined,
-    foodSlotDisableBeacon: undefined,
-    foodSlotReliefRemoval: undefined,
+    foodSlotDisableTarget: undefined,
     foodSlotsExhausted: true,
     attackStalemateTargetTileKeys: undefined,
     expansionObjective: undefined,
@@ -84,21 +82,16 @@ const buildState = (
 };
 
 describe("runUtilityPolicy FREE_FOOD_SLOT dispatch", () => {
-  it("disables the low-value beacon (SET_CONVERTER_STRUCTURE_ENABLED, reversible) when one is available", () => {
-    const result = runUtilityPolicy(
-      buildState({ foodSlotDisableBeacon: { x: 7, y: 8 }, foodSlotReliefRemoval: { x: 2, y: 2 } })
-    );
+  it("disables the food-slot-relief target (SET_CONVERTER_STRUCTURE_ENABLED, reversible) — never REMOVE_STRUCTURE", () => {
+    const result = runUtilityPolicy(buildState({ foodSlotDisableTarget: { x: 7, y: 8 } }));
     expect(result.command).toMatchObject({
       type: "SET_CONVERTER_STRUCTURE_ENABLED",
       payloadJson: JSON.stringify({ x: 7, y: 8, enabled: false })
     });
   });
 
-  it("falls back to REMOVE_STRUCTURE only when there's no beacon left to disable", () => {
-    const result = runUtilityPolicy(buildState({ foodSlotDisableBeacon: undefined, foodSlotReliefRemoval: { x: 2, y: 2 } }));
-    expect(result.command).toMatchObject({
-      type: "REMOVE_STRUCTURE",
-      payloadJson: JSON.stringify({ x: 2, y: 2 })
-    });
+  it("produces no command when there's no disable target", () => {
+    const result = runUtilityPolicy(buildState({ foodSlotDisableTarget: undefined, foodSlotsExhausted: false }));
+    expect(result.diagnostic.utilityWinner).not.toBe("FREE_FOOD_SLOT");
   });
 });

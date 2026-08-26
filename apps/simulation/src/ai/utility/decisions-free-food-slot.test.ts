@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { scoreDecision, type DecisionInputs } from "./decisions.js";
 
 /**
- * FREE_FOOD_SLOT: last-resort REMOVE_STRUCTURE when FOOD slots are fully
+ * FREE_FOOD_SLOT: last-resort SET_CONVERTER_STRUCTURE_ENABLED (disable, never demolish) when FOOD slots are fully
  * exhausted and there's no direct fix (a FARMSTEAD/WATERWORKS/GRANARY build)
  * available — see food-slot-relief.ts and automation-command-planner.ts's
  * needVector wiring.
@@ -64,7 +64,7 @@ describe("scoreFreeFoodSlot", () => {
     expect(scoreDecision("FREE_FOOD_SLOT", { ...baseInputs, hasEconomicBuild: true })).toBe(0);
   });
 
-  it("vetoes while the core is under real attack pressure — don't demolish infrastructure mid-defense", () => {
+  it("vetoes while the core is under real attack pressure — don't disable infrastructure mid-defense", () => {
     expect(scoreDecision("FREE_FOOD_SLOT", { ...baseInputs, pressureThreatensCore: true })).toBe(0);
   });
 });
