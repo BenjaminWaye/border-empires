@@ -19,7 +19,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "New player and respawn placements now draw from a precomputed, equal-opportunity spawn map",
     why: "Spawn placement previously ran a fresh random search per player against the live map, so two players joining minutes apart could land with very different access to nearby food and towns purely by luck of that search. Worldgen now precomputes a roster of candidate spawn sites up front, all drawn from the same amenity tier and spread evenly across the map, so every new empire and every respawn starts on comparably fair footing.",
     changes: [
-      "Worldgen now precomputes a roster of up to 50 candidate spawn sites, chosen to share similar nearby food/town access and to spread evenly across the map instead of clustering.",
+      "Worldgen now precomputes a roster of up to 50 candidate spawn sites, spread evenly across the map instead of clustering, and prioritized so every site with both a town and food nearby is used before a lesser site is ever added.",
       "New players and eliminated players respawning now draw from this roster first, falling back to the previous random search only once it's exhausted.",
       "Joining via a friend's rally link now also draws from that same precomputed roster first, picking whichever site is closest to the inviting player, before falling back to the random search when every site nearby is already taken or too close to another empire."
     ]

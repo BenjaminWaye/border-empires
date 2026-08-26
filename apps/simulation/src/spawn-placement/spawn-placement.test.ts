@@ -297,4 +297,44 @@ describe("computeFairSpawnSites", () => {
   it("returns an empty roster for an empty world", () => {
     expect(computeFairSpawnSites([], 50)).toEqual([]);
   });
+
+  it("uses up every tier-1 (town+food) site before pulling in any lower-tier site", () => {
+    const tiles: DomainTileState[] = [];
+    // Island A: a small 7x7 landmass entirely within amenity radius of its
+    // own town+food pair, so every open tile on it is tier 1.
+    for (let y = 0; y < 7; y += 1) {
+      for (let x = 0; x < 7; x += 1) tiles.push({ x, y, terrain: "LAND" });
+    }
+    const townTile = tiles.find((tile) => tile.x === 3 && tile.y === 3)!;
+    townTile.town = { type: "MARKET", populationTier: "SETTLEMENT", name: "IslandTown" };
+    const foodTile = tiles.find((tile) => tile.x === 5 && tile.y === 3)!;
+    foodTile.resource = "FARM";
+    const tier1CandidateCount = 7 * 7 - 1; // every island A tile except the town itself
+
+    // A 2-tile sea gap keeps island B a separate land region with no
+    // amenities anywhere on it, so all of it is tier 4.
+    for (let y = 0; y < 7; y += 1) {
+      for (let x = 7; x < 9; x += 1) tiles.push({ x, y, terrain: "SEA" });
+    }
+    for (let y = 0; y < 7; y += 1) {
+      for (let x = 9; x < 41; x += 1) tiles.push({ x, y, terrain: "LAND" });
+    }
+
+    const targetCount = tier1CandidateCount + 12;
+    const sites = computeFairSpawnSites(tiles, targetCount);
+
+    expect(sites.length).toBe(targetCount);
+    const chosenKeys = new Set(sites.map((site) => simulationTileKey(site.x, site.y)));
+    // Every island A tile other than the town must be in the roster --
+    // tier 1 is exhausted before any island B (tier 4) tile is considered.
+    for (let y = 0; y < 7; y += 1) {
+      for (let x = 0; x < 7; x += 1) {
+        if (x === 3 && y === 3) continue;
+        expect(chosenKeys.has(simulationTileKey(x, y))).toBe(true);
+      }
+    }
+    // The remaining 12 sites must come from island B, not double up on island A.
+    const islandBCount = sites.filter((site) => site.x >= 9).length;
+    expect(islandBCount).toBe(12);
+  });
 });
