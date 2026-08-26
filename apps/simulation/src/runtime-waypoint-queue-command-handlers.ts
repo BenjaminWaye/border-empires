@@ -130,7 +130,7 @@ export const tryDrainWaypointQueue = (context: RuntimeWaypointQueueCommandContex
       // or aether-bridge crossing) whenever the submitted origin isn't
       // actor-owned, same fallback a manually-issued command relies on.
       payloadJson: JSON.stringify({ fromX: entry.target.x, fromY: entry.target.y, toX: entry.target.x, toY: entry.target.y })
-    } as unknown as CommandEnvelope;
+    } satisfies CommandEnvelope;
 
     if (context.dispatchFrontierCommand(cmd, actionType)) return; // one live dispatch per drain call
     // Rejected (no longer adjacent/reachable/taken/etc.) -- drop and keep going.

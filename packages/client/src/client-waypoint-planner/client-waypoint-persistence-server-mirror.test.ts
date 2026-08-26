@@ -106,22 +106,31 @@ describe("restorePersistedWaypointQueueForPlayer: server merge", () => {
   });
 
   // Regression / desync-investigation coverage: restorePersistedWaypointQueueForPlayer
-  // is a pure merge -- it must never itself call sendGameMessage. A reconnect
-  // whose sessionStorage is empty (fresh tab/device) could otherwise be tempted
-  // to "sync" that empty local state back to the server as a WAYPOINT_CANCEL_ALL,
-  // wiping the server-authoritative queue the player built up while offline. The
-  // only place that pushes to the server is client-network-init-message.ts's own
-  // backfill loop, which sends WAYPOINT_ENQUEUE for entries the server doesn't
-  // already have -- never a cancel-all -- so the server queue can only grow or
-  // stay the same across a reconnect, never get reset.
-  it("never itself sends anything to the server, even when sessionStorage is empty and the server queue is non-empty", () => {
+  // is a pure merge -- it takes no sendGameMessage dependency at all, so it
+  // cannot itself push anything to the server. A reconnect whose
+  // sessionStorage is empty (fresh tab/device) could otherwise be tempted to
+  // "sync" that empty local state back to the server as a
+  // WAYPOINT_CANCEL_ALL, wiping the server-authoritative queue the player
+  // built up while offline. Prove the actual end-to-end guarantee: feed the
+  // restored (server-authoritative) queue into state.waypoint and re-run
+  // syncWaypointQueueToServer (the only function that ever emits
+  // WAYPOINT_CANCEL_ALL) -- it must re-enqueue every restored target, never
+  // resync down to nothing.
+  it("round-trips the server-authoritative queue through sync without wiping it, even when sessionStorage is empty", () => {
     installSessionStorageMock();
     globalThis.sessionStorage.clear();
     const state = stateWithTiles([tile(5, 5), tile(6, 6)]);
+
+    const restored = restorePersistedWaypointQueueForPlayer("me", { state, keyFor }, [{ x: 5, y: 5, queuedAt: 1 }, { x: 6, y: 6, queuedAt: 2 }]);
+    expect(restored).toHaveLength(2);
+
+    state.waypoint = restored;
     const sendGameMessage = vi.fn(() => true);
+    syncWaypointQueueToServer(state, sendGameMessage);
 
-    restorePersistedWaypointQueueForPlayer("me", { state, keyFor }, [{ x: 5, y: 5, queuedAt: 1 }, { x: 6, y: 6, queuedAt: 2 }]);
-
-    expect(sendGameMessage).not.toHaveBeenCalled();
+    expect(sendGameMessage).toHaveBeenCalledWith(waypointCancelAllWirePayload());
+    expect(sendGameMessage).toHaveBeenCalledWith(waypointEnqueueWirePayload({ x: 5, y: 5 }));
+    expect(sendGameMessage).toHaveBeenCalledWith(waypointEnqueueWirePayload({ x: 6, y: 6 }));
+    expect(sendGameMessage).toHaveBeenCalledTimes(3);
   });
 });
