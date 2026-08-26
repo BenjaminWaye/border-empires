@@ -57,8 +57,12 @@ const mineModifiers = (ctx: ModifierContext): StructureModifier[] => {
 // (player-update-economy.ts) returns {} for SYNTHESIZE mode, so no daily
 // resource output is ever actually produced. The real live Refine-mode
 // effect is a flat +1 slot supply of the family resource
-// (isSlotSourceConverter, resource-slot-view.ts).
-const synthesizerModifiers = (type: ModifierStructureType): StructureModifier[] | undefined => {
+// (isSlotSourceConverter, resource-slot-view.ts) -- only while actually in
+// SYNTHESIZE mode. In EXCHANGE (Sell Off) mode the structure sells off that
+// slot for gold instead (isSlotSinkConverter), so this modifier line no
+// longer applies and must not be shown; the tile-detail status line already
+// covers Sell Off's own effect separately.
+const synthesizerModifiers = (type: ModifierStructureType, ctx: ModifierContext): StructureModifier[] | undefined => {
   const byType: Partial<Record<ModifierStructureType, string>> = {
     UMBRITE_SYNTHESIZER: "UMBRITE",
     ADVANCED_UMBRITE_SYNTHESIZER: "UMBRITE",
@@ -69,6 +73,7 @@ const synthesizerModifiers = (type: ModifierStructureType): StructureModifier[] 
   };
   const resource = byType[type];
   if (!resource) return undefined;
+  if (ctx.tile?.converterMode === "EXCHANGE") return undefined;
   return [{ statLabel: "Refine mode supplies", valueText: `+1 ${resource} slot`, tone: "positive", isTownWide: false }];
 };
 
@@ -159,7 +164,7 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
       isTownWide: true
     }];
   }
-  const synth = synthesizerModifiers(type);
+  const synth = synthesizerModifiers(type, ctx);
   if (synth) return synth;
   return undefined;
 };

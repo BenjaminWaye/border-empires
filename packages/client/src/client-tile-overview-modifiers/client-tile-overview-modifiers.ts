@@ -1,4 +1,4 @@
-import { HILLS_VISION_BONUS, isHillsTileAt, NATURAL_WONDER_LABELS, type EconomicStructureType } from "@border-empires/shared";
+import { HILLS_VISION_BONUS, isHillsTileAt, NATURAL_WONDER_LABELS, converterModeOf, type EconomicStructureType } from "@border-empires/shared";
 import { structureModifiersFor, type ModifierStructureType, type StructureModifier } from "@border-empires/game-domain";
 import type { Tile } from "../client-types.js";
 import { economicStructureName } from "../client-map-display.js";
@@ -105,7 +105,7 @@ const economicStructureModifiersForTile = (tile: NonNullable<Tile["economicStruc
   if (tile.type === "MINE") return [];
   const label = FARM_RESOURCE_LABEL_OVERRIDES[tile.type] ?? economicStructureName(tile.type as EconomicStructureType);
   const redundantLabel = REDUNDANT_STATIC_STAT_LABELS_BY_TYPE[tile.type];
-  const modifiers = structureModifiersFor(tile.type as ModifierStructureType).filter((m) => m.statLabel !== redundantLabel);
+  const modifiers = structureModifiersFor(tile.type as ModifierStructureType, { tile: { converterMode: converterModeOf(tile) } }).filter((m) => m.statLabel !== redundantLabel);
   return toTileOverviewModifiers(label, modifiers);
 };
 
