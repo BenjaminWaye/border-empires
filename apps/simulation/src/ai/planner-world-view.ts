@@ -116,6 +116,8 @@ export type PlannerPlayerView = {
   manpowerRegenPerMinute?: number;
   slotSupplyByResource?: Partial<Record<SlotResource, number>>;
   slotDemandByResource?: Partial<Record<SlotResource, number>>;
+  /** "x,y" keys of economicStructures dormant on FOOD — feeds food-slot-relief.ts. Same optional-degrades-gracefully pattern as the fields above. */
+  foodDormantEconomicStructureKeys?: string[];
 };
 
 // ─── World view ───────────────────────────────────────────────────────────────

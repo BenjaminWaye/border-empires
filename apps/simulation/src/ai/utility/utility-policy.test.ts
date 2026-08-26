@@ -37,6 +37,8 @@ const BASE: DecisionInputs = {
   hasRelayBeaconBuild: false,
   relayBeaconSiteValue: 0,
   beaconBoostActive: false,
+  foodSlotsExhausted: false,
+  hasFoodSlotReliefCandidate: false,
   techAffordable: false,
   momentumTicks: {},
   cooldown: {},

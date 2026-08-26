@@ -22,6 +22,7 @@ export const DECISION_CLASSES = [
   "BUILD_DEFENSE",
   "BUILD_ECONOMY",
   "BUILD_BEACON",
+  "FREE_FOOD_SLOT",
   "CHOOSE_TECH",
   "WAIT"
 ] as const;
@@ -105,6 +106,11 @@ export type DecisionInputs = {
   // graduated site-value consideration — still fully vetoable, never
   // overrides a missing site/dev-slot/frontier-enemy gate.
   beaconBoostActive: boolean;
+  // FOOD slots fully exhausted (needVector's FOOD_SLOTS deficit at its max —
+  // supply <= 0 relative to demand) with a low-value/dormant structure
+  // available to reversibly disable — see food-slot-relief.ts.
+  foodSlotsExhausted: boolean;
+  hasFoodSlotReliefCandidate: boolean;
   // Tech
   techAffordable: boolean;
   // Anti-thrash: momentum ticks accrued since last class switch (0–N).
@@ -295,6 +301,24 @@ const scoreBuildBeacon = (inp: DecisionInputs): number => {
   return Math.min(1, base + BEACON_CADENCE_BOOST);
 };
 
+// Last-resort action: reversibly disable a low-value or already-FOOD-dormant
+// (already producing zero effect) structure to free its slot, when the
+// direct fix (BUILD_ECONOMY growing FOOD via FARMSTEAD/WATERWORKS/GRANARY)
+// isn't available. Vetoed by hasEconomicBuild so the direct fix is always
+// preferred over disabling something when both are legal. Vetoed by
+// pressureThreatensCore — don't disable infrastructure while defending,
+// same reasoning as scoreChooseTech. No graduated term: every candidate here
+// is, by construction, already contributing nothing, so "do it now" (1) is
+// the whole consideration once unvetoed.
+const scoreFreeFoodSlot = (inp: DecisionInputs): number =>
+  scoreConsiderations([
+    boolVeto(inp.foodSlotsExhausted),
+    boolVeto(inp.hasFoodSlotReliefCandidate),
+    boolVeto(!inp.hasEconomicBuild),
+    boolVeto(!inp.pressureThreatensCore),
+    1
+  ]);
+
 const scoreChooseTech = (inp: DecisionInputs): number =>
   scoreConsiderations([
     boolVeto(inp.techAffordable),
@@ -312,6 +336,7 @@ const CORE_SCORERS: Record<Exclude<DecisionClass, "WAIT">, (inp: DecisionInputs)
   BUILD_DEFENSE: scoreBuildDefense,
   BUILD_ECONOMY: scoreBuildEconomy,
   BUILD_BEACON: scoreBuildBeacon,
+  FREE_FOOD_SLOT: scoreFreeFoodSlot,
   CHOOSE_TECH: scoreChooseTech
 };
 
