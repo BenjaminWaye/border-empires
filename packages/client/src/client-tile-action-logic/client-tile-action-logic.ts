@@ -1425,7 +1425,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : !foundryHasManpower
                   ? `Need ${structureBuildManpowerCost("FOUNDRY")} manpower`
                   : missingResourceSlotReason(state, "FOUNDRY") ?? "Unavailable",
-              `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles mines within 5 tiles; boosted production raises iron/crystal cap`
+              `${deps.structureCostText("FOUNDRY")} • ${Math.round(economicStructureBuildMs("FOUNDRY") / 60000)}m • doubles active Mine slot output within 5 tiles`
             ),
             slots,
             deps
@@ -1620,7 +1620,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : !state.techIds.includes("leatherworking")
                 ? "Requires Rigging Works"
                 : missingResourceSlotReason(state, "UMBRITE_RIG") ?? "Unavailable",
-            `${deps.structureCostText("UMBRITE_RIG")} • ${Math.round(economicStructureBuildMs("UMBRITE_RIG") / 60000)}m • +50% umbrite • +15 umbrite cap`
+            `${deps.structureCostText("UMBRITE_RIG")} • ${Math.round(economicStructureBuildMs("UMBRITE_RIG") / 60000)}m • +1 UMBRITE slot`
           ),
           slots,
           deps
@@ -1642,7 +1642,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
               : !state.techIds.includes("mining")
                 ? "Requires Deep Shaft Mining"
                 : missingResourceSlotReason(state, "MINE") ?? "Unavailable",
-            `${deps.structureCostText("MINE")} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +50% ${matchingNeed === "TITANIUM" ? "titanium" : "crystal"} • +${matchingNeed === "TITANIUM" ? "15 titanium" : "9 crystal"} cap`
+            `${deps.structureCostText("MINE")} • ${Math.round(economicStructureBuildMs("MINE") / 60000)}m • +1 ${matchingNeed} slot`
           ),
           slots,
           deps
@@ -1691,7 +1691,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       });
       out.push({
         id: "build_granary",
-        label: "Build Granary",
+        label: `Build ${economicStructureName("GRANARY")}`,
         detail: deps.buildDetailTextForAction("build_granary", tile, townBuildSource) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
@@ -1700,11 +1700,11 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             supportPlacementBlocked
               ? "Tile already has structure"
               : townHasGranary
-                ? "Nearby town already has Granary"
+                ? `Nearby town already has an ${economicStructureName("GRANARY")}`
                 : !state.techIds.includes("pottery")
                   ? "Requires Kiln Craft"
                   : missingResourceSlotReason(state, "GRANARY") ?? "Unavailable",
-            `${deps.structureCostText("GRANARY")} • ${Math.round(economicStructureBuildMs("GRANARY") / 60000)}m • +15% town growth`
+            `${deps.structureCostText("GRANARY")} • ${Math.round(economicStructureBuildMs("GRANARY") / 60000)}m • +10,000 population burst on completion (one-time)`
           ),
           slots,
           deps

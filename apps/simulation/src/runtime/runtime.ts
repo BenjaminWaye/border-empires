@@ -60,14 +60,16 @@ import {
 
 import {
   buildDockLinksByDockTileKey,
+  buildDockNetworkComponentByTileKey,
   computeLinkedDockRevealTileKeys,
   type DockRouteDefinition
 } from "../dock-network/dock-network.js";
 import {
   isDockCrossingTarget as isDockCrossingTargetImpl,
   isAetherBridgeCrossingTarget as isAetherBridgeCrossingTargetImpl,
-  findOwnedDockOriginForCrossing as findOwnedDockOriginForCrossingImpl,
-  findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl
+  resolveOwnedDockOriginForCrossing as resolveOwnedDockOriginForCrossingImpl,
+  findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl,
+  type DockCrossingOrigin
 } from "./runtime-crossing.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "../ai/frontier-command-planner.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
@@ -107,7 +109,7 @@ import {
   effectiveVisionRadiusForPlayer,
   domainGrantedResourceSlots
 } from "../tech-domain-bridge/tech-domain-bridge.js";
-import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
+import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js"; import { techGrantedFishFoodSlotBonus } from "../tech-domain-bridge/fish-food-slot-bonus.js";
 import { weaponsFactoryCountsForPlayer } from "../tech-domain-bridge/weapons-factory-mod-breakdown.js";
 import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
@@ -943,6 +945,7 @@ export class SimulationRuntime {
     this.onShardCollected = options.onShardCollected;
     this.pendingImperialWard = options.pendingImperialWard; this.pendingGalacticWonderBonus = options.pendingGalacticWonderBonus;
     const initDocks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? []);
+    const initDockLinksByDockTileKey = buildDockLinksByDockTileKey(initDocks);
     this.state = new RuntimeState({
       players: createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
         (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players),
@@ -950,7 +953,8 @@ export class SimulationRuntime {
         options.initialState, options.seedTiles ?? seedWorld!.tiles, options.mergeSeedTilesWithInitialState ?? true
       ),
       docks: initDocks,
-      dockLinksByDockTileKey: buildDockLinksByDockTileKey(initDocks),
+      dockLinksByDockTileKey: initDockLinksByDockTileKey,
+      dockNetworkComponentByTileKey: buildDockNetworkComponentByTileKey(initDockLinksByDockTileKey),
       locksByTile: createLocksFromInitialState(options.initialState),
       // O(radius²)-per-change coverage for the TILE_DELTA_BATCH hot path (see visibility-coverage-cache.ts).
       visibilityCoverage: new VisibilityCoverageTracker(WORLD_WIDTH, WORLD_HEIGHT, {
@@ -1563,7 +1567,7 @@ export class SimulationRuntime {
     this.flushAllOutpostVisionDormancyResyncs();
   }
 
-  tickOutOfReachDecay(nowMs: number = this.now()): number { return tickOutOfReachDecayImpl({ queue: this.outOfReachDecayQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m) }); }
+  tickOutOfReachDecay(nowMs: number = this.now()): number { return tickOutOfReachDecayImpl({ queue: this.outOfReachDecayQueue, nowMs, tiles: this.state.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m), gatherReachAnchors: () => this.gatherReachAnchors(), isLandTile: this.isLandTileQuery }); }
   tickFortGarrison(nowMs: number = this.now()): void {
     tickFortGarrisonImpl({
       nowMs,
@@ -3087,7 +3091,7 @@ export class SimulationRuntime {
   private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
     return this.coalescedResourceSlotRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
       const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles); const p = this.state.players.get(playerId);
-      const totals = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys, p ? domainGrantedResourceSlots(p) : undefined); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
+      const totals = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys, p ? domainGrantedResourceSlots(p) : undefined, p ? techGrantedFishFoodSlotBonus(p) : 0); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
     });
   }
 
@@ -4300,15 +4304,8 @@ export class SimulationRuntime {
     return isAetherBridgeCrossingTargetImpl(this.activeAetherBridgesForPlayer(playerId), fromX, fromY, toX, toY);
   }
 
-  private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
-    return findOwnedDockOriginForCrossingImpl(
-      this.state.tiles,
-      this.summaryForPlayer(playerId).territoryTileKeys,
-      playerId,
-      toX,
-      toY,
-      this.state.dockLinksByDockTileKey
-    );
+  private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DockCrossingOrigin | undefined {
+    return resolveOwnedDockOriginForCrossingImpl(this.state, (id) => this.summaryForPlayer(id).territoryTileKeys, playerId, toX, toY);
   }
 
   private findOwnedAetherBridgeOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {

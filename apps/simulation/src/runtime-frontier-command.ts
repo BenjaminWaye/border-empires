@@ -20,6 +20,7 @@ import { parseFrontierPayload } from "./runtime-command-parsers.js";
 import { isAlliedOrTruced } from "./runtime-player-factory.js";
 import { lockSourceFromSessionId } from "./runtime-types.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer } from "./runtime-types.js";
+import type { DockCrossingOrigin } from "./runtime/runtime-crossing.js";
 import type { LockedCombatInput } from "./runtime-combat-support.js";
 import { additiveEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 
@@ -62,7 +63,7 @@ export type RuntimeFrontierCommandContext = {
   onMusterRemoteBlockedBarbarian: (() => void) | undefined;
   scheduleLockResolution: (lock: LockRecord) => void;
   adjacentTileStates: (x: number, y: number) => DomainTileState[];
-  findOwnedDockOriginForCrossing: (playerId: string, x: number, y: number) => DomainTileState | undefined;
+  findOwnedDockOriginForCrossing: (playerId: string, x: number, y: number) => DockCrossingOrigin | undefined;
   findOwnedAetherBridgeOriginForCrossing: (playerId: string, x: number, y: number) => DomainTileState | undefined;
   isDockCrossingTarget: (from: DomainTileState, x: number, y: number) => boolean;
   isAetherBridgeCrossingTarget: (playerId: string, x1: number, y1: number, x2: number, y2: number) => boolean;
@@ -100,13 +101,20 @@ export const handleFrontierCommandImpl = (
   const to = ctx.tiles.get(simulationTileKey(payload.toX, payload.toY));
   if (!submittedFrom || !to) { ctx.rejectCommand(command, "UNKNOWN_TILE", "origin or target tile not found"); return false; }
 
+  const adjacentOwnedOrigin = submittedFrom.ownerId === actor.id
+    ? undefined
+    : ctx.adjacentTileStates(to.x, to.y).find((candidate) => candidate.ownerId === actor.id && candidate.terrain === "LAND");
+  const dockOrigin = submittedFrom.ownerId === actor.id || adjacentOwnedOrigin
+    ? undefined
+    : ctx.findOwnedDockOriginForCrossing(actor.id, to.x, to.y);
   const from =
     submittedFrom.ownerId === actor.id
       ? submittedFrom
-      : ctx.adjacentTileStates(to.x, to.y).find((candidate) => candidate.ownerId === actor.id && candidate.terrain === "LAND") ??
-        ctx.findOwnedDockOriginForCrossing(actor.id, to.x, to.y) ??
+      : adjacentOwnedOrigin ??
+        dockOrigin?.tile ??
         ctx.findOwnedAetherBridgeOriginForCrossing(actor.id, to.x, to.y) ??
         submittedFrom;
+  const originIsAlliedDockCrossing = dockOrigin?.isAlliedDockCrossing === true && from === dockOrigin.tile;
 
   const originLock = ctx.locksByTile.get(simulationTileKey(from.x, from.y));
   const targetLock = ctx.locksByTile.get(simulationTileKey(to.x, to.y));
@@ -174,6 +182,7 @@ export const handleFrontierCommandImpl = (
         .includes(simulationTileKey(to.x, to.y)),
     isDockCrossing,
     isBridgeCrossing,
+    originIsAlliedDockCrossing,
     targetShielded:
       (isDockCrossing ? false : ctx.crossingBlockedByAetherWall(from.x, from.y, to.x, to.y)) ||
       ctx.isTileWardedByImperialWard(to.ownerId),
