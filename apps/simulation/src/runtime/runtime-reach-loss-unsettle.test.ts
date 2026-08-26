@@ -6,9 +6,13 @@ import { SimulationRuntime } from "./runtime.js";
 // (packages/shared/src/reach/reach.ts, reassessBorderOnAnchorDeactivation):
 // disabling/losing an anchor no longer leaves ground it uniquely covered
 // sticky forever — a SETTLED tile out there downgrades back to FRONTIER once
-// nothing (own or rival) covers it. The anchor's own founding tile is exempt
-// from this (see the "Exception" doc comment in reach.ts), so it stays
-// SETTLED and the structure can be re-enabled without getting stuck.
+// nothing (own or rival) covers it. This includes the anchor's own founding
+// tile: a disk always covers itself, so an anchor that is the *sole* cover
+// over its own tile anywhere unsettles that tile too when it deactivates —
+// no special-cased exemption. Recovery requires extending reach back over
+// the tile from elsewhere (another anchor, or expanding in from adjacent
+// territory) before it can be SETTLEd again; a fully isolated outpost with
+// nothing else nearby has no such "elsewhere" and is lost for good.
 
 const makePlayer = (id: string) => ({
   id,
@@ -25,8 +29,8 @@ const makePlayer = (id: string) => ({
 const ownershipOf = (runtime: SimulationRuntime, x: number, y: number) =>
   runtime.exportState().tiles.find((tile) => tile.x === x && tile.y === y);
 
-describe("SimulationRuntime — reach loss unsettles peripheral ground, spares the anchor's own tile", () => {
-  it("disabling the sole Relay Beacon covering a distant SETTLED tile downgrades it to FRONTIER, but leaves the beacon's own tile SETTLED", async () => {
+describe("SimulationRuntime — reach loss unsettles ground, including the anchor's own tile", () => {
+  it("disabling the sole Relay Beacon covering a distant SETTLED tile downgrades it to FRONTIER, and the beacon's own tile too", async () => {
     const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
     for (let x = 0; x <= 20; x += 1) {
       for (let y = 5; y <= 15; y += 1) tiles.push({ x, y, terrain: "LAND" });
@@ -55,6 +59,7 @@ describe("SimulationRuntime — reach loss unsettles peripheral ground, spares t
     });
 
     expect(ownershipOf(runtime, 14, 10)).toMatchObject({ ownerId: "player-1", ownershipState: "SETTLED" });
+    expect(ownershipOf(runtime, 10, 10)).toMatchObject({ ownerId: "player-1", ownershipState: "SETTLED" });
 
     runtime.submitCommand({
       commandId: "disable-outpost",
@@ -67,10 +72,51 @@ describe("SimulationRuntime — reach loss unsettles peripheral ground, spares t
     });
     await Promise.resolve();
 
-    // The peripheral tile fell out of reach entirely and unsettles.
+    // Both the peripheral tile AND the beacon's own tile fell entirely out
+    // of reach (nothing else covers either one) and unsettle.
     expect(ownershipOf(runtime, 14, 10)).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
-    // The beacon's own tile is exempt — it stays SETTLED so re-enabling can
-    // still re-grant its anchor (which itself requires the tile be SETTLED).
+    expect(ownershipOf(runtime, 10, 10)).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
+  });
+
+  it("a beacon still covered by a nearby town keeps its own tile SETTLED when disabled", async () => {
+    const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
+    for (let x = 0; x <= 20; x += 1) {
+      for (let y = 5; y <= 15; y += 1) tiles.push({ x, y, terrain: "LAND" });
+    }
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          ...tiles,
+          {
+            x: 10,
+            y: 10,
+            terrain: "LAND" as const,
+            ownerId: "player-1",
+            ownershipState: "SETTLED" as const,
+            economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const }
+          },
+          // Within TOWN_REACH_RADIUS (3) of the beacon's own tile — an
+          // independent anchor still covers it after the beacon deactivates.
+          { x: 11, y: 11, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, town: { type: "FARMING", populationTier: "TOWN" } }
+        ],
+        activeLocks: []
+      }
+    });
+
+    runtime.submitCommand({
+      commandId: "disable-outpost",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 0,
+      issuedAt: 1_000,
+      type: "SET_CONVERTER_STRUCTURE_ENABLED" as any,
+      payloadJson: JSON.stringify({ x: 10, y: 10, enabled: false })
+    });
+    await Promise.resolve();
+
     expect(ownershipOf(runtime, 10, 10)).toMatchObject({ ownerId: "player-1", ownershipState: "SETTLED" });
   });
 });
