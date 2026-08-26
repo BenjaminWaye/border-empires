@@ -13,6 +13,7 @@ import {
   chooseBestSiegeOutpostBuild
 } from "./structure-command-planner.js";
 import { chooseBestRelayBeaconBuild } from "./relay-beacon-command-planner.js";
+import { foodSlotReliefFromPlannerInput } from "./food-slot-relief.js";
 import { economyWeak, foodCoverageLow } from "./ai-economic-heuristics.js";
 import { buildAutomationStrategicSnapshot } from "./automation-strategic-snapshot.js";
 import type { AutomationPlannerDecisionContext } from "./automation-command-planner-helpers.js";
@@ -134,8 +135,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     onFallback?.();
     return tiles;
   };
-  // See broad-fallback-sample.ts for behavior/rationale (factored out to
-  // keep this file under the repo's 500-line cap).
+  // See broad-fallback-sample.ts for behavior/rationale (factored out to keep this file under the repo's 500-line cap).
   const { ownedFrontierTiles, ownedFrontierTilesSample, ownedFrontierTilesComputedCount } = createOwnedFrontierTileScans({
     ownedTiles: input.ownedTiles,
     frontierTilesLength: input.frontierTiles.length,
@@ -475,7 +475,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     victoryPathProgress: strategic.primaryVictoryPathProgress
   });
   if (needVector) diagnosticBase.needVector = needVector;
-
+  const foodSlotRelief = foodSlotReliefFromPlannerInput(input.ownedTiles, input.playerId, input.foodDormantEconomicStructureKeys, needVector);
   recordPhaseTiming("summarize_frontier", summarizeStartedAt);
   return runUtilityPolicy({
     context,
@@ -488,6 +488,8 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     fortBuild,
     siegeOutpostBuild,
     relayBeaconBuild,
+    foodSlotReliefRemoval: foodSlotRelief.removal,
+    foodSlotsExhausted: foodSlotRelief.exhausted,
     attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,
     expansionObjective: input.expansionObjective,
     points: input.points,

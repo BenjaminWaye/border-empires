@@ -156,6 +156,14 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   manpowerRegenPerMinute?: number;
   slotSupplyByResource?: Partial<Record<SlotResource, number>>;
   slotDemandByResource?: Partial<Record<SlotResource, number>>;
+  /**
+   * "x,y" tile keys of this player's economicStructures currently dormant
+   * specifically on FOOD (Runtime.foodDormantEconomicStructureKeysForPlayer)
+   * — feeds food-slot-relief.ts's chooseFoodSlotReliefRemoval, the FREE_FOOD_SLOT
+   * decision class's last-resort REMOVE_STRUCTURE when FOOD slots are fully
+   * exhausted and no FARMSTEAD/WATERWORKS/GRANARY build can grow supply.
+   */
+  foodDormantEconomicStructureKeys?: ReadonlySet<string>;
 };
 
 export type AutomationPlannerDiagnostic = {
