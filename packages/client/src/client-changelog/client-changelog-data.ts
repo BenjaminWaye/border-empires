@@ -381,13 +381,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787431431635, // frozen from a live Date.now() call
-    introducedIn: "2026.08.22.12",
-    title: "Fixed rivers clipping through hills",
-    why: "River ribbons rendered at the flat ground elevation, ignoring the raised dome mesh used for hill tiles, so a river crossing a hill looked like jagged glued-together rectangles instead of a smooth ribbon.",
-    changes: ["Rivers now render above the hill dome wherever their path crosses a hills tile."]
-  },
-  {
     createdAt: 1787462871189, // 2026.08.23.05 — frozen from a live Date.now() call
     introducedIn: "2026.08.23.05",
     title: "Turned off rivers in new map generation",
@@ -486,6 +479,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
     changes: [
       "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
+    ]
+  },
+  {
+    createdAt: 1787688879680, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Manpower for Expand and Settle is now spent the moment you queue them",
+    why: "Building deducted manpower as soon as an action was queued, but Expand and Settle didn't -- Expand only charged it once the claim finished (up to ~90s later on forest/hills), and a queued Settle held nothing at all. Both let you queue more actions than your manpower could actually cover, since nothing showed as spent until each one individually went through.",
+    changes: [
+      "Expand now charges its manpower cost the moment the claim is accepted, refunded if you cancel it or it never resolves.",
+      "A queued Settle now reserves its manpower immediately, the same way a queued Build already did."
     ]
   }
 ];

@@ -12,6 +12,13 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787431431635, // frozen from a live Date.now() call
+    introducedIn: "2026.08.22.12",
+    title: "Fixed rivers clipping through hills",
+    why: "River ribbons rendered at the flat ground elevation, ignoring the raised dome mesh used for hill tiles, so a river crossing a hill looked like jagged glued-together rectangles instead of a smooth ribbon.",
+    changes: ["Rivers now render above the hill dome wherever their path crosses a hills tile."]
+  },
+  {
     createdAt: 1787509343955, // frozen from `date +%s%3N`
     introducedIn: "2026.08.23.3",
     title: "Reach no longer spreads across open water",
