@@ -7,6 +7,9 @@
 // UI (see client-owner-name.ts).
 const FOUNDING_ENGINEER_NAMES: ReadonlySet<string> = new Set(["konradsdelikatesskörv"]);
 
+const escapeHtml = (value: string): string =>
+  value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+
 export const isFoundingEngineerName = (name: string | undefined): boolean => Boolean(name && FOUNDING_ENGINEER_NAMES.has(name.trim().toLowerCase()));
 
 // Simplified top-hat mark (viewBox 0 0 48 48), sized down for inline use next
@@ -31,6 +34,8 @@ export const foundingEngineerNameHtml = (escapedName: string, rawName: string | 
 };
 
 // Owner-label span for the tile detail subtitle: ally styling and the
-// founding-engineer tag are independent, so either or both can apply.
+// founding-engineer tag are independent, so either or both can apply. Takes
+// the raw (unescaped) label -- unlike foundingEngineerNameHtml, this one
+// owns escaping itself since its caller has no escapeHtml of its own.
 export const tileOwnerLabelHtml = (ownerLabel: string, ownerName: string | undefined, isAlly: boolean): string =>
-  `<span class="tile-owner-label${isAlly ? " is-ally" : ""}">${foundingEngineerNameHtml(ownerLabel, ownerName)}</span>`;
+  `<span class="tile-owner-label${isAlly ? " is-ally" : ""}">${foundingEngineerNameHtml(escapeHtml(ownerLabel), ownerName)}</span>`;
