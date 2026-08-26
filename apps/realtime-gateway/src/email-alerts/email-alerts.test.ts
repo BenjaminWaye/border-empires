@@ -56,8 +56,8 @@ describe("email alerts", () => {
 
     expect(sent).toEqual([
       expect.objectContaining({
-        text: expect.stringContaining("Go to tile: https://play.example/?x=141&y=174"),
-        html: expect.stringContaining('<a href="https://play.example/?x=141&amp;y=174">Go to tile</a>')
+        text: expect.stringContaining("Go to Tile: https://play.example/?x=141&y=174"),
+        html: expect.stringContaining('href="https://play.example/?x=141&amp;y=174"')
       })
     ]);
   });

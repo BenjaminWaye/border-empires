@@ -9,8 +9,10 @@ import {
   FRONTIER_CLAIM_MS,
   HILLS_FRONTIER_CLAIM_PENALTY_MS,
   MUSTER_ATTACK_COST,
+  anonymizedEmpireNameForId,
   grassShadeAt,
   isHillsTileAt,
+  isOpaquePlayerId,
   landBiomeAt,
   terrainAt
 } from "@border-empires/shared";
@@ -38,6 +40,16 @@ export type MusterSourceResult = { sourceKey: string; available: number };
  * independently recompute the exact same value from a tile's coordinates
  * rather than needing to store it on LockRecord.
  */
+/**
+ * Resolves the attacker name shown in the defender's ATTACK_ALERT (in-app
+ * overlay and email). Falls back to an anonymized "Empire XXXXXX" label for
+ * opaque player IDs (e.g. raw Firebase UIDs) instead of leaking the ID.
+ */
+export const attackAlertDisplayName = (playerId: string, actorName?: string): string => {
+  if (actorName && actorName !== playerId) return actorName;
+  return isOpaquePlayerId(playerId) ? anonymizedEmpireNameForId(playerId) : playerId;
+};
+
 export const frontierClaimDurationMsForCoords = (x: number, y: number): number => {
   const isForestTarget = terrainAt(x, y) === "LAND" && landBiomeAt(x, y) === "GRASS" && grassShadeAt(x, y) === "DARK";
   return (
@@ -57,6 +69,7 @@ export type RuntimeFrontierCommandContext = {
   rejectCommand: (command: CommandEnvelope, code: string, message: string) => void;
   applyManpowerRegen: (player: RuntimePlayer) => void;
   emitEvent: (event: SimulationEvent) => void;
+  emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
   commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
   onMusterRemoteBlocked: (() => void) | undefined;
   onMusterRemoteAttack: (() => void) | undefined;
@@ -256,6 +269,18 @@ export const handleFrontierCommandImpl = (
       ctx.onMusterRemoteAttack?.();
     }
   }
+  // EXPAND has no muster reservation (that's an ATTACK-only concept), so its
+  // manpower cost is charged directly against the player's wallet here, at
+  // lock creation, instead of at resolution (previously up to ~90s later
+  // with forest/hills claim-time penalties) -- matching the immediate-
+  // deduction-on-queue behavior BUILD/SETTLE already have. `resolveLock`
+  // (runtime-lock-resolution.ts) no longer re-charges this cost; every path
+  // that removes an EXPAND lock before resolution must refund it instead
+  // (cancel-capture, the orphaned-lock sweep, and resolveLock's own
+  // stale-lock early return).
+  if (actionType === "EXPAND") {
+    actor.manpower = Math.max(0, actor.manpower - validation.manpowerCost);
+  }
   const combatResolution = actionType === "EXPAND" ? undefined : ctx.buildLockedCombatResolution(baseLock);
   const lock: LockRecord = {
     ...baseLock,
@@ -299,7 +324,7 @@ export const handleFrontierCommandImpl = (
       payloadJson: JSON.stringify({
         type: "ATTACK_ALERT",
         attackerId: command.playerId,
-        attackerName: actor.name ?? command.playerId,
+        attackerName: attackAlertDisplayName(command.playerId, actor.name),
         x: validation.target.x,
         y: validation.target.y,
         fromX: validation.origin.x,
@@ -309,5 +334,12 @@ export const handleFrontierCommandImpl = (
     });
   }
   ctx.scheduleLockResolution(lock);
+  // EXPAND's manpower cost was just charged up front (above) instead of at
+  // resolution -- push the updated wallet now so a human player's HUD
+  // reflects it immediately rather than waiting for the next unrelated
+  // PLAYER_UPDATE.
+  if (actionType === "EXPAND" && !actor.isAi) {
+    ctx.emitPlayerStateUpdate({ commandId: command.commandId, playerId: actor.id });
+  }
   return true;
 };

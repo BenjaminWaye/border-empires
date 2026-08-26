@@ -4780,7 +4780,7 @@ describe("simulation runtime", () => {
           expect.objectContaining({ x: 10, y: 11, ownerId: "player-1", ownershipState: "FRONTIER", terrain: "LAND" })
         ])
       );
-      expect(tileDeltaEvents.some((delta) => delta.x === 9 && delta.y === 11)).toBe(false);
+      expect(tileDeltaEvents.some((delta) => delta.x === 9 && delta.y === 11 && !delta.ownerId)).toBe(false);
     } finally {
       randomSpy.mockRestore();
       vi.useRealTimers();

@@ -10,6 +10,7 @@ import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import type { DevQueueBuildReservation } from "./runtime-dev-queue-build-reservation.js";
 
 const MANPOWER_COST_BY_TYPE: Record<string, number> = { FORT: 300, MINTWORKS: 80 };
+const SETTLE_TEST_MANPOWER_COST = 150;
 
 function makeContext(overrides: { manpower: number; hasSlot?: boolean }) {
   const summary: PlayerRuntimeSummary = {
@@ -63,6 +64,12 @@ function makeContext(overrides: { manpower: number; hasSlot?: boolean }) {
         slotRequirements: structureType === "FORT" ? [{ resource: "TITANIUM", count: 1 }] : []
       };
     },
+    estimateSettleReservation: (): DevQueueBuildReservation => {
+      if (manpower < SETTLE_TEST_MANPOWER_COST) {
+        return { ok: false, code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_TEST_MANPOWER_COST} manpower to settle` };
+      }
+      return { ok: true, manpowerCost: SETTLE_TEST_MANPOWER_COST, slotRequirements: [] };
+    },
     applyManpowerReservation: (_playerId, amount) => { manpower = Math.max(0, manpower - amount); },
     refundManpowerReservation: (_playerId, amount) => { manpower = Math.min(manpowerCap, manpower + amount); }
   };
@@ -79,6 +86,18 @@ function enqueueCommand(x: number, y: number, structureType: string): CommandEnv
     issuedAt: 0,
     type: "DEV_QUEUE_ENQUEUE",
     payloadJson: JSON.stringify({ x, y, tileKey: `${x},${y}`, kind: "BUILD", structureType })
+  } as unknown as CommandEnvelope;
+}
+
+function enqueueSettleCommand(x: number, y: number): CommandEnvelope {
+  return {
+    commandId: `enqueue-settle:${x},${y}`,
+    sessionId: "s",
+    playerId: "p1",
+    clientSeq: 1,
+    issuedAt: 0,
+    type: "DEV_QUEUE_ENQUEUE",
+    payloadJson: JSON.stringify({ x, y, tileKey: `${x},${y}`, kind: "SETTLE" })
   } as unknown as CommandEnvelope;
 }
 
@@ -163,5 +182,57 @@ describe("handleDevQueueEnqueueCommand -- MP/slot reservation", () => {
     expect(getManpower()).toBe(1000);
     expect(summary.devQueue).toEqual([]);
     expect(dispatchedBuilds).toHaveLength(1);
+  });
+});
+
+describe("handleDevQueueEnqueueCommand -- SETTLE manpower reservation", () => {
+  // Regression for the "queued SETTLE doesn't deduct MP until it drains"
+  // bug: SETTLE entries used to reserve nothing (isReservableBuildEntry only
+  // matched BUILD), so a player could stack more queued settles than their
+  // manpower could actually cover.
+  it("reserves manpower immediately when a SETTLE is queued", () => {
+    const { context, summary, getManpower } = makeContext({ manpower: 1000 });
+    handleDevQueueEnqueueCommand(context, enqueueSettleCommand(1, 1));
+    expect(getManpower()).toBe(1000 - SETTLE_TEST_MANPOWER_COST);
+    expect(summary.devQueue).toEqual([expect.objectContaining({ tileKey: "1,1", kind: "SETTLE", reservedManpower: SETTLE_TEST_MANPOWER_COST })]);
+  });
+
+  it("rejects a queued SETTLE the player can't afford, without touching manpower", () => {
+    const { context, summary, getManpower, rejections } = makeContext({ manpower: 100 });
+    handleDevQueueEnqueueCommand(context, enqueueSettleCommand(1, 1));
+    expect(getManpower()).toBe(100);
+    expect(summary.devQueue).toEqual([]);
+    expect(rejections).toEqual([{ code: "INSUFFICIENT_MANPOWER", message: `need ${SETTLE_TEST_MANPOWER_COST} manpower to settle` }]);
+  });
+
+  it("refunds the SETTLE reservation on cancel", () => {
+    const { context, summary, getManpower } = makeContext({ manpower: 1000 });
+    handleDevQueueEnqueueCommand(context, enqueueSettleCommand(1, 1));
+    expect(getManpower()).toBe(1000 - SETTLE_TEST_MANPOWER_COST);
+    handleDevQueueCancelCommand(context, {
+      commandId: "cancel",
+      sessionId: "s",
+      playerId: "p1",
+      clientSeq: 2,
+      issuedAt: 0,
+      type: "DEV_QUEUE_CANCEL",
+      payloadJson: JSON.stringify({ tileKey: "1,1" })
+    } as unknown as CommandEnvelope);
+    expect(getManpower()).toBe(1000);
+    expect(summary.devQueue).toEqual([]);
+  });
+
+  it("holds the SETTLE reservation while queued and refunds it right before draining, so the real SETTLE handler re-charges fresh", () => {
+    const { context, summary, getManpower, dispatchedBuilds } = makeContext({ manpower: 1000 });
+    const dispatchedSettles: CommandEnvelope[] = [];
+    context.dispatchSettle = (command) => dispatchedSettles.push(command);
+    handleDevQueueEnqueueCommand(context, enqueueSettleCommand(1, 1));
+    expect(getManpower()).toBe(1000 - SETTLE_TEST_MANPOWER_COST);
+    context.hasAvailableDevelopmentSlot = () => true;
+    tryDrainDevQueue(context, "p1");
+    expect(getManpower()).toBe(1000);
+    expect(summary.devQueue).toEqual([]);
+    expect(dispatchedSettles).toHaveLength(1);
+    expect(dispatchedBuilds).toHaveLength(0);
   });
 });

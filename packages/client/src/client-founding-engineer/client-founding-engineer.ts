@@ -1,16 +1,17 @@
 // Founding Engineer tag: a cosmetic marker for a short hardcoded list of
-// early contributors, shown next to their display name in the lobby, tile
-// detail view, and leaderboard. There's no player-account/role system in
-// this codebase to hang a real flag off of, so this matches on display name
-// (case-insensitive) -- the same tradeoff the rest of the client already
-// makes by treating display names as the de facto player identity in most
-// UI (see client-owner-name.ts).
-const FOUNDING_ENGINEER_NAMES: ReadonlySet<string> = new Set(["konradsdelikatesskörv"]);
+// early contributors, shown next to their name in the lobby, tile detail
+// view, and leaderboard. Keyed on the player's stable id (a Firebase uid,
+// resolved once via the prod player_profiles table) rather than display
+// name: display names are user-editable per-season labels (see
+// client-owner-name.ts), so matching on name would drop the tag if this
+// player renames, or hand it to anyone else who renamed to the same string.
+const FOUNDING_ENGINEER_PLAYER_IDS: ReadonlySet<string> = new Set(["VK5iriJAhickNf9ArrRweUDnq1W2"]);
 
 const escapeHtml = (value: string): string =>
   value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
-export const isFoundingEngineerName = (name: string | undefined): boolean => Boolean(name && FOUNDING_ENGINEER_NAMES.has(name.trim().toLowerCase()));
+export const isFoundingEngineerPlayerId = (playerId: string | undefined): boolean =>
+  Boolean(playerId && FOUNDING_ENGINEER_PLAYER_IDS.has(playerId));
 
 // Simplified top-hat mark (viewBox 0 0 48 48), sized down for inline use next
 // to a name. currentColor lets callers tint it via CSS.
@@ -26,10 +27,10 @@ export const foundingEngineerTagHtml = (): string =>
   `</svg></span>`;
 
 // Wraps an already-escaped name span in the founding-engineer color class
-// and appends the tag icon when the name matches. Callers own escaping the
+// and appends the tag icon when playerId matches. Callers own escaping the
 // name themselves since they already have their own escapeHtml helpers.
-export const foundingEngineerNameHtml = (escapedName: string, rawName: string | undefined): string => {
-  if (!isFoundingEngineerName(rawName)) return escapedName;
+export const foundingEngineerNameHtml = (escapedName: string, playerId: string | undefined): string => {
+  if (!isFoundingEngineerPlayerId(playerId)) return escapedName;
   return `<span class="founding-engineer-name">${escapedName}</span>${foundingEngineerTagHtml()}`;
 };
 
@@ -37,5 +38,5 @@ export const foundingEngineerNameHtml = (escapedName: string, rawName: string | 
 // founding-engineer tag are independent, so either or both can apply. Takes
 // the raw (unescaped) label -- unlike foundingEngineerNameHtml, this one
 // owns escaping itself since its caller has no escapeHtml of its own.
-export const tileOwnerLabelHtml = (ownerLabel: string, ownerName: string | undefined, isAlly: boolean): string =>
-  `<span class="tile-owner-label${isAlly ? " is-ally" : ""}">${foundingEngineerNameHtml(escapeHtml(ownerLabel), ownerName)}</span>`;
+export const tileOwnerLabelHtml = (ownerLabel: string, ownerId: string | undefined, isAlly: boolean): string =>
+  `<span class="tile-owner-label${isAlly ? " is-ally" : ""}">${foundingEngineerNameHtml(escapeHtml(ownerLabel), ownerId)}</span>`;

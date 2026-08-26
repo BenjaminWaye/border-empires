@@ -7,7 +7,9 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { RuntimeState } from "./runtime-state.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
-import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
+import { createReachUpdateState, flushReachUpdates, markReachForResend, takeReachChangedTileKeys as takeReachChangedTileKeysImpl, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
+import type { RivalReachPushRuntimeDeps } from "../rival-reach-push/rival-reach-push.js";
+import { railDepotPositionsFromKeys } from "./runtime-rail-depot-positions.js";
 import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
 import { cancelOutOfReachDecayInAnchorDisk, outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import {
@@ -16,7 +18,8 @@ import {
   newlyDeactivatedReachAnchors as newlyDeactivatedReachAnchorsImpl,
   isPlayerTileInReach as isPlayerTileInReachImpl,
   reachTileCountForPlayer as reachTileCountForPlayerImpl,
-  reachTileKeysForPlayer as reachTileKeysForPlayerImpl
+  reachTileKeysForPlayer as reachTileKeysForPlayerImpl,
+  reachTileKeysGroupedByOwner as reachTileKeysGroupedByOwnerImpl
 } from "./runtime-reach-anchors.js";
 import {
   appendPlayerEventLogEntry,
@@ -517,29 +520,6 @@ const AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS = 60_000;
 // epoch; cache misses are O(world tiles) but happen only when terrain changes.
 let nextTerrainEpoch = 1;
 
-/**
- * Convert a rail depot key index to position arrays for the muster tick.
- * §5.4: skips dormant Rail Depots — an unpowered depot can't grant the
- * muster boost.
- */
-const railDepotPositionsFromKeys = (
-  index: ReadonlyMap<string, Set<string>>,
-  tiles: ReadonlyMap<string, DomainTileState>,
-  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean
-): Map<string, Array<{ x: number; y: number }>> => {
-  const result = new Map<string, Array<{ x: number; y: number }>>();
-  for (const [ownerId, keys] of index) {
-    const positions: Array<{ x: number; y: number }> = [];
-    for (const key of keys) {
-      if (isStructureDormant(ownerId, key, "economicStructure")) continue;
-      const tile = tiles.get(key);
-      if (tile) positions.push({ x: tile.x, y: tile.y });
-    }
-    if (positions.length > 0) result.set(ownerId, positions);
-  }
-  return result;
-};
-
 export class SimulationRuntime {
   private readonly events = new EventEmitter();
   private terrainEpoch = nextTerrainEpoch++;
@@ -807,8 +787,7 @@ export class SimulationRuntime {
   // previous always-fresh behavior in practice while still being safe.
   private readonly autoSettlementQueueCacheByPlayer = new Map<string, { value: Array<{ x: number; y: number }>; computedAtMs: number }>();
   // Per-tile eligibility cache backing the read-through cache passed into
-  // orderedAutoSettlementTileKeys for AI players — see
-  // AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS.
+  // orderedAutoSettlementTileKeys for AI players — see AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS.
   private readonly autoSettlementEligibilityCacheByTile = new Map<string, { eligible: boolean; computedAtMs: number }>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
@@ -1320,7 +1299,8 @@ export class SimulationRuntime {
       nowMs,
       orphanLockGraceMs: ORPHAN_LOCK_GRACE_MS,
       locksByTile: this.state.locksByTile,
-      locksByCommandId: this.locksByCommandId
+      locksByCommandId: this.locksByCommandId,
+      refundExpandManpower: (playerId, amount) => { const player = this.state.players.get(playerId); if (player) player.manpower += amount; } // reverses our prior EXPAND debit; next regen tick reclamps overcap
     });
   }
 
@@ -1634,8 +1614,7 @@ export class SimulationRuntime {
       setTileYieldCollectedAt: (commandId, playerId, tileKey, collectedAt) => this.setTileYieldCollectedAt(commandId, playerId, tileKey, collectedAt),
       replaceTileState: (tileKey, tile, commandId) => this.replaceTileState(tileKey, tile, commandId),
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
-      emitEvent: (event) => this.emitEvent(event),
-      emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       runtimeLogInfo: (payload, message) => this.runtimeLogInfo(payload, message),
       incomePerMinuteForPlayer: (playerId) => this.incomePerMinuteForPlayer(playerId),
       respawnMinimumGold: RESPAWN_MINIMUM_GOLD,
@@ -1644,7 +1623,8 @@ export class SimulationRuntime {
       coastalLandKeys: () => this.spawnPlacementIndex.coastalLandKeys(this.state.tiles),
       hasNearbySettled: (x, y, radius) => this.spawnPlacementIndex.hasNearbySettled(x, y, radius),
       hasNearbyTown: (x, y, radius) => this.spawnPlacementIndex.hasNearbyTown(this.state.tiles, x, y, radius),
-      hasNearbyFood: (x, y, radius) => this.spawnPlacementIndex.hasNearbyFood(this.state.tiles, x, y, radius)
+      hasNearbyFood: (x, y, radius) => this.spawnPlacementIndex.hasNearbyFood(this.state.tiles, x, y, radius),
+      claimFairSpawnSite: (isAvailable, rallyAnchor) => this.spawnPlacementIndex.claimFairSpawnSite(this.state.tiles, isAvailable, rallyAnchor)
     };
   }
 
@@ -1679,9 +1659,8 @@ export class SimulationRuntime {
       dockLinksByDockTileKey: this.state.dockLinksByDockTileKey,
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
       applyManpowerRegen: (player) => this.applyManpowerRegen(player),
-      emitEvent: (event) => this.emitEvent(event),
-      commandTrace: this.commandTrace,
-      onMusterRemoteBlocked: this.onMusterRemoteBlocked,
+      emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
+      commandTrace: this.commandTrace, onMusterRemoteBlocked: this.onMusterRemoteBlocked,
       onMusterRemoteAttack: this.onMusterRemoteAttack,
       onMusterRemoteBlockedBarbarian: this.onMusterRemoteBlockedBarbarian,
       scheduleLockResolution: (lock) => this.scheduleLockResolution(lock),
@@ -3058,6 +3037,20 @@ export class SimulationRuntime {
     return reachTileKeysForPlayerImpl(playerId, this.reachBorder);
   }
 
+  // rival-reach-push.ts's ONLY window into Runtime (that module lives at the
+  // service layer, which knows who is connected — Runtime doesn't). Mirrors
+  // reachBorderApplyContext() just above; never exposes reachBorder/visibilityCoverage directly.
+  rivalReachPushRuntimeDeps(): RivalReachPushRuntimeDeps {
+    return {
+      reachBorderTileKeysGroupedByOwner: () => reachTileKeysGroupedByOwnerImpl(this.reachBorder),
+      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
+      isTileVisibleToPlayer: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey),
+      takeReachChangedTileKeys: (ownerId) => takeReachChangedTileKeysImpl(this.reachUpdateState, ownerId),
+      emitRivalReachUpdate: (viewerId, ownerId, tileKeys, revision, causeCommandId) =>
+        this.emitPlayerMessage({ commandId: causeCommandId, playerId: viewerId }, { type: "RIVAL_REACH_UPDATE", ownerId, tileKeys, revision })
+    };
+  }
+
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
   // tiles too — Siege Outposts (structureShowsOnTile) can be built on an
   // owned, unsettled tile, so resourceSlotDemandForPlayer needs every tile
@@ -3354,6 +3347,7 @@ export class SimulationRuntime {
       return orderedAutoSettlementTileKeys(playerId, frontierKeys, {
         getTile: (tileKey) => this.state.tiles.get(tileKey),
         isBlocked: (tileKey) => this.state.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey),
+        isInReach: (tile) => this.isPlayerTileInReach(playerId, tile.x, tile.y),
         hasTownSupport: (tile) => {
           supportLookupCalls += 1;
           return this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
@@ -3992,7 +3986,7 @@ export class SimulationRuntime {
       clearLastShardRainHello: () => this.lastShardRainHelloByPlayer.clear(),
       onShardCollected: this.onShardCollected,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
-      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId)
+      resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId), tileDeltaRevealOnly: (tile, playerId) => this.tileDeltaRevealOnly(tile, playerId)
     });
   }
 
