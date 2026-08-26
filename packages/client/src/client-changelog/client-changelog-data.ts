@@ -14,6 +14,25 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787765177459, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.7",
+    title: "Fixed \"Get Rally Link\" flashing a sign-in prompt for already-signed-in players",
+    why: "The button did a full page navigation to /rally/new, which reloaded the whole client and restarted Firebase Auth from scratch. The rally panel tried to mint a link before auth finished rehydrating, so it briefly showed \"Sign in, then this page will create your rally link\" even for players who were already signed in.",
+    changes: [
+      "Get Rally Link now opens the rally panel in place, without reloading the app, so already-signed-in players go straight to a minted link instead of seeing a sign-in flash.",
+      "Fixed the rally panel's close (×) icon rendering off-center in its button."
+    ]
+  },
+  {
+    createdAt: 1787765177460, // frozen from `node -e "console.log(Date.now())"`, +1ms to avoid a collision with the entry above
+    introducedIn: "2026.08.26.7",
+    title: "Fixed a rally invite link covering the sign-in button",
+    why: "Opening a rally invite link (/r/<code>) while signed out showed a floating \"Join a rally\" card on top of the sign-in screen. #auth-overlay lives inside #hud, which is position:fixed with z-index:auto and forms its own stacking context, so the invite card's z-index (29, meant to sit below the overlay's 30) was compared against #hud as a whole instead -- the card always painted on top, right over the Continue with Google button.",
+    changes: [
+      "The rally invite message now appears as a small banner inside the sign-in card itself instead of a separate floating popup, so it never blocks the sign-in buttons."
+    ]
+  },
+  {
     createdAt: 1787755721503, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.6",
     title: "Attack alerts now show the attacker's real display name",
@@ -426,15 +445,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The rally link dialog now has a close (×) button in the top-right corner that dismisses it and clears the rally URL from the address bar.",
       "Signed-in players can now open \"Get Rally Link\" from Settings → Gameplay instead of typing /rally/new."
-    ]
-  },
-  {
-    createdAt: 1787472290597, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.1",
-    title: "Added a Slot Sources breakdown to the Economy panel for Food, Titanium, Crystal, and Umbrite",
-    why: "The Economy sidebar's slot-based resources only showed \"Occupied by\" (who's using your slots), with no way to see where the slot capacity itself came from -- unlike GOLD, which already lists its Income Sources.",
-    changes: [
-      "The Economy panel's detail card for FOOD/TITANIUM/CRYSTAL/UMBRITE now has a \"Slot Sources\" column listing which tiles and boost structures (Farmstead, Mine, Umbrite Rig, Waterworks/Foundry radius bonuses, active synthesizers) are contributing slot capacity, alongside the existing \"Occupied by\" column."
     ]
   },
   {
