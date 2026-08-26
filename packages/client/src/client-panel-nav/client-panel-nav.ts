@@ -36,7 +36,13 @@ export const panelToMobile = (panel: NonNullable<ClientState["activePanel"]>): C
 
 export const mobileNavLabelHtml = (
   panel: ClientState["mobilePanel"],
-  opts?: { techReady?: boolean; attackAlertUnread?: boolean; feedUnreadCount?: number; victoryHoldAlertUnacknowledged?: boolean }
+  opts?: {
+    techReady?: boolean;
+    attackAlertUnread?: boolean;
+    feedUnreadCount?: number;
+    victoryHoldAlertUnacknowledged?: boolean;
+    pendingAllyCount?: number;
+  }
 ): string => {
   if (panel === "core") return '<span class="tab-icon">⌂</span>';
   if (panel === "tech") {
@@ -45,7 +51,12 @@ export const mobileNavLabelHtml = (
       : '<span class="tab-icon">⚡</span>';
   }
   if (panel === "domains") return '<span class="tab-icon">✦</span>';
-  if (panel === "social") return '<span class="tab-icon">👥</span>';
+  if (panel === "social") {
+    const pendingAllyCount = opts?.pendingAllyCount ?? 0;
+    return pendingAllyCount > 0
+      ? `<span class="tab-icon">👥</span><span class="social-alert-dot" aria-label="${pendingAllyCount} pending alliance/truce request${pendingAllyCount === 1 ? "" : "s"}">${Math.min(9, pendingAllyCount)}</span>`
+      : '<span class="tab-icon">👥</span>';
+  }
   if (panel === "leaderboard") {
     return opts?.victoryHoldAlertUnacknowledged
       ? '<span class="tab-icon">🏆</span><span class="feed-alert-dot" aria-label="season victory pressure">!</span>'
@@ -108,7 +119,14 @@ export const closeActivePanel = (state: Pick<ClientState, "activePanel" | "domai
 export const renderMobilePanels = (
   state: Pick<
     ClientState,
-    "activePanel" | "mobilePanel" | "techTreeExpanded" | "domainDetailOpen" | "unreadAttackAlerts" | "feedUnreadCount"
+    | "activePanel"
+    | "mobilePanel"
+    | "techTreeExpanded"
+    | "domainDetailOpen"
+    | "unreadAttackAlerts"
+    | "feedUnreadCount"
+    | "incomingAllianceRequests"
+    | "incomingTruceRequests"
   >,
   deps: {
     hud: HTMLElement;
@@ -135,6 +153,8 @@ export const renderMobilePanels = (
 ): void => {
   const nav = deps.hud.querySelector<HTMLDivElement>("#mobile-nav");
   if (!nav) return;
+
+  const pendingAllyCount = state.incomingAllianceRequests.length + state.incomingTruceRequests.length;
 
   deps.panelActionButtons.forEach((btn) => {
     const panel = btn.dataset.panel as ClientState["activePanel"];
@@ -198,7 +218,8 @@ export const renderMobilePanels = (
     if (panel) {
       button.innerHTML = mobileNavLabelHtml(panel, {
         attackAlertUnread: state.unreadAttackAlerts > 0,
-        feedUnreadCount: state.feedUnreadCount
+        feedUnreadCount: state.feedUnreadCount,
+        pendingAllyCount
       });
     }
     button.classList.toggle("active", panel === state.mobilePanel);

@@ -1,0 +1,31 @@
+/* Ally tab pending-request badge, split out of style.css to keep that file
+   under the repo's 500-line cap (see client-victory-alert-style.css for the
+   same pattern). */
+
+.social-alert-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 35%, rgba(255, 209, 102, 0.98), rgba(6, 214, 160, 0.95) 58%, rgba(17, 138, 178, 0.98));
+  box-shadow: 0 0 14px rgba(6, 214, 160, 0.65);
+  color: #fff5eb;
+  font-size: 10px;
+  line-height: 1;
+  vertical-align: middle;
+  animation: ally-request-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ally-request-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 14px rgba(6, 214, 160, 0.65);
+  }
+  50% {
+    transform: scale(1.22);
+    box-shadow: 0 0 22px rgba(6, 214, 160, 0.95);
+  }
+}
