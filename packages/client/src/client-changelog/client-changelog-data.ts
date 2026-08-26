@@ -19,7 +19,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Fixed food/crystal (and other resource slot) totals getting stuck wrong until you changed a tile",
     why: "Resource slot totals and dormancy (what shows a structure as short on food/crystal/titanium/umbrite and disables further builds) are cached per player and only recomputed when a tile of yours changes. If that cache ever ended up wrong without a tile change to invalidate it, the wrong totals -- and any resulting build lockout -- stuck around indefinitely; a client refresh couldn't fix it since the bad value lived server-side, and the only known workaround was forcing a tile change yourself (e.g. abandoning a tile).",
     changes: [
-      "Whenever a resource-slot dormancy check comes back reporting something as short on a resource, it's now immediately re-verified against a forced-fresh recompute before being trusted, since a wrong \"you're blocked\" is far more disruptive than briefly serving a wrong \"you're fine\" would be. This self-heals a stuck-wrong total without requiring any tile change, with no added cost on the normal, non-blocked path."
+      "Connecting (or reconnecting) now forces one fresh resource-slot supply/demand/dormancy recompute straight from your live territory, bypassing the cache entirely. This self-heals a stuck-wrong total without requiring any tile change, and runs once per connect rather than on any repeated or per-check basis, so it adds no cost during normal play."
     ]
   },
   {

@@ -15,11 +15,21 @@
  * slot that freed up while this player was disconnected would otherwise
  * leave their next queued entry stalled until some unrelated completion
  * happens to trigger a drain.
+ *
+ * The resource-slot cache refresh forces one fresh supply/demand/dormancy
+ * recompute for the connecting player, straight from live tile state,
+ * bypassing every resource-slot cache (see refreshResourceSlotCachesForPlayer,
+ * runtime.ts). Those caches only get invalidated by that player's own tile
+ * changes, so a value that went wrong with no tile change to bust it would
+ * otherwise stay wrong indefinitely with no way for the player to fix it
+ * themselves. This runs once per connect, not on any hot per-tick path, so it
+ * costs nothing beyond what a login already costs.
  */
 export type PerConnectHelloRuntime = {
   emitShardRainHelloFor: (playerId: string) => void;
   resendReachForPlayer: (playerId: string) => void;
   drainDevQueueForPlayer: (playerId: string) => void;
+  refreshResourceSlotCachesForPlayer: (playerId: string) => void;
 };
 
 export type PerConnectHelloLog = {
@@ -34,7 +44,8 @@ export const emitPerConnectHellos = (
   const hellos: Array<[string, () => void]> = [
     ["shard rain hello", () => runtime.emitShardRainHelloFor(playerId)],
     ["reach resend", () => runtime.resendReachForPlayer(playerId)],
-    ["dev queue drain", () => runtime.drainDevQueueForPlayer(playerId)]
+    ["dev queue drain", () => runtime.drainDevQueueForPlayer(playerId)],
+    ["resource slot cache refresh", () => runtime.refreshResourceSlotCachesForPlayer(playerId)]
   ];
   for (const [label, hello] of hellos) {
     try {
