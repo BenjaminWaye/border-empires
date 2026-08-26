@@ -24,6 +24,34 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787755800000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.7",
+    title: "Fixed Crystal staying hidden on tiles you could already see when Aetheric Resonance finished",
+    why: "Researching a resource-revealing tech only recomputed vision radius, not the resource data of tiles already inside your vision. Since the crystal reveal only rode along on a fresh tile delta, a crystal tile you could already see stayed masked forever once Aetheric Resonance completed -- nothing ever mutated that tile again to trigger a resend, and even a fresh login pulled the same stale masked state.",
+    changes: [
+      "Completing a tech that reveals a resource (Aetheric Resonance/Crystal, Masonry/Titanium, Leatherworking/Umbrite) now re-sends every already-visible tile of that resource type, so it shows up immediately instead of only on tiles you scout afterward."
+    ]
+  },
+  {
+    createdAt: 1787765177459, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.7",
+    title: "Fixed \"Get Rally Link\" flashing a sign-in prompt for already-signed-in players",
+    why: "The button did a full page navigation to /rally/new, which reloaded the whole client and restarted Firebase Auth from scratch. The rally panel tried to mint a link before auth finished rehydrating, so it briefly showed \"Sign in, then this page will create your rally link\" even for players who were already signed in.",
+    changes: [
+      "Get Rally Link now opens the rally panel in place, without reloading the app, so already-signed-in players go straight to a minted link instead of seeing a sign-in flash.",
+      "Fixed the rally panel's close (×) icon rendering off-center in its button."
+    ]
+  },
+  {
+    createdAt: 1787765177460, // frozen from `node -e "console.log(Date.now())"`, +1ms to avoid a collision with the entry above
+    introducedIn: "2026.08.26.7",
+    title: "Fixed a rally invite link covering the sign-in button",
+    why: "Opening a rally invite link (/r/<code>) while signed out showed a floating \"Join a rally\" card on top of the sign-in screen. #auth-overlay lives inside #hud, which is position:fixed with z-index:auto and forms its own stacking context, so the invite card's z-index (29, meant to sit below the overlay's 30) was compared against #hud as a whole instead -- the card always painted on top, right over the Continue with Google button.",
+    changes: [
+      "The rally invite message now appears as a small banner inside the sign-in card itself instead of a separate floating popup, so it never blocks the sign-in buttons."
+    ]
+  },
+  {
     createdAt: 1787755721503, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.6",
     title: "Attack alerts now show the attacker's real display name",
@@ -420,15 +448,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787462871189, // 2026.08.23.05 — frozen from a live Date.now() call
-    introducedIn: "2026.08.23.05",
-    title: "Turned off rivers in new map generation",
-    why: "Generated rivers didn't fully work -- they could cut land in ways that broke territory shapes and pathing, so we're disabling them until the generator is fixed.",
-    changes: [
-      "New maps no longer generate rivers; existing maps are unaffected."
-    ]
-  },
-  {
     createdAt: 1787475367888, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23",
     title: "Corrected the lobby's timezone claim",
@@ -448,24 +467,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787472290597, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.1",
-    title: "Added a Slot Sources breakdown to the Economy panel for Food, Titanium, Crystal, and Umbrite",
-    why: "The Economy sidebar's slot-based resources only showed \"Occupied by\" (who's using your slots), with no way to see where the slot capacity itself came from -- unlike GOLD, which already lists its Income Sources.",
-    changes: [
-      "The Economy panel's detail card for FOOD/TITANIUM/CRYSTAL/UMBRITE now has a \"Slot Sources\" column listing which tiles and boost structures (Farmstead, Mine, Umbrite Rig, Waterworks/Foundry radius bonuses, active synthesizers) are contributing slot capacity, alongside the existing \"Occupied by\" column."
-    ]
-  },
-  {
-    createdAt: 1787474961956, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Higher starting manpower for new capitals",
-    why: "New capitals started with 576 manpower, an odd number derived from expansion-cost math -- raising it to a round 720 gives new players more early room to expand and settle.",
-    changes: [
-      "A new capital's starting manpower cap (and starting manpower, which fills it) is now 720, up from 576."
-    ]
-  },
-  {
     createdAt: 1787724130000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.1",
     title: "Restyled the settings menu's Discord button",
@@ -475,13 +476,13 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787688879680, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.5",
-    title: "Manpower for Expand and Settle is now spent the moment you queue them",
-    why: "Building deducted manpower as soon as an action was queued, but Expand and Settle didn't -- Expand only charged it once the claim finished (up to ~90s later on forest/hills), and a queued Settle held nothing at all. Both let you queue more actions than your manpower could actually cover, since nothing showed as spent until each one individually went through.",
+    createdAt: 1787693449098, // frozen one ms after the prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
+    introducedIn: "2026.08.26.1",
+    title: "Rival borders in true-3D mode are now accurate, not guessed",
+    why: "The \"clashing borders\" effect where your reach meets a rival's needed to show exactly where your border ends and theirs begins, but a rival's border was only ever a rough client-side guess with no awareness of your own border -- so the two shapes almost never lined up: the seam effect either never appeared, or the two borders visually crossed through each other instead of meeting cleanly.",
     changes: [
-      "Expand now charges its manpower cost the moment the claim is accepted, refunded if you cancel it or it never resolves.",
-      "A queued Settle now reserves its manpower immediately, the same way a queued Build already did."
+      "The simulation now pushes each visible rival's real border to your client, clipped to what you can currently see -- the same authoritative treatment your own border already gets.",
+      "Rival border lines in true-3D mode now line up correctly with your own, so the clashing-borders seam renders where the two actually meet."
     ]
   }
 ];

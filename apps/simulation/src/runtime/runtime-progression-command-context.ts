@@ -4,9 +4,10 @@ import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-re
 import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, type OutpostVisionCoverageDeps } from "../runtime-outpost-vision.js";
 import type { PlayerRuntimeSummary } from "../player-runtime-summary.js";
 import { mapTile } from "../runtime-snapshot-sections.js";
-import type { RuntimePlayer } from "../runtime-types.js";
+import type { RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
 import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses } from "../runtime-town-vision.js";
 import type { RuntimeProgressionCommandContext } from "../runtime-progression-command-handlers.js";
+import { tileResourceMatchesRevealCategory } from "../tech-domain-bridge/tech-domain-bridge.js";
 import type { VisibilityCoverageTracker, VisibilityTransitionCallbacks } from "../visibility-coverage-cache.js";
 
 /**
@@ -48,6 +49,7 @@ export interface ProgressionCommandContextDeps {
   readonly onShardCollected: (() => void) | undefined;
   readonly resourceSlotSupplyForPlayer: RuntimeProgressionCommandContext["resourceSlotSupplyForPlayer"];
   readonly resourceSlotDemandForPlayer: RuntimeProgressionCommandContext["resourceSlotDemandForPlayer"];
+  readonly tileDeltaRevealOnly: (tile: DomainTileState, playerId?: string) => SimulationTileWireDelta;
 }
 
 export function buildProgressionCommandContext(deps: ProgressionCommandContextDeps): RuntimeProgressionCommandContext {
@@ -115,6 +117,18 @@ export function buildProgressionCommandContext(deps: ProgressionCommandContextDe
     // tile-mutation-only cache invalidation below doesn't catch.
     invalidateResourceSlotDemand: (playerId) => {
       deps.resourceSlotDemandCacheByPlayer.delete(playerId); deps.resourceSlotDormancyCacheByPlayer.delete(playerId);
+    },
+    resyncRevealedResourceTilesForPlayer: (playerId, category) => {
+      const tileDeltas: SimulationTileWireDelta[] = [];
+      deps.visibilityCoverage.forEachVisibleKey(playerId, (tileKey) => {
+        const tile = deps.tiles.get(tileKey);
+        if (tile?.resource && tileResourceMatchesRevealCategory(tile.resource, category)) {
+          tileDeltas.push(deps.tileDeltaRevealOnly(tile, playerId));
+        }
+      });
+      if (tileDeltas.length > 0) {
+        deps.emitEvent({ eventType: "TILE_DELTA_BATCH", commandId: `tech-reveal:${category}:${playerId}`, playerId, tileDeltas });
+      }
     }
   };
 }
