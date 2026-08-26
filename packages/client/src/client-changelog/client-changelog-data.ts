@@ -14,6 +14,18 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787726484063, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "New player and respawn placements now draw from a precomputed, equal-opportunity spawn map",
+    why: "Spawn placement previously ran a fresh random search per player against the live map, so two players joining minutes apart could land with very different access to nearby food and towns purely by luck of that search. Worldgen now precomputes a roster of candidate spawn sites up front, all drawn from the same amenity tier and spread evenly across the map, so every new empire and every respawn starts on comparably fair footing.",
+    changes: [
+      "Worldgen now precomputes a roster of up to 50 candidate spawn sites, spread evenly across the map instead of clustering, and prioritized so every site with both a town and food nearby is used before a lesser site is ever added.",
+      "New players and eliminated players respawning now draw from this roster first, falling back to the previous random search only once it's exhausted.",
+      "Joining via a friend's rally link now also draws from that same precomputed roster first, picking whichever site is closest to the inviting player, before falling back to the random search when every site nearby is already taken or too close to another empire.",
+      "Worldgen now regenerates the entire map with a new seed (same as it already does for a bad island distribution or a bland map) if the candidate map can't secure a full 50-site roster, instead of shipping a season where late joiners are more likely to fall back to the plain random search from the start."
+    ]
+  },
+  {
     createdAt: 1787739722417, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.1",
     title: "Fixed the Founding Engineer tag matching by display name instead of a stable id",
@@ -465,15 +477,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "A player waiting in the pending-season lobby hasn't spawned yet, so no map tiles have arrived for them by design -- but the map-loading watchdog didn't know that, and treated it the same as a real stuck sync, firing a \"Map sync stalled\" warning over the lobby after a few seconds.",
     changes: [
       "The map-sync watchdog now stays quiet while you're waiting in the season lobby, since there's nothing to sync yet."
-    ]
-  },
-  {
-    createdAt: 1787435600000, // 2026.08.22.13 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.13",
-    title: "Fixed: another player's town could show your \"ready to upgrade\" badge",
-    why: "The map's green up-arrow badge and the food-shortage badge only checked that a town had an owner, not that the owner was you, so a rival town that happened to qualify lit up on your map the same way one of your own towns would.",
-    changes: [
-      "The population-tier upgrade badge and the unfed-town food badge now only appear on towns you own, on both the 3D map and the classic 2D map."
     ]
   },
   {

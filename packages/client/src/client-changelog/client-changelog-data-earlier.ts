@@ -450,25 +450,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787430000000,
-    introducedIn: "2026.08.22.2",
-    title: "An empire with no war industry is now also weaker on defense, not just on offense",
-    why: "Owning zero Titanium and zero Umbrite Weapons Factories empire-wide already doubled an attacker's effective attack against you -- but that bonus only ever helped the attacker. If you had no war industry and someone else attacked you, defending gave you no comparable penalty or advantage either way.",
-    changes: [
-      "Defending against an attacker who owns zero Titanium AND zero Umbrite Weapons Factories anywhere in their empire now doubles your effective defense, mirroring the existing attack-side vulnerability from the other direction. Missing one factory type or both gives the same flat bonus -- it doesn't stack higher for missing both."
-    ]
-  },
-  {
-    createdAt: 1787430100000,
-    introducedIn: "2026.08.22.3",
-    title: "Fixed the reach border dodging around fog of war and unexplored tiles",
-    why: "Your reach border is a fixed, server-authoritative line -- it shouldn't move depending on what you can currently see. But the 2D map only drew the border on tiles it considered fully visible, so on any fogged or unexplored patch inside your own territory the line simply stopped, making it look like the border itself was carving around the fog instead of following your actual claim.",
-    changes: [
-      "The reach border now renders on top of fogged territory (dimmed, same as the rest of a fogged tile) instead of disappearing there.",
-      "It still stays hidden over fully unexplored tiles, since there's nothing remembered there to draw it against."
-    ]
-  },
-  {
     createdAt: 1787678904061, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.4",
     title: "Fixed \"Expand To\" being blocked on tiles outside your reach again",
