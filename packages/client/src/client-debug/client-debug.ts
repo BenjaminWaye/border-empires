@@ -4,10 +4,11 @@ const DEBUG_TILE_STORAGE_KEY = "debug_tile_key";
 const DEBUG_TILE_ENABLED_STORAGE_KEY = "debug_tile_enabled";
 const DEBUG_EMAIL_STORAGE_KEY = "debug_auth_email";
 // No baked-in default: an open-source checkout has debug tooling off until a
-// deployer sets their own admin email via VITE_DEBUG_ACCOUNT_EMAIL. Read lazily
-// (not as a module-level const) so env stubbing in tests takes effect.
+// deployer sets their own admin email via VITE_ADMIN_EMAIL (the client-side
+// counterpart of the gateway's ADMIN_EMAIL). Read lazily (not as a
+// module-level const) so env stubbing in tests takes effect.
 const debugAccountEmail = (): string =>
-  ((import.meta.env.VITE_DEBUG_ACCOUNT_EMAIL as string | undefined) ?? "").trim().toLowerCase();
+  ((import.meta.env.VITE_ADMIN_EMAIL as string | undefined) ?? "").trim().toLowerCase();
 const MAX_CLIENT_DEBUG_EVENTS = 400;
 const lastLogAtByKey = new Map<string, number>();
 const clientDebugEvents: Array<{

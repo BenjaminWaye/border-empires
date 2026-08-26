@@ -134,7 +134,7 @@ type RealtimeGatewayAppOptions = {
   simulationSubmitTimeoutMs?: number;
   simulationRpcRetryAttempts?: number;
   adminApiToken?: string;
-  fogAdminEmail?: string;
+  adminEmail?: string;
   emailAlerts?: EmailAlertConfig;
   playOrigin?: string;
   simMetricsUrl?: string;
@@ -154,9 +154,9 @@ const sendJson = (socket: import("ws").WebSocket, payload: unknown): void => {
 
 const loginPhase = createLoginPhaseNotifier(sendJson);
 
-const canToggleFogForEmail = (email: string | undefined, fogAdminEmail: string | undefined): boolean => {
+const canToggleFogForEmail = (email: string | undefined, adminEmail: string | undefined): boolean => {
   const normalized = (email ?? "").trim().toLowerCase();
-  const target = (fogAdminEmail ?? "").trim().toLowerCase();
+  const target = (adminEmail ?? "").trim().toLowerCase();
   return normalized.length > 0 && target.length > 0 && normalized === target;
 };
 
@@ -2002,7 +2002,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             authTrace.setPlayerId(playerIdentity.playerId);
             session.playerId = playerIdentity.playerId;
             slackAlerter?.alertPlayerReconnected(playerIdentity.playerId);
-            session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.fogAdminEmail);
+            session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.adminEmail);
             // Always start a new auth with fog ON — fog admins must explicitly re-toggle
             // SET_FOG_DISABLED each login (the client also clears its persisted reveal
             // preference on Firebase sign-in so it does not auto-resend the toggle).

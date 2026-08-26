@@ -229,7 +229,9 @@ Full deploy procedures, safety requirements, prod-shape gate workflow, Vercel en
 | Variable | Default | Purpose |
 |---|---|---|
 | `VITE_GATEWAY_WS_URL` | `ws://localhost:3101/ws` | Client WebSocket target |
-| `VITE_DEBUG_ACCOUNT_EMAIL` | *(unset)* | Auth email that unlocks client-side debug tooling (per-tile debug download, verbose tile logs). Unset disables it entirely — set to your own admin email locally/in your deploy env. |
+| `VITE_ADMIN_EMAIL` | *(unset)* | Auth email that unlocks client-side debug tooling (per-tile debug download, verbose tile logs, map-reveal UI). Set it to the same address as the gateway's `ADMIN_EMAIL` below. Unset disables the tooling entirely. |
+| `ADMIN_EMAIL` (gateway) | *(unset)* | The one admin identity for gateway-side admin gates: fog-toggle permission (`canToggleFog`), and the fallback destination for bug/suggestion report emails when `GATEWAY_BUG_REPORT_EMAIL_TO` isn't set. |
+| `GATEWAY_BUG_REPORT_EMAIL_TO` | falls back to `ADMIN_EMAIL` | Destination inbox for player bug reports and suggestions (Resend). Separate from `ADMIN_EMAIL` because it's a mailbox, not an identity check — set it explicitly if reports should go somewhere other than the admin's own inbox. |
 | `SIMULATION_SQLITE_PATH` | `/data/border-empires.db` | Simulation DB path |
 | `SIMULATION_AI_PLAYER_COUNT` | `5` | AI player count per season |
 | `SIMULATION_CHECKPOINT_MAX_RSS_MB` | `700` | Defer checkpoint above this RSS |
