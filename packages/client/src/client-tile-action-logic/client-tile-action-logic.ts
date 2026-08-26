@@ -1598,7 +1598,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Requires Agrarian Works"
                 : missingResourceSlotReason(state, "FARMSTEAD") ?? "Unavailable",
             tile.resource === "FARM"
-              ? `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +50% food • +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot`
+              ? `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot`
               : `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • no fish output bonus`
           ),
           slots,

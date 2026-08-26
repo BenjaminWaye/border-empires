@@ -73,9 +73,13 @@ const synthesizerModifiers = (type: ModifierStructureType): StructureModifier[] 
 };
 
 export const economicStructureModifiers = (type: ModifierStructureType, ctx: ModifierContext): StructureModifier[] | undefined => {
+  // "+50% farm food" was retired by the resource-slot rewrite (§5) —
+  // strategicProductionPerMinuteForResource (player-update-economy.ts) always
+  // returns 0, and farmsteadFoodBonusPerMinute (tile-yield-view.ts), the one
+  // function that would compute this, has no callers anywhere. Farmstead's
+  // only live effect is the FOOD slot below.
   if (type === "FARMSTEAD") {
     return [
-      { statLabel: "Farm food", valueText: "+50%", tone: "positive", isTownWide: false },
       { statLabel: "FOOD slot", valueText: `+${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD}`, tone: "positive", isTownWide: false }
     ];
   }
