@@ -120,6 +120,21 @@ describe("hydrateCurrentSeasonSummaryDisplayNames", () => {
     expect(hydrated.leaderboard.overall[1].name).toBe(anonymizedEmpireNameForId(opaqueIdB));
   });
 
+  it("overrides seasonGalaxyTiers playerName when profile is set (Outpost/Stipend records, §3)", async () => {
+    const store = new InMemoryGatewayPlayerProfileStore();
+    await store.setProfile(opaqueIdB, "Runner Up Renamed", "#abcdef");
+
+    const summary = buildSummary();
+    summary.seasonGalaxyTiers = [
+      { playerId: opaqueIdB, playerName: anonymizedEmpireNameForId(opaqueIdB), tier: "OUTPOST", specialization: "EXTRACTION" }
+    ];
+
+    const hydrated = await hydrateCurrentSeasonSummaryDisplayNames(summary, store);
+
+    expect(hydrated.seasonGalaxyTiers?.[0].playerName).toBe("Runner Up Renamed");
+    expect(hydrated.seasonGalaxyTiers?.[0].playerId).toBe(opaqueIdB);
+  });
+
   it("overrides seasonVictory objective leaderName when profile is set", async () => {
     const store = new InMemoryGatewayPlayerProfileStore();
     await store.setProfile(opaqueIdA, "Benjamin", "#abcdef");
@@ -213,6 +228,31 @@ describe("hydrateSeasonArchiveDisplayNames", () => {
     expect(hydrated[0].mostTerritory[1].playerName).toBe(anonymizedEmpireNameForId(opaqueIdB));
     expect(hydrated[0].mostPoints[0].playerName).toBe("Caesar");
     expect(hydrated[0].longestSurvivalMs[0].playerName).toBe("Benjamin");
+  });
+
+  it("overrides archive row galaxyTiers playerName when profile is set (Outpost/Stipend records, §3)", async () => {
+    const store = new InMemoryGatewayPlayerProfileStore();
+    await store.setProfile(opaqueIdB, "Runner Up Renamed", "#abcdef");
+
+    const rows: SeasonArchiveRow[] = [
+      {
+        seasonId: "season-1",
+        seasonSequence: 1,
+        endedAt: 2_000,
+        updatedAt: 2_000,
+        galaxyTiers: [
+          { playerId: opaqueIdB, playerName: anonymizedEmpireNameForId(opaqueIdB), tier: "OUTPOST", specialization: "EXTRACTION" }
+        ],
+        mostTerritory: [],
+        mostPoints: [],
+        longestSurvivalMs: [],
+        replayEvents: []
+      }
+    ];
+
+    const hydrated = await hydrateSeasonArchiveDisplayNames(rows, store);
+
+    expect(hydrated[0].galaxyTiers?.[0].playerName).toBe("Runner Up Renamed");
   });
 
   it("keeps winner undefined when the archive row has no winner", async () => {

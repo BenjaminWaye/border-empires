@@ -50,23 +50,23 @@ const DURABLE_COMMAND_TYPES = [
   "CLAIM_CONTINUATION_SET"
 ] as const;
 
-// Dev/waypoint-queue commands mutate PlayerRuntimeSummary.devQueue/
-// waypointQueue (see player-runtime-summary.ts), which is rebuilt fresh from
+// DEV_QUEUE_*/WAYPOINT_* commands mutate PlayerRuntimeSummary.devQueue/
+// waypointQueue (see player-runtime-summary.ts). Those fields are now
+// snapshotted (current-value, like strategicResources) into
+// initialState.players[].devQueue/waypointQueue on every checkpoint and
+// reseeded on boot (event-recovery-player-state.ts,
+// createPlayerRuntimeSummaryFromRecovered), so they're durable across a cold
+// process restart and no longer belong here.
+//
+// CLAIM_CONTINUATION_SET remains excluded: it mutates
+// PlayerRuntimeSummary.claimContinuations, which is rebuilt fresh from
 // tiles/players on every boot -- not part of the sqlite snapshot -- so it's
 // durable across a mere disconnect/reconnect (the runtime process keeps
 // running) but not across a cold process restart. Excluded here rather than
-// from DurableCommandTypeSchema itself: they still need normal gateway
+// from DurableCommandTypeSchema itself: it still needs normal gateway
 // durable-command handling (persist, ack, replay-on-reconnect) for that
 // disconnect/reconnect case, just not restart-parity coverage.
-const NOT_RESTART_DURABLE_COMMAND_TYPES = [
-  "DEV_QUEUE_ENQUEUE",
-  "DEV_QUEUE_CANCEL",
-  "DEV_QUEUE_MOVE_TO_FRONT",
-  "WAYPOINT_ENQUEUE",
-  "WAYPOINT_CANCEL",
-  "WAYPOINT_CANCEL_ALL",
-  "CLAIM_CONTINUATION_SET"
-] as const;
+const NOT_RESTART_DURABLE_COMMAND_TYPES = ["CLAIM_CONTINUATION_SET"] as const;
 
 const PHASE4_NON_DURABLE_COMMAND_TYPES = [
   "ATTACK_PREVIEW",

@@ -1,4 +1,5 @@
 import {
+  grassShadeAt,
   landBiomeAt,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT,
   structureBuildGoldCost,
@@ -80,6 +81,7 @@ export const createClientRuntimeDisplaySupport = (deps: {
     const visibleTile = state.tiles.get(`${x},${y}`);
     const biome = visibleTile?.terrain === "LAND" ? (visibleTile.landBiome ?? landBiomeAt(x, y)) : landBiomeAt(x, y);
     if (biome === "SAND" || biome === "COASTAL_SAND") return "SAND";
+    if (biome === "TUNDRA") return grassShadeAt(x, y) === "DARK" ? "TUNDRA FOREST" : "TUNDRA";
     return isForestTile(x, y) ? "FOREST" : "GRASS";
   };
 

@@ -21,6 +21,7 @@ import { renderBugReportOverlay } from "../client-bug-report/client-bug-report-h
 import { buildMapLoadingView, isMapLoadingOverlayActive } from "../client-map-loading-view/client-map-loading-view.js";
 import { buildManpowerPanelMusterFlags, wireMusterFocusButtons } from "../client-muster-flags-panel/client-muster-flags-panel.js";
 import { renderRespawnOverlay } from "../client-respawn-overlay.js";
+import { renderJoinSeasonOverlay } from "../client-join-season-overlay.js";
 import { renderSeasonEndOverlay } from "../client-season-end-overlay.js";
 import { setMapRevealEnabled, mapRevealAvailable } from "../client-map-reveal/client-map-reveal.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
@@ -1195,20 +1196,17 @@ export const renderClientHud = (deps: HudDeps): void => {
   }
 
   renderRespawnOverlay({
-    state,
-    overlayEl: dom.respawnOverlayEl,
-    renderHud: () => renderClientHud(deps),
-    centerOnOwnedTile,
-    pushFeed,
-    downloadRespawnBugReport
+    state, overlayEl: dom.respawnOverlayEl, renderHud: () => renderClientHud(deps),
+    centerOnOwnedTile, pushFeed, downloadRespawnBugReport
   });
-
+  renderJoinSeasonOverlay({
+    state, overlayEl: dom.joinSeasonOverlayEl, renderHud: () => renderClientHud(deps),
+    joinSeason: () => sendGameMessage({ type: "JOIN_SEASON" }, "Finish sign-in before joining the season."),
+    pushFeed
+  });
   renderSeasonEndOverlay({
-    state,
-    overlayEl: dom.seasonEndOverlayEl,
-    renderHud: () => renderClientHud(deps),
-    startNewSeason: () =>
-      sendGameMessage({ type: "START_NEW_SEASON" }, "Finish sign-in before starting a new season.")
+    state, overlayEl: dom.seasonEndOverlayEl, renderHud: () => renderClientHud(deps),
+    startNewSeason: () => sendGameMessage({ type: "START_NEW_SEASON" }, "Finish sign-in before starting a new season.")
   });
 
   syncAuthOverlay();

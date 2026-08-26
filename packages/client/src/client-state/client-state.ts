@@ -255,12 +255,7 @@ export const createInitialState = () => ({
   retortRecastFxQueue: [] as Array<{ x: number; y: number; targetResource: "FARM" | "UMBRITE" | "TITANIUM" | "GEMS"; queuedAt: number }>,
   revealEmpireFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   revealEmpireStatsFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
-  bombardFxQueue: [] as Array<{
-    x: number;
-    y: number;
-    queuedAt: number;
-    tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }>;
-  }>,
+  bombardFxQueue: [] as Array<{ x: number; y: number; queuedAt: number; tiles: Array<{ dx: number; dy: number; outcome: "hit" | "miss" }> }>,
   worldEngineStrikeFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   // Drives the global camera-shake trigger (client-map-3d-camera-shake-fx.ts) —
   // pushed once per newly-seen WORLD_ENGINE_STRIKE_ANNOUNCEMENT broadcast, for
@@ -277,6 +272,7 @@ export const createInitialState = () => ({
   imperialExchangeLevyFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   aegisLockFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
   astralDockLaunchFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>,
+  unsettleFxQueue: [] as Array<{ x: number; y: number; queuedAt: number }>, // "unsettle" transition (SETTLED -> FRONTIER, same owner); see client-map-3d-unsettle-fx.ts
   activeRevealEmpireStatsPopup: undefined as RevealEmpireStatsView | undefined,
   strategicReplayEvents: [] as StrategicReplayEvent[],
   replayActive: false,
@@ -287,7 +283,7 @@ export const createInitialState = () => ({
   replayLastTickAt: 0,
   replayOwnershipByTile: new Map<string, { ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }>(),
   socialInspectPlayerId: "" as string,
-  feed: [] as FeedEntry[],
+  feed: [] as FeedEntry[], onboardingHighlightTiles: [] as Array<{ x: number; y: number }>,
   feedUnreadCount: 0,
   spawnFeedShownSeasonId: "" as string,
   feedAttentionUntil: 0,
@@ -383,18 +379,16 @@ export const createInitialState = () => ({
   // client-reach-authoritative.ts. `undefined` until the first message lands.
   serverReach: undefined as Set<string> | undefined,
   serverReachRevision: 0,
-  // One-shot spawn queue for the "fell out of reach" collapse pulse (client-tile-unsettle-pulse.ts) — drained every render frame in client-map-3d.ts.
-  reachLossPulseQueue: [] as Array<{ x: number; y: number }>,
   shardRainPingsByTile: new Map<string, { x: number; y: number; createdAt: number; activateAt: number }>(),
   shardRainFxUntil: 0,
   shardAlert: undefined as ClientShardRainAlert | undefined, shardRainStatus: undefined as ClientShardRainAlert | undefined, // shardRainStatus survives toast dismissal, unlike shardAlert
   victoryHoldAlert: undefined as VictoryHoldAlert | undefined, victoryHoldAlertCollapsed: false, acknowledgedVictoryHoldAlertKeys: new Set<string>(), // never fully hides while a hold is active — see client-victory-alert.ts
   respawnNotice: undefined as PlayerRespawnNotice | undefined,
   respawnOverlayOpen: false,
+  needsSeasonJoin: false, joinSeasonOverlayOpen: false, joinSeasonId: "" as string, joinSeasonPending: false, seasonPending: false, seasonPendingScheduledStartAt: 0, seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 0, seasonLobbyRoster: [] as { playerId: string; name: string }[], // join-season overlay + SEASON_PENDING countdown + lobby roster: see client-join-season-overlay.ts / client-season-lobby-panel.ts
   lastSeenRespawnNoticeId: "",
   dismissedShardAlertKeys: new Set<string>(),
-  structureInfoKey: "" as string,
-  crystalAbilityInfoKey: "" as string,
+  structureInfoKey: "" as string, crystalAbilityInfoKey: "" as string,
   economyFocus: "ALL" as "ALL" | "GOLD" | "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE",
   unreadAttackAlerts: 0,
   techSection: "research" as "research" | "domains",
@@ -594,11 +588,8 @@ export const createInitialState = () => ({
     direction: "N" as "N" | "E" | "S" | "W",
     length: 1 as 1 | 2 | 3
   },
-  airportTargeting: {
-    active: false,
-    originKey: "",
-    validTargets: new Set<string>()
-  },
+  airportTargeting: { active: false, originKey: "", validTargets: new Set<string>() },
+  musterMarchTargeting: { active: false, originX: 0, originY: 0 },
   guide: {
     open: storageGet(GUIDE_STORAGE_KEY) !== "1",
     stepIndex: 0,

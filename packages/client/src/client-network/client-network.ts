@@ -1,8 +1,8 @@
-import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown } from "@border-empires/shared";
+import { COMBAT_LOCK_MS, isChosenTrickleResource, type FrontierCombatSideBreakdown, type FrontierDecayKind } from "@border-empires/shared";
 import { triggerTechUnlockFx } from "../client-tech-unlock-fx/client-tech-unlock-fx.js";
 import { applyImperialWardActivatedMessage } from "../client-imperial-ward/client-imperial-ward.js";
 import { formatGoldAmount } from "../client-constants.js";
-import { clearCameraLocation } from "../client-view-refresh.js";
+import { clearCameraLocation } from "../client-view-refresh.js"; import { applyJoinSeasonSpawnRecenter, parseJoinSeasonAckSpawnTile } from "../client-join-season-spawn-recenter.js";
 import { feedEntryForEventLogEntry } from "../client-event-log-html.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { SeasonStatsView } from "../client-types.js";
@@ -51,7 +51,7 @@ import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-ca
 import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
 import { applyInitMessage } from "../client-network-init-message/client-network-init-message.js";
-import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js"; import { isReachLossUnsettleTransition, queueReachLossPulse } from "../client-tile-unsettle-pulse/client-tile-unsettle-pulse.js";
+import { tileDeltaTouchesOpenTileMenu } from "../client-tile-menu-delta-refresh/client-tile-menu-delta-refresh.js"; import { applySeasonFullError } from "../client-season-full-error.js";
 
 type NetworkDeps = Record<string, any> & {
   state: ClientState;
@@ -675,7 +675,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       errorMessage === "tile must be owned" &&
       ((state.actionInFlight && state.actionTargetKey === errorTileKey) ||
         (state.capture && keyFor(state.capture.target.x, state.capture.target.y) === errorTileKey));
-    if (!transientOwnershipFailure && errorMessage !== "tile is locked in combat" && errorMessage !== "tile already settling") return false;
+    if (!transientOwnershipFailure && errorMessage !== "tile is locked in combat" && errorMessage !== "tile is already settling") return false;
     clearOptimisticTileStateSafely(errorTileKey, true);
     clearSettlementProgressSafely(errorTileKey);
     state.queuedDevelopmentDispatchPending = false;
@@ -746,7 +746,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
         breachShockUntil?: number;
         frontierDecayAt?: number | null;
-        frontierDecayKind?: "ENCIRCLEMENT" | null;
+        frontierDecayKind?: FrontierDecayKind | null;
       }>) ??
       [];
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
@@ -768,7 +768,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       else if ("breachShockUntil" in change && !change.breachShockUntil) delete incoming.breachShockUntil;
       if (typeof change.frontierDecayAt === "number") incoming.frontierDecayAt = change.frontierDecayAt;
       else if ("frontierDecayAt" in change && !change.frontierDecayAt) delete incoming.frontierDecayAt;
-      if (change.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = change.frontierDecayKind;
+      if (change.frontierDecayKind) incoming.frontierDecayKind = change.frontierDecayKind;
       else if ("frontierDecayKind" in change && !change.frontierDecayKind) delete incoming.frontierDecayKind;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
@@ -1278,7 +1278,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       backfillWorldEngineStrikeHistory(state, wsUrl, renderHud); // fires on first connect and every reconnect (INIT resends each time)
       return;
     }
-
     if (msg.type === "CHUNK_FULL") {
       const applied = shouldApplyChunkGeneration(msg.generation);
       recordRecentTileMessage(msg, "CHUNK_FULL", applied);
@@ -1295,11 +1294,11 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       for (const chunk of chunks) applyChunkTiles(chunk.tilesMaskedByFog);
       return;
     }
+    if (msg.type === "JOIN_SEASON_ACK") { state.joinSeasonPending = false; if (msg.spawned) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; applyJoinSeasonSpawnRecenter(state, parseJoinSeasonAckSpawnTile(msg.spawnTile), requestViewRefreshSafely); } renderHud(); return; }
     // Authoritative reach border (client-reach-authoritative.ts). Replaces the
     // old client-side approximation that could disagree with the server and
     // wedge waypoints on OUT_OF_REACH.
     if (msg.type === "REACH_UPDATE") { if (applyServerReachUpdate(state, msg as Record<string, unknown>)) renderHud(); return; }
-
     if (msg.type === "PLAYER_UPDATE") {
       applySettlementRepairDiagnostic(msg as Record<string, unknown>);
       const prevGold = state.gold;
@@ -1321,7 +1320,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       state.mods = (msg.mods as typeof state.mods) ?? state.mods;
       state.modBreakdown = (msg.modBreakdown as typeof state.modBreakdown | undefined) ?? state.modBreakdown;
       state.incomePerMinute = (msg.incomePerMinute as number) ?? state.incomePerMinute;
-      if (state.incomePerMinute === 0) maybeShowRuinsPrompt();
+      if (state.incomePerMinute === 0 && !state.needsSeasonJoin && !state.seasonPending) maybeShowRuinsPrompt();
       state.strategicResources = (msg.strategicResources as typeof state.strategicResources | undefined) ?? state.strategicResources;
       if (msg.storageCap && typeof msg.storageCap === "object") {
         state.storageCap = msg.storageCap as typeof state.storageCap;
@@ -2082,7 +2081,6 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         const resolved = mergeServerTileWithOptimisticState(mergeIncomingTileDetail(existing, merged));
         state.tiles.set(updateKey, resolved); state.tilesRevision += 1;
-        if (isReachLossUnsettleTransition(existing, resolved)) queueReachLossPulse(state, resolved.x, resolved.y);
         if (previousTerrain !== resolved.terrain || previousLandBiome !== resolved.landBiome || previousRegionType !== resolved.regionType) {
           clearRenderCaches();
           buildMiniMapBase();
@@ -2398,13 +2396,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       renderHud();
       return;
     }
-    if (msg.type === "SEASON_START_VOTE_UPDATE") {
-      const votedBy = Array.isArray((msg as any).votedBy) ? ((msg as any).votedBy as unknown[]) : [];
-      state.seasonStartVoteCount = (msg as any).voteCount as number ?? state.seasonStartVoteCount;
-      state.seasonStartVoted = votedBy.includes(state.me);
-      renderHud();
-      return;
-    }
+    if (msg.type === "SEASON_START_VOTE_UPDATE") { const votedBy = Array.isArray((msg as any).votedBy) ? ((msg as any).votedBy as unknown[]) : []; state.seasonStartVoteCount = (msg as any).voteCount as number ?? state.seasonStartVoteCount; state.seasonStartVoted = votedBy.includes(state.me); renderHud(); return; }
+    if (msg.type === "SEASON_LOBBY_UPDATE") { state.seasonLobbyWaitingCount = (msg as any).waitingCount as number ?? state.seasonLobbyWaitingCount; state.seasonLobbyMaxPlayers = (msg as any).maxPlayers as number ?? state.seasonLobbyMaxPlayers; state.seasonLobbyRoster = Array.isArray((msg as any).roster) ? (msg as any).roster : state.seasonLobbyRoster; renderHud(); return; }
     if (msg.type === "ERROR") {
       // Defense-in-depth against upstream labeling bugs (see #233 / the
       // TILE_YIELD_ANCHOR_UPDATED fallthrough). Every legitimate rejection
@@ -2421,7 +2414,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         }
         return;
       }
-      clearAuthInFlight?.(); if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
+      clearAuthInFlight?.(); if (rawCode === "JOIN_SEASON_FAILED") state.joinSeasonPending = false;
+      if ((msg.code as string | undefined)?.startsWith("COLLECT")) {
         const collectTileKey = typeof msg.x === "number" && typeof msg.y === "number" ? keyFor(Number(msg.x), Number(msg.y)) : "";
         if (collectTileKey) revertOptimisticTileCollectDelta(collectTileKey);
         const pending = state.pendingShardCollect;
@@ -2597,7 +2591,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
           );
         }
       }
-      if (errorCode === "SEASON_FULL") { applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); return; } if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
+      if (errorCode === "SEASON_PENDING") { state.joinSeasonPending = false; state.seasonPending = true; state.seasonPendingScheduledStartAt = typeof msg.scheduledStartAt === "number" ? msg.scheduledStartAt : Date.now(); state.needsSeasonJoin = true; state.joinSeasonOverlayOpen = true; renderHud(); return; } if (errorCode === "SEASON_FULL") { state.joinSeasonPending = false; applySeasonFullError(state, errorMessage); setAuthStatus(""); syncAuthOverlay(); return; } if (errorCode === "AUTH_FAIL" || errorCode === "NO_AUTH" || errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") {
         state.authSessionReady = false;
         if ((errorCode === "AUTH_UNAVAILABLE" || errorCode === "SERVER_STARTING" || errorCode === "SERVER_BUSY") && firebaseAuth?.currentUser) {
           state.connection = ws.readyState === ws.OPEN ? "connected" : "disconnected";

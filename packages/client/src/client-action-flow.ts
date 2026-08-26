@@ -1,4 +1,4 @@
-import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type SlotResource } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
@@ -14,6 +14,7 @@ import {
 import { createPlayerActionShortcuts } from "./client-player-action-shortcuts/client-player-action-shortcuts.js";
 import { createNextFrontierCommandIdentity } from "./client-frontier-command/client-frontier-command.js";
 import { clearMusterTransitForTarget } from "./client-muster-transit/client-muster-transit.js";
+import { armMusterMarchTargeting, handleMusterMarchTargetClick } from "./client-muster-march-targeting.js";
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
@@ -587,16 +588,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       "info",
       "info"
     );
-    // processAutoSettleTargets fires requestSettlement itself once the tile
-    // actually becomes owned FRONTIER territory (see the runtime tick loop);
-    // calling it here would fail since ownership hasn't landed yet.
+    // processAutoSettleTargets fires requestSettlement itself once owned (tick loop).
     if (!isActiveCaptureTarget) requestSettlement(selected.x, selected.y);
     hideTileActionMenu();
   };
 
-  // Checked on the runtime loop's periodic tick: once a tile queued via
-  // handleBuildAction finishes settling, fire its build automatically so the
-  // user doesn't have to reopen the tile menu.
+  // Once a tile queued via handleBuildAction lands SETTLED, clear its bookkeeping.
+  // The BUILD is not sent from here -- CLAIM_CONTINUATION_SET's server-side tail
+  // fires it (sending it here too raced that: BUILD_INVALID "tile already has structure"). FOUNDRY/WATERWORKS need player-picked placement, so still fire here.
   const processAutoBuildTargets = (): void => {
     if (state.autoBuildTargets.size === 0) return;
     for (const [targetKey, structureType] of [...state.autoBuildTargets]) {
@@ -604,15 +603,15 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       if (!tile) continue;
       if (tile.ownerId === state.me && tile.ownershipState === "SETTLED" && !tile.optimisticPending) {
         state.autoBuildTargets.delete(targetKey);
-        triggerBuildForStructureType(structureType, tile);
+        if (structureType === "FOUNDRY" || structureType === "WATERWORKS") triggerBuildForStructureType(structureType, tile);
       }
     }
   };
 
-  // Checked on the runtime loop's periodic tick: when waypoint reaches a target
-  // and it's now owned, trigger settlement if it's queued in autoSettleTargets.
+  // Runtime loop's periodic tick: once a waypoint target is owned, settle it if queued.
   const processAutoSettleTargets = (): void => {
     if (state.autoSettleTargets.size === 0) return;
+    const reach = resolveMyReach(state);
     for (const targetKey of [...state.autoSettleTargets]) {
       const tile = state.tiles.get(targetKey);
       if (!tile) continue;
@@ -627,6 +626,16 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         continue;
       }
       if (tile.ownerId === state.me && tile.ownershipState === "FRONTIER" && !tile.optimisticPending) {
+        // The tile can drift out of reach between the click that queued this
+        // (e.g. a Relay Beacon chain, or a build queued ahead of ownership
+        // landing) and the tick where ownership actually arrives -- the server
+        // would reject the SETTLE as OUT_OF_REACH anyway, so drop the queued
+        // settle (and any dependent build) instead of sending a doomed command.
+        if (!reach.has(targetKey)) {
+          state.autoSettleTargets.delete(targetKey);
+          state.autoBuildTargets.delete(targetKey);
+          continue;
+        }
         state.autoSettleTargets.delete(targetKey);
         requestSettlement(tile.x, tile.y);
       }
@@ -686,7 +695,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN";
         breachShockUntil?: number;
         frontierDecayAt?: number | null;
-        frontierDecayKind?: "ENCIRCLEMENT" | null;
+        frontierDecayKind?: FrontierDecayKind | null;
       }>) ??
       [];
     const resolvedCaptureTargetKey = state.capture ? keyFor(state.capture.target.x, state.capture.target.y) : "";
@@ -706,13 +715,13 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       else if (!c.ownerId) delete incoming.ownershipState;
       if (typeof c.breachShockUntil === "number") incoming.breachShockUntil = c.breachShockUntil;
       else if ("breachShockUntil" in c && !c.breachShockUntil) delete incoming.breachShockUntil;
-      if (typeof c.frontierDecayAt === "number") incoming.frontierDecayAt = c.frontierDecayAt;
-      else if ("frontierDecayAt" in c && !c.frontierDecayAt) delete incoming.frontierDecayAt;
-      if (c.frontierDecayKind === "ENCIRCLEMENT") incoming.frontierDecayKind = c.frontierDecayKind;
-      else if ("frontierDecayKind" in c && !c.frontierDecayKind) delete incoming.frontierDecayKind;
+      if (typeof c.frontierDecayAt === "number") incoming.frontierDecayAt = c.frontierDecayAt; else if ("frontierDecayAt" in c && !c.frontierDecayAt) delete incoming.frontierDecayAt;
+      if (c.frontierDecayKind) incoming.frontierDecayKind = c.frontierDecayKind; else if ("frontierDecayKind" in c && !c.frontierDecayKind) delete incoming.frontierDecayKind;
       const merged = mergeServerTileWithOptimisticState(incoming);
       if (!merged.optimisticPending) clearOptimisticTileState(tileKey);
       state.tiles.set(tileKey, merged);
+      // Keyed off the SERVER's stamp, so the contested-border exemption never fires a false warning.
+      if (merged.frontierDecayKind === "OUT_OF_REACH" && merged.ownerId === state.me && state.discoveryTipQueue) announceDiscoveryTip(state.discoveryTipQueue, "OUT_OF_REACH_EXPAND", state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def));
     }
     const resultAlert = combatResolutionAlert(msg, {
       targetTileBefore: targetBefore,
@@ -742,8 +751,11 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     let handedOffToSettle = false;
     if (targetKey && state.autoSettleTargets.has(targetKey)) {
       const settledTile = state.tiles.get(targetKey);
+      // Can land outside reach (e.g. a Relay Beacon dying mid-capture); mirror
+      // processAutoSettleTargets and drop the doomed settle instead of sending it.
       if (settledTile && settledTile.ownerId === state.me && settledTile.ownershipState === "FRONTIER") {
-        if (requestSettlement(settledTile.x, settledTile.y)) {
+        if (!resolveMyReach(state).has(targetKey)) state.autoBuildTargets.delete(targetKey);
+        else if (requestSettlement(settledTile.x, settledTile.y)) {
           handedOffToSettle = true;
           pushFeed(`Auto-settle started at (${settledTile.x}, ${settledTile.y}).`, "combat", "info");
         }
@@ -1525,6 +1537,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       }
     }
     if (actionId === "muster_hold" || actionId === "muster_advance") { sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: actionId === "muster_hold" ? "HOLD" : "ADVANCE" }); if (state.discoveryTipQueue) announceDiscoveryTip(state.discoveryTipQueue, "FIRST_MUSTER", state.authEmail, renderHud, (def) => pushDiscoveryTipFeedEntry(state, def)); }
+    if (actionId === "muster_march") armMusterMarchTargeting(state, selected.x, selected.y, { pushFeed, sendGameMessage }); else if (actionId === "muster_march_cancel") sendGameMessage({ type: "SET_MUSTER", x: selected.x, y: selected.y, mode: "HOLD" });
     if (actionId === "muster_clear") sendGameMessage({ type: "CLEAR_MUSTER", x: selected.x, y: selected.y });
     if (actionId === "create_mountain") sendGameMessage({ type: "CREATE_MOUNTAIN", x: selected.x, y: selected.y });
     if (actionId === "remove_mountain") sendGameMessage({ type: "REMOVE_MOUNTAIN", x: selected.x, y: selected.y });
@@ -1719,13 +1732,8 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
       renderHud();
       return;
     }
-    if (state.buildingPlacement.active) {
-      state.buildingPlacement.x = wx;
-      state.buildingPlacement.y = wy;
-      state.selected = { x: wx, y: wy };
-      renderHud();
-      return;
-    }
+    if (state.musterMarchTargeting.active) { handleMusterMarchTargetClick(state, wx, wy, vis, { pushFeed, sendGameMessage }); renderHud(); return; }
+    if (state.buildingPlacement.active) { state.buildingPlacement.x = wx; state.buildingPlacement.y = wy; state.selected = { x: wx, y: wy }; renderHud(); return; }
     // True when (x,y) falls inside the local player's fixed-border reach --
     // see client-reach-overlay.ts's MOCK-DATA SEAM comment for why this is a
     // client-local approximation of the server's authoritative reach, not

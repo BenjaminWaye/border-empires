@@ -2,6 +2,7 @@ import {
   grantAnchorToBorder,
   liveReachForOwner,
   reassessBorderOnAnchorDeactivation,
+  type LandConnectivityQuery,
   type ReachAnchor
 } from "@border-empires/shared";
 import { markReachDirty, type ReachUpdateState } from "./runtime-reach-update.js";
@@ -29,15 +30,45 @@ export type ReachBorderApplyContext = {
   tileOwnership: (tileKey: string) => { ownerId?: string | undefined; ownershipState?: string | undefined } | undefined;
   /** Applies the SETTLED -> FRONTIER downgrade through the runtime's own path. */
   downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
+  /**
+   * True when the tile at (x, y) is LAND terrain. Gates every non-
+   * `crossesWater` anchor's disk to a land-connected path (see
+   * `LandConnectivityQuery`, `ReachAnchor.crossesWater`). Optional purely so
+   * existing test callers that don't care about terrain keep working; real
+   * runtime wiring always supplies it.
+   */
+  isLandTile?: LandConnectivityQuery;
 };
 
+/**
+ * Builds a ReachBorderApplyContext from the runtime's own primitives. Lives
+ * here rather than in the runtime class so the border-mutation wiring sits
+ * with the rules it feeds (and to keep the 4.7k-line runtime from growing).
+ */
+export const createReachBorderApplyContext = (deps: {
+  gatherReachAnchors: () => ReachAnchor[];
+  playerSummaryIds: () => Iterable<string>;
+  getTile: (tileKey: string) => { ownerId?: string | undefined; ownershipState?: string | undefined } | undefined;
+  downgradeToFrontier: (tileKey: string, causeCommandId: string) => void;
+  isLandTile?: LandConnectivityQuery;
+}): ReachBorderApplyContext => ({
+  gatherReachAnchors: deps.gatherReachAnchors,
+  rivalOwnerIds: () => [...deps.playerSummaryIds()].filter((id) => !id.startsWith("barbarian-")).sort(),
+  tileOwnership: deps.getTile,
+  downgradeToFrontier: deps.downgradeToFrontier,
+  ...(deps.isLandTile ? { isLandTile: deps.isLandTile } : {})
+});
+
 /** Memoised live-coverage lookup, shared by both apply paths. */
-const liveReachLookup = (anchors: ReachAnchor[]): ((ownerId: string) => ReadonlySet<string>) => {
+const liveReachLookup = (
+  anchors: ReachAnchor[],
+  landConnectivity?: LandConnectivityQuery
+): ((ownerId: string) => ReadonlySet<string>) => {
   const cache = new Map<string, ReadonlySet<string>>();
   return (ownerId: string): ReadonlySet<string> => {
     let set = cache.get(ownerId);
     if (!set) {
-      set = liveReachForOwner(ownerId, anchors);
+      set = liveReachForOwner(ownerId, anchors, landConnectivity);
       cache.set(ownerId, set);
     }
     return set;
@@ -61,16 +92,34 @@ const settleOvertaken = (
   }
 };
 
-/** Applies one anchor ACTIVATION, returning the updated border. */
+/**
+ * Applies one anchor ACTIVATION, returning the updated border.
+ *
+ * `contestSettledOnUnclaimed` (default true) enables the empty-slot contest
+ * described in grantAnchorToBorder: an unclaimed border slot sitting over a
+ * rival's SETTLED tile is resolved as a real contest instead of being granted
+ * silently. Pass false for the world-init seeding pass — that rebuilds the
+ * border for an already-consistent world by replaying every anchor against an
+ * empty map, so every settled tile would look "unclaimed" and the whole pass
+ * would turn into a world-wide re-contest rather than a reconstruction.
+ */
 export const applyReachAnchorActivationToBorder = (
   border: ReadonlyMap<string, string>,
   anchor: ReachAnchor,
   reachUpdateState: ReachUpdateState,
   context: ReachBorderApplyContext,
-  causeCommandId: string
+  causeCommandId: string,
+  options?: { contestSettledOnUnclaimed?: boolean }
 ): Map<string, string> => {
-  const defenderLiveReach = liveReachLookup(context.gatherReachAnchors());
-  const result = grantAnchorToBorder(border, anchor, defenderLiveReach);
+  const defenderLiveReach = liveReachLookup(context.gatherReachAnchors(), context.isLandTile);
+  const settledOwnerAt =
+    options?.contestSettledOnUnclaimed === false
+      ? undefined
+      : (tileKey: string): string | undefined => {
+          const tile = context.tileOwnership(tileKey);
+          return tile?.ownershipState === "SETTLED" ? tile.ownerId : undefined;
+        };
+  const result = grantAnchorToBorder(border, anchor, defenderLiveReach, settledOwnerAt, context.isLandTile);
   markReachDirty(reachUpdateState, anchor.ownerId);
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
   return result.border;
@@ -93,15 +142,49 @@ export const applyReachAnchorDeactivationToBorder = (
 ): Map<string, string> => {
   // gatherReachAnchors already reflects the deactivation: the runtime updates
   // its tile state before this hook runs.
-  const liveReach = liveReachLookup(context.gatherReachAnchors());
+  const liveReach = liveReachLookup(context.gatherReachAnchors(), context.isLandTile);
   const result = reassessBorderOnAnchorDeactivation(
     border,
     anchor,
     liveReach(anchor.ownerId),
     liveReach,
-    context.rivalOwnerIds()
+    context.rivalOwnerIds(),
+    context.isLandTile
   );
   markReachDirty(reachUpdateState, anchor.ownerId);
   settleOvertaken(result.overtaken, reachUpdateState, context, causeCommandId);
   return result.border;
+};
+
+/**
+ * Shared body for a runtime's `downgradeToFrontier` hook: applies the
+ * SETTLED -> FRONTIER mutation, then broadcasts it. This flip happens as a
+ * side effect of the *overtaking* border push (settleOvertaken), not as
+ * part of the triggering command's own tileDeltas -- without an explicit
+ * broadcast here, neither the tile's owner nor the player who just overtook
+ * the border learns about it until they click the tile (forcing a fresh
+ * fetch) or reconnect.
+ */
+export const applyUnsettleDowngrade = <TTile extends { ownerId?: string | undefined; ownershipState?: string | undefined }, TDelta>(
+  tileKey: string,
+  causeCommandId: string,
+  deps: {
+    getTile: (tileKey: string) => TTile | undefined;
+    replaceTileState: (tileKey: string, tile: TTile, commandId: string) => void;
+    tileDeltaFromState: (tile: TTile) => TDelta;
+    emitEvent: (event: { eventType: "TILE_DELTA_BATCH"; commandId: string; playerId: string; tileDeltas: Array<TDelta & { ownerId?: string | undefined; ownershipState?: string | undefined }> }) => void;
+  }
+): void => {
+  const tile = deps.getTile(tileKey);
+  if (!tile) return;
+  const downgraded: TTile = { ...tile, ownershipState: "FRONTIER" };
+  const unsettleCommandId = `unsettle:${causeCommandId}:${tileKey}`;
+  deps.replaceTileState(tileKey, downgraded, unsettleCommandId);
+  if (!downgraded.ownerId) return;
+  deps.emitEvent({
+    eventType: "TILE_DELTA_BATCH",
+    commandId: unsettleCommandId,
+    playerId: downgraded.ownerId,
+    tileDeltas: [{ ...deps.tileDeltaFromState(downgraded), ownerId: downgraded.ownerId, ownershipState: downgraded.ownershipState }]
+  });
 };

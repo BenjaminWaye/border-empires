@@ -3,8 +3,10 @@ import {
   BufferGeometry,
   CanvasTexture,
   Color,
+  DoubleSide,
   DynamicDrawUsage,
   Mesh,
+  MeshBasicMaterial,
   MeshPhysicalMaterial,
   RepeatWrapping,
   Scene,
@@ -12,6 +14,26 @@ import {
 } from "three";
 
 export const WATER_SURFACE_Y = -0.06;
+
+// The water mesh itself is a flat, zero-thickness sheet (see commit() below)
+// — unlike land tiles, which get their own vertical "skirt" wall dropped at
+// every coastal edge (client-map-3d-heightfield.ts) so they read as solid
+// from any angle. Water relied entirely on that land-side skirt to hide the
+// void beneath it, which only covers edges where land is actually adjacent
+// this frame — anywhere water borders water-that-isn't-drawn-this-tick, a
+// different owner's fog boundary, or simply sits mid-sea, there was no wall
+// at all, so a grazing/underside view saw straight through to empty
+// background (black) right under the water surface. Matches the land
+// skirt's own depth so the two skirts meet with no gap at the coastline.
+const WATER_SKIRT_BOTTOM_Y = -0.6;
+// Skirt color is the tile's own water color dimmed by a flat, non-lit
+// factor (baked into the vertex color, not computed from scene lighting) —
+// the same technique the land skirt uses and for the same reason: a
+// lit material here would read solid from some angles and black from
+// others depending on where the sun happens to be, which is the exact bug
+// class DoubleSide above was added to fix. Baking the shade into the vertex
+// color guarantees a consistent look regardless of camera or light angle.
+const WATER_SKIRT_SHADE = 0.55;
 
 // Normal map repeats every UV_WORLD_SCALE world units (tiles).
 const UV_WORLD_SCALE = 6.0;
@@ -93,14 +115,30 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
     clearcoatRoughness: 0.4,
     transparent: true,
     opacity: 0.78,
-    emissive: new Color(0x030e18), // faint inner glow so deep water stays alive in shadow
+    // Floor brightness = a dim tint of DEEP_COLOR (not near-black) so water
+    // reads as dark sea, not a black hole, when lit faces turn away from
+    // the camera (e.g. viewed from the south, opposite the sun/fill lights).
+    emissive: DEEP_COLOR.clone().multiplyScalar(0.4),
     emissiveIntensity: 1.0,
     normalMap: swellMap,
     normalScale: new Vector2(0.32, 0.32),
     clearcoatNormalMap: choppyMap,
     clearcoatNormalScale: new Vector2(0.12, 0.12),
+    // The mesh only winds a front face (normal pointing up, see commit()
+    // below) — without DoubleSide, any view angle that catches the
+    // underside (looking up from below water level, or a steep enough
+    // camera angle) renders nothing at all, showing empty background
+    // through the hole instead of water.
+    side: DoubleSide,
     depthWrite: false
   });
+
+  // toneMapped: false — this is a flat gameplay-legibility fill (baked
+  // shade, not lit geometry), not something the scene's filmic tone curve
+  // should touch. See client-map-3d-tone-mapping-regression.test.ts.
+  const skirtMaterial = new MeshBasicMaterial({ toneMapped: false, vertexColors: true, side: DoubleSide });
+  let skirtMesh: Mesh | null = null;
+  let skirtGeometry: BufferGeometry | null = null;
 
   let mesh: Mesh | null = null;
   let geometry: BufferGeometry | null = null;
@@ -227,6 +265,70 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
     mesh.frustumCulled = false;
     mesh.renderOrder = 12;
     scene.add(mesh);
+
+    // Skirt: a vertical wall dropped to WATER_SKIRT_BOTTOM_Y along every
+    // tile edge that doesn't border another water tile — see
+    // WATER_SKIRT_BOTTOM_Y above for why the flat sheet needs this.
+    if (skirtMesh) {
+      scene.remove(skirtMesh);
+      skirtMesh = null;
+    }
+    if (skirtGeometry) {
+      skirtGeometry.dispose();
+      skirtGeometry = null;
+    }
+
+    const skirtPositions: number[] = [];
+    const skirtColors: number[] = [];
+    const skirtIndices: number[] = [];
+    const tmpColor = new Color();
+
+    const emitSkirtEdge = (ax: number, az: number, bx: number, bz: number, shallow: boolean): void => {
+      tmpColor.copy(shallow ? SHALLOW_COLOR : DEEP_COLOR).multiplyScalar(WATER_SKIRT_SHADE);
+      const base = skirtPositions.length / 3;
+      skirtPositions.push(
+        ax, WATER_SURFACE_Y, az,
+        bx, WATER_SURFACE_Y, bz,
+        ax, WATER_SKIRT_BOTTOM_Y, az,
+        bx, WATER_SKIRT_BOTTOM_Y, bz
+      );
+      for (let v = 0; v < 4; v++) skirtColors.push(tmpColor.r, tmpColor.g, tmpColor.b);
+      skirtIndices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
+    };
+
+    // Only the south edge (gr+1, the side facing the default isometric
+    // camera) gets a skirt. North/east/west skirts sat right where the
+    // land skirt's own coastal wall runs (client-map-3d-heightfield.ts) —
+    // two near-coplanar unlit walls animating independently z-fought and
+    // flickered against each other every frame. South-facing coastline is
+    // also where the camera actually needs the wall (the far/back edges
+    // are rarely seen edge-on), so dropping the other three is the
+    // pragmatic fix rather than trying to reconcile two skirts' depths.
+    for (const { gc, gr, shallow } of tiles) {
+      if (!tileMap.has(tileKey(gc, gr + 1))) emitSkirtEdge(gc + 1, gr + 1, gc, gr + 1, shallow);
+    }
+
+    if (skirtPositions.length > 0) {
+      skirtGeometry = new BufferGeometry();
+      const skirtPosAttr = new BufferAttribute(new Float32Array(skirtPositions), 3);
+      skirtPosAttr.setUsage(DynamicDrawUsage); // top row updated every frame in tick()
+      skirtGeometry.setAttribute("position", skirtPosAttr);
+      skirtGeometry.setAttribute("color", new BufferAttribute(new Float32Array(skirtColors), 3));
+      skirtGeometry.setIndex(skirtIndices);
+      skirtMesh = new Mesh(skirtGeometry, skirtMaterial);
+      skirtMesh.frustumCulled = false;
+      skirtMesh.renderOrder = 11;
+      scene.add(skirtMesh);
+    }
+  };
+
+  // Same swell+chop formula the main surface uses in tick() below — shared
+  // so the skirt's top edge (see waveY use in tick()) stays flush with the
+  // surface instead of leaving a gap when the surface waves above it.
+  const waveY = (wx: number, wz: number, s: number): number => {
+    const swell = Math.sin(wx * 0.7 + s * 0.65) * Math.cos(wz * 0.55 + s * 0.5) * 0.16;
+    const chop  = Math.sin(wx * 1.4 - s * 0.45) * Math.cos(wz * 1.2 + s * 0.7) * 0.06;
+    return WATER_SURFACE_Y + swell + chop;
   };
 
   const tick = (nowMs: number): void => {
@@ -241,11 +343,26 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
       for (let i = 0; i < n; i++) {
         const wx = pos[i * 3] ?? 0;
         const wz = pos[i * 3 + 2] ?? 0;
-        const swell = Math.sin(wx * 0.7 + s * 0.65) * Math.cos(wz * 0.55 + s * 0.5) * 0.16;
-        const chop  = Math.sin(wx * 1.4 - s * 0.45) * Math.cos(wz * 1.2 + s * 0.7) * 0.06;
-        pos[i * 3 + 1] = WATER_SURFACE_Y + swell + chop;
+        pos[i * 3 + 1] = waveY(wx, wz, s);
       }
       posAttr.needsUpdate = true;
+    }
+
+    // Skirt top edge rides the same wave as the surface — every 4th/4th+1
+    // vertex pair is the top of a wall segment (see emitSkirtEdge above),
+    // the other two are the static bottom. Without this the skirt's flat
+    // top sits below the surface at wave crests, exposing a gap.
+    if (skirtGeometry) {
+      const skirtPosAttr = skirtGeometry.attributes["position"] as BufferAttribute;
+      const skirtPos = skirtPosAttr.array as Float32Array;
+      const n = skirtPos.length / 3;
+      for (let i = 0; i < n; i++) {
+        if (i % 4 >= 2) continue; // bottom-row vertex — stays put
+        const wx = skirtPos[i * 3] ?? 0;
+        const wz = skirtPos[i * 3 + 2] ?? 0;
+        skirtPos[i * 3 + 1] = waveY(wx, wz, s);
+      }
+      skirtPosAttr.needsUpdate = true;
     }
 
     // Normal map scroll for surface texture shimmer.
@@ -255,8 +372,11 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
 
   const dispose = (): void => {
     if (mesh) scene.remove(mesh);
+    if (skirtMesh) scene.remove(skirtMesh);
     geometry?.dispose();
+    skirtGeometry?.dispose();
     material.dispose();
+    skirtMaterial.dispose();
     swellMap.dispose();
     choppyMap.dispose();
   };

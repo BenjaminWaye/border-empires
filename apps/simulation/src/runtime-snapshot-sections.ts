@@ -21,7 +21,8 @@ export type SnapshotExportInput = {
   incomePerMinuteForPlayer: (playerId: string) => number;
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   // Phase 3c: pre-serialized tile cache, updated on every replaceTileState call.
-  // When provided, the async export skips the O(202k-tile) yield loop entirely.
+  // When provided, the async export skips per-tile mapTile() work (see
+  // buildRuntimeSnapshotSectionsAsync for why the copy is still yield-chunked).
   prebuiltTiles?: ReadonlyMap<string, SnapshotTile>;
 };
 
@@ -67,7 +68,9 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
         }))
         .sort((a, b) => a.commandId.localeCompare(b.commandId)),
       players: [...input.players.values()]
-        .map((player) => ({
+        .map((player) => {
+          const summary = input.summaryForPlayer(player.id);
+          return {
           id: player.id,
           ...(player.name ? { name: player.name } : {}),
           isAi: player.isAi,
@@ -80,6 +83,12 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           ...(player.chosenTrickleResource ? { chosenTrickleResource: player.chosenTrickleResource } : {}),
           ...(typeof player.imperialWardCharges === "number" ? { imperialWardCharges: player.imperialWardCharges } : {}),
           ...(typeof player.wonderLastFreeRushBuyAt === "number" ? { wonderLastFreeRushBuyAt: player.wonderLastFreeRushBuyAt } : {}),
+          ...(typeof player.galacticWonderManpowerRegenBonusPerMinute === "number"
+            ? { galacticWonderManpowerRegenBonusPerMinute: player.galacticWonderManpowerRegenBonusPerMinute }
+            : {}),
+          ...(typeof player.galacticWonderVisionRadiusBonus === "number"
+            ? { galacticWonderVisionRadiusBonus: player.galacticWonderVisionRadiusBonus }
+            : {}),
           ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
           strategicResources: { ...(player.strategicResources ?? {}) },
           allies: [...player.allies].sort(),
@@ -87,8 +96,20 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
           visionRadiusBonus: visionRadiusBonusForPlayer(player),
           incomeMultiplier: player.mods?.income ?? 1,
           incomePerMinute: input.incomePerMinuteForPlayer(player.id),
-          ownedTownTileKeys: [...input.summaryForPlayer(player.id).ownedTownTierByTile.keys()]
-        }))
+          ownedTownTileKeys: [...summary.ownedTownTierByTile.keys()],
+          // Restart-durable: DEV_QUEUE_*/WAYPOINT_* commands only ever mutate
+          // in-memory PlayerRuntimeSummary (see command-coverage-sets.ts) --
+          // snapshotting the current queue contents here, current-value style
+          // like strategicResources above, is what makes them survive a cold
+          // process restart instead of silently emptying on boot. A queued
+          // BUILD entry's reservedManpower/reservedSlotRequirements ride
+          // along automatically since this spreads the whole entry.
+          ...(summary.waypointQueue.length
+            ? { waypointQueue: summary.waypointQueue.map((entry) => ({ ...entry, target: { ...entry.target } })) }
+            : {}),
+          ...(summary.devQueue.length ? { devQueue: summary.devQueue.map((entry) => ({ ...entry })) } : {})
+          };
+        })
         .sort((a, b) => a.id.localeCompare(b.id)),
       pendingSettlements: [...input.pendingSettlementsByTile.values()]
         .map((s) => ({ ...s }))
@@ -124,12 +145,24 @@ export async function buildRuntimeSnapshotSectionsAsync(
   input: SnapshotExportInput,
   yieldToEventLoop: () => Promise<void>
 ): Promise<SimulationSnapshotSections> {
-  // Phase 3c: if a pre-serialized tile cache is wired in, skip the O(202k-tile)
-  // yield loop. On prod the 101 setImmediate yields each wait ~400-900 ms behind
-  // AI ticks, making the checkpoint take 43-93 s. With the cache the only EL
-  // block is the sort (~50 ms) before handing off to the stringify worker.
+  // Phase 3c: if a pre-serialized tile cache is wired in, skip the per-tile
+  // mapTile() work (already done). The array copy still has to visit every
+  // tile though, and on a full-size world (202,500 tiles) that copy alone
+  // measured a 209ms synchronous block in the nightly load harness (2026-08-24,
+  // gate limit 150ms) — worse than the "~50ms sort" this comment used to
+  // promise, and invisible to event_loop_blocked's mainThreadTasks because
+  // nothing here was tracked. Chunk the copy with the same yield cadence the
+  // non-prebuilt path below uses so a full-world checkpoint can't block the
+  // loop in one shot; the sort itself (on cheap pre-built objects) stays
+  // synchronous, matching the original ~50ms budget.
   if (input.prebuiltTiles) {
-    const tiles = [...input.prebuiltTiles.values()];
+    const tiles: SnapshotTile[] = [];
+    let prebuiltIndex = 0;
+    for (const tile of input.prebuiltTiles.values()) {
+      if (shouldYieldAt(prebuiltIndex, 20_000)) await yieldToEventLoop();
+      tiles.push(tile);
+      prebuiltIndex += 1;
+    }
     tiles.sort((a, b) => a.x - b.x || a.y - b.y);
     return buildSnapshotBody(input, tiles);
   }

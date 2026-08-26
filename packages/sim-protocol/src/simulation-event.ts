@@ -1,4 +1,4 @@
-import type { VisibilityState } from "@border-empires/shared";
+import type { FrontierDecayKind, VisibilityState } from "@border-empires/shared";
 import type { FrontierCombatActionType, LockedFrontierCombatResult, StrategicResourceKey } from "./index.js";
 
 // Shape of a TILE_DELTA_BATCH tile delta's `combatJson` field (see
@@ -94,7 +94,7 @@ export type SimulationEvent =
         ownerId?: string | undefined;
         ownershipState?: string | undefined;
         frontierDecayAt?: number | undefined;
-        frontierDecayKind?: "ENCIRCLEMENT" | undefined;
+        frontierDecayKind?: FrontierDecayKind | undefined;
         breachShockUntil?: number | undefined;
         townJson?: string | undefined;
         townType?: "MARKET" | "FARMING";

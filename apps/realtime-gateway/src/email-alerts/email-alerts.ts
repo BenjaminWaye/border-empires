@@ -1,5 +1,8 @@
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import { unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
+import { sendPlayerReportEmail } from "./bug-report-email-alert.js";
+import { escapeHtml } from "./escape-html.js";
+import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 
 export type EmailAlertConfig = {
   resendApiKey?: string;
@@ -7,6 +10,8 @@ export type EmailAlertConfig = {
   replyTo?: string;
   appUrl?: string;
   dailyLimit?: number;
+  bugReportEmailTo?: string;
+  appLabel?: string;
 };
 
 export type EmailAlertService = {
@@ -14,6 +19,8 @@ export type EmailAlertService = {
   sendTruceRequestAlert: (input: TruceRequestAlertInput) => Promise<EmailAlertOutcome>;
   sendAttackAlert: (input: AttackAlertInput) => Promise<EmailAlertOutcome>;
   sendSeasonStartAlert: (input: SeasonStartAlertInput) => Promise<EmailAlertOutcome>;
+  sendBugReportAlert: (report: BugReportInput) => void;
+  sendSuggestionAlert: (report: BugReportInput) => void;
 };
 
 export type EmailAlertOutcome = "sent" | "disabled" | "recipient_missing" | "throttled" | "send_failed";
@@ -168,13 +175,6 @@ export const readAttackAlert = (payload: Record<string, unknown>): IncomingAttac
   };
 };
 
-const escapeHtml = (value: string): string =>
-  value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
 
 const baseUrl = (value: string | undefined): string => {
   const trimmed = value?.trim();
@@ -380,6 +380,26 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
   };
 
   return {
+    sendBugReportAlert(report) {
+      void sendPlayerReportEmail("bug", report, {
+        ...(apiKey ? { resendApiKey: apiKey } : {}),
+        ...(from ? { from } : {}),
+        ...(options.bugReportEmailTo ? { to: options.bugReportEmailTo } : {}),
+        ...(options.appLabel ? { appLabel: options.appLabel } : {}),
+        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+        ...(options.log ? { log: options.log } : {})
+      });
+    },
+    sendSuggestionAlert(report) {
+      void sendPlayerReportEmail("suggestion", report, {
+        ...(apiKey ? { resendApiKey: apiKey } : {}),
+        ...(from ? { from } : {}),
+        ...(options.bugReportEmailTo ? { to: options.bugReportEmailTo } : {}),
+        ...(options.appLabel ? { appLabel: options.appLabel } : {}),
+        ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+        ...(options.log ? { log: options.log } : {})
+      });
+    },
     sendAllianceRequestAlert(input) {
       return send(
         input.recipientPlayerId,

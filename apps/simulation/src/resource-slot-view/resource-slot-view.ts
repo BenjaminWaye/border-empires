@@ -92,7 +92,7 @@ const noWaiversConfigured = (waivers: SlotWaivers): boolean =>
 
 /**
  * Slot supply from a player's owned, settled tiles: base + boost slots from
- * real resource tiles (§5.2's table, same-tile Farmstead/Mine/Camp +1, the
+ * real resource tiles (§5.2's table, same-tile Farmstead +2/Mine/Camp +1, the
  * Waterworks-radius Farmstead bonus from §5.3, and the Foundry-radius Mine
  * bonus from §12), PLUS each active SYNTHESIZE-mode converter's own +1 slot
  * of its resource (§6.4: "a synthesizer provides exactly 1 slot of its

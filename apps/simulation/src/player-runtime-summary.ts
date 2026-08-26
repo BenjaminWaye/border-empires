@@ -1,4 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
+import type { SlotResource } from "@border-empires/shared";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type TownPopulationTier = NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]>;
@@ -24,8 +25,11 @@ export type PendingSettlementRecord = {
 };
 
 /** Server-durable dev-queue entry -- see runtime-dev-queue.ts. Mirrors the
- *  shared DevQueueEntry shape but is tracked per-player here, in-memory only
- *  (not restart-durable, see the plan doc's scope-boundary note). */
+ *  shared DevQueueEntry shape but is tracked per-player here. Snapshotted
+ *  (current-value, like strategicResources) into initialState.players[]
+ *  and reseeded on boot -- see event-recovery-player-state.ts and
+ *  createPlayerRuntimeSummaryFromRecovered -- so it survives a cold
+ *  process restart. */
 export type ServerDevQueueEntry = {
   tileKey: string;
   x: number;
@@ -34,6 +38,10 @@ export type ServerDevQueueEntry = {
   /** Only present for kind === "BUILD" -- e.g. "FORT", "MINTWORKS", "REMOVE_STRUCTURE". */
   structureType?: string;
   queuedAt: number;
+  /** § queued-buildings-mp-reimbursement: manpower reserved from the player at enqueue time for a BUILD entry (never set for SETTLE/REMOVE_STRUCTURE), refunded on cancel or before the entry drains -- see runtime-dev-queue-build-reservation.ts. */
+  reservedManpower?: number;
+  /** The resource-slot requirement reserved alongside reservedManpower, netted into later enqueue checks so a player can't queue more slot-gated BUILDs than they have supply for. */
+  reservedSlotRequirements?: { resource: SlotResource; count: number }[];
 };
 
 /** Server-durable waypoint/expand-queue entry -- see runtime-waypoint-queue.ts. */
@@ -171,6 +179,26 @@ export const createEmptyPlayerRuntimeSummary = (): PlayerRuntimeSummary => ({
   devQueue: [],
   waypointQueue: [],
   claimContinuations: new Map<string, ClaimContinuation>()
+});
+
+/**
+ * Boot-time constructor for a recovered player's summary. `waypointQueue`/
+ * `devQueue` are current-value snapshot fields (see event-recovery-player-
+ * state.ts) -- this is the read side that seeds them back into the live
+ * PlayerRuntimeSummary so DEV_QUEUE_* / WAYPOINT_* commands survive a cold
+ * process restart instead of resetting to `[]`. Accepts a structural type
+ * (rather than importing RecoveredPlayerState) to avoid a circular import
+ * with event-recovery-player-state.ts, which imports the queue entry types
+ * from this module.
+ */
+export const createPlayerRuntimeSummaryFromRecovered = (
+  recovered: { waypointQueue?: ServerWaypointQueueEntry[]; devQueue?: ServerDevQueueEntry[] } | undefined
+): PlayerRuntimeSummary => ({
+  ...createEmptyPlayerRuntimeSummary(),
+  ...(recovered?.waypointQueue?.length
+    ? { waypointQueue: recovered.waypointQueue.map((entry) => ({ ...entry, target: { ...entry.target } })) }
+    : {}),
+  ...(recovered?.devQueue?.length ? { devQueue: recovered.devQueue.map((entry) => ({ ...entry })) } : {})
 });
 
 export const cloneStrategicProduction = (

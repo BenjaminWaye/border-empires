@@ -4,6 +4,7 @@ import type { CurrentSeasonSummary, SeasonArchiveRow } from "@border-empires/sim
 
 import { registerGalaxyRoutes } from "./galaxy-routes.js";
 import { InMemoryGalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js";
+import { InMemoryGalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import { InMemoryGatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { GatewayResolvedIdentity } from "../auth-identity/auth-identity.js";
 
@@ -16,8 +17,8 @@ const wonArchive = (overrides: Partial<SeasonArchiveRow> = {}): SeasonArchiveRow
     playerId: "player-1",
     playerName: "Nauticus",
     crownedAt: 1_000,
-    objectiveId: "conquest",
-    objectiveName: "Conquest"
+    objectiveId: "DIPLOMATIC_DOMINANCE",
+    objectiveName: "Diplomatic Dominance"
   },
   mostTerritory: [],
   mostPoints: [],
@@ -30,6 +31,7 @@ const buildApp = (options: {
   archives: SeasonArchiveRow[];
   identityForToken?: (token: string | undefined) => GatewayResolvedIdentity | undefined;
   galaxyPlanetStore?: InMemoryGalaxyPlanetStore;
+  galaxyEconomyStore?: InMemoryGalaxyEconomyStore;
   authBindingStore?: InMemoryGatewayAuthBindingStore;
   currentSeasonSummary?: Partial<CurrentSeasonSummary> & Pick<CurrentSeasonSummary, "seasonId" | "seasonSequence" | "status">;
 }) => {
@@ -42,6 +44,7 @@ const buildApp = (options: {
     authenticateBearer: async (authorizationHeader) =>
       options.identityForToken?.(authorizationHeader) ?? undefined,
     galaxyPlanetStore: options.galaxyPlanetStore ?? new InMemoryGalaxyPlanetStore(),
+    ...(options.galaxyEconomyStore ? { galaxyEconomyStore: options.galaxyEconomyStore } : {}),
     authBindingStore: options.authBindingStore ?? new InMemoryGatewayAuthBindingStore()
   });
   return app;
@@ -75,12 +78,16 @@ describe("galaxy routes", () => {
         {
           seasonId: "season-1",
           seasonSequence: 1,
-          objectiveName: "Conquest",
+          tier: "PLANET",
+          objectiveName: "Diplomatic Dominance",
+          specialization: "CAPITAL",
           crownedAt: 1_000,
           planetName: null,
           named: false
         }
-      ]
+      ],
+      outposts: [],
+      stipends: []
     });
   });
 
@@ -161,7 +168,7 @@ describe("galaxy routes", () => {
   it("omits an AI-won season (no auth binding) from /me and shows it unclaimed in the public list", async () => {
     const authBindingStore = new InMemoryGatewayAuthBindingStore();
     const app = buildApp({
-      archives: [wonArchive({ seasonId: "season-ai", winner: { playerId: "ai-player-1", playerName: "Barbarian King", crownedAt: 1_000, objectiveId: "conquest", objectiveName: "Conquest" } })],
+      archives: [wonArchive({ seasonId: "season-ai", winner: { playerId: "ai-player-1", playerName: "Barbarian King", crownedAt: 1_000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance" } })],
       identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
       authBindingStore
     });
@@ -171,7 +178,7 @@ describe("galaxy routes", () => {
       url: "/hq/galaxy/me",
       headers: { authorization: "Bearer good-token" }
     });
-    expect(meResponse.json()).toEqual({ planets: [] });
+    expect(meResponse.json()).toEqual({ planets: [], outposts: [], stipends: [] });
 
     const publicResponse = await app.inject({ method: "GET", url: "/hq/galaxy" });
     expect(publicResponse.json()).toEqual({
@@ -179,12 +186,15 @@ describe("galaxy routes", () => {
         {
           seasonId: "season-ai",
           seasonSequence: 1,
-          objectiveName: "Conquest",
+          tier: "PLANET",
+          objectiveName: "Diplomatic Dominance",
+          specialization: "CAPITAL",
           crownedAt: 1_000,
           claimed: false,
           planetName: null
         }
-      ]
+      ],
+      outposts: []
     });
   });
 
@@ -203,8 +213,8 @@ describe("galaxy routes", () => {
           playerId: "player-1",
           playerName: "Nauticus",
           crownedAt: 2_000,
-          objectiveId: "conquest",
-          objectiveName: "Conquest"
+          objectiveId: "DIPLOMATIC_DOMINANCE",
+          objectiveName: "Diplomatic Dominance"
         }
       }
     });
@@ -220,12 +230,16 @@ describe("galaxy routes", () => {
         {
           seasonId: "season-pending",
           seasonSequence: 2,
-          objectiveName: "Conquest",
+          tier: "PLANET",
+          objectiveName: "Diplomatic Dominance",
+          specialization: "CAPITAL",
           crownedAt: 2_000,
           planetName: null,
           named: false
         }
-      ]
+      ],
+      outposts: [],
+      stipends: []
     });
   });
 
@@ -240,8 +254,8 @@ describe("galaxy routes", () => {
         playerId: "player-1",
         playerName: "Nauticus",
         crownedAt: 2_000,
-        objectiveId: "conquest",
-        objectiveName: "Conquest"
+        objectiveId: "DIPLOMATIC_DOMINANCE",
+        objectiveName: "Diplomatic Dominance"
       }
     };
     const app = buildApp({
@@ -275,8 +289,8 @@ describe("galaxy routes", () => {
           playerId: "player-1",
           playerName: "Nauticus",
           crownedAt: 1_000,
-          objectiveId: "conquest",
-          objectiveName: "Conquest"
+          objectiveId: "DIPLOMATIC_DOMINANCE",
+          objectiveName: "Diplomatic Dominance"
         }
       }
     });
@@ -287,6 +301,33 @@ describe("galaxy routes", () => {
       headers: { authorization: "Bearer good-token" }
     });
     expect(response.json().planets).toHaveLength(1);
+  });
+
+  it("maps the winning victory path to its galactic specialization (docs/galactic-campaign-design.md §3)", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    const app = buildApp({
+      archives: [
+        wonArchive({
+          winner: {
+            playerId: "player-1",
+            playerName: "Nauticus",
+            crownedAt: 1_000,
+            objectiveId: "RESOURCE_MONOPOLY",
+            objectiveName: "Resource Monopoly"
+          }
+        })
+      ],
+      identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
+      authBindingStore
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/hq/galaxy/me",
+      headers: { authorization: "Bearer good-token" }
+    });
+    expect(response.json().planets[0].specialization).toBe("EXTRACTION");
   });
 
   it("surfaces the winner's stats snapshot in both /hq/galaxy/me and the public /hq/galaxy list", async () => {
@@ -302,7 +343,7 @@ describe("galaxy routes", () => {
       monumentalBuildings: { WORLD_ENGINE: 1 }
     };
     const app = buildApp({
-      archives: [wonArchive({ winner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 1_000, objectiveId: "conquest", objectiveName: "Conquest", stats } })],
+      archives: [wonArchive({ winner: { playerId: "player-1", playerName: "Nauticus", crownedAt: 1_000, objectiveId: "DIPLOMATIC_DOMINANCE", objectiveName: "Diplomatic Dominance", stats } })],
       identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
       authBindingStore
     });
@@ -316,5 +357,124 @@ describe("galaxy routes", () => {
 
     const publicResponse = await app.inject({ method: "GET", url: "/hq/galaxy" });
     expect(publicResponse.json().planets[0].stats).toEqual(stats);
+  });
+
+  it("surfaces an Outpost record for the owning account in /me, and as public territory in /hq/galaxy", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    await authBindingStore.bindIdentity({ uid: "uid-2", playerId: "player-2" });
+    const runnerUpIdentity: GatewayResolvedIdentity = { playerId: "player-2", playerName: "Runner Up", authUid: "uid-2" };
+    const app = buildApp({
+      archives: [
+        wonArchive({
+          galaxyTiers: [{ playerId: "player-2", playerName: "Runner Up", tier: "OUTPOST", specialization: "EXTRACTION" }]
+        })
+      ],
+      identityForToken: (auth) => (auth === "Bearer runner-token" ? runnerUpIdentity : undefined),
+      authBindingStore
+    });
+
+    const meResponse = await app.inject({
+      method: "GET",
+      url: "/hq/galaxy/me",
+      headers: { authorization: "Bearer runner-token" }
+    });
+    expect(meResponse.json().outposts).toEqual([
+      { seasonId: "season-1", seasonSequence: 1, tier: "OUTPOST", specialization: "EXTRACTION", awardedAt: 1_000, holderName: "Runner Up" }
+    ]);
+    expect(meResponse.json().stipends).toEqual([]);
+
+    const publicResponse = await app.inject({ method: "GET", url: "/hq/galaxy" });
+    expect(publicResponse.json().outposts).toEqual([
+      { seasonId: "season-1", seasonSequence: 1, tier: "OUTPOST", specialization: "EXTRACTION", awardedAt: 1_000, holderName: "Runner Up" }
+    ]);
+  });
+
+  it("surfaces a Stipend record for the owning account in /me only (not the public listing)", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    await authBindingStore.bindIdentity({ uid: "uid-3", playerId: "player-3" });
+    const bystanderIdentity: GatewayResolvedIdentity = { playerId: "player-3", playerName: "Bystander", authUid: "uid-3" };
+    const app = buildApp({
+      archives: [
+        wonArchive({
+          galaxyTiers: [{ playerId: "player-3", playerName: "Bystander", tier: "STIPEND", influence: 9, production: 36 }]
+        })
+      ],
+      identityForToken: (auth) => (auth === "Bearer bystander-token" ? bystanderIdentity : undefined),
+      authBindingStore
+    });
+
+    const meResponse = await app.inject({
+      method: "GET",
+      url: "/hq/galaxy/me",
+      headers: { authorization: "Bearer bystander-token" }
+    });
+    expect(meResponse.json().stipends).toEqual([
+      { seasonId: "season-1", seasonSequence: 1, tier: "STIPEND", awardedAt: 1_000, influence: 9, production: 36 }
+    ]);
+    expect(meResponse.json().outposts).toEqual([]);
+
+    const publicResponse = await app.inject({ method: "GET", url: "/hq/galaxy" });
+    expect(publicResponse.json().outposts).toEqual([]);
+  });
+
+  it("does not leak another account's Outpost/Stipend records into /me", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    await authBindingStore.bindIdentity({ uid: "uid-2", playerId: "player-2" });
+    const app = buildApp({
+      archives: [
+        wonArchive({
+          galaxyTiers: [{ playerId: "player-2", playerName: "Runner Up", tier: "OUTPOST", specialization: "EXTRACTION" }]
+        })
+      ],
+      identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
+      authBindingStore
+    });
+
+    const meResponse = await app.inject({
+      method: "GET",
+      url: "/hq/galaxy/me",
+      headers: { authorization: "Bearer good-token" }
+    });
+    expect(meResponse.json().outposts).toEqual([]);
+    expect(meResponse.json().stipends).toEqual([]);
+  });
+
+  it("surfaces economy balance and per-Planet Stability on /hq/galaxy/me when a galaxyEconomyStore is wired up", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    const galaxyEconomyStore = new InMemoryGalaxyEconomyStore();
+    await galaxyEconomyStore.upsertBalance({ authUid: "uid-1", influence: 12, production: 40, lastCycleAt: 1_000 });
+    await galaxyEconomyStore.ensureStability({ authUid: "uid-1", seasonId: "season-1", tier: "PLANET" });
+    await galaxyEconomyStore.setStability("uid-1", "season-1", 63);
+
+    const app = buildApp({
+      archives: [wonArchive()],
+      identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
+      authBindingStore,
+      galaxyEconomyStore
+    });
+
+    const response = await app.inject({ method: "GET", url: "/hq/galaxy/me", headers: { authorization: "Bearer good-token" } });
+    const body = response.json();
+    expect(body.economy).toEqual({ influence: 12, production: 40 });
+    expect(body.planets[0].stability).toBe(63);
+  });
+
+  it("omits economy/stability fields when no galaxyEconomyStore is wired up", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore();
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1" });
+    const app = buildApp({
+      archives: [wonArchive()],
+      identityForToken: (auth) => (auth === "Bearer good-token" ? winnerIdentity : undefined),
+      authBindingStore
+    });
+
+    const response = await app.inject({ method: "GET", url: "/hq/galaxy/me", headers: { authorization: "Bearer good-token" } });
+    const body = response.json();
+    expect(body.economy).toBeUndefined();
+    expect(body.planets[0].stability).toBeUndefined();
   });
 });

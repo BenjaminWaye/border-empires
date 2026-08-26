@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { GALAXY_SPECIALIZATION_NAME } from "@border-empires/sim-protocol";
 
-import { renderGalaxyViewHtml, renderEmperorSectionHtml, type GalaxyViewPlanet, type GalaxyEmperorViewModel } from "./galaxy-view-html.js";
+import {
+  renderGalaxyViewHtml,
+  renderEmperorSectionHtml,
+  SPECIALIZATION_LABEL,
+  type GalaxyViewPlanet,
+  type GalaxyEmperorViewModel
+} from "./galaxy-view-html.js";
 
 const unnamed: GalaxyViewPlanet = {
   seasonId: "season-1",
@@ -65,6 +72,36 @@ describe("renderGalaxyViewHtml", () => {
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
   });
+
+  it("renders a specialization badge with its display label when present", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [{ ...named, specialization: "CAPITAL" }],
+      focusedSeasonId: "season-2"
+    });
+    expect(html).toContain("gx-specialization");
+    expect(html).toContain("Capital World");
+  });
+
+  it("renders no specialization badge when the field is absent (pre-specialization archives)", () => {
+    const html = renderGalaxyViewHtml({ planets: [named], focusedSeasonId: "season-2" });
+    expect(html).not.toContain("gx-specialization");
+  });
+
+  it("falls back to the raw specialization id when it has no known display label", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [{ ...named, specialization: "FUTURE_ID" }],
+      focusedSeasonId: "season-2"
+    });
+    expect(html).toContain("FUTURE_ID World");
+  });
+
+  it("keeps its local specialization label copy in sync with @border-empires/sim-protocol's GALAXY_SPECIALIZATION_NAME", () => {
+    // SPECIALIZATION_LABEL is duplicated here rather than imported at runtime
+    // (see the comment above its definition) to avoid pulling sim-protocol's
+    // dependency graph into the client bundle. This test is what stands in
+    // for that import: it fails the moment the two definitions diverge.
+    expect(SPECIALIZATION_LABEL).toEqual(GALAXY_SPECIALIZATION_NAME);
+  });
 });
 
 const baseEmperorModel: GalaxyEmperorViewModel = {
@@ -108,5 +145,73 @@ describe("renderEmperorSectionHtml", () => {
     });
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("renderGalaxyViewHtml — Outpost/Stipend tiers (§3)", () => {
+  it("renders an Outpost row with its specialization badge", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [],
+      focusedSeasonId: "",
+      outposts: [{ seasonId: "season-2", seasonSequence: 2, specialization: "EXTRACTION", awardedAt: 1_000 }],
+      stipends: []
+    });
+    expect(html).toContain("data-galaxy-outpost");
+    expect(html).toContain("Season 2 Outpost");
+    expect(html).toContain(GALAXY_SPECIALIZATION_NAME.EXTRACTION);
+  });
+
+  it("renders a one-line Stipend row with its Inf/Prod payout", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [],
+      focusedSeasonId: "",
+      outposts: [],
+      stipends: [{ seasonId: "season-3", seasonSequence: 3, influence: 9, production: 36, awardedAt: 1_000 }]
+    });
+    expect(html).toContain("data-galaxy-stipend");
+    expect(html).toContain("9 Inf");
+    expect(html).toContain("36 Prod");
+  });
+
+  it("renders nothing when there are no planets, outposts, or stipends", () => {
+    expect(renderGalaxyViewHtml({ planets: [], focusedSeasonId: "", outposts: [], stipends: [] })).toBe("");
+  });
+
+  it("renders outposts/stipends alongside a focused planet hero", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [{ seasonId: "s1", seasonSequence: 1, objectiveName: "Conquest", crownedAt: 1_000, planetName: "Home", named: true }],
+      focusedSeasonId: "s1",
+      outposts: [{ seasonId: "season-2", seasonSequence: 2, awardedAt: 1_000 }],
+      stipends: []
+    });
+    expect(html).toContain("data-galaxy-starfield");
+    expect(html).toContain("data-galaxy-outpost");
+  });
+
+  it("renders a Stability readout on the named medallion when stability is present", () => {
+    const html = renderGalaxyViewHtml({ planets: [{ ...named, stability: 63 }], focusedSeasonId: "season-2" });
+    expect(html).toContain("data-galaxy-stability");
+    expect(html).toContain("Stability 63");
+  });
+
+  it("omits the Stability readout when stability is absent (v0-only gateway)", () => {
+    const html = renderGalaxyViewHtml({ planets: [named], focusedSeasonId: "season-2" });
+    expect(html).not.toContain("data-galaxy-stability");
+  });
+
+  it("renders an Influence/Production readout when economy is present", () => {
+    const html = renderGalaxyViewHtml({
+      planets: [named],
+      focusedSeasonId: "season-2",
+      economy: { influence: 12, production: 40 }
+    });
+    expect(html).toContain("data-galaxy-economy");
+    expect(html).toContain("12 Inf");
+    expect(html).toContain("40 Prod");
+  });
+
+  it("omits the economy readout when economy is absent", () => {
+    const html = renderGalaxyViewHtml({ planets: [named], focusedSeasonId: "season-2" });
+    expect(html).not.toContain("data-galaxy-economy");
   });
 });

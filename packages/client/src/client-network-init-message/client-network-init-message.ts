@@ -22,6 +22,7 @@ import {
   notifyRecentAllianceBreaksOnInit
 } from "../client-diplomacy-notifications.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
 import { clearStoredDiscoveredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
 
@@ -102,6 +103,10 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.lastChunkSnapshotGeneration = 0;
   const incomingConfig = (msg.config as { season?: { seasonId: string; worldSeed?: number; mapStyle?: "continents" | "islands" }; fogDisabled?: boolean } | undefined) ?? {};
   const incomingSeason = incomingConfig.season;
+  state.needsSeasonJoin = Boolean((msg as { needsSeasonJoin?: unknown }).needsSeasonJoin);
+  state.joinSeasonId = incomingSeason?.seasonId ?? "";
+  state.joinSeasonOverlayOpen = state.needsSeasonJoin;
+  applyInitSeasonPending(state, msg);
   const incomingRuntimeIdentity =
     (msg.runtimeIdentity as
       | {
@@ -374,6 +379,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     state.firstChunkAt = Date.now();
     state.chunkFullCount = Math.max(state.chunkFullCount, 1);
     state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
+    if (state.hasOwnedTileInCache) { state.needsSeasonJoin = false; state.joinSeasonOverlayOpen = false; }
     state.bridgeDebugBootstrap = "rewrite-init";
   } else {
     state.bridgeDebugBootstrap = "legacy-init";

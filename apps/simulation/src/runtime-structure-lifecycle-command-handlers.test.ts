@@ -63,6 +63,7 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
   const scheduled: Array<{ delayMs: number; task: () => void }> = [];
   const ownedStructureCounts = new Map<string, Map<BuildableStructureType, number>>();
   let playerStateUpdates = 0;
+  const reachFlushCauses: string[] = [];
 
   const context: RuntimeStructureCommandContext = {
     players,
@@ -103,7 +104,10 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
     tileDeltaFromState: (t) => ({ x: t.x, y: t.y, ownerId: t.ownerId, ownershipState: t.ownershipState }),
     completeStructureBuild: (targetKey, ownerId, structureType, commandId) =>
       completeStructureBuild(context, targetKey, ownerId, structureType, commandId),
-    completeStructureRemoval: (targetKey, ownerId, commandId) => completeStructureRemoval(context, targetKey, ownerId, commandId)
+    completeStructureRemoval: (targetKey, ownerId, commandId) => completeStructureRemoval(context, targetKey, ownerId, commandId),
+    flushReachUpdates: (causeCommandId) => {
+      reachFlushCauses.push(causeCommandId);
+    }
   };
 
   return {
@@ -112,7 +116,8 @@ function createContext(player: DomainPlayer, tile: DomainTileState) {
     events,
     scheduled,
     ownedStructureCounts,
-    playerStateUpdateCount: () => playerStateUpdates
+    playerStateUpdateCount: () => playerStateUpdates,
+    reachFlushCauses
   };
 }
 
@@ -253,5 +258,39 @@ describe("handleCancelStructureBuildCommand refunds", () => {
     expect(() => staleCompletion()).not.toThrow();
     expect(tiles.get(simulationTileKey(5, 5))?.economicStructure).toBeUndefined();
     expect(player.points).toBe(goldAfterCancel);
+  });
+});
+
+describe("completion handlers flush reach updates", () => {
+  // Regression: a Relay Beacon (or any structure whose completion activates/
+  // deactivates a reach anchor) finishes via a scheduleAfter timer callback,
+  // not via queueCommandForProcessing's normal command-dispatch path -- the
+  // only place that used to flush REACH_UPDATE to clients. Without an
+  // explicit flush inside the completion handler itself, the border
+  // expansion sat dirty and only reached the client whenever some unrelated
+  // command happened to be processed afterward, which read to players as
+  // random "lag" before their border updated.
+  it("completeStructureBuild flushes reach updates for its own commandId, not just a later unrelated command", () => {
+    const player = makePlayer({ points: 500, manpower: 0 });
+    const tile = makeTile({
+      economicStructure: { ownerId: PLAYER_ID, type: "RELAY_BEACON", status: "under_construction", completesAt: 5_000 }
+    });
+    const { context, reachFlushCauses } = createContext(player, tile);
+
+    completeStructureBuild(context, simulationTileKey(5, 5), PLAYER_ID, "RELAY_BEACON", "build-cmd-1");
+
+    expect(reachFlushCauses).toEqual(["reach-update:build-cmd-1"]);
+  });
+
+  it("completeStructureRemoval flushes reach updates for its own commandId", () => {
+    const player = makePlayer({ points: 0, manpower: 0 });
+    const tile = makeTile({
+      economicStructure: { ownerId: PLAYER_ID, type: "RELAY_BEACON", status: "removing", completesAt: 5_000 }
+    });
+    const { context, reachFlushCauses } = createContext(player, tile);
+
+    completeStructureRemoval(context, simulationTileKey(5, 5), PLAYER_ID, "remove-cmd-1");
+
+    expect(reachFlushCauses).toEqual(["reach-update:remove-cmd-1"]);
   });
 });

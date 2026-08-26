@@ -25,6 +25,15 @@ primary_region = "arn"
   GATEWAY_DB_APPLY_SCHEMA = "1"
   GATEWAY_SQLITE_PATH = "/data/border-empires.db"
   GATEWAY_SLOW_LOGIN_ALERT_LABEL = "border-empires-combined"
+  # Raised from the code defaults (4 / 50) after the concurrent-join load
+  # harness (docs/plans/2026-08-22-beta-lobby-synchronized-season-start.md)
+  # showed a 100-tester synchronized season start hard-rejects ~46% of
+  # arrivals with SERVER_BUSY at the defaults, even though the gateway/sim
+  # event loop stayed healthy throughout -- the ceiling was purely queue
+  # capacity, not throughput. 150 covers the full beta cohort
+  # (SIMULATION_MAX_SEASON_PLAYERS=120) plus headroom.
+  GATEWAY_MAX_CONCURRENT_BOOTSTRAPS = "8"
+  GATEWAY_MAX_LOGIN_QUEUE_SIZE = "150"
 
   # Simulation (loopback within the same Node process)
   SIMULATION_SQLITE_PATH = "/data/border-empires.db"
@@ -39,7 +48,6 @@ primary_region = "arn"
   SIMULATION_STARTUP_REPLAY_COMPACTION_MIN_EVENTS = "2000"
   SIMULATION_GLOBAL_STATUS_BROADCAST_DEBOUNCE_MS = "15000"
   # Player IDs excluded from all leaderboard surfaces (comma-separated).
-  # Decode probe auth token JWT to get the user_id: JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString()).user_id
   SIMULATION_NON_COMPETITIVE_PLAYER_IDS = "avumxUe8L6OluuTkdMZAb76ldCq1"
   SIMULATION_HEALTH_PROBE_INTERVAL_MS = "5000"
   SIMULATION_HEALTH_PROBE_TIMEOUT_MS = "2000"

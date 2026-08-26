@@ -79,6 +79,11 @@ export type RuntimeFrontierCommandContext = {
   // is inside playerId's resolved reach set. EXPAND requires this; ATTACK
   // deliberately does not consult it.
   isInReach: (playerId: string, x: number, y: number) => boolean;
+  // Persistent-border owner at (x, y), if any -- same lookup the Aether
+  // Bridge cast handler already uses (runtime-aether-bridge-reach.ts) to
+  // tell "rival's border" apart from "neutral ground". Used below to open a
+  // narrow EXPAND carve-out onto ground already inside a rival's reach.
+  reachBorderOwnerAt: (x: number, y: number) => string | undefined;
 };
 
 export const handleFrontierCommandImpl = (
@@ -129,6 +134,19 @@ export const handleFrontierCommandImpl = (
 
   const isDockCrossing = ctx.isDockCrossingTarget(from, to.x, to.y);
   const isBridgeCrossing = ctx.isAetherBridgeCrossingTarget(actor.id, from.x, from.y, to.x, to.y);
+  // EXPAND-into-a-rival's-reach carve-out: your border touches theirs right
+  // here (origin is inside YOUR reach, target is inside THEIRS, and the two
+  // are adjacent by construction below) -- open exactly enough ground to
+  // give you a legal ATTACK origin next to them, without granting reach or
+  // free colonization anywhere else along their border. Skips barbarians
+  // implicitly (they hold no reach anchors, so reachBorderOwnerAt never
+  // resolves to a barbarian owner) and allies/truces explicitly.
+  const targetReachOwnerId = actionType === "EXPAND" ? ctx.reachBorderOwnerAt(to.x, to.y) : undefined;
+  const isEnemyBorderContact =
+    targetReachOwnerId !== undefined &&
+    targetReachOwnerId !== actor.id &&
+    !isAlliedOrTruced(actor, targetReachOwnerId) &&
+    ctx.isInReach(actor.id, from.x, from.y);
   const expandClaimDurationMs = actionType === "EXPAND" ? frontierClaimDurationMsForCoords(to.x, to.y) : undefined;
   const requiredMuster = actionType === "ATTACK"
     ? ctx.requiredMusterForTarget(to)
@@ -169,7 +187,7 @@ export const handleFrontierCommandImpl = (
     // your own there yet) -- gating either on isInReach as well would block
     // the very crossings they exist to enable. Same carve-out targetShielded
     // already gives dock crossings above.
-    isInReach: isDockCrossing || isBridgeCrossing ? true : ctx.isInReach(actor.id, to.x, to.y)
+    isInReach: isDockCrossing || isBridgeCrossing ? true : ctx.isInReach(actor.id, to.x, to.y) || isEnemyBorderContact
   });
 
   if (!validation.ok) {

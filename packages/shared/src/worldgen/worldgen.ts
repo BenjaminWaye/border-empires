@@ -13,9 +13,11 @@ export const TERRAIN_LAND = 1;
 export const TERRAIN_MOUNTAIN = 2;
 const TERRAIN_COASTAL_SEA = 3;
 const POLAR_BAND = 15; // rows from each edge that form polar mountain zones
+const TUNDRA_BAND_WIDTH = 55; // rows beyond the polar mountain band where cold can still win out over sand/grass
 const BIOME_GRASS = 0;
 const BIOME_SAND = 1;
 const BIOME_COASTAL_SAND = 2;
+const BIOME_TUNDRA = 3;
 const BIOME_NONE = UNSET_U8;
 const GRASS_DARK = 0;
 const GRASS_LIGHT = 1;
@@ -95,12 +97,14 @@ const encodeBiome = (biome: LandBiome | undefined): number => {
   if (biome === "GRASS") return BIOME_GRASS;
   if (biome === "SAND") return BIOME_SAND;
   if (biome === "COASTAL_SAND") return BIOME_COASTAL_SAND;
+  if (biome === "TUNDRA") return BIOME_TUNDRA;
   return BIOME_NONE;
 };
 const decodeBiome = (biome: number): LandBiome | undefined => {
   if (biome === BIOME_GRASS) return "GRASS";
   if (biome === BIOME_SAND) return "SAND";
   if (biome === BIOME_COASTAL_SAND) return "COASTAL_SAND";
+  if (biome === BIOME_TUNDRA) return "TUNDRA";
   return undefined;
 };
 const encodeGrassShade = (shade: "LIGHT" | "DARK" | undefined): number => {
@@ -309,54 +313,10 @@ const isOceanChannel = (x: number, y: number): boolean => {
   return d1 <= w1 || d2 <= w2 || d3 <= w3;
 };
 
-const riverCenterX = (y: number, index: number): number => {
-  const yn = y / WORLD_HEIGHT;
-  if (index === 0) return WORLD_WIDTH * 0.14 + Math.sin(yn * TAU * 1.8 + 0.3) * 45 + Math.sin(yn * TAU * 4.1) * 11;
-  if (index === 1) return WORLD_WIDTH * 0.29 + Math.sin(yn * TAU * 1.4 + 1.7) * 42 + Math.sin(yn * TAU * 3.4) * 13;
-  if (index === 2) return WORLD_WIDTH * 0.46 + Math.sin(yn * TAU * 1.6 + 2.4) * 40 + Math.sin(yn * TAU * 3.8) * 10;
-  if (index === 3) return WORLD_WIDTH * 0.61 + Math.sin(yn * TAU * 1.2 + 0.9) * 44 + Math.sin(yn * TAU * 4.6) * 12;
-  if (index === 4) return WORLD_WIDTH * 0.76 + Math.sin(yn * TAU * 1.9 + 2.9) * 41 + Math.sin(yn * TAU * 4.8) * 10;
-  if (index === 5) return WORLD_WIDTH * 0.9 + Math.sin(yn * TAU * 1.5 + 1.4) * 38 + Math.sin(yn * TAU * 3.6) * 11;
-  if (index === 6) return WORLD_WIDTH * 0.52 + Math.sin(yn * TAU * 1.1 + 2.1) * 38 + Math.sin(yn * TAU * 4.4) * 12;
-  if (index === 7) return WORLD_WIDTH * 0.35 + Math.sin(yn * TAU * 1.7 + 1.1) * 40 + Math.sin(yn * TAU * 3.9) * 12;
-  if (index === 8) return WORLD_WIDTH * 0.22 + Math.sin(yn * TAU * 1.3 + 0.5) * 36 + Math.sin(yn * TAU * 4.3) * 11;
-  return WORLD_WIDTH * 0.72 + Math.sin(yn * TAU * 1.55 + 2.6) * 38 + Math.sin(yn * TAU * 4.0) * 10;
-};
+// Rivers are disabled: generation doesn't fully work yet.
+const isRiver = (_x: number, _y: number): boolean => false;
 
-const isRiver = (x: number, y: number): boolean => {
-  const cField = continentField(x, y);
-  if (cField < 0.07) return false;
-  for (let i = 0; i < 14; i += 1) {
-    const cx = wrapX(Math.floor(riverCenterX(y, i)), WORLD_WIDTH);
-    const width = 1 + Math.floor(valueNoise(x + i * 113, y, 140, worldSeed() + 75 + i) * 3); // 1..3 tiles
-    const lane = Math.floor((y + i * 19) / 50); // ~50-tile strip segments
-    const active = seeded01(lane, i, worldSeed() + 332) > 0.10;
-    if (active && toroidDx(x, cx) <= width) return true;
-  }
-  return false;
-};
-
-const isMicroRiver = (x: number, y: number): boolean => {
-  if (continentField(x, y) < 0.1) return false;
-  const cell = 18;
-  const gx = Math.floor(x / cell);
-  const gy = Math.floor(y / cell);
-  if (seeded01(gx, gy, worldSeed() + 2601) < 0.965) return false;
-  const ox = Math.floor(seeded01(gx, gy, worldSeed() + 2602) * cell);
-  const oy = Math.floor(seeded01(gx, gy, worldSeed() + 2603) * cell);
-  const startX = gx * cell + ox;
-  const startY = gy * cell + oy;
-  const horizontal = seeded01(gx, gy, worldSeed() + 2604) > 0.5;
-  const len = 8 + Math.floor(seeded01(gx, gy, worldSeed() + 2605) * 3); // 8..10
-  if (horizontal) {
-    const dx = Math.abs(x - startX);
-    const dy = Math.abs(y - startY);
-    return dx <= len && dy <= 0;
-  }
-  const dx = Math.abs(x - startX);
-  const dy = Math.abs(y - startY);
-  return dy <= len && dx <= 0;
-};
+const isMicroRiver = (_x: number, _y: number): boolean => false;
 
 const isLake = (x: number, y: number): boolean => {
   if (continentField(x, y) < 0.09) return false;
@@ -537,18 +497,30 @@ export const landBiomeAt = (x: number, y: number): LandBiome | undefined => {
   } else if (region === "DEEP_FOREST") {
     biome = "GRASS";
   } else {
-    const macro = valueNoise(wx, wy, 72, worldSeed() + 303);
-    const micro = valueNoise(wx - 41, wy + 29, 26, worldSeed() + 317);
-    const sandField = macro * 0.7 + micro * 0.3;
-    const sandThreshold =
-      region === "CRYSTAL_WASTES"
-        ? 0.52
-        : region === "BROKEN_HIGHLANDS"
-          ? 0.58
-          : region === "ANCIENT_HEARTLAND"
-            ? 0.72
-            : 0.78;
-    biome = sandField > sandThreshold ? "SAND" : "GRASS";
+    // Cold band: rows just past the polar mountains fade from full tundra
+    // coverage down to none over TUNDRA_BAND_WIDTH rows. WORLD_HEIGHT wraps
+    // in y, so the two poles are really one toroidal seam — distToPole is
+    // the wrap-aware distance to whichever edge is closer.
+    const distToPole = Math.min(wy, WORLD_HEIGHT - wy);
+    const coldness = Math.max(0, 1 - (distToPole - POLAR_BAND) / TUNDRA_BAND_WIDTH);
+    const coldNoise = valueNoise(wx + 211, wy - 157, 46, worldSeed() + 811);
+    const tundraField = coldness * coldness * 0.75 + coldNoise * 0.25;
+    if (coldness > 0 && tundraField > 0.5) {
+      biome = "TUNDRA";
+    } else {
+      const macro = valueNoise(wx, wy, 72, worldSeed() + 303);
+      const micro = valueNoise(wx - 41, wy + 29, 26, worldSeed() + 317);
+      const sandField = macro * 0.7 + micro * 0.3;
+      const sandThreshold =
+        region === "CRYSTAL_WASTES"
+          ? 0.52
+          : region === "BROKEN_HIGHLANDS"
+            ? 0.58
+            : region === "ANCIENT_HEARTLAND"
+              ? 0.72
+              : 0.78;
+      biome = sandField > sandThreshold ? "SAND" : "GRASS";
+    }
   }
   biomeCache[idx] = encodeBiome(biome);
   biomeCacheReady[idx] = 1;
@@ -584,12 +556,20 @@ export const regionTypeAt = (x: number, y: number): RegionType | undefined => {
   return region;
 };
 
+// Despite the name (kept to avoid renaming across every existing GRASS-only
+// consumer, all of which explicitly AND this with `landBiomeAt(...) ===
+// "GRASS"` and so are unaffected), this also computes a light/dark split for
+// TUNDRA — its "dark" variant is the tundra-forest concept: no FARM/GEMS,
+// but a real TITANIUM+UMBRITE affinity (see server-worldgen-terrain.ts). The
+// underlying noise formula below was already biome-agnostic; only this gate
+// restricted it to GRASS.
 export const grassShadeAt = (x: number, y: number): "LIGHT" | "DARK" | undefined => {
   const wx = wrapX(x, WORLD_WIDTH);
   const wy = wrapY(y, WORLD_HEIGHT);
   const idx = worldIndex(wx, wy);
   if (grassShadeCacheReady[idx] === 1) return decodeGrassShade(grassShadeCache[idx]!);
-  if (landBiomeAt(wx, wy) !== "GRASS") {
+  const biome = landBiomeAt(wx, wy);
+  if (biome !== "GRASS" && biome !== "TUNDRA") {
     grassShadeCache[idx] = GRASS_NONE;
     grassShadeCacheReady[idx] = 1;
     return undefined;

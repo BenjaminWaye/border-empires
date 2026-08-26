@@ -7,7 +7,8 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
-import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
+import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
+import { cancelOutOfReachDecayInAnchorDisk, outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import {
   gatherReachAnchors as gatherReachAnchorsImpl,
   newlyActivatedReachAnchors as newlyActivatedReachAnchorsImpl,
@@ -30,7 +31,7 @@ import {
   empireIntegrity,
   integrityGrowthMult,
   DEVELOPMENT_PROCESS_LIMIT,
-  FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST,
+  FRONTIER_CLAIM_COST, EXPAND_MANPOWER_COST, GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE, GALACTIC_WONDER_VISION_RADIUS_BONUS,
   SETTLE_COST,
   structureSlotRequirements,
   WORLD_HEIGHT,
@@ -72,13 +73,14 @@ import { forEachFrontierNeighbor } from "../frontier-topology.js";
 import {
   isSettledTownAnchor,
   orderedAutoSettlementTileKeys,
-  TOWN_AUTO_FRONTIER_RADIUS
+  TOWN_AUTO_FRONTIER_RADIUS, isAutoSettlementResourceTechRevealed
 } from "../territory-automation/territory-automation.js";
 import type { PlayerDefensibilityMetrics } from "../player-defensibility-metrics.js";
 import {
   addPendingSettlementToSummary,
   applyTileToPlayerSummary,
   createEmptyPlayerRuntimeSummary,
+  createPlayerRuntimeSummaryFromRecovered,
   removePendingSettlementFromSummary,
   removeTileFromPlayerSummary,
   type PendingSettlementRecord,
@@ -186,7 +188,7 @@ import {
   handleDevQueueMoveToFrontCommand as handleDevQueueMoveToFrontCommandImpl,
   tryDrainDevQueue as tryDrainDevQueueImpl,
   type RuntimeDevQueueCommandContext
-} from "../runtime-dev-queue-command-handlers.js";
+} from "../runtime-dev-queue-command-handlers.js"; import { devQueueBuildReservationContext } from "../runtime-dev-queue-build-reservation.js";
 import {
   handleWaypointCancelAllCommand as handleWaypointCancelAllCommandImpl,
   handleWaypointCancelCommand as handleWaypointCancelCommandImpl,
@@ -699,7 +701,7 @@ export class SimulationRuntime {
   private readonly ownedStructureCountByPlayerByType = new Map<string, Map<BuildableStructureType, number>>();
   private readonly barbarianTileProgress = new Map<string, number>();
   private readonly abilityCooldowns = new Map<string, Map<string, number>>();
-  private pendingImperialWard: { playerId: string; charges: number } | undefined;
+  private pendingImperialWard: { playerId: string; charges: number } | undefined; /** v0 Wonder-style starting bonus (§5, §12) for the last season's Planet winner — mirrors pendingImperialWard's lifecycle. */ private pendingGalacticWonderBonus: { playerId: string } | undefined;
   private readonly tileYieldCollectedAtByTile = new Map<string, number>(); /** Perf-only auto-fill scan cache — see AUTO_FILL_SCAN_COOLDOWN_MS in runtime-auto-fill.ts. */ private readonly autoFillOriginCooldownUntil = new Map<string, number>();
   private readonly lastIncomeTickAtMsByPlayer = new Map<string, number>();
   private readonly lastActiveAtMsByPlayer = new Map<string, number>();
@@ -719,6 +721,8 @@ export class SimulationRuntime {
   private reachBorder: Map<string, string> = new Map();
   // Change-driven REACH_UPDATE push bookkeeping — see runtime-reach-update.ts.
   private readonly reachUpdateState: ReachUpdateState = createReachUpdateState();
+  private outOfReachDecayQueue: OutOfReachDecayQueue = createOutOfReachDecayQueue(); // deadline-ordered; derived state, rebuilt at hydration, never snapshotted
+  private readonly isLandTileQuery = (x: number, y: number): boolean => { const t = this.tiles.get(simulationTileKey(x, y)); return t ? t.terrain === "LAND" : true; }; // land-gates reach anchors, see ReachAnchor.crossesWater
   private readonly collectVisibleCooldownByPlayer = new Map<string, number>();
   // Throttle per-tick respawn attempts for eliminated AI players. Spawn
   // placement is an O(n-tile) scan; 30 s cooldown keeps it from running
@@ -953,7 +957,7 @@ export class SimulationRuntime {
     this.trackSyncMainThreadTask = options.trackSyncMainThreadTask;
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.onShardCollected = options.onShardCollected;
-    this.pendingImperialWard = options.pendingImperialWard;
+    this.pendingImperialWard = options.pendingImperialWard; this.pendingGalacticWonderBonus = options.pendingGalacticWonderBonus;
     this.players =
       createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
       (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players);
@@ -1002,14 +1006,12 @@ export class SimulationRuntime {
     this.locksByTile = createLocksFromInitialState(options.initialState);
     // Populate the commandId index from the just-created locksByTile map.
     for (const lock of this.locksByTile.values()) this.locksByCommandId.set(lock.commandId, lock);
-    for (const yieldEntry of options.initialState?.tileYieldCollectedAtByTile ?? []) {
-      this.tileYieldCollectedAtByTile.set(yieldEntry.tileKey, yieldEntry.collectedAt);
-    }
-    for (const yieldEntry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) {
-      this.lastIncomeTickAtMsByPlayer.set(yieldEntry.playerId, yieldEntry.collectedAt);
-    }
+    for (const entry of options.initialState?.tileYieldCollectedAtByTile ?? []) this.tileYieldCollectedAtByTile.set(entry.tileKey, entry.collectedAt);
+    for (const entry of options.initialState?.playerYieldCollectionEpochByPlayer ?? []) this.lastIncomeTickAtMsByPlayer.set(entry.playerId, entry.collectedAt);
+    // Indexed once: a linear find() per player would be O(players^2) at boot.
+    const recoveredPlayersById = new Map((options.initialState?.players ?? []).map((player) => [player.id, player]));
     for (const playerId of this.players.keys()) {
-      this.playerSummaries.set(playerId, createEmptyPlayerRuntimeSummary());
+      this.playerSummaries.set(playerId, createPlayerRuntimeSummaryFromRecovered(recoveredPlayersById.get(playerId)));
       this.plannerPlayerTileCollectionVersionByPlayer.set(playerId, 0);
       this.territoryVersionByPlayer.set(playerId, 0);
     }
@@ -1148,8 +1150,9 @@ export class SimulationRuntime {
     // worlds start from a consistent state), but if it ever does, it's
     // correct to let it — the tile genuinely isn't defended by anyone else.
     for (const anchor of this.gatherReachAnchors()) {
-      this.applyReachAnchorActivation(anchor, "world-init");
+      this.applyReachAnchorActivation(anchor, "world-init", { contestSettledOnUnclaimed: false });
     }
+    this.outOfReachDecayQueue = rebuildOutOfReachDecayQueue(this.tiles); // anchors above already cleared timers they now cover
     // Moved here (see the long comment above, right after this.tiles is
     // assigned) from immediately after `this.players` was built: this is the
     // first point where garrisonHallTilesByOwner/railDepotTilesByOwner/
@@ -1552,7 +1555,7 @@ export class SimulationRuntime {
       if (yieldToEventLoop) await yieldToEventLoop();
     }
     this.tickMuster(nowMs);
-    this.tickFortGarrison(nowMs);
+    this.tickFortGarrison(nowMs); this.tickOutOfReachDecay(nowMs);
     // tickMuster/tickFortGarrison mutate many players' tiles via
     // replaceTileState in tight per-tile loops without ever calling
     // emitPlayerStateUpdate themselves (unlike command-driven mutations) — so
@@ -1562,6 +1565,7 @@ export class SimulationRuntime {
     this.flushAllOutpostVisionDormancyResyncs();
   }
 
+  tickOutOfReachDecay(nowMs: number = this.now()): number { return tickOutOfReachDecayImpl({ queue: this.outOfReachDecayQueue, nowMs, tiles: this.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), runtimeLogInfo: (p, m) => this.runtimeLogInfo(p, m) }); }
   tickFortGarrison(nowMs: number = this.now()): void {
     tickFortGarrisonImpl({
       nowMs,
@@ -1649,7 +1653,7 @@ export class SimulationRuntime {
       incrementAuthRecoveryRespawnGuarded: () => this.onAuthRecoveryRespawnGuarded?.(),
       coastalLandKeys: () => this.spawnPlacementIndex.coastalLandKeys(this.tiles),
       hasNearbySettled: (x, y, radius) => this.spawnPlacementIndex.hasNearbySettled(x, y, radius),
-      hasNearbyTown: (x, y, radius) => this.spawnPlacementIndex.hasNearbyTown(x, y, radius),
+      hasNearbyTown: (x, y, radius) => this.spawnPlacementIndex.hasNearbyTown(this.tiles, x, y, radius),
       hasNearbyFood: (x, y, radius) => this.spawnPlacementIndex.hasNearbyFood(this.tiles, x, y, radius)
     };
   }
@@ -1701,7 +1705,7 @@ export class SimulationRuntime {
       resolveMusterSource: (playerId, originKey, required, preferred) => this.resolveMusterSource(playerId, originKey, required, preferred),
       requiredMusterForTarget: (target) => this.requiredMusterForTarget(target),
       buildLockedCombatResolution: (lock) => this.buildLockedCombatResolution(lock),
-      isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y)
+      isInReach: (playerId, x, y) => this.isPlayerTileInReach(playerId, x, y), reachBorderOwnerAt: (x, y) => reachBorderOwnerAtImpl(this.reachBorder, x, y)
     };
   }
 
@@ -1724,7 +1728,7 @@ export class SimulationRuntime {
   }
 
   private lockResolutionContext(): RuntimeLockResolutionContext {
-    return {
+    const autoSettleDeps: AutoSettleCapturedAnchorDeps = { getPlayer: (id) => this.players.get(id), hasAvailableDevelopmentSlot: (id) => this.hasAvailableDevelopmentSlot(id), startSettlementProcess: (i) => this.startSettlementProcess(i), now: () => this.now() }; return {
       players: this.players,
       tiles: this.tiles,
       locksByTile: this.locksByTile,
@@ -1758,6 +1762,7 @@ export class SimulationRuntime {
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId),
       maybeDrainClaimContinuation: (targetKey, x, y, playerId) => tryDrainClaimContinuationImpl(this.devQueueCommandContext(), playerId, targetKey, x, y),
+      outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now(), isLandTile: this.isLandTileQuery }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => this.runtimeLogInfo(p, m)), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({
             capturedTile,
@@ -1826,7 +1831,7 @@ export class SimulationRuntime {
       const player = this.players.get(playerId);
       if (player) player.imperialWardCharges = this.pendingImperialWard.charges;
       this.pendingImperialWard = undefined;
-    }
+    } if (spawned && this.pendingGalacticWonderBonus?.playerId === playerId) { const player = this.players.get(playerId); if (player) { player.galacticWonderManpowerRegenBonusPerMinute = GALACTIC_WONDER_MANPOWER_REGEN_BONUS_PER_MINUTE; player.galacticWonderVisionRadiusBonus = GALACTIC_WONDER_VISION_RADIUS_BONUS; } this.pendingGalacticWonderBonus = undefined; }
     return spawned;
   }
 
@@ -2911,7 +2916,7 @@ export class SimulationRuntime {
     );
   }
 
-  filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined }>(
+  filterTileDeltasForPlayer<TDelta extends { x: number; y: number; terrain?: Terrain | undefined; ownerId?: string | undefined; forceVisibleForPlayerId?: string | undefined }>(
     tileDeltas: readonly TDelta[], playerId: string, options?: TileDeltaVisibilityFilterOptions
   ): TDelta[] {
     return filterTileDeltasForPlayerImpl(
@@ -2994,24 +2999,18 @@ export class SimulationRuntime {
 
   // Border mutation lives in runtime-reach-border-apply.ts, next to the
   // REACH_UPDATE push it feeds. This is the runtime-side adapter: it supplies
-  // the world lookups and routes the unsettle downgrade back through
-  // replaceTileState, so the usual cache-invalidation side effects still fire.
+  // the world lookups and routes the unsettle downgrade back through replaceTileState.
   private reachBorderApplyContext(): ReachBorderApplyContext {
-    return {
-      gatherReachAnchors: () => this.gatherReachAnchors(),
-      rivalOwnerIds: () => [...this.playerSummaries.keys()].filter((id) => !id.startsWith("barbarian-")).sort(),
-      tileOwnership: (tileKey) => this.tiles.get(tileKey),
-      downgradeToFrontier: (tileKey, causeCommandId) => {
-        const t = this.tiles.get(tileKey);
-        if (t) this.replaceTileState(tileKey, { ...t, ownershipState: "FRONTIER" }, `unsettle:${causeCommandId}:${tileKey}`);
-      }
-    };
+    return createReachBorderApplyContext({
+      gatherReachAnchors: () => this.gatherReachAnchors(), playerSummaryIds: () => this.playerSummaries.keys(), getTile: (k) => this.tiles.get(k), isLandTile: this.isLandTileQuery, downgradeToFrontier: (tileKey, cid0) => applyUnsettleDowngrade<DomainTileState, SimulationTileWireDelta>(tileKey, cid0, { getTile: (k) => this.tiles.get(k), replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e) })
+    });
   }
 
-  private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string): void {
-    this.reachBorder = applyReachAnchorActivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId);
+  private applyReachAnchorActivation(anchor: ReachAnchor, causeCommandId: string, options?: { contestSettledOnUnclaimed?: boolean }): void {
+    this.reachBorder = applyReachAnchorActivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId, options);
+    // Reach caught up over this anchor's disk: anything decaying there for being out of reach is now held ground. O(radius²), not a sweep.
+    cancelOutOfReachDecayInAnchorDisk({ tiles: this.tiles, replaceTileState: (k, t, cid) => this.replaceTileState(k, t, cid), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), isLandTile: this.isLandTileQuery }, anchor, causeCommandId);
   }
-
   private applyReachAnchorDeactivation(anchor: ReachAnchor, causeCommandId: string): void {
     this.reachBorder = applyReachAnchorDeactivationToBorder(this.reachBorder, anchor, this.reachUpdateState, this.reachBorderApplyContext(), causeCommandId);
   }
@@ -3336,9 +3335,7 @@ export class SimulationRuntime {
       const cached = this.autoSettlementQueueCacheByPlayer.get(playerId);
       if (cached && this.now() - cached.computedAtMs < AI_DERIVED_CACHE_COALESCE_MS) return cached.value;
     }
-    // Use frontierTilesByOwner to avoid iterating all territory tiles (O(settled) → O(frontier))
-    // orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway, so passing only
-    // frontier keys is semantically equivalent but O(frontier) instead of O(territory).
+    // frontierTilesByOwner keeps this O(frontier) instead of O(territory) — orderedAutoSettlementTileKeys filters to FRONTIER tiles anyway.
     const frontierKeys = this.frontierTilesByOwner.get(playerId) ?? new Set<string>();
     let supportLookupCalls = 0;
     // AI-only read-through cache for the per-tile eligibility result (see
@@ -3369,6 +3366,7 @@ export class SimulationRuntime {
             return Boolean(town && town.populationTier !== "SETTLEMENT");
           });
         },
+        isRevealedToPlayer: (tile) => this.visibilityCoverage.isVisible(playerId, simulationTileKey(tile.x, tile.y)) && isAutoSettlementResourceTechRevealed(tile, player), // fog-of-war + tech-reveal gates
         eligibilityCache
       })
         .map((tileKey) => {
@@ -3732,7 +3730,7 @@ export class SimulationRuntime {
   // Dev/waypoint queue command handling + drain logic lives in
   // runtime-dev-queue-command-handlers.ts / runtime-waypoint-queue-command-handlers.ts
   // (this file is already oversized) -- these just build their context.
-  private devQueueCommandContext(): RuntimeDevQueueCommandContext {
+  devQueueCommandContext(): RuntimeDevQueueCommandContext {
     return {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       now: () => this.now(),
@@ -3742,7 +3740,7 @@ export class SimulationRuntime {
       nextDrainCommandId: (playerId, tileKey) => this.nextTerritoryAutomationCommandId("dev-queue-drain", playerId, tileKey, this.now()),
       dispatchSettle: (command) => this.handleSettleCommand(command),
       dispatchBuild: (command) => handleBuildStructureCommandImpl(this.structureCommandContext(), command),
-      dispatchRemoveStructure: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command)
+      dispatchRemoveStructure: (command) => handleRemoveStructureCommandImpl(this.structureCommandContext(), command), ...devQueueBuildReservationContext(this.structureCommandContext())
     };
   }
 
@@ -3774,6 +3772,10 @@ export class SimulationRuntime {
       if (target.frontierDecayKind === "ENCIRCLEMENT") continue;
       if (target.terrain !== "LAND") continue;
       if (this.pendingSettlementsByTile.has(targetKey)) continue;
+      // Fixed-border reach: same OUT_OF_REACH gate handleSettleCommand applies
+      // to a human's SETTLE command (see its comment above) -- this path
+      // bypasses that handler entirely, so the check must be repeated here.
+      if (!this.isPlayerTileInReach(playerId, target.x, target.y)) continue;
       const commandId = this.nextTerritoryAutomationCommandId("auto-settle", playerId, targetKey, nowMs);
       this.startSettlementProcess({
         commandId,
@@ -4400,7 +4402,7 @@ export class SimulationRuntime {
       tileDeltaFromState: (tile) => this.tileDeltaFromState(tile),
       completeStructureBuild: (targetKey, ownerId, structureType, commandId) => this.completeStructureBuild(targetKey, ownerId, structureType, commandId),
       completeStructureRemoval: (targetKey, ownerId, commandId) => this.completeStructureRemoval(targetKey, ownerId, commandId),
-      appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
+      flushReachUpdates: (causeCommandId) => this.flushReachUpdatesForCommand(causeCommandId), appendPlayerEventLogEntry: (player, input) => appendPlayerEventLogEntry(player, input)
     });
   }
 

@@ -13,6 +13,16 @@ import {
   diffTransitions
 } from "@client/client-reach-overlay/client-reach-overlay-transitions.js";
 import type { Tile } from "@client/client-types.js";
+import { createBorderDustFxLayer } from "@client/client-map-3d-border-dust-fx/client-map-3d-border-dust-fx.js";
+import {
+  borderContactSeamsToDustSeams,
+  computeBorderContactRenderState,
+  resolveBorderContactVisual,
+  pointKey,
+  splitSegmentByContact,
+  BORDER_CONTACT_BEAM_COLOR,
+  BORDER_CONTACT_OPACITY_MULT
+} from "@client/client-map-3d-border-contact-render/client-map-3d-border-contact-render.js";
 import { createGrassGround, createStage, wrapWithCleanup } from "../three-stage.js";
 
 /**
@@ -357,4 +367,94 @@ const renderTransitionDemo = (args: Args): HTMLElement => {
 export const AetherSurveyLineBorderTransition3D: Story = {
   args: { cameraDistance: 11 },
   render: renderTransitionDemo
+};
+
+// --- Clashing-borders demo (border-contact seam) ---------------------------
+//
+// Same two-empire world as AetherSurveyLine3D above (MY_TOWN/ENEMY_TOWN,
+// touching but not overlapping at radius 3), but run through the REAL
+// production border-contact modules instead of plain per-owner solid
+// colors: client-reach-overlay-border-contact.ts detects the exact chords
+// where the two traced boundary loops coincide, client-map-3d-border-
+// contact-render.ts resolves those into a pale translucent blend
+// (resolveBorderContactVisual), and client-map-3d-border-dust-fx.ts spawns
+// sparse, slow dust motes in each side's color drifting through the seam.
+// This exercises the identical call sequence client-map-3d.ts's
+// renderReachOverlay3DPylons uses every frame -- not a re-implementation.
+const noWrapToroidDelta = (cam: number, value: number): number => value - cam;
+
+const renderBorderContactDemo = (args: Args): HTMLElement => {
+  const stage = createStage({ cameraDistance: args.cameraDistance, cameraTilt: 0.85, background: "#0a0e14" });
+  const ground = createGrassGround(Math.floor(GRID / 2));
+  stage.scene.add(ground.group);
+
+  const tiles = buildWorld();
+  const myReach = filterReachToLand(computeLocalReachSet(tiles, ME), tiles, keyFor);
+  const enemyReach = filterReachToLand(computeLocalReachSet(tiles, ENEMY), tiles, keyFor);
+  const reachDeps = { tiles, keyFor, wrapX: wrap, wrapY: wrap };
+  const overlay = createReachOverlay3D(stage.scene, GRID * GRID);
+  const borderDustFx = createBorderDustFxLayer(stage.scene);
+  const nowMs = performance.now();
+
+  const myLoops = samplePerimeterPylons(traceReachBoundaryEdgeLoops(myReach, reachDeps));
+  const enemyLoops = samplePerimeterPylons(traceReachBoundaryEdgeLoops(enemyReach, reachDeps));
+  const myPylons = myLoops.pylons.flat();
+  const mySegments = myLoops.segments.flat();
+  const enemyPylons = enemyLoops.pylons.flat().map((p) => ({ ...p, ownerId: ENEMY }));
+  const enemySegments = enemyLoops.segments.flat().map((s) => ({ from: s.from, to: s.to, ownerId: ENEMY }));
+
+  const contactState = computeBorderContactRenderState(ME, myPylons, enemyPylons, mySegments, enemySegments);
+
+  const surfaceYForCorner = (): number => 0;
+  const effectiveOverlayColor = (ownerId: string): string => PLAYER_COLORS.get(ownerId) ?? "#bdf3ff";
+
+  overlay.clearPylons();
+  overlay.clearTileOverlays();
+  for (const [ownerId, pylons, segments] of [
+    [ME, myPylons, mySegments],
+    [ENEMY, enemyPylons, enemySegments]
+  ] as const) {
+    for (const p of pylons) {
+      const v = resolveBorderContactVisual(contactState.pylonKeys.has(pointKey(p)), effectiveOverlayColor(ownerId), 1, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT);
+      overlay.addPylon(p.x - ORIGIN_X, p.y - ORIGIN_Y, 0, 1, nowMs, v.color, 1, v.laser);
+    }
+    for (const s of segments) {
+      for (const piece of splitSegmentByContact(s.from, s.to, contactState.seams)) {
+        const v = resolveBorderContactVisual(piece.atContact, effectiveOverlayColor(ownerId), 1, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT);
+        overlay.addLineSegment(piece.from.x - ORIGIN_X, piece.from.y - ORIGIN_Y, 0, piece.to.x - ORIGIN_X, piece.to.y - ORIGIN_Y, 0, v.color, v.laser);
+      }
+    }
+  }
+  overlay.commitPylons();
+  overlay.commitTileOverlays();
+
+  // Seam corners are in raw grid space; re-center on ORIGIN_X/Y the same
+  // way every pylon/segment above already is, via the no-wrap toroidDelta.
+  borderDustFx.setSeams(
+    borderContactSeamsToDustSeams(contactState.seams, {
+      toroidDelta: noWrapToroidDelta,
+      camX: ORIGIN_X,
+      camY: ORIGIN_Y,
+      worldWidth: GRID,
+      worldHeight: GRID,
+      surfaceYForCorner,
+      effectiveOverlayColor
+    })
+  );
+
+  let animId = 0;
+  const animate = (): void => {
+    const t = performance.now();
+    overlay.update(t);
+    borderDustFx.update(t);
+    animId = requestAnimationFrame(animate);
+  };
+  animate();
+
+  return wrapWithCleanup(stage, [() => cancelAnimationFrame(animId), overlay.dispose, borderDustFx.dispose, ground.dispose]);
+};
+
+export const ClashingBorders3D: Story = {
+  args: { cameraDistance: 9 },
+  render: renderBorderContactDemo
 };

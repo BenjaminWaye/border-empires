@@ -11,15 +11,16 @@ import {
 import { chebyshevDistanceSimple, coordsInChebyshevRadius } from "../territory-automation/territory-automation.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import type { LockRecord, RuntimePlayer, SimulationTileWireDelta } from "../runtime-types.js";
+import {
+  ADVANCE_EMPTY_COOLDOWN_MS,
+  ADVANCE_FAR_COOLDOWN_MS,
+  ADVANCE_THROTTLE_DIST,
+  lockSourcedFromMusterTile,
+  type MusterAdvanceCooldowns
+} from "./muster-auto-fire-shared.js";
+import { maybeMarchFire } from "./runtime-muster-march.js";
 
-// Distance threshold beyond which ADVANCE search slows to a reduced cadence.
-const ADVANCE_THROTTLE_DIST = 15;
-// How long to wait before re-searching when the front is far away (ms).
-const ADVANCE_FAR_COOLDOWN_MS = 3_000;
-// How long to wait before re-searching when nothing attackable was found at all (ms).
-const ADVANCE_EMPTY_COOLDOWN_MS = 10_000;
-
-export type MusterAdvanceCooldowns = Map<string, number>; // musterTileKey -> nextSearchAt (ms)
+export type { MusterAdvanceCooldowns } from "./muster-auto-fire-shared.js";
 
 type Position = { x: number; y: number };
 
@@ -174,9 +175,11 @@ export const tickMuster = (input: MusterTickInput): void => {
         input.replaceTileState(tileKey, currentTile);
       }
 
-      // ADVANCE auto-fire runs regardless of inflow so a full flag still strikes.
+      // ADVANCE/MARCH auto-fire runs regardless of inflow so a full flag still strikes.
       if (currentTile.muster?.mode === "ADVANCE") {
         maybeAdvanceFire(input, currentTile, playerId);
+      } else if (currentTile.muster?.mode === "MARCH") {
+        maybeMarchFire(input, currentTile, playerId);
       }
     }
 
@@ -350,23 +353,6 @@ const maybeAdvanceFire = (input: MusterTickInput, musterTile: DomainTileState, p
     },
     "ATTACK"
   );
-};
-
-/**
- * Returns the active lock currently funded from `musterTileKey` (attacks
- * record the flag that paid for them on LockRecord.musterSourceKey), or
- * undefined when the flag has no attack in flight. Every lock in the map is
- * scanned rather than a single lookup because a lock is stored under its
- * origin and target tile keys — the muster flag tile isn't necessarily either.
- */
-const lockSourcedFromMusterTile = (
-  locksByTile: ReadonlyMap<string, LockRecord>,
-  musterTileKey: string
-): LockRecord | undefined => {
-  for (const lock of locksByTile.values()) {
-    if (lock.musterSourceKey === musterTileKey) return lock;
-  }
-  return undefined;
 };
 
 const outpostTileKeysForPlayer = (input: MusterTickInput, playerId: string): Set<string> => {

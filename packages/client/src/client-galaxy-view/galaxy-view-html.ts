@@ -6,14 +6,52 @@ export type GalaxyViewPlanet = {
   seasonId: string;
   seasonSequence: number;
   objectiveName: string;
+  // Optional rather than required: seasons persisted before this field
+  // existed (an old SeasonArchiveRow) have no specialization computed yet,
+  // and a client build newer than a not-yet-redeployed gateway would
+  // otherwise render "undefined". Absent renders no badge at all.
+  specialization?: string;
   crownedAt: number;
   planetName: string | null;
   named: boolean;
+  // Galactic meta-layer v1 (docs/galactic-campaign-design.md §7): 0-100,
+  // absent when the gateway has no galaxyEconomyStore wired up yet (older
+  // deploys / v0-only servers) — renders no Stability readout in that case.
+  stability?: number;
 };
+
+// Galactic meta-layer v0 Outpost/Stipend tiers (docs/galactic-campaign-design.md
+// §3): a minor permanent holding (Outpost, specialized like a Planet) or a
+// one-time Inf/Prod payout with no territory (Stipend). Kept deliberately
+// simple for v0 — a flat list below the hero planet/switcher, not a second
+// starfield hero.
+export type GalaxyViewOutpost = {
+  seasonId: string;
+  seasonSequence: number;
+  specialization?: string;
+  awardedAt: number;
+  stability?: number;
+};
+
+export type GalaxyViewStipend = {
+  seasonId: string;
+  seasonSequence: number;
+  influence: number;
+  production: number;
+  awardedAt: number;
+};
+
+// Galactic meta-layer v1 (docs/galactic-campaign-design.md §4): the player's
+// current Influence/Production balance, absent under the same "gateway not
+// wired up yet" condition as GalaxyViewPlanet.stability above.
+export type GalaxyViewEconomy = { influence: number; production: number };
 
 export type GalaxyViewModel = {
   planets: GalaxyViewPlanet[];
   focusedSeasonId: string;
+  outposts?: GalaxyViewOutpost[];
+  stipends?: GalaxyViewStipend[];
+  economy?: GalaxyViewEconomy;
 };
 
 // Phase 1: the "Emperor" (winner of the most recently ended season) can
@@ -34,6 +72,49 @@ const escapeHtml = (value: string): string =>
 const crownedDateLabel = (crownedAt: number): string =>
   new Date(crownedAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
+// Display names for GalaxySpecialization (@border-empires/sim-protocol's
+// GALAXY_SPECIALIZATION_NAME) — kept as a local copy rather than a runtime
+// dependency on sim-protocol (which would drag its client-protocol/zod
+// dependency graph into the client bundle just for a label lookup), but
+// pinned against the real source of truth by galaxy-view-html.test.ts so the
+// two cannot silently drift. Falls back to the raw value for a
+// specialization id introduced server-side before the client knows its label.
+export const SPECIALIZATION_LABEL: Record<string, string> = {
+  INDUSTRIAL: "Industrial",
+  TRADE: "Trade",
+  EXTRACTION: "Extraction",
+  LOGISTICS: "Logistics",
+  CAPITAL: "Capital"
+};
+
+// Minimal Stability readout (§7): a number + a filled bar, no color coding
+// or drain/recovery detail — that's downstream of this slice (Defense
+// Campaigns aren't built yet, so there's nothing more to explain here).
+const stabilityHtml = (stability: number | undefined): string => {
+  if (stability === undefined) return "";
+  const clamped = Math.max(0, Math.min(100, stability));
+  return `
+    <div class="gx-stability" data-galaxy-stability title="Stability ${clamped}/100">
+      <span class="gx-stability-label">Stability ${clamped}</span>
+      <span class="gx-stability-bar"><span class="gx-stability-fill" style="width:${clamped}%"></span></span>
+    </div>`;
+};
+
+const economyHtml = (economy: GalaxyViewEconomy | undefined): string => {
+  if (!economy) return "";
+  return `
+    <div class="gx-economy" data-galaxy-economy>
+      <span class="gx-economy-item" data-galaxy-influence>${economy.influence} Inf</span>
+      <span class="gx-economy-item" data-galaxy-production>${economy.production} Prod</span>
+    </div>`;
+};
+
+const specializationBadgeHtml = (specialization: string | undefined): string => {
+  if (!specialization) return "";
+  const label = SPECIALIZATION_LABEL[specialization] ?? specialization;
+  return `<p class="gx-specialization" data-galaxy-specialization>${escapeHtml(label)} World</p>`;
+};
+
 // Purely decorative rotating planet figure (bands spin via CSS animation;
 // the ring and shading layers stay static for a simple "gas giant" look).
 // Shared by both the unnamed and named states so a world always feels like a
@@ -51,6 +132,7 @@ const christenFormHtml = (planet: GalaxyViewPlanet): string => `
   <div class="gx-christen" data-galaxy-christen data-season-id="${escapeHtml(planet.seasonId)}">
     <p class="gx-kicker">Unnamed World</p>
     ${planetFigureHtml()}
+    ${specializationBadgeHtml(planet.specialization)}
     <p class="gx-christen-copy">You won this season's crown. Name your planet — this cannot be changed later.</p>
     <form data-galaxy-christen-form>
       <input
@@ -72,7 +154,9 @@ const namedMedallionHtml = (planet: GalaxyViewPlanet): string => `
     <p class="gx-kicker">Your World</p>
     ${planetFigureHtml()}
     <p class="gx-planet-name">${escapeHtml(planet.planetName ?? "")}</p>
+    ${specializationBadgeHtml(planet.specialization)}
     <p class="gx-planet-meta">Crowned via ${escapeHtml(planet.objectiveName)} · ${crownedDateLabel(planet.crownedAt)}</p>
+    ${stabilityHtml(planet.stability)}
   </div>`;
 
 const switcherHtml = (planets: GalaxyViewPlanet[], focusedSeasonId: string): string => {
@@ -131,13 +215,42 @@ export const renderEmperorSectionHtml = (model: GalaxyEmperorViewModel): string 
     </div>`;
 };
 
+const outpostRowHtml = (outpost: GalaxyViewOutpost): string => `
+  <li class="gx-holding-row" data-galaxy-outpost>
+    <span>Season ${outpost.seasonSequence} Outpost</span>
+    ${specializationBadgeHtml(outpost.specialization)}
+    ${stabilityHtml(outpost.stability)}
+  </li>`;
+
+const stipendRowHtml = (stipend: GalaxyViewStipend): string => `
+  <li class="gx-holding-row" data-galaxy-stipend>
+    Season ${stipend.seasonSequence}: a stipend of ${stipend.influence} Inf / ${stipend.production} Prod
+  </li>`;
+
+// Deliberately simple v0 rendering — no starfield hero, just a flat list
+// under the Planet section. Empty when there are none of either.
+const outpostsAndStipendsHtml = (outposts: GalaxyViewOutpost[], stipends: GalaxyViewStipend[]): string => {
+  if (outposts.length === 0 && stipends.length === 0) return "";
+  const rows = [...outposts.map(outpostRowHtml), ...stipends.map(stipendRowHtml)].join("");
+  return `
+    <div class="gx-holdings" data-galaxy-holdings>
+      <p class="gx-kicker">Other Holdings</p>
+      <ul class="gx-holding-list">${rows}</ul>
+    </div>`;
+};
+
 export const renderGalaxyViewHtml = (model: GalaxyViewModel): string => {
+  const outposts = model.outposts ?? [];
+  const stipends = model.stipends ?? [];
+  const economy = economyHtml(model.economy);
   const focused = model.planets.find((planet) => planet.seasonId === model.focusedSeasonId) ?? model.planets[0];
-  if (!focused) return "";
+  if (!focused) return economy + outpostsAndStipendsHtml(outposts, stipends);
   return `
     <div class="gx-starfield" data-galaxy-starfield>
       <div class="gx-stars" aria-hidden="true"></div>
       ${focused.named ? namedMedallionHtml(focused) : christenFormHtml(focused)}
       ${switcherHtml(model.planets, focused.seasonId)}
-    </div>`;
+    </div>
+    ${economy}
+    ${outpostsAndStipendsHtml(outposts, stipends)}`;
 };

@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parsePrometheus, quantile, safeCollectMetricsSample } from "./rewrite-load-harness-metrics.mjs";
+import { maxMetricSample, parsePrometheus, quantile, safeCollectMetricsSample } from "./rewrite-load-harness-metrics.mjs";
 
 const fetchMetrics = async (url) => {
   const response = await fetch(url, { headers: { accept: "text/plain" } });
@@ -211,6 +211,19 @@ const gatewayEventLoopMaxMs = metricsSamples.length > 0
 const simEventLoopMaxMs = metricsSamples.length > 0
   ? Math.max(...metricsSamples.map((sample) => sample.simulation["sim_event_loop_max_ms"] ?? 0))
   : null;
+// Surface when the peak was observed and the sim's own running p50/p95/p99
+// event-loop delay quantiles (already exposed via sim_event_loop_delay_ms{quantile=...},
+// just never read here) — a gate-failing max alone can't distinguish a single
+// spike from sustained load.
+const simEventLoopMaxSample = maxMetricSample(metricsSamples, "simulation", "sim_event_loop_max_ms");
+const lastSimulationMetrics = metricsSamples.length > 0
+  ? metricsSamples[metricsSamples.length - 1].simulation
+  : {};
+const simEventLoopDelayQuantilesMs = {
+  p50: lastSimulationMetrics['sim_event_loop_delay_ms{quantile="p50"}'] ?? null,
+  p95: lastSimulationMetrics['sim_event_loop_delay_ms{quantile="p95"}'] ?? null,
+  p99: lastSimulationMetrics['sim_event_loop_delay_ms{quantile="p99"}'] ?? null
+};
 const simHumanInteractiveBacklogMaxMs = metricsSamples.length > 0
   ? Math.max(...metricsSamples.map((sample) => sample.simulation["sim_human_interactive_backlog_ms"] ?? 0))
   : null;
@@ -274,6 +287,8 @@ const payload = {
     sampleErrors: metricsErrors,
     gatewayEventLoopMaxMs,
     simEventLoopMaxMs,
+    simEventLoopMaxAt: simEventLoopMaxSample ? new Date(simEventLoopMaxSample.at).toISOString() : null,
+    simEventLoopDelayQuantilesMs,
     simHumanInteractiveBacklogMaxMs,
     simCheckpointRssMaxMb
   },

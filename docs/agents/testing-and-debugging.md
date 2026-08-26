@@ -32,6 +32,11 @@ PROD_SHAPE_GATE_RESULT_JSON=docs/load-results/prod-shape-candidate.json \
   pnpm ops:prod-shape:verify --target-sha "$(git rev-parse HEAD)"
 ```
 
+## Client 3D animation timing
+
+- In `packages/client/src/client-map-3d/client-map-3d.ts`, `rebuildVisibleTerrain()`/`maybeRebuild()` is throttled on BOTH game-state changes (`tilesRevision`) AND camera pan/zoom (`terrainWindowPanned`/`terrainWindowCovers`/`zoomChanged`). Never sample a wall clock (`Date.now()`/`performance.now()`) inside that rebuild path to drive a continuous animation (pulse, blink, fade) — camera pan will re-sample the clock and make the animation visibly jump/restart on every pan (this happened twice: the frontier-decay pulse and, before it, the encirclement blink it was copied from).
+- Any continuous animation must instead run from an unconditional per-frame call in `renderLoop`, keyed on a `nowMs` parameter, independent of `maybeRebuild`'s throttle — follow `renderReachOverlay3DPylons`/`attackOverlay.tick`/`client-map-3d-frontier-decay-pulse.ts` as the reference pattern. The throttled rebuild should only recompute *which* things need to animate (e.g. the list of currently-decaying tiles), never the animation's clock-driven value itself.
+
 ## Debugging workflow
 
 - When a bug is unclear or a fix doesn't work on the first pass, instrument the exact failing path before trying more speculative code changes.

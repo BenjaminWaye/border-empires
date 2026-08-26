@@ -69,45 +69,50 @@ describe("3d town-upgrade-ready badge regression guard", () => {
     // Parity with the tile-menu "Upgrade Town to City"-style action: the badge
     // predicate must come from shouldShowTownUpgradeReadyBadge so neutral,
     // foreign, unsettled, and max-tier towns don't light up the map.
-    expect(source).toContain("shouldShowTownUpgradeReadyBadge(tile)");
+    expect(source).toContain("shouldShowTownUpgradeReadyBadge(tile, deps.state.me)");
     expect(source).toContain("upgradeReadyBadgeOverlay.addInstance(x, z, surfaceY)");
   });
 
   it("paints for an owned, settled, non-SETTLEMENT town that has reached its next tier", () => {
-    expect(shouldShowTownUpgradeReadyBadge(ownedReadyTownTile())).toBe(true);
+    expect(shouldShowTownUpgradeReadyBadge(ownedReadyTownTile(), "me")).toBe(true);
   });
 
   it("paints for a TOWN heading to CITY using the server-stamped upgrade field", () => {
-    expect(shouldShowTownUpgradeReadyBadge(ownedReadyTownTile({ town: { populationTier: "TOWN" } }))).toBe(true);
+    expect(shouldShowTownUpgradeReadyBadge(ownedReadyTownTile({ town: { populationTier: "TOWN" } }), "me")).toBe(true);
   });
 
   it("does NOT paint when the town has NOT yet reached the population threshold", () => {
     expect(
-      shouldShowTownUpgradeReadyBadge(ownedReadyTownTile({ town: { nextPopulationTierUpgrade: { targetTier: "CITY", requiredPopulation: 100_000, goldCost: 40, available: false } } }))
+      shouldShowTownUpgradeReadyBadge(ownedReadyTownTile({ town: { nextPopulationTierUpgrade: { targetTier: "CITY", requiredPopulation: 100_000, goldCost: 40, available: false } } }), "me")
     ).toBe(false);
   });
 
   it("does NOT paint without a server nextPopulationTierUpgrade stamp (max tier reached)", () => {
     const tile = ownedReadyTownTile();
     delete (tile.town as { nextPopulationTierUpgrade?: unknown }).nextPopulationTierUpgrade;
-    expect(shouldShowTownUpgradeReadyBadge(tile)).toBe(false);
+    expect(shouldShowTownUpgradeReadyBadge(tile, "me")).toBe(false);
   });
 
   it("does NOT paint on a neutral (unowned) town", () => {
     const tile = ownedReadyTownTile();
     delete (tile as { ownerId?: string }).ownerId;
     delete (tile as { ownershipState?: Tile["ownershipState"] }).ownershipState;
-    expect(shouldShowTownUpgradeReadyBadge(tile)).toBe(false);
+    expect(shouldShowTownUpgradeReadyBadge(tile, "me")).toBe(false);
+  });
+
+  it("does NOT paint on another player's town, even though it is settled and upgrade-ready", () => {
+    const tile = ownedReadyTownTile({ ownerId: "opponent" });
+    expect(shouldShowTownUpgradeReadyBadge(tile, "me")).toBe(false);
   });
 
   it("does NOT paint on a frontier (unsettled) tile", () => {
-    expect(shouldShowTownUpgradeReadyBadge(ownedReadyTownTile({ ownershipState: "FRONTIER" }))).toBe(false);
+    expect(shouldShowTownUpgradeReadyBadge(ownedReadyTownTile({ ownershipState: "FRONTIER" }), "me")).toBe(false);
   });
 
   it("does NOT paint on a SETTLEMENT-tier town — its Town step is filtered off the wire", () => {
     const tile = ownedReadyTownTile({ town: { populationTier: "SETTLEMENT" } });
     delete (tile.town as { nextPopulationTierUpgrade?: unknown }).nextPopulationTierUpgrade;
-    expect(shouldShowTownUpgradeReadyBadge(tile)).toBe(false);
+    expect(shouldShowTownUpgradeReadyBadge(tile, "me")).toBe(false);
   });
 
   it("emits exactly one badge per instance and clears between frames", () => {

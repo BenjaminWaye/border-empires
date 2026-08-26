@@ -87,8 +87,8 @@ describe("buildInitMessage", () => {
       expect.objectContaining({
         id: "player-1",
         name: "Nauticus",
-        gold: 10, // §6.1 STARTING_GOLD 100->10; §4.3 starting manpower 150->576
-        manpower: 576,
+        gold: 10, // §6.1 STARTING_GOLD 100->10; §4.3 starting manpower 150->720
+        manpower: 720,
         techIds: [],
         tileColor: expect.stringMatching(/^#[0-9a-f]{6}$/i)
       })
@@ -674,7 +674,7 @@ describe("buildInitMessage", () => {
           {
             id: benjaminId,
             isAi: false,
-            name: "Benjamin Waye",
+            name: "Test Player",
             points: 100,
             manpower: 100,
             techIds: new Set<string>(),
@@ -731,7 +731,7 @@ describe("buildInitMessage", () => {
           benjaminId,
           {
             id: benjaminId,
-            name: "Benjamin Waye",
+            name: "Test Player",
             points: 100,
             manpower: 100,
             incomePerMinute: 1,
@@ -854,7 +854,7 @@ describe("buildInitMessage", () => {
     expect(init.leaderboard.overall).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: nauticusId, name: "Nauticus" }),
-        expect.objectContaining({ id: benjaminId, name: "Benjamin Waye" }),
+        expect.objectContaining({ id: benjaminId, name: "Test Player" }),
         expect.objectContaining({ id: "ai-1", name: "AI 1" })
       ])
     );
@@ -862,11 +862,11 @@ describe("buildInitMessage", () => {
     expect(init.leaderboard.byTiles).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: nauticusId, name: "Nauticus" }),
-        expect.objectContaining({ id: benjaminId, name: "Benjamin Waye" })
+        expect.objectContaining({ id: benjaminId, name: "Test Player" })
       ])
     );
     expect(init.seasonVictory).toEqual(
-      expect.arrayContaining([expect.objectContaining({ leaderPlayerId: benjaminId, leaderName: "Benjamin Waye" })])
+      expect.arrayContaining([expect.objectContaining({ leaderPlayerId: benjaminId, leaderName: "Test Player" })])
     );
   });
 

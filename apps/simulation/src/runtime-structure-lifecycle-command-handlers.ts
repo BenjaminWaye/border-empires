@@ -162,6 +162,17 @@ export function handleSetMusterCommand(context: RuntimeStructureCommandContext, 
     rejectCommand(context, command, "MUSTER_INVALID", "owned LAND tile required to muster");
     return;
   }
+  if (payload.mode === "MARCH") {
+    if (payload.targetX === payload.x && payload.targetY === payload.y) {
+      rejectCommand(context, command, "MUSTER_INVALID", "march target must differ from the flag tile");
+      return;
+    }
+    const marchTarget = context.tiles.get(simulationTileKey(payload.targetX!, payload.targetY!));
+    if (!marchTarget || marchTarget.terrain !== "LAND") {
+      rejectCommand(context, command, "MUSTER_INVALID", "march target must be a LAND tile");
+      return;
+    }
+  }
   const isNewMuster = target.muster?.ownerId !== command.playerId;
   if (isNewMuster) {
     const musterLimit =
@@ -413,6 +424,10 @@ export function completeStructureRemoval(context: RuntimeStructureCommandContext
   context.emitPlayerStateUpdate({ commandId, playerId: ownerId });
   // A removed Relay Beacon's vision bonus is dropped by reconcileOutpostVisionBonus
   // via the replaceTileState call above — runtime-outpost-vision.ts.
+  // Same timer-completion flush requirement as completeStructureBuild: this
+  // runs off scheduleAfter, not queueCommandForProcessing, so the border
+  // contraction from deactivating a reach anchor must be flushed explicitly.
+  context.flushReachUpdates(`reach-update:${commandId}`);
 }
 
 export function handleCancelSiegeOutpostBuildCommand(context: RuntimeStructureCommandContext, command: CommandEnvelope): void {

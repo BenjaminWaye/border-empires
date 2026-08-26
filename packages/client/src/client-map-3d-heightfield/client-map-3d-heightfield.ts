@@ -15,7 +15,7 @@ import {
 import { terrainShadeVariantAt } from "../client-map-3d-terrain-variation/client-map-3d-terrain-variation.js";
 import { accumulateHeightfieldNormals } from "../client-map-3d-heightfield-normals.js";
 import {
-  elevationJitter,
+  coastCornerElevation, elevationJitter,
   heightfieldTileBaseElevation,
   heightfieldTileColor,
   wrap,
@@ -43,14 +43,14 @@ const MAX_INDEX_COUNT = QUAD_COUNT * 6;
 // land edge drops to, well below the lowest water displacement, so that
 // riser is always covered by solid (if unlit) geometry instead of empty
 // canvas.
-//
 // Exported so client-map-3d-hills.ts's own skirt (hill dome edges bordering
 // a hole have exactly the same zero-thickness problem, and previously had
 // no skirt at all) drops to the identical depth and shade — two different
 // skirts meeting at a shared tile boundary need to agree, or the seam
 // between them becomes its own crack.
 export const SKIRT_BOTTOM_Y = -0.6;
-export const SKIRT_SHADE = 0.55;
+// 0.55 read near-black under the water's dark tint at a wave trough (#1482).
+export const SKIRT_SHADE = 0.72;
 
 export type HeightfieldRebuildInputs = {
   readonly camX: number;
@@ -64,7 +64,7 @@ export type HeightfieldRebuildInputs = {
   // Drives the "darker grass" halo near trees (forestProximity, smoothed
   // via vertex averaging). Absent → no halo.
   readonly isForestAt?: (wx: number, wy: number) => boolean;
-  // Excludes GRASS/SAND hills tiles (rendered by client-map-3d-hills.ts).
+  // Excludes GRASS/SAND/TUNDRA hills tiles (rendered by client-map-3d-hills.ts).
   readonly isHillsAt?: (wx: number, wy: number) => boolean;
 };
 
@@ -97,6 +97,12 @@ export const createHeightfield = (): Heightfield => {
   // surrounding tiles, so the boundary of the dark-grass zone fades over
   // ~1 tile through standard vertex interpolation in the rasterizer.
   const forestZones = new Float32Array(VERT_COUNT);
+  // Per-vertex TUNDRA fraction (0..1), corner-averaged the same way as
+  // forestZone. Unlike the grass/sand split, TUNDRA can't be told apart
+  // from SAND by inferring it from the blended vertex color alone (its
+  // pale palette lands too close to sand's in greenBias space) — this
+  // explicit mask is sampled directly in the shader instead.
+  const tundraZones = new Float32Array(VERT_COUNT);
   // Owned normal buffer so we can write face-accumulated normals directly
   // and skip three.js's computeVertexNormals BufferAttribute round-trip
   // (the per-frame hot spot in panning profiles).
@@ -107,6 +113,7 @@ export const createHeightfield = (): Heightfield => {
   geometry.setAttribute("color", new BufferAttribute(colors, 3));
   geometry.setAttribute("uv", new BufferAttribute(uvs, 2));
   geometry.setAttribute("forestZone", new BufferAttribute(forestZones, 1));
+  geometry.setAttribute("tundraZone", new BufferAttribute(tundraZones, 1));
   geometry.setAttribute("normal", new BufferAttribute(normals, 3));
   geometry.setIndex(new BufferAttribute(indices, 1));
   geometry.setDrawRange(0, 0);
@@ -141,36 +148,44 @@ export const createHeightfield = (): Heightfield => {
   // region of the texture — the eye stops noticing repetition. Soft-narrow
   // biome cut keeps the grass/sand boundary anti-aliased without the
   // mid-blend zone that read as a darker green band before.
-  if (detailMaps.sandColorMap) {
+  if (detailMaps.sandColorMap && detailMaps.tundraColorMap) {
     const sandMapUniform = { value: detailMaps.sandColorMap };
+    const tundraMapUniform = { value: detailMaps.tundraColorMap };
     material.onBeforeCompile = (shader): void => {
       shader.uniforms.sandColorMap = sandMapUniform;
+      shader.uniforms.tundraColorMap = tundraMapUniform;
 
       // Vertex shader: pass the raw world-coord uv (= camX + tileOffsetX + i,
       // see rebuild()) through as `vTerrainWorldUv` so the fragment shader
       // can recover which world tile a pixel belongs to via floor(). Also
       // pass the forestZone attribute (corner-averaged forest proximity)
-      // for the dark-grass halo around tree tiles.
+      // for the dark-grass halo around tree tiles, and tundraZone (see its
+      // declaration above) for the explicit tundra mask.
       shader.vertexShader = shader.vertexShader.replace(
         "#include <common>",
         `#include <common>
 attribute float forestZone;
+attribute float tundraZone;
 varying vec2 vTerrainWorldUv;
-varying float vForestZone;`
+varying float vForestZone;
+varying float vTundraZone;`
       );
       shader.vertexShader = shader.vertexShader.replace(
         "#include <uv_vertex>",
         `#include <uv_vertex>
 vTerrainWorldUv = uv;
-vForestZone = forestZone;`
+vForestZone = forestZone;
+vTundraZone = tundraZone;`
       );
 
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <common>",
         `#include <common>
 uniform sampler2D sandColorMap;
+uniform sampler2D tundraColorMap;
 varying vec2 vTerrainWorldUv;
-varying float vForestZone;`
+varying float vForestZone;
+varying float vTundraZone;`
       );
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <map_fragment>",
@@ -197,12 +212,18 @@ varying float vForestZone;`
 
         vec4 grassSample = texture2D( map, sampleUv );
         vec4 sandSample = texture2D( sandColorMap, sampleUv );
+        vec4 tundraSample = texture2D( tundraColorMap, sampleUv );
         float greenBias = vColor.g - 0.5 * (vColor.r + vColor.b);
         // Soft-narrow biome cut: 0.03-wide blend zone, just enough to
         // antialias the seam without a visible mid-blend band of
-        // muddy-green-into-tan.
+        // muddy-green-into-tan. TUNDRA's pale palette sits too close to
+        // SAND's in this color-inferred space to tell apart the same way,
+        // so it uses an explicit per-vertex mask (vTundraZone, set from the
+        // real tile kind in rebuild()) instead, blended in on top last.
         float grassMask = smoothstep(0.055, 0.085, greenBias);
         vec3 biomeColor = mix(sandSample.rgb, grassSample.rgb, grassMask);
+        float tundraMask = smoothstep(0.4, 0.6, vTundraZone);
+        biomeColor = mix(biomeColor, tundraSample.rgb, tundraMask);
 
         // Forest halo: where the grass is within 2 tiles of a tree tile
         // (vForestZone interpolates 0..1 from the per-corner average),
@@ -351,6 +372,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       readonly isSea: boolean;
       readonly isExplored: boolean;
       readonly isHills: boolean;
+      readonly isTundra: boolean;
       readonly forestProx: number;
     };
     const tileSampleCache = new Map<number, TileSample>();
@@ -379,7 +401,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       // Excluded from land averaging below (s00Land etc.) — hills render as
       // their own dome mesh (client-map-3d-hills.ts), so a flat neighbour
       // never rises.
-      const isHillsTile = (kind === "GRASS" || kind === "SAND") && hillsAt(wx, wy);
+      const isHillsTile = (kind === "GRASS" || kind === "SAND" || kind === "TUNDRA") && hillsAt(wx, wy);
       const hillsBonus = isHillsTile ? HEIGHTFIELD_HILLS_ELEVATION_BONUS : 0;
       const baseElevation = heightfieldTileBaseElevation(kind) + hillsBonus;
       const elevation = baseElevation + elevationJitter(wx, wy, kind);
@@ -395,6 +417,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
         isSea,
         isExplored,
         isHills: isHillsTile,
+        isTundra: kind === "TUNDRA",
         forestProx
       };
       tileSampleCache.set(cacheKey, sample);
@@ -510,7 +533,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
           const landR = landSumR * invLand;
           const landG = landSumG * invLand;
           const landB = landSumB * invLand;
-          elevation = coastEdgeY;
+          elevation = coastCornerElevation(s00, s10, s01, s11, coastEdgeY);
           r = landR * (1 - beachMix) + beachR * beachMix;
           g = landG * (1 - beachMix) + beachG * beachMix;
           b = landB * (1 - beachMix) + beachB * beachMix;
@@ -537,6 +560,8 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
         // halo edge fades over a tile through standard vertex interpolation.
         const vertIdx = j * VERT_DIM + i;
         forestZones[vertIdx] = (s00.forestProx + s10.forestProx + s01.forestProx + s11.forestProx) * 0.25;
+        tundraZones[vertIdx] =
+          ((s00.isTundra ? 1 : 0) + (s10.isTundra ? 1 : 0) + (s01.isTundra ? 1 : 0) + (s11.isTundra ? 1 : 0)) * 0.25;
         // Cache the rendered corner-Y keyed by world coords so overlay
         // helpers can look up the exact surface Y the heightfield drew.
         const cornerWorldX = wrap(camX + tileOffsetX + i, worldWidth);
@@ -707,6 +732,7 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
     const colorAttr = geometry.attributes.color as BufferAttribute | undefined;
     const uvAttr = geometry.attributes.uv as BufferAttribute | undefined;
     const forestAttr = geometry.attributes.forestZone as BufferAttribute | undefined;
+    const tundraAttr = geometry.attributes.tundraZone as BufferAttribute | undefined;
     const normalAttr = geometry.attributes.normal as BufferAttribute | undefined;
     if (positionAttr) {
       positionAttr.clearUpdateRanges();
@@ -727,6 +753,11 @@ gl_FragColor.rgb = max(gl_FragColor.rgb, vec3(0.10, 0.07, 0.03));`
       forestAttr.clearUpdateRanges();
       forestAttr.addUpdateRange(0, writtenVertCount);
       forestAttr.needsUpdate = true;
+    }
+    if (tundraAttr) {
+      tundraAttr.clearUpdateRanges();
+      tundraAttr.addUpdateRange(0, writtenVertCount);
+      tundraAttr.needsUpdate = true;
     }
     geometry.setDrawRange(0, lastIndexCount);
     accumulateHeightfieldNormals(positions, indices, lastIndexCount, normals, VERT_COUNT);

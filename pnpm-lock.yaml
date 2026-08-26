@@ -129,6 +129,9 @@ importers:
         specifier: ^0.179.1
         version: 0.179.1
     devDependencies:
+      '@border-empires/sim-protocol':
+        specifier: workspace:*
+        version: link:../sim-protocol
       '@types/three':
         specifier: ^0.179.0
         version: 0.179.0
