@@ -198,6 +198,17 @@ export type OvertakenTile = { tileKey: string; fromOwnerId: string; toOwnerId: s
  *   their own still covering it**, per `defenderLiveReach(claimantOwnerId)`.
  *   If the claimant is still actively covering the tile, they keep it and
  *   the incoming anchor simply doesn't extend the border there.
+ * - EXCEPT the anchor's own tile (the ground the town/dock/outpost actually
+ *   stands on), which is always granted to the anchor's owner regardless of
+ *   any rival's live defense there. Reach is sticky (a rival's existing
+ *   border never gets pushed back just because a new anchor activated
+ *   somewhere inside it), but a captured town/dock deep in a rival's
+ *   territory must still register as having reach on the one tile it's
+ *   physically standing on — it just can't project that reach onto any
+ *   neighbouring tile the rival is still actively defending. Without this
+ *   carve-out the contest check above would leave the anchor's own tile
+ *   owned by the rival in the border map even though the structure sitting
+ *   on it now belongs to someone else.
  *
  * Pure — does not mutate `border`. Returns the updated map plus the list of
  * tiles that actually changed owner, so callers can drive the matching
@@ -224,7 +235,11 @@ export const grantAnchorToBorder = (
 ): { border: Map<string, string>; overtaken: OvertakenTile[] } => {
   const next = new Map(border);
   const overtaken: OvertakenTile[] = [];
+  const ownTileKey = tileKey(wrapCoord(anchor.x, WORLD_WIDTH), wrapCoord(anchor.y, WORLD_HEIGHT));
   for (const key of tileKeysInReach(anchor, landConnectivity)) {
+    // The anchor's own tile always wins the contest below, no matter how
+    // live the rival's defense is there — see this function's doc comment.
+    const isOwnTile = key === ownTileKey;
     const existingOwner = next.get(key);
     if (!existingOwner) {
       const settledOwner = settledOwnerAt?.(key);
@@ -233,8 +248,9 @@ export const grantAnchorToBorder = (
         // Resolve it exactly as the claimed-slot branch below does: if they
         // can still defend it themselves they keep it and this anchor simply
         // doesn't extend the border here (the attacker gets a hole, same as a
-        // successfully defended claimed tile).
-        if (defenderLiveReach(settledOwner).has(key)) continue;
+        // successfully defended claimed tile) — unless it's the anchor's own
+        // tile, which is never left to a rival.
+        if (!isOwnTile && defenderLiveReach(settledOwner).has(key)) continue;
         next.set(key, anchor.ownerId);
         overtaken.push({ tileKey: key, fromOwnerId: settledOwner, toOwnerId: anchor.ownerId });
         continue;
@@ -243,7 +259,7 @@ export const grantAnchorToBorder = (
       continue;
     }
     if (existingOwner === anchor.ownerId) continue;
-    const defended = defenderLiveReach(existingOwner).has(key);
+    const defended = !isOwnTile && defenderLiveReach(existingOwner).has(key);
     if (!defended) {
       next.set(key, anchor.ownerId);
       overtaken.push({ tileKey: key, fromOwnerId: existingOwner, toOwnerId: anchor.ownerId });
