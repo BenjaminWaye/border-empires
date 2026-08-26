@@ -13,7 +13,7 @@ import {
   MINTWORKS_INSTANT_GOLD_BONUS, RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD,
   UPKEEP_MINUTES_PER_DAY
 } from "../server-game-constants/server-game-constants.js";
-import { percentLabel, type ModifierContext, type ModifierStructureType, type StructureModifier } from "./structure-modifier-catalog-types.js";
+import { multiplierPercentLabel, percentLabel, type ModifierContext, type ModifierStructureType, type StructureModifier } from "./structure-modifier-catalog-types.js";
 
 const mintworksModifiers = (ctx: ModifierContext): StructureModifier[] => {
   const count = ctx.tile?.town?.mintworksCount;
@@ -94,7 +94,7 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
   if (type === "GRANARY") {
     return [
       { statLabel: "Population", valueText: `+${GRANARY_INSTANT_POPULATION_BURST.toLocaleString()} (once, on completion)`, tone: "positive", isTownWide: true },
-      { statLabel: "Population growth", valueText: percentLabel((GRANARY_ONGOING_GROWTH_MULT - 1) * 100), tone: "positive", isTownWide: true }
+      { statLabel: "Population growth", valueText: multiplierPercentLabel(GRANARY_ONGOING_GROWTH_MULT), tone: "positive", isTownWide: true }
     ];
   }
   if (type === "SEED_GRANARY") {
