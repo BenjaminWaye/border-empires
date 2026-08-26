@@ -117,7 +117,9 @@ export const resourceSlotSupplyForPlayer = (
   settledTiles: Iterable<Pick<DomainTileState, "x" | "y" | "resource" | "economicStructure">>,
   waterworksKeys: ReadonlySet<string> = new Set(),
   foundryKeys: ReadonlySet<string> = new Set(),
-  domainGrantedSupply?: Partial<Record<SlotResource, number>>
+  domainGrantedSupply?: Partial<Record<SlotResource, number>>,
+  // Agrarian Works flat FOOD-slot bonus per owned FISH tile — see techGrantedFishFoodSlotBonus (tech-domain-bridge/fish-food-slot-bonus.ts).
+  fishFoodSlotBonus = 0
 ): ResourceSlotTotals => {
   // §5.4: deliberately NOT dormancy-aware, for two different reasons per
   // structure family:
@@ -151,15 +153,11 @@ export const resourceSlotSupplyForPlayer = (
     const base = BASE_SLOTS_BY_TILE_RESOURCE[tile.resource];
     if (!base) continue;
     let slots = base.baseSlots;
-    // FARMSTEAD is placement-legal on both FARM and FISH tiles (structure-
-    // placement-metadata.json's FARMSTEAD.resourceTypes), but §5.3 is explicit
-    // that FISH is a fixed 2 slots forever, "no Farmstead or Waterworks bonus
-    // available" — unlike MINE (legally on TITANIUM or GEMS) and UMBRITE_RIG
-    // (UMBRITE only), which stay resource-agnostic on purpose since both of their valid
-    // tile types scale normally, FARMSTEAD's own boost must NOT apply on FISH.
+    // FARMSTEAD is placement-legal on FARM and FISH (structure-placement-metadata.json), but its own same-tile boost stays FARM-only (§5.3); FISH gets a separate tech bonus below instead.
     const boostBlockedOnFish = structureType === "FARMSTEAD" && tile.resource !== "FARM";
     const boost = structureType && !boostBlockedOnFish ? TILE_SLOT_BOOST_STRUCTURES[structureType] : undefined;
     if (boost) slots += boost;
+    if (tile.resource === "FISH" && fishFoodSlotBonus > 0) slots += fishFoodSlotBonus;
     if (
       structureType === "FARMSTEAD" &&
       tile.resource === "FARM" &&

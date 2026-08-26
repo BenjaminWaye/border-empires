@@ -269,6 +269,7 @@ describe("Clockwork Stipend resource slot grant", () => {
     expect(domainGrantedResourceSlots(player)).toBeUndefined();
   });
 
+
   it("does not overwrite a previously-locked trickle resource even when a new pick is offered", () => {
     const player = baseClockworkPlayer();
     player.chosenTrickleResource = "TITANIUM";

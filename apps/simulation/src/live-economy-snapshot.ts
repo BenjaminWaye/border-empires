@@ -2,6 +2,7 @@ import { DOCK_INCOME_PER_MIN, PASSIVE_INCOME_MULT, type DomainTileState } from "
 import { buildDockLinksByDockTileKey } from "./dock-network/dock-network.js";
 import { buildConnectedTownNetworkForPlayer, dockBaseGoldPerMinuteForPlayer } from "./economy-network/economy-network.js";
 import { domainGrantedResourceSlots } from "./tech-domain-bridge/tech-domain-bridge.js";
+import { techGrantedFishFoodSlotBonus } from "./tech-domain-bridge/fish-food-slot-bonus.js";
 import { slotWaiversForPlayer } from "./tech-domain-bridge/slot-waivers.js";
 import {
   type RuntimeState,
@@ -219,8 +220,9 @@ const resourceSlotsForPlayer = (
     ? slotWaiversForPlayer({ techIds: new Set(player.techIds), domainIds: new Set(player.domainIds) })
     : undefined;
   const domainGranted = player ? domainGrantedResourceSlots({ domainIds: new Set(player.domainIds), chosenTrickleResource: player.chosenTrickleResource }) : undefined;
+  const fishBonus = player ? techGrantedFishFoodSlotBonus(player) : 0;
   return {
-    supply: resourceSlotSupplyForPlayer(settledSlotTiles, waterworksKeys, foundryKeys, domainGranted),
+    supply: resourceSlotSupplyForPlayer(settledSlotTiles, waterworksKeys, foundryKeys, domainGranted, fishBonus),
     demand: resourceSlotDemandForPlayer(ownedSlotTiles, playerId, waivers)
   };
 };

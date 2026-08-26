@@ -1,6 +1,6 @@
-import { BASE_COMBAT_POWER, PLAYER_BASE_VISION, TRICKLE_RESOURCE_KEYS, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS, type ChosenTrickleResource } from "@border-empires/shared";
+import { BASE_COMBAT_POWER, PLAYER_BASE_VISION, TRICKLE_RESOURCE_KEYS, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS, AGRICULTURE_FISH_FOOD_SLOT_BONUS, type ChosenTrickleResource } from "@border-empires/shared";
 import type { DomainInfo, TechInfo } from "../client-types.js";
-import { isTechHighlightEffectKey } from "../client-tech-payoffs.js";
+import { isTechHighlightEffectKey } from "../client-tech-payoffs.js"; import { economicStructureName } from "../client-map-display.js";
 type ModKey = "attack" | "defense" | "income" | "vision";
 type ModBreakdown = Record<ModKey, Array<{ label: string; mult: number }>>;
 type ActiveBonusContext = {
@@ -44,23 +44,23 @@ export const hasRevealedResourceCategory = (
 };
 
 export const effectSummaryLabel = (key: string, value: unknown): string | null => {
-  if (key === "unlockFarmstead" && value === true) return `Unlocks farmsteads (+50% farm food, +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot)`;
+  if (key === "unlockFarmstead" && value === true) return `Unlocks farmsteads (+50% farm food, +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
   if (key === "unlockUmbriteRig" && value === true) return "Unlocks umbrite rigs";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMintworks" && value === true) return "Unlocks mintworks";
   if (key === "unlockForts" && value === true) return "Unlocks forts";
   if (key === "unlockObservatory" && value === true) return "Unlocks observatories";
   if (key === "unlockSiegeOutposts" && value === true) return "Unlocks siege outposts";
-  if (key === "unlockGranary" && value === true) return "Unlocks granaries";
+  if (key === "unlockGranary" && value === true) return `Unlocks the ${economicStructureName("GRANARY")}`;
   if (key === "unlockCensusHall" && value === true) return "Unlocks census halls";
   if (key === "unlockClearingHouse" && value === true) return "Unlocks clearing houses";
   if (key === "unlockCaravanary" && value === true) return "Unlocks trade nexuses";
-  if (key === "unlockUmbriteSynthesizer" && value === true) return "Unlocks umbrite synthesizers";
+  if (key === "unlockUmbriteSynthesizer" && value === true) return `Unlocks ${economicStructureName("UMBRITE_SYNTHESIZER")}`;
   if (key === "unlockTitaniumWorks" && value === true) return "Unlocks titanium works";
   if (key === "unlockCrystalSynthesizer" && value === true) return "Unlocks aether condensers";
   if (key === "unlockSynthOverload" && value === true) return "Unlocks synth overload";
   if (key === "unlockAdvancedSynthesizers" && value === true) return "Unlocks grand synthesis upgrades";
-  if (key === "unlockFoundry" && value === true) return "Unlocks sky foundries";
+  if (key === "unlockFoundry" && value === true) return `Unlocks the ${economicStructureName("FOUNDRY")}`;
   if (key === "unlockAetherTower" && value === true) return "Unlocks Aether Towers";
   if (key === "unlockCustomsHouse" && value === true) return "Unlocks harbor exchanges";
   if (key === "unlockGovernorsOffice" && value === true) return "Unlocks ministry halls";
