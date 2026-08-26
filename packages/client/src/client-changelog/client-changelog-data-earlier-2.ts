@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787176861000, // 2026.08.20
+    introducedIn: "2026.08.20",
+    title: "Fixed: EXPAND onto a connected dock or across an active Aether Bridge was silently impossible",
+    why: "EXPAND has always required the target tile to be inside your persistent reach border, and that check applied unconditionally to dock and Aether Bridge crossings too — but a bridge or dock crossing lands you on a landmass with no anchor of your own there yet, by design (that's the entire point of both). The reach check therefore always failed for a genuinely connected dock's paired tile or a bridge's landing tile, making it impossible to ever claim either.",
+    changes: [
+      "EXPAND across a connected dock link, or across an active Aether Bridge, no longer requires the target tile to already be inside your reach border — matching the adjacency and Aether-wall-shield exemptions those crossings already had."
+    ]
+  },
+  {
     createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
     introducedIn: "2026.08.25.3",
     title: "Fixed borders not expanding after a reach anchor finished while you were away",
