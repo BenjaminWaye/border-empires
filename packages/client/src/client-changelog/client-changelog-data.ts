@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787726484063, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "New player and respawn placements now draw from a precomputed, equal-opportunity spawn map",
+    why: "Spawn placement previously ran a fresh random search per player against the live map, so two players joining minutes apart could land with very different access to nearby food and towns purely by luck of that search. Worldgen now precomputes a roster of candidate spawn sites up front, all drawn from the same amenity tier and spread evenly across the map, so every new empire and every respawn starts on comparably fair footing.",
+    changes: [
+      "Worldgen now precomputes a roster of up to 50 candidate spawn sites, chosen to share similar nearby food/town access and to spread evenly across the map instead of clustering.",
+      "New players and eliminated players respawning now draw from this roster first, falling back to the previous random search only once it's exhausted."
+    ]
+  },
+  {
     createdAt: 1787692481411, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.8",
     title: "Gave the \"join now\" season prompt a real intro instead of a bare confirmation dialog",

@@ -42,6 +42,17 @@ export type RuntimeRespawnContext = {
   hasNearbySettled: (x: number, y: number, radius: number) => boolean;
   hasNearbyTown: (x: number, y: number, radius: number) => boolean;
   hasNearbyFood: (x: number, y: number, radius: number) => boolean;
+  // Precomputed, equal-opportunity worldgen spawn roster (see
+  // computeFairSpawnSites/SpawnPlacementIndex.claimFairSpawnSite). Tried
+  // before falling back to chooseLegacySpawnPlacement's per-player random
+  // search, which stays as the fallback once the roster is exhausted.
+  claimFairSpawnSite: (isAvailable: (x: number, y: number) => boolean, rallyAnchor?: { x: number; y: number }) => { x: number; y: number } | undefined;
+};
+
+const isSpawnableTile = (ctx: RuntimeRespawnContext, blockedTileKeys: ReadonlySet<string>) => (x: number, y: number): boolean => {
+  const tile = ctx.tiles.get(simulationTileKey(x, y));
+  if (!tile || tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
+  return !blockedTileKeys.has(simulationTileKey(x, y));
 };
 
 export const preparePlayerRespawnNotice = (
@@ -126,16 +137,18 @@ export const ensurePlayerHasSpawnTerritory = (
   }
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
   ctx.rememberedAutomationVictoryPathByPlayer.delete(playerId);
-  const spawn = chooseLegacySpawnPlacement({
-    playerId,
-    tiles: ctx.tiles.values(),
-    blockedTileKeys,
-    coastalLandKeys: ctx.coastalLandKeys(),
-    hasNearbySettled: ctx.hasNearbySettled,
-    hasNearbyTown: ctx.hasNearbyTown,
-    hasNearbyFood: ctx.hasNearbyFood,
-    ...(rallyAnchor ? { rallyAnchor } : {})
-  });
+  const spawn =
+    ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys), rallyAnchor) ??
+    chooseLegacySpawnPlacement({
+      playerId,
+      tiles: ctx.tiles.values(),
+      blockedTileKeys,
+      coastalLandKeys: ctx.coastalLandKeys(),
+      hasNearbySettled: ctx.hasNearbySettled,
+      hasNearbyTown: ctx.hasNearbyTown,
+      hasNearbyFood: ctx.hasNearbyFood,
+      ...(rallyAnchor ? { rallyAnchor } : {})
+    });
   if (!spawn) return false;
   const tileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(tileKey);
@@ -160,15 +173,17 @@ export const respawnPlayerOnUnownedLand = (ctx: RuntimeRespawnContext, playerId:
   if (!actor) return false;
   if (!actor.isAi && !ctx.pendingRespawnNoticeByPlayerId.has(playerId)) preparePlayerRespawnNotice(ctx, playerId, "auth_recovery", commandId, { wasOnline: true });
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
-  const spawn = chooseLegacySpawnPlacement({
-    playerId,
-    tiles: ctx.tiles.values(),
-    blockedTileKeys,
-    coastalLandKeys: ctx.coastalLandKeys(),
-    hasNearbySettled: ctx.hasNearbySettled,
-    hasNearbyTown: ctx.hasNearbyTown,
-    hasNearbyFood: ctx.hasNearbyFood
-  });
+  const spawn =
+    ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys)) ??
+    chooseLegacySpawnPlacement({
+      playerId,
+      tiles: ctx.tiles.values(),
+      blockedTileKeys,
+      coastalLandKeys: ctx.coastalLandKeys(),
+      hasNearbySettled: ctx.hasNearbySettled,
+      hasNearbyTown: ctx.hasNearbyTown,
+      hasNearbyFood: ctx.hasNearbyFood
+    });
   if (!spawn) return false;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);
@@ -222,15 +237,17 @@ export const respawnIfEliminated = (ctx: RuntimeRespawnContext, playerId: string
   );
 
   const blockedTileKeys = new Set<string>([...ctx.pendingSettlementsByTile.keys(), ...ctx.locksByTile.keys()]);
-  const spawn = chooseLegacySpawnPlacement({
-    playerId,
-    tiles: ctx.tiles.values(),
-    blockedTileKeys,
-    coastalLandKeys: ctx.coastalLandKeys(),
-    hasNearbySettled: ctx.hasNearbySettled,
-    hasNearbyTown: ctx.hasNearbyTown,
-    hasNearbyFood: ctx.hasNearbyFood
-  });
+  const spawn =
+    ctx.claimFairSpawnSite(isSpawnableTile(ctx, blockedTileKeys)) ??
+    chooseLegacySpawnPlacement({
+      playerId,
+      tiles: ctx.tiles.values(),
+      blockedTileKeys,
+      coastalLandKeys: ctx.coastalLandKeys(),
+      hasNearbySettled: ctx.hasNearbySettled,
+      hasNearbyTown: ctx.hasNearbyTown,
+      hasNearbyFood: ctx.hasNearbyFood
+    });
   if (!spawn) return;
   const respawnedTileKey = simulationTileKey(spawn.x, spawn.y);
   const tile = ctx.tiles.get(respawnedTileKey);
