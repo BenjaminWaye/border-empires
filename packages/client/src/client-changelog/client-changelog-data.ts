@@ -19,7 +19,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     title: "Rally-linked players now spawn near a real foothold, not just the nearest empty tile",
     why: "Joining via a friend's rally link placed you on whichever open tile happened to be closest to their anchor, even a barren one with no town or food nearby -- while a normal spawn always looked for a town and food within reach.",
     changes: [
-      "Rally spawns now search outward from the anchor for a spot with both a town and food nearby before falling back to a food-only, then town-only, then any-open-tile spot, all still within the rally radius"
+      "Rally spawns now search outward from the anchor for a spot with both a town and food nearby before falling back to a town-only, then food-only, then any-open-tile spot, all still within the rally radius"
     ]
   },
   {
