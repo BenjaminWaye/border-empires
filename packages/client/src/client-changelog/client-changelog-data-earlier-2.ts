@@ -12,6 +12,17 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787489000059, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.3",
+    title: "Fixed camera not recentering when you spawn mid-session",
+    why: "Joining a season while already connected (rather than on a fresh page load) spawned your starting territory, but the camera stayed wherever you'd been panning beforehand and never moved to your new settlement -- and since the camera controls which map area loads, you could end up looking at empty, unloaded darkness with no way to find your own empire.",
+    changes: [
+      "Joining a season mid-session now recenters the camera on your new settlement as soon as it spawns.",
+      "The map around your new settlement now loads immediately instead of requiring a manual pan to trigger it.",
+      "The stale pre-spawn camera position is no longer saved for next time you load the game."
+    ]
+  },
+  {
     createdAt: 1787476076398, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
     introducedIn: "2026.08.23.2",
     title: "Expand is gated to your reach again, with a new way to reach an out-of-reach rival",
