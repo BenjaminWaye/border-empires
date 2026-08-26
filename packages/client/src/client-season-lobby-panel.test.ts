@@ -37,6 +37,20 @@ describe("renderSeasonLobbyPanelHtml", () => {
     expect(html).toContain("&lt;script&gt;");
   });
 
+  it("shows the founding-engineer badge only for their stable player id, not anyone renamed to their display name", () => {
+    const html = renderSeasonLobbyPanelHtml({
+      seasonLobbyWaitingCount: 2,
+      seasonLobbyMaxPlayers: 100,
+      seasonLobbyRoster: [
+        { playerId: "VK5iriJAhickNf9ArrRweUDnq1W2", name: "KonradsDelikatessKörv" },
+        { playerId: "some-other-player", name: "KonradsDelikatessKörv" }
+      ]
+    });
+    const rows = html.split("</li>").filter((row) => row.includes("KonradsDelikatessKörv"));
+    expect(rows[0]).toContain("founding-engineer-name");
+    expect(rows[1]).not.toContain("founding-engineer-name");
+  });
+
   it("includes the Discord link and invite button", () => {
     const html = renderSeasonLobbyPanelHtml({ seasonLobbyWaitingCount: 0, seasonLobbyMaxPlayers: 100, seasonLobbyRoster: [] });
     expect(html).toContain(DISCORD_INVITE_URL);

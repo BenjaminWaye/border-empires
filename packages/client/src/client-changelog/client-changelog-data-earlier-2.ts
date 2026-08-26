@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.1",
+    title: "Auto-settle no longer claims resource tiles before you've researched them",
+    why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
+    changes: [
+      "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
+    ]
+  },
+  {
     createdAt: 1787651082566, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.2",
     title: "Added a new-player checklist for founding your first town and securing food",
@@ -192,12 +201,12 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.1",
-    title: "Auto-settle no longer claims resource tiles before you've researched them",
-    why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
+    createdAt: 1787435600000, // 2026.08.22.13 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.13",
+    title: "Fixed: another player's town could show your \"ready to upgrade\" badge",
+    why: "The map's green up-arrow badge and the food-shortage badge only checked that a town had an owner, not that the owner was you, so a rival town that happened to qualify lit up on your map the same way one of your own towns would.",
     changes: [
-      "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
+      "The population-tier upgrade badge and the unfed-town food badge now only appear on towns you own, on both the 3D map and the classic 2D map."
     ]
   },
 ];
