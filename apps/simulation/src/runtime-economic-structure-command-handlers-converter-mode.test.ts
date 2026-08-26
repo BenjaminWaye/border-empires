@@ -397,4 +397,78 @@ describe("converter mode flips (Phase 7)", () => {
       vi.useRealTimers();
     }
   });
+
+  it("allows stacking multiple Aether Condensers (CRYSTAL_SYNTHESIZER) on the same town's support ring", async () => {
+    vi.useFakeTimers();
+    try {
+      // Give the default town (16,16) a second open support tile at
+      // (17,16) — (16,17) is already open in buildRuntime's base tiles.
+      const { runtime } = buildRuntime([
+        { x: 17, y: 16, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED" }
+      ], 5_000, ["crystal-lattices"]);
+      const seen = collectEvents(runtime);
+
+      const buildAt = (commandId: string, clientSeq: number) =>
+        runtime.submitCommand({
+          commandId,
+          sessionId: "session-1",
+          playerId: "player-1",
+          clientSeq,
+          issuedAt: 1_000,
+          type: "BUILD_ECONOMIC_STRUCTURE",
+          payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "CRYSTAL_SYNTHESIZER" })
+        });
+
+      // Both builds target the town tile itself; resolveTownSupportTarget
+      // auto-places each one onto a different open support tile.
+      buildAt("build-first-condenser", 1);
+      await Promise.resolve();
+      vi.advanceTimersByTime(structureBuildDurationMs("CRYSTAL_SYNTHESIZER"));
+
+      buildAt("build-second-condenser", 2);
+      await Promise.resolve();
+      vi.advanceTimersByTime(structureBuildDurationMs("CRYSTAL_SYNTHESIZER"));
+
+      const rejected = seen.find((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "build-second-condenser");
+      expect(rejected).toBeUndefined();
+
+      const tiles = runtime.exportState().tiles;
+      const condenserTiles = tiles.filter((tile) => tile.economicStructureJson?.includes("CRYSTAL_SYNTHESIZER"));
+      expect(condenserTiles).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rejects a second Aether Condenser at a town with no open support tiles left, with the renamed label", async () => {
+    vi.useFakeTimers();
+    try {
+      // Only one open support tile: (16,17). No room for a second condenser.
+      const { runtime } = buildRuntime([], 5_000, ["crystal-lattices"]);
+      const seen = collectEvents(runtime);
+
+      const buildAt = (commandId: string, clientSeq: number) =>
+        runtime.submitCommand({
+          commandId,
+          sessionId: "session-1",
+          playerId: "player-1",
+          clientSeq,
+          issuedAt: 1_000,
+          type: "BUILD_ECONOMIC_STRUCTURE",
+          payloadJson: JSON.stringify({ x: 16, y: 16, structureType: "CRYSTAL_SYNTHESIZER" })
+        });
+
+      buildAt("build-first-condenser", 1);
+      await Promise.resolve();
+      vi.advanceTimersByTime(structureBuildDurationMs("CRYSTAL_SYNTHESIZER"));
+
+      buildAt("build-second-condenser", 2);
+      await Promise.resolve();
+
+      const rejected = seen.find((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "build-second-condenser");
+      expect(rejected).toMatchObject({ code: "BUILD_INVALID", message: expect.stringContaining("aether condenser") });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
