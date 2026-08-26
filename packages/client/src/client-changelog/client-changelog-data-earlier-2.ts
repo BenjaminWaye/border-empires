@@ -12,6 +12,13 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787431431635, // frozen from a live Date.now() call
+    introducedIn: "2026.08.22.12",
+    title: "Fixed rivers clipping through hills",
+    why: "River ribbons rendered at the flat ground elevation, ignoring the raised dome mesh used for hill tiles, so a river crossing a hill looked like jagged glued-together rectangles instead of a smooth ribbon.",
+    changes: ["Rivers now render above the hill dome wherever their path crosses a hills tile."]
+  },
+  {
     createdAt: 1787430800000,
     introducedIn: "2026.08.22.10",
     title: "Your galaxy planet now shows what it's specialized in",
@@ -27,6 +34,35 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     why: "Losing an attack could hand your attacking tile to the enemy, and if that tile then fell outside your visible area in the same instant, the server's notice that the tile (and its staged muster flag) changed hands never reached your client -- the flag stayed stuck on ground you no longer owned until you happened to re-scout it.",
     changes: [
       "The server now always tells you when a tile you just lost -- whether your attack's origin was overrun or a target you held was captured -- changes hands, even if you no longer have vision of it, so a cleared muster flag (and the rest of that tile's state) updates immediately instead of going stale."
+    ]
+  },
+  {
+    createdAt: 1787651082566, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.2",
+    title: "Added a new-player checklist for founding your first town and securing food",
+    why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
+    changes: [
+      "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
+    ]
+  },
+  {
+    createdAt: 1787691503245, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.3",
+    title: "Added a Discord link to the settings menu",
+    why: "The community Discord invite was only reachable from the season lobby overlay, so players already in a game had no in-app way to find it.",
+    changes: [
+      "Settings now has a \"Join the Discord\" link alongside Log Out."
+    ]
+  },
+  {
+    createdAt: 1787693449097, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.8",
+    title: "Fixed three bugs in the new-player checklist",
+    why: "The checklist bubble overlapped the \"Center / Jump to your banner\" button in the bottom-left corner, its first step counted the free starting settlement (SETTLEMENT tier) as an already-settled town so it skipped straight to the food step, and its map highlight ring was drawn with flat 2D isometric math that put it in the wrong place entirely when playing in true-3D mode.",
+    changes: [
+      "The checklist bubble now sits above the Center/banner button instead of on top of it.",
+      "The \"find your first town\" step now requires reaching TOWN tier -- the free starting settlement no longer counts on its own.",
+      "In true-3D mode, the highlight is now a real ring mesh placed on the terrain instead of a flat 2D overlay."
     ]
   },
   {
@@ -163,12 +199,68 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787429155443,
+    introducedIn: "2026.08.22.12",
+    title: "Fixed a dark \"crack\" flickering at animated shorelines",
+    why: "Every coastline's animated water can dip deep enough at a wave trough to reveal the coastal skirt wall underneath it, which was shaded so dark that it read as a jarring black gap right at the shoreline.",
+    changes: [
+      "Brightened the coastal skirt wall's shading so it no longer looks near-black when the water's wave animation passes through a deep trough."
+    ]
+  },
+  {
     createdAt: 1787430600000,
     introducedIn: "2026.08.22.8",
     title: "Creating a mountain now clears any muster flag staged on the tile",
     why: "Turning a tile into a mountain destroyed the tile's ownership, but the muster flag staged on it stuck around, showing a stale muster icon on ground you no longer held.",
     changes: [
       "Creating a mountain on a tile with a staged muster flag now clears the flag along with the tile's ownership, matching how bombardment, capture, and tile shedding already handle it."
+    ]
+  },
+  {
+    createdAt: 1787430700000,
+    introducedIn: "2026.08.22.9",
+    title: "Muster flags now clear reliably after losing a tile in combat",
+    why: "Losing an attack could hand your attacking tile to the enemy, and if that tile then fell outside your visible area in the same instant, the server's notice that the tile (and its staged muster flag) changed hands never reached your client -- the flag stayed stuck on ground you no longer owned until you happened to re-scout it.",
+    changes: [
+      "The server now always tells you when a tile you just lost -- whether your attack's origin was overrun or a target you held was captured -- changes hands, even if you no longer have vision of it, so a cleared muster flag (and the rest of that tile's state) updates immediately instead of going stale."
+    ]
+  },
+  {
+    createdAt: 1787484432246, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.2",
+    title: "Fixed the whole screen becoming unclickable after submitting a bug report",
+    why: "Closing the redesigned bug report dialog (including automatically, after a successful submit) only cleared its contents -- the full-screen invisible container div stayed in the DOM with pointer-events left on, silently intercepting every click across the entire game until you reloaded the page.",
+    changes: [
+      "Closing the bug report dialog (including the automatic close after a successful submission) now properly stops it from blocking clicks, so the game stays fully interactive without needing a page reload."
+    ]
+  },
+  {
+    createdAt: 1787557977223, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.1",
+    title: "Fixed laggy panning/zooming on wide monitors",
+    why: "The map's per-frame draw loop redrew every on-screen tile with no ceiling on how many tiles that could be. On a wide or ultrawide monitor zoomed all the way out, that meant tens of thousands of tiles redrawn every single frame -- pegging the main thread and making panning and zooming visibly stutter, especially on larger screens.",
+    changes: [
+      "The map now caps how many tiles it draws per frame to the same budget already used elsewhere in the renderer, shrinking the visible radius slightly (rather than stalling) only in the most zoomed-out state on unusually wide screens."
+    ]
+  },
+  {
+    createdAt: 1787430800000,
+    introducedIn: "2026.08.22.10",
+    title: "Your galaxy planet now shows what it's specialized in",
+    why: "The galaxy view showed which victory path crowned your planet, but not what that meant going forward -- part of the early galactic meta-layer groundwork (docs/galactic-campaign-design.md), where each victory path is meant to grant a distinct planet specialization.",
+    changes: [
+      "Your galaxy planet (named or not-yet-named) now shows a specialization badge -- Industrial, Trade, Extraction, Logistics, or Capital -- based on which victory condition crowned it."
+    ]
+  },
+  {
+    createdAt: 1787432000000,
+    introducedIn: "2026.08.22.12",
+    title: "Your galaxy planets and outposts now earn Influence and Production, and can lose Stability",
+    why: "The galaxy view previously showed your Planets/Outposts/Stipends as a static record with nothing ongoing attached to them -- the galactic meta-layer's actual economy (docs/galactic-campaign-design.md §4/§5/§7) wasn't running yet. This introduces the first slice of that economy: a weekly Cycle tick that trickles Influence/Production income from your held territory, charges Influence upkeep for spreading wide, and drains or recovers each territory's Stability accordingly.",
+    changes: [
+      "Your galaxy view now shows a running Influence/Production balance, updated once per weekly Cycle based on your held Planets' and Outposts' specializations.",
+      "Holding more Planets costs more Influence upkeep -- Outposts still cost nothing to hold, staying the cheap entry rung for newer empires.",
+      "Each held Planet and Outpost now has a Stability meter (0-100), shown as a bar under it in the galaxy view. Falling into an Influence deficit drains your weakest territory's Stability over time; a healthy Influence surplus recovers all of them."
     ]
   }
 ];

@@ -44,12 +44,12 @@ const hasActiveTownCaptureShock = (tile: Tile, nowMs = Date.now()): boolean =>
   typeof tile.town?.captureShockUntil === "number" && tile.town.captureShockUntil > nowMs;
 
 // Town support-ring buildings whose modal/tile display name differs from
-// their catalog label — kept as a small lookup rather than baking display
-// names into the catalog (game-domain has no notion of UI copy).
+// their catalog label — sourced from STRUCTURE_DISPLAY_NAMES (client-structure-display-names.ts),
+// the single canonical name map, rather than a second hardcoded copy.
 const SUPPORT_STRUCTURE_LABELS: Partial<Record<ModifierStructureType, string>> = {
-  SEED_GRANARY: "Seed Granary",
-  GRANARY: "Granary",
-  CLEARING_HOUSE: "Clearing House"
+  SEED_GRANARY: economicStructureName("SEED_GRANARY"),
+  GRANARY: economicStructureName("GRANARY"),
+  CLEARING_HOUSE: economicStructureName("CLEARING_HOUSE")
 };
 
 const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileOverviewModifier[] => {
@@ -69,7 +69,7 @@ const activeSupportStructureModifiers = (tile: NonNullable<Tile["town"]>): TileO
   if (tile.hasSeedGranary && tile.seedGranaryActive) {
     modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.SEED_GRANARY!, structureModifiersFor("SEED_GRANARY").filter((m) => m.statLabel === "Population growth")));
   } else if (tile.hasGranary && tile.granaryActive && tile.seedGranaryBuffed) {
-    modifiers.push({ reason: "Granary (Seed Granary boost)", effect: "+30% population growth", tone: "positive" });
+    modifiers.push({ reason: `${SUPPORT_STRUCTURE_LABELS.GRANARY} (Seed Granary boost)`, effect: "+30% population growth", tone: "positive" });
   }
   if (tile.hasClearingHouse && tile.clearingHouseActive) {
     modifiers.push(...toTileOverviewModifiers(SUPPORT_STRUCTURE_LABELS.CLEARING_HOUSE!, structureModifiersFor("CLEARING_HOUSE")));
@@ -191,7 +191,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     modifiers.push(...toTileOverviewModifiers("Observatory", structureModifiersFor("OBSERVATORY")));
   }
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
-    modifiers.push(...toTileOverviewModifiers("Mine", structureModifiersFor("MINE", { tile: { resource: tile.resource } }).filter((m) => m.statLabel === "Production")));
+    modifiers.push(...toTileOverviewModifiers("Mine", structureModifiersFor("MINE", { tile: { resource: tile.resource } })));
   }
   if (tile.economicStructure?.status === "active") {
     modifiers.push(...economicStructureModifiersForTile(tile.economicStructure));

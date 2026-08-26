@@ -59,10 +59,10 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
   }
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
   if (actionId === "build_farmstead") return tile.resource === "FARM" ? `Improves food production on this tile by 50% and adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot.` : "Farmsteads do not boost fish output.";
-  if (actionId === "build_umbrite_rig") return "Improves umbrite production on this tile by 50% and adds +15 umbrite cap.";
+  if (actionId === "build_umbrite_rig") return "Adds +1 UMBRITE slot on this tile.";
   if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_umbrite_weapons_factory") return "Military-industrial structure. Grants +3% attack / +1.5% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
-  if (actionId === "build_mine") return `Improves ${tile.resource === "TITANIUM" ? "titanium" : "crystal"} production on this tile by 50% and adds +${tile.resource === "TITANIUM" ? "15 titanium" : "9 crystal"} cap.`;
+  if (actionId === "build_mine") return `Adds +1 ${tile.resource === "TITANIUM" ? "TITANIUM" : "CRYSTAL"} slot on this tile.`;
   if (actionId === "build_mintworks") {
     // mintworks-stacking task: this describes what THIS one Mintworks will add
     // (stacks additively with any other Mintworks already supporting the
