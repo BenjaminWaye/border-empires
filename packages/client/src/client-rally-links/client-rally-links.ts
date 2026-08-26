@@ -92,20 +92,27 @@ const createPanel = (): HTMLElement => {
   // (even one numerically below #auth-overlay's) paints above everything
   // inside #hud regardless, hiding the sign-in form behind this panel.
   (document.getElementById("hud") ?? document.body).append(panel);
-  const style = document.createElement("style");
-  style.textContent = `
-    .rally-link-panel{position:fixed;inset:0;z-index:29;display:grid;place-items:center;pointer-events:none}
-    .rally-link-card{position:relative;width:min(420px,calc(100vw - 32px));background:rgba(11,18,32,.94);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:18px;color:#f8fafc;box-shadow:0 18px 54px rgba(0,0,0,.38);pointer-events:auto}
-    .rally-link-dismiss{position:absolute;top:8px;right:8px;width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:#94a3b8;padding:0;cursor:pointer}
-    .rally-link-dismiss:hover{background:rgba(255,255,255,.1);color:#f8fafc}
-    .rally-link-card h2{font-size:20px;line-height:1.2;margin:0 0 8px;padding-right:24px}
-    .rally-link-card p{margin:0 0 12px;color:#cbd5e1}
-    .rally-link-card [data-rally-output]{display:grid;grid-template-columns:1fr auto;gap:8px}
-    .rally-link-card [data-rally-output][hidden]{display:none}
-    .rally-link-card input{min-width:0;border:1px solid rgba(255,255,255,.18);border-radius:6px;background:#020617;color:#f8fafc;padding:10px}
-    .rally-link-card button{border:0;border-radius:6px;background:#38bdf8;color:#082f49;font-weight:700;padding:0 12px}
-  `;
-  document.head.append(style);
+  // Injected once and left in <head> for the page's lifetime (harmless,
+  // idempotent CSS) instead of on every open -- panels can now be opened
+  // and dismissed repeatedly via the settings button, and re-adding this
+  // tag each time would leak a fresh <style> element per cycle.
+  if (!document.getElementById("rally-link-panel-style")) {
+    const style = document.createElement("style");
+    style.id = "rally-link-panel-style";
+    style.textContent = `
+      .rally-link-panel{position:fixed;inset:0;z-index:29;display:grid;place-items:center;pointer-events:none}
+      .rally-link-card{position:relative;width:min(420px,calc(100vw - 32px));background:rgba(11,18,32,.94);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:18px;color:#f8fafc;box-shadow:0 18px 54px rgba(0,0,0,.38);pointer-events:auto}
+      .rally-link-dismiss{position:absolute;top:8px;right:8px;width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:#94a3b8;padding:0;cursor:pointer}
+      .rally-link-dismiss:hover{background:rgba(255,255,255,.1);color:#f8fafc}
+      .rally-link-card h2{font-size:20px;line-height:1.2;margin:0 0 8px;padding-right:24px}
+      .rally-link-card p{margin:0 0 12px;color:#cbd5e1}
+      .rally-link-card [data-rally-output]{display:grid;grid-template-columns:1fr auto;gap:8px}
+      .rally-link-card [data-rally-output][hidden]{display:none}
+      .rally-link-card input{min-width:0;border:1px solid rgba(255,255,255,.18);border-radius:6px;background:#020617;color:#f8fafc;padding:10px}
+      .rally-link-card button{border:0;border-radius:6px;background:#38bdf8;color:#082f49;font-weight:700;padding:0 12px}
+    `;
+    document.head.append(style);
+  }
   return panel;
 };
 
@@ -173,6 +180,10 @@ export const bindRallyLinkOpenClicks = (deps: { firebaseAuth?: Auth; wsUrl: stri
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element) || !target.closest("[data-rally-link-open]")) return;
+    // Guard against stacking a second full-screen panel (and its own
+    // duplicate <style> tag) if the button is clicked again before the
+    // first panel is dismissed.
+    if (document.querySelector(".rally-link-panel")) return;
     if (typeof window !== "undefined" && window.history?.pushState) {
       window.history.pushState(null, "", "/rally/new");
     }
@@ -195,6 +206,9 @@ export const mountRallyNewPanel = (deps: { firebaseAuth?: Auth; wsUrl: string })
 const mountRallyInviteBanner = (deps: { firebaseAuth?: Auth; wsUrl: string }, code: string): void => {
   const authPanelHead = document.querySelector<HTMLElement>(".auth-panel-head");
   if (!authPanelHead) return;
+  // Guard against inserting a second banner (with a second <style> tag)
+  // if this is ever invoked more than once for the same page load.
+  if (document.querySelector(".rally-invite-banner")) return;
 
   const banner = document.createElement("div");
   banner.className = "rally-invite-banner";
@@ -225,9 +239,10 @@ const mountRallyInviteBanner = (deps: { firebaseAuth?: Auth; wsUrl: string }, co
         status.textContent = "This rally invite is expired or no longer available.";
         return;
       }
+      const expiry = formatExpiry(body.expiresAt);
       status.textContent =
         `${body.ownerName} invited you to a rally -- sign in to spawn right next to them. ` +
-        `${body.usesRemaining} joins remaining, ${formatExpiry(body.expiresAt)}.`;
+        `${body.usesRemaining} joins remaining${expiry ? `, ${expiry}` : ""}.`;
       renderAuthStatus();
     })
     .catch(() => {
