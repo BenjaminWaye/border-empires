@@ -58,4 +58,27 @@ describe("townStatGridHtml", () => {
     expect(html).not.toContain("<script>");
     expect(html).toContain("&lt;script&gt;");
   });
+
+  it("shows population against the next tier threshold, not the absolute cap", () => {
+    const html = townStatGridHtml({ ...baseInput, nextTierPopulation: 30_000 });
+    expect(html).toContain("22,640");
+    expect(html).toContain("/ 30,000");
+    expect(html).not.toContain("/ 50,000");
+  });
+
+  it("marks the meter tier-ready once population reaches the next tier threshold", () => {
+    const html = townStatGridHtml({ ...baseInput, population: 30_000, nextTierPopulation: 30_000 });
+    expect(html).toContain(`<span class="is-tier-ready" style="width:100.0%">`);
+  });
+
+  it("does not mark the meter tier-ready below the next tier threshold", () => {
+    const html = townStatGridHtml({ ...baseInput, nextTierPopulation: 30_000 });
+    expect(html).not.toContain("is-tier-ready");
+  });
+
+  it("falls back to population/maxPopulation when there is no next tier (already at max tier)", () => {
+    const html = townStatGridHtml(baseInput);
+    expect(html).toContain("/ 50,000");
+    expect(html).not.toContain("is-tier-ready");
+  });
 });

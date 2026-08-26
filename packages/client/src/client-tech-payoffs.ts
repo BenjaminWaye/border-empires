@@ -1,4 +1,5 @@
 import type { TechInfo } from "./client-types.js";
+import { STRUCTURE_DISPLAY_NAMES, type EconomicStructureType, type StructureInfoKey } from "./client-map-display.js";
 
 export type TechHighlightTone = "structure" | "action" | "upgrade" | "resource";
 
@@ -7,43 +8,53 @@ export type TechHighlightTag = {
   tone: TechHighlightTone;
 };
 
-const STRUCTURE_UNLOCK_LABELS: Record<string, string> = {
-  unlockFarmstead: "Farmstead",
-  unlockUmbriteRig: "Umbrite Rig",
-  unlockMine: "Mine",
-  unlockMintworks: "Mintworks",
-  unlockForts: "Fort",
-  unlockObservatory: "Observatory",
-  unlockSiegeOutposts: "Siege Outpost",
-  unlockGranary: "Granary",
-  unlockCensusHall: "Census Hall",
-  unlockClearingHouse: "Clearing House",
-  unlockCaravanary: "Trade Nexus",
-  unlockUmbriteSynthesizer: "Umbrite Synth",
-  unlockTitaniumWorks: "Titanium Works",
-  unlockCrystalSynthesizer: "Aether Condenser",
-  unlockFoundry: "Sky Foundry",
-  unlockAetherTower: "Ambaric Tower",
-  unlockCustomsHouse: "Harbor Exchange",
-  unlockGovernorsOffice: "Ministry Hall",
-  unlockGarrisonHall: "Ancillary Factory",
-  unlockAirport: "Aetherport",
-  unlockRadarSystem: "Resonance Grid",
-  unlockAstralDock: "Astral Dock",
-  unlockRailDepot: "Rail Depot",
-  unlockImperialExchange: "Imperial Exchange",
-  unlockWorldEngine: "Worldbreaker Cannon",
-  unlockAegisDome: "Aegis Dome",
-  unlockLogisticsGuild: "Logistics Guild",
-  unlockAssemblyWorks: "Assembly Works",
-  unlockPopulationBureau: "Population Bureau",
-  unlockTitaniumLevy: "The Titanium Levy",
+// Maps each tech "unlock" effect key to the structure it unlocks, keyed into
+// STRUCTURE_DISPLAY_NAMES (client-structure-display-names.ts, the single
+// canonical name source) below rather than a second hardcoded string per
+// key — a rename there now flows through here automatically instead of
+// silently drifting (this map used to say "Granary"/"Umbrite Synth"/"Sky
+// Foundry" long after those buildings were renamed).
+const STRUCTURE_UNLOCK_KEYS: Record<string, EconomicStructureType | StructureInfoKey> = {
+  unlockFarmstead: "FARMSTEAD",
+  unlockUmbriteRig: "UMBRITE_RIG",
+  unlockMine: "MINE",
+  unlockMintworks: "MINTWORKS",
+  unlockForts: "FORT",
+  unlockObservatory: "OBSERVATORY",
+  unlockSiegeOutposts: "SIEGE_OUTPOST",
+  unlockGranary: "GRANARY",
+  unlockCensusHall: "CENSUS_HALL",
+  unlockClearingHouse: "CLEARING_HOUSE",
+  unlockCaravanary: "CARAVANARY",
+  unlockUmbriteSynthesizer: "UMBRITE_SYNTHESIZER",
+  unlockTitaniumWorks: "TITANIUM_WORKS",
+  unlockCrystalSynthesizer: "CRYSTAL_SYNTHESIZER",
+  unlockFoundry: "FOUNDRY",
+  unlockAetherTower: "AETHER_TOWER",
+  unlockCustomsHouse: "CUSTOMS_HOUSE",
+  unlockGovernorsOffice: "GOVERNORS_OFFICE",
+  unlockGarrisonHall: "GARRISON_HALL",
+  unlockAirport: "AIRPORT",
+  unlockRadarSystem: "RADAR_SYSTEM",
+  unlockAstralDock: "ASTRAL_DOCK",
+  unlockRailDepot: "RAIL_DEPOT",
+  unlockImperialExchange: "IMPERIAL_EXCHANGE",
+  unlockWorldEngine: "WORLD_ENGINE",
+  unlockAegisDome: "AEGIS_DOME",
+  unlockLogisticsGuild: "LOGISTICS_GUILD",
+  unlockAssemblyWorks: "ASSEMBLY_WORKS",
+  unlockPopulationBureau: "POPULATION_BUREAU",
+  unlockTitaniumLevy: "TITANIUM_LEVY",
   // unlockWeaponsWorkshop retired — Weapons Workshop is no longer
   // unlockable (structure-registry-economic.ts), replaced by the two
   // labels below.
-  unlockTitaniumWeaponsFactory: "Titanium Weapons Factory",
-  unlockUmbriteWeaponsFactory: "Umbrite Weapons Factory"
+  unlockTitaniumWeaponsFactory: "TITANIUM_WEAPONS_FACTORY",
+  unlockUmbriteWeaponsFactory: "UMBRITE_WEAPONS_FACTORY"
 };
+
+const STRUCTURE_UNLOCK_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(STRUCTURE_UNLOCK_KEYS).map(([effectKey, structureKey]) => [effectKey, STRUCTURE_DISPLAY_NAMES[structureKey] ?? structureKey])
+);
 
 const ACTION_UNLOCK_LABELS: Record<string, string> = {
   unlockAetherLance: "Aether Purge",

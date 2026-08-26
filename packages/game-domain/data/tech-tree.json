@@ -6,7 +6,7 @@
       "tier": 1,
       "branch": "economy",
       "name": "Agrarian Works",
-      "description": "Bread first; empires can quarrel about philosophy after supper.",
+      "description": "Bread first; empires can quarrel about philosophy after supper. Unlocks the Farmstead (+50% food and +2 FOOD slots on farm tiles) and adds +1 FOOD slot on every owned fish tile.",
       "cost": {
         "gold": 10
       },

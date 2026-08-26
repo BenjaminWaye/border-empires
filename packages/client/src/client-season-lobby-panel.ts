@@ -4,6 +4,7 @@
 // module to keep that file under the repo's line cap.
 import type { ClientState } from "./client-state/client-state.js";
 import type { FeedType, FeedSeverity } from "./client-types.js";
+import { foundingEngineerNameHtml } from "./client-founding-engineer/client-founding-engineer.js";
 
 export const DISCORD_INVITE_URL = "https://discord.gg/KaKSnaH5T";
 // Lightweight utm param, not a tracked referral system -- just distinguishes
@@ -13,7 +14,7 @@ export const GAME_SHARE_URL = "https://play.borderempires.com?utm_source=share";
 const escapeHtml = (s: string): string => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string);
 
 const rosterRowHtml = (entry: { playerId: string; name: string }): string =>
-  `<li class="season-lobby-roster-row">${escapeHtml(entry.name)}</li>`;
+  `<li class="season-lobby-roster-row">${foundingEngineerNameHtml(escapeHtml(entry.name), entry.name)}</li>`;
 
 // `joined` distinguishes the two callers: the pending-season countdown
 // branch (player already has a spot reserved, waiting for the world to

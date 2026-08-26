@@ -293,6 +293,15 @@ export type ValidateFrontierCommandInput = {
   isBridgeCrossing: boolean;
   targetShielded: boolean;
   defenderIsAlliedOrTruced: boolean;
+  /**
+   * True when `from` is a dock/bridge-crossing origin owned by an ally (or
+   * truce partner) rather than the actor themselves, and the caller has
+   * already verified the actor controls another dock in the same connected
+   * dock network. Lets allies share dock-network access without granting a
+   * general "act from ally territory" carve-out — this only ever widens the
+   * ownership check below, never the adjacency/crossing checks.
+   */
+  originIsAlliedDockCrossing?: boolean;
   expandClaimDurationMs?: number | undefined;
   /** Manpower currently mustered on the origin tile — attacks consume this. */
   originMuster?: number | undefined;
@@ -380,7 +389,7 @@ export const validateFrontierCommand = (
       message: "target must be adjacent, valid dock crossing, or active aether bridge target"
     };
   }
-  if (input.from.ownerId !== input.actor.id) {
+  if (input.from.ownerId !== input.actor.id && !(input.isDockCrossing && input.originIsAlliedDockCrossing)) {
     return { ok: false, code: "NOT_OWNER", message: "origin not owned" };
   }
   if (input.to.terrain !== "LAND") {

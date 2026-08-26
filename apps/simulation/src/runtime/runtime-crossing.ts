@@ -1,6 +1,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { isValidDockCrossingTarget } from "../dock-network/dock-network.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
+import { isAlliedOrTruced } from "../runtime-player-factory.js";
 import type { ActiveAetherBridgeView } from "../runtime-types.js";
 
 /**
@@ -40,20 +41,77 @@ export function isAetherBridgeCrossingTarget(
   return false;
 }
 
+export type DockCrossingOrigin = { tile: DomainTileState; isAlliedDockCrossing: boolean };
+
 export function findOwnedDockOriginForCrossing(
   tiles: ReadonlyMap<string, DomainTileState>,
   territoryTileKeys: Iterable<string>,
-  playerId: string,
+  actor: { id: string; allies: ReadonlySet<string>; truces?: ReadonlySet<string> },
   toX: number,
   toY: number,
-  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>
-): DomainTileState | undefined {
+  dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>,
+  dockNetworkComponentByTileKey: ReadonlyMap<string, ReadonlySet<string>>
+): DockCrossingOrigin | undefined {
   for (const tileKey of territoryTileKeys) {
     const tile = tiles.get(tileKey);
-    if (!tile || tile.ownerId !== playerId || tile.terrain !== "LAND") continue;
-    if (isDockCrossingTarget(tile, toX, toY, dockLinksByDockTileKey)) return tile;
+    if (!tile || tile.ownerId !== actor.id || tile.terrain !== "LAND") continue;
+    if (isDockCrossingTarget(tile, toX, toY, dockLinksByDockTileKey)) {
+      return { tile, isAlliedDockCrossing: false };
+    }
+  }
+
+  // Allied docks: an ally's (or truce partner's) dock tile linked to the
+  // target is also a valid crossing origin, as long as the actor controls
+  // at least one dock somewhere in that same connected dock network — not
+  // necessarily the specific linked tile itself. Sharing dock access is a
+  // benefit of alliance, but it still requires the actor to hold a foothold
+  // in the network. dockLinksByDockTileKey is built symmetrically (a dock's
+  // link list always includes anything that links back to it), so the
+  // target tile's own entry gives the candidate origins directly.
+  const targetTileKey = simulationTileKey(toX, toY);
+  for (const originTileKey of dockLinksByDockTileKey.get(targetTileKey) ?? []) {
+    const tile = tiles.get(originTileKey);
+    if (!tile || tile.terrain !== "LAND" || !tile.ownerId || tile.ownerId === actor.id) continue;
+    if (!isAlliedOrTruced(actor, tile.ownerId)) continue;
+    const networkTileKeys = dockNetworkComponentByTileKey.get(originTileKey);
+    if (!networkTileKeys) continue;
+    let controlsNetwork = false;
+    for (const networkTileKey of networkTileKeys) {
+      if (tiles.get(networkTileKey)?.ownerId === actor.id) {
+        controlsNetwork = true;
+        break;
+      }
+    }
+    if (controlsNetwork) return { tile, isAlliedDockCrossing: true };
   }
   return undefined;
+}
+
+// Thin resolver so the runtime.ts call site stays a one-liner: looks up the
+// acting player before delegating to findOwnedDockOriginForCrossing.
+export function resolveOwnedDockOriginForCrossing(
+  state: {
+    tiles: ReadonlyMap<string, DomainTileState>;
+    players: ReadonlyMap<string, { id: string; allies: ReadonlySet<string>; truces?: ReadonlySet<string> }>;
+    dockLinksByDockTileKey: ReadonlyMap<string, readonly string[]>;
+    dockNetworkComponentByTileKey: ReadonlyMap<string, ReadonlySet<string>>;
+  },
+  territoryTileKeysForPlayer: (playerId: string) => Iterable<string>,
+  playerId: string,
+  toX: number,
+  toY: number
+): DockCrossingOrigin | undefined {
+  const actor = state.players.get(playerId);
+  if (!actor) return undefined;
+  return findOwnedDockOriginForCrossing(
+    state.tiles,
+    territoryTileKeysForPlayer(playerId),
+    actor,
+    toX,
+    toY,
+    state.dockLinksByDockTileKey,
+    state.dockNetworkComponentByTileKey
+  );
 }
 
 export function findOwnedAetherBridgeOriginForCrossing(
