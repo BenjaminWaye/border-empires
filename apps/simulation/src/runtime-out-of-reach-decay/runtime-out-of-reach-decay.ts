@@ -38,6 +38,7 @@
 
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
+import { reachOwnerCountAt, type LandConnectivityQuery, type ReachAnchor } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 
 /**
@@ -90,6 +91,10 @@ export type OutOfReachDecayTickContext = {
   tileDeltaFromState: (tile: DomainTileState) => SimulationTileWireDelta;
   emitEvent: (event: SimulationEvent) => void;
   runtimeLogInfo: (payload: Record<string, unknown>, message: string) => void;
+  /** Every anchor currently live in the world — used to re-check reach coverage at expiry time. */
+  gatherReachAnchors: () => ReachAnchor[];
+  /** Land-gates the reach-coverage check the same way the real reach border is gated. */
+  isLandTile?: LandConnectivityQuery;
 };
 
 /**
@@ -165,8 +170,27 @@ export const tickOutOfReachDecay = (context: OutOfReachDecayTickContext): number
 
     const tile = tiles.get(entry.tileKey);
     if (!isEntryLive(tile, entry)) continue; // stale: cancelled or re-stamped
+    const liveTile = tile as DomainTileState;
 
-    const cleared = clearedTile(tile as DomainTileState);
+    // Re-check reach coverage at the moment of expiry, not just at claim time.
+    // A tile sitting inside ANY player's live reach — the owner's own (reach
+    // caught up but the activation-time cancel in
+    // cancelOutOfReachDecayInAnchorDisk missed it, e.g. a different anchor)
+    // or another player's (contested ground someone is actively holding) — is
+    // not genuine no-man's-land, so it should not decay. Clear the timer
+    // instead of expiring so the tile reads as protected rather than
+    // perpetually "about to decay".
+    if (reachOwnerCountAt(liveTile.x, liveTile.y, context.gatherReachAnchors(), context.isLandTile) >= 1) {
+      const protectedTile: DomainTileState = {
+        ...liveTile,
+        frontierDecayAt: undefined,
+        frontierDecayKind: undefined
+      };
+      context.replaceTileState(entry.tileKey, protectedTile, `out-of-reach-decay-protected:${nowMs}`);
+      continue;
+    }
+
+    const cleared = clearedTile(liveTile);
     const ownerId = (tile as DomainTileState).ownerId;
     context.replaceTileState(entry.tileKey, cleared, `out-of-reach-decay:${nowMs}`);
     expired += 1;

@@ -12,6 +12,26 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787691503245, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.3",
+    title: "Added a Discord link to the settings menu",
+    why: "The community Discord invite was only reachable from the season lobby overlay, so players already in a game had no in-app way to find it.",
+    changes: [
+      "Settings now has a \"Join the Discord\" link alongside Log Out."
+    ]
+  },
+  {
+    createdAt: 1787693449097, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.8",
+    title: "Fixed three bugs in the new-player checklist",
+    why: "The checklist bubble overlapped the \"Center / Jump to your banner\" button in the bottom-left corner, its first step counted the free starting settlement (SETTLEMENT tier) as an already-settled town so it skipped straight to the food step, and its map highlight ring was drawn with flat 2D isometric math that put it in the wrong place entirely when playing in true-3D mode.",
+    changes: [
+      "The checklist bubble now sits above the Center/banner button instead of on top of it.",
+      "The \"find your first town\" step now requires reaching TOWN tier -- the free starting settlement no longer counts on its own.",
+      "In true-3D mode, the highlight is now a real ring mesh placed on the terrain instead of a flat 2D overlay."
+    ]
+  },
+  {
     createdAt: 1787584599966, // frozen just after this file's prior latest entry, to avoid a createdAt collision
     introducedIn: "2026.08.24.6",
     title: "Added basic sign-up analytics",
