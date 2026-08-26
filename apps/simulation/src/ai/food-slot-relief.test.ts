@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { chooseFoodSlotReliefRemoval, foodSlotReliefFromPlannerInput } from "./food-slot-relief.js";
+import { chooseFoodSlotReliefRemoval, chooseLowValueBeaconToDisable, foodSlotReliefFromPlannerInput } from "./food-slot-relief.js";
 import type { AutomationPlannerTile } from "./automation-command-planner-types.js";
 import type { NeedVector } from "./build/build-need-vector.js";
 
@@ -18,6 +18,9 @@ const tile = (
   terrain: "LAND",
   economicStructure: { ownerId: PLAYER_ID, type: "RELAY_BEACON", status: "active", ...overrides }
 });
+
+const tilesByKeyOf = (tiles: readonly AutomationPlannerTile[]): ReadonlyMap<string, AutomationPlannerTile> =>
+  new Map(tiles.map((t) => [`${t.x},${t.y}`, t]));
 
 describe("chooseFoodSlotReliefRemoval", () => {
   it("returns undefined when there are no FOOD-dormant structures", () => {
@@ -51,6 +54,39 @@ describe("chooseFoodSlotReliefRemoval", () => {
   });
 });
 
+describe("chooseLowValueBeaconToDisable", () => {
+  it("returns undefined without a tile lookup (can't evaluate reach value)", () => {
+    expect(chooseLowValueBeaconToDisable([tile(1, 1)], PLAYER_ID, undefined)).toBeUndefined();
+  });
+
+  it("picks an active beacon whose reach box holds no resource/dock/town tile", () => {
+    const beacon = tile(10, 10);
+    const emptyLand = { x: 11, y: 10, terrain: "LAND" as const };
+    const tiles = [beacon, emptyLand];
+    expect(chooseLowValueBeaconToDisable(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toEqual({ x: 10, y: 10 });
+  });
+
+  it("skips a beacon whose reach box holds a resource tile", () => {
+    const beacon = tile(10, 10);
+    const farm = { x: 11, y: 10, terrain: "LAND" as const, resource: "FARM" as const };
+    const tiles = [beacon, farm];
+    expect(chooseLowValueBeaconToDisable(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toBeUndefined();
+  });
+
+  it("skips a beacon that's already manually disabled, under construction, or not this player's", () => {
+    const disabled = tile(10, 10, { status: "inactive", inactiveReason: "manual" });
+    const building = tile(20, 20, { status: "under_construction" });
+    const enemy = tile(30, 30, { ownerId: "ai-2" });
+    const tiles = [disabled, building, enemy];
+    expect(chooseLowValueBeaconToDisable(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toBeUndefined();
+  });
+
+  it("picks deterministically (lowest x, then y) among multiple zero-value beacons", () => {
+    const tiles = [tile(5, 5), tile(1, 9), tile(1, 2)];
+    expect(chooseLowValueBeaconToDisable(tiles, PLAYER_ID, tilesByKeyOf(tiles))).toEqual({ x: 1, y: 2 });
+  });
+});
+
 describe("foodSlotReliefFromPlannerInput", () => {
   const needVector = (foodSlots: number): NeedVector => ({
     MANPOWER_THROUGHPUT: 0,
@@ -66,14 +102,22 @@ describe("foodSlotReliefFromPlannerInput", () => {
   });
 
   it("reports exhausted only when FOOD_SLOTS deficit is at its max", () => {
-    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, needVector(1)).exhausted).toBe(true);
-    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, needVector(0.5)).exhausted).toBe(false);
-    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined).exhausted).toBe(false);
+    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, needVector(1)).exhausted).toBe(true);
+    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, needVector(0.5)).exhausted).toBe(false);
+    expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, undefined).exhausted).toBe(false);
   });
 
-  it("bundles the removal candidate alongside the exhausted flag", () => {
+  it("prefers the zero-value beacon over the dormant-removal candidate", () => {
+    const beacon = tile(2, 3);
     const dormant = new Set(["2,3"]);
-    const result = foodSlotReliefFromPlannerInput([tile(2, 3)], PLAYER_ID, dormant, needVector(1));
-    expect(result).toEqual({ removal: { x: 2, y: 3 }, exhausted: true });
+    const result = foodSlotReliefFromPlannerInput([beacon], PLAYER_ID, dormant, tilesByKeyOf([beacon]), needVector(1));
+    expect(result).toEqual({ disableBeacon: { x: 2, y: 3 }, removal: { x: 2, y: 3 }, exhausted: true });
+  });
+
+  it("falls back to the removal candidate when there's no disableable beacon", () => {
+    const dormantStructure = tile(2, 3, { type: "FARMSTEAD" });
+    const dormant = new Set(["2,3"]);
+    const result = foodSlotReliefFromPlannerInput([dormantStructure], PLAYER_ID, dormant, undefined, needVector(1));
+    expect(result).toEqual({ disableBeacon: undefined, removal: { x: 2, y: 3 }, exhausted: true });
   });
 });

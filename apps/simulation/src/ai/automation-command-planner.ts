@@ -145,20 +145,13 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
   const canAttack = input.points >= FRONTIER_CLAIM_COST && input.manpower >= ATTACK_MANPOWER_MIN;
   // SETTLE_COST reserves gold for the eventual SETTLE step (#1055); EXPAND_MANPOWER_COST is the manpower-rewrite's own gate — both fixes combined.
   const canExpand = input.points >= SETTLE_COST && input.manpower >= EXPAND_MANPOWER_COST;
-  // strategicFrontierTiles (isStrategicFrontierTile: good SETTLE candidates —
-  // e.g. interior gaps that improve territory shape) used to sit ahead of
-  // frontierTiles here, but there is no SETTLE decision class in the AI's
-  // utility policy — the AI never acts on "good to settle" directly. Worse,
-  // when hotFrontierTiles is empty this tier fired first and starved the
-  // EXPAND/ATTACK scan: analyzeOwnedFrontierTargetsFromLookup only looks for
-  // targets among an origin's immediate neighbors, and "good to settle"
-  // (defensive shape/economic value of the tile itself) says nothing about
-  // whether an origin has an unclaimed/hostile neighbor to expand into.
-  // Production case: ai-1 had 266 strategicFrontierTiles (mostly interior
-  // gaps with no expand-worthy neighbors) and 0 hotFrontierTiles, so the scan
-  // was pinned on the strategic set every tick — permanently starving
-  // whatever genuinely expandable tile existed elsewhere in its 421-tile
-  // frontier — while never being able to act on the strategic tiles anyway.
+  // strategicFrontierTiles (isStrategicFrontierTile: good SETTLE candidates — e.g. interior gaps that improve territory shape) used to sit ahead of
+  // frontierTiles here, but there is no SETTLE decision class in the AI's utility policy — the AI never acts on "good to settle" directly. Worse,
+  // when hotFrontierTiles is empty this tier fired first and starved the EXPAND/ATTACK scan: analyzeOwnedFrontierTargetsFromLookup only looks for
+  // targets among an origin's immediate neighbors, and "good to settle" (defensive shape/economic value of the tile itself) says nothing about
+  // whether an origin has an unclaimed/hostile neighbor to expand into. Production case: ai-1 had 266 strategicFrontierTiles (mostly interior
+  // gaps with no expand-worthy neighbors) and 0 hotFrontierTiles, so the scan was pinned on the strategic set every tick — permanently starving
+  // whatever genuinely expandable tile existed elsewhere in its 421-tile frontier — while never being able to act on the strategic tiles anyway.
   const baseFrontierOrigins =
     (input.hotFrontierTiles?.length
       ? input.hotFrontierTiles
@@ -475,7 +468,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     victoryPathProgress: strategic.primaryVictoryPathProgress
   });
   if (needVector) diagnosticBase.needVector = needVector;
-  const foodSlotRelief = foodSlotReliefFromPlannerInput(input.ownedTiles, input.playerId, input.foodDormantEconomicStructureKeys, needVector);
+  const foodSlotRelief = foodSlotReliefFromPlannerInput(input.ownedTiles, input.playerId, input.foodDormantEconomicStructureKeys, input.tilesByKey, needVector);
   recordPhaseTiming("summarize_frontier", summarizeStartedAt);
   return runUtilityPolicy({
     context,
@@ -488,6 +481,7 @@ export const planAutomationCommand = <TTile extends AutomationPlannerTile>(
     fortBuild,
     siegeOutpostBuild,
     relayBeaconBuild,
+    foodSlotDisableBeacon: foodSlotRelief.disableBeacon,
     foodSlotReliefRemoval: foodSlotRelief.removal,
     foodSlotsExhausted: foodSlotRelief.exhausted,
     attackStalemateTargetTileKeys: input.attackStalemateTargetTileKeys,

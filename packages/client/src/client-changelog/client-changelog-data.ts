@@ -488,10 +488,11 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1787749806338, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
-    title: "AI empires can now demolish a starved building to unblock growth",
+    title: "AI empires can now unblock growth when out of FOOD slots",
     why: "When an AI ran completely out of FOOD slots with no Farmstead/Waterworks/Granary build available to grow more, it had no way out -- every FOOD-costing build (including a new Relay Beacon, which is the AI's only path to claim more farmland) stayed permanently illegal, so a starved AI empire would just get stuck forever instead of expanding its way out of the shortage.",
     changes: [
-      "An AI empire that's fully out of FOOD slots, with no direct way to grow more, will now demolish one of its own already-starved (non-functional) buildings -- Relay Beacons included -- to free up the slot for further growth."
+      "An AI empire that's fully out of FOOD slots, with no direct way to grow more, will now disable one of its own Relay Beacons that isn't covering any resources -- a reversible fix, not a demolition -- to free up the slot for further growth.",
+      "Only once no such low-value Relay Beacon exists does the AI fall back to permanently demolishing an already-starved (non-functional) building instead."
     ]
   }
 ];

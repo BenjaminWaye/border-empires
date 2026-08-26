@@ -81,7 +81,7 @@ export type AutomationPlannerTile = {
   fort?: { ownerId?: string; status?: string } | null | undefined;
   observatory?: { ownerId?: string; status?: string } | null | undefined;
   siegeOutpost?: { ownerId?: string; status?: string } | null | undefined;
-  economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string } | null | undefined;
+  economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string; inactiveReason?: string | undefined } | null | undefined;
 };
 
 export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
