@@ -10,6 +10,7 @@ export type Layers = {
   towns: boolean;
   docks: boolean;
   wonders: boolean;
+  spawnSites: boolean;
 };
 
 export type ViewConfig = {
@@ -183,6 +184,17 @@ export const renderWorld = (
       const wx = flatIdx % WORLD_WIDTH;
       const wy = Math.floor(flatIdx / WORLD_WIDTH);
       drawMarker(px, wx, wy, 0, 200, 255, 0, 80, 140, 4, scale, drawW, drawH, yOff);
+    }
+  }
+
+  // Fair-spawn-site markers (magenta, white border) — drawn before town
+  // markers so a town stays legible where a spawn site happens to sit right
+  // next to one.
+  if (layers.spawnSites) {
+    for (const flatIdx of data.spawnSiteIndices) {
+      const wx = flatIdx % WORLD_WIDTH;
+      const wy = Math.floor(flatIdx / WORLD_WIDTH);
+      drawMarker(px, wx, wy, 255, 0, 180, 255, 255, 255, 2, scale, drawW, drawH, yOff);
     }
   }
 

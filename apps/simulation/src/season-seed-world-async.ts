@@ -49,6 +49,8 @@ import {
 } from "./season-seed-world.js";
 import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js"; import { createSeasonNaturalWondersRuntime } from "./season-seed-natural-wonders.js";
 import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
+import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.js";
+import { countFairSpawnSitesForWorldgenCheck, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js";
 
 // This is createSeasonSeedWorld (season-seed-world.ts) with cooperative
 // yields between generation stages, used by the live "Start New Season"
@@ -226,7 +228,16 @@ export const createSeasonSeedWorldAsync = async (
       (minSignificantIslands === undefined || islandSummary.significantCount >= minSignificantIslands) &&
       (maxSignificantIslands === undefined || islandSummary.significantCount <= maxSignificantIslands) &&
       (maxLargestIslandShare === undefined || islandSummary.largestShare <= maxLargestIslandShare);
-    if (islandDistributionAccepted && !worldLooksBland(worldSeed, clusterByTile, townsByTile, docksByTile, terrainRuntime.seeded01)) break;
+    const worldLooksBlandResult = islandDistributionAccepted && worldLooksBland(worldSeed, clusterByTile, townsByTile, docksByTile, terrainRuntime.seeded01);
+    await onYield?.();
+    // Reject (and regenerate, same as a bad island distribution or a bland
+    // map) a candidate map that can't secure a full fair-spawn-site roster —
+    // see countFairSpawnSitesForWorldgenCheck.
+    const worldAccepted =
+      islandDistributionAccepted &&
+      !worldLooksBlandResult &&
+      countFairSpawnSitesForWorldgenCheck({ WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, clusterByTile, clustersById, townsByTile }) >= FAIR_SPAWN_SITE_WORLDGEN_MINIMUM;
+    if (worldAccepted) break;
     if (iteration < 15) {
       worldSeed = Math.floor(terrainRuntime.seeded01(worldSeed + iteration * 101, worldSeed + iteration * 137, worldSeed + 9001) * 1_000_000_000);
     }
@@ -249,89 +260,13 @@ export const createSeasonSeedWorldAsync = async (
     players.set(playerId, createPlayer(playerId, true));
   }
 
-  const spawnPositions: Array<{ playerId: string; x: number; y: number; isAi: boolean }> = [];
-  const hasNearbyTown = (x: number, y: number, radius: number): boolean => {
-    for (let dy = -radius; dy <= radius; dy += 1) {
-      for (let dx = -radius; dx <= radius; dx += 1) {
-        if (Math.abs(dx) + Math.abs(dy) > radius) continue;
-        if (townsByTile.has(key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)))) return true;
-      }
-    }
-    return false;
-  };
-  const hasNearbyFood = (x: number, y: number, radius: number): boolean => {
-    for (let dy = -radius; dy <= radius; dy += 1) {
-      for (let dx = -radius; dx <= radius; dx += 1) {
-        if (Math.abs(dx) + Math.abs(dy) > radius) continue;
-        const clusterId = clusterByTile.get(key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)));
-        const cluster = clusterId ? clustersById.get(clusterId) : undefined;
-        if (!cluster) continue;
-        if (cluster.resourceType === "FARM" || cluster.resourceType === "FISH") return true;
-      }
-    }
-    return false;
-  };
-  const hasNearbySpawn = (x: number, y: number, radius: number): boolean =>
-    spawnPositions.some((spawn) => chebyshevDistance(x, y, spawn.x, spawn.y) < radius);
-  const canSpawnAt = (
-    x: number,
-    y: number,
-    requirements: { needsTown: boolean; needsFood: boolean; minSpawnDistance: number }
-  ): boolean => {
-    const tk = key(x, y);
-    if (terrainAt(x, y) !== "LAND") return false;
-    if (townsByTile.has(tk) || docksByTile.has(tk) || ownership.has(tk)) return false;
-    if (requirements.minSpawnDistance > 0 && hasNearbySpawn(x, y, requirements.minSpawnDistance)) return false;
-    if (requirements.needsTown && !hasNearbyTown(x, y, 10)) return false;
-    if (requirements.needsFood && !hasNearbyFood(x, y, 10)) return false;
-    return true;
-  };
-  const spawnSearchOrder = [
-    { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: 50 } },
-    { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50 } },
-    { tries: 5_000, requirements: { needsTown: false, needsFood: true, minSpawnDistance: 50 } },
-    { tries: 5_000, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 50 } },
-    { tries: WORLD_WIDTH * WORLD_HEIGHT, requirements: { needsTown: false, needsFood: false, minSpawnDistance: 35 } }
-  ] as const;
-  const spawnPlayerAt = (playerId: string, isAi: boolean, playerIndex: number): void => {
-    let spawn: { x: number; y: number } | undefined;
-    for (const [passIndex, pass] of spawnSearchOrder.entries()) {
-      if (pass.tries === WORLD_WIDTH * WORLD_HEIGHT) {
-        for (let y = 0; y < WORLD_HEIGHT && !spawn; y += 1) {
-          for (let x = 0; x < WORLD_WIDTH; x += 1) {
-            if (!canSpawnAt(x, y, pass.requirements)) continue;
-            spawn = { x, y };
-            break;
-          }
-        }
-      } else {
-        for (let attempt = 0; attempt < pass.tries; attempt += 1) {
-          const x = Math.floor(
-            terrainRuntime.seeded01((playerIndex + 1) * 101 + attempt * 17, (passIndex + 1) * 43 + playerIndex * 11, worldSeed + 700 + passIndex) *
-              WORLD_WIDTH
-          );
-          const y = Math.floor(
-            terrainRuntime.seeded01((playerIndex + 1) * 131 + attempt * 19, (passIndex + 1) * 59 + playerIndex * 13, worldSeed + 900 + passIndex) *
-              WORLD_HEIGHT
-          );
-          if (!canSpawnAt(x, y, pass.requirements)) continue;
-          spawn = { x, y };
-          break;
-        }
-      }
-      if (spawn) break;
-    }
-    if (!spawn) {
-      throw new Error(`failed to place season seed spawn for ${playerId}`);
-    }
-    const tk = key(spawn.x, spawn.y);
-    ownership.set(tk, playerId);
-    shardSitesByTile.delete(tk);
-    watchtowersByTile.delete(tk);
-    naturalWondersByTile.delete(tk);
-    townsByTile.set(tk, createSettlementTown(tk, townsRuntime.townTypeAt(spawn.x, spawn.y)));
-    spawnPositions.push({ playerId, x: spawn.x, y: spawn.y, isAi });
-  };
+  const { spawnPositions, spawnPlayerAt } = createSeasonSeedPlayerSpawner({
+    WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, wrapX, wrapY, key,
+    chebyshevDistance, seeded01: terrainRuntime.seeded01,
+    townsByTile, docksByTile, ownership, clusterByTile, clustersById,
+    shardSitesByTile, watchtowersByTile, naturalWondersByTile,
+    createSettlementTown, townTypeAt: townsRuntime.townTypeAt
+  });
 
   for (let index = 0; index < humanPlayerCount; index += 1) {
     spawnPlayerAt(`player-${index + 1}`, false, index);
