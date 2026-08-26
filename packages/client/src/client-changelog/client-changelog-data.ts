@@ -77,6 +77,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Auto-settle no longer queues frontier tiles that are currently outside your reach border."]
   },
   {
+    createdAt: 1787691972634, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Town population bar now shows progress toward the next tier",
+    why: "The town overview's population bar showed current population against the town's absolute population cap, which barely moved even as a town grew and gave no sense of how close it was to upgrading tiers.",
+    changes: [
+      "The population bar and its number now track progress toward the next population tier (e.g. Town → City) instead of the absolute population cap, and turns green once that tier's threshold is reached."
+    ]
+  },
+  {
     createdAt: 1787688074263, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.5",
     title: "Fixed black artifacts under coastal sea tiles",

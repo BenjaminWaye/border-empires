@@ -72,6 +72,9 @@
   border-radius: inherit;
   background: linear-gradient(90deg, #c9a24b, #ffd166);
 }
+.tile-stat-meter > span.is-tier-ready {
+  background: linear-gradient(90deg, #4caf6d, #7ee79a);
+}
 .tile-stat-mini-row {
   display: flex;
   gap: 8px;
