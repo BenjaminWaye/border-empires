@@ -31,6 +31,16 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787688879680, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Manpower for Expand and Settle is now spent the moment you queue them",
+    why: "Building deducted manpower as soon as an action was queued, but Expand and Settle didn't -- Expand only charged it once the claim finished (up to ~90s later on forest/hills), and a queued Settle held nothing at all. Both let you queue more actions than your manpower could actually cover, since nothing showed as spent until each one individually went through.",
+    changes: [
+      "Expand now charges its manpower cost the moment the claim is accepted, refunded if you cancel it or it never resolves.",
+      "A queued Settle now reserves its manpower immediately, the same way a queued Build already did."
+    ]
+  },
+  {
     createdAt: 1787462564744, // 2026.08.22.15 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.15",
     title: "Fixed the same false \"Map sync stalled\" warning on the plain \"Join Season?\" prompt",
@@ -54,24 +64,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     title: "Fixed rivers clipping through hills",
     why: "River ribbons rendered at the flat ground elevation, ignoring the raised dome mesh used for hill tiles, so a river crossing a hill looked like jagged glued-together rectangles instead of a smooth ribbon.",
     changes: ["Rivers now render above the hill dome wherever their path crosses a hills tile."]
-  },
-  {
-    createdAt: 1787430800000,
-    introducedIn: "2026.08.22.10",
-    title: "Your galaxy planet now shows what it's specialized in",
-    why: "The galaxy view showed which victory path crowned your planet, but not what that meant going forward -- part of the early galactic meta-layer groundwork (docs/galactic-campaign-design.md), where each victory path is meant to grant a distinct planet specialization.",
-    changes: [
-      "Your galaxy planet (named or not-yet-named) now shows a specialization badge -- Industrial, Trade, Extraction, Logistics, or Capital -- based on which victory condition crowned it."
-    ]
-  },
-  {
-    createdAt: 1787430700000,
-    introducedIn: "2026.08.22.9",
-    title: "Muster flags now clear reliably after losing a tile in combat",
-    why: "Losing an attack could hand your attacking tile to the enemy, and if that tile then fell outside your visible area in the same instant, the server's notice that the tile (and its staged muster flag) changed hands never reached your client -- the flag stayed stuck on ground you no longer owned until you happened to re-scout it.",
-    changes: [
-      "The server now always tells you when a tile you just lost -- whether your attack's origin was overrun or a target you held was captured -- changes hands, even if you no longer have vision of it, so a cleared muster flag (and the rest of that tile's state) updates immediately instead of going stale."
-    ]
   },
   {
     createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
@@ -278,6 +270,15 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     why: "The Economy sidebar's slot-based resources only showed \"Occupied by\" (who's using your slots), with no way to see where the slot capacity itself came from -- unlike GOLD, which already lists its Income Sources.",
     changes: [
       "The Economy panel's detail card for FOOD/TITANIUM/CRYSTAL/UMBRITE now has a \"Slot Sources\" column listing which tiles and boost structures (Farmstead, Mine, Umbrite Rig, Waterworks/Foundry radius bonuses, active synthesizers) are contributing slot capacity, alongside the existing \"Occupied by\" column."
+    ]
+  },
+  {
+    createdAt: 1787474961956, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Higher starting manpower for new capitals",
+    why: "New capitals started with 576 manpower, an odd number derived from expansion-cost math -- raising it to a round 720 gives new players more early room to expand and settle.",
+    changes: [
+      "A new capital's starting manpower cap (and starting manpower, which fills it) is now 720, up from 576."
     ]
   },
 ];

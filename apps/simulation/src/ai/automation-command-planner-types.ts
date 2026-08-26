@@ -81,7 +81,7 @@ export type AutomationPlannerTile = {
   fort?: { ownerId?: string; status?: string } | null | undefined;
   observatory?: { ownerId?: string; status?: string } | null | undefined;
   siegeOutpost?: { ownerId?: string; status?: string } | null | undefined;
-  economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string } | null | undefined;
+  economicStructure?: { ownerId?: string; type?: EconomicStructureType; status?: string; inactiveReason?: string | undefined } | null | undefined;
 };
 
 export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
@@ -156,6 +156,15 @@ export type AutomationPlannerInput<TTile extends AutomationPlannerTile> = {
   manpowerRegenPerMinute?: number;
   slotSupplyByResource?: Partial<Record<SlotResource, number>>;
   slotDemandByResource?: Partial<Record<SlotResource, number>>;
+  /**
+   * "x,y" tile keys of this player's economicStructures currently dormant
+   * specifically on FOOD (Runtime.foodDormantEconomicStructureKeysForPlayer)
+   * — feeds food-slot-relief.ts's chooseDormantFoodStructureToDisable, the
+   * FREE_FOOD_SLOT decision class's fallback disable target when FOOD slots
+   * are fully exhausted, no FARMSTEAD/WATERWORKS/GRANARY build can grow
+   * supply, and no low-value RELAY_BEACON exists to disable instead.
+   */
+  foodDormantEconomicStructureKeys?: ReadonlySet<string>;
 };
 
 export type AutomationPlannerDiagnostic = {
