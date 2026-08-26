@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787765310135, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Fixed: queued Expand/Attack orders now execute automatically",
+    why: "The waypoint/expand queue only stored your queued targets on the server -- it never actually walked the route for you while you were offline, so queued orders just sat there until you reopened the game and your client resumed dispatching them itself.",
+    changes: [
+      "A queued Expand/Attack now fires automatically as soon as it's your turn in the queue, including while you're completely offline.",
+      "A queued target that's no longer valid by the time it comes up (already taken, no longer reachable, etc.) is skipped instead of stalling the rest of your queue."
+    ]
+  },
+  {
     createdAt: 1787755800000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.7",
     title: "Fixed Crystal staying hidden on tiles you could already see when Aetheric Resonance finished",
