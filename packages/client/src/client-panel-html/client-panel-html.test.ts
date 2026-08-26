@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedAgeLabel, feedHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
+import { activeTrucesHtml, allianceRequestsHtml, alliesHtml, feedAgeLabel, feedHtml, leaderboardHtml, strategicRibbonHtml, truceRequestsHtml } from "./client-panel-html.js";
 
 const emptyStrategic = { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 };
 const emptyAnim = {
@@ -239,5 +239,35 @@ describe("feedHtml", () => {
     expect(html).toContain("CopperWing");
     expect(html).toContain("12h");
     expect(html).toContain("Cancel Request");
+  });
+});
+
+describe("leaderboardHtml", () => {
+  const emptyLeaderboard = {
+    overall: [] as never[],
+    selfOverall: undefined,
+    selfByTiles: undefined,
+    selfByIncome: undefined,
+    selfByTechs: undefined,
+    byTiles: [] as never[],
+    byIncome: [] as never[],
+    byTechs: [] as never[]
+  };
+
+  it("shows the founding-engineer badge for their overall row, keyed on player id not display name", () => {
+    const html = leaderboardHtml(
+      {
+        ...emptyLeaderboard,
+        overall: [
+          { id: "VK5iriJAhickNf9ArrRweUDnq1W2", name: "KonradsDelikatessKörv", rank: 1, score: 42, tiles: 10, incomePerMinute: 5, techs: 3 },
+          { id: "some-other-player", name: "KonradsDelikatessKörv", rank: 2, score: 30, tiles: 8, incomePerMinute: 4, techs: 2 }
+        ]
+      },
+      [],
+      undefined
+    );
+    const rows = html.split("</div>").filter((row) => row.includes("KonradsDelikatessKörv"));
+    expect(rows[0]).toContain("founding-engineer-name");
+    expect(rows[1]).not.toContain("founding-engineer-name");
   });
 });
