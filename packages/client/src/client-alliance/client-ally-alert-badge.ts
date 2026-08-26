@@ -11,14 +11,12 @@ export const applyAllyAlertNavBadges = (
   panelActionButtons: NodeListOf<HTMLButtonElement>
 ): void => {
   const pendingAllyCount = state.incomingAllianceRequests.length + state.incomingTruceRequests.length;
-  const ariaLabel = `${pendingAllyCount} pending alliance/truce request${pendingAllyCount === 1 ? "" : "s"}`;
+  const badgeHtml = mobileNavLabelHtml("social", { pendingAllyCount });
   panelActionButtons.forEach((btn) => {
     if (btn.dataset.panel !== "alliance") return;
-    btn.innerHTML = pendingAllyCount > 0
-      ? `<span class="tab-icon">👥</span><span class="social-alert-dot" aria-label="${ariaLabel}">${Math.min(9, pendingAllyCount)}</span>`
-      : '<span class="tab-icon">👥</span>';
+    btn.innerHTML = badgeHtml;
   });
   const mobileBtn = hud.querySelector<HTMLButtonElement>("#mobile-nav button[data-mobile-panel='social']");
   if (!mobileBtn) return;
-  mobileBtn.innerHTML = mobileNavLabelHtml("social", { pendingAllyCount });
+  mobileBtn.innerHTML = badgeHtml;
 };
