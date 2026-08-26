@@ -143,6 +143,112 @@ export const computeLandRegions = (tileList: readonly DomainTileState[]): Map<st
   return regionByKey;
 };
 
+export type FairSpawnSite = { x: number; y: number };
+
+const FAIR_SPAWN_SITE_TARGET_COUNT = 50;
+const FAIR_SPAWN_SITE_AMENITY_RADIUS = 10;
+
+/**
+ * Precomputes a roster of spawn sites at worldgen time, instead of only
+ * searching for one candidate per player as chooseLegacySpawnPlacement does.
+ * Two properties the per-player random search doesn't guarantee on its own:
+ *
+ * - Equal opportunity: every site comes from the same amenity tier (the same
+ *   "has a town nearby" / "has food nearby" tier chooseLegacySpawnPlacement's
+ *   own search order relaxes through), so no site starts materially richer or
+ *   poorer than another purely by luck of the search order.
+ * - Even spread: sites are chosen by greedy farthest-point sampling (each
+ *   next site maximizes its minimum Chebyshev distance to sites already
+ *   chosen), so the roster doesn't cluster in one region and starve another.
+ *
+ * Deterministic given the same tile list (no per-player seed) — this is
+ * computed once per world, not once per player.
+ */
+export const computeFairSpawnSites = (
+  tileList: readonly DomainTileState[],
+  targetCount: number = FAIR_SPAWN_SITE_TARGET_COUNT
+): FairSpawnSite[] => {
+  if (tileList.length === 0) return [];
+
+  const coastalLandKeys = computeCoastalLandKeys(tileList);
+  const landRegionByTileKey = computeLandRegions(tileList);
+  const sameLandRegion = (ax: number, ay: number, bx: number, by: number): boolean => {
+    const originRegion = landRegionByTileKey.get(simulationTileKey(ax, ay));
+    return originRegion === undefined || landRegionByTileKey.get(simulationTileKey(bx, by)) === originRegion;
+  };
+
+  const townCoords = tileList.filter((tile) => tile.town).map((tile) => ({ x: tile.x, y: tile.y }));
+  const foodCoords = tileList.filter((tile) => tile.resource === "FARM" || tile.resource === "FISH").map((tile) => ({ x: tile.x, y: tile.y }));
+  const isNearTown = (x: number, y: number): boolean =>
+    townCoords.some((town) => manhattanDistance(x, y, town.x, town.y) <= FAIR_SPAWN_SITE_AMENITY_RADIUS && sameLandRegion(x, y, town.x, town.y));
+  const isNearFood = (x: number, y: number): boolean =>
+    foodCoords.some((food) => manhattanDistance(x, y, food.x, food.y) <= FAIR_SPAWN_SITE_AMENITY_RADIUS && sameLandRegion(x, y, food.x, food.y));
+
+  const baseCandidates = tileList.filter((tile) => {
+    const tileKey = simulationTileKey(tile.x, tile.y);
+    if (tile.terrain !== "LAND" || tile.ownerId || tile.town || tile.dockId) return false;
+    return coastalLandKeys.size === 0 || coastalLandKeys.has(tileKey);
+  });
+
+  // Same relaxation order as LEGACY_SPAWN_SEARCH_ORDER's requirement tiers,
+  // but applied to the whole candidate pool at once (rather than per-attempt)
+  // so every site drawn from a given tier shares that tier's amenities —
+  // that's what makes the roster "equal opportunity".
+  const tiers: Array<(tile: DomainTileState) => boolean> = [
+    (tile) => isNearTown(tile.x, tile.y) && isNearFood(tile.x, tile.y),
+    (tile) => isNearTown(tile.x, tile.y),
+    (tile) => isNearFood(tile.x, tile.y),
+    () => true
+  ];
+  let pool: DomainTileState[] = [];
+  for (const matchesTier of tiers) {
+    pool = baseCandidates.filter(matchesTier);
+    if (pool.length >= targetCount) break;
+  }
+  if (pool.length === 0) return [];
+
+  // Greedy farthest-point sampling: start from the candidate closest to the
+  // pool's centroid (not a map corner/edge tile) so the roster spreads
+  // outward evenly in every direction instead of biasing away from one
+  // corner, then repeatedly add whichever remaining candidate maximizes its
+  // minimum distance to sites already chosen. Order-independent and
+  // deterministic given the same pool (ties broken by lowest y, then x).
+  const centroidX = pool.reduce((sum, tile) => sum + tile.x, 0) / pool.length;
+  const centroidY = pool.reduce((sum, tile) => sum + tile.y, 0) / pool.length;
+  const sorted = [...pool].sort((left, right) => left.y - right.y || left.x - right.x);
+  let seed = sorted[0]!;
+  let seedDistance = chebyshevDistance(seed.x, seed.y, centroidX, centroidY);
+  for (const tile of sorted) {
+    const distance = chebyshevDistance(tile.x, tile.y, centroidX, centroidY);
+    if (distance < seedDistance) {
+      seedDistance = distance;
+      seed = tile;
+    }
+  }
+  const chosen: FairSpawnSite[] = [{ x: seed.x, y: seed.y }];
+  const remaining = sorted.filter((tile) => tile !== seed);
+  while (chosen.length < targetCount && remaining.length > 0) {
+    let bestIndex = 0;
+    let bestMinDistance = -1;
+    for (let index = 0; index < remaining.length; index += 1) {
+      const candidate = remaining[index]!;
+      let minDistance = Infinity;
+      for (const site of chosen) {
+        const distance = chebyshevDistance(candidate.x, candidate.y, site.x, site.y);
+        if (distance < minDistance) minDistance = distance;
+      }
+      if (minDistance > bestMinDistance) {
+        bestMinDistance = minDistance;
+        bestIndex = index;
+      }
+    }
+    const picked = remaining[bestIndex]!;
+    chosen.push({ x: picked.x, y: picked.y });
+    remaining.splice(bestIndex, 1);
+  }
+  return chosen;
+};
+
 export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { x: number; y: number } | undefined => {
   const tileList = [...input.tiles];
   if (tileList.length === 0) return undefined;
