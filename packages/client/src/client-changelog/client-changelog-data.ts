@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787771594204, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.8",
+    title: "Fixed a stray error toast on some waypoint/Expand steps",
+    why: "The server now also auto-drains your waypoint queue on its own (so it keeps moving while you're offline). That occasionally raced your own client's live dispatch of the same step, and whichever one lost the race showed you an error -- but the client then mistakenly treated the winning side's unrelated success message as confirmation of the one that had just failed, since it stopped checking which command a late server reply was actually answering once nothing was in flight.",
+    changes: [
+      "A stray success message that arrives after an action already failed no longer gets misapplied to it -- you'll see the real outcome instead of a confusing error-then-success flicker."
+    ]
+  },
+  {
     createdAt: 1787769789241, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.8",
     title: "Fixed a captured settlement appearing to remain intact after capture",
