@@ -42,6 +42,21 @@ export type LegacySpawnPlacementInput = {
 
 const RALLY_SPAWN_RADIUS = 24;
 
+// Passes tried (in order) for a rally-linked spawn, before falling back to
+// "closest open land to the anchor regardless of quality". A rally spawn
+// should land somewhere a player can actually build from — near a town and
+// food, same as an ordinary spawn — not just be the nearest empty tile to
+// the inviting player. minSpawnDistance is intentionally small/zero here
+// (unlike LEGACY_SPAWN_SEARCH_ORDER's 50): the whole point of a rally spawn
+// is landing close to the anchor player's own settled tiles.
+const RALLY_SPAWN_SEARCH_ORDER: readonly SpawnRequirements[] = [
+  { needsTown: true, needsFood: true, minSpawnDistance: 3 },
+  { needsTown: true, needsFood: false, minSpawnDistance: 3 },
+  { needsTown: false, needsFood: true, minSpawnDistance: 3 },
+  { needsTown: false, needsFood: false, minSpawnDistance: 3 },
+  { needsTown: false, needsFood: false, minSpawnDistance: 0 }
+];
+
 const LEGACY_SPAWN_SEARCH_ORDER: readonly SpawnSearchPass[] = [
   { tries: 8_000, requirements: { needsTown: true, needsFood: true, minSpawnDistance: 50 } },
   { tries: 5_000, requirements: { needsTown: true, needsFood: false, minSpawnDistance: 50 } },
@@ -313,8 +328,11 @@ export const chooseLegacySpawnPlacement = (input: LegacySpawnPlacementInput): { 
         const rightDistance = chebyshevDistance(right.x, right.y, input.rallyAnchor!.x, input.rallyAnchor!.y);
         return (leftDistance - rightDistance) || (left.y - right.y) || (left.x - right.x);
       });
-    const rallySpawn = nearbyCandidates[hashString(input.playerId) % Math.max(1, Math.min(nearbyCandidates.length, 8))];
-    if (rallySpawn) return { x: rallySpawn.x, y: rallySpawn.y };
+    for (const requirements of RALLY_SPAWN_SEARCH_ORDER) {
+      const qualifyingCandidates = nearbyCandidates.filter((tile) => canSpawnAt(tile.x, tile.y, requirements));
+      const rallySpawn = qualifyingCandidates[hashString(input.playerId) % Math.max(1, Math.min(qualifyingCandidates.length, 8))];
+      if (rallySpawn) return { x: rallySpawn.x, y: rallySpawn.y };
+    }
   }
 
   let seed = hashString(input.playerId);
