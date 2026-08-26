@@ -43,8 +43,18 @@ export const bindQueuedFrontierCommandIdentity = (
 
 export const matchesCurrentFrontierCommand = (
   state: Pick<ClientState, "actionCurrent">,
-  commandId: unknown
+  commandId: unknown,
+  // COMBAT_RESULT/COMBAT_START are broadcast to both sides of a fight, so a
+  // defending client -- which never submitted anything and so has no
+  // actionCurrent at all -- must still accept them (see
+  // client-network.tiles-revision-regression.test.ts's ATTACK-defender
+  // case). ACTION_ACCEPTED/FRONTIER_RESULT are different: they only ever ack
+  // a command *this* client submitted, so nothing in flight (actionCurrent
+  // undefined) means the message cannot belong to us and must not be
+  // adopted. Pass requireActionInFlight: true for those two.
+  requireActionInFlight = false
 ): boolean => {
   if (typeof commandId !== "string" || !commandId) return true;
-  return !state.actionCurrent?.commandId || state.actionCurrent.commandId === commandId;
+  if (!state.actionCurrent) return !requireActionInFlight;
+  return !state.actionCurrent.commandId || state.actionCurrent.commandId === commandId;
 };
