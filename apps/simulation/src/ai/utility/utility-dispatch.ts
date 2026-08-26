@@ -44,7 +44,9 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
   /** Best RELAY_BEACON placement candidate (fixed-borders-via-reach plan). */
   relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
-  /** FOOD-dormant structure to demolish for slot relief — see food-slot-relief.ts. */
+  /** Low-value (zero-reach-value) active RELAY_BEACON to reversibly disable for slot relief — preferred over foodSlotReliefRemoval. See food-slot-relief.ts. */
+  foodSlotDisableBeacon: FoodSlotReliefPlan | undefined;
+  /** FOOD-dormant structure to demolish for slot relief, once no beacon is left to disable instead — see food-slot-relief.ts. */
   foodSlotReliefRemoval: FoodSlotReliefPlan | undefined;
   /** FOOD slots are fully exhausted (supply <= 0 relative to demand). */
   foodSlotsExhausted: boolean;
@@ -133,7 +135,7 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     relayBeaconSiteValue: state.relayBeaconBuild?.siteValue ?? 0,
     beaconBoostActive: state.beaconBoostActive,
     foodSlotsExhausted: state.foodSlotsExhausted,
-    hasFoodSlotReliefCandidate: Boolean(state.foodSlotReliefRemoval),
+    hasFoodSlotReliefCandidate: Boolean(state.foodSlotDisableBeacon || state.foodSlotReliefRemoval),
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},
@@ -257,6 +259,15 @@ const executeClass = <TTile extends AutomationPlannerTile>(
     }
 
     case "FREE_FOOD_SLOT":
+      // Prefer disabling a zero-value beacon (reversible) over demolishing a
+      // dormant structure (permanent) — see food-slot-relief.ts.
+      if (state.foodSlotDisableBeacon) {
+        return buildPlannerCommand(context, "SET_CONVERTER_STRUCTURE_ENABLED", {
+          x: state.foodSlotDisableBeacon.x,
+          y: state.foodSlotDisableBeacon.y,
+          enabled: false
+        });
+      }
       if (!state.foodSlotReliefRemoval) return undefined;
       return buildPlannerCommand(context, "REMOVE_STRUCTURE", {
         x: state.foodSlotReliefRemoval.x,
