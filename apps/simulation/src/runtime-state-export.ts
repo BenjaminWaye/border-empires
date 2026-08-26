@@ -343,6 +343,9 @@ type PlannerExportInput = {
   playerManpowerRegenPerMinute?: (playerId: string) => number;
   resourceSlotSupplyForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
   resourceSlotDemandForPlayer?: (playerId: string) => Partial<Record<SlotResource, number>>;
+  // Feeds food-slot-relief.ts's chooseDormantFoodStructureToDisable — same
+  // optional-degrades-gracefully pattern as the four fields above.
+  foodDormantEconomicStructureKeysForPlayer?: (playerId: string) => ReadonlySet<string>;
   neutralBeaconTileKeys: ReadonlySet<string>;
   beaconGeneration: number;
   yieldBearingTilesByOwner: ReadonlyMap<string, ReadonlySet<string>>;
@@ -462,6 +465,9 @@ export function buildRuntimePlannerPlayerViews(input: PlannerExportInput): Plann
           : {}),
         ...(input.resourceSlotDemandForPlayer
           ? { slotDemandByResource: input.resourceSlotDemandForPlayer(playerId) }
+          : {}),
+        ...(input.foodDormantEconomicStructureKeysForPlayer
+          ? { foodDormantEconomicStructureKeys: [...input.foodDormantEconomicStructureKeysForPlayer(playerId)] }
           : {})
       });
     });
