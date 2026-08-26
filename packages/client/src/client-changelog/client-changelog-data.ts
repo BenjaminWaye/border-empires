@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787771594204, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.8",
+    title: "Fixed a stray error toast on some waypoint/Expand steps",
+    why: "The server now also auto-drains your waypoint queue on its own (so it keeps moving while you're offline). That occasionally raced your own client's live dispatch of the same step, and whichever one lost the race showed you an error -- but the client then mistakenly treated the winning side's unrelated success message as confirmation of the one that had just failed, since it stopped checking which command a late server reply was actually answering once nothing was in flight.",
+    changes: [
+      "A stray success message that arrives after an action already failed no longer gets misapplied to it -- you'll see the real outcome instead of a confusing error-then-success flicker."
+    ]
+  },
+  {
     createdAt: 1787765310135, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
     title: "Fixed: queued Expand/Attack orders now execute automatically",
@@ -434,17 +443,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The season lobby's cog now spins smoothly, and the countdown/roster no longer flicker on every background update.",
       "The \"Bring a friend\" button's \"Copied!\" confirmation is now visible long enough to actually see it.",
       "Reloading the page (or reconnecting) while waiting in the pending-season lobby now returns you straight to the countdown with the live player count and roster, instead of showing an empty \"Join Season?\" prompt first."
-    ]
-  },
-  {
-    createdAt: 1787476076398, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
-    introducedIn: "2026.08.23.2",
-    title: "Expand is gated to your reach again, with a new way to reach an out-of-reach rival",
-    why: "Expanding onto land outside your reach border used to succeed, then quietly go nowhere -- you couldn't settle it, build on it, or hold it against a rival's growing border, so it just sat there looking claimed while doing nothing. That was confusing without adding anything you could actually use it for.",
-    changes: [
-      "Expand now requires the target tile to be inside your reach border, same as Settle already did.",
-      "The one exception: if a rival's reach border touches yours, you can still expand into their reach right at that contact point -- opening a legal Attack origin against them even if none of your other territory reaches that far.",
-      "Where two empires' reach borders touch, the border pylons and connecting lines now blend into a shared translucent beam instead of showing one owner's solid color, with faint drifting dust in both empires' colors passing through it."
     ]
   },
   {

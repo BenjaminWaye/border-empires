@@ -1491,7 +1491,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "ACTION_ACCEPTED") {
-      if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
+      if (!matchesCurrentFrontierCommand(state, msg.commandId, true)) {
         attackSyncLog("action-accepted-ignored-command-mismatch", {
           actionType: msg.actionType,
           commandId: msg.commandId,
@@ -1557,7 +1557,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
     }
 
     if (msg.type === "FRONTIER_RESULT") {
-      if (!matchesCurrentFrontierCommand(state, msg.commandId)) {
+      if (!matchesCurrentFrontierCommand(state, msg.commandId, true)) {
         attackSyncLog("frontier-result-ignored-command-mismatch", {
           actionType: msg.actionType,
           commandId: msg.commandId,
