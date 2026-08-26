@@ -58,7 +58,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       : `Adds an offensive staging point on this border or dock tile. Siege Outposts attack at ${SIEGE_TIER_LADDER.SIEGE_OUTPOST.attackMult}x.`;
   }
   if (actionId === "build_relay_beacon") return "Build a Relay Beacon on this border or dock tile. First 5 Relay Beacons are free (no FOOD slot cost); 6th onward requires 1 FOOD upkeep. Grants a smaller attack bonus than a full siege outpost.";
-  if (actionId === "build_farmstead") return tile.resource === "FARM" ? `Improves food production on this tile by 50% and adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot.` : "Farmsteads do not boost fish output.";
+  if (actionId === "build_farmstead") return tile.resource === "FARM" ? `Adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot.` : "Farmsteads do not boost fish output.";
   if (actionId === "build_umbrite_rig") return "Adds +1 UMBRITE slot on this tile.";
   if (actionId === "build_titanium_weapons_factory") return "Military-industrial structure. Grants +1.5% attack / +3% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
   if (actionId === "build_umbrite_weapons_factory") return "Military-industrial structure. Grants +3% attack / +1.5% defense per copy, empire-wide. No per-town limit, but cost rises with each one you own.";
@@ -87,7 +87,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
     return `Build on this support tile for ${supportedTownLabel}. Enables the road network itself — towns only share their connected-town income bonus with each other if at least one has a Trade Nexus built.`;
   }
   if (actionId === "build_waterworks") {
-    return `Build on this support tile for ${supportedTownLabel}. Boosts food production on every Farmstead within 10 tiles by +100% and adds +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots to each one boosted.`;
+    return `Build on this support tile for ${supportedTownLabel}. Every Farmstead within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`;
   }
   if (actionId === "build_census_hall") {
     return `Build on this support tile for ${supportedTownLabel}. Grants +${CENSUS_HALL_POPULATION_BONUS_PER_CONNECTED_GRANARY.toLocaleString()} population per connected Incubation Engine and cuts this town's tier-upgrade gold cost by ${Math.round((1 - CENSUS_HALL_TOWN_TIER_UPGRADE_GOLD_COST_MULT) * 100)}%.`;

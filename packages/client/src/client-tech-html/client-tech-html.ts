@@ -44,7 +44,7 @@ export const hasRevealedResourceCategory = (
 };
 
 export const effectSummaryLabel = (key: string, value: unknown): string | null => {
-  if (key === "unlockFarmstead" && value === true) return `Unlocks farmsteads (+50% farm food, +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
+  if (key === "unlockFarmstead" && value === true) return `Unlocks farmsteads (+${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot), and adds +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} FOOD slot on every owned fish tile`;
   if (key === "unlockUmbriteRig" && value === true) return "Unlocks umbrite rigs";
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMintworks" && value === true) return "Unlocks mintworks";
@@ -92,7 +92,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockThunderBastion" && value === true) return "Unlocks Thunder Bastion";
   if (key === "unlockDreadTower" && value === true) return "Unlocks Dread Tower";
   if (key === "unlockSeedGranaryUpgrade" && value === true) return "Upgrades Granary to Seed Granary";
-  if (key === "unlockWaterworksUpgrade" && value === true) return `Unlocks Waterworks (+100% farmstead food within 10 tiles; each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots)`;
+  if (key === "unlockWaterworksUpgrade" && value === true) return `Unlocks Waterworks (every Farmstead within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots)`;
   if (key === "unlockRailDepot" && value === true) return "Unlocks rail depots";
   if (key === "unlockTerrainShaping" && value === true) return "Unlocks terrain works";
   if (key === "unlockLogisticsGuild" && value === true) return "Unlocks Logistics Guild";

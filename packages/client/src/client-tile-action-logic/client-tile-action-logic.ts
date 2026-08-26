@@ -1448,7 +1448,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 : !waterworksHasManpower
                   ? `Need ${structureBuildManpowerCost("WATERWORKS")} manpower`
                   : missingResourceSlotReason(state, "WATERWORKS") ?? "Unavailable",
-              `${deps.structureCostText("WATERWORKS")} • ${Math.round(economicStructureBuildMs("WATERWORKS") / 60000)}m • +100% farmstead food within 10 tiles; each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots`
+              `${deps.structureCostText("WATERWORKS")} • ${Math.round(economicStructureBuildMs("WATERWORKS") / 60000)}m • every Farmstead within 10 tiles gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots`
             ),
             slots,
             deps
@@ -1598,7 +1598,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
                 ? "Requires Agrarian Works"
                 : missingResourceSlotReason(state, "FARMSTEAD") ?? "Unavailable",
             tile.resource === "FARM"
-              ? `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +50% food • +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot`
+              ? `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot`
               : `${deps.structureCostText("FARMSTEAD")} • ${Math.round(economicStructureBuildMs("FARMSTEAD") / 60000)}m • no fish output bonus`
           ),
           slots,

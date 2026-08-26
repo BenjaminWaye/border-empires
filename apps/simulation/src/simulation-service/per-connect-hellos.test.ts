@@ -7,12 +7,14 @@ describe("emitPerConnectHellos", () => {
     const runtime = {
       emitShardRainHelloFor: () => calls.push("shard-rain"),
       resendReachForPlayer: () => calls.push("reach-resend"),
-      drainDevQueueForPlayer: (playerId: string) => calls.push(`drain:${playerId}`)
+      drainDevQueueForPlayer: (playerId: string) => calls.push(`drain:${playerId}`),
+      refreshResourceSlotCachesForPlayer: (playerId: string) => calls.push(`resource-slot-refresh:${playerId}`)
     };
 
     emitPerConnectHellos(runtime, "player-1", { error: () => {} });
 
     expect(calls).toContain("drain:player-1");
+    expect(calls).toContain("resource-slot-refresh:player-1");
   });
 
   it("isolates a failing hello so the drain still runs", () => {
@@ -20,13 +22,14 @@ describe("emitPerConnectHellos", () => {
     const runtime = {
       emitShardRainHelloFor: () => { throw new Error("boom"); },
       resendReachForPlayer: () => calls.push("reach-resend"),
-      drainDevQueueForPlayer: (playerId: string) => calls.push(`drain:${playerId}`)
+      drainDevQueueForPlayer: (playerId: string) => calls.push(`drain:${playerId}`),
+      refreshResourceSlotCachesForPlayer: (playerId: string) => calls.push(`resource-slot-refresh:${playerId}`)
     };
     const errors: Array<Record<string, unknown>> = [];
 
     emitPerConnectHellos(runtime, "player-1", { error: (payload) => errors.push(payload) });
 
-    expect(calls).toEqual(["reach-resend", "drain:player-1"]);
+    expect(calls).toEqual(["reach-resend", "drain:player-1", "resource-slot-refresh:player-1"]);
     expect(errors).toHaveLength(1);
   });
 });

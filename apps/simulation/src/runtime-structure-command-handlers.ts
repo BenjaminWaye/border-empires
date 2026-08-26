@@ -8,7 +8,6 @@ import {
   structureBuildGoldCost,
   structureBuildManpowerCostScaled,
   structureCostDefinition,
-  structurePlacementMetadata,
   structureShowsOnTile,
   structureSlotRequirements,
   RELAY_BEACON_FREE_FOOD_SLOT_COUNT, SYNTHESIZER_STRUCTURE_TYPES,
@@ -24,6 +23,10 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId } from "./monument-uniqueness.js";
 import type { LockRecord, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
+import { activeOrInactive, rejectCommand, structureLabel } from "./runtime-structure-command-handlers-reject.js";
+import { resolveTownSupportTarget } from "./runtime-structure-town-support-target.js";
+
+export { structureLabel } from "./runtime-structure-command-handlers-reject.js";
 
 export type RuntimeStructureCommandContext = {
   players: Map<string, DomainPlayer>;
@@ -83,116 +86,6 @@ export type RuntimeStructureCommandContext = {
 };
 
 type StrategicCost = Partial<Record<StrategicResourceKey, number>>;
-
-function rejectCommand(
-  context: RuntimeStructureCommandContext,
-  command: CommandEnvelope,
-  code: string,
-  message: string
-): void {
-  context.emitEvent({
-    eventType: "COMMAND_REJECTED",
-    commandId: command.commandId,
-    playerId: command.playerId,
-    code,
-    message
-  });
-}
-
-export function structureLabel(type: string): string {
-  return type.toLowerCase().replaceAll("_", " ");
-}
-
-function activeOrInactive(structure: { status: string } | undefined): boolean {
-  return structure?.status === "active" || structure?.status === "inactive";
-}
-
-// User decision: the only structure that belongs directly ON a town tile is
-// a Fort — every other support-ring building clicked on the town tile itself
-// should auto-place onto an open support tile next to it instead. That's
-// already what placementMode "town_support" does (see resolveTownSupportTarget
-// below) for most support-ring buildings, but these four are deliberately
-// uncapped/stacking per town (Mintworks: "stacks additively with every other
-// active Mintworks"; Garrison Hall/the two Weapons Factories: "same_tile
-// placement, can sit anywhere", "no per-town limit") — routing them through
-// the same town_support path would wrongly reject a 2nd/3rd copy via its
-// "town already has X" singleton check. So they stay placementMode
-// "same_tile" (preserving stacking when built directly on a support tile)
-// and get their own narrower redirect: only when the target IS the town
-// tile, skip straight to an open support tile, with no uniqueness gate.
-const STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES = new Set<BuildableStructureType>([
-  "MINTWORKS",
-  "GARRISON_HALL",
-  "TITANIUM_WEAPONS_FACTORY",
-  "UMBRITE_WEAPONS_FACTORY"
-]);
-
-function resolveTownSupportTarget(
-  context: RuntimeStructureCommandContext,
-  command: CommandEnvelope,
-  target: DomainTileState,
-  structureType: BuildableStructureType
-): DomainTileState | undefined {
-  const placement = structurePlacementMetadata(structureType);
-  if (placement.placementMode !== "town_support") {
-    if (target.town && STACKING_SUPPORT_STRUCTURE_TILE_REDIRECT_TYPES.has(structureType)) {
-      if (target.town.populationTier === "SETTLEMENT") {
-        rejectCommand(context, command, "BUILD_INVALID", "settlements cannot support economic structures — grow this town first");
-        return undefined;
-      }
-      const townKey = simulationTileKey(target.x, target.y);
-      const supportTarget = context.firstAvailableTownSupportTile(command.playerId, townKey, structureType as EconomicStructureType);
-      if (!supportTarget) {
-        rejectCommand(context, command, "BUILD_INVALID", `${structureLabel(structureType)} needs an open support tile next to this town`);
-        return undefined;
-      }
-      return supportTarget;
-    }
-    return target;
-  }
-  const economicType = structureType as EconomicStructureType;
-
-  if (target.town) {
-    if (target.town.populationTier === "SETTLEMENT") {
-      rejectCommand(context, command, "BUILD_INVALID", "settlements cannot support economic structures — grow this town first");
-      return undefined;
-    }
-    const townKey = simulationTileKey(target.x, target.y);
-    if (context.economicStructureForSupportedTown(command.playerId, townKey, economicType)) {
-      rejectCommand(context, command, "BUILD_INVALID", `town already has ${structureLabel(structureType)}`);
-      return undefined;
-    }
-    if (economicType === "RAIL_DEPOT" && context.railDepotAlreadyInNetwork(command.playerId, townKey)) {
-      rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Rail Depot");
-      return undefined;
-    }
-    if (economicType === "ASSEMBLY_WORKS" && context.assemblyWorksAlreadyInNetwork(command.playerId, townKey)) {
-      rejectCommand(context, command, "BUILD_INVALID", "connected town network already has an Assembly Works");
-      return undefined;
-    }
-    const supportTarget = context.firstAvailableTownSupportTile(command.playerId, townKey, economicType);
-    if (!supportTarget) {
-      rejectCommand(context, command, "BUILD_INVALID", `${structureLabel(structureType)} needs an open support tile next to this town`);
-      return undefined;
-    }
-    return supportTarget;
-  }
-
-  const supportedTownKey = context.assignedTownKeyForSupportTile(command.playerId, target.x, target.y);
-  if (supportedTownKey && context.economicStructureForSupportedTown(command.playerId, supportedTownKey, economicType)) {
-    rejectCommand(context, command, "BUILD_INVALID", `town already has ${structureLabel(structureType)}`);
-    return undefined;
-  }
-  if (economicType === "RAIL_DEPOT" && supportedTownKey && context.railDepotAlreadyInNetwork(command.playerId, supportedTownKey)) {
-    rejectCommand(context, command, "BUILD_INVALID", "connected town network already has a Rail Depot");
-    return undefined;
-  }
-  if (economicType === "ASSEMBLY_WORKS" && supportedTownKey && context.assemblyWorksAlreadyInNetwork(command.playerId, supportedTownKey)) {
-    rejectCommand(context, command, "BUILD_INVALID", "connected town network already has an Assembly Works");
-    return undefined;
-  }
-  return target;
-}
 
 function upgradeBaseType(structureType: BuildableStructureType): string | undefined {
   if (structureType === "ADVANCED_UMBRITE_SYNTHESIZER") return "UMBRITE_SYNTHESIZER";

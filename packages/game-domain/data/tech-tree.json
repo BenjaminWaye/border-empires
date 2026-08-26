@@ -6,7 +6,7 @@
       "tier": 1,
       "branch": "economy",
       "name": "Agrarian Works",
-      "description": "Bread first; empires can quarrel about philosophy after supper. Unlocks the Farmstead (+50% food and +2 FOOD slots on farm tiles) and adds +1 FOOD slot on every owned fish tile.",
+      "description": "Bread first; empires can quarrel about philosophy after supper. Unlocks the Farmstead (+2 FOOD slots on farm tiles) and adds +1 FOOD slot on every owned fish tile.",
       "cost": {
         "gold": 10
       },
@@ -113,7 +113,7 @@
       "tier": 2,
       "branch": "economy",
       "name": "Hydraulic Works",
-      "description": "Canals are what happen when paranoia meets agriculture.",
+      "description": "Canals are what happen when paranoia meets agriculture. Unlocks the Waterworks: every Farmstead within 10 tiles gains +2 FOOD slots.",
       "requires": "agriculture",
       "cost": {
         "gold": 10

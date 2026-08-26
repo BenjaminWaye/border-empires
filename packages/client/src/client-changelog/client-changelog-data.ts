@@ -23,6 +23,42 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787769789241, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.8",
+    title: "Fixed a captured settlement appearing to remain intact after capture",
+    why: "When an ATTACK captured an enemy's SETTLEMENT-tier town, the simulation correctly razed it, but the wire delta cleared the town by setting townJson to undefined rather than an explicit empty value. JSON.stringify drops object keys whose value is undefined, so the clear signal never reached the client -- the client's merge logic treats an absent townJson key as \"unchanged\" (by design, to avoid a different class of stale-data bug), so it kept rendering the old town as if capture had done nothing.",
+    changes: [
+      "A captured settlement now visibly disappears for everyone immediately on capture, instead of appearing to survive until an unrelated update happened to touch the tile."
+    ]
+  },
+  {
+    createdAt: 1787768869848, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.8",
+    title: "Waterworks no longer claims a food-production boost it doesn't have",
+    why: "Waterworks's description said it boosts every nearby Farmstead's food production by +100%, the same dead per-tile production claim already corrected for Farmstead, Mine, and Umbrite Rig -- the resource-slot rewrite retired per-tile food production, so the multiplier never applies to anything.",
+    changes: [
+      "Waterworks's description, tech-tree copy (Hydraulic Works), and modifier chip now only show its real effect: +2 FOOD slots for every Farmstead within 10 tiles"
+    ]
+  },
+  {
+    createdAt: 1787752754484, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Fixed food/crystal (and other resource slot) totals getting stuck wrong until you changed a tile",
+    why: "Resource slot totals and dormancy (what shows a structure as short on food/crystal/titanium/umbrite and disables further builds) are cached per player and only recomputed when a tile of yours changes. If that cache ever ended up wrong without a tile change to invalidate it, the wrong totals -- and any resulting build lockout -- stuck around indefinitely; a client refresh couldn't fix it since the bad value lived server-side, and the only known workaround was forcing a tile change yourself (e.g. abandoning a tile).",
+    changes: [
+      "Connecting (or reconnecting) now forces one fresh resource-slot supply/demand/dormancy recompute straight from your live territory, bypassing the cache entirely. This self-heals a stuck-wrong total without requiring any tile change, and runs once per connect rather than on any repeated or per-check basis, so it adds no cost during normal play."
+    ]
+  },
+  {
+    createdAt: 1787767880392, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.5",
+    title: "Farmstead no longer claims a food-production boost it doesn't have",
+    why: "Farmstead's description said it boosts farm-tile food production by 50%, matching Mine and Umbrite Rig's identical (and already-corrected) dead production claim -- the resource-slot rewrite retired per-tile food production entirely, and the one function that would compute Farmstead's 50% bonus has no callers anywhere in the code.",
+    changes: [
+      "Farmstead's description, tech-tree copy, and modifier chip now only show its real effect: +2 FOOD slots on a farm tile"
+    ]
+  },
+  {
     createdAt: 1787765310135, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
     title: "Fixed: queued Expand/Attack orders now execute automatically",
@@ -417,35 +453,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787487792786, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.3",
-    title: "Punched up the season-lobby copy",
-    why: "The 'Season starts soon' text was accurate but flat -- it read like a disclaimer instead of hyping up the moment everyone's about to launch together.",
-    changes: [
-      "The join-season overlay now reads \"Same starting line for everyone -- the whole season kicks off in one shot, no head starts,\" with the timezone caveat kept as a short aside."
-    ]
-  },
-  {
-    createdAt: 1787485929859, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23.3",
-    title: "Fixed the name/color picker not showing for new players joining a season",
-    why: "The season lobby's full-screen treatment hides every other overlay on screen while it's up -- including the name/color setup screen, which needs to run first for a brand-new player. A new player hitting a pending or newly-started season had no screen left to pick a name and color on, so it silently never appeared.",
-    changes: [
-      "The season lobby now waits for name/color setup to finish before taking over the screen, instead of hiding it."
-    ]
-  },
-  {
-    createdAt: 1787484620520, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23.2",
-    title: "Fixed the season lobby's cog vibrating instead of turning, and the invite button appearing to do nothing",
-    why: "The season lobby overlay rebuilt its entire DOM on every render pass, most of which fire from ordinary background traffic unrelated to the lobby itself -- that reset the brass cog's CSS animation before it ever completed a visible rotation (looked like vibrating), and wiped out the invite button's \"Copied!\" confirmation within milliseconds of clicking it, making the button look broken even though the copy succeeded. Separately, reloading the page while waiting in the lobby dropped you back to a plain \"Join Season?\" prompt with an empty player list instead of returning you straight to the countdown you were already in.",
-    changes: [
-      "The season lobby's cog now spins smoothly, and the countdown/roster no longer flicker on every background update.",
-      "The \"Bring a friend\" button's \"Copied!\" confirmation is now visible long enough to actually see it.",
-      "Reloading the page (or reconnecting) while waiting in the pending-season lobby now returns you straight to the countdown with the live player count and roster, instead of showing an empty \"Join Season?\" prompt first."
-    ]
-  },
-  {
     createdAt: 1787749806338, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
     title: "AI empires can now unblock growth when out of FOOD slots",
@@ -453,16 +460,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "An AI empire that's fully out of FOOD slots, with no direct way to grow more, will now disable one of its own Relay Beacons that isn't covering any resources to free up the slot for further growth.",
       "This is always a reversible disable, never a demolition -- the building stays intact and can be re-enabled once FOOD has headroom again."
-    ]
-  },
-  {
-    createdAt: 1787693449098, // frozen one ms after the prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
-    introducedIn: "2026.08.26.1",
-    title: "Rival borders in true-3D mode are now accurate, not guessed",
-    why: "The \"clashing borders\" effect where your reach meets a rival's needed to show exactly where your border ends and theirs begins, but a rival's border was only ever a rough client-side guess with no awareness of your own border -- so the two shapes almost never lined up: the seam effect either never appeared, or the two borders visually crossed through each other instead of meeting cleanly.",
-    changes: [
-      "The simulation now pushes each visible rival's real border to your client, clipped to what you can currently see -- the same authoritative treatment your own border already gets.",
-      "Rival border lines in true-3D mode now line up correctly with your own, so the clashing-borders seam renders where the two actually meet."
     ]
   },
   {
@@ -482,6 +479,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "A completed Incubation Engine now also grants a flat +10% ongoing population growth rate for its town, on top of the existing +10,000 instant population burst on completion.",
       "A Seed Granary's own buffed-radius growth bonus still stacks on top of this when it applies."
+    ]
+  },
+  {
+    createdAt: 1787769924625, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.3",
+    title: "Aether Condensers can now stack on the same town",
+    why: "Every other support-ring economic building in a family (Umbrite Works, Titanium Works, etc.) was already unlimited empire-wide with only a one-per-town cap forcing you to found more towns for more supply -- but the Aether Condenser's rejection also surfaced the raw internal name (\"crystal synthesizer\") instead of its real name, and its one-per-town cap didn't need to be as tight since it has no network-wide effect to worry about stacking.",
+    changes: [
+      "A town can now host more than one Aether Condenser (or Advanced Aether Condenser), limited only by its open support tiles, instead of exactly one.",
+      "The \"town already has...\" rejection now says \"Aether Condenser\" instead of the internal \"crystal synthesizer\" name."
     ]
   }
 ];
