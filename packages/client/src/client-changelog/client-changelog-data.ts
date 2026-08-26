@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787754175140, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.5",
+    title: "Pulsing badge on the Allies tab for pending alliance/truce requests",
+    why: "Incoming alliance and truce requests from other players had no indicator on the Ally tab icon, so they could sit unnoticed until you happened to open the panel.",
+    changes: [
+      "The Ally tab icon now shows a pulsing badge with a count when you have pending incoming alliance or truce requests."
+    ]
+  },
+  {
     createdAt: 1787692499340, // frozen from a live Date.now() call
     introducedIn: "2026.08.25.8",
     title: "AI auto-settle now respects reach too, and losing reach unsettles ground you can no longer defend",
@@ -444,42 +453,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "A settled resource tile's overview now shows a \"Production:\" line with the actual FOOD/TITANIUM/CRYSTAL/UMBRITE slot count it contributes (e.g. \"Production: 🍞 Food +1\"), matching the format already used for buildings, instead of the old \"can produce ... once developed and collected\" prose.",
       "A Farmstead/Mine/Umbrite Rig built on its tile now visibly bumps that slot count (e.g. a Farmstead on a Farm tile shows \"Food +2\")."
-    ]
-  },
-  {
-    createdAt: 1787463213160, // 2026.08.22.15 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.15",
-    title: "Fixed a spurious build error when settling into a Relay Beacon (or any settle+build)",
-    why: "Queuing a settle-then-build (e.g. the frontier \"Build Relay Beacon\" action) made the client fire its own build command the moment the tile finished settling, racing the server's own durable build-on-settle. Whichever lost the race got rejected with a confusing \"tile already has structure\" error, even though the beacon still ended up built.",
-    changes: [
-      "The client no longer sends its own duplicate build command after an auto-settle -- the server's durable continuation now owns firing that build, so there's no race and no spurious error."
-    ]
-  },
-  {
-    createdAt: 1787462378800, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23",
-    title: "Clearer Build Relay Beacon button text",
-    why: "The frontier Build Relay Beacon button described its internal mechanics (\"expand + settle + build\") instead of what it does for the player.",
-    changes: [
-      "The Build Relay Beacon button on unclaimed tiles now reads \"Expand your borders\" instead of the old internal-mechanics description."
-    ]
-  },
-  {
-    createdAt: 1787462564744, // 2026.08.22.15 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.15",
-    title: "Fixed the same false \"Map sync stalled\" warning on the plain \"Join Season?\" prompt",
-    why: "The previous fix only covered the pending-season countdown lobby. The plain \"Join Season?\" prompt -- shown once a season is already active but you haven't clicked join yet -- has the same reason for zero map tiles (you haven't spawned), and hit the same false alarm.",
-    changes: [
-      "The map-sync watchdog now also stays quiet behind the \"Join Season?\" prompt, not just the countdown lobby."
-    ]
-  },
-  {
-    createdAt: 1787462189036, // 2026.08.22.14 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.14",
-    title: "Fixed a false \"Map sync stalled\" warning while waiting in the season lobby",
-    why: "A player waiting in the pending-season lobby hasn't spawned yet, so no map tiles have arrived for them by design -- but the map-loading watchdog didn't know that, and treated it the same as a real stuck sync, firing a \"Map sync stalled\" warning over the lobby after a few seconds.",
-    changes: [
-      "The map-sync watchdog now stays quiet while you're waiting in the season lobby, since there's nothing to sync yet."
     ]
   },
   {
