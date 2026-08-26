@@ -11,9 +11,6 @@ import {
   FOUNDRY_OUTPUT_MULT, GOVERNORS_OFFICE_RADIUS, LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE,
   MINTWORKS_FLAT_GOLD_BONUS_PER_MIN, MINTWORKS_GOLD_PRODUCTION_BONUS, MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE,
   MINTWORKS_INSTANT_GOLD_BONUS, RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD,
-  UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY, ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY,
-  TITANIUM_WORKS_TITANIUM_PER_DAY, ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY,
-  CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY, ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY,
   UPKEEP_MINUTES_PER_DAY
 } from "../server-game-constants/server-game-constants.js";
 import { percentLabel, type ModifierContext, type ModifierStructureType, type StructureModifier } from "./structure-modifier-catalog-types.js";
@@ -46,27 +43,33 @@ const mintworksModifiers = (ctx: ModifierContext): StructureModifier[] => {
   ];
 };
 
+// FOOD/TITANIUM/CRYSTAL/UMBRITE production caps were retired by the
+// resource-slot rewrite (§5) — Mine's only live effect is +1 slot of its
+// tile's resource (TILE_SLOT_BOOST_STRUCTURES.MINE, structure-slots.ts).
 const mineModifiers = (ctx: ModifierContext): StructureModifier[] => {
   const resource = ctx.tile?.resource;
-  const productionLabel = resource === "TITANIUM" ? "+50% titanium production" : resource === "GEMS" ? "+50% crystal production" : "+50% strategic resource production";
-  return [
-    { statLabel: "Production", valueText: productionLabel, tone: "positive", isTownWide: false },
-    { statLabel: "Resource cap", valueText: resource === "GEMS" ? "+9 crystal cap" : "+15 cap", tone: "positive", isTownWide: false }
-  ];
+  const slotLabel = resource === "GEMS" ? "CRYSTAL slot" : resource === "TITANIUM" ? "TITANIUM slot" : "resource slot";
+  return [{ statLabel: slotLabel, valueText: `+${TILE_SLOT_BOOST_STRUCTURES.MINE}`, tone: "positive", isTownWide: false }];
 };
 
+// The *_PER_DAY constants below describe a daily production rate that the
+// resource-slot rewrite (§5) retired — converterOutputPerMinute
+// (player-update-economy.ts) returns {} for SYNTHESIZE mode, so no daily
+// resource output is ever actually produced. The real live Refine-mode
+// effect is a flat +1 slot supply of the family resource
+// (isSlotSourceConverter, resource-slot-view.ts).
 const synthesizerModifiers = (type: ModifierStructureType): StructureModifier[] | undefined => {
-  const byType: Partial<Record<ModifierStructureType, { refine: number; resource: string }>> = {
-    UMBRITE_SYNTHESIZER: { refine: UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY, resource: "umbrite" },
-    ADVANCED_UMBRITE_SYNTHESIZER: { refine: ADVANCED_UMBRITE_SYNTHESIZER_UMBRITE_PER_DAY, resource: "umbrite" },
-    TITANIUM_WORKS: { refine: TITANIUM_WORKS_TITANIUM_PER_DAY, resource: "titanium" },
-    ADVANCED_TITANIUM_WORKS: { refine: ADVANCED_TITANIUM_WORKS_TITANIUM_PER_DAY, resource: "titanium" },
-    CRYSTAL_SYNTHESIZER: { refine: CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY, resource: "crystal" },
-    ADVANCED_CRYSTAL_SYNTHESIZER: { refine: ADVANCED_CRYSTAL_SYNTHESIZER_CRYSTAL_PER_DAY, resource: "crystal" }
+  const byType: Partial<Record<ModifierStructureType, string>> = {
+    UMBRITE_SYNTHESIZER: "UMBRITE",
+    ADVANCED_UMBRITE_SYNTHESIZER: "UMBRITE",
+    TITANIUM_WORKS: "TITANIUM",
+    ADVANCED_TITANIUM_WORKS: "TITANIUM",
+    CRYSTAL_SYNTHESIZER: "CRYSTAL",
+    ADVANCED_CRYSTAL_SYNTHESIZER: "CRYSTAL"
   };
-  const entry = byType[type];
-  if (!entry) return undefined;
-  return [{ statLabel: "Refine rate", valueText: `${entry.refine}/day ${entry.resource}`, tone: "positive", isTownWide: false }];
+  const resource = byType[type];
+  if (!resource) return undefined;
+  return [{ statLabel: "Refine mode supplies", valueText: `+1 ${resource} slot`, tone: "positive", isTownWide: false }];
 };
 
 export const economicStructureModifiers = (type: ModifierStructureType, ctx: ModifierContext): StructureModifier[] | undefined => {
@@ -82,20 +85,15 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
       { statLabel: "FOOD slots per boosted Farmstead", valueText: `+${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS}`, tone: "positive", isTownWide: false }
     ];
   }
+  // Same retirement as Mine — no ongoing production/cap left, just +1 slot.
   if (type === "UMBRITE_RIG") {
-    return [
-      { statLabel: "Umbrite production", valueText: "+50%", tone: "positive", isTownWide: false },
-      { statLabel: "Umbrite cap", valueText: "+15", tone: "positive", isTownWide: false }
-    ];
+    return [{ statLabel: "UMBRITE slot", valueText: `+${TILE_SLOT_BOOST_STRUCTURES.UMBRITE_RIG}`, tone: "positive", isTownWide: false }];
   }
   if (type === "MINE") return mineModifiers(ctx);
   if (type === "MINTWORKS") return mintworksModifiers(ctx);
   if (type === "GRANARY") return [{ statLabel: "Population", valueText: `+${GRANARY_INSTANT_POPULATION_BURST.toLocaleString()} (once, on completion)`, tone: "positive", isTownWide: true }];
   if (type === "SEED_GRANARY") {
-    return [
-      { statLabel: "Population growth", valueText: "+30%", tone: "positive", isTownWide: true },
-      { statLabel: "Food upkeep", valueText: "-10%", tone: "positive", isTownWide: true }
-    ];
+    return [{ statLabel: "Population growth", valueText: "+30%", tone: "positive", isTownWide: true }];
   }
   if (type === "CENSUS_HALL") {
     return [
@@ -114,12 +112,16 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
       isTownWide: true
     }];
   }
-  if (type === "CARAVANARY") return [{ statLabel: "Connected-town gold production", valueText: "+25%", tone: "positive", isTownWide: true }];
-  if (type === "CUSTOMS_HOUSE") return [{ statLabel: "Gold / minute per connected owned dock", valueText: "+1", tone: "positive", isTownWide: true }];
+  // The real connected-town bonus (connectedTownBonusForPlayer, economy-network.ts)
+  // is a stepped ladder — +50%/+40%/+30% for the 1st/2nd/3rd connected town,
+  // summed additively, capped at 3 towns — not a flat percentage. Caravanary
+  // is the network's gate for this bonus (networkHasCaravanary), not its
+  // source, so no single per-copy number applies here.
+  if (type === "CARAVANARY") return [{ statLabel: "Connected-town gold bonus", valueText: "+50% / +40% / +30% (1st–3rd connected town)", tone: "positive", isTownWide: true }];
+  if (type === "CUSTOMS_HOUSE") return [{ statLabel: "Gold / day per connected owned dock", valueText: "+5", tone: "positive", isTownWide: true }];
   if (type === "FOUNDRY") return [{ statLabel: "Mine output (5-tile radius)", valueText: `${FOUNDRY_OUTPUT_MULT}x`, tone: "positive", isTownWide: true }];
   if (type === "GOVERNORS_OFFICE") {
     return [
-      { statLabel: "Food upkeep", valueText: "-10%", tone: "positive", isTownWide: true },
       { statLabel: `Nearby town FOOD slot demand (${GOVERNORS_OFFICE_RADIUS}-tile radius)`, valueText: "-1 tier step", tone: "positive", isTownWide: true }
     ];
   }

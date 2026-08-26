@@ -109,7 +109,7 @@ import {
   effectiveVisionRadiusForPlayer,
   domainGrantedResourceSlots
 } from "../tech-domain-bridge/tech-domain-bridge.js";
-import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js";
+import { slotWaiversForPlayer } from "../tech-domain-bridge/slot-waivers.js"; import { techGrantedFishFoodSlotBonus } from "../tech-domain-bridge/fish-food-slot-bonus.js";
 import { weaponsFactoryCountsForPlayer } from "../tech-domain-bridge/weapons-factory-mod-breakdown.js";
 import {
   filterTileDeltasForPlayer as filterTileDeltasForPlayerImpl,
@@ -3091,7 +3091,7 @@ export class SimulationRuntime {
   private resourceSlotSupplyForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
     return this.coalescedResourceSlotRead(this.resourceSlotSupplyCacheByPlayer, this.resourceSlotSupplyDirtyPlayerIds, this.resourceSlotSupplyLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
       const settledTiles = this.settledTilesForPlayer(playerId); const { waterworksKeys, foundryKeys } = radiusStructureKeysForSettledTiles(settledTiles); const p = this.state.players.get(playerId);
-      const totals = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys, p ? domainGrantedResourceSlots(p) : undefined); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
+      const totals = resourceSlotSupplyForPlayerImpl(settledTiles, waterworksKeys, foundryKeys, p ? domainGrantedResourceSlots(p) : undefined, p ? techGrantedFishFoodSlotBonus(p) : 0); wonderEffects.applyFoundryHeartSlotBonus(wonderEffects.playerHasWonderType(this.wonderCacheByPlayer, playerId, "FOUNDRY_HEART"), totals); return totals;
     });
   }
 

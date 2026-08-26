@@ -241,7 +241,7 @@ export const IMPERIAL_EXCHANGE_LEVY_COOLDOWN_MS = 24 * 60 * 60_000; // §15/§17
 export const WORLD_ENGINE_STRIKE_GOLD_COST = 1_000;
 export const WORLD_ENGINE_STRIKE_COOLDOWN_MS = 10 * 60_000;
 export const WORLD_ENGINE_STRIKE_POPULATION_LOSS_RATIO = 0.30;
-export const AEGIS_DOME_PROTECTION_RADIUS = 30;
+export const AEGIS_DOME_PROTECTION_RADIUS = 25;
 export const AEGIS_LOCK_COOLDOWN_MS = 60 * 60_000;
 export const AEGIS_LOCK_DURATION_MS = 15 * 60_000;
 // Cooldown matches the satellite's own uptime (below) — the launch handler
