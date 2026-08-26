@@ -1,5 +1,6 @@
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { buildTileYieldView } from "../../../simulation/src/tile-yield-view/tile-yield-view.js";
+import { converterModeOf, type ConverterMode } from "@border-empires/shared";
 
 import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
@@ -202,12 +203,16 @@ const townPopulationGrowthPerMinute = (input: {
   return Number(growth.toFixed(4));
 };
 
-const structureUpkeepPerMinute = (structureType: string): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "TITANIUM" | "UMBRITE", number>> => {
+const structureUpkeepPerMinute = (structureType: string, converterMode: ConverterMode): Partial<Record<"GOLD" | "FOOD" | "CRYSTAL" | "TITANIUM" | "UMBRITE", number>> => {
+  // Every structure except the synthesizer family (Umbrite/Titanium/Crystal +
+  // Advanced tiers, §6.4) has zero ongoing upkeep: FOOD/TITANIUM/CRYSTAL/UMBRITE
+  // are slot-based (structure-slots.ts), not a per-minute drain, and only
+  // the synthesizers still have a real GOLD cost -- and only while in
+  // SYNTHESIZE (Refine) mode; EXCHANGE (Sell Off) mode pays no gold upkeep
+  // (economicStructureGoldUpkeepPerInterval in runtime-structure-rules.ts is
+  // the authoritative source this mirrors).
+  if (converterMode === "EXCHANGE") return {};
   switch (structureType) {
-    // Every structure except the synthesizer family (Umbrite/Titanium/Crystal +
-    // Advanced tiers, §6.4) has zero ongoing upkeep: FOOD/TITANIUM/CRYSTAL/UMBRITE
-    // are slot-based (structure-slots.ts), not a per-minute drain, and only
-    // the synthesizers still have a real GOLD cost for their conversion.
     case "UMBRITE_SYNTHESIZER": return { GOLD: UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "ADVANCED_UMBRITE_SYNTHESIZER": return { GOLD: ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
     case "TITANIUM_WORKS": return { GOLD: TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY / UPKEEP_MINUTES_PER_DAY };
@@ -345,7 +350,7 @@ export const buildSnapshotTileDetail = (
   if (townFoodUpkeep > 0.0001) {
     upkeepEntries.push({ label: "Town", perMinute: { FOOD: Number(townFoodUpkeep.toFixed(4)) } });
   }
-  const economicStructure = parseStructure<{ type?: string; status?: string }>(tile.economicStructureJson);
+  const economicStructure = parseStructure<{ type?: string; status?: string; converterMode?: ConverterMode }>(tile.economicStructureJson);
   // Fort family (food + increasing iron), Siege family (food + increasing
   // supply), and Observatory are surfaced here alongside economic structures.
   const structures = [
@@ -353,12 +358,12 @@ export const buildSnapshotTileDetail = (
     parseStructure<{ type?: string; variant?: string; status?: string }>(tile.fortJson),
     parseStructure<{ type?: string; variant?: string; status?: string }>(tile.siegeOutpostJson),
     parseStructure<{ type?: string; status?: string }>(tile.observatoryJson),
-  ].filter((value): value is { type?: string; variant?: string; status?: string } => Boolean(value));
+  ].filter((value): value is { type?: string; variant?: string; status?: string; converterMode?: ConverterMode } => Boolean(value));
   for (const structure of structures) {
     if (!structure?.status || structure.status !== "active") continue;
     const type = structure.type ?? structure.variant;
     if (!type) continue;
-    const upkeep = structureUpkeepPerMinute(type);
+    const upkeep = structureUpkeepPerMinute(type, converterModeOf(structure));
     const perMinute = {
       ...(upkeep.FOOD ? { FOOD: Number(upkeep.FOOD.toFixed(4)) } : {}),
       ...(upkeep.GOLD ? { GOLD: Number(upkeep.GOLD.toFixed(4)) } : {}),

@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
-import { CONVERTER_MODE_FLIP_COOLDOWN_MS, MINTWORKS_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
-import { GRANARY_INSTANT_POPULATION_BURST, SYNTHESIZER_STRUCTURE_TYPES, STRUCTURE_REGISTRY, type BuildableStructureType, type MonumentalStructureType } from "@border-empires/shared";
+import { MINTWORKS_INSTANT_GOLD_BONUS } from "@border-empires/game-domain";
+import { GRANARY_INSTANT_POPULATION_BURST, STRUCTURE_REGISTRY, type MonumentalStructureType } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 import type { RuntimeStructureCommandContext } from "./runtime-structure-command-handlers.js";
 import { isMonumentBaseType, monumentClaimOwnerId, monumentPartTypesForBaseType } from "./monument-uniqueness.js";
@@ -9,19 +9,15 @@ import { announceMonumentClaim, resolveLostMonumentAssemblyRace } from "./runtim
 
 // Extracted out of runtime-structure-command-handlers.ts so that file stays
 // net-smaller (500-line budget, AGENTS.md). Build-completion helpers and the
-// completion handler itself: the converter mode-lock fields (plan decision 4
-// — the cooldown starts on build too, so "build in cheap mode, flip
-// immediately" is not a cheaper path to the expensive mode), the Granary
-// instant population burst, and completeStructureBuild.
-export const converterBuildModeLockFields = (
-  spec: { tileField: string },
-  structureType: string,
-  now: () => number
-): { modeLockedUntil?: number } => {
-  if (spec.tileField !== "economicStructure") return {};
-  if (!SYNTHESIZER_STRUCTURE_TYPES.includes(structureType as BuildableStructureType)) return {};
-  return { modeLockedUntil: now() + CONVERTER_MODE_FLIP_COOLDOWN_MS };
-};
+// completion handler itself: the Granary instant population burst and
+// completeStructureBuild.
+//
+// Converters used to start mode-locked on build completion (converterBuildModeLockFields,
+// removed) so that "build in cheap mode, flip immediately" wasn't a cheaper path to the
+// expensive mode. That lock isn't needed: a freshly built converter already defaults to
+// SYNTHESIZE unlocked, and handleSetConverterStructureModeCommand
+// (runtime-economic-structure-command-handlers.ts) re-locks on every successful flip
+// regardless of direction — so at most one flip is ever free, same as before.
 
 // Consumes (removes) every one of the owner's active components for the
 // monument that just completed — a completed monument no longer needs the
@@ -132,8 +128,7 @@ export function completeStructureBuild(context: RuntimeStructureCommandContext, 
       ...activeStructure,
       status: "active",
       activatedAt: context.now(),
-      ...garrisonInit,
-      ...converterBuildModeLockFields(spec, structureType, context.now)
+      ...garrisonInit
     }
   } as DomainTileState;
 
