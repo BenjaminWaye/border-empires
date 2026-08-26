@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787651082566, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.2",
+    title: "Added a new-player checklist for founding your first town and securing food",
+    why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
+    changes: [
+      "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
+    ]
+  },
+  {
     createdAt: 1787691503245, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.3",
     title: "Added a Discord link to the settings menu",
