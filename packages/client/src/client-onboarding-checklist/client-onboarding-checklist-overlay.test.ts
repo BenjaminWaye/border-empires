@@ -33,7 +33,7 @@ describe("renderOnboardingChecklistOverlay", () => {
 
   it("shows 1 remaining step and food progress once the town is settled", () => {
     const tiles = [
-      tile(5, 5, { ownerId: "p1", town: { type: "FARMING", name: "Capital" } as never }),
+      tile(5, 5, { ownerId: "p1", town: { type: "FARMING", name: "Capital", populationTier: "TOWN" } as never }),
       tile(6, 5, { resource: "FARM", ownerId: "p1" }),
       tile(7, 5, { resource: "FISH" })
     ];
@@ -61,7 +61,7 @@ describe("renderOnboardingChecklistOverlay", () => {
 
   it("removes the bubble and persists completion exactly once when the checklist finishes", () => {
     const tiles = [
-      tile(5, 5, { ownerId: "p1", town: { type: "FARMING", name: "Capital" } as never }),
+      tile(5, 5, { ownerId: "p1", town: { type: "FARMING", name: "Capital", populationTier: "TOWN" } as never }),
       ...Array.from({ length: 4 }, (_, i) => tile(10 + i, 5, { resource: "FARM", ownerId: "p1" }))
     ];
 

@@ -188,7 +188,7 @@ describe("Phase 8: barbarian raids", () => {
   it("barbarian raid costs BARBARIAN_RAID_COST from pool, not MUSTER_ATTACK_COST", () => {
     expect(BARBARIAN_RAID_COST).toBeLessThan(MUSTER_ATTACK_COST);
     const runtime = buildRuntime(999);
-    const tile = (runtime as unknown as { tiles: Map<string, unknown> }).tiles.get(`10,11`);
+    const tile = (runtime as unknown as { state: { tiles: Map<string, unknown> } }).state.tiles.get(`10,11`);
     const required = (runtime as unknown as { requiredMusterForTarget(t: unknown): number })
       .requiredMusterForTarget(tile);
     expect(required).toBe(BARBARIAN_RAID_COST);

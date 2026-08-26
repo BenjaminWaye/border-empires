@@ -57,7 +57,7 @@ const buildRuntime = (extraTiles: Array<Record<string, unknown>> = [], points = 
     }
   });
   runtime.exportPlayerDebugSnapshot();
-  (runtime as unknown as { players: Map<string, RawPlayerRef> }).players.get("player-1")!.manpower = 10_000;
+  (runtime as unknown as { state: { players: Map<string, RawPlayerRef> } }).state.players.get("player-1")!.manpower = 10_000;
   return { runtime, setNow: (t: number) => { currentNow = t; } };
 };
 
@@ -346,11 +346,11 @@ describe("converter mode flips (Phase 7)", () => {
       // Enough gold: the flip succeeds and gold is actually spent.
       const rich = buildRuntime([converterTile(15, 16, "TITANIUM_WORKS", { converterMode: "EXCHANGE" })], 5_000);
       const richSeen = collectEvents(rich.runtime);
-      const playerBefore = (rich.runtime as unknown as { players: Map<string, { points: number }> }).players.get("player-1")!.points;
+      const playerBefore = (rich.runtime as unknown as { state: { players: Map<string, { points: number }> } }).state.players.get("player-1")!.points;
       submitFlip(rich.runtime, "flip-rich", 1, 15, 16, "SYNTHESIZE");
       await Promise.resolve();
       expect(richSeen.filter((event) => event.eventType === "COMMAND_REJECTED" && event.commandId === "flip-rich")).toHaveLength(0);
-      const playerAfter = (rich.runtime as unknown as { players: Map<string, { points: number }> }).players.get("player-1")!.points;
+      const playerAfter = (rich.runtime as unknown as { state: { players: Map<string, { points: number }> } }).state.players.get("player-1")!.points;
       expect(playerAfter).toBeLessThan(playerBefore);
       const flipped = rich.runtime.exportState().tiles.find((tile) => tile.x === 15 && tile.y === 16);
       expect(JSON.parse(flipped!.economicStructureJson)).toMatchObject({ converterMode: "SYNTHESIZE" });

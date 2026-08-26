@@ -52,7 +52,7 @@ const buildRuntimeWithManpower = (startingManpower: number, extraTiles: Array<Re
     }
   });
   runtime.exportPlayerDebugSnapshot(); // settle the one-time cap-grant quirk
-  const raw = (runtime as unknown as { players: Map<string, RawPlayerRef> }).players.get("player-1")!;
+  const raw = (runtime as unknown as { state: { players: Map<string, RawPlayerRef> } }).state.players.get("player-1")!;
   raw.manpower = startingManpower;
   return runtime;
 };
