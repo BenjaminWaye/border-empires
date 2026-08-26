@@ -195,4 +195,29 @@ describe("chooseLegacySpawnPlacement", () => {
     expect(spawn).toBeDefined();
     expect(Math.max(Math.abs(spawn!.x - 70), Math.abs(spawn!.y - 70))).toBeLessThanOrEqual(24);
   });
+
+  it("prefers a rally spawn near town and food over a barren tile that is merely closer to the anchor", () => {
+    const tiles: DomainTileState[] = [];
+    for (let y = 0; y < 140; y += 1) {
+      for (let x = 0; x < 140; x += 1) {
+        tiles.push({ x, y, terrain: "LAND" });
+      }
+    }
+    // Anchor player's settled tile.
+    tiles.push({ x: 70, y: 70, terrain: "LAND", ownerId: "owner", ownershipState: "SETTLED" });
+    // A town + food cluster well within rally radius but not the closest tiles to the anchor.
+    tiles.push({ x: 80, y: 70, terrain: "LAND", town: { type: "MARKET", populationTier: "SETTLEMENT", name: "Nearby" } });
+    tiles.push({ x: 82, y: 70, terrain: "LAND", resource: "FARM" });
+
+    const spawn = chooseLegacySpawnPlacement({
+      playerId: "friend",
+      tiles,
+      rallyAnchor: { x: 70, y: 70 }
+    });
+
+    expect(spawn).toBeDefined();
+    // Should land near the town/food cluster (within radius 10 of it), not just
+    // be the nearest bare tile to the anchor at (71,70) or similar.
+    expect(chebyshevDistance(spawn!.x, spawn!.y, 80, 70)).toBeLessThanOrEqual(10);
+  });
 });
