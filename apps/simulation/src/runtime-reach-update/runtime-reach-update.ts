@@ -50,13 +50,53 @@ export type ReachUpdateState = {
   readonly lastEmittedSignatureByPlayer: Map<string, string>;
   /** Monotonic per-player revision, so the client can discard stale arrivals. */
   readonly revisionByPlayer: Map<string, number>;
+  /**
+   * Tile keys that changed hands for one owner since the last drain — see
+   * {@link recordReachChangedTile}. Small and self-cleaning: `settleOvertaken`
+   * (runtime-reach-border-apply.ts) records only the tiles a single mutation
+   * actually moved, never a full border rescan. rival-reach-push.ts drains
+   * this per owner right after observing that owner's REACH_UPDATE, so it can
+   * decide which *other* players need a push by checking visibility against
+   * this handful of tiles instead of the owner's entire border.
+   */
+  readonly changedTileKeysByOwner: Map<string, Set<string>>;
 };
 
 export const createReachUpdateState = (): ReachUpdateState => ({
   dirtyPlayerIds: new Set<string>(),
   lastEmittedSignatureByPlayer: new Map<string, string>(),
-  revisionByPlayer: new Map<string, number>()
+  revisionByPlayer: new Map<string, number>(),
+  changedTileKeysByOwner: new Map<string, Set<string>>()
 });
+
+/**
+ * Records that `tileKey` changed hands and now involves `ownerId`'s border.
+ * Called from `settleOvertaken` for both the tile's previous and new owner —
+ * a mutation touching one tile can make it relevant to two different
+ * rival-reach viewers checks. Barbarians are skipped, same as markReachDirty.
+ */
+export const recordReachChangedTile = (state: ReachUpdateState, ownerId: string | undefined, tileKey: string): void => {
+  if (!ownerId || ownerId.startsWith("barbarian-")) return;
+  let keys = state.changedTileKeysByOwner.get(ownerId);
+  if (!keys) {
+    keys = new Set<string>();
+    state.changedTileKeysByOwner.set(ownerId, keys);
+  }
+  keys.add(tileKey);
+};
+
+/**
+ * Drains and returns the changed-tile buffer for one owner. Read-once by
+ * design: rival-reach-push.ts calls this exactly once per owner per
+ * REACH_UPDATE observed, so a later, unrelated caller never sees tiles that
+ * were already accounted for.
+ */
+export const takeReachChangedTileKeys = (state: ReachUpdateState, ownerId: string): string[] => {
+  const keys = state.changedTileKeysByOwner.get(ownerId);
+  if (!keys || keys.size === 0) return [];
+  state.changedTileKeysByOwner.delete(ownerId);
+  return [...keys];
+};
 
 /**
  * Marks one player's reach as needing a re-push. Cheap and idempotent —

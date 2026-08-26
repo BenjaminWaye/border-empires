@@ -70,6 +70,12 @@ export type RuntimeLockResolutionContext = {
   // mutation, never after (no reason to pay a settle cost only to also decay).
   canAutoSettleCapturedAnchor: (playerId: string) => boolean;
   autoSettleCapturedAnchor: (playerId: string, targetKey: string, target: DomainTileState, commandId: string) => void;
+  // Server-side waypoint/expand-queue auto-drain (runtime-waypoint-queue-
+  // command-handlers.ts) -- called unconditionally once this EXPAND/ATTACK
+  // lock is done resolving (win, loss, or stale/superseded), win or lose, so
+  // a queued next target keeps advancing while the player is offline. See
+  // that module's tryDrainWaypointQueue doc comment.
+  tryDrainWaypointQueue: (playerId: string) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -100,6 +106,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // EXPAND manpower charged up front at lock creation (runtime-frontier-
     // command.ts) since this lock is being dropped, not resolved.
     if (lock.actionType === "EXPAND") refundExpandManpower(context, lock);
+    if (lock.actionType === "EXPAND" || lock.actionType === "ATTACK") context.tryDrainWaypointQueue(lock.playerId);
     return;
   }
 
@@ -344,6 +351,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     context.ensureGrossIncomeSettlementForPlayer(previousOwnerId, lock.commandId);
     if (!defender?.isAi) context.emitPlayerStateUpdate({ commandId: lock.commandId, playerId: previousOwnerId });
   }
+  if (lock.actionType === "EXPAND" || lock.actionType === "ATTACK") context.tryDrainWaypointQueue(lock.playerId);
 }
 
 function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockRecord, previousOwnerId: string): void {

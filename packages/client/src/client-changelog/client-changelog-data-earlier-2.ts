@@ -12,6 +12,25 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787462871189, // 2026.08.23.05 — frozen from a live Date.now() call
+    introducedIn: "2026.08.23.05",
+    title: "Turned off rivers in new map generation",
+    why: "Generated rivers didn't fully work -- they could cut land in ways that broke territory shapes and pathing, so we're disabling them until the generator is fixed.",
+    changes: [
+      "New maps no longer generate rivers; existing maps are unaffected."
+    ]
+  },
+  {
+    createdAt: 1787472289089, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Settled resource tiles now show their real slot production instead of stale prose",
+    why: "A settled Farm/Fish/Titanium/Gems/Umbrite tile's overview said \"Resource node can produce food once developed and collected\" even after being settled -- a holdover from the old per-day yield model. FOOD/TITANIUM/CRYSTAL/UMBRITE production moved to the slot-supply system a while ago, so that line was permanently stale and never resolved into a real number.",
+    changes: [
+      "A settled resource tile's overview now shows a \"Production:\" line with the actual FOOD/TITANIUM/CRYSTAL/UMBRITE slot count it contributes (e.g. \"Production: 🍞 Food +1\"), matching the format already used for buildings, instead of the old \"can produce ... once developed and collected\" prose.",
+      "A Farmstead/Mine/Umbrite Rig built on its tile now visibly bumps that slot count (e.g. a Farmstead on a Farm tile shows \"Food +2\")."
+    ]
+  },
+  {
     createdAt: 1787688879680, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.5",
     title: "Manpower for Expand and Settle is now spent the moment you queue them",
@@ -45,24 +64,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     title: "Fixed rivers clipping through hills",
     why: "River ribbons rendered at the flat ground elevation, ignoring the raised dome mesh used for hill tiles, so a river crossing a hill looked like jagged glued-together rectangles instead of a smooth ribbon.",
     changes: ["Rivers now render above the hill dome wherever their path crosses a hills tile."]
-  },
-  {
-    createdAt: 1787430800000,
-    introducedIn: "2026.08.22.10",
-    title: "Your galaxy planet now shows what it's specialized in",
-    why: "The galaxy view showed which victory path crowned your planet, but not what that meant going forward -- part of the early galactic meta-layer groundwork (docs/galactic-campaign-design.md), where each victory path is meant to grant a distinct planet specialization.",
-    changes: [
-      "Your galaxy planet (named or not-yet-named) now shows a specialization badge -- Industrial, Trade, Extraction, Logistics, or Capital -- based on which victory condition crowned it."
-    ]
-  },
-  {
-    createdAt: 1787430700000,
-    introducedIn: "2026.08.22.9",
-    title: "Muster flags now clear reliably after losing a tile in combat",
-    why: "Losing an attack could hand your attacking tile to the enemy, and if that tile then fell outside your visible area in the same instant, the server's notice that the tile (and its staged muster flag) changed hands never reached your client -- the flag stayed stuck on ground you no longer owned until you happened to re-scout it.",
-    changes: [
-      "The server now always tells you when a tile you just lost -- whether your attack's origin was overrun or a target you held was captured -- changes hands, even if you no longer have vision of it, so a cleared muster flag (and the rest of that tile's state) updates immediately instead of going stale."
-    ]
   },
   {
     createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
@@ -262,4 +263,53 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
       "The population-tier upgrade badge and the unfed-town food badge now only appear on towns you own, on both the 3D map and the classic 2D map."
     ]
   },
+  {
+    createdAt: 1787472290597, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.1",
+    title: "Added a Slot Sources breakdown to the Economy panel for Food, Titanium, Crystal, and Umbrite",
+    why: "The Economy sidebar's slot-based resources only showed \"Occupied by\" (who's using your slots), with no way to see where the slot capacity itself came from -- unlike GOLD, which already lists its Income Sources.",
+    changes: [
+      "The Economy panel's detail card for FOOD/TITANIUM/CRYSTAL/UMBRITE now has a \"Slot Sources\" column listing which tiles and boost structures (Farmstead, Mine, Umbrite Rig, Waterworks/Foundry radius bonuses, active synthesizers) are contributing slot capacity, alongside the existing \"Occupied by\" column."
+    ]
+  },
+  {
+    createdAt: 1787474961956, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Higher starting manpower for new capitals",
+    why: "New capitals started with 576 manpower, an odd number derived from expansion-cost math -- raising it to a round 720 gives new players more early room to expand and settle.",
+    changes: [
+      "A new capital's starting manpower cap (and starting manpower, which fills it) is now 720, up from 576."
+    ]
+  },
+  // Moved down from client-changelog-data.ts to keep that file under its
+  // 500-line cap (see agent/settle-town-out-of-reach) -- still within the
+  // 6-day trailing window client-changelog.test.ts enforces.
+  {
+    createdAt: 1787475367888, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Corrected the lobby's timezone claim",
+    why: "The join-season overlay said a synchronized start means \"the first move isn't decided by timezone\" -- that's wrong, a shared start time doesn't erase timezone effects on when players are actually online. What it actually guarantees is that everyone gets the same starting line, not the same impact from timezone.",
+    changes: [
+      "The lobby's \"Season starts soon\" text now says a synchronized start gives everyone the same chance from the same starting line, rather than incorrectly claiming timezone has no effect on the first move."
+    ]
+  },
+  {
+    createdAt: 1787475219678, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Rally link dialog can now be dismissed, and rally links are reachable from Settings",
+    why: "The rally-create and rally-invite dialogs had no way to close once you'd copied the link -- the only way out was navigating away entirely. And minting a rally link required knowing the /rally/new URL by hand.",
+    changes: [
+      "The rally link dialog now has a close (×) button in the top-right corner that dismisses it and clears the rally URL from the address bar.",
+      "Signed-in players can now open \"Get Rally Link\" from Settings → Gameplay instead of typing /rally/new."
+    ]
+  },
+  {
+    createdAt: 1787724130000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Restyled the settings menu's Discord button",
+    why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
+    changes: [
+      "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
+    ]
+  }
 ];

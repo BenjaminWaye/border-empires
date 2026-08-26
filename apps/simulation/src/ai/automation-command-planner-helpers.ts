@@ -28,7 +28,7 @@ export type AutomationPlannerDecisionContext<TTile extends AutomationPlannerTile
 export const buildPlannerCommand = <TTile extends AutomationPlannerTile>(
   context: AutomationPlannerDecisionContext<TTile>,
   type: CommandEnvelope["type"],
-  payload: Record<string, number | string>
+  payload: Record<string, number | string | boolean>
 ): AutomationPlannerResult => ({
   command: createAutomationCommand(
     context.sessionPrefix,
