@@ -11,12 +11,17 @@ import {
  * player's **ownership border** — a persistent, event-driven grant, not a
  * value recomputed live from currently-active anchors. Once a tile is
  * granted to a player (by a town/outpost/dock's radius covering it), it
- * stays theirs even if the granting structure is later destroyed — sticky
- * territory. It can only be taken by another player's anchor *contesting*
- * it, and even then only succeeds if the current claimant has no
- * currently-active anchor of their own still covering that tile (see
- * `grantAnchorToBorder`). ATTACK is deliberately not reach-gated at all;
- * this module has no bearing on it.
+ * stays theirs as long as *some* anchor of theirs still covers it — sticky
+ * in the sense that losing one anchor among several doesn't retract ground a
+ * different anchor still defends. It can be taken by another player's anchor
+ * *contesting* it (only succeeding if the current claimant has no
+ * currently-active anchor of their own still covering that tile — see
+ * `grantAnchorToBorder`), and it is released outright — vacated back to
+ * nobody — the moment the owner's *last* anchor covering it deactivates and
+ * no rival is covering it either (see `reassessBorderOnAnchorDeactivation`).
+ * A SETTLED tile that falls out of reach this way is downgraded to FRONTIER
+ * by the caller driving these functions (see `overtaken` below). ATTACK is
+ * deliberately not reach-gated at all; this module has no bearing on it.
  *
  * Two building blocks:
  * - `liveReachForOwner` — a snapshot of what a single owner's *currently
@@ -254,15 +259,31 @@ export const grantAnchorToBorder = (
 
 /**
  * Applies a deactivating `anchor` (structure destroyed, captured away, or
- * downgraded to FRONTIER) to the persistent border. By itself this changes
- * nothing — sticky territory, see the module doc comment — UNLESS some
- * OTHER (rival) player's anchors are, right now, already covering a tile
- * this anchor used to help defend and the border-owner can no longer defend
- * it themselves. In that specific case the tile transfers immediately,
- * rather than waiting for the rival to activate a brand-new anchor of their
- * own later — their existing coverage was simply never re-checked against
- * this border before, since the border previously only ever re-evaluated a
- * tile at anchor-ACTIVATION time.
+ * downgraded to FRONTIER) to the persistent border. For every tile the
+ * anchor used to cover that this owner still holds in `border`:
+ * - Still covered by another of the owner's own live anchors → untouched.
+ * - Not self-covered, but a rival's live reach already covers it right now
+ *   → transfers to that rival immediately, rather than waiting for the
+ *   rival to activate a brand-new anchor of their own later (their existing
+ *   coverage was simply never re-checked against this border before, since
+ *   the border previously only ever re-evaluated a tile at
+ *   anchor-ACTIVATION time).
+ * - Not self-covered and no rival covers it either → **vacated**: removed
+ *   from `border` entirely (`toOwnerId: ""` in the returned `overtaken`
+ *   entry) so the ground opens back up for anyone's EXPAND/SETTLE. Losing
+ *   your last anchor over a tile — a beacon destroyed, a fort disabled —
+ *   should not leave you permanently able to SETTLE ground you can no
+ *   longer actually defend; the border is sticky only in the sense that it
+ *   doesn't shrink to nothing the instant one anchor among several
+ *   deactivates, not in the sense that reach outlives every anchor that
+ *   ever granted it.
+ *
+ * No exception for the anchor's own tile: a disk always covers its own
+ * founding tile, so losing the last anchor over it vacates and unsettles
+ * that tile too, same as any other ground it covered. Recoverable the same
+ * way losing any other tile is — extend reach back over it (another
+ * anchor, or expanding in from adjacent territory you still hold) and
+ * SETTLE it again.
  *
  * Only re-examines the tiles the deactivating anchor itself used to cover
  * (its own disk), and only tiles still owned in `border` by the SAME owner
@@ -278,7 +299,9 @@ export const grantAnchorToBorder = (
  *
  * Pure — does not mutate `border`. Returns the same shape as
  * `grantAnchorToBorder` so callers can drive the identical
- * `SETTLED -> FRONTIER` downgrade on exactly the returned `overtaken` tiles.
+ * `SETTLED -> FRONTIER` downgrade on exactly the returned `overtaken` tiles
+ * — including vacated ones, keyed by `fromOwnerId` alone (an empty
+ * `toOwnerId` just means "nobody" rather than a rival).
  */
 export const reassessBorderOnAnchorDeactivation = (
   border: ReadonlyMap<string, string>,
@@ -293,13 +316,26 @@ export const reassessBorderOnAnchorDeactivation = (
   for (const key of tileKeysInReach(deactivatedAnchor, landConnectivity)) {
     if (next.get(key) !== deactivatedAnchor.ownerId) continue; // not (still) mine in the border
     if (ownerLiveReach.has(key)) continue; // still defended by another of my own anchors
+    let claimedByRival = false;
     for (const rivalId of rivalOwnerIds) {
       if (rivalId === deactivatedAnchor.ownerId) continue;
       if (rivalLiveReachFor(rivalId).has(key)) {
         next.set(key, rivalId);
         overtaken.push({ tileKey: key, fromOwnerId: deactivatedAnchor.ownerId, toOwnerId: rivalId });
+        claimedByRival = true;
         break; // first rival wins ties, deterministic given caller's ordering
       }
+    }
+    if (!claimedByRival) {
+      // Nobody — including the owner — currently covers this ground: vacate
+      // it rather than leaving it sticky forever. This includes the
+      // anchor's own founding tile — its own disk always covers itself, so
+      // reaching this branch for that tile means the owner's last anchor
+      // over it just deactivated. Recoverable: extend reach back over it
+      // from elsewhere (another anchor, or expanding in from adjacent
+      // territory) and SETTLE it again.
+      next.delete(key);
+      overtaken.push({ tileKey: key, fromOwnerId: deactivatedAnchor.ownerId, toOwnerId: "" });
     }
   }
   return { border: next, overtaken };

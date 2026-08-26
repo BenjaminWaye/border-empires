@@ -819,8 +819,7 @@ export class SimulationRuntime {
   // previous always-fresh behavior in practice while still being safe.
   private readonly autoSettlementQueueCacheByPlayer = new Map<string, { value: Array<{ x: number; y: number }>; computedAtMs: number }>();
   // Per-tile eligibility cache backing the read-through cache passed into
-  // orderedAutoSettlementTileKeys for AI players — see
-  // AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS.
+  // orderedAutoSettlementTileKeys for AI players — see AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS.
   private readonly autoSettlementEligibilityCacheByTile = new Map<string, { eligible: boolean; computedAtMs: number }>();
   private readonly pendingRespawnNoticeByPlayerId = new Map<string, PendingRespawnNoticeContext>();
   private readonly lastRespawnNoticeByPlayerId = new Map<string, PlayerRespawnNotice>();
@@ -3360,6 +3359,7 @@ export class SimulationRuntime {
       return orderedAutoSettlementTileKeys(playerId, frontierKeys, {
         getTile: (tileKey) => this.state.tiles.get(tileKey),
         isBlocked: (tileKey) => this.state.locksByTile.has(tileKey) || this.pendingSettlementsByTile.has(tileKey),
+        isInReach: (tile) => this.isPlayerTileInReach(playerId, tile.x, tile.y),
         hasTownSupport: (tile) => {
           supportLookupCalls += 1;
           return this.supportedTownKeysForTile(playerId, tile.x, tile.y).some((townKey) => {
