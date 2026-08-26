@@ -33,6 +33,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787772627368, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.9",
+    title: "Aether Condenser (and other converter structures) no longer sit mode-locked right after construction",
+    why: "A freshly built converter structure defaults to Refine (SYNTHESIZE) mode, but build completion also stamped a fresh 60-minute mode-flip cooldown on it -- locking out the Sell Off/Refine toggle for an hour even though no mode had actually been flipped yet. The lock exists to stop rapid free mode-toggling, but that's already enforced independently: every successful flip re-locks for 60 minutes regardless of direction, so removing the build-time lock only frees up the very first choice.",
+    changes: [
+      "A newly built converter structure (Aether Condenser, etc.) can flip its mode immediately -- the 60-minute cooldown now only starts after your first flip, not on construction."
+    ]
+  },
+  {
     createdAt: 1787769789241, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.8",
     title: "Fixed a captured settlement appearing to remain intact after capture",
