@@ -92,6 +92,8 @@ import { createRssHeapGapMonitor } from "../mem-gap-diagnostic/mem-gap-diagnosti
 import { buildEventLoopBlockedPayload, eventLoopBlockWarnMs } from "../event-loop-block-diagnostic/event-loop-block-diagnostic.js";
 import { resolveMaxSeasonPlayers } from "../season-join-capacity.js";
 import { registerSubscribeAndMaybePushReach } from "./live-subscribe-reach-push.js";
+import { createRivalReachPushMetrics, createRivalReachPushState, pushRivalReachOnConnectSafely, pushRivalReachOnOwnerChanged } from "../rival-reach-push/rival-reach-push.js";
+import { zeroGrossIncomeRepairCandidateIds } from "./zero-gross-income-repair-candidates.js";
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
@@ -379,15 +381,6 @@ const createRecoveredActivePlayerIdentityMap = (
       }
     ])
   );
-};
-
-const zeroGrossIncomeRepairCandidateIds = (initialState: RecoveredSimulationState | undefined): string[] => {
-  const ids = new Set<string>();
-  for (const player of initialState?.players ?? []) ids.add(player.id);
-  for (const tile of initialState?.tiles ?? []) {
-    if (tile.ownerId) ids.add(tile.ownerId);
-  }
-  return [...ids];
 };
 
 const normalizeAutopilotEnabled = (value: boolean | string | number | undefined): boolean =>
@@ -1084,6 +1077,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const server = new Server();
   const eventStreams = new Set<{ write: (event: ProtoSimulationEvent) => void }>();
   const subscriptionRegistry = createPlayerSubscriptionRegistry();
+  const rivalReachPushState = createRivalReachPushState(); const rivalReachPushRegistryDeps = { subscribedPlayerIds: () => subscriptionRegistry.subscribedPlayerIds(), metrics: createRivalReachPushMetrics(), now: () => Date.now() }; // rival-reach-push.ts
   const snapshotCache = createPlayerSnapshotCache();
   // Post-season proto-tile cache: tiles freeze after season end, so the marshalled array is an immutable per-seasonId constant, shareable across all concurrent SubscribePlayer RPCs.
   let postSeasonProtoTilesCache: { seasonId: string; tiles: ReturnType<typeof toFullSnapshotProtoTile>[] } | undefined;
@@ -1933,6 +1927,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         // stamp — these events carry no tile state and reach offline players.
         if (applyNonTileEventToCache(snapshotCache, event.eventType, event.playerId, event.payloadJson)) refreshSnapshotCacheMetrics();
       }
+      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "REACH_UPDATE") pushRivalReachOnOwnerChanged(rivalReachPushState, { ...runtime.rivalReachPushRuntimeDeps(), ...rivalReachPushRegistryDeps }, event.playerId, event.commandId, log); // rival-reach-push.ts
       // TILE_DELTA_BATCH events describe authoritative tile changes. Each
       // subscribed player only sees the subset of tiles they have vision of,
       // so we fan out one event per subscribed player with their filtered
@@ -2295,6 +2290,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       const subscribeOptions = parseSubscribeOptions(call.request.subscription_json);
       // Registers the subscription and, only for the gateway's actual connect (see module docs), pushes reach.
       registerSubscribeAndMaybePushReach(subscriptionRegistry, runtime, call.request.player_id, subscribeOptions, log);
+      if (subscribeOptions.trigger === "gateway_live_subscribe") pushRivalReachOnConnectSafely(rivalReachPushState, { ...runtime.rivalReachPushRuntimeDeps(), ...rivalReachPushRegistryDeps }, call.request.player_id, log); // connect-time rival push, rival-reach-push.ts
       // Dedupe concurrent subscribes for the same (player, mode, visibility).
       // The bootstrap retry loop in the gateway can fire 3-4 RPCs while the
       // first build is still running; sharing the in-flight promise prevents

@@ -410,15 +410,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787462871189, // 2026.08.23.05 — frozen from a live Date.now() call
-    introducedIn: "2026.08.23.05",
-    title: "Turned off rivers in new map generation",
-    why: "Generated rivers didn't fully work -- they could cut land in ways that broke territory shapes and pathing, so we're disabling them until the generator is fixed.",
-    changes: [
-      "New maps no longer generate rivers; existing maps are unaffected."
-    ]
-  },
-  {
     createdAt: 1787475367888, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23",
     title: "Corrected the lobby's timezone claim",
@@ -456,16 +447,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787472289089, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Settled resource tiles now show their real slot production instead of stale prose",
-    why: "A settled Farm/Fish/Titanium/Gems/Umbrite tile's overview said \"Resource node can produce food once developed and collected\" even after being settled -- a holdover from the old per-day yield model. FOOD/TITANIUM/CRYSTAL/UMBRITE production moved to the slot-supply system a while ago, so that line was permanently stale and never resolved into a real number.",
-    changes: [
-      "A settled resource tile's overview now shows a \"Production:\" line with the actual FOOD/TITANIUM/CRYSTAL/UMBRITE slot count it contributes (e.g. \"Production: 🍞 Food +1\"), matching the format already used for buildings, instead of the old \"can produce ... once developed and collected\" prose.",
-      "A Farmstead/Mine/Umbrite Rig built on its tile now visibly bumps that slot count (e.g. a Farmstead on a Farm tile shows \"Food +2\")."
-    ]
-  },
-  {
     createdAt: 1787724130000, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.1",
     title: "Restyled the settings menu's Discord button",
@@ -482,6 +463,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Expand now charges its manpower cost the moment the claim is accepted, refunded if you cancel it or it never resolves.",
       "A queued Settle now reserves its manpower immediately, the same way a queued Build already did."
+    ]
+  },
+  {
+    createdAt: 1787693449098, // frozen one ms after the prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
+    introducedIn: "2026.08.26.1",
+    title: "Rival borders in true-3D mode are now accurate, not guessed",
+    why: "The \"clashing borders\" effect where your reach meets a rival's needed to show exactly where your border ends and theirs begins, but a rival's border was only ever a rough client-side guess with no awareness of your own border -- so the two shapes almost never lined up: the seam effect either never appeared, or the two borders visually crossed through each other instead of meeting cleanly.",
+    changes: [
+      "The simulation now pushes each visible rival's real border to your client, clipped to what you can currently see -- the same authoritative treatment your own border already gets.",
+      "Rival border lines in true-3D mode now line up correctly with your own, so the clashing-borders seam renders where the two actually meet."
     ]
   }
 ];
