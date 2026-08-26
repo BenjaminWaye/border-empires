@@ -7,20 +7,26 @@
 // state can never expand its way out even though expansion — claiming a new
 // FARM/FISH tile — is exactly what would fix the underlying shortage.
 //
-// Preferred fix: DISABLE (not demolish) an active RELAY_BEACON whose reach
-// box holds zero valuable tiles — a beacon quietly projecting reach over
-// empty land is contributing little to nothing toward the shortage, and
-// SET_CONVERTER_STRUCTURE_ENABLED is reversible (the AI, or a human, can
-// flip it back on once a real FARM/FISH tile is claimed and FOOD has
-// headroom again), unlike REMOVE_STRUCTURE. See chooseLowValueBeaconToDisable.
+// The fix is always DISABLE, never REMOVE_STRUCTURE/demolish: disabling
+// (SET_CONVERTER_STRUCTURE_ENABLED, enabled: false) frees the FOOD slot just
+// as completely as demolition does — a manually-disabled structure is
+// excluded from demand contribution entirely, see buildDemandContributors's
+// `inactiveReason !== "manual"` check — but is reversible (the AI, or a
+// human, can flip it back on once FOOD has headroom again) and keeps the
+// build itself intact. Demolition has no advantage over disabling here, so
+// this module never picks a REMOVE_STRUCTURE target.
 //
-// Fallback: if no such beacon exists, fall back to the dormancy system
-// (resource-slot-view.ts), which already picks a victim when supply falls
-// short: the newest FOOD-consuming structure goes dormant (stops producing)
-// rather than being removed. A dormant structure is already contributing
-// zero effect, so demolishing one of them (REMOVE_STRUCTURE) costs nothing
-// in current output and permanently frees its slot — a genuine last resort
-// once there's no reversible low-value beacon left to disable instead.
+// Preferred target: an active RELAY_BEACON whose reach box holds zero
+// valuable tiles — a beacon quietly projecting reach over empty land is
+// contributing little to nothing toward the shortage. See
+// chooseLowValueBeaconToDisable.
+//
+// Fallback target: if no such beacon exists, fall back to the dormancy
+// system (resource-slot-view.ts), which already picks a victim when supply
+// falls short: the newest FOOD-consuming structure goes dormant (stops
+// producing) rather than being removed. A dormant structure is already
+// contributing zero effect, so disabling one of them costs nothing in
+// current output and permanently frees its slot until re-enabled.
 import { tileKeysInReach, type ReachAnchor } from "@border-empires/shared";
 
 import type { NeedVector } from "./build/build-need-vector.js";
@@ -71,14 +77,18 @@ const beaconHasValuableReach = <TTile extends AutomationPlannerTile>(
 };
 
 /**
- * Picks a FOOD-dormant economicStructure this player owns to REMOVE_STRUCTURE.
+ * Fallback target: a FOOD-dormant economicStructure this player owns, to
+ * disable (not remove) once no low-value beacon exists.
  * `foodDormantEconomicStructureKeys` is the "x,y" tile-key set from
  * Runtime.foodDormantEconomicStructureKeysForPlayer — structures already
  * short specifically on FOOD (not e.g. dormant on CRYSTAL alone), since only
- * removing one of those actually frees a FOOD slot. Last resort — see
- * chooseLowValueBeaconToDisable above for the preferred, reversible fix.
+ * disabling one of those actually frees a FOOD slot.
+ *
+ * Deterministic (lowest x, then y) rather than value-scored: every candidate
+ * here is, by construction, already producing zero effect, so there is no
+ * real "better" pick among them.
  */
-export const chooseFoodSlotReliefRemoval = <TTile extends AutomationPlannerTile>(
+export const chooseDormantFoodStructureToDisable = <TTile extends AutomationPlannerTile>(
   ownedTiles: readonly TTile[],
   playerId: string,
   foodDormantEconomicStructureKeys: ReadonlySet<string> | undefined
@@ -88,7 +98,11 @@ export const chooseFoodSlotReliefRemoval = <TTile extends AutomationPlannerTile>
   for (const tile of ownedTiles) {
     const structure = tile.economicStructure;
     if (!structure || structure.ownerId !== playerId) continue;
-    if (structure.status === "removing" || structure.status === "under_construction") continue;
+    // A manually-disabled structure has status "inactive" (see
+    // handleSetConverterStructureEnabledCommand) and is already excluded from
+    // demand contribution, so it can never appear in the dormancy set below —
+    // this "active" check exists to skip under_construction/removing only.
+    if (structure.status !== "active") continue;
     if (!foodDormantEconomicStructureKeys.has(`${tile.x},${tile.y}`)) continue;
     if (!best || tile.x < best.x || (tile.x === best.x && tile.y < best.y)) best = tile;
   }
@@ -96,11 +110,12 @@ export const chooseFoodSlotReliefRemoval = <TTile extends AutomationPlannerTile>
 };
 
 /**
- * Convenience wrapper for planAutomationCommand: bundles both relief
- * candidates with whether FOOD slots are fully exhausted (needVector's
- * FOOD_SLOTS deficit at max — supply <= 0 relative to demand).
+ * Convenience wrapper for planAutomationCommand: bundles the disable target
+ * (low-value beacon first, dormant structure as fallback) with whether FOOD
+ * slots are fully exhausted (needVector's FOOD_SLOTS deficit at max —
+ * supply <= 0 relative to demand).
  *
- * Both selectors below do an O(ownedTiles) scan, so — per AGENTS.md's AI CPU
+ * Both selectors above do an O(ownedTiles) scan, so — per AGENTS.md's AI CPU
  * guardrails (no unconditional full-owned-tiles passes regardless of empire
  * size) — they only run once `exhausted` is actually true. That's a rare
  * state for a healthy empire, and it's also the ONLY state either candidate
@@ -112,12 +127,11 @@ export const foodSlotReliefFromPlannerInput = <TTile extends AutomationPlannerTi
   foodDormantEconomicStructureKeys: ReadonlySet<string> | undefined,
   tilesByKey: ReadonlyMap<string, TTile> | undefined,
   needVector: NeedVector | undefined
-): { disableBeacon: FoodSlotReliefPlan | undefined; removal: FoodSlotReliefPlan | undefined; exhausted: boolean } => {
+): { disableTarget: FoodSlotReliefPlan | undefined; exhausted: boolean } => {
   const exhausted = (needVector?.FOOD_SLOTS ?? 0) >= 1;
-  if (!exhausted) return { disableBeacon: undefined, removal: undefined, exhausted };
-  return {
-    disableBeacon: chooseLowValueBeaconToDisable(ownedTiles, playerId, tilesByKey),
-    removal: chooseFoodSlotReliefRemoval(ownedTiles, playerId, foodDormantEconomicStructureKeys),
-    exhausted
-  };
+  if (!exhausted) return { disableTarget: undefined, exhausted };
+  const disableTarget =
+    chooseLowValueBeaconToDisable(ownedTiles, playerId, tilesByKey) ??
+    chooseDormantFoodStructureToDisable(ownedTiles, playerId, foodDormantEconomicStructureKeys);
+  return { disableTarget, exhausted };
 };

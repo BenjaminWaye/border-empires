@@ -44,10 +44,8 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
   /** Best RELAY_BEACON placement candidate (fixed-borders-via-reach plan). */
   relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
-  /** Low-value (zero-reach-value) active RELAY_BEACON to reversibly disable for slot relief — preferred over foodSlotReliefRemoval. See food-slot-relief.ts. */
-  foodSlotDisableBeacon: FoodSlotReliefPlan | undefined;
-  /** FOOD-dormant structure to demolish for slot relief, once no beacon is left to disable instead — see food-slot-relief.ts. */
-  foodSlotReliefRemoval: FoodSlotReliefPlan | undefined;
+  /** Structure to reversibly disable (SET_CONVERTER_STRUCTURE_ENABLED, never demolish) for FOOD-slot relief — a low-value beacon, or a FOOD-dormant structure as fallback. See food-slot-relief.ts. */
+  foodSlotDisableTarget: FoodSlotReliefPlan | undefined;
   /** FOOD slots are fully exhausted (supply <= 0 relative to demand). */
   foodSlotsExhausted: boolean;
   attackStalemateTargetTileKeys: ReadonlySet<string> | undefined;
@@ -135,7 +133,7 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     relayBeaconSiteValue: state.relayBeaconBuild?.siteValue ?? 0,
     beaconBoostActive: state.beaconBoostActive,
     foodSlotsExhausted: state.foodSlotsExhausted,
-    hasFoodSlotReliefCandidate: Boolean(state.foodSlotDisableBeacon || state.foodSlotReliefRemoval),
+    hasFoodSlotReliefCandidate: Boolean(state.foodSlotDisableTarget),
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},
@@ -259,19 +257,14 @@ const executeClass = <TTile extends AutomationPlannerTile>(
     }
 
     case "FREE_FOOD_SLOT":
-      // Prefer disabling a zero-value beacon (reversible) over demolishing a
-      // dormant structure (permanent) — see food-slot-relief.ts.
-      if (state.foodSlotDisableBeacon) {
-        return buildPlannerCommand(context, "SET_CONVERTER_STRUCTURE_ENABLED", {
-          x: state.foodSlotDisableBeacon.x,
-          y: state.foodSlotDisableBeacon.y,
-          enabled: false
-        });
-      }
-      if (!state.foodSlotReliefRemoval) return undefined;
-      return buildPlannerCommand(context, "REMOVE_STRUCTURE", {
-        x: state.foodSlotReliefRemoval.x,
-        y: state.foodSlotReliefRemoval.y
+      // Always disable, never demolish — see food-slot-relief.ts. Disabling
+      // frees the FOOD slot just as completely as REMOVE_STRUCTURE would,
+      // but is reversible, so there's no upside to demolition here.
+      if (!state.foodSlotDisableTarget) return undefined;
+      return buildPlannerCommand(context, "SET_CONVERTER_STRUCTURE_ENABLED", {
+        x: state.foodSlotDisableTarget.x,
+        y: state.foodSlotDisableTarget.y,
+        enabled: false
       });
 
     case "CHOOSE_TECH":

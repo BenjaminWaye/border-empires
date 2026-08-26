@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { chooseFoodSlotReliefRemoval, chooseLowValueBeaconToDisable, foodSlotReliefFromPlannerInput } from "./food-slot-relief.js";
+import { chooseDormantFoodStructureToDisable, chooseLowValueBeaconToDisable, foodSlotReliefFromPlannerInput } from "./food-slot-relief.js";
 import type { AutomationPlannerTile } from "./automation-command-planner-types.js";
 import type { NeedVector } from "./build/build-need-vector.js";
 
@@ -22,34 +22,35 @@ const tile = (
 const tilesByKeyOf = (tiles: readonly AutomationPlannerTile[]): ReadonlyMap<string, AutomationPlannerTile> =>
   new Map(tiles.map((t) => [`${t.x},${t.y}`, t]));
 
-describe("chooseFoodSlotReliefRemoval", () => {
+describe("chooseDormantFoodStructureToDisable", () => {
   it("returns undefined when there are no FOOD-dormant structures", () => {
-    expect(chooseFoodSlotReliefRemoval([tile(1, 1)], PLAYER_ID, new Set())).toBeUndefined();
-    expect(chooseFoodSlotReliefRemoval([tile(1, 1)], PLAYER_ID, undefined)).toBeUndefined();
+    expect(chooseDormantFoodStructureToDisable([tile(1, 1)], PLAYER_ID, new Set())).toBeUndefined();
+    expect(chooseDormantFoodStructureToDisable([tile(1, 1)], PLAYER_ID, undefined)).toBeUndefined();
   });
 
   it("picks the FOOD-dormant structure this player owns", () => {
     const dormant = new Set(["2,3"]);
-    const result = chooseFoodSlotReliefRemoval([tile(1, 1), tile(2, 3)], PLAYER_ID, dormant);
+    const result = chooseDormantFoodStructureToDisable([tile(1, 1), tile(2, 3)], PLAYER_ID, dormant);
     expect(result).toEqual({ x: 2, y: 3 });
   });
 
   it("ignores a dormant key belonging to a structure this player doesn't own", () => {
     const dormant = new Set(["2,3"]);
     const enemyTile = tile(2, 3, { ownerId: "ai-2" });
-    expect(chooseFoodSlotReliefRemoval([enemyTile], PLAYER_ID, dormant)).toBeUndefined();
+    expect(chooseDormantFoodStructureToDisable([enemyTile], PLAYER_ID, dormant)).toBeUndefined();
   });
 
-  it("skips a structure already mid-removal or still under construction", () => {
-    const dormant = new Set(["2,3", "4,5"]);
+  it("skips a structure already mid-removal, under construction, or already manually disabled", () => {
+    const dormant = new Set(["2,3", "4,5", "6,6"]);
     const removing = tile(2, 3, { status: "removing" });
     const underConstruction = tile(4, 5, { status: "under_construction" });
-    expect(chooseFoodSlotReliefRemoval([removing, underConstruction], PLAYER_ID, dormant)).toBeUndefined();
+    const alreadyDisabled = tile(6, 6, { status: "inactive", inactiveReason: "manual" });
+    expect(chooseDormantFoodStructureToDisable([removing, underConstruction, alreadyDisabled], PLAYER_ID, dormant)).toBeUndefined();
   });
 
   it("picks deterministically (lowest x, then y) among multiple dormant candidates", () => {
     const dormant = new Set(["5,5", "1,9", "1,2"]);
-    const result = chooseFoodSlotReliefRemoval([tile(5, 5), tile(1, 9), tile(1, 2)], PLAYER_ID, dormant);
+    const result = chooseDormantFoodStructureToDisable([tile(5, 5), tile(1, 9), tile(1, 2)], PLAYER_ID, dormant);
     expect(result).toEqual({ x: 1, y: 2 });
   });
 });
@@ -107,17 +108,17 @@ describe("foodSlotReliefFromPlannerInput", () => {
     expect(foodSlotReliefFromPlannerInput([], PLAYER_ID, undefined, undefined, undefined).exhausted).toBe(false);
   });
 
-  it("prefers the zero-value beacon over the dormant-removal candidate", () => {
+  it("prefers the zero-value beacon over the dormant-structure fallback", () => {
     const beacon = tile(2, 3);
     const dormant = new Set(["2,3"]);
     const result = foodSlotReliefFromPlannerInput([beacon], PLAYER_ID, dormant, tilesByKeyOf([beacon]), needVector(1));
-    expect(result).toEqual({ disableBeacon: { x: 2, y: 3 }, removal: { x: 2, y: 3 }, exhausted: true });
+    expect(result).toEqual({ disableTarget: { x: 2, y: 3 }, exhausted: true });
   });
 
-  it("falls back to the removal candidate when there's no disableable beacon", () => {
+  it("falls back to the dormant-structure target when there's no zero-value beacon", () => {
     const dormantStructure = tile(2, 3, { type: "FARMSTEAD" });
     const dormant = new Set(["2,3"]);
     const result = foodSlotReliefFromPlannerInput([dormantStructure], PLAYER_ID, dormant, undefined, needVector(1));
-    expect(result).toEqual({ disableBeacon: undefined, removal: { x: 2, y: 3 }, exhausted: true });
+    expect(result).toEqual({ disableTarget: { x: 2, y: 3 }, exhausted: true });
   });
 });
