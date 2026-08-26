@@ -15,4 +15,5 @@ import "./client-rush-buy-style.css";
 import "./client-season-lobby-style.css";
 import "./client-rally-link-settings-style.css";
 import "./client-bug-report-style.css";
+import "./client-hud-settings-discord-style.css";
 import "./client-app/client-app.js";
