@@ -114,7 +114,7 @@ describe("tech benefit summaries", () => {
     };
 
     expect(formatTechBenefitSummary(signalFires)).toContain("Unlocks Aether Purge");
-    expect(formatTechBenefitSummary(irrigation)).toContain("Unlocks Waterworks (+100% farmstead food within 10 tiles; each boosted Farmstead gains +2 FOOD slots)");
+    expect(formatTechBenefitSummary(irrigation)).toContain("Unlocks Waterworks (every Farmstead within 10 tiles gains +2 FOOD slots)");
   });
 
   it("surfaces Survey Sweep, Siphon, and Lockworks Port as visible unlocks", () => {

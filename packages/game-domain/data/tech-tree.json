@@ -113,7 +113,7 @@
       "tier": 2,
       "branch": "economy",
       "name": "Hydraulic Works",
-      "description": "Canals are what happen when paranoia meets agriculture.",
+      "description": "Canals are what happen when paranoia meets agriculture. Unlocks the Waterworks: every Farmstead within 10 tiles gains +2 FOOD slots.",
       "requires": "agriculture",
       "cost": {
         "gold": 10
