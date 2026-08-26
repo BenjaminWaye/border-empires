@@ -103,7 +103,7 @@ describe("settle + build — resource-gated building (FARMSTEAD)", () => {
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe("");
     expect(action?.cost).not.toContain("settle + build");
-    expect(action?.cost).toContain("+50% food");
+    expect(action?.cost).toContain("FOOD slot");
   });
 
   it("shows build_farmstead on a FRONTIER owned FARM tile with a settle + build total and suffix", () => {
