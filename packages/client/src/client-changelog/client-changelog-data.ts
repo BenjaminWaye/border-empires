@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787734461399, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Allies can now share dock-network access",
+    why: "Docks let you cross open water, but only from a dock you personally owned -- so an ally holding the far end of a shared shipping lane didn't help you reach it, even though your empire already had a foothold somewhere in that same connected network of docks.",
+    changes: [
+      "EXPAND and ATTACK can now launch from an allied dock, as long as you control at least one other dock in that dock's connected network"
+    ]
+  },
+  {
     createdAt: 1787734129392, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
     title: "Added a Founding Engineer tag",

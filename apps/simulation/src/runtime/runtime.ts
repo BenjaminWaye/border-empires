@@ -60,14 +60,16 @@ import {
 
 import {
   buildDockLinksByDockTileKey,
+  buildDockNetworkComponentByTileKey,
   computeLinkedDockRevealTileKeys,
   type DockRouteDefinition
 } from "../dock-network/dock-network.js";
 import {
   isDockCrossingTarget as isDockCrossingTargetImpl,
   isAetherBridgeCrossingTarget as isAetherBridgeCrossingTargetImpl,
-  findOwnedDockOriginForCrossing as findOwnedDockOriginForCrossingImpl,
-  findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl
+  resolveOwnedDockOriginForCrossing as resolveOwnedDockOriginForCrossingImpl,
+  findOwnedAetherBridgeOriginForCrossing as findOwnedAetherBridgeOriginForCrossingImpl,
+  type DockCrossingOrigin
 } from "./runtime-crossing.js";
 import { chooseNextOwnedFrontierCommandFromLookup } from "../ai/frontier-command-planner.js";
 import { forEachFrontierNeighbor } from "../frontier-topology.js";
@@ -943,6 +945,7 @@ export class SimulationRuntime {
     this.onShardCollected = options.onShardCollected;
     this.pendingImperialWard = options.pendingImperialWard; this.pendingGalacticWonderBonus = options.pendingGalacticWonderBonus;
     const initDocks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? []);
+    const initDockLinksByDockTileKey = buildDockLinksByDockTileKey(initDocks);
     this.state = new RuntimeState({
       players: createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??
         (options.initialPlayers ? new Map(options.initialPlayers) : seedWorld!.players),
@@ -950,7 +953,8 @@ export class SimulationRuntime {
         options.initialState, options.seedTiles ?? seedWorld!.tiles, options.mergeSeedTilesWithInitialState ?? true
       ),
       docks: initDocks,
-      dockLinksByDockTileKey: buildDockLinksByDockTileKey(initDocks),
+      dockLinksByDockTileKey: initDockLinksByDockTileKey,
+      dockNetworkComponentByTileKey: buildDockNetworkComponentByTileKey(initDockLinksByDockTileKey),
       locksByTile: createLocksFromInitialState(options.initialState),
       // O(radius²)-per-change coverage for the TILE_DELTA_BATCH hot path (see visibility-coverage-cache.ts).
       visibilityCoverage: new VisibilityCoverageTracker(WORLD_WIDTH, WORLD_HEIGHT, {
@@ -4300,15 +4304,8 @@ export class SimulationRuntime {
     return isAetherBridgeCrossingTargetImpl(this.activeAetherBridgesForPlayer(playerId), fromX, fromY, toX, toY);
   }
 
-  private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
-    return findOwnedDockOriginForCrossingImpl(
-      this.state.tiles,
-      this.summaryForPlayer(playerId).territoryTileKeys,
-      playerId,
-      toX,
-      toY,
-      this.state.dockLinksByDockTileKey
-    );
+  private findOwnedDockOriginForCrossing(playerId: string, toX: number, toY: number): DockCrossingOrigin | undefined {
+    return resolveOwnedDockOriginForCrossingImpl(this.state, (id) => this.summaryForPlayer(id).territoryTileKeys, playerId, toX, toY);
   }
 
   private findOwnedAetherBridgeOriginForCrossing(playerId: string, toX: number, toY: number): DomainTileState | undefined {
