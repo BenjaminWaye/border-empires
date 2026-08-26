@@ -28,7 +28,7 @@ import { captureRecoveryRemainingMsForTile, tileMenuHeaderStatusForTile } from "
 import { authoritativeIsInReach, type ReachAuthoritativeState } from "../client-reach-authoritative/client-reach-authoritative.js"; import { keyForTile } from "../client-app-runtime-utils.js";
 import { tileOverviewUpkeepLines } from "../client-tile-upkeep-view.js";
 import { townStatGridHtml } from "../client-town-stat-grid/client-town-stat-grid.js";
-import { isFoundingEngineerName, tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
+import { isFoundingEngineerPlayerId, tileOwnerLabelHtml } from "../client-founding-engineer/client-founding-engineer.js";
 import type { TileAreaEffectModifier } from "../client-structure-effects/client-structure-effects.js";
 import type { OptimisticStructureKind, Tile, TileActionDef, TileCombatBreakdown, TileMenuProgressView, TileMenuTab, TileMenuView, TileOverviewLine } from "../client-types.js";
 
@@ -645,8 +645,8 @@ export const tileMenuViewForTile = (
             : "Your settled land"
           : (foreignOwnerLabel ?? "Unknown empire");
   const ownerLabelIsAlly = Boolean(tile.ownerId) && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && deps.isTileOwnedByAlly(tile);
-  const subtitleHtml = ownerLabelIsAlly || isFoundingEngineerName(foreignOwnerLabel)
-    ? [tileOwnerLabelHtml(ownerLabel, foreignOwnerLabel, ownerLabelIsAlly), regionLabel ?? ""].filter(Boolean).join(" · ")
+  const subtitleHtml = ownerLabelIsAlly || (tile.ownerId && tile.ownerId !== deps.state.me && tile.terrain !== "SEA" && tile.terrain !== "COASTAL_SEA" && isFoundingEngineerPlayerId(tile.ownerId))
+    ? [tileOwnerLabelHtml(ownerLabel, tile.ownerId, ownerLabelIsAlly), regionLabel ?? ""].filter(Boolean).join(" · ")
     : undefined;
   const titleLabel =
     tile.town
