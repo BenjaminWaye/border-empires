@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787724124671, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Frontier tiles no longer decay while sitting inside anyone's live reach",
+    why: "Out-of-reach frontier decay only checked reach coverage at the moment a tile was claimed. If another player's town/outpost reach later grew to cover that ground, the original claim's decay timer kept counting down regardless, so tiles that were clearly inside someone's live border still got auto-cleared to neutral.",
+    changes: [
+      "Re-checks reach coverage at the moment a frontier tile's decay timer would fire, not just at claim time",
+      "A tile inside any player's live reach -- the owner's own or another player's -- has its decay timer cleared instead of expiring"
+    ]
+  },
+  {
     createdAt: 1787692481411, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.8",
     title: "Gave the \"join now\" season prompt a real intro instead of a bare confirmation dialog",
