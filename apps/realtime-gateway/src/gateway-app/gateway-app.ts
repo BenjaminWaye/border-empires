@@ -80,7 +80,7 @@ import { buildPendingInputToStateEvents, sweepStalePendingInputToState } from ".
 import { buildSnapshotTileDetail } from "../tile-detail-snapshot/tile-detail-snapshot.js";
 import { pushAuthoritativeTileDetail } from "../tile-detail-push/tile-detail-push.js";
 import { selfHealTargetFromRejection } from "../tile-detail-self-heal/tile-detail-self-heal.js";
-import { hydrateVisibleLiveProfileOverrides, recoverLivePlayerMessage } from "../live-world-status-recovery.js";
+import { hydrateAndRecoverPlayerMessage } from "../live-world-status-recovery.js";
 import {
   hydrateCurrentSeasonSummaryDisplayNames,
   hydrateSeasonArchiveDisplayNames
@@ -1388,6 +1388,14 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         }
       }
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "ATTACK_ALERT") {
+        // The simulation never learns a human's real display name, so hydrate
+        // it here unconditionally — the email alert needs it while the
+        // defender is offline too, not just when they have a live socket below.
+        event.payload = await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
+          timeoutMs: liveProfileHydrationTimeoutMs,
+          withTimeout,
+          onError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate attacker live profile override")
+        });
         const attackAlert = readAttackAlert(event.payload);
         if (attackAlert) {
           sendGameplayEmailAlert("attack", event.playerId, () =>
@@ -1433,19 +1441,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         return;
       }
       if (event.eventType === "PLAYER_MESSAGE") {
-        try {
-          await withTimeout(
-            hydrateVisibleLiveProfileOverrides(event.payload, profileStore, profileOverrides),
-            liveProfileHydrationTimeoutMs,
-            "hydrate live player profile overrides"
-          );
-        } catch (error) {
-          app.log.warn(
-            { err: error, commandId: event.commandId, playerId: event.playerId, messageType: event.messageType },
-            "failed to hydrate live player profile overrides; forwarding original player message"
-          );
-        }
-        const recoveredPayload = recoverLivePlayerMessage(event.payload, profileOverrides);
+        const recoveredPayload = event.messageType === "ATTACK_ALERT" ? event.payload : await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
+          timeoutMs: liveProfileHydrationTimeoutMs,
+          withTimeout,
+          onError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate live player profile overrides")
+        });
         for (const targetSocket of sockets) {
           const session = sessionsBySocket.get(targetSocket);
           if (!session?.playerId) continue;
