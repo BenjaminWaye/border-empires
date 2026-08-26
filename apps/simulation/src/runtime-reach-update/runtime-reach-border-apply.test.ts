@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { TOWN_REACH_RADIUS, type ReachAnchor } from "@border-empires/shared";
 import { applyReachAnchorActivationToBorder, type ReachBorderApplyContext } from "./runtime-reach-border-apply.js";
-import { createReachUpdateState } from "./runtime-reach-update.js";
+import { createReachUpdateState, takeReachChangedTileKeys } from "./runtime-reach-update.js";
 
 /**
  * Regression coverage for the "settled outside anyone's reach" hole.
@@ -96,5 +96,47 @@ describe("applyReachAnchorActivationToBorder — settled tile on an unclaimed bo
     });
 
     expect(downgrade).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Regression coverage for rival-reach-push.ts's "unclaimed grant" gap:
+ * grantAnchorToBorder's "unclaimed slot -> granted outright" branch (see its
+ * own doc comment) never produces an `overtaken` entry — nobody lost the
+ * tile — so a NEW anchor claiming genuinely empty ground was previously
+ * invisible to recordReachChangedTile, and rival-reach-push.ts would never
+ * learn a brand-new empire's border had appeared next to a rival. Without
+ * this recording, pushRivalReachOnOwnerChanged would find an empty
+ * changed-tile buffer for the newly-active owner and silently skip pushing —
+ * exactly the case the clash-seam effect exists for.
+ */
+describe("applyReachAnchorActivationToBorder — changed-tile recording for rival-reach-push.ts", () => {
+  it("records a changed tile even when the border slot was genuinely unclaimed (no overtaken entry)", () => {
+    const { context } = contextFor({}, [attackerTown]);
+    const reachUpdateState = createReachUpdateState();
+
+    applyReachAnchorActivationToBorder(new Map(), attackerTown, reachUpdateState, context, "cmd-1");
+
+    expect(takeReachChangedTileKeys(reachUpdateState, "player-1")).toContain(contestedKey);
+  });
+
+  it("still records the changed tile for the contested-settled-slot case (in addition to the existing overtaken/dirty tracking)", () => {
+    const { context } = contextFor({ [contestedKey]: { ownerId: "player-2", ownershipState: "SETTLED" } }, [attackerTown, defenderTownFarAway]);
+    const reachUpdateState = createReachUpdateState();
+
+    applyReachAnchorActivationToBorder(new Map(), attackerTown, reachUpdateState, context, "cmd-1");
+
+    expect(takeReachChangedTileKeys(reachUpdateState, "player-1")).toContain(contestedKey);
+    expect(takeReachChangedTileKeys(reachUpdateState, "player-2")).toContain(contestedKey);
+  });
+
+  it("drains once — a second read for the same owner without a new mutation returns empty", () => {
+    const { context } = contextFor({}, [attackerTown]);
+    const reachUpdateState = createReachUpdateState();
+
+    applyReachAnchorActivationToBorder(new Map(), attackerTown, reachUpdateState, context, "cmd-1");
+    takeReachChangedTileKeys(reachUpdateState, "player-1");
+
+    expect(takeReachChangedTileKeys(reachUpdateState, "player-1")).toEqual([]);
   });
 });

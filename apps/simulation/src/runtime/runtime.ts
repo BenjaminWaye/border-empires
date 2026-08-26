@@ -7,7 +7,9 @@ import {
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
 import { RuntimeState } from "./runtime-state.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
-import { createReachUpdateState, flushReachUpdates, markReachForResend, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
+import { createReachUpdateState, flushReachUpdates, markReachForResend, takeReachChangedTileKeys as takeReachChangedTileKeysImpl, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
+import type { RivalReachPushRuntimeDeps } from "../rival-reach-push/rival-reach-push.js";
+import { railDepotPositionsFromKeys } from "./runtime-rail-depot-positions.js";
 import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, applyUnsettleDowngrade, createReachBorderApplyContext, type ReachBorderApplyContext } from "../runtime-reach-update/runtime-reach-border-apply.js";
 import { cancelOutOfReachDecayInAnchorDisk, outOfReachDecayDeadline as outOfReachDecayDeadlineImpl } from "../runtime-reach-update/runtime-reach-out-of-reach.js"; import { createOutOfReachDecayQueue, enqueueOutOfReachDecay, rebuildOutOfReachDecayQueue, tickOutOfReachDecay as tickOutOfReachDecayImpl, type OutOfReachDecayQueue } from "../runtime-out-of-reach-decay/runtime-out-of-reach-decay.js"; import { autoSettleCapturedAnchor as autoSettleCapturedAnchorImpl, canAutoSettleCapturedAnchor as canAutoSettleCapturedAnchorImpl, type AutoSettleCapturedAnchorDeps } from "../runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.js";
 import {
@@ -16,7 +18,8 @@ import {
   newlyDeactivatedReachAnchors as newlyDeactivatedReachAnchorsImpl,
   isPlayerTileInReach as isPlayerTileInReachImpl,
   reachTileCountForPlayer as reachTileCountForPlayerImpl,
-  reachTileKeysForPlayer as reachTileKeysForPlayerImpl
+  reachTileKeysForPlayer as reachTileKeysForPlayerImpl,
+  reachTileKeysGroupedByOwner as reachTileKeysGroupedByOwnerImpl
 } from "./runtime-reach-anchors.js";
 import {
   appendPlayerEventLogEntry,
@@ -528,29 +531,6 @@ const AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS = 60_000;
 // fresh terrain mutation numbers. Consumers cache derived terrain structures by
 // epoch; cache misses are O(world tiles) but happen only when terrain changes.
 let nextTerrainEpoch = 1;
-
-/**
- * Convert a rail depot key index to position arrays for the muster tick.
- * §5.4: skips dormant Rail Depots — an unpowered depot can't grant the
- * muster boost.
- */
-const railDepotPositionsFromKeys = (
-  index: ReadonlyMap<string, Set<string>>,
-  tiles: ReadonlyMap<string, DomainTileState>,
-  isStructureDormant: (playerId: string, tileKey: string, field: "economicStructure") => boolean
-): Map<string, Array<{ x: number; y: number }>> => {
-  const result = new Map<string, Array<{ x: number; y: number }>>();
-  for (const [ownerId, keys] of index) {
-    const positions: Array<{ x: number; y: number }> = [];
-    for (const key of keys) {
-      if (isStructureDormant(ownerId, key, "economicStructure")) continue;
-      const tile = tiles.get(key);
-      if (tile) positions.push({ x: tile.x, y: tile.y });
-    }
-    if (positions.length > 0) result.set(ownerId, positions);
-  }
-  return result;
-};
 
 export class SimulationRuntime {
   private readonly events = new EventEmitter();
@@ -3061,6 +3041,20 @@ export class SimulationRuntime {
   // planning paths — see buildRuntimePlannerPlayerViews's reachTileKeys.
   reachTileKeysForPlayer(playerId: string): string[] {
     return reachTileKeysForPlayerImpl(playerId, this.reachBorder);
+  }
+
+  // rival-reach-push.ts's ONLY window into Runtime (that module lives at the
+  // service layer, which knows who is connected — Runtime doesn't). Mirrors
+  // reachBorderApplyContext() just above; never exposes reachBorder/visibilityCoverage directly.
+  rivalReachPushRuntimeDeps(): RivalReachPushRuntimeDeps {
+    return {
+      reachBorderTileKeysGroupedByOwner: () => reachTileKeysGroupedByOwnerImpl(this.reachBorder),
+      reachTileKeysForPlayer: (playerId) => this.reachTileKeysForPlayer(playerId),
+      isTileVisibleToPlayer: (viewerId, tileKey) => this.state.visibilityCoverage.isVisible(viewerId, tileKey),
+      takeReachChangedTileKeys: (ownerId) => takeReachChangedTileKeysImpl(this.reachUpdateState, ownerId),
+      emitRivalReachUpdate: (viewerId, ownerId, tileKeys, revision, causeCommandId) =>
+        this.emitPlayerMessage({ commandId: causeCommandId, playerId: viewerId }, { type: "RIVAL_REACH_UPDATE", ownerId, tileKeys, revision })
+    };
   }
 
   // §5 (resource slots): unlike settledTilesForPlayer, includes FRONTIER
