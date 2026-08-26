@@ -26,6 +26,7 @@ import {
   type NaturalWonderSiteState,
   type TownDefinition
 } from "@border-empires/game-domain";
+import { computeSpawnSiteIndices, FAIR_SPAWN_SITE_TARGET } from "./worker-spawn-sites.js";
 
 export type MapStyle = "continents" | "islands";
 
@@ -47,6 +48,8 @@ export type WorkerResponse = {
   resourceLayer: Uint8Array;// 0=none 1=UMBRITE 2=FARM 3=GEMS 4=TITANIUM 5=FISH — actual placed cluster tiles (real generateClusters output, not a biome-eligibility heatmap)
   townIndices: Uint32Array; // flat tile indices of estimated town positions
   dockSiteIndices: Uint32Array; // one flat index per significant island (for dock markers)
+  spawnSiteIndices: Uint32Array; // flat tile indices of the real production fair-spawn-site roster (see FAIR_SPAWN_SITE_WORLDGEN_MINIMUM)
+  spawnSiteTarget: number; // roster target size (currently 50), for the "N / target" stat
   wonders: Array<{ index: number; type: NaturalWonderType }>; // up to 9, one per type — real server placement logic
   landCount: number;
   seaCount: number;
@@ -420,6 +423,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   const resources = placeResourceClusters(currentSeed);
   const { count: townCount, indices: townIndices } = estimateTownCount(terrain, currentSeed);
   const wonders = placeNaturalWonders(terrain, townIndices, dockSiteIndices, currentSeed);
+  const spawnSiteIndices = computeSpawnSiteIndices(terrain, resources.layer, townIndices);
 
   // Find tightest Y extent of land tiles
   let minLandY = WORLD_HEIGHT;
@@ -448,6 +452,8 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     resourceLayer: resources.layer,
     townIndices,
     dockSiteIndices,
+    spawnSiteIndices,
+    spawnSiteTarget: FAIR_SPAWN_SITE_TARGET,
     wonders,
     landCount: counts.land,
     seaCount: counts.sea,
@@ -469,6 +475,6 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
 
   self.postMessage(response, [
     terrain.buffer, biome.buffer, region.buffer, shade.buffer, hills.buffer,
-    resources.layer.buffer, townIndices.buffer, dockSiteIndices.buffer
+    resources.layer.buffer, townIndices.buffer, dockSiteIndices.buffer, spawnSiteIndices.buffer
   ]);
 };
