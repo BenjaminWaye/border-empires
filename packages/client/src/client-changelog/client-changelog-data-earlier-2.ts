@@ -12,6 +12,24 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787462564744, // 2026.08.22.15 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.15",
+    title: "Fixed the same false \"Map sync stalled\" warning on the plain \"Join Season?\" prompt",
+    why: "The previous fix only covered the pending-season countdown lobby. The plain \"Join Season?\" prompt -- shown once a season is already active but you haven't clicked join yet -- has the same reason for zero map tiles (you haven't spawned), and hit the same false alarm.",
+    changes: [
+      "The map-sync watchdog now also stays quiet behind the \"Join Season?\" prompt, not just the countdown lobby."
+    ]
+  },
+  {
+    createdAt: 1787462189036, // 2026.08.22.14 — frozen from a live Date.now() call
+    introducedIn: "2026.08.22.14",
+    title: "Fixed a false \"Map sync stalled\" warning while waiting in the season lobby",
+    why: "A player waiting in the pending-season lobby hasn't spawned yet, so no map tiles have arrived for them by design -- but the map-loading watchdog didn't know that, and treated it the same as a real stuck sync, firing a \"Map sync stalled\" warning over the lobby after a few seconds.",
+    changes: [
+      "The map-sync watchdog now stays quiet while you're waiting in the season lobby, since there's nothing to sync yet."
+    ]
+  },
+  {
     createdAt: 1787431431635, // frozen from a live Date.now() call
     introducedIn: "2026.08.22.12",
     title: "Fixed rivers clipping through hills",

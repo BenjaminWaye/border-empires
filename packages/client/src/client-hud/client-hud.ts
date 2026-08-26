@@ -33,6 +33,7 @@ import { bindAudioSettingsControls } from "../client-audio/client-audio-settings
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "../client-renderer-prompt/client-renderer-prompt.js";
 import { renderAllianceTargetOptionsIfChanged } from "../client-social-suggestions/client-social-suggestions.js";
 import { applyVictoryHoldAlertNavBadges } from "../client-victory-alert/client-victory-alert-badge.js";
+import { applyAllyAlertNavBadges } from "../client-alliance/client-ally-alert-badge.js";
 import { worldEngineStrikeRecordToFeedEntry, WORLD_ENGINE_STRIKE_HISTORY_WINDOW_MS } from "../client-world-engine-strike-history/client-world-engine-strike-history.js";
 import type { ClientState, storageSet } from "../client-state/client-state.js";
 import { refreshLiveTechRequirements } from "../client-tech-live-requirements/client-tech-live-requirements.js";
@@ -347,8 +348,7 @@ export const renderClientHud = (deps: HudDeps): void => {
   if (coreMobileBtn) coreMobileBtn.innerHTML = mobileNavLabelHtml("core");
   const techMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='tech']") as HTMLButtonElement | null;
   if (techMobileBtn) techMobileBtn.innerHTML = mobileNavLabelHtml("tech", { techReady });
-  const socialMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='social']") as HTMLButtonElement | null;
-  if (socialMobileBtn) socialMobileBtn.innerHTML = mobileNavLabelHtml("social");
+  applyAllyAlertNavBadges(state, dom.hud, dom.panelActionButtons);
   const feedMobileBtn = dom.hud.querySelector("#mobile-nav button[data-mobile-panel='feed']") as HTMLButtonElement | null;
   if (feedMobileBtn) {
     feedMobileBtn.innerHTML = mobileNavLabelHtml("feed", { attackAlertUnread, feedUnreadCount });
