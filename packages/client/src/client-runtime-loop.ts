@@ -1661,7 +1661,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       halfH,
       nowMs,
       precomputedAlerts: persistentAlertsCache
-    }); drawOnboardingChecklistHighlights(state.onboardingHighlightTiles, { ctx: deps.ctx, worldToScreen: deps.worldToScreen, size, halfW, halfH, nowMs });
+    }); if (!isTrue3DRendererActive()) drawOnboardingChecklistHighlights(state.onboardingHighlightTiles, { ctx: deps.ctx, worldToScreen: deps.worldToScreen, size, halfW, halfH, nowMs });
     const minimapAlertsMs = phaseMs();
     requestVisibleTileDetails(overlayTiles, state.camX, state.camY);
     const tileDetailMs = phaseMs();

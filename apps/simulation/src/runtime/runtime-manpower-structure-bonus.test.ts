@@ -67,7 +67,7 @@ const buildTwoTownNetworkRuntime = () => {
     }
   });
   runtime.exportPlayerDebugSnapshot(); // settle the one-time cap-grant quirk (see runtime-structure-command-handlers-economic-manpower.test.ts)
-  const raw = (runtime as unknown as { players: Map<string, RawPlayerRef> }).players.get("player-1")!;
+  const raw = (runtime as unknown as { state: { players: Map<string, RawPlayerRef> } }).state.players.get("player-1")!;
   raw.manpower = 10_000;
   return runtime;
 };
