@@ -202,12 +202,16 @@ describe("grantAnchorToBorder", () => {
   });
 
   it("contested tile stays with the defender when they have live coverage there", () => {
-    const existing = new Map([[tileKey(5, 5), "defender"]]);
+    // Contested at a tile OTHER than the incoming anchor's own tile (5,5) —
+    // that exact case now always wins for the anchor's owner regardless of
+    // rival defense (see the "anchor's own tile is always granted" tests
+    // below); this test covers the ordinary defended-neighbour case.
+    const existing = new Map([[tileKey(6, 6), "defender"]]);
     const anchor: ReachAnchor = { x: 5, y: 5, ownerId: "attacker", activatedAt: 2, kind: "DOCK" };
     const { border, overtaken } = grantAnchorToBorder(existing, anchor, (ownerId) =>
-      ownerId === "defender" ? new Set([tileKey(5, 5)]) : new Set()
+      ownerId === "defender" ? new Set([tileKey(6, 6)]) : new Set()
     );
-    expect(border.get(tileKey(5, 5))).toBe("defender");
+    expect(border.get(tileKey(6, 6))).toBe("defender");
     expect(overtaken).toEqual([]);
   });
 
@@ -242,17 +246,20 @@ describe("grantAnchorToBorder", () => {
   // the attacker's border with nothing left to dislodge it — the very state
   // this whole guard exists to prevent.
   it("empty border slot over a rival's SETTLED tile still respects live defense", () => {
+    // Contested at a neighbouring tile (5,6), not the incoming anchor's own
+    // tile (5,5) — that exact case now always wins for the anchor's owner,
+    // see the "anchor's own tile is always granted" tests below.
     const anchor: ReachAnchor = { x: 5, y: 5, ownerId: "attacker", activatedAt: 2, kind: "DOCK" };
     const { border, overtaken } = grantAnchorToBorder(
       new Map(),
       anchor,
-      (ownerId) => (ownerId === "defender" ? new Set([tileKey(5, 5)]) : new Set()),
-      (key) => (key === tileKey(5, 5) ? "defender" : undefined)
+      (ownerId) => (ownerId === "defender" ? new Set([tileKey(5, 6)]) : new Set()),
+      (key) => (key === tileKey(5, 6) ? "defender" : undefined)
     );
     expect(overtaken).toEqual([]);
-    expect(border.get(tileKey(5, 5))).toBeUndefined();
-    // Neighbouring tiles in the same disk are unaffected and still granted.
-    expect(border.get(tileKey(5, 6))).toBe("attacker");
+    expect(border.get(tileKey(5, 6))).toBeUndefined();
+    // The anchor's own tile is unaffected and still granted.
+    expect(border.get(tileKey(5, 5))).toBe("attacker");
   });
 
   it("empty border slot over the anchor owner's own SETTLED tile is not a contest", () => {
@@ -266,6 +273,10 @@ describe("grantAnchorToBorder", () => {
     expect(border.get(tileKey(5, 5))).toBe("p1");
     expect(overtaken).toEqual([]);
   });
+
+  // See reach-anchor-own-tile.test.ts for the "anchor's own tile is always
+  // granted, even against a still-live rival" regression coverage — split
+  // out to a separate file to keep this one under the 500-line cap.
 
   it("omitting settledOwnerAt keeps the original silent-grant behavior", () => {
     const anchor: ReachAnchor = { x: 5, y: 5, ownerId: "attacker", activatedAt: 2, kind: "DOCK" };
@@ -307,15 +318,25 @@ describe("applyAnchorEvents — sticky border scenarios", () => {
     expect(overtaken.some((t) => t.fromOwnerId === "p1" && t.toOwnerId === "p2")).toBe(true);
   });
 
-  it("a live defending beacon holds the tile against a contest", () => {
+  it("a live defending beacon holds neighbouring tiles against a contest, but never its own contested tile", () => {
     const beacon: ReachAnchor = { x: 200, y: 200, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    // Not realistically reachable in-game (you can't drop a new anchor on a
+    // tile a rival still actively holds without capturing it first, which
+    // deactivates their anchor there in the same transition — see "undefended
+    // border withdraws only once an enemy anchor actually contests it" and
+    // the capture-enclave tests below for the realistic flow). Kept as a
+    // synthetic worst-case: even here, p2's own anchor tile still wins
+    // (matches the "captured town keeps its own tile" rule), while p1's
+    // still-active beacon keeps every neighbouring tile in its disk.
     const enemyBeacon: ReachAnchor = { x: 200, y: 200, ownerId: "p2", activatedAt: 5, kind: "OUTPOST" };
     const { border, overtaken } = applyAnchorEvents([
       { type: "ACTIVATE", anchor: beacon }, // still active, never deactivated
       { type: "ACTIVATE", anchor: enemyBeacon }
     ]);
-    expect(border.get(tileKey(200, 200))).toBe("p1");
-    expect(overtaken).toEqual([]);
+    expect(border.get(tileKey(200, 200))).toBe("p2");
+    expect(overtaken).toContainEqual({ tileKey: tileKey(200, 200), fromOwnerId: "p1", toOwnerId: "p2" });
+    // p1's still-active beacon keeps defending every neighbouring tile.
+    expect(border.get(tileKey(200 + OUTPOST_REACH_RADIUS, 200))).toBe("p1");
   });
 
   it("applies between allies too — border clipping is unconditional", () => {

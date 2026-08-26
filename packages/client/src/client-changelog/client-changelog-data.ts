@@ -24,6 +24,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787739347827, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.5",
+    title: "Captured towns/docks now keep reach on their own tile",
+    why: "Reach borders are sticky by design -- capturing a town or dock deep inside a rival's territory never pushes their border back. But that same stickiness was leaving the captured building with zero reach at all, not even on the single tile it stood on, if the rival's still-active anchors happened to still cover that exact spot.",
+    changes: [
+      "A captured town, dock, or outpost-family structure (relay beacon, siege outpost/tower, dread tower) now always keeps reach on its own tile, even when it's fully surrounded by a rival's larger, still-defended territory -- it just can't project that reach onto any neighbouring tile the rival is still actively defending"
+    ]
+  },
+  {
     createdAt: 1787912102098, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.2",
     title: "Building Relay Beacon (or any structure) on a frontier tile no longer races its own settlement",
