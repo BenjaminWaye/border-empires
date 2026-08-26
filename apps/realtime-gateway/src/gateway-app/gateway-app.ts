@@ -1441,7 +1441,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         return;
       }
       if (event.eventType === "PLAYER_MESSAGE") {
-        const recoveredPayload = await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
+        const recoveredPayload = event.messageType === "ATTACK_ALERT" ? event.payload : await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
           timeoutMs: liveProfileHydrationTimeoutMs,
           withTimeout,
           onError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate live player profile overrides")
