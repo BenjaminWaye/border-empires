@@ -124,12 +124,22 @@ export const isAutoSettlementEligibleTarget = (
   // stays FRONTIER-owned forever if never settled, and a shrinking/contested
   // border could leave it outside reach by the time auto-settle got to it,
   // silently converting a tile the player couldn't legally SETTLE by hand.
+  //
+  // Town/dock tiles are exempt from this gate (see below) -- a captured
+  // town/dock is deliberately allowed to auto-settle even out of reach,
+  // mirroring the existing capture-time bypass in
+  // runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.ts
+  // (canAutoSettleCapturedAnchor) that already settles a captured anchor
+  // immediately regardless of reach. Reach only gates resource tiles and
+  // plain support tiles here -- those have no such bypass and no
+  // consolation prize for being claimed too far out.
   isInReach: (tile: DomainTileState) => boolean = () => true
 ): tile is DomainTileState => {
   if (!isAutoSettlementTarget(tile, playerId)) return false;
+  if (tile.town || tile.dockId) return true;
   if (!isInReach(tile)) return false;
   if (tile.resource) return isRevealedToPlayer(tile);
-  return Boolean(tile.town || tile.dockId || hasTownSupport(tile));
+  return hasTownSupport(tile);
 };
 
 export const orderedAutoSettlementTileKeys = (
@@ -166,7 +176,10 @@ export const orderedAutoSettlementTileKeys = (
   for (const tileKey of territoryTileKeys) {
     if (deps.isBlocked(tileKey)) continue;
     const tile = deps.getTile(tileKey);
-    if (tile && deps.isInReach && !deps.isInReach(tile)) continue;
+    // Town/dock tiles are exempt from the reach gate (see
+    // isAutoSettlementEligibleTarget) -- don't let this cheap early-out skip
+    // them before eligibility even gets a look.
+    if (tile && !tile.town && !tile.dockId && deps.isInReach && !deps.isInReach(tile)) continue;
     let eligible = deps.eligibilityCache?.get(tileKey);
     if (eligible === undefined) {
       eligible = isAutoSettlementEligibleTarget(tile, playerId, deps.hasTownSupport, deps.isRevealedToPlayer, deps.isInReach);

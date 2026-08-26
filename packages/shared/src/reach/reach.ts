@@ -278,16 +278,12 @@ export const grantAnchorToBorder = (
  *   deactivates, not in the sense that reach outlives every anchor that
  *   ever granted it.
  *
- * Exception: the anchor's OWN tile (`deactivatedAnchor.x`/`.y`) is never
- * vacated to nobody this way, only ever transferred to a rival who already
- * covers it. A structure's home tile is the one exception to "reach can
- * retract" — vacating it on disable would make the structure unrecoverable
- * through its own controls: re-enabling requires the tile to still be
- * SETTLED (gatherReachAnchors gates TOWN/OUTPOST anchors on that), and a
- * vacated tile can't be re-SETTLEd either, since SETTLE itself requires the
- * tile already be in the owner's border — the exact thing vacating would
- * have just removed. Peripheral tiles the anchor covers have no such
- * circular dependency, so they vacate normally.
+ * No exception for the anchor's own tile: a disk always covers its own
+ * founding tile, so losing the last anchor over it vacates and unsettles
+ * that tile too, same as any other ground it covered. Recoverable the same
+ * way losing any other tile is — extend reach back over it (another
+ * anchor, or expanding in from adjacent territory you still hold) and
+ * SETTLE it again.
  *
  * Only re-examines the tiles the deactivating anchor itself used to cover
  * (its own disk), and only tiles still owned in `border` by the SAME owner
@@ -331,11 +327,13 @@ export const reassessBorderOnAnchorDeactivation = (
       }
     }
     if (!claimedByRival) {
-      // Never vacate the anchor's own founding tile to nobody — see the
-      // doc comment's "Exception" above.
-      if (key === tileKey(deactivatedAnchor.x, deactivatedAnchor.y)) continue;
       // Nobody — including the owner — currently covers this ground: vacate
-      // it rather than leaving it sticky forever.
+      // it rather than leaving it sticky forever. This includes the
+      // anchor's own founding tile — its own disk always covers itself, so
+      // reaching this branch for that tile means the owner's last anchor
+      // over it just deactivated. Recoverable: extend reach back over it
+      // from elsewhere (another anchor, or expanding in from adjacent
+      // territory) and SETTLE it again.
       next.delete(key);
       overtaken.push({ tileKey: key, fromOwnerId: deactivatedAnchor.ownerId, toOwnerId: "" });
     }

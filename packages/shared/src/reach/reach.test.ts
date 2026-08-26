@@ -348,7 +348,7 @@ describe("reassessBorderOnAnchorDeactivation", () => {
     expect(overtaken).toEqual([{ tileKey: peripheral, fromOwnerId: "p1", toOwnerId: "" }]);
   });
 
-  it("never vacates the anchor's own founding tile to nobody, even with no coverage left at all", () => {
+  it("vacates the anchor's own founding tile too, same as any other ground it covered", () => {
     const beacon: ReachAnchor = { x: 200, y: 200, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
     const existing = new Map([[tileKey(200, 200), "p1"]]);
     const { border, overtaken } = reassessBorderOnAnchorDeactivation(
@@ -358,11 +358,11 @@ describe("reassessBorderOnAnchorDeactivation", () => {
       () => new Set(), // no rival covers it either
       ["p2"]
     );
-    // Otherwise re-enabling the same structure could never re-grant its own
-    // tile: SETTLE and anchor-activation both require the tile already be
-    // in the owner's border.
-    expect(border.get(tileKey(200, 200))).toBe("p1");
-    expect(overtaken).toEqual([]);
+    // No exception for the anchor's own tile: recovering it means extending
+    // reach back over it (another anchor, or expanding in from elsewhere)
+    // and SETTLE-ing it again.
+    expect(border.has(tileKey(200, 200))).toBe(false);
+    expect(overtaken).toEqual([{ tileKey: tileKey(200, 200), fromOwnerId: "p1", toOwnerId: "" }]);
   });
 
   it("does nothing when the owner still has other live coverage over the tile", () => {

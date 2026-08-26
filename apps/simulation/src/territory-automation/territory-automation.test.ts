@@ -343,6 +343,32 @@ describe("territory automation", () => {
     expect(outOfReachTile).toMatchObject({ ownerId: "player-1", ownershipState: "FRONTIER" });
   });
 
+  it("still auto-settles an owned FRONTIER town/dock tile even when it's outside reach", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", player("player-1", 1_000)]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          // No reach-granting anchor anywhere near these — unlike a plain
+          // resource tile, a captured town/dock is allowed to auto-settle
+          // regardless of reach (it has no reach of its own to grant until
+          // settled, mirroring the capture-time bypass in
+          // runtime-out-of-reach-decay/runtime-out-of-reach-auto-settle.ts).
+          { x: 200, y: 200, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { type: "MARKET", populationTier: "TOWN" } },
+          { x: 210, y: 210, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", dockId: "dock-1" }
+        ],
+        activeLocks: []
+      }
+    });
+    const events: SimulationEvent[] = [];
+    runtime.onEvent((event) => events.push(event));
+
+    await runtime.tickTerritoryAutomation(1_000);
+
+    expect(latestAutoSettlementQueue(events, "player-1")).toEqual(["200,200", "210,210"]);
+  });
+
   it("drops recovered pending settlements when combat changes the frontier tile owner before completion", async () => {
     const accumulator = createRecoveredSimulationAccumulator({
       tiles: [{ x: 40, y: 40, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER" }],
