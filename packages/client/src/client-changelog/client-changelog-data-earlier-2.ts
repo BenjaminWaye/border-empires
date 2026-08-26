@@ -281,4 +281,35 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
       "A new capital's starting manpower cap (and starting manpower, which fills it) is now 720, up from 576."
     ]
   },
+  // Moved down from client-changelog-data.ts to keep that file under its
+  // 500-line cap (see agent/settle-town-out-of-reach) -- still within the
+  // 6-day trailing window client-changelog.test.ts enforces.
+  {
+    createdAt: 1787475367888, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Corrected the lobby's timezone claim",
+    why: "The join-season overlay said a synchronized start means \"the first move isn't decided by timezone\" -- that's wrong, a shared start time doesn't erase timezone effects on when players are actually online. What it actually guarantees is that everyone gets the same starting line, not the same impact from timezone.",
+    changes: [
+      "The lobby's \"Season starts soon\" text now says a synchronized start gives everyone the same chance from the same starting line, rather than incorrectly claiming timezone has no effect on the first move."
+    ]
+  },
+  {
+    createdAt: 1787475219678, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23",
+    title: "Rally link dialog can now be dismissed, and rally links are reachable from Settings",
+    why: "The rally-create and rally-invite dialogs had no way to close once you'd copied the link -- the only way out was navigating away entirely. And minting a rally link required knowing the /rally/new URL by hand.",
+    changes: [
+      "The rally link dialog now has a close (×) button in the top-right corner that dismisses it and clears the rally URL from the address bar.",
+      "Signed-in players can now open \"Get Rally Link\" from Settings → Gameplay instead of typing /rally/new."
+    ]
+  },
+  {
+    createdAt: 1787724130000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Restyled the settings menu's Discord button",
+    why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
+    changes: [
+      "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
+    ]
+  }
 ];

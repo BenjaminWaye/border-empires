@@ -158,4 +158,40 @@ describe("out-of-reach auto-settle — full runtime integration", () => {
     expect(claimed?.frontierDecayKind).toBe("OUT_OF_REACH");
     expect(typeof claimed?.frontierDecayAt).toBe("number");
   });
+
+  it("lets a human SETTLE command claim a captured town frontier tile outside their reach", async () => {
+    // Same exemption as the auto-settle path above, but through the human
+    // SETTLE command handler directly -- a captured (e.g. via ATTACK, which
+    // is not reach-gated) town/dock tile must not be OUT_OF_REACH-rejected,
+    // since settling it is exactly what gives it its own reach.
+    const scheduledTasks: Array<() => void> = [];
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      scheduleAfter: (_delayMs, task) => { scheduledTasks.push(task); },
+      initialPlayers: new Map([["player-1", buildPlayer("player-1", { points: 10_000, manpower: 10_000 })]]),
+      seedTiles: new Map(),
+      initialState: {
+        tiles: [
+          { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", town: { name: "Home", type: "FARMING", populationTier: "SETTLEMENT" } },
+          { x: 10, y: 30, terrain: "LAND", ownerId: "player-1", ownershipState: "FRONTIER", town: { name: "Captured", type: "FARMING", populationTier: "OUTPOST" } }
+        ],
+        activeLocks: []
+      }
+    });
+    const seen = collectEvents(runtime);
+
+    runtime.submitCommand({
+      commandId: "settle-out-of-reach-town",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "SETTLE",
+      payloadJson: JSON.stringify({ x: 10, y: 30 })
+    });
+    await runScheduled(scheduledTasks);
+
+    expect(seen).not.toContainEqual(expect.objectContaining({ eventType: "COMMAND_REJECTED", commandId: "settle-out-of-reach-town", code: "OUT_OF_REACH" }));
+    expect(runtime.wireDeltaForTileKey("10,30", "player-1")?.ownershipState).toBe("SETTLED");
+  });
 });

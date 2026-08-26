@@ -448,34 +448,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787475367888, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Corrected the lobby's timezone claim",
-    why: "The join-season overlay said a synchronized start means \"the first move isn't decided by timezone\" -- that's wrong, a shared start time doesn't erase timezone effects on when players are actually online. What it actually guarantees is that everyone gets the same starting line, not the same impact from timezone.",
-    changes: [
-      "The lobby's \"Season starts soon\" text now says a synchronized start gives everyone the same chance from the same starting line, rather than incorrectly claiming timezone has no effect on the first move."
-    ]
-  },
-  {
-    createdAt: 1787475219678, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23",
-    title: "Rally link dialog can now be dismissed, and rally links are reachable from Settings",
-    why: "The rally-create and rally-invite dialogs had no way to close once you'd copied the link -- the only way out was navigating away entirely. And minting a rally link required knowing the /rally/new URL by hand.",
-    changes: [
-      "The rally link dialog now has a close (×) button in the top-right corner that dismisses it and clears the rally URL from the address bar.",
-      "Signed-in players can now open \"Get Rally Link\" from Settings → Gameplay instead of typing /rally/new."
-    ]
-  },
-  {
-    createdAt: 1787724130000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.1",
-    title: "Restyled the settings menu's Discord button",
-    why: "The \"Join the Discord\" link in the settings menu was a plain generic button that didn't stand out or read as a Discord link at a glance.",
-    changes: [
-      "The Discord link in Settings now uses Discord's blurple branding with the Discord logo, so it's instantly recognizable."
-    ]
-  },
-  {
     createdAt: 1787749806338, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
     title: "AI empires can now unblock growth when out of FOOD slots",
@@ -493,6 +465,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The simulation now pushes each visible rival's real border to your client, clipped to what you can currently see -- the same authoritative treatment your own border already gets.",
       "Rival border lines in true-3D mode now line up correctly with your own, so the clashing-borders seam renders where the two actually meet."
+    ]
+  },
+  {
+    createdAt: 1787766405640, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Settle now works on a captured town or dock outside your reach",
+    why: "A captured town or dock frontier tile (e.g. taken by Attack, which isn't reach-gated) could sit outside your reach border and keep getting rejected with \"tile is outside your reach\" every time Settle was attempted, even though settling it is exactly what would give it its own reach in the first place -- a Catch-22 that made some captured towns/docks permanently unsettleable.",
+    changes: [
+      "Settle no longer requires a captured town or dock tile to already be inside your reach -- only plain resource/support frontier tiles still need that."
     ]
   },
   {
