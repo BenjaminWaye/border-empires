@@ -125,6 +125,7 @@ import {
   type ResourceSlotDormancy,
   type ResourceSlotTotals
 } from "../resource-slot-view/resource-slot-view.js";
+import { foodDormantEconomicStructureKeysFromDormancy } from "../snapshot-economy-helpers.js";
 import { flushRadiusYieldRefresh } from "../radius-yield-refresh/radius-yield-refresh.js";
 import { VisibilityCoverageTracker } from "../visibility-coverage-cache.js";
 import { createVisionFootprintTableForRuntime } from "../vision-footprint-table.js";
@@ -507,21 +508,8 @@ const RESPAWN_MINIMUM_GOLD = 10;
 // Normal locks resolve inside their setTimeout window; anything still present
 // is a leak from a code path that bypassed validation.
 const ORPHAN_LOCK_GRACE_MS = 60_000;
-// How long an AI player's economy/defensibility/auto-settlement caches may
-// stay dirty-but-served before the next read pays a real rebuild (2026-07-29
-// login-stall investigation). Well under both consumers' own tick cadence —
-// passive income (15s) and population growth (60s) — so this never produces
-// gameplay-visible staleness; it just stops a continuously-settling AI from
-// paying a fresh O(settled-tiles) rebuild on nearly every command. Defined in
-// runtime-economy.ts (imported above) so both files share one value.
-// TTL for the per-tile auto-settlement eligibility cache (AI only, see
-// autoSettlementQueueForPlayer). Longer than AI_DERIVED_CACHE_COALESCE_MS
-// deliberately: that cache only avoids re-running the WHOLE rebuild within a
-// 5s window, but every rebuild after that window still re-checked every
-// frontier tile's (usually unchanged) eligibility from scratch, including
-// the O(8-neighbor-scan) hasTownSupport lookup for tiles already known to be
-// ineligible. 60s matches population growth's own tolerance for stale
-// derived data elsewhere in this file, so it's never gameplay-visible.
+// How long an AI player's economy/defensibility/auto-settlement caches may stay dirty-but-served before the next read pays a real rebuild (2026-07-29 login-stall investigation) — well under both consumers' own tick cadence (passive income 15s, population growth 60s), so never gameplay-visible; just stops a continuously-settling AI from paying a fresh O(settled-tiles) rebuild on nearly every command. Defined in runtime-economy.ts (imported above) so both files share one value.
+// TTL for the per-tile auto-settlement eligibility cache (AI only, see autoSettlementQueueForPlayer). Longer than AI_DERIVED_CACHE_COALESCE_MS deliberately: that cache only avoids re-running the WHOLE rebuild within a 5s window, but every rebuild after that window still re-checked every frontier tile's (usually unchanged) eligibility from scratch, including the O(8-neighbor-scan) hasTownSupport lookup for tiles already known ineligible. 60s matches population growth's own staleness tolerance elsewhere in this file, so it's never gameplay-visible.
 const AUTO_SETTLEMENT_ELIGIBILITY_TTL_MS = 60_000;
 
 // Process-global monotonically increasing counter for unique runtime epochs and
@@ -2601,6 +2589,11 @@ export class SimulationRuntime {
       // integration point from that change, now that isPlayerTileInReach
       // exists). ATTACK candidates are unaffected.
       reachLookup: { isInReach: (pid, x, y) => this.isPlayerTileInReach(pid, x, y) },
+      slotSupplyByResource: this.resourceSlotSupplyForPlayer(playerId),
+      slotDemandByResource: this.resourceSlotDemandForPlayer(playerId),
+      foodDormantEconomicStructureKeys: foodDormantEconomicStructureKeysFromDormancy(this.resourceSlotDormancyForPlayer(playerId)),
+      manpowerCapacity: this.playerManpowerCap(player),
+      manpowerRegenPerMinute: this.playerManpowerRegenPerMinute(player),
       playerScopeKeyCount,
       playerScopeTileCount: playerScopeKeyCount,
       previousVictoryPath: this.rememberedAutomationVictoryPathByPlayer.get(playerId),
@@ -2729,6 +2722,7 @@ export class SimulationRuntime {
       locksByTile: this.state.locksByTile,
       resourceSlotSupplyForPlayer: (playerId) => this.resourceSlotSupplyForPlayer(playerId),
       resourceSlotDemandForPlayer: (playerId) => this.resourceSlotDemandForPlayer(playerId),
+      foodDormantEconomicStructureKeysForPlayer: (playerId) => foodDormantEconomicStructureKeysFromDormancy(this.resourceSlotDormancyForPlayer(playerId)),
       playerSummaries: this.playerSummaries,
       ...(this.trackSyncMainThreadTask !== undefined ? { trackSync: this.trackSyncMainThreadTask } : {})
     };

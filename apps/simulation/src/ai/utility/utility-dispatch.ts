@@ -24,6 +24,7 @@ import type {
   chooseBestSiegeOutpostBuild
 } from "../structure-command-planner.js";
 import type { chooseBestRelayBeaconBuild } from "../relay-beacon-command-planner.js";
+import type { FoodSlotReliefPlan } from "../food-slot-relief.js";
 import type { DecisionClass, DecisionInputs } from "./decisions.js";
 import { evaluateUtilityPolicy } from "./utility-policy.js";
 import type { DecisionCooldownMap } from "../ai-rejection-cooldown.js";
@@ -43,6 +44,10 @@ export type UtilityDispatchState<TTile extends AutomationPlannerTile> = {
   siegeOutpostBuild: ReturnType<typeof chooseBestSiegeOutpostBuild> | undefined;
   /** Best RELAY_BEACON placement candidate (fixed-borders-via-reach plan). */
   relayBeaconBuild: ReturnType<typeof chooseBestRelayBeaconBuild> | undefined;
+  /** FOOD-dormant structure to demolish for slot relief — see food-slot-relief.ts. */
+  foodSlotReliefRemoval: FoodSlotReliefPlan | undefined;
+  /** FOOD slots are fully exhausted (supply <= 0 relative to demand). */
+  foodSlotsExhausted: boolean;
   attackStalemateTargetTileKeys: ReadonlySet<string> | undefined;
   expansionObjective: { x: number; y: number; kind: "neutral_value" | "enemy" } | undefined;
   points: number;
@@ -127,6 +132,8 @@ export const buildDecisionInputs = <TTile extends AutomationPlannerTile>(
     hasRelayBeaconBuild: Boolean(state.relayBeaconBuild),
     relayBeaconSiteValue: state.relayBeaconBuild?.siteValue ?? 0,
     beaconBoostActive: state.beaconBoostActive,
+    foodSlotsExhausted: state.foodSlotsExhausted,
+    hasFoodSlotReliefCandidate: Boolean(state.foodSlotReliefRemoval),
     // Preplan handles tech selection; CHOOSE_TECH always scores 0 in the main planner.
     techAffordable: false,
     momentumTicks: {},
@@ -248,6 +255,13 @@ const executeClass = <TTile extends AutomationPlannerTile>(
         structureType: "RELAY_BEACON"
       });
     }
+
+    case "FREE_FOOD_SLOT":
+      if (!state.foodSlotReliefRemoval) return undefined;
+      return buildPlannerCommand(context, "REMOVE_STRUCTURE", {
+        x: state.foodSlotReliefRemoval.x,
+        y: state.foodSlotReliefRemoval.y
+      });
 
     case "CHOOSE_TECH":
       return undefined; // handled by preplan
