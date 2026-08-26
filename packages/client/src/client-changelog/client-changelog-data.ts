@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787769789241, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.8",
+    title: "Fixed a captured settlement appearing to remain intact after capture",
+    why: "When an ATTACK captured an enemy's SETTLEMENT-tier town, the simulation correctly razed it, but the wire delta cleared the town by setting townJson to undefined rather than an explicit empty value. JSON.stringify drops object keys whose value is undefined, so the clear signal never reached the client -- the client's merge logic treats an absent townJson key as \"unchanged\" (by design, to avoid a different class of stale-data bug), so it kept rendering the old town as if capture had done nothing.",
+    changes: [
+      "A captured settlement now visibly disappears for everyone immediately on capture, instead of appearing to survive until an unrelated update happened to touch the tile."
+    ]
+  },
+  {
     createdAt: 1787768869848, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.8",
     title: "Waterworks no longer claims a food-production boost it doesn't have",
