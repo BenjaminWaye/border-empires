@@ -90,11 +90,22 @@ describe("resourceSlotSupplyForPlayer", () => {
     expect(totals).toEqual({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
   });
 
-  it("§5.3: an active Farmstead built on a FISH tile (placement-legal per structure-placement-metadata.json) does NOT boost it past the fixed 2", () => {
+  it("§5.3: an active Farmstead built on a FISH tile (placement-legal per structure-placement-metadata.json) does NOT boost it past the base 2", () => {
     const totals = resourceSlotSupplyForPlayer([
       tile({ x: 5, y: 5, resource: "FISH", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } })
     ]);
     expect(totals.FOOD).toBe(2);
+  });
+
+  it("fishFoodSlotBonus stacks with an active Farmstead's own (blocked) attempt on a FISH tile", () => {
+    const totals = resourceSlotSupplyForPlayer(
+      [tile({ x: 5, y: 5, resource: "FISH", economicStructure: { ownerId: "p1", type: "FARMSTEAD", status: "active" } })],
+      new Set(),
+      new Set(),
+      undefined,
+      1
+    );
+    expect(totals.FOOD).toBe(3);
   });
 
   it("an active Mine on a GEMS tile (placement-legal alongside TITANIUM) boosts CRYSTAL, not TITANIUM", () => {

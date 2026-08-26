@@ -1,0 +1,23 @@
+/* Founding Engineer tag styling: gold name color + top-hat icon, used in the
+   season lobby roster, tile detail owner label, and leaderboard (see
+   client-founding-engineer/client-founding-engineer.ts). */
+.founding-engineer-name {
+  color: #E5B84B;
+  font-weight: 600;
+}
+
+.founding-engineer-tag {
+  display: inline-flex;
+  align-items: center;
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  color: #E5B84B;
+  vertical-align: -2px;
+  margin-left: 3px;
+}
+
+.founding-engineer-tag svg {
+  width: 100%;
+  height: 100%;
+}

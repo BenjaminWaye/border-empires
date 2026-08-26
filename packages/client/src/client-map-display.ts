@@ -14,7 +14,7 @@ import {
 import type { Tile } from "./client-types.js";
 import { converterStructureInfoView } from "./client-converter-structure-info.js";
 
-type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
+export type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
 
 // mintworks-stacking task: these three call sites are generic/help copy (no
 // specific tile/town in scope) describing the PER-MINTWORKS rate, not a real
@@ -195,70 +195,11 @@ const STRUCTURE_BRANCH_BY_KEY: Partial<Record<StructureInfoKey, "War" | "Economy
   WORLD_ENGINE_PART_1: "War", WORLD_ENGINE_PART_2: "War", WORLD_ENGINE_PART_3: "War", WORLD_ENGINE: "War"
 };
 
-export const economicStructureName = (type: EconomicStructureType | StructureInfoKey): string => {
-  const kind = type as string;
-  if (kind === "FARMSTEAD") return "Farmstead";
-  if (kind === "WATERWORKS") return "Waterworks";
-  if (kind === "UMBRITE_RIG") return "Umbrite Rig";
-  if (kind === "MINE") return "Mine";
-  if (kind === "GRANARY") return "Incubation Engine";
-  if (kind === "SEED_GRANARY") return "Seed Granary";
-  if (kind === "CENSUS_HALL") return "Census Hall";
-  if (kind === "CLEARING_HOUSE") return "Clearing House";
-  if (kind === "AIRPORT") return "Aetherport";
-  if (kind === "AETHER_TOWER") return "Ambaric Tower";
-  if (kind === "WOODEN_FORT") return "Palisade";
-  if (kind === "RELAY_BEACON") return "Relay Beacon";
-  if (kind === "CARAVANARY") return "Trade Nexus";
-  // converter-mode-flip plan §Phase 6: these buildings now run either
-  // direction (Refine gold->resource, or Sell off resource->gold), so the
-  // display name is direction-neutral. The underlying type constants
-  // (UMBRITE_SYNTHESIZER/TITANIUM_WORKS/ADVANCED_*) are unchanged — they're
-  // persisted identifiers, this is a copy-only change.
-  if (kind === "UMBRITE_SYNTHESIZER") return "Umbrite Works";
-  if (kind === "ADVANCED_UMBRITE_SYNTHESIZER") return "Advanced Umbrite Works";
-  if (kind === "TITANIUM_WORKS") return "Titanium Works";
-  if (kind === "ADVANCED_TITANIUM_WORKS") return "Advanced Titanium Works";
-  if (kind === "CRYSTAL_SYNTHESIZER") return "Aether Condenser";
-  if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Advanced Aether Condenser";
-  if (kind === "FOUNDRY") return "Foundry";
-  if (kind === "GARRISON_HALL") return "Ancillary Factory";
-  if (kind === "CUSTOMS_HOUSE") return "Harbor Exchange";
-  if (kind === "GOVERNORS_OFFICE") return "Ministry Hall";
-  if (kind === "RADAR_SYSTEM") return "Resonance Grid";
-  if (kind === "QUARTERMASTERS_OFFICE") return "Quartermaster's Office";
-  if (kind === "LOGISTICS_GUILD") return "Logistics Guild";
-  if (kind === "ASSEMBLY_WORKS") return "Assembly Works";
-  if (kind === "ASTRAL_DOCK_PART_1") return "Launch Cradle";
-  if (kind === "ASTRAL_DOCK_PART_2") return "Orbital Array";
-  if (kind === "ASTRAL_DOCK_PART_3") return "Aether Sail";
-  if (kind === "ASTRAL_DOCK") return "Astral Dock";
-  if (kind === "RAIL_DEPOT") return "Rail Depot";
-  if (kind === "IMPERIAL_EXCHANGE_PART_1") return "Golden Ledger";
-  if (kind === "IMPERIAL_EXCHANGE_PART_2") return "Counting Engine";
-  if (kind === "IMPERIAL_EXCHANGE_PART_3") return "Sovereign Seal";
-  if (kind === "WORLD_ENGINE_PART_1") return "The Long Barrel";
-  if (kind === "WORLD_ENGINE_PART_2") return "Fracture Core";
-  if (kind === "WORLD_ENGINE_PART_3") return "Sky-Marking Array";
-  if (kind === "IMPERIAL_EXCHANGE") return "Imperial Exchange";
-  if (kind === "AEGIS_DOME_PART_1") return "Shield Lattice";
-  if (kind === "AEGIS_DOME_PART_2") return "Ward Anchor";
-  if (kind === "AEGIS_DOME_PART_3") return "Aegis Crown";
-  if (kind === "AEGIS_DOME") return "Aegis Dome";
-  if (kind === "WORLD_ENGINE") return "Worldbreaker Cannon";
-  if (kind === "POPULATION_BUREAU_PART_1") return "Census Engine";
-  if (kind === "POPULATION_BUREAU_PART_2") return "Registry Vault";
-  if (kind === "POPULATION_BUREAU_PART_3") return "Levy Charter";
-  if (kind === "POPULATION_BUREAU") return "Population Bureau";
-  if (kind === "TITANIUM_LEVY_PART_1") return "Muster Klaxon";
-  if (kind === "TITANIUM_LEVY_PART_2") return "Titanium Standard";
-  if (kind === "TITANIUM_LEVY_PART_3") return "Levy Writ";
-  if (kind === "TITANIUM_LEVY") return "The Titanium Levy";
-  if (kind === "WEAPONS_WORKSHOP") return "Weapons Workshop";
-  if (kind === "TITANIUM_WEAPONS_FACTORY") return "Titanium Weapons Factory";
-  if (kind === "UMBRITE_WEAPONS_FACTORY") return "Umbrite Weapons Factory";
-  return "Mintworks";
-};
+// Structure display names live in their own module (single source of truth,
+// consumed by tech-unlock chips, tech-effect blurbs, tile overview
+// modifiers, and build-action labels) — re-exported here since this is the
+// module every existing importer of economicStructureName already uses.
+export { STRUCTURE_DISPLAY_NAMES, economicStructureName } from "./client-structure-display-names.js";
 
 export const economicStructureBenefitText = (type: EconomicStructureType | StructureInfoKey): string => {
   const kind = type as string;
@@ -275,16 +216,20 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   // converter-mode-flip plan §Phase 6: this building can run either
   // direction now — mode-neutral summary with both figures, since a
   // one-directional description is simply false half the time.
-  if (kind === "UMBRITE_SYNTHESIZER") return "Occupies 1 UMBRITE slot. Refine: gold → umbrite (18/day, 30 gold/day). Sell off: umbrite → gold (8 gold/day).";
-  if (kind === "ADVANCED_UMBRITE_SYNTHESIZER") return "Occupies 1 UMBRITE slot. Refine: gold → umbrite (21.6/day, 45 gold/day). Sell off: umbrite → gold (12 gold/day).";
-  if (kind === "TITANIUM_WORKS") return "Occupies 1 TITANIUM slot. Refine: gold → titanium (18/day, 30 gold/day). Sell off: titanium → gold (8 gold/day).";
-  if (kind === "ADVANCED_TITANIUM_WORKS") return "Occupies 1 TITANIUM slot. Refine: gold → titanium (21.6/day, 45 gold/day). Sell off: titanium → gold (12 gold/day).";
-  if (kind === "CRYSTAL_SYNTHESIZER") return "Occupies 1 CRYSTAL slot. Refine: gold → crystal (12/day, 40 gold/day). Sell off: crystal → gold (10 gold/day).";
-  if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return "Occupies 1 CRYSTAL slot. Refine: gold → crystal (14.4/day, 60 gold/day). Sell off: crystal → gold (15 gold/day).";
+  // In Refine mode the converter SUPPLIES +1 slot of the family resource
+  // (isSlotSourceConverter, resource-slot-view.ts) — no ongoing daily output;
+  // that production-number mechanic was retired by the resource-slot rewrite
+  // (§5). In Sell off mode it instead OCCUPIES 1 slot and converts it to gold.
+  if (kind === "UMBRITE_SYNTHESIZER") return `Refine: gold → supplies +1 UMBRITE slot (${UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY} gold/day upkeep). Sell off: occupies 1 UMBRITE slot → gold (8 gold/day).`;
+  if (kind === "ADVANCED_UMBRITE_SYNTHESIZER") return `Refine: gold → supplies +1 UMBRITE slot (${ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY} gold/day upkeep). Sell off: occupies 1 UMBRITE slot → gold (12 gold/day).`;
+  if (kind === "TITANIUM_WORKS") return `Refine: gold → supplies +1 TITANIUM slot (${TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY} gold/day upkeep). Sell off: occupies 1 TITANIUM slot → gold (8 gold/day).`;
+  if (kind === "ADVANCED_TITANIUM_WORKS") return `Refine: gold → supplies +1 TITANIUM slot (${ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY} gold/day upkeep). Sell off: occupies 1 TITANIUM slot → gold (12 gold/day).`;
+  if (kind === "CRYSTAL_SYNTHESIZER") return `Refine: gold → supplies +1 CRYSTAL slot (${CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY} gold/day upkeep). Sell off: occupies 1 CRYSTAL slot → gold (10 gold/day).`;
+  if (kind === "ADVANCED_CRYSTAL_SYNTHESIZER") return `Refine: gold → supplies +1 CRYSTAL slot (${ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY} gold/day upkeep). Sell off: occupies 1 CRYSTAL slot → gold (15 gold/day).`;
   if (kind === "FOUNDRY") return "Doubles active Mine slot output within a 5-tile radius.";
   if (kind === "GARRISON_HALL") return "Adds +150 manpower cap to this town (+300 more if an Assembly Works is in this town's connected network).";
-  if (kind === "CUSTOMS_HOUSE") return "Adds +1 gold / m for each connected owned dock.";
-  if (kind === "GOVERNORS_OFFICE") return "Reduces local town food upkeep and reduces a nearby town's FOOD slot demand by its own tier step within 10 tiles.";
+  if (kind === "CUSTOMS_HOUSE") return "Adds +5 gold / day for each connected owned dock.";
+  if (kind === "GOVERNORS_OFFICE") return "Reduces a nearby town's FOOD slot demand by its own tier step (e.g. -1 for City, -2 for Great City) within 10 tiles.";
   if (kind === "RADAR_SYSTEM") return "Blocks enemy sky bombardment in a 30-tile radius.";
   if (kind === "QUARTERMASTERS_OFFICE") return "Reduces manpower cost by 33% for War-branch structures (Fort/Siege ladders) built within 20 tiles. Does not stack with other Quartermaster's Offices.";
   if (kind === "LOGISTICS_GUILD") return "Adds +0.05 manpower/min empire-wide, standalone. A Rail Depot in this town's connected network amplifies it to +0.1/min.";
@@ -292,8 +237,8 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "ASTRAL_DOCK_PART_1") return "Launch Cradle — one of the Astral Dock's 3 required components.";
   if (kind === "ASTRAL_DOCK_PART_2") return "Orbital Array — one of the Astral Dock's 3 required components.";
   if (kind === "ASTRAL_DOCK_PART_3") return "Aether Sail — one of the Astral Dock's 3 required components.";
-  if (kind === "ASTRAL_DOCK") return "Unique world monument. Launches one satellite for 1,000 gold that reveals full-map vision for 24 hours.";
-  if (kind === "RAIL_DEPOT") return "Mustering hub that amplifies every Logistics Guild in its connected-town network (+0.1 manpower/min each) and speeds up nearby outpost muster. Every 10 minutes, settles the nearest owned frontier tile within 20 tiles and adds +10 connected-town income points across this town's linked network.";
+  if (kind === "ASTRAL_DOCK") return "Unique world monument. Free to launch, once every 24 hours, one satellite that reveals full-map vision for 24 hours.";
+  if (kind === "RAIL_DEPOT") return "Mustering hub that amplifies every Logistics Guild in its connected-town network (+0.1 manpower/min each) and speeds up nearby outpost muster.";
   if (kind === "IMPERIAL_EXCHANGE_PART_1") return "Golden Ledger — one of the Imperial Exchange's 3 required components.";
   if (kind === "IMPERIAL_EXCHANGE_PART_2") return "Counting Engine — one of the Imperial Exchange's 3 required components.";
   if (kind === "IMPERIAL_EXCHANGE_PART_3") return "Sovereign Seal — one of the Imperial Exchange's 3 required components.";
@@ -316,8 +261,8 @@ export const economicStructureBenefitText = (type: EconomicStructureType | Struc
   if (kind === "TITANIUM_LEVY") return "Unique world monument. Converts 50% of your currently-banked manpower into an instant one-time army, then freezes empire-wide manpower regen for 2 hours.";
   if (kind === "FARMSTEAD") return `Improves food production on farm tiles by 50% and adds +${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD} FOOD slot on this tile.`;
   if (kind === "WATERWORKS") return `Boosts all farmstead food production by +100% within a 10-tile radius; each boosted Farmstead gains +${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS} FOOD slots.`;
-  if (kind === "UMBRITE_RIG") return "Improves umbrite production on this tile by 50% and adds +1 UMBRITE slot on this tile.";
-  if (kind === "MINE") return "Improves titanium or crystal production on this tile and adds +1 slot of that resource.";
+  if (kind === "UMBRITE_RIG") return "Adds +1 UMBRITE slot on this tile.";
+  if (kind === "MINE") return "Adds +1 slot of titanium or crystal (whichever this tile produces).";
   if (kind === "WEAPONS_WORKSHOP") return "Forges Titanium and Umbrite into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Uncapped per town — build many to raise a dedicated military city.";
   if (kind === "TITANIUM_WEAPONS_FACTORY") return "Occupies 1 TITANIUM slot. Forges armor plating for +1.5% attack / +3% defense per copy — armor doctrine. The bonus is empire-wide, like Weapons Workshop. Uncapped — no per-town limit.";
   if (kind === "UMBRITE_WEAPONS_FACTORY") return "Occupies 1 UMBRITE slot. Outfits raiders for +3% attack / +1.5% defense per copy — raiding doctrine. The bonus is empire-wide, like Weapons Workshop. Uncapped — no per-town limit.";
@@ -471,7 +416,7 @@ export const structureInfoForKey = (
     if (key === "ASSEMBLY_WORKS") return ["One per connected-town network"];
     if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];
     if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Tower power"];
-    if (key === "RAIL_DEPOT") return ["Boosts outpost muster speed within 50 tiles", "Every 10 minutes, settles the nearest owned frontier tile within 20 tiles", "One per connected-town network"];
+    if (key === "RAIL_DEPOT") return ["Boosts outpost muster speed within 50 tiles", "One per connected-town network"];
     if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Free", "Requires nearby Ambaric Tower power"];
     if (key === "AEGIS_DOME") return ["Unique world monument", "Aegis Lock prevents hostile ownership changes in that radius, free", "Requires nearby Ambaric Tower power"];
     if (key === "WORLD_ENGINE") return ["Unique world monument", "Every 10 minutes, anywhere on the map", "Requires nearby Ambaric Tower power"];
@@ -620,7 +565,7 @@ export const structureInfoForKey = (
   if (type === "UMBRITE_RIG") {
     return structure({
       title: "Umbrite Rig",
-      detail: "Umbrite Rigs increase umbrite production on the tile by 50% and add +1 UMBRITE slot on the tile.",
+      detail: "Umbrite Rigs add +1 UMBRITE slot on the tile.",
       glyph: "🦊",
       placement: "Build on a settled umbrite resource tile you own.",
       costBits: costBitsFor(type),
@@ -630,9 +575,9 @@ export const structureInfoForKey = (
   if (type === "MINE") {
     return structure({
       title: "Mine",
-      detail: "Mines increase iron or crystal production on mineral tiles by 50% and add +1 slot of that resource on the tile.",
+      detail: "Mines add +1 slot of titanium or crystal (whichever this tile produces).",
       glyph: "⛏",
-      placement: "Build on a settled iron or crystal resource tile you own.",
+      placement: "Build on a settled titanium or crystal resource tile you own.",
       costBits: costBitsFor(type),
       buildTimeLabel: buildTimeLabelFor(type)
     });
@@ -734,7 +679,7 @@ export const structureInfoForKey = (
   if (type === "CUSTOMS_HOUSE") {
     return structure({
       title: "Harbor Exchange",
-      detail: "Harbor exchanges are built beside a dock and add +1440 gold per day for each connected owned dock.",
+      detail: "Harbor exchanges are built beside a dock and add +5 gold per day for each connected owned dock.",
       glyph: "⚓",
       placement: "Build on a settled dock tile you own.",
       costBits: costBitsFor(type),
@@ -774,7 +719,7 @@ export const structureInfoForKey = (
   if (type === "ASTRAL_DOCK") {
     return structure({
       title: "Astral Dock",
-      detail: "The Astral Dock is a unique world monument. Placing it consumes all 3 Astral Dock Parts. Once assembled and powered, it can launch one satellite for 1,000 gold that reveals the full map for 24 hours.",
+      detail: "The Astral Dock is a unique world monument. Placing it consumes all 3 Astral Dock Parts. Once assembled and powered, it can launch one satellite, free, that reveals the full map for 24 hours.",
       glyph: "✶",
       placement: "Place on any settled tile you own after finishing 3 Astral Dock Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),
@@ -784,7 +729,7 @@ export const structureInfoForKey = (
   if (type === "RAIL_DEPOT") {
     return structure({
       title: "Rail Depot",
-      detail: "Rail Depots are mustering hubs that amplify every Logistics Guild in this connected-town network (+0.1 manpower/min each) and speed up outpost muster within 50 tiles. They also settle the nearest owned frontier tile within 20 tiles every 10 minutes and add +10 connected-town income points across the supported town's directly connected network. Only one Rail Depot is allowed per connected-town network.",
+      detail: "Rail Depots are mustering hubs that amplify every Logistics Guild in this connected-town network (+0.1 manpower/min each) and speed up outpost muster within 50 tiles. Only one Rail Depot is allowed per connected-town network.",
       glyph: "🚉",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -804,7 +749,7 @@ export const structureInfoForKey = (
   if (type === "GOVERNORS_OFFICE") {
     return structure({
       title: "Ministry Hall",
-      detail: "Ministry halls reduce local town food upkeep and settled-tile upkeep within 10 tiles.",
+      detail: "Ministry halls reduce a nearby town's FOOD slot demand by its own tier step (e.g. -1 for City, -2 for Great City) within 10 tiles.",
       glyph: "🏛",
       placement: "Build on an open settled support tile for a town you own.",
       costBits: costBitsFor(type),
@@ -824,7 +769,7 @@ export const structureInfoForKey = (
   if (type === "WEAPONS_WORKSHOP") {
     return structure({
       title: "Weapons Workshop",
-      detail: "Weapons Workshops forge Iron and Supply into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Unlike most buildings, there's no per-town limit — build many in one town to raise a dedicated military city.",
+      detail: "Weapons Workshops forge Titanium and Umbrite into titanium-alloy plating and charged energy blades, granting a small empire-wide attack and defense boost. Unlike most buildings, there's no per-town limit — build many in one town to raise a dedicated military city.",
       glyph: "🗡",
       placement: "Build on an open settled support tile for a town you own. No per-town limit.",
       costBits: costBitsFor(type),

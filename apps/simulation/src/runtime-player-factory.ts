@@ -61,6 +61,6 @@ export const createAiRuntimePlayer = (playerId: string): RuntimePlayer => ({
 // `actor.allies.has(...)` alone should route through this helper instead so
 // truces are respected consistently.
 export const isAlliedOrTruced = (
-  actor: { allies: Set<string>; truces?: Set<string> },
+  actor: { allies: ReadonlySet<string>; truces?: ReadonlySet<string> },
   otherPlayerId: string
 ): boolean => actor.allies.has(otherPlayerId) || (actor.truces?.has(otherPlayerId) ?? false);

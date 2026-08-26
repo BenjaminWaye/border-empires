@@ -1,0 +1,31 @@
+/* Discord-branded styling for the "Join the Discord" button on the
+   settings hub (see settingsHubHtml in client-hud-settings-panel.ts).
+   Split into its own file rather than style.css, which is already over
+   the repo's 500-line cap. */
+.discord-join-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #5865f2;
+  border: 1px solid #5865f2;
+  color: #fff;
+  font-weight: 600;
+}
+
+.discord-join-btn:hover:not(:disabled) {
+  background: #4752c4;
+  border-color: #4752c4;
+  color: #fff;
+}
+
+.discord-join-btn:active:not(:disabled) {
+  background: #3c45a5;
+  border-color: #3c45a5;
+}
+
+.discord-join-btn-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
