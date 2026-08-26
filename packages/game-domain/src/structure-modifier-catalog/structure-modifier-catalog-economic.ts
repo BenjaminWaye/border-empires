@@ -83,9 +83,11 @@ export const economicStructureModifiers = (type: ModifierStructureType, ctx: Mod
       { statLabel: "FOOD slot", valueText: `+${TILE_SLOT_BOOST_STRUCTURES.FARMSTEAD}`, tone: "positive", isTownWide: false }
     ];
   }
+  // "+100% Farmstead food" was retired by the resource-slot rewrite (§5) —
+  // same dead-production class as Farmstead's own claim above. Waterworks's
+  // only live effect is the radius FOOD-slot bonus below (resource-slot-view.ts).
   if (type === "WATERWORKS") {
     return [
-      { statLabel: "Farmstead food (10-tile radius)", valueText: "+100%", tone: "positive", isTownWide: false },
       { statLabel: "FOOD slots per boosted Farmstead", valueText: `+${WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS}`, tone: "positive", isTownWide: false }
     ];
   }
