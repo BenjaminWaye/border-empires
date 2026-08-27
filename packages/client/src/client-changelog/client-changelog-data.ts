@@ -15,6 +15,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787845125244, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.9",
+    title: "Waypoints now keep making progress while you're offline",
+    why: "The server only ever knew a waypoint's final destination, not the route -- while you were disconnected it could only try one synthetic EXPAND/ATTACK straight at that destination, which only ever worked if the target happened to already border your territory. A multi-hop waypoint chain made no progress at all while you were logged off.",
+    changes: [
+      "The client now sends its full planned route to the server, which replays it one hop at a time (using each hop's real origin) while you're disconnected -- rate-matched to the same pacing an active session would see.",
+      "A route that goes stale while you're away (a rival grabs a tile mid-route, a border shifts) is marked as needing a fresh plan instead of being silently dropped -- reconnecting automatically re-plans and picks up where it left off.",
+      "A barbarian-tracking waypoint stays frozen while you're offline and resumes tracking normally the moment you reconnect."
+    ]
+  },
+  {
     createdAt: 1787840155807, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.8",
     title: "A town's Unfed status now updates on its own, without needing to touch that tile",
@@ -459,16 +470,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The amber/white frontier-decay countdown pulse was baked into the ownership overlay's mesh colors inside the same rebuild that also fires on every camera pan or zoom (not just on actual game-state changes), sampling the wall clock fresh each time -- so panning the map made the pulse visibly jump or restart instead of animating smoothly.",
     changes: [
       "The decay pulse now animates from a per-frame update independent of camera movement, the same pattern already used for the reach-border pylon animation -- it only reacts to the tile's actual decay state, never to panning or zooming."
-    ]
-  },
-  {
-    createdAt: 1787749806338, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.2",
-    title: "AI empires can now unblock growth when out of FOOD slots",
-    why: "When an AI ran completely out of FOOD slots with no Farmstead/Waterworks/Granary build available to grow more, it had no way out -- every FOOD-costing build (including a new Relay Beacon, which is the AI's only path to claim more farmland) stayed permanently illegal, so a starved AI empire would just get stuck forever instead of expanding its way out of the shortage.",
-    changes: [
-      "An AI empire that's fully out of FOOD slots, with no direct way to grow more, will now disable one of its own Relay Beacons that isn't covering any resources to free up the slot for further growth.",
-      "This is always a reversible disable, never a demolition -- the building stays intact and can be re-enabled once FOOD has headroom again."
     ]
   },
   {

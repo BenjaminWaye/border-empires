@@ -1,4 +1,4 @@
-import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
+import { devQueueTierForIndex, devQueueTierRelativeIndex, EXPAND_MANPOWER_COST, FRONTIER_CLAIM_COST, isTownSupportPlacementStructure, rushBuyPriceGold, SETTLE_MANPOWER_COST, wireStepsForPlan, type BuildableStructureType, type FrontierDecayKind, type SlotResource } from "@border-empires/shared";
 import { constructionCountdownLineForTile as constructionCountdownLineForTileFromModule } from "./client-construction-countdown/client-construction-countdown.js";
 import { handleConverterTileAction } from "./client-converter-actions.js";
 import { canAffordCost } from "./client-constants.js";
@@ -1497,9 +1497,9 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           // "Expand Here" — it advances one owned-adjacent hop at a time so
           // the claimed chain always stays connected. Once ownership is
           // reached, auto-settle then auto-build pick up the baton.
-          state.waypoint.push({ target: { x: selected.x, y: selected.y }, plan });
+          const planId = `plan-${state.me}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; const plannedAt = Date.now(); state.waypoint.push({ target: { x: selected.x, y: selected.y }, plan, planId, plannedAt });
           persistWaypointQueueForPlayer(state.me, state.waypoint);
-          sendGameMessage(waypointEnqueueWirePayload({ x: selected.x, y: selected.y }));
+          sendGameMessage(waypointEnqueueWirePayload({ x: selected.x, y: selected.y }, undefined, { planId, plannedAt, steps: wireStepsForPlan(plan.steps) }));
           state.autoSettleTargets.add(targetKey); state.autoBuildTargets.set(targetKey, "RELAY_BEACON");
           sendGameMessage({ type: "CLAIM_CONTINUATION_SET", x: selected.x, y: selected.y, structureType: "RELAY_BEACON" }); // server-durable continuation, see handleBuildAction above
           processActionQueue();
