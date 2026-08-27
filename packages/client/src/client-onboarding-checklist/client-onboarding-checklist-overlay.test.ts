@@ -1,15 +1,25 @@
 // @vitest-environment happy-dom
 import { beforeEach, describe, expect, it } from "vitest";
+import { tileKey } from "@border-empires/shared";
 import { renderOnboardingChecklistOverlay } from "./client-onboarding-checklist-overlay.js";
 import { isOnboardingChecklistCompleted } from "./client-onboarding-checklist-storage.js";
 import type { Tile } from "../client-types.js";
 
-type PartialTile = Pick<Tile, "x" | "y" | "resource" | "ownerId" | "town">;
+type PartialTile = Pick<Tile, "x" | "y" | "resource" | "ownerId" | "town" | "terrain" | "ownershipState">;
 
 // exactOptionalPropertyTypes forbids `field: undefined` on optional Tile
 // properties, so tiles are built piece by piece instead of a literal with
 // explicit undefineds (mirrors client-onboarding-checklist.test.ts).
-const tile = (x: number, y: number, extra: Partial<PartialTile> = {}): PartialTile => ({ x, y, ...extra });
+const tile = (x: number, y: number, extra: Partial<PartialTile> = {}): PartialTile => ({ x, y, terrain: "LAND", ...extra });
+
+const ownTown = (x: number, y: number, ownerId: string): PartialTile =>
+  tile(x, y, { ownerId, ownershipState: "SETTLED", town: { type: "FARMING", name: "Capital", populationTier: "TOWN" } as never });
+
+const tilesMap = (tiles: PartialTile[]): ReadonlyMap<string, Tile> => {
+  const map = new Map<string, Tile>();
+  for (const t of tiles) map.set(tileKey(t.x, t.y), t as Tile);
+  return map;
+};
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -18,29 +28,34 @@ beforeEach(() => {
   // client-discovery-tip-overlay.test.ts resets currentOverlayTipId: render
   // once against an empty/DONE-free state so one test doesn't leak into the
   // next.
-  renderOnboardingChecklistOverlay([], "reset-player", "reset@example.com");
+  renderOnboardingChecklistOverlay(tilesMap([]), "reset-player", "reset@example.com");
 });
 
 describe("renderOnboardingChecklistOverlay", () => {
-  it("renders the bubble with a badge of 2 remaining steps when no town is settled", () => {
-    const tiles = [tile(1, 1)];
+  it("renders the bubble with a badge of 2 remaining steps when no TOWN-tier town is owned yet", () => {
+    // Player's free starting SETTLEMENT plus an out-of-reach neutral town --
+    // enough of a reach anchor to land on EXPAND_TOWN (not EXPAND_RELAY_BEACON).
+    const tiles = tilesMap([
+      tile(0, 0, { ownerId: "p1", ownershipState: "SETTLED", town: { type: "FARMING", populationTier: "SETTLEMENT" } as never }),
+      tile(2, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never })
+    ]);
     const highlights = renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
 
     expect(document.getElementById("onboarding-checklist-bubble")).not.toBeNull();
     expect(document.querySelector(".onb-badge")?.textContent).toBe("2");
-    expect(highlights).toEqual([]);
+    expect(highlights).toEqual([{ x: 2, y: 0 }]);
   });
 
   it("shows 1 remaining step and food progress once the town is settled", () => {
-    const tiles = [
-      tile(5, 5, { ownerId: "p1", town: { type: "FARMING", name: "Capital", populationTier: "TOWN" } as never }),
+    const tiles = tilesMap([
+      ownTown(5, 5, "p1"),
       tile(6, 5, { resource: "FARM", ownerId: "p1" }),
       tile(7, 5, { resource: "FISH" })
-    ];
+    ]);
     const highlights = renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
 
     expect(document.querySelector(".onb-badge")?.textContent).toBe("1");
-    expect(document.querySelector(".onb-panel-step")?.textContent).toContain("1/4 food slots");
+    expect(document.querySelector(".onb-panel-step")?.textContent).toContain("1/4 food tiles");
     expect(highlights).toEqual([
       { x: 5, y: 5 },
       { x: 7, y: 5 }
@@ -48,7 +63,7 @@ describe("renderOnboardingChecklistOverlay", () => {
   });
 
   it("expands the panel on click and stays expanded across a re-render", () => {
-    const tiles = [tile(1, 1)];
+    const tiles = tilesMap([tile(1, 1)]);
     renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
     expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(true);
 
@@ -60,10 +75,10 @@ describe("renderOnboardingChecklistOverlay", () => {
   });
 
   it("removes the bubble and persists completion exactly once when the checklist finishes", () => {
-    const tiles = [
-      tile(5, 5, { ownerId: "p1", town: { type: "FARMING", name: "Capital", populationTier: "TOWN" } as never }),
+    const tiles = tilesMap([
+      ownTown(5, 5, "p1"),
       ...Array.from({ length: 4 }, (_, i) => tile(10 + i, 5, { resource: "FARM", ownerId: "p1" }))
-    ];
+    ]);
 
     const highlights = renderOnboardingChecklistOverlay(tiles, "p1", "done@example.com");
 

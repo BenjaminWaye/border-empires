@@ -12,6 +12,32 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787520325005, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.9",
+    title: "Rivers no longer render through unexplored fog",
+    why: "Decorative rivers were drawn as one continuous overlay that only culled by camera distance, with no idea what the player had actually explored -- so a river's path stayed visible cutting through black, unexplored tiles instead of disappearing into the fog like the surrounding terrain.",
+    changes: [
+      "River segments now only render where both ends sit on a tile you've explored or previously seen, matching the terrain's own fog-of-war."
+    ]
+  },
+  {
+    createdAt: 1787519694045, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.8",
+    title: "Trimmed two noisy activity feed messages",
+    why: "\"Unlocking: X\" and \"could not start and was removed from queue\" fired on routine, expected actions and just added clutter to the feed without telling you anything new.",
+    changes: [
+      "Choosing a tech no longer posts an \"Unlocking: X\" line to the activity feed.",
+      "A queued build/settlement that fails to start no longer posts a \"could not start and was removed from queue\" line to the activity feed."
+    ]
+  },
+  {
+    createdAt: 1787518529221, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.6",
+    title: "New town theme sound",
+    why: "The old town location theme was swapped out for a new one-shot cue.",
+    changes: ["Looking at a town now plays a new, updated town theme sound instead of the old one."]
+  },
+  {
     createdAt: 1787501551523, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.4",
     title: "Lowered the season player cap to 50",

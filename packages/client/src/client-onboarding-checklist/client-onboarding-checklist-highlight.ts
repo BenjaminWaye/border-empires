@@ -1,6 +1,7 @@
 // Draws a small pulsing ring marker over each onboarding-checklist highlight
-// tile (the player's first town while step SETTLE_TOWN is open, and nearby
-// unclaimed food tiles while step SECURE_FOOD is open). Deliberately simple:
+// tile (a nearby town to Expand To while step EXPAND_TOWN is open, and
+// nearby unclaimed food tiles while step EXPAND_FOOD is open). Deliberately
+// simple:
 // on-screen tiles only, no off-screen edge-locator like
 // drawPersistentAlertLocators has for far-away alerts -- these tiles are
 // meant to be found by looking at the map near the player's own town, not

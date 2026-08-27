@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787821835669, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.3",
+    title: "New-empire checklist rewritten around Expand To -- no more waiting on a town to grow on its own",
+    why: "Step 1 previously told a new player to wait for their free starting SETTLEMENT to passively grow into a TOWN, which is slow and not the fastest way to get a town -- since world gen pre-seeds neutral towns everywhere and zero towns are ever player-founded (see docs/game-mechanics.md), Expand To-ing an already-existing neutral town is the actual fast path. Separately, the reach check behind the Relay Beacon suggestion was approximate (\"is anything visible on the map at all\") rather than real reach, so it could tell a player nothing was reachable when something actually was, or vice versa.",
+    changes: [
+      "Step 1 now points you at a nearby town to Expand To (auto-settles once ownership lands) instead of telling you to wait for your starting settlement to grow -- either path still completes the step once you own a TOWN-tier tile.",
+      "Both steps now check the player's actual current reach (the same math the map's reach-boundary overlay uses), not just whatever's loaded on the client -- so the Relay Beacon suggestion only appears when a town or food tile genuinely isn't reachable yet, and re-checks itself as reach grows."
+    ]
+  },
+  {
     createdAt: 1787819400331, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.2",
     title: "New-empire checklist now always appears, and its ring highlight no longer hides under a town",
@@ -436,32 +446,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The manpower cost of settling is now shown on Settle Connected's total cost line -- previously only the gold cost was shown, so it looked cheaper than it was. The multi-select bulk \"Settle Land\" button (which claims unowned land) now correctly shows its own claim cost instead of the settle cost.",
       "Settle Land and Settle Connected are now hidden from the tile menu until you have a settled town and a settled food tile (farm or fish), and appear at the very bottom of the actions list once they do."
     ]
-  },
-  {
-    createdAt: 1787520325005, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.9",
-    title: "Rivers no longer render through unexplored fog",
-    why: "Decorative rivers were drawn as one continuous overlay that only culled by camera distance, with no idea what the player had actually explored -- so a river's path stayed visible cutting through black, unexplored tiles instead of disappearing into the fog like the surrounding terrain.",
-    changes: [
-      "River segments now only render where both ends sit on a tile you've explored or previously seen, matching the terrain's own fog-of-war."
-    ]
-  },
-  {
-    createdAt: 1787519694045, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23.8",
-    title: "Trimmed two noisy activity feed messages",
-    why: "\"Unlocking: X\" and \"could not start and was removed from queue\" fired on routine, expected actions and just added clutter to the feed without telling you anything new.",
-    changes: [
-      "Choosing a tech no longer posts an \"Unlocking: X\" line to the activity feed.",
-      "A queued build/settlement that fails to start no longer posts a \"could not start and was removed from queue\" line to the activity feed."
-    ]
-  },
-  {
-    createdAt: 1787518529221, // frozen from a live Date.now() call
-    introducedIn: "2026.08.23.6",
-    title: "New town theme sound",
-    why: "The old town location theme was swapped out for a new one-shot cue.",
-    changes: ["Looking at a town now plays a new, updated town theme sound instead of the old one."]
   },
   {
     createdAt: 1787749806338, // frozen from `node -e "console.log(Date.now())"`

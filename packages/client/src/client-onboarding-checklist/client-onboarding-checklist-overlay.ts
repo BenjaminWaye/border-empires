@@ -22,13 +22,13 @@ let lastCompletedStep: OnboardingChecklistState["step"] | null = null;
 
 const remainingSteps = (state: OnboardingChecklistState): number => {
   if (state.step === "DONE") return 0;
-  return state.step === "SETTLE_TOWN" ? 2 : 1;
+  return state.step === "EXPAND_TOWN" ? 2 : 1;
 };
 
 const stepLabel = (state: OnboardingChecklistState): string => {
-  if (state.step === "SETTLE_TOWN") return "Find your first town";
-  if (state.step === "EXPAND_REACH") return "No food in reach -- build a Relay Beacon to expand";
-  return `Claim ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food slots`;
+  if (state.step === "EXPAND_TOWN") return "Find a town and Expand To it";
+  if (state.step === "EXPAND_RELAY_BEACON") return "Nothing in reach -- build a Relay Beacon to expand";
+  return `Expand To ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food tiles`;
 };
 
 const removeOnboardingChecklistOverlay = (): void => {
@@ -70,7 +70,7 @@ const render = (state: OnboardingChecklistState): void => {
  * tiles so the caller can feed the map's highlight-drawing layer.
  */
 export const renderOnboardingChecklistOverlay = (
-  tiles: Iterable<Pick<Tile, "x" | "y" | "resource" | "ownerId" | "town">>,
+  tiles: ReadonlyMap<string, Tile>,
   playerId: string,
   authEmail: string | null | undefined
 ): Array<{ x: number; y: number }> => {
