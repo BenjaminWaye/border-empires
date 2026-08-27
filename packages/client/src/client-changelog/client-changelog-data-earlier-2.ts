@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787501551523, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.4",
+    title: "Lowered the season player cap to 50",
+    why: "The lobby was hitting the prior 120-player cap; capping seasons at 50 keeps them a manageable size.",
+    changes: [
+      "New seasons now stop admitting new players once 50 human players have joined, down from 120."
+    ]
+  },
+  {
     createdAt: 1787489000059, // frozen from a live Date.now() call
     introducedIn: "2026.08.23.3",
     title: "Fixed camera not recentering when you spawn mid-session",

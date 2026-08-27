@@ -36,6 +36,14 @@ type MakeContextOptions = {
   tiles?: Map<string, DomainTileState>;
   // Maps a "should this dispatch succeed" decision per (x,y); default true.
   dispatchResultFor?: (x: number, y: number, actionType: FrontierCommandType) => boolean;
+  // Rejection code to report when dispatchResultFor returns false; defaults
+  // to a non-retryable code so existing "drop and move on" tests keep their
+  // meaning without having to specify one.
+  rejectionCode?: string;
+  // Defaults to false (offline) -- the drain's whole purpose is offline
+  // continuation, so that's the meaningful default for these tests. See the
+  // dedicated "does not drain while the player is online" test below.
+  isPlayerOnline?: boolean;
 };
 
 function makeContext(options: MakeContextOptions = {}) {
@@ -53,11 +61,13 @@ function makeContext(options: MakeContextOptions = {}) {
     tileAt: (x, y) => tiles.get(`${x},${y}`),
     isHostileOwner: (playerId, targetOwnerId) => Boolean(targetOwnerId) && targetOwnerId !== playerId && targetOwnerId !== "ally-1",
     nextDrainCommandId: (playerId, x, y) => `drain:${playerId}:${x},${y}`,
+    isPlayerOnline: () => options.isPlayerOnline ?? false,
     dispatchFrontierCommand: (command, actionType) => {
       dispatched.push({ command, actionType });
-      if (!options.dispatchResultFor) return true;
+      if (!options.dispatchResultFor) return { accepted: true };
       const payload = JSON.parse(command.payloadJson) as { toX: number; toY: number };
-      return options.dispatchResultFor(payload.toX, payload.toY, actionType);
+      const accepted = options.dispatchResultFor(payload.toX, payload.toY, actionType);
+      return accepted ? { accepted: true } : { accepted: false, code: options.rejectionCode ?? "BARRIER" };
     }
   };
 
@@ -191,6 +201,54 @@ describe("tryDrainWaypointQueue", () => {
     tryDrainWaypointQueue(context, PLAYER_ID);
     expect(dispatched).toHaveLength(0);
     expect(summary.waypointQueue).toHaveLength(0);
+  });
+
+  it("does not drain at all while the player has a live connection", () => {
+    // A connected client already drives its own waypoint queue -- the
+    // in-process drain racing it would win almost every time (no network
+    // round trip) and bounce the client's own attempt off a rejection on
+    // every hop. The drain must be a no-op whenever isPlayerOnline is true.
+    const tiles = new Map([["5,5", tile(5, 5)]]);
+    const { context, summary, dispatched } = makeContext({ tiles, isPlayerOnline: true });
+    summary.waypointQueue = [{ target: { x: 5, y: 5 }, queuedAt: 0 }];
+
+    tryDrainWaypointQueue(context, PLAYER_ID);
+
+    expect(dispatched).toHaveLength(0);
+    expect(summary.waypointQueue).toHaveLength(1);
+  });
+
+  it("puts a retryably-rejected entry (e.g. NOT_ADJACENT) back at the front instead of dropping it", () => {
+    // The offline drain issues each queued target directly (no multi-hop
+    // replanning) -- a target that isn't adjacent to owned territory *yet*
+    // is not a dead entry, it's one that needs another resolve/enqueue cycle
+    // to become reachable as the player's border grows. Dropping it here was
+    // the bug: an offline player's queued far-away target vanished the first
+    // time the drain touched it.
+    const tiles = new Map([
+      ["5,5", tile(5, 5)],
+      ["6,6", tile(6, 6)]
+    ]);
+    const { context, summary, dispatched } = makeContext({
+      tiles,
+      dispatchResultFor: () => false,
+      rejectionCode: "NOT_ADJACENT"
+    });
+    summary.waypointQueue = [
+      { target: { x: 5, y: 5 }, queuedAt: 0 },
+      { target: { x: 6, y: 6 }, queuedAt: 1 }
+    ];
+
+    tryDrainWaypointQueue(context, PLAYER_ID);
+
+    // Stops at the first attempt (matching the existing "one live dispatch
+    // attempt per drain call" semantics) with the rejected entry restored to
+    // the front, ahead of the entry that was never tried.
+    expect(dispatched).toHaveLength(1);
+    expect(summary.waypointQueue).toEqual([
+      { target: { x: 5, y: 5 }, queuedAt: 0 },
+      { target: { x: 6, y: 6 }, queuedAt: 1 }
+    ]);
   });
 });
 
