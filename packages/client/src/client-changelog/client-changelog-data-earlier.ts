@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787766405640, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "Settle now works on a captured town or dock outside your reach",
+    why: "A captured town or dock frontier tile (e.g. taken by Attack, which isn't reach-gated) could sit outside your reach border and keep getting rejected with \"tile is outside your reach\" every time Settle was attempted, even though settling it is exactly what would give it its own reach in the first place -- a Catch-22 that made some captured towns/docks permanently unsettleable.",
+    changes: [
+      "Settle no longer requires a captured town or dock tile to already be inside your reach -- only plain resource/support frontier tiles still need that."
+    ]
+  },
+  {
     createdAt: 1787472289089, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23",
     title: "Settled resource tiles now show their real slot production instead of stale prose",
