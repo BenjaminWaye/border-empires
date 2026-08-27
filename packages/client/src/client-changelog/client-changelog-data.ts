@@ -21,7 +21,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The onboarding checklist now also computes and appears right on spawn, not just after the first tile-delta batch arrives.",
       "The checklist's pulsing highlight ring is now wide enough to show around a town's footprint instead of being hidden underneath it, in both 2D and 3D map modes.",
-      "Added a new EXPAND_REACH checklist step: if no unclaimed food tile is known at all, the checklist now points you at building a Relay Beacon to expand your reach instead of highlighting a food-claiming objective that isn't actually reachable yet."
+      "Added a new EXPAND_REACH checklist step: if there's no unclaimed food tile AND no town nearby to capture, the checklist now points you at building a Relay Beacon to expand your reach instead of highlighting an objective that isn't actually reachable yet."
     ]
   },
   {
