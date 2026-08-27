@@ -23,7 +23,10 @@ export const drawOnboardingChecklistHighlights = (
   if (tiles.length === 0) return;
   const { ctx } = deps;
   const pulse = 0.55 + Math.sin(deps.nowMs / 320) * 0.25;
-  const radius = deps.size * 0.34;
+  // Wide enough to show around/outside a settled town's sprite footprint
+  // instead of being drawn entirely underneath it (see the 3D counterpart's
+  // RING_OUTER in client-map-3d-onboarding-checklist-highlight.ts).
+  const radius = deps.size * 0.62;
   ctx.save();
   for (const tile of tiles) {
     const { sx, sy } = deps.worldToScreen(tile.x, tile.y, deps.size, deps.halfW, deps.halfH);

@@ -8,9 +8,16 @@
 //      any mix) toward the ~4 food slots a town needs to stay powered/fed
 //      (see resource-slot-view.ts §5.3, townFoodSlotDemandForTier).
 //
+// A third step, EXPAND_REACH, can appear in place of SECURE_FOOD: if no
+// unclaimed FARM/FISH tile is known at all, claiming food isn't yet an
+// actionable objective, so the checklist instead points the player at
+// building a RELAY_BEACON to push their reach out until a food tile falls
+// inside it.
+//
 // Each step highlights its own tiles on the map until satisfied: the
 // player's SETTLEMENT tile(s) while step 1 is open, then the player's towns
-// plus unclaimed FARM/FISH tiles while step 2 is open. The checklist is for
+// plus unclaimed FARM/FISH tiles while step 2 is open (or just the player's
+// towns, as beacon-siting anchors, for EXPAND_REACH). The checklist is for
 // brand-new empires only (gated by `me` owning no TOWN-tier tile before
 // step 1 starts -- CITY/GREAT_CITY/METROPOLIS aren't checked for since the
 // checklist has already moved past step 1 by the time a town could grow
@@ -22,7 +29,7 @@ import { isOnboardingChecklistCompleted, markOnboardingChecklistCompleted } from
 
 export const ONBOARDING_FOOD_SLOTS_TARGET = 4;
 
-export type OnboardingChecklistStep = "SETTLE_TOWN" | "SECURE_FOOD" | "DONE";
+export type OnboardingChecklistStep = "SETTLE_TOWN" | "SECURE_FOOD" | "EXPAND_REACH" | "DONE";
 
 export type OnboardingChecklistState = {
   step: OnboardingChecklistStep;
@@ -91,6 +98,20 @@ export const onboardingChecklistState = (
   }
 
   if (foodSlotsClaimed < ONBOARDING_FOOD_SLOTS_TARGET) {
+    // No unclaimed FARM/FISH tile known at all -- the player's starting
+    // reach simply doesn't cover any food, so "go claim a food tile" isn't
+    // an actionable objective yet. Point them at building a RELAY_BEACON
+    // (an outpost-family structure -- see client-reach-overlay.ts's
+    // OUTPOST_STRUCTURE_TYPES) instead, which extends reach outward from an
+    // owned tile until a claimable food tile falls inside it.
+    if (foodCandidates.length === 0) {
+      return {
+        step: "EXPAND_REACH",
+        foodSlotsClaimed,
+        foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+        highlightTiles: ownTowns
+      };
+    }
     // Keep the town highlighted alongside the food candidates: it's the
     // player's anchor point for "claim food tiles near here" until step 2
     // is satisfied too.

@@ -14,6 +14,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787819400331, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.2",
+    title: "New-empire checklist now always appears, and its ring highlight no longer hides under a town",
+    why: "The onboarding checklist bubble only ever recomputed on a TILE_DELTA_BATCH message, never on the initial spawn snapshot -- a fresh empire whose starting tiles never happened to generate a delta (e.g. quietly sitting next to an already-owned town and a fish tile) could go the whole session without ever seeing the checklist. Separately, the highlight ring around a checklist target tile was sized smaller than a settled town's footprint, so once a highlighted tile grew into a town the ring rendered entirely underneath the town model and was invisible.",
+    changes: [
+      "The onboarding checklist now also computes and appears right on spawn, not just after the first tile-delta batch arrives.",
+      "The checklist's pulsing highlight ring is now wide enough to show around a town's footprint instead of being hidden underneath it, in both 2D and 3D map modes.",
+      "Added a new EXPAND_REACH checklist step: if no unclaimed food tile is known at all, the checklist now points you at building a Relay Beacon to expand your reach instead of highlighting a food-claiming objective that isn't actually reachable yet."
+    ]
+  },
+  {
     createdAt: 1787817510197, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.1",
     title: "Fixed the frontier decay countdown freezing on a decaying tile's menu",

@@ -47,7 +47,7 @@ import { notificationCategoryForServerError, serverStartingBusyMessages } from "
 import { registerShardRainPingsFromAlert } from "../client-shard-rain-pings/client-shard-rain-pings.js";
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import { maybeShowRuinsPrompt } from "../client-ruins-prompt.js";
-import { handleTileDeltaBatchMessage } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
+import { handleTileDeltaBatchMessage, refreshOnboardingChecklistHighlight } from "../client-tile-delta-batch-handler/client-tile-delta-batch-handler.js";
 import { emitTownCaptureIfCaptured } from "../client-town-capture/client-town-capture-detect.js";
 import { applyWorldEngineStrikeAnnouncement, backfillWorldEngineStrikeHistory } from "../client-world-engine-strike-network/client-world-engine-strike-network.js";
 import { applyPlayerStyleMessage } from "../client-player-style-message/client-player-style-message.js";
@@ -1932,7 +1932,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.chunkFullCount = Math.max(state.chunkFullCount, 1);
         state.hasOwnedTileInCache = [...state.tiles.values()].some((tile) => tile.ownerId === state.me);
       }
-      requestViewRefresh(2, true);
+      refreshOnboardingChecklistHighlight(state); requestViewRefresh(2, true);
       renderHud();
       return;
     }

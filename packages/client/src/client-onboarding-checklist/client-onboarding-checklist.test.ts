@@ -117,6 +117,17 @@ describe("onboardingChecklistState", () => {
     expect(state.highlightTiles).toEqual([]);
   });
 
+  it("moves to EXPAND_REACH instead of SECURE_FOOD when no unclaimed food tile is known, highlighting the town as a beacon-siting anchor", () => {
+    const tiles = [
+      tile(5, 5, { ownerId: ME, town: { type: "FARMING", populationTier: "TOWN" } as never }),
+      tile(8, 5, { resource: "TITANIUM" })
+    ];
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.step).toBe("EXPAND_REACH");
+    expect(state.foodSlotsClaimed).toBe(0);
+    expect(state.highlightTiles).toEqual([{ x: 5, y: 5 }]);
+  });
+
   it("completeOnboardingChecklist is a no-op when the step isn't DONE", () => {
     const tiles = [tile(0, 0)];
     completeOnboardingChecklist({ step: "SETTLE_TOWN", foodSlotsClaimed: 0, foodSlotsTarget: 4, highlightTiles: [] });
