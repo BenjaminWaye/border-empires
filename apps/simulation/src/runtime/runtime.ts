@@ -3077,13 +3077,13 @@ export class SimulationRuntime {
 
   private resourceSlotDemandForPlayer(playerId: string, forceFresh = false): ResourceSlotTotals {
     return this.coalescedResourceSlotRead(this.resourceSlotDemandCacheByPlayer, this.resourceSlotDemandDirtyPlayerIds, this.resourceSlotDemandLastRebuiltAtMsByPlayer, playerId, forceFresh, () => {
-      const p = this.state.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, waivers);
+      const p = this.state.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDemandForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, waivers, this.tileSettledAtByKey);
     });
   }
 
   // §5.4: dormant structures/towns short on their resource; no build-gate consumer, so it always coalesces for AI.
   private resourceSlotDormancyForPlayer(playerId: string): ResourceSlotDormancy {
-    return this.coalescedResourceSlotRead(this.resourceSlotDormancyCacheByPlayer, this.resourceSlotDormancyDirtyPlayerIds, this.resourceSlotDormancyLastRebuiltAtMsByPlayer, playerId, false, () => { const supply = this.resourceSlotSupplyForPlayer(playerId); const p = this.state.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply, waivers); });
+    return this.coalescedResourceSlotRead(this.resourceSlotDormancyCacheByPlayer, this.resourceSlotDormancyDirtyPlayerIds, this.resourceSlotDormancyLastRebuiltAtMsByPlayer, playerId, false, () => { const supply = this.resourceSlotSupplyForPlayer(playerId); const p = this.state.players.get(playerId); const waivers = p ? slotWaiversForPlayer(p) : undefined; return resourceSlotDormantContributorsForPlayerImpl(this.ownedTilesForPlayer(playerId), playerId, supply, waivers, this.tileSettledAtByKey); });
   }
   // Per-connect self-heal for a stale resource-slot cache — see resource-slot-cache-refresh.ts.
   refreshResourceSlotCachesForPlayer(playerId: string): void { refreshResourceSlotCachesForPlayerImpl({ hasPlayer: (id) => this.state.players.has(id), refreshSupplyFresh: (id) => this.resourceSlotSupplyForPlayer(id, true), refreshDemandFresh: (id) => this.resourceSlotDemandForPlayer(id, true), clearDormancyCache: (id) => this.resourceSlotDormancyCacheByPlayer.delete(id), readDormancy: (id) => this.resourceSlotDormancyForPlayer(id) }, playerId); }
