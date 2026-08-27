@@ -1,5 +1,5 @@
 import type { DomainStrategicResourceKey, DomainTileState } from "@border-empires/game-domain";
-import type { SlotResource } from "@border-empires/shared";
+import type { SlotResource, WaypointWireStep } from "@border-empires/shared";
 
 type StrategicResourceKey = DomainStrategicResourceKey;
 type TownPopulationTier = NonNullable<NonNullable<DomainTileState["town"]>["populationTier"]>;
@@ -44,11 +44,28 @@ export type ServerDevQueueEntry = {
   reservedSlotRequirements?: { resource: SlotResource; count: number }[];
 };
 
-/** Server-durable waypoint/expand-queue entry -- see runtime-waypoint-queue.ts. */
+/** Server-durable waypoint/expand-queue entry -- see runtime-waypoint-queue.ts.
+ *  See docs/waypoint-client-planning-plan.md: the client is the only planner
+ *  now, the server is a replayer. `steps`/`cursor` carry the client-supplied
+ *  route and the replay position along it; `planId`/`plannedAt` identify
+ *  which client-side plan produced `steps` so a newer enqueue for the same
+ *  target can replace it in place (see waypointQueueEnqueue) and so the
+ *  client can tell, on reconnect, whether the server's remaining steps are a
+ *  plan it recognizes. `stalled` marks an entry the offline drain could not
+ *  advance past (a mid-route step whose origin/target is no longer valid) --
+ *  left in place, cursor untouched, for the client to re-plan on reconnect.
+ *  All four are optional so a legacy target-only enqueue (no steps) still
+ *  behaves exactly as it did before this change (single-leg drain). */
 export type ServerWaypointQueueEntry = {
   target: { x: number; y: number };
   trackBarbarian?: boolean;
   queuedAt: number;
+  planId?: string;
+  plannedAt?: number;
+  steps?: WaypointWireStep[];
+  /** Index into `steps` of the next unattempted step. Undefined/0 == start. */
+  cursor?: number;
+  stalled?: boolean;
 };
 
 /**
@@ -200,6 +217,24 @@ export const createPlayerRuntimeSummaryFromRecovered = (
     : {}),
   ...(recovered?.devQueue?.length ? { devQueue: recovered.devQueue.map((entry) => ({ ...entry })) } : {})
 });
+
+/** Wire shape for one waypointQueue entry -- shared by every serialization
+ *  point (exportState, exportVisibleStateForPlayer(Async), the live
+ *  PLAYER_UPDATE stream) so a field added to ServerWaypointQueueEntry's wire
+ *  projection only has to be added once. See docs/waypoint-client-planning-plan.md §2. */
+export type WaypointQueueWireEntry = { x: number; y: number; trackBarbarian?: boolean; queuedAt: number; planId?: string; plannedAt?: number; steps?: WaypointWireStep[]; cursor?: number; stalled?: boolean };
+
+export const waypointQueueWireEntries = (queue: readonly ServerWaypointQueueEntry[]): WaypointQueueWireEntry[] =>
+  queue.map((entry) => ({
+    x: entry.target.x,
+    y: entry.target.y,
+    queuedAt: entry.queuedAt,
+    ...(entry.trackBarbarian ? { trackBarbarian: true } : {}),
+    ...(entry.planId ? { planId: entry.planId } : {}),
+    ...(entry.plannedAt !== undefined ? { plannedAt: entry.plannedAt } : {}),
+    ...(entry.steps ? { steps: entry.steps, cursor: entry.cursor ?? 0 } : {}),
+    ...(entry.stalled ? { stalled: true } : {})
+  }));
 
 export const cloneStrategicProduction = (
   value: Record<StrategicResourceKey, number>

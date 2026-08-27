@@ -6,7 +6,7 @@ import type { SimulationSnapshotSections } from "./snapshot-store/snapshot-store
 import { TileDeltaStringifyCache } from "./tile-delta-stringify-cache/tile-delta-stringify-cache.js";
 import type { StrategicResourceKey } from "./runtime-types.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
+import { cloneStrategicProduction, waypointQueueWireEntries, type PendingSettlementRecord, type WaypointQueueWireEntry } from "./player-runtime-summary.js";
 import { toPersistedDevQueueEntries, type ExportedDevQueueEntry } from "./runtime-dev-queue-restore.js";
 import { visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type { FrontierDecayKind, SlotResource, Terrain } from "@border-empires/shared";
@@ -96,7 +96,7 @@ export type RuntimeExportState = {
     // restore that dropped them would owe a refund it no longer knows about
     // and burn that manpower permanently (see runtime-dev-queue-restore.ts).
     devQueue?: ExportedDevQueueEntry[];
-    waypointQueue?: Array<{ x: number; y: number; trackBarbarian?: boolean; queuedAt: number }>;
+    waypointQueue?: WaypointQueueWireEntry[];
   }>;
   pendingSettlements: Array<PendingSettlementRecord>;
   activeLocks: Array<{
@@ -221,16 +221,7 @@ export const buildRuntimeExportPlayers = (input: RuntimeExportInput): RuntimeExp
         ...(typeof player.galacticWonderVisionRadiusBonus === "number" ? { galacticWonderVisionRadiusBonus: player.galacticWonderVisionRadiusBonus } : {}),
         ...(player.eventLog?.length ? { eventLog: player.eventLog } : {}),
         ...(summary.devQueue.length ? { devQueue: toPersistedDevQueueEntries(summary.devQueue) } : {}),
-        ...(summary.waypointQueue.length
-          ? {
-              waypointQueue: summary.waypointQueue.map((entry) => ({
-                x: entry.target.x,
-                y: entry.target.y,
-                ...(entry.trackBarbarian ? { trackBarbarian: true } : {}),
-                queuedAt: entry.queuedAt
-              }))
-            }
-          : {})
+        ...(summary.waypointQueue.length ? { waypointQueue: waypointQueueWireEntries(summary.waypointQueue) } : {})
       };
     })
     .sort((left, right) => left.id.localeCompare(right.id));

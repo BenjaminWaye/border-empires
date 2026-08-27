@@ -1,5 +1,6 @@
 import { planWaypoint } from "./client-waypoint-planner/client-waypoint-planner.js";
 import { authoritativeIsInReach } from "./client-reach-authoritative/client-reach-authoritative.js";
+import { wireStepsForPlan } from "@border-empires/shared";
 import {
   persistWaypointQueueForPlayer,
   waypointCancelAllWirePayload,
@@ -60,13 +61,23 @@ const setWaypointForSelected = (
   }
   const selectedTile = state.tiles.get(keyFor(selected.x, selected.y));
   const trackBarbarian = selectedTile?.ownerId === "barbarian-1";
+  const planId = `plan-${state.me}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const plannedAt = Date.now();
   state.waypoint.push({
     target: { x: selected.x, y: selected.y },
     plan,
-    trackBarbarian
+    trackBarbarian,
+    planId,
+    plannedAt
   });
   persistWaypointQueueForPlayer(state.me, state.waypoint);
-  sendGameMessage?.(waypointEnqueueWirePayload({ x: selected.x, y: selected.y }, trackBarbarian));
+  sendGameMessage?.(
+    waypointEnqueueWirePayload({ x: selected.x, y: selected.y }, trackBarbarian, {
+      planId,
+      plannedAt,
+      steps: wireStepsForPlan(plan.steps)
+    })
+  );
   const summary = plan.attackCount > 0
     ? `${plan.expandCount} expand + ${plan.attackCount} attack`
     : `${plan.expandCount} expand`;

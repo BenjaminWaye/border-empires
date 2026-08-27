@@ -9,7 +9,7 @@ import type { VisibilityAuditSample } from "./tile-delta-visibility-filter.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
+import { cloneStrategicProduction, waypointQueueWireEntries, type PendingSettlementRecord } from "./player-runtime-summary.js";
 import { toPersistedDevQueueEntries } from "./runtime-dev-queue-restore.js";
 import { revealedResourceValueForPlayer, visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type {
@@ -401,16 +401,7 @@ function visiblePlayersProjection(
         // sessionStorage was gone too. Same flattening runtime-state-export.ts
         // already does for the persistence path.
         ...(summary.devQueue.length ? { devQueue: toPersistedDevQueueEntries(summary.devQueue) } : {}),
-        ...(summary.waypointQueue.length
-          ? {
-              waypointQueue: summary.waypointQueue.map((entry) => ({
-                x: entry.target.x,
-                y: entry.target.y,
-                ...(entry.trackBarbarian ? { trackBarbarian: true } : {}),
-                queuedAt: entry.queuedAt
-              }))
-            }
-          : {})
+        ...(summary.waypointQueue.length ? { waypointQueue: waypointQueueWireEntries(summary.waypointQueue) } : {})
       };
     })
     .sort((left, right) => left.id.localeCompare(right.id));
