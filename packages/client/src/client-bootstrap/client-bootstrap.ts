@@ -586,7 +586,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
     drawMiniMap,
     maybeRefreshForCamera,
     requestTileDetailIfNeeded: actionFlow.requestTileDetailIfNeeded,
-    renderHud,
+    renderHud, tileMenuViewForTile: actionFlow.tileMenuViewForTile, renderTileActionMenu: actionFlow.renderTileActionMenu,
     renderCaptureProgress,
     renderShardAlert, renderVictoryHoldAlert,
     cleanupExpiredSettlementProgress: actionFlow.cleanupExpiredSettlementProgress,
