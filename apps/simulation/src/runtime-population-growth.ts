@@ -137,8 +137,29 @@ export function tickPopulationGrowth(input: {
     for (const tileKey of ownedTowns.keys()) {
       const tile = input.tiles.get(tileKey);
       if (!tile?.town || tile.ownershipState !== "SETTLED") continue;
-      const town = tile.town;
+      let town = tile.town;
       pDiag.totalTowns += 1;
+      // §5.4 self-heal: a town's own persisted isFed only ever gets
+      // refreshed as a side effect of some OTHER mutation touching this
+      // exact tile (build/upgrade/capture/etc, via
+      // enrichTileWithTownContext) -- it's never proactively re-pushed when
+      // the shared FOOD-slot dormancy set shifts for a reason elsewhere in
+      // the empire (e.g. settling a second town pushes total FOOD demand
+      // over supply). This tick already recomputes fedTownKeys fresh for
+      // every owned town regardless of whether growth itself applies, so
+      // piggyback on it to keep isFed itself honest -- otherwise a town the
+      // dormancy engine just marked unfed can silently keep showing fed
+      // (and vice versa) until something unrelated happens to touch its
+      // tile or the player reconnects.
+      const freshIsFed = fedTownKeys.has(tileKey);
+      if (town.isFed !== freshIsFed) {
+        town = { ...town, isFed: freshIsFed };
+        const healedTile = { ...tile, town };
+        input.tiles.set(tileKey, healedTile);
+        input.invalidateTileStringifyCache(tileKey);
+        playerTileDeltas.push(input.tileDeltaFromState(healedTile));
+        dirtyPlayerIds.add(player.id);
+      }
       if (typeof town.captureShockUntil === "number" && town.captureShockUntil > input.nowMs) {
         pDiag.shock += 1;
         townsSkippedCaptureShock += 1;
