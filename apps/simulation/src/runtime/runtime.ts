@@ -479,10 +479,7 @@ import {
   requiredMusterForTarget as requiredMusterForTargetImpl,
   type RuntimeCombatResolutionContext
 } from "../runtime-combat-resolution.js";
-import {
-  handleFrontierCommandImpl,
-  type RuntimeFrontierCommandContext
-} from "../runtime-frontier-command.js";
+import { handleFrontierCommandImpl, type FrontierCommandResult, type RuntimeFrontierCommandContext } from "../runtime-frontier-command.js";
 import {
   handleRushBuyCommandImpl,
   type RuntimeRushBuyCommandContext
@@ -817,7 +814,7 @@ export class SimulationRuntime {
   private readonly scheduleAfter: (delayMs: number, task: () => void) => void;
   private readonly shouldPauseBackground: (() => boolean) | undefined;
   private readonly commandTrace: ((sample: Record<string, unknown>) => void) | undefined;
-  private readonly onOwnershipChange: SimulationRuntimeOptions["onOwnershipChange"];
+  private readonly onOwnershipChange: SimulationRuntimeOptions["onOwnershipChange"]; private readonly isPlayerSubscribed: SimulationRuntimeOptions["isPlayerSubscribed"];
   private readonly onVisibilityAudit: ((sample: VisibilityAuditSample) => void) | undefined;
   private readonly trackSyncMainThreadTask: SimulationRuntimeOptions["trackSyncMainThreadTask"];
   private readonly onCaptureRevealBuilt:
@@ -903,7 +900,7 @@ export class SimulationRuntime {
     this.onAuthRecoveryRespawn = options.onAuthRecoveryRespawn;
     this.onAuthRecoveryRespawnGuarded = options.onAuthRecoveryRespawnGuarded;
     this.commandTrace = options.commandTrace;
-    this.onOwnershipChange = options.onOwnershipChange;
+    this.onOwnershipChange = options.onOwnershipChange; this.isPlayerSubscribed = options.isPlayerSubscribed;
     this.onQueueDrain = options.onQueueDrain;
     this.onJobApplied = options.onJobApplied;
     this.wrapJobRun = options.wrapJobRun;
@@ -3531,7 +3528,7 @@ export class SimulationRuntime {
 
   private drainQueues(): void { drainQueuesImpl(this.jobQueueContext(), this.jobQueueMutableState()); }
 
-  private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): boolean { return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType); }
+  private handleFrontierCommand(command: CommandEnvelope, actionType: FrontierCommandType): FrontierCommandResult { return handleFrontierCommandImpl(this.frontierCommandContext(), command, actionType); }
 
   private nextTerritoryAutomationCommandId(label: string, playerId: string, tileKey: string, nowMs: number): string {
     this.territoryAutomationCounter += 1;
@@ -3732,7 +3729,7 @@ export class SimulationRuntime {
   private isHostileTileOwner(playerId: string, targetOwnerId: string | undefined): boolean {
     if (!targetOwnerId || targetOwnerId === playerId) return false;
     const actor = this.state.players.get(playerId); return !actor || !isAlliedOrTruced(actor, targetOwnerId); }
-  private waypointQueueCommandContext(): RuntimeWaypointQueueCommandContext { return { summaryForPlayer: (playerId) => this.summaryForPlayer(playerId), now: () => this.now(), emitEvent: (event) => this.emitEvent(event), rejectCommand: (command, code, message) => this.rejectCommand(command, code, message), tileAt: (x, y) => this.state.tiles.get(simulationTileKey(x, y)), isHostileOwner: (playerId, targetOwnerId) => this.isHostileTileOwner(playerId, targetOwnerId), nextDrainCommandId: (playerId, x, y) => this.nextTerritoryAutomationCommandId("waypoint-queue-drain", playerId, simulationTileKey(x, y), this.now()), dispatchFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType) }; }
+  private waypointQueueCommandContext(): RuntimeWaypointQueueCommandContext { return { summaryForPlayer: (playerId) => this.summaryForPlayer(playerId), now: () => this.now(), emitEvent: (event) => this.emitEvent(event), rejectCommand: (command, code, message) => this.rejectCommand(command, code, message), tileAt: (x, y) => this.state.tiles.get(simulationTileKey(x, y)), isHostileOwner: (playerId, targetOwnerId) => this.isHostileTileOwner(playerId, targetOwnerId), nextDrainCommandId: (playerId, x, y) => this.nextTerritoryAutomationCommandId("waypoint-queue-drain", playerId, simulationTileKey(x, y), this.now()), dispatchFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType), isPlayerOnline: (playerId) => this.isPlayerSubscribed?.(playerId) ?? false }; }
   /** See runtime-waypoint-queue-command-handlers.ts's doc comment. */
   private tryDrainWaypointQueue(playerId: string): void { tryDrainWaypointQueueImpl(this.waypointQueueCommandContext(), playerId); }
 

@@ -28,6 +28,7 @@ import {
   waypointQueueEnqueue
 } from "./runtime-waypoint-queue.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import type { FrontierCommandResult } from "./runtime-frontier-command.js";
 
 export type RuntimeWaypointQueueCommandContext = {
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
@@ -41,10 +42,18 @@ export type RuntimeWaypointQueueCommandContext = {
   nextDrainCommandId: (playerId: string, x: number, y: number) => string;
   // Dispatches a single EXPAND/ATTACK the same way a manually-submitted one
   // would be (full validateFrontierCommand pass, same origin-resolution
-  // fallback) -- returns whether it was accepted. Bypasses submitCommand
-  // entirely, same precedent tryDrainDevQueue's doc comment explains for
-  // BUILD/SETTLE.
-  dispatchFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => boolean;
+  // fallback) -- returns whether it was accepted, and the rejection code
+  // when it wasn't (so the drain loop can tell "not reachable yet" apart
+  // from "genuinely dead"). Bypasses submitCommand entirely, same precedent
+  // tryDrainDevQueue's doc comment explains for BUILD/SETTLE.
+  dispatchFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => FrontierCommandResult;
+  // True while this player has a live, connected client -- an active client
+  // already drives its own waypoint queue (client-queue-logic.ts's
+  // topUpFromWaypoint), so the server's copy of the same hop would otherwise
+  // race it for the same tile and lose almost every time (same-process sim
+  // call vs. a network round trip). The drain below only runs at all when
+  // this is false, i.e. purely as offline/disconnected continuation.
+  isPlayerOnline: (playerId: string) => boolean;
 };
 
 export const handleWaypointEnqueueCommand = (context: RuntimeWaypointQueueCommandContext, command: CommandEnvelope): void => {
@@ -78,11 +87,41 @@ export const handleWaypointCancelAllCommand = (context: RuntimeWaypointQueueComm
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 };
 
+// Rejection codes that mean "not possible right now, but could become
+// possible later without the player re-queuing" -- e.g. the target isn't
+// adjacent to owned territory yet (a multi-hop route the client would have
+// walked one EXPAND at a time), a lock/cooldown/muster shortfall that clears
+// on its own, or a temporary supply cut-off. An entry rejected for one of
+// these is put back at the front of the queue instead of dropped, so a
+// queued-but-not-yet-reachable target survives to the next drain attempt
+// (the next resolve or enqueue) instead of vanishing the first time the
+// drain happens to touch it.
+const RETRYABLE_WAYPOINT_DRAIN_CODES = new Set([
+  "NOT_ADJACENT",
+  "LOCKED",
+  "ATTACK_COOLDOWN",
+  "INSUFFICIENT_GOLD",
+  "INSUFFICIENT_MANPOWER",
+  "INSUFFICIENT_MUSTER",
+  "SHIELDED",
+  "ORIGIN_CUT_OFF"
+]);
+
 /**
  * Server-side auto-drain of the waypoint/expand queue. Called after any
  * EXPAND/ATTACK for this player resolves (win or lose -- resolveLock calls
  * this unconditionally once the lock is cleared, see runtime-lock-
  * resolution.ts) and right after an enqueue (above).
+ *
+ * Only actually drains while the player has no live client connected
+ * (context.isPlayerOnline) -- an online client already walks its own
+ * waypoint queue hop-by-hop (client-queue-logic.ts's topUpFromWaypoint), and
+ * since this dispatches in-process while the client's equivalent command has
+ * to make a network round trip, the two racing for the same tile is not a
+ * fair race: the server side wins essentially every time, bouncing the
+ * client's own attempt off a LOCKED/NOT_ADJACENT rejection on every single
+ * hop. This drain exists purely so the queue keeps moving while nobody is
+ * connected to drive it; a connected client is always the sole driver.
  *
  * Pops entries off the front one at a time, attempting a real EXPAND/ATTACK
  * dispatch for each (auto-resolving EXPAND vs. ATTACK from the target
@@ -94,14 +133,16 @@ export const handleWaypointCancelAllCommand = (context: RuntimeWaypointQueueComm
  * already-done and silently dropped, same as the client's own
  * restorePersistedWaypointQueueForPlayer skip.
  *
- * Any other dispatch failure (target taken by someone else, no longer
- * adjacent, out of reach, insufficient manpower, ...) drops the entry too --
- * this is a single-attempt-per-entry queue, not a retry-with-backoff one,
- * matching tryDrainDevQueue's semantics for BUILD/SETTLE. The loop keeps
- * trying subsequent entries (bounded by the queue's own length) so one
- * bad/stale entry can never permanently stall the rest of the queue.
+ * A rejection in RETRYABLE_WAYPOINT_DRAIN_CODES puts the entry back and stops
+ * this drain call (see below) rather than dropping it -- this is still a
+ * single-live-dispatch-per-call queue, not a retry-with-backoff one, it just
+ * no longer treats "not reachable yet" as "never reachable." Any other
+ * rejection (target genuinely invalid, barrier, not owned, ...) drops the
+ * entry and the loop keeps trying subsequent entries (bounded by the queue's
+ * own length) so one bad/stale entry can never permanently stall the rest.
  */
 export const tryDrainWaypointQueue = (context: RuntimeWaypointQueueCommandContext, playerId: string): void => {
+  if (context.isPlayerOnline(playerId)) return;
   const summary = context.summaryForPlayer(playerId);
   const maxAttempts = Math.min(summary.waypointQueue.length, DEV_QUEUE_SERVER_CAP);
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -132,7 +173,12 @@ export const tryDrainWaypointQueue = (context: RuntimeWaypointQueueCommandContex
       payloadJson: JSON.stringify({ fromX: entry.target.x, fromY: entry.target.y, toX: entry.target.x, toY: entry.target.y })
     } satisfies CommandEnvelope;
 
-    if (context.dispatchFrontierCommand(cmd, actionType)) return; // one live dispatch per drain call
-    // Rejected (no longer adjacent/reachable/taken/etc.) -- drop and keep going.
+    const result = context.dispatchFrontierCommand(cmd, actionType);
+    if (result.accepted) return; // one live dispatch per drain call
+    if (result.code && RETRYABLE_WAYPOINT_DRAIN_CODES.has(result.code)) {
+      summary.waypointQueue = [entry, ...summary.waypointQueue];
+      return;
+    }
+    // Genuinely dead (barrier, not owned, invalid target, ...) -- drop and keep going.
   }
 };

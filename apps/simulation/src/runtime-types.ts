@@ -181,6 +181,16 @@ export type SimulationRuntimeOptions = {
   pendingGalacticWonderBonus?: { playerId: string };
   commandTrace?: (sample: Record<string, unknown>) => void;
   onOwnershipChange?: (sample: OwnershipChangeSample) => void;
+  // True while playerId has a live, connected client (a real SubscribePlayer
+  // subscription, not just a durable record existing) -- used to gate the
+  // waypoint-queue auto-drain (runtime-waypoint-queue-command-handlers.ts) so
+  // it only runs as offline/disconnected continuation. An online client
+  // already drives its own waypoint queue; the sim's in-process drain would
+  // otherwise win every race against it (no network round trip), bouncing
+  // the client's own attempt off a rejection on every hop. Omitted in
+  // contexts that don't track live sessions (e.g. most tests) -- the drain
+  // then falls back to always running, matching the pre-existing behavior.
+  isPlayerSubscribed?: (playerId: string) => boolean;
   onQueueDrain?: (sample: {
     durationMs: number;
     processedJobs: number;

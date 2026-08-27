@@ -14,6 +14,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787812963830, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.9",
+    title: "Waypoints no longer fight the server for every step while you're online",
+    why: "A recent change made the server keep walking your waypoint queue on its own so it wouldn't stall while you were offline. That auto-drain never stopped once you reconnected, though -- it kept racing your own client's live dispatch for every single hop, and the server's in-process attempt won almost every time (no network round trip to lose to), bouncing your own attempt off an error on every step even though the waypoint was quietly progressing anyway. Separately, that same auto-drain gave up on a queued target the first time a single-leg attempt failed, discarding a perfectly reachable multi-hop target (an unexplored tile, or one behind an in-progress expansion) instead of waiting for it to become reachable.",
+    changes: [
+      "The server's waypoint auto-drain now only runs while you're actually offline -- your connected client is back to being the sole driver of your queue while you're playing, so no more error toasts on every waypoint step.",
+      "A queued target that isn't reachable yet (not adjacent, locked, low on manpower/muster/gold, ...) is now retried on the next opportunity instead of being dropped outright, so it survives until it actually becomes reachable.",
+      "Fixed the Settle animation sometimes not appearing until you clicked the tile or panned the camera when the settlement was started by something other than your own click (e.g. restored from a reconnect or an auto-settle)."
+    ]
+  },
+  {
     createdAt: 1787773284493, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.9",
     title: "Fixed settle commands spamming errors on a Relay Beacon build chain",
@@ -458,15 +469,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The respawn prompt now also checks that you're not still waiting to join a season before suggesting a respawn.",
       "The pre-game lobby now reclaims horizontal space on narrow phones and stacks its action buttons full-width, so \"Join the Discord\" and roster/ID rows no longer wrap or run off the edge of the screen."
-    ]
-  },
-  {
-    createdAt: 1787501551523, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.23.4",
-    title: "Lowered the season player cap to 50",
-    why: "The lobby was hitting the prior 120-player cap; capping seasons at 50 keeps them a manageable size.",
-    changes: [
-      "New seasons now stop admitting new players once 50 human players have joined, down from 120."
     ]
   },
   {

@@ -214,16 +214,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787259991319,
-    introducedIn: "2026.08.20",
-    title: "Rush-buy button is no longer a bare unstyled control, and its gold icon no longer looks like silver",
-    why: "The tile progress card's rush-buy button had no CSS at all, so it rendered as a plain browser-default button instead of matching the card's other pill-shaped controls. Its price label also used the 🪙 coin emoji, which renders as a plain silver/steel coin in most fonts and read as a different currency than gold.",
-    changes: [
-      "The rush-buy button now uses a gold-gradient pill style matching the rest of the tile progress card's buttons.",
-      "The rush-buy price label now uses 💰 instead of 🪙 so it reads unambiguously as gold."
-    ]
-  },
-  {
     createdAt: 1787294902457, // 2026.08.20.1
     introducedIn: "2026.08.20.1",
     title: "ADVANCE-mode muster attacks now show the skirmish animation too",
@@ -378,34 +368,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     why: "This button now only ever appears for an enemy-owned attack target -- the neutral-tile case was folded into \"Expand To\" in the previous release -- but it kept the old generic \"Add Waypoint\" label, which read as a leftover duplicate rather than the attack action it actually is.",
     changes: [
       "The multi-step waypoint action on a distant enemy tile is now labeled \"Expand To & Attack\" instead of \"Add Waypoint\"."
-    ]
-  },
-  {
-    createdAt: 1787259991318,
-    introducedIn: "2026.08.20.3",
-    title: "Fixed a frame-rate drop from the survey-sweep ping overlay",
-    why: "The 3D map's per-frame render loop re-uploaded the survey-sweep ping overlay's four GPU instance buffers every single frame, even on the vast majority of frames where no ping was active — a real WebGL bufferSubData call for zero visual change, 60 times a second. A capture from a live session showed WebGL buffer uploads consuming over 80% of total frame CPU time, with the game sustaining only ~11-12fps.",
-    changes: [
-      "The survey-sweep ping overlay now skips its GPU buffer upload on any frame where no ping was active last frame either, instead of re-uploading empty data unconditionally every frame."
-    ]
-  },
-  {
-    createdAt: 1787259991317,
-    introducedIn: "2026.08.20.2",
-    title: "Removed the out-of-reach dim overlay on rival tiles",
-    why: "Rival-owned tiles that were visible but outside your reach radius were darkened with a dimming/hatch treatment (the Aether Survey Line's out-of-reach indicator). We decided this visual signal wasn't pulling its weight and removed it, in both the 2D and 3D map renderers.",
-    changes: [
-      "Removed the out-of-reach dim overlay on rival tiles that used to darken visible-but-unreachable enemy/neutral territory. Reach itself, dormant-frontier tiles, and the reach boundary line are unaffected."
-    ]
-  },
-  {
-    createdAt: 1787259991316, // 2026.08.20
-    introducedIn: "2026.08.20",
-    title: "Auto-fill now respects your reach/border",
-    why: "Sealing off a pocket of land used to auto-settle it regardless of whether your empire's reach actually extended there — you could end up with settled tiles outside your reach, or see a burst of unrelated-looking tiles suddenly fill in when your reach shifted somewhere else entirely. Auto-fill now only settles a pocket once its entire boundary — not just the land inside it — is within your reach, so it only ever triggers from something happening near that pocket's own edge.",
-    changes: [
-      "Auto-fill no longer settles tiles outside your reach/border.",
-      "A pocket only auto-fills once every part of its sealing boundary (your own territory and/or coastline/mountains) is within your reach — a boundary tile that's still out of reach means the whole pocket waits, rather than filling in partially."
     ]
   },
   {

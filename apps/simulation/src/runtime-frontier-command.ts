@@ -100,19 +100,21 @@ export type RuntimeFrontierCommandContext = {
   reachBorderOwnerAt: (x: number, y: number) => string | undefined;
 };
 
+export type FrontierCommandResult = { accepted: boolean; code?: string };
+
 export const handleFrontierCommandImpl = (
   ctx: RuntimeFrontierCommandContext,
   command: CommandEnvelope,
   actionType: FrontierCommandType
-): boolean => {
+): FrontierCommandResult => {
   const actor = ctx.players.get(command.playerId);
   const payload = parseFrontierPayload(command.payloadJson);
-  if (!actor || !payload) { ctx.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return false; }
+  if (!actor || !payload) { ctx.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return { accepted: false, code: "BAD_COMMAND" }; }
   ctx.applyManpowerRegen(actor);
 
   const submittedFrom = ctx.tiles.get(simulationTileKey(payload.fromX, payload.fromY));
   const to = ctx.tiles.get(simulationTileKey(payload.toX, payload.toY));
-  if (!submittedFrom || !to) { ctx.rejectCommand(command, "UNKNOWN_TILE", "origin or target tile not found"); return false; }
+  if (!submittedFrom || !to) { ctx.rejectCommand(command, "UNKNOWN_TILE", "origin or target tile not found"); return { accepted: false, code: "UNKNOWN_TILE" }; }
 
   const adjacentOwnedOrigin = submittedFrom.ownerId === actor.id
     ? undefined
@@ -150,7 +152,7 @@ export const handleFrontierCommandImpl = (
     from.frontierDecayKind === "ENCIRCLEMENT"
   ) {
     ctx.rejectCommand(command, "ORIGIN_CUT_OFF", "origin tile is cut off from supply and cannot launch actions");
-    return false;
+    return { accepted: false, code: "ORIGIN_CUT_OFF" };
   }
 
   const isDockCrossing = ctx.isDockCrossingTarget(from, to.x, to.y);
@@ -233,7 +235,7 @@ export const handleFrontierCommandImpl = (
       targetLockResolvesAt: targetLock?.resolvesAt
     });
     ctx.rejectCommand(command, validation.code, validation.message);
-    return false;
+    return { accepted: false, code: validation.code };
   }
 
   const resolvedOriginKey = simulationTileKey(validation.origin.x, validation.origin.y);
@@ -341,5 +343,5 @@ export const handleFrontierCommandImpl = (
   if (actionType === "EXPAND" && !actor.isAi) {
     ctx.emitPlayerStateUpdate({ commandId: command.commandId, playerId: actor.id });
   }
-  return true;
+  return { accepted: true };
 };

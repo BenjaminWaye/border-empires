@@ -14,7 +14,7 @@ import { dropStuckPendingMusterAttack, findClosestMuster, hasFundedMusterWithinR
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { registerWaypointNoProgressTick } from "./client-waypoint-halt.js";
+import { registerWaypointNoProgressTick } from "./client-waypoint-halt.js"; import { settleProgressSetChanged } from "./client-settle-progress-diff.js";
 import {
   persistWaypointQueueForPlayer,
   syncWaypointQueueToServer,
@@ -989,7 +989,7 @@ export const applyPendingSettlementsFromServer = (
       latestKey = tileKey;
     }
   }
-  state.latestSettleTargetKey = latestKey;
+  if (settleProgressSetChanged(previousProgress, state.settleProgressByTile)) state.tilesRevision += 1; state.latestSettleTargetKey = latestKey;
   if (ignoredStaleEntry) deps.requestViewRefresh(2, true);
 };
 
