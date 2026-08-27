@@ -12,6 +12,24 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787687420759, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.4",
+    title: "Reverted the crisp border-ribbon prototype on the 3D ownership overlay",
+    why: "The prototype border ribbon along exposed territory edges (#1474) didn't read well in practice -- pulled back out to the flat fill-tint look while a better edge treatment is worked out.",
+    changes: [
+      "3D territory tiles no longer draw a bright border ribbon along exposed edges; back to the fill-only look."
+    ]
+  },
+  {
+    createdAt: 1787682600000, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.4",
+    title: "Fixed the out-of-reach decay pulse jumping every time you panned the camera",
+    why: "The amber/white frontier-decay countdown pulse was baked into the ownership overlay's mesh colors inside the same rebuild that also fires on every camera pan or zoom (not just on actual game-state changes), sampling the wall clock fresh each time -- so panning the map made the pulse visibly jump or restart instead of animating smoothly.",
+    changes: [
+      "The decay pulse now animates from a per-frame update independent of camera movement, the same pattern already used for the reach-border pylon animation -- it only reacts to the tile's actual decay state, never to panning or zooming."
+    ]
+  },
+  {
     createdAt: 1787501551526, // frozen just after the "Maybe your empire is in ruins" entry
     introducedIn: "2026.08.21",
     title: "Village smoke and capital banners are now animated on the GPU instead of the CPU",

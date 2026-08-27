@@ -124,12 +124,15 @@ describe("simulation seed state", () => {
     expect(simulationWorldSeedForProfile("season-20ai")).toBe(22);
     // This profile always generates in "continents" style (createSeedWorld never
     // passes a style option) at the fixed seed above, so this count is fully
-    // deterministic. The 20-30 band predates the quincunx 5-continent layout
-    // (worldgen.ts) and no longer matches its coastline fragmentation — actual
-    // is a stable 38 for this seed. Banded rather than pinned to stay resilient
-    // to minor unrelated worldgen tuning.
-    expect(countSignificantIslands(world, 20)).toBeGreaterThanOrEqual(25);
-    expect(countSignificantIslands(world, 20)).toBeLessThanOrEqual(45);
+    // deterministic. Mountain rings (isMountainCluster) now always leave a
+    // gap instead of forming a fully closed loop (see
+    // worldgen-mountain-rings.ts), so some landmasses that used to come out
+    // as separate "islands" sealed apart by a closed ring now connect
+    // through the gap and merge into fewer, larger significant landmasses —
+    // actual is a stable 11 for this seed. Banded rather than pinned to stay
+    // resilient to minor unrelated worldgen tuning.
+    expect(countSignificantIslands(world, 20)).toBeGreaterThanOrEqual(5);
+    expect(countSignificantIslands(world, 20)).toBeLessThanOrEqual(20);
     expect(world.summary.perPlayer.filter((player) => player.isAi)).toHaveLength(20);
     expect(world.summary.perPlayer.every((player) => player.settledTiles === 1 && player.towns === 1)).toBe(true);
     expect(world.players.has("barbarian-1")).toBe(true);

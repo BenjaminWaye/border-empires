@@ -28,6 +28,7 @@ export type SeasonSeedPlayerSpawnDeps = {
   naturalWondersByTile: Map<TileKey, NaturalWonderSiteState>;
   createSettlementTown: (tk: TileKey, townType: "MARKET" | "FARMING") => TownDefinition;
   townTypeAt: (x: number, y: number) => "MARKET" | "FARMING";
+  minTownSpacing: () => number;
 };
 
 export type SeasonSeedSpawnPosition = { playerId: string; x: number; y: number; isAi: boolean };
@@ -35,13 +36,22 @@ export type SeasonSeedSpawnPosition = { playerId: string; x: number; y: number; 
 export const createSeasonSeedPlayerSpawner = (
   deps: SeasonSeedPlayerSpawnDeps
 ): { spawnPositions: SeasonSeedSpawnPosition[]; spawnPlayerAt: (playerId: string, isAi: boolean, playerIndex: number) => void } => {
-  const { WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, wrapX, wrapY, key, chebyshevDistance, seeded01, townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, naturalWondersByTile, createSettlementTown, townTypeAt } = deps;
+  const { WORLD_WIDTH, WORLD_HEIGHT, worldSeed, terrainAt, wrapX, wrapY, key, chebyshevDistance, seeded01, townsByTile, docksByTile, ownership, clusterByTile, clustersById, shardSitesByTile, watchtowersByTile, naturalWondersByTile, createSettlementTown, townTypeAt, minTownSpacing } = deps;
 
   const spawnPositions: SeasonSeedSpawnPosition[] = [];
+  // A player's own settlement is planted directly on their spawn tile below,
+  // so an existing town counted as "nearby" here must sit at least the same
+  // minimum spacing away that towns keep from each other everywhere else —
+  // otherwise the amenity check was satisfied by a town landing right next
+  // to (or overlapping the neighborhood of) the spawn's own new settlement,
+  // reading as two towns crammed together at every spawn. One town within
+  // reach is still enough; it just can't be immediately adjacent.
   const hasNearbyTown = (x: number, y: number, radius: number): boolean => {
+    const minDistance = minTownSpacing();
     for (let dy = -radius; dy <= radius; dy += 1) {
       for (let dx = -radius; dx <= radius; dx += 1) {
-        if (Math.abs(dx) + Math.abs(dy) > radius) continue;
+        const distance = Math.abs(dx) + Math.abs(dy);
+        if (distance > radius || distance < minDistance) continue;
         if (townsByTile.has(key(wrapX(x + dx, WORLD_WIDTH), wrapY(y + dy, WORLD_HEIGHT)))) return true;
       }
     }

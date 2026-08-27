@@ -357,8 +357,16 @@ export const createServerWorldgenDocks = (deps: ServerWorldgenDocksDeps): Server
       }
     }
 
+    // Every dock produced above came from an eligible component (one with at
+    // least one sea-adjacent land tile), so it always belongs on the map —
+    // even a solo landmass with no other component to route a connection to
+    // (e.g. a single big island, or the only sea-reachable component once
+    // fully-sealed components are excluded) still needs its dock committed.
+    // Previously this loop dropped any dock with no pairing/connection,
+    // which silently produced zero docks whenever there was only one
+    // eligible component in the whole world — the root cause of islands
+    // needing a "second pass" dock patch after the fact.
     for (const dock of docks) {
-      if (!dock.pairedDockId && (dock.connectedDockIds?.length ?? 0) === 0) continue;
       docksByTile.set(dock.tileKey, dock);
       dockById.set(dock.dockId, dock);
     }
