@@ -15,6 +15,25 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787827200551, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.1",
+    title: "The tile popup no longer shows a town as fed when it's actually unfed",
+    why: "A town's tile-detail popup computed \"fed\" as: is it a Settlement, OR is the player's overall FOOD stockpile fully covered, OR does the sim's own record already say fed, OR is there an adjacent Farm/Fish tile. That last pair are leftover checks from before FOOD became a slot mechanic, and since almost every farming town sits next to a Farm or Fish tile, they made the popup report \"fed\" for virtually any town regardless of an actual FOOD-slot shortfall -- so a town the game had correctly marked unfed could still show 4/4 Food when clicked.",
+    changes: [
+      "The tile popup's Food line now trusts the simulation's own fed/unfed verdict whenever it's available, instead of letting an adjacent Farm/Fish tile or overall FOOD stockpile override it back to \"fed\"."
+    ]
+  },
+  {
+    createdAt: 1787827096329, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.6",
+    title: "Fixed the checklist bubble sometimes overlapping the Center button, and simplified the food-goal copy",
+    why: "The checklist bubble's vertical position was a guessed fixed pixel offset above the \"Center / Jump to your banner\" button, tuned against one specific layout -- on other viewport sizes it could visually collide with that button instead of clearing it. Separately, the food-goal labels spelled out the FARM/FISH slot-weighting rule inline (\"4 slots -- grain 1, fish 2\") and called the claimed-slots goal \"X/4 food slots\", which read as two different, oddly-worded stats instead of a matched pair.",
+    changes: [
+      "The checklist bubble now measures the Center button's actual on-screen position each render and clears it by a fixed gap, instead of guessing a fixed pixel offset that could drift out of sync with the real layout.",
+      "The food goals now read \"Find food tiles (X/4)\" and \"Expand To food tiles (X/4)\" -- matched, simpler copy instead of spelling out the grain/fish slot-weighting rule inline."
+    ]
+  },
+  {
     createdAt: 1787816841167, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.1",
     title: "Expand animation now plays on a directly-tapped tile, and queued waypoints stop disappearing",
@@ -424,34 +443,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787584599966, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
-    introducedIn: "2026.08.24.6",
-    title: "\"Expand To\" no longer shows \"0 gold\" when expanding costs no gold",
-    why: "The multi-step Expand To cost line always showed a gold figure even when the plan was pure EXPAND steps, which cost manpower only. That made it look like the action was free (misleading) or like gold was being charged (confusing) instead of simply not being part of the cost.",
-    changes: [
-      "The Expand To cost summary now omits the gold amount entirely when the plan costs 0 gold, showing only manpower and time."
-    ]
-  },
-  {
-    createdAt: 1787584599965, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.5",
-    title: "Fixed frontier tiles auto-settling on undiscovered resources",
-    why: "Auto-settle was supposed to skip a resource tile until you'd actually revealed it (scouted it into your fog-of-war coverage), but a refactor had silently dropped that check, so a frontier tile could auto-settle the instant it became eligible even if you hadn't seen what was on it yet.",
-    changes: [
-      "Auto-settle no longer claims a frontier tile with a resource on it until that resource has actually been revealed to you. Town, dock, and town-supported frontier tiles are unaffected since those were always visible to their owner."
-    ]
-  },
-  {
-    createdAt: 1787572138647, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
-    introducedIn: "2026.08.24.4",
-    title: "Easier to find food",
-    why: "FARM and FISH clusters were rare enough (52 of each, scattered across the whole map) that players crossing open land or coastline could go a long way without spotting any food.",
-    changes: [
-      "New small single-tile FARM deposits now appear in each of the 4 directions around most farm clusters, 7-11 tiles out, so open land near a farm cluster has more food to find. There are now fewer, but larger-footprint, farm clusters overall to keep the total farmland roughly in balance.",
-      "New small single-tile FISH deposits now appear on either side of existing fish clusters, roughly 10 tiles out along the coast, so a coastline with fish has a couple of easier follow-up spots nearby. Fish clusters themselves are slightly smaller to keep the total fishing grounds unchanged."
-    ]
-  },
-  {
     createdAt: 1787749806338, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
     title: "AI empires can now unblock growth when out of FOOD slots",
@@ -459,15 +450,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "An AI empire that's fully out of FOOD slots, with no direct way to grow more, will now disable one of its own Relay Beacons that isn't covering any resources to free up the slot for further growth.",
       "This is always a reversible disable, never a demolition -- the building stays intact and can be re-enabled once FOOD has headroom again."
-    ]
-  },
-  {
-    createdAt: 1787766405640, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.2",
-    title: "Settle now works on a captured town or dock outside your reach",
-    why: "A captured town or dock frontier tile (e.g. taken by Attack, which isn't reach-gated) could sit outside your reach border and keep getting rejected with \"tile is outside your reach\" every time Settle was attempted, even though settling it is exactly what would give it its own reach in the first place -- a Catch-22 that made some captured towns/docks permanently unsettleable.",
-    changes: [
-      "Settle no longer requires a captured town or dock tile to already be inside your reach -- only plain resource/support frontier tiles still need that."
     ]
   },
   {
