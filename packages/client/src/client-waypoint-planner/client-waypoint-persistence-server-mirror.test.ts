@@ -105,6 +105,66 @@ describe("restorePersistedWaypointQueueForPlayer: server merge", () => {
     expect(restored).toHaveLength(0);
   });
 
+  it("adopts the server's remaining steps (from cursor) as the local plan instead of re-planning blind", () => {
+    // Test 5 (docs/waypoint-client-planning-plan.md): reconnect mid-plan --
+    // no re-plan, the client resumes exactly where the server's cursor left
+    // off. Tile (9,10) below is deliberately absent from local state.tiles
+    // (as if fog/chunk data hasn't arrived yet) -- a blind planWaypoint()
+    // re-run here would have nothing to route through and could fail or
+    // produce a different path than the server actually walked.
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    const state = stateWithTiles([tile(10, 10, { ownerId: "me" })]);
+
+    const restored = restorePersistedWaypointQueueForPlayer("me", { state, keyFor }, [
+      {
+        x: 12,
+        y: 10,
+        queuedAt: 1,
+        planId: "plan-server-1",
+        plannedAt: 500,
+        cursor: 1,
+        steps: [
+          { origin: { x: 10, y: 10 }, target: { x: 11, y: 10 }, action: "EXPAND" },
+          { origin: { x: 11, y: 10 }, target: { x: 12, y: 10 }, action: "EXPAND" }
+        ]
+      }
+    ]);
+
+    expect(restored).toHaveLength(1);
+    expect(restored[0]?.planId).toBe("plan-server-1");
+    expect(restored[0]?.plannedAt).toBe(500);
+    // Only the step from cursor (1) onward -- step 0 already happened.
+    expect(restored[0]?.plan.steps).toHaveLength(1);
+    expect(restored[0]?.plan.steps[0]).toMatchObject({ origin: { x: 11, y: 10 }, target: { x: 12, y: 10 }, action: "EXPAND" });
+    expect(restored[0]?.plan.reachable).toBe(true);
+  });
+
+  it("re-plans instead of adopting steps when the server entry is stalled", () => {
+    installSessionStorageMock();
+    globalThis.sessionStorage.clear();
+    const state = stateWithTiles([tile(1, 1, { ownerId: "me" }), tile(2, 1)]);
+
+    const restored = restorePersistedWaypointQueueForPlayer("me", { state, keyFor }, [
+      {
+        x: 2,
+        y: 1,
+        queuedAt: 1,
+        planId: "plan-stale",
+        plannedAt: 10,
+        cursor: 0,
+        stalled: true,
+        steps: [{ origin: { x: 1, y: 1 }, target: { x: 2, y: 1 }, action: "EXPAND" }]
+      }
+    ]);
+
+    expect(restored).toHaveLength(1);
+    // Re-planned fresh via planWaypoint -- not simply the stalled steps
+    // handed back verbatim.
+    expect(restored[0]?.plan.reachable).toBe(true);
+    expect(restored[0]?.plan.steps.length).toBeGreaterThan(0);
+  });
+
   // Regression / desync-investigation coverage: restorePersistedWaypointQueueForPlayer
   // is a pure merge -- it takes no sendGameMessage dependency at all, so it
   // cannot itself push anything to the server. A reconnect whose

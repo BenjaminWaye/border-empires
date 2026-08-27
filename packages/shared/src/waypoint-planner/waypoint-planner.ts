@@ -8,8 +8,19 @@
 // what the server actually executed.
 //
 // Originally packages/client/src/client-waypoint-planner/client-waypoint-planner.ts;
-// relocated here verbatim (algorithm untouched) so apps/simulation can
+// relocated here verbatim (algorithm untouched) so apps/simulation *could*
 // import it too.
+//
+// It doesn't, though, and that is a deliberate end state, not an unfinished
+// migration -- see docs/waypoint-client-planning-plan.md. The client is the
+// only planner: it computes the full route and sends the ordered steps[]
+// over the wire (WaypointWireStep, waypoint-planner-types.ts), and
+// apps/simulation's runtime-waypoint-drain only ever replays that
+// client-supplied plan verbatim while the player is offline -- it never
+// re-plans or imports this A* itself. If you're tempted to "finish" the
+// migration by wiring this module into apps/simulation, read that doc's
+// Decisions table first: server-side replanning was considered and
+// rejected.
 
 import {
   COMBAT_LOCK_MS,
@@ -35,7 +46,8 @@ import {
   type WaypointPlannerDeps,
   type WaypointPlannerState,
   type WaypointPlannerTile,
-  type WaypointStep
+  type WaypointStep,
+  type WaypointWireStep
 } from "./waypoint-planner-types.js";
 
 export {
@@ -47,8 +59,15 @@ export {
   type WaypointPlannerDeps,
   type WaypointPlannerState,
   type WaypointPlannerTile,
-  type WaypointStep
+  type WaypointStep,
+  type WaypointWireStep
 };
+
+// Narrow a full plan's steps down to the wire projection (§1). Bounded by
+// WAYPOINT_MAX_WIRE_STEPS at the call site (the enqueue handler), not here --
+// this is a pure projection, not a validator.
+export const wireStepsForPlan = (steps: readonly WaypointStep[] | undefined): WaypointWireStep[] =>
+  (steps ?? []).map((step) => ({ origin: { ...step.origin }, target: { ...step.target }, action: step.action }));
 
 const chebyshevToroid = (ax: number, ay: number, bx: number, by: number): number => {
   const dx = Math.abs(ax - bx);

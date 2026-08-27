@@ -30,4 +30,13 @@ export type ClientWaypoint = {
   trackBarbarian?: boolean;
   // Paused on an unaffordable EXPAND leg — see client-waypoint-manpower-pause.ts.
   pausedForManpower?: boolean;
+  // Identity of the client-side plan that produced `plan.steps` -- sent to
+  // the server alongside the wire projection of those steps (see
+  // client-waypoint-persistence.ts's waypointEnqueueWirePayload and
+  // docs/waypoint-client-planning-plan.md §1). A fresh planWaypoint() run
+  // gets a fresh planId; the server replaces its stored entry in place
+  // whenever a newer plannedAt arrives for the same target instead of
+  // rejecting the enqueue as a duplicate.
+  planId?: string;
+  plannedAt?: number;
 };

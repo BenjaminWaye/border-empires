@@ -1126,7 +1126,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const stopGameplayTickers = (): void => {
     if (shardRainTicker) { clearInterval(shardRainTicker); shardRainTicker = undefined; }
     if (tileSheddingTicker) { clearInterval(tileSheddingTicker); tileSheddingTicker = undefined; }
-    if (territoryAutomationTicker) { clearInterval(territoryAutomationTicker); territoryAutomationTicker = undefined; }
+    if (territoryAutomationTicker) { clearInterval(territoryAutomationTicker); territoryAutomationTicker = undefined; } if (waypointDrainTicker) { clearInterval(waypointDrainTicker); waypointDrainTicker = undefined; }
     if (orphanLockSweepTicker) { clearInterval(orphanLockSweepTicker); orphanLockSweepTicker = undefined; }
     if (watchedMusterTicker) { clearInterval(watchedMusterTicker); watchedMusterTicker = undefined; }
     if (watchtowerRevealTicker) { clearInterval(watchtowerRevealTicker); watchtowerRevealTicker = undefined; }
@@ -1210,7 +1210,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   let eventLoopSampler: ReturnType<typeof setInterval> | undefined;
   let shardRainTicker: ReturnType<typeof setInterval> | undefined;
   let tileSheddingTicker: ReturnType<typeof setInterval> | undefined;
-  let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined;
+  let territoryAutomationTicker: ReturnType<typeof setInterval> | undefined; let waypointDrainTicker: ReturnType<typeof setInterval> | undefined;
   let orphanLockSweepTicker: ReturnType<typeof setInterval> | undefined;
   let watchedMusterTicker: ReturnType<typeof setInterval> | undefined;
   let watchtowerRevealTicker: ReturnType<typeof setInterval> | undefined;
@@ -2788,7 +2788,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         void runtime.tickTerritoryAutomation(Date.now(), yieldToEventLoop)
           .catch((error) => { log.error({ err: error }, "territory automation tick failed"); })
           .finally(() => { territoryAutomationRunning = false; });
-      }, 30_000);
+      }, 30_000); waypointDrainTicker = setInterval(() => { if (currentSeasonState.status === "ended") return; try { trackSyncMainThreadTaskWithMetrics("tick_waypoint_drain", undefined, () => runtime.tickWaypointDrain()); } catch (error) { log.error({ err: error }, "waypoint drain tick failed"); } }, 2_000);
       orphanLockSweepTicker = setInterval(() => {
         if (currentSeasonState.status === "ended") return;
         try {
@@ -3070,7 +3070,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       if (eventLoopSampler) clearInterval(eventLoopSampler);
       if (shardRainTicker) clearInterval(shardRainTicker);
       if (tileSheddingTicker) clearInterval(tileSheddingTicker);
-      if (territoryAutomationTicker) clearInterval(territoryAutomationTicker);
+      if (territoryAutomationTicker) clearInterval(territoryAutomationTicker); if (waypointDrainTicker) clearInterval(waypointDrainTicker);
       if (orphanLockSweepTicker) clearInterval(orphanLockSweepTicker);
       if (watchedMusterTicker) clearInterval(watchedMusterTicker);
       if (watchtowerRevealTicker) clearInterval(watchtowerRevealTicker);

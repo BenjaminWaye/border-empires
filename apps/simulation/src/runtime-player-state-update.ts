@@ -4,6 +4,7 @@ import type { CommandEnvelope } from "@border-empires/sim-protocol";
 import { additiveEffectForPlayer, buildModBreakdownForPlayer, recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { computeEmpireStorageCap, type EmpireStorageCap } from "./runtime-empire-storage.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
+import { waypointQueueWireEntries } from "./player-runtime-summary.js";
 import type { PlayerDefensibilityMetrics } from "./player-defensibility-metrics.js";
 import type { PlayerUpdateEconomySnapshot } from "./player-update-economy/player-update-economy.js";
 import type { RuntimePlayer } from "./runtime-types.js";
@@ -116,12 +117,7 @@ export function emitPlayerStateUpdate(
         ...(entry.structureType ? { structureType: entry.structureType } : {}),
         queuedAt: entry.queuedAt
       })),
-      waypointQueue: summary.waypointQueue.map((entry) => ({
-        x: entry.target.x,
-        y: entry.target.y,
-        queuedAt: entry.queuedAt,
-        ...(entry.trackBarbarian ? { trackBarbarian: true } : {})
-      })),
+      waypointQueue: waypointQueueWireEntries(summary.waypointQueue),
       developmentProcessLimit: DEVELOPMENT_PROCESS_LIMIT + additiveEffectForPlayer(player, "developmentProcessCapacityAdd"),
       activeDevelopmentProcessCount: context.activeDevelopmentProcessCountForPlayer(playerId),
       ...(capChanged ? { storageCap } : {})

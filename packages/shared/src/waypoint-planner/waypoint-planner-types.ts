@@ -11,6 +11,18 @@ import { grassShadeAt, landBiomeAt } from "../worldgen/worldgen.js";
 
 export type WaypointAction = "EXPAND" | "ATTACK";
 
+// Deliberately narrow wire projection of WaypointStep -- see
+// docs/waypoint-client-planning-plan.md §1. Carries only what a replayer
+// needs (origin/target/action) to dispatch a leg, not the costing fields
+// (durationMs/goldCost/manpowerCost/...) the client only needs for its own
+// UI. Produced by wireStepsForPlan below and consumed server-side by
+// apps/simulation's runtime-waypoint-drain.
+export type WaypointWireStep = {
+  origin: { x: number; y: number };
+  target: { x: number; y: number };
+  action: WaypointAction;
+};
+
 export type WaypointStep = {
   origin: { x: number; y: number };
   target: { x: number; y: number };
