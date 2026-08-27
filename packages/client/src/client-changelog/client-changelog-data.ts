@@ -23,6 +23,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787817510197, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.1",
+    title: "Fixed the frontier decay countdown freezing on a decaying tile's menu",
+    why: "The tile menu's \"decays in Xs\" / \"disappears in Xs\" countdown for an encircled or out-of-reach frontier tile was only recomputed when the HUD re-rendered for some other reason (an incoming server message). With the menu left open on a decaying tile and nothing else happening, the countdown just sat frozen at whatever second it was showing when the menu opened, reading as if there were no timer at all.",
+    changes: [
+      "The tile menu now ticks its decay countdown once a second while it's open on a decaying tile, so the timer visibly counts down instead of freezing."
+    ]
+  },
+  {
     createdAt: 1787812963830, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.9",
     title: "Waypoints no longer fight the server for every step while you're online",
@@ -453,25 +462,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: ["Looking at a town now plays a new, updated town theme sound instead of the old one."]
   },
   {
-    createdAt: 1787501551525, // frozen just after this file's prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
-    introducedIn: "2026.08.23.5",
-    title: "AI empires no longer play ahead during the season lobby countdown",
-    why: "Locking new human players out of a season until the lobby countdown finished didn't also stop AI empires from acting -- they kept building, expanding, and fighting during the countdown, so by the time human players were let in the AI had a head start nobody could see coming.",
-    changes: [
-      "AI empires now stay locked out of taking any actions during the lobby countdown, just like new human players, until the season actually starts."
-    ]
-  },
-  {
-    createdAt: 1787501551524, // frozen one ms after the incoming "Lowered the season player cap to 50" entry
-    introducedIn: "2026.08.23.4",
-    title: "\"Maybe your empire is in ruins\" no longer fires while you're still waiting in the pre-game lobby, and the lobby fits mobile screens properly",
-    why: "Income is naturally zero before a world has started, but the respawn prompt only checked income, so everyone waiting for a season to begin got told their empire might be in ruins. Separately, on narrow phone screens the lobby's roster/ID text could get clipped at the edge of the screen and the \"Join the Discord\" button wrapped its label onto two lines.",
-    changes: [
-      "The respawn prompt now also checks that you're not still waiting to join a season before suggesting a respawn.",
-      "The pre-game lobby now reclaims horizontal space on narrow phones and stacks its action buttons full-width, so \"Join the Discord\" and roster/ID rows no longer wrap or run off the edge of the screen."
-    ]
-  },
-  {
     createdAt: 1787749806338, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
     title: "AI empires can now unblock growth when out of FOOD slots",
@@ -490,6 +480,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Settle no longer requires a captured town or dock tile to already be inside your reach -- only plain resource/support frontier tiles still need that."
     ]
   },
+  {
+    createdAt: 1787817717886, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27",
+    title: "Fixed frontier tiles falsely glowing amber after panning the map",
+    why: "The decay-countdown pulse writes its amber tint straight into the ownership overlay's GPU color buffer every frame, separately from the buffer's own rebuild-on-pan color update. Both writers shared one pending-upload list, and the pulse's per-frame bookkeeping was clearing that list before the rebuild's own full-buffer update reached the GPU whenever a pan/zoom rebuild and a pulse tick landed in the same frame. Any frontier tile that a rebuild reassigned to a vertex slot the pulse didn't touch that frame kept whatever color the GPU already had there from a previous tile -- including, e.g., another empire's amber decay pulse -- until the next rebuild happened to also touch that exact slot.",
+    changes: [
+      "Panning or zooming the map over frontier tiles no longer occasionally leaves random, non-decaying tiles stuck glowing amber like the frontier-decay pulse."
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
