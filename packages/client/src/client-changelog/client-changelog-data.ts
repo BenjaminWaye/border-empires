@@ -481,7 +481,7 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1787823264967, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27",
     title: "Enable <structure> is disabled on an unsettled tile",
     why: "A disabled economic structure (Relay Beacon, synthesizer, weapons factory, etc.) standing on a FRONTIER (not yet settled) tile could still be re-enabled, letting it resume occupying a resource slot and providing bonuses from a tile that isn't actually settled.",
