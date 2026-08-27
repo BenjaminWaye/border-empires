@@ -60,14 +60,16 @@ describe("season worldgen", () => {
     expect(aiNames).toContain("Freja");
     expect(aiNames).toContain("Bryn");
     expect(aiNames.every((name) => typeof name === "string" && !name.startsWith("ai-"))).toBe(true);
-    // buildIslands() scatters 55 island blobs by construction (worldgen.ts); some
-    // fragment into multiple disconnected landmasses from the coastline wobble,
-    // some merge or fall below the 20-tile significance floor. Sampled across
-    // several seeds the real generator lands consistently in the 40-65 range —
-    // nothing like the old 20-30 band, which was reverse-engineered for the
-    // pre-fix continents-based fake-islands approximation.
-    expect(countSignificantIslands(generated.initialState.tiles, 20)).toBeGreaterThanOrEqual(30);
-    expect(countSignificantIslands(generated.initialState.tiles, 20)).toBeLessThanOrEqual(80);
+    // buildIslands() scatters a handful of large island seeds plus ~50 small
+    // ones (worldgen.ts); some fragment into multiple disconnected landmasses
+    // from the coastline wobble, some merge into each other now that islands
+    // carry more land (lower sea/coastal thresholds for the "islands" style —
+    // see baseTerrainCodeAt), and some fall below the 20-tile significance
+    // floor. Sampled across several seeds the real generator lands in the
+    // 15-35 range post-tuning (fewer, bigger landmasses than before, which is
+    // the intended effect of leaving room for a big island).
+    expect(countSignificantIslands(generated.initialState.tiles, 20)).toBeGreaterThanOrEqual(10);
+    expect(countSignificantIslands(generated.initialState.tiles, 20)).toBeLessThanOrEqual(40);
     expect(generated.initialState.docks?.length ?? 0).toBeGreaterThan(10);
     expect(generated.initialState.players).toContainEqual(
       expect.objectContaining({

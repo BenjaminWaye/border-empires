@@ -468,7 +468,7 @@ export const createSeasonSeedWorld = (
     chebyshevDistance, seeded01: terrainRuntime.seeded01,
     townsByTile, docksByTile, ownership, clusterByTile, clustersById,
     shardSitesByTile, watchtowersByTile, naturalWondersByTile,
-    createSettlementTown, townTypeAt: townsRuntime.townTypeAt
+    createSettlementTown, townTypeAt: townsRuntime.townTypeAt, minTownSpacing: townsRuntime.minTownSpacing
   });
 
   for (let index = 0; index < humanPlayerCount; index += 1) {

@@ -133,6 +133,8 @@ export interface ServerWorldgenTownsRuntime {
   ensureBaselineEconomyCoverage: (seed: number) => void;
   ensureInterestCoverage: (seed: number) => void;
   initialTownPopulationAt: (x: number, y: number, seed: number) => number;
+  minTownSpacing: () => number;
+  isFarEnoughFromTowns: (x: number, y: number, minSpacing: number, ignoreTileKey?: TileKey) => boolean;
 }
 
 export interface ServerWorldgenShardsDeps {

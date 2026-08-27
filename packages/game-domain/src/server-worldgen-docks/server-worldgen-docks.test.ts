@@ -233,4 +233,22 @@ describe("server worldgen docks", () => {
     expect(new Set(largeIslandDocks.flatMap((dock) => dock.connectedDockIds ?? [])).size).toBe(1);
     expect(largeIslandDocks.flatMap((dock) => dock.connectedDockIds ?? [])).toContain(smallIslandDocks[0]!.dockId);
   });
+
+  it("still places a dock on the only land component in the world, with nothing else to pair or connect it to", () => {
+    // A single sea-adjacent island and nothing else — there is no other
+    // component for it to route a dock connection to. Previously the
+    // committing step dropped any dock with no pairing/connection, which
+    // meant a world with exactly one eligible landmass got zero docks on the
+    // first pass (root cause behind needing an ad hoc second pass/patch for
+    // islands missing docks).
+    const onlyIslandTiles = new Set<TileKey>(["4,4", "5,4", "4,5", "5,5"]);
+    const { runtime, docksByTile } = createDockTestRuntime({
+      landTiles: onlyIslandTiles
+    });
+
+    runtime.generateDocks(24601);
+
+    const islandDocks = [...docksByTile.values()].filter((dock) => onlyIslandTiles.has(dock.tileKey));
+    expect(islandDocks).toHaveLength(1);
+  });
 });
