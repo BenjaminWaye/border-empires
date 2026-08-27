@@ -89,6 +89,24 @@ describe("onboardingChecklistState", () => {
     expect(state.townExpanded).toBe(false);
   });
 
+  it("reports the real foodSlotsClaimed total even while still on EXPAND_TOWN, not a hardcoded 0", () => {
+    // A player can end up owning food tiles (e.g. captured via ATTACK)
+    // before finishing the town goal -- foodSlotsClaimed must reflect that,
+    // not silently read 0 while foodExpanded/foodFound reflect the real
+    // total (which would make the panel show a checked food-expanded box
+    // next to "0/4 food slots" text).
+    const tiles = tilesMap([
+      ownTown(0, 0, "SETTLEMENT"),
+      tile(2, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never }),
+      tile(1, 0, { resource: "FISH", ownerId: ME }), // 2 slots, already owned
+      tile(1, 1, { resource: "FISH", ownerId: ME }) // 2 slots, already owned -- 4 total
+    ]);
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.step).toBe("EXPAND_TOWN");
+    expect(state.foodSlotsClaimed).toBe(4);
+    expect(state.foodExpanded).toBe(true);
+  });
+
   it("moves to EXPAND_RELAY_BEACON instead of EXPAND_TOWN when a neutral town exists but is outside reach", () => {
     const tiles = tilesMap([
       ownTown(0, 0, "SETTLEMENT"),

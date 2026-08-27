@@ -160,7 +160,7 @@ export const onboardingChecklistState = (
         townExpanded: false,
         foodFound,
         foodExpanded,
-        foodSlotsClaimed: 0,
+        foodSlotsClaimed,
         foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
         highlightTiles: reachableTownCandidates
       };
