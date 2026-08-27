@@ -16,6 +16,7 @@ type MakeContextOptions = {
   dispatchResultFor?: (x: number, y: number, actionType: FrontierCommandType) => boolean;
   rejectionCode?: string;
   isPlayerOnline?: boolean;
+  hasActiveLockForPlayer?: boolean;
 };
 
 function makeContext(waypointQueue: ServerWaypointQueueEntry[], options: MakeContextOptions = {}) {
@@ -30,6 +31,7 @@ function makeContext(waypointQueue: ServerWaypointQueueEntry[], options: MakeCon
     isHostileOwner: (playerId, targetOwnerId) => Boolean(targetOwnerId) && targetOwnerId !== playerId,
     nextDrainCommandId: (playerId, x, y) => `drain:${playerId}:${x},${y}`,
     isPlayerOnline: () => options.isPlayerOnline ?? false,
+    hasActiveLockForPlayer: () => options.hasActiveLockForPlayer ?? false,
     dispatchFrontierCommand: (command, actionType) => {
       dispatched.push({ command, actionType });
       if (!options.dispatchResultFor) return { accepted: true };
@@ -53,7 +55,7 @@ describe("tryDrainWaypointQueue -- plan-carrying entries (steps[]/cursor)", () =
     // dispatch leg 1, 2, 3 in order with the real origins, one per tick, and
     // the entry is dropped after the last.
     const tiles = new Map([
-      ["1,1", tile(1, 1)],
+      ["1,1", tile(1, 1, { ownerId: PLAYER_ID })], // only the first origin starts owned
       ["2,1", tile(2, 1)],
       ["3,1", tile(3, 1)],
       ["4,1", tile(4, 1)]
@@ -67,11 +69,17 @@ describe("tryDrainWaypointQueue -- plan-carrying entries (steps[]/cursor)", () =
     expect(JSON.parse(dispatched[0]!.command.payloadJson)).toMatchObject({ fromX: 1, fromY: 1, toX: 2, toY: 1 });
     expect(summary.waypointQueue[0]!.cursor).toBe(1);
 
+    // Simulates the previous leg's capture resolving before the next tick --
+    // each step's origin becomes owned only once its own EXPAND has landed,
+    // never pre-owned (that's the bug this test guards against: a step must
+    // never dispatch from an origin the player doesn't actually hold yet).
+    tiles.set("2,1", tile(2, 1, { ownerId: PLAYER_ID }));
     tryDrainWaypointQueue(context, PLAYER_ID);
     expect(dispatched).toHaveLength(2);
     expect(JSON.parse(dispatched[1]!.command.payloadJson)).toMatchObject({ fromX: 2, fromY: 1, toX: 3, toY: 1 });
     expect(summary.waypointQueue[0]!.cursor).toBe(2);
 
+    tiles.set("3,1", tile(3, 1, { ownerId: PLAYER_ID }));
     tryDrainWaypointQueue(context, PLAYER_ID);
     expect(dispatched).toHaveLength(3);
     expect(JSON.parse(dispatched[2]!.command.payloadJson)).toMatchObject({ fromX: 3, fromY: 1, toX: 4, toY: 1 });
@@ -94,12 +102,13 @@ describe("tryDrainWaypointQueue -- plan-carrying entries (steps[]/cursor)", () =
   it("marks a stale mid-route step stalled, leaves cursor and entry in place, and stops dispatching it", () => {
     // Test 6.
     const tiles = new Map([
+      ["1,1", tile(1, 1, { ownerId: PLAYER_ID })], // owned, so the origin pre-check passes and the mocked dispatch itself is what fails
       ["2,1", tile(2, 1)],
       ["3,1", tile(3, 1)]
     ]);
     const steps = [step(1, 1, 2, 1), step(2, 1, 3, 1)];
     const entry: ServerWaypointQueueEntry = { target: { x: 3, y: 1 }, queuedAt: 0, steps, cursor: 0 };
-    // Origin (1,1) is not a real tile -- the dispatch is rejected as
+    // The dispatch itself (not the origin-ownership pre-check) is rejected as
     // genuinely invalid (not one of RETRYABLE_WAYPOINT_DRAIN_CODES).
     const { context, summary, dispatched } = makeContext([entry], { tiles, dispatchResultFor: () => false, rejectionCode: "ORIGIN_NOT_OWNED" });
 
@@ -122,7 +131,7 @@ describe("tryDrainWaypointQueue -- plan-carrying entries (steps[]/cursor)", () =
   it("defers a retryable rejection (INSUFFICIENT_MANPOWER) without advancing the cursor, and the next tick retries", () => {
     // Test 7.
     const tiles = new Map([
-      ["1,1", tile(1, 1)],
+      ["1,1", tile(1, 1, { ownerId: PLAYER_ID })],
       ["2,1", tile(2, 1)]
     ]);
     const steps = [step(1, 1, 2, 1)];
@@ -173,6 +182,55 @@ describe("tryDrainWaypointQueue -- plan-carrying entries (steps[]/cursor)", () =
     tryDrainWaypointQueue(context, PLAYER_ID);
 
     // Free advance past step 0, then a real dispatch for step 1.
+    expect(dispatched).toHaveLength(1);
+    expect(JSON.parse(dispatched[0]!.command.payloadJson)).toMatchObject({ fromX: 2, fromY: 1, toX: 3, toY: 1 });
+  });
+
+  it("skips the whole drain call while the player already has an unresolved lock", () => {
+    // Regression: the tick scheduler fires every WAYPOINT_TICK_MS regardless
+    // of whether the previous leg's EXPAND/ATTACK lock has resolved yet
+    // (FRONTIER_CLAIM_MS/COMBAT_LOCK_MS can both exceed the tick interval).
+    // Staging logs showed step N accepted, then step N+1 dispatched ~2s
+    // later from step N's still-unclaimed target and rejected NOT_OWNER --
+    // a non-retryable code, so the entry permanently stalled. This is the
+    // one-dispatch-in-flight-at-a-time pacing plan §4 called for.
+    const tiles = new Map([
+      ["1,1", tile(1, 1, { ownerId: PLAYER_ID })],
+      ["2,1", tile(2, 1)]
+    ]);
+    const steps = [step(1, 1, 2, 1), step(2, 1, 3, 1)];
+    const entry: ServerWaypointQueueEntry = { target: { x: 3, y: 1 }, queuedAt: 0, steps, cursor: 0 };
+    const { context, summary, dispatched } = makeContext([entry], { tiles, hasActiveLockForPlayer: true });
+
+    tryDrainWaypointQueue(context, PLAYER_ID);
+
+    expect(dispatched).toHaveLength(0);
+    expect(summary.waypointQueue[0]!.cursor).toBe(0);
+    expect(summary.waypointQueue[0]!.stalled ?? false).toBe(false);
+  });
+
+  it("defers a step whose origin tile isn't owned by this player yet, without dispatching or stalling", () => {
+    // Second half of the same regression: even if the lock gate above were
+    // ever bypassed (e.g. a stale in-process check), a step must never
+    // dispatch from an origin this player doesn't actually hold -- that's
+    // what produced the non-retryable NOT_OWNER rejection on staging.
+    const tiles = new Map([
+      ["2,1", tile(2, 1)], // step's origin -- not yet owned by PLAYER_ID
+      ["3,1", tile(3, 1)]
+    ]);
+    const steps = [step(2, 1, 3, 1)];
+    const entry: ServerWaypointQueueEntry = { target: { x: 3, y: 1 }, queuedAt: 0, steps, cursor: 0 };
+    const { context, summary, dispatched } = makeContext([entry], { tiles });
+
+    tryDrainWaypointQueue(context, PLAYER_ID);
+
+    expect(dispatched).toHaveLength(0);
+    expect(summary.waypointQueue[0]!.cursor).toBe(0);
+    expect(summary.waypointQueue[0]!.stalled ?? false).toBe(false);
+
+    // Once the origin is actually owned, the next tick dispatches normally.
+    tiles.set("2,1", tile(2, 1, { ownerId: PLAYER_ID }));
+    tryDrainWaypointQueue(context, PLAYER_ID);
     expect(dispatched).toHaveLength(1);
     expect(JSON.parse(dispatched[0]!.command.payloadJson)).toMatchObject({ fromX: 2, fromY: 1, toX: 3, toY: 1 });
   });
