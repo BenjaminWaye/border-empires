@@ -1,6 +1,7 @@
 import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
 import { planWaypoint } from "./client-waypoint-planner.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
+import { attackSyncLog } from "../client-debug/client-debug.js";
 import type { ClientState, ClientWaypoint } from "../client-state/client-state.js";
 
 // Client-side sessionStorage persistence for the waypoint/expand queue,
@@ -152,7 +153,20 @@ export const restorePersistedWaypointQueueForPlayer = (
       removeSessionStorage(WAYPOINT_QUEUE_SESSION_KEY);
     }
   }
-  if (!serverWaypointQueue?.length && sessionEntries.length === 0) return [];
+  // Diagnostic only (see restorePersistedWaypointQueueForPlayer's own doc
+  // comment above): a waypoint that a player placed and never cancelled has
+  // twice now come back empty on reconnect with no error and no trace, and
+  // a live SQLite check on staging showed the server's own durable command
+  // log never received a WAYPOINT_CANCEL for it -- so the loss, if real, is
+  // happening somewhere in this restore, not server-side. Every branch below
+  // that can produce an empty or shrunk result now logs why, so the next
+  // occurrence is provable directly from the recentDebugEvents in a
+  // diagnostics bundle instead of requiring another manual DB inspection.
+  const serverCount = serverWaypointQueue?.length ?? 0;
+  if (serverCount === 0 && sessionEntries.length === 0) {
+    attackSyncLog("waypoint-restore-empty", { playerId, serverProvided: serverWaypointQueue !== undefined });
+    return [];
+  }
 
   const serverTargetKeys = new Set((serverWaypointQueue ?? []).map((entry) => sessionKeyFor(entry.x, entry.y)));
   const orderedEntries: PersistedWaypointEntry[] = [
@@ -165,15 +179,26 @@ export const restorePersistedWaypointQueueForPlayer = (
 
   const isInReach = authoritativeIsInReach(deps.state, deps.keyFor);
   const restored: ClientWaypoint[] = [];
+  const alreadyOwnedTargets: Array<{ x: number; y: number }> = [];
   for (const entry of orderedEntries) {
     const tile = deps.state.tiles.get(deps.keyFor(entry.target.x, entry.target.y));
-    if (tile && tile.ownerId === playerId) continue; // already reached while offline
+    if (tile && tile.ownerId === playerId) { alreadyOwnedTargets.push(entry.target); continue; } // already reached while offline
     restored.push({
       target: entry.target,
       plan: planWaypoint(entry.target, { state: deps.state, keyFor: deps.keyFor, isInReach }),
       ...(entry.trackBarbarian ? { trackBarbarian: true } : {})
     });
     if (restored.length >= WAYPOINT_QUEUE_CLIENT_CAP) break;
+  }
+  if (restored.length !== orderedEntries.length) {
+    attackSyncLog("waypoint-restore-filtered", {
+      playerId,
+      serverCount,
+      sessionCount: sessionEntries.length,
+      orderedCount: orderedEntries.length,
+      restoredCount: restored.length,
+      alreadyOwnedTargets
+    });
   }
   persistWaypointQueueForPlayer(playerId, restored);
   return restored;
