@@ -362,15 +362,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787330000000,
-    introducedIn: "2026.08.21.5",
-    title: "The Quickforge wonder now discounts a rush-buy instead of making it free",
-    why: "The Quickforge's once-per-UTC-day rush-buy perk waived the gold cost entirely, which trivialized cheap rush-buys (like a Settle at 10 gold) and scaled unevenly across rush-buy prices.",
-    changes: [
-      "Once per UTC day, the Quickforge's controller now gets 40 gold off their next rush-buy (floored at 0) instead of that rush-buy being completely free."
-    ]
-  },
-  {
     createdAt: 1787356800000,
     introducedIn: "2026.08.21.3",
     title: "Fixed a crash when switching apps and back while a location theme was playing",

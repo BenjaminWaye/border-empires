@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
   {
+    createdAt: Date.now(),
+    introducedIn: "2026.08.27",
+    title: "Fixed previously explored land turning back into unexplored fog on reconnect",
+    why: "On a fresh-state reconnect (e.g. after a page refresh), the client restores previously explored tiles from localStorage before the INIT message finishes hydrating the current view -- but that hydration step then clears the discovered-tiles set back down to just what's in its own snapshot, silently wiping out the restore. Any previously explored tile outside the current view radius came back looking unexplored instead of correctly fogged, until the player scrolled back over it.",
+    changes: [
+      "Previously explored tiles now stay correctly fogged (rather than reverting to unexplored) on reconnect, by restoring them from local storage after the view snapshot is applied instead of before."
+    ]
+  },
+  {
     createdAt: 1787682505307, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.3",
     title: "Fixed sea tiles rendering solid black from underneath",
