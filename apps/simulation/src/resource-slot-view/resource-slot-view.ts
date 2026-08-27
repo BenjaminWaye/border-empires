@@ -221,7 +221,8 @@ type WaivableTile = Pick<
 const buildDemandContributors = (
   ownedTiles: Iterable<WaivableTile>,
   playerId: string,
-  waivers: SlotWaivers
+  waivers: SlotWaivers,
+  settledAtByTileKey?: ReadonlyMap<string, number>
 ): DormancyContributor[] => {
   const contributors: DormancyContributor[] = [];
   // Track which economicStructure keys are RELAY_BEACON for waiver identification below.
@@ -281,7 +282,7 @@ const buildDemandContributors = (
         key: `${tileKey}:town`,
         resource: "FOOD",
         count: Math.max(0, baseFoodDemand - ministryHallWaiver),
-        activatedAt: TOWN_FOOD_DEMAND_ACTIVATED_AT
+        activatedAt: settledAtByTileKey?.get(tileKey) ?? TOWN_FOOD_DEMAND_ACTIVATED_AT
       });
     }
   }
@@ -359,10 +360,11 @@ const applySlotWaivers = (contributors: DormancyContributor[], waivers: SlotWaiv
 export const resourceSlotDemandForPlayer = (
   ownedTiles: Iterable<WaivableTile>,
   playerId: string,
-  waivers: SlotWaivers = emptySlotWaivers()
+  waivers: SlotWaivers = emptySlotWaivers(),
+  settledAtByTileKey?: ReadonlyMap<string, number>
 ): ResourceSlotTotals => {
   const totals = emptyResourceSlotTotals();
-  for (const contributor of buildDemandContributors(ownedTiles, playerId, waivers)) {
+  for (const contributor of buildDemandContributors(ownedTiles, playerId, waivers, settledAtByTileKey)) {
     totals[contributor.resource] += contributor.count;
   }
   return totals;
@@ -399,13 +401,15 @@ export const resourceSlotDemandForPlayer = (
 // other, and callers union across resources to ask "is this structure
 // dormant at all."
 //
-// Towns are a deliberate exception to the recency ordering: they don't carry
-// an activatedAt (founding/growth isn't tracked as a timestamp today), and
-// losing a whole town's income outright is a much bigger deal than one
-// building going dark, so town FOOD demand is pinned as the oldest
-// (least-likely-to-go-dormant) contributor rather than competing on equal
-// footing with buildings. Flagged here as a simplification, not a plan
-// requirement — the plan doesn't specify town-vs-building ordering.
+// Towns compete in the same newest-first ordering as any other FOOD
+// consumer, keyed off settledAtByTileKey (Runtime.tileSettledAtByKey — the
+// tile-shedding ticker's stamp). A freshly settled town is therefore the
+// newest contributor and goes dormant first for the shortfall its own
+// demand created, instead of some unrelated older structure (e.g. a Relay
+// Beacon) that used to be sacrificed while towns sat pinned as oldest
+// (fixed activatedAt 0). Omitting settledAtByTileKey (reconnect/cold path,
+// which doesn't track per-tile settlement stamps) falls back to that old
+// pinned-oldest activatedAt of 0 rather than guessing a timestamp.
 export type DormancyContributorField = "fort" | "observatory" | "siegeOutpost" | "economicStructure" | "town";
 export type ResourceSlotDormancy = Record<SlotResource, ReadonlySet<string>>;
 
@@ -429,9 +433,10 @@ export const resourceSlotDormantContributorsForPlayer = (
   ownedTiles: Iterable<WaivableTile>,
   playerId: string,
   supply: ResourceSlotTotals,
-  waivers: SlotWaivers = emptySlotWaivers()
+  waivers: SlotWaivers = emptySlotWaivers(),
+  settledAtByTileKey?: ReadonlyMap<string, number>
 ): ResourceSlotDormancy => {
-  const contributors = buildDemandContributors(ownedTiles, playerId, waivers);
+  const contributors = buildDemandContributors(ownedTiles, playerId, waivers, settledAtByTileKey);
 
   const dormancy = emptyResourceSlotDormancy();
   for (const resource of Object.keys(dormancy) as SlotResource[]) {
