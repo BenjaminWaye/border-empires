@@ -223,7 +223,7 @@ import {
   applyLockedManpowerDelta as applyLockedManpowerDeltaImpl,
   applySettledCapturePlunder as applySettledCapturePlunderImpl,
   attackManpowerLoss as attackManpowerLossImpl,
-  buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl,
+  activeFrontierLocksForPlayer as activeFrontierLocksForPlayerImpl, buildCaptureRevealTileDeltas as buildCaptureRevealTileDeltasImpl,
   buildLockedCombatResolution as buildLockedCombatResolutionImpl,
   handleCancelCaptureCommand as handleCancelCaptureCommandImpl,
   plannerGatingLockPlayerIds as plannerGatingLockPlayerIdsImpl,
@@ -3729,7 +3729,7 @@ export class SimulationRuntime {
   private isHostileTileOwner(playerId: string, targetOwnerId: string | undefined): boolean {
     if (!targetOwnerId || targetOwnerId === playerId) return false;
     const actor = this.state.players.get(playerId); return !actor || !isAlliedOrTruced(actor, targetOwnerId); }
-  private waypointQueueCommandContext(): RuntimeWaypointQueueCommandContext { return { summaryForPlayer: (playerId) => this.summaryForPlayer(playerId), now: () => this.now(), emitEvent: (event) => this.emitEvent(event), rejectCommand: (command, code, message) => this.rejectCommand(command, code, message), tileAt: (x, y) => this.state.tiles.get(simulationTileKey(x, y)), isHostileOwner: (playerId, targetOwnerId) => this.isHostileTileOwner(playerId, targetOwnerId), nextDrainCommandId: (playerId, x, y) => this.nextTerritoryAutomationCommandId("waypoint-queue-drain", playerId, simulationTileKey(x, y), this.now()), dispatchFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType), isPlayerOnline: (playerId) => !this.waypointDrainScheduler.isDrainEligible(playerId), hasActiveLockForPlayer: (playerId) => { for (const lock of this.state.locksByTile.values()) { if (lock.playerId === playerId) return true; } return false; } }; }
+  private waypointQueueCommandContext(): RuntimeWaypointQueueCommandContext { return { summaryForPlayer: (playerId) => this.summaryForPlayer(playerId), now: () => this.now(), emitEvent: (event) => this.emitEvent(event), rejectCommand: (command, code, message) => this.rejectCommand(command, code, message), tileAt: (x, y) => this.state.tiles.get(simulationTileKey(x, y)), isHostileOwner: (playerId, targetOwnerId) => this.isHostileTileOwner(playerId, targetOwnerId), nextDrainCommandId: (playerId, x, y) => this.nextTerritoryAutomationCommandId("waypoint-queue-drain", playerId, simulationTileKey(x, y), this.now()), dispatchFrontierCommand: (command, actionType) => this.handleFrontierCommand(command, actionType), isPlayerOnline: (playerId) => !this.waypointDrainScheduler.isDrainEligible(playerId), hasActiveLockForPlayer: (playerId) => activeFrontierLocksForPlayerImpl(this.state.locksByTile, playerId).length > 0 }; }
   /** Tick hook (docs/waypoint-client-planning-plan.md §4): drains one leg per drain-eligible player with a non-empty waypoint queue. */ tickWaypointDrain(): void { tickWaypointDrainImpl({ scheduler: this.waypointDrainScheduler, playerIdsWithWaypointQueue: () => [...this.playerSummaries].filter(([, s]) => s.waypointQueue.length > 0).map(([id]) => id), drainForPlayer: (playerId) => this.tryDrainWaypointQueue(playerId) }); }
   private tryDrainWaypointQueue(playerId: string): void { tryDrainWaypointQueueImpl(this.waypointQueueCommandContext(), playerId); }
 
