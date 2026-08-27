@@ -37,15 +37,18 @@ export const converterStructureMenuEntries = (tile: Tile, deps: ConverterMenuDep
       detail: deps.buildDetailTextForAction("disable_converter_structure", tile)
     });
   } else if (tile.economicStructure.status === "inactive") {
+    const tileNotSettled = tile.ownershipState === "FRONTIER";
     out.push({
       id: "enable_converter_structure" as TileActionDef["id"],
       label: `Enable ${economicStructureName(tile.economicStructure.type)}`,
       detail: deps.buildDetailTextForAction("enable_converter_structure", tile),
       ...deps.tileActionAvailability(
-        downtimeRemainingMs <= 0,
-        downtimeRemainingMs > 0
-          ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
-          : "Needs enough gold for one upkeep tick",
+        downtimeRemainingMs <= 0 && !tileNotSettled,
+        tileNotSettled
+          ? "Tile is not settled"
+          : downtimeRemainingMs > 0
+            ? `Recovering for ${Math.ceil(downtimeRemainingMs / 3600000)}h`
+            : "Needs enough gold for one upkeep tick",
         isConverter ? "Pays one upkeep tick immediately" : "Resource slots and bonuses resume"
       )
     });
