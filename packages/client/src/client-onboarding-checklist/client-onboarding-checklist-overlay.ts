@@ -20,13 +20,21 @@ const PANEL_ID = "onboarding-checklist-panel";
 let expanded = false;
 let lastCompletedStep: OnboardingChecklistState["step"] | null = null;
 
-const remainingSteps = (state: OnboardingChecklistState): number => {
-  if (state.step === "DONE") return 0;
-  return state.step === "SETTLE_TOWN" ? 2 : 1;
-};
+// 4 checkbox rows -- "find" (a target is known to exist) split out from
+// "expand to" (actually claimed) for both the town goal and the food goal.
+// See OnboardingChecklistState's doc comment for what each boolean means.
+const remainingSteps = (state: OnboardingChecklistState): number =>
+  [state.townFound, state.townExpanded, state.foodFound, state.foodExpanded].filter((done) => !done).length;
 
-const stepLabel = (state: OnboardingChecklistState): string =>
-  state.step === "SETTLE_TOWN" ? "Find your first town" : `Claim ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food slots`;
+/** The relay-beacon blocker isn't its own permanent goal (it's transient, and ambiguous about which goal it's blocking on its own) -- rendered as a note under the 4 real goals instead of a 5th checkbox row. */
+const relayBeaconNote = (state: OnboardingChecklistState): string | null =>
+  state.step === "EXPAND_RELAY_BEACON" ? "Nothing in reach -- build a Relay Beacon to expand" : null;
+
+const goalRow = (label: string, done: boolean, opts: { indent?: boolean; extraLabelClass?: string } = {}): string =>
+  `<li class="onb-goal${done ? " onb-goal-done" : ""}${opts.indent ? " onb-goal-indent" : ""}">
+    <span class="onb-checkbox" aria-hidden="true">${done ? "&#9745;" : "&#9744;"}</span>
+    <span class="onb-goal-label${opts.extraLabelClass ? ` ${opts.extraLabelClass}` : ""}">${escapeHtml(label)}</span>
+  </li>`;
 
 const removeOnboardingChecklistOverlay = (): void => {
   if (typeof document === "undefined") return;
@@ -41,10 +49,20 @@ const render = (state: OnboardingChecklistState): void => {
   root.id = BUBBLE_ID;
   root.className = "onb-root";
   const remaining = remainingSteps(state);
+  const note = relayBeaconNote(state);
   root.innerHTML = `
     <div id="${PANEL_ID}" class="onb-panel" ${expanded ? "" : "hidden"}>
       <div class="onb-panel-title">New empire checklist</div>
-      <div class="onb-panel-step">${escapeHtml(stepLabel(state))}</div>
+      <ul class="onb-goal-list">
+        ${goalRow("Find a town", state.townFound)}
+        ${goalRow("Expand To it", state.townExpanded, { indent: true })}
+        ${goalRow(`Find food tiles (${state.foodSlotsTarget} slots -- grain 1, fish 2)`, state.foodFound)}
+        ${goalRow(`Expand To ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food slots`, state.foodExpanded, {
+          indent: true,
+          extraLabelClass: "onb-panel-step"
+        })}
+      </ul>
+      ${note ? `<div class="onb-goal-note">${escapeHtml(note)}</div>` : ""}
     </div>
     <button id="onb-launcher" type="button" class="onb-launcher" aria-label="New empire checklist" aria-expanded="${expanded}">
       <span class="onb-launcher-icon">&#9873;</span>
@@ -67,7 +85,7 @@ const render = (state: OnboardingChecklistState): void => {
  * tiles so the caller can feed the map's highlight-drawing layer.
  */
 export const renderOnboardingChecklistOverlay = (
-  tiles: Iterable<Pick<Tile, "x" | "y" | "resource" | "ownerId" | "town">>,
+  tiles: ReadonlyMap<string, Tile>,
   playerId: string,
   authEmail: string | null | undefined
 ): Array<{ x: number; y: number }> => {
@@ -121,8 +139,15 @@ const styles = `
   color: #fbf3e6;
 }
 .onb-panel[hidden] { display: none; }
-.onb-panel-title { font-size: 12.5px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 6px; color: #a7f3b0; }
-.onb-panel-step { font-size: 12.5px; line-height: 1.4; color: rgba(240,224,200,0.9); }
+.onb-panel-title { font-size: 12.5px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 8px; color: #a7f3b0; }
+.onb-goal-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.onb-goal { display: flex; align-items: flex-start; gap: 7px; }
+.onb-goal-indent { padding-left: 16px; }
+.onb-checkbox { font-size: 14px; line-height: 1.4; color: #7ee08a; flex: none; }
+.onb-goal-label { font-size: 12.5px; line-height: 1.4; color: rgba(240,224,200,0.9); }
+.onb-goal-done .onb-checkbox { color: rgba(126, 224, 138, 0.55); }
+.onb-goal-done .onb-goal-label { color: rgba(240,224,200,0.45); text-decoration: line-through; }
+.onb-goal-note { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(126, 224, 138, 0.18); font-size: 12px; line-height: 1.4; color: #d6ac6a; }
 @media (max-width: 520px) {
   .onb-root { left: 10px; bottom: calc(68px + max(8px, env(safe-area-inset-bottom)) + 8px); }
   .onb-launcher { width: 40px; height: 40px; font-size: 18px; }
