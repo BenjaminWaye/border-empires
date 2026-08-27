@@ -110,12 +110,13 @@ describe("tryDrainWaypointQueue -- plan-carrying entries (steps[]/cursor)", () =
     expect(summary.waypointQueue[0]!.cursor).toBe(0);
     expect(summary.waypointQueue[0]!.stalled).toBe(true);
 
-    // Stalled entries stay stalled -- another drain call makes no further
-    // attempt... (this drain, as written, will retry it since only
-    // enqueue-time replacement clears `stalled`; verifying it stays put and
-    // cursor never advances is the load-bearing assertion here.)
+    // Stalled entries stay stalled and the server stops touching them --
+    // another drain call makes no further dispatch attempt at all. Only
+    // enqueue-time replacement (a newer plannedAt) clears `stalled`.
     tryDrainWaypointQueue(context, PLAYER_ID);
+    expect(dispatched).toHaveLength(1);
     expect(summary.waypointQueue[0]!.cursor).toBe(0);
+    expect(summary.waypointQueue[0]!.stalled).toBe(true);
   });
 
   it("defers a retryable rejection (INSUFFICIENT_MANPOWER) without advancing the cursor, and the next tick retries", () => {

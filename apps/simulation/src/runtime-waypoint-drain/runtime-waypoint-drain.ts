@@ -96,6 +96,12 @@ const drainPlanEntry = (
   // client-queue-logic.ts) and has no offline equivalent that wouldn't
   // surprise the player on reconnect -- see plan §7.
   if (entry.trackBarbarian) return "skip";
+  // A stalled entry stays in the queue with its cursor intact, but the
+  // server must stop touching it (plan §5) -- otherwise a genuinely dead
+  // step (e.g. a permanently lost origin) gets re-dispatched every tick
+  // forever instead of waiting for the client to re-plan on reconnect and
+  // replace it in place.
+  if (entry.stalled) return "skip";
   const step = steps[cursor]!;
   const stepTargetTile = context.tileAt(step.target.x, step.target.y);
   if (stepTargetTile && stepTargetTile.ownerId === playerId) {
@@ -217,7 +223,7 @@ export const tryDrainWaypointQueue = (context: RuntimeWaypointDrainContext, play
         // "dispatched": accepted, retryably rejected, or newly stalled.
         // Every one of those keeps the entry (unless the accepted leg was
         // the last step, handled by the next loop iteration seeing "done").
-        if ((current.cursor ?? 0) >= current.steps!.length) break; // completed on this dispatch
+        if ((current.cursor ?? 0) >= current.steps!.length) { restoreDeferred(); return; } // completed on this dispatch -- still one dispatch this call
         deferred.push(current);
         restoreDeferred();
         return;
