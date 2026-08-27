@@ -15,6 +15,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787827200551, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.1",
+    title: "The tile popup no longer shows a town as fed when it's actually unfed",
+    why: "A town's tile-detail popup computed \"fed\" as: is it a Settlement, OR is the player's overall FOOD stockpile fully covered, OR does the sim's own record already say fed, OR is there an adjacent Farm/Fish tile. That last pair are leftover checks from before FOOD became a slot mechanic, and since almost every farming town sits next to a Farm or Fish tile, they made the popup report \"fed\" for virtually any town regardless of an actual FOOD-slot shortfall -- so a town the game had correctly marked unfed could still show 4/4 Food when clicked.",
+    changes: [
+      "The tile popup's Food line now trusts the simulation's own fed/unfed verdict whenever it's available, instead of letting an adjacent Farm/Fish tile or overall FOOD stockpile override it back to \"fed\"."
+    ]
+  },
+  {
     createdAt: 1787816841167, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.1",
     title: "Expand animation now plays on a directly-tapped tile, and queued waypoints stop disappearing",
@@ -459,15 +468,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "An AI empire that's fully out of FOOD slots, with no direct way to grow more, will now disable one of its own Relay Beacons that isn't covering any resources to free up the slot for further growth.",
       "This is always a reversible disable, never a demolition -- the building stays intact and can be re-enabled once FOOD has headroom again."
-    ]
-  },
-  {
-    createdAt: 1787766405640, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.2",
-    title: "Settle now works on a captured town or dock outside your reach",
-    why: "A captured town or dock frontier tile (e.g. taken by Attack, which isn't reach-gated) could sit outside your reach border and keep getting rejected with \"tile is outside your reach\" every time Settle was attempted, even though settling it is exactly what would give it its own reach in the first place -- a Catch-22 that made some captured towns/docks permanently unsettleable.",
-    changes: [
-      "Settle no longer requires a captured town or dock tile to already be inside your reach -- only plain resource/support frontier tiles still need that."
     ]
   },
   {
