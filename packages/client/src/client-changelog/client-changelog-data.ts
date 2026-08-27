@@ -14,6 +14,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787816841167, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.1",
+    title: "Expand animation now plays on a directly-tapped tile, and queued waypoints stop disappearing",
+    why: "The on-map claim animation was keyed off an internal \"keep this claim quiet\" flag that exists to suppress the completion popup and feed spam for long queued chains. Tapping an adjacent tile directly deliberately clears that flag -- so the claim ran, the tile menu counted down, but nothing animated on the map, while the exact same claim arriving as a queued step animated fine. Separately, the server's offline waypoint drain removed a queued target from your queue when it declined to auto-attack a rival's tile -- a decision it's right to make, but it deleted the waypoint instead of leaving it for you to walk yourself.",
+    changes: [
+      "Tapping an adjacent tile to expand now plays the same claim animation queued tiles already did.",
+      "A queued waypoint aimed at a rival-held tile is no longer silently deleted while you're offline -- it stays queued for you to act on when you return.",
+      "A queued waypoint that isn't reachable yet no longer blocks the rest of your queue from being attempted."
+    ]
+  },
+  {
     createdAt: 1787812963830, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.9",
     title: "Waypoints no longer fight the server for every step while you're online",
@@ -459,16 +470,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Village smoke puffs, captured-town smoke columns, and capital banner positions were recomputed and re-uploaded to the GPU (bufferSubData) every single frame for every visible instance — up to ~7,000 combined smoke puffs — regardless of whether the camera or game state changed at all. A CPU trace from a live session showed WebGL buffer uploads as the dominant per-frame cost, correlating with a sustained ~11-12fps. The rise/drift/scale/fade animation now runs entirely in a GPU vertex shader driven by a single time value; the CPU only writes each puff's base position once, when villages or captured towns actually change (not every frame). Capital banner positions — which never moved — were also being needlessly rewritten every frame; they're now set once too. Visually identical to before.",
     changes: [
       "No visible change — this is a performance fix for the 3D map's frame rate. Village smoke, captured-town smoke, and capital banners render identically, just far cheaper per frame."
-    ]
-  },
-  {
-    createdAt: 1787501551524, // frozen one ms after the incoming "Lowered the season player cap to 50" entry
-    introducedIn: "2026.08.23.4",
-    title: "\"Maybe your empire is in ruins\" no longer fires while you're still waiting in the pre-game lobby, and the lobby fits mobile screens properly",
-    why: "Income is naturally zero before a world has started, but the respawn prompt only checked income, so everyone waiting for a season to begin got told their empire might be in ruins. Separately, on narrow phone screens the lobby's roster/ID text could get clipped at the edge of the screen and the \"Join the Discord\" button wrapped its label onto two lines.",
-    changes: [
-      "The respawn prompt now also checks that you're not still waiting to join a season before suggesting a respawn.",
-      "The pre-game lobby now reclaims horizontal space on narrow phones and stacks its action buttons full-width, so \"Join the Discord\" and roster/ID rows no longer wrap or run off the edge of the screen."
     ]
   },
   {

@@ -145,8 +145,19 @@ export const tryDrainWaypointQueue = (context: RuntimeWaypointQueueCommandContex
   if (context.isPlayerOnline(playerId)) return;
   const summary = context.summaryForPlayer(playerId);
   const maxAttempts = Math.min(summary.waypointQueue.length, DEV_QUEUE_SERVER_CAP);
+  // Entries this pass could not act on but which are NOT dead -- restored to
+  // the front of the queue, in their original relative order, on every exit
+  // path below. Deferring rather than dropping is the whole point: the
+  // offline drain is a best-effort single-leg helper, and anything it cannot
+  // do right now is still a waypoint the player expects to find waiting when
+  // they log back in and their own client (which routes multi-hop, and can
+  // attack) takes over again.
+  const deferred: typeof summary.waypointQueue = [];
+  const restoreDeferred = (): void => {
+    if (deferred.length > 0) summary.waypointQueue = [...deferred, ...summary.waypointQueue];
+  };
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    if (summary.waypointQueue.length === 0) return;
+    if (summary.waypointQueue.length === 0) break;
     const entry = summary.waypointQueue[0]!;
     summary.waypointQueue = summary.waypointQueue.slice(1);
 
@@ -155,7 +166,15 @@ export const tryDrainWaypointQueue = (context: RuntimeWaypointQueueCommandContex
 
     const isHostile = context.isHostileOwner(playerId, target.ownerId);
     const isBarbarianTarget = target.ownerId === "barbarian-1";
-    if (isHostile && !entry.trackBarbarian && !isBarbarianTarget) continue; // don't auto-declare war on a rival's settled tile
+    if (isHostile && !entry.trackBarbarian && !isBarbarianTarget) {
+      // Don't auto-declare war on a rival's settled tile -- but this is a
+      // "not the server's call to make", not a dead entry. The player's own
+      // client happily plans an ATTACK leg for exactly this target, so
+      // dropping it here silently deleted a waypoint the player would have
+      // walked themselves on reconnect.
+      deferred.push(entry);
+      continue;
+    }
     const actionType: FrontierCommandType = isHostile ? "ATTACK" : "EXPAND";
 
     const nowMs = context.now();
@@ -174,11 +193,15 @@ export const tryDrainWaypointQueue = (context: RuntimeWaypointQueueCommandContex
     } satisfies CommandEnvelope;
 
     const result = context.dispatchFrontierCommand(cmd, actionType);
-    if (result.accepted) return; // one live dispatch per drain call
+    if (result.accepted) { restoreDeferred(); return; } // one live dispatch per drain call
     if (result.code && RETRYABLE_WAYPOINT_DRAIN_CODES.has(result.code)) {
-      summary.waypointQueue = [entry, ...summary.waypointQueue];
-      return;
+      // Not reachable yet (not adjacent, locked, cooldown, short on
+      // resources, cut off). Defer and keep going rather than stopping here,
+      // so one not-yet-reachable entry can't block the rest of the queue.
+      deferred.push(entry);
+      continue;
     }
     // Genuinely dead (barrier, not owned, invalid target, ...) -- drop and keep going.
   }
+  restoreDeferred();
 };

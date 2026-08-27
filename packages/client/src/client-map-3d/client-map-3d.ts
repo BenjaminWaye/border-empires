@@ -416,10 +416,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const waypointFlags = Array.from({ length: WAYPOINT_QUEUE_CLIENT_CAP }, () => createWaypointFlag());
   for (const flag of waypointFlags) flag.group.visible = false;
   // Frontier-claim fill: a single empire-color plate that ramps in
-  // opacity over the claim duration, used when state.capture.silent is
-  // set (waypoint-driven neutral EXPAND). Replaces the big "Capturing
-  // Territory..." overlay for that flow — the player sees the target
-  // tile filling in with their color instead.
+  // opacity over the claim duration, shown for every neutral EXPAND claim
+  // (see syncFrontierClaimPlate) — the player sees the target tile filling
+  // in with their color as it is claimed.
   const frontierClaimPlateGeometry = new PlaneGeometry(0.94, 0.94);
   frontierClaimPlateGeometry.rotateX(-Math.PI * 0.5);
   const frontierClaimPlateMaterial = new MeshBasicMaterial({ toneMapped: false,
@@ -946,7 +945,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   };
   const syncFrontierClaimPlate = (): void => {
     const capture = deps.state.capture;
-    if (!capture || !capture.silent || capture.fromMusterAdvance) {
+    // Gate on EXPAND, NOT `silent` (which only suppresses the completion popup/feed for queued chains): a direct adjacent tap clears silent and used to get no animation at all.
+    if (!capture || capture.actionType !== "EXPAND" || capture.fromMusterAdvance) {
       frontierClaimPlate.visible = false;
       return;
     }
