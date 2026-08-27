@@ -62,6 +62,11 @@ export const handleWaypointEnqueueCommand = (context: RuntimeWaypointQueueComman
   const summary = context.summaryForPlayer(command.playerId);
   const { queue, accepted } = waypointQueueEnqueue(summary.waypointQueue, payload, context.now());
   summary.waypointQueue = queue;
+  // TEMP DIAGNOSTIC (remove once the disappearing-waypoint bug is root-caused):
+  // logs every enqueue attempt with the resulting queue length, so a live
+  // `flyctl logs` grep on [waypoint-diag] can show whether the entry actually
+  // lands in summary.waypointQueue and what isPlayerOnline reads at that moment.
+  console.log("[waypoint-diag] enqueue", JSON.stringify({ playerId: command.playerId, commandId: command.commandId, target: payload, accepted, queueLenAfter: summary.waypointQueue.length, isOnline: context.isPlayerOnline(command.playerId) }));
   if (!accepted) {
     context.rejectCommand(command, "WAYPOINT_QUEUE_FULL", "waypoint queue is full or already contains this target");
     return;
@@ -77,12 +82,15 @@ export const handleWaypointCancelCommand = (context: RuntimeWaypointQueueCommand
   const payload = parseWaypointTargetPayload(command.payloadJson);
   if (!payload) { context.rejectCommand(command, "BAD_COMMAND", "invalid command payload"); return; }
   const summary = context.summaryForPlayer(command.playerId);
+  const before = summary.waypointQueue.length;
   summary.waypointQueue = waypointQueueCancel(summary.waypointQueue, payload);
+  console.log("[waypoint-diag] cancel", JSON.stringify({ playerId: command.playerId, commandId: command.commandId, target: payload, before, after: summary.waypointQueue.length }));
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 };
 
 export const handleWaypointCancelAllCommand = (context: RuntimeWaypointQueueCommandContext, command: CommandEnvelope): void => {
   const summary = context.summaryForPlayer(command.playerId);
+  console.log("[waypoint-diag] cancel-all", JSON.stringify({ playerId: command.playerId, commandId: command.commandId, before: summary.waypointQueue.length }));
   summary.waypointQueue = [];
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
 };
@@ -142,8 +150,12 @@ const RETRYABLE_WAYPOINT_DRAIN_CODES = new Set([
  * own length) so one bad/stale entry can never permanently stall the rest.
  */
 export const tryDrainWaypointQueue = (context: RuntimeWaypointQueueCommandContext, playerId: string): void => {
-  if (context.isPlayerOnline(playerId)) return;
+  if (context.isPlayerOnline(playerId)) {
+    console.log("[waypoint-diag] drain-skip-online", JSON.stringify({ playerId }));
+    return;
+  }
   const summary = context.summaryForPlayer(playerId);
+  console.log("[waypoint-diag] drain-start", JSON.stringify({ playerId, queueLen: summary.waypointQueue.length, targets: summary.waypointQueue.map((e) => e.target) }));
   const maxAttempts = Math.min(summary.waypointQueue.length, DEV_QUEUE_SERVER_CAP);
   // Entries this pass could not act on but which are NOT dead -- restored to
   // the front of the queue, in their original relative order, on every exit
@@ -162,7 +174,10 @@ export const tryDrainWaypointQueue = (context: RuntimeWaypointQueueCommandContex
     summary.waypointQueue = summary.waypointQueue.slice(1);
 
     const target = context.tileAt(entry.target.x, entry.target.y);
-    if (!target || target.ownerId === playerId) continue; // gone, or already reached while queued
+    if (!target || target.ownerId === playerId) {
+      console.log("[waypoint-diag] drain-drop-reached-or-gone", JSON.stringify({ playerId, target: entry.target, tileExists: Boolean(target), tileOwnerId: target?.ownerId }));
+      continue; // gone, or already reached while queued
+    }
 
     const isHostile = context.isHostileOwner(playerId, target.ownerId);
     const isBarbarianTarget = target.ownerId === "barbarian-1";
@@ -193,6 +208,7 @@ export const tryDrainWaypointQueue = (context: RuntimeWaypointQueueCommandContex
     } satisfies CommandEnvelope;
 
     const result = context.dispatchFrontierCommand(cmd, actionType);
+    console.log("[waypoint-diag] drain-dispatch-result", JSON.stringify({ playerId, target: entry.target, actionType, accepted: result.accepted, code: result.code }));
     if (result.accepted) { restoreDeferred(); return; } // one live dispatch per drain call
     if (result.code && RETRYABLE_WAYPOINT_DRAIN_CODES.has(result.code)) {
       // Not reachable yet (not adjacent, locked, cooldown, short on
