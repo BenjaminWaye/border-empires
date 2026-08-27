@@ -10,6 +10,18 @@
 // to your banner" panel, also fixed to left:12/bottom:12 in style.css) so it
 // doesn't collide with the discovery-tip toast (bottom-right) or the
 // galaxy-view launcher (right, above the minimap).
+//
+// A fixed "bottom: 190px" guess used to place this, tuned against one
+// specific #floating-info layout -- on any other viewport size/zoom/content
+// state it could visually collide with #center-me-desktop (the "Center /
+// Jump to your banner" button) instead of clearing it. Now measured
+// directly: each render, if #center-me-desktop is on screen, clear its top
+// edge by CLEARANCE_ABOVE_CENTER_BUTTON instead of guessing a constant.
+// (Deliberately targets that one button, not the whole #floating-info
+// block -- #floating-info's height grows upward from #selected/#hover
+// showing variable-length tile info, which moves #floating-info's own top
+// edge but not the "Center" row's position, so measuring the whole block
+// would overcorrect and make the bubble jump around on every tile click.)
 
 import type { Tile } from "../client-types.js";
 import { onboardingChecklistState, completeOnboardingChecklist, type OnboardingChecklistState } from "./client-onboarding-checklist.js";
@@ -41,6 +53,34 @@ const removeOnboardingChecklistOverlay = (): void => {
   document.getElementById(BUBBLE_ID)?.remove();
 };
 
+// Gap kept between the top of #center-me-desktop and the bottom of this
+// bubble's launcher circle.
+const CLEARANCE_ABOVE_CENTER_BUTTON = 12;
+// Fallback for when #center-me-desktop isn't in the DOM yet/at all (e.g. on
+// the mobile layout, where the media query below takes over entirely and
+// this value is never read) or a test environment where layout isn't real.
+const DEFAULT_BOTTOM_OFFSET_PX = 190;
+
+/**
+ * Measures #center-me-desktop's current on-screen top edge and returns the
+ * `bottom` (px, from the viewport's bottom edge) this bubble's root needs to
+ * clear it by CLEARANCE_ABOVE_CENTER_BUTTON. Falls back to the old guessed
+ * constant when the button isn't measurable (missing element, or a
+ * jsdom/happy-dom test environment where getBoundingClientRect always
+ * returns a zero rect) so this never regresses to `bottom: 0`.
+ */
+const bottomOffsetClearingCenterButton = (): number => {
+  if (typeof document === "undefined" || typeof window === "undefined") return DEFAULT_BOTTOM_OFFSET_PX;
+  const button = document.getElementById("center-me-desktop");
+  if (!button) return DEFAULT_BOTTOM_OFFSET_PX;
+  const rect = button.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return DEFAULT_BOTTOM_OFFSET_PX; // unlaid-out (display:none, or a test DOM)
+  // Clamped to a sane minimum so a pathological layout (button pushed to
+  // the very bottom edge, or off-screen) can't collapse this to 0/negative
+  // and drop the launcher off the bottom of the viewport.
+  return Math.max(60, window.innerHeight - rect.top + CLEARANCE_ABOVE_CENTER_BUTTON);
+};
+
 const render = (state: OnboardingChecklistState): void => {
   removeOnboardingChecklistOverlay();
   injectStyles();
@@ -48,6 +88,10 @@ const render = (state: OnboardingChecklistState): void => {
   const root = document.createElement("div");
   root.id = BUBBLE_ID;
   root.className = "onb-root";
+  // Only the desktop layout's default needs this -- the mobile media query
+  // sets its own literal `bottom` that always wins the cascade regardless
+  // of this custom property (see the styles block below).
+  root.style.setProperty("--onb-bottom", `${bottomOffsetClearingCenterButton()}px`);
   const remaining = remainingSteps(state);
   const note = relayBeaconNote(state);
   root.innerHTML = `
@@ -56,8 +100,8 @@ const render = (state: OnboardingChecklistState): void => {
       <ul class="onb-goal-list">
         ${goalRow("Find a town", state.townFound)}
         ${goalRow("Expand To it", state.townExpanded, { indent: true })}
-        ${goalRow(`Find food tiles (${state.foodSlotsTarget} slots -- grain 1, fish 2)`, state.foodFound)}
-        ${goalRow(`Expand To ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food slots`, state.foodExpanded, {
+        ${goalRow(`Find food tiles (${state.foodSlotsFound}/${state.foodSlotsTarget})`, state.foodFound)}
+        ${goalRow(`Expand To food tiles (${state.foodSlotsClaimed}/${state.foodSlotsTarget})`, state.foodExpanded, {
           indent: true,
           extraLabelClass: "onb-panel-step"
         })}
@@ -115,7 +159,7 @@ const injectStyles = (): void => {
 };
 
 const styles = `
-.onb-root { position: fixed; left: 16px; bottom: 190px; z-index: 23; pointer-events: none; }
+.onb-root { position: fixed; left: 16px; bottom: var(--onb-bottom, 190px); z-index: 23; pointer-events: none; }
 .onb-launcher {
   position: relative; pointer-events: auto;
   width: 44px; height: 44px; padding: 0; margin: 0; appearance: none; border-radius: 50%;

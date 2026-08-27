@@ -121,6 +121,22 @@ describe("onboardingChecklistState", () => {
     expect(state.townExpanded).toBe(false);
   });
 
+  it("reports the real foodSlotsClaimed total on the out-of-reach EXPAND_RELAY_BEACON branch too, not a hardcoded 0", () => {
+    // Same as the reachable-town regression test above, but for the
+    // out-of-reach-town branch specifically (a second, differently-indented
+    // hardcoded `foodSlotsClaimed: 0` slipped through the first fix here).
+    const tiles = tilesMap([
+      ownTown(0, 0, "SETTLEMENT"),
+      tile(10, 0, { town: { type: "MARKET", populationTier: "TOWN" } as never }), // out of reach
+      tile(1, 0, { resource: "FISH", ownerId: ME }), // 2 slots, already owned
+      tile(1, 1, { resource: "FISH", ownerId: ME }) // 2 slots, already owned -- 4 total
+    ]);
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.step).toBe("EXPAND_RELAY_BEACON");
+    expect(state.foodSlotsClaimed).toBe(4);
+    expect(state.foodExpanded).toBe(true);
+  });
+
   it("moves to EXPAND_FOOD once a TOWN-tier town is owned, highlighting the town plus reachable unclaimed food tiles", () => {
     const tiles = tilesMap([
       ownTown(5, 5),
@@ -212,6 +228,7 @@ describe("onboardingChecklistState", () => {
       townFound: true,
       townExpanded: true,
       foodFound: true,
+      foodSlotsFound: 4,
       foodExpanded: true,
       foodSlotsClaimed: 4,
       foodSlotsTarget: 4,
@@ -229,6 +246,7 @@ describe("onboardingChecklistState", () => {
       townFound: false,
       townExpanded: false,
       foodFound: false,
+      foodSlotsFound: 0,
       foodExpanded: false,
       foodSlotsClaimed: 0,
       foodSlotsTarget: 4,

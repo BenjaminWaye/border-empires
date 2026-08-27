@@ -70,8 +70,10 @@ describe("renderOnboardingChecklistOverlay", () => {
     ]);
     const highlights = renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
 
-    expect(document.querySelector(".onb-panel-step")?.textContent).toContain("1/4 food slots");
     const goals = document.querySelectorAll(".onb-goal");
+    // "Find food tiles (X/4)": X is the weighted known total (1 claimed FARM + 2-slot FISH candidate = 3), not a tile count.
+    expect(goals[2]?.textContent).toContain("Find food tiles (3/4)");
+    expect(document.querySelector(".onb-panel-step")?.textContent).toContain("Expand To food tiles (1/4)");
     expect(goals[0]?.classList.contains("onb-goal-done")).toBe(true); // town found
     expect(goals[1]?.classList.contains("onb-goal-done")).toBe(true); // town expanded
     expect(goals[2]?.classList.contains("onb-goal-done")).toBe(false); // food found: 1 + 2 known = 3, short of 4
@@ -101,6 +103,34 @@ describe("renderOnboardingChecklistOverlay", () => {
 
     renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
     expect(document.getElementById("onboarding-checklist-panel")?.hasAttribute("hidden")).toBe(false);
+  });
+
+  it("clears #center-me-desktop by measuring its real position, instead of a fixed guess", () => {
+    const centerButton = document.createElement("button");
+    centerButton.id = "center-me-desktop";
+    document.body.appendChild(centerButton);
+    // getBoundingClientRect is unimplemented in happy-dom (always returns a
+    // zero rect) -- stub it to simulate the button sitting near the bottom
+    // of a real viewport, the way it does in the actual app.
+    centerButton.getBoundingClientRect = () =>
+      ({ top: 700, left: 12, right: 200, bottom: 750, width: 188, height: 50, x: 12, y: 700, toJSON: () => ({}) }) as DOMRect;
+    Object.defineProperty(window, "innerHeight", { value: 800, configurable: true });
+
+    renderOnboardingChecklistOverlay(tilesMap([tile(1, 1)]), "p1", "a@example.com");
+
+    const root = document.getElementById("onboarding-checklist-bubble") as HTMLElement;
+    // window.innerHeight(800) - rect.top(700) + clearance(12) = 112.
+    expect(root.style.getPropertyValue("--onb-bottom")).toBe("112px");
+  });
+
+  it("falls back to the default offset when #center-me-desktop isn't measurable", () => {
+    // No #center-me-desktop in the DOM at all here -- happy-dom's default
+    // zero-rect behavior (when the element does exist but isn't laid out)
+    // is covered implicitly by every other test in this file never setting
+    // one up.
+    renderOnboardingChecklistOverlay(tilesMap([tile(1, 1)]), "p1", "a@example.com");
+    const root = document.getElementById("onboarding-checklist-bubble") as HTMLElement;
+    expect(root.style.getPropertyValue("--onb-bottom")).toBe("190px");
   });
 
   it("removes the bubble and persists completion exactly once when the checklist finishes", () => {
