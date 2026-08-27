@@ -15,6 +15,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787832114649, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.2",
+    title: "Fixed a waypoint sometimes vanishing after closing and reopening the game",
+    why: "Placing a waypoint mirrors it to the server so it survives a reconnect, but that mirror message could silently fail to send if it happened right as your session was reconnecting -- nothing checked whether it actually went through, or retried it. The waypoint still worked fine for the rest of that browser tab (it was walking the route from local memory, not the server), so nothing looked wrong -- until closing the tab wiped that local copy too, with no server copy left to restore from on your next visit.",
+    changes: [
+      "Reconnecting now re-checks every waypoint you currently have queued against what the server has on file, and re-sends any that never made it across -- so a waypoint placed right around a reconnect can no longer be silently lost."
+    ]
+  },
+  {
     createdAt: 1787827200551, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.1",
     title: "The tile popup no longer shows a town as fed when it's actually unfed",
