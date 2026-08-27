@@ -9,6 +9,11 @@ import { pushDiscoveryTipFeedEntry } from "../client-alerts/client-alerts.js";
 
 export type TileDeltaBatchUpdate = { x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN"; combatJson?: string };
 
+/** Recomputes the onboarding checklist state/highlights from `state.tiles` and stores the result. Shared by the tile-delta-batch path below and the spawn/initial-snapshot path in client-network.ts, so a fresh empire sees the checklist immediately instead of only after its first tile delta. */
+export const refreshOnboardingChecklistHighlight = (state: ClientState): void => {
+  state.onboardingHighlightTiles = renderOnboardingChecklistOverlay(state.tiles, state.me, state.authEmail);
+};
+
 export type TileDeltaBatchHandlerDeps = {
   state: ClientState;
   keyFor: (x: number, y: number) => string;
@@ -149,6 +154,6 @@ export const handleTileDeltaBatchMessage = (msg: Record<string, unknown>, deps: 
     });
   }
   renderDiscoveryTipOverlay(state.discoveryTipQueue, state.authEmail, () => deps.renderHud(), (def) => pushDiscoveryTipFeedEntry(state, def));
-  state.onboardingHighlightTiles = renderOnboardingChecklistOverlay(state.tiles.values(), state.me, state.authEmail);
+  refreshOnboardingChecklistHighlight(state);
   deps.renderHud();
 };
