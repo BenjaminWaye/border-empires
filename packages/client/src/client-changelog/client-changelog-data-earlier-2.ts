@@ -422,5 +422,15 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
       "A town can now host more than one Aether Condenser (or Advanced Aether Condenser), limited only by its open support tiles, instead of exactly one.",
       "The \"town already has...\" rejection now says \"Aether Condenser\" instead of the internal \"crystal synthesizer\" name."
     ]
+  },
+  {
+    createdAt: 1787822976132, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27",
+    title: "Build Aether Condenser button no longer falsely disabled, Sell Off gold now shows as a modifier",
+    why: "The Build Aether Condenser button still disabled itself with \"Nearby town already has Aether Condenser\" in a town that already had one, even though the server exempts this building family from the usual one-per-town cap entirely. Separately, switching a converter (Aether Condenser, Titanium Works, Umbrite Works) to Sell Off (EXCHANGE) mode always produced real gold, but the Modifiers panel dropped the entry entirely instead of showing it -- the tile's own status line named the behavior (\"selling off its slot and paying out gold\") but never the amount, so there was no way to see the actual gold/day figure anywhere.",
+    changes: [
+      "Build Aether Condenser now stays enabled in a town that already has one, matching the server's support for stacking multiple.",
+      "A converter structure in Sell Off mode now shows a \"Sell Off gold: +N/day\" modifier line matching its real payout, instead of no modifier at all."
+    ]
   }
 ];
