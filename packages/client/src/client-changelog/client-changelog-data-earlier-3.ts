@@ -137,5 +137,15 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
     changes: [
       "The offline waypoint drain now waits for the in-flight leg to resolve before launching the next one, and won't dispatch a leg from an origin tile it doesn't yet own -- multi-hop waypoints now keep expanding for the whole time you're offline instead of stalling after the second step."
     ]
+  },
+  {
+    createdAt: 1787863023331, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27",
+    title: "Bigger islands, and every mountain ring interior now holds something",
+    why: "Islands-style worlds still read as mostly empty ocean even after the previous size increase, and mountain rings (the annulus-shaped mountain formations scattered across every map) sealed off a pocket of open land in their interior that no existing placement pass specifically targeted -- the town coverage sweeps and the mountain-proximity natural wonder predicates only checked whether a nearby 15x15/30x30 grid block or a random map-wide sample happened to land inside a ring, so most ring interiors stayed empty.",
+    changes: [
+      "Islands-style land coverage increased further (roughly 30% -> 40% land on average across sampled seeds), with bigger and more numerous islands, while staying visually distinct from continents (still 20-30+ separate island landmasses with real sea channels between them).",
+      "Every land-accessible mountain ring interior is now guaranteed a settlement during world generation, instead of most rings sitting empty inside their mountain walls."
+    ]
   }
 ];

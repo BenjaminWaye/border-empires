@@ -53,13 +53,13 @@ export const buildIslands = (): ContinentSeed[] => {
   // small rx/ry keeps each small island distinct, while the big-island
   // radii below are sized similarly to a single lobe of a "continents"-style
   // landmass.
-  const BIG_ISLAND_COUNT = 4;
-  const SMALL_ISLAND_COUNT = 50;
+  const BIG_ISLAND_COUNT = 5;
+  const SMALL_ISLAND_COUNT = 55;
   const out: ContinentSeed[] = [];
   for (let i = 0; i < BIG_ISLAND_COUNT; i++) {
     const cx = Math.floor(seeded01(i, 0, seed + 5000 + i) * WORLD_WIDTH);
     const cy = Math.floor(POLAR_BAND + 15 + seeded01(i, 1, seed + 6000 + i) * (WORLD_HEIGHT - 2 * POLAR_BAND - 30));
-    const r  = 55 + Math.floor(seeded01(i, 2, seed + 7000 + i) * 45); // radius 55–99
+    const r  = 65 + Math.floor(seeded01(i, 2, seed + 7000 + i) * 55); // radius 65–119
     out.push({
       cx, cy,
       rx: r,
