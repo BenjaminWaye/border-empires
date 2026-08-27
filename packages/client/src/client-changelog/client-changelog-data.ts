@@ -14,15 +14,6 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1787818239063, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27",
-    title: "Settling a new town no longer knocks out unrelated Relay Beacons",
-    why: "A settled town's FOOD demand was pinned as the oldest (never-goes-dormant) contributor in the FOOD-slot shortfall calculation, while every other FOOD consumer competed newest-built-first. That meant a brand-new town's own added FOOD demand could never itself go unfed -- so a shortfall it caused was silently paid for by disabling whatever unrelated structure (e.g. an existing Relay Beacon) happened to be the newest FOOD consumer instead, even if that structure had been built long before the town and had nothing to do with the shortfall.",
-    changes: [
-      "A town's FOOD demand now competes on the same newest-first footing as every other FOOD consumer, ranked by when it was settled -- so a freshly settled town that pushes FOOD demand over supply goes unfed itself, instead of an older, unrelated Relay Beacon or other structure losing power to cover it."
-    ]
-  },
-  {
     createdAt: 1787817510197, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.1",
     title: "Fixed the frontier decay countdown freezing on a decaying tile's menu",
@@ -487,6 +478,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The decay-countdown pulse writes its amber tint straight into the ownership overlay's GPU color buffer every frame, separately from the buffer's own rebuild-on-pan color update. Both writers shared one pending-upload list, and the pulse's per-frame bookkeeping was clearing that list before the rebuild's own full-buffer update reached the GPU whenever a pan/zoom rebuild and a pulse tick landed in the same frame. Any frontier tile that a rebuild reassigned to a vertex slot the pulse didn't touch that frame kept whatever color the GPU already had there from a previous tile -- including, e.g., another empire's amber decay pulse -- until the next rebuild happened to also touch that exact slot.",
     changes: [
       "Panning or zooming the map over frontier tiles no longer occasionally leaves random, non-decaying tiles stuck glowing amber like the frontier-decay pulse."
+    ]
+  },
+  {
+    createdAt: Date.now(),
+    introducedIn: "2026.08.27",
+    title: "Enable <structure> is disabled on an unsettled tile",
+    why: "A disabled economic structure (Relay Beacon, synthesizer, weapons factory, etc.) standing on a FRONTIER (not yet settled) tile could still be re-enabled, letting it resume occupying a resource slot and providing bonuses from a tile that isn't actually settled.",
+    changes: [
+      "The Enable action for any disabled economic structure is now disabled with \"Tile is not settled\" whenever the tile it stands on is FRONTIER rather than SETTLED."
     ]
   }
 ];
