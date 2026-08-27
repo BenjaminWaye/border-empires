@@ -261,14 +261,24 @@ export const createOwnershipOverlay = (
     return count;
   };
 
-  // Must be called once before a batch of setFrontierTileColor/
-  // setFrontierHillTileColor calls (e.g. once per animation frame) --
-  // addUpdateRange accumulates ranges rather than replacing them, so
-  // skipping this would grow the pending-range list forever across frames.
-  const beginFrontierColorUpdates = (): void => {
-    (frontier.geometry.getAttribute("color") as BufferAttribute).clearUpdateRanges();
-    (frontierHill.geometry.getAttribute("color") as BufferAttribute).clearUpdateRanges();
-  };
+  // Deliberately does NOT call clearUpdateRanges() here (it used to).
+  // commit() -- called by a rebuild earlier in the same animation frame,
+  // whenever the camera pans/zooms into new tiles -- stages its own full
+  // 0..vertCount color range and sets needsUpdate, but the GPU upload only
+  // happens once, when the renderer actually draws the frame. Clearing the
+  // attribute's pending ranges here (once per frame, before the decay-pulse
+  // tiles add their own small ranges) discarded that full-range entry
+  // whenever a rebuild and a pulse tick landed in the same frame: only the
+  // pulse's small ranges reached the GPU, so every tile the rebuild just
+  // reassigned to a *different* index kept its previous occupant's stale
+  // color on-screen -- exactly the "random frontier tiles glow amber after
+  // panning" artifact this was causing. Three.js clears an attribute's
+  // updateRanges itself once it has uploaded them, so simply not clearing
+  // here and letting addUpdateRange accumulate is safe: commit()'s full
+  // range and the pulse's per-tile ranges from the same frame now both
+  // survive to the next GPU upload instead of the second writer erasing
+  // the first's.
+  const beginFrontierColorUpdates = (): void => {};
 
   const setFrontierTileColor = (index: number, color: Color): void => {
     if (index < 0 || index >= frontierCount) return;
