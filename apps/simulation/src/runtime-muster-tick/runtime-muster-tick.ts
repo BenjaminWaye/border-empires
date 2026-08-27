@@ -1,5 +1,6 @@
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
+import type { FrontierCommandResult } from "../runtime-frontier-command.js";
 import {
   MUSTER_BASE_RATE_PER_MIN,
   MUSTER_DEPOT_SPEED_MULT,
@@ -40,7 +41,7 @@ export type MusterTickInput = {
   // ADVANCE auto-fire wiring.
   requiredMusterForTarget: (target: DomainTileState) => number;
   nextTerritoryAutomationCommandId: (label: string, playerId: string, tileKey: string, nowMs: number) => string;
-  handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => boolean;
+  handleFrontierCommand: (command: CommandEnvelope, actionType: FrontierCommandType) => FrontierCommandResult;
   // Active combat locks (keyed by origin/target tile) so ADVANCE can skip tiles
   // already committed to a fight and enforce one attack in flight per flag via
   // LockRecord.musterSourceKey.

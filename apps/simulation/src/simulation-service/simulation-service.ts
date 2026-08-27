@@ -818,7 +818,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     backgroundBatchSize: runtimeBackgroundBatchSize,
     initialState: effectiveStartupRecovery.initialState,
     initialCommandHistory: effectiveStartupRecovery.initialCommandHistory,
-    mergeSeedTilesWithInitialState: !isDbBackedStartup,
+    mergeSeedTilesWithInitialState: !isDbBackedStartup, isPlayerSubscribed: (playerId) => subscriptionRegistry.isSubscribed(playerId), // TDZ-safe: closure runs later
     // Drain on setImmediate (next loop tick), not queueMicrotask. Microtasks
     // run inside the current task before any I/O — that means a gRPC
     // SubmitCommand handler's drain microtask blocks the ack TCP write the
@@ -2097,7 +2097,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         initialPlayers: bootstrap.initialPlayers,
         onVisibilityAudit: handleVisibilityAudit,
         trackSyncMainThreadTask: trackSyncMainThreadTaskWithMetrics,
-        onCaptureRevealBuilt: captureRevealBuildSample,
+        onCaptureRevealBuilt: captureRevealBuildSample, isPlayerSubscribed: (playerId) => subscriptionRegistry.isSubscribed(playerId),
         ...(pendingImperialWard ? { pendingImperialWard } : {}), ...(currentSeasonState.winner ? { pendingGalacticWonderBonus: { playerId: currentSeasonState.winner.playerId } } : {}), // v0 Wonder-style starting bonus (§5, §12)
         shouldPauseBackground: () => {
           if (loginExportsInFlight > 0) {

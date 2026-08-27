@@ -1554,7 +1554,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           // all players; without this filter, every connected human receives
           // a console.error for every AI command rejection (and AI workers
           // reject frequently — stale targets, intent latches, cooldowns).
-          if (sessionsBySocket.get(socket)?.playerId !== event.playerId) continue;
+          if (sessionsBySocket.get(socket)?.playerId !== event.playerId || event.commandId.startsWith("territory-auto:")) continue; // 2nd half: drop the sim's own drain rejections too (bypass submitCommand, nothing to self-heal/persist)
           void commandStore
             .markRejected(event.commandId, Date.now(), event.code, event.message)
             .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist rejected command"));
