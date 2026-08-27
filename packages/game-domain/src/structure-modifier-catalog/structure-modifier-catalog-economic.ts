@@ -8,10 +8,10 @@ import {
   RAIL_DEPOT_NETWORK_MANPOWER_CAP_PER_GARRISON_HALL, TILE_SLOT_BOOST_STRUCTURES, WATERWORKS_FARMSTEAD_FOOD_SLOT_BONUS
 } from "@border-empires/shared";
 import {
-  FOUNDRY_OUTPUT_MULT, GOVERNORS_OFFICE_RADIUS, GRANARY_ONGOING_GROWTH_MULT, LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE,
-  MINTWORKS_FLAT_GOLD_BONUS_PER_MIN, MINTWORKS_GOLD_PRODUCTION_BONUS, MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE,
-  MINTWORKS_INSTANT_GOLD_BONUS, RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD,
-  UPKEEP_MINUTES_PER_DAY
+  EXCHANGE_GOLD_PER_SLOT_PER_DAY, FOUNDRY_OUTPUT_MULT, GOVERNORS_OFFICE_RADIUS, GRANARY_ONGOING_GROWTH_MULT,
+  LOGISTICS_GUILD_STANDALONE_REGEN_PER_MINUTE, MINTWORKS_FLAT_GOLD_BONUS_PER_MIN, MINTWORKS_GOLD_PRODUCTION_BONUS,
+  MINTWORKS_GOLD_PRODUCTION_BONUS_CLEARING_HOUSE, MINTWORKS_INSTANT_GOLD_BONUS,
+  RAIL_DEPOT_NETWORK_MANPOWER_REGEN_PER_LOGISTICS_GUILD, UPKEEP_MINUTES_PER_DAY
 } from "../server-game-constants/server-game-constants.js";
 import { multiplierPercentLabel, percentLabel, type ModifierContext, type ModifierStructureType, type StructureModifier } from "./structure-modifier-catalog-types.js";
 
@@ -59,9 +59,12 @@ const mineModifiers = (ctx: ModifierContext): StructureModifier[] => {
 // effect is a flat +1 slot supply of the family resource
 // (isSlotSourceConverter, resource-slot-view.ts) -- only while actually in
 // SYNTHESIZE mode. In EXCHANGE (Sell Off) mode the structure sells off that
-// slot for gold instead (isSlotSinkConverter), so this modifier line no
-// longer applies and must not be shown; the tile-detail status line already
-// covers Sell Off's own effect separately.
+// slot for real gold instead (isSlotSinkConverter, EXCHANGE_GOLD_PER_SLOT_PER_DAY
+// via player-update-economy.ts) — surface that payout here as its own
+// modifier line rather than silently dropping the entry: the tile-detail
+// status line names the *behavior* ("selling off its slot and paying out
+// gold") but never the amount, so this was the only place a player could
+// see the actual gold/day figure for Sell Off mode.
 const synthesizerModifiers = (type: ModifierStructureType, ctx: ModifierContext): StructureModifier[] | undefined => {
   const byType: Partial<Record<ModifierStructureType, string>> = {
     UMBRITE_SYNTHESIZER: "UMBRITE",
@@ -73,7 +76,10 @@ const synthesizerModifiers = (type: ModifierStructureType, ctx: ModifierContext)
   };
   const resource = byType[type];
   if (!resource) return undefined;
-  if (ctx.tile?.converterMode === "EXCHANGE") return undefined;
+  if (ctx.tile?.converterMode === "EXCHANGE") {
+    const goldPerDay = EXCHANGE_GOLD_PER_SLOT_PER_DAY[type as keyof typeof EXCHANGE_GOLD_PER_SLOT_PER_DAY] ?? 0;
+    return [{ statLabel: "Sell Off gold", valueText: `+${goldPerDay}/day`, tone: "positive", isTownWide: true }];
+  }
   return [{ statLabel: "Refine mode supplies", valueText: `+1 ${resource} slot`, tone: "positive", isTownWide: false }];
 };
 

@@ -1660,7 +1660,6 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const townHasCaravanary = deps.townHasSupportStructure(townBuildSource, "CARAVANARY");
       const townHasUmbriteSynth = deps.townHasSupportStructure(townBuildSource, "UMBRITE_SYNTHESIZER");
       const townHasTitaniumWorks = deps.townHasSupportStructure(townBuildSource, "TITANIUM_WORKS");
-      const townHasCrystalSynth = deps.townHasSupportStructure(townBuildSource, "CRYSTAL_SYNTHESIZER");
       const townHasRailDepot = deps.townHasSupportStructure(townBuildSource, "RAIL_DEPOT");
       // One monument component (of any of the 18 unique types, from any of
       // the 6 monuments) per Great City/Monumental City — unified into one
@@ -1822,14 +1821,15 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(
             "CRYSTAL_SYNTHESIZER",
-            !supportPlacementBlocked && !townHasCrystalSynth && state.techIds.includes("crystal-lattices"),
+            // Unlike the town-support types above, Aether Condensers stack
+            // server-side (STACKING_TOWN_SUPPORT_STRUCTURE_TYPES) -- no
+            // townHasCrystalSynth gate here, or Build falsely disables.
+            !supportPlacementBlocked && state.techIds.includes("crystal-lattices"),
             supportPlacementBlocked
               ? "Tile already has structure"
-              : townHasCrystalSynth
-                ? "Nearby town already has Aether Condenser"
-                : !state.techIds.includes("crystal-lattices")
-                  ? "Requires Aetheric Resonance"
-                  : "Unavailable",
+              : !state.techIds.includes("crystal-lattices")
+                ? "Requires Aetheric Resonance"
+                : "Unavailable",
             `${deps.structureCostText("CRYSTAL_SYNTHESIZER")} • ${Math.round(economicStructureBuildMs("CRYSTAL_SYNTHESIZER") / 60000)}m • 12 CRYSTAL/day • 40 gold/day`
           ),
           slots,
