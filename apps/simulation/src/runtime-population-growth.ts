@@ -130,6 +130,21 @@ export function tickPopulationGrowth(input: {
     // Accumulate all tile deltas for this player and emit ONE batch event per
     // player instead of one per town. Reduces ~50 event pipeline calls to ~6.
     const playerTileDeltas: ReturnType<typeof input.tileDeltaFromState>[] = [];
+    // Tracks the index within playerTileDeltas of this tick's delta for a
+    // given tileKey, so a town that mutates more than once in one iteration
+    // (e.g. isFed self-heal followed by a war-pause or growth update)
+    // overwrites its earlier delta instead of appending a second, stale one.
+    const playerTileDeltaIndexByKey = new Map<string, number>();
+    const recordTileDelta = (tileKey: string, tile: DomainTileState): void => {
+      const delta = input.tileDeltaFromState(tile);
+      const existingIndex = playerTileDeltaIndexByKey.get(tileKey);
+      if (existingIndex !== undefined) {
+        playerTileDeltas[existingIndex] = delta;
+      } else {
+        playerTileDeltaIndexByKey.set(tileKey, playerTileDeltas.length);
+        playerTileDeltas.push(delta);
+      }
+    };
 
     const pDiag = { grown: 0, stalledFood: 0, war: 0, shock: 0, unfed: 0, logisticCap: 0, totalTowns: 0 };
     let pHadEligibleTown = false;
@@ -137,8 +152,29 @@ export function tickPopulationGrowth(input: {
     for (const tileKey of ownedTowns.keys()) {
       const tile = input.tiles.get(tileKey);
       if (!tile?.town || tile.ownershipState !== "SETTLED") continue;
-      const town = tile.town;
+      let town = tile.town;
       pDiag.totalTowns += 1;
+      // §5.4 self-heal: a town's own persisted isFed only ever gets
+      // refreshed as a side effect of some OTHER mutation touching this
+      // exact tile (build/upgrade/capture/etc, via
+      // enrichTileWithTownContext) -- it's never proactively re-pushed when
+      // the shared FOOD-slot dormancy set shifts for a reason elsewhere in
+      // the empire (e.g. settling a second town pushes total FOOD demand
+      // over supply). This tick already recomputes fedTownKeys fresh for
+      // every owned town regardless of whether growth itself applies, so
+      // piggyback on it to keep isFed itself honest -- otherwise a town the
+      // dormancy engine just marked unfed can silently keep showing fed
+      // (and vice versa) until something unrelated happens to touch its
+      // tile or the player reconnects.
+      const freshIsFed = fedTownKeys.has(tileKey);
+      if (town.isFed !== freshIsFed) {
+        town = { ...town, isFed: freshIsFed };
+        const healedTile = { ...tile, town };
+        input.tiles.set(tileKey, healedTile);
+        input.invalidateTileStringifyCache(tileKey);
+        recordTileDelta(tileKey, healedTile);
+        dirtyPlayerIds.add(player.id);
+      }
       if (typeof town.captureShockUntil === "number" && town.captureShockUntil > input.nowMs) {
         pDiag.shock += 1;
         townsSkippedCaptureShock += 1;
@@ -168,7 +204,7 @@ export function tickPopulationGrowth(input: {
           const updatedTile = { ...tile, town: updatedTown };
           input.tiles.set(tileKey, updatedTile);
           input.invalidateTileStringifyCache(tileKey);
-          playerTileDeltas.push(input.tileDeltaFromState(updatedTile));
+          recordTileDelta(tileKey, updatedTile);
           dirtyPlayerIds.add(player.id);
         }
         input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
@@ -221,7 +257,7 @@ export function tickPopulationGrowth(input: {
       input.tiles.set(tileKey, updatedTile);
       input.invalidateTileStringifyCache(tileKey);
       input.townLastGrowthTickAtByKey.set(tileKey, input.nowMs);
-      playerTileDeltas.push(input.tileDeltaFromState(updatedTile));
+      recordTileDelta(tileKey, updatedTile);
       dirtyPlayerIds.add(player.id);
       pDiag.grown += 1;
       townsGrown += 1;
