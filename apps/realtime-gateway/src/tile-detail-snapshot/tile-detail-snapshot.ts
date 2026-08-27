@@ -255,11 +255,25 @@ export const buildSnapshotTileDetail = (
   const supportStructures = derivedTownSupportStructures(tilesByKey, playerId, x, y);
   const populationTier = parsedTown?.populationTier ?? tile.townPopulationTier ?? "SETTLEMENT";
   const foodCoverage = snapshotFoodCoverage(snapshot);
+  // Trust the sim's authoritative isFed whenever the snapshot's townJson
+  // actually carries it (buildTownSummary always populates it on a live
+  // recompute -- see live-town-summary.ts) -- it's the same FOOD-slot
+  // dormancy verdict the "Unfed" badge and growth tick use, so it must win
+  // over these fallbacks, true OR false. Bug: this used to check
+  // `parsedTown?.isFed === true`, so a freshly-computed `isFed: false` (a
+  // real FOOD-slot shortfall) looked identical to "missing" and got
+  // silently overridden back to fed by the legacy foodCoverage/adjacent-
+  // Farm-or-Fish heuristics below (both predate the FOOD-slot rewrite and
+  // don't know about the slot-shortfall dormancy this town might actually
+  // be in) -- so a genuinely unfed town could still report fed here. The
+  // heuristics now only fire for a truly thin/incomplete townJson (isFed
+  // field absent entirely), e.g. a town record the sim hasn't fully
+  // populated yet.
   const isFed =
     populationTier === "SETTLEMENT" ||
-    (typeof foodCoverage === "number" && foodCoverage >= 0.999) ||
-    parsedTown?.isFed === true ||
-    derivedTownIsFed(tilesByKey, playerId, x, y);
+    (typeof parsedTown?.isFed === "boolean"
+      ? parsedTown.isFed
+      : (typeof foodCoverage === "number" && foodCoverage >= 0.999) || derivedTownIsFed(tilesByKey, playerId, x, y));
   const baseGoldPerMinute =
     typeof parsedTown?.baseGoldPerMinute === "number" && parsedTown.baseGoldPerMinute > 0.0001
       ? parsedTown.baseGoldPerMinute

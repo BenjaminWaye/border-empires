@@ -1388,7 +1388,8 @@ describe("rewrite stack integration", () => {
     );
   });
 
-  it("preserves sim town production and cap through the tile-detail WebSocket path when cached fed state is stale", async () => {
+  it("preserves sim town production and cap through the tile-detail WebSocket path for a thin town record", async () => {
+    // isFed omitted (thin record) -- falls back to global food coverage.
     const townJson = JSON.stringify({
       name: "Gloamspire",
       type: "FARMING",
@@ -1398,7 +1399,6 @@ describe("rewrite stack integration", () => {
       supportMax: 8,
       goldPerMinute: 4.4,
       cap: 2112,
-      isFed: false,
       population: 17669,
       maxPopulation: 10_000_000,
       connectedTownCount: 3,
