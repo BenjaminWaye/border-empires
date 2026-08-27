@@ -15,6 +15,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787840155807, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.8",
+    title: "A town's Unfed status now updates on its own, without needing to touch that tile",
+    why: "A town's fed/unfed state only got refreshed as a side effect of some other change landing on that exact tile (a build, upgrade, or capture) -- it was never proactively rechecked when the shared FOOD-slot shortfall shifted for a reason elsewhere in your empire, like settling a second town that pushed your total FOOD demand over supply. So an affected town could sit showing stale \"fed\" (or \"unfed\") indefinitely, with no visible reason and no way to force a refresh short of reconnecting.",
+    changes: [
+      "Every owned town's Unfed status now gets rechecked and corrected once a minute regardless of whether anything else touched that town's own tile, so it reflects your empire's real, current FOOD-slot balance instead of whatever it happened to show last."
+    ]
+  },
+  {
     createdAt: 1787839538882, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.7",
     title: "Fixed the checklist bubble also overlapping the Center button on mobile",
