@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787817510197, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.1",
+    title: "Fixed the frontier decay countdown freezing on a decaying tile's menu",
+    why: "The tile menu's \"decays in Xs\" / \"disappears in Xs\" countdown for an encircled or out-of-reach frontier tile was only recomputed when the HUD re-rendered for some other reason (an incoming server message). With the menu left open on a decaying tile and nothing else happening, the countdown just sat frozen at whatever second it was showing when the menu opened, reading as if there were no timer at all.",
+    changes: [
+      "The tile menu now ticks its decay countdown once a second while it's open on a decaying tile, so the timer visibly counts down instead of freezing."
+    ]
+  },
+  {
     createdAt: 1787812963830, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.9",
     title: "Waypoints no longer fight the server for every step while you're online",
