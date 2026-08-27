@@ -91,12 +91,3 @@ export const converterStructureDetailText = (actionId: string, tile: Tile): stri
   return undefined;
 };
 
-export const converterModeStatusLine = (tile: Tile): string =>
-  converterModeOf(tile.economicStructure) === "EXCHANGE"
-    ? "Structure is selling off its slot and paying out gold (Refine → Sell Off). No gold upkeep while selling off."
-    : "Structure is active and currently contributing output and upkeep.";
-
-export const converterModeLockLine = (tile: Tile): string | undefined => {
-  const lockRemainingMs = (tile.economicStructure?.modeLockedUntil ?? 0) - Date.now();
-  return lockRemainingMs > 0 ? `Mode flip available in ${Math.ceil(lockRemainingMs / 60000)}m.` : undefined;
-};
