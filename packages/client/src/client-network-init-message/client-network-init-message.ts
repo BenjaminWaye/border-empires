@@ -16,7 +16,6 @@ import {
   type ServerWaypointQueueWireEntry
 } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
-import { attackSyncLog } from "../client-debug/client-debug.js";
 import {
   notifyActiveAllianceBreaksOnInit,
   notifyIncomingDiplomacyRequestsOnInit,
@@ -311,14 +310,12 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
 
   if (state.waypoint.length === 0) {
     state.waypoint = restorePersistedWaypointQueueForPlayer(state.me, { state, keyFor }, serverWaypointQueue);
-    const serverWaypointTargetKeys = new Set((serverWaypointQueue ?? []).map((entry) => keyFor(entry.x, entry.y)));
-    for (const waypoint of state.waypoint) {
-      if (serverWaypointTargetKeys.has(keyFor(waypoint.target.x, waypoint.target.y))) continue;
-      deps.sendGameMessage?.(waypointEnqueueWirePayload(waypoint.target, waypoint.trackBarbarian));
-    }
-  } else if ((serverWaypointQueue?.length ?? 0) > 0) {
-    // Diagnostic: restore skipped (state.waypoint already non-empty) while the server still has entries.
-    attackSyncLog("waypoint-restore-skipped-non-empty", { localCount: state.waypoint.length, serverCount: serverWaypointQueue!.length });
+  }
+  // Backfill on every INIT (not just right after a restore): re-mirror any local waypoint missing from the server -- WAYPOINT_ENQUEUE can silently fail pre-auth, unretried by callers. Same guarantee the dev-queue backfill above gives BUILD/SETTLE.
+  const serverWaypointTargetKeys = new Set((serverWaypointQueue ?? []).map((entry) => keyFor(entry.x, entry.y)));
+  for (const waypoint of state.waypoint) {
+    if (serverWaypointTargetKeys.has(keyFor(waypoint.target.x, waypoint.target.y))) continue;
+    deps.sendGameMessage?.(waypointEnqueueWirePayload(waypoint.target, waypoint.trackBarbarian));
   }
   applyAutoSettlementQueueFromServer(
     state,
