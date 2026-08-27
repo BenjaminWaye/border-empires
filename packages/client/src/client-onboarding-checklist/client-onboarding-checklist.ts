@@ -56,10 +56,12 @@ export type OnboardingChecklistState = {
   townFound: boolean;
   /** True once the player owns a TOWN-tier tile. */
   townExpanded: boolean;
-  /** True once enough known FARM/FISH tiles (owned or not) exist to reach `foodSlotsTarget` once claimed. */
+  /** True once `foodSlotsFound >= foodSlotsTarget`. */
   foodFound: boolean;
   /** True once `foodSlotsClaimed >= foodSlotsTarget`. */
   foodExpanded: boolean;
+  /** Weighted food slots known to exist (owned FARM/FISH tiles plus unclaimed candidates, capped at foodSlotsTarget for display) -- the "Find food tiles" goal's progress counter. */
+  foodSlotsFound: number;
   /** Weighted food slots the player currently owns (FARM = 1 slot, FISH = 2 -- see structure-slots.ts's RESOURCE_SLOT_SPEC), not a tile count. */
   foodSlotsClaimed: number;
   foodSlotsTarget: number;
@@ -106,6 +108,7 @@ export const onboardingChecklistState = (
       townFound: true,
       townExpanded: true,
       foodFound: true,
+      foodSlotsFound: ONBOARDING_FOOD_SLOTS_TARGET,
       foodExpanded: true,
       foodSlotsClaimed: ONBOARDING_FOOD_SLOTS_TARGET,
       foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
@@ -145,6 +148,7 @@ export const onboardingChecklistState = (
 
   const townFound = hasTownTierTown || captureTownCandidates.length > 0;
   const foodKnownSlots = foodSlotsClaimed + foodCandidates.reduce((sum, c) => sum + c.slots, 0);
+  const foodSlotsFound = Math.min(foodKnownSlots, ONBOARDING_FOOD_SLOTS_TARGET);
   const foodFound = foodKnownSlots >= ONBOARDING_FOOD_SLOTS_TARGET;
   const foodExpanded = foodSlotsClaimed >= ONBOARDING_FOOD_SLOTS_TARGET;
 
@@ -159,6 +163,7 @@ export const onboardingChecklistState = (
         townFound,
         townExpanded: false,
         foodFound,
+        foodSlotsFound,
         foodExpanded,
         foodSlotsClaimed,
         foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
@@ -175,8 +180,9 @@ export const onboardingChecklistState = (
       townFound,
       townExpanded: false,
       foodFound,
+      foodSlotsFound,
       foodExpanded,
-      foodSlotsClaimed: 0,
+      foodSlotsClaimed,
       foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
       highlightTiles: ownTowns
     };
@@ -191,6 +197,7 @@ export const onboardingChecklistState = (
         townFound: true,
         townExpanded: true,
         foodFound,
+        foodSlotsFound,
         foodExpanded,
         foodSlotsClaimed,
         foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
@@ -205,6 +212,7 @@ export const onboardingChecklistState = (
       townFound: true,
       townExpanded: true,
       foodFound,
+      foodSlotsFound,
       foodExpanded,
       foodSlotsClaimed,
       foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
@@ -217,6 +225,7 @@ export const onboardingChecklistState = (
     townFound: true,
     townExpanded: true,
     foodFound: true,
+    foodSlotsFound: ONBOARDING_FOOD_SLOTS_TARGET,
     foodExpanded: true,
     foodSlotsClaimed,
     foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,

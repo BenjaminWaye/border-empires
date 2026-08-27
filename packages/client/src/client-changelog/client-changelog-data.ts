@@ -24,6 +24,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787827096329, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.6",
+    title: "Fixed the checklist bubble sometimes overlapping the Center button, and simplified the food-goal copy",
+    why: "The checklist bubble's vertical position was a guessed fixed pixel offset above the \"Center / Jump to your banner\" button, tuned against one specific layout -- on other viewport sizes it could visually collide with that button instead of clearing it. Separately, the food-goal labels spelled out the FARM/FISH slot-weighting rule inline (\"4 slots -- grain 1, fish 2\") and called the claimed-slots goal \"X/4 food slots\", which read as two different, oddly-worded stats instead of a matched pair.",
+    changes: [
+      "The checklist bubble now measures the Center button's actual on-screen position each render and clears it by a fixed gap, instead of guessing a fixed pixel offset that could drift out of sync with the real layout.",
+      "The food goals now read \"Find food tiles (X/4)\" and \"Expand To food tiles (X/4)\" -- matched, simpler copy instead of spelling out the grain/fish slot-weighting rule inline."
+    ]
+  },
+  {
     createdAt: 1787816841167, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.1",
     title: "Expand animation now plays on a directly-tapped tile, and queued waypoints stop disappearing",
@@ -430,34 +440,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The amber/white frontier-decay countdown pulse was baked into the ownership overlay's mesh colors inside the same rebuild that also fires on every camera pan or zoom (not just on actual game-state changes), sampling the wall clock fresh each time -- so panning the map made the pulse visibly jump or restart instead of animating smoothly.",
     changes: [
       "The decay pulse now animates from a per-frame update independent of camera movement, the same pattern already used for the reach-border pylon animation -- it only reacts to the tile's actual decay state, never to panning or zooming."
-    ]
-  },
-  {
-    createdAt: 1787584599966, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
-    introducedIn: "2026.08.24.6",
-    title: "\"Expand To\" no longer shows \"0 gold\" when expanding costs no gold",
-    why: "The multi-step Expand To cost line always showed a gold figure even when the plan was pure EXPAND steps, which cost manpower only. That made it look like the action was free (misleading) or like gold was being charged (confusing) instead of simply not being part of the cost.",
-    changes: [
-      "The Expand To cost summary now omits the gold amount entirely when the plan costs 0 gold, showing only manpower and time."
-    ]
-  },
-  {
-    createdAt: 1787584599965, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.5",
-    title: "Fixed frontier tiles auto-settling on undiscovered resources",
-    why: "Auto-settle was supposed to skip a resource tile until you'd actually revealed it (scouted it into your fog-of-war coverage), but a refactor had silently dropped that check, so a frontier tile could auto-settle the instant it became eligible even if you hadn't seen what was on it yet.",
-    changes: [
-      "Auto-settle no longer claims a frontier tile with a resource on it until that resource has actually been revealed to you. Town, dock, and town-supported frontier tiles are unaffected since those were always visible to their owner."
-    ]
-  },
-  {
-    createdAt: 1787572138647, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
-    introducedIn: "2026.08.24.4",
-    title: "Easier to find food",
-    why: "FARM and FISH clusters were rare enough (52 of each, scattered across the whole map) that players crossing open land or coastline could go a long way without spotting any food.",
-    changes: [
-      "New small single-tile FARM deposits now appear in each of the 4 directions around most farm clusters, 7-11 tiles out, so open land near a farm cluster has more food to find. There are now fewer, but larger-footprint, farm clusters overall to keep the total farmland roughly in balance.",
-      "New small single-tile FISH deposits now appear on either side of existing fish clusters, roughly 10 tiles out along the coast, so a coastline with fish has a couple of easier follow-up spots nearby. Fish clusters themselves are slightly smaller to keep the total fishing grounds unchanged."
     ]
   },
   {
