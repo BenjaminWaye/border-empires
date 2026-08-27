@@ -42,6 +42,18 @@ export const HILLS_VISION_BONUS = 1;
 export const COMBAT_LOCK_MS = 30_000;
 export const FRONTIER_CLAIM_COST = 0;
 export const FRONTIER_CLAIM_MS = 15_000;
+
+// Waypoint client-side-planning / server-side-replay (see
+// docs/waypoint-client-planning-plan.md). WAYPOINT_MAX_WIRE_STEPS bounds the
+// steps[] a WAYPOINT_ENQUEUE can carry -- a growable structure that lands in
+// a player snapshot (docs/agents/state-and-persistence-discipline.md), so the
+// cap is not optional. 256 matches the client's own render/step-count limit,
+// so no honest plan is ever rejected. WAYPOINT_OFFLINE_GRACE_MS is how long a
+// player must stay disconnected before the server's tick-driven waypoint
+// drain is allowed to start replaying their queue -- long enough that a page
+// refresh or a flaky reconnect never triggers a server drain cycle.
+export const WAYPOINT_MAX_WIRE_STEPS = 256;
+export const WAYPOINT_OFFLINE_GRACE_MS = 15_000;
 export const FOREST_FRONTIER_CLAIM_MULT = 1.5;
 // Changed to additive penalty that results in a 1.5x multiplier (same as forest).
 // 7_500 ms additive + 15_000 ms base = 22_500 ms total (1.5x).

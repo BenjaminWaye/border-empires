@@ -82,6 +82,48 @@ describe("reconnect/login snapshot includes durable queues", () => {
     ]);
   });
 
+  it("includes steps[]/cursor/planId/plannedAt in the reconnect snapshot for a plan-carrying entry (docs/waypoint-client-planning-plan.md test 1)", async () => {
+    const runtime = new SimulationRuntime({
+      now: () => 1_000,
+      initialPlayers: new Map([["player-1", buildPlayer("player-1")]]),
+      initialState: {
+        tiles: [...homeAndFrontierTiles("player-1"), { x: 50, y: 50, terrain: "LAND" }],
+        activeLocks: []
+      }
+    });
+
+    runtime.submitCommand({
+      commandId: "waypoint-enqueue-plan-1",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "WAYPOINT_ENQUEUE",
+      payloadJson: JSON.stringify({
+        x: 50,
+        y: 50,
+        planId: "plan-xyz",
+        plannedAt: 999,
+        steps: [
+          { origin: { x: 11, y: 10 }, target: { x: 12, y: 10 }, action: "EXPAND" },
+          { origin: { x: 12, y: 10 }, target: { x: 50, y: 50 }, action: "EXPAND" }
+        ]
+      })
+    });
+    for (let i = 0; i < 5; i += 1) await Promise.resolve();
+
+    const exported = runtime.exportVisibleStateForPlayer("player-1");
+    const player = exported.players.find((p) => p.id === "player-1");
+    const waypoint = player?.waypointQueue?.[0] as
+      | { x: number; y: number; planId?: string; plannedAt?: number; steps?: unknown[]; cursor?: number }
+      | undefined;
+
+    expect(waypoint?.planId).toBe("plan-xyz");
+    expect(waypoint?.plannedAt).toBe(999);
+    expect(waypoint?.steps).toHaveLength(2);
+    expect(typeof waypoint?.cursor).toBe("number");
+  });
+
   it("keeps exportVisibleStateForPlayerAsync in parity with the sync variant for these fields", async () => {
     const runtime = new SimulationRuntime({
       now: () => 1_000,

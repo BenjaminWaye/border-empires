@@ -171,15 +171,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787322201581,
-    introducedIn: "2026.08.21",
-    title: "Tension music now plays while a muster flag is staged, not just when an attack is mid-flight",
-    why: "Tension (\"war is coming\") music used to be driven by short-lived, per-attack timers (an attack in transit, a deferred send, an incoming-attack tracker) that clear the instant that specific attack resolves, so it kept dropping back to calm music between attacks even while a muster flag was still staged and ready to fire.",
-    changes: [
-      "Tension music now plays for as long as any muster flag is raised and set to Hold (staged, not yet advancing), which is a stable signal instead of one that clears after every individual attack."
-    ]
-  },
-  {
     createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.2",
     title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
@@ -204,15 +195,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787322800000,
-    introducedIn: "2026.08.21.1",
-    title: "Composite settle+build orders (e.g. Build Relay Beacon) now survive logging out mid-order",
-    why: "Clicking a composite action like \"Build Relay Beacon\" on an unowned tile sends the expand immediately, then relied purely on this client's own in-memory bookkeeping to notice the expand land and fire the follow-up settle, then notice the settlement land and fire the build. If you logged out (or your connection dropped) between the click and either of those follow-ups, nothing server-side was watching to continue the chain, so the order silently stalled.",
-    changes: [
-      "Settle+build orders (fresh expand-then-settle-then-build, and settle-then-build on an already-owned tile) now also register server-side, so they keep completing even if you disconnect right after clicking."
-    ]
-  },
-  {
     createdAt: 1787476075398, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23",
     title: "Redesigned the bug report form",
@@ -233,15 +215,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "Removed the \"Show your flag in the lobby?\" picker and the flag emoji next to roster names.",
       "The \"Bring a friend\" invite button now always gives visible feedback: it swaps to \"Copied!\" inline (with a manual-copy fallback if the clipboard API isn't available) instead of silently doing nothing.",
       "The plain \"Join Season?\" prompt (shown when a season is already running and you haven't joined yet) now shares the same full-screen war-room look as the pending-season lobby, and shows the live player count and roster alongside its Join button."
-    ]
-  },
-  {
-    createdAt: 1787323800000,
-    introducedIn: "2026.08.21.4",
-    title: "Fixed border pylons and structures drifting away from the ground while panning",
-    why: "The zoom-smoothness fix above let the terrain skip a rebuild for any pan that stayed inside a padded window, but every other 3D overlay (ownership border pylons/walls, flags, badges, selection markers) still repositions itself every single frame off the live camera with no such padding. Mid-pan, that left the terrain's baked geometry pinned to wherever it was last rebuilt while border pylons and structures kept gliding on with the live camera, so towers and border lines visibly separated from the tiles under them until the pan stopped.",
-    changes: [
-      "Panning the 3D map now always rebuilds the terrain to match the live camera, so border pylons, structures, and the ground they sit on stay locked together while scrolling. The zoom-only rebuild savings from the fix above are unaffected."
     ]
   },
   {
@@ -360,16 +333,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787322201580, // 2026.08.21 — frozen; was Date.now() in the merged commit
-    introducedIn: "2026.08.21",
-    title: "Border-expansion pylon animation is slower and more dramatic",
-    why: "The survey pylon rise/sink and laser on/off animation that plays when your border expands or contracts was over in about 1.3 seconds per pylon, which made it easy to miss entirely.",
-    changes: [
-      "Retiring pylons now take about 3 seconds to fade their laser and sink into the ground, and arriving pylons take about 3.2 seconds to rise and power their laser on.",
-      "New pylons/lasers along an expanding border now stagger in more visibly, one at a time, instead of all rising together."
-    ]
-  },
-  {
     createdAt: 1787356800001, // 2026.08.21, after the entries below
     introducedIn: "2026.08.21",
     title: "Shard rain impact sites now show on the map, even before you've explored them",
@@ -378,16 +341,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "Every active shard rain site now shows as an arrow-shaped badge pointing off-screen toward it, the same locator system muster flags use — click it to jump the camera there.",
       "Once you scroll a site on-screen, a small shield badge hovers over that exact tile, bobbing gently in place — the same badge style as the unfed-town warning, with a shard icon instead. It's just a positional blip from the event broadcast, not confirmation the shard is still there, especially on a tile you haven't explored yet.",
       "Both the off-screen badge and the on-screen badge stay up for the full ~30-minute life of the shard rain event, not just the first moments after landing."
-    ]
-  },
-  {
-    createdAt: 1787324700000,
-    introducedIn: "2026.08.21.5",
-    title: "Players now get a season-start email, and the previous champion gets a victory email",
-    why: "When a season rolled over, nothing told players by email that the map had reset -- they'd only find out by opening the game. And the player who was just crowned champion had no record of their win beyond the in-game season-end screen.",
-    changes: [
-      "Every player with an email on file now gets a branded \"A New Season Has Begun\" email when a new season starts, crediting the previous season's champion if there was one and pointing them to the season recap screen to browse final stats for friends and foes.",
-      "The player who won the previous season gets that same email with a victory recap folded in, calling out the objective they won through, instead of a separate message."
     ]
   },
   {
@@ -470,6 +423,16 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     changes: [
       "The respawn prompt now also checks that you're not still waiting to join a season before suggesting a respawn.",
       "The pre-game lobby now reclaims horizontal space on narrow phones and stacks its action buttons full-width, so \"Join the Discord\" and roster/ID rows no longer wrap or run off the edge of the screen."
+    ]
+  },
+  {
+    createdAt: 1787749806338, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.2",
+    title: "AI empires can now unblock growth when out of FOOD slots",
+    why: "When an AI ran completely out of FOOD slots with no Farmstead/Waterworks/Granary build available to grow more, it had no way out -- every FOOD-costing build (including a new Relay Beacon, which is the AI's only path to claim more farmland) stayed permanently illegal, so a starved AI empire would just get stuck forever instead of expanding its way out of the shortage.",
+    changes: [
+      "An AI empire that's fully out of FOOD slots, with no direct way to grow more, will now disable one of its own Relay Beacons that isn't covering any resources to free up the slot for further growth.",
+      "This is always a reversible disable, never a demolition -- the building stays intact and can be re-enabled once FOOD has headroom again."
     ]
   }
 ];

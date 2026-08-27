@@ -245,11 +245,30 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     y: z.number().int(),
     structureType: z.string().optional()
   }),
+  // steps/planId/plannedAt carry the client's full planned route (see
+  // docs/waypoint-client-planning-plan.md §1) so the server can replay it
+  // verbatim while the player is offline instead of guessing a single-leg
+  // route. All three stay optional for one deploy so an old client (or a
+  // replayed command from the gateway's durable command log) still parses --
+  // a target-only enqueue keeps today's single-leg drain as the degenerate
+  // case. Capped at WAYPOINT_MAX_WIRE_STEPS server-side (runtime-waypoint-
+  // queue.ts), not here -- zod only bounds the shape, not the business rule.
   z.object({
     type: z.literal("WAYPOINT_ENQUEUE"),
     x: z.number().int(),
     y: z.number().int(),
-    trackBarbarian: z.boolean().optional()
+    trackBarbarian: z.boolean().optional(),
+    planId: z.string().optional(),
+    plannedAt: z.number().optional(),
+    steps: z
+      .array(
+        z.object({
+          origin: z.object({ x: z.number().int(), y: z.number().int() }),
+          target: z.object({ x: z.number().int(), y: z.number().int() }),
+          action: z.enum(["EXPAND", "ATTACK"])
+        })
+      )
+      .optional()
   }),
   z.object({ type: z.literal("WAYPOINT_CANCEL"), x: z.number().int(), y: z.number().int() }),
   z.object({ type: z.literal("WAYPOINT_CANCEL_ALL") }),
