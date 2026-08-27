@@ -104,10 +104,9 @@ describe("buildInitMessage", () => {
     expect(init.domainCatalog).toEqual(expect.arrayContaining([expect.objectContaining({ id: "frontier-doctrine", name: "Frontier Doctrine" })]));
     expect(init.leaderboard.overall).toEqual(expect.arrayContaining([expect.objectContaining({ id: "player-1", name: "Nauticus" })]));
     expect(init.playerStyles).toEqual(expect.arrayContaining([expect.objectContaining({ id: "player-1", name: "Nauticus" })]));
-    expect(init.recovery).toEqual({
-      nextClientSeq: RECONNECT_COMMAND_TYPES.length + 1,
-      pendingCommands: []
-    });
+    expect(init.recovery.nextClientSeq).toBe(RECONNECT_COMMAND_TYPES.length + 1);
+    expect(init.recovery.pendingCommands).toHaveLength(Math.floor(RECONNECT_COMMAND_TYPES.length / 2));
+    expect(init.recovery.pendingCommands.every((command) => command.status === "ACCEPTED")).toBe(true);
   });
 
   it("includes fog-toggle capability in INIT when granted by the gateway", async () => {
@@ -125,7 +124,7 @@ describe("buildInitMessage", () => {
     expect(init.player).toEqual(expect.objectContaining({ canToggleFog: true }));
   });
 
-  it("drops queued frontier commands from reconnect recovery", async () => {
+  it("surfaces a still-queued frontier command in reconnect recovery", async () => {
     const store = new InMemoryGatewayCommandStore();
     await store.persistQueuedCommand(
       {
@@ -144,7 +143,7 @@ describe("buildInitMessage", () => {
 
     expect(init.recovery).toEqual({
       nextClientSeq: 2,
-      pendingCommands: []
+      pendingCommands: [expect.objectContaining({ commandId: "cmd-stale", status: "QUEUED", payload: { fromX: 10, fromY: 10, toX: 10, toY: 11 } })]
     });
   });
 

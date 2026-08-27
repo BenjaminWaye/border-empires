@@ -9,6 +9,7 @@ import type { SimulationSeedProfile } from "../seed-fallback.js";
 import type { SocialState } from "../social-state/social-state.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { withTimeout } from "../promise-timeout.js";
+import { toPendingGatewayCommands } from "./pending-command-recovery.js";
 
 const INIT_RECOVERY_TIMEOUT_MS = 1_500;
 
@@ -103,6 +104,8 @@ export const buildInitMessage = (
   ]).then(
     ([nextClientSeqResult, unresolvedCommandsResult]) => {
       const nextClientSeq = nextClientSeqResult.status === "fulfilled" ? nextClientSeqResult.value : 1;
+      const pendingCommands =
+        unresolvedCommandsResult.status === "fulfilled" ? toPendingGatewayCommands(unresolvedCommandsResult.value) : [];
       const bootstrap = buildGatewayInitPayload(playerIdentity, initialState, seedProfile, snapshotBootstrap);
       if (
         bootstrap.runtimeIdentity.seasonId !== bootstrap.config.season.seasonId ||
@@ -201,7 +204,7 @@ export const buildInitMessage = (
         : {}),
       recovery: {
         nextClientSeq,
-        pendingCommands: []
+        pendingCommands
       }
       };
     }

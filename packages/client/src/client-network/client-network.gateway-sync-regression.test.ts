@@ -1307,7 +1307,10 @@ describe("client gateway sync regression", () => {
     expect(renderHud).toHaveBeenCalled();
   });
 
-  it("does not rehydrate a pending frontier command from gateway reconnect recovery", () => {
+  it("rehydrates a pending frontier command from gateway reconnect recovery", () => {
+    // Was "does not rehydrate...": recovery.pendingCommands was always []
+    // server-side back then. Now populated so a reconnect can re-seed
+    // actionCurrent (see client-network-init-message.reconnect-inflight-action-regression.test.ts).
     const state = createState();
     const ws = new FakeWebSocket();
     bind(state, ws);
@@ -1334,10 +1337,7 @@ describe("client gateway sync regression", () => {
     });
 
     expect(state.nextCommandClientSeq).toBe(8);
-    expect(state.actionInFlight).toBe(false);
-    expect(state.actionAcceptedAck).toBe(false);
-    expect(state.actionTargetKey).toBe("");
-    expect(state.actionCurrent).toBeUndefined();
+    expect(state.actionCurrent).toEqual(expect.objectContaining({ x: 10, y: 11, commandId: "cmd-7", actionType: "ATTACK" }));
     expect(state.captureAlert).toBeUndefined();
   });
 
