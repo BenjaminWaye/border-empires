@@ -43,12 +43,28 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     return landBiomeAt(x, y) === "GRASS" && seeded01(x, y, activeSeason.worldSeed + 882) <= 0.7 ? "FARMING" : "MARKET";
   };
 
+  // Minimum Manhattan spacing enforced between any two towns, anywhere a town
+  // gets placed (the initial scatter below, the per-region coverage
+  // backstops, and normalization) — so two towns are never placed directly
+  // adjacent to each other regardless of which pass created them.
+  const minTownSpacing = (): number => Math.max(5, Math.floor(Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.018));
+  const isFarEnoughFromTowns = (x: number, y: number, minSpacing: number, ignoreTileKey?: TileKey): boolean => {
+    for (const town of townsByTile.values()) {
+      if (town.tileKey === ignoreTileKey) continue;
+      const [tx, ty] = parseKey(town.tileKey);
+      const dx = Math.min(Math.abs(tx - x), WORLD_WIDTH - Math.abs(tx - x));
+      const dy = Math.min(Math.abs(ty - y), WORLD_HEIGHT - Math.abs(ty - y));
+      if (dx + dy < minSpacing) return false;
+    }
+    return true;
+  };
+
   const generateTowns = (seed: number): void => {
     townsByTile.clear();
     firstSpecialSiteCaptureClaimed.clear();
     const worldScale = (WORLD_WIDTH * WORLD_HEIGHT) / 1_000_000;
     const target = Math.max(70, Math.floor(180 * worldScale));
-    const minSpacing = Math.max(5, Math.floor(Math.min(WORLD_WIDTH, WORLD_HEIGHT) * 0.018));
+    const minSpacing = minTownSpacing();
     const placed: Array<{ x: number; y: number }> = [];
     for (let index = 0; index < 120_000 && placed.length < target; index += 1) {
       const x = Math.floor(seeded01(index * 13, index * 17, seed + 9301) * WORLD_WIDTH);
@@ -78,7 +94,13 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
 
   const canPlaceTownAt = (x: number, y: number, ignoreTileKey?: TileKey): boolean => {
     const tileKey = key(x, y);
-    return terrainAt(x, y) === "LAND" && (tileKey === ignoreTileKey || !townsByTile.has(tileKey)) && !docksByTile.has(tileKey) && !clusterByTile.has(tileKey);
+    return (
+      terrainAt(x, y) === "LAND" &&
+      (tileKey === ignoreTileKey || !townsByTile.has(tileKey)) &&
+      !docksByTile.has(tileKey) &&
+      !clusterByTile.has(tileKey) &&
+      isFarEnoughFromTowns(x, y, minTownSpacing(), ignoreTileKey)
+    );
   };
 
   const findNearestTownPlacement = (originX: number, originY: number, ignoreTileKey?: TileKey): TileKey | undefined => {
@@ -147,7 +169,7 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
         }
         if (land.length === 0) continue;
         if (!hasTown) {
-          const picked = land.find((tile) => !docksByTile.has(key(tile.x, tile.y)) && !clusterByTile.has(key(tile.x, tile.y)) && !townsByTile.has(key(tile.x, tile.y)));
+          const picked = land.find((tile) => canPlaceTownAt(tile.x, tile.y));
           if (picked) {
             townsByTile.set(key(picked.x, picked.y), { townId: `town-${townsByTile.size}`, tileKey: key(picked.x, picked.y), type: townTypeAt(picked.x, picked.y), population: initialTownPopulationAt(picked.x, picked.y, seed), maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, lastGrowthTickAt: now() });
           }
@@ -207,7 +229,7 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
           break;
         }
         const tileKey = key(picked.x, picked.y);
-        if (!townsByTile.has(tileKey) && !docksByTile.has(tileKey) && !clusterByTile.has(tileKey)) {
+        if (!townsByTile.has(tileKey) && !docksByTile.has(tileKey) && !clusterByTile.has(tileKey) && isFarEnoughFromTowns(picked.x, picked.y, minTownSpacing())) {
           townsByTile.set(tileKey, { townId: `town-${townsByTile.size}`, tileKey, type: townTypeAt(picked.x, picked.y), population: initialTownPopulationAt(picked.x, picked.y, seed), maxPopulation: POPULATION_MAX, connectedTownCount: 0, connectedTownBonus: 0, lastGrowthTickAt: now() });
         }
       }
@@ -224,6 +246,8 @@ export const createServerWorldgenTowns = (deps: ServerWorldgenTownsDeps): Server
     assignMissingTownNamesForWorld,
     ensureBaselineEconomyCoverage,
     ensureInterestCoverage,
-    initialTownPopulationAt
+    initialTownPopulationAt,
+    minTownSpacing,
+    isFarEnoughFromTowns
   };
 };

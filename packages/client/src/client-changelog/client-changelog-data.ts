@@ -15,6 +15,18 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787845125245, // frozen: one ms after the previous newest entry
+    introducedIn: "2026.08.27",
+    title: "Islands map improvements: bigger islands, no sealed mountain rings, tighter dock/town placement",
+    why: "Islands-style worlds skewed almost all ocean under the same land thresholds used for the huge continents style, mountain rings could form a fully closed loop that sealed off whatever was inside (sometimes trapping a dock), a bug in dock placement's pairing step silently dropped every dock on a world with only one eligible landmass, and player spawns required an existing town within a radius wide enough to land immediately next to the player's own new settlement town.",
+    changes: [
+      "Islands-style worlds now generate with lower sea/coastal thresholds and a few large island seeds mixed in with the small ones, so there's consistently room for a big island instead of mostly open ocean.",
+      "Mountain rings always leave a gap in their loop now, so a ring can never fully seal off its interior from the surrounding terrain.",
+      "Fixed a dock-generation bug where a world with only one sea-reachable landmass (nothing to pair or route a connection to) got zero docks; every eligible landmass now gets its dock on the first pass.",
+      "Towns are no longer placed directly adjacent to each other anywhere on the map, and a player spawn's own settlement no longer lands immediately next to another town — a nearby town still counts for spawn placement, but it has to keep the same minimum distance towns keep from each other everywhere else."
+    ]
+  },
+  {
     createdAt: 1787845125244, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.9",
     title: "Waypoints now keep making progress while you're offline",
@@ -446,30 +458,12 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787687420759, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.4",
-    title: "Reverted the crisp border-ribbon prototype on the 3D ownership overlay",
-    why: "The prototype border ribbon along exposed territory edges (#1474) didn't read well in practice -- pulled back out to the flat fill-tint look while a better edge treatment is worked out.",
-    changes: [
-      "3D territory tiles no longer draw a bright border ribbon along exposed edges; back to the fill-only look."
-    ]
-  },
-  {
     createdAt: 1787688467708, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.6",
     title: "Fixed structure builds (like Relay Beacon) appearing stuck after expand+settle+build",
     why: "Building a structure on a not-yet-settled frontier tile makes the client send a SETTLE command directly while the server independently auto-enqueues its own SETTLE step for the same tile, so whichever arrives second is rejected as a duplicate. The client's recovery logic for that expected rejection compared against a slightly wrong error string, so it never matched -- instead of quietly resuming, the client wiped its local settlement/build tracking and stopped refreshing, even though the server had already settled the tile and started building.",
     changes: [
       "The client now correctly recognizes a duplicate-settle rejection and resumes tracking instead of abandoning the tile, so builds like Relay Beacon started via expand+settle+build no longer appear stuck client-side while they're actually progressing on the server."
-    ]
-  },
-  {
-    createdAt: 1787682600000, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.4",
-    title: "Fixed the out-of-reach decay pulse jumping every time you panned the camera",
-    why: "The amber/white frontier-decay countdown pulse was baked into the ownership overlay's mesh colors inside the same rebuild that also fires on every camera pan or zoom (not just on actual game-state changes), sampling the wall clock fresh each time -- so panning the map made the pulse visibly jump or restart instead of animating smoothly.",
-    changes: [
-      "The decay pulse now animates from a per-frame update independent of camera movement, the same pattern already used for the reach-border pylon animation -- it only reacts to the tile's actual decay state, never to panning or zooming."
     ]
   },
   {

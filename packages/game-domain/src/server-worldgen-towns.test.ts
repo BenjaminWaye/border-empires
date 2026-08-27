@@ -107,4 +107,59 @@ describe("ensureBaselineEconomyCoverage", () => {
     const foodClusters = [...deps.clustersById.values()].filter((cluster) => cluster.resourceType === "FARM" || cluster.resourceType === "FISH");
     expect(foodClusters).toHaveLength(1);
   });
+
+  it("rejects placing a town directly adjacent to an existing town, but allows one far enough away", () => {
+    const deps = buildDeps();
+    const townsRuntime = createServerWorldgenTowns(deps);
+    deps.townsByTile.set(key(10, 10), {
+      townId: "town-seed",
+      tileKey: key(10, 10),
+      type: "MARKET",
+      population: 10,
+      maxPopulation: 1000,
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      lastGrowthTickAt: 0
+    });
+
+    // Directly adjacent (and anywhere inside the minimum spacing radius)
+    // must be rejected...
+    expect(townsRuntime.canPlaceTownAt(11, 10)).toBe(false);
+    expect(townsRuntime.canPlaceTownAt(10, 11)).toBe(false);
+    // ...while a tile at least minTownSpacing() away is still fine.
+    const farEnough = townsRuntime.minTownSpacing();
+    expect(townsRuntime.canPlaceTownAt(10 + farEnough, 10)).toBe(true);
+  });
+
+  it("never lets the interest-coverage backstop place a town directly adjacent to an existing town", () => {
+    const deps = buildDeps();
+    const townsRuntime = createServerWorldgenTowns(deps);
+    // Seed a town right at the boundary between the first two 15x15 interest
+    // blocks ensureInterestCoverage scans, so the neighboring (otherwise
+    // "uninteresting") block's own backstop pick is likely to land close to
+    // it unless spacing is enforced.
+    deps.townsByTile.set(key(14, 14), {
+      townId: "town-seed",
+      tileKey: key(14, 14),
+      type: "MARKET",
+      population: 10,
+      maxPopulation: 1000,
+      connectedTownCount: 0,
+      connectedTownBonus: 0,
+      lastGrowthTickAt: 0
+    });
+
+    townsRuntime.ensureInterestCoverage(11);
+
+    const minSpacing = townsRuntime.minTownSpacing();
+    const towns = [...deps.townsByTile.values()];
+    for (let i = 0; i < towns.length; i += 1) {
+      for (let j = i + 1; j < towns.length; j += 1) {
+        const [ax, ay] = towns[i]!.tileKey.split(",").map(Number) as [number, number];
+        const [bx, by] = towns[j]!.tileKey.split(",").map(Number) as [number, number];
+        const distance = Math.abs(ax - bx) + Math.abs(ay - by);
+        expect(distance).toBeGreaterThanOrEqual(minSpacing);
+      }
+    }
+  });
 });
