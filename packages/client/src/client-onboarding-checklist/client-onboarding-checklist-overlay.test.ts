@@ -114,13 +114,18 @@ describe("renderOnboardingChecklistOverlay", () => {
     // of a real viewport, the way it does in the actual app.
     centerButton.getBoundingClientRect = () =>
       ({ top: 700, left: 12, right: 200, bottom: 750, width: 188, height: 50, x: 12, y: 700, toJSON: () => ({}) }) as DOMRect;
+    const originalInnerHeight = window.innerHeight;
     Object.defineProperty(window, "innerHeight", { value: 800, configurable: true });
 
-    renderOnboardingChecklistOverlay(tilesMap([tile(1, 1)]), "p1", "a@example.com");
+    try {
+      renderOnboardingChecklistOverlay(tilesMap([tile(1, 1)]), "p1", "a@example.com");
 
-    const root = document.getElementById("onboarding-checklist-bubble") as HTMLElement;
-    // window.innerHeight(800) - rect.top(700) + clearance(12) = 112.
-    expect(root.style.getPropertyValue("--onb-bottom")).toBe("112px");
+      const root = document.getElementById("onboarding-checklist-bubble") as HTMLElement;
+      // window.innerHeight(800) - rect.top(700) + clearance(12) = 112.
+      expect(root.style.getPropertyValue("--onb-bottom")).toBe("112px");
+    } finally {
+      Object.defineProperty(window, "innerHeight", { value: originalInnerHeight, configurable: true });
+    }
   });
 
   it("falls back to the default offset when #center-me-desktop isn't measurable", () => {
