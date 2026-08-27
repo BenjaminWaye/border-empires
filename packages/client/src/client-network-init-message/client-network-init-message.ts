@@ -22,6 +22,7 @@ import {
   notifyRecentAllianceBreaksOnInit
 } from "../client-diplomacy-notifications.js";
 import type { ClientState } from "../client-state/client-state.js";
+import { applyInitPendingAction } from "./apply-init-pending-action.js";
 import { applyInitSeasonPending } from "./apply-init-season-pending.js";
 import { clearCameraLocation } from "../client-view-refresh.js";
 import { clearStoredDiscoveredTiles, readStoredDiscoveredTiles } from "../client-state/client-discovered-tiles-storage.js";
@@ -156,6 +157,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   state.bridgeDebugSupportedMessageCount = state.serverSupportedMessageTypes.size;
   const gatewayRecovery = (msg.recovery as { nextClientSeq?: unknown; pendingCommands?: unknown } | undefined) ?? undefined;
   applyGatewayRecoveryNextClientSeq(state, gatewayRecovery?.nextClientSeq);
+  applyInitPendingAction(state, msg);
   const player = incomingPlayer;
   state.me = player.id as string;
   state.meName = player.name as string;
