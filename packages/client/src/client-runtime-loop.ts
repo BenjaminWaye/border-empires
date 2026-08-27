@@ -37,7 +37,7 @@ import { activeMusterSupplyLines, fireDueMusterTransits, resolveAdvanceMusterFal
 import { createStalledConstructionRefresher } from "./client-construction-stall-refresh/client-construction-stall-refresh.js";
 import { isSeasonLobbyFullscreenActive } from "./client-season-lobby-fullscreen.js";
 import type { ClientState } from "./client-state/client-state.js";
-import type { DockPair, FeedSeverity, FeedType, Tile, TileVisibilityState, TileTimedProgress } from "./client-types.js";
+import type { DockPair, FeedSeverity, FeedType, Tile, TileMenuView, TileVisibilityState, TileTimedProgress } from "./client-types.js";
 import { createVisibleTileDetailRequester } from "./client-visible-tile-detail/client-visible-tile-detail.js";
 import { sweepExpiredFrontierRecovery } from "./client-frontier-recovery/client-frontier-recovery.js";
 import { WORLD_HEIGHT, WORLD_WIDTH, buildAetherWallSegments, landBiomeAt, terrainAt } from "@border-empires/shared";
@@ -150,7 +150,7 @@ type StartClientRuntimeLoopDeps = {
   drawMiniMap: () => void;
   maybeRefreshForCamera: (force?: boolean) => void;
   requestTileDetailIfNeeded: (tile: Tile | undefined, options?: { force?: boolean }) => void;
-  renderHud: () => void;
+  renderHud: () => void; tileMenuViewForTile: (tile: Tile) => TileMenuView; renderTileActionMenu: (view: TileMenuView, clientX: number, clientY: number) => void;
   renderCaptureProgress: () => void;
   renderShardAlert: () => void; renderVictoryHoldAlert: () => void;
   cleanupExpiredSettlementProgress: () => boolean;
@@ -1694,7 +1694,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   draw();
   deps.renderHud();
   setInterval(deps.renderCaptureProgress, 100);
-  setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000); startTileMenuDecayTicker(state, deps.renderHud);
+  setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000); startTileMenuDecayTicker(state, deps.tileMenuViewForTile, deps.renderTileActionMenu);
   setInterval(() => {
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;
