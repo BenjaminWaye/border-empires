@@ -62,4 +62,39 @@ describe("ownership overlay partial color update", () => {
 
     overlay.dispose();
   });
+
+  // Regression: a rebuild's commit() stages a full 0..vertCount color range
+  // (fresh base colors for every tile this rebuild reassigned to a
+  // possibly-different index) and sets needsUpdate, but the GPU doesn't
+  // actually consume/clear that range until the renderer draws the frame.
+  // frontierDecayPulse.render() runs later in the same frame whenever a
+  // rebuild happens to land alongside a live decay pulse tick, and used to
+  // call beginFrontierColorUpdates() -> clearUpdateRanges(), wiping out
+  // commit()'s pending full-range entry before it ever reached the GPU --
+  // only the pulse's own small per-tile ranges survived to upload. Every
+  // tile a rebuild reassigned to an index the pulse didn't touch that frame
+  // then kept its *previous* occupant's stale GPU color forever (the
+  // "random frontier tiles glow amber after panning" artifact).
+  it("does not drop commit()'s pending full-range color update when a decay-pulse color write follows in the same frame", () => {
+    const scene = new Scene();
+    const overlay = createOwnershipOverlay(scene, 10);
+    overlay.addTile(0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, new Color(0, 1, 0), true);
+    overlay.addTile(2, 0, 0, 3, 0, 0, 2, 0, 1, 3, 0, 1, new Color(0, 1, 0), true);
+    overlay.commit();
+
+    const colorAttr = overlay.frontierMesh.geometry.getAttribute("color") as unknown as {
+      updateRanges: Array<{ start: number; count: number }>;
+    };
+    const committedRanges = colorAttr.updateRanges.length;
+    expect(committedRanges).toBeGreaterThan(0);
+
+    overlay.beginFrontierColorUpdates();
+    overlay.setFrontierTileColor(0, new Color(1, 1, 1));
+
+    // commit()'s own range(s) must still be pending alongside the pulse's --
+    // beginFrontierColorUpdates() must not have cleared them.
+    expect(colorAttr.updateRanges.length).toBeGreaterThanOrEqual(committedRanges + 1);
+
+    overlay.dispose();
+  });
 });
