@@ -1,4 +1,4 @@
-import { MIN_ZOOM, isForestTile } from "./client-constants.js";
+import { MIN_ZOOM, isForestTile } from "./client-constants.js"; import { startTileMenuDecayTicker } from "./client-tile-menu-decay-ticker/client-tile-menu-decay-ticker.js";
 import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
@@ -1694,7 +1694,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
   draw();
   deps.renderHud();
   setInterval(deps.renderCaptureProgress, 100);
-  setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000);
+  setInterval(deps.renderShardAlert, 250); setInterval(deps.renderVictoryHoldAlert, 1_000); startTileMenuDecayTicker(state, deps.renderHud);
   setInterval(() => {
     const expiredSettlementProgress = deps.cleanupExpiredSettlementProgress();
     const startedQueuedDevelopment = state.developmentQueue.length > 0 ? deps.processDevelopmentQueue() : false;

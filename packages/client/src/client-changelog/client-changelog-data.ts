@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787817510197, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.1",
+    title: "Fixed the frontier decay countdown freezing on a decaying tile's menu",
+    why: "The tile menu's \"decays in Xs\" / \"disappears in Xs\" countdown for an encircled or out-of-reach frontier tile was only recomputed when the HUD re-rendered for some other reason (an incoming server message). With the menu left open on a decaying tile and nothing else happening, the countdown just sat frozen at whatever second it was showing when the menu opened, reading as if there were no timer at all.",
+    changes: [
+      "The tile menu now ticks its decay countdown once a second while it's open on a decaying tile, so the timer visibly counts down instead of freezing."
+    ]
+  },
+  {
     createdAt: 1787812963830, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.9",
     title: "Waypoints no longer fight the server for every step while you're online",
@@ -479,15 +488,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "An AI empire that's fully out of FOOD slots, with no direct way to grow more, will now disable one of its own Relay Beacons that isn't covering any resources to free up the slot for further growth.",
       "This is always a reversible disable, never a demolition -- the building stays intact and can be re-enabled once FOOD has headroom again."
-    ]
-  },
-  {
-    createdAt: 1787766405640, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.2",
-    title: "Settle now works on a captured town or dock outside your reach",
-    why: "A captured town or dock frontier tile (e.g. taken by Attack, which isn't reach-gated) could sit outside your reach border and keep getting rejected with \"tile is outside your reach\" every time Settle was attempted, even though settling it is exactly what would give it its own reach in the first place -- a Catch-22 that made some captured towns/docks permanently unsettleable.",
-    changes: [
-      "Settle no longer requires a captured town or dock tile to already be inside your reach -- only plain resource/support frontier tiles still need that."
     ]
   },
 ];
