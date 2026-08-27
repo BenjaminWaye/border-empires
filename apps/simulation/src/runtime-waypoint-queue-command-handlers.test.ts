@@ -44,6 +44,7 @@ type MakeContextOptions = {
   // continuation, so that's the meaningful default for these tests. See the
   // dedicated "does not drain while the player is online" test below.
   isPlayerOnline?: boolean;
+  hasActiveLockForPlayer?: boolean;
 };
 
 function makeContext(options: MakeContextOptions = {}) {
@@ -62,6 +63,7 @@ function makeContext(options: MakeContextOptions = {}) {
     isHostileOwner: (playerId, targetOwnerId) => Boolean(targetOwnerId) && targetOwnerId !== playerId && targetOwnerId !== "ally-1",
     nextDrainCommandId: (playerId, x, y) => `drain:${playerId}:${x},${y}`,
     isPlayerOnline: () => options.isPlayerOnline ?? false,
+    hasActiveLockForPlayer: () => options.hasActiveLockForPlayer ?? false,
     dispatchFrontierCommand: (command, actionType) => {
       dispatched.push({ command, actionType });
       if (!options.dispatchResultFor) return { accepted: true };
