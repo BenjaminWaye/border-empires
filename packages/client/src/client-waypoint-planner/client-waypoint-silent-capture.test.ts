@@ -29,7 +29,13 @@ describe("silent waypoint capture flow", () => {
     // The `silent` derivation is scoped to a neutral (un-owned) target —
     // ATTACKs on enemy tiles never go silent, regardless of origin.
     expect(source).toMatch(/const silent = !to\.ownerId;/);
-    expect(source).toContain("state.capture = silent ? { ...baseCapture, silent: true } : baseCapture;");
+    expect(source).toContain("...(silent ? { silent: true } : {})");
+    // The capture also carries actionType from dispatch: the on-map claim
+    // plate (client-map-3d.ts) gates on actionType === "EXPAND", NOT on
+    // `silent`, so that a direct adjacent tap (which clears silent, see the
+    // next test) still animates. Keep these two concerns separate.
+    expect(source).toMatch(/const actionType = !to\.ownerId \? "EXPAND" : "ATTACK";/);
+    expect(source).toContain("{ ...baseCapture, actionType,");
   });
 
   it("a plain manual tap that becomes the active capture flips silent back off", () => {

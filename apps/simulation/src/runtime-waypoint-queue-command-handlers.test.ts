@@ -113,7 +113,13 @@ describe("tryDrainWaypointQueue", () => {
     expect(dispatched[0]!.actionType).toBe("ATTACK");
   });
 
-  it("does not auto-declare war on a rival's settled tile without trackBarbarian, and moves on to the next entry", () => {
+  it("does not auto-declare war on a rival's settled tile without trackBarbarian, but KEEPS the entry queued", () => {
+    // Regression: this used to `continue` after the entry had already been
+    // sliced off the front, permanently deleting it. Declining to auto-attack
+    // is the right call for the server to make, but the entry is not dead --
+    // the player's own client plans an ATTACK leg for exactly this target, so
+    // dropping it here silently destroyed a waypoint they'd have walked
+    // themselves on reconnect.
     const tiles = new Map([
       ["5,5", tile(5, 5, { ownerId: "rival-1" })],
       ["6,6", tile(6, 6)]
@@ -126,9 +132,12 @@ describe("tryDrainWaypointQueue", () => {
 
     tryDrainWaypointQueue(context, PLAYER_ID);
 
+    // Still moves on to the next entry and dispatches it...
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]!.actionType).toBe("EXPAND");
-    expect(summary.waypointQueue).toHaveLength(0);
+    expect(dispatched[0]!.command.payloadJson).toContain('"toX":6');
+    // ...but the rival-owned entry survives instead of being eaten.
+    expect(summary.waypointQueue).toEqual([{ target: { x: 5, y: 5 }, queuedAt: 0 }]);
   });
 
   it("drops an entry already owned by the player (reached while offline) and proceeds to the next entry", () => {
@@ -241,14 +250,34 @@ describe("tryDrainWaypointQueue", () => {
 
     tryDrainWaypointQueue(context, PLAYER_ID);
 
-    // Stops at the first attempt (matching the existing "one live dispatch
-    // attempt per drain call" semantics) with the rejected entry restored to
-    // the front, ahead of the entry that was never tried.
-    expect(dispatched).toHaveLength(1);
+    // Both entries get an attempt -- a not-yet-reachable head must not block
+    // the rest of the queue behind it -- and both are restored, in order,
+    // since neither is dead.
+    expect(dispatched).toHaveLength(2);
     expect(summary.waypointQueue).toEqual([
       { target: { x: 5, y: 5 }, queuedAt: 0 },
       { target: { x: 6, y: 6 }, queuedAt: 1 }
     ]);
+  });
+
+  it("restores deferred entries even when a later entry dispatches successfully", () => {
+    // The accepted-dispatch path returns early; deferred entries collected
+    // before it must still be put back, or they'd be silently dropped by the
+    // very code that is supposed to preserve them.
+    const tiles = new Map([
+      ["5,5", tile(5, 5, { ownerId: "rival-1" })], // deferred (no auto-war)
+      ["6,6", tile(6, 6)] // dispatches fine
+    ]);
+    const { context, summary, dispatched } = makeContext({ tiles });
+    summary.waypointQueue = [
+      { target: { x: 5, y: 5 }, queuedAt: 0 },
+      { target: { x: 6, y: 6 }, queuedAt: 1 }
+    ];
+
+    tryDrainWaypointQueue(context, PLAYER_ID);
+
+    expect(dispatched).toHaveLength(1);
+    expect(summary.waypointQueue).toEqual([{ target: { x: 5, y: 5 }, queuedAt: 0 }]);
   });
 });
 

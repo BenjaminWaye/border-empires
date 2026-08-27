@@ -4,6 +4,7 @@
 // client-changelog-data-earlier.ts when this file approaches the cap.
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER } from "./client-changelog-data-earlier.js";
 import { CLIENT_CHANGELOG_ENTRIES_EARLIER_2 } from "./client-changelog-data-earlier-2.js";
+import { CLIENT_CHANGELOG_ENTRIES_EARLIER_3 } from "./client-changelog-data-earlier-3.js";
 export type ClientChangelogEntry = {
   createdAt: number; // Unix ms. Use a frozen literal (check:client-changelog rejects Date.now()).
   introducedIn: string;
@@ -13,6 +14,17 @@ export type ClientChangelogEntry = {
 };
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
+  {
+    createdAt: 1787816841167, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.1",
+    title: "Expand animation now plays on a directly-tapped tile, and queued waypoints stop disappearing",
+    why: "The on-map claim animation was keyed off an internal \"keep this claim quiet\" flag that exists to suppress the completion popup and feed spam for long queued chains. Tapping an adjacent tile directly deliberately clears that flag -- so the claim ran, the tile menu counted down, but nothing animated on the map, while the exact same claim arriving as a queued step animated fine. Separately, the server's offline waypoint drain removed a queued target from your queue when it declined to auto-attack a rival's tile -- a decision it's right to make, but it deleted the waypoint instead of leaving it for you to walk yourself.",
+    changes: [
+      "Tapping an adjacent tile to expand now plays the same claim animation queued tiles already did.",
+      "A queued waypoint aimed at a rival-held tile is no longer silently deleted while you're offline -- it stays queued for you to act on when you return.",
+      "A queued waypoint that isn't reachable yet no longer blocks the rest of your queue from being attempted."
+    ]
+  },
   {
     createdAt: 1787823003530, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.5",
@@ -440,16 +452,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787553808483, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.2",
-    title: "Settle Land now shows its manpower cost, and stays hidden until you actually need it",
-    why: "Settle Land and Settle Connected only showed their gold cost, hiding the manpower they actually spend, and were shown from turn one even though manual settling has nothing to offer that early -- it's really only useful once you have a town and food running, for cheap defense, connecting towns, or consolidating territory. New players kept settling exposed frontier tiles in the opening minutes for no benefit, burning manpower they needed elsewhere.",
-    changes: [
-      "The manpower cost of settling is now shown on Settle Connected's total cost line -- previously only the gold cost was shown, so it looked cheaper than it was. The multi-select bulk \"Settle Land\" button (which claims unowned land) now correctly shows its own claim cost instead of the settle cost.",
-      "Settle Land and Settle Connected are now hidden from the tile menu until you have a settled town and a settled food tile (farm or fish), and appear at the very bottom of the actions list once they do."
-    ]
-  },
-  {
     createdAt: 1787749806338, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.2",
     title: "AI empires can now unblock growth when out of FOOD slots",
@@ -490,5 +492,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
   ...CLIENT_CHANGELOG_ENTRIES_EARLIER,
-  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_2,
+  ...CLIENT_CHANGELOG_ENTRIES_EARLIER_3
 ];
