@@ -16,6 +16,7 @@ import {
   type ServerWaypointQueueWireEntry
 } from "../client-waypoint-planner/client-waypoint-persistence.js";
 import { DEV_QUEUE_SERVER_CAP } from "@border-empires/shared";
+import { attackSyncLog } from "../client-debug/client-debug.js";
 import {
   notifyActiveAllianceBreaksOnInit,
   notifyIncomingDiplomacyRequestsOnInit,
@@ -315,6 +316,9 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
       if (serverWaypointTargetKeys.has(keyFor(waypoint.target.x, waypoint.target.y))) continue;
       deps.sendGameMessage?.(waypointEnqueueWirePayload(waypoint.target, waypoint.trackBarbarian));
     }
+  } else if ((serverWaypointQueue?.length ?? 0) > 0) {
+    // Diagnostic: restore skipped (state.waypoint already non-empty) while the server still has entries.
+    attackSyncLog("waypoint-restore-skipped-non-empty", { localCount: state.waypoint.length, serverCount: serverWaypointQueue!.length });
   }
   applyAutoSettlementQueueFromServer(
     state,
