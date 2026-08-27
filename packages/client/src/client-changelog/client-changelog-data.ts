@@ -15,6 +15,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787839538882, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.7",
+    title: "Fixed the checklist bubble also overlapping the Center button on mobile",
+    why: "The prior fix for this only measured the desktop Center button (#center-me-desktop). On phone-width screens that button is hidden -- the real overlap was with its mobile counterpart, which lives inside the default-visible mobile home panel sitting directly above the nav bar. The mobile position was still a guessed fixed offset that only cleared the nav bar itself, not that panel's own height above it.",
+    changes: [
+      "The checklist bubble now measures whichever Center button (desktop or mobile) is actually on screen, so it no longer overlaps it on phone-width layouts either.",
+      "The Relay Beacon note now reads \"build a Relay Beacon to expand your reach\"."
+    ]
+  },
+  {
     createdAt: 1787834428935, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.3",
     title: "Fixed queued waypoints and builds actually vanishing on reconnect",
@@ -431,24 +441,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Building a structure on a not-yet-settled frontier tile makes the client send a SETTLE command directly while the server independently auto-enqueues its own SETTLE step for the same tile, so whichever arrives second is rejected as a duplicate. The client's recovery logic for that expected rejection compared against a slightly wrong error string, so it never matched -- instead of quietly resuming, the client wiped its local settlement/build tracking and stopped refreshing, even though the server had already settled the tile and started building.",
     changes: [
       "The client now correctly recognizes a duplicate-settle rejection and resumes tracking instead of abandoning the tile, so builds like Relay Beacon started via expand+settle+build no longer appear stuck client-side while they're actually progressing on the server."
-    ]
-  },
-  {
-    createdAt: 1787682505307, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.3",
-    title: "Fixed sea tiles rendering solid black from underneath",
-    why: "The 3D water mesh only had a front face wound (normal pointing up) and the material never set a two-sided render mode, so any camera angle that caught the underside of the water surface -- looking up from below water level, or a steep enough grazing angle -- rendered nothing at all, showing empty background through the hole instead of water.",
-    changes: [
-      "Water tiles now render from both sides, so the sea never shows as a black hole regardless of camera angle."
-    ]
-  },
-  {
-    createdAt: 1787665177074, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.2",
-    title: "Fixed missing ownership colour on settled coastal hills",
-    why: "A shared map-corner vertex touching both sea and land was always flattened to beach height, even when the land side was a hill. That sank the hill's draped ownership tint (and its gridlines) below the visible dome surface, so a settled hill right next to the coast -- exactly where FISH resources spawn -- looked uncovered even though it was fully owned.",
-    changes: [
-      "Coastal hill tiles now keep their ownership colour and gridlines visible; the map corner tapers to the hill's own edge height instead of dropping to beach level."
     ]
   },
   {

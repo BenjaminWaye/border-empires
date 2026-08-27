@@ -128,11 +128,37 @@ describe("renderOnboardingChecklistOverlay", () => {
     }
   });
 
-  it("falls back to the default offset when #center-me-desktop isn't measurable", () => {
-    // No #center-me-desktop in the DOM at all here -- happy-dom's default
-    // zero-rect behavior (when the element does exist but isn't laid out)
-    // is covered implicitly by every other test in this file never setting
-    // one up.
+  it("falls back to #center-me (the mobile Center button) when #center-me-desktop isn't laid out", () => {
+    // #center-me-desktop present but display:none-equivalent (zero rect,
+    // as happy-dom always returns) -- the way it actually sits below the
+    // 900px mobile breakpoint. #center-me (inside #mobile-core, the
+    // default-visible mobile home panel) is what's really on screen there.
+    const desktopButton = document.createElement("button");
+    desktopButton.id = "center-me-desktop";
+    document.body.appendChild(desktopButton);
+    const mobileButton = document.createElement("button");
+    mobileButton.id = "center-me";
+    document.body.appendChild(mobileButton);
+    mobileButton.getBoundingClientRect = () =>
+      ({ top: 600, left: 6, right: 200, bottom: 648, width: 194, height: 48, x: 6, y: 600, toJSON: () => ({}) }) as DOMRect;
+    const originalInnerHeight = window.innerHeight;
+    Object.defineProperty(window, "innerHeight", { value: 700, configurable: true });
+
+    try {
+      renderOnboardingChecklistOverlay(tilesMap([tile(1, 1)]), "p1", "a@example.com");
+
+      const root = document.getElementById("onboarding-checklist-bubble") as HTMLElement;
+      // window.innerHeight(700) - rect.top(600) + clearance(12) = 112.
+      expect(root.style.getPropertyValue("--onb-bottom")).toBe("112px");
+    } finally {
+      Object.defineProperty(window, "innerHeight", { value: originalInnerHeight, configurable: true });
+    }
+  });
+
+  it("falls back to the default offset when neither Center button is measurable", () => {
+    // Neither #center-me-desktop nor #center-me in the DOM at all here --
+    // happy-dom's default zero-rect behavior (when the element does exist
+    // but isn't laid out) is covered by the test above.
     renderOnboardingChecklistOverlay(tilesMap([tile(1, 1)]), "p1", "a@example.com");
     const root = document.getElementById("onboarding-checklist-bubble") as HTMLElement;
     expect(root.style.getPropertyValue("--onb-bottom")).toBe("190px");
