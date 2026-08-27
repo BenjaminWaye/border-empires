@@ -45,15 +45,15 @@ const tilesMap = (tiles: TestTile[]): ReadonlyMap<string, Tile> => {
 };
 
 describe("foodSlotsClaimedByPlayer", () => {
-  it("counts owned FARM and FISH tiles, ignoring other resources and other owners", () => {
+  it("weights owned FARM as 1 slot and FISH as 2 slots (structure-slots.ts's RESOURCE_SLOT_SPEC), ignoring other resources and other owners", () => {
     const tiles = [
-      { resource: "FARM", ownerId: ME },
-      { resource: "FISH", ownerId: ME },
+      { resource: "FARM", ownerId: ME }, // 1 slot
+      { resource: "FISH", ownerId: ME }, // 2 slots
       { resource: "TITANIUM", ownerId: ME },
       { resource: "FARM", ownerId: "player-2" },
       { resource: "FARM" }
     ];
-    expect(foodSlotsClaimedByPlayer(tiles, ME)).toBe(2);
+    expect(foodSlotsClaimedByPlayer(tiles, ME)).toBe(3);
   });
 });
 
@@ -68,6 +68,8 @@ describe("onboardingChecklistState", () => {
     expect(state.step).toBe("EXPAND_RELAY_BEACON");
     expect(state.foodSlotsClaimed).toBe(0);
     expect(state.highlightTiles).toEqual([]);
+    expect(state.townFound).toBe(false);
+    expect(state.townExpanded).toBe(false);
   });
 
   it("stays on EXPAND_TOWN, highlighting a reachable neutral town, until the player owns a TOWN-tier town", () => {
@@ -81,6 +83,10 @@ describe("onboardingChecklistState", () => {
     expect(state.step).toBe("EXPAND_TOWN");
     expect(state.foodSlotsClaimed).toBe(0);
     expect(state.highlightTiles).toEqual([{ x: 2, y: 0 }]);
+    // "Find a town" is done (a candidate is known) even though "Expand To
+    // it" isn't yet -- the two are tracked separately.
+    expect(state.townFound).toBe(true);
+    expect(state.townExpanded).toBe(false);
   });
 
   it("moves to EXPAND_RELAY_BEACON instead of EXPAND_TOWN when a neutral town exists but is outside reach", () => {
@@ -92,13 +98,16 @@ describe("onboardingChecklistState", () => {
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("EXPAND_RELAY_BEACON");
     expect(state.highlightTiles).toEqual([{ x: 0, y: 0 }]);
+    // Still "found" (known to exist) even though it's out of reach to expand to.
+    expect(state.townFound).toBe(true);
+    expect(state.townExpanded).toBe(false);
   });
 
   it("moves to EXPAND_FOOD once a TOWN-tier town is owned, highlighting the town plus reachable unclaimed food tiles", () => {
     const tiles = tilesMap([
       ownTown(5, 5),
-      tile(6, 5, { resource: "FARM" }),
-      tile(7, 5, { resource: "FISH" }),
+      tile(6, 5, { resource: "FARM" }), // 1 slot
+      tile(7, 5, { resource: "FISH" }), // 2 slots -- combined with the FARM tile, 3 known slots is still short of the 4 target
       tile(8, 5, { resource: "TITANIUM" })
     ]);
     const state = onboardingChecklistState(tiles, ME);
@@ -110,26 +119,58 @@ describe("onboardingChecklistState", () => {
       { x: 6, y: 5 },
       { x: 7, y: 5 }
     ]);
+    expect(state.townFound).toBe(true);
+    expect(state.townExpanded).toBe(true);
+    // Only 1 (FARM) + 2 (FISH) = 3 known slots, short of the 4-slot target.
+    expect(state.foodFound).toBe(false);
+    expect(state.foodExpanded).toBe(false);
   });
 
-  it("only TOWN tier satisfies step 1 -- CITY tier does not count", () => {
+  it("marks food as found once enough known food tiles (weighted) reach the target, even before any are claimed", () => {
+    const tiles = tilesMap([
+      ownTown(5, 5),
+      tile(6, 5, { resource: "FISH" }), // 2 slots
+      tile(7, 5, { resource: "FISH" }) // 2 slots -- 4 known slots total, meets the target
+    ]);
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.foodFound).toBe(true);
+    expect(state.foodExpanded).toBe(false);
+  });
+
+  it("only TOWN tier satisfies the town-expanded goal -- CITY tier does not count", () => {
     const tiles = tilesMap([ownTown(9, 9, "CITY")]);
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).not.toBe("EXPAND_FOOD");
+    expect(state.townExpanded).toBe(false);
   });
 
-  it("reaches DONE once 4 food slots are claimed (any mix of grain/fish)", () => {
+  it("reaches DONE once 4+ weighted food slots are claimed (any mix of grain/fish)", () => {
     const tiles = tilesMap([
       ownTown(0, 0),
-      tile(1, 0, { resource: "FARM", ownerId: ME }),
-      tile(2, 0, { resource: "FARM", ownerId: ME }),
-      tile(3, 0, { resource: "FARM", ownerId: ME }),
-      tile(4, 0, { resource: "FISH", ownerId: ME })
+      tile(1, 0, { resource: "FARM", ownerId: ME }), // 1
+      tile(2, 0, { resource: "FARM", ownerId: ME }), // 1
+      tile(3, 0, { resource: "FARM", ownerId: ME }), // 1
+      tile(4, 0, { resource: "FISH", ownerId: ME }) // 2 -- 5 slots total, past the 4 target
     ]);
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("DONE");
-    expect(state.foodSlotsClaimed).toBe(4);
+    expect(state.foodSlotsClaimed).toBe(5);
     expect(state.highlightTiles).toEqual([]);
+    expect(state.foodFound).toBe(true);
+    expect(state.foodExpanded).toBe(true);
+  });
+
+  it("a single owned FISH tile (2 slots) plus 2 owned FARM tiles (1 each) reaches the 4-slot target exactly", () => {
+    const tiles = tilesMap([
+      ownTown(0, 0),
+      tile(1, 0, { resource: "FISH", ownerId: ME }), // 2
+      tile(2, 0, { resource: "FARM", ownerId: ME }), // 1
+      tile(3, 0, { resource: "FARM", ownerId: ME }) // 1 -- 4 total
+    ]);
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.foodSlotsClaimed).toBe(4);
+    expect(state.foodExpanded).toBe(true);
+    expect(state.step).toBe("DONE");
   });
 
   it("moves to EXPAND_RELAY_BEACON instead of EXPAND_FOOD when no unclaimed food tile is reachable, highlighting the town as a beacon-siting anchor", () => {
@@ -138,16 +179,26 @@ describe("onboardingChecklistState", () => {
     expect(state.step).toBe("EXPAND_RELAY_BEACON");
     expect(state.foodSlotsClaimed).toBe(0);
     expect(state.highlightTiles).toEqual([{ x: 5, y: 5 }]);
-    // townGoalDone stays true even though `step` reads EXPAND_RELAY_BEACON --
-    // it's blocking the food goal here, not the (already-done) town goal. A
-    // checklist UI rendering both goals as checkboxes needs this to tell them
-    // apart (see OnboardingChecklistState's doc comment).
-    expect(state.townGoalDone).toBe(true);
+    // The town goals stay done even though `step` reads EXPAND_RELAY_BEACON
+    // -- it's blocking the food goals here, not the (already-done) town
+    // ones. A checklist UI rendering all 4 goals as checkboxes needs this
+    // to tell them apart (see OnboardingChecklistState's doc comment).
+    expect(state.townFound).toBe(true);
+    expect(state.townExpanded).toBe(true);
   });
 
   it("stays DONE (no highlights) once completion has been persisted, even if the underlying tiles regress", () => {
     const tiles = tilesMap([tile(0, 0)]);
-    completeOnboardingChecklist({ step: "DONE", townGoalDone: true, foodSlotsClaimed: 4, foodSlotsTarget: 4, highlightTiles: [] });
+    completeOnboardingChecklist({
+      step: "DONE",
+      townFound: true,
+      townExpanded: true,
+      foodFound: true,
+      foodExpanded: true,
+      foodSlotsClaimed: 4,
+      foodSlotsTarget: 4,
+      highlightTiles: []
+    });
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("DONE");
     expect(state.highlightTiles).toEqual([]);
@@ -155,7 +206,16 @@ describe("onboardingChecklistState", () => {
 
   it("completeOnboardingChecklist is a no-op when the step isn't DONE", () => {
     const tiles = tilesMap([tile(0, 0)]);
-    completeOnboardingChecklist({ step: "EXPAND_TOWN", townGoalDone: false, foodSlotsClaimed: 0, foodSlotsTarget: 4, highlightTiles: [] });
+    completeOnboardingChecklist({
+      step: "EXPAND_TOWN",
+      townFound: false,
+      townExpanded: false,
+      foodFound: false,
+      foodExpanded: false,
+      foodSlotsClaimed: 0,
+      foodSlotsTarget: 4,
+      highlightTiles: []
+    });
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).not.toBe("DONE");
   });

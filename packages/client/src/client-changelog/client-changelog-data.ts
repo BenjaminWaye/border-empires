@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787823003530, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.5",
+    title: "Checklist now splits Find from Expand To, and fixes food-slot math",
+    why: "Each checklist goal previously combined \"locate a target\" and \"claim it\" into one checkbox, so there was no way to tell a genuinely blocked goal (nothing found yet) apart from one that just hadn't been claimed yet. Separately, the food-slot progress was counting every FARM/FISH tile as 1 slot flat -- but a FISH tile is actually worth 2 slots toward the 4-slot target, not 1 (structure-slots.ts), so the checklist was overstating how much food a player still needed.",
+    changes: [
+      "The town and food goals are now 4 separate checkboxes -- Find a town / Expand To it, and Find food tiles / Expand To food slots -- instead of 2 combined ones.",
+      "Food-slot progress now correctly weights a claimed FISH tile as 2 slots and a FARM tile as 1, matching the same weighting the rest of the game uses -- 2 fish, 4 grain, or any weighted mix now correctly reads as reaching the 4-slot target."
+    ]
+  },
+  {
     createdAt: 1787822512342, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.4",
     title: "New-empire checklist panel now shows both goals with checkboxes",
@@ -427,24 +437,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "New small single-tile FARM deposits now appear in each of the 4 directions around most farm clusters, 7-11 tiles out, so open land near a farm cluster has more food to find. There are now fewer, but larger-footprint, farm clusters overall to keep the total farmland roughly in balance.",
       "New small single-tile FISH deposits now appear on either side of existing fish clusters, roughly 10 tiles out along the coast, so a coastline with fish has a couple of easier follow-up spots nearby. Fish clusters themselves are slightly smaller to keep the total fishing grounds unchanged."
-    ]
-  },
-  {
-    createdAt: 1787572037117, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.2",
-    title: "Removed the misleading \"+0 gold cap\" from the Mintworks build description",
-    why: "The Build Mintworks panel and its tile-menu detail text both tacked on a \"+N gold cap\" figure computed from the target town's current gold/min, which is 0 (or otherwise unrelated to what Mintworks actually grants) in the normal build-preview case, showing up as a nonsensical \"+0 gold cap\" and implying Mintworks adds a flat cap it doesn't.",
-    changes: [
-      "Build Mintworks descriptions now only show the actual +town gold production % bonus, dropping the bogus gold cap figure."
-    ]
-  },
-  {
-    createdAt: 1787548762402, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.1",
-    title: "Fixed border sometimes not expanding right after a Relay Beacon finished",
-    why: "A Relay Beacon (and other structures) finish building on their own timer rather than as part of a normal command, and the server-authoritative border push only used to fire alongside a command being processed. So the border update sat ready but unsent until some other action happened to trigger it -- which could take a while, and looked like lag.",
-    changes: [
-      "Finishing a Relay Beacon (or any structure that changes your reach) now pushes the updated border to your client immediately, instead of waiting on an unrelated command to trigger the push."
     ]
   },
   {

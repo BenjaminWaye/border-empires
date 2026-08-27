@@ -20,24 +20,20 @@ const PANEL_ID = "onboarding-checklist-panel";
 let expanded = false;
 let lastCompletedStep: OnboardingChecklistState["step"] | null = null;
 
-const remainingSteps = (state: OnboardingChecklistState): number => {
-  let remaining = 0;
-  if (!state.townGoalDone) remaining += 1;
-  if (state.foodSlotsClaimed < state.foodSlotsTarget) remaining += 1;
-  return remaining;
-};
+// 4 checkbox rows -- "find" (a target is known to exist) split out from
+// "expand to" (actually claimed) for both the town goal and the food goal.
+// See OnboardingChecklistState's doc comment for what each boolean means.
+const remainingSteps = (state: OnboardingChecklistState): number =>
+  [state.townFound, state.townExpanded, state.foodFound, state.foodExpanded].filter((done) => !done).length;
 
-const townGoalLabel = "Find a town and Expand To it";
-const foodGoalLabel = (state: OnboardingChecklistState): string => `Expand To ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food tiles`;
-
-/** The relay-beacon blocker isn't its own permanent goal (it's transient, and ambiguous about which goal it's blocking on its own) -- rendered as a note under the two real goals instead of a third checkbox row. */
+/** The relay-beacon blocker isn't its own permanent goal (it's transient, and ambiguous about which goal it's blocking on its own) -- rendered as a note under the 4 real goals instead of a 5th checkbox row. */
 const relayBeaconNote = (state: OnboardingChecklistState): string | null =>
   state.step === "EXPAND_RELAY_BEACON" ? "Nothing in reach -- build a Relay Beacon to expand" : null;
 
-const goalRow = (label: string, done: boolean, extraLabelClass = ""): string =>
-  `<li class="onb-goal${done ? " onb-goal-done" : ""}">
+const goalRow = (label: string, done: boolean, opts: { indent?: boolean; extraLabelClass?: string } = {}): string =>
+  `<li class="onb-goal${done ? " onb-goal-done" : ""}${opts.indent ? " onb-goal-indent" : ""}">
     <span class="onb-checkbox" aria-hidden="true">${done ? "&#9745;" : "&#9744;"}</span>
-    <span class="onb-goal-label${extraLabelClass ? ` ${extraLabelClass}` : ""}">${escapeHtml(label)}</span>
+    <span class="onb-goal-label${opts.extraLabelClass ? ` ${opts.extraLabelClass}` : ""}">${escapeHtml(label)}</span>
   </li>`;
 
 const removeOnboardingChecklistOverlay = (): void => {
@@ -58,8 +54,13 @@ const render = (state: OnboardingChecklistState): void => {
     <div id="${PANEL_ID}" class="onb-panel" ${expanded ? "" : "hidden"}>
       <div class="onb-panel-title">New empire checklist</div>
       <ul class="onb-goal-list">
-        ${goalRow(townGoalLabel, state.townGoalDone)}
-        ${goalRow(foodGoalLabel(state), state.foodSlotsClaimed >= state.foodSlotsTarget, "onb-panel-step")}
+        ${goalRow("Find a town", state.townFound)}
+        ${goalRow("Expand To it", state.townExpanded, { indent: true })}
+        ${goalRow(`Find food tiles (${state.foodSlotsTarget} slots -- grain 1, fish 2)`, state.foodFound)}
+        ${goalRow(`Expand To ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food slots`, state.foodExpanded, {
+          indent: true,
+          extraLabelClass: "onb-panel-step"
+        })}
       </ul>
       ${note ? `<div class="onb-goal-note">${escapeHtml(note)}</div>` : ""}
     </div>
@@ -141,6 +142,7 @@ const styles = `
 .onb-panel-title { font-size: 12.5px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 8px; color: #a7f3b0; }
 .onb-goal-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .onb-goal { display: flex; align-items: flex-start; gap: 7px; }
+.onb-goal-indent { padding-left: 16px; }
 .onb-checkbox { font-size: 14px; line-height: 1.4; color: #7ee08a; flex: none; }
 .onb-goal-label { font-size: 12.5px; line-height: 1.4; color: rgba(240,224,200,0.9); }
 .onb-goal-done .onb-checkbox { color: rgba(126, 224, 138, 0.55); }

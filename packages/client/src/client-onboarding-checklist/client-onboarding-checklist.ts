@@ -6,33 +6,40 @@
 // once ownership lands, so from the player's point of view there's exactly
 // one verb here: find a target tile in reach, then Expand To it.
 //
-//   1. EXPAND_TOWN — find a town tile within reach that isn't already yours
-//      (almost always one of the neutral towns world gen pre-seeded, since
-//      zero towns are player-founded -- see docs/game-mechanics.md §2) and
-//      Expand To it. Also satisfied if the player's own starting
-//      SETTLEMENT-tier tile (every new empire spawns with one, free)
-//      happens to have grown to TOWN tier on its own in the meantime.
-//   2. EXPAND_FOOD — claim 4 food slots (FARM "grain" and/or FISH tiles,
-//      any mix) toward the ~4 food slots a town needs to stay powered/fed
-//      (see resource-slot-view.ts §5.3, townFoodSlotDemandForTier), the
-//      same way: find one in reach, Expand To it.
+// The panel shows 4 goal checkboxes, "find" split out from "expand to" for
+// both the town and the food targets:
+//   1. Find a town — a town tile that isn't already the player's own is
+//      known to exist somewhere (almost always one of the neutral towns
+//      world gen pre-seeded, since zero towns are player-founded -- see
+//      docs/game-mechanics.md §2), regardless of whether it's in reach yet.
+//   2. Expand To the town — actually own a TOWN-tier tile. Also satisfied
+//      if the player's own starting SETTLEMENT-tier tile (every new empire
+//      spawns with one, free) happens to have grown to TOWN tier on its
+//      own in the meantime.
+//   3. Find food tiles — enough known FARM/FISH tiles (owned or not, in
+//      reach or not) to reach the food-slot target once claimed.
+//   4. Expand To food tiles — actually own enough FARM/FISH tiles to hit
+//      ONBOARDING_FOOD_SLOTS_TARGET food *slots* (not tiles: a FISH tile is
+//      worth 2 slots, a FARM tile 1 -- see structure-slots.ts's
+//      RESOURCE_SLOT_SPEC, `FARM: baseSlots: 1` / `FISH: baseSlots: 2` --
+//      so "4 slots" is any weighted mix, e.g. 4 grain, 2 fish, or 1 fish +
+//      2 grain).
 //
-// A third step, EXPAND_RELAY_BEACON, can appear in place of either: if
-// there's no in-*reach* town/food target to point at (not just none known
-// to the client at all -- this actually computes the player's local reach
-// set, the same math client-reach-overlay.ts's map overlay uses), then
-// "find one and expand to it" isn't an actionable objective yet, so the
-// checklist instead points the player at building a RELAY_BEACON to push
-// reach out until a target falls inside it. Reappears as many times as
-// needed -- once reach grows to cover a target, the checklist resumes
-// whichever of step 1/2 was blocked.
+// `step`/`highlightTiles` drive the single actionable "do this next" the
+// map highlights, separate from the 4 checkboxes above: EXPAND_TOWN or
+// EXPAND_FOOD when there's an in-*reach* target to point at (this actually
+// computes the player's local reach set, the same math
+// client-reach-overlay.ts's map overlay uses -- not just "known to the
+// client at all"), or EXPAND_RELAY_BEACON when there isn't one yet, which
+// points the player at building a RELAY_BEACON to push reach out instead.
+// Reappears as many times as needed -- once reach grows to cover a target,
+// the checklist resumes whichever goal was blocked.
 //
-// Each step highlights its own tiles on the map until satisfied. The
-// checklist is for brand-new empires only (gated by `me` owning no
-// TOWN-tier tile before step 1 starts -- CITY/GREAT_CITY/METROPOLIS aren't
-// checked for since the checklist has already moved past step 1 by the
-// time a town could grow that far) and, once both steps are done, is
-// marked complete in storage and never shown again.
+// The checklist is for brand-new empires only (gated by `me` owning no
+// TOWN-tier tile before goal 1 starts -- CITY/GREAT_CITY/METROPOLIS aren't
+// checked for since the checklist has already moved past goal 2 by the
+// time a town could grow that far) and, once fully done, is marked
+// complete in storage and never shown again.
 
 import { tileKey } from "@border-empires/shared";
 import type { Tile } from "../client-types.js";
@@ -45,33 +52,36 @@ export type OnboardingChecklistStep = "EXPAND_TOWN" | "EXPAND_FOOD" | "EXPAND_RE
 
 export type OnboardingChecklistState = {
   step: OnboardingChecklistStep;
-  /**
-   * True once the player owns a TOWN-tier tile. Tracked separately from
-   * `step` because EXPAND_RELAY_BEACON is ambiguous on its own -- it can be
-   * blocking either goal, so a checklist UI listing both goals with a
-   * checkbox each needs this to know goal 1 is done even while `step` reads
-   * EXPAND_RELAY_BEACON for goal 2.
-   */
-  townGoalDone: boolean;
+  /** True once a town tile that isn't the player's own is known to exist (or the player already owns one -- see townExpanded). */
+  townFound: boolean;
+  /** True once the player owns a TOWN-tier tile. */
+  townExpanded: boolean;
+  /** True once enough known FARM/FISH tiles (owned or not) exist to reach `foodSlotsTarget` once claimed. */
+  foodFound: boolean;
+  /** True once `foodSlotsClaimed >= foodSlotsTarget`. */
+  foodExpanded: boolean;
+  /** Weighted food slots the player currently owns (FARM = 1 slot, FISH = 2 -- see structure-slots.ts's RESOURCE_SLOT_SPEC), not a tile count. */
   foodSlotsClaimed: number;
   foodSlotsTarget: number;
   /** Tile coordinates the map should highlight for the current step. Empty once step is DONE. */
   highlightTiles: Array<{ x: number; y: number }>;
 };
 
-const isFoodResource = (resource: string | undefined): boolean => resource === "FARM" || resource === "FISH";
+const FOOD_SLOTS_BY_RESOURCE: Record<string, number> = { FARM: 1, FISH: 2 };
+
+const foodSlotsForResource = (resource: string | undefined): number => (resource ? (FOOD_SLOTS_BY_RESOURCE[resource] ?? 0) : 0);
 
 /**
- * Count of FARM/FISH tiles this player owns — the live "food slots claimed"
- * total for step 2, summed across grain and fish (no separate quota per
- * resource kind).
+ * Weighted food slots this player owns — the live "food slots claimed"
+ * total for the food goals. A FISH tile is worth 2 slots, a FARM tile 1
+ * (structure-slots.ts's RESOURCE_SLOT_SPEC), not a flat 1 per tile.
  */
 export const foodSlotsClaimedByPlayer = (tiles: Iterable<Pick<Tile, "resource" | "ownerId">>, playerId: string): number => {
-  let count = 0;
+  let slots = 0;
   for (const tile of tiles) {
-    if (tile.ownerId === playerId && isFoodResource(tile.resource)) count += 1;
+    if (tile.ownerId === playerId) slots += foodSlotsForResource(tile.resource);
   }
-  return count;
+  return slots;
 };
 
 /**
@@ -82,7 +92,7 @@ export const foodSlotsClaimedByPlayer = (tiles: Iterable<Pick<Tile, "resource" |
  * keyed lookups, same as the map's own reach-boundary overlay.
  *
  * Returns step "DONE" (no highlights) once the checklist has been
- * completed and persisted, or once both steps are actually satisfied this
+ * completed and persisted, or once all 4 goals are actually satisfied this
  * session (callers should then call `completeOnboardingChecklist`).
  */
 export const onboardingChecklistState = (
@@ -93,7 +103,10 @@ export const onboardingChecklistState = (
   if (isOnboardingChecklistCompleted(authEmail)) {
     return {
       step: "DONE",
-      townGoalDone: true,
+      townFound: true,
+      townExpanded: true,
+      foodFound: true,
+      foodExpanded: true,
       foodSlotsClaimed: ONBOARDING_FOOD_SLOTS_TARGET,
       foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
       highlightTiles: []
@@ -101,7 +114,7 @@ export const onboardingChecklistState = (
   }
 
   const ownTowns: Array<{ x: number; y: number }> = [];
-  const foodCandidates: Array<{ x: number; y: number }> = [];
+  const foodCandidates: Array<{ x: number; y: number; slots: number }> = [];
   const captureTownCandidates: Array<{ x: number; y: number }> = [];
   let foodSlotsClaimed = 0;
   let hasTownTierTown = false;
@@ -110,9 +123,10 @@ export const onboardingChecklistState = (
     if (tile.town) {
       if (tile.ownerId === playerId) {
         ownTowns.push({ x: tile.x, y: tile.y });
-        // Only TOWN itself satisfies step 1, not CITY/GREAT_CITY/METROPOLIS,
-        // since this step is done and dusted the moment the player reaches
-        // TOWN and the checklist never re-checks it once step 2 has started.
+        // Only TOWN itself satisfies the town-expanded goal, not
+        // CITY/GREAT_CITY/METROPOLIS, since that goal is done and dusted
+        // the moment the player reaches TOWN and the checklist never
+        // re-checks it once the food goals have started.
         if (tile.town.populationTier === "TOWN") hasTownTierTown = true;
       } else {
         // A neutral or enemy town -- an EXPAND_TOWN target, not something to
@@ -122,11 +136,17 @@ export const onboardingChecklistState = (
         captureTownCandidates.push({ x: tile.x, y: tile.y });
       }
     }
-    if (isFoodResource(tile.resource)) {
-      if (tile.ownerId === playerId) foodSlotsClaimed += 1;
-      else if (!tile.ownerId) foodCandidates.push({ x: tile.x, y: tile.y });
+    const slots = foodSlotsForResource(tile.resource);
+    if (slots > 0) {
+      if (tile.ownerId === playerId) foodSlotsClaimed += slots;
+      else if (!tile.ownerId) foodCandidates.push({ x: tile.x, y: tile.y, slots });
     }
   }
+
+  const townFound = hasTownTierTown || captureTownCandidates.length > 0;
+  const foodKnownSlots = foodSlotsClaimed + foodCandidates.reduce((sum, c) => sum + c.slots, 0);
+  const foodFound = foodKnownSlots >= ONBOARDING_FOOD_SLOTS_TARGET;
+  const foodExpanded = foodSlotsClaimed >= ONBOARDING_FOOD_SLOTS_TARGET;
 
   const reach = computeLocalReachSet(tiles, playerId);
   const inReach = (t: { x: number; y: number }): boolean => reach.has(tileKey(t.x, t.y));
@@ -136,7 +156,10 @@ export const onboardingChecklistState = (
     if (reachableTownCandidates.length > 0) {
       return {
         step: "EXPAND_TOWN",
-        townGoalDone: false,
+        townFound,
+        townExpanded: false,
+        foodFound,
+        foodExpanded,
         foodSlotsClaimed: 0,
         foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
         highlightTiles: reachableTownCandidates
@@ -149,20 +172,26 @@ export const onboardingChecklistState = (
     // extends reach outward until a town falls inside it.
     return {
       step: "EXPAND_RELAY_BEACON",
-      townGoalDone: false,
+      townFound,
+      townExpanded: false,
+      foodFound,
+      foodExpanded,
       foodSlotsClaimed: 0,
       foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
       highlightTiles: ownTowns
     };
   }
 
-  if (foodSlotsClaimed < ONBOARDING_FOOD_SLOTS_TARGET) {
+  if (!foodExpanded) {
     const reachableFoodCandidates = foodCandidates.filter(inReach);
     if (reachableFoodCandidates.length === 0) {
       // Same "nothing actually reachable yet" case as above, now for food.
       return {
         step: "EXPAND_RELAY_BEACON",
-        townGoalDone: true,
+        townFound: true,
+        townExpanded: true,
+        foodFound,
+        foodExpanded,
         foodSlotsClaimed,
         foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
         highlightTiles: ownTowns
@@ -170,26 +199,32 @@ export const onboardingChecklistState = (
     }
     // Keep the town highlighted alongside the food candidates: it's the
     // player's anchor point for "expand to food tiles near here" until
-    // step 2 is satisfied too.
+    // the food goals are satisfied too.
     return {
       step: "EXPAND_FOOD",
-      townGoalDone: true,
+      townFound: true,
+      townExpanded: true,
+      foodFound,
+      foodExpanded,
       foodSlotsClaimed,
       foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
-      highlightTiles: [...ownTowns, ...reachableFoodCandidates]
+      highlightTiles: [...ownTowns, ...reachableFoodCandidates.map(({ x, y }) => ({ x, y }))]
     };
   }
 
   return {
     step: "DONE",
-    townGoalDone: true,
+    townFound: true,
+    townExpanded: true,
+    foodFound: true,
+    foodExpanded: true,
     foodSlotsClaimed,
     foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
     highlightTiles: []
   };
 };
 
-/** Persists checklist completion once both steps are satisfied, so it stays gone for this account. */
+/** Persists checklist completion once all 4 goals are satisfied, so it stays gone for this account. */
 export const completeOnboardingChecklist = (state: OnboardingChecklistState, authEmail?: string | null): void => {
   if (state.step === "DONE") markOnboardingChecklistCompleted(authEmail);
 };
