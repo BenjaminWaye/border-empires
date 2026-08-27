@@ -12,6 +12,34 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
   {
+    createdAt: 1787584599966, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
+    introducedIn: "2026.08.24.6",
+    title: "\"Expand To\" no longer shows \"0 gold\" when expanding costs no gold",
+    why: "The multi-step Expand To cost line always showed a gold figure even when the plan was pure EXPAND steps, which cost manpower only. That made it look like the action was free (misleading) or like gold was being charged (confusing) instead of simply not being part of the cost.",
+    changes: [
+      "The Expand To cost summary now omits the gold amount entirely when the plan costs 0 gold, showing only manpower and time."
+    ]
+  },
+  {
+    createdAt: 1787584599965, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.5",
+    title: "Fixed frontier tiles auto-settling on undiscovered resources",
+    why: "Auto-settle was supposed to skip a resource tile until you'd actually revealed it (scouted it into your fog-of-war coverage), but a refactor had silently dropped that check, so a frontier tile could auto-settle the instant it became eligible even if you hadn't seen what was on it yet.",
+    changes: [
+      "Auto-settle no longer claims a frontier tile with a resource on it until that resource has actually been revealed to you. Town, dock, and town-supported frontier tiles are unaffected since those were always visible to their owner."
+    ]
+  },
+  {
+    createdAt: 1787572138647, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
+    introducedIn: "2026.08.24.4",
+    title: "Easier to find food",
+    why: "FARM and FISH clusters were rare enough (52 of each, scattered across the whole map) that players crossing open land or coastline could go a long way without spotting any food.",
+    changes: [
+      "New small single-tile FARM deposits now appear in each of the 4 directions around most farm clusters, 7-11 tiles out, so open land near a farm cluster has more food to find. There are now fewer, but larger-footprint, farm clusters overall to keep the total farmland roughly in balance.",
+      "New small single-tile FISH deposits now appear on either side of existing fish clusters, roughly 10 tiles out along the coast, so a coastline with fish has a couple of easier follow-up spots nearby. Fish clusters themselves are slightly smaller to keep the total fishing grounds unchanged."
+    ]
+  },
+  {
     createdAt: 1787553808483, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.24.2",
     title: "Settle Land now shows its manpower cost, and stays hidden until you actually need it",
