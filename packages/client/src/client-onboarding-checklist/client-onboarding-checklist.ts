@@ -45,6 +45,14 @@ export type OnboardingChecklistStep = "EXPAND_TOWN" | "EXPAND_FOOD" | "EXPAND_RE
 
 export type OnboardingChecklistState = {
   step: OnboardingChecklistStep;
+  /**
+   * True once the player owns a TOWN-tier tile. Tracked separately from
+   * `step` because EXPAND_RELAY_BEACON is ambiguous on its own -- it can be
+   * blocking either goal, so a checklist UI listing both goals with a
+   * checkbox each needs this to know goal 1 is done even while `step` reads
+   * EXPAND_RELAY_BEACON for goal 2.
+   */
+  townGoalDone: boolean;
   foodSlotsClaimed: number;
   foodSlotsTarget: number;
   /** Tile coordinates the map should highlight for the current step. Empty once step is DONE. */
@@ -83,7 +91,13 @@ export const onboardingChecklistState = (
   authEmail?: string | null
 ): OnboardingChecklistState => {
   if (isOnboardingChecklistCompleted(authEmail)) {
-    return { step: "DONE", foodSlotsClaimed: ONBOARDING_FOOD_SLOTS_TARGET, foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET, highlightTiles: [] };
+    return {
+      step: "DONE",
+      townGoalDone: true,
+      foodSlotsClaimed: ONBOARDING_FOOD_SLOTS_TARGET,
+      foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+      highlightTiles: []
+    };
   }
 
   const ownTowns: Array<{ x: number; y: number }> = [];
@@ -120,34 +134,59 @@ export const onboardingChecklistState = (
   if (!hasTownTierTown) {
     const reachableTownCandidates = captureTownCandidates.filter(inReach);
     if (reachableTownCandidates.length > 0) {
-      return { step: "EXPAND_TOWN", foodSlotsClaimed: 0, foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET, highlightTiles: reachableTownCandidates };
+      return {
+        step: "EXPAND_TOWN",
+        townGoalDone: false,
+        foodSlotsClaimed: 0,
+        foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+        highlightTiles: reachableTownCandidates
+      };
     }
     // No town within actual reach (not just "none known") -- Expand To has
     // nothing to target yet. Point at building a RELAY_BEACON (an
     // outpost-family structure -- see client-reach-overlay.ts's
     // OUTPOST_STRUCTURE_TYPES) from the player's own anchor instead, which
     // extends reach outward until a town falls inside it.
-    return { step: "EXPAND_RELAY_BEACON", foodSlotsClaimed: 0, foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET, highlightTiles: ownTowns };
+    return {
+      step: "EXPAND_RELAY_BEACON",
+      townGoalDone: false,
+      foodSlotsClaimed: 0,
+      foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+      highlightTiles: ownTowns
+    };
   }
 
   if (foodSlotsClaimed < ONBOARDING_FOOD_SLOTS_TARGET) {
     const reachableFoodCandidates = foodCandidates.filter(inReach);
     if (reachableFoodCandidates.length === 0) {
       // Same "nothing actually reachable yet" case as above, now for food.
-      return { step: "EXPAND_RELAY_BEACON", foodSlotsClaimed, foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET, highlightTiles: ownTowns };
+      return {
+        step: "EXPAND_RELAY_BEACON",
+        townGoalDone: true,
+        foodSlotsClaimed,
+        foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+        highlightTiles: ownTowns
+      };
     }
     // Keep the town highlighted alongside the food candidates: it's the
     // player's anchor point for "expand to food tiles near here" until
     // step 2 is satisfied too.
     return {
       step: "EXPAND_FOOD",
+      townGoalDone: true,
       foodSlotsClaimed,
       foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
       highlightTiles: [...ownTowns, ...reachableFoodCandidates]
     };
   }
 
-  return { step: "DONE", foodSlotsClaimed, foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET, highlightTiles: [] };
+  return {
+    step: "DONE",
+    townGoalDone: true,
+    foodSlotsClaimed,
+    foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
+    highlightTiles: []
+  };
 };
 
 /** Persists checklist completion once both steps are satisfied, so it stays gone for this account. */

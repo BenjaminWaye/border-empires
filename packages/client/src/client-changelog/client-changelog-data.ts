@@ -14,6 +14,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787822512342, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.4",
+    title: "New-empire checklist panel now shows both goals with checkboxes",
+    why: "The checklist panel only ever showed the single currently-active step's text, so there was no way to see the whole checklist at a glance or confirm a goal you'd already finished was actually done.",
+    changes: [
+      "Expanding the checklist bubble now lists both goals (find a town, claim food tiles) with a checkbox each -- a completed goal gets checked off and struck through instead of just disappearing from view.",
+      "When nothing is currently in reach, the Relay Beacon suggestion now shows as a note under the two goals instead of replacing whichever goal it's blocking."
+    ]
+  },
+  {
     createdAt: 1787821835669, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.3",
     title: "New-empire checklist rewritten around Expand To -- no more waiting on a town to grow on its own",

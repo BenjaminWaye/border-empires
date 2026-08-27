@@ -21,15 +21,24 @@ let expanded = false;
 let lastCompletedStep: OnboardingChecklistState["step"] | null = null;
 
 const remainingSteps = (state: OnboardingChecklistState): number => {
-  if (state.step === "DONE") return 0;
-  return state.step === "EXPAND_TOWN" ? 2 : 1;
+  let remaining = 0;
+  if (!state.townGoalDone) remaining += 1;
+  if (state.foodSlotsClaimed < state.foodSlotsTarget) remaining += 1;
+  return remaining;
 };
 
-const stepLabel = (state: OnboardingChecklistState): string => {
-  if (state.step === "EXPAND_TOWN") return "Find a town and Expand To it";
-  if (state.step === "EXPAND_RELAY_BEACON") return "Nothing in reach -- build a Relay Beacon to expand";
-  return `Expand To ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food tiles`;
-};
+const townGoalLabel = "Find a town and Expand To it";
+const foodGoalLabel = (state: OnboardingChecklistState): string => `Expand To ${state.foodSlotsClaimed}/${state.foodSlotsTarget} food tiles`;
+
+/** The relay-beacon blocker isn't its own permanent goal (it's transient, and ambiguous about which goal it's blocking on its own) -- rendered as a note under the two real goals instead of a third checkbox row. */
+const relayBeaconNote = (state: OnboardingChecklistState): string | null =>
+  state.step === "EXPAND_RELAY_BEACON" ? "Nothing in reach -- build a Relay Beacon to expand" : null;
+
+const goalRow = (label: string, done: boolean, extraLabelClass = ""): string =>
+  `<li class="onb-goal${done ? " onb-goal-done" : ""}">
+    <span class="onb-checkbox" aria-hidden="true">${done ? "&#9745;" : "&#9744;"}</span>
+    <span class="onb-goal-label${extraLabelClass ? ` ${extraLabelClass}` : ""}">${escapeHtml(label)}</span>
+  </li>`;
 
 const removeOnboardingChecklistOverlay = (): void => {
   if (typeof document === "undefined") return;
@@ -44,10 +53,15 @@ const render = (state: OnboardingChecklistState): void => {
   root.id = BUBBLE_ID;
   root.className = "onb-root";
   const remaining = remainingSteps(state);
+  const note = relayBeaconNote(state);
   root.innerHTML = `
     <div id="${PANEL_ID}" class="onb-panel" ${expanded ? "" : "hidden"}>
       <div class="onb-panel-title">New empire checklist</div>
-      <div class="onb-panel-step">${escapeHtml(stepLabel(state))}</div>
+      <ul class="onb-goal-list">
+        ${goalRow(townGoalLabel, state.townGoalDone)}
+        ${goalRow(foodGoalLabel(state), state.foodSlotsClaimed >= state.foodSlotsTarget, "onb-panel-step")}
+      </ul>
+      ${note ? `<div class="onb-goal-note">${escapeHtml(note)}</div>` : ""}
     </div>
     <button id="onb-launcher" type="button" class="onb-launcher" aria-label="New empire checklist" aria-expanded="${expanded}">
       <span class="onb-launcher-icon">&#9873;</span>
@@ -124,8 +138,14 @@ const styles = `
   color: #fbf3e6;
 }
 .onb-panel[hidden] { display: none; }
-.onb-panel-title { font-size: 12.5px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 6px; color: #a7f3b0; }
-.onb-panel-step { font-size: 12.5px; line-height: 1.4; color: rgba(240,224,200,0.9); }
+.onb-panel-title { font-size: 12.5px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 8px; color: #a7f3b0; }
+.onb-goal-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.onb-goal { display: flex; align-items: flex-start; gap: 7px; }
+.onb-checkbox { font-size: 14px; line-height: 1.4; color: #7ee08a; flex: none; }
+.onb-goal-label { font-size: 12.5px; line-height: 1.4; color: rgba(240,224,200,0.9); }
+.onb-goal-done .onb-checkbox { color: rgba(126, 224, 138, 0.55); }
+.onb-goal-done .onb-goal-label { color: rgba(240,224,200,0.45); text-decoration: line-through; }
+.onb-goal-note { margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(126, 224, 138, 0.18); font-size: 12px; line-height: 1.4; color: #d6ac6a; }
 @media (max-width: 520px) {
   .onb-root { left: 10px; bottom: calc(68px + max(8px, env(safe-area-inset-bottom)) + 8px); }
   .onb-launcher { width: 40px; height: 40px; font-size: 18px; }

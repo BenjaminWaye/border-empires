@@ -138,11 +138,16 @@ describe("onboardingChecklistState", () => {
     expect(state.step).toBe("EXPAND_RELAY_BEACON");
     expect(state.foodSlotsClaimed).toBe(0);
     expect(state.highlightTiles).toEqual([{ x: 5, y: 5 }]);
+    // townGoalDone stays true even though `step` reads EXPAND_RELAY_BEACON --
+    // it's blocking the food goal here, not the (already-done) town goal. A
+    // checklist UI rendering both goals as checkboxes needs this to tell them
+    // apart (see OnboardingChecklistState's doc comment).
+    expect(state.townGoalDone).toBe(true);
   });
 
   it("stays DONE (no highlights) once completion has been persisted, even if the underlying tiles regress", () => {
     const tiles = tilesMap([tile(0, 0)]);
-    completeOnboardingChecklist({ step: "DONE", foodSlotsClaimed: 4, foodSlotsTarget: 4, highlightTiles: [] });
+    completeOnboardingChecklist({ step: "DONE", townGoalDone: true, foodSlotsClaimed: 4, foodSlotsTarget: 4, highlightTiles: [] });
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("DONE");
     expect(state.highlightTiles).toEqual([]);
@@ -150,7 +155,7 @@ describe("onboardingChecklistState", () => {
 
   it("completeOnboardingChecklist is a no-op when the step isn't DONE", () => {
     const tiles = tilesMap([tile(0, 0)]);
-    completeOnboardingChecklist({ step: "EXPAND_TOWN", foodSlotsClaimed: 0, foodSlotsTarget: 4, highlightTiles: [] });
+    completeOnboardingChecklist({ step: "EXPAND_TOWN", townGoalDone: false, foodSlotsClaimed: 0, foodSlotsTarget: 4, highlightTiles: [] });
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).not.toBe("DONE");
   });

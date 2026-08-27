@@ -62,6 +62,26 @@ describe("renderOnboardingChecklistOverlay", () => {
     ]);
   });
 
+  it("checks off and strikes through the town goal once it's done, while the food goal stays open", () => {
+    const tiles = tilesMap([ownTown(5, 5, "p1"), tile(6, 5, { resource: "FARM" })]);
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
+
+    const goals = document.querySelectorAll(".onb-goal");
+    expect(goals).toHaveLength(2);
+    expect(goals[0]?.classList.contains("onb-goal-done")).toBe(true);
+    expect(goals[0]?.textContent).toContain("Find a town and Expand To it");
+    expect(goals[1]?.classList.contains("onb-goal-done")).toBe(false);
+  });
+
+  it("shows a Relay Beacon note (no third checkbox) when nothing is in reach", () => {
+    // No owned tile at all -- no reach anchor, so neither goal has a target.
+    const tiles = tilesMap([tile(1, 1)]);
+    renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
+
+    expect(document.querySelectorAll(".onb-goal")).toHaveLength(2);
+    expect(document.querySelector(".onb-goal-note")?.textContent).toContain("Relay Beacon");
+  });
+
   it("expands the panel on click and stays expanded across a re-render", () => {
     const tiles = tilesMap([tile(1, 1)]);
     renderOnboardingChecklistOverlay(tiles, "p1", "a@example.com");
