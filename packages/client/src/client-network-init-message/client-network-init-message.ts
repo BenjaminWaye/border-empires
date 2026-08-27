@@ -238,16 +238,6 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   if (!preserveDiscoveredTilesOnReconnect) {
     state.discoveredTiles.clear();
     state.discoveredDockTiles.clear();
-    // In-session reconnect kept the Set alive above; a hard page refresh
-    // starts from an empty Set (see createInitialState() in client-state.ts),
-    // so restore whatever was persisted to localStorage on the previous
-    // page's unload -- otherwise every explored tile outside the current
-    // view radius renders "unexplored" until the player scrolls back to it.
-    const restored = readStoredDiscoveredTiles(incomingSeason?.seasonId, incomingPlayerId);
-    if (restored) {
-      for (const key of restored.discoveredTiles) state.discoveredTiles.add(key);
-      for (const key of restored.discoveredDockTiles) state.discoveredDockTiles.add(key);
-    }
   }
   state.manpowerBreakdown = (player.manpowerBreakdown as typeof state.manpowerBreakdown | undefined) ?? state.manpowerBreakdown;
   applyPendingSettlementsFromServer(
@@ -377,6 +367,17 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     msg.initialState as { tiles?: Array<{ x: number; y: number; ownerId?: string; ownershipState?: "FRONTIER" | "SETTLED" | "BARBARIAN" }> } | undefined,
     { preserveExistingDiscoveredTiles: preserveDiscoveredTilesOnReconnect }
   );
+  if (!preserveDiscoveredTilesOnReconnect) {
+    // Must run *after* applyGatewayInitialState(), which just cleared
+    // discoveredTiles to this INIT's own snapshot -- restoring before that
+    // call (as this used to) got wiped back out by it, turning
+    // previously-explored tiles back to "unexplored" on reconnect.
+    const restored = readStoredDiscoveredTiles(incomingSeason?.seasonId, incomingPlayerId);
+    if (restored) {
+      for (const key of restored.discoveredTiles) state.discoveredTiles.add(key);
+      for (const key of restored.discoveredDockTiles) state.discoveredDockTiles.add(key);
+    }
+  }
   state.bridgeDebugInitialTileCount = appliedInitialTileCount;
   if (appliedInitialTileCount > 0) {
     state.firstChunkAt = Date.now();
