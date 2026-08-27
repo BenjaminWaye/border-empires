@@ -17,6 +17,7 @@ When something here drifts from code, fix the code reference and update this doc
 
 ## 2. Players and factions
 
+- **Towns are mostly world-generated, not player-founded.** World gen seeds `max(70, 180 * worldScale)` unowned/neutral towns across the map at season start (`packages/game-domain/src/server-worldgen-towns.ts:50`), each already at some `populationTier` with a `MARKET`/`FARMING` type. A player acquires a town almost entirely by SETTLE (if it's still neutral) or ATTACK (if another player already holds it) against one of these pre-placed tiles — not by building/founding one from scratch. See §4's SETTLE/ATTACK note for the actual player-facing commands.
 - **Player count**: no hard limit. AI players are flagged `isAi: true` in the player definition. Prod first season is seeded island-heavy with 5 AI players. `packages/shared/src/types.ts:376-413`
 - **No civ/faction asymmetry**. Every player shares the same stat-mod fields (`attack`, `defense`, `income`, `vision`), the same tech tree, and the same ability catalog. Differentiation is per-player via tech progress and strategic-resource control, not faction baselines. `packages/shared/src/types.ts:387-388`
 - **Barbarians (rewrite model, post-`f5ba210` / PR #256)**: not dynamic agents. Implemented as **tiles owned by player `"barbarian-1"`**, with 80 FRONTIER tiles seeded at world gen far from player spawns (`apps/simulation/src/season-seed-world.ts`, `seed-state.ts:183`). Behavior:
@@ -41,7 +42,9 @@ When something here drifts from code, fix the code reference and update this doc
 There are no unit pieces. Combat is **tile-ownership transitions**:
 
 - **ATTACK**: origin is owned by attacker, target is owned by an enemy. Manpower cost varies (`ATTACK_MANPOWER_COST`-family constants, modified by fort presence and breach-shock state). Combat resolves after `COMBAT_LOCK_MS` (phase lock). Winner takes the tile.
-- **EXPAND**: origin owned by attacker, target is neutral. Ownership transitions after `FRONTIER_CLAIM_MS`.
+- **EXPAND**: origin owned by attacker, target is neutral. Ownership transitions after `FRONTIER_CLAIM_MS`. `packages/shared/src/config.ts:44`
+- **SETTLE**: origin owned by attacker, target is neutral (same reach/legality gate as EXPAND — see §11's "ATTACK ⇆ SETTLE gate"), costs `SETTLE_MANPOWER_COST` (20). This is the command a player uses to *claim* a tile as their own SETTLEMENT-tier holding, whether that target tile is bare frontier or an already-existing (usually neutral) town — SETTLE and ATTACK are both just "take this tile," gated on whether the target is neutral or enemy-owned. There is no separate "found/build a town" command. `packages/shared/src/config.ts:92`
+- **Nothing "builds" a town or settlement.** Every player starts with one free SETTLEMENT-tier tile (`runtime-respawn-helpers.ts`), and after that, taking a town-tier tile means SETTLE (if it's neutral) or ATTACK (if it's enemy-owned) against a tile that already has a town on it — see the worldgen note in §2 below. A player's own settlement can *grow* through population tiers over time (SETTLEMENT → TOWN → CITY → GREAT_CITY → METROPOLIS, `packages/shared/src/town-growth/town-growth.ts`) based on food/resources/upkeep, which is passive growth, not a build action. `packages/shared/src/structure-registry/structure-registry.ts` is the actual buildable-things registry (Relay Beacon, Fort, Dock, etc.) — towns/settlements are never in it.
 - Movement is implicit. Frontier actions originate from any adjacent owned tile, or from dock-linked tiles, or from aether-bridged tiles. `packages/game-domain/src/index.ts:20, 171-257`, `packages/shared/src/types.ts:415-421`
 
 ## 5. Structures
