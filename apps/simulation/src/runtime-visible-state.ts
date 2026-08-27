@@ -10,6 +10,7 @@ import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { cloneStrategicProduction, type PendingSettlementRecord } from "./player-runtime-summary.js";
+import { toPersistedDevQueueEntries } from "./runtime-dev-queue-restore.js";
 import { revealedResourceValueForPlayer, visionRadiusBonusForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import type {
   LockRecord,
@@ -387,7 +388,29 @@ function visiblePlayersProjection(
         strategicProductionPerMinute: player.id === visiblePlayerId
           ? input.cachedEconomySnapshot(player).strategicProductionPerMinute
           : cloneStrategicProduction(summary.strategicProductionPerMinute),
-        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount
+        activeDevelopmentProcessCount: summary.activeDevelopmentProcessCount,
+        // This reconnect/login snapshot path (exportVisibleStateForPlayerAsync)
+        // never carried devQueue/waypointQueue -- only the separate full
+        // exportState() (runtime-state-export.ts, used for checkpointing/
+        // persistence, not login) did. Both durable queues therefore silently
+        // vanished on every ordinary reconnect: they survived fine mid-session
+        // (nothing here runs then) because the live in-memory queue was never
+        // actually cleared, but the client's INIT payload -- built from this
+        // function -- never included them, so restore always saw "nothing on
+        // the server" and had nothing to fall back on once local memory/
+        // sessionStorage was gone too. Same flattening runtime-state-export.ts
+        // already does for the persistence path.
+        ...(summary.devQueue.length ? { devQueue: toPersistedDevQueueEntries(summary.devQueue) } : {}),
+        ...(summary.waypointQueue.length
+          ? {
+              waypointQueue: summary.waypointQueue.map((entry) => ({
+                x: entry.target.x,
+                y: entry.target.y,
+                ...(entry.trackBarbarian ? { trackBarbarian: true } : {}),
+                queuedAt: entry.queuedAt
+              }))
+            }
+          : {})
       };
     })
     .sort((left, right) => left.id.localeCompare(right.id));

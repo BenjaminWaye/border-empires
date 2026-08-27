@@ -15,6 +15,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787834428935, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.3",
+    title: "Fixed queued waypoints and builds actually vanishing on reconnect",
+    why: "The server has two separate ways of describing your empire on the wire: a full export used for save checkpoints, and a leaner one used for every ordinary reconnect/login. Only the full one ever included your queued waypoints and dev-queue (build/settle) entries -- the reconnect path never carried them at all. Both queues worked completely normally while you kept playing (nothing about that depends on reconnecting), but the moment you reconnected, the client was told the server had nothing queued -- and if your own local copy was also gone by then (a real tab close, for instance), the entry was gone for good even though the live queue on the server had been holding it the whole time.",
+    changes: [
+      "Reconnecting now correctly restores any waypoints and queued builds/settlements you had going, instead of only restoring them from a save checkpoint."
+    ]
+  },
+  {
     createdAt: 1787832114649, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.2",
     title: "Fixed a waypoint sometimes vanishing after closing and reopening the game",
