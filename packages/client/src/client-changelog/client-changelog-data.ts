@@ -14,6 +14,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787818239063, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27",
+    title: "Settling a new town no longer knocks out unrelated Relay Beacons",
+    why: "A settled town's FOOD demand was pinned as the oldest (never-goes-dormant) contributor in the FOOD-slot shortfall calculation, while every other FOOD consumer competed newest-built-first. That meant a brand-new town's own added FOOD demand could never itself go unfed -- so a shortfall it caused was silently paid for by disabling whatever unrelated structure (e.g. an existing Relay Beacon) happened to be the newest FOOD consumer instead, even if that structure had been built long before the town and had nothing to do with the shortfall.",
+    changes: [
+      "A town's FOOD demand now competes on the same newest-first footing as every other FOOD consumer, ranked by when it was settled -- so a freshly settled town that pushes FOOD demand over supply goes unfed itself, instead of an older, unrelated Relay Beacon or other structure losing power to cover it."
+    ]
+  },
+  {
     createdAt: 1787812963830, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.9",
     title: "Waypoints no longer fight the server for every step while you're online",
@@ -450,15 +459,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Locking new human players out of a season until the lobby countdown finished didn't also stop AI empires from acting -- they kept building, expanding, and fighting during the countdown, so by the time human players were let in the AI had a head start nobody could see coming.",
     changes: [
       "AI empires now stay locked out of taking any actions during the lobby countdown, just like new human players, until the season actually starts."
-    ]
-  },
-  {
-    createdAt: 1787501551526, // frozen just after the entry above
-    introducedIn: "2026.08.21",
-    title: "Village smoke and capital banners are now animated on the GPU instead of the CPU",
-    why: "Village smoke puffs, captured-town smoke columns, and capital banner positions were recomputed and re-uploaded to the GPU (bufferSubData) every single frame for every visible instance — up to ~7,000 combined smoke puffs — regardless of whether the camera or game state changed at all. A CPU trace from a live session showed WebGL buffer uploads as the dominant per-frame cost, correlating with a sustained ~11-12fps. The rise/drift/scale/fade animation now runs entirely in a GPU vertex shader driven by a single time value; the CPU only writes each puff's base position once, when villages or captured towns actually change (not every frame). Capital banner positions — which never moved — were also being needlessly rewritten every frame; they're now set once too. Visually identical to before.",
-    changes: [
-      "No visible change — this is a performance fix for the 3D map's frame rate. Village smoke, captured-town smoke, and capital banners render identically, just far cheaper per frame."
     ]
   },
   {
