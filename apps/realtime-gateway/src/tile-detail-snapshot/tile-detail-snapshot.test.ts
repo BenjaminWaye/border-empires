@@ -279,7 +279,7 @@ describe("buildSnapshotTileDetail", () => {
     expect(detail && "upkeepEntries" in detail).toBe(false);
   });
 
-  it("recomputes town support and fed state from surrounding settled tiles for thin town detail", () => {
+  it("recomputes town support and fed state from surrounding settled tiles when isFed is missing from a thin town record", () => {
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",
       tiles: [
@@ -289,6 +289,7 @@ describe("buildSnapshotTileDetail", () => {
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
+          // isFed omitted (thin record) -- falls back to adjacent-Farm/Fish.
           townJson: JSON.stringify({
             type: "FARMING",
             populationTier: "TOWN",
@@ -296,7 +297,6 @@ describe("buildSnapshotTileDetail", () => {
             supportMax: 8,
             goldPerMinute: 0,
             cap: 0,
-            isFed: false,
             population: 18_977,
             maxPopulation: 25_000,
             connectedTownCount: 0,
@@ -338,7 +338,7 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
-  it("keeps a town fed when global food coverage is full even without adjacent food", () => {
+  it("falls back to global food coverage when a thin town record omits isFed and has no adjacent food", () => {
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",
       player: {
@@ -364,6 +364,7 @@ describe("buildSnapshotTileDetail", () => {
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
+          // isFed omitted (thin record) -- falls back to global food coverage.
           townJson: JSON.stringify({
             type: "FARMING",
             populationTier: "TOWN",
@@ -371,7 +372,6 @@ describe("buildSnapshotTileDetail", () => {
             supportMax: 4,
             goldPerMinute: 0,
             cap: 0,
-            isFed: false,
             population: 21_277,
             maxPopulation: 25_000,
             connectedTownCount: 0,
@@ -405,7 +405,7 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
-  it("recomputes positive population growth for fed owned town detail when cached town data is stale", () => {
+  it("recomputes positive population growth for a fed town when isFed is missing from a thin town record", () => {
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",
       player: {
@@ -431,6 +431,7 @@ describe("buildSnapshotTileDetail", () => {
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
+          // isFed omitted (thin record) -- falls back to global food coverage.
           townJson: JSON.stringify({
             type: "FARMING",
             populationTier: "TOWN",
@@ -438,7 +439,6 @@ describe("buildSnapshotTileDetail", () => {
             supportMax: 5,
             goldPerMinute: 0,
             cap: 0,
-            isFed: false,
             population: 19_699,
             maxPopulation: 100_000,
             populationGrowthPerMinute: 0,
@@ -531,7 +531,7 @@ describe("buildSnapshotTileDetail", () => {
     );
   });
 
-  it("preserves sim production and cap even when cached fed state disagrees with gateway-derived fed state", () => {
+  it("preserves sim production and cap for a thin town record even when gateway-derived fed state disagrees", () => {
     const snapshot: PlayerSubscriptionSnapshot = {
       playerId: "player-1",
       player: {
@@ -557,6 +557,7 @@ describe("buildSnapshotTileDetail", () => {
           terrain: "LAND",
           ownerId: "player-1",
           ownershipState: "SETTLED",
+          // isFed omitted (thin record) -- falls back to global food coverage.
           townJson: JSON.stringify({
             name: "Gloamspire",
             type: "FARMING",
@@ -566,7 +567,6 @@ describe("buildSnapshotTileDetail", () => {
             supportMax: 8,
             goldPerMinute: 4.4,
             cap: 2112,
-            isFed: false,
             population: 17669,
             maxPopulation: 10_000_000,
             connectedTownCount: 3,
