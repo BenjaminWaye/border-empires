@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
   {
+    createdAt: 1787837642949, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.4",
+    title: "Fixed an expand/attack in progress across a reconnect losing its result",
+    why: "If you closed the game (or it dropped connection) while an Expand or Attack was still resolving, reopening it lost track of that action entirely: the server still finished it correctly, but the fresh page had no memory of having started it, so the confirmation and claim animation never showed and it looked like nothing had happened -- or like a queued waypoint chain behind it had simply vanished.",
+    changes: [
+      "Reconnecting while an Expand or Attack is still resolving now correctly shows its result (claim animation, success message) instead of silently dropping it."
+    ]
+  },
+  {
     createdAt: 1787584599966, // frozen from `node -e "console.log(Date.now())"`, one past the prior latest entry to avoid a createdAt collision
     introducedIn: "2026.08.24.6",
     title: "\"Expand To\" no longer shows \"0 gold\" when expanding costs no gold",
