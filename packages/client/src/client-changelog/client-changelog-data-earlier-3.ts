@@ -129,4 +129,13 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
       "No visible change — this is a performance fix for the 3D map's frame rate. Village smoke, captured-town smoke, and capital banners render identically, just far cheaper per frame."
     ]
   },
+  {
+    createdAt: 1787861036777, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27",
+    title: "Fixed offline waypoints stalling after their second leg",
+    why: "The server's offline waypoint drain re-checked every 2 seconds regardless of whether the previous EXPAND/ATTACK leg had actually resolved (a claim takes 15+ seconds), so it would launch the next leg from a tile the player didn't own yet, get rejected, and permanently give up on that waypoint -- offline multi-hop expansion effectively stopped after one hop.",
+    changes: [
+      "The offline waypoint drain now waits for the in-flight leg to resolve before launching the next one, and won't dispatch a leg from an origin tile it doesn't yet own -- multi-hop waypoints now keep expanding for the whole time you're offline instead of stalling after the second step."
+    ]
+  }
 ];
