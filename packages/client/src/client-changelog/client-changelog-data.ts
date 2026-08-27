@@ -25,6 +25,56 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787823003530, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.5",
+    title: "Checklist now splits Find from Expand To, and fixes food-slot math",
+    why: "Each checklist goal previously combined \"locate a target\" and \"claim it\" into one checkbox, so there was no way to tell a genuinely blocked goal (nothing found yet) apart from one that just hadn't been claimed yet. Separately, the food-slot progress was counting every FARM/FISH tile as 1 slot flat -- but a FISH tile is actually worth 2 slots toward the 4-slot target, not 1 (structure-slots.ts), so the checklist was overstating how much food a player still needed.",
+    changes: [
+      "The town and food goals are now 4 separate checkboxes -- Find a town / Expand To it, and Find food tiles / Expand To food slots -- instead of 2 combined ones.",
+      "Food-slot progress now correctly weights a claimed FISH tile as 2 slots and a FARM tile as 1, matching the same weighting the rest of the game uses -- 2 fish, 4 grain, or any weighted mix now correctly reads as reaching the 4-slot target."
+    ]
+  },
+  {
+    createdAt: 1787822512342, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.4",
+    title: "New-empire checklist panel now shows both goals with checkboxes",
+    why: "The checklist panel only ever showed the single currently-active step's text, so there was no way to see the whole checklist at a glance or confirm a goal you'd already finished was actually done.",
+    changes: [
+      "Expanding the checklist bubble now lists both goals (find a town, claim food tiles) with a checkbox each -- a completed goal gets checked off and struck through instead of just disappearing from view.",
+      "When nothing is currently in reach, the Relay Beacon suggestion now shows as a note under the two goals instead of replacing whichever goal it's blocking."
+    ]
+  },
+  {
+    createdAt: 1787821835669, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.3",
+    title: "New-empire checklist rewritten around Expand To -- no more waiting on a town to grow on its own",
+    why: "Step 1 previously told a new player to wait for their free starting SETTLEMENT to passively grow into a TOWN, which is slow and not the fastest way to get a town -- since world gen pre-seeds neutral towns everywhere and zero towns are ever player-founded (see docs/game-mechanics.md), Expand To-ing an already-existing neutral town is the actual fast path. Separately, the reach check behind the Relay Beacon suggestion was approximate (\"is anything visible on the map at all\") rather than real reach, so it could tell a player nothing was reachable when something actually was, or vice versa.",
+    changes: [
+      "Step 1 now points you at a nearby town to Expand To (auto-settles once ownership lands) instead of telling you to wait for your starting settlement to grow -- either path still completes the step once you own a TOWN-tier tile.",
+      "Both steps now check the player's actual current reach (the same math the map's reach-boundary overlay uses), not just whatever's loaded on the client -- so the Relay Beacon suggestion only appears when a town or food tile genuinely isn't reachable yet, and re-checks itself as reach grows."
+    ]
+  },
+  {
+    createdAt: 1787819400331, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.2",
+    title: "New-empire checklist now always appears, and its ring highlight no longer hides under a town",
+    why: "The onboarding checklist bubble only ever recomputed on a TILE_DELTA_BATCH message, never on the initial spawn snapshot -- a fresh empire whose starting tiles never happened to generate a delta (e.g. quietly sitting next to an already-owned town and a fish tile) could go the whole session without ever seeing the checklist. Separately, the highlight ring around a checklist target tile was sized smaller than a settled town's footprint, so once a highlighted tile grew into a town the ring rendered entirely underneath the town model and was invisible.",
+    changes: [
+      "The onboarding checklist now also computes and appears right on spawn, not just after the first tile-delta batch arrives.",
+      "The checklist's pulsing highlight ring is now wide enough to show around a town's footprint instead of being hidden underneath it, in both 2D and 3D map modes.",
+      "Added a new EXPAND_REACH checklist step: if there's no unclaimed food tile AND no town nearby to capture, the checklist now points you at building a Relay Beacon to expand your reach instead of highlighting an objective that isn't actually reachable yet."
+    ]
+  },
+  {
+    createdAt: 1787817510197, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27.1",
+    title: "Fixed the frontier decay countdown freezing on a decaying tile's menu",
+    why: "The tile menu's \"decays in Xs\" / \"disappears in Xs\" countdown for an encircled or out-of-reach frontier tile was only recomputed when the HUD re-rendered for some other reason (an incoming server message). With the menu left open on a decaying tile and nothing else happening, the countdown just sat frozen at whatever second it was showing when the menu opened, reading as if there were no timer at all.",
+    changes: [
+      "The tile menu now ticks its decay countdown once a second while it's open on a decaying tile, so the timer visibly counts down instead of freezing."
+    ]
+  },
+  {
     createdAt: 1787812963830, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.9",
     title: "Waypoints no longer fight the server for every step while you're online",
@@ -401,24 +451,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787572037117, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.2",
-    title: "Removed the misleading \"+0 gold cap\" from the Mintworks build description",
-    why: "The Build Mintworks panel and its tile-menu detail text both tacked on a \"+N gold cap\" figure computed from the target town's current gold/min, which is 0 (or otherwise unrelated to what Mintworks actually grants) in the normal build-preview case, showing up as a nonsensical \"+0 gold cap\" and implying Mintworks adds a flat cap it doesn't.",
-    changes: [
-      "Build Mintworks descriptions now only show the actual +town gold production % bonus, dropping the bogus gold cap figure."
-    ]
-  },
-  {
-    createdAt: 1787548762402, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.24.1",
-    title: "Fixed border sometimes not expanding right after a Relay Beacon finished",
-    why: "A Relay Beacon (and other structures) finish building on their own timer rather than as part of a normal command, and the server-authoritative border push only used to fire alongside a command being processed. So the border update sat ready but unsent until some other action happened to trigger it -- which could take a while, and looked like lag.",
-    changes: [
-      "Finishing a Relay Beacon (or any structure that changes your reach) now pushes the updated border to your client immediately, instead of waiting on an unrelated command to trigger the push."
-    ]
-  },
-  {
     createdAt: 1787553808483, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.24.2",
     title: "Settle Land now shows its manpower cost, and stays hidden until you actually need it",
@@ -491,6 +523,24 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Settle no longer requires a captured town or dock tile to already be inside your reach -- only plain resource/support frontier tiles still need that."
     ]
   },
+  {
+    createdAt: 1787817717886, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27",
+    title: "Fixed frontier tiles falsely glowing amber after panning the map",
+    why: "The decay-countdown pulse writes its amber tint straight into the ownership overlay's GPU color buffer every frame, separately from the buffer's own rebuild-on-pan color update. Both writers shared one pending-upload list, and the pulse's per-frame bookkeeping was clearing that list before the rebuild's own full-buffer update reached the GPU whenever a pan/zoom rebuild and a pulse tick landed in the same frame. Any frontier tile that a rebuild reassigned to a vertex slot the pulse didn't touch that frame kept whatever color the GPU already had there from a previous tile -- including, e.g., another empire's amber decay pulse -- until the next rebuild happened to also touch that exact slot.",
+    changes: [
+      "Panning or zooming the map over frontier tiles no longer occasionally leaves random, non-decaying tiles stuck glowing amber like the frontier-decay pulse."
+    ]
+  },
+  {
+    createdAt: 1787823264967, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27",
+    title: "Enable <structure> is disabled on an unsettled tile",
+    why: "A disabled economic structure (Relay Beacon, synthesizer, weapons factory, etc.) standing on a FRONTIER (not yet settled) tile could still be re-enabled, letting it resume occupying a resource slot and providing bonuses from a tile that isn't actually settled.",
+    changes: [
+      "The Enable action for any disabled economic structure is now disabled with \"Tile is not settled\" whenever the tile it stands on is FRONTIER rather than SETTLED."
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,

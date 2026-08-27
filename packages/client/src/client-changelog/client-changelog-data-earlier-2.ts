@@ -22,6 +22,50 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787572037117, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.2",
+    title: "Removed the misleading \"+0 gold cap\" from the Mintworks build description",
+    why: "The Build Mintworks panel and its tile-menu detail text both tacked on a \"+N gold cap\" figure computed from the target town's current gold/min, which is 0 (or otherwise unrelated to what Mintworks actually grants) in the normal build-preview case, showing up as a nonsensical \"+0 gold cap\" and implying Mintworks adds a flat cap it doesn't.",
+    changes: [
+      "Build Mintworks descriptions now only show the actual +town gold production % bonus, dropping the bogus gold cap figure."
+    ]
+  },
+  {
+    createdAt: 1787548762402, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.24.1",
+    title: "Fixed border sometimes not expanding right after a Relay Beacon finished",
+    why: "A Relay Beacon (and other structures) finish building on their own timer rather than as part of a normal command, and the server-authoritative border push only used to fire alongside a command being processed. So the border update sat ready but unsent until some other action happened to trigger it -- which could take a while, and looked like lag.",
+    changes: [
+      "Finishing a Relay Beacon (or any structure that changes your reach) now pushes the updated border to your client immediately, instead of waiting on an unrelated command to trigger the push."
+    ]
+  },
+  {
+    createdAt: 1787520325005, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.23.9",
+    title: "Rivers no longer render through unexplored fog",
+    why: "Decorative rivers were drawn as one continuous overlay that only culled by camera distance, with no idea what the player had actually explored -- so a river's path stayed visible cutting through black, unexplored tiles instead of disappearing into the fog like the surrounding terrain.",
+    changes: [
+      "River segments now only render where both ends sit on a tile you've explored or previously seen, matching the terrain's own fog-of-war."
+    ]
+  },
+  {
+    createdAt: 1787519694045, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.8",
+    title: "Trimmed two noisy activity feed messages",
+    why: "\"Unlocking: X\" and \"could not start and was removed from queue\" fired on routine, expected actions and just added clutter to the feed without telling you anything new.",
+    changes: [
+      "Choosing a tech no longer posts an \"Unlocking: X\" line to the activity feed.",
+      "A queued build/settlement that fails to start no longer posts a \"could not start and was removed from queue\" line to the activity feed."
+    ]
+  },
+  {
+    createdAt: 1787518529221, // frozen from a live Date.now() call
+    introducedIn: "2026.08.23.6",
+    title: "New town theme sound",
+    why: "The old town location theme was swapped out for a new one-shot cue.",
+    changes: ["Looking at a town now plays a new, updated town theme sound instead of the old one."]
+  },
+  {
     createdAt: 1787501551523, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.4",
     title: "Lowered the season player cap to 50",
@@ -431,6 +475,25 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     changes: [
       "A town can now host more than one Aether Condenser (or Advanced Aether Condenser), limited only by its open support tiles, instead of exactly one.",
       "The \"town already has...\" rejection now says \"Aether Condenser\" instead of the internal \"crystal synthesizer\" name."
+    ]
+  },
+  {
+    createdAt: 1787818239063, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27",
+    title: "Settling a new town no longer knocks out unrelated Relay Beacons",
+    why: "A settled town's FOOD demand was pinned as the oldest (never-goes-dormant) contributor in the FOOD-slot shortfall calculation, while every other FOOD consumer competed newest-built-first. That meant a brand-new town's own added FOOD demand could never itself go unfed -- so a shortfall it caused was silently paid for by disabling whatever unrelated structure (e.g. an existing Relay Beacon) happened to be the newest FOOD consumer instead, even if that structure had been built long before the town and had nothing to do with the shortfall.",
+    changes: [
+      "A town's FOOD demand now competes on the same newest-first footing as every other FOOD consumer, ranked by when it was settled -- so a freshly settled town that pushes FOOD demand over supply goes unfed itself, instead of an older, unrelated Relay Beacon or other structure losing power to cover it."
+    ]
+  },
+  {
+    createdAt: 1787822976132, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27",
+    title: "Build Aether Condenser button no longer falsely disabled, Sell Off gold now shows as a modifier",
+    why: "The Build Aether Condenser button still disabled itself with \"Nearby town already has Aether Condenser\" in a town that already had one, even though the server exempts this building family from the usual one-per-town cap entirely. Separately, switching a converter (Aether Condenser, Titanium Works, Umbrite Works) to Sell Off (EXCHANGE) mode always produced real gold, but the Modifiers panel dropped the entry entirely instead of showing it -- the tile's own status line named the behavior (\"selling off its slot and paying out gold\") but never the amount, so there was no way to see the actual gold/day figure anywhere.",
+    changes: [
+      "Build Aether Condenser now stays enabled in a town that already has one, matching the server's support for stacking multiple.",
+      "A converter structure in Sell Off mode now shows a \"Sell Off gold: +N/day\" modifier line matching its real payout, instead of no modifier at all."
     ]
   }
 ];

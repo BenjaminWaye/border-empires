@@ -92,6 +92,23 @@ describe("structureModifiersFor", () => {
     expect(exchange.find((m) => m.statLabel === "Refine mode supplies")).toBeUndefined();
   });
 
+  // Regression: switching an Aether Condenser (or any converter) to Sell Off
+  // (EXCHANGE) mode produced real gold (EXCHANGE_GOLD_PER_SLOT_PER_DAY,
+  // player-update-economy.ts) but the Modifiers panel showed nothing at all
+  // for it -- synthesizerModifiers returned [] for EXCHANGE mode instead of
+  // surfacing the payout, so neither the structure's own tile nor the town
+  // overview ever displayed a "gold production" line for Sell Off mode.
+  it("shows a Sell Off gold modifier with the real per-day payout in EXCHANGE mode", () => {
+    expect(structureModifiersFor("CRYSTAL_SYNTHESIZER", { tile: { converterMode: "EXCHANGE" } }))
+      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+10/day", tone: "positive", isTownWide: true });
+    expect(structureModifiersFor("ADVANCED_CRYSTAL_SYNTHESIZER", { tile: { converterMode: "EXCHANGE" } }))
+      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+15/day", tone: "positive", isTownWide: true });
+    expect(structureModifiersFor("TITANIUM_WORKS", { tile: { converterMode: "EXCHANGE" } }))
+      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+8/day", tone: "positive", isTownWide: true });
+    expect(structureModifiersFor("UMBRITE_SYNTHESIZER", { tile: { converterMode: "EXCHANGE" } }))
+      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+8/day", tone: "positive", isTownWide: true });
+  });
+
   it("defaults to showing the Refine-mode slot modifier when no converterMode is supplied (back-compat)", () => {
     const modifiers = structureModifiersFor("UMBRITE_SYNTHESIZER");
     expect(modifiers).toContainEqual({ statLabel: "Refine mode supplies", valueText: "+1 UMBRITE slot", tone: "positive", isTownWide: false });

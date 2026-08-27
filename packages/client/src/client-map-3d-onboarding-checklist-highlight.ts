@@ -9,8 +9,12 @@ import { AdditiveBlending, DynamicDrawUsage, Group, InstancedMesh, Matrix4, Mesh
 // scene position/height instead.
 
 const MAX_MARKERS = 32;
-const RING_INNER = 0.28;
-const RING_OUTER = 0.36;
+// Wide enough to peek out from under a settled town's footprint/buildings
+// (which cover most of a tile's ~0.94-unit footprint -- see
+// client-map-3d-settle-overlay.ts's TINT_SIZE) instead of being fully
+// hidden beneath it once the highlighted tile grows a town.
+const RING_INNER = 0.58;
+const RING_OUTER = 0.7;
 
 export type OnboardingChecklistHighlightTile = { readonly sceneX: number; readonly sceneZ: number; readonly surfaceY: number };
 

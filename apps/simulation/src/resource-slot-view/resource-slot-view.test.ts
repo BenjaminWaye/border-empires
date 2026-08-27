@@ -3,6 +3,7 @@ import type { DomainTileState } from "@border-empires/game-domain";
 import {
   currentTileFieldSlotRequirements,
   dormantStructureDetailsFromDormancy,
+  emptySlotWaivers,
   resourceSlotDemandForPlayer,
   resourceSlotDormantContributorsForPlayer,
   resourceSlotSupplyForPlayer,
@@ -400,14 +401,27 @@ describe("resourceSlotDormantContributorsForPlayer", () => {
     expect(dormancy.CRYSTAL.size).toBe(0);
   });
 
-  it("protects a town's FOOD demand ahead of a newer building's when FOOD is short", () => {
+  it("without a settledAtByTileKey map, falls back to protecting a town's FOOD demand as the oldest contributor", () => {
     const tiles = [
       tile({ x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } }),
       tile({ x: 1, y: 0, ownerId: "p1", economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "active", activatedAt: 500 } })
     ];
-    // Town demands 4 FOOD (always ranked oldest), Mintworks demands 1 FOOD. Total demand 5, supply 4 -> short by 1.
+    // Town falls back to activatedAt 0 (oldest); demand 5 vs supply 4.
     const dormancy = resourceSlotDormantContributorsForPlayer(tiles, "p1", { FOOD: 4, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 });
     expect([...dormancy.FOOD]).toEqual(["1,0:economicStructure"]);
+  });
+
+  it("a newly settled town's own FOOD demand goes dormant first, not an older, unrelated structure", () => {
+    const tiles = [
+      // Mintworks (activatedAt 100) predates the town's settlement (500).
+      tile({ x: 1, y: 0, ownerId: "p1", economicStructure: { ownerId: "p1", type: "MINTWORKS", status: "active", activatedAt: 100 } }),
+      tile({ x: 0, y: 0, ownerId: "p1", ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN" } })
+    ];
+    const dormancy = resourceSlotDormantContributorsForPlayer(
+      tiles, "p1", { FOOD: 4, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }, emptySlotWaivers(), new Map([["0,0", 500]])
+    );
+    // Town (newest) goes dormant, not the long-since-built Mintworks.
+    expect([...dormancy.FOOD]).toEqual(["0,0:town"]);
   });
 
   it("skips synthesizers entirely (they provide supply, never consume it, so never go dormant)", () => {
