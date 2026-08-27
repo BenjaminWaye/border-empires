@@ -1510,9 +1510,9 @@ export const processActionQueue = (
     // back off for the one case that needs the overlay: a plain manual tap
     // that becomes the active capture immediately.
     const silent = !to.ownerId;
-    const baseCapture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
-    state.capture = silent ? { ...baseCapture, silent: true } : baseCapture;
     const actionType = !to.ownerId ? "EXPAND" : "ATTACK";
+    const baseCapture = existingCapture ?? { startAt: Date.now(), resolvesAt: Date.now() + optimisticMs, target: { x: to.x, y: to.y } };
+    state.capture = { ...baseCapture, actionType, ...(silent ? { silent: true } : {}) }; // actionType drives the on-map claim plate (client-map-3d.ts) from dispatch, not just from ACTION_ACCEPTED
     attackSyncLog("queue-dispatch", {
       actionType,
       target: { x: to.x, y: to.y },
