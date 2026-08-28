@@ -15,15 +15,6 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1787907371407, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.2",
-    title: "Settle Land now shows on a frontier tile from the start",
-    why: "Settle Land and Settle Connected were hidden on an owned FRONTIER tile until you already had a settled town and a settled food tile -- exactly the early-game window a new player is most likely to press a frontier tile and expect a settle option, and inconsistent with Expand To / Build Relay Beacon, which already show unconditionally on a neutral tile.",
-    changes: [
-      "Settle Land (and Settle Connected, when applicable) now show on any owned FRONTIER tile regardless of your current economy, matching the always-on behavior of Expand To and Build Relay Beacon on neutral tiles."
-    ]
-  },
-  {
     createdAt: 1787901144099, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.1",
     title: "Checklist no longer keeps a town/food target highlighted for the whole Expand duration",
@@ -468,6 +459,13 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The water skirt's top edge now rides the same wave animation as the surface, so it stays flush with the water at every frame instead of only when the sea happens to be at rest."
     ]
+  },
+  {
+    createdAt: 1787689171531, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Fixed auto-settle trying to build on resource tiles outside your reach",
+    why: "The auto-settle queue included every owned frontier tile with a resource, town, or dock without checking reach, so a plain resource tile (which generates no reach of its own) claimed outside your reach border kept getting re-queued and rejected with an OUT_OF_REACH error.",
+    changes: ["Auto-settle no longer queues frontier tiles that are currently outside your reach border."]
   },
   {
     createdAt: 1787691972634, // frozen from `node -e "console.log(Date.now())"`
