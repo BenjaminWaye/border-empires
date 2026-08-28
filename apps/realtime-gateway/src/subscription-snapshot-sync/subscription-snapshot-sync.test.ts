@@ -134,6 +134,40 @@ describe("applyPlayerMessageToSnapshot", () => {
     });
   });
 
+  it("merges economyBreakdown, upkeepPerMinute, and upkeepLastTick from a PLAYER_UPDATE into the cached snapshot", () => {
+    // Regression: these fields were merged in the sim's copy
+    // (subscription-snapshot-cache.ts) but dropped here -- a reconnect served
+    // from this gateway-side fallback cache during a simulation outage would
+    // silently lose them even though the live in-memory summary had them.
+    const updated = applyPlayerMessageToSnapshot(snapshot(), {
+      type: "PLAYER_UPDATE",
+      economyBreakdown: { base: 10 },
+      upkeepPerMinute: { food: 1, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
+      upkeepLastTick: { food: 1 }
+    });
+
+    expect(updated.player?.economyBreakdown).toEqual({ base: 10 });
+    expect(updated.player?.upkeepPerMinute).toEqual({ food: 1, titanium: 0, umbrite: 0, crystal: 0, gold: 0 });
+    expect(updated.player?.upkeepLastTick).toEqual({ food: 1 });
+  });
+
+  it("merges seasonWinner from a GLOBAL_STATUS_UPDATE into the cached snapshot", () => {
+    // Regression: merged in the sim's copy but dropped here.
+    const seasonWinner = {
+      playerId: "player-1",
+      playerName: "Player One",
+      crownedAt: 1000,
+      objectiveId: "ECONOMIC_HEGEMONY",
+      objectiveName: "Economic Hegemony"
+    };
+    const updated = applyPlayerMessageToSnapshot(snapshot(), {
+      type: "GLOBAL_STATUS_UPDATE",
+      seasonWinner
+    });
+
+    expect(updated.worldStatus?.seasonWinner).toEqual(seasonWinner);
+  });
+
   it("keeps progression modifiers in cached snapshots after tech updates", () => {
     const updated = applyPlayerMessageToSnapshot(snapshot(), {
       type: "TECH_UPDATE",

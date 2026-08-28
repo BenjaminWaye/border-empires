@@ -1,3 +1,4 @@
+import { isChosenTrickleResource } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot, SeasonWinnerSnapshot } from "@border-empires/sim-protocol";
 
 type TileDelta = NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>;
@@ -29,14 +30,18 @@ const binarySearchTile = (tiles: readonly TileDelta[], x: number, y: number): nu
 
 const playerProgressionFieldsFromPayload = (
   payload: Record<string, unknown>
-): Partial<Pick<PlayerStateSnapshot, "techIds" | "domainIds" | "mods" | "modBreakdown">> => ({
-  ...(Array.isArray(payload.techIds) ? { techIds: payload.techIds as string[] } : {}),
-  ...(Array.isArray(payload.domainIds) ? { domainIds: payload.domainIds as string[] } : {}),
-  ...(payload.mods && typeof payload.mods === "object" ? { mods: payload.mods as NonNullable<PlayerStateSnapshot["mods"]> } : {}),
-  ...(payload.modBreakdown && typeof payload.modBreakdown === "object"
-    ? { modBreakdown: payload.modBreakdown as NonNullable<PlayerStateSnapshot["modBreakdown"]> }
-    : {})
-});
+): Partial<Pick<PlayerStateSnapshot, "techIds" | "domainIds" | "mods" | "modBreakdown" | "chosenTrickleResource">> => {
+  const trickle = payload.chosenTrickleResource;
+  return {
+    ...(Array.isArray(payload.techIds) ? { techIds: payload.techIds as string[] } : {}),
+    ...(Array.isArray(payload.domainIds) ? { domainIds: payload.domainIds as string[] } : {}),
+    ...(payload.mods && typeof payload.mods === "object" ? { mods: payload.mods as NonNullable<PlayerStateSnapshot["mods"]> } : {}),
+    ...(payload.modBreakdown && typeof payload.modBreakdown === "object"
+      ? { modBreakdown: payload.modBreakdown as NonNullable<PlayerStateSnapshot["modBreakdown"]> }
+      : {}),
+    ...(isChosenTrickleResource(trickle) ? { chosenTrickleResource: trickle } : {})
+  };
+};
 
 export const applyTileDeltasToSnapshot = (
   snapshot: PlayerSubscriptionSnapshot,
