@@ -7,6 +7,11 @@ import { debugTileLog, debugTileLoggingEnabled, debugTileSnapshot, tileMatchesDe
 import { enqueueDiscoveryTipForNewlySeenTile } from "../client-discovery-tips/client-discovery-tips.js"; import { unlockMusterOnEnemyContact } from "../client-muster-unlock/client-muster-unlock.js";
 import { isMusterUnlocked } from "../client-muster-unlock/client-muster-unlock-storage.js";
 import { clearResolvedIncomingAttack } from "../client-siege-tracking/client-siege-tracking.js";
+import {
+  gatewayTownIdentity,
+  gatewayTownSummary,
+  parseGatewayStructureJson
+} from "./client-gateway-sync-town-summary.js";
 
 // Logs every real ownerId/ownershipState change, gated only by the account-level debugTileLoggingEnabled flag (not a specific watched tile).
 const logOwnershipChangeIfAny = (x: number, y: number, before: Tile | undefined, after: Tile | undefined, scope: string): void => {
@@ -20,8 +25,6 @@ const logOwnershipChangeIfAny = (x: number, y: number, before: Tile | undefined,
   });
 };
 
-type TownSummary = NonNullable<Tile["town"]>;
-type PartialTownSummary = Partial<TownSummary>;
 type NormalizedGatewayTileUpdate = {
   detailLevel?: Tile["detailLevel"];
   terrain?: Tile["terrain"];
@@ -102,161 +105,6 @@ type GatewayTileSyncDeps = {
   buildMiniMapBase?: () => void;
 };
 
-const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
-
-const hasStringArray = (value: unknown): value is string[] => Array.isArray(value) && value.every((entry) => typeof entry === "string");
-
-const isGrowthModifierArray = (value: unknown): value is NonNullable<TownSummary["growthModifiers"]> =>
-  Array.isArray(value) &&
-  value.every((entry) => {
-    if (!entry || typeof entry !== "object") return false;
-    const modifier = entry as { label?: unknown; deltaPerMinute?: unknown };
-    return (
-      (modifier.label === "Recently captured" || modifier.label === "Nearby war" || modifier.label === "Long time peace") &&
-      isFiniteNumber(modifier.deltaPerMinute)
-    );
-  });
-
-const isNextPopulationTierUpgrade = (value: unknown): value is NonNullable<TownSummary["nextPopulationTierUpgrade"]> => {
-  if (!value || typeof value !== "object") return false;
-  const upgrade = value as { targetTier?: unknown; requiredPopulation?: unknown; goldCost?: unknown; available?: unknown };
-  return (
-    (upgrade.targetTier === "CITY" || upgrade.targetTier === "GREAT_CITY" || upgrade.targetTier === "METROPOLIS") &&
-    isFiniteNumber(upgrade.requiredPopulation) &&
-    isFiniteNumber(upgrade.goldCost) &&
-    typeof upgrade.available === "boolean"
-  );
-};
-
-// Minimum population that any real town has. Below this, the summary is partial
-// (no real population sent yet, or a zero-default) — the renderer should show
-// a "loading" state instead of acting on bogus numbers.
-export const MIN_RENDERABLE_TOWN_POPULATION = 500;
-
-const isValidTownType = (value: unknown): value is NonNullable<TownSummary["type"]> =>
-  value === "MARKET" || value === "FARMING";
-
-const isValidTownPopulationTier = (value: unknown): value is NonNullable<TownSummary["populationTier"]> =>
-  value === "SETTLEMENT" ||
-  value === "TOWN" ||
-  value === "CITY" ||
-  value === "GREAT_CITY" ||
-  value === "METROPOLIS";
-
-const isFiniteOptionalNumber = (value: unknown): boolean => value === undefined || isFiniteNumber(value);
-
-const isOptionalBoolean = (value: unknown): boolean => value === undefined || typeof value === "boolean";
-
-// Renderable threshold: the gate the UI uses to decide if it has enough data to
-// draw a town card. Foreign towns under satellite reveal carry only public
-// fields (type/tier/population/maxPopulation/connected*), and the server
-// intentionally strips owner-only economy fields. Population >= 500 is the
-// authoritative "this is a real town" signal — anything lower is partial data
-// and should drive a spinner state in the overview pane.
-const isRenderableTownSummary = (town: PartialTownSummary | undefined): town is TownSummary =>
-  Boolean(
-    town &&
-      isValidTownType(town.type) &&
-      isValidTownPopulationTier(town.populationTier) &&
-      isFiniteNumber(town.population) &&
-      town.population >= MIN_RENDERABLE_TOWN_POPULATION &&
-      isFiniteNumber(town.maxPopulation) &&
-      // Tolerate missing private/economy fields — foreign towns under reveal
-      // legitimately omit them. Just sanity-check the ones we DO receive.
-      isFiniteOptionalNumber(town.baseGoldPerMinute) &&
-      isFiniteOptionalNumber(town.supportCurrent) &&
-      isFiniteOptionalNumber(town.supportMax) &&
-      isFiniteOptionalNumber(town.goldPerMinute) &&
-      isFiniteOptionalNumber(town.cap) &&
-      isOptionalBoolean(town.isFed) &&
-      isFiniteOptionalNumber(town.populationGrowthPerMinute) &&
-      isFiniteOptionalNumber(town.connectedTownCount) &&
-      isFiniteOptionalNumber(town.connectedTownBonus) &&
-      (town.connectedTownNames === undefined || hasStringArray(town.connectedTownNames)) &&
-      isFiniteOptionalNumber(town.manpowerCurrent) &&
-      isFiniteOptionalNumber(town.manpowerCap) &&
-      isOptionalBoolean(town.hasMintworks) &&
-      isOptionalBoolean(town.mintworksActive) &&
-      isOptionalBoolean(town.hasGranary) &&
-      isOptionalBoolean(town.granaryActive) &&
-      isOptionalBoolean(town.hasSeedGranary) &&
-      isOptionalBoolean(town.seedGranaryActive) &&
-      isOptionalBoolean(town.seedGranaryBuffed) &&
-      isOptionalBoolean(town.hasClearingHouse) && isOptionalBoolean(town.clearingHouseActive) && (town.clearingHouseTownNames === undefined || hasStringArray(town.clearingHouseTownNames)) &&
-      isFiniteOptionalNumber(town.foodUpkeepPerMinute) &&
-      (town.growthModifiers === undefined || isGrowthModifierArray(town.growthModifiers)) &&
-      (town.nextPopulationTierUpgrade === undefined || isNextPopulationTierUpgrade(town.nextPopulationTierUpgrade))
-  );
-
-const parseGatewayStructureJson = <T>(value?: string): T | undefined => {
-  if (!value) return undefined;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return undefined;
-  }
-};
-
-const gatewayTownIdentity = (
-  update: GatewayTileUpdate,
-  existing: Tile | undefined,
-  town: Tile["town"] | undefined
-): Pick<NormalizedGatewayTileUpdate, "townType" | "townName" | "townPopulationTier"> | undefined => {
-  const existingType = existing?.town?.type ?? existing?.townType;
-  const existingName = existing?.town?.name ?? existing?.townName;
-  const existingTier = existing?.town?.populationTier ?? existing?.townPopulationTier;
-
-  if ("townJson" in update && !update.townJson && !("townType" in update) && !("townName" in update) && !("townPopulationTier" in update)) {
-    return { townType: undefined, townName: undefined, townPopulationTier: undefined };
-  }
-
-  const type = town?.type ?? update.townType ?? existingType;
-  const name = town?.name ?? ("townName" in update ? update.townName : existingName);
-  const populationTier = town?.populationTier ?? ("townPopulationTier" in update ? update.townPopulationTier : existingTier);
-
-  if (!type && !name && !populationTier) return undefined;
-  return {
-    townType: type,
-    townName: name,
-    townPopulationTier: populationTier
-  };
-};
-
-type GatewayTownSummaryResult = {
-  town: Tile["town"] | undefined;
-  // True when a parsed town payload failed the renderable gate. Drives the
-  // overview pane's spinner state — distinct from "townType is set" because
-  // tile-shell updates can carry townType without a town summary.
-  partial: boolean;
-};
-
-const gatewayTownSummary = (
-  update: GatewayTileUpdate,
-  existing: Tile | undefined
-): GatewayTownSummaryResult => {
-  const existingTown = existing?.town;
-  const parsedTown = parseGatewayStructureJson<PartialTownSummary>(update.townJson);
-  if ("townJson" in update && !update.townJson) return { town: undefined, partial: false };
-  if (parsedTown) {
-    const authoritativeTown: PartialTownSummary = {
-      ...parsedTown,
-      ...(update.townName ? { name: update.townName } : {}),
-      ...(update.townType ? { type: update.townType } : {}),
-      ...(update.townPopulationTier ? { populationTier: update.townPopulationTier } : {})
-    };
-    if (isRenderableTownSummary(authoritativeTown)) return { town: authoritativeTown, partial: false };
-    return { town: existingTown, partial: !existingTown };
-  }
-  if (!existingTown) return { town: undefined, partial: false };
-  const mergedTown: PartialTownSummary = {
-    ...existingTown,
-    ...(update.townName ? { name: update.townName } : {}),
-    ...(update.townType ? { type: update.townType } : {})
-  };
-  if (isRenderableTownSummary(mergedTown)) return { town: mergedTown, partial: false };
-  return { town: existingTown, partial: false };
-};
-
 export const normalizeGatewayTileUpdate = (
   update: GatewayTileUpdate,
   args: {
@@ -302,7 +150,9 @@ export const normalizeGatewayTileUpdate = (
   }
   if ("frontierDecayKind" in update) {
     normalized.frontierDecayKind =
-      update.frontierDecayKind === "ENCIRCLEMENT" ? update.frontierDecayKind : undefined;
+      update.frontierDecayKind === "ENCIRCLEMENT" || update.frontierDecayKind === "OUT_OF_REACH"
+        ? update.frontierDecayKind
+        : undefined;
   }
   if ("yield" in update) normalized.yield = update.yield;
   if ("yieldRate" in update) normalized.yieldRate = update.yieldRate;
