@@ -280,29 +280,7 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
     }
   };
 
-  const formatMessage = (input: {
-    to: string;
-    subject: string;
-    intro: string;
-    detail: string;
-    linkUrl?: string;
-    linkLabel?: string;
-  }): EmailMessage => {
-    const linkUrl = input.linkUrl ?? appUrl;
-    const linkLabel = input.linkLabel ?? "Open Border Empires";
-    const safeIntro = escapeHtml(input.intro);
-    const safeDetail = escapeHtml(input.detail);
-    const safeLinkUrl = escapeHtml(linkUrl);
-    const safeLinkLabel = escapeHtml(linkLabel);
-    return {
-      to: input.to,
-      subject: input.subject,
-      text: `${input.intro}\n\n${input.detail}\n\n${linkLabel}: ${linkUrl}`,
-      html: `<p>${safeIntro}</p><p>${safeDetail}</p><p><a href="${safeLinkUrl}">${safeLinkLabel}</a></p>`
-    };
-  };
-
-  const formatSeasonMessage = (input: {
+  const formatBrandedEmail = (input: {
     to: string;
     subject: string;
     eyebrow: string;
@@ -404,11 +382,16 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       return send(
         input.recipientPlayerId,
         (to) =>
-          formatMessage({
+          formatBrandedEmail({
             to,
             subject: `${input.senderName} sent you an alliance request`,
-            intro: `${input.senderName} sent your empire an alliance request.`,
-            detail: "Open Border Empires to accept or reject it."
+            eyebrow: "Border Empires — Alliance Request",
+            headline: "You've Been Offered an Alliance",
+            body: [
+              `${input.senderName} sent your empire an alliance request.`,
+              "Open Border Empires to accept or reject it."
+            ],
+            linkLabel: "Respond to Request"
           }),
         { bypassRateLimit: true }
       );
@@ -417,18 +400,24 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       return send(
         input.recipientPlayerId,
         (to) =>
-          formatMessage({
+          formatBrandedEmail({
             to,
             subject: `${input.senderName} offered you a ${input.durationHours}h truce`,
-            intro: `${input.senderName} offered your empire a ${input.durationHours}h truce.`,
-            detail: "Open Border Empires to accept or reject it before the offer expires."
+            eyebrow: "Border Empires — Truce Offer",
+            headline: "You've Been Offered a Truce",
+            body: [
+              `${input.senderName} offered your empire a ${input.durationHours}h truce.`,
+              "Open Border Empires to accept or reject it before the offer expires."
+            ],
+            highlight: { label: "Truce Duration", value: `${input.durationHours} hours` },
+            linkLabel: "Respond to Offer"
           }),
         { bypassRateLimit: true }
       );
     },
     sendAttackAlert(input) {
       return send(input.defenderPlayerId, (to) =>
-        formatSeasonMessage({
+        formatBrandedEmail({
           to,
           subject: `${input.attackerName} is attacking your empire`,
           eyebrow: "Border Empires — Under Attack",
@@ -451,7 +440,7 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
       return send(
         input.recipientPlayerId,
         (to) =>
-          formatSeasonMessage({
+          formatBrandedEmail({
             to,
             subject: isPreviousWinner ? "You won the season — and a new one has begun in Border Empires" : "A new season has begun in Border Empires",
             eyebrow: isPreviousWinner ? "Border Empires — Season Recap" : "Border Empires",

@@ -12,6 +12,16 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
   {
+    createdAt: 1787692481411, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.8",
+    title: "Gave the \"join now\" season prompt a real intro instead of a bare confirmation dialog",
+    why: "The plain join-season overlay (season already live, player just hasn't clicked join yet) read as a placeholder-y \"Join Season season-23?\" dialog with a static \"Ready\" dial that did nothing -- no sense of occasion for what's actually your empire's founding moment.",
+    changes: [
+      "Replaced the title/summary with narrative flavor text introducing the season",
+      "Removed the static \"Ready\" dial and turned the confirm button itself into the focal call-to-action, relabeled \"Let's go!\""
+    ]
+  },
+  {
     createdAt: 1787823264967, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27",
     title: "Enable <structure> is disabled on an unsettled tile",
