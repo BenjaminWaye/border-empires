@@ -3,6 +3,7 @@ import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-proto
 import {
   handleDevQueueCancelCommand,
   handleDevQueueEnqueueCommand,
+  handleDevQueueMoveToFrontCommand,
   tryDrainDevQueue,
   type RuntimeDevQueueCommandContext
 } from "./runtime-dev-queue-command-handlers.js";
@@ -37,12 +38,14 @@ function makeContext(overrides: { manpower: number; hasSlot?: boolean }) {
   const events: SimulationEvent[] = [];
   const rejections: { code: string; message: string }[] = [];
   const dispatchedBuilds: CommandEnvelope[] = [];
+  const playerStateUpdates: Array<{ commandId: string; playerId: string }> = [];
   let hasSlot = overrides.hasSlot ?? false;
 
   const context: RuntimeDevQueueCommandContext = {
     summaryForPlayer: () => summary,
     now: () => 1000,
     emitEvent: (event) => events.push(event),
+    emitPlayerStateUpdate: (command) => playerStateUpdates.push({ commandId: command.commandId, playerId: command.playerId }),
     rejectCommand: (_command, code, message) => rejections.push({ code, message }),
     hasAvailableDevelopmentSlot: () => hasSlot,
     nextDrainCommandId: (playerId, tileKey) => `drain:${playerId}:${tileKey}`,
@@ -74,7 +77,7 @@ function makeContext(overrides: { manpower: number; hasSlot?: boolean }) {
     refundManpowerReservation: (_playerId, amount) => { manpower = Math.min(manpowerCap, manpower + amount); }
   };
 
-  return { context, summary, events, rejections, dispatchedBuilds, getManpower: () => manpower, setHasSlot: (v: boolean) => { hasSlot = v; } };
+  return { context, summary, events, rejections, dispatchedBuilds, playerStateUpdates, getManpower: () => manpower, setHasSlot: (v: boolean) => { hasSlot = v; } };
 }
 
 function enqueueCommand(x: number, y: number, structureType: string): CommandEnvelope {
@@ -115,6 +118,54 @@ describe("handleDevQueueEnqueueCommand -- MP/slot reservation", () => {
     expect(getManpower()).toBe(100);
     expect(summary.devQueue).toEqual([]);
     expect(rejections).toEqual([{ code: "INSUFFICIENT_MANPOWER", message: "need 300 manpower" }]);
+  });
+
+  it("pushes a live PLAYER_UPDATE on a successful enqueue, cancel, and move-to-front", () => {
+    // Regression: same root cause and fix as the waypoint queue's identical
+    // bug (PR #1633) -- enqueueing/cancelling/reordering only emitted
+    // COMMAND_RESOLVED, which marks the durable command resolved but never
+    // touches the gateway's per-player subscribe-snapshot cache. Since this
+    // queue also reserves manpower up front, a stale cache misrepresents the
+    // player's manpower too, not just devQueue, until some unrelated action
+    // happens to push a fresh update.
+    const { context, playerStateUpdates } = makeContext({ manpower: 1000 });
+    handleDevQueueEnqueueCommand(context, enqueueCommand(1, 1, "FORT"));
+    handleDevQueueEnqueueCommand(context, enqueueCommand(2, 2, "MINTWORKS"));
+    expect(playerStateUpdates).toEqual([
+      { commandId: "enqueue:1,1", playerId: "p1" },
+      { commandId: "enqueue:2,2", playerId: "p1" }
+    ]);
+
+    handleDevQueueMoveToFrontCommand(context, {
+      commandId: "move",
+      sessionId: "s",
+      playerId: "p1",
+      clientSeq: 3,
+      issuedAt: 0,
+      type: "DEV_QUEUE_MOVE_TO_FRONT",
+      payloadJson: JSON.stringify({ tileKey: "2,2" })
+    } as unknown as CommandEnvelope);
+    handleDevQueueCancelCommand(context, {
+      commandId: "cancel",
+      sessionId: "s",
+      playerId: "p1",
+      clientSeq: 4,
+      issuedAt: 0,
+      type: "DEV_QUEUE_CANCEL",
+      payloadJson: JSON.stringify({ tileKey: "1,1" })
+    } as unknown as CommandEnvelope);
+    expect(playerStateUpdates).toEqual([
+      { commandId: "enqueue:1,1", playerId: "p1" },
+      { commandId: "enqueue:2,2", playerId: "p1" },
+      { commandId: "move", playerId: "p1" },
+      { commandId: "cancel", playerId: "p1" }
+    ]);
+  });
+
+  it("does not push a PLAYER_UPDATE when the enqueue is rejected", () => {
+    const { context, playerStateUpdates } = makeContext({ manpower: 100 });
+    handleDevQueueEnqueueCommand(context, enqueueCommand(1, 1, "FORT"));
+    expect(playerStateUpdates).toHaveLength(0);
   });
 
   it("rejects a second slot-conflicting queue entry once an earlier queued entry already claims the slot", () => {
