@@ -12,11 +12,38 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787688556298, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Hid the redundant \"0 gold\" in the Build Relay Beacon action cost",
+    why: "The Build Relay Beacon action's cost string always prepended the gold cost, even when expand + settle + build all cost 0 gold, so the Actions tab showed a confusing \"0 gold, N m.p. ...\" line.",
+    changes: [
+      "The Build Relay Beacon action's cost text now omits the gold segment entirely when the gold cost is 0."
+    ]
+  },
+  {
+    createdAt: 1787688715010, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Fixed the water skirt wall leaving a gap at wave crests",
+    why: "The water skirt wall added moments earlier (2026.08.25.5) closed the black gap under coastal sea tiles, but its top edge was drawn once and never touched again, while the water surface itself bobs up and down every frame with the wave animation. Whenever the wave lifted the surface above the skirt's static top, the same black gap reappeared.",
+    changes: [
+      "The water skirt's top edge now rides the same wave animation as the surface, so it stays flush with the water at every frame instead of only when the sea happens to be at rest."
+    ]
+  },
+  {
     createdAt: 1787689171531, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.6",
     title: "Fixed auto-settle trying to build on resource tiles outside your reach",
     why: "The auto-settle queue included every owned frontier tile with a resource, town, or dock without checking reach, so a plain resource tile (which generates no reach of its own) claimed outside your reach border kept getting re-queued and rejected with an OUT_OF_REACH error.",
     changes: ["Auto-settle no longer queues frontier tiles that are currently outside your reach border."]
+  },
+  {
+    createdAt: 1787691972634, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Town population bar now shows progress toward the next tier",
+    why: "The town overview's population bar showed current population against the town's absolute population cap, which barely moved even as a town grew and gave no sense of how close it was to upgrading tiers.",
+    changes: [
+      "The population bar and its number now track progress toward the next population tier (e.g. Town → City) instead of the absolute population cap, and turns green once that tier's threshold is reached."
+    ]
   },
   {
     createdAt: 1787817717886, // frozen from `node -e "console.log(Date.now())"`
@@ -350,6 +377,15 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     changes: [
       "An AI empire that's fully out of FOOD slots, with no direct way to grow more, will now disable one of its own Relay Beacons that isn't covering any resources to free up the slot for further growth.",
       "This is always a reversible disable, never a demolition -- the building stays intact and can be re-enabled once FOOD has headroom again."
+    ]
+  },
+  {
+    createdAt: 1787904636695, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.2",
+    title: "Fixed waypoints and build/settle queue entries still vanishing on some reconnects",
+    why: "The previous two fixes for this pushed a live update whenever a waypoint or build/settle queue entry changed, but the server's own fast-reconnect snapshot cache -- a separate copy of the merge logic used to serve a quick reconnect without rebuilding your whole world state -- had never been taught about these two fields at all, so it silently dropped them regardless of the live update. This mattered most exactly when the earlier fixes couldn't help: while you were offline (no live connection to push an update to), your waypoint or queue kept working correctly on the server, but a reconnect could still be served a snapshot from before it existed.",
+    changes: [
+      "The server's fast-reconnect snapshot now correctly includes your current waypoint and build/settle queues in every case, including right after a period offline."
     ]
   }
 ];
