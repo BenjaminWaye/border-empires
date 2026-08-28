@@ -198,17 +198,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787381546606, // 2026.08.22.2 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.2",
-    title: "Seasons now have a player cap, and you can ask to be emailed when the next one opens",
-    why: "A season previously had no limit on how many empires could join, which meant a season already crowded with players kept quietly admitting more instead of ever being \"full.\" There was also no way to find out when a fresh, uncrowded season was starting if you missed joining one.",
-    changes: [
-      "A season now stops admitting brand-new players once it reaches its player cap; anyone with an existing empire in that season can still log back in as normal.",
-      "Trying to join a full season shows a \"This season is full\" screen with an \"Alert me when next season starts\" button.",
-      "Clicking it confirms you'll get the same season-start email already sent to every signed-in player when the next season begins."
-    ]
-  },
-  {
     createdAt: 1787510053323, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.23.3",
     title: "You can now expand beyond your reach -- but the land decays if you can't hold it",
@@ -307,103 +296,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     changes: [
       "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
       "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
-    ]
-  },
-  {
-    createdAt: 1787346768128, // 2026.08.21.8 (frozen; was a live Date.now() call — see check-client-changelog-update.mjs)
-    introducedIn: "2026.08.21.8",
-    title: "Border-expansion pylons now rise and light up again mid-game, not just retire",
-    why: "A caller-side flag meant to skip the arrival animation on the very first frame (so the whole starting boundary didn't rise out of the ground on page load) was being passed on every single frame instead of just the first one, so any pylon or laser line added by a later border expansion popped straight into its fully-lit state instead of playing the rise-then-power-on animation -- only retiring pylons ever animated.",
-    changes: [
-      "Newly-added border pylons and laser lines now rise out of the ground and power on with the same staggered wave animation you see in Storybook, instead of popping in instantly, for every border change after the map first loads."
-    ]
-  },
-  {
-    createdAt: 1787346768129, // 2026.08.21.9
-    introducedIn: "2026.08.21.9",
-    title: "Removed the unused \"frontier collapsing\" decay countdown",
-    why: "Frontier tiles carried a natural-decay countdown UI (a header timer and tile-menu warning saying the tile would soon collapse) left over from an early design that the server never actually implemented — no frontier tile has ever expired this way, so the warning could never legitimately appear. Removed the dead client code so it can't be confused with the real encirclement cut-off warning, which still applies: a frontier tile cut off from your supply chain is still claimed by an enemy after 60 seconds if it stays disconnected.",
-    changes: [
-      "Removed the unused \"Frontier collapsing in Ns\" countdown and \"unsupported and will soon decay\" tile-menu line — this never actually triggered in play.",
-      "The encirclement (\"Cut off from supply\") warning and its 60-second countdown are unchanged."
-    ]
-  },
-  {
-    createdAt: 1787334600000,
-    introducedIn: "2026.08.21.6",
-    title: "Your border is now the server's real border, and out-of-reach waypoints no longer get stuck forever",
-    why: "The yellow reach border was drawn from a client-side approximation that re-derived your anchors from whatever tiles happened to be cached locally. It could not see contested-tile clipping against other players' anchors, so it sometimes showed a tile as inside your border that the server would refuse to let you claim. The waypoint planner used that same approximation to pick its next hop, so it kept sending an expand the server kept rejecting with OUT_OF_REACH. The retry counter was also reset on every reconnect, and the waypoint queue lives server-side, so the loop restarted from zero each time you reconnected -- a wedged waypoint blocked every waypoint behind it and refreshing could not clear it.",
-    changes: [
-      "The reach border you see is now pushed by the server and matches exactly what it will let you claim, so a tile shown inside your border can actually be expanded onto.",
-      "A waypoint step the server rejects as out of reach now cancels that waypoint instead of retrying it forever, and the cancellation is mirrored server-side so it cannot come back after a reconnect.",
-      "A halted waypoint no longer blocks the waypoints queued behind it, and the 'Waypoint halted' message appears once instead of repeating on every tick."
-    ]
-  },
-  {
-    createdAt: 1787349946710,
-    introducedIn: "2026.08.21.10",
-    title: "You can now attempt to expand toward out-of-reach frontier tiles",
-    why: "Expanding was rejected outright as OUT_OF_REACH the moment a target tile fell outside your reach border, even though claiming a neutral tile has never itself granted reach (only a settled town/outpost/dock does) -- so the rejection didn't actually protect anything, it just hid a button. Settling and building outposts are still gated on reach, since those are what actually extend your border, and a Relay Beacon (or other siege outpost) still can't be built directly on an out-of-reach frontier tile -- that loophole would have let a single out-of-reach expand leapfrog your reach indefinitely.",
-    changes: [
-      "\"Expand To\" now always shows on a neutral tile, in or out of reach, instead of being hidden outside reach.",
-      "On a frontier tile you already own but is outside reach, \"Settle Land\", \"Settle Connected\", and outpost-family build actions (Relay Beacon, siege outposts) now show disabled with an \"Outside your reach\" reason instead of disappearing.",
-      "The tile menu and both map views now flag a selected out-of-reach tile so it's clear why those actions are disabled."
-    ]
-  },
-  {
-    createdAt: 1787374761566, // 2026.08.22.1 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.1",
-    title: "Renamed the distant-attack waypoint button from \"Add Waypoint\" to \"Expand To & Attack\"",
-    why: "This button now only ever appears for an enemy-owned attack target -- the neutral-tile case was folded into \"Expand To\" in the previous release -- but it kept the old generic \"Add Waypoint\" label, which read as a leftover duplicate rather than the attack action it actually is.",
-    changes: [
-      "The multi-step waypoint action on a distant enemy tile is now labeled \"Expand To & Attack\" instead of \"Add Waypoint\"."
-    ]
-  },
-  {
-    createdAt: 1787356800001, // 2026.08.21, after the entries below
-    introducedIn: "2026.08.21",
-    title: "Shard rain impact sites now show on the map, even before you've explored them",
-    why: "A shard rain event's landing sites were previously only ever shown as a text notice (\"Nearest site is ~N tiles NE\") or as an in-tile icon once you'd actually explored that tile. There was no way to see where the other sites were at a glance, or to navigate straight to one.",
-    changes: [
-      "Every active shard rain site now shows as an arrow-shaped badge pointing off-screen toward it, the same locator system muster flags use — click it to jump the camera there.",
-      "Once you scroll a site on-screen, a small shield badge hovers over that exact tile, bobbing gently in place — the same badge style as the unfed-town warning, with a shard icon instead. It's just a positional blip from the event broadcast, not confirmation the shard is still there, especially on a tile you haven't explored yet.",
-      "Both the off-screen badge and the on-screen badge stay up for the full ~30-minute life of the shard rain event, not just the first moments after landing."
-    ]
-  },
-  {
-    createdAt: 1787360000000,
-    introducedIn: "2026.08.21.7",
-    title: "Fixed the settle animation not showing until you panned the camera",
-    why: "Pressing Settle on a frontier tile marks it optimistically pending without changing its owner or ownership state (both already belonged to you), but the 3D map only rebuilt its terrain and overlays when ownership actually changed. That left the new settle overlay instance uncreated until something else -- like panning -- forced a rebuild for an unrelated reason.",
-    changes: [
-      "The settlement animation now plays immediately when you press Settle, instead of waiting for the next camera pan."
-    ]
-  },
-  {
-    createdAt: 1787340000000,
-    introducedIn: "2026.08.21.6",
-    title: "The rush-buy price preview now accounts for the Quickforge discount",
-    why: "The tile menu's rush-buy price chip always showed the full server price estimate, even for a player who owns a Quickforge with today's discount still unused — the number shown was different from what got charged.",
-    changes: [
-      "The rush-buy price chip now shows the discounted price when you own a Quickforge and haven't used its once-per-day discount yet."
-    ]
-  },
-  {
-    createdAt: 1787356800000,
-    introducedIn: "2026.08.21.3",
-    title: "Fixed a crash when switching apps and back while a location theme was playing",
-    why: "Backgrounding the tab pauses playback; returning to it resumes both the music bed and any location theme. The location theme's resume call didn't catch play() rejections the way the music bed's did, so a fast switch-away-and-back (interrupting that play() with a pause()) threw an unhandled rejection that tripped the app's error boundary, showing \"Border Empires hit a problem loading\".",
-    changes: [
-      "Switching to another app and back no longer crashes the game to the error screen."
-    ]
-  },
-  {
-    createdAt: 1787345991317,
-    introducedIn: "2026.08.21",
-    title: "War music no longer flickers back to calm music during an ongoing war",
-    why: "War music was driven only by whether a battle-clash animation was actively playing, which is pruned a few seconds after each individual skirmish resolves. During a sustained war, that gap between skirmishes flipped the music back to calm and then straight back to combat, over and over.",
-    changes: [
-      "War music now also stays engaged for as long as any muster flag is set to Advance, since that's a durable sign of an ongoing offensive rather than a single skirmish's animation window."
     ]
   },
   {
