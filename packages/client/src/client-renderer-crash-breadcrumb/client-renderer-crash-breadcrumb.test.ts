@@ -124,6 +124,35 @@ describe("renderer crash breadcrumb", () => {
     expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
 
+  it("marks the risky window around the first terrain rebuild, distinct from init-completed", async () => {
+    seed({ atMs: 1, phase: "init-completed", tileBudget: 6000, failedAttempts: 1 });
+    const session = await loadSession();
+
+    session.markRendererFirstRenderStarted();
+
+    // If the tab dies here, this is what the next load reads back — and it's
+    // a different signature from "init-started" (died allocating buffers).
+    expect(stored()).toMatchObject({ phase: "first-render-started", failedAttempts: 1 });
+  });
+
+  it("reverts to init-completed once the first rebuild returns without crashing", async () => {
+    seed({ atMs: 1, phase: "init-completed", tileBudget: 6000, failedAttempts: 1 });
+    const session = await loadSession();
+
+    session.markRendererFirstRenderStarted();
+    session.markRendererFirstRenderCompleted();
+
+    expect(stored()).toMatchObject({ phase: "init-completed", failedAttempts: 1 });
+  });
+
+  it("still counts a death during the first render toward the crash-loop brake", async () => {
+    seed({ atMs: 1, phase: "first-render-started", tileBudget: 6000, failedAttempts: 2 });
+
+    const session = await loadSession();
+
+    expect(session.shouldSkipThreeDAfterCrashes()).toBe(true);
+  });
+
   it("flags an unclean end when a heartbeat exists with no matching clean shutdown", async () => {
     seed({ atMs: 1, phase: "survived", tileBudget: 6000, failedAttempts: 0, lastHeartbeatAtMs: 500 });
 

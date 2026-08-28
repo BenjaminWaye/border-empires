@@ -11,10 +11,21 @@
 // persists disconnects, and reported in the diagnostics bundle.
 //
 // Reading the breadcrumb after a crash tells you which phase died:
-//   "init-started"   — the tab died while allocating the renderer's buffers.
-//                      That is the memory-exhaustion signature.
-//   "init-completed" — allocation survived; it died while rendering frames.
-//   "survived"       — 3D ran for SURVIVAL_MS without dying. Not a crash.
+//   "init-started"        — the tab died while allocating the renderer's
+//                            buffers. That is the memory-exhaustion signature.
+//   "init-completed"      — allocation survived; it died before the first
+//                            terrain rebuild even started (or, on an older
+//                            build without that marker, anywhere after).
+//   "first-render-started" — allocation survived, and it died during the
+//                            first rebuildVisibleTerrain() pass: the
+//                            heightfield mesh + per-tile overlay population +
+//                            ~25 overlay .commit() calls for the whole
+//                            initial tile budget, all synchronous, all before
+//                            a single frame has been drawn. This is a second,
+//                            distinct memory-exhaustion signature from
+//                            "init-started" — the preallocated buffers fit,
+//                            but populating them for the first time didn't.
+//   "survived"             — 3D ran for SURVIVAL_MS without dying. Not a crash.
 //
 // The consecutive-crash count is also what lets the app stop doing this to a
 // player: after CRASH_ATTEMPTS_BEFORE_2D failed attempts, 3D is skipped and
@@ -45,7 +56,7 @@ const SURVIVAL_MS = 8000;
 // Two in a row is a device that cannot run this renderer.
 const CRASH_ATTEMPTS_BEFORE_2D = 2;
 
-export type RendererAttemptPhase = "init-started" | "init-completed" | "survived";
+export type RendererAttemptPhase = "init-started" | "init-completed" | "first-render-started" | "survived";
 
 export type RendererBreadcrumb = {
   readonly atMs: number;
@@ -152,6 +163,27 @@ export const markRendererInitCompleted = (tileBudget: number): void => {
       userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined
     });
   }, SURVIVAL_MS);
+};
+
+/**
+ * Records that the *first* rebuildVisibleTerrain() pass is about to run —
+ * the synchronous heightfield/overlay build for the whole initial tile
+ * budget, which is real allocation-adjacent work that happens after
+ * `markRendererInitCompleted` already wrote "init-completed". Call this only
+ * for the first rebuild of a session; later rebuilds are already covered by
+ * the heartbeat once 3D is confirmed alive.
+ */
+export const markRendererFirstRenderStarted = (): void => {
+  const current = readBreadcrumb();
+  if (!current) return;
+  writeBreadcrumb({ ...current, atMs: Date.now(), phase: "first-render-started" });
+};
+
+/** Records that the first rebuild above returned without crashing the tab. */
+export const markRendererFirstRenderCompleted = (): void => {
+  const current = readBreadcrumb();
+  if (!current) return;
+  writeBreadcrumb({ ...current, atMs: Date.now(), phase: "init-completed" });
 };
 
 /** Records that 3D was abandoned through a handled path, not a crash. */
