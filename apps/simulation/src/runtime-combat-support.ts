@@ -2,7 +2,6 @@ import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } fro
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
   BARBARIAN_MULTIPLY_THRESHOLD,
-  BARBARIAN_POPULATION_CAP,
   BREAKTHROUGH_DURATION_MS,
   attackManpowerLoss,
   rollFrontierCombat,
@@ -427,7 +426,7 @@ export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, l
   const newProgress = sourceProgress + gain;
   const barbTileCount = ctx.summaryForPlayer("barbarian-1").territoryTileKeys.size;
 
-  if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD && barbTileCount < BARBARIAN_POPULATION_CAP) {
+  if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD) {
     ctx.emitEvent({
       eventType: "BARB_MULTIPLIED",
       commandId: lock.commandId,

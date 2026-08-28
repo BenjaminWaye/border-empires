@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DurableCommandTypeSchema, type DurableCommandType } from "@border-empires/client-protocol";
-import type { ChosenTrickleResource, FrontierDecayKind, MonumentalStructureType, PlayerRespawnNotice, SlotResource, VisibilityState, WorldStyle } from "@border-empires/shared";
+import type { ChosenTrickleResource, FrontierDecayKind, MonumentalStructureType, PlayerRespawnNotice, SlotResource, VisibilityState, WaypointWireStep, WorldStyle } from "@border-empires/shared";
 import {
   ACCEPTANCE_RESOLUTION_COMMAND_TYPES as ACCEPTANCE_RESOLUTION_COMMAND_TYPES_UNTYPED,
   RECONNECT_COMMAND_TYPES as RECONNECT_COMMAND_TYPES_UNTYPED,
@@ -117,6 +117,16 @@ export type AdminPlayerRow = {
   reachTiles: number;
   /** ownedTiles - settledTiles, i.e. FRONTIER-state tiles this player owns. */
   frontierTiles: number;
+  /**
+   * barbarian-* rows only: how many tiles owned by ANY barbarian-* player
+   * (not just this row's) are currently visible to at least one
+   * non-barbarian player — exportBarbActivationVisibleUnion computes one
+   * combined union across every barbarian, it does not break the count down
+   * per barbarian id. This is the eligibility set the barbarian AI planner
+   * acts from (see system-job-barbarian-planner.ts). Identical on every
+   * barbarian-* row; omitted for every non-barbarian row.
+   */
+  barbActivationVisibleTiles?: number;
 };
 
 export type RecentCommand = {
@@ -386,7 +396,22 @@ export type PlayerSubscriptionSnapshot = {
     // (in-memory only, see PlayerRuntimeSummary) -- only survives the running
     // process's lifetime, not a process restart.
     devQueue?: Array<{ tileKey: string; x: number; y: number; kind: "SETTLE" | "BUILD"; structureType?: string; queuedAt: number }>;
-    waypointQueue?: Array<{ x: number; y: number; trackBarbarian?: boolean; queuedAt: number }>;
+    // Matches WaypointQueueWireEntry (apps/simulation/src/player-runtime-summary.ts)
+    // and ServerWaypointQueueWireEntry (packages/client's client-waypoint-
+    // persistence.ts) -- steps/cursor/planId/plannedAt/stalled carry the
+    // client-planned route and offline-replay position (see
+    // docs/waypoint-client-planning-plan.md). Keep all three in sync.
+    waypointQueue?: Array<{
+      x: number;
+      y: number;
+      trackBarbarian?: boolean;
+      queuedAt: number;
+      planId?: string;
+      plannedAt?: number;
+      steps?: WaypointWireStep[];
+      cursor?: number;
+      stalled?: boolean;
+    }>;
     techIds: string[];
     domainIds: string[];
     // Locked sub-choice for domains that ask the player to pick a resource

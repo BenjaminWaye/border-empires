@@ -1,3 +1,4 @@
+import { isChosenTrickleResource } from "@border-empires/shared";
 import type { PlayerSubscriptionSnapshot, SeasonWinnerSnapshot } from "@border-empires/sim-protocol";
 
 type TileDelta = NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>;
@@ -29,14 +30,18 @@ const binarySearchTile = (tiles: readonly TileDelta[], x: number, y: number): nu
 
 const playerProgressionFieldsFromPayload = (
   payload: Record<string, unknown>
-): Partial<Pick<PlayerStateSnapshot, "techIds" | "domainIds" | "mods" | "modBreakdown">> => ({
-  ...(Array.isArray(payload.techIds) ? { techIds: payload.techIds as string[] } : {}),
-  ...(Array.isArray(payload.domainIds) ? { domainIds: payload.domainIds as string[] } : {}),
-  ...(payload.mods && typeof payload.mods === "object" ? { mods: payload.mods as NonNullable<PlayerStateSnapshot["mods"]> } : {}),
-  ...(payload.modBreakdown && typeof payload.modBreakdown === "object"
-    ? { modBreakdown: payload.modBreakdown as NonNullable<PlayerStateSnapshot["modBreakdown"]> }
-    : {})
-});
+): Partial<Pick<PlayerStateSnapshot, "techIds" | "domainIds" | "mods" | "modBreakdown" | "chosenTrickleResource">> => {
+  const trickle = payload.chosenTrickleResource;
+  return {
+    ...(Array.isArray(payload.techIds) ? { techIds: payload.techIds as string[] } : {}),
+    ...(Array.isArray(payload.domainIds) ? { domainIds: payload.domainIds as string[] } : {}),
+    ...(payload.mods && typeof payload.mods === "object" ? { mods: payload.mods as NonNullable<PlayerStateSnapshot["mods"]> } : {}),
+    ...(payload.modBreakdown && typeof payload.modBreakdown === "object"
+      ? { modBreakdown: payload.modBreakdown as NonNullable<PlayerStateSnapshot["modBreakdown"]> }
+      : {}),
+    ...(isChosenTrickleResource(trickle) ? { chosenTrickleResource: trickle } : {})
+  };
+};
 
 export const applyTileDeltasToSnapshot = (
   snapshot: PlayerSubscriptionSnapshot,
@@ -162,6 +167,21 @@ export const applyPlayerMessageToSnapshot = (
         ...(payload.storageCap && typeof payload.storageCap === "object"
           ? { storageCap: payload.storageCap as Record<string, number> }
           : {}),
+        // devQueue/waypointQueue were missing here until this fix -- this is
+        // the sim's OWN player-snapshot cache (used to serve a fast
+        // bootstrap/reconnect subscribe without a full re-export, and
+        // reachable even while a player is offline via
+        // applyNonTileEventToCache in simulation-service.ts), a *separate*
+        // copy of this merge function from the gateway's identically-named
+        // one in subscription-snapshot-sync.ts. Queuing/cancelling a
+        // waypoint or dev-queue entry changes no tile state, so nothing else
+        // ever invalidated a stale cached entry for these two fields --
+        // meaning a reconnect could be served a snapshot missing an entry
+        // that had already been pushed via emitPlayerStateUpdate, even
+        // though the live in-memory state was correct. See PR #1633/#1634
+        // for the matching (but incomplete, for this exact reason) fix.
+        ...(Array.isArray(payload.devQueue) ? { devQueue: payload.devQueue as NonNullable<PlayerStateSnapshot["devQueue"]> } : {}),
+        ...(Array.isArray(payload.waypointQueue) ? { waypointQueue: payload.waypointQueue as NonNullable<PlayerStateSnapshot["waypointQueue"]> } : {}),
         ...playerProgressionFieldsFromPayload(payload)
       }
     };

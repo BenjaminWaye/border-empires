@@ -37,6 +37,19 @@ export type RuntimeWaypointDrainContext = {
   // it" -- only what makes it become `false` changed (grace period on top of
   // bare subscription).
   isPlayerOnline: (playerId: string) => boolean;
+  // True while this player already has an unresolved EXPAND/ATTACK lock
+  // (from a prior drain dispatch, or -- in principle -- a straggling
+  // command issued just before they disconnected). The tick scheduler
+  // (runtime-waypoint-drain-scheduler.ts) fires every WAYPOINT_TICK_MS
+  // regardless of whether the previous leg has resolved yet
+  // (FRONTIER_CLAIM_MS/COMBAT_LOCK_MS can both exceed the tick interval),
+  // so without this gate the drain would launch a step whose origin is
+  // still mid-claim from the *previous* step and get rejected NOT_OWNER --
+  // a code that (correctly) isn't retryable, since a not-yet-owned origin
+  // usually does mean something is wrong. This is the "one live dispatch
+  // at a time" pacing the plan doc's §4 called for and this file didn't
+  // actually implement until now.
+  hasActiveLockForPlayer: (playerId: string) => boolean;
 };
 
 // Rejection codes that mean "not possible right now, but could become
@@ -107,6 +120,21 @@ const drainPlanEntry = (
   if (stepTargetTile && stepTargetTile.ownerId === playerId) {
     entry.cursor = cursor + 1;
     return "advance";
+  }
+  // Defense-in-depth alongside the hasActiveLockForPlayer gate in
+  // tryDrainWaypointQueue: a step's origin can still be an in-flight
+  // EXPAND/ATTACK's target (still owned by nobody, or its previous owner)
+  // rather than freshly claimed by this player yet -- the lock gate should
+  // already prevent this call from happening in that window, but checking
+  // here too means a plan step never dispatches from an origin this player
+  // doesn't actually hold and gets misclassified as a dead NOT_OWNER
+  // rejection. Treated exactly like a retryable rejection: leave the
+  // cursor alone, defer the entry, and let the next tick re-check once the
+  // origin is actually owned.
+  const originTile = context.tileAt(step.origin.x, step.origin.y);
+  if (!originTile || originTile.ownerId !== playerId) {
+    console.log("[waypoint-diag] drain-defer-origin-not-owned", JSON.stringify({ playerId, target: entry.target, step: cursor, origin: step.origin, originOwnerId: originTile?.ownerId }));
+    return "dispatched";
   }
   const nowMs = context.now();
   const cmd = buildDrainCommand(
@@ -192,6 +220,13 @@ const drainLegacyEntry = (
 export const tryDrainWaypointQueue = (context: RuntimeWaypointDrainContext, playerId: string): void => {
   if (context.isPlayerOnline(playerId)) {
     console.log("[waypoint-diag] drain-skip-online", JSON.stringify({ playerId }));
+    return;
+  }
+  if (context.hasActiveLockForPlayer(playerId)) {
+    // Previous leg (drain-issued or otherwise) hasn't resolved yet -- wait
+    // for it rather than launching a step whose origin may still be
+    // mid-claim. Next tick re-checks.
+    console.log("[waypoint-diag] drain-skip-locked", JSON.stringify({ playerId }));
     return;
   }
   const summary = context.summaryForPlayer(playerId);

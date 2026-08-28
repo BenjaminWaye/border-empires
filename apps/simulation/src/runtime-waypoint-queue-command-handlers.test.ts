@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { DomainTileState, FrontierCommandType } from "@border-empires/game-domain";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import {
+  handleWaypointCancelAllCommand,
+  handleWaypointCancelCommand,
   handleWaypointEnqueueCommand,
   tryDrainWaypointQueue,
   type RuntimeWaypointQueueCommandContext
@@ -44,6 +46,7 @@ type MakeContextOptions = {
   // continuation, so that's the meaningful default for these tests. See the
   // dedicated "does not drain while the player is online" test below.
   isPlayerOnline?: boolean;
+  hasActiveLockForPlayer?: boolean;
 };
 
 function makeContext(options: MakeContextOptions = {}) {
@@ -52,16 +55,19 @@ function makeContext(options: MakeContextOptions = {}) {
   const events: SimulationEvent[] = [];
   const rejections: { code: string; message: string }[] = [];
   const dispatched: { command: CommandEnvelope; actionType: FrontierCommandType }[] = [];
+  const playerStateUpdates: Array<{ commandId: string; playerId: string }> = [];
 
   const context: RuntimeWaypointQueueCommandContext = {
     summaryForPlayer: () => summary,
     now: () => 1000,
     emitEvent: (event) => events.push(event),
+    emitPlayerStateUpdate: (command) => playerStateUpdates.push({ commandId: command.commandId, playerId: command.playerId }),
     rejectCommand: (_command, code, message) => rejections.push({ code, message }),
     tileAt: (x, y) => tiles.get(`${x},${y}`),
     isHostileOwner: (playerId, targetOwnerId) => Boolean(targetOwnerId) && targetOwnerId !== playerId && targetOwnerId !== "ally-1",
     nextDrainCommandId: (playerId, x, y) => `drain:${playerId}:${x},${y}`,
     isPlayerOnline: () => options.isPlayerOnline ?? false,
+    hasActiveLockForPlayer: () => options.hasActiveLockForPlayer ?? false,
     dispatchFrontierCommand: (command, actionType) => {
       dispatched.push({ command, actionType });
       if (!options.dispatchResultFor) return { accepted: true };
@@ -71,7 +77,7 @@ function makeContext(options: MakeContextOptions = {}) {
     }
   };
 
-  return { context, summary, events, rejections, dispatched, tiles };
+  return { context, summary, events, rejections, dispatched, tiles, playerStateUpdates };
 }
 
 function tile(x: number, y: number, overrides: Partial<DomainTileState> = {}): DomainTileState {
@@ -299,6 +305,94 @@ describe("handleWaypointEnqueueCommand", () => {
 
     expect(events.some((e) => e.eventType === "COMMAND_RESOLVED")).toBe(true);
     expect(dispatched).toHaveLength(1);
+    expect(summary.waypointQueue).toHaveLength(0);
+  });
+
+  it("pushes a live PLAYER_UPDATE on a successful enqueue", () => {
+    // Regression: enqueueing only emitted COMMAND_RESOLVED, which the
+    // gateway uses solely to mark the durable command resolved -- it never
+    // touches the gateway's per-player subscribe-snapshot cache. Since
+    // queuing a waypoint changes nothing about tile ownership, nothing else
+    // invalidated that cache either, so a reconnect shortly after (before
+    // any unrelated player-state change happened to push an update) served
+    // back a snapshot frozen from before the enqueue: the waypoint looked
+    // like it had never been placed. emitPlayerStateUpdate is what keeps
+    // that cache in sync.
+    const tiles = new Map([["5,5", tile(5, 5)]]);
+    const { context, playerStateUpdates } = makeContext({ tiles });
+    const command: CommandEnvelope = {
+      commandId: "cmd-1",
+      sessionId: "s1",
+      playerId: PLAYER_ID,
+      clientSeq: 1,
+      issuedAt: 1000,
+      type: "WAYPOINT_ENQUEUE",
+      payloadJson: JSON.stringify({ x: 5, y: 5 })
+    } as unknown as CommandEnvelope;
+
+    handleWaypointEnqueueCommand(context, command);
+
+    expect(playerStateUpdates).toEqual([{ commandId: "cmd-1", playerId: PLAYER_ID }]);
+  });
+
+  it("does not push a PLAYER_UPDATE when the enqueue is rejected (queue full/duplicate)", () => {
+    const tiles = new Map([["5,5", tile(5, 5)]]);
+    const { context, playerStateUpdates, summary } = makeContext({ tiles });
+    summary.waypointQueue = [{ target: { x: 5, y: 5 }, queuedAt: 0 }];
+    const command: CommandEnvelope = {
+      commandId: "cmd-2",
+      sessionId: "s1",
+      playerId: PLAYER_ID,
+      clientSeq: 1,
+      issuedAt: 1000,
+      type: "WAYPOINT_ENQUEUE",
+      payloadJson: JSON.stringify({ x: 5, y: 5 })
+    } as unknown as CommandEnvelope;
+
+    handleWaypointEnqueueCommand(context, command);
+
+    expect(playerStateUpdates).toHaveLength(0);
+  });
+});
+
+describe("handleWaypointCancelCommand / handleWaypointCancelAllCommand", () => {
+  it("pushes a live PLAYER_UPDATE on cancel", () => {
+    const { context, playerStateUpdates, summary } = makeContext();
+    summary.waypointQueue = [{ target: { x: 5, y: 5 }, queuedAt: 0 }];
+    const command: CommandEnvelope = {
+      commandId: "cmd-cancel",
+      sessionId: "s1",
+      playerId: PLAYER_ID,
+      clientSeq: 1,
+      issuedAt: 1000,
+      type: "WAYPOINT_CANCEL",
+      payloadJson: JSON.stringify({ x: 5, y: 5 })
+    } as unknown as CommandEnvelope;
+
+    handleWaypointCancelCommand(context, command);
+
+    expect(playerStateUpdates).toEqual([{ commandId: "cmd-cancel", playerId: PLAYER_ID }]);
+  });
+
+  it("pushes a live PLAYER_UPDATE on cancel-all", () => {
+    const { context, playerStateUpdates, summary } = makeContext();
+    summary.waypointQueue = [
+      { target: { x: 5, y: 5 }, queuedAt: 0 },
+      { target: { x: 6, y: 6 }, queuedAt: 1 }
+    ];
+    const command: CommandEnvelope = {
+      commandId: "cmd-cancel-all",
+      sessionId: "s1",
+      playerId: PLAYER_ID,
+      clientSeq: 1,
+      issuedAt: 1000,
+      type: "WAYPOINT_CANCEL_ALL",
+      payloadJson: "{}"
+    } as unknown as CommandEnvelope;
+
+    handleWaypointCancelAllCommand(context, command);
+
+    expect(playerStateUpdates).toEqual([{ commandId: "cmd-cancel-all", playerId: PLAYER_ID }]);
     expect(summary.waypointQueue).toHaveLength(0);
   });
 });

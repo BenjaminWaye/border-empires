@@ -114,6 +114,17 @@ describe("tickOutOfReachDecay — expiry", () => {
     expect(tile?.frontierDecayKind).toBeUndefined();
   });
 
+  it("preserves naturalWonder on the tile once it decays back to neutral", () => {
+    const h = harness();
+    const wonder = { type: "CARTOGRAPHERS_LENS" } as DomainTileState["naturalWonder"];
+    stamp(h, "10,10", 500, { naturalWonder: wonder });
+
+    expect(h.tick(1_000)).toBe(1);
+    const tile = h.tiles.get("10,10");
+    expect(tile?.ownerId).toBeUndefined();
+    expect(tile?.naturalWonder).toBe(wonder); // world-gen feature, not owner-scoped -- survives decay
+  });
+
   it("stops at the first entry that is not yet due", () => {
     const h = harness();
     stamp(h, "10,10", 500);

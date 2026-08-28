@@ -25,6 +25,21 @@ export type RuntimeWaypointQueueCommandContext = RuntimeWaypointDrainContext & {
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   now: () => number;
   emitEvent: (event: SimulationEvent) => void;
+  // Pushes a live PLAYER_UPDATE for this player -- the ONLY thing that keeps
+  // the gateway's per-player subscribe-snapshot cache (playerSubscriptions'
+  // snapshotByPlayer, and the sim's own snapshotCache keyed by worldRevision)
+  // in sync with waypointQueue between reconnects. COMMAND_RESOLVED (emitted
+  // below) only marks the durable command resolved server-side -- it never
+  // touches either cache. Root cause of the "waypoint vanishes on reconnect"
+  // bug: enqueueing/cancelling a waypoint changes nothing about tile
+  // ownership (an EXPAND/ATTACK hasn't resolved yet), so nothing bumps
+  // worldRevision or otherwise invalidates those caches -- a reconnect
+  // shortly after, before any unrelated player-state change happens to call
+  // this same emit, served back a snapshot frozen from before the
+  // enqueue/cancel and it looked like the waypoint (or its cancellation)
+  // never happened. See docs/waypoint-client-planning-plan.md and PR #1618/
+  // #1620/#1628's diagnostics.
+  emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
   rejectCommand: (command: Pick<CommandEnvelope, "commandId" | "playerId">, code: string, message: string) => void;
   tileAt: (x: number, y: number) => DomainTileState | undefined;
   isHostileOwner: (playerId: string, targetOwnerId: string | undefined) => boolean;
@@ -49,6 +64,7 @@ export const handleWaypointEnqueueCommand = (context: RuntimeWaypointQueueComman
     return;
   }
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  context.emitPlayerStateUpdate(command);
   // Mirrors handleDevQueueEnqueueCommand: try to act on it right away in case
   // the player has no in-flight frontier command blocking it, instead of
   // waiting on some unrelated future completion event to trigger the drain.
@@ -63,6 +79,7 @@ export const handleWaypointCancelCommand = (context: RuntimeWaypointQueueCommand
   summary.waypointQueue = waypointQueueCancel(summary.waypointQueue, payload);
   console.log("[waypoint-diag] cancel", JSON.stringify({ playerId: command.playerId, commandId: command.commandId, target: payload, before, after: summary.waypointQueue.length }));
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  context.emitPlayerStateUpdate(command);
 };
 
 export const handleWaypointCancelAllCommand = (context: RuntimeWaypointQueueCommandContext, command: CommandEnvelope): void => {
@@ -70,5 +87,6 @@ export const handleWaypointCancelAllCommand = (context: RuntimeWaypointQueueComm
   console.log("[waypoint-diag] cancel-all", JSON.stringify({ playerId: command.playerId, commandId: command.commandId, before: summary.waypointQueue.length }));
   summary.waypointQueue = [];
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  context.emitPlayerStateUpdate(command);
 };
 

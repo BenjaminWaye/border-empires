@@ -15,6 +15,79 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787941776652, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.5",
+    title: "Agrarian Works now shows its fish-tile bonus as its own highlight chip",
+    why: "Researching Agrarian Works unlocks the Farmstead structure and also grants +1 FOOD slot on every owned fish tile, but the tech-tree card and detail view only ever showed a \"Farmstead\" chip -- the fish-tile bonus was undiscoverable unless you read the full description text.",
+    changes: [
+      "Agrarian Works now shows a \"Fish Tiles +1 Food Slot\" chip alongside its Farmstead chip, matching how other techs (e.g. Muster Flag +1) surface numeric bonuses as their own highlight"
+    ]
+  },
+  {
+    createdAt: 1787912311406, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.2",
+    title: "Fixed several player-state fields silently reverting on reconnect",
+    why: "The sim and gateway kept two separately-maintained copies of the reconnect-cache merge logic, and both had drifted: economyBreakdown, upkeepPerMinute, upkeepLastTick, and season-winner updates were dropped by one copy but not the other, and chosenTrickleResource the other way around. Separately, the INIT payload the gateway sends on reconnect never carried your event log, logistics throughput, imperial ward charges, or wonder rush-buy cooldown at all -- the last two have no client-side fallback, so a reconnect (a page refresh, a dropped connection) actively reset them to blank every time, even though the server's live state was correct the whole time.",
+    changes: [
+      "Reconnecting no longer resets your imperial ward charges or wonder rush-buy cooldown, and your event log, logistics throughput, economy breakdown, upkeep figures, chosen trickle resource, and season-winner status now consistently survive a reconnect regardless of which server-side cache happens to serve it."
+    ]
+  },
+  {
+    createdAt: 1787912102098, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.2",
+    title: "Building Relay Beacon (or any structure) on a frontier tile no longer races its own settlement",
+    why: "Clicking Build on a not-yet-settled frontier tile sends CLAIM_CONTINUATION_SET, whose server-side immediate-drive branch enqueues and dispatches its own SETTLE for that tile, while the client also sends a SETTLE directly for the same click. Both wanted the same already-in-flight outcome, but the server treated the second one as a conflicting duplicate and rejected it with SETTLE_INVALID 'tile is already settling' -- which the client then had to detect and paper over with a one-shot retry, visible as log noise and occasional settle-state flicker.",
+    changes: [
+      "A duplicate SETTLE for a tile the same player is already settling now resolves as a no-op on the server instead of rejecting, so the Relay Beacon claim-continuation race no longer hits the client's error-recovery/retry path at all (that path still exists for other cases, like a genuinely conflicting settle from another player)."
+    ]
+  },
+  {
+    createdAt: 1787908074987, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.2",
+    title: "Queuing an Expand outside your reach now explains it'll decay",
+    why: "EXPAND isn't reach-gated server-side -- a claim landing outside your reach still succeeds, but it's stamped to decay away two minutes later unless you extend your reach to it with a nearby Town, Outpost, or Dock. Queuing a waypoint to such a target gave no warning at all until the claim actually decayed (or reverted on the next reach recompute), which read as the game silently undoing something for no reason.",
+    changes: [
+      "Queuing a waypoint whose destination is outside your current reach now shows the \"Beyond Your Reach\" tooltip immediately, explaining that the claim will decay unless you extend your reach to it."
+    ]
+  },
+  {
+    createdAt: 1787908049178, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.3",
+    title: "Build Relay Beacon now shows in both the Actions and Buildings tabs on a frontier tile",
+    why: "Build Relay Beacon on an owned FRONTIER tile is a settle-then-build chain, but its action id (\"build_relay_beacon\") is shared with the plain building on a settled tile, so it got sorted only into the Buildings tab like any other structure -- unlike a neutral tile, where the equivalent action shows directly in the Actions tab next to Expand To.",
+    changes: [
+      "Build Relay Beacon now shows in both the Actions tab (next to Settle Land) and the Buildings tab on an owned FRONTIER tile, matching the parity it already has on a neutral tile, instead of being tucked away under Buildings only."
+    ]
+  },
+  {
+    createdAt: 1787901144099, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.1",
+    title: "Checklist no longer keeps a town/food target highlighted for the whole Expand duration",
+    why: "The checklist only recomputed on tile-delta batches from the server, so once you clicked Expand To on a highlighted town or food tile, the highlight (and the goal's checked state) kept showing the old, un-expanded status for the whole multi-second window the real Expand takes to resolve server-side -- even though the client already knows locally, the moment the server accepts the command, that the tile is now yours.",
+    changes: [
+      "The checklist now recomputes as soon as an Expand command is accepted (the same moment the map's own optimistic ownership preview kicks in), instead of waiting for a later, unrelated tile-delta batch to happen to trigger a refresh."
+    ]
+  },
+  {
+    createdAt: 1787892933916, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28",
+    title: "Checklist no longer highlights your own starting settlement as if it were a town target",
+    why: "The onboarding checklist's Relay Beacon anchor highlight (and, later, the food-goal anchor highlight) included every tile the player owns with a town record -- including their free starting SETTLEMENT-tier tile, which every new empire spawns with. That tile isn't a TOWN and never was a valid Find/Expand target, so lighting it up read as the checklist bugging out and pointing at the player's own spawn point instead of a real objective. Once a real TOWN was also owned, the SETTLEMENT kept getting highlighted alongside it indefinitely.",
+    changes: [
+      "The checklist's highlight ring now only ever appears on TOWN-tier-and-up tiles -- never on the player's own SETTLEMENT-tier starting tile, whether as a Relay Beacon anchor or a food-goal anchor."
+    ]
+  },
+  {
+    createdAt: 1787845125246, // frozen: one ms after the previous newest entry
+    introducedIn: "2026.08.27",
+    title: "Aether Condenser overview cleanup",
+    why: "The economy panel's CRYSTAL slot breakdown counted an Aether Condenser as occupying a slot even while it was still in Refine mode supplying that slot instead, and the tile overview repeated the converter's mode/cooldown state in two lines that duplicated what the flip button already said.",
+    changes: [
+      "An Aether Condenser (or its Advanced/Umbrite/Titanium counterparts) only shows up under \"Occupied by\" once it's actually flipped to Sell Off mode, matching the slot math the server uses.",
+      "Removed the redundant \"selling off its slot\"/\"currently contributing output and upkeep\" status line and the \"Mode flip available in Xm\" cooldown line from the tile overview — the mode-flip button already shows both."
+    ]
+  },
+  {
     createdAt: 1787845125245, // frozen: one ms after the previous newest entry
     introducedIn: "2026.08.27",
     title: "Islands map improvements: bigger islands, no sealed mountain rings, tighter dock/town placement",
@@ -143,6 +216,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The onboarding checklist now also computes and appears right on spawn, not just after the first tile-delta batch arrives.",
       "The checklist's pulsing highlight ring is now wide enough to show around a town's footprint instead of being hidden underneath it, in both 2D and 3D map modes.",
       "Added a new EXPAND_REACH checklist step: if there's no unclaimed food tile AND no town nearby to capture, the checklist now points you at building a Relay Beacon to expand your reach instead of highlighting an objective that isn't actually reachable yet."
+    ]
+  },
+  {
+    createdAt: 1787937658626, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.3",
+    title: "Fixed the out-of-reach decay timer never showing on the tile menu",
+    why: "The gateway-sync layer that applies incoming tile deltas only recognized \"ENCIRCLEMENT\" as a valid frontierDecayKind and silently dropped any other value -- including \"OUT_OF_REACH\", the sim's other real decay kind -- back to undefined. An out-of-reach frontier tile's decay deadline (frontierDecayAt) synced to the client fine, but its kind didn't, so the tile menu's header status could never match the OUT_OF_REACH branch and always fell back to a static \"Outside reach\" with no live countdown, even while the tile was actively decaying.",
+    changes: [
+      "The tile menu now shows the \"Beyond your reach — decays in Xs\" countdown for a decaying out-of-reach frontier tile instead of a static \"Outside reach\" with no timer."
     ]
   },
   {
@@ -387,101 +469,30 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787724118006, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.1",
-    title: "Rally-linked players now spawn near a real foothold, not just the nearest empty tile",
-    why: "Joining via a friend's rally link placed you on whichever open tile happened to be closest to their anchor, even a barren one with no town or food nearby -- while a normal spawn always looked for a town and food within reach.",
+    createdAt: 1787930868931, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.3",
+    title: "Cleaned up the sign-in magic link email",
+    why: "The emailed sign-in link embedded whatever query string happened to be on the page when you requested it (e.g. leftover tile-focus params), making the link long and inconsistent between sends -- which reads worse to a reader and to spam filters.",
     changes: [
-      "Rally spawns now search outward from the anchor for a spot with both a town and food nearby before falling back to a town-only, then food-only, then any-open-tile spot, all still within the rally radius"
+      "The magic link sent to your email now always points to the app's clean base URL instead of carrying along stray query params from the current page"
     ]
   },
   {
-    createdAt: 1787692481411, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.8",
-    title: "Gave the \"join now\" season prompt a real intro instead of a bare confirmation dialog",
-    why: "The plain join-season overlay (season already live, player just hasn't clicked join yet) read as a placeholder-y \"Join Season season-23?\" dialog with a static \"Ready\" dial that did nothing -- no sense of occasion for what's actually your empire's founding moment.",
+    createdAt: 1787935226945, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.4",
+    title: "Fixed tech/domain bonuses (e.g. Mercantile Charter) not applying until something else refreshed your towns",
+    why: "Picking a tech or domain -- including tier 1's Mercantile Charter, which boosts gold production and population growth in your first three towns -- didn't invalidate the cached per-player town economy data. The new bonus silently sat unused until an unrelated tile change happened to refresh that cache, so newly chosen bonuses looked like they weren't applying to gold production or the town overview's modifier list.",
     changes: [
-      "Replaced the title/summary with narrative flavor text introducing the season",
-      "Removed the static \"Ready\" dial and turned the confirm button itself into the focal call-to-action, relabeled \"Let's go!\""
+      "Choosing a tech or domain now immediately refreshes your towns' gold production and the town overview's modifier list to reflect the new bonus"
     ]
   },
   {
-    createdAt: 1787689447704, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.7",
-    title: "Fixed flickering at the coastline where the water and land skirts overlapped",
-    why: "The water skirt wall added in 2026.08.25.5/.6 drew a wall on all 4 sides of every exposed water tile, including north/east/west edges that sat right where the land's own coastal skirt wall already runs. Two near-coplanar unlit walls animating independently z-fought against each other every frame, flickering.",
+    createdAt: 1787937615718, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.5",
+    title: "Alliance and truce request emails now match the rest of the game's branded emails",
+    why: "Alliance and truce request emails were still built from a plain, unstyled paragraph template (a leftover from before the branded season-start/attack-alert template existed), so they looked out of place next to every other gameplay email you get.",
     changes: [
-      "The water skirt now only draws its south-facing edge (the side that actually faces the camera at the default view angle), leaving the land skirt to cover the other three sides instead of overlapping it."
-    ]
-  },
-  {
-    createdAt: 1787688556298, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.5",
-    title: "Hid the redundant \"0 gold\" in the Build Relay Beacon action cost",
-    why: "The Build Relay Beacon action's cost string always prepended the gold cost, even when expand + settle + build all cost 0 gold, so the Actions tab showed a confusing \"0 gold, N m.p. ...\" line.",
-    changes: [
-      "The Build Relay Beacon action's cost text now omits the gold segment entirely when the gold cost is 0."
-    ]
-  },
-  {
-    createdAt: 1787688715010, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.6",
-    title: "Fixed the water skirt wall leaving a gap at wave crests",
-    why: "The water skirt wall added moments earlier (2026.08.25.5) closed the black gap under coastal sea tiles, but its top edge was drawn once and never touched again, while the water surface itself bobs up and down every frame with the wave animation. Whenever the wave lifted the surface above the skirt's static top, the same black gap reappeared.",
-    changes: [
-      "The water skirt's top edge now rides the same wave animation as the surface, so it stays flush with the water at every frame instead of only when the sea happens to be at rest."
-    ]
-  },
-  {
-    createdAt: 1787689171531, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.6",
-    title: "Fixed auto-settle trying to build on resource tiles outside your reach",
-    why: "The auto-settle queue included every owned frontier tile with a resource, town, or dock without checking reach, so a plain resource tile (which generates no reach of its own) claimed outside your reach border kept getting re-queued and rejected with an OUT_OF_REACH error.",
-    changes: ["Auto-settle no longer queues frontier tiles that are currently outside your reach border."]
-  },
-  {
-    createdAt: 1787691972634, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.6",
-    title: "Town population bar now shows progress toward the next tier",
-    why: "The town overview's population bar showed current population against the town's absolute population cap, which barely moved even as a town grew and gave no sense of how close it was to upgrading tiers.",
-    changes: [
-      "The population bar and its number now track progress toward the next population tier (e.g. Town → City) instead of the absolute population cap, and turns green once that tier's threshold is reached."
-    ]
-  },
-  {
-    createdAt: 1787688074263, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.5",
-    title: "Fixed black artifacts under coastal sea tiles",
-    why: "The water surface is a flat, zero-thickness sheet with no underside geometry of its own -- it relied entirely on the neighboring land's own coastal skirt wall to hide the void beneath it. Anywhere water bordered non-water without a drawn land tile covering that edge this frame (open sea, a fog/window boundary, etc.), there was nothing there, so a grazing or below-water view saw straight through to empty background.",
-    changes: [
-      "Water tiles now get their own skirt wall along every edge that doesn't border another water tile, so the sea never shows a black gap underneath regardless of camera angle."
-    ]
-  },
-  {
-    createdAt: 1787688467708, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.6",
-    title: "Fixed structure builds (like Relay Beacon) appearing stuck after expand+settle+build",
-    why: "Building a structure on a not-yet-settled frontier tile makes the client send a SETTLE command directly while the server independently auto-enqueues its own SETTLE step for the same tile, so whichever arrives second is rejected as a duplicate. The client's recovery logic for that expected rejection compared against a slightly wrong error string, so it never matched -- instead of quietly resuming, the client wiped its local settlement/build tracking and stopped refreshing, even though the server had already settled the tile and started building.",
-    changes: [
-      "The client now correctly recognizes a duplicate-settle rejection and resumes tracking instead of abandoning the tile, so builds like Relay Beacon started via expand+settle+build no longer appear stuck client-side while they're actually progressing on the server."
-    ]
-  },
-  {
-    createdAt: 1787817717886, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27",
-    title: "Fixed frontier tiles falsely glowing amber after panning the map",
-    why: "The decay-countdown pulse writes its amber tint straight into the ownership overlay's GPU color buffer every frame, separately from the buffer's own rebuild-on-pan color update. Both writers shared one pending-upload list, and the pulse's per-frame bookkeeping was clearing that list before the rebuild's own full-buffer update reached the GPU whenever a pan/zoom rebuild and a pulse tick landed in the same frame. Any frontier tile that a rebuild reassigned to a vertex slot the pulse didn't touch that frame kept whatever color the GPU already had there from a previous tile -- including, e.g., another empire's amber decay pulse -- until the next rebuild happened to also touch that exact slot.",
-    changes: [
-      "Panning or zooming the map over frontier tiles no longer occasionally leaves random, non-decaying tiles stuck glowing amber like the frontier-decay pulse."
-    ]
-  },
-  {
-    createdAt: 1787823264967, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27",
-    title: "Enable <structure> is disabled on an unsettled tile",
-    why: "A disabled economic structure (Relay Beacon, synthesizer, weapons factory, etc.) standing on a FRONTIER (not yet settled) tile could still be re-enabled, letting it resume occupying a resource slot and providing bonuses from a tile that isn't actually settled.",
-    changes: [
-      "The Enable action for any disabled economic structure is now disabled with \"Tile is not settled\" whenever the tile it stands on is FRONTIER rather than SETTLED."
+      "Alliance and truce request emails now use the same branded layout (header, body, call-to-action button) as season-start and attack-alert emails, and truce offers now call out the offered duration as a highlighted stat like other emails do"
     ]
   }
 ];

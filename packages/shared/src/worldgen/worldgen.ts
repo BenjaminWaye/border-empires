@@ -90,8 +90,8 @@ const baseTerrainCodeAt = (x: number, y: number): number => {
   // thresholds keep more of each island's silhouette as land (and, combined
   // with the big-island seeds in buildIslands(), leave room for a large
   // island rather than only small scattered ones).
-  const seaThreshold = CURRENT_WORLD_STYLE === "islands" ? 0.022 : 0.04;
-  const coastalThreshold = CURRENT_WORLD_STYLE === "islands" ? 0.04 : 0.07;
+  const seaThreshold = CURRENT_WORLD_STYLE === "islands" ? 0.012 : 0.04;
+  const coastalThreshold = CURRENT_WORLD_STYLE === "islands" ? 0.028 : 0.07;
   if (cField < seaThreshold) return TERRAIN_SEA;
   if (cField < coastalThreshold || isOceanChannel(wx, wy) || isRiver(wx, wy) || isMicroRiver(wx, wy) || isLake(wx, wy)) return TERRAIN_SEA;
   if (isMountainRange(wx, wy) || isMicroMountainRange(wx, wy) || isMountainCluster(wx, wy)) return TERRAIN_MOUNTAIN;
