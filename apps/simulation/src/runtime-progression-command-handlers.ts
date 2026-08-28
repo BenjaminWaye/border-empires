@@ -233,6 +233,14 @@ export function handleChooseTechCommand(context: RuntimeProgressionCommandContex
   }
   context.invalidateUpkeepAccrual(actor.id);
   context.invalidateResourceSlotDemand(actor.id);
+  // A tech can grant a gold/growth/vision-adjacent effect that
+  // multiplicativeEffectForPlayer/additiveEffectForPlayer feed into the
+  // cached per-player tile-yield economy context (dockGoldOutputMult,
+  // connectedTownStepBonusAdd, etc.) — without invalidating it here the
+  // cache keeps serving pre-purchase multipliers until something else
+  // happens to invalidate it (e.g. a later tile mutation).
+  context.invalidateEconomySnapshot(actor.id);
+  context.invalidateTileYieldContext(actor.id);
   context.resyncVisionRadius(actor.id);
   const revealCategory = revealResourceCategoryForTech(techId);
   if (revealCategory) context.resyncRevealedResourceTilesForPlayer(actor.id, revealCategory);
@@ -280,6 +288,14 @@ export function handleChooseDomainCommand(context: RuntimeProgressionCommandCont
   }
   context.invalidateUpkeepAccrual(actor.id);
   context.invalidateResourceSlotDemand(actor.id);
+  // Same reasoning as CHOOSE_TECH above: a domain (e.g. tier-1 Mercantile
+  // Charter's firstThreeTownsGoldOutputMult/firstThreeTownsPopulationGrowthMult)
+  // feeds the cached per-player tile-yield economy context. Without
+  // invalidating it here, gold production and the town-overview modifiers
+  // panel keep showing pre-purchase values until an unrelated tile mutation
+  // happens to invalidate the cache.
+  context.invalidateEconomySnapshot(actor.id);
+  context.invalidateTileYieldContext(actor.id);
   context.resyncVisionRadius(actor.id);
   context.emitEvent({
     eventType: "DOMAIN_UPDATE",

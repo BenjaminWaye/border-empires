@@ -23,8 +23,14 @@ import {
   beginRendererAttempt,
   markRendererAttemptHandled,
   markRendererInitCompleted,
+  recordRendererHeartbeat,
   shouldSkipThreeDAfterCrashes
 } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
+
+// How often to refresh the crash breadcrumb's heartbeat while 3D is alive.
+// Frequent enough that a death leaves a timestamp worth reading, infrequent
+// enough not to be a meaningful localStorage-write burden over a long session.
+const HEARTBEAT_INTERVAL_MS = 15000;
 
 /** The slice of the 3D renderer this host needs; keeps three.js out of here. */
 export type StoppableRenderer = { readonly stop: () => void };
@@ -53,6 +59,13 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
   // Latched once 3D has failed, so a per-frame `ensure()` doesn't retry a
   // doomed init — and re-probe, and re-log — on every HUD render.
   let failed = false;
+  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+
+  const stopHeartbeat = (): void => {
+    if (heartbeatTimer === undefined) return;
+    clearInterval(heartbeatTimer);
+    heartbeatTimer = undefined;
+  };
 
   if (!deps.enabled) setTrue3DRendererActive(false);
 
@@ -64,6 +77,7 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
     failed = true;
     const dead = renderer;
     renderer = undefined;
+    stopHeartbeat();
     setTrue3DRendererActive(false);
     recordRendererFailure(reason);
     // A failure we caught and handled is not a crash, and must not count
@@ -120,6 +134,11 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
       renderer = created;
       markRendererInitCompleted(tileBudget);
       setTrue3DRendererActive(true);
+      // Keep the breadcrumb's heartbeat fresh for as long as this attempt
+      // lives — a crash long after startup (the iOS memory-pressure shape)
+      // otherwise looks identical to "survived" forever.
+      stopHeartbeat();
+      heartbeatTimer = setInterval(() => recordRendererHeartbeat(tileBudget), HEARTBEAT_INTERVAL_MS);
     } catch (error) {
       console.error("[renderer-3d-init-failed]", error);
       retire(error instanceof Error ? error.message : String(error));

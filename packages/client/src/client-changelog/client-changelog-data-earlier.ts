@@ -355,5 +355,14 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     changes: [
       "The server's fast-reconnect snapshot now correctly includes your current waypoint and build/settle queues in every case, including right after a period offline."
     ]
+  },
+  {
+    createdAt: 1787689447704, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.7",
+    title: "Fixed flickering at the coastline where the water and land skirts overlapped",
+    why: "The water skirt wall added in 2026.08.25.5/.6 drew a wall on all 4 sides of every exposed water tile, including north/east/west edges that sat right where the land's own coastal skirt wall already runs. Two near-coplanar unlit walls animating independently z-fought against each other every frame, flickering.",
+    changes: [
+      "The water skirt now only draws its south-facing edge (the side that actually faces the camera at the default view angle), leaving the land skirt to cover the other three sides instead of overlapping it."
+    ]
   }
 ];

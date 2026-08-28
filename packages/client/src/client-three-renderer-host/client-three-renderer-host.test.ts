@@ -193,6 +193,45 @@ describe("3d renderer host", () => {
     expect(breadcrumb.phase).not.toBe("survived");
   });
 
+  it("keeps writing a heartbeat while 3d stays alive, so a later crash leaves a recent timestamp", () => {
+    vi.useFakeTimers();
+    try {
+      const host = hostWith({ create: () => ({ stop: () => undefined }) });
+
+      host.ensure();
+      vi.advanceTimersByTime(15000 * 3);
+
+      const breadcrumb = JSON.parse(window.localStorage.getItem(BREADCRUMB_KEY) ?? "{}");
+      expect(breadcrumb.heartbeatCount).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops the heartbeat once the renderer retires", () => {
+    vi.useFakeTimers();
+    try {
+      let lose: ((reason: string) => void) | undefined;
+      const host = hostWith({
+        create: (onContextLost) => {
+          lose = onContextLost;
+          return { stop: () => undefined };
+        }
+      });
+
+      host.ensure();
+      vi.advanceTimersByTime(15000);
+      lose?.("context lost");
+      const afterRetire = JSON.parse(window.localStorage.getItem(BREADCRUMB_KEY) ?? "{}").heartbeatCount;
+
+      vi.advanceTimersByTime(15000 * 5);
+
+      expect(JSON.parse(window.localStorage.getItem(BREADCRUMB_KEY) ?? "{}").heartbeatCount).toBe(afterRetire);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not resurrect 3d when the context is lost during construction", () => {
     // The over-subscribed-GPU case: the context goes away before `create`
     // has even returned, so the host has no renderer handle when it retires.
