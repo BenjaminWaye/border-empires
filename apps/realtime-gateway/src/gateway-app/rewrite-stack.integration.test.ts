@@ -127,9 +127,7 @@ describe("rewrite stack integration", () => {
 
     expect(scheduledResolutions).toHaveLength(1);
     // COMBAT_LOCK_MS is 30s (packages/shared/src/config.ts) — see the "30s
-    // base, per COMBAT_LOCK_MS" comment in runtime-frontier-command.ts. This
-    // assertion was pinned to a stale 3s value from before that constant was
-    // last rebalanced.
+    // base, per COMBAT_LOCK_MS" comment in runtime-frontier-command.ts.
     expect(scheduledResolutions[0]?.delayMs).toBe(30_000);
 
     await waitUntil(async () => (await gatewayCommandStore.get("cmd-1"))?.status === "ACCEPTED");
@@ -150,7 +148,8 @@ describe("rewrite stack integration", () => {
         }),
         recovery: {
           nextClientSeq: 3,
-          pendingCommands: []
+          // cmd-1: ACCEPTED, not RESOLVED yet, so still "unresolved" and reappears here.
+          pendingCommands: [expect.objectContaining({ commandId: "cmd-1", clientSeq: 2, status: "ACCEPTED", acceptedAt: expect.any(Number) })]
         }
       })
     );
