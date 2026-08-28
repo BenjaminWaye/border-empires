@@ -3714,7 +3714,7 @@ export class SimulationRuntime {
     return {
       summaryForPlayer: (playerId) => this.summaryForPlayer(playerId),
       now: () => this.now(),
-      emitEvent: (event) => this.emitEvent(event),
+      emitEvent: (event) => this.emitEvent(event), emitPlayerStateUpdate: (command) => this.emitPlayerStateUpdate(command),
       rejectCommand: (command, code, message) => this.rejectCommand(command, code, message),
       hasAvailableDevelopmentSlot: (playerId) => this.hasAvailableDevelopmentSlot(playerId),
       nextDrainCommandId: (playerId, tileKey) => this.nextTerritoryAutomationCommandId("dev-queue-drain", playerId, tileKey, this.now()),
