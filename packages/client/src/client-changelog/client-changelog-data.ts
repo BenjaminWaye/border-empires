@@ -470,21 +470,21 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787689447704, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.7",
-    title: "Fixed flickering at the coastline where the water and land skirts overlapped",
-    why: "The water skirt wall added in 2026.08.25.5/.6 drew a wall on all 4 sides of every exposed water tile, including north/east/west edges that sat right where the land's own coastal skirt wall already runs. Two near-coplanar unlit walls animating independently z-fought against each other every frame, flickering.",
-    changes: [
-      "The water skirt now only draws its south-facing edge (the side that actually faces the camera at the default view angle), leaving the land skirt to cover the other three sides instead of overlapping it."
-    ]
-  },
-  {
     createdAt: 1787930868931, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.3",
     title: "Cleaned up the sign-in magic link email",
     why: "The emailed sign-in link embedded whatever query string happened to be on the page when you requested it (e.g. leftover tile-focus params), making the link long and inconsistent between sends -- which reads worse to a reader and to spam filters.",
     changes: [
       "The magic link sent to your email now always points to the app's clean base URL instead of carrying along stray query params from the current page"
+    ]
+  },
+  {
+    createdAt: 1787935226945, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.4",
+    title: "Fixed tech/domain bonuses (e.g. Mercantile Charter) not applying until something else refreshed your towns",
+    why: "Picking a tech or domain -- including tier 1's Mercantile Charter, which boosts gold production and population growth in your first three towns -- didn't invalidate the cached per-player town economy data. The new bonus silently sat unused until an unrelated tile change happened to refresh that cache, so newly chosen bonuses looked like they weren't applying to gold production or the town overview's modifier list.",
+    changes: [
+      "Choosing a tech or domain now immediately refreshes your towns' gold production and the town overview's modifier list to reflect the new bonus"
     ]
   }
 ];
