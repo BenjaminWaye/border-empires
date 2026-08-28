@@ -120,7 +120,7 @@ type GatewayInitPayload = {
     homeTile?: { x: number; y: number };
     tileColor?: string;
     canToggleFog?: boolean;
-    respawnNotice?: PlayerRespawnNotice;
+    respawnNotice?: PlayerRespawnNotice; devQueue?: NonNullable<PlayerSubscriptionSnapshot["player"]>["devQueue"]; waypointQueue?: NonNullable<PlayerSubscriptionSnapshot["player"]>["waypointQueue"];
   };
   config: { width: number; height: number; season: { seasonId: string; worldSeed: number; mapStyle?: WorldStyle } };
   techChoices: string[];
@@ -975,7 +975,7 @@ export const buildGatewayInitPayload = (
         ? { activeDevelopmentProcessCount: liveSnapshotPlayer.activeDevelopmentProcessCount }
         : {}),
       ...(liveSnapshotPlayer?.pendingSettlements ? { pendingSettlements: liveSnapshotPlayer.pendingSettlements } : {}),
-      ...(liveSnapshotPlayer?.autoSettlementQueue ? { autoSettlementQueue: liveSnapshotPlayer.autoSettlementQueue } : {}),
+      ...(liveSnapshotPlayer?.autoSettlementQueue ? { autoSettlementQueue: liveSnapshotPlayer.autoSettlementQueue } : {}), ...(liveSnapshotPlayer?.devQueue ? { devQueue: liveSnapshotPlayer.devQueue } : {}), ...(liveSnapshotPlayer?.waypointQueue ? { waypointQueue: liveSnapshotPlayer.waypointQueue } : {}), // devQueue/waypointQueue were never on this allowlist: `player` is built field-by-field here, so the client's restore ALWAYS saw "nothing on the server" unconditionally, however correct every layer underneath was. initialState.player carried both the whole time; they were discarded at this line. Anything added to PlayerSubscriptionSnapshot["player"] that the client needs on reconnect must also be copied here.
       ...(homeTile ? { homeTile } : {}),
       tileColor: myTileColor
     },
