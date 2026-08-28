@@ -9,8 +9,6 @@ import {
   grassShadeAt,
   isHillsTileAt,
   seeded01,
-  wrapX,
-  wrapY,
   type WorldStyle,
   type NaturalWonderType,
   type Dock,
@@ -19,7 +17,6 @@ import {
 import {
   createServerWorldgenClusters,
   createServerWorldgenNaturalWonders,
-  createServerWorldgenTerrain,
   key as tileKeyOf,
   parseKey,
   type ClusterDefinition,
@@ -28,6 +25,7 @@ import {
 } from "@border-empires/game-domain";
 import { computeSpawnSiteIndices, FAIR_SPAWN_SITE_TARGET } from "./worker-spawn-sites.js";
 import { placeDocks } from "./worker-docks.js";
+import { buildLabTerrainRuntime } from "./worker-terrain-runtime.js";
 
 export type MapStyle = "continents" | "islands";
 
@@ -146,42 +144,7 @@ type ResourceCounts = { fish: number; titanium: number; gems: number; farm: numb
 // season-seed-world.ts stubs it for its own test/lab worlds.
 const placeResourceClusters = (seed: number, clusterByTile: Map<TileKey, string>): ResourceCounts => {
   const clustersById = new Map<string, ClusterDefinition>();
-  const terrainRuntime = createServerWorldgenTerrain({
-    wrapX,
-    wrapY,
-    WORLD_WIDTH,
-    WORLD_HEIGHT,
-    terrainShapesByTile: new Map(),
-    key: tileKeyOf,
-    terrainAt,
-    PLAYER_MOUNTAIN_DENSITY_RADIUS: 1,
-    PLAYER_MOUNTAIN_DENSITY_LIMIT: 1,
-    players: new Map(),
-    parseKey,
-    chebyshevDistance: () => 0,
-    regionTypeAt,
-    clusterByTile,
-    landBiomeAt,
-    grassShadeAt,
-    FRONTIER_CLAIM_MS: 0,
-    // Unused by cluster placement — stubbed only to satisfy the shared deps type.
-    townsByTile: new Map(),
-    docksByTile: new Map(),
-    fortsByTile: new Map(),
-    siegeOutpostsByTile: new Map(),
-    observatoriesByTile: new Map(),
-    economicStructuresByTile: new Map(),
-    playerTile: () => ({ x: 0, y: 0, terrain: "SEA", lastChangedAt: 0 }),
-    AIRPORT_BOMBARD_MIN_FIELD_TILES: 2,
-    AIRPORT_BOMBARD_MAX_FIELD_TILES: 4,
-    activeSeason: { worldSeed: seed },
-    clustersById,
-    ownership: new Map(),
-    getOrInitResourceCounts: () => ({} as never),
-    rebuildEconomyIndexForPlayer: () => {},
-    sendPlayerUpdate: () => {},
-    sendVisibleTileDeltaAt: () => {}
-  });
+  const terrainRuntime = buildLabTerrainRuntime(seed, clusterByTile, clustersById);
 
   const clustersRuntime = createServerWorldgenClusters({
     clusterByTile,

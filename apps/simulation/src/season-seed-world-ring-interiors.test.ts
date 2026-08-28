@@ -29,7 +29,7 @@ const checkRingCoverage = (
   let covered = 0;
   const emptyRings: Array<{ cx: number; cy: number }> = [];
   for (const ring of rings) {
-    const radius = Math.max(0, ring.innerRadius - 1);
+    const radius = ring.innerRadius;
     let hasLand = false;
     let hasContent = false;
     for (let dy = -radius; dy <= radius && !hasContent; dy += 1) {
