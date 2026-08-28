@@ -15,6 +15,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787941776652, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.5",
+    title: "Agrarian Works now shows its fish-tile bonus as its own highlight chip",
+    why: "Researching Agrarian Works unlocks the Farmstead structure and also grants +1 FOOD slot on every owned fish tile, but the tech-tree card and detail view only ever showed a \"Farmstead\" chip -- the fish-tile bonus was undiscoverable unless you read the full description text.",
+    changes: [
+      "Agrarian Works now shows a \"Fish Tiles +1 Food Slot\" chip alongside its Farmstead chip, matching how other techs (e.g. Muster Flag +1) surface numeric bonuses as their own highlight"
+    ]
+  },
+  {
     createdAt: 1787912311406, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.2",
     title: "Fixed several player-state fields silently reverting on reconnect",
@@ -457,16 +466,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Joining via a friend's rally link placed you on whichever open tile happened to be closest to their anchor, even a barren one with no town or food nearby -- while a normal spawn always looked for a town and food within reach.",
     changes: [
       "Rally spawns now search outward from the anchor for a spot with both a town and food nearby before falling back to a town-only, then food-only, then any-open-tile spot, all still within the rally radius"
-    ]
-  },
-  {
-    createdAt: 1787692481411, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.8",
-    title: "Gave the \"join now\" season prompt a real intro instead of a bare confirmation dialog",
-    why: "The plain join-season overlay (season already live, player just hasn't clicked join yet) read as a placeholder-y \"Join Season season-23?\" dialog with a static \"Ready\" dial that did nothing -- no sense of occasion for what's actually your empire's founding moment.",
-    changes: [
-      "Replaced the title/summary with narrative flavor text introducing the season",
-      "Removed the static \"Ready\" dial and turned the confirm button itself into the focal call-to-action, relabeled \"Let's go!\""
     ]
   },
   {

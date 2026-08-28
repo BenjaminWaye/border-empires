@@ -12,6 +12,16 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787692481411, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.8",
+    title: "Gave the \"join now\" season prompt a real intro instead of a bare confirmation dialog",
+    why: "The plain join-season overlay (season already live, player just hasn't clicked join yet) read as a placeholder-y \"Join Season season-23?\" dialog with a static \"Ready\" dial that did nothing -- no sense of occasion for what's actually your empire's founding moment.",
+    changes: [
+      "Replaced the title/summary with narrative flavor text introducing the season",
+      "Removed the static \"Ready\" dial and turned the confirm button itself into the focal call-to-action, relabeled \"Let's go!\""
+    ]
+  },
+  {
     createdAt: 1787688556298, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.5",
     title: "Hid the redundant \"0 gold\" in the Build Relay Beacon action cost",
@@ -254,16 +264,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "Removed the \"Show your flag in the lobby?\" picker and the flag emoji next to roster names.",
       "The \"Bring a friend\" invite button now always gives visible feedback: it swaps to \"Copied!\" inline (with a manual-copy fallback if the clipboard API isn't available) instead of silently doing nothing.",
       "The plain \"Join Season?\" prompt (shown when a season is already running and you haven't joined yet) now shares the same full-screen war-room look as the pending-season lobby, and shows the live player count and roster alongside its Join button."
-    ]
-  },
-  {
-    createdAt: 1787419536000, // 2026.08.22.4 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.4",
-    title: "Winning a season now gives your next empire a starting head start",
-    why: "Claiming a Planet previously ended with the galaxy view -- nothing about winning carried forward into how your next empire actually played. This is a first, deliberately small step toward the galaxy's full Wonder system (a permanent Production economy is still to come); for now the reward for winning is a one-time boost, not a lasting building.",
-    changes: [
-      "The most recent season's Planet winner now starts their next empire with a permanent manpower-regen head start and an expanded starting vision radius.",
-      "It's a one-time grant, applied automatically the moment you spawn your next empire -- nothing to claim or activate."
     ]
   },
   {

@@ -68,6 +68,20 @@ describe("revealResource highlight tag", () => {
   });
 });
 
+// Agrarian Works (unlockFarmstead) grants both the Farmstead structure and a
+// separate +1 FOOD slot on every owned fish tile (AGRICULTURE_FISH_FOOD_SLOT_BONUS,
+// client-tech-html.ts's full-sentence description already calls this out) --
+// the chip row only showed "Farmstead" and silently dropped the fish bonus.
+describe("unlockFarmstead highlight tags", () => {
+  it("renders both the Farmstead chip and the fish-tile food-slot chip", () => {
+    const tags = techHighlightTags({ effects: { unlockFarmstead: true } });
+    expect(tags).toEqual([
+      { label: "Farmstead", tone: "structure" },
+      { label: "Fish Tiles +1 Food Slot", tone: "upgrade" }
+    ]);
+  });
+});
+
 // Regression coverage for a real bug: the tech-tree card capped highlight
 // tags at 2 while the detail view showed up to 6 -- a tech with 3+ tags
 // (e.g. 2 structures + 1 ability) showed a different tag set depending on
