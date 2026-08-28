@@ -9,9 +9,11 @@ import {
   grassShadeAt,
   isHillsTileAt,
   seeded01,
+  generateRiverPaths,
   type WorldStyle,
   type NaturalWonderType,
   type Dock,
+  type RiverPath,
   type TileKey
 } from "@border-empires/shared";
 import {
@@ -50,6 +52,7 @@ export type WorkerResponse = {
   spawnSiteIndices: Uint32Array; // flat tile indices of the real production fair-spawn-site roster (see FAIR_SPAWN_SITE_WORLDGEN_MINIMUM)
   spawnSiteTarget: number; // roster target size (currently 50), for the "N / target" stat
   wonders: Array<{ index: number; type: NaturalWonderType }>; // up to 9, one per type — real server placement logic
+  rivers: RiverPath[]; // real client-map-3d-rivers.ts path-generation output (packages/shared/src/worldgen/worldgen-rivers.ts), same algorithm the 3D client renders
   landCount: number;
   seaCount: number;
   mountainCount: number;
@@ -385,6 +388,11 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
   const { count: townCount, indices: townIndices } = estimateTownCount(terrain, currentSeed);
   const wonders = placeNaturalWonders(terrain, townIndices, dockSiteIndices, currentSeed);
   const spawnSiteIndices = computeSpawnSiteIndices(terrain, resources.layer, townIndices);
+  // setWorldSeed(currentSeed, ...) is still in effect (see the comment above
+  // placeResourceClusters), so this reads terrainAt/landBiomeAt for the same
+  // world the rendered grids came from — the same worldgen state
+  // client-map-3d-rivers.ts reads in the real 3D client.
+  const rivers = [...generateRiverPaths(currentSeed)];
 
   // Find tightest Y extent of land tiles
   let minLandY = WORLD_HEIGHT;
@@ -416,6 +424,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     spawnSiteIndices,
     spawnSiteTarget: FAIR_SPAWN_SITE_TARGET,
     wonders,
+    rivers,
     landCount: counts.land,
     seaCount: counts.sea,
     mountainCount: counts.mountain,

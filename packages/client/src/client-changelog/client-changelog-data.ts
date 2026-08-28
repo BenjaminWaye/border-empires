@@ -15,6 +15,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787901144099, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.1",
+    title: "Checklist no longer keeps a town/food target highlighted for the whole Expand duration",
+    why: "The checklist only recomputed on tile-delta batches from the server, so once you clicked Expand To on a highlighted town or food tile, the highlight (and the goal's checked state) kept showing the old, un-expanded status for the whole multi-second window the real Expand takes to resolve server-side -- even though the client already knows locally, the moment the server accepts the command, that the tile is now yours.",
+    changes: [
+      "The checklist now recomputes as soon as an Expand command is accepted (the same moment the map's own optimistic ownership preview kicks in), instead of waiting for a later, unrelated tile-delta batch to happen to trigger a refresh."
+    ]
+  },
+  {
     createdAt: 1787892933916, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28",
     title: "Checklist no longer highlights your own starting settlement as if it were a town target",
@@ -465,15 +474,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The town overview's population bar showed current population against the town's absolute population cap, which barely moved even as a town grew and gave no sense of how close it was to upgrading tiers.",
     changes: [
       "The population bar and its number now track progress toward the next population tier (e.g. Town → City) instead of the absolute population cap, and turns green once that tier's threshold is reached."
-    ]
-  },
-  {
-    createdAt: 1787688467708, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.6",
-    title: "Fixed structure builds (like Relay Beacon) appearing stuck after expand+settle+build",
-    why: "Building a structure on a not-yet-settled frontier tile makes the client send a SETTLE command directly while the server independently auto-enqueues its own SETTLE step for the same tile, so whichever arrives second is rejected as a duplicate. The client's recovery logic for that expected rejection compared against a slightly wrong error string, so it never matched -- instead of quietly resuming, the client wiped its local settlement/build tracking and stopped refreshing, even though the server had already settled the tile and started building.",
-    changes: [
-      "The client now correctly recognizes a duplicate-settle rejection and resumes tracking instead of abandoning the tile, so builds like Relay Beacon started via expand+settle+build no longer appear stuck client-side while they're actually progressing on the server."
     ]
   },
   {
