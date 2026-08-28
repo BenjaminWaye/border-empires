@@ -11,6 +11,7 @@ export type Layers = {
   docks: boolean;
   wonders: boolean;
   spawnSites: boolean;
+  rivers: boolean;
 };
 
 export type ViewConfig = {
@@ -27,6 +28,12 @@ const C_POLAR: [number, number, number] = [210, 225, 238]; // snow/ice color for
 const POLAR_BAND = 15; // must match worldgen.ts POLAR_BAND constant
 
 const C_HILLS: [number, number, number] = [150, 120, 55]; // tan/khaki tint for isHillsTileAt() tiles
+
+// Same visual family as the ocean/coastal-sea tints above, one step lighter
+// so a river ribbon reads distinctly against both land and open water — the
+// 3D client's river material (client-map-3d-rivers.ts's RIVER_COLOR,
+// 0x3f7fa0) uses the same blue-teal family for the same reason.
+const C_RIVER: [number, number, number] = [63, 127, 160];
 
 const REGION_TINTS: Record<number, [number, number, number]> = {
   0: [90, 200, 70],   // FERTILE_PLAINS
@@ -85,6 +92,33 @@ const drawMarker = (
       px[i]     = border ? borderR : colR;
       px[i + 1] = border ? borderG : colG;
       px[i + 2] = border ? borderB : colB;
+      px[i + 3] = 255;
+    }
+  }
+};
+
+// Same idea as drawMarker above but centered on a fractional world
+// coordinate (river points sit mid-tile with a wobble offset, not on a tile
+// corner) and with no border ring — a river ribbon has no per-point outline.
+const drawFilledSquare = (
+  px: Uint8ClampedArray,
+  wx: number, wy: number,
+  colR: number, colG: number, colB: number,
+  halfw: number,
+  scale: number, drawW: number, drawH: number, yOff: number
+): void => {
+  const dispY = (((wy - yOff) % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
+  const cx = Math.round(wx * scale);
+  const cy = Math.round(dispY * scale);
+  for (let dy = -halfw; dy <= halfw; dy++) {
+    for (let dx = -halfw; dx <= halfw; dx++) {
+      const px0 = cx + dx;
+      const py0 = cy + dy;
+      if (px0 < 0 || px0 >= drawW || py0 < 0 || py0 >= drawH) continue;
+      const i = (py0 * drawW + px0) * 4;
+      px[i] = colR;
+      px[i + 1] = colG;
+      px[i + 2] = colB;
       px[i + 3] = 255;
     }
   }
@@ -215,6 +249,23 @@ export const renderWorld = (
       const wy = Math.floor(wonder.index / WORLD_WIDTH);
       const [r, g, b] = WONDER_COLORS[wonder.type] ?? [255, 255, 255];
       drawMarker(px, wx, wy, r, g, b, 0, 0, 0, 6, scale, drawW, drawH, yOff);
+    }
+  }
+
+  // Rivers — drawn last so the ribbon reads on top of every terrain/resource
+  // tint underneath, same layering priority as the 3D client's river mesh
+  // (renderOrder 5, drawn over the heightfield). Each path is already a
+  // dense, smoothed polyline of world-space points (see
+  // packages/shared/src/worldgen/worldgen-rivers.ts's smoothRiverPath), so a
+  // filled square per point — thickness taken from that point's halfWidth,
+  // same taper the 3D ribbon mesh uses — is enough to read as a continuous
+  // stroke at this scale without needing an actual line-join renderer.
+  if (layers.rivers) {
+    for (const path of data.rivers) {
+      for (const point of path) {
+        const halfw = Math.max(1, Math.round(point.halfWidth * scale));
+        drawFilledSquare(px, point.wx, point.wy, C_RIVER[0], C_RIVER[1], C_RIVER[2], halfw, scale, drawW, drawH, yOff);
+      }
     }
   }
 
