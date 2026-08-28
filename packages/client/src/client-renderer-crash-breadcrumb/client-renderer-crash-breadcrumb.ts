@@ -11,14 +11,36 @@
 // persists disconnects, and reported in the diagnostics bundle.
 //
 // Reading the breadcrumb after a crash tells you which phase died:
-//   "init-started"   — the tab died while allocating the renderer's buffers.
-//                      That is the memory-exhaustion signature.
-//   "init-completed" — allocation survived; it died while rendering frames.
-//   "survived"       — 3D ran for SURVIVAL_MS without dying. Not a crash.
+//   "init-started"        — the tab died while allocating the renderer's
+//                            buffers. That is the memory-exhaustion signature.
+//   "init-completed"      — allocation survived; it died before the first
+//                            terrain rebuild even started (or, on an older
+//                            build without that marker, anywhere after).
+//   "first-render-started" — allocation survived, and it died during the
+//                            first rebuildVisibleTerrain() pass: the
+//                            heightfield mesh + per-tile overlay population +
+//                            ~25 overlay .commit() calls for the whole
+//                            initial tile budget, all synchronous, all before
+//                            a single frame has been drawn. This is a second,
+//                            distinct memory-exhaustion signature from
+//                            "init-started" — the preallocated buffers fit,
+//                            but populating them for the first time didn't.
+//   "survived"             — 3D ran for SURVIVAL_MS without dying. Not a crash.
 //
 // The consecutive-crash count is also what lets the app stop doing this to a
 // player: after CRASH_ATTEMPTS_BEFORE_2D failed attempts, 3D is skipped and
 // the game comes up in 2D rather than crash-looping.
+//
+// The above covers a crash during startup. It says nothing about the report
+// this module was missing: a session that ran fine for a while (long past
+// SURVIVAL_MS, "survived" already recorded) and then died later — the actual
+// iOS Safari shape, where memory pressure builds up over a play session and
+// the tab is jetsam-killed minutes in, not seconds. To catch that, the
+// renderer host pings `recordRendererHeartbeat` on an interval for as long as
+// it's alive. That leaves `lastHeartbeatAtMs` on disk: if the next load finds
+// a heartbeat with no matching `cleanShutdownAtMs` (written on `pagehide`),
+// the gap between them is roughly how long ago the tab actually died, which a
+// hard crash otherwise leaves no trace of at all.
 
 import { storageGet, storageSet } from "../client-state/client-state.js";
 
@@ -34,7 +56,7 @@ const SURVIVAL_MS = 8000;
 // Two in a row is a device that cannot run this renderer.
 const CRASH_ATTEMPTS_BEFORE_2D = 2;
 
-export type RendererAttemptPhase = "init-started" | "init-completed" | "survived";
+export type RendererAttemptPhase = "init-started" | "init-completed" | "first-render-started" | "survived";
 
 export type RendererBreadcrumb = {
   readonly atMs: number;
@@ -43,6 +65,16 @@ export type RendererBreadcrumb = {
   // Consecutive attempts that never reached "survived". Reset by a healthy run.
   readonly failedAttempts: number;
   readonly userAgent?: string | undefined;
+  // Last time recordRendererHeartbeat() ran, and how many times it has. Set
+  // once 3D is alive and updated on an interval for as long as it stays
+  // alive — see the module comment above.
+  readonly lastHeartbeatAtMs?: number | undefined;
+  readonly heartbeatCount?: number | undefined;
+  // Written by a `pagehide` listener when the tab goes away through a normal
+  // path (navigation, reload, closed tab) rather than being killed outright.
+  // Its absence — or staleness relative to lastHeartbeatAtMs — is the
+  // positive signal that the previous session ended in a hard crash.
+  readonly cleanShutdownAtMs?: number | undefined;
 };
 
 const readBreadcrumb = (): RendererBreadcrumb | undefined => {
@@ -58,7 +90,10 @@ const readBreadcrumb = (): RendererBreadcrumb | undefined => {
       phase: value.phase as RendererAttemptPhase,
       tileBudget: typeof value.tileBudget === "number" ? value.tileBudget : 0,
       failedAttempts: typeof value.failedAttempts === "number" ? value.failedAttempts : 0,
-      userAgent: value.userAgent
+      userAgent: value.userAgent,
+      lastHeartbeatAtMs: typeof value.lastHeartbeatAtMs === "number" ? value.lastHeartbeatAtMs : undefined,
+      heartbeatCount: typeof value.heartbeatCount === "number" ? value.heartbeatCount : undefined,
+      cleanShutdownAtMs: typeof value.cleanShutdownAtMs === "number" ? value.cleanShutdownAtMs : undefined
     };
   } catch {
     return undefined;
@@ -130,6 +165,27 @@ export const markRendererInitCompleted = (tileBudget: number): void => {
   }, SURVIVAL_MS);
 };
 
+/**
+ * Records that the *first* rebuildVisibleTerrain() pass is about to run —
+ * the synchronous heightfield/overlay build for the whole initial tile
+ * budget, which is real allocation-adjacent work that happens after
+ * `markRendererInitCompleted` already wrote "init-completed". Call this only
+ * for the first rebuild of a session; later rebuilds are already covered by
+ * the heartbeat once 3D is confirmed alive.
+ */
+export const markRendererFirstRenderStarted = (): void => {
+  const current = readBreadcrumb();
+  if (!current) return;
+  writeBreadcrumb({ ...current, atMs: Date.now(), phase: "first-render-started" });
+};
+
+/** Records that the first rebuild above returned without crashing the tab. */
+export const markRendererFirstRenderCompleted = (): void => {
+  const current = readBreadcrumb();
+  if (!current) return;
+  writeBreadcrumb({ ...current, atMs: Date.now(), phase: "init-completed" });
+};
+
 /** Records that 3D was abandoned through a handled path, not a crash. */
 export const markRendererAttemptHandled = (): void => {
   if (attemptTimer !== undefined) clearTimeout(attemptTimer);
@@ -140,3 +196,49 @@ export const markRendererAttemptHandled = (): void => {
   // crash-loop brake, which exists for deaths nothing can catch.
   writeBreadcrumb({ ...current, phase: "survived", failedAttempts: 0 });
 };
+
+/**
+ * Pings that 3D is still alive. Call this on an interval for as long as the
+ * renderer is up — not just once past SURVIVAL_MS — so a death long after
+ * startup (the iOS memory-pressure shape) still leaves a recent timestamp
+ * behind. Deliberately leaves `phase`/`failedAttempts` untouched: the
+ * crash-loop brake only cares about startup deaths, not this.
+ */
+export const recordRendererHeartbeat = (tileBudget: number): void => {
+  const current = readBreadcrumb();
+  if (!current) return;
+  writeBreadcrumb({
+    ...current,
+    tileBudget,
+    lastHeartbeatAtMs: Date.now(),
+    heartbeatCount: (current.heartbeatCount ?? 0) + 1
+  });
+};
+
+/**
+ * True when the previous session has a heartbeat with no matching clean
+ * shutdown — i.e. it was still alive and then just stopped, which is what a
+ * hard crash (tab jetsam-killed, no JS runs on the way down) looks like from
+ * here. A session that never started 3D, or that shut down normally, reads
+ * false.
+ */
+export const previousSessionEndedUncleanly = (): boolean => {
+  if (!previousAttempt?.lastHeartbeatAtMs) return false;
+  return (
+    previousAttempt.cleanShutdownAtMs === undefined ||
+    previousAttempt.cleanShutdownAtMs < previousAttempt.lastHeartbeatAtMs
+  );
+};
+
+// Best-effort: iOS Safari fires `pagehide` for an ordinary navigation, reload,
+// or tab close, but not for a jetsam kill — which is exactly the asymmetry
+// previousSessionEndedUncleanly() above reads. Registered unconditionally at
+// module load rather than only while 3D is active, since a shutdown while 2D
+// is showing (post-fallback) is still worth recording as clean.
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => {
+    const current = readBreadcrumb();
+    if (!current) return;
+    writeBreadcrumb({ ...current, cleanShutdownAtMs: Date.now() });
+  });
+}
