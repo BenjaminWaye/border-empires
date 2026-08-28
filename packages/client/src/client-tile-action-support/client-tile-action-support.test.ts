@@ -101,7 +101,7 @@ describe("splitTileActionsIntoTabs", () => {
     });
   });
 
-  it("keeps build_relay_beacon in Buildings on a settled tile, but moves it to Actions on a FRONTIER tile", () => {
+  it("keeps build_relay_beacon in Buildings only on a settled tile, but shows it in both Actions and Buildings on a FRONTIER tile", () => {
     const plainRelayBeacon: TileActionDef[] = [
       { id: "build_relay_beacon", label: "Build Relay Beacon", detail: "", disabled: false }
     ];
@@ -116,7 +116,7 @@ describe("splitTileActionsIntoTabs", () => {
     ];
     expect(splitTileActionsIntoTabs(frontierRelayBeacon, state)).toEqual({
       actions: frontierRelayBeacon,
-      buildings: [],
+      buildings: frontierRelayBeacon,
       crystal: []
     });
   });

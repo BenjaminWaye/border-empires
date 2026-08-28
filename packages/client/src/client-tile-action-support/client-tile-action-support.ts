@@ -27,12 +27,13 @@ export const tileActionIsBuilding = (id: TileActionDef["id"]): boolean =>
 // build_relay_beacon on an owned FRONTIER tile is a settle-then-build chain
 // (client-tile-action-logic.ts tags its detail with the same
 // " • settles this tile first" suffix every other frontier chained-build
-// action gets), not a plain building -- keep it in Actions next to Settle
-// Land instead of tucked into Buildings, matching build_relay_beacon_frontier's
-// parity on a neutral tile.
-const tileActionBelongsInBuildingsTab = (action: TileActionDef): boolean =>
-  tileActionIsBuilding(action.id) &&
-  !(action.id === "build_relay_beacon" && action.detail?.includes("settles this tile first"));
+// action gets) -- surface it in both tabs there: Actions, next to Settle
+// Land, so a player never has to go looking for it (matching
+// build_relay_beacon_frontier's parity on a neutral tile), and Buildings
+// too, since it's still a real building and that's where a player used to
+// browsing the Buildings tab will look for it.
+const isFrontierRelayBeacon = (action: TileActionDef): boolean =>
+  action.id === "build_relay_beacon" && Boolean(action.detail?.includes("settles this tile first"));
 
 export const structureTypeForTileAction = (actionId: TileActionDef["id"]): BuildableStructureType | undefined => {
   switch (actionId) {
@@ -295,9 +296,11 @@ export const splitTileActionsIntoTabs = (
 ): Pick<TileMenuView, "actions" | "buildings" | "crystal"> => {
   const filtered = actions.filter((action) => !hideTechLockedTileAction(action, state));
   const visibleIfShown = (action: TileActionDef): boolean => !action.disabled;
-  const actionRows = filtered.filter((action) => !tileActionBelongsInBuildingsTab(action) && !tileActionIsCrystal(action.id));
+  const actionRows = filtered.filter(
+    (action) => (!tileActionIsBuilding(action.id) || isFrontierRelayBeacon(action)) && !tileActionIsCrystal(action.id)
+  );
   const buildingRows = filtered
-    .filter((action) => tileActionBelongsInBuildingsTab(action))
+    .filter((action) => tileActionIsBuilding(action.id))
     .sort((a, b) => {
       const aType = structureTypeForTileAction(a.id);
       const bType = structureTypeForTileAction(b.id);
