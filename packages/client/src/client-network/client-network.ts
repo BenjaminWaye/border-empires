@@ -1519,7 +1519,16 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         currentAction: state.actionCurrent
       });
       rebindLateFrontierAck(target, "ACTION_ACCEPTED", msg.actionType as "EXPAND" | "ATTACK" | undefined);
-      if (msg.actionType === "EXPAND") applyAcceptedExpandOptimisticState(target);
+      // Recompute the onboarding checklist right when the "expand lock"
+      // starts (the optimistic ownerId flip below), not just on the next
+      // tile-delta batch -- otherwise a highlighted town/food target the
+      // player just committed to Expand To keeps showing as un-highlighted
+      // for the full FRONTIER_CLAIM_MS duration the real EXPAND takes to
+      // resolve, even though the goal is effectively already met.
+      if (msg.actionType === "EXPAND") {
+        applyAcceptedExpandOptimisticState(target);
+        refreshOnboardingChecklistHighlight(state);
+      }
       state.actionAcceptedAck = true;
       state.actionAcceptTimeoutHandledAt = 0;
       state.actionInFlight = true;
@@ -1717,7 +1726,10 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         (lockedResult?.attackType as "EXPAND" | "ATTACK" | undefined) ??
           state.actionCurrent?.actionType
       );
-      if (lockedResult?.attackType === "EXPAND") applyAcceptedExpandOptimisticState(target);
+      if (lockedResult?.attackType === "EXPAND") {
+        applyAcceptedExpandOptimisticState(target);
+        refreshOnboardingChecklistHighlight(state);
+      }
       state.actionAcceptedAck = true;
       state.combatStartAck = true;
       state.actionAcceptTimeoutHandledAt = 0;
