@@ -12,6 +12,25 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787724118006, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Rally-linked players now spawn near a real foothold, not just the nearest empty tile",
+    why: "Joining via a friend's rally link placed you on whichever open tile happened to be closest to their anchor, even a barren one with no town or food nearby -- while a normal spawn always looked for a town and food within reach.",
+    changes: [
+      "Rally spawns now search outward from the anchor for a spot with both a town and food nearby before falling back to a town-only, then food-only, then any-open-tile spot, all still within the rally radius"
+    ]
+  },
+  {
+    createdAt: 1787692481411, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.8",
+    title: "Gave the \"join now\" season prompt a real intro instead of a bare confirmation dialog",
+    why: "The plain join-season overlay (season already live, player just hasn't clicked join yet) read as a placeholder-y \"Join Season season-23?\" dialog with a static \"Ready\" dial that did nothing -- no sense of occasion for what's actually your empire's founding moment.",
+    changes: [
+      "Replaced the title/summary with narrative flavor text introducing the season",
+      "Removed the static \"Ready\" dial and turned the confirm button itself into the focal call-to-action, relabeled \"Let's go!\""
+    ]
+  },
+  {
     createdAt: 1787688556298, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.5",
     title: "Hid the redundant \"0 gold\" in the Build Relay Beacon action cost",

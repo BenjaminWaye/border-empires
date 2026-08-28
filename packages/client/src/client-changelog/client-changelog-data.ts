@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787941776652, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.5",
+    title: "Agrarian Works now shows its fish-tile bonus as its own highlight chip",
+    why: "Researching Agrarian Works unlocks the Farmstead structure and also grants +1 FOOD slot on every owned fish tile, but the tech-tree card and detail view only ever showed a \"Farmstead\" chip -- the fish-tile bonus was undiscoverable unless you read the full description text.",
+    changes: [
+      "Agrarian Works now shows a \"Fish Tiles +1 Food Slot\" chip alongside its Farmstead chip, matching how other techs (e.g. Muster Flag +1) surface numeric bonuses as their own highlight"
+    ]
+  },
+  {
     createdAt: 1787912311406, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.2",
     title: "Fixed several player-state fields silently reverting on reconnect",
@@ -94,6 +103,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Picking a tech or domain -- including tier 1's Mercantile Charter, which boosts gold production and population growth in your first three towns -- didn't invalidate the cached per-player town economy data. The new bonus silently sat unused until an unrelated tile change happened to refresh that cache, so newly chosen bonuses looked like they weren't applying to gold production or the town overview's modifier list.",
     changes: [
       "Choosing a tech or domain now immediately refreshes your towns' gold production and the town overview's modifier list to reflect the new bonus"
+    ]
+  },
+  {
+    createdAt: 1787937615718, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.5",
+    title: "Alliance and truce request emails now match the rest of the game's branded emails",
+    why: "Alliance and truce request emails were still built from a plain, unstyled paragraph template (a leftover from before the branded season-start/attack-alert template existed), so they looked out of place next to every other gameplay email you get.",
+    changes: [
+      "Alliance and truce request emails now use the same branded layout (header, body, call-to-action button) as season-start and attack-alert emails, and truce offers now call out the offered duration as a highlighted stat like other emails do"
     ]
   },
   {
