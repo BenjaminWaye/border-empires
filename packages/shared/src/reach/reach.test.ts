@@ -1,112 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { DOCK_REACH_RADIUS, OUTPOST_REACH_RADIUS, TOWN_REACH_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
+import { DOCK_REACH_RADIUS, OUTPOST_REACH_RADIUS, WORLD_HEIGHT, WORLD_WIDTH } from "../config.js";
 import {
   applyAnchorEvents,
-  chebyshevWithWrap,
   grantAnchorToBorder,
   isInReach,
   liveReachForOwner,
   reachOwnerCountAt,
-  reachRadiusForAnchor,
-  reachRadiusForKind,
   reachSetForPlayer,
   reassessBorderOnAnchorDeactivation,
   reconcileBorderAgainstLiveReach,
   tileKey,
-  tileKeysInReach,
   type ReachAnchor
 } from "./reach.js";
 
-describe("reachRadiusForKind", () => {
-  it("TOWN → TOWN_REACH_RADIUS", () => {
-    expect(reachRadiusForKind("TOWN")).toBe(TOWN_REACH_RADIUS);
-  });
-  it("OUTPOST → OUTPOST_REACH_RADIUS", () => {
-    expect(reachRadiusForKind("OUTPOST")).toBe(OUTPOST_REACH_RADIUS);
-  });
-  it("DOCK → DOCK_REACH_RADIUS", () => {
-    expect(reachRadiusForKind("DOCK")).toBe(DOCK_REACH_RADIUS);
-  });
-});
-
-describe("reachRadiusForAnchor", () => {
-  it("falls back to reachRadiusForKind when no override is set", () => {
-    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
-    expect(reachRadiusForAnchor(anchor)).toBe(OUTPOST_REACH_RADIUS);
-  });
-
-  it("uses radiusOverride when set, regardless of kind", () => {
-    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST", radiusOverride: 3 };
-    expect(reachRadiusForAnchor(anchor)).toBe(3);
-    expect(tileKeysInReach(anchor).length).toBe((2 * 3 + 1) ** 2);
-  });
-});
-
-describe("tileKeysInReach", () => {
-  it("produces (2r+1)^2 tiles for a radius-r anchor", () => {
-    const anchor: ReachAnchor = { x: 100, y: 100, ownerId: "p1", activatedAt: 1, kind: "TOWN" };
-    const keys = tileKeysInReach(anchor);
-    expect(keys.length).toBe((2 * TOWN_REACH_RADIUS + 1) ** 2);
-    expect(new Set(keys).size).toBe(keys.length);
-  });
-
-  it("includes the anchor's own tile", () => {
-    const anchor: ReachAnchor = { x: 10, y: 20, ownerId: "p1", activatedAt: 1, kind: "DOCK" };
-    expect(tileKeysInReach(anchor)).toContain(tileKey(10, 20));
-  });
-
-  it("wraps around world edges", () => {
-    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "TOWN" };
-    const keys = new Set(tileKeysInReach(anchor));
-    expect(keys.has(tileKey(WORLD_WIDTH - 1, WORLD_HEIGHT - 1))).toBe(true);
-    expect(keys.has(tileKey(WORLD_WIDTH - 1, 0))).toBe(true);
-  });
-});
-
-describe("tileKeysInReach with land-gating", () => {
-  // A radius-5 OUTPOST anchor at (0,0) with a strip of SEA at x=2 splitting
-  // land at x=0..1 from land at x=3..10 on the same row.
-  const isLandExceptStrip = (x: number, _y: number): boolean => x !== 2;
-
-  it("does not cross a water strip to reach land on the far side within radius", () => {
-    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
-    const keys = new Set(tileKeysInReach(anchor, isLandExceptStrip));
-    // (3,0) is LAND, within the radius-5 disk, but only reachable by
-    // stepping across the water strip at x=2 -- must NOT be included.
-    expect(keys.has(tileKey(3, 0))).toBe(false);
-    expect(keys.has(tileKey(4, 0))).toBe(false);
-  });
-
-  it("still includes a water tile directly adjacent to reached land (coastal edge)", () => {
-    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
-    const keys = new Set(tileKeysInReach(anchor, isLandExceptStrip));
-    // (1,0) is LAND and land-connected to the anchor; (2,0) is the water
-    // strip directly adjacent to it -- included as a coastal edge tile, even
-    // though it can't itself propagate reach any further.
-    expect(keys.has(tileKey(1, 0))).toBe(true);
-    expect(keys.has(tileKey(2, 0))).toBe(true);
-  });
-
-  it("crossesWater anchors ignore land-gating entirely", () => {
-    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST", crossesWater: true };
-    const keys = new Set(tileKeysInReach(anchor, isLandExceptStrip));
-    expect(keys.has(tileKey(3, 0))).toBe(true);
-    expect(keys.has(tileKey(2, 0))).toBe(true);
-  });
-
-  it("without a landConnectivity query stays purely geometric (back-compat)", () => {
-    const anchor: ReachAnchor = { x: 0, y: 0, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
-    const keys = new Set(tileKeysInReach(anchor));
-    expect(keys.has(tileKey(3, 0))).toBe(true);
-  });
-});
-
-describe("chebyshevWithWrap", () => {
-  it("wraps around world edges to give a short distance", () => {
-    expect(chebyshevWithWrap(0, 0, WORLD_WIDTH - 1, 0)).toBe(1);
-  });
-});
+// Geometry-helper tests (reachRadiusForKind, tileKeysInReach, chebyshevWithWrap,
+// etc.) live in reach-geometry.test.ts, split out to keep this file under the
+// 500-line cap.
 
 describe("liveReachForOwner", () => {
   it("only counts the given owner's anchors", () => {
@@ -202,12 +112,16 @@ describe("grantAnchorToBorder", () => {
   });
 
   it("contested tile stays with the defender when they have live coverage there", () => {
-    const existing = new Map([[tileKey(5, 5), "defender"]]);
+    // Contested at a tile OTHER than the incoming anchor's own tile (5,5) —
+    // that exact case now always wins for the anchor's owner regardless of
+    // rival defense (see the "anchor's own tile is always granted" tests
+    // below); this test covers the ordinary defended-neighbour case.
+    const existing = new Map([[tileKey(6, 6), "defender"]]);
     const anchor: ReachAnchor = { x: 5, y: 5, ownerId: "attacker", activatedAt: 2, kind: "DOCK" };
     const { border, overtaken } = grantAnchorToBorder(existing, anchor, (ownerId) =>
-      ownerId === "defender" ? new Set([tileKey(5, 5)]) : new Set()
+      ownerId === "defender" ? new Set([tileKey(6, 6)]) : new Set()
     );
-    expect(border.get(tileKey(5, 5))).toBe("defender");
+    expect(border.get(tileKey(6, 6))).toBe("defender");
     expect(overtaken).toEqual([]);
   });
 
@@ -242,17 +156,20 @@ describe("grantAnchorToBorder", () => {
   // the attacker's border with nothing left to dislodge it — the very state
   // this whole guard exists to prevent.
   it("empty border slot over a rival's SETTLED tile still respects live defense", () => {
+    // Contested at a neighbouring tile (5,6), not the incoming anchor's own
+    // tile (5,5) — that exact case now always wins for the anchor's owner,
+    // see the "anchor's own tile is always granted" tests below.
     const anchor: ReachAnchor = { x: 5, y: 5, ownerId: "attacker", activatedAt: 2, kind: "DOCK" };
     const { border, overtaken } = grantAnchorToBorder(
       new Map(),
       anchor,
-      (ownerId) => (ownerId === "defender" ? new Set([tileKey(5, 5)]) : new Set()),
-      (key) => (key === tileKey(5, 5) ? "defender" : undefined)
+      (ownerId) => (ownerId === "defender" ? new Set([tileKey(5, 6)]) : new Set()),
+      (key) => (key === tileKey(5, 6) ? "defender" : undefined)
     );
     expect(overtaken).toEqual([]);
-    expect(border.get(tileKey(5, 5))).toBeUndefined();
-    // Neighbouring tiles in the same disk are unaffected and still granted.
-    expect(border.get(tileKey(5, 6))).toBe("attacker");
+    expect(border.get(tileKey(5, 6))).toBeUndefined();
+    // The anchor's own tile is unaffected and still granted.
+    expect(border.get(tileKey(5, 5))).toBe("attacker");
   });
 
   it("empty border slot over the anchor owner's own SETTLED tile is not a contest", () => {
@@ -266,6 +183,10 @@ describe("grantAnchorToBorder", () => {
     expect(border.get(tileKey(5, 5))).toBe("p1");
     expect(overtaken).toEqual([]);
   });
+
+  // See reach-anchor-own-tile.test.ts for the "anchor's own tile is always
+  // granted, even against a still-live rival" regression coverage — split
+  // out to a separate file to keep this one under the 500-line cap.
 
   it("omitting settledOwnerAt keeps the original silent-grant behavior", () => {
     const anchor: ReachAnchor = { x: 5, y: 5, ownerId: "attacker", activatedAt: 2, kind: "DOCK" };
@@ -307,15 +228,25 @@ describe("applyAnchorEvents — sticky border scenarios", () => {
     expect(overtaken.some((t) => t.fromOwnerId === "p1" && t.toOwnerId === "p2")).toBe(true);
   });
 
-  it("a live defending beacon holds the tile against a contest", () => {
+  it("a live defending beacon holds neighbouring tiles against a contest, but never its own contested tile", () => {
     const beacon: ReachAnchor = { x: 200, y: 200, ownerId: "p1", activatedAt: 1, kind: "OUTPOST" };
+    // Not realistically reachable in-game (you can't drop a new anchor on a
+    // tile a rival still actively holds without capturing it first, which
+    // deactivates their anchor there in the same transition — see "undefended
+    // border withdraws only once an enemy anchor actually contests it" and
+    // the capture-enclave tests below for the realistic flow). Kept as a
+    // synthetic worst-case: even here, p2's own anchor tile still wins
+    // (matches the "captured town keeps its own tile" rule), while p1's
+    // still-active beacon keeps every neighbouring tile in its disk.
     const enemyBeacon: ReachAnchor = { x: 200, y: 200, ownerId: "p2", activatedAt: 5, kind: "OUTPOST" };
     const { border, overtaken } = applyAnchorEvents([
       { type: "ACTIVATE", anchor: beacon }, // still active, never deactivated
       { type: "ACTIVATE", anchor: enemyBeacon }
     ]);
-    expect(border.get(tileKey(200, 200))).toBe("p1");
-    expect(overtaken).toEqual([]);
+    expect(border.get(tileKey(200, 200))).toBe("p2");
+    expect(overtaken).toContainEqual({ tileKey: tileKey(200, 200), fromOwnerId: "p1", toOwnerId: "p2" });
+    // p1's still-active beacon keeps defending every neighbouring tile.
+    expect(border.get(tileKey(200 + OUTPOST_REACH_RADIUS, 200))).toBe("p1");
   });
 
   it("applies between allies too — border clipping is unconditional", () => {
