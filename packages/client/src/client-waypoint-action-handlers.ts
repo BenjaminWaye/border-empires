@@ -8,6 +8,8 @@ import {
   WAYPOINT_QUEUE_CLIENT_CAP
 } from "./client-waypoint-planner/client-waypoint-persistence.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
+import { announceDiscoveryTip } from "./client-discovery-tips/client-discovery-tip-overlay.js";
+import { pushDiscoveryTipFeedEntry } from "./client-alerts/client-alerts.js";
 import type { ClientState } from "./client-state/client-state.js";
 import type { WaypointPlan } from "./client-waypoint-planner/client-waypoint-planner.js";
 
@@ -49,15 +51,25 @@ const setWaypointForSelected = (
     renderHud();
     return true;
   }
-  const plan: WaypointPlan = planWaypoint(
-    { x: selected.x, y: selected.y },
-    { state, keyFor, isInReach: authoritativeIsInReach(state, keyFor) }
-  );
+  const isInReach = authoritativeIsInReach(state, keyFor);
+  const plan: WaypointPlan = planWaypoint({ x: selected.x, y: selected.y }, { state, keyFor, isInReach });
   if (!plan.reachable) {
     showVisibleActionWarning({ pushFeed, showCaptureAlert }, "Action blocked", "No expansion path to that tile.");
     hideTileActionMenu();
     renderHud();
     return true;
+  }
+  // EXPAND isn't reach-gated server-side -- this waypoint's destination can
+  // still land outside the player's reach, it'll just start decaying two
+  // minutes after the claim lands unless reach is extended to it. Warn them
+  // now, at the moment they queue it, rather than only after the server's
+  // tile-delta confirms the decay stamp (client-action-flow.ts's
+  // frontierDecayKind handler) -- by then the claim/decay is already
+  // underway and the "why" is easy to miss.
+  if (!isInReach(selected.x, selected.y) && state.discoveryTipQueue) {
+    announceDiscoveryTip(state.discoveryTipQueue, "OUT_OF_REACH_EXPAND", state.authEmail, renderHud, (def) =>
+      pushDiscoveryTipFeedEntry(state, def)
+    );
   }
   const selectedTile = state.tiles.get(keyFor(selected.x, selected.y));
   const trackBarbarian = selectedTile?.ownerId === "barbarian-1";

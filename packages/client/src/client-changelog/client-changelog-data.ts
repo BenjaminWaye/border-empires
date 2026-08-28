@@ -15,6 +15,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787908074987, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.2",
+    title: "Queuing an Expand outside your reach now explains it'll decay",
+    why: "EXPAND isn't reach-gated server-side -- a claim landing outside your reach still succeeds, but it's stamped to decay away two minutes later unless you extend your reach to it with a nearby Town, Outpost, or Dock. Queuing a waypoint to such a target gave no warning at all until the claim actually decayed (or reverted on the next reach recompute), which read as the game silently undoing something for no reason.",
+    changes: [
+      "Queuing a waypoint whose destination is outside your current reach now shows the \"Beyond Your Reach\" tooltip immediately, explaining that the claim will decay unless you extend your reach to it."
+    ]
+  },
+  {
     createdAt: 1787901144099, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.1",
     title: "Checklist no longer keeps a town/food target highlighted for the whole Expand duration",
@@ -440,40 +449,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "The water skirt wall added in 2026.08.25.5/.6 drew a wall on all 4 sides of every exposed water tile, including north/east/west edges that sat right where the land's own coastal skirt wall already runs. Two near-coplanar unlit walls animating independently z-fought against each other every frame, flickering.",
     changes: [
       "The water skirt now only draws its south-facing edge (the side that actually faces the camera at the default view angle), leaving the land skirt to cover the other three sides instead of overlapping it."
-    ]
-  },
-  {
-    createdAt: 1787688556298, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.5",
-    title: "Hid the redundant \"0 gold\" in the Build Relay Beacon action cost",
-    why: "The Build Relay Beacon action's cost string always prepended the gold cost, even when expand + settle + build all cost 0 gold, so the Actions tab showed a confusing \"0 gold, N m.p. ...\" line.",
-    changes: [
-      "The Build Relay Beacon action's cost text now omits the gold segment entirely when the gold cost is 0."
-    ]
-  },
-  {
-    createdAt: 1787688715010, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.6",
-    title: "Fixed the water skirt wall leaving a gap at wave crests",
-    why: "The water skirt wall added moments earlier (2026.08.25.5) closed the black gap under coastal sea tiles, but its top edge was drawn once and never touched again, while the water surface itself bobs up and down every frame with the wave animation. Whenever the wave lifted the surface above the skirt's static top, the same black gap reappeared.",
-    changes: [
-      "The water skirt's top edge now rides the same wave animation as the surface, so it stays flush with the water at every frame instead of only when the sea happens to be at rest."
-    ]
-  },
-  {
-    createdAt: 1787689171531, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.6",
-    title: "Fixed auto-settle trying to build on resource tiles outside your reach",
-    why: "The auto-settle queue included every owned frontier tile with a resource, town, or dock without checking reach, so a plain resource tile (which generates no reach of its own) claimed outside your reach border kept getting re-queued and rejected with an OUT_OF_REACH error.",
-    changes: ["Auto-settle no longer queues frontier tiles that are currently outside your reach border."]
-  },
-  {
-    createdAt: 1787691972634, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.6",
-    title: "Town population bar now shows progress toward the next tier",
-    why: "The town overview's population bar showed current population against the town's absolute population cap, which barely moved even as a town grew and gave no sense of how close it was to upgrading tiers.",
-    changes: [
-      "The population bar and its number now track progress toward the next population tier (e.g. Town → City) instead of the absolute population cap, and turns green once that tier's threshold is reached."
     ]
   },
   {

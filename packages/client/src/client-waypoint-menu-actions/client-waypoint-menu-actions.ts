@@ -52,21 +52,27 @@ const waypointPlanForTile = (
     deps.pickOriginForTarget(tile.x, tile.y, false, true);
   if (adjacentOrigin) return;
   const isInReach = authoritativeIsInReach(state, deps.keyFor);
-  // ATTACK is deliberately not reach-gated (see the fixed-borders-via-reach
-  // plan), so an enemy-owned target skips the reach pre-check entirely (the
-  // FINAL-target check below). The only neutral case that still reaches
-  // here is a genuinely-unexplored target (no confirmed tile data at all --
-  // a known neutral tile already returned above, since Settle Land handles
-  // it instead): that EXPAND claim still needs to land inside the player's
-  // reach, so it gets the same check Settle Land itself uses, computed
-  // purely from the player's own tiles (reach never depends on the
-  // unexplored target's own data).
+  // NOTE: EXPAND is NOT reach-gated server-side -- a claim that lands outside
+  // reach still succeeds, it just comes back stamped to decay in two minutes
+  // unless the player extends reach to it (see client-tile-action-neutral.ts,
+  // and the OUT_OF_REACH_EXPAND discovery tip). The early return below is a
+  // narrower, purely-client-side precaution: it applies ONLY to a genuinely
+  // unexplored target (no confirmed tile data at all -- a known neutral tile
+  // already returned above, since Settle Land handles it instead). For an
+  // unexplored tile, this module has no data on it to decide anything, so the
+  // planner can't tell a legitimate multi-hop chain from a route that will
+  // wander off through fog; it declines to offer the button rather than plan
+  // blind. ATTACK skips this precaution entirely -- an enemy-owned target has
+  // known tile data, so it's judged by the FINAL-target check below instead.
   if (!tile.ownerId && !isInReach(tile.x, tile.y)) return;
   // isInReach also threads into the planner itself so every INTERMEDIATE
   // EXPAND step along the path is reach-checked too, not just the final
-  // target -- a multi-hop chain toward an in-reach destination can still
-  // pass through out-of-reach ground if the player's reach shape has a
-  // notch (e.g. two separate anchors with a gap between their disks).
+  // target -- this keeps the planner from routing a multi-hop chain through
+  // ground with no confirmed data of its own, even when the final
+  // destination is one the caller above already knows is in reach (a
+  // multi-hop chain toward an in-reach destination can still pass through
+  // out-of-reach ground if the player's reach shape has a notch, e.g. two
+  // separate anchors with a gap between their disks).
   const plan = planWaypoint({ x: tile.x, y: tile.y }, { state, keyFor: deps.keyFor, isInReach });
   return plan.reachable ? plan : undefined;
 };
