@@ -545,11 +545,6 @@ describe("menuOverviewForTile", () => {
     expect(lines.some((line) => line.html.includes("2 connected towns:"))).toBe(true);
   });
 
-  it("calls out active synth structures explicitly", () => {
-    const lines = menuOverviewForTile(settledSupportTile("active"), deps);
-    expect(lines.some((line) => line.html.includes("currently contributing output and upkeep"))).toBe(true);
-  });
-
   it("calls out inactive support structures", () => {
     const lines = menuOverviewForTile(settledSupportTile("inactive"), deps);
     expect(lines.some((line) => line.html.includes("currently contributes no output or upkeep"))).toBe(true);

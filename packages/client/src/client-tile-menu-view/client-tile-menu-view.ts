@@ -18,7 +18,7 @@ import {
 import { mintworksGoldProductionMultiplier } from "@border-empires/game-domain";
 import { rushBuyLabel, type QuickforgeRushBuyContext } from "./client-tile-menu-quickforge-rush-buy.js";
 import { resourceSlotProductionHtml } from "./client-tile-resource-slot-production.js";
-import { converterModeLockLine, converterModeStatusLine, isConverterStructureType } from "../client-converter-menu.js";
+import { isConverterStructureType } from "../client-converter-menu.js";
 import { weaponsFactoryOwnBonusLine } from "../client-weapons-factory-overview/client-weapons-factory-overview.js";
 import { economicStructureBuildMs, economicStructureName, resourceLabel, strategicResourceKeyForTile, tileProductionHtml } from "../client-map-display.js";
 import { naturalWonderOverviewLine, tileOverviewModifiersForTile } from "../client-tile-overview-modifiers/client-tile-overview-modifiers.js";
@@ -523,9 +523,9 @@ export const menuOverviewForTile = (
     }
     if (isConverterStructureType(tile.economicStructure.type)) {
       if (tile.economicStructure.status === "active") {
-        pushLine(converterModeStatusLine(tile));
-        const lockLine = converterModeLockLine(tile);
-        if (lockLine) pushLine(lockLine);
+        // No status/lock line here — see converter-mode-flip plan: the
+        // "selling off its slot" status line and "Mode flip available in Xm"
+        // cooldown line were removed from the overview per user decision.
       } else if (structureRecentlyCaptured) {
         pushLine("Recently captured. Structure stays offline during capture shock and contributes no output or upkeep until the timer ends.");
       } else if (tile.economicStructure.disabledUntil && tile.economicStructure.disabledUntil > Date.now()) {

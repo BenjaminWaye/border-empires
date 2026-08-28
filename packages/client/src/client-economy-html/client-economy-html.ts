@@ -128,7 +128,17 @@ const slotOccupantsForResource = (args: EconomyPanelArgs, resource: SlotResource
       const count = structureSlotRequirements(variant).find((r) => r.resource === resource)?.count ?? 0;
       add(SIEGE_VARIANT_LABEL[variant], count, isDormantOccupant(args, tile, "siegeOutpost", resource));
     }
-    if (tile.economicStructure && tile.economicStructure.status !== "removing" && tile.economicStructure.status !== "inactive") {
+    if (
+      tile.economicStructure &&
+      tile.economicStructure.status !== "removing" &&
+      tile.economicStructure.status !== "inactive" &&
+      // Mirrors buildDemandContributors (resource-slot-view.ts): a converter
+      // in SYNTHESIZE/Refine mode is a slot SOURCE for its own family
+      // resource (counted in slotSourcesForResource instead), not an
+      // occupant — only count it here once it's flipped to EXCHANGE/Sell
+      // Off mode and starts occupying the slot it used to supply.
+      !isSlotSourceConverter(tile.economicStructure.type, converterModeOf(tile.economicStructure))
+    ) {
       const type = tile.economicStructure.type;
       let count = structureSlotRequirements(type).find((r) => r.resource === resource)?.count ?? 0;
       if (type === "RELAY_BEACON" && resource === "FOOD" && waivedRelayBeaconsRemaining > 0) {

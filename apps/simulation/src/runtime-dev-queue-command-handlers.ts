@@ -21,6 +21,14 @@ export type RuntimeDevQueueCommandContext = RuntimeDevQueueReservationContext & 
   summaryForPlayer: (playerId: string) => PlayerRuntimeSummary;
   now: () => number;
   emitEvent: (event: SimulationEvent) => void;
+  // Pushes a live PLAYER_UPDATE for this player -- keeps the gateway's
+  // per-player subscribe-snapshot cache in sync with devQueue (and, since
+  // this queue reserves manpower up front, with the player's manpower too)
+  // between reconnects. COMMAND_RESOLVED only marks the durable command
+  // resolved and never touches that cache. Same root cause and fix as the
+  // waypoint queue's identical bug -- see runtime-waypoint-queue-command-
+  // handlers.ts's matching field for the full mechanism writeup.
+  emitPlayerStateUpdate: (command: Pick<CommandEnvelope, "commandId" | "playerId">) => void;
   rejectCommand: (command: Pick<CommandEnvelope, "commandId" | "playerId">, code: string, message: string) => void;
   hasAvailableDevelopmentSlot: (playerId: string) => boolean;
   nextDrainCommandId: (playerId: string, tileKey: string) => string;
@@ -82,6 +90,7 @@ export const handleDevQueueEnqueueCommand = (context: RuntimeDevQueueCommandCont
     summary.devQueue = queue;
     unownedReservation = undefined; // the queued entry now carries the refund obligation
     context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+    context.emitPlayerStateUpdate(command);
   } finally {
     if (unownedReservation) context.refundManpowerReservation(command.playerId, unownedReservation);
   }
@@ -97,6 +106,7 @@ export const handleDevQueueCancelCommand = (context: RuntimeDevQueueCommandConte
   refundEntryReservation(context, command.playerId, devQueueEntryForTileKey(summary.devQueue, payload.tileKey));
   summary.devQueue = devQueueCancel(summary.devQueue, payload.tileKey);
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  context.emitPlayerStateUpdate(command);
 };
 
 export const handleDevQueueMoveToFrontCommand = (context: RuntimeDevQueueCommandContext, command: CommandEnvelope): void => {
@@ -105,6 +115,7 @@ export const handleDevQueueMoveToFrontCommand = (context: RuntimeDevQueueCommand
   const summary = context.summaryForPlayer(command.playerId);
   summary.devQueue = devQueueMoveToFront(summary.devQueue, payload.tileKey);
   context.emitEvent({ eventType: "COMMAND_RESOLVED", commandId: command.commandId, playerId: command.playerId });
+  context.emitPlayerStateUpdate(command);
 };
 
 /**

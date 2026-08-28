@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
   {
+    createdAt: 1787688074263, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Fixed black artifacts under coastal sea tiles",
+    why: "The water surface is a flat, zero-thickness sheet with no underside geometry of its own -- it relied entirely on the neighboring land's own coastal skirt wall to hide the void beneath it. Anywhere water bordered non-water without a drawn land tile covering that edge this frame (open sea, a fog/window boundary, etc.), there was nothing there, so a grazing or below-water view saw straight through to empty background.",
+    changes: [
+      "Water tiles now get their own skirt wall along every edge that doesn't border another water tile, so the sea never shows a black gap underneath regardless of camera angle."
+    ]
+  },
+  {
     createdAt: Date.now(),
     introducedIn: "2026.08.27",
     title: "Fixed previously explored land turning back into unexplored fog on reconnect",
@@ -146,6 +155,24 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
     changes: [
       "Islands-style land coverage increased further (roughly 30% -> 40% land on average across sampled seeds), with bigger and more numerous islands, while staying visually distinct from continents (still 20-30+ separate island landmasses with real sea channels between them).",
       "Every land-accessible mountain ring interior is now guaranteed a settlement during world generation, instead of most rings sitting empty inside their mountain walls."
+    ]
+  },
+  {
+    createdAt: 1787898679176, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28",
+    title: "Fixed waypoints appearing to vanish on a quick reconnect",
+    why: "Setting or cancelling a waypoint only marked the command resolved server-side -- it never pushed a live update of the queue, unlike almost every other player action. Since queuing a waypoint doesn't change any tile ownership, nothing else happened to refresh the gateway's per-connection snapshot cache either. A reconnect soon after (e.g. closing and quickly reopening the browser) could be served that stale, pre-waypoint snapshot, making a waypoint you'd just set look like it had never been placed -- or a cancelled one look like it was still there.",
+    changes: [
+      "Setting, cancelling, or clearing a waypoint now pushes a live update the same way other actions do, so a reconnect immediately after always sees the current queue instead of a stale one."
+    ]
+  },
+  {
+    createdAt: 1787900126768, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28",
+    title: "Fixed the build/settle queue (and its held manpower) appearing stale on a quick reconnect",
+    why: "Same root cause as the waypoint-vanishing bug fixed just before this: queuing, cancelling, or reordering a build/settle queue entry only marked the command resolved server-side -- it never pushed a live update, so nothing refreshed the gateway's per-connection snapshot cache. This queue also reserves manpower the moment an entry is queued, so a reconnect soon after could show both a stale queue and stale manpower until some unrelated action happened to refresh it.",
+    changes: [
+      "Queuing, cancelling, or reordering a build/settle queue entry now pushes a live update the same way other actions do, so a reconnect immediately after always shows the current queue and manpower instead of a stale snapshot."
     ]
   }
 ];
