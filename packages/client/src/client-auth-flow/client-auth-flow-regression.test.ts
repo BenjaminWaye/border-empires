@@ -50,6 +50,17 @@ describe("client auth flow regression guard", () => {
       source.indexOf("syncDesiredFogDisabled();")
     );
   });
+
+  it("sends the magic link to a clean origin+pathname URL instead of the raw current page (with its query/hash)", () => {
+    const source = clientSource();
+
+    // Regression: sendSignInLinkToEmail used to pass window.location.href
+    // verbatim, so any stray query params on the page (e.g. ?x=&y= tile
+    // deep-links) got baked into the emailed link, making it long and
+    // inconsistent between sends.
+    expect(source).toContain("url: stripUrlToOrigin(),");
+    expect(source).not.toMatch(/sendSignInLinkToEmail\(firebaseAuth, email, \{\s*url: window\.location\.href/);
+  });
 });
 
 vi.mock("firebase/auth", () => ({
