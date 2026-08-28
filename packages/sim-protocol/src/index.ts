@@ -117,6 +117,14 @@ export type AdminPlayerRow = {
   reachTiles: number;
   /** ownedTiles - settledTiles, i.e. FRONTIER-state tiles this player owns. */
   frontierTiles: number;
+  /**
+   * barbarian-* rows only: how many of this barbarian's owned tiles are
+   * currently visible to at least one non-barbarian player (the eligibility
+   * set the barbarian AI planner acts from — see
+   * exportBarbActivationVisibleUnion / system-job-barbarian-planner.ts).
+   * Omitted for every non-barbarian row.
+   */
+  barbActivationVisibleTiles?: number;
 };
 
 export type RecentCommand = {
