@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
   {
+    createdAt: 1787823264967, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.27",
+    title: "Enable <structure> is disabled on an unsettled tile",
+    why: "A disabled economic structure (Relay Beacon, synthesizer, weapons factory, etc.) standing on a FRONTIER (not yet settled) tile could still be re-enabled, letting it resume occupying a resource slot and providing bonuses from a tile that isn't actually settled.",
+    changes: [
+      "The Enable action for any disabled economic structure is now disabled with \"Tile is not settled\" whenever the tile it stands on is FRONTIER rather than SETTLED."
+    ]
+  },
+  {
     createdAt: 1787688467708, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.6",
     title: "Fixed structure builds (like Relay Beacon) appearing stuck after expand+settle+build",

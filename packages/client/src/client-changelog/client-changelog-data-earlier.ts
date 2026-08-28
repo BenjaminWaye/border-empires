@@ -145,17 +145,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787412371498, // 2026.08.22.11 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.11",
-    title: "Muster flags can now march on a chosen target instead of just the nearest enemy tile",
-    why: "A muster flag's ADVANCE mode always auto-fired on whatever enemy tile happened to be nearest, with no way to point it at a specific target -- useful for holding a line, but not for actually pushing an offensive toward somewhere particular.",
-    changes: [
-      "New \"March To...\" muster action: pick a flag, choose \"March To...\", then click a destination tile.",
-      "A marching flag fights its way toward that destination one attack at a time, always picking whichever reachable enemy tile is closest to the target -- it never crosses neutral ground, since a muster flag only ever attacks enemy territory.",
-      "The flag automatically returns to HOLD once it captures the target tile, or you can cancel the march early from the tile menu."
-    ]
-  },
-  {
     createdAt: 1787519500000, // frozen from a live Date.now() call
     introducedIn: "2026.08.23.8",
     title: "Added a \"Suggest Improvement\" button next to Report Bug",
@@ -320,16 +309,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "The game no longer renders the map/world underneath while the lobby is up, saving battery and CPU for players who are just waiting.",
       "Redesigned the lobby's look: a brass-and-gunmetal war-room panel with riveted corners, a glowing amber countdown dial, and a subtle cog motif, layered over the game's existing dark command-center theme.",
       "Fixed the lobby heading showing the raw season id twice (e.g. \"Season season-8 starts soon\") -- it now reads simply \"Season starts soon\"."
-    ]
-  },
-  {
-    createdAt: 1787411986658,
-    introducedIn: "2026.08.22.8",
-    title: "Beta season countdown screen",
-    why: "The beta season now has a synchronized start time so everyone begins together instead of the first arrivals compounding a head start over testers in later timezones.",
-    changes: [
-      "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
-      "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
     ]
   },
   {
