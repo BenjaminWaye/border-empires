@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
   {
+    createdAt: 1787688074263, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Fixed black artifacts under coastal sea tiles",
+    why: "The water surface is a flat, zero-thickness sheet with no underside geometry of its own -- it relied entirely on the neighboring land's own coastal skirt wall to hide the void beneath it. Anywhere water bordered non-water without a drawn land tile covering that edge this frame (open sea, a fog/window boundary, etc.), there was nothing there, so a grazing or below-water view saw straight through to empty background.",
+    changes: [
+      "Water tiles now get their own skirt wall along every edge that doesn't border another water tile, so the sea never shows a black gap underneath regardless of camera angle."
+    ]
+  },
+  {
     createdAt: Date.now(),
     introducedIn: "2026.08.27",
     title: "Fixed previously explored land turning back into unexplored fog on reconnect",
