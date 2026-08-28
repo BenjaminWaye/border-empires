@@ -15,6 +15,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787912102098, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.2",
+    title: "Building Relay Beacon (or any structure) on a frontier tile no longer races its own settlement",
+    why: "Clicking Build on a not-yet-settled frontier tile sends CLAIM_CONTINUATION_SET, whose server-side immediate-drive branch enqueues and dispatches its own SETTLE for that tile, while the client also sends a SETTLE directly for the same click. Both wanted the same already-in-flight outcome, but the server treated the second one as a conflicting duplicate and rejected it with SETTLE_INVALID 'tile is already settling' -- which the client then had to detect and paper over with a one-shot retry, visible as log noise and occasional settle-state flicker.",
+    changes: [
+      "A duplicate SETTLE for a tile the same player is already settling now resolves as a no-op on the server instead of rejecting, so the Relay Beacon claim-continuation race no longer hits the client's error-recovery/retry path at all (that path still exists for other cases, like a genuinely conflicting settle from another player)."
+    ]
+  },
+  {
     createdAt: 1787908074987, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.2",
     title: "Queuing an Expand outside your reach now explains it'll decay",
