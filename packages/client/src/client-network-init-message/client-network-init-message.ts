@@ -251,6 +251,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
   // picks up whatever the server kept draining/holding while disconnected.
   const serverDevQueue = player.devQueue as ServerDevQueueWireEntry[] | undefined;
   const serverWaypointQueue = player.waypointQueue as ServerWaypointQueueWireEntry[] | undefined;
+  console.log("[waypoint-diag] init-received", JSON.stringify({ playerId: state.me, serverWaypointQueue: serverWaypointQueue ?? null, localWaypointCountBeforeRestore: state.waypoint.length })); // TEMP DIAGNOSTIC: raw waypointQueue as it arrived on this INIT, before any client-side merge/filter/replan.
   if (state.developmentQueue.length === 0) {
     state.developmentQueue = restorePersistedDevelopmentQueueForPlayer(
       state.me,
@@ -300,9 +301,7 @@ export const applyInitMessage = (msg: Record<string, unknown>, deps: ClientNetwo
     deps.sendGameMessage?.(devQueueEnqueueWirePayload(entry));
   });
 
-  if (state.waypoint.length === 0) {
-    state.waypoint = restorePersistedWaypointQueueForPlayer(state.me, { state, keyFor }, serverWaypointQueue);
-  }
+  if (state.waypoint.length === 0) { state.waypoint = restorePersistedWaypointQueueForPlayer(state.me, { state, keyFor }, serverWaypointQueue); console.log("[waypoint-diag] init-restored", JSON.stringify({ playerId: state.me, restoredCount: state.waypoint.length, restored: state.waypoint.map((w) => ({ target: w.target, trackBarbarian: w.trackBarbarian ?? false, planId: w.planId, plannedAt: w.plannedAt, reachable: w.plan.reachable, blockReason: w.plan.blockReason ?? null, stepCount: w.plan.steps?.length ?? 0 })) })); } // TEMP DIAGNOSTIC: what landed in state.waypoint after restore -- compare against init-received.
   // Backfill on every INIT (not just right after a restore): re-mirror any local waypoint missing from the server -- WAYPOINT_ENQUEUE can silently fail pre-auth, unretried by callers. Same guarantee the dev-queue backfill above gives BUILD/SETTLE.
   const serverWaypointTargetKeys = new Set((serverWaypointQueue ?? []).map((entry) => keyFor(entry.x, entry.y)));
   for (const waypoint of state.waypoint) {
