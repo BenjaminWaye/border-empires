@@ -528,8 +528,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   const applyAcceptedExpandOptimisticState = (target: { x: number; y: number }): void => {
     if (typeof applyOptimisticTileState !== "function") return;
-    const targetKey = keyFor(target.x, target.y);
-    const existing = state.tiles.get(targetKey);
+    const existing = state.tiles.get(keyFor(target.x, target.y));
     if (existing?.ownerId === state.me && (existing.ownershipState === "FRONTIER" || existing.ownershipState === "SETTLED")) return;
     applyOptimisticTileState(target.x, target.y, (tile: { ownerId?: string; ownershipState?: string; fogged?: boolean; optimisticPending?: string }) => {
       tile.ownerId = state.me;
@@ -537,6 +536,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       tile.fogged = false;
       tile.optimisticPending = "expand";
     });
+    refreshOnboardingChecklistHighlight(state); // recompute right at the "expand lock" (not just on the next tile-delta batch), so a just-expanded target stops looking un-highlighted for the whole EXPAND resolution window
   };
 
   const reconcileActionQueueSafely = (): void => {
@@ -1519,16 +1519,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         currentAction: state.actionCurrent
       });
       rebindLateFrontierAck(target, "ACTION_ACCEPTED", msg.actionType as "EXPAND" | "ATTACK" | undefined);
-      // Recompute the onboarding checklist right when the "expand lock"
-      // starts (the optimistic ownerId flip below), not just on the next
-      // tile-delta batch -- otherwise a highlighted town/food target the
-      // player just committed to Expand To keeps showing as un-highlighted
-      // for the full FRONTIER_CLAIM_MS duration the real EXPAND takes to
-      // resolve, even though the goal is effectively already met.
-      if (msg.actionType === "EXPAND") {
-        applyAcceptedExpandOptimisticState(target);
-        refreshOnboardingChecklistHighlight(state);
-      }
+      if (msg.actionType === "EXPAND") applyAcceptedExpandOptimisticState(target);
       state.actionAcceptedAck = true;
       state.actionAcceptTimeoutHandledAt = 0;
       state.actionInFlight = true;
@@ -1726,10 +1717,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         (lockedResult?.attackType as "EXPAND" | "ATTACK" | undefined) ??
           state.actionCurrent?.actionType
       );
-      if (lockedResult?.attackType === "EXPAND") {
-        applyAcceptedExpandOptimisticState(target);
-        refreshOnboardingChecklistHighlight(state);
-      }
+      if (lockedResult?.attackType === "EXPAND") applyAcceptedExpandOptimisticState(target);
       state.actionAcceptedAck = true;
       state.combatStartAck = true;
       state.actionAcceptTimeoutHandledAt = 0;
