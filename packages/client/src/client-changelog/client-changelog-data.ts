@@ -15,6 +15,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787845125246, // frozen: one ms after the previous newest entry
+    introducedIn: "2026.08.27",
+    title: "Aether Condenser overview cleanup",
+    why: "The economy panel's CRYSTAL slot breakdown counted an Aether Condenser as occupying a slot even while it was still in Refine mode supplying that slot instead, and the tile overview repeated the converter's mode/cooldown state in two lines that duplicated what the flip button already said.",
+    changes: [
+      "An Aether Condenser (or its Advanced/Umbrite/Titanium counterparts) only shows up under \"Occupied by\" once it's actually flipped to Sell Off mode, matching the slot math the server uses.",
+      "Removed the redundant \"selling off its slot\"/\"currently contributing output and upkeep\" status line and the \"Mode flip available in Xm\" cooldown line from the tile overview — the mode-flip button already shows both."
+    ]
+  },
+  {
     createdAt: 1787845125245, // frozen: one ms after the previous newest entry
     introducedIn: "2026.08.27",
     title: "Islands map improvements: bigger islands, no sealed mountain rings, tighter dock/town placement",
@@ -464,15 +474,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Building a structure on a not-yet-settled frontier tile makes the client send a SETTLE command directly while the server independently auto-enqueues its own SETTLE step for the same tile, so whichever arrives second is rejected as a duplicate. The client's recovery logic for that expected rejection compared against a slightly wrong error string, so it never matched -- instead of quietly resuming, the client wiped its local settlement/build tracking and stopped refreshing, even though the server had already settled the tile and started building.",
     changes: [
       "The client now correctly recognizes a duplicate-settle rejection and resumes tracking instead of abandoning the tile, so builds like Relay Beacon started via expand+settle+build no longer appear stuck client-side while they're actually progressing on the server."
-    ]
-  },
-  {
-    createdAt: 1787817717886, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.27",
-    title: "Fixed frontier tiles falsely glowing amber after panning the map",
-    why: "The decay-countdown pulse writes its amber tint straight into the ownership overlay's GPU color buffer every frame, separately from the buffer's own rebuild-on-pan color update. Both writers shared one pending-upload list, and the pulse's per-frame bookkeeping was clearing that list before the rebuild's own full-buffer update reached the GPU whenever a pan/zoom rebuild and a pulse tick landed in the same frame. Any frontier tile that a rebuild reassigned to a vertex slot the pulse didn't touch that frame kept whatever color the GPU already had there from a previous tile -- including, e.g., another empire's amber decay pulse -- until the next rebuild happened to also touch that exact slot.",
-    changes: [
-      "Panning or zooming the map over frontier tiles no longer occasionally leaves random, non-decaying tiles stuck glowing amber like the frontier-decay pulse."
     ]
   },
   {
