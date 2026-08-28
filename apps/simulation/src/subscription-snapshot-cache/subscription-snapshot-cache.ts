@@ -162,6 +162,21 @@ export const applyPlayerMessageToSnapshot = (
         ...(payload.storageCap && typeof payload.storageCap === "object"
           ? { storageCap: payload.storageCap as Record<string, number> }
           : {}),
+        // devQueue/waypointQueue were missing here until this fix -- this is
+        // the sim's OWN player-snapshot cache (used to serve a fast
+        // bootstrap/reconnect subscribe without a full re-export, and
+        // reachable even while a player is offline via
+        // applyNonTileEventToCache in simulation-service.ts), a *separate*
+        // copy of this merge function from the gateway's identically-named
+        // one in subscription-snapshot-sync.ts. Queuing/cancelling a
+        // waypoint or dev-queue entry changes no tile state, so nothing else
+        // ever invalidated a stale cached entry for these two fields --
+        // meaning a reconnect could be served a snapshot missing an entry
+        // that had already been pushed via emitPlayerStateUpdate, even
+        // though the live in-memory state was correct. See PR #1633/#1634
+        // for the matching (but incomplete, for this exact reason) fix.
+        ...(Array.isArray(payload.devQueue) ? { devQueue: payload.devQueue as NonNullable<PlayerStateSnapshot["devQueue"]> } : {}),
+        ...(Array.isArray(payload.waypointQueue) ? { waypointQueue: payload.waypointQueue as NonNullable<PlayerStateSnapshot["waypointQueue"]> } : {}),
         ...playerProgressionFieldsFromPayload(payload)
       }
     };
