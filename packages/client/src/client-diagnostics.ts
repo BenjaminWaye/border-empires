@@ -4,7 +4,7 @@ import { snapshotPerformanceMetrics, initPerformanceMetrics } from "./client-per
 import { isTrue3DRendererActive, prefers2DRendererMode, rendererModeExplicitlySet } from "./client-renderer-mode.js";
 import { rendererFailureSnapshot, webGLProbe } from "./client-webgl-probe/client-webgl-probe.js";
 import { resolveTileBudget } from "./client-map-3d-tile-budget/client-map-3d-tile-budget.js";
-import { previousRendererAttempt } from "./client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
+import { previousRendererAttempt, previousSessionEndedUncleanly } from "./client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { MIN_ZOOM } from "./client-constants.js";
 import type { ClientState } from "./client-state/client-state.js";
 
@@ -131,7 +131,14 @@ export const buildDiagnosticsBundle = (
       // How far the *previous* session's 3D attempt got. This is the only
       // evidence a hard browser crash leaves behind — a killed tab runs no
       // JavaScript, so `failure` above stays empty for one.
-      previousAttempt: previousRendererAttempt()
+      previousAttempt: previousRendererAttempt(),
+      // Pre-computed verdict on the field above: true when the previous
+      // session's 3D was still sending heartbeats with no matching clean
+      // `pagehide`, i.e. it just stopped — the signature of a hard crash
+      // (an iOS jetsam kill under memory pressure, most likely) rather than
+      // the player simply closing the tab. Saves whoever reads this bundle
+      // from re-deriving it from previousAttempt's raw timestamps.
+      previousSessionLikelyCrashed: previousSessionEndedUncleanly()
     },
     performanceMetrics: snapshotPerformanceMetrics(),
     recentDebugEvents: snapshotClientDebugEvents(),

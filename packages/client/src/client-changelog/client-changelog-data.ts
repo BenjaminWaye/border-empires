@@ -210,6 +210,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787937658626, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.3",
+    title: "Fixed the out-of-reach decay timer never showing on the tile menu",
+    why: "The gateway-sync layer that applies incoming tile deltas only recognized \"ENCIRCLEMENT\" as a valid frontierDecayKind and silently dropped any other value -- including \"OUT_OF_REACH\", the sim's other real decay kind -- back to undefined. An out-of-reach frontier tile's decay deadline (frontierDecayAt) synced to the client fine, but its kind didn't, so the tile menu's header status could never match the OUT_OF_REACH branch and always fell back to a static \"Outside reach\" with no live countdown, even while the tile was actively decaying.",
+    changes: [
+      "The tile menu now shows the \"Beyond your reach — decays in Xs\" countdown for a decaying out-of-reach frontier tile instead of a static \"Outside reach\" with no timer."
+    ]
+  },
+  {
     createdAt: 1787817510197, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.1",
     title: "Fixed the frontier decay countdown freezing on a decaying tile's menu",
@@ -448,15 +457,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Re-checks reach coverage at the moment a frontier tile's decay timer would fire, not just at claim time",
       "A tile inside any player's live reach -- the owner's own or another player's -- has its decay timer cleared instead of expiring"
-    ]
-  },
-  {
-    createdAt: 1787724118006, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.1",
-    title: "Rally-linked players now spawn near a real foothold, not just the nearest empty tile",
-    why: "Joining via a friend's rally link placed you on whichever open tile happened to be closest to their anchor, even a barren one with no town or food nearby -- while a normal spawn always looked for a town and food within reach.",
-    changes: [
-      "Rally spawns now search outward from the anchor for a spot with both a town and food nearby before falling back to a town-only, then food-only, then any-open-tile spot, all still within the rally radius"
     ]
   },
   {

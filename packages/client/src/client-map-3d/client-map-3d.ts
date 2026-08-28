@@ -16,7 +16,7 @@ import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_A
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS, MIN_ZOOM } from "../client-constants.js";
-import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js";
+import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, terrainWindowCovers, terrainWindowPanned, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
@@ -2076,9 +2076,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       ctActiveNow !== lastRebuild.crystalTargetingActive;
     if (!rebuildNeeded) return;
     if (lastRebuild.at !== 0 && nowMs - lastRebuild.at < REBUILD_MIN_INTERVAL_MS) return;
-
+    const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
     const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);
-    rebuildVisibleTerrain(builtWindow);
+    rebuildVisibleTerrain(builtWindow); if (isFirstRebuild) markRendererFirstRenderCompleted();
     lastRebuild.builtWindow = builtWindow;
     lastRebuild.at = nowMs;
     lastRebuild.tilesRevision = deps.state.tilesRevision;
