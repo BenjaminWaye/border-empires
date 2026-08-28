@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787688556298, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Hid the redundant \"0 gold\" in the Build Relay Beacon action cost",
+    why: "The Build Relay Beacon action's cost string always prepended the gold cost, even when expand + settle + build all cost 0 gold, so the Actions tab showed a confusing \"0 gold, N m.p. ...\" line.",
+    changes: [
+      "The Build Relay Beacon action's cost text now omits the gold segment entirely when the gold cost is 0."
+    ]
+  },
+  {
     createdAt: 1787817717886, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27",
     title: "Fixed frontier tiles falsely glowing amber after panning the map",
