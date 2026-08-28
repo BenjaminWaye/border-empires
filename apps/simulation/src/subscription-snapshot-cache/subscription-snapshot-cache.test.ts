@@ -90,6 +90,18 @@ describe("applyPlayerMessageToSnapshot", () => {
     ]);
   });
 
+  it("merges chosenTrickleResource from a PLAYER_UPDATE into the cached snapshot", () => {
+    // Regression: this field was merged in the gateway's copy
+    // (subscription-snapshot-sync.ts) but dropped here, the reverse of the
+    // devQueue/waypointQueue drift above -- same drift class, opposite side.
+    const updated = applyPlayerMessageToSnapshot(snapshot(), {
+      type: "PLAYER_UPDATE",
+      chosenTrickleResource: "TITANIUM"
+    });
+
+    expect(updated.player?.chosenTrickleResource).toBe("TITANIUM");
+  });
+
   it("keeps progression modifiers in cached snapshots after tech updates", () => {
     const updated = applyPlayerMessageToSnapshot(snapshot(), {
       type: "TECH_UPDATE",
