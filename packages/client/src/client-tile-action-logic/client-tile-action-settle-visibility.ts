@@ -1,11 +1,10 @@
 // Split out of client-tile-action-logic.ts (file-line-cap task): Settle Land /
-// Settle Connected are pushed last (bottom of the actions list).
-//
-// User decision (supersedes the old "hide until established economy" gate):
-// Settle Land must show on any owned FRONTIER tile from the start, same as
-// "Expand To" + "Build Relay Beacon" already show unconditionally on a
-// neutral tile. Requiring a settled town + food tile first hid the action
-// during the exact early-game window players expect it to be available.
+// Settle Connected are pushed last (bottom of the actions list) and hidden
+// until the player has an established economy (a settled town + a settled
+// food tile, farm or fish) -- players kept manually settling exposed frontier
+// tiles in the opening minutes expecting some benefit, when in the early game
+// there's nothing to gain from it. Once shown, manual settling is really only
+// for cheap defense, connecting towns, or consolidating territory.
 import { SETTLE_COST, SETTLE_MANPOWER_COST } from "@border-empires/shared";
 import { canAffordCost, isForestTile } from "../client-constants.js";
 import { hasQueuedSettlementForTile } from "../client-development-queue/client-development-queue.js";
@@ -15,6 +14,18 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 import { tileActionAvailabilityWithDevelopmentSlot, type TileActionLogicDeps } from "./client-tile-action-logic.js";
 
+export const hasEstablishedTownAndFoodTile = (state: ClientState): boolean => {
+  let hasTown = false;
+  let hasFoodTile = false;
+  for (const t of state.tiles.values()) {
+    if (t.ownerId !== state.me || t.ownershipState !== "SETTLED") continue;
+    if (t.town) hasTown = true;
+    if (t.resource === "FARM" || t.resource === "FISH") hasFoodTile = true;
+    if (hasTown && hasFoodTile) return true;
+  }
+  return false;
+};
+
 export const settleActionsForFrontierTile = (
   state: ClientState,
   tile: Tile,
@@ -22,6 +33,7 @@ export const settleActionsForFrontierTile = (
   slots: DevelopmentSlotSummary,
   queuedSettlement: boolean
 ): TileActionDef[] => {
+  if (!hasEstablishedTownAndFoodTile(state)) return [];
   if (tile.ownershipState !== "FRONTIER" || queuedSettlement) return [];
   // Fixed-border reach: SETTLE is still reach-gated server-side even though EXPAND
   // itself is not -- see runtime-structure-command-handlers.ts. On a FRONTIER tile
