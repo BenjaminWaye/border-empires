@@ -12,9 +12,9 @@ describe("frontier combat", () => {
 
     expect(preview.atkEff).toBe(10);
     expect(preview.atkMult).toBe(1);
-    expect(preview.defEff).toBeCloseTo(16.2, 6);
+    expect(preview.defEff).toBeCloseTo(12, 6);
     // Win chance uses an exponentiated power ratio (COMBAT_WIN_CHANCE_EXPONENT = 2), not a flat ratio.
-    expect(preview.winChance).toBeCloseTo(10 ** 2 / (10 ** 2 + 16.2 ** 2), 6);
+    expect(preview.winChance).toBeCloseTo(10 ** 2 / (10 ** 2 + 12 ** 2), 6);
   });
 
   it("uses the same preview chance when rolling combat", () => {
@@ -28,7 +28,7 @@ describe("frontier combat", () => {
       0.99
     );
 
-    expect(result.winChance).toBeCloseTo(10 ** 2 / (10 ** 2 + 16.2 ** 2), 6);
+    expect(result.winChance).toBeCloseTo(10 ** 2 / (10 ** 2 + 12 ** 2), 6);
     expect(result.attackerWon).toBe(false);
   });
 
@@ -93,7 +93,7 @@ describe("frontier combat", () => {
 
     expect(baseline.atkMult).toBe(1);
     expect(boosted.atkMult).toBeCloseTo(1.06, 6);
-    expect(boosted.defMult).toBeCloseTo(1.35 * 1.09, 6);
+    expect(boosted.defMult).toBeCloseTo(1.09, 6);
   });
 
   it("does not apply a Weapons Workshop defense bonus to a FRONTIER target (zero defense regardless)", () => {
@@ -113,7 +113,7 @@ describe("frontier combat", () => {
 
     expect(baseline.atkMult).toBe(1);
     expect(boosted.atkMult).toBeCloseTo(1.03, 6);
-    expect(boosted.defMult).toBeCloseTo(1.35 * 1.06, 6);
+    expect(boosted.defMult).toBeCloseTo(1.06, 6);
   });
 
   it("applies umbriteWeaponsFactoryAttackMult and umbriteWeaponsFactoryDefenseMult when present", () => {
@@ -125,7 +125,7 @@ describe("frontier combat", () => {
 
     expect(baseline.atkMult).toBe(1);
     expect(boosted.atkMult).toBeCloseTo(1.06, 6);
-    expect(boosted.defMult).toBeCloseTo(1.35 * 1.03, 6);
+    expect(boosted.defMult).toBeCloseTo(1.03, 6);
   });
 
   it("stacks Iron and Fur Weapons Factory mults multiplicatively", () => {
@@ -140,7 +140,7 @@ describe("frontier combat", () => {
     );
 
     expect(preview.atkMult).toBeCloseTo(1.03 * 1.06, 6);
-    expect(preview.defMult).toBeCloseTo(1.35 * 1.06 * 1.03, 6);
+    expect(preview.defMult).toBeCloseTo(1.06 * 1.03, 6);
   });
 
   it("does not apply an Iron/Fur Weapons Factory defense bonus to a FRONTIER target (zero defense regardless)", () => {
@@ -179,8 +179,8 @@ describe("frontier combat", () => {
       { noWarIndustryDefenseVulnerabilityMult: 2.0 }
     );
 
-    expect(baseline.defMult).toBeCloseTo(1.35, 6);
-    expect(boosted.defMult).toBeCloseTo(1.35 * 2.0, 6);
+    expect(baseline.defMult).toBeCloseTo(1, 6);
+    expect(boosted.defMult).toBeCloseTo(2.0, 6);
     expect(boosted.winChance).toBeLessThan(baseline.winChance);
   });
 
@@ -189,7 +189,7 @@ describe("frontier combat", () => {
       { terrain: "LAND", ownershipState: "SETTLED" },
       { titaniumWeaponsFactoryDefenseMult: 1.03, noWarIndustryDefenseVulnerabilityMult: 2.0 }
     );
-    expect(preview.defMult).toBeCloseTo(1.35 * 1.03 * 2.0, 6);
+    expect(preview.defMult).toBeCloseTo(1.03 * 2.0, 6);
   });
 
   it("leaves atkMult unchanged when dockAttackMult is undefined", () => {
@@ -253,8 +253,8 @@ describe("frontier combat", () => {
         fortVariant: "FORT"
       });
 
-      expect(preview.defMult).toBeCloseTo(1.35 * 2.5, 6);
-      expect(preview.defEff).toBeCloseTo(10 * 1.35 * 2.5, 6);
+      expect(preview.defMult).toBeCloseTo(2.5, 6);
+      expect(preview.defEff).toBeCloseTo(10 * 2.5, 6);
     });
 
     it("applies 4x defense for TITANIUM_BASTION", () => {
@@ -264,8 +264,8 @@ describe("frontier combat", () => {
         fortVariant: "TITANIUM_BASTION"
       });
 
-      expect(preview.defMult).toBeCloseTo(1.35 * 4, 6);
-      expect(preview.defEff).toBeCloseTo(10 * 1.35 * 4, 6);
+      expect(preview.defMult).toBeCloseTo(4, 6);
+      expect(preview.defEff).toBeCloseTo(10 * 4, 6);
     });
 
     it("applies 8x defense for THUNDER_BASTION", () => {
@@ -275,8 +275,8 @@ describe("frontier combat", () => {
         fortVariant: "THUNDER_BASTION"
       });
 
-      expect(preview.defMult).toBeCloseTo(1.35 * 8, 6);
-      expect(preview.defEff).toBeCloseTo(10 * 1.35 * 8, 6);
+      expect(preview.defMult).toBeCloseTo(8, 6);
+      expect(preview.defEff).toBeCloseTo(10 * 8, 6);
     });
 
     it("multiplies base fort defense by tech fortDefenseMult", () => {
@@ -294,8 +294,8 @@ describe("frontier combat", () => {
         { fortDefenseMult: 1.25 }
       );
 
-      expect(baseline.defMult).toBeCloseTo(1.35 * 4, 6);
-      expect(boosted.defMult).toBeCloseTo(1.35 * 4 * 1.25, 6);
+      expect(baseline.defMult).toBeCloseTo(4, 6);
+      expect(boosted.defMult).toBeCloseTo(4 * 1.25, 6);
       expect(boosted.winChance).toBeLessThan(baseline.winChance);
     });
   });
@@ -303,24 +303,24 @@ describe("frontier combat", () => {
   describe("breakthrough momentum", () => {
     const now = 1_000_000;
 
-    it("applies no debuff when the tile has no breach window (baseline 1.35x defense)", () => {
+    it("applies no debuff when the tile has no breach window (baseline 1x defense)", () => {
       const preview = buildFrontierCombatPreview(
         { terrain: "LAND", ownershipState: "SETTLED" },
         { nowMs: now }
       );
 
-      expect(preview.defMult).toBeCloseTo(1.35, 6);
-      expect(preview.defEff).toBeCloseTo(13.5, 6);
+      expect(preview.defMult).toBeCloseTo(1, 6);
+      expect(preview.defEff).toBeCloseTo(10, 6);
     });
 
-    it("applies the 0.7x breach debuff when the tile is within its breach window (1.35 x 0.7)", () => {
+    it("applies the 0.7x breach debuff when the tile is within its breach window", () => {
       const preview = buildFrontierCombatPreview(
         { terrain: "LAND", ownershipState: "SETTLED", breachShockUntil: now + 30_000 },
         { nowMs: now }
       );
 
-      expect(preview.defMult).toBeCloseTo(1.35 * 0.7, 6);
-      expect(preview.defEff).toBeCloseTo(10 * 1.35 * 0.7, 6);
+      expect(preview.defMult).toBeCloseTo(0.7, 6);
+      expect(preview.defEff).toBeCloseTo(10 * 0.7, 6);
     });
 
     it("does not apply the breach debuff once the breach window has elapsed", () => {
@@ -329,7 +329,7 @@ describe("frontier combat", () => {
         { nowMs: now }
       );
 
-      expect(preview.defMult).toBeCloseTo(1.35, 6);
+      expect(preview.defMult).toBeCloseTo(1, 6);
     });
 
     it("treats frontier targets as zero-defense even while breached", () => {
@@ -342,7 +342,7 @@ describe("frontier combat", () => {
       expect(preview.defEff).toBeCloseTo(0, 6);
     });
 
-    it("stacks the breach debuff multiplicatively with town defense (1.35 x 1.2 x 0.7)", () => {
+    it("stacks the breach debuff multiplicatively with town defense (1.2 x 0.7)", () => {
       const preview = buildFrontierCombatPreview(
         {
           terrain: "LAND",
@@ -353,7 +353,7 @@ describe("frontier combat", () => {
         { nowMs: now }
       );
 
-      expect(preview.defMult).toBeCloseTo(1.35 * 1.2 * 0.7, 6);
+      expect(preview.defMult).toBeCloseTo(1.2 * 0.7, 6);
     });
 
     it("gives the attacker a higher win chance against a breached tile than an identical unbreached tile", () => {

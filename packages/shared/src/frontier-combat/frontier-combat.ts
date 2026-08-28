@@ -166,9 +166,7 @@ const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   if (target.ownershipState === "FRONTIER") return { entries, mult: 0 };
   let mult = 1;
   mult *= foldMult(entries, "Attacker has no war industry", modifiers.noWarIndustryDefenseVulnerabilityMult);
-  mult *= foldMult(entries, "Settled tile", target.ownershipState === "SETTLED" ? 1.35 : undefined);
   mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
-  mult *= foldMult(entries, "Dock", target.dockId ? 1.1 : undefined);
   if (target.fortVariant) {
     const baseFortMult = baseFortDefenseMult(target.fortVariant);
     const techMult = modifiers.fortDefenseMult ?? 1;

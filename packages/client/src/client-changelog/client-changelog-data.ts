@@ -25,6 +25,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787940942955, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.6",
+    title: "Removed the settled-tile and dock defense bonuses",
+    why: "Owning a settled tile or a dock granted a flat defense multiplier on top of forts/tech/war-industry, which didn't make sense thematically -- being settled or having a dock isn't a defensive structure. Defense now comes only from forts, town bonus, tech/domain mods, and war-industry status.",
+    changes: [
+      "Removed the +35% \"Settled tile\" and +10% \"Dock\" defense bonuses from the combat breakdown; forts, towns, tech/domain mods, and war-industry status are unaffected"
+    ]
+  },
+  {
     createdAt: 1787912311406, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.2",
     title: "Fixed several player-state fields silently reverting on reconnect",
