@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
   {
+    createdAt: 1787688467708, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Fixed structure builds (like Relay Beacon) appearing stuck after expand+settle+build",
+    why: "Building a structure on a not-yet-settled frontier tile makes the client send a SETTLE command directly while the server independently auto-enqueues its own SETTLE step for the same tile, so whichever arrives second is rejected as a duplicate. The client's recovery logic for that expected rejection compared against a slightly wrong error string, so it never matched -- instead of quietly resuming, the client wiped its local settlement/build tracking and stopped refreshing, even though the server had already settled the tile and started building.",
+    changes: [
+      "The client now correctly recognizes a duplicate-settle rejection and resumes tracking instead of abandoning the tile, so builds like Relay Beacon started via expand+settle+build no longer appear stuck client-side while they're actually progressing on the server."
+    ]
+  },
+  {
     createdAt: 1787688074263, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.5",
     title: "Fixed black artifacts under coastal sea tiles",
@@ -21,7 +30,7 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: Date.now(),
+    createdAt: 1787845125243, // frozen: one ms before the "Waypoints now keep making progress while you're offline" entry in client-changelog-data.ts (was a live Date.now() call, which drifts stale relative to the sliding 6-day window and eventually fails client-changelog.test.ts's week-window check)
     introducedIn: "2026.08.27",
     title: "Fixed previously explored land turning back into unexplored fog on reconnect",
     why: "On a fresh-state reconnect (e.g. after a page refresh), the client restores previously explored tiles from localStorage before the INIT message finishes hydrating the current view -- but that hydration step then clears the discovered-tiles set back down to just what's in its own snapshot, silently wiping out the restore. Any previously explored tile outside the current view radius came back looking unexplored instead of correctly fogged, until the player scrolled back over it.",

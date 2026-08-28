@@ -283,17 +283,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787380000000,
-    introducedIn: "2026.08.22.3",
-    title: "Battle preview dots now throw glyphs and take casualties during the siege countdown",
-    why: "During a siege countdown, the pre-resolution skirmish animation just had dots vibrating at the tile center with no visual payoff -- no symbols thrown into the air, no losses. When the outcome finally arrived, the sudden appearance of glyph bursts, casualties, and the rout phase was a jarring switch. The skirmish now plays the same clash-phase effects as the resolved battle so the transition is seamless.",
-    changes: [
-      "Glyph bursts (the rune/shard particles) now spawn continuously throughout the skirmish clash, not just when combat resolves.",
-      "Both sides now shed 2 of 10 dots during the skirmish's first clash cycle (WINNER_DEATHS per side), mirroring the resolved battle's casualty system so the swarm is already thinning when the outcome lands.",
-      "When the resolved outcome arrives, the loser side simply sheds 2 more dots mid-clash and the rout begins naturally -- no sudden switch from a static vibration to a full animation."
-    ]
-  },
-  {
     createdAt: 1787650830571, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.1",
     title: "Farmstead now grants +2 FOOD slots instead of +1",
