@@ -183,5 +183,14 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
     changes: [
       "Queuing, cancelling, or reordering a build/settle queue entry now pushes a live update the same way other actions do, so a reconnect immediately after always shows the current queue and manpower instead of a stale snapshot."
     ]
+  },
+  {
+    createdAt: 1787905670825, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.3",
+    title: "Waypoints and queued builds now actually survive a reconnect",
+    why: "The login/reconnect message builds its player object as an explicit field-by-field list, and the waypoint queue and build/settle queue were never on that list -- so they were dropped at the very last step before being sent, on every single reconnect. The server had them the whole time and every layer underneath passed them along correctly; they just never made it into the message. This is why a waypoint could keep expanding correctly while you were away and still show up completely gone the moment you logged back in.",
+    changes: [
+      "Your waypoint queue and build/settle queue are now included in the login/reconnect message, so they reliably come back exactly as the server has them -- flags, planned routes, and mid-route progress included."
+    ]
   }
 ];
