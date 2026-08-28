@@ -7,6 +7,7 @@ import type { SimulationTileWireDelta } from "../runtime-types.js";
 import {
   cancelOutOfReachDecayInAnchorDisk,
   outOfReachDecayDeadline,
+  stampOutOfReachDecayInAnchorDisk,
   type OutOfReachDecayReachContext
 } from "./runtime-reach-out-of-reach.js";
 
@@ -131,5 +132,115 @@ describe("cancelOutOfReachDecayInAnchorDisk", () => {
     const h = cancelHarness(tiles);
 
     expect(runCancel(h, anchor)).toBe(0);
+  });
+});
+
+const notDecayingTile = (x: number, y: number, overrides: Partial<DomainTileState> = {}): DomainTileState =>
+  ({
+    x,
+    y,
+    ownerId: "p1",
+    ownershipState: "FRONTIER",
+    frontierDecayAt: undefined,
+    frontierDecayKind: undefined,
+    ...overrides
+  }) as DomainTileState;
+
+type StampHarness = Harness & { registerOutOfReachDecay: ReturnType<typeof vi.fn> };
+
+const stampHarness = (tiles: Map<string, DomainTileState>): StampHarness => {
+  const events: SimulationEvent[] = [];
+  const replaceTileState = vi.fn((tileKey: string, tile: DomainTileState) => {
+    tiles.set(tileKey, tile);
+  });
+  return { tiles, events, replaceTileState, registerOutOfReachDecay: vi.fn() };
+};
+
+const runStamp = (
+  h: StampHarness,
+  anchor: ReachAnchor,
+  options: { liveAnchors?: ReachAnchor[]; stillInOwnReach?: boolean } = {}
+): number =>
+  stampOutOfReachDecayInAnchorDisk(
+    {
+      tiles: h.tiles,
+      replaceTileState: h.replaceTileState,
+      tileDeltaFromState: (tile) => ({ x: tile.x, y: tile.y }) as SimulationTileWireDelta,
+      emitEvent: (event) => {
+        h.events.push(event);
+      },
+      now: () => NOW,
+      gatherReachAnchors: () => options.liveAnchors ?? [],
+      isPlayerTileInReach: () => options.stillInOwnReach ?? false,
+      registerOutOfReachDecay: h.registerOutOfReachDecay
+    },
+    anchor,
+    "test-anchor-deactivation"
+  );
+
+describe("stampOutOfReachDecayInAnchorDisk", () => {
+  it("stamps a fresh deadline on the owner's non-decaying FRONTIER tiles left in no-man's-land", () => {
+    const tiles = new Map([["10,10", notDecayingTile(10, 10)]]);
+    const h = stampHarness(tiles);
+
+    expect(runStamp(h, anchor)).toBe(1);
+    const tile = tiles.get("10,10");
+    expect(tile?.frontierDecayAt).toBe(NOW + OUT_OF_REACH_DECAY_MS);
+    expect(tile?.frontierDecayKind).toBe("OUT_OF_REACH");
+    expect(h.registerOutOfReachDecay).toHaveBeenCalledWith("10,10", NOW + OUT_OF_REACH_DECAY_MS);
+    expect(h.events).toHaveLength(1);
+  });
+
+  it("leaves a tile alone if it is still inside the owner's own persistent reach", () => {
+    const tiles = new Map([["10,10", notDecayingTile(10, 10)]]);
+    const h = stampHarness(tiles);
+
+    expect(runStamp(h, anchor, { stillInOwnReach: true })).toBe(0);
+    expect(tiles.get("10,10")?.frontierDecayKind).toBeUndefined();
+    expect(h.registerOutOfReachDecay).not.toHaveBeenCalled();
+  });
+
+  it("exempts a tile in an actively contested reach zone (2+ live anchors overlap)", () => {
+    const tiles = new Map([["10,10", notDecayingTile(10, 10)]]);
+    const h = stampHarness(tiles);
+    const liveAnchors: ReachAnchor[] = [
+      { x: 10, y: 10, ownerId: "p2", activatedAt: 1, kind: "TOWN" },
+      { x: 10 + TOWN_REACH_RADIUS, y: 10, ownerId: "p3", activatedAt: 1, kind: "TOWN" }
+    ];
+    expect(runStamp(h, anchor, { liveAnchors })).toBe(0);
+    expect(tiles.get("10,10")?.frontierDecayKind).toBeUndefined();
+  });
+
+  it("leaves a tile alone that already carries a decay timer, of either kind", () => {
+    const tiles = new Map([
+      ["10,10", decayingTile(10, 10)],
+      ["11,10", decayingTile(11, 10, { frontierDecayKind: "ENCIRCLEMENT" })]
+    ]);
+    const h = stampHarness(tiles);
+
+    expect(runStamp(h, anchor)).toBe(0);
+    expect(h.registerOutOfReachDecay).not.toHaveBeenCalled();
+  });
+
+  it("leaves tiles outside the anchor's disk alone", () => {
+    const outsideKey = `${10 + TOWN_REACH_RADIUS + 1},10`;
+    const tiles = new Map([[outsideKey, notDecayingTile(10 + TOWN_REACH_RADIUS + 1, 10)]]);
+    const h = stampHarness(tiles);
+
+    expect(runStamp(h, anchor)).toBe(0);
+  });
+
+  it("does not stamp another player's tile inside the disk", () => {
+    const tiles = new Map([["10,10", notDecayingTile(10, 10, { ownerId: "p2" })]]);
+    const h = stampHarness(tiles);
+
+    expect(runStamp(h, anchor)).toBe(0);
+  });
+
+  it("ignores settled tiles", () => {
+    const tiles = new Map([["10,10", notDecayingTile(10, 10, { ownershipState: "SETTLED" })]]);
+    const h = stampHarness(tiles);
+
+    expect(runStamp(h, anchor)).toBe(0);
   });
 });

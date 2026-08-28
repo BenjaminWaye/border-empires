@@ -12,6 +12,26 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
   {
+    createdAt: 1787692499340, // frozen from a live Date.now() call
+    introducedIn: "2026.08.25.8",
+    title: "AI auto-settle now respects reach too, and losing reach unsettles ground you can no longer defend",
+    why: "The client's auto-fill queue was already fixed to stop settling out-of-reach resource tiles, but AI empires' own auto-settle driver -- and the live queue emitted to a connected human player -- still turned any owned frontier resource/support tile into a town regardless of reach. Separately, losing or disabling the last beacon/outpost/fort covering a tile left that ground permanently claimed even once nothing defended it, since the reach border only ever shrank when a rival actively contested it.",
+    changes: [
+      "AI empires' auto-settle, and the live auto-settlement queue, now skip any resource or plain-support frontier tile that's outside the owner's reach border. A captured town or dock still auto-settles regardless of reach, same as before -- it has no reach of its own to grant until settled.",
+      "A settled tile that falls entirely outside anyone's reach (its last covering beacon/outpost/fort is lost or disabled, and no rival covers it either) now reverts to frontier, playing the existing unsettle collapse effect. This applies to the structure's own tile too, if it was the sole anchor holding it -- a fully isolated outpost with nothing else nearby can be lost for good this way; extend reach back over it first (another anchor, or expanding in from adjacent territory) before it can be settled again."
+    ]
+  },
+  {
+    createdAt: 1787724124671, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Frontier tiles no longer decay while sitting inside anyone's live reach",
+    why: "Out-of-reach frontier decay only checked reach coverage at the moment a tile was claimed. If another player's town/outpost reach later grew to cover that ground, the original claim's decay timer kept counting down regardless, so tiles that were clearly inside someone's live border still got auto-cleared to neutral.",
+    changes: [
+      "Re-checks reach coverage at the moment a frontier tile's decay timer would fire, not just at claim time",
+      "A tile inside any player's live reach -- the owner's own or another player's -- has its decay timer cleared instead of expiring"
+    ]
+  },
+  {
     createdAt: 1787724118006, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.1",
     title: "Rally-linked players now spawn near a real foothold, not just the nearest empty tile",

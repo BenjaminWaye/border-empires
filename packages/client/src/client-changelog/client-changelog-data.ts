@@ -15,6 +15,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787948853587, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.6",
+    title: "Fixed out-of-reach frontier tiles that never started decaying after their covering Relay Beacon/outpost was lost",
+    why: "The out-of-reach decay timer was only ever stamped once, at the moment a tile was claimed -- a FRONTIER tile claimed while still inside your reach got no timer at all. If the anchor covering it later deactivated (a Relay Beacon disabled or destroyed, a Siege Outpost lost, a town or dock lost), nothing re-evaluated that tile's coverage: it just sat as \"Outside reach\" forever with frontierDecayKind stuck undefined, since the queue that drives expiry is only ever populated at claim time and there is deliberately no world-wide sweep (the mechanic that swept in PR #627 blocked the event loop for 9 seconds and was removed for it).",
+    changes: [
+      "Deactivating a reach anchor now re-checks its own disk (same scoped radius²-cost pass as the existing reach-caught-up case, not a sweep) and starts the decay timer on any FRONTIER tile left in genuine no-man's-land as a result"
+    ]
+  },
+  {
     createdAt: 1787941776652, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.5",
     title: "Agrarian Works now shows its fish-tile bonus as its own highlight chip",
@@ -378,16 +387,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787692499340, // frozen from a live Date.now() call
-    introducedIn: "2026.08.25.8",
-    title: "AI auto-settle now respects reach too, and losing reach unsettles ground you can no longer defend",
-    why: "The client's auto-fill queue was already fixed to stop settling out-of-reach resource tiles, but AI empires' own auto-settle driver -- and the live queue emitted to a connected human player -- still turned any owned frontier resource/support tile into a town regardless of reach. Separately, losing or disabling the last beacon/outpost/fort covering a tile left that ground permanently claimed even once nothing defended it, since the reach border only ever shrank when a rival actively contested it.",
-    changes: [
-      "AI empires' auto-settle, and the live auto-settlement queue, now skip any resource or plain-support frontier tile that's outside the owner's reach border. A captured town or dock still auto-settles regardless of reach, same as before -- it has no reach of its own to grant until settled.",
-      "A settled tile that falls entirely outside anyone's reach (its last covering beacon/outpost/fort is lost or disabled, and no rival covers it either) now reverts to frontier, playing the existing unsettle collapse effect. This applies to the structure's own tile too, if it was the sole anchor holding it -- a fully isolated outpost with nothing else nearby can be lost for good this way; extend reach back over it first (another anchor, or expanding in from adjacent territory) before it can be settled again."
-    ]
-  },
-  {
     createdAt: 1787726484063, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.26.1",
     title: "New player and respawn placements now draw from a precomputed, equal-opportunity spawn map",
@@ -456,16 +455,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Agrarian Works now adds +1 FOOD slot on every owned fish tile, on top of unlocking the Farmstead",
       "This is a flat tech bonus, independent of any structure -- it applies to bare fish tiles too, not just ones with a Farmstead built on them"
-    ]
-  },
-  {
-    createdAt: 1787724124671, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.1",
-    title: "Frontier tiles no longer decay while sitting inside anyone's live reach",
-    why: "Out-of-reach frontier decay only checked reach coverage at the moment a tile was claimed. If another player's town/outpost reach later grew to cover that ground, the original claim's decay timer kept counting down regardless, so tiles that were clearly inside someone's live border still got auto-cleared to neutral.",
-    changes: [
-      "Re-checks reach coverage at the moment a frontier tile's decay timer would fire, not just at claim time",
-      "A tile inside any player's live reach -- the owner's own or another player's -- has its decay timer cleared instead of expiring"
     ]
   },
   {
