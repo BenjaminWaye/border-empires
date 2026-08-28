@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
-import { handleChooseTechCommand, type RuntimeProgressionCommandContext } from "./runtime-progression-command-handlers.js";
+import { handleChooseDomainCommand, handleChooseTechCommand, type RuntimeProgressionCommandContext } from "./runtime-progression-command-handlers.js";
 
 const buildPlayer = (id: string, overrides: Partial<DomainPlayer> = {}): DomainPlayer => ({
   id,
@@ -19,7 +19,8 @@ const buildPlayer = (id: string, overrides: Partial<DomainPlayer> = {}): DomainP
 const buildContext = (
   players: Map<string, DomainPlayer>,
   tiles: Map<string, DomainTileState>,
-  resyncRevealedResourceTilesForPlayer: RuntimeProgressionCommandContext["resyncRevealedResourceTilesForPlayer"]
+  resyncRevealedResourceTilesForPlayer: RuntimeProgressionCommandContext["resyncRevealedResourceTilesForPlayer"],
+  overrides: Partial<RuntimeProgressionCommandContext> = {}
 ): RuntimeProgressionCommandContext => {
   const events: SimulationEvent[] = [];
   return {
@@ -45,7 +46,8 @@ const buildContext = (
     resourceSlotSupplyForPlayer: () => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }),
     resourceSlotDemandForPlayer: () => ({ FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }),
     invalidateResourceSlotDemand: () => {},
-    resyncRevealedResourceTilesForPlayer
+    resyncRevealedResourceTilesForPlayer,
+    ...overrides
   };
 };
 
@@ -95,5 +97,63 @@ describe("handleChooseTechCommand resource-reveal resync", () => {
     handleChooseTechCommand(context, command);
 
     expect(calls).toEqual([]);
+  });
+});
+
+// Regression coverage: picking a domain (e.g. tier-1 Mercantile Charter,
+// firstThreeTownsGoldOutputMult/firstThreeTownsPopulationGrowthMult) used to
+// leave the per-player tile-yield economy context and economy snapshot
+// caches stale — the multiplier only took effect once something unrelated
+// happened to invalidate those caches later, so gold production and the
+// town-overview modifiers panel didn't reflect the purchase right away.
+// Both CHOOSE_DOMAIN and CHOOSE_TECH must invalidate them on every
+// successful choice.
+describe("cache invalidation on tech/domain choice", () => {
+  it("invalidates the tile-yield and economy-snapshot caches on a successful domain choice", () => {
+    const player = buildPlayer("player-1", { points: 100, techIds: new Set(["trade"]) });
+    const players = new Map([["player-1", player]]);
+    const tiles = new Map<string, DomainTileState>();
+    const invalidatedEconomySnapshotFor: string[] = [];
+    const invalidatedTileYieldContextFor: string[] = [];
+    const context = buildContext(players, tiles, () => {}, {
+      invalidateEconomySnapshot: (playerId) => { invalidatedEconomySnapshotFor.push(playerId); },
+      invalidateTileYieldContext: (playerId) => { invalidatedTileYieldContextFor.push(playerId); }
+    });
+    const command: CommandEnvelope = {
+      commandId: "cmd-domain-1",
+      playerId: "player-1",
+      commandType: "CHOOSE_DOMAIN",
+      payloadJson: JSON.stringify({ domainId: "mercantile-charter" })
+    } as CommandEnvelope;
+
+    handleChooseDomainCommand(context, command);
+
+    expect(player.domainIds?.has("mercantile-charter")).toBe(true);
+    expect(invalidatedEconomySnapshotFor).toEqual(["player-1"]);
+    expect(invalidatedTileYieldContextFor).toEqual(["player-1"]);
+  });
+
+  it("invalidates the tile-yield and economy-snapshot caches on a successful tech choice", () => {
+    const player = buildPlayer("player-1", { points: 100 });
+    const players = new Map([["player-1", player]]);
+    const tiles = new Map<string, DomainTileState>();
+    const invalidatedEconomySnapshotFor: string[] = [];
+    const invalidatedTileYieldContextFor: string[] = [];
+    const context = buildContext(players, tiles, () => {}, {
+      invalidateEconomySnapshot: (playerId) => { invalidatedEconomySnapshotFor.push(playerId); },
+      invalidateTileYieldContext: (playerId) => { invalidatedTileYieldContextFor.push(playerId); }
+    });
+    const command: CommandEnvelope = {
+      commandId: "cmd-tech-1",
+      playerId: "player-1",
+      commandType: "CHOOSE_TECH",
+      payloadJson: JSON.stringify({ techId: "agriculture" })
+    } as CommandEnvelope;
+
+    handleChooseTechCommand(context, command);
+
+    expect(player.techIds.has("agriculture")).toBe(true);
+    expect(invalidatedEconomySnapshotFor).toEqual(["player-1"]);
+    expect(invalidatedTileYieldContextFor).toEqual(["player-1"]);
   });
 });

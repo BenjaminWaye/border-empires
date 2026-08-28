@@ -45,6 +45,7 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 - Keep `AGENTS.md` limited to always-on operating rules and pointers. Do not expand it into architecture or gameplay docs.
 - When workflow rules, repo entrypoints, or package layout change, update `AGENTS.md`, `README.md`, and affected docs in the same branch.
 - Use per-topic runbooks/task notes for recurring work so agents do not rediscover the same files and commands every session: `docs/agents/topic-runbooks.md`.
+- Before opening a PR, read through `README.md` and check whether your diff makes any part of it stale (setup steps, scripts, package layout, stack description, etc.). Update it in the same branch if so.
 
 ## Repo reference
 

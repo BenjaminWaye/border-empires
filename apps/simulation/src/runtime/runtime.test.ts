@@ -7259,9 +7259,10 @@ describe("simulation runtime", () => {
       randomSpy.mockRestore();
     });
 
-    it("walks instead of multiplying once barb population is at the cap", () => {
-      // 200 barb tiles already. At cap, multiply is blocked — falls through to
-      // plain walk (origin released, target claimed, net 0).
+    it("multiplies past the old 200-tile population cap (removed as dead code — unreachable behind MAX_BARBARIAN_TILES)", () => {
+      // BARBARIAN_POPULATION_CAP used to block multiply at 200 tiles; removed
+      // since MAX_BARBARIAN_TILES (100) already stops the planner from
+      // expanding past 100, so 200 never actually bound in real play.
       const barbTiles: Array<{ x: number; y: number }> = [];
       for (let i = 0; i < 200; i += 1) {
         barbTiles.push({ x: 100 + (i % 20), y: 100 + Math.floor(i / 20) });
@@ -7273,7 +7274,6 @@ describe("simulation runtime", () => {
         lockTarget: { x: 50, y: 50 },
         attackerId: "barbarian-1"
       });
-      // Stamp origin with at-threshold progress so without the cap it would multiply.
       readProgress(runtime).set("100,100", 5);
 
       runResolve();
@@ -7281,16 +7281,13 @@ describe("simulation runtime", () => {
       const state = runtime.exportState();
       const origin = state.tiles.find((tile) => tile.x === 100 && tile.y === 100);
       const target = state.tiles.find((tile) => tile.x === 50 && tile.y === 50);
-      // Cap held: source released (walk), target captured.
-      expect(origin?.ownerId).toBeUndefined();
+      // Multiply: source keeps its owner, target gained — net +1, progress reset on both.
+      expect(origin?.ownerId).toBe("barbarian-1");
       expect(target?.ownerId).toBe("barbarian-1");
-      // Population stays at 200, not 201.
-      expect(state.tiles.filter((tile) => tile.ownerId === "barbarian-1").length).toBe(200);
-      // Over-threshold progress carries to target so the next walk multiplies
-      // as soon as the population drops below cap.
+      expect(state.tiles.filter((tile) => tile.ownerId === "barbarian-1").length).toBe(201);
       const progress = readProgress(runtime);
-      expect(progress.get("100,100")).toBeUndefined();
-      expect(progress.get("50,50")).toBe(5);
+      expect(progress.get("100,100")).toBe(0);
+      expect(progress.get("50,50")).toBe(0);
 
       randomSpy.mockRestore();
     });

@@ -12,6 +12,40 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
   {
+    createdAt: 1787688556298, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.5",
+    title: "Hid the redundant \"0 gold\" in the Build Relay Beacon action cost",
+    why: "The Build Relay Beacon action's cost string always prepended the gold cost, even when expand + settle + build all cost 0 gold, so the Actions tab showed a confusing \"0 gold, N m.p. ...\" line.",
+    changes: [
+      "The Build Relay Beacon action's cost text now omits the gold segment entirely when the gold cost is 0."
+    ]
+  },
+  {
+    createdAt: 1787688715010, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Fixed the water skirt wall leaving a gap at wave crests",
+    why: "The water skirt wall added moments earlier (2026.08.25.5) closed the black gap under coastal sea tiles, but its top edge was drawn once and never touched again, while the water surface itself bobs up and down every frame with the wave animation. Whenever the wave lifted the surface above the skirt's static top, the same black gap reappeared.",
+    changes: [
+      "The water skirt's top edge now rides the same wave animation as the surface, so it stays flush with the water at every frame instead of only when the sea happens to be at rest."
+    ]
+  },
+  {
+    createdAt: 1787689171531, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Fixed auto-settle trying to build on resource tiles outside your reach",
+    why: "The auto-settle queue included every owned frontier tile with a resource, town, or dock without checking reach, so a plain resource tile (which generates no reach of its own) claimed outside your reach border kept getting re-queued and rejected with an OUT_OF_REACH error.",
+    changes: ["Auto-settle no longer queues frontier tiles that are currently outside your reach border."]
+  },
+  {
+    createdAt: 1787691972634, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.6",
+    title: "Town population bar now shows progress toward the next tier",
+    why: "The town overview's population bar showed current population against the town's absolute population cap, which barely moved even as a town grew and gave no sense of how close it was to upgrading tiers.",
+    changes: [
+      "The population bar and its number now track progress toward the next population tier (e.g. Town → City) instead of the absolute population cap, and turns green once that tier's threshold is reached."
+    ]
+  },
+  {
     createdAt: 1787817717886, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27",
     title: "Fixed frontier tiles falsely glowing amber after panning the map",
@@ -108,17 +142,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     why: "A queued SETTLE or BUILD only starts once an earlier one in your queue finishes, and that hand-off only happens when the server notices a slot just freed up. If a slot freed up while you were disconnected, nobody was around to trigger that hand-off, so your next queued action could sit stalled -- looking untouched -- until some unrelated action elsewhere happened to free another slot.",
     changes: [
       "Logging back in now immediately checks your queue for anything that's actually free to start, instead of waiting on an unrelated event to notice."
-    ]
-  },
-  {
-    createdAt: 1787412371498, // 2026.08.22.11 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.11",
-    title: "Muster flags can now march on a chosen target instead of just the nearest enemy tile",
-    why: "A muster flag's ADVANCE mode always auto-fired on whatever enemy tile happened to be nearest, with no way to point it at a specific target -- useful for holding a line, but not for actually pushing an offensive toward somewhere particular.",
-    changes: [
-      "New \"March To...\" muster action: pick a flag, choose \"March To...\", then click a destination tile.",
-      "A marching flag fights its way toward that destination one attack at a time, always picking whichever reachable enemy tile is closest to the target -- it never crosses neutral ground, since a muster flag only ever attacks enemy territory.",
-      "The flag automatically returns to HOLD once it captures the target tile, or you can cancel the march early from the tile menu."
     ]
   },
   {
@@ -234,17 +257,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787415992729, // 2026.08.22.3 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.3",
-    title: "Non-winning seasons now leave a mark on your galaxy too: Outposts and Stipends",
-    why: "The galaxy previously only recorded a season's outright winner as a permanent Planet, so every other empire's season vanished without a trace once it ended -- even a season played well but not won.",
-    changes: [
-      "A strong runner-up -- leading a different victory path than the one that won, with real hold-progress on it -- now claims a minor permanent Outpost, specialized by their own leading path and shown alongside your Planets in the galaxy view.",
-      "Any other empire that meaningfully engaged with a victory path, without getting close to winning, now gets a one-time Stipend of Influence and Production instead, scaled to how far they got.",
-      "Outposts appear in the public galaxy listing as territory, like Planets; Stipends are a one-time payout and only show up in your own galaxy view."
-    ]
-  },
-  {
     createdAt: 1787419536000, // 2026.08.22.4 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.4",
     title: "Winning a season now gives your next empire a starting head start",
@@ -286,16 +298,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "The game no longer renders the map/world underneath while the lobby is up, saving battery and CPU for players who are just waiting.",
       "Redesigned the lobby's look: a brass-and-gunmetal war-room panel with riveted corners, a glowing amber countdown dial, and a subtle cog motif, layered over the game's existing dark command-center theme.",
       "Fixed the lobby heading showing the raw season id twice (e.g. \"Season season-8 starts soon\") -- it now reads simply \"Season starts soon\"."
-    ]
-  },
-  {
-    createdAt: 1787411986658,
-    introducedIn: "2026.08.22.8",
-    title: "Beta season countdown screen",
-    why: "The beta season now has a synchronized start time so everyone begins together instead of the first arrivals compounding a head start over testers in later timezones.",
-    changes: [
-      "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
-      "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
     ]
   },
   {
@@ -352,6 +354,15 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     why: "The previous two fixes for this pushed a live update whenever a waypoint or build/settle queue entry changed, but the server's own fast-reconnect snapshot cache -- a separate copy of the merge logic used to serve a quick reconnect without rebuilding your whole world state -- had never been taught about these two fields at all, so it silently dropped them regardless of the live update. This mattered most exactly when the earlier fixes couldn't help: while you were offline (no live connection to push an update to), your waypoint or queue kept working correctly on the server, but a reconnect could still be served a snapshot from before it existed.",
     changes: [
       "The server's fast-reconnect snapshot now correctly includes your current waypoint and build/settle queues in every case, including right after a period offline."
+    ]
+  },
+  {
+    createdAt: 1787689447704, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.7",
+    title: "Fixed flickering at the coastline where the water and land skirts overlapped",
+    why: "The water skirt wall added in 2026.08.25.5/.6 drew a wall on all 4 sides of every exposed water tile, including north/east/west edges that sat right where the land's own coastal skirt wall already runs. Two near-coplanar unlit walls animating independently z-fought against each other every frame, flickering.",
+    changes: [
+      "The water skirt now only draws its south-facing edge (the side that actually faces the camera at the default view angle), leaving the land skirt to cover the other three sides instead of overlapping it."
     ]
   }
 ];

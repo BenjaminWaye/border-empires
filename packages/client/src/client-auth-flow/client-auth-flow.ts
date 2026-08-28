@@ -35,6 +35,16 @@ import type { AuthSession, AuthFlowDeps, ClientAuthFlow } from "./client-auth-fl
 
 export type { AuthSession } from "./client-auth-flow-types.js";
 
+// Origin + pathname only, no query/hash — reused so the mailed magic link
+// (below) and the post-redirect history cleanup agree on the same
+// canonical URL instead of each stripping window.location.href separately.
+const stripUrlToOrigin = (): string => {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+};
+
 export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
   const {
     state,
@@ -92,10 +102,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
 
   const clearEmailLinkUrl = (): void => {
     try {
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.search = "";
-      cleanUrl.hash = "";
-      window.history.replaceState({}, document.title, cleanUrl.toString());
+      window.history.replaceState({}, document.title, stripUrlToOrigin());
     } catch {
       // If history mutation fails for any reason, leave the URL as-is
       // rather than throwing during auth handling.
@@ -307,7 +314,7 @@ export const createClientAuthFlow = (deps: AuthFlowDeps): ClientAuthFlow => {
       syncAuthOverlay();
       try {
         await sendSignInLinkToEmail(firebaseAuth, email, {
-          url: window.location.href,
+          url: stripUrlToOrigin(),
           handleCodeInApp: true
         });
         safeLocalStorageSet(EMAIL_LINK_STORAGE_KEY, email);
