@@ -24,6 +24,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787908049178, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.3",
+    title: "Build Relay Beacon now shows in both the Actions and Buildings tabs on a frontier tile",
+    why: "Build Relay Beacon on an owned FRONTIER tile is a settle-then-build chain, but its action id (\"build_relay_beacon\") is shared with the plain building on a settled tile, so it got sorted only into the Buildings tab like any other structure -- unlike a neutral tile, where the equivalent action shows directly in the Actions tab next to Expand To.",
+    changes: [
+      "Build Relay Beacon now shows in both the Actions tab (next to Settle Land) and the Buildings tab on an owned FRONTIER tile, matching the parity it already has on a neutral tile, instead of being tucked away under Buildings only."
+    ]
+  },
+  {
     createdAt: 1787901144099, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.1",
     title: "Checklist no longer keeps a town/food target highlighted for the whole Expand duration",
