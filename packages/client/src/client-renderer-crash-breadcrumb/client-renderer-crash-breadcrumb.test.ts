@@ -105,6 +105,65 @@ describe("renderer crash breadcrumb", () => {
     expect(stored()).toMatchObject({ phase: "survived", failedAttempts: 0 });
   });
 
+  it("updates the heartbeat timestamp and count without touching phase or the crash streak", async () => {
+    seed({ atMs: 1, phase: "init-completed", tileBudget: 6000, failedAttempts: 1 });
+    const session = await loadSession();
+
+    session.recordRendererHeartbeat(6000);
+    session.recordRendererHeartbeat(6000);
+
+    expect(stored()).toMatchObject({ phase: "init-completed", failedAttempts: 1, heartbeatCount: 2 });
+    expect(stored().lastHeartbeatAtMs).toBeTypeOf("number");
+  });
+
+  it("does nothing when a heartbeat fires with no prior attempt on record", async () => {
+    const session = await loadSession();
+
+    session.recordRendererHeartbeat(6000);
+
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it("flags an unclean end when a heartbeat exists with no matching clean shutdown", async () => {
+    seed({ atMs: 1, phase: "survived", tileBudget: 6000, failedAttempts: 0, lastHeartbeatAtMs: 500 });
+
+    const session = await loadSession();
+
+    expect(session.previousSessionEndedUncleanly()).toBe(true);
+  });
+
+  it("does not flag a crash when the clean shutdown matches or postdates the last heartbeat", async () => {
+    seed({
+      atMs: 1,
+      phase: "survived",
+      tileBudget: 6000,
+      failedAttempts: 0,
+      lastHeartbeatAtMs: 500,
+      cleanShutdownAtMs: 600
+    });
+
+    const session = await loadSession();
+
+    expect(session.previousSessionEndedUncleanly()).toBe(false);
+  });
+
+  it("does not flag a crash when 3d never sent a heartbeat", async () => {
+    seed({ atMs: 1, phase: "init-started", tileBudget: 6000, failedAttempts: 1 });
+
+    const session = await loadSession();
+
+    expect(session.previousSessionEndedUncleanly()).toBe(false);
+  });
+
+  it("records a clean shutdown on pagehide", async () => {
+    seed({ atMs: 1, phase: "survived", tileBudget: 6000, failedAttempts: 0, lastHeartbeatAtMs: 500 });
+    await loadSession();
+
+    window.dispatchEvent(new Event("pagehide"));
+
+    expect(stored().cleanShutdownAtMs).toBeTypeOf("number");
+  });
+
   it("survives corrupted storage rather than blocking startup", async () => {
     window.localStorage.setItem(STORAGE_KEY, "{not json");
 
