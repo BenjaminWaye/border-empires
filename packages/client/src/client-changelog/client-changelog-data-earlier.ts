@@ -257,16 +257,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787419536000, // 2026.08.22.4 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.4",
-    title: "Winning a season now gives your next empire a starting head start",
-    why: "Claiming a Planet previously ended with the galaxy view -- nothing about winning carried forward into how your next empire actually played. This is a first, deliberately small step toward the galaxy's full Wonder system (a permanent Production economy is still to come); for now the reward for winning is a one-time boost, not a lasting building.",
-    changes: [
-      "The most recent season's Planet winner now starts their next empire with a permanent manpower-regen head start and an expanded starting vision radius.",
-      "It's a one-time grant, applied automatically the moment you spawn your next empire -- nothing to claim or activate."
-    ]
-  },
-  {
     createdAt: 1787428700000,
     introducedIn: "2026.08.22.5",
     title: "Fixed a bogus 'Outside your borders' error after auto-settle finished a capture, and made unsettled tiles from a rival's border push show up live",
