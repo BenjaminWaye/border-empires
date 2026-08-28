@@ -24,6 +24,16 @@ export const tileActionIsCrystal = (id: TileActionDef["id"]): boolean =>
 export const tileActionIsBuilding = (id: TileActionDef["id"]): boolean =>
   id.startsWith("build_") && id !== "build_relay_beacon_frontier";
 
+// build_relay_beacon on an owned FRONTIER tile is a settle-then-build chain
+// (client-tile-action-logic.ts tags its detail with the same
+// " • settles this tile first" suffix every other frontier chained-build
+// action gets), not a plain building -- keep it in Actions next to Settle
+// Land instead of tucked into Buildings, matching build_relay_beacon_frontier's
+// parity on a neutral tile.
+const tileActionBelongsInBuildingsTab = (action: TileActionDef): boolean =>
+  tileActionIsBuilding(action.id) &&
+  !(action.id === "build_relay_beacon" && action.detail?.includes("settles this tile first"));
+
 export const structureTypeForTileAction = (actionId: TileActionDef["id"]): BuildableStructureType | undefined => {
   switch (actionId) {
     case "build_fortification":
@@ -285,9 +295,9 @@ export const splitTileActionsIntoTabs = (
 ): Pick<TileMenuView, "actions" | "buildings" | "crystal"> => {
   const filtered = actions.filter((action) => !hideTechLockedTileAction(action, state));
   const visibleIfShown = (action: TileActionDef): boolean => !action.disabled;
-  const actionRows = filtered.filter((action) => !tileActionIsBuilding(action.id) && !tileActionIsCrystal(action.id));
+  const actionRows = filtered.filter((action) => !tileActionBelongsInBuildingsTab(action) && !tileActionIsCrystal(action.id));
   const buildingRows = filtered
-    .filter((action) => tileActionIsBuilding(action.id))
+    .filter((action) => tileActionBelongsInBuildingsTab(action))
     .sort((a, b) => {
       const aType = structureTypeForTileAction(a.id);
       const bType = structureTypeForTileAction(b.id);

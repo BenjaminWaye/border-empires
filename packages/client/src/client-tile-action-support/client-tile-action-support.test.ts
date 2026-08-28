@@ -101,6 +101,26 @@ describe("splitTileActionsIntoTabs", () => {
     });
   });
 
+  it("keeps build_relay_beacon in Buildings on a settled tile, but moves it to Actions on a FRONTIER tile", () => {
+    const plainRelayBeacon: TileActionDef[] = [
+      { id: "build_relay_beacon", label: "Build Relay Beacon", detail: "", disabled: false }
+    ];
+    expect(splitTileActionsIntoTabs(plainRelayBeacon, state)).toEqual({
+      actions: [],
+      buildings: plainRelayBeacon,
+      crystal: []
+    });
+
+    const frontierRelayBeacon: TileActionDef[] = [
+      { id: "build_relay_beacon", label: "Build Relay Beacon", detail: " • settles this tile first", disabled: false }
+    ];
+    expect(splitTileActionsIntoTabs(frontierRelayBeacon, state)).toEqual({
+      actions: frontierRelayBeacon,
+      buildings: [],
+      crystal: []
+    });
+  });
+
   it("sorts support-only buildings before general settled buildings", () => {
     const rows: TileActionDef[] = [
       {
