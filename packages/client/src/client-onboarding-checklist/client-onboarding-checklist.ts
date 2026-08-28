@@ -116,7 +116,14 @@ export const onboardingChecklistState = (
     };
   }
 
-  const ownTowns: Array<{ x: number; y: number }> = [];
+  // Anchor tiles used to highlight "build/expand near here" -- deliberately
+  // excludes the player's free starting SETTLEMENT-tier tile (townPopulationTier
+  // "SETTLEMENT", see season-seed-world.ts's townPopulationTier: only the
+  // player's own spawn tile, marked isSettlement, ever gets that tier --
+  // every world-gen-placed town starts well above POPULATION_TOWN_MIN and
+  // is never SETTLEMENT tier). Highlighting the player's own spawn point as
+  // if it were a target read as a bug, not an anchor.
+  const ownTownTierAnchors: Array<{ x: number; y: number }> = [];
   const foodCandidates: Array<{ x: number; y: number; slots: number }> = [];
   const captureTownCandidates: Array<{ x: number; y: number }> = [];
   let foodSlotsClaimed = 0;
@@ -125,12 +132,12 @@ export const onboardingChecklistState = (
   for (const tile of tiles.values()) {
     if (tile.town) {
       if (tile.ownerId === playerId) {
-        ownTowns.push({ x: tile.x, y: tile.y });
         // Only TOWN itself satisfies the town-expanded goal, not
         // CITY/GREAT_CITY/METROPOLIS, since that goal is done and dusted
         // the moment the player reaches TOWN and the checklist never
         // re-checks it once the food goals have started.
         if (tile.town.populationTier === "TOWN") hasTownTierTown = true;
+        if (tile.town.populationTier !== "SETTLEMENT") ownTownTierAnchors.push({ x: tile.x, y: tile.y });
       } else {
         // A neutral or enemy town -- an EXPAND_TOWN target, not something to
         // "claim" like a bare resource tile. Zero towns are player-founded
@@ -184,7 +191,7 @@ export const onboardingChecklistState = (
       foodExpanded,
       foodSlotsClaimed,
       foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
-      highlightTiles: ownTowns
+      highlightTiles: ownTownTierAnchors
     };
   }
 
@@ -201,7 +208,7 @@ export const onboardingChecklistState = (
         foodExpanded,
         foodSlotsClaimed,
         foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
-        highlightTiles: ownTowns
+        highlightTiles: ownTownTierAnchors
       };
     }
     // Keep the town highlighted alongside the food candidates: it's the
@@ -216,7 +223,7 @@ export const onboardingChecklistState = (
       foodExpanded,
       foodSlotsClaimed,
       foodSlotsTarget: ONBOARDING_FOOD_SLOTS_TARGET,
-      highlightTiles: [...ownTowns, ...reachableFoodCandidates.map(({ x, y }) => ({ x, y }))]
+      highlightTiles: [...ownTownTierAnchors, ...reachableFoodCandidates.map(({ x, y }) => ({ x, y }))]
     };
   }
 

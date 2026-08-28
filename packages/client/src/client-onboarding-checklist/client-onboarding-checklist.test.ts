@@ -107,7 +107,7 @@ describe("onboardingChecklistState", () => {
     expect(state.foodExpanded).toBe(true);
   });
 
-  it("moves to EXPAND_RELAY_BEACON instead of EXPAND_TOWN when a neutral town exists but is outside reach", () => {
+  it("moves to EXPAND_RELAY_BEACON instead of EXPAND_TOWN when a neutral town exists but is outside reach, without highlighting the player's own SETTLEMENT-tier spawn", () => {
     const tiles = tilesMap([
       ownTown(0, 0, "SETTLEMENT"),
       // Radius-3 reach from (0,0) tops out at 3 tiles away; this one is 10.
@@ -115,7 +115,11 @@ describe("onboardingChecklistState", () => {
     ]);
     const state = onboardingChecklistState(tiles, ME);
     expect(state.step).toBe("EXPAND_RELAY_BEACON");
-    expect(state.highlightTiles).toEqual([{ x: 0, y: 0 }]);
+    // The player owns nothing TOWN-tier-or-up yet -- only their starting
+    // SETTLEMENT -- so there's no valid anchor to highlight. Highlighting
+    // the player's own low-tier spawn tile as if it were a target reads as
+    // a bug, not an anchor.
+    expect(state.highlightTiles).toEqual([]);
     // Still "found" (known to exist) even though it's out of reach to expand to.
     expect(state.townFound).toBe(true);
     expect(state.townExpanded).toBe(false);
@@ -158,6 +162,24 @@ describe("onboardingChecklistState", () => {
     // Only 1 (FARM) + 2 (FISH) = 3 known slots, short of the 4-slot target.
     expect(state.foodFound).toBe(false);
     expect(state.foodExpanded).toBe(false);
+  });
+
+  it("never highlights the player's own SETTLEMENT-tier spawn once a real TOWN is also owned", () => {
+    const tiles = tilesMap([
+      // The player still owns their original starting SETTLEMENT (very
+      // common -- it's free and there's no reason to ever give it up)
+      // alongside a captured TOWN. Only the TOWN should ever light up.
+      ownTown(0, 0, "SETTLEMENT"),
+      ownTown(5, 5, "TOWN"),
+      tile(6, 5, { resource: "FARM" })
+    ]);
+    const state = onboardingChecklistState(tiles, ME);
+    expect(state.step).toBe("EXPAND_FOOD");
+    expect(state.highlightTiles).not.toContainEqual({ x: 0, y: 0 });
+    expect(state.highlightTiles).toEqual([
+      { x: 5, y: 5 },
+      { x: 6, y: 5 }
+    ]);
   });
 
   it("marks food as found once enough known food tiles (weighted) reach the target, even before any are claimed", () => {
