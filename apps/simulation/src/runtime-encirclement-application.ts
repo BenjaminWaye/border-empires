@@ -144,6 +144,12 @@ export function applyEncirclement(
   for (const key of cutOff) {
     const tile = context.tiles.get(key);
     if (!tile || tile.ownershipState !== "FRONTIER") continue;
+    // naturalWonder is deliberately NOT cleared: it's a fixed world-gen
+    // feature, not a player-built structure, and survives losing an owner
+    // just like it survives never having one -- clearing it here permanently
+    // erased wonders that were claimed but then cut off by encirclement
+    // before being settled. Mirrors the same fix in
+    // runtime-out-of-reach-decay.ts's clearedTile.
     const cleared: DomainTileState = {
       ...tile,
       ownerId: undefined,
@@ -152,7 +158,6 @@ export function applyEncirclement(
       frontierDecayKind: undefined,
       fort: undefined,
       observatory: undefined,
-      naturalWonder: undefined,
       siegeOutpost: undefined,
       economicStructure: undefined,
       muster: undefined,

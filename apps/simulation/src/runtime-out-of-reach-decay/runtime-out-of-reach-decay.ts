@@ -134,6 +134,12 @@ const isEntryLive = (tile: DomainTileState | undefined, entry: OutOfReachDecayEn
  * The cleared-tile shape used when a tile's decay expires. Mirrors the
  * cut-off branch of `applyEncirclement` so both decay causes leave a tile in
  * the same neutral state (ownership and every owner-scoped structure gone).
+ *
+ * naturalWonder is deliberately NOT cleared here: it's a fixed world-gen
+ * feature, not a player-built structure, and survives losing an owner just
+ * like it survives never having one -- clearing it here permanently erased
+ * wonders that were claimed but decayed before being settled (#see natural
+ * wonders disappearing after EXPAND capture).
  */
 const clearedTile = (tile: DomainTileState): DomainTileState => ({
   ...tile,
@@ -143,7 +149,6 @@ const clearedTile = (tile: DomainTileState): DomainTileState => ({
   frontierDecayKind: undefined,
   fort: undefined,
   observatory: undefined,
-  naturalWonder: undefined,
   siegeOutpost: undefined,
   economicStructure: undefined,
   muster: undefined,
