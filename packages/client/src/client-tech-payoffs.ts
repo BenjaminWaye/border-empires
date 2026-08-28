@@ -1,3 +1,4 @@
+import { AGRICULTURE_FISH_FOOD_SLOT_BONUS } from "@border-empires/shared";
 import type { TechInfo } from "./client-types.js";
 import { STRUCTURE_DISPLAY_NAMES, type EconomicStructureType, type StructureInfoKey } from "./client-map-display.js";
 
@@ -127,6 +128,9 @@ export const techHighlightTags = (tech: Pick<TechInfo, "effects">): TechHighligh
   }
   if (typeof effects.musterMaxTilesAdd === "number" && effects.musterMaxTilesAdd > 0) {
     addTag(tags, `Muster Flag +${effects.musterMaxTilesAdd}`, "upgrade");
+  }
+  if (effects.unlockFarmstead === true) {
+    addTag(tags, `Fish Tiles +${AGRICULTURE_FISH_FOOD_SLOT_BONUS} Food Slot`, "upgrade");
   }
 
   return tags;
