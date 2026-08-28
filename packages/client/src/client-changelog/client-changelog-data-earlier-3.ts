@@ -146,5 +146,14 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
     changes: [
       "The offline waypoint drain now waits for the in-flight leg to resolve before launching the next one, and won't dispatch a leg from an origin tile it doesn't yet own -- multi-hop waypoints now keep expanding for the whole time you're offline instead of stalling after the second step."
     ]
+  },
+  {
+    createdAt: 1787898679176, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28",
+    title: "Fixed waypoints appearing to vanish on a quick reconnect",
+    why: "Setting or cancelling a waypoint only marked the command resolved server-side -- it never pushed a live update of the queue, unlike almost every other player action. Since queuing a waypoint doesn't change any tile ownership, nothing else happened to refresh the gateway's per-connection snapshot cache either. A reconnect soon after (e.g. closing and quickly reopening the browser) could be served that stale, pre-waypoint snapshot, making a waypoint you'd just set look like it had never been placed -- or a cancelled one look like it was still there.",
+    changes: [
+      "Setting, cancelling, or clearing a waypoint now pushes a live update the same way other actions do, so a reconnect immediately after always sees the current queue instead of a stale one."
+    ]
   }
 ];
