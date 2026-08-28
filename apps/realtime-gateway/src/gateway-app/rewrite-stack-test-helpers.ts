@@ -119,6 +119,13 @@ export const nextNonBootstrapMessage = async (
     if (message.type === "REACH_UPDATE") {
       continue;
     }
+    // Same ambient-push situation as REACH_UPDATE above, but for OTHER
+    // owners' clipped reach borders (rival-reach-push.ts): fired whenever any
+    // owner's reach changes, on its own timing relative to whatever command
+    // the test under way is waiting on. Not a response to that command.
+    if (message.type === "RIVAL_REACH_UPDATE") {
+      continue;
+    }
     if (message.type === "TILE_DELTA_BATCH" && typeof message.commandId === "string" && message.commandId.startsWith("bootstrap:")) {
       continue;
     }
