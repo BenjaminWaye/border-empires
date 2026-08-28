@@ -528,8 +528,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
 
   const applyAcceptedExpandOptimisticState = (target: { x: number; y: number }): void => {
     if (typeof applyOptimisticTileState !== "function") return;
-    const targetKey = keyFor(target.x, target.y);
-    const existing = state.tiles.get(targetKey);
+    const existing = state.tiles.get(keyFor(target.x, target.y));
     if (existing?.ownerId === state.me && (existing.ownershipState === "FRONTIER" || existing.ownershipState === "SETTLED")) return;
     applyOptimisticTileState(target.x, target.y, (tile: { ownerId?: string; ownershipState?: string; fogged?: boolean; optimisticPending?: string }) => {
       tile.ownerId = state.me;
@@ -537,6 +536,7 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
       tile.fogged = false;
       tile.optimisticPending = "expand";
     });
+    refreshOnboardingChecklistHighlight(state); // recompute right at the "expand lock" (not just on the next tile-delta batch), so a just-expanded target stops looking un-highlighted for the whole EXPAND resolution window
   };
 
   const reconcileActionQueueSafely = (): void => {

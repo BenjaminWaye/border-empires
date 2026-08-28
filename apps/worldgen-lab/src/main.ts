@@ -30,7 +30,8 @@ const layers: Layers = {
   towns: false,
   docks: false,
   wonders: true,
-  spawnSites: true
+  spawnSites: true,
+  rivers: true
 };
 
 const view: ViewConfig = {
@@ -188,6 +189,7 @@ layerFolder.addBinding(layers, "towns", { label: "Towns" }).on("change", redraw)
 layerFolder.addBinding(layers, "docks", { label: "Docks" }).on("change", redraw);
 layerFolder.addBinding(layers, "wonders", { label: "Natural Wonders" }).on("change", redraw);
 layerFolder.addBinding(layers, "spawnSites", { label: "Fair spawn sites" }).on("change", redraw);
+layerFolder.addBinding(layers, "rivers", { label: "Rivers" }).on("change", redraw);
 
 // Stats
 const statsFolder = pane.addFolder({ title: "Stats", expanded: true });
