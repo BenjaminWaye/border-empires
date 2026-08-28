@@ -201,5 +201,34 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
     changes: [
       "Your waypoint queue and build/settle queue are now included in the login/reconnect message, so they reliably come back exactly as the server has them -- flags, planned routes, and mid-route progress included."
     ]
+  },
+  {
+    createdAt: 1787724124671, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Frontier tiles no longer decay while sitting inside anyone's live reach",
+    why: "Out-of-reach frontier decay only checked reach coverage at the moment a tile was claimed. If another player's town/outpost reach later grew to cover that ground, the original claim's decay timer kept counting down regardless, so tiles that were clearly inside someone's live border still got auto-cleared to neutral.",
+    changes: [
+      "Re-checks reach coverage at the moment a frontier tile's decay timer would fire, not just at claim time",
+      "A tile inside any player's live reach -- the owner's own or another player's -- has its decay timer cleared instead of expiring"
+    ]
+  },
+  {
+    createdAt: 1787724118006, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.1",
+    title: "Rally-linked players now spawn near a real foothold, not just the nearest empty tile",
+    why: "Joining via a friend's rally link placed you on whichever open tile happened to be closest to their anchor, even a barren one with no town or food nearby -- while a normal spawn always looked for a town and food within reach.",
+    changes: [
+      "Rally spawns now search outward from the anchor for a spot with both a town and food nearby before falling back to a town-only, then food-only, then any-open-tile spot, all still within the rally radius"
+    ]
+  },
+  {
+    createdAt: 1787692481411, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.25.8",
+    title: "Gave the \"join now\" season prompt a real intro instead of a bare confirmation dialog",
+    why: "The plain join-season overlay (season already live, player just hasn't clicked join yet) read as a placeholder-y \"Join Season season-23?\" dialog with a static \"Ready\" dial that did nothing -- no sense of occasion for what's actually your empire's founding moment.",
+    changes: [
+      "Replaced the title/summary with narrative flavor text introducing the season",
+      "Removed the static \"Ready\" dial and turned the confirm button itself into the focal call-to-action, relabeled \"Let's go!\""
+    ]
   }
 ];
