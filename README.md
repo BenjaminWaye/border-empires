@@ -159,6 +159,63 @@ Generation runs in a Web Worker so the UI stays responsive even while the seed-r
 
 ---
 
+## 3D Structure Art
+
+> **Status: no model loader is wired up yet.** Every 3D structure in the client is
+> procedural Three.js geometry (see `packages/client/src/client-map-3d-structure-*.ts`),
+> and 2D art is SVG in `packages/client/public/overlays/`. Dropping a `.glb` into the
+> repo today will not render. This section exists so contributors who want to start
+> modelling now build to the right target — see `docs/gltf-model-pipeline-plan.md`
+> for the pipeline plan.
+
+### Format
+
+| | |
+|---|---|
+| Format | **glTF 2.0 binary (`.glb`)** — one self-contained file per structure |
+| Up axis | **+Y up** (glTF native; matches the scene, no conversion needed) |
+| Origin | Base centre at `(0, 0, 0)`; the model sits **on** `Y = 0` (ground plane) |
+| Facing | Author facing **+Z** (toward the default camera) |
+| Scale | **1 world unit = 1 map tile** |
+| Animation | None in v1 — motion is driven by the engine's per-instance matrix hooks |
+| Contents | Meshes only. Strip cameras, lights, empties, and unused nodes on export |
+
+### Size budget
+
+Numbers are derived from the existing procedural structures (a tile is `1.0`; the
+widest current piece is the airport runway at `0.40`, the tallest point is the
+control tower cab at `~0.36`).
+
+| Budget | Target | Hard cap |
+|---|---|---|
+| Footprint (X × Z) | 0.7 × 0.7 units | 0.8 × 0.8 |
+| Height (Y) | 0.45 units | 0.6 |
+| Triangles | ≤ 1,500 | 3,000 |
+| Materials / primitives | ≤ 4 | 6 |
+| File size (`.glb`) | ≤ 150 KB | 512 KB |
+
+**Material count is the most important number here.** Each material becomes one
+`InstancedMesh` draw call that is submitted every frame regardless of visibility
+(slots set `frustumCulled = false`), so materials cost far more than triangles do.
+Merge anything you can into a shared material; reuse a colour rather than adding a
+fifth material for one small part.
+
+Keeping inside the footprint and height caps matters because structures sit one per
+tile — an oversized model visually collides with its neighbours.
+
+### Style
+
+The existing look is **flat-shaded, low-poly, solid-colour**: `MeshStandardMaterial`
+with `flatShading: true`, hand-picked hex colours, and no textures anywhere in the
+project. Match it.
+
+- Prefer **untextured** models using per-material colour.
+- If a texture is genuinely needed: a **single 256×256 power-of-two atlas** shared
+  across the whole model, base colour only. No normal/roughness/metalness/AO maps.
+- No smooth-shading passes or subdivision — faceted geometry is the intended style.
+
+---
+
 ## Local CI
 
 Run the full local gate from a clean worktree:
