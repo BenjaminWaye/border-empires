@@ -148,8 +148,8 @@ describe("rewrite stack integration", () => {
         }),
         recovery: {
           nextClientSeq: 3,
-          // cmd-1: ACCEPTED, not RESOLVED yet, so still "unresolved" and reappears here.
-          pendingCommands: [expect.objectContaining({ commandId: "cmd-1", clientSeq: 2, status: "ACCEPTED", acceptedAt: expect.any(Number) })]
+          // cmd-1 is ACCEPTED, not RESOLVED (combat lock below hasn't run), so #1620's ledger surfaces it.
+          pendingCommands: [expect.objectContaining({ commandId: "cmd-1", clientSeq: 2, status: "ACCEPTED", acceptedAt: expect.any(Number), payload: { fromX: 10, fromY: 10, toX: 10, toY: 11 } })]
         }
       })
     );
