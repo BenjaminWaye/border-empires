@@ -179,6 +179,35 @@ describe("3d renderer host", () => {
     expect(noticeText()).toContain("crashed this browser");
   });
 
+  it("clears the crash streak and reloads with ?renderer=3d when 'Try 3D again' is clicked", async () => {
+    // Regression: a reload mid-construction (a player just refreshing while
+    // the game loaded) leaves the same on-disk shape as a real hard crash, so
+    // the brake trips permanently with no in-app way back into 3D. The button
+    // is the escape hatch.
+    const host = await brakedHost(() => ({ stop: () => undefined }));
+    host.ensure();
+
+    const assign = vi.fn();
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...originalLocation, href: "https://example.test/play", assign }
+    });
+
+    try {
+      const retryBtn = document.getElementById("be-renderer-fallback-notice-retry");
+      expect(retryBtn).not.toBeNull();
+      retryBtn?.dispatchEvent(new Event("click", { bubbles: true }));
+
+      expect(window.localStorage.getItem(BREADCRUMB_KEY)).toBeNull();
+      expect(assign).toHaveBeenCalledTimes(1);
+      const [target] = assign.mock.calls[0] as [string];
+      expect(new URL(target).searchParams.get("renderer")).toBe("3d");
+    } finally {
+      Object.defineProperty(window, "location", { configurable: true, value: originalLocation });
+    }
+  });
+
   it("keeps the crash streak when the brake fires, so it holds on every later load", async () => {
     // Regression: the brake used to route through the same "handled failure"
     // bookkeeping as a caught error, which zeroed the streak — so 3D re-armed

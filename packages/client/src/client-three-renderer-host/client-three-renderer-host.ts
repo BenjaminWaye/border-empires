@@ -21,6 +21,7 @@ import { recordRendererFailure } from "../client-webgl-probe/client-webgl-probe.
 import { showRendererFallbackNotice } from "../client-renderer-fallback-notice/client-renderer-fallback-notice.js";
 import {
   beginRendererAttempt,
+  clearRendererCrashStreak,
   markRendererAttemptHandled,
   markRendererInitCompleted,
   recordRendererHeartbeat,
@@ -73,7 +74,10 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
   // left alone here: they are renderer-agnostic and stay valid across the swap,
   // and clearing them would drop the minimap base with nothing scheduled to
   // rebuild it until the next world-seed message.
-  const retire = (reason: string, options?: { readonly preserveCrashStreak?: boolean }): void => {
+  const retire = (
+    reason: string,
+    options?: { readonly preserveCrashStreak?: boolean; readonly onRetry?: () => void }
+  ): void => {
     failed = true;
     const dead = renderer;
     renderer = undefined;
@@ -90,7 +94,7 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
     } catch (stopError) {
       console.error("[renderer-3d-teardown-failed]", stopError);
     }
-    showRendererFallbackNotice(reason);
+    showRendererFallbackNotice(reason, options?.onRetry ? { onRetry: options.onRetry } : undefined);
     try {
       deps.resizeTwoDimensionalCanvas();
     } catch (resizeError) {
@@ -105,8 +109,18 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
     // without another try. Nothing here can catch that death, so refusing to
     // repeat it is the only available handling — see the breadcrumb module.
     if (shouldSkipThreeDAfterCrashes()) {
-      retire("3D crashed this browser on the last attempts — using the 2D map. Add ?renderer=3d to try again.", {
-        preserveCrashStreak: true
+      retire("3D crashed this browser on the last attempts — using the 2D map.", {
+        preserveCrashStreak: true,
+        onRetry: () => {
+          // A reload alone isn't enough: shouldSkipThreeDAfterCrashes() reads
+          // the streak straight from storage, so without this the very next
+          // load would trip the brake again and show this exact banner.
+          clearRendererCrashStreak();
+          if (typeof window === "undefined") return;
+          const url = new URL(window.location.href);
+          url.searchParams.set("renderer", "3d");
+          window.location.assign(url.toString());
+        }
       });
       return;
     }
