@@ -51,6 +51,7 @@ import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-see
 import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
 import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.js";
 import { countFairSpawnSitesForWorldgenCheck, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js";
+import { fillMountainRingInteriors } from "./season-seed-world-ring-interiors.js";
 
 // This is createSeasonSeedWorld (season-seed-world.ts) with cooperative
 // yields between generation stages, used by the live "Start New Season"
@@ -219,6 +220,10 @@ export const createSeasonSeedWorldAsync = async (
     await onYield?.();
     townsRuntime.ensureInterestCoverage(worldSeed);
     townsRuntime.normalizeTownPlacements();
+    fillMountainRingInteriors(worldSeed, style, {
+      WORLD_WIDTH, WORLD_HEIGHT, terrainAt, key, townsByTile, clusterByTile,
+      docksByTile: docksByTile as Map<TileKey, unknown>, townsRuntime, POPULATION_MAX
+    });
     townsRuntime.assignMissingTownNamesForWorld();
     watchtowersRuntime.generateWatchtowers(worldSeed);
     await onYield?.();

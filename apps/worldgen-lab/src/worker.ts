@@ -9,8 +9,6 @@ import {
   grassShadeAt,
   isHillsTileAt,
   seeded01,
-  wrapX,
-  wrapY,
   generateRiverPaths,
   type WorldStyle,
   type NaturalWonderType,
@@ -21,7 +19,6 @@ import {
 import {
   createServerWorldgenClusters,
   createServerWorldgenNaturalWonders,
-  createServerWorldgenTerrain,
   key as tileKeyOf,
   parseKey,
   type ClusterDefinition,
@@ -29,6 +26,8 @@ import {
   type TownDefinition
 } from "@border-empires/game-domain";
 import { computeSpawnSiteIndices, FAIR_SPAWN_SITE_TARGET } from "./worker-spawn-sites.js";
+import { placeDocks } from "./worker-docks.js";
+import { buildLabTerrainRuntime } from "./worker-terrain-runtime.js";
 
 export type MapStyle = "continents" | "islands";
 
@@ -49,7 +48,7 @@ export type WorkerResponse = {
   hills: Uint8Array;        // 0=no 1=yes — real isHillsTileAt() (mutually exclusive with forest)
   resourceLayer: Uint8Array;// 0=none 1=UMBRITE 2=FARM 3=GEMS 4=TITANIUM 5=FISH — actual placed cluster tiles (real generateClusters output, not a biome-eligibility heatmap)
   townIndices: Uint32Array; // flat tile indices of estimated town positions
-  dockSiteIndices: Uint32Array; // one flat index per significant island (for dock markers)
+  dockSiteIndices: Uint32Array; // real production dock tiles (worker-docks.ts / server-worldgen-docks.ts), any land component touching sea
   spawnSiteIndices: Uint32Array; // flat tile indices of the real production fair-spawn-site roster (see FAIR_SPAWN_SITE_WORLDGEN_MINIMUM)
   spawnSiteTarget: number; // roster target size (currently 50), for the "N / target" stat
   wonders: Array<{ index: number; type: NaturalWonderType }>; // up to 9, one per type — real server placement logic
@@ -62,7 +61,7 @@ export type WorkerResponse = {
   minLandY: number;         // topmost row containing any LAND tile
   maxLandY: number;         // bottommost row containing any LAND tile
   townCount: number;        // estimated town placements
-  dockCount: number;        // 1 per significant island + 1 extra per island ≥250 tiles
+  dockCount: number;        // real production dock count (worker-docks.ts / server-worldgen-docks.ts)
   hillsCount: number;       // land tiles flagged as hills
   farmSites: number;        // placed FARM resource tiles
   fishSites: number;        // placed FISH resource tiles
@@ -77,16 +76,13 @@ const deriveNextSeed = (i: number, baseSeed: number): number =>
   Math.floor(seeded01(i * 101, i * 137, baseSeed + 9001) * 1e9);
 
 const SIGNIFICANT_ISLAND_TILES = 20;
-const LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD = 250;
 const ISLANDS_MIN = 20;
 const ISLANDS_MAX = 30;
 const ISLANDS_MAX_LARGEST_SHARE = 0.22;
 const MAX_REFINE_ATTEMPTS = 16;
 
 // 8-directional BFS flood-fill on LAND tiles, toroidal wrap
-const countIslands = (terrain: Uint8Array): {
-  significant: number; largestShare: number; dockCount: number; dockSiteIndices: Uint32Array
-} => {
+const countIslands = (terrain: Uint8Array): { significant: number; largestShare: number } => {
   const visited = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
   const islands: Array<{ size: number; start: number }> = [];
   let landTotal = 0;
@@ -128,12 +124,9 @@ const countIslands = (terrain: Uint8Array): {
 
   islands.sort((a, b) => b.size - a.size);
   const sigIslands = islands.filter(i => i.size >= SIGNIFICANT_ISLAND_TILES);
-  const dockCount = sigIslands.reduce((sum, i) => sum + 1 + (i.size >= LARGE_ISLAND_MULTI_DOCK_TILE_THRESHOLD ? 1 : 0), 0);
   return {
     significant: sigIslands.length,
-    largestShare: landTotal > 0 ? (islands[0]?.size ?? 0) / landTotal : 0,
-    dockCount,
-    dockSiteIndices: new Uint32Array(sigIslands.map(i => i.start))
+    largestShare: landTotal > 0 ? (islands[0]?.size ?? 0) / landTotal : 0
   };
 };
 
@@ -152,45 +145,9 @@ type ResourceCounts = { fish: number; titanium: number; gems: number; farm: numb
 // is unrelated to cluster placement (frontier claims, dock/fort/observatory
 // economy) and is stubbed out the same way apps/simulation's
 // season-seed-world.ts stubs it for its own test/lab worlds.
-const placeResourceClusters = (seed: number): ResourceCounts => {
-  const clusterByTile = new Map<TileKey, string>();
+const placeResourceClusters = (seed: number, clusterByTile: Map<TileKey, string>): ResourceCounts => {
   const clustersById = new Map<string, ClusterDefinition>();
-  const terrainRuntime = createServerWorldgenTerrain({
-    wrapX,
-    wrapY,
-    WORLD_WIDTH,
-    WORLD_HEIGHT,
-    terrainShapesByTile: new Map(),
-    key: tileKeyOf,
-    terrainAt,
-    PLAYER_MOUNTAIN_DENSITY_RADIUS: 1,
-    PLAYER_MOUNTAIN_DENSITY_LIMIT: 1,
-    players: new Map(),
-    parseKey,
-    chebyshevDistance: () => 0,
-    regionTypeAt,
-    clusterByTile,
-    landBiomeAt,
-    grassShadeAt,
-    FRONTIER_CLAIM_MS: 0,
-    // Unused by cluster placement — stubbed only to satisfy the shared deps type.
-    townsByTile: new Map(),
-    docksByTile: new Map(),
-    fortsByTile: new Map(),
-    siegeOutpostsByTile: new Map(),
-    observatoriesByTile: new Map(),
-    economicStructuresByTile: new Map(),
-    playerTile: () => ({ x: 0, y: 0, terrain: "SEA", lastChangedAt: 0 }),
-    AIRPORT_BOMBARD_MIN_FIELD_TILES: 2,
-    AIRPORT_BOMBARD_MAX_FIELD_TILES: 4,
-    activeSeason: { worldSeed: seed },
-    clustersById,
-    ownership: new Map(),
-    getOrInitResourceCounts: () => ({} as never),
-    rebuildEconomyIndexForPlayer: () => {},
-    sendPlayerUpdate: () => {},
-    sendVisibleTileDeltaAt: () => {}
-  });
+  const terrainRuntime = buildLabTerrainRuntime(seed, clusterByTile, clustersById);
 
   const clustersRuntime = createServerWorldgenClusters({
     clusterByTile,
@@ -419,11 +376,15 @@ self.onmessage = (event: MessageEvent<WorkerRequest>): void => {
     }
   }
 
-  const { significant: islandCount, largestShare, dockCount, dockSiteIndices } = countIslands(terrain);
+  const { significant: islandCount, largestShare } = countIslands(terrain);
   // setWorldSeed(currentSeed, ...) is still in effect from the terrain generation
   // above (generateTerrain's last call used currentSeed), so real cluster
-  // placement below reads the same world the rendered terrain/biome grids came from.
-  const resources = placeResourceClusters(currentSeed);
+  // and dock placement below reads the same world the rendered terrain/biome
+  // grids came from. Docks are shared between clusters (clusterByTile feeds
+  // dock/mainland detection) and resources (the real cluster placement).
+  const clusterByTile = new Map<TileKey, string>();
+  const resources = placeResourceClusters(currentSeed, clusterByTile);
+  const { dockCount, dockSiteIndices } = placeDocks(currentSeed, clusterByTile);
   const { count: townCount, indices: townIndices } = estimateTownCount(terrain, currentSeed);
   const wonders = placeNaturalWonders(terrain, townIndices, dockSiteIndices, currentSeed);
   const spawnSiteIndices = computeSpawnSiteIndices(terrain, resources.layer, townIndices);
