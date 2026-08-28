@@ -1,5 +1,5 @@
 import { isChosenTrickleResource } from "@border-empires/shared";
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
+import type { PlayerSubscriptionSnapshot, SeasonWinnerSnapshot } from "@border-empires/sim-protocol";
 
 type TileDelta = NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>;
 type WorldStatusSnapshot = NonNullable<PlayerSubscriptionSnapshot["worldStatus"]>;
@@ -93,6 +93,8 @@ export const applyPlayerMessageToSnapshot = (
 ): PlayerSubscriptionSnapshot => {
   if (payload.type === "GLOBAL_STATUS_UPDATE") {
     const previousWorldStatus = snapshot.worldStatus;
+    const incomingSeasonWinner = payload.seasonWinner as SeasonWinnerSnapshot | undefined;
+    const resolvedSeasonWinner = incomingSeasonWinner ?? previousWorldStatus?.seasonWinner;
     return {
       ...snapshot,
       worldStatus: {
@@ -107,7 +109,8 @@ export const applyPlayerMessageToSnapshot = (
         seasonVictory:
           (payload.seasonVictory as WorldStatusSnapshot["seasonVictory"]) ??
           previousWorldStatus?.seasonVictory ??
-          []
+          [],
+        ...(resolvedSeasonWinner !== undefined ? { seasonWinner: resolvedSeasonWinner as SeasonWinnerSnapshot } : {})
       }
     };
   }
@@ -137,6 +140,18 @@ export const applyPlayerMessageToSnapshot = (
           : {}),
         ...(Array.isArray(payload.dormantStructures)
           ? { dormantStructures: payload.dormantStructures as NonNullable<PlayerStateSnapshot["dormantStructures"]> }
+          : {}),
+        ...(typeof payload.economyBreakdown === "object" && payload.economyBreakdown !== null
+          ? { economyBreakdown: payload.economyBreakdown as Record<string, unknown> }
+          : {}),
+        ...(typeof payload.upkeepPerMinute === "object" && payload.upkeepPerMinute !== null
+          ? { upkeepPerMinute: payload.upkeepPerMinute as NonNullable<PlayerStateSnapshot["upkeepPerMinute"]> }
+          : {}),
+        ...(typeof payload.upkeepLastTick === "object" && payload.upkeepLastTick !== null
+          ? { upkeepLastTick: payload.upkeepLastTick as Record<string, unknown> }
+          : {}),
+        ...(payload.storageCap && typeof payload.storageCap === "object"
+          ? { storageCap: payload.storageCap as Record<string, number> }
           : {}),
         ...(typeof payload.developmentProcessLimit === "number" ? { developmentProcessLimit: payload.developmentProcessLimit } : {}),
         ...(typeof payload.activeDevelopmentProcessCount === "number"
