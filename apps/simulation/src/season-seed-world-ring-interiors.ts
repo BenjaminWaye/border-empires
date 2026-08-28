@@ -40,7 +40,7 @@ const interiorLandTilesByDistance = (
   deps: Pick<RingInteriorFillDeps, "WORLD_WIDTH" | "WORLD_HEIGHT" | "terrainAt">
 ): Array<{ x: number; y: number; d2: number }> => {
   const { WORLD_WIDTH, WORLD_HEIGHT, terrainAt } = deps;
-  const radius = Math.max(0, ring.innerRadius - 1);
+  const radius = ring.innerRadius;
   const tiles: Array<{ x: number; y: number; d2: number }> = [];
   for (let dy = -radius; dy <= radius; dy += 1) {
     for (let dx = -radius; dx <= radius; dx += 1) {
@@ -82,8 +82,7 @@ export const fillMountainRingInteriors = (worldSeed: number, style: WorldStyle, 
     // the tile nearest the ring's center anyway. The interior is a small,
     // mountain-walled pocket that would otherwise stay permanently empty —
     // guaranteeing it gets *something* takes priority over spacing here.
-    const placement = interiorTiles.find(({ x, y }) => canPlaceTownAt(x, y)) ?? interiorTiles[0];
-    if (!placement) continue;
+    const placement = interiorTiles.find(({ x, y }) => canPlaceTownAt(x, y)) ?? interiorTiles[0]!;
     const { x, y } = placement;
     const tileKey = key(x, y);
     townsByTile.set(tileKey, {
