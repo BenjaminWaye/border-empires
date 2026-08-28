@@ -118,11 +118,13 @@ export type AdminPlayerRow = {
   /** ownedTiles - settledTiles, i.e. FRONTIER-state tiles this player owns. */
   frontierTiles: number;
   /**
-   * barbarian-* rows only: how many of this barbarian's owned tiles are
-   * currently visible to at least one non-barbarian player (the eligibility
-   * set the barbarian AI planner acts from — see
-   * exportBarbActivationVisibleUnion / system-job-barbarian-planner.ts).
-   * Omitted for every non-barbarian row.
+   * barbarian-* rows only: how many tiles owned by ANY barbarian-* player
+   * (not just this row's) are currently visible to at least one
+   * non-barbarian player — exportBarbActivationVisibleUnion computes one
+   * combined union across every barbarian, it does not break the count down
+   * per barbarian id. This is the eligibility set the barbarian AI planner
+   * acts from (see system-job-barbarian-planner.ts). Identical on every
+   * barbarian-* row; omitted for every non-barbarian row.
    */
   barbActivationVisibleTiles?: number;
 };

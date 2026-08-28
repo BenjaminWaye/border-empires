@@ -9,7 +9,6 @@ import {
   SIMULATION_PROTO_PATH,
   measurePlayerSubscriptionSnapshot,
   summarizePlayerSubscriptionSnapshotCache,
-  type AdminPlayerRow,
   type CommandEnvelope,
   type CurrentSeasonSummary,
   type GetRecentCommandsResponse,
@@ -57,6 +56,7 @@ import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore }
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
+import { buildAdminPlayerRows } from "../admin-players-snapshot.js";
 import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
@@ -2585,34 +2585,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
       _call: { request: ProtoAdminPlayersRequest },
       callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void
     ) {
-      // Computed once and reused for every barbarian-* row below — cheap
-      // (memoised on the visibility signature; see exportBarbActivationVisibleUnion)
-      // but there's no reason to recompute it per row.
-      let barbActivationVisibleTileCount: number | undefined;
-      const rows: AdminPlayerRow[] = runtime.exportPlayerDebugSnapshot().map((player) => {
-        const isBarbarian = player.id.startsWith("barbarian-");
-        if (isBarbarian && barbActivationVisibleTileCount === undefined) {
-          barbActivationVisibleTileCount = runtime.exportBarbActivationVisibleUnion().keys.length;
-        }
-        return {
-          id: player.id,
-          name: player.name ?? player.id,
-          isAi: player.isAi,
-          gold: player.points,
-          settledTiles: player.settledTileCount,
-          ownedTiles: player.ownedTileCount,
-          incomePerMinute: player.incomePerMinute,
-          techs: player.techIds.length,
-          manpower: player.manpower,
-          resourceSlotSupply: player.resourceSlotSupply,
-          resourceSlotDemand: player.resourceSlotDemand,
-          shardStockpile: player.shardStockpile,
-          reachTiles: runtime.reachTileCountForPlayer(player.id),
-          frontierTiles: Math.max(0, player.ownedTileCount - player.settledTileCount),
-          ...(isBarbarian ? { barbActivationVisibleTiles: barbActivationVisibleTileCount } : {})
-        };
-      });
-      callback(null, { ok: true, players_json: JSON.stringify(rows) });
+      callback(null, { ok: true, players_json: JSON.stringify(buildAdminPlayerRows(runtime)) });
     },
     GetRecentCommands(
       call: { request: ProtoGetRecentCommandsRequest },
