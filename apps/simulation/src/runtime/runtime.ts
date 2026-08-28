@@ -499,6 +499,7 @@ import {
 } from "../runtime-respawn-helpers.js";
 import { SpawnPlacementIndex } from "../spawn-placement/spawn-placement-index.js";
 import { appendTownLostEventLogIfApplicable, buildOwnershipChangeSample } from "./runtime-ownership-change-sample.js";
+import { handleDuplicatePendingSettlement } from "../runtime-settle-duplicate.js";
 
 export type { VisibilityAuditSample };
 const priorityOrder: QueueLane[] = ["human_interactive", "human_noninteractive", "system", "ai"];
@@ -3661,9 +3662,7 @@ export class SimulationRuntime {
     const targetKey = simulationTileKey(payload.x, payload.y);
     const target = this.state.tiles.get(targetKey);
     if (!target) { this.rejectCommand(command, "UNKNOWN_TILE", "tile not found"); return; }
-    if (target.ownerId !== command.playerId || target.ownershipState !== "FRONTIER") {
-      this.rejectCommand(command, "SETTLE_INVALID", "tile is not one of your frontier tiles"); return;
-    }
+    if (target.ownerId !== command.playerId || target.ownershipState !== "FRONTIER") { this.rejectCommand(command, "SETTLE_INVALID", "tile is not one of your frontier tiles"); return; }
     // Encirclement guard: a cut-off tile cannot be settled. Settling a
     // disconnected tile would let a player convert an encircled pocket into
     // permanent territory, defeating the encirclement mechanic. Natural
@@ -3677,7 +3676,7 @@ export class SimulationRuntime {
     if (!(target.town || target.dockId) && !this.isPlayerTileInReach(command.playerId, target.x, target.y)) {
       this.rejectCommand(command, "OUT_OF_REACH", "tile is outside your reach"); return;
     }
-    if (this.pendingSettlementsByTile.has(targetKey)) { this.rejectCommand(command, "SETTLE_INVALID", "tile is already settling"); return; }
+    if (handleDuplicatePendingSettlement({ emitEvent: (e) => this.emitEvent(e), rejectCommand: (c, code, msg) => this.rejectCommand(c, code, msg) }, this.pendingSettlementsByTile.get(targetKey), command)) return; // see runtime-settle-duplicate.ts
     if (this.rejectIfNoDevelopmentSlot(command, "SETTLE_INVALID", "development slots are busy")) return;
     const settleRejection = settleRejectionForActor(actor); if (settleRejection) { this.rejectCommand(command, settleRejection.code, settleRejection.message); return; }
 

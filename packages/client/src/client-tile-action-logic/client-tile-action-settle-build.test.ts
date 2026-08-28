@@ -18,6 +18,7 @@ import { SETTLE_COST, SETTLE_MANPOWER_COST, structureBuildDurationMs, structureB
 
 import { createInitialState } from "../client-state/client-state.js";
 import { settleDurationMsForState } from "../client-queue-logic/client-queue-logic.js";
+import { splitTileActionsIntoTabs } from "../client-tile-action-support/client-tile-action-support.js";
 import { menuActionsForSingleTile } from "./client-tile-action-logic.js";
 import type { Tile, TileActionDef } from "../client-types.js";
 
@@ -168,6 +169,21 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
     expect(action?.disabled).not.toBe(true);
     expect(action?.detail).toBe(" • settles this tile first");
     expect(action?.cost).toBe(frontierCostLabel(state, frontier, "RELAY_BEACON"));
+  });
+
+  it("shows build_relay_beacon in both the Actions and Buildings tabs on a FRONTIER tile, but Buildings only on a SETTLED tile", () => {
+    const state = richState();
+    const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
+    state.tiles.set(keyFor(3, 3), frontier);
+    const frontierTabs = splitTileActionsIntoTabs(menuActionsForSingleTile(state, frontier, baseDeps as never), state);
+    expect(frontierTabs.actions.some((a) => a.id === "build_relay_beacon")).toBe(true);
+    expect(frontierTabs.buildings.some((a) => a.id === "build_relay_beacon")).toBe(true);
+
+    const settled: Tile = { x: 4, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile;
+    state.tiles.set(keyFor(4, 3), settled);
+    const settledTabs = splitTileActionsIntoTabs(menuActionsForSingleTile(state, settled, baseDeps as never), state);
+    expect(settledTabs.buildings.some((a) => a.id === "build_relay_beacon")).toBe(true);
+    expect(settledTabs.actions.some((a) => a.id === "build_relay_beacon")).toBe(false);
   });
 });
 
