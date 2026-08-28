@@ -171,13 +171,13 @@ describe("settle + build — Relay Beacon on an owned FRONTIER tile", () => {
     expect(action?.cost).toBe(frontierCostLabel(state, frontier, "RELAY_BEACON"));
   });
 
-  it("routes build_relay_beacon to the Actions tab on a FRONTIER tile, but the Buildings tab on a SETTLED tile", () => {
+  it("shows build_relay_beacon in both the Actions and Buildings tabs on a FRONTIER tile, but Buildings only on a SETTLED tile", () => {
     const state = richState();
     const frontier: Tile = { x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "FRONTIER", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(3, 3), frontier);
     const frontierTabs = splitTileActionsIntoTabs(menuActionsForSingleTile(state, frontier, baseDeps as never), state);
     expect(frontierTabs.actions.some((a) => a.id === "build_relay_beacon")).toBe(true);
-    expect(frontierTabs.buildings.some((a) => a.id === "build_relay_beacon")).toBe(false);
+    expect(frontierTabs.buildings.some((a) => a.id === "build_relay_beacon")).toBe(true);
 
     const settled: Tile = { x: 4, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED", resource: "FARM" } as Tile;
     state.tiles.set(keyFor(4, 3), settled);
