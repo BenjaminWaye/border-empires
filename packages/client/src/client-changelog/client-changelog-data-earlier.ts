@@ -145,17 +145,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787412371498, // 2026.08.22.11 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.11",
-    title: "Muster flags can now march on a chosen target instead of just the nearest enemy tile",
-    why: "A muster flag's ADVANCE mode always auto-fired on whatever enemy tile happened to be nearest, with no way to point it at a specific target -- useful for holding a line, but not for actually pushing an offensive toward somewhere particular.",
-    changes: [
-      "New \"March To...\" muster action: pick a flag, choose \"March To...\", then click a destination tile.",
-      "A marching flag fights its way toward that destination one attack at a time, always picking whichever reachable enemy tile is closest to the target -- it never crosses neutral ground, since a muster flag only ever attacks enemy territory.",
-      "The flag automatically returns to HOLD once it captures the target tile, or you can cancel the march early from the tile menu."
-    ]
-  },
-  {
     createdAt: 1787519500000, // frozen from a live Date.now() call
     introducedIn: "2026.08.23.8",
     title: "Added a \"Suggest Improvement\" button next to Report Bug",
@@ -268,17 +257,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787415992729, // 2026.08.22.3 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.3",
-    title: "Non-winning seasons now leave a mark on your galaxy too: Outposts and Stipends",
-    why: "The galaxy previously only recorded a season's outright winner as a permanent Planet, so every other empire's season vanished without a trace once it ended -- even a season played well but not won.",
-    changes: [
-      "A strong runner-up -- leading a different victory path than the one that won, with real hold-progress on it -- now claims a minor permanent Outpost, specialized by their own leading path and shown alongside your Planets in the galaxy view.",
-      "Any other empire that meaningfully engaged with a victory path, without getting close to winning, now gets a one-time Stipend of Influence and Production instead, scaled to how far they got.",
-      "Outposts appear in the public galaxy listing as territory, like Planets; Stipends are a one-time payout and only show up in your own galaxy view."
-    ]
-  },
-  {
     createdAt: 1787419536000, // 2026.08.22.4 — frozen from a live Date.now() call
     introducedIn: "2026.08.22.4",
     title: "Winning a season now gives your next empire a starting head start",
@@ -320,16 +298,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "The game no longer renders the map/world underneath while the lobby is up, saving battery and CPU for players who are just waiting.",
       "Redesigned the lobby's look: a brass-and-gunmetal war-room panel with riveted corners, a glowing amber countdown dial, and a subtle cog motif, layered over the game's existing dark command-center theme.",
       "Fixed the lobby heading showing the raw season id twice (e.g. \"Season season-8 starts soon\") -- it now reads simply \"Season starts soon\"."
-    ]
-  },
-  {
-    createdAt: 1787411986658,
-    introducedIn: "2026.08.22.8",
-    title: "Beta season countdown screen",
-    why: "The beta season now has a synchronized start time so everyone begins together instead of the first arrivals compounding a head start over testers in later timezones.",
-    changes: [
-      "Joining before the season's scheduled start now shows a countdown screen with the start time converted to your local timezone, instead of an error.",
-      "The client automatically re-joins the season once the countdown reaches zero — no reload needed."
     ]
   },
   {
