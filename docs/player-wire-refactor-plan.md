@@ -18,11 +18,19 @@ snapshot, the other silently drops it):
 
 | Field | sim copy | gateway copy |
 |---|---|---|
-| `storageCap` | merges | drops |
 | `upkeepPerMinute` | merges | drops |
 | `economyBreakdown` | merges | drops |
 | `seasonWinner` | merges | drops |
 | `chosenTrickleResource` | drops | merges |
+
+`storageCap` looked like the same drift at first glance (sim's copy merges
+it, gateway's drops it) but turned out to be a false positive: the client
+reads `storageCap` off the top level of the wire message
+(`msg.storageCap`), never `msg.player.storageCap`, and it isn't part of
+`PlayerSubscriptionSnapshot["player"]` at all — so the sim-side merge into
+`player.storageCap` is itself dead code, not something worth porting to
+the gateway. Left as-is in Phase 0; worth deleting from the sim copy as a
+follow-up cleanup, not a bug fix.
 
 **Fields the client reads off `msg.player` that `init-payload.ts` never
 sets on reconnect** — the same class of bug as #1640:
