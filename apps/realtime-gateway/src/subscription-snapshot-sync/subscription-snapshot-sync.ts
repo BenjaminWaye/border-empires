@@ -150,9 +150,6 @@ export const applyPlayerMessageToSnapshot = (
         ...(typeof payload.upkeepLastTick === "object" && payload.upkeepLastTick !== null
           ? { upkeepLastTick: payload.upkeepLastTick as Record<string, unknown> }
           : {}),
-        ...(payload.storageCap && typeof payload.storageCap === "object"
-          ? { storageCap: payload.storageCap as Record<string, number> }
-          : {}),
         ...(typeof payload.developmentProcessLimit === "number" ? { developmentProcessLimit: payload.developmentProcessLimit } : {}),
         ...(typeof payload.activeDevelopmentProcessCount === "number"
           ? { activeDevelopmentProcessCount: payload.activeDevelopmentProcessCount }
