@@ -19,11 +19,14 @@ import { setTrue3DRendererActive } from "../client-renderer-mode.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { recordRendererFailure } from "../client-webgl-probe/client-webgl-probe.js";
 import { showRendererFallbackNotice } from "../client-renderer-fallback-notice/client-renderer-fallback-notice.js";
+import { qualitySettingsFor } from "../client-map-3d-quality-tier/client-map-3d-quality-tier.js";
 import {
   beginRendererAttempt,
   clearRendererCrashStreak,
   markRendererAttemptHandled,
   markRendererInitCompleted,
+  previousRendererAttempt,
+  previousSessionEndedUncleanly,
   recordRendererHeartbeat,
   shouldSkipThreeDAfterCrashes
 } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
@@ -105,9 +108,12 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
   const ensure = (): void => {
     if (!deps.enabled || failed || renderer) return;
     if (!deps.isReady()) return;
-    // A device whose tab died mid-construction on the last attempts gets 2D
-    // without another try. Nothing here can catch that death, so refusing to
-    // repeat it is the only available handling — see the breadcrumb module.
+    // A device that died again at the *bottom* of the degradation ladder
+    // (client-map-3d-quality-tier.ts) gets 2D without another try: it has now
+    // failed at minimum pixel ratio, no MSAA, and a screen-sized tile budget,
+    // so there is nothing cheaper left to offer it. Nothing here can catch
+    // that death, so refusing to repeat it is the only available handling —
+    // see the breadcrumb module.
     if (shouldSkipThreeDAfterCrashes()) {
       retire("3D crashed this browser on the last attempts — using the 2D map.", {
         preserveCrashStreak: true,
@@ -124,7 +130,14 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
       });
       return;
     }
-    const tileBudget = resolveTileBudget(MIN_ZOOM);
+    // Same ladder the render target reads for pixel ratio and MSAA, so a given
+    // attempt is consistently sized: at the bottom tier the floor drops and
+    // the budget is whatever the screen genuinely shows.
+    const quality = qualitySettingsFor({
+      previousAttempt: previousRendererAttempt(),
+      previousSessionEndedUncleanly: previousSessionEndedUncleanly()
+    });
+    const tileBudget = resolveTileBudget(MIN_ZOOM, quality.tileBudgetFloor);
     try {
       // On disk before a byte is allocated: if the tab is killed during
       // construction, the next load reads this and knows where it died.

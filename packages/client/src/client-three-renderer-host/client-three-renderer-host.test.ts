@@ -153,7 +153,7 @@ describe("3d renderer host", () => {
   const brakedHost = async (create: () => FakeRenderer) => {
     window.localStorage.setItem(
       BREADCRUMB_KEY,
-      JSON.stringify({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 2 })
+      JSON.stringify({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 3 })
     );
     vi.resetModules();
     const { createThreeRendererHost: freshHost } = await import("./client-three-renderer-host.js");
@@ -165,7 +165,7 @@ describe("3d renderer host", () => {
     });
   };
 
-  it("refuses to attempt 3d again after it crashed the browser twice", async () => {
+  it("refuses to attempt 3d again after it crashed the browser at the bottom rung", async () => {
     // A killed tab runs no JS, so nothing can catch it — declining to repeat
     // the attempt is the only handling available, and it's what turns a
     // crash loop into a playable 2D game.
@@ -218,7 +218,7 @@ describe("3d renderer host", () => {
     host.ensure();
 
     const breadcrumb = JSON.parse(window.localStorage.getItem(BREADCRUMB_KEY) ?? "{}");
-    expect(breadcrumb.failedAttempts).toBeGreaterThanOrEqual(2);
+    expect(breadcrumb.failedAttempts).toBeGreaterThanOrEqual(3);
     expect(breadcrumb.phase).not.toBe("survived");
   });
 

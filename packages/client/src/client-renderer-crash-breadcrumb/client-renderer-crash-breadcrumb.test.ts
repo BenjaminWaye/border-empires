@@ -57,18 +57,32 @@ describe("renderer crash breadcrumb", () => {
   });
 
   it("skips 3d once the crash streak reaches the brake threshold", async () => {
-    seed({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 2 });
+    seed({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 3 });
 
     const session = await loadSession();
 
     expect(session.shouldSkipThreeDAfterCrashes()).toBe(true);
   });
 
+  // The threshold is 3, not 2, because the degradation ladder
+  // (client-map-3d-quality-tier.ts) spends the streak walking down a rung at a
+  // time and `failedAttempts` 2 is the *cheapest* configuration — the one a
+  // struggling phone is most likely to survive. Braking at 2 retired 3D one
+  // attempt before that configuration was ever tried, which is exactly the
+  // reported iPhone trace.
+  it("still offers 3d at the bottom rung after two failures, before giving up", async () => {
+    seed({ atMs: 1, phase: "init-completed", tileBudget: 6000, failedAttempts: 2 });
+
+    const session = await loadSession();
+
+    expect(session.shouldSkipThreeDAfterCrashes()).toBe(false);
+  });
+
   it("clearRendererCrashStreak wipes the breadcrumb so a fresh load reads no brake", async () => {
     // The "Try 3D again" button on the fallback notice calls this before
     // reloading — a brake tripped by a player refreshing mid-construction
     // (not a real crash) would otherwise hold forever with no way back in.
-    seed({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 2 });
+    seed({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 3 });
     const tripped = await loadSession();
     expect(tripped.shouldSkipThreeDAfterCrashes()).toBe(true);
 
@@ -161,7 +175,7 @@ describe("renderer crash breadcrumb", () => {
   });
 
   it("still counts a death during the first render toward the crash-loop brake", async () => {
-    seed({ atMs: 1, phase: "first-render-started", tileBudget: 6000, failedAttempts: 2 });
+    seed({ atMs: 1, phase: "first-render-started", tileBudget: 6000, failedAttempts: 3 });
 
     const session = await loadSession();
 

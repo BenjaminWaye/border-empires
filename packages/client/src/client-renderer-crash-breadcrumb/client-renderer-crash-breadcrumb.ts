@@ -53,8 +53,17 @@ const BREADCRUMB_STORAGE_KEY = "border-empires-renderer-breadcrumb-v1";
 const SURVIVAL_MS = 8000;
 
 // One bad attempt can be a fluke (a backgrounded tab, an unrelated OS kill).
-// Two in a row is a device that cannot run this renderer.
-const CRASH_ATTEMPTS_BEFORE_2D = 2;
+//
+// This was 2, on the reasoning that two in a row is a device that cannot run
+// this renderer. That was true when every attempt was identical — but the
+// degradation ladder (client-map-3d-quality-tier.ts) now spends the streak
+// walking down a rung at a time: `failedAttempts` 0 is full quality, 1 is
+// reduced, 2 is minimum. Stopping at 2 retired 3D one attempt *before* the
+// cheapest configuration was ever tried, which is the shape an iPhone reported
+// (two identical full-quality deaths, then 2D forever). 3 is what it costs to
+// give each rung exactly one attempt; only a device that also dies at the
+// bottom is one that genuinely cannot run this renderer.
+const CRASH_ATTEMPTS_BEFORE_2D = 3;
 
 export type RendererAttemptPhase = "init-started" | "init-completed" | "first-render-started" | "survived";
 

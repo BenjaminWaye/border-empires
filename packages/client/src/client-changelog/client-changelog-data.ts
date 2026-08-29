@@ -282,6 +282,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The tile overview's \"First 3 towns\" line now stays in sync on every economy refresh, not just the rare full town rebuild"
     ]
+  },
+  {
+    createdAt: 1788028966835, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "Phones that couldn't run the 3D map now get a lighter 3D map instead of being dropped to 2D",
+    why: "When the 3D map crashed a phone's browser, every retry used the exact same settings as the attempt that just died -- the only thing that ever got made cheaper was for one narrow kind of crash. So a device would fail twice identically and then be parked on the 2D map permanently, having never been offered a 3D map small enough to actually run. A session that played fine for a while and was then killed by the OS taught it nothing at all.",
+    changes: [
+      "After a 3D crash the map now retries at reduced quality (no antialiasing, lower resolution), then at minimum quality, before falling back to 2D",
+      "At minimum quality the map only allocates as many tiles as your screen can actually show, instead of a fixed floor well above it",
+      "A session that ran fine and was then killed by the OS mid-play now also steps the map down a level on the next load"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

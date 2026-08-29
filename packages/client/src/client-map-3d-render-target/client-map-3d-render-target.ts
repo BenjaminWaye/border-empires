@@ -16,7 +16,11 @@
 import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
 import { describeWebGLProbe, webGLProbe } from "../client-webgl-probe/client-webgl-probe.js";
 import { pixelRatioFor } from "../client-map-3d-pixel-ratio/client-map-3d-pixel-ratio.js";
-import { previousRendererAttempt } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
+import { qualitySettingsFor } from "../client-map-3d-quality-tier/client-map-3d-quality-tier.js";
+import {
+  previousRendererAttempt,
+  previousSessionEndedUncleanly
+} from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 
 export type WebGLContextGuard = {
   /** True once the GPU has taken the context away; the renderer can't recover. */
@@ -94,18 +98,27 @@ export const createThreeRenderTarget = (
 
   assertWebGLRendererSupported();
 
-  const renderer = new WebGLRenderer({ canvas: glCanvas, antialias: true, alpha: true, powerPreference: "high-performance" });
+  // Both of the drawing buffer's cost multipliers come from the degradation
+  // ladder, which reads the crash breadcrumb: MSAA (`antialias`) allocates the
+  // color *and* depth attachments at the sample count — 4x on iOS — plus a
+  // resolve target, so dropping it is the largest single saving available and
+  // the first rung down. The pixel ratio squares whatever is left.
+  const quality = qualitySettingsFor({
+    previousAttempt: previousRendererAttempt(),
+    previousSessionEndedUncleanly: previousSessionEndedUncleanly()
+  });
+  const renderer = new WebGLRenderer({
+    canvas: glCanvas,
+    antialias: quality.antialias,
+    alpha: true,
+    powerPreference: "high-performance"
+  });
   // `#game-3d` is sized entirely by CSS (`inset: 0; width/height: 100%`), and
   // client-map-3d.ts calls `setSize(w, h, false)` with the viewport's *CSS*
   // pixel size, so the ratio here scales the drawing buffer without disturbing
   // layout — which is what makes rendering above 1:1 possible at all.
-  const previousAttempt = previousRendererAttempt();
   renderer.setPixelRatio(
-    pixelRatioFor({
-      devicePixelRatio: window.devicePixelRatio,
-      previousAttemptDiedDuringAllocation:
-        previousAttempt === undefined ? undefined : previousAttempt.phase === "init-started"
-    })
+    pixelRatioFor({ devicePixelRatio: window.devicePixelRatio, maxPixelRatio: quality.maxPixelRatio })
   );
 
   // Filmic tone mapping gives the lit terrain/water/structure materials the
