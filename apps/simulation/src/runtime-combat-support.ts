@@ -268,6 +268,25 @@ const EXPAND_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: true } = {
 };
 
 
+// Whether the target's fort actually grants its combat bonus: active,
+// owned by the defender, and not resource-dormant (§5.4). Shared between
+// resolveAttackCombat (combat-power calculation) and
+// buildLockedCombatResolution (manpower-loss-range lookup) so the two
+// can't drift on what counts as "has an active fort" for the same attack.
+const targetHasActiveFortFor = (
+  ctx: RuntimeCombatSupportContext,
+  previousTarget: DomainTileState | undefined,
+  defenderOwnerId: string | undefined,
+  targetKey: string
+): boolean =>
+  Boolean(
+    previousTarget?.fort &&
+      previousTarget.fort.status === "active" &&
+      previousTarget.fort.ownerId === defenderOwnerId &&
+      defenderOwnerId &&
+      !ctx.isStructureDormant(defenderOwnerId, targetKey, "fort")
+  );
+
 const resolveAttackCombat = (
   ctx: RuntimeCombatSupportContext,
   lock: LockedCombatInput,
@@ -277,13 +296,7 @@ const resolveAttackCombat = (
 ): FrontierCombatPreview & { attackerWon: boolean } => {
   const outpostMult = attackerOutpostMult(ctx, lock.playerId, lock.targetX, lock.targetY);
   const attacker = ctx.players.get(lock.playerId); const dockAttackMult = wonderEffects.dockAttackMultiplierForOrigin(attacker, ctx.tiles.get(lock.originKey), lock.playerId);
-  const targetHasActiveFort = Boolean(
-    previousTarget?.fort &&
-      previousTarget.fort.status === "active" &&
-      previousTarget.fort.ownerId === defenderOwnerId &&
-      defenderOwnerId &&
-      !ctx.isStructureDormant(defenderOwnerId, lock.targetKey, "fort")
-  );
+  const targetHasActiveFort = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey);
   const combatModifiers = {
     attackerOutpostMult: outpostMult,
     dockAttackMult,
@@ -342,13 +355,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     combat.attackerWon && defender && targetWasSettled && previousTarget && !targetRecentlyPillaged
       ? previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
       : undefined;
-  const targetHasActiveFort = Boolean(
-    previousTarget?.fort &&
-      previousTarget.fort.status === "active" &&
-      previousTarget.fort.ownerId === defenderOwnerId &&
-      defenderOwnerId &&
-      !ctx.isStructureDormant(defenderOwnerId, lock.targetKey, "fort")
-  );
+  const targetHasActiveFort = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey);
   const manpowerLoss = lock.actionType !== "ATTACK"
     ? 0
     : targetWasSettled

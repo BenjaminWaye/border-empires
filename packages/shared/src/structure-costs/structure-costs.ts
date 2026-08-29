@@ -165,6 +165,12 @@ export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
 // more often AND more cheaply. "NONE" covers a SETTLED target with no
 // active fort. Barbarian/FRONTIER targets use their own separate (much
 // cheaper) raid constants in config.ts and are not covered by this table.
+// Each tier's `max` here currently equals that same tier's FORT_TIER_LADDER
+// `manpower` (build cost) above — a deliberate design choice ("attacking it
+// costs as much as building it"), not a derived/enforced invariant. The two
+// tables are independent; a future rebalance of one does not have to touch
+// the other, but if you change one and mean to keep them matched, update
+// both by hand.
 export type AttackManpowerLossRange = { min: number; max: number };
 
 export const ATTACK_MANPOWER_LOSS_RANGE: Record<"NONE" | FortVariant, AttackManpowerLossRange> = {
