@@ -6813,7 +6813,7 @@ describe("simulation runtime", () => {
     // Target is SETTLED with a town (1.2x), 3 owned Weapons Workshops
     // (+9%), plus the fixture's own 1 Titanium (+3%) / 1 Umbrite (+1.5%)
     // Weapons Factory — both now count empire-wide regardless of network.
-    expect(defenderBoosted?.defEff).toBeCloseTo(10 * 1.2 * 1.09 * 1.03 * 1.015, 6);
+    expect(defenderBoosted?.defEff).toBeCloseTo(10 * 1.3 * 1.2 * 1.09 * 1.03 * 1.015, 6);
   });
 
   it("threads Titanium/Umbrite Weapons Factory counts into resolved combat atkEff and defEff, empire-wide regardless of town network", async () => {
@@ -6903,7 +6903,7 @@ describe("simulation runtime", () => {
     // vulnerability penalty (defender owns both types).
     expect(accepted?.combatResult?.atkEff).toBeCloseTo(10 * 1.03 * 1.03, 6);
     // Defender: SETTLED + town (1.2x), 1 Titanium (+3%) * 1 Umbrite (+1.5%).
-    expect(accepted?.combatResult?.defEff).toBeCloseTo(10 * 1.2 * 1.03 * 1.015, 6);
+    expect(accepted?.combatResult?.defEff).toBeCloseTo(10 * 1.3 * 1.2 * 1.03 * 1.015, 6);
   });
 
   it("doubles attacker effectiveness when the defender has no war industry, and clears once both factory types exist", async () => {

@@ -152,9 +152,40 @@ export type FortTierInfo = {
 export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
   WOODEN_FORT:      { variant: "WOODEN_FORT",      gold: 0,  titanium: 0,   manpower: 150, defenseMult: 1.35 },
   FORT:             { variant: "FORT",             gold: 0,  titanium: 45,  manpower: 300, defenseMult: 2.5 },
-  TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 90,  manpower: 300, defenseMult: 4 },
-  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 180, manpower: 300, defenseMult: 8 },
+  TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 90,  manpower: 480, defenseMult: 4 },
+  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 180, manpower: 960, defenseMult: 8 },
 };
+
+// Manpower an attacker risks losing hitting a SETTLED target, and the
+// muster they must have committed to launch the attack at all (the range's
+// max — you can never lose more than you brought). Uniform-random within
+// the range regardless of whether the attack wins or loses: replaces the
+// old win-cheap/loss-expensive formula, which scaled the same direction as
+// win chance itself and let stronger empires steamroll weaker ones both
+// more often AND more cheaply. "NONE" covers a SETTLED target with no
+// active fort. Barbarian/FRONTIER targets use their own separate (much
+// cheaper) raid constants in config.ts and are not covered by this table.
+// Each tier's `max` here currently equals that same tier's FORT_TIER_LADDER
+// `manpower` (build cost) above — a deliberate design choice ("attacking it
+// costs as much as building it"), not a derived/enforced invariant. The two
+// tables are independent; a future rebalance of one does not have to touch
+// the other, but if you change one and mean to keep them matched, update
+// both by hand.
+export type AttackManpowerLossRange = { min: number; max: number };
+
+export const ATTACK_MANPOWER_LOSS_RANGE: Record<"NONE" | FortVariant, AttackManpowerLossRange> = {
+  NONE:             { min: 40,  max: 60 },
+  WOODEN_FORT:      { min: 100, max: 150 },
+  FORT:             { min: 200, max: 300 },
+  TITANIUM_BASTION: { min: 350, max: 480 },
+  THUNDER_BASTION:  { min: 800, max: 960 },
+};
+
+export const attackManpowerLossRangeForFort = (fortVariant: FortVariant | undefined): AttackManpowerLossRange =>
+  ATTACK_MANPOWER_LOSS_RANGE[fortVariant ?? "NONE"];
+
+export const requiredMusterForFort = (fortVariant: FortVariant | undefined): number =>
+  attackManpowerLossRangeForFort(fortVariant).max;
 
 export const FORT_VARIANT_LABELS: Record<FortVariant, string> = {
   WOODEN_FORT: "Palisade",
