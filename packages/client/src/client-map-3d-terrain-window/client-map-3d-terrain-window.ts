@@ -133,21 +133,22 @@ export const terrainWindowCovers = (
 };
 
 // True when the camera has panned since the last rebuild, i.e. builtWindow's
-// camX/camY no longer matches the live camera. The pad in padTerrainWindow()
-// deliberately lets a rebuild wait until the camera needs tiles outside the
-// padded extent -- that's fine for the terrain's own geometry, which the pad
-// exists to protect from being rebuilt on every zoom notch. But every OTHER
-// 3D overlay (ownership border pylons, flags, badges, selection markers...)
-// repositions itself every frame straight off the live camX/camY, with no
-// pad and no rebuild step. If the terrain is allowed to sit unrebuilt while
-// the camera drifts inside the pad, its baked geometry stays pinned to the
-// stale camX/camY from the last rebuild while every other overlay glides on
-// with the live camera -- the border pylons visibly separate from the
-// ground tiles under them mid-pan. Requiring an exact camX/camY match (any
-// nonzero drift needs a rebuild) keeps the terrain locked to the same live
-// camera position everything else already uses; REBUILD_MIN_INTERVAL_MS in
-// client-map-3d.ts is what actually bounds how often that fires during a
-// continuous drag.
+// camX/camY no longer matches the live camera.
+//
+// NOT used by client-map-3d.ts's maybeRebuild anymore. It used to force a
+// rebuild on any nonzero camX/camY drift, because every 3D overlay (border
+// pylons, flags, badges, selection markers...) repositioned itself every
+// frame straight off the live camera while the terrain's baked geometry only
+// updated on rebuild -- so the two would visibly separate mid-pan the moment
+// they used different anchors. client-map-3d.ts now fixes that by anchoring
+// EVERY per-frame overlay to the same "sceneOrigin" the terrain was last
+// rebuilt against (updated only when a rebuild commits), and moving the
+// camera itself to carry the live pan in between -- so terrain and overlays
+// never disagree about their anchor, and this exact-match check is no longer
+// needed to prevent that. Kept as a public, independently testable predicate
+// (and its own unit tests) in case a future caller needs "did the window
+// itself move" rather than "does it still cover what's required"
+// (terrainWindowCovers, which maybeRebuild uses instead).
 export const terrainWindowPanned = (
   built: TerrainWindow | undefined,
   required: TerrainWindow
