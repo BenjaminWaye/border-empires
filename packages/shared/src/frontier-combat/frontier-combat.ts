@@ -85,6 +85,11 @@ export type FrontierCombatModifiers = {
   // attack-side-only field (the attacker's own war-industry investment,
   // or lack of it, never affects their own defense).
   noWarIndustryVulnerabilityMult?: number | undefined;
+  // Names exactly which factory type(s) the defender is missing (e.g.
+  // "Target missing Umbrite Weapons Factory"), so the breakdown tells the
+  // attacker what to look for instead of a generic "no war industry" line.
+  // Falls back to a generic label if the caller doesn't supply one.
+  noWarIndustryVulnerabilityLabel?: string | undefined;
   // Mirror of noWarIndustryVulnerabilityMult above, but from the defender's
   // side: doubles the defender's effective defense when the ATTACKER owns
   // zero Titanium or zero Umbrite Weapons Factories anywhere in their empire
@@ -92,6 +97,9 @@ export type FrontierCombatModifiers = {
   // other side) — a defense-side-only field (the defender's own war-industry
   // investment, or lack of it, never affects their own attack).
   noWarIndustryDefenseVulnerabilityMult?: number | undefined;
+  // Mirror of noWarIndustryVulnerabilityLabel above, naming which factory
+  // type(s) the attacker is missing.
+  noWarIndustryDefenseVulnerabilityLabel?: string | undefined;
   // Generic tech/domain "attack"/"defense" stat mods (player.mods.attack /
   // player.mods.defense — recomputeMods in tech-domain-bridge.ts): persistent,
   // empire-wide, and independent of who/what is being fought, same tier as
@@ -99,6 +107,22 @@ export type FrontierCombatModifiers = {
   // supplies its own side's field.
   attackerStatMult?: number | undefined;
   defenderStatMult?: number | undefined;
+};
+
+// Builds the "missing X Weapons Factory" war-industry breakdown label from
+// which factory type(s) a side actually lacks, so the UI names the specific
+// building instead of a generic "no war industry" line. `subject` is
+// "Target" for the attack-side label (defender is missing) or "Attacker"
+// for the defense-side label (attacker is missing).
+export const noWarIndustryLabel = (
+  subject: "Target" | "Attacker",
+  hasTitanium: boolean,
+  hasUmbrite: boolean
+): string => {
+  if (!hasTitanium && !hasUmbrite) return `${subject} missing Titanium & Umbrite Weapons Factory`;
+  if (!hasTitanium) return `${subject} missing Titanium Weapons Factory`;
+  if (!hasUmbrite) return `${subject} missing Umbrite Weapons Factory`;
+  return `${subject} has no war industry`;
 };
 
 export const FRONTIER_COMBAT_MODULE = Symbol("frontier-combat");
@@ -152,7 +176,7 @@ const attackerBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   const entries: FrontierCombatBreakdownEntry[] = [];
   let mult = 1;
   mult *= foldMult(entries, "Siege/outpost proximity", modifiers.attackerOutpostMult);
-  mult *= foldMult(entries, "Target has no war industry", modifiers.noWarIndustryVulnerabilityMult);
+  mult *= foldMult(entries, modifiers.noWarIndustryVulnerabilityLabel ?? "Target has no war industry", modifiers.noWarIndustryVulnerabilityMult);
   mult *= foldMult(entries, "Dock crossing", modifiers.dockAttackMult);
   if (target.ownershipState === "SETTLED") mult *= foldMult(entries, "Tech vs settled tiles", modifiers.attackVsSettledMult);
   if (target.fortVariant) mult *= foldMult(entries, "Tech vs forts", modifiers.attackVsFortsMult);
@@ -165,10 +189,8 @@ const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   // Legacy parity: frontier tiles provide no defensive effective power.
   if (target.ownershipState === "FRONTIER") return { entries, mult: 0 };
   let mult = 1;
-  mult *= foldMult(entries, "Attacker has no war industry", modifiers.noWarIndustryDefenseVulnerabilityMult);
-  mult *= foldMult(entries, "Settled tile", target.ownershipState === "SETTLED" ? 1.35 : undefined);
+  mult *= foldMult(entries, modifiers.noWarIndustryDefenseVulnerabilityLabel ?? "Attacker has no war industry", modifiers.noWarIndustryDefenseVulnerabilityMult);
   mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
-  mult *= foldMult(entries, "Dock", target.dockId ? 1.1 : undefined);
   if (target.fortVariant) {
     const baseFortMult = baseFortDefenseMult(target.fortVariant);
     const techMult = modifiers.fortDefenseMult ?? 1;

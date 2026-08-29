@@ -42,7 +42,7 @@
 // the gap between them is roughly how long ago the tab actually died, which a
 // hard crash otherwise leaves no trace of at all.
 
-import { storageGet, storageSet } from "../client-state/client-state.js";
+import { storageGet, storageRemove, storageSet } from "../client-state/client-state.js";
 
 const BREADCRUMB_STORAGE_KEY = "border-empires-renderer-breadcrumb-v1";
 
@@ -121,6 +121,24 @@ export const shouldSkipThreeDAfterCrashes = (): boolean =>
   previousAttempt !== undefined &&
   previousAttempt.phase !== "survived" &&
   previousAttempt.failedAttempts >= CRASH_ATTEMPTS_BEFORE_2D;
+
+/**
+ * Wipes the breadcrumb entirely, so the next load starts with a clean streak
+ * instead of reading the brake above as tripped. This is the escape hatch for
+ * a false-positive brake: a player who reloaded mid-construction (closing the
+ * tab, hitting refresh) leaves the same "died before init-completed" shape on
+ * disk as a real hard crash, and `shouldSkipThreeDAfterCrashes` cannot tell
+ * the two apart. The "Try 3D again" button on the fallback notice calls this
+ * before reloading, so a spurious brake trip isn't permanent.
+ *
+ * Deliberately a full removal rather than zeroing `failedAttempts` in place:
+ * `previousAttempt` is only snapshotted at module load, so within *this*
+ * session `shouldSkipThreeDAfterCrashes()` would keep reading the old value
+ * either way — the removal is for the reload this is always paired with.
+ */
+export const clearRendererCrashStreak = (): void => {
+  storageRemove(BREADCRUMB_STORAGE_KEY);
+};
 
 let attemptTimer: ReturnType<typeof setTimeout> | undefined;
 

@@ -64,6 +64,21 @@ describe("renderer crash breadcrumb", () => {
     expect(session.shouldSkipThreeDAfterCrashes()).toBe(true);
   });
 
+  it("clearRendererCrashStreak wipes the breadcrumb so a fresh load reads no brake", async () => {
+    // The "Try 3D again" button on the fallback notice calls this before
+    // reloading — a brake tripped by a player refreshing mid-construction
+    // (not a real crash) would otherwise hold forever with no way back in.
+    seed({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 2 });
+    const tripped = await loadSession();
+    expect(tripped.shouldSkipThreeDAfterCrashes()).toBe(true);
+
+    tripped.clearRendererCrashStreak();
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+
+    const nextLoad = await loadSession();
+    expect(nextLoad.shouldSkipThreeDAfterCrashes()).toBe(false);
+  });
+
   it("does not skip 3d after a single bad attempt — one can be a fluke", async () => {
     seed({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 1 });
 

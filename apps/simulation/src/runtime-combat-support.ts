@@ -6,13 +6,6 @@ import {
   attackManpowerLoss,
   rollFrontierCombat,
   targetOutpostMult,
-  WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING,
-  WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING,
-  TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
-  TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
-  UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING,
-  UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING,
-  NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT,
   WORLD_HEIGHT,
   WORLD_WIDTH,
   wrapX,
@@ -27,6 +20,18 @@ import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { isTownInCaptureShock, strategicResourceForTile } from "./runtime-structure-rules/runtime-structure-rules.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
 import { effectiveVisionRadiusForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
+import {
+  noWarIndustryVulnerabilityLabelForAttacker,
+  noWarIndustryVulnerabilityLabelForDefender,
+  noWarIndustryVulnerabilityMultForAttacker,
+  noWarIndustryVulnerabilityMultForDefender,
+  titaniumWeaponsFactoryAttackMultForPlayer,
+  titaniumWeaponsFactoryDefenseMultForPlayer,
+  umbriteWeaponsFactoryAttackMultForPlayer,
+  umbriteWeaponsFactoryDefenseMultForPlayer,
+  weaponsWorkshopAttackMultForPlayer,
+  weaponsWorkshopDefenseMultForPlayer
+} from "./runtime-weapons-factory-mults.js";
 
 export type RuntimeCombatSupportContext = {
   now: () => number;
@@ -269,44 +274,6 @@ const EXPAND_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: true } = {
   defender: EXPAND_TRIVIAL_SIDE_BREAKDOWN
 };
 
-// Weapons Workshop is retired (structure-registry-economic.ts) — replaced by
-// Iron/Fur Weapons Factory below — but any copy a player already owns from
-// before the retirement still grants its bonus (no data migration for a
-// live game), so this stays wired exactly as before.
-const weaponsWorkshopAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "WEAPONS_WORKSHOP") * WEAPONS_WORKSHOP_ATTACK_MULT_PER_BUILDING : 1;
-
-const weaponsWorkshopDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "WEAPONS_WORKSHOP") * WEAPONS_WORKSHOP_DEFENSE_MULT_PER_BUILDING : 1;
-
-// Titanium/Umbrite Weapons Factory: both grant attack AND defense per copy
-// (never zero on either axis), just weighted differently — Titanium leans
-// defense, Umbrite leans attack. Empire-wide, same as Weapons Workshop —
-// every active copy the player owns anywhere contributes, regardless of
-// which town network it's connected to or how far it is from the fight.
-const titaniumWeaponsFactoryAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "TITANIUM_WEAPONS_FACTORY") * TITANIUM_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
-
-const titaniumWeaponsFactoryDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "TITANIUM_WEAPONS_FACTORY") * TITANIUM_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
-
-const umbriteWeaponsFactoryAttackMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "UMBRITE_WEAPONS_FACTORY") * UMBRITE_WEAPONS_FACTORY_ATTACK_MULT_PER_BUILDING : 1;
-
-const umbriteWeaponsFactoryDefenseMultForPlayer = (ctx: RuntimeCombatSupportContext, playerId: string | undefined): number =>
-  playerId ? 1 + ctx.ownedStructureCountForPlayer(playerId, "UMBRITE_WEAPONS_FACTORY") * UMBRITE_WEAPONS_FACTORY_DEFENSE_MULT_PER_BUILDING : 1;
-
-// "Unarmed" vulnerability (design doc, confirmed scope): owning zero of a
-// factory type ANYWHERE in one's empire (existence check, not network-scoped)
-// hands the OTHER side the same flat multiplier on their effective power.
-// Missing one type or both is the same flat multiplier — no stacking to 4x.
-const hasWarIndustry = (ctx: RuntimeCombatSupportContext, ownerId: string): boolean =>
-  ctx.ownedStructureCountForPlayer(ownerId, "TITANIUM_WEAPONS_FACTORY") > 0 &&
-  ctx.ownedStructureCountForPlayer(ownerId, "UMBRITE_WEAPONS_FACTORY") > 0;
-const noWarIndustryVulnerabilityMultForDefender = (ctx: RuntimeCombatSupportContext, defenderOwnerId: string | undefined): number =>
-  defenderOwnerId && !hasWarIndustry(ctx, defenderOwnerId) ? NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT : 1;
-const noWarIndustryVulnerabilityMultForAttacker = (ctx: RuntimeCombatSupportContext, attackerOwnerId: string): number =>
-  hasWarIndustry(ctx, attackerOwnerId) ? 1 : NO_WAR_INDUSTRY_ATTACK_VULNERABILITY_MULT;
 
 const resolveAttackCombat = (
   ctx: RuntimeCombatSupportContext,
@@ -347,7 +314,9 @@ const resolveAttackCombat = (
     umbriteWeaponsFactoryAttackMult: umbriteWeaponsFactoryAttackMultForPlayer(ctx, lock.playerId),
     umbriteWeaponsFactoryDefenseMult: umbriteWeaponsFactoryDefenseMultForPlayer(ctx, defenderOwnerId),
     noWarIndustryVulnerabilityMult: noWarIndustryVulnerabilityMultForDefender(ctx, defenderOwnerId),
+    noWarIndustryVulnerabilityLabel: defenderOwnerId ? noWarIndustryVulnerabilityLabelForDefender(ctx, defenderOwnerId) : undefined,
     noWarIndustryDefenseVulnerabilityMult: noWarIndustryVulnerabilityMultForAttacker(ctx, lock.playerId),
+    noWarIndustryDefenseVulnerabilityLabel: noWarIndustryVulnerabilityLabelForAttacker(ctx, lock.playerId),
     // General tech/domain "attack"/"defense" stat mods (e.g. Titanium Dominion's
     // +18% attack/defense) — persistent infrastructure, same tier as weapons
     // factories, previously computed but never actually applied to combat.
