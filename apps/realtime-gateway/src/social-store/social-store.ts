@@ -1,9 +1,26 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import type { SocialActiveTruce, SocialAllianceBreak, SocialAllianceRequest, SocialCompletedAllianceBreak, SocialTruceRequest } from "../social-state/social-state.js";
+import {
+  activeTruceFromRow,
+  allianceBreakFromRow,
+  allianceRequestFromRow,
+  completedAllianceBreakFromRow,
+  truceRequestFromRow,
+  type ActiveTruceRow,
+  type AllianceBreakRow,
+  type AllianceRequestRow,
+  type AllianceRow,
+  type CompletedAllianceBreakRow,
+  type PlayerRow,
+  type TruceLockoutRow,
+  type TruceRequestRow
+} from "./social-store-row-mappers.js";
 
 export type SocialStoreSnapshot = {
   players: Array<{ id: string; name: string; allies: string[] }>;
+  // Same pairs as players[].allies, with `createdAt` -- feeds GET /api/activity's `since` (social-activity-views.ts).
+  allianceRecords: Array<{ playerAId: string; playerBId: string; createdAt: number }>;
   allianceRequests: SocialAllianceRequest[];
   activeAllianceBreaks: SocialAllianceBreak[];
   completedAllianceBreaks: SocialCompletedAllianceBreak[];
@@ -65,6 +82,7 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
         name,
         allies: [...(alliesByPlayer.get(id) ?? [])]
       })),
+      allianceRecords: [...this.alliances.values()].map(({ aId, bId, createdAt }) => ({ playerAId: aId, playerBId: bId, createdAt })),
       allianceRequests: [...this.allianceRequests.values()].map((r) => ({ ...r })),
       activeAllianceBreaks: [...this.activeAllianceBreaks.values()].map((notice) => ({ ...notice })),
       completedAllianceBreaks: [...this.completedAllianceBreaks.values()].map((notice) => ({ ...notice })),
@@ -156,90 +174,6 @@ export class InMemoryGatewaySocialStore implements GatewaySocialStore {
     this.truceLockouts.clear();
   }
 }
-
-type PlayerRow = { player_id: string; name: string; updated_at: number };
-type AllianceRow = { player_a_id: string; player_b_id: string; created_at: number };
-type AllianceBreakRow = {
-  pair_key: string;
-  player_a_id: string;
-  player_b_id: string;
-  started_at: number;
-  ends_at: number;
-  created_by_player_id: string;
-};
-type CompletedAllianceBreakRow = AllianceBreakRow & {
-  finalized_at: number;
-  notification_expires_at: number;
-};
-type AllianceRequestRow = {
-  id: string;
-  from_player_id: string;
-  to_player_id: string;
-  created_at: number;
-  from_name: string | null;
-  to_name: string | null;
-};
-type TruceRequestRow = {
-  id: string;
-  from_player_id: string;
-  to_player_id: string;
-  created_at: number;
-  expires_at: number;
-  duration_hours: number;
-  from_name: string | null;
-  to_name: string | null;
-};
-type ActiveTruceRow = {
-  pair_key: string;
-  player_a_id: string;
-  player_b_id: string;
-  started_at: number;
-  ends_at: number;
-  created_by_player_id: string;
-};
-type TruceLockoutRow = { player_id: string; lockout_until: number };
-
-const allianceRequestFromRow = (row: AllianceRequestRow): SocialAllianceRequest => ({
-  id: row.id,
-  fromPlayerId: row.from_player_id,
-  toPlayerId: row.to_player_id,
-  createdAt: row.created_at,
-  ...(row.from_name ? { fromName: row.from_name } : {}),
-  ...(row.to_name ? { toName: row.to_name } : {})
-});
-
-const allianceBreakFromRow = (row: AllianceBreakRow): SocialAllianceBreak => ({
-  playerAId: row.player_a_id,
-  playerBId: row.player_b_id,
-  startedAt: row.started_at,
-  endsAt: row.ends_at,
-  createdByPlayerId: row.created_by_player_id
-});
-
-const completedAllianceBreakFromRow = (row: CompletedAllianceBreakRow): SocialCompletedAllianceBreak => ({
-  ...allianceBreakFromRow(row),
-  finalizedAt: row.finalized_at,
-  notificationExpiresAt: row.notification_expires_at
-});
-
-const truceRequestFromRow = (row: TruceRequestRow): SocialTruceRequest => ({
-  id: row.id,
-  fromPlayerId: row.from_player_id,
-  toPlayerId: row.to_player_id,
-  createdAt: row.created_at,
-  expiresAt: row.expires_at,
-  durationHours: row.duration_hours as 12 | 24,
-  ...(row.from_name ? { fromName: row.from_name } : {}),
-  ...(row.to_name ? { toName: row.to_name } : {})
-});
-
-const activeTruceFromRow = (row: ActiveTruceRow): SocialActiveTruce => ({
-  playerAId: row.player_a_id,
-  playerBId: row.player_b_id,
-  startedAt: row.started_at,
-  endsAt: row.ends_at,
-  createdByPlayerId: row.created_by_player_id
-});
 
 export class SqliteGatewaySocialStore implements GatewaySocialStore {
   constructor(private readonly db: DatabaseSync, private readonly now: () => number = () => Date.now()) {}
@@ -363,6 +297,7 @@ export class SqliteGatewaySocialStore implements GatewaySocialStore {
         name: row.name,
         allies: [...(alliesByPlayer.get(row.player_id) ?? [])]
       })),
+      allianceRecords: allianceRows.map((row) => ({ playerAId: row.player_a_id, playerBId: row.player_b_id, createdAt: row.created_at })),
       allianceRequests: allianceRequestRows.map(allianceRequestFromRow),
       activeAllianceBreaks: allianceBreakRows.map(allianceBreakFromRow),
       completedAllianceBreaks: completedAllianceBreakRows.map(completedAllianceBreakFromRow),

@@ -14,6 +14,7 @@ import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
 import type { WorldEngineStrikeStore } from "../world-engine-strike-store/world-engine-strike-store.js";
+import type { SocialStoreSnapshot } from "../social-store/social-store.js";
 import type { SimulationSeedProfile } from "../seed-fallback.js";
 import type { createSimulationClient } from "../sim-client/sim-client.js";
 import type { loadLegacySnapshotBootstrap } from "../../../simulation/src/legacy-snapshot-bootstrap/legacy-snapshot-bootstrap.js";
@@ -44,6 +45,8 @@ export type BuildGatewayHttpRoutesDepsContext = {
   buildAttackDebug: () => GatewayAttackDebug;
   buildAttackTraces: () => GatewayAttackTrace[];
   gatewayMetrics: { renderPrometheus: () => string };
+  // GET /api/activity's social-state half; omitted only in tests that don't wire social state.
+  getSocialSnapshot?: () => SocialStoreSnapshot;
   simMetricsUrl?: string;
   simulationClient: SimulationClient;
   profileStore: GatewayPlayerProfileStore;
@@ -135,6 +138,15 @@ export const buildGatewayHttpRoutesDeps = (app: FastifyInstance, ctx: BuildGatew
     galaxyEconomyStore: ctx.galaxyEconomyStore,
     galaxyEndorsementStore: ctx.galaxyEndorsementStore,
     authBindingStore: ctx.authBindingStore,
-    worldEngineStrikeStore: ctx.worldEngineStrikeStore
+    worldEngineStrikeStore: ctx.worldEngineStrikeStore,
+    ...(ctx.getSocialSnapshot
+      ? {
+          activityApi: {
+            getActivityDashboardSnapshot: () => ctx.simulationClient.getActivityDashboard(),
+            getSocialSnapshot: ctx.getSocialSnapshot,
+            getPowerScore: async () => (await ctx.simulationClient.getCurrentSeasonSummary()).overall
+          }
+        }
+      : {})
   };
 };

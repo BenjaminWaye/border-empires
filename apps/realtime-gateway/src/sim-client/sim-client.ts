@@ -18,6 +18,7 @@ import {
   type StrategicResourceKey
 } from "@border-empires/sim-protocol";
 import type { Terrain, VisibilityState } from "@border-empires/shared";
+import type { ActivityDashboardSnapshot } from "@border-empires/game-domain";
 import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeResult } from "./sim-client-prepare-player.js";
 
 type ProtoAck = { ok: boolean };
@@ -25,6 +26,7 @@ type ProtoSubscriptionNamespaceAck = { ok: boolean; namespace?: string };
 type ProtoSeasonSummaryAck = { ok: boolean; summary_json?: string; summaryJson?: string };
 type ProtoSeasonArchivesAck = { ok: boolean; archives_json?: string; archivesJson?: string };
 type ProtoAdminPlayersAck = { ok: boolean; players_json?: string; playersJson?: string };
+type ProtoActivityDashboardAck = { ok: boolean; snapshot_json?: string; snapshotJson?: string };
 type ProtoGetRecentCommandsRequest = { limit?: number };
 type ProtoGetRecentCommandsAck = { ok: boolean; commands_json?: string; commandsJson?: string };
 type ProtoGetAiDecisionDiagnosticsRequest = { player_id?: string; playerId?: string };
@@ -223,6 +225,7 @@ type SimulationClientLike = {
     request: Record<string, unknown>,
     callback: (error: Error | null, response: ProtoAdminPlayersAck) => void
   ) => void;
+  GetActivityDashboard?: (request: Record<string, unknown>, callback: (error: Error | null, response: ProtoActivityDashboardAck) => void) => void;
   GetRecentCommands?: (
     request: ProtoGetRecentCommandsRequest,
     callback: (error: Error | null, response: ProtoGetRecentCommandsAck) => void
@@ -839,7 +842,10 @@ export type FetchTileDetailResult = {
   upkeepLastTick?: NonNullable<PlayerSubscriptionSnapshot["player"]>["upkeepLastTick"];
 };
 
-export const createSimulationClientFromRpcClient = (client: SimulationClientLike): {
+// Shared by createSimulationClientFromRpcClient and createSimulationClient
+// (the latter just wraps the former around a fresh gRPC client) so the
+// method surface is declared once instead of twice.
+export type SimulationClientMethods = {
   submitCommand: (command: CommandEnvelope) => Promise<void>;
   preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<PrepareLikeResult>;
   joinSeason?: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<PrepareLikeResult>;
@@ -851,6 +857,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
   listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
   getAdminPlayers: () => Promise<AdminPlayerRow[]>;
+  getActivityDashboard: () => Promise<ActivityDashboardSnapshot>;
   getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
   getAiDecisionDiagnostics: (playerId?: string) => Promise<GetAiDecisionDiagnosticsResponse>;
   startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }) => Promise<{ seasonId: string }>;
@@ -863,7 +870,9 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       onUnknownEvent?: (eventType: string) => void;
     }
   ) => () => void;
-} => ({
+};
+
+export const createSimulationClientFromRpcClient = (client: SimulationClientLike): SimulationClientMethods => ({
   submitCommand(command) {
     return new Promise<void>((resolve, reject) => {
       client.SubmitCommand(toProtoCommand(command), (error) => {
@@ -1020,6 +1029,17 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
       });
     });
   },
+  getActivityDashboard() {
+    return new Promise<ActivityDashboardSnapshot>((resolve, reject) => {
+      if (typeof client.GetActivityDashboard !== "function") { reject(new Error("simulation client GetActivityDashboard RPC is unavailable")); return; }
+      client.GetActivityDashboard({}, (error, response) => {
+        if (error) { reject(error); return; }
+        const payload = response.snapshot_json ?? response.snapshotJson;
+        if (!payload) { reject(new Error("GetActivityDashboard returned no snapshot")); return; }
+        resolve(JSON.parse(payload) as ActivityDashboardSnapshot);
+      });
+    });
+  },
 
   getRecentCommands(limit: number = 25) {
     return new Promise<GetRecentCommandsResponse>((resolve, reject) => {
@@ -1109,31 +1129,7 @@ export const createSimulationClientFromRpcClient = (client: SimulationClientLike
   }
 });
 
-export const createSimulationClient = (address: string): {
-  submitCommand: (command: CommandEnvelope) => Promise<void>;
-  preparePlayer: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<PrepareLikeResult>;
-  joinSeason?: (playerId: string, rallyAnchor?: PreparePlayerRallyAnchor) => Promise<PrepareLikeResult>;
-  subscribePlayer: (playerId: string, subscriptionJson?: string) => Promise<PlayerSubscriptionSnapshot>;
-  fetchTileDetail?: (playerId: string, x: number, y: number, fullVisibility?: boolean) => Promise<FetchTileDetailResult>;
-  unsubscribePlayer: (playerId: string, subscriptionKey?: string) => Promise<void>;
-  getSubscriptionNamespace: () => Promise<string>;
-  ping: () => Promise<void>;
-  getCurrentSeasonSummary: () => Promise<CurrentSeasonSummary>;
-  listSeasonArchives: () => Promise<SeasonArchiveRow[]>;
-  getAdminPlayers: () => Promise<AdminPlayerRow[]>;
-  getRecentCommands: (limit?: number) => Promise<GetRecentCommandsResponse>;
-  getAiDecisionDiagnostics: (playerId?: string) => Promise<GetAiDecisionDiagnosticsResponse>;
-  startNextSeason: (force?: boolean, imperialWard?: { playerId: string; charges: number }) => Promise<{ seasonId: string }>;
-  seedBarbarians: (count?: number) => Promise<SeedBarbariansResult>;
-  streamEvents: (
-    listener: (event: SimulationClientEvent) => void,
-    options?: {
-      onConnect?: () => void;
-      onDisconnect?: (error: Error | null) => void;
-      onUnknownEvent?: (eventType: string) => void;
-    }
-  ) => () => void;
-} => {
+export const createSimulationClient = (address: string): SimulationClientMethods => {
   const client = new proto.border_empires.simulation.SimulationService(address, credentials.createInsecure());
   return createSimulationClientFromRpcClient(client);
 };

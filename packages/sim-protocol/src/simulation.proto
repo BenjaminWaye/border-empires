@@ -47,6 +47,18 @@ message AdminPlayersResponse {
   string players_json = 2;
 }
 
+message ActivityDashboardRequest {}
+
+// See apps/simulation/src/activity-dashboard/activity-dashboard-snapshot.ts
+// for the ActivityDashboardSnapshot shape encoded in `snapshot_json` -- the
+// public GET /api/activity route on the gateway (activity-api-route.ts)
+// reads this over RPC rather than recomputing anything sim-side state
+// itself.
+message ActivityDashboardResponse {
+  bool ok = 1;
+  string snapshot_json = 2;
+}
+
 message GetRecentCommandsRequest {
   int32 limit = 1;
 }
@@ -260,6 +272,7 @@ service SimulationService {
   rpc Ping(PingRequest) returns (Ack);
   rpc GetCurrentSeasonSummary(SeasonSummaryRequest) returns (SeasonSummaryResponse);
   rpc GetAdminPlayers(AdminPlayersRequest) returns (AdminPlayersResponse);
+  rpc GetActivityDashboard(ActivityDashboardRequest) returns (ActivityDashboardResponse);
   rpc GetRecentCommands(GetRecentCommandsRequest) returns (GetRecentCommandsResponse);
   rpc GetAiDecisionDiagnostics(GetAiDecisionDiagnosticsRequest) returns (GetAiDecisionDiagnosticsResponse);
   rpc ListSeasonArchives(SeasonSummaryRequest) returns (SeasonArchivesResponse);
