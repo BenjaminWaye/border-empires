@@ -1957,11 +1957,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const sizeChanged = width !== lastCameraApplied.width || height !== lastCameraApplied.height;
     const zoomChanged = deps.state.zoom !== lastCameraApplied.zoom;
     if (sizeChanged) resize();
-    // Camera transform is now a function of live camX/camY too (offsetX/offsetZ
-    // from sceneOrigin), so it must be re-applied every frame, not just on
-    // zoom/resize — a pan inside the rebuild pad has to visibly move the camera
-    // even when no rebuild fires this frame.
-    applyCamera();
     if (sizeChanged || zoomChanged) {
       lastCameraApplied.zoom = deps.state.zoom;
       lastCameraApplied.width = width;
@@ -1971,7 +1966,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const ctActiveNow = deps.state.crystalTargeting.active;
     const requiredWindow = requiredTerrainWindow({ zoom: deps.state.zoom, canvasWidth: width, canvasHeight: height, camX: deps.state.camX, camY: deps.state.camY });
     // Padded hysteresis only — no more exact-camX/camY-match requirement. The
-    // camera's own offsetX/offsetZ (applyCamera, above) carries the visual pan
+    // camera's own offsetX/offsetZ (applyCamera, below) carries the visual pan
     // while the terrain/overlay anchor (sceneOrigin) only jumps when a rebuild
     // actually commits, so the camera can drift inside the pad without forcing
     // one. See client-map-3d-terrain-window.ts's terrainWindowCovers.
@@ -1979,17 +1974,27 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       !terrainWindowCovers(lastRebuild.builtWindow, requiredWindow, WORLD_WIDTH, WORLD_HEIGHT) ||
       deps.state.tilesRevision !== lastRebuild.tilesRevision ||
       ctActiveNow !== lastRebuild.crystalTargetingActive;
-    if (!rebuildNeeded) return;
-    if (lastRebuild.at !== 0 && nowMs - lastRebuild.at < REBUILD_MIN_INTERVAL_MS) return;
-    const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
-    const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);
-    rebuildVisibleTerrain(builtWindow); if (isFirstRebuild) markRendererFirstRenderCompleted();
-    lastRebuild.builtWindow = builtWindow;
-    lastRebuild.at = nowMs;
-    lastRebuild.tilesRevision = deps.state.tilesRevision;
-    lastRebuild.crystalTargetingActive = ctActiveNow;
-    sceneOrigin.camX = builtWindow.camX;
-    sceneOrigin.camY = builtWindow.camY;
+    if (rebuildNeeded && (lastRebuild.at === 0 || nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS)) {
+      const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
+      const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);
+      rebuildVisibleTerrain(builtWindow); if (isFirstRebuild) markRendererFirstRenderCompleted();
+      lastRebuild.builtWindow = builtWindow;
+      lastRebuild.at = nowMs;
+      lastRebuild.tilesRevision = deps.state.tilesRevision;
+      lastRebuild.crystalTargetingActive = ctActiveNow;
+      sceneOrigin.camX = builtWindow.camX;
+      sceneOrigin.camY = builtWindow.camY;
+    }
+    // Applied last, using this frame's FINAL sceneOrigin (post-rebuild if one just
+    // committed above): applying it before a same-frame rebuild would frame the
+    // camera against the stale pre-rebuild anchor while the terrain just re-baked
+    // to the new one, showing old and new terrain geometry misaligned for a frame
+    // — most visible at low zoom (near-zero rebuild pad there, so this could fire
+    // several frames in a row) where it read as terrain briefly "duplicating".
+    // Re-applied every frame, not just on zoom/resize, since the offset itself
+    // (live camX/camY vs sceneOrigin) changes on every pan frame even when no
+    // rebuild fires.
+    applyCamera();
   };
 
   const renderLoop = (): void => {
