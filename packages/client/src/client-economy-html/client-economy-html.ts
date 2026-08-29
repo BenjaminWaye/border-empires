@@ -16,6 +16,7 @@ import { FOUNDRY_RADIUS, WATERWORKS_RADIUS } from "../client-structure-effects/c
 import { STRUCTURE_DISPLAY_NAMES } from "../client-structure-display-names.js";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
+import type { StructureInfoKey } from "../client-map-display.js";
 
 type EconomyResource = Exclude<EconomyFocusKey, "ALL">;
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
@@ -319,7 +320,7 @@ const upkeepBreakdownForResource = (
 const withDisplayNames = (buckets: EconomyBucket[]): EconomyBucket[] =>
   buckets.map((bucket) =>
     bucket.label in STRUCTURE_DISPLAY_NAMES
-      ? { ...bucket, label: STRUCTURE_DISPLAY_NAMES[bucket.label as EconomicStructureType]! }
+      ? { ...bucket, label: STRUCTURE_DISPLAY_NAMES[bucket.label as EconomicStructureType | StructureInfoKey]! }
       : bucket
   );
 
