@@ -65,7 +65,7 @@ body {
     radial-gradient(circle at 80% 0%, rgba(143, 88, 29, 0.12), transparent 26%),
     linear-gradient(180deg, rgba(8, 12, 21, 0.97), rgba(5, 8, 15, 0.985));
   backdrop-filter: blur(6px);
-  z-index: 30;
+  z-index: 50;
 }
 
 #auth-overlay::before {
