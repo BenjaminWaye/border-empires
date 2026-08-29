@@ -138,13 +138,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787431431635, // frozen from a live Date.now() call
-    introducedIn: "2026.08.22.12",
-    title: "Fixed rivers clipping through hills",
-    why: "River ribbons rendered at the flat ground elevation, ignoring the raised dome mesh used for hill tiles, so a river crossing a hill looked like jagged glued-together rectangles instead of a smooth ribbon.",
-    changes: ["Rivers now render above the hill dome wherever their path crosses a hills tile."]
-  },
-  {
     createdAt: 1787509343955, // frozen from `date +%s%3N`
     introducedIn: "2026.08.23.3",
     title: "Reach no longer spreads across open water",
@@ -170,64 +163,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
     why: "Players had a way to report bugs from Settings, but no equivalent in-app way to send us an improvement idea -- feedback ended up scattered across Discord instead.",
     changes: [
       "Settings > Diagnostics now has a green-bordered \"Suggest Improvement\" button below \"Report Bug\", opening the same style of form (with client/server context attached automatically) but posting to a separate suggestions inbox."
-    ]
-  },
-  {
-    createdAt: 1787430500000,
-    introducedIn: "2026.08.22.7",
-    title: "Stage Muster now sits above Disable on structure tiles",
-    why: "On a tile with both a muster flag and a disable-able structure (e.g. Relay Beacon), Stage Muster/Set Hold/Set Advance showed up below the Disable button, making the muster controls easy to miss.",
-    changes: [
-      "The tile action menu now lists Stage Muster (and Set Hold/Set Advance/Clear Muster) above Disable/Enable for the tile's structure."
-    ]
-  },
-  {
-    createdAt: 1787430400000,
-    introducedIn: "2026.08.22.6",
-    title: "Joining a new season is now a deliberate choice",
-    why: "Logging in used to silently spawn you into whatever season was active, even if you had never chosen to play it. Reconnecting was indistinguishable from joining.",
-    changes: [
-      "When you log in and haven't joined the current season yet, a \"Join Season\" prompt now appears instead of spawning you automatically.",
-      "Confirming the prompt joins the season and spawns your starting territory; the prompt closes automatically once your empire appears."
-    ]
-  },
-  {
-    createdAt: 1787430300000,
-    introducedIn: "2026.08.22.5",
-    title: "Growing your territory over an enemy tile that was settled out of reach now takes it properly",
-    why: "A tile could end up settled by an empire that never held any territory claim over it, which left no claim recorded for that tile at all. When your own territory later grew across it, the game treated the ground as empty and simply handed you the claim -- but because nothing was recorded as changing hands, the enemy's settled tile was never knocked back to a frontier tile. The result was an enemy town sitting inside your border that your territory could never dislodge, no matter how far your reach grew.",
-    changes: [
-      "When your territory grows over an enemy tile that was settled without a claim behind it, that tile now reverts to a frontier tile, the same as any other tile your border takes over.",
-      "An enemy tile that is still genuinely defended by their own town, outpost or dock is unaffected -- it stays theirs, exactly as before."
-    ]
-  },
-  {
-    createdAt: 1787430200000,
-    introducedIn: "2026.08.22.4",
-    title: "Auto-settle no longer fires on tiles that have drifted out of reach",
-    why: "Queuing a settle-then-build (or letting an AI empire's frontier auto-settle) could still fire once the tile had fallen out of reach in the meantime -- the server always rejected it as out-of-reach, but nothing checked first, so it just silently failed instead of being dropped up front.",
-    changes: [
-      "Both the player's queued auto-settle and an AI empire's automatic frontier settlement now check reach before sending a settle command, dropping the queued action instead of sending one that's guaranteed to be rejected.",
-      "When a settled tile gets overtaken and reverts to a frontier tile because a rival's territory grew over it, it now plays a brief collapsing pylon effect on the map instead of changing silently."
-    ]
-  },
-  {
-    createdAt: 1787430100000,
-    introducedIn: "2026.08.22.3",
-    title: "Fixed the reach border dodging around fog of war and unexplored tiles",
-    why: "Your reach border is a fixed, server-authoritative line -- it shouldn't move depending on what you can currently see. But the 2D map only drew the border on tiles it considered fully visible, so on any fogged or unexplored patch inside your own territory the line simply stopped, making it look like the border itself was carving around the fog instead of following your actual claim.",
-    changes: [
-      "The reach border now renders on top of fogged territory (dimmed, same as the rest of a fogged tile) instead of disappearing there.",
-      "It still stays hidden over fully unexplored tiles, since there's nothing remembered there to draw it against."
-    ]
-  },
-  {
-    createdAt: 1787430000000,
-    introducedIn: "2026.08.22.2",
-    title: "An empire with no war industry is now also weaker on defense, not just on offense",
-    why: "Owning zero Titanium and zero Umbrite Weapons Factories empire-wide already doubled an attacker's effective attack against you -- but that bonus only ever helped the attacker. If you had no war industry and someone else attacked you, defending gave you no comparable penalty or advantage either way.",
-    changes: [
-      "Defending against an attacker who owns zero Titanium AND zero Umbrite Weapons Factories anywhere in their empire now doubles your effective defense, mirroring the existing attack-side vulnerability from the other direction. Missing one factory type or both gives the same flat bonus -- it doesn't stack higher for missing both."
     ]
   },
   {
@@ -273,40 +208,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER: ClientChangelogEntry[] = [
       "Removed the \"Show your flag in the lobby?\" picker and the flag emoji next to roster names.",
       "The \"Bring a friend\" invite button now always gives visible feedback: it swaps to \"Copied!\" inline (with a manual-copy fallback if the clipboard API isn't available) instead of silently doing nothing.",
       "The plain \"Join Season?\" prompt (shown when a season is already running and you haven't joined yet) now shares the same full-screen war-room look as the pending-season lobby, and shows the live player count and roster alongside its Join button."
-    ]
-  },
-  {
-    createdAt: 1787428700000,
-    introducedIn: "2026.08.22.5",
-    title: "Fixed a bogus 'Outside your borders' error after auto-settle finished a capture, and made unsettled tiles from a rival's border push show up live",
-    why: "Auto-settle could still fire a doomed settle command right after a capture landed if the captured tile turned out to be outside your reach (e.g. a Relay Beacon chain dying mid-capture), surfacing a confusing 'Outside your borders' error even though nothing was actually wrong. Separately, when a rival's expanding border overtook one of your settled tiles and downgraded it to frontier, that change was only ever applied on the server -- it was never pushed to either player's client, so it silently went stale until you clicked the tile and forced a refresh.",
-    changes: [
-      "Auto-settle now checks reach before firing the settle right after a capture, same as it already does elsewhere, instead of sending a command the server was always going to reject.",
-      "A settled tile downgraded to frontier by a rival's border push now updates live on both players' maps instead of only after clicking the tile."
-    ]
-  },
-  {
-    createdAt: 1787440000000, // 2026.08.22.6 — frozen from a live Date.now() call
-    introducedIn: "2026.08.22.6",
-    title: "The pending-season countdown is now a lobby: player count, roster, Discord, and an invite button",
-    why: "Waiting for a pending season to start previously showed a bare countdown with nothing to confirm you actually had a spot, and no sense of who else was waiting with you.",
-    changes: [
-      "The pending-season screen now shows a live \"X / Y PLAYERS\" count and a scrollable roster of names currently waiting, alongside the countdown.",
-      "A clear \"You're in\" confirmation replaces the ambiguous bare countdown -- your empire will be placed the moment the world begins.",
-      "Added a Discord link and a \"Bring a friend\" button that copies a shareable link to the game.",
-      "Added an optional flag: set a 2-letter country code in the pending-season screen and it shows next to your name in the roster for everyone else waiting."
-    ]
-  },
-  {
-    createdAt: 1787441000000, // 2026.08.22.7 — frozen; was Date.now() left in by the merged commit
-    introducedIn: "2026.08.22.7",
-    title: "The pending-season lobby is now its own full-screen war room, and its title no longer repeats the season id",
-    why: "The lobby previously rendered as a translucent overlay with the game map, minimap, and HUD still visible underneath -- distracting for a screen players can sit on for a while, and it kept the client doing pointless map rendering for someone who isn't in the game yet. Separately, the lobby's heading duplicated the raw internal season id (e.g. \"Season season-8 starts soon\").",
-    changes: [
-      "While the pending-season lobby is open it now fully replaces the game view -- no canvas, minimap, or HUD bleeding through -- and returns to normal the instant your empire is placed.",
-      "The game no longer renders the map/world underneath while the lobby is up, saving battery and CPU for players who are just waiting.",
-      "Redesigned the lobby's look: a brass-and-gunmetal war-room panel with riveted corners, a glowing amber countdown dial, and a subtle cog motif, layered over the game's existing dark command-center theme.",
-      "Fixed the lobby heading showing the raw season id twice (e.g. \"Season season-8 starts soon\") -- it now reads simply \"Season starts soon\"."
     ]
   },
   {

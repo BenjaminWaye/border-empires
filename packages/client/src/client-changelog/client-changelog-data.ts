@@ -469,15 +469,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787930868931, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.3",
-    title: "Cleaned up the sign-in magic link email",
-    why: "The emailed sign-in link embedded whatever query string happened to be on the page when you requested it (e.g. leftover tile-focus params), making the link long and inconsistent between sends -- which reads worse to a reader and to spam filters.",
-    changes: [
-      "The magic link sent to your email now always points to the app's clean base URL instead of carrying along stray query params from the current page"
-    ]
-  },
-  {
     createdAt: 1787935226945, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.4",
     title: "Fixed tech/domain bonuses (e.g. Mercantile Charter) not applying until something else refreshed your towns",
@@ -493,6 +484,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     why: "Alliance and truce request emails were still built from a plain, unstyled paragraph template (a leftover from before the branded season-start/attack-alert template existed), so they looked out of place next to every other gameplay email you get.",
     changes: [
       "Alliance and truce request emails now use the same branded layout (header, body, call-to-action button) as season-start and attack-alert emails, and truce offers now call out the offered duration as a highlighted stat like other emails do"
+    ]
+  },
+  {
+    createdAt: 1787977677829, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Fixed the Launch Attack win chance disappearing while you were reading it",
+    why: "The win-chance calculation and \"how this is calculated\" breakdown were cached for only 5 seconds. Leaving an enemy tile's menu open past that -- while reading the math, or just deciding -- meant the next routine tile update silently re-rendered the panel against an expired cache, so the win chance and breakdown just vanished even though nothing about the battle odds had changed.",
+    changes: [
+      "The Launch Attack panel now quietly refreshes its win chance in the background while it's open on an enemy tile, so the calculation and breakdown stay visible instead of disappearing every few seconds"
     ]
   }
 ];

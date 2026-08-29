@@ -18,13 +18,10 @@ import { armMusterMarchTargeting, handleMusterMarchTargetClick } from "./client-
 import { recordClientDebugEvent } from "./client-debug/client-debug.js";
 import { blockUnsupportedRewriteMessage } from "./client-send-message-guard/client-send-message-guard.js";
 import { showVisibleActionWarning } from "./client-visible-action-warning.js";
+import { createAttackPreviewReaders } from "./client-attack-preview-flow/client-attack-preview-flow.js";
 import {
   activeSettlementProgressEntries as activeSettlementProgressEntriesFromModule,
   applyPendingSettlementsFromServer as applyPendingSettlementsFromServerFromModule,
-  attackPreviewBreakdownForTarget as attackPreviewBreakdownForTargetFromModule,
-  attackPreviewDetailForTarget as attackPreviewDetailForTargetFromModule,
-  attackPreviewManpowerCostForTarget as attackPreviewManpowerCostForTargetFromModule,
-  attackPreviewPendingForTarget as attackPreviewPendingForTargetFromModule,
   attackQueueFailureReason as attackQueueFailureReasonFromModule,
   buildFrontierQueue as buildFrontierQueueFromModule,
   cancelQueuedSettlement as cancelQueuedSettlementFromModule,
@@ -55,7 +52,6 @@ import {
   queuedSettlementIndexForTile as queuedSettlementIndexForTileFromModule,
   queuedEntryIndexForTile as queuedEntryIndexForTileFromModule,
   reconcileActionQueue as reconcileActionQueueFromModule,
-  requestAttackPreviewForHover as requestAttackPreviewForHoverFromModule,
   requestAttackPreviewForTarget as requestAttackPreviewForTargetFromModule,
   requestSettlement as requestSettlementFromModule,
   resetAttackPreviewState,
@@ -150,7 +146,6 @@ import type {
   OptimisticStructureKind,
   Tile,
   TileActionDef,
-  TileCombatBreakdown,
   TileMenuProgressView,
   TileMenuTab,
   TileMenuView,
@@ -788,13 +783,14 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     renderHud();
   };
 
-  const requestAttackPreviewForHover = (): void =>
-    requestAttackPreviewForHoverFromModule(state, {
-      ws,
-      authSessionReady: state.authSessionReady,
-      keyFor,
-      pickOriginForTarget
-    });
+  const {
+    requestAttackPreviewForHover,
+    attackPreviewDetailForTarget,
+    attackPreviewPendingForTarget,
+    attackPreviewIsStaleForTarget,
+    attackPreviewManpowerCostForTarget,
+    attackPreviewBreakdownForTarget
+  } = createAttackPreviewReaders(state, { ws, keyFor, pickOriginForTarget });
 
   const requestAttackPreviewForTarget = (to: Tile): void =>
     requestAttackPreviewForTargetFromModule(state, to, {
@@ -808,18 +804,6 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         openSingleTileActionMenu(to, state.tileActionMenu.x, state.tileActionMenu.y, { requestAttackPreview: false });
       }
     });
-
-  const attackPreviewDetailForTarget = (to: Tile): string | undefined =>
-    attackPreviewDetailForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
-
-  const attackPreviewPendingForTarget = (to: Tile): boolean =>
-    attackPreviewPendingForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
-
-  const attackPreviewManpowerCostForTarget = (to: Tile): string | undefined =>
-    attackPreviewManpowerCostForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
-
-  const attackPreviewBreakdownForTarget = (to: Tile): TileCombatBreakdown | undefined =>
-    attackPreviewBreakdownForTargetFromModule(state, to, { keyFor, pickOriginForTarget });
 
   const buildFortOnSelected = (): void => buildFortOnSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, sendGameMessage });
   const settleSelected = (): void => settleSelectedFromModule(state, { keyFor, pushFeed, showCaptureAlert, renderHud, requestSettlement });
@@ -1893,6 +1877,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
     requestAttackPreviewForTarget,
     attackPreviewDetailForTarget,
     attackPreviewPendingForTarget,
+    attackPreviewIsStaleForTarget,
     attackPreviewManpowerCostForTarget,
     buildFortOnSelected,
     settleSelected,
