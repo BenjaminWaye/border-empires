@@ -25,6 +25,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787998957470, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Fixed the sign-in/name-and-color screen rendering behind a shard rain alert",
+    why: "The sign-in overlay (including the new-player name/color picker) was styled at z-index 30, lower than the shard rain alert banner's z-index 33, the tech/structure detail overlays, and the season-end overlay. If a shard rain alert (or any of those overlays) became visible while a new player was still picking their name and color, it rendered on top of the picker, blocking it.",
+    changes: [
+      "Raised the sign-in/onboarding overlay to z-index 50 so it always sits above in-game alert and detail overlays while visible"
+    ]
+  },
+  {
     createdAt: 1787948853587, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.6",
     title: "Fixed out-of-reach frontier tiles that never started decaying after their covering Relay Beacon/outpost was lost",
