@@ -13,8 +13,10 @@ import {
   type SlotResource
 } from "@border-empires/shared";
 import { FOUNDRY_RADIUS, WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
+import { STRUCTURE_DISPLAY_NAMES } from "../client-structure-display-names.js";
 import type { EconomyBreakdown, EconomyBucket, EconomyFocusKey, EconomyResourceKey } from "../client-economy-model.js";
 import type { Tile } from "../client-types.js";
+import type { StructureInfoKey } from "../client-map-display.js";
 
 type EconomyResource = Exclude<EconomyFocusKey, "ALL">;
 type EconomicStructureType = NonNullable<Tile["economicStructure"]>["type"];
@@ -309,9 +311,24 @@ const upkeepBreakdownForResource = (
   return undefined;
 };
 
+// The server labels a structure-driven bucket (e.g. a converter's EXCHANGE-mode
+// gold) with the raw persisted structure type (e.g. "CRYSTAL_SYNTHESIZER")
+// rather than its display name, since that's the source-of-truth identifier.
+// Only remap labels that are actually known structure types — other bucket
+// labels ("Towns", "Docks", "Live empire income", etc.) aren't structure
+// types and must pass through unchanged.
+const withDisplayNames = (buckets: EconomyBucket[]): EconomyBucket[] =>
+  buckets.map((bucket) =>
+    bucket.label in STRUCTURE_DISPLAY_NAMES
+      ? { ...bucket, label: STRUCTURE_DISPLAY_NAMES[bucket.label as EconomicStructureType | StructureInfoKey]! }
+      : bucket
+  );
+
 const economyDetailForResource = (args: EconomyPanelArgs, resource: EconomyResource): { sources: EconomyBucket[]; sinks: EconomyBucket[] } => {
   const sharedBreakdown = args.economyBreakdown?.[resource];
-  if (sharedBreakdown) return sharedBreakdown;
+  if (sharedBreakdown) {
+    return { sources: withDisplayNames(sharedBreakdown.sources), sinks: withDisplayNames(sharedBreakdown.sinks) };
+  }
   const sources = new Map<string, EconomyBucket>();
   const sinks = new Map<string, EconomyBucket>();
   for (const tile of args.tiles) {
