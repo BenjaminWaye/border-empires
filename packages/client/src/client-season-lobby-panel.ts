@@ -1,7 +1,8 @@
 // Renders the "waiting room" content of the join-season overlay (see
 // client-join-season-overlay.ts): live player count, roster of who's checked
-// in, Discord link, and an invite/share button. Split out of the overlay
-// module to keep that file under the repo's line cap.
+// in (optional -- see showRoster below), Discord link, and an invite/share
+// button. Split out of the overlay module to keep that file under the repo's
+// line cap.
 import type { ClientState } from "./client-state/client-state.js";
 import type { FeedType, FeedSeverity } from "./client-types.js";
 import { foundingEngineerNameHtml } from "./client-founding-engineer/client-founding-engineer.js";
@@ -19,10 +20,9 @@ const rosterRowHtml = (entry: { playerId: string; name: string }): string =>
 // `joined` distinguishes the two callers: the pending-season countdown
 // branch (player already has a spot reserved, waiting for the world to
 // start) shows the "You're in" confirmation, while the plain "join now"
-// branch (season already active, player hasn't clicked join yet) shows the
-// count/roster for context without claiming a spot it hasn't reserved.
-// `joined` distinguishes the two callers (see renderJoinSeasonOverlay).
-// `showRoster` further disables the live count/roster block -- meaningful
+// branch (season already active, player hasn't clicked join yet) doesn't
+// claim a spot it hasn't reserved.
+// `showRoster` disables the live count/roster block -- meaningful
 // only for the pending-season countdown, where "players waiting" describes
 // people holding a reserved spot for a world that hasn't started. On the
 // plain "join now" branch the season is already running, so the count would
