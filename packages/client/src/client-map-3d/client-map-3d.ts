@@ -1905,7 +1905,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
       }
     }
-    populateShardRainBadgeInstances(shardRainBadgeOverlay, deps.state.shardRainStatus, { camX: deps.state.camX, camY: deps.state.camY, halfW, halfH, elevationAt: heightfield.elevationAt }); const perTileLoopMs = performance.now() - perTileLoopStartAt;
+    populateShardRainBadgeInstances(shardRainBadgeOverlay, deps.state.shardRainStatus, { camX: deps.state.camX, camY: deps.state.camY, halfW, halfH, elevationAt: heightfield.elevationAt, tiles: deps.state.tiles }); const perTileLoopMs = performance.now() - perTileLoopStartAt;
 
     // Aether Survey Line live pylons/segments are placed every frame now
     // (see renderReachOverlay3DPylons, called unconditionally from
