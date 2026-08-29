@@ -209,6 +209,27 @@ describe("traceReachBoundaryEdgeLoops", () => {
     }
   });
 
+  it("traces the full boundary even when some in-reach tiles are still fogged (absent from deps.tiles)", () => {
+    // Regression for a Relay Beacon whose granted reach disk extends past the
+    // player's current vision: the server already put every one of these
+    // tiles in `reach`, but the client's local tile cache (`deps.tiles`) only
+    // has whatever fog has revealed so far. The trace must not silently drop
+    // a tile's boundary edges just because the client hasn't seen it yet.
+    const region = rect(10, 10, 19, 19);
+    const reach = toReach(region);
+    // Only half the region has ever been revealed to the client.
+    const revealed = rect(10, 10, 19, 14);
+    const deps = buildDeps(revealed);
+    const loops = traceReachBoundaryEdgeLoops(reach, deps);
+
+    expect(loops.length).toBe(1);
+    const loop = loops[0]!;
+    expect(consecutiveCornersAreUnitSteps(loop)).toBe(true);
+    for (const corner of [{ x: 10, y: 10 }, { x: 20, y: 10 }, { x: 20, y: 20 }, { x: 10, y: 20 }]) {
+      expect(loop).toContainEqual(corner);
+    }
+  });
+
   it("traces an irregular/notched boundary (an L-shaped region) fully, with no infinite loop", () => {
     // An L-shape: a 10x10 block with a 4x4 notch bitten out of one corner.
     const block = rect(0, 0, 9, 9);
@@ -326,6 +347,22 @@ describe("filterReachToLand", () => {
     const coords = rect(0, 0, 2, 2);
     const tiles = new Map<string, Tile>();
     for (const { x, y } of coords) tiles.set(keyFor(x, y), makeTerrainTile(x, y, "LAND"));
+    const reach = toReach(coords);
+    const filtered = filterReachToLand(reach, tiles, keyFor);
+    expect(filtered.size).toBe(coords.length);
+  });
+
+  it("keeps a reach tile the client hasn't visually revealed yet (absent from the local tile map)", () => {
+    // Regression: a Relay Beacon's authoritative server-granted reach disk
+    // can extend past the player's current fog-of-war vision. Iterating
+    // `tiles.values()` (the client's local, fog-limited cache) instead of
+    // the `reach` set itself silently excluded every such unseen tile from
+    // the overlay entirely -- not just from land-filtering, but from ever
+    // being considered at all.
+    const coords = rect(0, 0, 4, 4);
+    const tiles = new Map<string, Tile>();
+    // Only the tiles the player has actually seen exist in the local cache.
+    for (const { x, y } of rect(0, 0, 2, 4)) tiles.set(keyFor(x, y), makeTerrainTile(x, y, "LAND"));
     const reach = toReach(coords);
     const filtered = filterReachToLand(reach, tiles, keyFor);
     expect(filtered.size).toBe(coords.length);

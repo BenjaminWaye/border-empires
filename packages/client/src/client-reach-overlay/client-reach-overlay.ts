@@ -1,4 +1,5 @@
 import { isSeaTerrain, tileKey } from "@border-empires/shared";
+import { parseTileKey } from "../client-map-3d-utils/client-map-3d-utils.js";
 import { tileHasTownIdentity } from "../client-town-identity.js";
 import type { Tile } from "../client-types.js";
 import {
@@ -143,11 +144,22 @@ export const filterReachToLand = (
   tiles: ReachOverlayTileMap,
   keyFor: (x: number, y: number) => string
 ): Set<string> => {
+  // Iterates the authoritative `reach` set itself, not `tiles.values()` --
+  // fog-of-war means the client's local tile cache lags behind the server's
+  // reach grant for ground it hasn't visually revealed yet (e.g. a Relay
+  // Beacon's radius extending past the player's current vision). Iterating
+  // `tiles` alone silently dropped every such tile from the overlay, since a
+  // reach-granted-but-unseen tile was never a candidate for inclusion at all.
+  // An unseen tile defaults to "assume land" (same convention
+  // `computeLocalReachSet`'s `isLand` uses) rather than being excluded --
+  // wrongly showing a border gap here is worse than the rare case of this
+  // overlay optimistically including a water tile it hasn't seen yet.
   const filtered = new Set<string>();
-  for (const tile of tiles.values()) {
-    const key = keyFor(tile.x, tile.y);
-    if (!reach.has(key)) continue;
-    if (isSeaTerrain(tile.terrain)) continue;
+  for (const key of reach) {
+    const parsed = parseTileKey(key);
+    if (!parsed) continue;
+    const tile = tiles.get(keyFor(parsed.x, parsed.y));
+    if (tile && isSeaTerrain(tile.terrain)) continue;
     filtered.add(key);
   }
   return filtered;
@@ -382,10 +394,17 @@ export const traceReachBoundaryEdgeLoops = (
     else outgoingByCorner.set(key, [edge]);
   };
 
+  // Walks the authoritative `reach` set itself, not `deps.tiles.values()` --
+  // see filterReachToLand's doc comment: a tile the server has granted reach
+  // over but the client hasn't visually revealed yet (fog of war) would
+  // otherwise never emit boundary edges at all, leaving gaps in the traced
+  // loop specifically around freshly-explored or still-fogged ground. Edge
+  // emission only needs reach-set membership, never the tile's own data.
   let totalEdges = 0;
-  for (const tile of deps.tiles.values()) {
-    const { x, y } = tile;
-    if (!reach.has(deps.keyFor(x, y))) continue;
+  for (const key of reach) {
+    const parsed = parseTileKey(key);
+    if (!parsed) continue;
+    const { x, y } = parsed;
     const north = reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1)));
     const east = reach.has(deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y)));
     const south = reach.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1)));
@@ -566,68 +585,9 @@ export const samplePerimeterPylons = (
   return { pylons, segments };
 };
 
-// --- Beacon-placement reach preview ------------------------------------
-
-/**
- * Ghost preview of the reach disk a not-yet-built outpost-family structure
- * (RELAY_BEACON etc.) would add, so beacon siting is an informed spatial
- * choice. `centerX`/`centerY` are the candidate placement tile's world
- * coords; call once per candidate tile while the structure-placement UI has
- * a pending selection (see client-action-flow.ts's structure placement
- * flow for where a pending build target is tracked).
- */
-export const computeOutpostReachPreview = (centerX: number, centerY: number): Set<string> => {
-  const reach = new Set<string>();
-  for (const key of tileKeysAroundAnchor({ x: centerX, y: centerY, kind: "OUTPOST" })) reach.add(key);
-  return reach;
-};
-
-const PREVIEW_BOUNDARY_COLOR = "rgba(150, 220, 255, 0.9)";
-
-export const drawOutpostReachPreviewTile = (
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  px: number,
-  py: number,
-  size: number,
-  preview: ReadonlySet<string>,
-  deps: ReachBoundaryDeps
-): void => {
-  if (!preview.has(deps.keyFor(x, y))) return;
-  ctx.save();
-  ctx.fillStyle = "rgba(150, 220, 255, 0.10)";
-  ctx.fillRect(px + 1, py + 1, size - 2, size - 2);
-  const top = !preview.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y - 1)));
-  const right = !preview.has(deps.keyFor(deps.wrapX(x + 1), deps.wrapY(y)));
-  const bottom = !preview.has(deps.keyFor(deps.wrapX(x), deps.wrapY(y + 1)));
-  const left = !preview.has(deps.keyFor(deps.wrapX(x - 1), deps.wrapY(y)));
-  if (top || right || bottom || left) {
-    ctx.strokeStyle = PREVIEW_BOUNDARY_COLOR;
-    ctx.lineWidth = Math.max(1, size * 0.07);
-    ctx.setLineDash([3, 2]);
-    const x1 = px + 1.5;
-    const y1 = py + 1.5;
-    const x2 = px + size - 1.5;
-    const y2 = py + size - 1.5;
-    ctx.beginPath();
-    if (top) {
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y1);
-    }
-    if (right) {
-      ctx.moveTo(x2, y1);
-      ctx.lineTo(x2, y2);
-    }
-    if (bottom) {
-      ctx.moveTo(x2, y2);
-      ctx.lineTo(x1, y2);
-    }
-    if (left) {
-      ctx.moveTo(x1, y2);
-      ctx.lineTo(x1, y1);
-    }
-    ctx.stroke();
-  }
-  ctx.restore();
-};
+// Beacon-placement reach preview (computeOutpostReachPreview,
+// drawOutpostReachPreviewTile) moved to
+// client-reach-overlay-beacon-preview/client-reach-overlay-beacon-preview.ts
+// -- a fully separate concern from this module's authoritative
+// reach-boundary rendering, split out to keep this file under the repo's
+// 500-line cap (AGENTS.md).
