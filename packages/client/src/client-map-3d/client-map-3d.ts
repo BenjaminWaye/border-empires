@@ -2168,10 +2168,30 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   resize();
   rafId = requestAnimationFrame(renderLoop);
 
+  // worldToScreen/worldTileRawFromPointer are also called from client-runtime-loop.ts's
+  // OWN requestAnimationFrame loop (the 2D canvas HUD that draws resource/dock/anchor
+  // icons on top of the 3D view, wired via client-bootstrap.ts's projectedWorldToScreen).
+  // That's a second, independent rAF chain from this module's renderLoop -- browsers run
+  // rAF callbacks in registration order within a frame, so the HUD's callback can run
+  // BEFORE this module's renderLoop has called applyCamera() for that frame, reading the
+  // PREVIOUS frame's camera.position/matrixWorld. Before the camera moved every frame to
+  // carry panning (offsetX/offsetZ from sceneOrigin), that staleness was invisible --
+  // camera.position was otherwise constant between zoom/resize events. Now it visibly
+  // lags the WebGL terrain by a frame during a pan. Refresh the camera synchronously
+  // before every external read so correctness doesn't depend on rAF registration order.
+  const freshWorldTileRawFromPointer: typeof worldTileRawFromPointer = (offsetX, offsetY) => {
+    applyCamera();
+    return worldTileRawFromPointer(offsetX, offsetY);
+  };
+  const freshWorldToScreen: typeof worldToScreen = (wx, wy) => {
+    applyCamera();
+    return worldToScreen(wx, wy);
+  };
+
   return {
     resize,
     stop,
-    worldTileRawFromPointer,
-    worldToScreen
+    worldTileRawFromPointer: freshWorldTileRawFromPointer,
+    worldToScreen: freshWorldToScreen
   };
 };
