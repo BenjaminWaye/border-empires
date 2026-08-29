@@ -1,6 +1,18 @@
 import type { AdminPlayerRow } from "@border-empires/sim-protocol";
 import type { SimulationRuntime } from "./runtime/runtime.js";
 
+export type ProtoAdminPlayersRequest = Record<string, never>;
+export type ProtoAdminPlayersResponse = { ok: boolean; players_json?: string };
+
+/** GetAdminPlayers gRPC handler; see buildAdminPlayerRows below for why this lives here rather than growing simulation-service.ts. */
+export const handleGetAdminPlayers = (
+  runtime: SimulationRuntime,
+  _call: { request: ProtoAdminPlayersRequest },
+  callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void
+): void => {
+  callback(null, { ok: true, players_json: JSON.stringify(buildAdminPlayerRows(runtime)) });
+};
+
 /**
  * Builds the /admin/players row set from the runtime's player debug
  * snapshot. Extracted out of simulation-service.ts's GetAdminPlayers handler

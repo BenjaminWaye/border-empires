@@ -56,7 +56,8 @@ import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore }
 import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
-import { buildAdminPlayerRows } from "../admin-players-snapshot.js";
+import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot.js";
+import { handleGetActivityDashboard, type ProtoActivityDashboardRequest, type ProtoActivityDashboardResponse } from "../activity-dashboard/activity-dashboard-rpc-handler.js";
 import { parsePendingImperialWard } from "../runtime-imperial-ward-command-handler.js";
 import { buildFilteredTileDeltasForSubscriber } from "../tile-delta-fanout-filter.js";
 import { loadSimulationStartupRecovery } from "../startup-recovery/startup-recovery.js";
@@ -143,11 +144,6 @@ type ProtoSeasonSummaryResponse = {
 type ProtoSeasonArchivesResponse = {
   ok: boolean;
   archives_json?: string;
-};
-type ProtoAdminPlayersRequest = Record<string, never>;
-type ProtoAdminPlayersResponse = {
-  ok: boolean;
-  players_json?: string;
 };
 type ProtoGetRecentCommandsRequest = {
   limit?: number;
@@ -2581,12 +2577,8 @@ export const createSimulationService = async (options: SimulationServiceOptions 
         .then((archives) => callback(null, { ok: true, archives_json: JSON.stringify(archives) }))
         .catch((error) => callback(error instanceof Error ? error : new Error("failed to load season archives"), { ok: false }));
     },
-    GetAdminPlayers(
-      _call: { request: ProtoAdminPlayersRequest },
-      callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void
-    ) {
-      callback(null, { ok: true, players_json: JSON.stringify(buildAdminPlayerRows(runtime)) });
-    },
+    GetAdminPlayers(call: { request: ProtoAdminPlayersRequest }, callback: (error: Error | null, response: ProtoAdminPlayersResponse) => void) { handleGetAdminPlayers(runtime, call, callback); },
+    GetActivityDashboard(call: { request: ProtoActivityDashboardRequest }, callback: (error: Error | null, response: ProtoActivityDashboardResponse) => void) { handleGetActivityDashboard(runtime, call, callback); },
     GetRecentCommands(
       call: { request: ProtoGetRecentCommandsRequest },
       callback: (error: Error | null, response: ProtoGetRecentCommandsResponse) => void

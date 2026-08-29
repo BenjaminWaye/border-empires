@@ -5,6 +5,9 @@ import {
   type PendingRespawnNoticeContext
 } from "../player-respawn-notice.js";
 import { CommandDeltaBuffer } from "../runtime-delta-buffer.js";
+import { createTerritoryFlipLog } from "../territory-flip-log/territory-flip-log.js";
+import { buildActivityDashboardSnapshot } from "../activity-dashboard/activity-dashboard-snapshot.js";
+import { addStrategicResource as addStrategicResourceImpl, spendStrategicResource as spendStrategicResourceImpl, strategicResourceAmount as strategicResourceAmountImpl } from "../runtime-strategic-resource-ledger.js";
 import { RuntimeState } from "./runtime-state.js";
 import { aetherBridgeReachAnchor, reachBorderOwnerAt as reachBorderOwnerAtImpl } from "../runtime-aether-bridge-reach.js";
 import { createReachUpdateState, flushReachUpdates, markReachForResend, takeReachChangedTileKeys as takeReachChangedTileKeysImpl, type ReachUpdateState } from "../runtime-reach-update/runtime-reach-update.js";
@@ -525,6 +528,8 @@ export class SimulationRuntime {
   private readonly persistence: SimulationPersistence;
   private readonly now: () => number;
   private readonly state: RuntimeState;
+  // Tile-ownership flip feed for GET /api/activity — see territory-flip-log.ts (not snapshotted; see state-and-persistence-discipline.md).
+  private readonly territoryFlipLog = createTerritoryFlipLog({ now: () => this.now() });
   private readonly playerSummaries = new Map<string, PlayerRuntimeSummary>();
   private readonly plannerPlayerTileCollectionVersionByPlayer = new Map<string, number>();
   // Increments ONLY on tile ownership change (not muster/population/income ticks) — the
@@ -1734,10 +1739,16 @@ export class SimulationRuntime {
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
         : undefined,
-      tryDrainWaypointQueue: (playerId) => this.tryDrainWaypointQueue(playerId)
+      tryDrainWaypointQueue: (playerId) => this.tryDrainWaypointQueue(playerId),
+      recordTileFlip: (flip) => this.territoryFlipLog.record(flip)
     };
   }
 
+  /** GET /api/activity's sim-computed half; see GetActivityDashboard in simulation-service.ts. */
+  exportActivityDashboardSnapshot() { this.territoryFlipLog.prune(this.now()); return buildActivityDashboardSnapshot({ tiles: this.state.tiles, players: this.state.players, flipLogEntries: this.territoryFlipLog.entries(), now: this.now() }); }
+
+  /** Territory flip log gauge, per state-and-persistence-discipline.md. */
+  territoryFlipLogGauge() { return this.territoryFlipLog.gauge(); }
   private emitAutoFillForSettlement(settledTile: DomainTileState, ownerId: string, tileKey: string): void {
     emitAutoFillForSettlementImpl(
       {
@@ -4238,25 +4249,11 @@ export class SimulationRuntime {
     return { gold, strategic };
   }
 
-  private strategicResourceAmount(player: DomainPlayer, resource: StrategicResourceKey): number { return player.strategicResources?.[resource] ?? 0; }
+  private strategicResourceAmount(player: DomainPlayer, resource: StrategicResourceKey): number { return strategicResourceAmountImpl(player, resource); }
 
-  private spendStrategicResource(player: DomainPlayer, resource: StrategicResourceKey, amount: number): boolean {
-    const current = this.strategicResourceAmount(player, resource);
-    if (current + 1e-6 < amount) return false;
-    player.strategicResources = {
-      ...(player.strategicResources ?? {}),
-      [resource]: Math.max(0, current - amount)
-    };
-    return true;
-  }
+  private spendStrategicResource(player: DomainPlayer, resource: StrategicResourceKey, amount: number): boolean { return spendStrategicResourceImpl(player, resource, amount); }
 
-  private addStrategicResource(player: DomainPlayer, resource: StrategicResourceKey, amount: number): void {
-    const current = this.strategicResourceAmount(player, resource);
-    player.strategicResources = {
-      ...(player.strategicResources ?? {}),
-      [resource]: current + amount
-    };
-  }
+  private addStrategicResource(player: DomainPlayer, resource: StrategicResourceKey, amount: number): void { addStrategicResourceImpl(player, resource, amount); }
 
   private ownedTileCountForPlayer(playerId: string): number { return this.summaryForPlayer(playerId).territoryTileKeys.size; }
 

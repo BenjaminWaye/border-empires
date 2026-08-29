@@ -21,6 +21,8 @@ import {
 import { registerGalaxyRoutes } from "../galaxy-routes/galaxy-routes.js";
 import { registerGalaxyEndorsementRoutes } from "../galaxy-endorsement-routes/galaxy-endorsement-routes.js";
 import { registerWorldEngineStrikeRoutes } from "../world-engine-strike-routes/world-engine-strike-routes.js";
+import { registerActivityApiRoute, type RegisterActivityApiRouteDeps } from "../activity-api/activity-api-route.js";
+import { addCorsHeaders } from "./cors-headers.js";
 import type { GalaxyEndorsementStore } from "../galaxy-endorsement-store/galaxy-endorsement-store.js";
 import type { GalaxyPlanetStore } from "../galaxy-planet-store/galaxy-planet-store.js"; import type { GalaxyEconomyStore } from "../galaxy-economy-store/galaxy-economy-store.js";
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
@@ -102,25 +104,9 @@ export type RegisterGatewayHttpRoutesDeps = {
   galaxyEndorsementStore?: GalaxyEndorsementStore;
   authBindingStore?: GatewayAuthBindingStore;
   worldEngineStrikeStore?: WorldEngineStrikeStore;
+  activityApi?: RegisterActivityApiRouteDeps;
 };
 
-const addCorsHeaders = (app: FastifyInstance): void => {
-  app.addHook("onSend", async (_request, reply, payload) => {
-    reply.header("Access-Control-Allow-Origin", "*");
-    reply.header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
-    reply.header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
-    return payload;
-  });
-
-  app.options("/*", async (_request, reply) => {
-    reply
-      .header("Access-Control-Allow-Origin", "*")
-      .header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
-      .header("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization")
-      .code(204);
-    return "";
-  });
-};
 
 export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGatewayHttpRoutesDeps): void => {
   addCorsHeaders(app);
@@ -557,6 +543,7 @@ export const registerGatewayHttpRoutes = (app: FastifyInstance, deps: RegisterGa
   registerWorldEngineStrikeRoutes(app, {
     ...(deps.worldEngineStrikeStore ? { worldEngineStrikeStore: deps.worldEngineStrikeStore } : {})
   });
+  if (deps.activityApi) registerActivityApiRoute(app, deps.activityApi);
 };
   const forceRequested = (value: unknown): boolean =>
     value === true || value === "true" || value === "1" || value === 1;

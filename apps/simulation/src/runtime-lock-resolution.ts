@@ -76,6 +76,12 @@ export type RuntimeLockResolutionContext = {
   // a queued next target keeps advancing while the player is offline. See
   // that module's tryDrainWaypointQueue doc comment.
   tryDrainWaypointQueue: (playerId: string) => void;
+  // Territory activity feed for GET /api/activity (see
+  // ../territory-flip-log/territory-flip-log.ts) -- called for every tile
+  // whose ownerId actually changes, win or lose, real player or neutral/
+  // barbarian. No-op cost when unset (tests that don't care about the
+  // activity feed can omit it).
+  recordTileFlip?: (flip: { tileId: string; x: number; y: number; fromOwner: string | undefined; toOwner: string | undefined; at: number }) => void;
 };
 
 export function releaseMusterReservation(context: RuntimeLockResolutionContext, lock: LockRecord): void {
@@ -238,6 +244,16 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     // itself is already gone; this just drops the pooled manpower with it.
     const hadMuster = Boolean(previousTarget?.muster);
     context.replaceTileState(lock.targetKey, resolvedTarget, lock.commandId);
+    if (previousOwnerId !== resolvedTarget.ownerId) {
+      context.recordTileFlip?.({
+        tileId: lock.targetKey,
+        x: lock.targetX,
+        y: lock.targetY,
+        fromOwner: previousOwnerId,
+        toOwner: resolvedTarget.ownerId,
+        at: context.now()
+      });
+    }
     if (willAutoSettle) context.autoSettleCapturedAnchor(lock.playerId, lock.targetKey, resolvedTarget, lock.commandId);
     else if (outOfReachDecayAt !== undefined) context.registerOutOfReachDecay(lock.targetKey, outOfReachDecayAt);
     if (resolvedTarget.ownershipState === "FRONTIER") context.extendFortPatrolGrace(lock.targetKey, context.now() + FORT_PATROL_GRACE_MS);
@@ -368,6 +384,16 @@ function resolveLostOrigin(context: RuntimeLockResolutionContext, lock: LockReco
     ...capturedStructureFields(previousOrigin, previousOwnerId, context.now())
   };
   context.replaceTileState(lock.originKey, resolvedOrigin, lock.commandId);
+  if (previousOrigin.ownerId !== resolvedOrigin.ownerId) {
+    context.recordTileFlip?.({
+      tileId: lock.originKey,
+      x: previousOrigin.x,
+      y: previousOrigin.y,
+      fromOwner: previousOrigin.ownerId,
+      toOwner: resolvedOrigin.ownerId,
+      at: context.now()
+    });
+  }
   if (originOwnershipState === "FRONTIER") context.extendFortPatrolGrace(lock.originKey, context.now() + FORT_PATROL_GRACE_MS);
   else context.clearFortPatrolGrace(lock.originKey);
   // lock.playerId (the attacker) just lost this exact tile — force it visible
