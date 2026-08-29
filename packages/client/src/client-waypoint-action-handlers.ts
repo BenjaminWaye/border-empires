@@ -4,6 +4,7 @@ import { wireStepsForPlan } from "@border-empires/shared";
 import {
   persistWaypointQueueForPlayer,
   waypointCancelAllWirePayload,
+  waypointCancelWirePayload,
   waypointEnqueueWirePayload,
   WAYPOINT_QUEUE_CLIENT_CAP
 } from "./client-waypoint-planner/client-waypoint-persistence.js";
@@ -105,13 +106,12 @@ export const handleWaypointAction = (deps: WaypointHandlerDeps): boolean => {
   const { state, selected, actionId, keyFor, pushFeed, renderHud, hideTileActionMenu, showCaptureAlert, processActionQueue, sendGameMessage } = deps;
 
   if (actionId === "cancel_waypoint") {
-    if (state.waypoint.length > 0) {
-      const count = state.waypoint.length;
-      const targets = state.waypoint.map((w) => `(${w.target.x}, ${w.target.y})`).join(", ");
-      state.waypoint = [];
+    const index = selected ? state.waypoint.findIndex((w) => w.target.x === selected.x && w.target.y === selected.y) : -1;
+    if (index >= 0 && selected) {
+      state.waypoint.splice(index, 1);
       persistWaypointQueueForPlayer(state.me, state.waypoint);
-      sendGameMessage?.(waypointCancelAllWirePayload());
-      pushFeed(`${count} waypoint${count > 1 ? "s" : ""} cancelled: ${targets}.`, "info", "info");
+      sendGameMessage?.(waypointCancelWirePayload(selected));
+      pushFeed(`Waypoint at (${selected.x}, ${selected.y}) cancelled.`, "info", "info");
     }
     hideTileActionMenu();
     renderHud();
