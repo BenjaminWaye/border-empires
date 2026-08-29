@@ -127,11 +127,18 @@ export const tileIsLand: PlacementCheck = (ctx) => {
 export const noConflictingStructure: PlacementCheck = (ctx) => {
   if (ctx.isUpgrade) return null;
 
+  // A Fort and a Relay Beacon are allowed to share a tile.
+  const existingIsRelayBeacon = (ctx.tile.economicStructure as { type?: string } | undefined)?.type === "RELAY_BEACON";
+
   const conflicting: string[] = [];
   if (ctx.tileField !== "fort" && ctx.tileField !== "economicStructure" && ctx.tile.fort) conflicting.push("fort");
   if (ctx.tileField !== "observatory" && ctx.tile.observatory) conflicting.push("observatory");
   if (ctx.tileField !== "siegeOutpost" && ctx.tile.siegeOutpost) conflicting.push("siege outpost");
-  if (ctx.tileField !== "economicStructure" && ctx.tile.economicStructure) conflicting.push("structure");
+  if (
+    ctx.tileField !== "economicStructure" &&
+    ctx.tile.economicStructure &&
+    !(ctx.tileField === "fort" && existingIsRelayBeacon)
+  ) conflicting.push("structure");
   if (conflicting.length > 0) return `tile already has ${conflicting.join(", ")}`;
   return null;
 };

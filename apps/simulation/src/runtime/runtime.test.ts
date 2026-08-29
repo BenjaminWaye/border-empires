@@ -6680,18 +6680,15 @@ describe("simulation runtime", () => {
                     terrain: "LAND" as const,
                     ownerId: "player-1",
                     ownershipState: "SETTLED" as const,
-                    economicStructure: {
-                      ownerId: "player-1",
-                      type: "RELAY_BEACON" as const,
-                      status: "active" as const
-                    }
+                    town: { name: "Outpost Town", type: "FARMING" as const, populationTier: "TOWN" as const },
+                    siegeOutpost: { ownerId: "player-1", status: "active" as const, variant: "SIEGE_OUTPOST" as const }
                   },
-                  // §5.4: RELAY_BEACON needs 1 FOOD slot to not go dormant.
+                  // A free UMBRITE slot — SIEGE_OUTPOST's resource-slot requirement.
                   {
                     x: 12,
                     y: 10,
                     terrain: "LAND" as const,
-                    resource: "FISH" as const,
+                    resource: "UMBRITE" as const,
                     ownerId: "player-1",
                     ownershipState: "SETTLED" as const
                   }
@@ -6703,6 +6700,8 @@ describe("simulation runtime", () => {
       });
 
     const captureAtkEff = async (runtime: SimulationRuntime): Promise<number | undefined> => {
+      // Tile-seeded (not BUILD-commanded) resource supply needs an explicit cache refresh, or the outpost reads back dormant.
+      runtime.refreshResourceSlotCachesForPlayer("player-1");
       const seen = collectEvents(runtime);
       runtime.submitCommand({
         commandId: "atk-1",
@@ -6725,7 +6724,7 @@ describe("simulation runtime", () => {
     const boostedAtkEff = await captureAtkEff(buildRuntime(true));
 
     expect(baselineAtkEff).toBe(10);
-    expect(boostedAtkEff).toBeCloseTo(12.5, 6);
+    expect(boostedAtkEff).toBeCloseTo(16, 6);
   });
 
   it("threads owned Weapons Workshop count into resolved combat atkEff and defEff", async () => {
