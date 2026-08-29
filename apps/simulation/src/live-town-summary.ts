@@ -351,6 +351,15 @@ export const buildTownSummary = (
     connectedTownCount: typeof townPartial.connectedTownCount === "number" ? townPartial.connectedTownCount : 0,
     connectedTownBonus: typeof townPartial.connectedTownBonus === "number" ? townPartial.connectedTownBonus : 0,
     ...(Array.isArray(townPartial.connectedTownNames) ? { connectedTownNames: townPartial.connectedTownNames } : {}),
+    // Mercantile Charter (and any future firstThreeTowns* domain/tech):
+    // firstThreeTownMult/firstThreeTownPopGrowthMult are already folded into
+    // goldPerMinute/populationGrowthPerMinute above, but were never surfaced
+    // on the wire object itself, so the tile overview's modifier list
+    // (client-tile-overview-modifiers.ts) had no way to show the player
+    // *why* one of their first three towns produces/grows faster than the
+    // others — the bonus was applying invisibly. Only sent when active.
+    ...(firstThreeTownMult !== 1 ? { firstThreeTownGoldMult: firstThreeTownMult } : {}),
+    ...(firstThreeTownPopGrowthMult !== 1 ? { firstThreeTownPopGrowthMult } : {}),
     hasMintworks,
     mintworksActive: hasMintworks && isFed,
     mintworksCount,

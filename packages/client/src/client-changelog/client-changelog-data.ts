@@ -187,6 +187,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The Gold income breakdown now shows \"Aether Condenser\" (and any other structure-labeled income/upkeep line) with its proper display name instead of its internal type"
     ]
+  },
+  {
+    createdAt: 1788015703861, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.2",
+    title: "Mercantile Charter's bonus now shows up on your first three towns",
+    why: "Mercantile Charter's +50% gold / +25% population growth was already being applied to your first three towns' production and growth, but the bonus was never put on the tile overview's modifier list -- so it worked invisibly, with nothing on screen telling you it was there.",
+    changes: [
+      "The tile overview now shows a \"First 3 towns\" line for gold production and population growth on any of your first three towns while you hold Mercantile Charter"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

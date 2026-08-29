@@ -130,3 +130,35 @@ describe("buildTownSummary — goldPerMinute", () => {
     expect(summary?.goldPerMinute).toBeCloseTo(expectedGoldPerMinute, 4);
   });
 });
+
+describe("buildTownSummary — firstThreeTown wire fields", () => {
+  // Regression: Mercantile Charter's firstThreeTownsGoldOutputMult/
+  // firstThreeTownsPopulationGrowthMult were already folded into
+  // goldPerMinute/populationGrowthPerMinute, but never put on the returned
+  // town object itself — the tile overview's modifier list had no field to
+  // read, so the bonus applied invisibly with no on-screen indication.
+  it("includes firstThreeTownGoldMult/firstThreeTownPopGrowthMult when the town is one of the owner's first three and they hold Mercantile Charter", () => {
+    const ownerId = "p1";
+    const town = townTile(10, 10, ownerId);
+    const tiles: FixtureTile[] = [town, supportTile(11, 10, ownerId)];
+    const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
+    const fedTownKeys = new Set([keyFor(10, 10)]);
+    const firstThreeTownKeys = new Set([keyFor(10, 10)]);
+    const player = { id: ownerId, techIds: new Set<string>(), domainIds: new Set(["mercantile-charter"]) };
+    const summary = buildTownSummary(town as never, player as never, tilesByKey, fedTownKeys, true, undefined, firstThreeTownKeys);
+    expect(summary?.firstThreeTownGoldMult).toBeCloseTo(1.5, 5);
+    expect(summary?.firstThreeTownPopGrowthMult).toBeCloseTo(1.25, 5);
+  });
+
+  it("omits firstThreeTownGoldMult/firstThreeTownPopGrowthMult when the town isn't in the owner's first three", () => {
+    const ownerId = "p1";
+    const town = townTile(10, 10, ownerId);
+    const tiles: FixtureTile[] = [town, supportTile(11, 10, ownerId)];
+    const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
+    const fedTownKeys = new Set([keyFor(10, 10)]);
+    const player = { id: ownerId, techIds: new Set<string>(), domainIds: new Set(["mercantile-charter"]) };
+    const summary = buildTownSummary(town as never, player as never, tilesByKey, fedTownKeys, true, undefined, new Set());
+    expect(summary?.firstThreeTownGoldMult).toBeUndefined();
+    expect(summary?.firstThreeTownPopGrowthMult).toBeUndefined();
+  });
+});

@@ -170,6 +170,25 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
       });
     }
     modifiers.push(...activeSupportStructureModifiers(tile.town));
+    // Mercantile Charter (and any future firstThreeTowns* domain/tech): this
+    // town is one of the owner's first three, so its gold/growth already
+    // carries the bonus (folded into goldPerMinute/populationGrowthPerMinute
+    // upstream) — surface it here so the player can see why, instead of the
+    // boost applying invisibly.
+    if (tile.town.firstThreeTownGoldMult && tile.town.firstThreeTownGoldMult !== 1) {
+      modifiers.push({
+        reason: "First 3 towns",
+        effect: `${percentLabel((tile.town.firstThreeTownGoldMult - 1) * 100)} gold production`,
+        tone: tile.town.firstThreeTownGoldMult > 1 ? "positive" : "negative"
+      });
+    }
+    if (tile.town.firstThreeTownPopGrowthMult && tile.town.firstThreeTownPopGrowthMult !== 1) {
+      modifiers.push({
+        reason: "First 3 towns",
+        effect: `${percentLabel((tile.town.firstThreeTownPopGrowthMult - 1) * 100)} population growth`,
+        tone: tile.town.firstThreeTownPopGrowthMult > 1 ? "positive" : "negative"
+      });
+    }
   }
 
   for (const modifier of tile.dock?.modifiers ?? []) {
