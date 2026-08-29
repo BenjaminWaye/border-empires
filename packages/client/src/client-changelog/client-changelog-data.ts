@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788029286599, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "\"Cancel Waypoint\" now cancels only the selected waypoint, not the whole queue",
+    why: "The Cancel Waypoint button in a tile's action menu always wiped the player's entire waypoint queue, even though it was opened on one specific waypoint's target tile -- so cancelling a single leg of a multi-waypoint route silently dropped every other queued waypoint too.",
+    changes: [
+      "Cancel Waypoint now cancels only the waypoint targeting the tile you opened the menu on, leaving the rest of your queued waypoints intact"
+    ]
+  },
+  {
     createdAt: 1787999012029, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.1",
     title: "Join-season screen no longer shows a misleading \"0 players waiting\" for an already-active season",
