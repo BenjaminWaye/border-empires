@@ -4,7 +4,6 @@ import {
   nextTownGrowthUpgrade,
   type BuildableStructureType,
   FORT_BUILD_MS,
-  RELAY_BEACON_ATTACK_MULT,
   RELAY_BEACON_BUILD_MS,
   OBSERVATORY_BUILD_MS,
   SETTLE_COST, SETTLE_MANPOWER_COST,
@@ -1543,7 +1542,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
             "RELAY_BEACON",
             hasFreeResourceSlotsForRelayBeacon(state),
             missingRelayBeaconSlotReason(state) ?? "Unavailable",
-            `${deps.structureCostText("RELAY_BEACON")} • ${Math.round(RELAY_BEACON_BUILD_MS / 60000)}m • atk x${RELAY_BEACON_ATTACK_MULT.toFixed(2)}`
+            `${deps.structureCostText("RELAY_BEACON")} • ${Math.round(RELAY_BEACON_BUILD_MS / 60000)}m`
           )),
           slots,
           deps

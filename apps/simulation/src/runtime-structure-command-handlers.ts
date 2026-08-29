@@ -266,14 +266,12 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   }
 
   const hasTech = (id: string) => actor.techIds.has(id);
+  const buildingFort = spec.kind === "FORT";
+  const buildingRelayBeacon = spec.kind === "OUTPOST" && structureType === "RELAY_BEACON";
   let upgrading = false;
   if (spec.kind === "FORT") {
     upgrading = target.economicStructure?.ownerId === command.playerId &&
       target.economicStructure.type === "WOODEN_FORT" &&
-      activeOrInactive(target.economicStructure);
-  } else if (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON") {
-    upgrading = target.economicStructure?.ownerId === command.playerId &&
-      target.economicStructure.type === "RELAY_BEACON" &&
       activeOrInactive(target.economicStructure);
   } else if (spec.kind === "ECONOMIC") {
     const base = upgradeBaseType(structureType);
@@ -285,7 +283,12 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
 
   const sameFamilyUpgrade = (spec.kind === "FORT" && target.fort?.ownerId === command.playerId) ||
     (spec.kind === "OUTPOST" && structureType !== "RELAY_BEACON" && target.siegeOutpost?.ownerId === command.playerId);
-  if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || target.economicStructure || (target.fort && spec.kind !== "ECONOMIC"))) {
+  // A Fort and a Relay Beacon are allowed to share a tile: a Fort build
+  // ignores an existing Relay Beacon in economicStructure, and a Relay
+  // Beacon build ignores an existing Fort.
+  const economicConflict = !!target.economicStructure && !(buildingFort && target.economicStructure.type === "RELAY_BEACON");
+  const fortConflict = !!target.fort && spec.kind !== "ECONOMIC" && !buildingRelayBeacon;
+  if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || economicConflict || fortConflict)) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
     return;
   }

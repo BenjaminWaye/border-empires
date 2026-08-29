@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import {
   DREAD_TOWER_ATTACK_MULT,
-  RELAY_BEACON_ATTACK_MULT,
   SIEGE_OUTPOST_ATTACK_MULT,
   SIEGE_TOWER_ATTACK_MULT,
   WORLD_HEIGHT,
@@ -38,13 +37,13 @@ describe("tileOutpostMult — per-variant multipliers", () => {
     expect(tileOutpostMult(tile, "p1")).toEqual({ mult: DREAD_TOWER_ATTACK_MULT });
   });
 
-  it("VariantMult: RELAY_BEACON → 1.25", () => {
+  it("VariantMult: RELAY_BEACON no longer contributes an attack aura", () => {
     const tile: OutpostAuraTileFacts = {
       ownerId: "p1",
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
     };
-    expect(tileOutpostMult(tile, "p1")).toEqual({ mult: RELAY_BEACON_ATTACK_MULT });
+    expect(tileOutpostMult(tile, "p1")).toEqual({ mult: 1 });
   });
 
   it("VariantMult: undefined siege variant defaults to SIEGE_OUTPOST mult", () => {
@@ -114,7 +113,7 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     expect(scanOutpostMult("p1", 16, 10, lookup)).toBe(1);
   });
 
-  it("Aura3: target within radius 5 of friendly RELAY_BEACON → 1.25 bonus", () => {
+  it("Aura3: RELAY_BEACON no longer contributes an attack aura", () => {
     tilesByKey.clear();
     seed(10, 10, {
       ownerId: "p1",
@@ -122,10 +121,10 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
     });
     // Target at (13, 10) — 3 tiles from outpost
-    expect(scanOutpostMult("p1", 13, 10, lookup)).toBeCloseTo(RELAY_BEACON_ATTACK_MULT, 6);
+    expect(scanOutpostMult("p1", 13, 10, lookup)).toBe(1);
   });
 
-  it("Aura4: overlapping auras of different multipliers → max wins (SIEGE_OUTPOST 1.6 beats RELAY_BEACON 1.25)", () => {
+  it("Aura4: SIEGE_OUTPOST contributes an aura even alongside a non-contributing RELAY_BEACON", () => {
     tilesByKey.clear();
     seed(10, 10, {
       ownerId: "p1",
@@ -158,12 +157,12 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
     seed(0, 0, {
       ownerId: "p1",
       ownershipState: "SETTLED",
-      economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
+      siegeOutpost: { ownerId: "p1", status: "active", variant: "SIEGE_OUTPOST" }
     });
     // Target at the wrapped edge: (WORLD_WIDTH - 1, WORLD_HEIGHT - 1) is distance 1,1 via wrapping
-    expect(scanOutpostMult("p1", WORLD_WIDTH - 1, WORLD_HEIGHT - 1, lookup)).toBeCloseTo(RELAY_BEACON_ATTACK_MULT, 6);
+    expect(scanOutpostMult("p1", WORLD_WIDTH - 1, WORLD_HEIGHT - 1, lookup)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
     // Target at (2, 0): distance 2 from outpost, within radius 5
-    expect(scanOutpostMult("p1", 2, 0, lookup)).toBeCloseTo(RELAY_BEACON_ATTACK_MULT, 6);
+    expect(scanOutpostMult("p1", 2, 0, lookup)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
     // Target at (6, 0): distance 6 from outpost, outside radius 5
     expect(scanOutpostMult("p1", 6, 0, lookup)).toBe(1);
   });
@@ -199,7 +198,8 @@ describe("scanOutpostMult — target-based radius-5 aura", () => {
       ownershipState: "SETTLED",
       economicStructure: { ownerId: "p1", type: "RELAY_BEACON", status: "active" }
     });
-    // Target at (13, 10) is within radius of all three — DREAD_TOWER (2.0) should win
+    // Target at (13, 10) is within radius of all — DREAD_TOWER (2.0) should win
+    // (RELAY_BEACON no longer contributes an aura at all)
     expect(scanOutpostMult("p1", 13, 10, lookup)).toBeCloseTo(DREAD_TOWER_ATTACK_MULT, 6);
   });
 });
@@ -221,20 +221,13 @@ describe("targetOutpostMult — outpost-list iteration", () => {
     expect(targetOutpostMult(outposts, 16, 10)).toBe(1);
   });
 
-  it("TOM3: RELAY_BEACON within radius → 1.25 multiplier", () => {
-    const outposts: OutpostPosition[] = [
-      { x: 10, y: 10, variant: "RELAY_BEACON" }
-    ];
-    expect(targetOutpostMult(outposts, 13, 10)).toBeCloseTo(RELAY_BEACON_ATTACK_MULT, 6);
-  });
-
   it("TOM4: overlapping auras — max multiplier wins", () => {
     const outposts: OutpostPosition[] = [
-      { x: 10, y: 10, variant: "RELAY_BEACON" },
+      { x: 10, y: 10, variant: "SIEGE_TOWER" },
       { x: 11, y: 10, variant: "SIEGE_OUTPOST" }
     ];
-    // Both within radius of target (12, 10): SIEGE_OUTPOST (1.6) beats LIGHT (1.25)
-    expect(targetOutpostMult(outposts, 12, 10)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
+    // Both within radius of target (12, 10): SIEGE_TOWER (1.8) beats SIEGE_OUTPOST (1.6)
+    expect(targetOutpostMult(outposts, 12, 10)).toBeCloseTo(SIEGE_TOWER_ATTACK_MULT, 6);
   });
 
   it("TOM5: DREAD_TOWER short-circuits — skips remaining outposts", () => {
@@ -254,10 +247,10 @@ describe("targetOutpostMult — outpost-list iteration", () => {
 
   it("TOM7: world-wrap — outpost at (0, 0), target at far edge is within radius 1 via wrap", () => {
     const outposts: OutpostPosition[] = [
-      { x: 0, y: 0, variant: "RELAY_BEACON" }
+      { x: 0, y: 0, variant: "SIEGE_OUTPOST" }
     ];
     // Chebyshev wrap: distance from (0,0) to (WORLD_WIDTH-1, WORLD_HEIGHT-1) = 1 via wrap
-    expect(targetOutpostMult(outposts, WORLD_WIDTH - 1, WORLD_HEIGHT - 1)).toBeCloseTo(RELAY_BEACON_ATTACK_MULT, 6);
+    expect(targetOutpostMult(outposts, WORLD_WIDTH - 1, WORLD_HEIGHT - 1)).toBeCloseTo(SIEGE_OUTPOST_ATTACK_MULT, 6);
   });
 
   it("TOM8: SIEGE_TOWER within radius → correct multiplier", () => {

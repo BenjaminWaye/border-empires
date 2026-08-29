@@ -55,7 +55,7 @@ describe("SimulationRuntime outpost vision bonus", () => {
     expect(keys.has("16,10")).toBe(false); // dx=6, outside it
   });
 
-  it("upgrading a Relay Beacon to a Siege Outpost drops the Relay Beacon's flat bonus", async () => {
+  it("building a Siege Outpost on a Relay Beacon tile is rejected — no in-place upgrade — and the beacon's vision bonus is unaffected", async () => {
     vi.useFakeTimers();
     try {
       const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
@@ -104,9 +104,9 @@ describe("SimulationRuntime outpost vision bonus", () => {
       vi.advanceTimersByTime(structureBuildDurationMs("SIEGE_OUTPOST"));
       await Promise.resolve();
 
-      expect(rejections).toEqual([]);
-      // Siege Outpost has no vision bonus of its own (Survey Corps not researched).
-      expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(false);
+      expect(rejections).toEqual([{ code: "BUILD_INVALID", message: "tile already has structure" }]);
+      // The Relay Beacon was never replaced, so its flat vision bonus stands.
+      expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(true);
     } finally {
       vi.useRealTimers();
     }
