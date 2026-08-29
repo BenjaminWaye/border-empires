@@ -190,6 +190,7 @@ const defenderBattle = (target: FrontierCombatPreviewTile, modifiers: FrontierCo
   if (target.ownershipState === "FRONTIER") return { entries, mult: 0 };
   let mult = 1;
   mult *= foldMult(entries, modifiers.noWarIndustryDefenseVulnerabilityLabel ?? "Attacker has no war industry", modifiers.noWarIndustryDefenseVulnerabilityMult);
+  mult *= foldMult(entries, "Settled tile", target.ownershipState === "SETTLED" ? 1.3 : undefined);
   mult *= foldMult(entries, "Town", target.townType ? 1.2 : undefined);
   if (target.fortVariant) {
     const baseFortMult = baseFortDefenseMult(target.fortVariant);

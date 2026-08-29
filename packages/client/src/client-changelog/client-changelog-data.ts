@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787999049644, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Settled tiles are defensible again",
+    why: "PR #1656 removed the settled-tile and dock defense bonuses because neither is a defensive structure, but that left settled land with no baseline defense at all -- only forts, town bonus, tech/domain mods, and war-industry status contributed, so an undeveloped settled tile defended no better than open frontier.",
+    changes: [
+      "Settled tiles now grant a +30% defense multiplier again (previously +35%, and separate from the still-removed dock bonus), stacking with Town, forts, and other defense mults as before"
+    ]
+  },
+  {
     createdAt: 1788029286599, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.3",
     title: "\"Cancel Waypoint\" now cancels only the selected waypoint, not the whole queue",
