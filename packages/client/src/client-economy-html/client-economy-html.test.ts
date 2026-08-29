@@ -456,4 +456,44 @@ describe("renderEconomyPanelHtml", () => {
     expect(html).not.toContain("data-economy-focus=\"CRYSTAL\"");
     expect(html).not.toContain("data-economy-focus=\"UMBRITE\"");
   });
+
+  // Regression coverage: an Aether Condenser flipped into Sell Off (EXCHANGE)
+  // mode reports its gold bucket labeled with the raw persisted structure
+  // type (CRYSTAL_SYNTHESIZER, see player-update-economy.ts), not a display
+  // name. The panel used to render that raw label verbatim in the shared-
+  // breakdown path, so the income looked like it wasn't there at all unless
+  // you knew to look for the internal type string.
+  it("renders a structure-labeled GOLD income bucket under its display name, not its raw type", () => {
+    const economyBreakdown = emptyEconomyBreakdown();
+    economyBreakdown.GOLD.sources = [{ label: "CRYSTAL_SYNTHESIZER", amountPerMinute: 5, count: 1 }];
+
+    const html = renderEconomyPanelHtml({
+      focus: "GOLD",
+      gold: 0,
+      me: "me",
+      incomePerMinute: 5,
+      strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      storageCap: EMPIRE_STORAGE_FLOOR,
+      resourceSlots: {
+        supply: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 },
+        demand: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0 }
+      },
+      dormantStructures: [],
+      strategicProductionPerMinute: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+      upkeepPerMinute: { food: 0, titanium: 0, umbrite: 0, crystal: 0, gold: 0 },
+      upkeepLastTick: { foodCoverage: 1 },
+      activeRevealTargetsCount: 0,
+      tiles: [],
+      economyBreakdown,
+      isMobile: true,
+      prettyToken: (value) => value,
+      resourceIconForKey: (resource) => resource,
+      rateToneClass: () => "positive",
+      resourceLabel: (resource) => resource,
+      economicStructureName: (type) => type
+    });
+
+    expect(html).toContain("Aether Condenser");
+    expect(html).not.toContain("CRYSTAL_SYNTHESIZER");
+  });
 });

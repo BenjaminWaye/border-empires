@@ -336,6 +336,52 @@ describe("persistent alerts", () => {
     expect(persistentAlertsForState(state, 1_800_001)).toEqual([]);
   });
 
+  it("stops surfacing a shard rain site once its tile confirms the shard is collected", () => {
+    const tiles = new Map<string, Tile>();
+    tiles.set("5,5", { x: 5, y: 5, fogged: false, shardSite: null } as Tile);
+    const state = {
+      me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
+      tiles,
+      shardRainStatus: {
+        key: "rain-1",
+        phase: "started" as const,
+        startsAt: 0,
+        expiresAt: 1_800_000,
+        siteCount: 2,
+        sites: [
+          { x: 5, y: 5 },
+          { x: 60, y: 60 }
+        ]
+      }
+    };
+
+    expect(persistentAlertsForState(state, 900_000).map((alert) => alert.id)).toEqual(["shard_rain:60,60"]);
+  });
+
+  it("keeps surfacing a shard rain site whose tile is unknown or fogged (not confirmed collected)", () => {
+    const tiles = new Map<string, Tile>();
+    tiles.set("60,60", { x: 60, y: 60, fogged: true, shardSite: null } as Tile);
+    const state = {
+      me: "me",
+      waypoint: [] as import("../client-state/client-state.js").ClientWaypoint[],
+      tiles,
+      shardRainStatus: {
+        key: "rain-1",
+        phase: "started" as const,
+        startsAt: 0,
+        expiresAt: 1_800_000,
+        siteCount: 2,
+        sites: [
+          { x: 5, y: 5 },
+          { x: 60, y: 60 }
+        ]
+      }
+    };
+
+    expect(persistentAlertsForState(state, 900_000).map((alert) => alert.id).sort()).toEqual(["shard_rain:5,5", "shard_rain:60,60"]);
+  });
+
   it("draws nothing on the 2D HUD for an on-screen shard rain site", () => {
     // On-screen sites get the real 3D bobbing badge (createResourceBadgeOverlay
     // in client-map-3d.ts, wired from client-map-3d.ts's own shardRainStatus

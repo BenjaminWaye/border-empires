@@ -25,6 +25,24 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1787999215790, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Shard rain locators now clear once a shard is actually collected",
+    why: "The in-world bobbing badge over a shard rain site and the off-screen HUD locator arrow pointing at one both tracked only the rain event's broadcast and its ~30-minute expiry, not the site's actual tile state -- so both kept showing a site for the rest of the event even after the shard there had already been picked up (by any player), which was misleading for everyone still navigating toward it.",
+    changes: [
+      "Both the in-world shard rain badge and the off-screen HUD locator arrow now drop a site as soon as that tile confirms (unfogged) the shard is gone, instead of persisting for the rest of the event"
+    ]
+  },
+  {
+    createdAt: 1787998957470, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Fixed the sign-in/name-and-color screen rendering behind a shard rain alert",
+    why: "The sign-in overlay (including the new-player name/color picker) was styled at z-index 30, lower than the shard rain alert banner's z-index 33, the tech/structure detail overlays, and the season-end overlay. If a shard rain alert (or any of those overlays) became visible while a new player was still picking their name and color, it rendered on top of the picker, blocking it.",
+    changes: [
+      "Raised the sign-in/onboarding overlay to z-index 50 so it always sits above in-game alert and detail overlays while visible"
+    ]
+  },
+  {
     createdAt: 1787948853587, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.6",
     title: "Fixed out-of-reach frontier tiles that never started decaying after their covering Relay Beacon/outpost was lost",
@@ -159,6 +177,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The \"3D map unavailable\" banner now has a \"Try 3D again\" button that clears the crash streak and reloads back into 3D",
       "Removed the banner's old ?renderer=3d instruction, since it never actually reset anything"
+    ]
+  },
+  {
+    createdAt: 1787999110086, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Fixed Aether Condenser gold income showing up as \"CRYSTAL_SYNTHESIZER\" in the economy panel",
+    why: "An Aether Condenser flipped into Sell Off mode reports its gold income to the economy panel labeled with its raw internal type (CRYSTAL_SYNTHESIZER) instead of its display name, because that income bucket bypassed the same display-name lookup every other structure-driven line in the panel goes through -- making it easy to conclude the income wasn't showing up at all.",
+    changes: [
+      "The Gold income breakdown now shows \"Aether Condenser\" (and any other structure-labeled income/upkeep line) with its proper display name instead of its internal type"
     ]
   }
 ];
