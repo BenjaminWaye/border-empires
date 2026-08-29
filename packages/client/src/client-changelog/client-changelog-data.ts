@@ -16,6 +16,17 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787999763164, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.2",
+    title: "Titanium Bastion and Thunder Bastion cost more manpower to build",
+    why: "All three top fort tiers (Fort, Titanium Bastion, Thunder Bastion) cost a flat 300 manpower to build despite defending at very different strengths (2.5x/4x/8x), so the strongest fort in the game was no harder to raise than the weakest of the three.",
+    changes: [
+      "Titanium Bastion now costs 480 manpower to build (was 300)",
+      "Thunder Bastion now costs 960 manpower to build (was 300)",
+      "Fort and Palisade (Wooden Fort) manpower costs are unchanged at 300 and 150"
+    ]
+  },
+  {
     createdAt: 1787999049644, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.1",
     title: "Settled tiles are defensible again",

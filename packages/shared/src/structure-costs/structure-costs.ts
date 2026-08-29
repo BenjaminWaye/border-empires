@@ -152,8 +152,8 @@ export type FortTierInfo = {
 export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
   WOODEN_FORT:      { variant: "WOODEN_FORT",      gold: 0,  titanium: 0,   manpower: 150, defenseMult: 1.35 },
   FORT:             { variant: "FORT",             gold: 0,  titanium: 45,  manpower: 300, defenseMult: 2.5 },
-  TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 90,  manpower: 300, defenseMult: 4 },
-  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 180, manpower: 300, defenseMult: 8 },
+  TITANIUM_BASTION: { variant: "TITANIUM_BASTION", gold: 0,  titanium: 90,  manpower: 480, defenseMult: 4 },
+  THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 180, manpower: 960, defenseMult: 8 },
 };
 
 export const FORT_VARIANT_LABELS: Record<FortVariant, string> = {

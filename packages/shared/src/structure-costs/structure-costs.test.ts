@@ -92,19 +92,19 @@ describe("FORT_TIER_LADDER", () => {
     expect(tier.defenseMult).toBe(2.5);
   });
 
-  test("TITANIUM_BASTION costs 0 gold, 90 titanium, 300 manpower, 4x defense", () => {
+  test("TITANIUM_BASTION costs 0 gold, 90 titanium, 480 manpower, 4x defense", () => {
     const tier = FORT_TIER_LADDER.TITANIUM_BASTION;
     expect(tier.gold).toBe(0);
     expect(tier.titanium).toBe(90);
-    expect(tier.manpower).toBe(300);
+    expect(tier.manpower).toBe(480);
     expect(tier.defenseMult).toBe(4);
   });
 
-  test("THUNDER_BASTION costs 0 gold, 180 titanium, 300 manpower, 8x defense", () => {
+  test("THUNDER_BASTION costs 0 gold, 180 titanium, 960 manpower, 8x defense", () => {
     const tier = FORT_TIER_LADDER.THUNDER_BASTION;
     expect(tier.gold).toBe(0);
     expect(tier.titanium).toBe(180);
-    expect(tier.manpower).toBe(300);
+    expect(tier.manpower).toBe(960);
     expect(tier.defenseMult).toBe(8);
   });
 
