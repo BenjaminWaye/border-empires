@@ -15,15 +15,18 @@ import {
   FORT_GARRISON_ATTRITION_MAX,
   FORT_GARRISON_ATTRITION_MIN,
   FRONTIER_ATTACK_MUSTER_COST,
-  MUSTER_ATTACK_COST
+  requiredMusterForFort
 } from "@border-empires/shared";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
 import type { SimulationTileWireDelta } from "./runtime-types.js";
 
 /**
- * Manpower an attacker must have mustered to strike this target. Phase 5
- * baseline: flat attack cost, raised to fort garrison (Phase 7), lowered
- * for barbarian raids (Phase 8) and FRONTIER targets (forts only defend once SETTLED).
+ * Manpower an attacker must have mustered to strike this target: a flat
+ * per-fort-tier floor (structure-costs.ts's ATTACK_MANPOWER_LOSS_RANGE max —
+ * you can never lose more than you brought), lowered for barbarian raids
+ * and FRONTIER targets (forts only defend once SETTLED). No longer scaled
+ * by the fort's actual garrison fill — that's a separate combat-power
+ * mechanic (see garrisonScaledMult in frontier-combat.ts), not a muster gate.
  *
  * Pure function of the target tile - no runtime dependencies.
  */
@@ -31,8 +34,7 @@ export function requiredMusterForTarget(target: DomainTileState): number {
   // Barbarian tiles are raided cheaply from the pool (handled in validateFrontierCommand).
   if (target.ownerId === "barbarian-1") return BARBARIAN_RAID_COST;
   if (target.ownershipState === "FRONTIER") return FRONTIER_ATTACK_MUSTER_COST;
-  const fortGarrison = (target.fort?.status === "active" && target.fort.garrison != null) ? target.fort.garrison : 0;
-  return Math.max(MUSTER_ATTACK_COST, Math.ceil(fortGarrison));
+  return requiredMusterForFort(target.fort?.status === "active" ? target.fort.variant : undefined);
 }
 
 export interface RuntimeCombatResolutionContext {

@@ -1,6 +1,7 @@
 import type { FortVariant } from "../types.js";
 import { combatWinChance } from "../math/math.js";
 import { BREAKTHROUGH_DEBUFF_MULT } from "../config.js";
+import { attackManpowerLossRangeForFort } from "../structure-costs/structure-costs.js";
 
 export type FrontierCombatPreviewTile = {
   terrain?: string | undefined;
@@ -290,10 +291,11 @@ export const rollFrontierCombat: RollFrontierCombatFn = Object.assign(rollFronti
   __combatModule: FRONTIER_COMBAT_MODULE
 });
 
-// Manpower lost committing an attack: a small fraction on a win, a larger
-// fraction (scaled by how outmatched the attacker was) on a loss. Shared
-// between the simulation (to settle the actual loss) and the client (to
-// show a win/loss-weighted estimate before the player commits).
+// Manpower lost committing an attack against a barbarian or FRONTIER target
+// (raid-cheap; committed manpower is tiny — 10/15 — well under the SETTLED
+// floor). Kept as the old win-cheap/loss-expensive formula since these
+// targets never carry a fort and were not part of the settled-attack
+// rebalance below.
 export const attackManpowerLoss = (committedManpower: number, attackerWon: boolean, atkEff: number, defEff: number): number => {
   if (committedManpower <= 0) return 0;
   if (attackerWon) return Math.max(10, committedManpower * 0.16);
@@ -307,4 +309,25 @@ export const estimatedAttackManpowerLoss = (committedManpower: number, winChance
   const lossOnWin = attackManpowerLoss(committedManpower, true, atkEff, defEff);
   const lossOnLoss = attackManpowerLoss(committedManpower, false, atkEff, defEff);
   return winChance * lossOnWin + (1 - winChance) * lossOnLoss;
+};
+
+// Manpower lost attacking a SETTLED target (fort or no fort): a uniform
+// random draw within that fort tier's range (structure-costs.ts), regardless
+// of whether the attack wins or loses. Replaces the old win/loss-scaled
+// formula for SETTLED targets, which scaled the same direction as win
+// chance itself — a stronger attacker already won more often against a
+// weaker defender, and used to also pay less per win, compounding the
+// advantage. Loss is now purely a function of the target's fortification,
+// not the fight's outcome or the power gap.
+export const rollSettledAttackManpowerLoss = (fortVariant: FortVariant | undefined, randomValue = Math.random()): number => {
+  const { min, max } = attackManpowerLossRangeForFort(fortVariant);
+  return min + randomValue * (max - min);
+};
+
+// Expected manpower loss for a SETTLED target — the range's midpoint, used
+// for a UI estimate before the player commits (the actual loss on any single
+// attack is a random draw, independent of predicted win chance).
+export const estimatedSettledAttackManpowerLoss = (fortVariant: FortVariant | undefined): number => {
+  const { min, max } = attackManpowerLossRangeForFort(fortVariant);
+  return (min + max) / 2;
 };

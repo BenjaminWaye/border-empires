@@ -4,9 +4,10 @@
 import {
   BARBARIAN_RAID_COST,
   FOREST_FRONTIER_CLAIM_MULT,
-  FRONTIER_CLAIM_MS,
-  MUSTER_ATTACK_COST
+  FRONTIER_CLAIM_MS
 } from "../config.js";
+import { requiredMusterForFort } from "../structure-costs/structure-costs.js";
+import type { FortVariant } from "../types.js";
 import { grassShadeAt, landBiomeAt } from "../worldgen/worldgen.js";
 
 export type WaypointAction = "EXPAND" | "ATTACK";
@@ -75,7 +76,7 @@ export type WaypointPlannerTile = {
   fogged?: boolean | undefined;
   frontierDecayAt?: number | undefined;
   frontierDecayKind?: string | undefined;
-  fort?: { status?: string | undefined; garrison?: number | undefined } | null | undefined;
+  fort?: { status?: string | undefined; garrison?: number | undefined; variant?: FortVariant | undefined } | null | undefined;
 };
 
 export type WaypointPlannerState = {
@@ -175,6 +176,5 @@ export const classifyTile = (
 
 export const requiredMusterForTarget = (tile: WaypointPlannerTile | undefined): number => {
   if (!tile || tile.ownerId === "barbarian-1") return BARBARIAN_RAID_COST;
-  const fortGarrison = tile.fort?.status === "active" && tile.fort.garrison != null ? tile.fort.garrison : 0;
-  return Math.max(MUSTER_ATTACK_COST, Math.ceil(fortGarrison));
+  return requiredMusterForFort(tile.fort?.status === "active" ? tile.fort.variant : undefined);
 };

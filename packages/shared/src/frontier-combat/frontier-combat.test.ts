@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFrontierCombatPreview, noWarIndustryLabel, rollFrontierCombat } from "./frontier-combat.js";
+import { buildFrontierCombatPreview, estimatedSettledAttackManpowerLoss, noWarIndustryLabel, rollFrontierCombat, rollSettledAttackManpowerLoss } from "./frontier-combat.js";
 
 describe("frontier combat", () => {
   it("builds preview values for a settled town target", () => {
@@ -411,6 +411,32 @@ describe("frontier combat", () => {
       );
 
       expect(breached.winChance).toBeGreaterThan(baseline.winChance);
+    });
+  });
+
+  describe("rollSettledAttackManpowerLoss / estimatedSettledAttackManpowerLoss", () => {
+    // Loss is a uniform random draw within the target's fort-tier range
+    // (structure-costs.ts), independent of win/loss and independent of the
+    // combat power gap -- replacing the old formula that scaled the same
+    // direction as win chance itself.
+    it("draws the range's min at randomValue=0 and max at randomValue=1, per fort tier", () => {
+      expect(rollSettledAttackManpowerLoss(undefined, 0)).toBe(40);
+      expect(rollSettledAttackManpowerLoss(undefined, 1)).toBe(60);
+      expect(rollSettledAttackManpowerLoss("WOODEN_FORT", 0)).toBe(100);
+      expect(rollSettledAttackManpowerLoss("WOODEN_FORT", 1)).toBe(150);
+      expect(rollSettledAttackManpowerLoss("FORT", 0)).toBe(200);
+      expect(rollSettledAttackManpowerLoss("FORT", 1)).toBe(300);
+      expect(rollSettledAttackManpowerLoss("TITANIUM_BASTION", 0)).toBe(350);
+      expect(rollSettledAttackManpowerLoss("TITANIUM_BASTION", 1)).toBe(480);
+      expect(rollSettledAttackManpowerLoss("THUNDER_BASTION", 0)).toBe(800);
+      expect(rollSettledAttackManpowerLoss("THUNDER_BASTION", 1)).toBe(960);
+    });
+
+    it("estimated loss is the range's midpoint", () => {
+      expect(estimatedSettledAttackManpowerLoss(undefined)).toBe(50);
+      expect(estimatedSettledAttackManpowerLoss("FORT")).toBe(250);
+      expect(estimatedSettledAttackManpowerLoss("TITANIUM_BASTION")).toBe(415);
+      expect(estimatedSettledAttackManpowerLoss("THUNDER_BASTION")).toBe(880);
     });
   });
 });

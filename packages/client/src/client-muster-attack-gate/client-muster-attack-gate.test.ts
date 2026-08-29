@@ -97,7 +97,7 @@ describe("findClosestMuster", () => {
     expect(findClosestMuster(state, 6, 6)).toBeUndefined();
   });
 
-  it("requires more than the flat cost against a garrisoned fort", () => {
+  it("requires more than the flat cost against an active fort, flat per fort tier regardless of garrison fill", () => {
     const state = createInitialState();
     state.me = "me";
     state.tiles.set(
@@ -106,7 +106,7 @@ describe("findClosestMuster", () => {
         x: 6,
         y: 6,
         ownerId: "enemy",
-        fort: { ownerId: "enemy", status: "active", garrison: 150, garrisonCap: 200 }
+        fort: { ownerId: "enemy", status: "active", variant: "FORT", garrison: 0, garrisonCap: 200 }
       })
     );
     const musterTile = makeTile({
@@ -117,11 +117,13 @@ describe("findClosestMuster", () => {
     });
     state.tiles.set("5,5", musterTile);
 
-    // 60 staged is not enough against a 150-garrison fort — the old flat
-    // MUSTER_ATTACK_COST gate would have wrongly called this ready.
+    // 60 staged is not enough against a Fort (300 flat, structure-costs.ts's
+    // ATTACK_MANPOWER_LOSS_RANGE.FORT.max) — the old flat MUSTER_ATTACK_COST
+    // gate would have wrongly called this ready. Garrison fill no longer
+    // matters here (that's a combat-power effect, not a muster gate).
     expect(findClosestMuster(state, 6, 6)).toBeUndefined();
 
-    musterTile.muster!.amount = 150;
+    musterTile.muster!.amount = 300;
     expect(findClosestMuster(state, 6, 6)).toBeDefined();
   });
 

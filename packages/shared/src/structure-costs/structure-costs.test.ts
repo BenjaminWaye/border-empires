@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
+import { attackManpowerLossRangeForFort, FORT_TIER_LADDER, bestFortTierForTech, nextFortTierForUpgrade, requiredMusterForFort, SIEGE_TIER_LADDER, bestSiegeTierForTech, nextSiegeTierForUpgrade, structureBuildGoldCost, structureBuildManpowerCost, structureBuildManpowerCostScaled, structureCostDefinition } from "./structure-costs.js";
 
 // Build gold costs are zeroed across the board (docs/manpower-economy-rewrite-plan.md
 // §12: manpower is the sole build cost now; gold only gates a few structures
@@ -233,5 +233,40 @@ describe("nextSiegeTierForUpgrade", () => {
 
   test("undefined variant treated as SIEGE_OUTPOST → null with no tech", () => {
     expect(nextSiegeTierForUpgrade(undefined, hasNoTech)).toBeNull();
+  });
+});
+
+describe("ATTACK_MANPOWER_LOSS_RANGE / requiredMusterForFort", () => {
+  test("undefined (no active fort) ranges 40-60", () => {
+    expect(attackManpowerLossRangeForFort(undefined)).toEqual({ min: 40, max: 60 });
+    expect(requiredMusterForFort(undefined)).toBe(60);
+  });
+
+  test("WOODEN_FORT (Palisade) ranges 100-150", () => {
+    expect(attackManpowerLossRangeForFort("WOODEN_FORT")).toEqual({ min: 100, max: 150 });
+    expect(requiredMusterForFort("WOODEN_FORT")).toBe(150);
+  });
+
+  test("FORT ranges 200-300", () => {
+    expect(attackManpowerLossRangeForFort("FORT")).toEqual({ min: 200, max: 300 });
+    expect(requiredMusterForFort("FORT")).toBe(300);
+  });
+
+  test("TITANIUM_BASTION ranges 350-480", () => {
+    expect(attackManpowerLossRangeForFort("TITANIUM_BASTION")).toEqual({ min: 350, max: 480 });
+    expect(requiredMusterForFort("TITANIUM_BASTION")).toBe(480);
+  });
+
+  test("THUNDER_BASTION ranges 800-960", () => {
+    expect(attackManpowerLossRangeForFort("THUNDER_BASTION")).toEqual({ min: 800, max: 960 });
+    expect(requiredMusterForFort("THUNDER_BASTION")).toBe(960);
+  });
+
+  // required muster always equals the range's max: an attacker can never
+  // lose more manpower than they mustered to launch the attack.
+  test("required muster equals the max of every tier's loss range", () => {
+    for (const variant of ["WOODEN_FORT", "FORT", "TITANIUM_BASTION", "THUNDER_BASTION"] as const) {
+      expect(requiredMusterForFort(variant)).toBe(attackManpowerLossRangeForFort(variant).max);
+    }
   });
 });

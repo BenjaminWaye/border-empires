@@ -156,6 +156,31 @@ export const FORT_TIER_LADDER: Record<FortVariant, FortTierInfo> = {
   THUNDER_BASTION:  { variant: "THUNDER_BASTION",  gold: 0,  titanium: 180, manpower: 960, defenseMult: 8 },
 };
 
+// Manpower an attacker risks losing hitting a SETTLED target, and the
+// muster they must have committed to launch the attack at all (the range's
+// max — you can never lose more than you brought). Uniform-random within
+// the range regardless of whether the attack wins or loses: replaces the
+// old win-cheap/loss-expensive formula, which scaled the same direction as
+// win chance itself and let stronger empires steamroll weaker ones both
+// more often AND more cheaply. "NONE" covers a SETTLED target with no
+// active fort. Barbarian/FRONTIER targets use their own separate (much
+// cheaper) raid constants in config.ts and are not covered by this table.
+export type AttackManpowerLossRange = { min: number; max: number };
+
+export const ATTACK_MANPOWER_LOSS_RANGE: Record<"NONE" | FortVariant, AttackManpowerLossRange> = {
+  NONE:             { min: 40,  max: 60 },
+  WOODEN_FORT:      { min: 100, max: 150 },
+  FORT:             { min: 200, max: 300 },
+  TITANIUM_BASTION: { min: 350, max: 480 },
+  THUNDER_BASTION:  { min: 800, max: 960 },
+};
+
+export const attackManpowerLossRangeForFort = (fortVariant: FortVariant | undefined): AttackManpowerLossRange =>
+  ATTACK_MANPOWER_LOSS_RANGE[fortVariant ?? "NONE"];
+
+export const requiredMusterForFort = (fortVariant: FortVariant | undefined): number =>
+  attackManpowerLossRangeForFort(fortVariant).max;
+
 export const FORT_VARIANT_LABELS: Record<FortVariant, string> = {
   WOODEN_FORT: "Palisade",
   FORT: "Fort",

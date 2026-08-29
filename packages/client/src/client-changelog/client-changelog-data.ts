@@ -16,6 +16,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788029295167, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "Attacking a fort now costs a random amount tied to its size, not to whether you won",
+    why: "Manpower lost attacking always cost a small flat fraction on a win and a much larger fraction on a loss -- the same direction the power gap already pushes win chance, so a strong empire attacking a weaker one paid less per win on top of already winning more often, while a weaker empire that dared to fight back paid more on top of already being unlikely to win. That compounded the rich-get-richer effect instead of counterbalancing it.",
+    changes: [
+      "Manpower lost attacking a SETTLED tile is now a random amount within a range set by the target's fortification, regardless of whether the attack wins or loses: no fort 40-60, Palisade 100-150, Fort 200-300, Titanium Bastion 350-480, Thunder Bastion 800-960",
+      "The manpower you must have mustered to launch the attack now matches that range's top end, and is set purely by the target's fort tier -- no longer scaled by how full the fort's garrison happens to be (garrison fill still affects the fort's defense strength itself, just not the muster gate)"
+    ]
+  },
+  {
     createdAt: 1787999763164, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.2",
     title: "Titanium Bastion and Thunder Bastion cost more manpower to build",
