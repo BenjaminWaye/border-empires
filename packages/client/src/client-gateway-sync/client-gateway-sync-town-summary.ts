@@ -76,6 +76,8 @@ export const isRenderableTownSummary = (town: PartialTownSummary | undefined): t
       isFiniteOptionalNumber(town.populationGrowthPerMinute) &&
       isFiniteOptionalNumber(town.connectedTownCount) &&
       isFiniteOptionalNumber(town.connectedTownBonus) &&
+      isFiniteOptionalNumber(town.firstThreeTownGoldMult) &&
+      isFiniteOptionalNumber(town.firstThreeTownPopGrowthMult) &&
       (town.connectedTownNames === undefined || hasStringArray(town.connectedTownNames)) &&
       isFiniteOptionalNumber(town.manpowerCurrent) &&
       isFiniteOptionalNumber(town.manpowerCap) &&

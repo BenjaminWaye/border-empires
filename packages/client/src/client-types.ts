@@ -1,4 +1,5 @@
 import type { FrontierCombatSideBreakdown, FrontierDecayKind, NaturalWonderType, Terrain } from "@border-empires/shared";
+import type { ClientTownWireSummary } from "./client-tile-town-type.js";
 
 export type OptimisticStructureKind =
   | "FORT"
@@ -104,56 +105,7 @@ export type Tile = {
   } | null;
   watchtower?: { activated: boolean; activatedByPlayerId?: string; revealUntil?: number } | null; // Watchtower site (server-worldgen-watchtowers.ts); revealUntil is set only during the ~10s post-activation flicker window.
   naturalWonder?: { type: NaturalWonderType; claimedAt?: number } | null;
-  town?: {
-    name?: string;
-    type: "MARKET" | "FARMING";
-    baseGoldPerMinute: number;
-    supportCurrent: number;
-    supportMax: number;
-    goldPerMinute: number;
-    cap: number;
-    isFed: boolean;
-    population: number;
-    maxPopulation: number;
-    populationGrowthPerMinute?: number;
-    populationTier: "SETTLEMENT" | "TOWN" | "CITY" | "GREAT_CITY" | "METROPOLIS";
-    connectedTownCount: number;
-    connectedTownBonus: number;
-    connectedTownNames?: string[];
-    connectedTitaniumWeaponsFactoryCount?: number;
-    connectedUmbriteWeaponsFactoryCount?: number;
-    manpowerCurrent?: number;
-    manpowerCap?: number;
-    hasMintworks: boolean;
-    mintworksActive: boolean;
-    mintworksCount?: number;
-    hasGranary: boolean;
-    granaryActive: boolean;
-    hasSeedGranary?: boolean; seedGranaryActive?: boolean; seedGranaryBuffed?: boolean;
-    hasClearingHouse?: boolean; clearingHouseActive?: boolean; clearingHouseTownNames?: string[];
-    foodUpkeepPerMinute?: number;
-    captureShockUntil?: number;
-    populationBeforeCapture?: number;
-    growthModifiers?: Array<{ label: "Recently captured" | "Nearby war" | "Long time peace"; deltaPerMinute: number }>;
-    nextPopulationTierUpgrade?: {
-      targetTier: "CITY" | "GREAT_CITY" | "METROPOLIS";
-      requiredPopulation: number;
-      goldCost: number;
-      available: boolean;
-    };
-    // Unified building modifier display (stage 3): one group per building
-    // type with active copies in this town's support ring, each carrying a
-    // "<count> <Building>" heading and every stat that building contributes,
-    // summed across its own copies only — never merged across building
-    // types that happen to feed the same stat name (e.g. Weapons Workshop +
-    // Titanium Weapons Factory both feed "Empire attack" but get separate
-    // headings). See packages/shared/src/types.ts's matching field for the
-    // full contract.
-    townModifierTotals?: Array<{
-      heading: string;
-      modifiers: Array<{ statLabel: string; valueText: string; tone: "positive" | "negative" | "neutral" }>;
-    }>;
-  };
+  town?: ClientTownWireSummary;
   fort?: {
     ownerId: string;
     status: "under_construction" | "active" | "removing";
