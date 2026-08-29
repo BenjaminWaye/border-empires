@@ -1,6 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import type { SimulationEvent } from "@border-empires/sim-protocol";
-import type { LandConnectivityQuery, ReachAnchor } from "@border-empires/shared";
+import { isInReach, type LandConnectivityQuery, type ReachAnchor } from "@border-empires/shared";
 import type { SimulationTileWireDelta } from "../runtime-types.js";
 import { applyReachAnchorActivationToBorder, applyReachAnchorDeactivationToBorder, type ReachBorderApplyContext } from "./runtime-reach-border-apply.js";
 import type { ReachUpdateState } from "./runtime-reach-update.js";
@@ -24,7 +24,6 @@ export type ReachAnchorLifecycleDeps = {
   isLandTile?: LandConnectivityQuery;
   now: () => number;
   gatherReachAnchors: () => ReachAnchor[];
-  isPlayerTileInReach: (playerId: string, x: number, y: number) => boolean;
   registerOutOfReachDecay: (tileKey: string, deadlineAt: number) => void;
 };
 
@@ -47,6 +46,7 @@ export const applyReachAnchorDeactivationEffects = (
 ): Map<string, string> => {
   const nextBorder = applyReachAnchorDeactivationToBorder(deps.reachBorder, anchor, deps.reachUpdateState, deps.reachBorderApplyContext, causeCommandId);
   // Reach just retreated over this anchor's disk (Relay Beacon/outpost/town/dock lost): anything left in genuine no-man's-land there needs a decay deadline it never got at claim time. O(radius²), not a sweep.
-  stampOutOfReachDecayInAnchorDisk(deps, anchor, causeCommandId);
+  // isPlayerTileInReach MUST read nextBorder, not deps.reachBorder (the pre-deactivation border) -- deps has no border-derived closure of its own precisely so this can't be gotten wrong by accident.
+  stampOutOfReachDecayInAnchorDisk({ ...deps, isPlayerTileInReach: (playerId, x, y) => isInReach(playerId, x, y, nextBorder) }, anchor, causeCommandId);
   return nextBorder;
 };

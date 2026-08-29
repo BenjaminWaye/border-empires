@@ -60,9 +60,9 @@ export type OutOfReachDecayCancelContext = {
 
 export type OutOfReachDecayStampContext = OutOfReachDecayCancelContext & {
   now: () => number;
-  /** Every anchor currently live in the world, evaluated AFTER the deactivation has already been applied to the border. */
+  /** Every anchor currently live in the world. Caller must gather this AFTER the deactivation has already been applied to tile/anchor state. */
   gatherReachAnchors: () => ReachAnchor[];
-  /** True when the tile is inside this player's persistent ownership border, evaluated AFTER the deactivation has already been applied. Same check outOfReachDecayDeadline uses at claim time. */
+  /** True when (x, y) is inside `playerId`'s persistent ownership border. Caller must build this from the border AFTER the deactivation has been applied -- see stampOutOfReachDecayInAnchorDisk's doc comment. Same check outOfReachDecayDeadline uses at claim time. */
   isPlayerTileInReach: (playerId: string, x: number, y: number) => boolean;
   registerOutOfReachDecay: (tileKey: string, deadlineAt: number) => void;
 };
@@ -127,49 +127,63 @@ export const cancelOutOfReachDecayInAnchorDisk = (
  * `cancelOutOfReachDecayInAnchorDisk` closes the opposite one: scoped to the
  * one anchor's own disk, O(radius²), never a sweep.
  *
- * Only touches tiles owned by the anchor's owner that are FRONTIER and don't
- * already carry a decay timer (a tile already decaying, for either reason,
- * is left alone — re-stamping it here would just reset its deadline).
- * Border deactivation must already be applied to `reachBorder` / the
- * anchors this reads before this runs, so the coverage check below reflects
- * the post-deactivation world, not the moment before.
+ * Evaluated per TILE OWNER, not per the deactivating anchor's owner: the
+ * anchor's disk can hold tiles a *different* player owns (e.g. an ATTACK
+ * capture, which is never reach-gated) whose contest count -- shared reach
+ * from this anchor plus a rival's -- just dropped from 2 to 1 as a direct
+ * result of this deactivation. Restricting to `tile.ownerId === anchor.ownerId`
+ * would leave exactly those tiles stuck the same way this function exists to
+ * prevent. Barbarian tiles are excluded (never reach-gated, same as at claim
+ * time -- see the barbarian-1 check in runtime-lock-resolution.ts).
+ *
+ * Only touches FRONTIER tiles that don't already carry a decay timer (a tile
+ * already decaying, for either reason, is left alone — re-stamping it here
+ * would just reset its deadline). `context.gatherReachAnchors` and
+ * `context.isPlayerTileInReach` must both be built from state that already
+ * reflects this deactivation, so the coverage check below reflects the
+ * post-deactivation world, not the moment before.
  */
 export const stampOutOfReachDecayInAnchorDisk = (
   context: OutOfReachDecayStampContext,
   anchor: ReachAnchor,
   causeCommandId: string
 ): number => {
-  const tileDeltas: SimulationTileWireDelta[] = [];
+  const tileDeltasByOwner = new Map<string, SimulationTileWireDelta[]>();
   const anchors = context.gatherReachAnchors();
   const nowMs = context.now();
+  let stamped = 0;
   for (const tileKey of tileKeysInReach(anchor, context.isLandTile)) {
     const tile = context.tiles.get(tileKey);
-    if (!tile) continue;
-    if (tile.ownerId !== anchor.ownerId) continue;
+    if (!tile?.ownerId || tile.ownerId === "barbarian-1") continue;
     if (tile.ownershipState !== "FRONTIER") continue;
     if (tile.frontierDecayKind !== undefined) continue; // already decaying (either kind) -- leave its existing deadline alone
-    // Same exemptions outOfReachDecayDeadline applies at claim time: still
-    // inside the owner's own (post-deactivation) persistent reach, or
-    // sitting in actively contested ground shared by 2+ live anchors.
-    if (context.isPlayerTileInReach(anchor.ownerId, tile.x, tile.y)) continue;
+    // Same exemptions outOfReachDecayDeadline applies at claim time, checked
+    // against the TILE's own owner: still inside that owner's own
+    // (post-deactivation) persistent reach, or sitting in actively contested
+    // ground shared by 2+ live anchors.
+    if (context.isPlayerTileInReach(tile.ownerId, tile.x, tile.y)) continue;
     if (reachOwnerCountAt(tile.x, tile.y, anchors, context.isLandTile) >= 2) continue;
     const deadlineAt = nowMs + OUT_OF_REACH_DECAY_MS;
-    const stamped: DomainTileState = {
+    const stampedTile: DomainTileState = {
       ...tile,
       frontierDecayAt: deadlineAt,
       frontierDecayKind: "OUT_OF_REACH"
     };
-    context.replaceTileState(tileKey, stamped, causeCommandId);
+    context.replaceTileState(tileKey, stampedTile, causeCommandId);
     context.registerOutOfReachDecay(tileKey, deadlineAt);
-    tileDeltas.push(context.tileDeltaFromState(stamped));
+    stamped += 1;
+    const delta = context.tileDeltaFromState(stampedTile);
+    const existing = tileDeltasByOwner.get(tile.ownerId);
+    if (existing) existing.push(delta);
+    else tileDeltasByOwner.set(tile.ownerId, [delta]);
   }
-  if (tileDeltas.length > 0) {
+  for (const [playerId, tileDeltas] of tileDeltasByOwner) {
     context.emitEvent({
       eventType: "TILE_DELTA_BATCH",
       commandId: causeCommandId,
-      playerId: anchor.ownerId,
+      playerId,
       tileDeltas
     });
   }
-  return tileDeltas.length;
+  return stamped;
 };
