@@ -20,6 +20,7 @@ import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-ti
 import { recordRendererFailure } from "../client-webgl-probe/client-webgl-probe.js";
 import { showRendererFallbackNotice } from "../client-renderer-fallback-notice/client-renderer-fallback-notice.js";
 import { qualitySettingsFor } from "../client-map-3d-quality-tier/client-map-3d-quality-tier.js";
+import { isIOSSafari } from "../client-ios-safari-detect/client-ios-safari-detect.js";
 import {
   beginRendererAttempt,
   clearRendererCrashStreak,
@@ -27,8 +28,10 @@ import {
   markRendererInitCompleted,
   previousRendererAttempt,
   previousSessionEndedUncleanly,
+  recordRendererGpuStats,
   recordRendererHeartbeat,
-  shouldSkipThreeDAfterCrashes
+  shouldSkipThreeDAfterCrashes,
+  type RendererGpuStats
 } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 
 // How often to refresh the crash breadcrumb's heartbeat while 3D is alive.
@@ -37,7 +40,13 @@ import {
 const HEARTBEAT_INTERVAL_MS = 15000;
 
 /** The slice of the 3D renderer this host needs; keeps three.js out of here. */
-export type StoppableRenderer = { readonly stop: () => void };
+export type StoppableRenderer = {
+  readonly stop: () => void;
+  /** Optional: `renderer.info` counts, read once right after construction —
+   * see recordRendererGpuStats. Omit when the concrete renderer has nothing
+   * to report (tests' fakes, for instance). */
+  readonly gpuStats?: () => RendererGpuStats;
+};
 
 export type ThreeRendererHostDeps<TRenderer extends StoppableRenderer> = {
   /** False when the session asked for `?renderer=2d`; 3D is never attempted. */
@@ -135,7 +144,8 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
     // the budget is whatever the screen genuinely shows.
     const quality = qualitySettingsFor({
       previousAttempt: previousRendererAttempt(),
-      previousSessionEndedUncleanly: previousSessionEndedUncleanly()
+      previousSessionEndedUncleanly: previousSessionEndedUncleanly(),
+      isIOSSafari: typeof navigator !== "undefined" ? isIOSSafari(navigator.userAgent) : false
     });
     const tileBudget = resolveTileBudget(MIN_ZOOM, quality.tileBudgetFloor);
     try {
@@ -160,6 +170,10 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
       }
       renderer = created;
       markRendererInitCompleted(tileBudget);
+      // Best-effort: a fake renderer in tests, or a future renderer with
+      // nothing to report, simply omits this rather than needing a stub.
+      const stats = created.gpuStats?.();
+      if (stats) recordRendererGpuStats(stats);
       setTrue3DRendererActive(true);
       // Keep the breadcrumb's heartbeat fresh for as long as this attempt
       // lives — a crash long after startup (the iOS memory-pressure shape)

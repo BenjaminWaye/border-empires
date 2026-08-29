@@ -57,10 +57,27 @@
 //      at full quality forever, de-escalating never. Treating it as at least
 //      one rung down is what makes a mid-session kill teach the next load
 //      anything.
+//
+// A third input, `isIOSSafari`, only ever applies to a device with *no*
+// breadcrumb at all — its first attempt this browser has ever made. iOS
+// Safari is reported to enforce a roughly 300-500MB ceiling on WebGL content,
+// tighter than tier 0 assumes, so a first-ever iOS attempt starts at tier 1
+// instead of earning the demotion the hard way. This is deliberately a
+// starting point, not a floor applied on every call: once a real breadcrumb
+// exists, the ladder above owns the decision outright, including recovering
+// an iPhone that has *proven* it survives at tier 0 back to full quality.
+// Re-applying the iOS floor unconditionally would strand a healthy iPhone at
+// reduced quality forever, which is exactly the "punish evidence" bug this
+// module exists to avoid on the crash side.
 
 import { MIN_TILE_BUDGET } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js";
 import { MAX_PIXEL_RATIO } from "../client-map-3d-pixel-ratio/client-map-3d-pixel-ratio.js";
 import type { RendererBreadcrumb } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
+
+/** Where a device with no crash history starts on iOS Safari — see the
+ * module comment. Not the bottom of the ladder: a first attempt still
+ * deserves a real try, just not at the configuration most likely to crash it. */
+const IOS_FIRST_ATTEMPT_TIER: RendererQualityTier = 1;
 
 export type RendererQualityTier = 0 | 1 | 2;
 
@@ -91,17 +108,24 @@ export type QualityTierInput = {
   readonly previousAttempt: RendererBreadcrumb | undefined;
   /** See `previousSessionEndedUncleanly` in the crash-breadcrumb module. */
   readonly previousSessionEndedUncleanly: boolean;
+  /** True on iOS Safari (and other iOS browsers, which share its WebKit
+   * ceiling — see client-ios-safari-detect.ts). Only affects the no-history
+   * case; see the module comment for why it must not apply afterward. */
+  readonly isIOSSafari: boolean;
 };
 
 /**
- * The tier the next 3D attempt should run at. A device with no history, or one
- * whose last attempt survived cleanly, gets full quality.
+ * The tier the next 3D attempt should run at. A device with no history gets
+ * full quality, unless it's a first-ever attempt on iOS Safari (see the
+ * module comment). One whose last attempt survived cleanly always gets full
+ * quality — the ladder trusts its own evidence over the platform guess.
  */
 export const qualityTierFor = ({
   previousAttempt,
-  previousSessionEndedUncleanly
+  previousSessionEndedUncleanly,
+  isIOSSafari
 }: QualityTierInput): RendererQualityTier => {
-  if (!previousAttempt) return 0;
+  if (!previousAttempt) return isIOSSafari ? IOS_FIRST_ATTEMPT_TIER : 0;
 
   // The known memory-exhaustion signature: the tab died while allocating
   // buffers, before it could even record "init-completed". Don't walk the

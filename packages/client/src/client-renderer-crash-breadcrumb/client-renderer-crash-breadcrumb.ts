@@ -84,6 +84,22 @@ export type RendererBreadcrumb = {
   // Its absence — or staleness relative to lastHeartbeatAtMs — is the
   // positive signal that the previous session ended in a hard crash.
   readonly cleanShutdownAtMs?: number | undefined;
+  // What three.js's own `renderer.info` reported right after construction
+  // succeeded — see recordRendererGpuStats below. Present only when the
+  // attempt got at least as far as markRendererInitCompleted.
+  readonly gpuGeometries?: number | undefined;
+  readonly gpuTextures?: number | undefined;
+  readonly gpuPrograms?: number | undefined;
+};
+
+/** What `renderer.info` reports right after construction. Counts, not bytes —
+ * three.js doesn't track byte sizes — but a live count is still the
+ * difference between guessing at allocation size from outside the renderer
+ * and reading what it actually built. */
+export type RendererGpuStats = {
+  readonly geometries: number;
+  readonly textures: number;
+  readonly programs: number;
 };
 
 const readBreadcrumb = (): RendererBreadcrumb | undefined => {
@@ -102,7 +118,10 @@ const readBreadcrumb = (): RendererBreadcrumb | undefined => {
       userAgent: value.userAgent,
       lastHeartbeatAtMs: typeof value.lastHeartbeatAtMs === "number" ? value.lastHeartbeatAtMs : undefined,
       heartbeatCount: typeof value.heartbeatCount === "number" ? value.heartbeatCount : undefined,
-      cleanShutdownAtMs: typeof value.cleanShutdownAtMs === "number" ? value.cleanShutdownAtMs : undefined
+      cleanShutdownAtMs: typeof value.cleanShutdownAtMs === "number" ? value.cleanShutdownAtMs : undefined,
+      gpuGeometries: typeof value.gpuGeometries === "number" ? value.gpuGeometries : undefined,
+      gpuTextures: typeof value.gpuTextures === "number" ? value.gpuTextures : undefined,
+      gpuPrograms: typeof value.gpuPrograms === "number" ? value.gpuPrograms : undefined
     };
   } catch {
     return undefined;
@@ -239,6 +258,30 @@ export const recordRendererHeartbeat = (tileBudget: number): void => {
     tileBudget,
     lastHeartbeatAtMs: Date.now(),
     heartbeatCount: (current.heartbeatCount ?? 0) + 1
+  });
+};
+
+/**
+ * Records what three.js's own `renderer.info` reported right after
+ * construction succeeded. Call once, right after `markRendererInitCompleted`.
+ *
+ * This exists because every other number in this module — tile budget, pixel
+ * ratio, MSAA on/off — is something *we* chose going in. None of them says
+ * what the renderer actually built. On a device we can't reach directly (an
+ * iOS user reporting a crash, with no way to attach Safari Web Inspector),
+ * this is the only real allocation data that ever reaches us: it rides along
+ * in the same diagnostics bundle the crash breadcrumb already feeds, so the
+ * next affected session's report carries actual GPU resource counts instead
+ * of an estimate made from outside the renderer.
+ */
+export const recordRendererGpuStats = (stats: RendererGpuStats): void => {
+  const current = readBreadcrumb();
+  if (!current) return;
+  writeBreadcrumb({
+    ...current,
+    gpuGeometries: stats.geometries,
+    gpuTextures: stats.textures,
+    gpuPrograms: stats.programs
   });
 };
 

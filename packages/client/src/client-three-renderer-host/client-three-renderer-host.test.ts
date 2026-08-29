@@ -48,6 +48,27 @@ describe("3d renderer host", () => {
     expect(isTrue3DRendererActive()).toBe(true);
   });
 
+  it("does not require gpuStats — a renderer that omits it still constructs fine", () => {
+    const host = hostWith({ create: () => ({ stop: () => undefined }) });
+
+    expect(() => host.ensure()).not.toThrow();
+    expect(isTrue3DRendererActive()).toBe(true);
+  });
+
+  it("records renderer.info counts onto the breadcrumb when the renderer reports them", () => {
+    const gpuStats = vi.fn(() => ({ geometries: 12, textures: 8, programs: 3 }));
+    const host = hostWith({ create: () => ({ stop: () => undefined, gpuStats }) });
+
+    host.ensure();
+
+    expect(gpuStats).toHaveBeenCalledTimes(1);
+    // previousRendererAttempt() is frozen at module import, so it can't see
+    // this session's own write — read storage directly instead.
+    const raw = window.localStorage.getItem(BREADCRUMB_KEY);
+    expect(raw).not.toBeNull();
+    expect(JSON.parse(raw ?? "{}")).toMatchObject({ gpuGeometries: 12, gpuTextures: 8, gpuPrograms: 3 });
+  });
+
   it("waits for readiness before constructing", () => {
     const create = vi.fn(() => ({ stop: () => undefined }));
     let ready = false;

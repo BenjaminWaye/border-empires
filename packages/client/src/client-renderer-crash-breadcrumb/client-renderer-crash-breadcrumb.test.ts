@@ -230,4 +230,40 @@ describe("renderer crash breadcrumb", () => {
     expect(session.previousRendererAttempt()).toBeUndefined();
     expect(session.shouldSkipThreeDAfterCrashes()).toBe(false);
   });
+
+  // recordRendererGpuStats exists so a crash report from a device we can't
+  // reach carries real renderer.info counts instead of an estimate made from
+  // outside the renderer entirely.
+  it("records renderer.info counts onto the current breadcrumb", async () => {
+    seed({ atMs: 1, phase: "init-completed", tileBudget: 6000, failedAttempts: 0 });
+    const session = await loadSession();
+
+    session.recordRendererGpuStats({ geometries: 42, textures: 19, programs: 7 });
+
+    expect(stored()).toMatchObject({ gpuGeometries: 42, gpuTextures: 19, gpuPrograms: 7 });
+  });
+
+  it("does nothing when gpu stats arrive with no prior attempt on record", async () => {
+    const session = await loadSession();
+
+    session.recordRendererGpuStats({ geometries: 1, textures: 1, programs: 1 });
+
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it("round-trips gpu stats through previousRendererAttempt for the next session", async () => {
+    seed({
+      atMs: 1,
+      phase: "init-completed",
+      tileBudget: 6000,
+      failedAttempts: 0,
+      gpuGeometries: 42,
+      gpuTextures: 19,
+      gpuPrograms: 7
+    });
+
+    const session = await loadSession();
+
+    expect(session.previousRendererAttempt()).toMatchObject({ gpuGeometries: 42, gpuTextures: 19, gpuPrograms: 7 });
+  });
 });

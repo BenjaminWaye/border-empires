@@ -17,6 +17,7 @@ import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
 import { describeWebGLProbe, webGLProbe } from "../client-webgl-probe/client-webgl-probe.js";
 import { pixelRatioFor } from "../client-map-3d-pixel-ratio/client-map-3d-pixel-ratio.js";
 import { qualitySettingsFor } from "../client-map-3d-quality-tier/client-map-3d-quality-tier.js";
+import { isIOSSafari } from "../client-ios-safari-detect/client-ios-safari-detect.js";
 import {
   previousRendererAttempt,
   previousSessionEndedUncleanly
@@ -105,7 +106,8 @@ export const createThreeRenderTarget = (
   // the first rung down. The pixel ratio squares whatever is left.
   const quality = qualitySettingsFor({
     previousAttempt: previousRendererAttempt(),
-    previousSessionEndedUncleanly: previousSessionEndedUncleanly()
+    previousSessionEndedUncleanly: previousSessionEndedUncleanly(),
+    isIOSSafari: isIOSSafari(window.navigator.userAgent)
   });
   const renderer = new WebGLRenderer({
     canvas: glCanvas,

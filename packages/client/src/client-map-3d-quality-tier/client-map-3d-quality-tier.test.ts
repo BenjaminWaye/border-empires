@@ -11,8 +11,11 @@ const breadcrumb = (overrides: Partial<RendererBreadcrumb>): RendererBreadcrumb 
   ...overrides
 });
 
-const tierFor = (previousAttempt: RendererBreadcrumb | undefined, uncleanly = false): number =>
-  qualityTierFor({ previousAttempt, previousSessionEndedUncleanly: uncleanly });
+const tierFor = (
+  previousAttempt: RendererBreadcrumb | undefined,
+  uncleanly = false,
+  isIOSSafari = false
+): number => qualityTierFor({ previousAttempt, previousSessionEndedUncleanly: uncleanly, isIOSSafari });
 
 describe("qualityTierFor", () => {
   it("runs full quality on a device with no history", () => {
@@ -53,12 +56,50 @@ describe("qualityTierFor", () => {
   it("does not let a clean mid-play shutdown undo a worse startup streak", () => {
     expect(tierFor(breadcrumb({ phase: "init-completed", failedAttempts: 2 }), true)).toBe(MIN_QUALITY_TIER);
   });
+
+  // iOS Safari's reported ~300-500MB WebGL ceiling means a first-ever attempt
+  // at tier 0 is disproportionately likely to be the thing that crashes it —
+  // every iOS user otherwise eats at least one guaranteed crash-and-reload
+  // before the crash ladder has any history to act on.
+  it("starts a first-ever iOS Safari attempt at tier 1 instead of full quality", () => {
+    expect(tierFor(undefined, false, true)).toBe(1);
+  });
+
+  it("leaves non-iOS devices with no history at full quality", () => {
+    expect(tierFor(undefined, false, false)).toBe(0);
+  });
+
+  // The trap this module's own comment warns about: once a breadcrumb exists,
+  // the ladder's evidence must win over the platform guess. An iPhone that has
+  // *proven* it survives at tier 0 must not be strapped back down to tier 1
+  // just because it's iOS — that would silently and permanently degrade a
+  // healthy device with no way to recover.
+  it("does not re-apply the iOS floor once a breadcrumb proves the device survives at full quality", () => {
+    expect(tierFor(breadcrumb({ phase: "survived", failedAttempts: 0 }), false, true)).toBe(0);
+  });
+
+  it("does not let the iOS floor override a worse ladder position either", () => {
+    expect(tierFor(breadcrumb({ phase: "init-started", failedAttempts: 1 }), false, true)).toBe(MIN_QUALITY_TIER);
+  });
 });
 
 describe("qualitySettingsFor", () => {
   it("keeps today's full-quality allocation for a healthy device", () => {
-    const settings = qualitySettingsFor({ previousAttempt: undefined, previousSessionEndedUncleanly: false });
+    const settings = qualitySettingsFor({
+      previousAttempt: undefined,
+      previousSessionEndedUncleanly: false,
+      isIOSSafari: false
+    });
     expect(settings).toEqual({ tier: 0, maxPixelRatio: 2, antialias: true, tileBudgetFloor: MIN_TILE_BUDGET });
+  });
+
+  it("starts a first-ever iOS attempt at reduced quality, not full and not minimum", () => {
+    const settings = qualitySettingsFor({
+      previousAttempt: undefined,
+      previousSessionEndedUncleanly: false,
+      isIOSSafari: true
+    });
+    expect(settings).toEqual({ tier: 1, maxPixelRatio: 1.5, antialias: false, tileBudgetFloor: MIN_TILE_BUDGET });
   });
 
   // MSAA allocates the color *and* depth attachments at the sample count plus
@@ -66,7 +107,8 @@ describe("qualitySettingsFor", () => {
   it("gives up MSAA before it gives up resolution", () => {
     const settings = qualitySettingsFor({
       previousAttempt: breadcrumb({ failedAttempts: 1 }),
-      previousSessionEndedUncleanly: false
+      previousSessionEndedUncleanly: false,
+      isIOSSafari: false
     });
     expect(settings.antialias).toBe(false);
     expect(settings.maxPixelRatio).toBe(1.5);
@@ -76,16 +118,25 @@ describe("qualitySettingsFor", () => {
   it("drops the tile-budget floor only at the bottom rung", () => {
     const settings = qualitySettingsFor({
       previousAttempt: breadcrumb({ failedAttempts: 2 }),
-      previousSessionEndedUncleanly: false
+      previousSessionEndedUncleanly: false,
+      isIOSSafari: false
     });
     expect(settings).toEqual({ tier: MIN_QUALITY_TIER, maxPixelRatio: 1, antialias: false, tileBudgetFloor: 0 });
   });
 
   it("only ever gets cheaper as the tier drops", () => {
     const tiers = [
-      qualitySettingsFor({ previousAttempt: undefined, previousSessionEndedUncleanly: false }),
-      qualitySettingsFor({ previousAttempt: breadcrumb({ failedAttempts: 1 }), previousSessionEndedUncleanly: false }),
-      qualitySettingsFor({ previousAttempt: breadcrumb({ failedAttempts: 2 }), previousSessionEndedUncleanly: false })
+      qualitySettingsFor({ previousAttempt: undefined, previousSessionEndedUncleanly: false, isIOSSafari: false }),
+      qualitySettingsFor({
+        previousAttempt: breadcrumb({ failedAttempts: 1 }),
+        previousSessionEndedUncleanly: false,
+        isIOSSafari: false
+      }),
+      qualitySettingsFor({
+        previousAttempt: breadcrumb({ failedAttempts: 2 }),
+        previousSessionEndedUncleanly: false,
+        isIOSSafari: false
+      })
     ];
     for (let i = 1; i < tiers.length; i += 1) {
       const previous = tiers[i - 1]!;
