@@ -1177,12 +1177,16 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   };
 
   const applyCamera = (): void => {
+    // camSubX/camSubY (client-map-input.ts) are the in-progress drag's sub-tile
+    // fraction in [0, 1) -- camX/camY themselves stay whole tiles for every other
+    // consumer. Added directly (not toroidal: always small, never needs wrapping)
+    // so the camera glides continuously through a tile instead of snapping.
     applyPerspectiveCamera(camera, {
       zoom: deps.state.zoom,
       canvasWidth: deps.canvas.width,
       canvasHeight: deps.canvas.height,
-      offsetX: toroidDelta(sceneOrigin.camX, deps.state.camX, WORLD_WIDTH),
-      offsetZ: toroidDelta(sceneOrigin.camY, deps.state.camY, WORLD_HEIGHT)
+      offsetX: toroidDelta(sceneOrigin.camX, deps.state.camX, WORLD_WIDTH) + deps.state.camSubX,
+      offsetZ: toroidDelta(sceneOrigin.camY, deps.state.camY, WORLD_HEIGHT) + deps.state.camSubY
     });
   };
 

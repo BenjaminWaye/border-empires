@@ -24,7 +24,7 @@ export const buildManpowerPanelMusterFlags = (tiles: Iterable<Tile>, me: string)
 
 export const wireMusterFocusButtons = (
   root: ParentNode,
-  state: { camX: number; camY: number; selected?: { x: number; y: number } | undefined },
+  state: { camX: number; camY: number; camSubX: number; camSubY: number; selected?: { x: number; y: number } | undefined },
   deps: { wrapX: (x: number) => number; wrapY: (y: number) => number; requestViewRefresh: () => void; rerender: () => void }
 ): void => {
   const buttons = root.querySelectorAll("[data-muster-focus-x][data-muster-focus-y]") as NodeListOf<HTMLButtonElement>;
@@ -35,6 +35,8 @@ export const wireMusterFocusButtons = (
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
       state.camX = deps.wrapX(x);
       state.camY = deps.wrapY(y);
+      state.camSubX = 0;
+      state.camSubY = 0;
       state.selected = { x: state.camX, y: state.camY };
       deps.requestViewRefresh();
       deps.rerender();

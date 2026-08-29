@@ -869,8 +869,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         meName: state.meName,
         keyFor,
         onJumpToTown: (x, y) => {
-          state.camX = x;
-          state.camY = y;
+          state.camX = x; state.camY = y;
+          state.camSubX = 0; state.camSubY = 0;
           state.selected = { x, y };
           requestViewRefreshSafely(1, true);
         }
@@ -2927,8 +2927,8 @@ export const bindClientNetwork = (deps: NetworkDeps): void => {
         state.seasonEndDismissed = false;
         state.seasonEndStarting = false; state.seasonStartVoteCount = 0; state.seasonStartVoted = false;
         clearCameraLocation();
-        state.camX = 0;
-        state.camY = 0;
+        state.camX = 0; state.camY = 0;
+        state.camSubX = 0; state.camSubY = 0;
       }
       state.pendingShardCollect = undefined;
       state.tiles.clear();

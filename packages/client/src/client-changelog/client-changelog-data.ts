@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788036933966, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.4",
+    title: "Panning the 3D map now glides instead of snapping tile by tile",
+    why: "The 3D camera used to jump a whole tile at a time on every pan, since the camera position itself was never tracked between tiles -- only the world's position relative to a fixed camera. Between that and the terrain-rebuild stutter fixed just before this, panning read as choppy even on a good connection.",
+    changes: [
+      "Dragging the 3D map now moves the camera continuously instead of snapping a full tile at a time"
+    ]
+  },
+  {
     createdAt: 1788033792915, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.3",
     title: "Reduced camera pan stutter in the 3D map",

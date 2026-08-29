@@ -54,6 +54,22 @@ export const resolveBoxSelectionMouseUpAction = (dragKeys: string[]): BoxSelecti
   return { type: "open-bulk-menu", targetKeys: dragKeys };
 };
 
+// Splits a continuous drag position into the integer camX/camY every other
+// consumer assumes, plus a [0, 1) sub-tile fraction the 3D camera folds into
+// its pan offset (client-map-3d-perspective-camera.ts) so panning glides
+// instead of snapping a full tile at a time. Shared by the mouse and touch
+// pan handlers below, which differ only in what fires the drag.
+export const splitContinuousPan = (
+  panStartContinuous: number,
+  screenDeltaPx: number,
+  zoom: number,
+  wrap: (x: number) => number
+): { camInt: number; camSub: number } => {
+  const continuous = wrap(panStartContinuous - screenDeltaPx / zoom);
+  const camInt = Math.floor(continuous);
+  return { camInt, camSub: continuous - camInt };
+};
+
 export const isDoubleTap = (args: {
   now: number;
   location: { x: number; y: number };
@@ -84,6 +100,8 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     if (!locator) return false;
     state.camX = deps.wrapX(locator.x);
     state.camY = deps.wrapY(locator.y);
+    state.camSubX = 0;
+    state.camSubY = 0;
     state.selected = { x: deps.wrapX(locator.x), y: deps.wrapY(locator.y) };
     deps.requestViewRefresh(2, true);
     deps.handleTileSelection(locator.x, locator.y, clientX, clientY);
@@ -104,6 +122,8 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     });
     state.camX = deps.wrapX(Math.floor(box.x0 + nx * box.w));
     state.camY = deps.wrapY(Math.floor(box.y0 + ny * box.h));
+    state.camSubX = 0;
+    state.camSubY = 0;
     deps.requestViewRefresh(2, true);
     window.setTimeout(() => deps.maybeRefreshForCamera(), 120);
   };
@@ -208,6 +228,8 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       if (ev.key === "ArrowDown") state.camY = deps.wrapY(state.camY + step);
       if (ev.key === "ArrowLeft") state.camX = deps.wrapX(state.camX - step);
       if (ev.key === "ArrowRight") state.camX = deps.wrapX(state.camX + step);
+      state.camSubX = 0;
+      state.camSubY = 0;
       deps.maybeRefreshForCamera(true);
     }
   });
@@ -226,7 +248,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
     mousePanMoved = false;
     boxSelectionMode = ev.shiftKey;
     boxSelectionEngaged = false;
-    mousePanStart = { x: ev.clientX, y: ev.clientY, camX: state.camX, camY: state.camY };
+    mousePanStart = { x: ev.clientX, y: ev.clientY, camX: state.camX + state.camSubX, camY: state.camY + state.camSubY };
     const raw = deps.worldTileRawFromPointer(ev.offsetX, ev.offsetY);
     const pressedTile = state.tiles.get(deps.keyFor(deps.wrapX(raw.gx), deps.wrapY(raw.gy)));
     if (pressedTile) deps.requestAttackPreviewForTarget(pressedTile);
@@ -252,8 +274,12 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         deps.interactionFlags.suppressNextClick = true;
       }
       if (mousePanMoved) {
-        state.camX = deps.wrapX(Math.round(mousePanStart.camX - dx / state.zoom));
-        state.camY = deps.wrapY(Math.round(mousePanStart.camY - dy / state.zoom));
+        const px = splitContinuousPan(mousePanStart.camX, dx, state.zoom, deps.wrapX);
+        const py = splitContinuousPan(mousePanStart.camY, dy, state.zoom, deps.wrapY);
+        state.camX = px.camInt;
+        state.camY = py.camInt;
+        state.camSubX = px.camSub;
+        state.camSubY = py.camSub;
         deps.maybeRefreshForCamera(false);
       }
       return;
@@ -327,7 +353,7 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
       if (ev.touches.length === 1) {
         const t = ev.touches[0];
         if (!t) return;
-        touchPanStart = { x: t.clientX, y: t.clientY, camX: state.camX, camY: state.camY };
+        touchPanStart = { x: t.clientX, y: t.clientY, camX: state.camX + state.camSubX, camY: state.camY + state.camSubY };
         touchHoldStart = { x: t.clientX, y: t.clientY };
         touchTapCandidate = { x: t.clientX, y: t.clientY };
         const rect = deps.canvas.getBoundingClientRect();
@@ -361,8 +387,12 @@ export const bindClientMapInput = (state: ClientState, deps: BindClientMapInputD
         }
         const dx = t.clientX - touchPanStart.x;
         const dy = t.clientY - touchPanStart.y;
-        state.camX = deps.wrapX(Math.round(touchPanStart.camX - dx / state.zoom));
-        state.camY = deps.wrapY(Math.round(touchPanStart.camY - dy / state.zoom));
+        const px = splitContinuousPan(touchPanStart.camX, dx, state.zoom, deps.wrapX);
+        const py = splitContinuousPan(touchPanStart.camY, dy, state.zoom, deps.wrapY);
+        state.camX = px.camInt;
+        state.camY = py.camInt;
+        state.camSubX = px.camSub;
+        state.camSubY = py.camSub;
         deps.maybeRefreshForCamera(false);
         return;
       }
