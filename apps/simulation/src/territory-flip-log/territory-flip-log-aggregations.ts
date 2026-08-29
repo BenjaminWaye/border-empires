@@ -14,7 +14,7 @@ import type { TerritoryFlip } from "./territory-flip-log.js";
 export type { BiggestSwing24h, FrontlineHotspot, WarSummary };
 export type TerritoryMomentum = TerritoryMomentumEntry;
 
-const orderedPairKey = (a: string, b: string): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
+export const orderedPairKey = (a: string, b: string): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
 
 /**
  * Groups flips into unordered (playerA, playerB) contests: a flip counts
@@ -81,9 +81,10 @@ export const computeBiggestSwing24h = (flipLog: readonly TerritoryFlip[]): Bigge
     return acc;
   }, undefined);
   if (!worst) return null;
-  let windowStart = flipLog[0]!.at;
-  let windowEnd = flipLog[0]!.at;
-  for (const flip of flipLog) {
+  const losses = flipLog.filter((flip) => flip.fromOwner === worst.playerId && flip.toOwner !== worst.playerId);
+  let windowStart = losses[0]!.at;
+  let windowEnd = losses[0]!.at;
+  for (const flip of losses) {
     if (flip.at < windowStart) windowStart = flip.at;
     if (flip.at > windowEnd) windowEnd = flip.at;
   }

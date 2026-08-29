@@ -12,12 +12,11 @@ import {
   computeBiggestSwing24h,
   computeFrontlineHotspots,
   computeTerritoryMomentum,
-  computeWars
+  computeWars,
+  orderedPairKey
 } from "../territory-flip-log/territory-flip-log-aggregations.js";
 import type { TerritoryFlip } from "../territory-flip-log/territory-flip-log.js";
 import { computeFortificationRanking, type FortificationRankingTile } from "../fortification/fortification-ranking.js";
-
-const orderedPairKey = (a: string, b: string): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
 
 /**
  * Active-alliance pair keys, mirrored sim-side on `DomainPlayer.allies` by
