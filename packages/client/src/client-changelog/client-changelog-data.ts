@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1787999012029, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Join-season screen no longer shows a misleading \"0 players waiting\" for an already-active season",
+    why: "The waiting count/roster only means something for a pending season's countdown lobby (\"N players have reserved a spot for the world that hasn't started\"). The plain join-now screen (season already active, player just hasn't clicked in yet) reused the same panel, so it showed \"0 PLAYERS WAITING / You're the first one here\" even when the world was already full of active empires.",
+    changes: [
+      "The already-active join-season screen now shows the Discord link and invite button without the waiting count/roster block"
+    ]
+  },
+  {
     createdAt: 1787999215790, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.1",
     title: "Shard rain locators now clear once a shard is actually collected",
