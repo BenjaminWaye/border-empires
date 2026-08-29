@@ -176,7 +176,7 @@ export const renderJoinSeasonOverlay = (deps: JoinSeasonOverlayDeps): void => {
         <div class="respawn-kicker">${seasonLabel}</div>
         <h2 id="join-season-title" class="respawn-title">The Emperor has opened the planet for contestation</h2>
         <p class="respawn-summary">You have heard the call and brought your people to the challenge. No one empire will win alone. Good luck.</p>
-        ${renderSeasonLobbyPanelHtml(state, false)}
+        ${renderSeasonLobbyPanelHtml(state, false, false)}
         <section class="respawn-section respawn-actions">
           <button id="join-season-confirm" class="panel-btn season-lobby-lets-go-btn" type="button" ${state.joinSeasonPending ? "disabled" : ""}>
             ${state.joinSeasonPending ? "Joining..." : "Let's go!"}

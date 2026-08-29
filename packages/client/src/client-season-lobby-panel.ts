@@ -21,9 +21,17 @@ const rosterRowHtml = (entry: { playerId: string; name: string }): string =>
 // start) shows the "You're in" confirmation, while the plain "join now"
 // branch (season already active, player hasn't clicked join yet) shows the
 // count/roster for context without claiming a spot it hasn't reserved.
+// `joined` distinguishes the two callers (see renderJoinSeasonOverlay).
+// `showRoster` further disables the live count/roster block -- meaningful
+// only for the pending-season countdown, where "players waiting" describes
+// people holding a reserved spot for a world that hasn't started. On the
+// plain "join now" branch the season is already running, so the count would
+// read as "0 players waiting" / "you're the first one here" even when the
+// world is full of active empires -- misleading, not just empty.
 export const renderSeasonLobbyPanelHtml = (
   state: Pick<ClientState, "seasonLobbyWaitingCount" | "seasonLobbyMaxPlayers" | "seasonLobbyRoster">,
-  joined = true
+  joined = true,
+  showRoster = true
 ): string => {
   const { seasonLobbyWaitingCount, seasonLobbyMaxPlayers, seasonLobbyRoster } = state;
   const countLabel = seasonLobbyMaxPlayers > 0 ? `${seasonLobbyWaitingCount} / ${seasonLobbyMaxPlayers} PLAYERS` : `${seasonLobbyWaitingCount} PLAYERS WAITING`;
@@ -33,11 +41,16 @@ export const renderSeasonLobbyPanelHtml = (
   const confirmedHtml = joined
     ? `<div class="season-lobby-confirmed">🟢 You're in. Your empire will be placed when the world begins.</div>`
     : "";
-  return `
-    <section class="respawn-section season-lobby-panel">
+  const countHtml = showRoster
+    ? `
       <div class="season-lobby-count">${countLabel}</div>
       ${confirmedHtml}
       <div class="season-lobby-roster-scroll">${rosterHtml}</div>
+    `
+    : "";
+  return `
+    <section class="respawn-section season-lobby-panel">
+      ${countHtml}
       <div class="season-lobby-actions">
         <a class="panel-btn" id="season-lobby-discord" href="${DISCORD_INVITE_URL}" target="_blank" rel="noopener noreferrer">Join the Discord</a>
         <button class="panel-btn" id="season-lobby-invite" type="button">Bring a friend →</button>

@@ -202,7 +202,7 @@ describe("join-season overlay", () => {
     expect(document.body.classList.contains("season-lobby-active")).toBe(true);
   });
 
-  it("plain join-now branch shows the lobby panel (count/roster) alongside its Join button, without a countdown", () => {
+  it("plain join-now branch shows the invite actions alongside its Join button, without a countdown or a waiting count", () => {
     const overlayEl = document.createElement("div");
     renderJoinSeasonOverlay({
       state: makeState({
@@ -217,11 +217,16 @@ describe("join-season overlay", () => {
       renderHud: () => {},
       joinSeason: () => true
     });
-    expect(overlayEl.innerHTML).toContain("5 / 100 PLAYERS");
-    expect(overlayEl.innerHTML).toContain("Alice");
+    // The season is already active here -- "waiting count"/roster describe
+    // people holding a reserved spot for a world that hasn't started, which
+    // doesn't apply once play is underway, so this branch must not show it.
+    expect(overlayEl.innerHTML).not.toContain("PLAYERS WAITING");
+    expect(overlayEl.innerHTML).not.toContain("PLAYERS</div>");
+    expect(overlayEl.innerHTML).not.toContain("Alice");
     // Hasn't joined yet -- must not claim "You're in".
     expect(overlayEl.innerHTML).not.toContain("You're in");
     expect(overlayEl.querySelector("#join-season-confirm")).toBeTruthy();
+    expect(overlayEl.querySelector("#season-lobby-discord")).toBeTruthy();
   });
 
   it("never renders a flag picker or flag emoji in either branch", () => {
