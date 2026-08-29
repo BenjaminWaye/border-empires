@@ -28,7 +28,7 @@ const createState = (overrides: Partial<ClientState>): ClientState =>
 
 const skirmishesFrom = (state: ClientState): BattleOverlaySkirmishEntry[] => {
   const { fx, tick } = createFx();
-  syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1234);
+  syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1234, state.camX, state.camY);
   return tick.mock.calls[0]?.[2] ?? [];
 };
 
@@ -145,10 +145,10 @@ describe("battle overlay skirmish sourcing", () => {
     });
 
     const { fx } = createFx();
-    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1000);
+    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1000, state.camX, state.camY);
     expect(state.skirmishSeenAt.get("5,5")).toBe(1000);
 
-    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1500);
+    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1500, state.camX, state.camY);
     expect(state.skirmishSeenAt.get("5,5")).toBe(1000);
   });
 
@@ -168,7 +168,7 @@ describe("battle overlay skirmish sourcing", () => {
     });
 
     const { fx } = createFx();
-    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1000);
+    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 1000, state.camX, state.camY);
     const seenAt = state.skirmishSeenAt.get("5,5");
     expect(seenAt).toBeDefined();
 
@@ -177,7 +177,7 @@ describe("battle overlay skirmish sourcing", () => {
     state.incomingAttacksByTile.set("5,5", {
       attackerName: "Rival", resolvesAt: Date.now() - 50, attackerId: "rival-1", fromX: 4, fromY: 5
     });
-    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 2000);
+    syncBattleOverlayFx(state, keyFor, heightfield, (ownerId: string) => `#${ownerId}`, fx, 2000, state.camX, state.camY);
 
     expect(state.skirmishSeenAt.get("5,5")).toBe(seenAt);
   });

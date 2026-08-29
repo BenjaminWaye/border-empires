@@ -84,7 +84,15 @@ export function syncBattleOverlayFx(
   heightfield: Heightfield,
   playerColorFor: (ownerId: string) => string,
   battleOverlayFx: BattleOverlayFx,
-  nowMs: number
+  nowMs: number,
+  // Scene-space anchor for toroidDelta placement — client-map-3d.ts's sceneOrigin
+  // (the last committed terrain rebuild's window), NOT the live camera. Unlike
+  // syncCaptureOverlays above (only ever called synchronously during a rebuild,
+  // when state.camX/camY == the rebuild's own window), this runs every render
+  // frame, so it needs the anchor threaded in explicitly or its dots/lines drift
+  // off the ground during a pan inside the rebuild pad.
+  originX: number,
+  originY: number
 ): void {
   pruneExpiredActiveBattles(state, nowMs);
   // `nowMs` is performance.now() (page uptime) — the clock every battle/FX
@@ -97,10 +105,10 @@ export function syncBattleOverlayFx(
 
   const entries: BattleOverlayRenderEntry[] = [];
   for (const battle of state.activeBattles.values()) {
-    const srcDx = toroidDelta(state.camX, battle.originX, WORLD_WIDTH);
-    const srcDy = toroidDelta(state.camY, battle.originY, WORLD_HEIGHT);
-    const tgtDx = toroidDelta(state.camX, battle.targetX, WORLD_WIDTH);
-    const tgtDy = toroidDelta(state.camY, battle.targetY, WORLD_HEIGHT);
+    const srcDx = toroidDelta(originX, battle.originX, WORLD_WIDTH);
+    const srcDy = toroidDelta(originY, battle.originY, WORLD_HEIGHT);
+    const tgtDx = toroidDelta(originX, battle.targetX, WORLD_WIDTH);
+    const tgtDy = toroidDelta(originY, battle.targetY, WORLD_HEIGHT);
     entries.push({
       srcWorldX: srcDx + TILE_CENTER_OFFSET,
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,
@@ -143,10 +151,10 @@ export function syncBattleOverlayFx(
       startAt = nowMs;
       state.skirmishSeenAt.set(key, startAt);
     }
-    const srcDx = toroidDelta(state.camX, srcX, WORLD_WIDTH);
-    const srcDy = toroidDelta(state.camY, srcY, WORLD_HEIGHT);
-    const tgtDx = toroidDelta(state.camX, target.x, WORLD_WIDTH);
-    const tgtDy = toroidDelta(state.camY, target.y, WORLD_HEIGHT);
+    const srcDx = toroidDelta(originX, srcX, WORLD_WIDTH);
+    const srcDy = toroidDelta(originY, srcY, WORLD_HEIGHT);
+    const tgtDx = toroidDelta(originX, target.x, WORLD_WIDTH);
+    const tgtDy = toroidDelta(originY, target.y, WORLD_HEIGHT);
     skirmishes.push({
       srcWorldX: srcDx + TILE_CENTER_OFFSET,
       srcWorldZ: srcDy + TILE_CENTER_OFFSET,

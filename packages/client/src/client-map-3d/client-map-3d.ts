@@ -1176,17 +1176,49 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     writeAirportRangeGeometry(airportRangeMarker, airportRangeFill, selectedTile, AIRPORT_BOMBARD_RADIUS);
   };
 
+  // Dirty-check inputs for applyCamera(): worldToScreen/worldTileRawFromPointer
+  // (below) call applyCamera() before every use to stay correct regardless of
+  // which requestAnimationFrame loop calls them first (see freshWorldToScreen's
+  // comment) -- but client-runtime-loop.ts's 2D HUD calls worldToScreen once per
+  // visible tile, every frame, and applyPerspectiveCamera does a real
+  // camera.lookAt + updateProjectionMatrix + updateMatrixWorld(true). Skipping
+  // the recompute when nothing it depends on has changed since the last call
+  // turns that from O(visible tiles) back into O(1) per frame.
+  const lastCameraInputs = { zoom: Number.NaN, width: -1, height: -1, camX: Number.NaN, camY: Number.NaN, camSubX: Number.NaN, camSubY: Number.NaN, sceneOriginCamX: Number.NaN, sceneOriginCamY: Number.NaN };
   const applyCamera = (): void => {
+    const width = deps.canvas.width;
+    const height = deps.canvas.height;
+    const { zoom, camX, camY, camSubX, camSubY } = deps.state;
+    const unchanged =
+      lastCameraInputs.zoom === zoom &&
+      lastCameraInputs.width === width &&
+      lastCameraInputs.height === height &&
+      lastCameraInputs.camX === camX &&
+      lastCameraInputs.camY === camY &&
+      lastCameraInputs.camSubX === camSubX &&
+      lastCameraInputs.camSubY === camSubY &&
+      lastCameraInputs.sceneOriginCamX === sceneOrigin.camX &&
+      lastCameraInputs.sceneOriginCamY === sceneOrigin.camY;
+    if (unchanged) return;
+    lastCameraInputs.zoom = zoom;
+    lastCameraInputs.width = width;
+    lastCameraInputs.height = height;
+    lastCameraInputs.camX = camX;
+    lastCameraInputs.camY = camY;
+    lastCameraInputs.camSubX = camSubX;
+    lastCameraInputs.camSubY = camSubY;
+    lastCameraInputs.sceneOriginCamX = sceneOrigin.camX;
+    lastCameraInputs.sceneOriginCamY = sceneOrigin.camY;
     // camSubX/camSubY (client-map-input.ts) are the in-progress drag's sub-tile
     // fraction in [0, 1) -- camX/camY themselves stay whole tiles for every other
     // consumer. Added directly (not toroidal: always small, never needs wrapping)
     // so the camera glides continuously through a tile instead of snapping.
     applyPerspectiveCamera(camera, {
-      zoom: deps.state.zoom,
-      canvasWidth: deps.canvas.width,
-      canvasHeight: deps.canvas.height,
-      offsetX: toroidDelta(sceneOrigin.camX, deps.state.camX, WORLD_WIDTH) + deps.state.camSubX,
-      offsetZ: toroidDelta(sceneOrigin.camY, deps.state.camY, WORLD_HEIGHT) + deps.state.camSubY
+      zoom,
+      canvasWidth: width,
+      canvasHeight: height,
+      offsetX: toroidDelta(sceneOrigin.camX, camX, WORLD_WIDTH) + camSubX,
+      offsetZ: toroidDelta(sceneOrigin.camY, camY, WORLD_HEIGHT) + camSubY
     });
   };
 
@@ -2017,7 +2049,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncSweepRangeMarker();
     syncWaterworksRangeMarker();
     syncAirportRangeMarker();
-    placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y) });
+    placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();
@@ -2057,7 +2089,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     observatoryCooldownBadgeOverlay.tick(nowMs);
     upgradeReadyBadgeOverlay.tick(nowMs);
     musterOverlay.tick(nowMs);
-    syncBattleOverlayFx(deps.state, deps.keyFor, heightfield, deps.effectiveOverlayColor, battleOverlayFx, nowMs);
+    syncBattleOverlayFx(deps.state, deps.keyFor, heightfield, deps.effectiveOverlayColor, battleOverlayFx, nowMs, sceneOrigin.camX, sceneOrigin.camY);
     supplyLineOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
