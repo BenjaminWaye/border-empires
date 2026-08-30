@@ -55,11 +55,26 @@ describe("3d renderer host", () => {
     expect(isTrue3DRendererActive()).toBe(true);
   });
 
-  it("records renderer.info counts onto the breadcrumb when the renderer reports them", () => {
+  it("does not read gpuStats synchronously — three.js's counts aren't populated until the first render", () => {
+    // Regression: renderer.info.memory/programs only increment inside an
+    // actual renderer.render() call, which client-map-3d.ts schedules via
+    // requestAnimationFrame at the end of construction. Reading gpuStats
+    // synchronously here would only ever record zeros.
     const gpuStats = vi.fn(() => ({ geometries: 12, textures: 8, programs: 3 }));
     const host = hostWith({ create: () => ({ stop: () => undefined, gpuStats }) });
 
     host.ensure();
+
+    expect(gpuStats).not.toHaveBeenCalled();
+  });
+
+  it("records renderer.info counts onto the breadcrumb one frame after construction", async () => {
+    const gpuStats = vi.fn(() => ({ geometries: 12, textures: 8, programs: 3 }));
+    const host = hostWith({ create: () => ({ stop: () => undefined, gpuStats }) });
+
+    host.ensure();
+    // Flush the requestAnimationFrame the capture is deferred through.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
     expect(gpuStats).toHaveBeenCalledTimes(1);
     // previousRendererAttempt() is frozen at module import, so it can't see

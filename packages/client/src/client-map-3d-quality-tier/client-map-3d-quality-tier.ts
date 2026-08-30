@@ -127,11 +127,16 @@ export const qualityTierFor = ({
 }: QualityTierInput): RendererQualityTier => {
   if (!previousAttempt) return isIOSSafari ? IOS_FIRST_ATTEMPT_TIER : 0;
 
-  // The known memory-exhaustion signature: the tab died while allocating
-  // buffers, before it could even record "init-completed". Don't walk the
-  // ladder for this one — go straight to the bottom, which is what the pixel
-  // ratio module already did for this exact case before the ladder existed.
-  if (previousAttempt.phase === "init-started") return MIN_QUALITY_TIER;
+  // The two known memory-exhaustion signatures (see the phase docs in
+  // client-renderer-crash-breadcrumb.ts): the tab died allocating buffers
+  // before "init-completed" ever got recorded, or it died populating those
+  // buffers for the first time during the first rebuildVisibleTerrain() pass.
+  // Both are allocation deaths, not generic instability — walk straight to
+  // the bottom rather than spending an attempt at tier 1 against the same
+  // allocation that just killed it.
+  if (previousAttempt.phase === "init-started" || previousAttempt.phase === "first-render-started") {
+    return MIN_QUALITY_TIER;
+  }
 
   const startupTier = previousAttempt.phase === "survived" ? 0 : clampTier(previousAttempt.failedAttempts);
 

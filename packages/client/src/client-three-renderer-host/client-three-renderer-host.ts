@@ -48,6 +48,34 @@ export type StoppableRenderer = {
   readonly gpuStats?: () => RendererGpuStats;
 };
 
+/**
+ * Reads `gpuStats()` one frame after construction, not synchronously. three.js
+ * only increments `renderer.info.memory.{geometries,textures}` and populates
+ * `renderer.info.programs` inside an actual `renderer.render()` call
+ * (WebGLGeometries/WebGLTextures/WebGLPrograms all update lazily at render
+ * time) — reading it right after `new WebGLRenderer(...)` returns would just
+ * record zeros, which defeats the entire point of collecting this. The
+ * terrain renderer schedules its own first `renderer.render()` via
+ * `requestAnimationFrame` before it returns from construction, so scheduling
+ * this capture the same way runs it after that frame, in registration order.
+ *
+ * Deliberately isolated in its own try/catch, outside the caller's success
+ * path: a bug in stats collection is a lost diagnostic, not a reason to tear
+ * down an otherwise-healthy renderer the way every other failure in this file
+ * does.
+ */
+const captureGpuStatsAfterFirstFrame = (created: StoppableRenderer): void => {
+  if (typeof requestAnimationFrame === "undefined") return;
+  requestAnimationFrame(() => {
+    try {
+      const stats = created.gpuStats?.();
+      if (stats) recordRendererGpuStats(stats);
+    } catch (statsError) {
+      console.error("[renderer-3d-gpu-stats-failed]", statsError);
+    }
+  });
+};
+
 export type ThreeRendererHostDeps<TRenderer extends StoppableRenderer> = {
   /** False when the session asked for `?renderer=2d`; 3D is never attempted. */
   readonly enabled: boolean;
@@ -170,10 +198,7 @@ export const createThreeRendererHost = <TRenderer extends StoppableRenderer>(
       }
       renderer = created;
       markRendererInitCompleted(tileBudget);
-      // Best-effort: a fake renderer in tests, or a future renderer with
-      // nothing to report, simply omits this rather than needing a stub.
-      const stats = created.gpuStats?.();
-      if (stats) recordRendererGpuStats(stats);
+      captureGpuStatsAfterFirstFrame(created);
       setTrue3DRendererActive(true);
       // Keep the breadcrumb's heartbeat fresh for as long as this attempt
       // lives — a crash long after startup (the iOS memory-pressure shape)

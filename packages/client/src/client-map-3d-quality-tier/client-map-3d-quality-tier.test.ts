@@ -41,6 +41,16 @@ describe("qualityTierFor", () => {
     expect(tierFor(breadcrumb({ phase: "init-started", failedAttempts: 1 }))).toBe(MIN_QUALITY_TIER);
   });
 
+  // client-renderer-crash-breadcrumb.ts documents "first-render-started" as a
+  // second, distinct memory-exhaustion signature from "init-started" -- the
+  // preallocated buffers fit, but populating them for the first time didn't.
+  // It deserves the same fast-track: walking it through the generic
+  // clampTier(failedAttempts) path instead would spend an attempt at tier 1
+  // against the very allocation that just killed the tab.
+  it("drops straight to the bottom on the first-render allocation-death signature too", () => {
+    expect(tierFor(breadcrumb({ phase: "first-render-started", failedAttempts: 1 }))).toBe(MIN_QUALITY_TIER);
+  });
+
   it("never goes below the bottom rung however long the streak", () => {
     expect(tierFor(breadcrumb({ phase: "init-completed", failedAttempts: 99 }))).toBe(MIN_QUALITY_TIER);
   });
