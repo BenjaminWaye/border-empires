@@ -316,8 +316,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788091180198, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1788091013204, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.2",
+    title: "Mercantile Charter's \"first three towns\" no longer counts a bare starting settlement",
+    why: "Every settled tile carries basic town data, not just a player's actual named/grown cities -- so an early, unnamed starting settlement silently occupied one of Mercantile Charter's three bonus slots ahead of the player's real towns, exactly matching the domain's own description (\"your first three cities\") but not what it actually checked. An established player with more than a couple of settled tiles could end up with none of their real towns receiving the bonus at all.",
+    changes: [
+      "Mercantile Charter's first-three-towns bonus now only considers TOWN tier and above -- a bare settlement can no longer take one of the three slots"
+    ]
+  },
+  {
+    createdAt: 1788091180198, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.3",
     title: "Fixed the Gold Production stat not matching its own \"Sell Off gold\" modifier line",
     why: "The tile popup's gold-production number and its \"MODIFIERS\" list are computed on two separate code paths in the gateway's tile-detail lookup. The modifiers list was already fixed to detect a support-ring converter correctly, but the gold-production number's own formula was never updated to include it, so the two figures on the same screen disagreed -- and a Refine-mode converter (which earns no gold) could incorrectly show a \"Sell Off gold\" line at all.",
     changes: [
