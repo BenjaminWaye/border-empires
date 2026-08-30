@@ -11,8 +11,12 @@ const clientSource = (filename: string): string => {
 describe("3d airport range regression", () => {
   it("renders selected airport range in the 3d scene instead of the flat canvas overlay", () => {
     const map3dSource = clientSource("../client-map-3d/client-map-3d.ts");
+    const selectionRangeOverlaysSource = clientSource(
+      "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.ts"
+    );
 
-    expect(map3dSource).toContain("syncAirportRangeMarker");
-    expect(map3dSource).toContain("writeAirportRangeGeometry");
+    expect(map3dSource).toContain("createSelectionRangeOverlays");
+    expect(selectionRangeOverlaysSource).toContain("syncAirportRing");
+    expect(selectionRangeOverlaysSource).toContain("writeRingGeometry");
   });
 });
