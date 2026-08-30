@@ -288,7 +288,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const townNetwork =
     prebuiltTownNetwork ??
     buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0, dormantEconomicStructureKeys });
-  const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.keys());
+  const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.entries());
   // Mintworks-style attribution (§built-like-Mintworks): an EXCHANGE-mode
   // converter in a town's support ring pays its gold through that town's own
   // production instead of as separate empire income — computed once per town
