@@ -11,20 +11,18 @@ import {
   PlaneGeometry,
   Scene
 } from "three";
-import { OBSERVATORY_RANGE_MAX, WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type ResourceType, type SlotResource } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
-import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS, MIN_ZOOM } from "../client-constants.js";
+import { isForestTile, isHillsTile, MIN_ZOOM } from "../client-constants.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
-import { WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
+import { createSelectionRangeOverlays } from "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.js";
 
-import { ownObservatoryRange } from "../client-observatory-rules/client-observatory-rules.js";
 import { applyPerspectiveCamera, createPerspectiveCamera } from "../client-map-3d-perspective-camera/client-map-3d-perspective-camera.js";
 import { createAtmosphere } from "../client-map-3d-atmosphere.js";
 import { createPointerPick, toroidDelta } from "../client-map-3d-pointer-pick.js";
-import { createObservatoryRangeBorderGeometry, createObservatoryRangeFillGeometry, observatoryRangeBorderSegmentCount, observatoryRangeFillVertexCount, writeObservatoryRangeBorderGeometry, writeObservatoryRangeFillGeometry } from "../client-map-3d-observatory-range/client-map-3d-observatory-range.js";
 import { createHeightfield, type HeightfieldTerrainKind } from "../client-map-3d-heightfield/client-map-3d-heightfield.js";
 import { createMountainMassifs } from "../client-map-3d-mountain-massif.js";
 import { createHillTerrain } from "../client-map-3d-hills.js";
@@ -400,129 +398,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     marker.visible = false;
     return { marker, material };
   });
-  const observatoryRangeMaxSegments = observatoryRangeBorderSegmentCount(OBSERVATORY_RANGE_MAX);
-  const observatoryRangeMaxFillVertices = observatoryRangeFillVertexCount(OBSERVATORY_RANGE_MAX);
-  const SWEEP_RANGE_RADIUS = 5;
-  const sweepRangeMaxSegments = observatoryRangeBorderSegmentCount(SWEEP_RANGE_RADIUS);
-  const sweepRangeMaxFillVertices = observatoryRangeFillVertexCount(SWEEP_RANGE_RADIUS);
-  const waterworksRangeMaxSegments = observatoryRangeBorderSegmentCount(WATERWORKS_RADIUS);
-  const waterworksRangeMaxFillVertices = observatoryRangeFillVertexCount(WATERWORKS_RADIUS);
-  const airportRangeMaxSegments = observatoryRangeBorderSegmentCount(AIRPORT_BOMBARD_RADIUS);
-  const airportRangeMaxFillVertices = observatoryRangeFillVertexCount(AIRPORT_BOMBARD_RADIUS);
-  const observatoryRangeMaterial = new LineBasicMaterial({
-    color: "#6ab4ff",
-    transparent: true,
-    opacity: 0.55,
-    depthTest: false,
-    depthWrite: false
-  });
-  const observatoryRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
-    color: "#6ab4ff",
-    transparent: true,
-    opacity: 0.10,
-    depthTest: false,
-    depthWrite: false,
-    side: DoubleSide
-  });
-  const observatoryRangeMarker = new LineSegments(
-    createObservatoryRangeBorderGeometry(observatoryRangeMaxSegments),
-    observatoryRangeMaterial
-  );
-  const observatoryRangeFill = new Mesh(
-    createObservatoryRangeFillGeometry(observatoryRangeMaxFillVertices),
-    observatoryRangeFillMaterial
-  );
-  const sweepRangeMaterial = new LineBasicMaterial({
-    color: "#ff8c42",
-    transparent: true,
-    opacity: 0.7,
-    depthTest: false,
-    depthWrite: false
-  });
-  const sweepRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
-    color: "#ff8c42",
-    transparent: true,
-    opacity: 0.10,
-    depthTest: false,
-    depthWrite: false,
-    side: DoubleSide
-  });
-  const sweepRangeMarker = new LineSegments(
-    createObservatoryRangeBorderGeometry(sweepRangeMaxSegments),
-    sweepRangeMaterial
-  );
-  const sweepRangeFill = new Mesh(
-    createObservatoryRangeFillGeometry(sweepRangeMaxFillVertices),
-    sweepRangeFillMaterial
-  );
-  const waterworksRangeMaterial = new LineBasicMaterial({
-    color: "#4caf74",
-    transparent: true,
-    opacity: 0.55,
-    depthTest: false,
-    depthWrite: false
-  });
-  const waterworksRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
-    color: "#4caf74",
-    transparent: true,
-    opacity: 0.10,
-    depthTest: false,
-    depthWrite: false,
-    side: DoubleSide
-  });
-  const waterworksRangeMarker = new LineSegments(
-    createObservatoryRangeBorderGeometry(waterworksRangeMaxSegments),
-    waterworksRangeMaterial
-  );
-  const waterworksRangeFill = new Mesh(
-    createObservatoryRangeFillGeometry(waterworksRangeMaxFillVertices),
-    waterworksRangeFillMaterial
-  );
-  const airportRangeMaterial = new LineBasicMaterial({
-    color: "#ff4444",
-    transparent: true,
-    opacity: 0.55,
-    depthTest: false,
-    depthWrite: false
-  });
-  const airportRangeFillMaterial = new MeshBasicMaterial({ toneMapped: false,
-    color: "#ff4444",
-    transparent: true,
-    opacity: 0.10,
-    depthTest: false,
-    depthWrite: false,
-    side: DoubleSide
-  });
-  const airportRangeMarker = new LineSegments(
-    createObservatoryRangeBorderGeometry(airportRangeMaxSegments),
-    airportRangeMaterial
-  );
-  const airportRangeFill = new Mesh(
-    createObservatoryRangeFillGeometry(airportRangeMaxFillVertices),
-    airportRangeFillMaterial
-  );
   selectedMarker.visible = false;
   hoverMarker.visible = false;
-  observatoryRangeMarker.visible = false;
-  observatoryRangeFill.visible = false;
-  sweepRangeMarker.visible = false;
-  sweepRangeFill.visible = false;
-  waterworksRangeMarker.visible = false;
-  waterworksRangeFill.visible = false;
-  airportRangeMarker.visible = false;
-  airportRangeFill.visible = false;
   const crystalTargetingOverlay = createCrystalTargetingOverlay(scene, MAX_VISIBLE_TILES);
   const placementOverlay = createPlacementRangeOverlay(scene);
+  const selectionRangeOverlays = createSelectionRangeOverlays(scene);
   selectedMarker.renderOrder = 30;
   hoverMarker.renderOrder = 31;
-  observatoryRangeMarker.renderOrder = 26;
-  observatoryRangeFill.renderOrder = 24;
-  sweepRangeMarker.renderOrder = 23;
-  sweepRangeFill.renderOrder = 22;
-  waterworksRangeMarker.renderOrder = 19;
-  waterworksRangeFill.renderOrder = 18;
-  airportRangeMarker.renderOrder = 17;
-  airportRangeFill.renderOrder = 16;
   for (const { marker } of townSupportMarkers) marker.renderOrder = 28;
   for (const { marker } of queuedActionMarkers) marker.renderOrder = 29;
   for (const { marker } of queuedSettlementMarkers) marker.renderOrder = 29;
@@ -531,14 +413,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   frontierClaimPlate.renderOrder = 7;
   selectedMarker.frustumCulled = false;
   hoverMarker.frustumCulled = false;
-  observatoryRangeMarker.frustumCulled = false;
-  observatoryRangeFill.frustumCulled = false;
-  sweepRangeMarker.frustumCulled = false;
-  sweepRangeFill.frustumCulled = false;
-  waterworksRangeMarker.frustumCulled = false;
-  waterworksRangeFill.frustumCulled = false;
-  airportRangeMarker.frustumCulled = false;
-  airportRangeFill.frustumCulled = false;
   for (const { marker } of townSupportMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedActionMarkers) marker.frustumCulled = false;
   for (const { marker } of queuedSettlementMarkers) marker.frustumCulled = false;
@@ -552,14 +426,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   scene.add(
     selectedMarker,
     hoverMarker,
-    waterworksRangeFill,
-    waterworksRangeMarker,
-    airportRangeFill,
-    airportRangeMarker,
-    sweepRangeFill,
-    sweepRangeMarker,
-    observatoryRangeFill,
-    observatoryRangeMarker,
     ...townSupportMarkers.map(({ marker }) => marker),
     ...queuedActionMarkers.map(({ marker }) => marker),
     ...queuedSettlementMarkers.map(({ marker }) => marker),
@@ -1031,104 +897,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       );
     }
     aetherBridgePylonOverlay.endFrame();
-  };
-  const writeObservatoryRangeGeometry = (
-    lineMarker: LineSegments,
-    fillMesh: Mesh,
-    selectedTile: Tile,
-    radius: number
-  ): void => {
-    const rangeGeometryInputs = {
-      selectedX: selectedTile.x,
-      selectedY: selectedTile.y,
-      camX: sceneOrigin.camX,
-      camY: sceneOrigin.camY,
-      radius,
-      worldWidth: WORLD_WIDTH,
-      worldHeight: WORLD_HEIGHT,
-      wrapX: deps.wrapX,
-      wrapY: deps.wrapY,
-      cornerYAt: (cornerX: number, cornerZ: number) => heightfield.cornerYAt(cornerX, cornerZ),
-      riseAboveSurface: MARKER_RISE_ABOVE_HEIGHTFIELD
-    };
-    writeObservatoryRangeBorderGeometry(lineMarker.geometry as BufferGeometry, rangeGeometryInputs);
-    writeObservatoryRangeFillGeometry(fillMesh.geometry as BufferGeometry, rangeGeometryInputs);
-    lineMarker.visible = true;
-    fillMesh.visible = true;
-  };
-  const syncObservatoryRangeMarkers = (): void => {
-    observatoryRangeMarker.visible = false;
-    observatoryRangeFill.visible = false;
-    const selectedCoord = deps.state.selected;
-    if (!selectedCoord) return;
-    const selectedTile = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
-    if (!selectedTile?.observatory) return;
-    if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
-    if (selectedTile.ownerId !== deps.state.me) return;
-    if (selectedTile.observatory.status !== "active") return;
-    const effectiveRange = ownObservatoryRange(deps.state);
-    observatoryRangeMaterial.opacity = 0.55;
-    observatoryRangeFillMaterial.opacity = 0.10;
-    writeObservatoryRangeGeometry(observatoryRangeMarker, observatoryRangeFill, selectedTile, effectiveRange);
-  };
-
-  // Disabled: outpost attack-sweep overlay isn't wired to real attack mechanics yet. Revisit later.
-  const syncSweepRangeMarker = (): void => {
-    sweepRangeMarker.visible = false;
-    sweepRangeFill.visible = false;
-  };
-
-  const syncWaterworksRangeMarker = (): void => {
-    waterworksRangeMarker.visible = false;
-    waterworksRangeFill.visible = false;
-    const selectedCoord = deps.state.selected;
-    if (!selectedCoord) return;
-    const selectedTile = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
-    if (!selectedTile) return;
-    if (selectedTile.economicStructure?.type !== "WATERWORKS") return;
-    if (selectedTile.economicStructure.status !== "active") return;
-    if (selectedTile.ownerId !== deps.state.me) return;
-    if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
-    writeObservatoryRangeGeometry(waterworksRangeMarker, waterworksRangeFill, selectedTile, WATERWORKS_RADIUS);
-  };
-
-  const writeAirportRangeGeometry = (
-    lineMarker: LineSegments,
-    fillMesh: Mesh,
-    selectedTile: Tile,
-    radius: number
-  ): void => {
-    const rangeGeometryInputs = {
-      selectedX: selectedTile.x,
-      selectedY: selectedTile.y,
-      camX: sceneOrigin.camX,
-      camY: sceneOrigin.camY,
-      radius,
-      worldWidth: WORLD_WIDTH,
-      worldHeight: WORLD_HEIGHT,
-      wrapX: deps.wrapX,
-      wrapY: deps.wrapY,
-      cornerYAt: (cornerX: number, cornerZ: number) => heightfield.cornerYAt(cornerX, cornerZ),
-      riseAboveSurface: MARKER_RISE_ABOVE_HEIGHTFIELD
-    };
-    writeObservatoryRangeBorderGeometry(lineMarker.geometry as BufferGeometry, rangeGeometryInputs);
-    writeObservatoryRangeFillGeometry(fillMesh.geometry as BufferGeometry, rangeGeometryInputs);
-    lineMarker.visible = true;
-    fillMesh.visible = true;
-  };
-
-  const syncAirportRangeMarker = (): void => {
-    airportRangeMarker.visible = false;
-    airportRangeFill.visible = false;
-    const selectedCoord = deps.state.selected;
-    if (!selectedCoord) return;
-    const selectedTile = deps.state.tiles.get(deps.keyFor(selectedCoord.x, selectedCoord.y));
-    if (!selectedTile) return;
-    if (selectedTile.economicStructure?.type !== "AIRPORT") return;
-    if (selectedTile.economicStructure.status !== "active") return;
-    if (selectedTile.ownerId !== deps.state.me) return;
-    if (deps.tileVisibilityStateAt(selectedTile.x, selectedTile.y, selectedTile) !== "visible") return;
-    writeAirportRangeGeometry(airportRangeMarker, airportRangeFill, selectedTile, AIRPORT_BOMBARD_RADIUS);
   };
 
   // Dirty-check inputs for applyCamera(): worldToScreen/worldTileRawFromPointer
@@ -2000,10 +1768,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncQueueMarkers();
     syncWaypointMarkers();
     syncFrontierClaimPlate();
-    syncObservatoryRangeMarkers();
-    syncSweepRangeMarker();
-    syncWaterworksRangeMarker();
-    syncAirportRangeMarker();
+    selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
@@ -2072,20 +1837,9 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     fogOwnershipOverlay.dispose();
     selectedMarker.geometry.dispose();
     hoverMarker.geometry.dispose();
-    observatoryRangeMarker.geometry.dispose();
-    observatoryRangeFill.geometry.dispose();
-    sweepRangeMarker.geometry.dispose();
-    sweepRangeFill.geometry.dispose();
-    airportRangeMarker.geometry.dispose();
-    airportRangeFill.geometry.dispose();
     (selectedMarker.material as LineBasicMaterial).dispose();
     (hoverMarker.material as LineBasicMaterial).dispose();
-    observatoryRangeMaterial.dispose();
-    observatoryRangeFillMaterial.dispose();
-    sweepRangeMaterial.dispose();
-    sweepRangeFillMaterial.dispose();
-    airportRangeMaterial.dispose();
-    airportRangeFillMaterial.dispose();
+    selectionRangeOverlays.dispose();
     crystalTargetingOverlay.dispose();
     for (const { marker, material } of townSupportMarkers) {
       marker.geometry.dispose();

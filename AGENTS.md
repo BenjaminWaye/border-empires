@@ -8,6 +8,12 @@ These rules apply to every task. Task-conditional details are in `docs/agents/`;
 - **Default target for new work is the rewrite stack.** Do not modify or instrument `packages/server` unless the user explicitly says "legacy" or names `packages/server`. If a search turns up logic only in `packages/server`, surface that as stale legacy code — do not extend it as the active runtime.
 - Full deploy/Fly/Vercel details: read `docs/agents/deploys.md` before any deploy or CLI work.
 
+## Renderer parity (2D canvas + true-3D map)
+
+- The client has two map renderers gated by `isTrue3DRendererActive()`: the 2D canvas path and the true-3D (Three.js, `client-map-3d.ts` and friends) path. **The 2D path is not legacy or secondary** — it is the accessibility fallback for players whose devices can't run the 3D renderer (older/lower-end phones, broken WebGL). Most players are on 3D.
+- Any new map-tile overlay, highlight, or selection visualization must be implemented for **both** renderers in the same branch, or the PR description and final summary must say explicitly, in plain language, which renderer(s) it's missing from and why — never let a "done" report imply full coverage when only one renderer got the feature. Silence on this is treated as a false completion claim.
+- Before reporting a rendering feature complete, grep the target behavior's guard (`isTrue3DRendererActive()`) to confirm you touched both branches, not just the one that happened to match existing nearby code.
+
 ## Worktrees and branches
 
 - Always work in a worktree under `.codex-worktrees/`, never in the primary checkout. Create a new git branch named `agent/<short-slug>` per task.

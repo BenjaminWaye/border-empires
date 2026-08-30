@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788127316489, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.6",
+    title: "Selected-structure reach highlight now also shows on the 3D map",
+    why: "The green reach-disk highlight for a selected town/dock/outpost-family structure only drew on the 2D canvas overlay, so most players (on the 3D renderer) never saw it -- only players on the 2D fallback (used on lower-end/broken hardware) did.",
+    changes: [
+      "Selecting a town, dock, or outpost-family structure (Relay Beacon, Siege Outpost, Siege Tower, Dread Tower) now shows its green reach-disk ring on the 3D map too, matching the 2D overlay"
+    ]
+  },
+  {
     createdAt: 1788126287875, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.5",
     title: "Tile debug download now includes dock connection-line diagnostics",
