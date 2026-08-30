@@ -28,11 +28,16 @@ export const firstThreeTownKeysForPlayer = (
   ownedSettledTownEntries: Iterable<readonly [string, string | undefined]>
 ): Set<string> => {
   const result = new Set<string>();
-  for (const [key, tier] of ownedSettledTownEntries) {
+  const allEntries: Array<readonly [string, string | undefined]> = [];
+  for (const entry of ownedSettledTownEntries) {
+    allEntries.push(entry);
+    const [key, tier] = entry;
     if (tier === "SETTLEMENT") continue;
     result.add(key);
     if (result.size >= 3) break;
   }
+  // TEMP DEBUG — remove before merging.
+  console.log(`[firstThreeTownKeysForPlayer] player=${_playerId} allEntries=${JSON.stringify(allEntries)} result=${JSON.stringify([...result])}`);
   return result;
 };
 
