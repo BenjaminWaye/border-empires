@@ -5,7 +5,7 @@ import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tra
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js"; import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
-import { STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
 import { RENDERER_PROMPT_FPS_THRESHOLD, RENDERER_PROMPT_LOW_FPS_MS, shouldShowRendererPrompt } from "./client-renderer-prompt/client-renderer-prompt.js";
@@ -513,9 +513,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         // (economic + late-game + civic + infrastructure + industrial).
         const handled3DStructure =
           isTrue3DRendererActive() &&
-          (t.economicStructure.type === "UMBRITE_RIG" ||
-            t.economicStructure.type === "UMBRITE_WEAPONS_FACTORY" ||
-            STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind));
+          isStructureHandledBy3D(t.economicStructure.type);
         if (fortificationKind || handled3DStructure) {
           // 3D-rendered (forts + 3D-overlay structures); no 2D fallback.
         } else if (overlay && overlay.complete && overlay.naturalWidth) {
@@ -1082,9 +1080,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
           const overlay = deps.structureOverlayImages[t.economicStructure.type];
           const handled3DStructure2 =
             isTrue3DRendererActive() &&
-            (t.economicStructure.type === "UMBRITE_RIG" ||
-              t.economicStructure.type === "UMBRITE_WEAPONS_FACTORY" ||
-              STRUCTURE_KINDS_HANDLED_BY_3D.has(t.economicStructure.type as StructureKind));
+            isStructureHandledBy3D(t.economicStructure.type);
           if (handled3DStructure2) {
           } else if (overlay && overlay.complete && overlay.naturalWidth) {
             deps.drawCenteredOverlay(overlay, px, py, size, 1.02);
