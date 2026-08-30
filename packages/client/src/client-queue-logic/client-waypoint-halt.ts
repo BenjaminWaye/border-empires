@@ -26,6 +26,23 @@ export type WaypointHaltDeps = {
 };
 
 /**
+ * True while the waypoint's own previously-enqueued step (`stepKey`) is
+ * still sitting in `actionQueue` or actively dispatching -- i.e. it simply
+ * hasn't resolved yet, not that the server rejected it. Lets
+ * `topUpFromWaypoint` be called on every idle tick (instead of only once
+ * `actionQueue` is fully empty, which starves the waypoint behind a large
+ * manually-queued frontier batch) without miscounting "still waiting" as a
+ * no-progress retry.
+ */
+export const isWaypointStepStillPending = (
+  state: Pick<ClientState, "actionQueue" | "actionInFlight" | "actionTargetKey">,
+  stepKey: string
+): boolean => {
+  if (state.actionInFlight && state.actionTargetKey === stepKey) return true;
+  return state.actionQueue.some((entry) => `${entry.x},${entry.y}` === stepKey);
+};
+
+/**
  * Records one no-progress tick for the active waypoint: bumps the retry
  * counter and, once it crosses the threshold, halts the waypoint and rotates
  * it off the head of the queue.
