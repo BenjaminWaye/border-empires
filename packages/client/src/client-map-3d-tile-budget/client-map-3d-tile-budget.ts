@@ -67,7 +67,14 @@ export const tileBudgetOverride = (search: string): number | undefined => {
   return Math.min(TILE_BUDGET_OVERRIDE_MAX, Math.max(TILE_BUDGET_OVERRIDE_MIN, parsed));
 };
 
-export const resolveTileBudget = (minZoom: number): number => {
+// `floor` is normally MIN_TILE_BUDGET, but the degradation ladder
+// (client-map-3d-quality-tier.ts) passes 0 at its lowest tier so the budget
+// sizes to what the screen actually shows. That is a real saving, not a
+// gamble: a 390x844 phone at MIN_ZOOM needs ~3.6k tiles and the floor hands it
+// 6000, so a device that has already failed twice is being asked to allocate
+// 68% more instance memory than it can ever draw. The margin the floor buys is
+// worth having by default and worth spending when the alternative is no 3D.
+export const resolveTileBudget = (minZoom: number, floor: number = MIN_TILE_BUDGET): number => {
   if (typeof window === "undefined" || !window.screen) return MAX_TILE_BUDGET;
   const override = tileBudgetOverride(window.location?.search ?? "");
   if (override !== undefined) return override;
@@ -75,7 +82,7 @@ export const resolveTileBudget = (minZoom: number): number => {
     screenWidth: window.screen.width,
     screenHeight: window.screen.height,
     minZoom,
-    floor: MIN_TILE_BUDGET,
+    floor,
     cap: MAX_TILE_BUDGET
   });
 };

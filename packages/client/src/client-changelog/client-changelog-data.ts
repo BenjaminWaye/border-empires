@@ -282,6 +282,27 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The tile overview's \"First 3 towns\" line now stays in sync on every economy refresh, not just the rare full town rebuild"
     ]
+  },
+  {
+    createdAt: 1788028966835, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "Phones that couldn't run the 3D map now get a lighter 3D map instead of being dropped to 2D",
+    why: "When the 3D map crashed a phone's browser, every retry used the exact same settings as the attempt that just died -- the only thing that ever got made cheaper was for one narrow kind of crash. So a device would fail twice identically and then be parked on the 2D map permanently, having never been offered a 3D map small enough to actually run. A session that played fine for a while and was then killed by the OS taught it nothing at all.",
+    changes: [
+      "After a 3D crash the map now retries at reduced quality (no antialiasing, lower resolution), then at minimum quality, before falling back to 2D",
+      "At minimum quality the map only allocates as many tiles as your screen can actually show, instead of a fixed floor well above it",
+      "A session that ran fine and was then killed by the OS mid-play now also steps the map down a level on the next load"
+    ]
+  },
+  {
+    createdAt: 1788034981589, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.4",
+    title: "iPhones now start the 3D map at slightly lower quality to avoid a first-visit crash",
+    why: "iOS Safari is reported to enforce a much tighter memory ceiling on WebGL content than desktop or Android, and every previous fix only kicked in after a phone had already crashed once and reloaded -- meaning every iPhone player's very first visit ran at the configuration most likely to crash it, before the app had any evidence to react to.",
+    changes: [
+      "The 3D map on iPhone (and other iOS browsers) now starts without extra edge-smoothing on its very first attempt, instead of only backing off after a crash",
+      "A phone that proves it can run the full-quality 3D map is unaffected -- this only changes the untested first attempt"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
