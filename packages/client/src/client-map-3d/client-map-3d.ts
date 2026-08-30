@@ -72,6 +72,7 @@ import { createResourceOverlay, type ResourceKind } from "../client-map-3d-resou
 import { createAttackOverlay } from "../client-map-3d-attack-overlay.js";
 import { createSettleOverlay } from "../client-map-3d-settle-overlay/client-map-3d-settle-overlay.js";
 import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "../client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
+import { createAetherTowerOverlay } from "../client-map-3d-aether-tower-overlay.js";
 import {
   createContactShadowOverlay,
   DEFAULT_CONTACT_SHADOW_RADIUS_TILES,
@@ -224,6 +225,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // see the comment in client-map-3d-contact-shadow.ts.
   const contactShadowOverlay = createContactShadowOverlay(scene, MAX_VISIBLE_TILES);
   const structureOverlay = createStructureOverlay(scene, MAX_VISIBLE_TILES, contactShadowOverlay);
+  const aetherTowerOverlay = createAetherTowerOverlay(scene, MAX_VISIBLE_TILES);
   const defensibilityOverlay = createDefensibilityOverlay(scene, MAX_VISIBLE_TILES);
 
   // Visual-only demo: ?towndemo=1 fakes a row of 5 tiers near (camX, camY)
@@ -1267,6 +1269,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     // shared-ownership comment where contactShadowOverlay is constructed.
     contactShadowOverlay.clear();
     structureOverlay.clear();
+    aetherTowerOverlay.clear();
     defensibilityOverlay.clear();
     // Build the dock-endpoint key set the same way the 2D runtime loop
     // does, since `tile.dockId` is not reliably populated on every
@@ -1617,21 +1620,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             structureOverlay.addInstance(x, z, surfaceY, structureType as StructureKind, mineResourceHint);
           }
         }
-        // Observatory lives on its own tile field, not `economicStructure`.
-        // Render its mesh for any tile carrying an observatory record so
-        // under-construction and active states both show up — visual
-        // status differentiation can come later.
+        // Observatory lives on its own tile field, not `economicStructure`; any tile carrying a record renders (under-construction and active alike).
         if (tile?.observatory && terrain === "LAND") {
-          if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") structureOverlay.addInstance(x, z, surfaceY, "OBSERVATORY"); // Watchtower has its own wonder mesh below
-          // Float a "recharging" badge over our own active observatory
-          // while its crystal-casting cooldown is still running, so the
-          // map shows at a glance why a cast just did nothing. Exact
-          // remaining time is in the tile-menu overview.
-          if (
-            ownerId === deps.state.me &&
-            tile.observatory.status === "active" &&
-            (tile.observatory.cooldownUntil ?? 0) > Date.now()
-          ) {
+          if (tile.naturalWonder?.type !== "WATCHTOWER_ENGINE") { aetherTowerOverlay.addInstance(x, z, surfaceY, wx, wy); contactShadowOverlay.addShadow(x, z, surfaceY, DEFAULT_CONTACT_SHADOW_RADIUS_TILES); } // Watchtower has its own wonder mesh below
+          // "Recharging" badge while our own active observatory's crystal-casting cooldown is still running (exact time is in the tile-menu overview).
+          const cooldownActive = ownerId === deps.state.me && tile.observatory.status === "active" && (tile.observatory.cooldownUntil ?? 0) > Date.now();
+          if (cooldownActive) {
             observatoryCooldownBadgeOverlay.addInstance(x, z, surfaceY);
           }
         }
@@ -1835,6 +1829,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.commit();
     settleOverlay.commit();
     structureOverlay.commit();
+    aetherTowerOverlay.commit();
     contactShadowOverlay.commit();
     defensibilityOverlay.commit();
     const commitMs = performance.now() - commitStartAt;
@@ -2021,7 +2016,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncAegisLockFxQueue(); syncUnsettleFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs);
     crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: sceneOrigin.camX, camY: sceneOrigin.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY, toroidDelta });
     villageEffects.update(nowMs);
-    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs);
+    shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs); aetherTowerOverlay.update(nowMs);
     renderReachOverlay3DPylons(nowMs);
     frontierDecayPulse.render(Date.now(), ownershipOverlay); // epoch ms, matches frontierDecayAt
     aetherLanceFx.update(nowMs);
@@ -2140,6 +2135,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     attackOverlay.dispose();
     settleOverlay.dispose();
     structureOverlay.dispose();
+    aetherTowerOverlay.dispose();
     contactShadowOverlay.dispose();
     defensibilityOverlay.dispose();
     forest.dispose();
