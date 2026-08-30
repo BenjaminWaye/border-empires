@@ -60,7 +60,7 @@ const tileHash = (worldX: number, worldZ: number, salt: number, mod: number): nu
 
 export type Forest = {
   readonly clear: () => void;
-  readonly addInstance: (worldX: number, worldZ: number, surfaceY: number) => void;
+  readonly addInstance: (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number) => void;
   readonly commit: () => void;
   readonly dispose: () => void;
 };
@@ -100,7 +100,14 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
     trunkCount = 0;
   };
 
-  const addInstance = (worldX: number, worldZ: number, surfaceY: number): void => {
+  const addInstance = (sceneX: number, sceneZ: number, surfaceY: number, worldX: number, worldZ: number): void => {
+    // Hash on the tile's absolute WORLD position, not its scene-relative
+    // placement (sceneX/sceneZ) -- the scene anchor (sceneOrigin in
+    // client-map-3d.ts) only updates when a terrain rebuild commits, so the
+    // same world tile's sceneX/sceneZ drifts between rebuilds as the camera
+    // pans. Hashing on that drifting value reshuffled which tree
+    // variant/layout every visible tile got each time a rebuild fired --
+    // trees visibly flipping into a different arrangement mid-pan.
     const isSpruce = tileHash(worldX, worldZ, 11, 2) === 0;
     const layoutIdx = tileHash(worldX, worldZ, 7, LAYOUTS.length);
     const layout = LAYOUTS[layoutIdx]!;
@@ -113,7 +120,7 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
       if (trunkCount >= trunkMesh.count + maxInstances * 2) continue;
       scaleMatrix.makeScale(tree.trunkScale, tree.trunkScale, tree.trunkScale);
       tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(worldX + tree.ox, surfaceY + tree.trunkY, worldZ + tree.oz + TRUNK_Z_BIAS);
+      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + tree.trunkY, sceneZ + tree.oz + TRUNK_Z_BIAS);
       trunkMesh.setMatrixAt(trunkCount, tempMatrix);
       trunkCount += 1;
 
@@ -121,7 +128,7 @@ export const createForest = (scene: Scene, maxTiles: number): Forest => {
       if (canopyIdx >= maxInstances) continue;
       scaleMatrix.makeScale(tree.canopyScale, tree.canopyScale, tree.canopyScale);
       tempMatrix.copy(scaleMatrix);
-      tempMatrix.setPosition(worldX + tree.ox, surfaceY + tree.canopyY + canopyYAdjust, worldZ + tree.oz);
+      tempMatrix.setPosition(sceneX + tree.ox, surfaceY + tree.canopyY + canopyYAdjust, sceneZ + tree.oz);
       canopyMesh.setMatrixAt(canopyIdx, tempMatrix);
       if (isSpruce) spruceCount += 1;
       else pineCount += 1;

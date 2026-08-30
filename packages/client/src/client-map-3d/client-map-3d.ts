@@ -1508,7 +1508,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           continue;
         }
         if (forestTile) {
-          forest.addInstance(x, z, surfaceY);
+          forest.addInstance(x, z, surfaceY, wx, wy);
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
         }
         const realTier = tile?.town?.populationTier;

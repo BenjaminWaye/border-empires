@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788124049918, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "Fixed forest trees visibly reshuffling into a different arrangement while panning the 3D map",
+    why: "Which tree species and spacing layout a forest tile got was picked by hashing its on-screen position rather than its fixed world position -- so a tile's on-screen position drifting slightly as you panned (before the next terrain rebuild caught up) could flip it to a different species/layout, showing up as trees visibly popping into a different arrangement mid-pan.",
+    changes: [
+      "Forest tiles now keep the same tree species and layout regardless of camera position, instead of occasionally reshuffling while panning"
+    ]
+  },
+  {
     createdAt: 1788088003101, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.1",
     title: "Selecting a town, dock, or outpost-family structure now highlights its reach in green",
