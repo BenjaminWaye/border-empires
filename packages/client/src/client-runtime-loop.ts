@@ -3,7 +3,6 @@ import { updateMusicForGameState } from "./client-audio/client-audio.js";
 import { computeWarMusicSignals } from "./client-war-music-signal/client-war-music-signal.js";
 import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tracking.js";
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
-import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
 import { STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
@@ -17,8 +16,9 @@ import {
   fortificationOverlayAlphaForTile,
   fortificationOverlayKindForTile
 } from "./client-fortification-overlays/client-fortification-overlays.js";
-import { structureAreaPreviewForTile } from "./client-structure-effects/client-structure-effects.js";
 import { renderBuildingPlacementPreview2D } from "./client-placement-preview-2d/client-placement-preview-2d.js";
+import { renderSelectedStructureReachHighlight } from "./client-reach-overlay-structure-highlight/client-reach-overlay-structure-highlight.js";
+import { renderSelectedStructurePreview2D } from "./client-selected-structure-preview-2d/client-selected-structure-preview-2d.js";
 import type { initClientDom } from "./client-dom.js";
 import { buildRoadNetwork, type RoadDirections } from "./client-road-network/client-road-network.js";
 import { drawQueuedCornerBadge, queuedCornerBadgeLayout } from "./client-queue-badges/client-queue-badges.js";
@@ -1379,45 +1379,9 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
 
     const selectedWorld = deps.selectedTile();
-    if (!isTrue3DRendererActive() && selectedWorld && selectedWorld.observatory) {
-      const selectedVisibility = deps.tileVisibilityStateAt(selectedWorld.x, selectedWorld.y, selectedWorld);
-      if (
-        selectedVisibility === "visible" &&
-        selectedWorld.ownerId === state.me &&
-        selectedWorld.observatory.status === "active"
-      ) {
-        const center = deps.worldToScreen(selectedWorld.x, selectedWorld.y, size, halfW, halfH);
-        const effectiveRange = ownObservatoryRange(state);
-        const rangeRadius = effectiveRange + 0.5;
-        const squareSize = rangeRadius * 2 * size;
-        deps.ctx.save();
-        deps.ctx.strokeStyle = "rgba(106, 180, 255, 0.35)";
-        deps.ctx.fillStyle = "rgba(106, 180, 255, 0.02)";
-        deps.ctx.setLineDash([14, 10]);
-        deps.ctx.lineWidth = 2;
-        deps.ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
-        deps.ctx.fillRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
-        deps.ctx.restore();
-      }
-    }
-    const selectedStructurePreview = selectedWorld ? structureAreaPreviewForTile(selectedWorld) : undefined;
-    if (!isTrue3DRendererActive() && selectedWorld && selectedStructurePreview) {
-      const selectedVisibility = deps.tileVisibilityStateAt(selectedWorld.x, selectedWorld.y, selectedWorld);
-      if (selectedVisibility === "visible") {
-        const center = deps.worldToScreen(selectedWorld.x, selectedWorld.y, size, halfW, halfH);
-        const ringRadius = selectedStructurePreview.radius + 0.5;
-        const squareSize = ringRadius * 2 * size;
-        deps.ctx.save();
-        deps.ctx.strokeStyle = selectedStructurePreview.strokeStyle;
-        deps.ctx.fillStyle = selectedStructurePreview.fillStyle;
-        deps.ctx.setLineDash(selectedStructurePreview.lineDash);
-        deps.ctx.lineWidth = 2;
-        deps.ctx.strokeRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
-        deps.ctx.fillRect(center.sx - squareSize / 2, center.sy - squareSize / 2, squareSize, squareSize);
-        deps.ctx.restore();
-      }
-    }
+    if (!isTrue3DRendererActive()) renderSelectedStructurePreview2D(state, selectedWorld, deps, size, halfW, halfH);
 
+    if (!isTrue3DRendererActive()) renderSelectedStructureReachHighlight(state, deps, size, halfW, halfH);
     if (!isTrue3DRendererActive()) renderBuildingPlacementPreview2D(state, deps, size, halfW, halfH);
     // Covers the true-3D debug overlay write above plus the observatory-range,
     // structure-preview, and building-placement-preview overlays — named for
