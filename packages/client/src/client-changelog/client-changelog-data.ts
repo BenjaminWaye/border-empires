@@ -16,6 +16,25 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788088003101, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "Selecting a town, dock, or outpost-family structure now highlights its reach in green",
+    why: "The aggregate border overlay shows your empire's whole reach, but not what any single building actually contributes to it -- with several towns, docks, and beacons dotted around, it was hard to tell at a glance how far one specific structure's reach disk extends.",
+    changes: [
+      "Selecting a town, dock, or an outpost-family structure (Relay Beacon, Siege Outpost, Siege Tower, Dread Tower) now green-tints every tile within that structure's own reach disk on the 2D map"
+    ]
+  },
+  {
+    createdAt: 1788088263076, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.5",
+    title: "Relit the 3D map and fixed resource/town icons jittering while panning",
+    why: "The sun light sat well off to one side of the map's fixed camera angle, so the faces of buildings and terrain the camera actually looks at stayed shadowed no matter where you looked. Separately, the small badge/marker icon layer over the 3D view (resource, dock, and town icons) redrew on a slower, throttled cadence left over from the old full 2D map renderer -- fine when panning snapped a whole tile at a time, but visible as lag/jitter now that panning moves the camera continuously every frame.",
+    changes: [
+      "The 3D map's key light now shines from roughly the same direction the fixed camera looks, instead of off to one side, so building and terrain faces read lit instead of shadowed",
+      "Resource, dock, and town icons over the 3D map now redraw at close to full frame rate instead of a slower throttled cadence, so they no longer lag or jitter behind the terrain while panning"
+    ]
+  },
+  {
     createdAt: 1788088515738, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.1",
     title: "Settle Land now queues on a tile you're already expanding into",
