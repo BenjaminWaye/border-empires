@@ -825,7 +825,7 @@ export const buildGatewayInitPayload = (
           displayNameForSeedPlayer(currentPlayer.id, playerIdentity.playerName),
         tiles,
         incomePerMinute,
-        techs, manpowerCap: currentPlayer.manpowerCapSnapshot ?? 0,
+        techs, manpowerCap: Math.max(currentPlayer.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
         score
       };
     })
