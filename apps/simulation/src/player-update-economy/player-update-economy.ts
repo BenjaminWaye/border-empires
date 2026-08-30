@@ -254,40 +254,7 @@ export const townGoldPerMinuteForPlayer = (
   ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * mintworksCount;
 };
 
-// Refresh goldPerMinute/isFed on a town originally from buildTownSummary
-// (detected via the snapshot-only supportMax field) — between full rebuilds
-// the connected-town bonus re-enriches but goldPerMinute doesn't. Partial
-// test-fixture town stubs (no supportMax/supportCurrent) pass through untouched.
-export const refreshTownEconomyFields = (
-  town: NonNullable<DomainTileState["town"]>,
-  tile: DomainTileState,
-  player: EconomyPlayer,
-  tiles: ReadonlyMap<string, DomainTileState>,
-  fedTownKeys: ReadonlySet<string>,
-  firstThreeTownKeys?: ReadonlySet<string>,
-  connectedClearingHouseKeys?: readonly string[],
-  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
-): NonNullable<DomainTileState["town"]> => {
-  if (typeof town.supportMax !== "number" || typeof town.supportCurrent !== "number") return town;
-  if (tile.ownerId !== player.id) return town;
-  const isSettlement = town.populationTier === "SETTLEMENT" || !town.populationTier;
-  const goldPerMinute = isSettlement
-    ? SETTLEMENT_BASE_GOLD_PER_MIN * (player.mods?.income ?? 1) * PASSIVE_INCOME_MULT
-    : townGoldPerMinuteForPlayer(
-        player,
-        tile,
-        town,
-        tiles,
-        fedTownKeys,
-        firstThreeTownKeys,
-        connectedClearingHouseKeys,
-        dormantEconomicStructureKeys
-      );
-  // Re-stamp isFed from the fresh fed-key set (settlements always fed).
-  const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);
-  if (town.goldPerMinute === goldPerMinute && town.isFed === isFed) return town;
-  return { ...town, goldPerMinute, isFed };
-};
+export { refreshTownEconomyFields } from "./player-update-economy-refresh.js";
 
 export const buildPlayerUpdateEconomySnapshot = (
   player: DomainPlayer,
