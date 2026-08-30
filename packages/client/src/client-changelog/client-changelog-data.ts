@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788126287875, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.5",
+    title: "Tile debug download now includes dock connection-line diagnostics",
+    why: "Reports of a dock's yellow dashed connection line never appearing were hard to triage remotely -- there was no way to see, from a single tile, whether the dock actually has a paired-dock entry, whether the visibility gate was allowing it, or whether the sea-route pathfinder found a route.",
+    changes: [
+      "The tile debug download (dev/support tool, not a player-facing feature) now includes a dockDebug section on dock tiles with their pairing, visibility-gate result, and route status"
+    ]
+  },
+  {
     createdAt: 1788108392688, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.4",
     title: "You can now build a Palisade on a tile that already has a Relay Beacon",
