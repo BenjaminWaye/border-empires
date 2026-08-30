@@ -1017,7 +1017,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       !tile.fort &&
       !tile.siegeOutpost &&
       !tile.observatory &&
-      !tile.economicStructure &&
+      (!tile.economicStructure || hasRelayBeacon) &&
       // Normally masonry supersedes the Wooden Fort with the full Fort
       // upgrade below, but if a fresh Fort can't actually be built right now
       // (no free TITANIUM slot) keep Wooden Fort visible as the fallback rather
@@ -1044,12 +1044,12 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       tile.ownerId === state.me &&
       !tile.siegeOutpost &&
       !tile.observatory &&
-      (tile.fort || !tile.economicStructure || hasWoodenFort)
+      (tile.fort || !tile.economicStructure || hasWoodenFort || hasRelayBeacon)
     ) {
       const fortVariant = nextFortVariantForTile(state, tile);
       if (fortVariant) {
         const hasTech = tile.fort ? true : state.techIds.includes("masonry");
-        const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasWoodenFort;
+        const canUseTile = Boolean(tile.fort) || !tile.economicStructure || hasWoodenFort || hasRelayBeacon;
         const hasFreeSlots = hasFreeResourceSlots(state, fortVariant.variant, tile.fort?.variant);
         out.push({
           id: "build_fortification",

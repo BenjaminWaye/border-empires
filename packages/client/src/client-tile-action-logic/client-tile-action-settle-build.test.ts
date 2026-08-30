@@ -332,3 +332,38 @@ describe("Wooden Fort / Relay Beacon stay visible as a fallback when their upgra
     expect(upgrade?.disabledReason).toBe("Need a free UMBRITE slot");
   });
 });
+
+describe("Palisade / Fort builds on a tile with an existing Relay Beacon", () => {
+  const relayBeaconTile = (): Tile => ({
+    x: 3, y: 3, terrain: "LAND", ownerId: "me", ownershipState: "SETTLED",
+    economicStructure: { ownerId: "me", type: "RELAY_BEACON", status: "active" }
+  } as Tile);
+
+  it("shows build_wooden_fort (Build Palisade) on a Relay Beacon tile, matching the server's carve-out for replacing the beacon", () => {
+    const state = richState();
+    state.resourceSlots.supply.FOOD = 1;
+    const tile = relayBeaconTile();
+    state.tiles.set(keyFor(3, 3), tile);
+
+    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
+    const action = findAction(actions, "build_wooden_fort");
+    expect(action).toBeDefined();
+    expect(action?.label).toBe("Build Palisade");
+    expect(action?.disabled).not.toBe(true);
+  });
+
+  it("shows build_fortification (Build Fort) on a Relay Beacon tile once Ironclad Masonry is known -- Fort lives in a separate tile field and coexists with the beacon", () => {
+    const state = richState();
+    state.techIds = ["masonry"];
+    state.resourceSlots.supply.TITANIUM = 1;
+    const tile = relayBeaconTile();
+    state.tiles.set(keyFor(3, 3), tile);
+
+    const actions = menuActionsForSingleTile(state, tile, baseDeps as never);
+    const action = findAction(actions, "build_fortification");
+    expect(action).toBeDefined();
+    expect(action?.label).toBe("Build Fort");
+    expect(action?.disabled).not.toBe(true);
+    expect(action?.disabledReason).not.toBe("Tile already has structure");
+  });
+});
