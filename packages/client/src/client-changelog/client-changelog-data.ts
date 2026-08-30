@@ -314,6 +314,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The town's overview now shows a \"Sell Off gold\" modifier under a \"<count> <Building>\" heading for these buildings, matching how Mintworks and other support-ring buildings already show their contribution",
       "A converter built outside any town's support ring is unaffected -- its gold still pays out as separate empire income exactly as before"
     ]
+  },
+  {
+    createdAt: 1788091180198, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "Fixed the Gold Production stat not matching its own \"Sell Off gold\" modifier line",
+    why: "The tile popup's gold-production number and its \"MODIFIERS\" list are computed on two separate code paths in the gateway's tile-detail lookup. The modifiers list was already fixed to detect a support-ring converter correctly, but the gold-production number's own formula was never updated to include it, so the two figures on the same screen disagreed -- and a Refine-mode converter (which earns no gold) could incorrectly show a \"Sell Off gold\" line at all.",
+    changes: [
+      "A settled town tile's Gold Production number now includes a support-ring Sell Off converter's contribution, matching the modifier line below it",
+      "A converter in Refine mode no longer shows a \"Sell Off gold\" modifier it doesn't actually earn"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
