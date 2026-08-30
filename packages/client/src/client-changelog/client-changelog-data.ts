@@ -45,6 +45,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788107851889, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "Fixed waypoints stalling behind a large queue of manually-claimed tiles",
+    why: "A waypoint's next leg refused to enqueue at all while the frontier action queue held anything, so queuing up several individual tiles (adjacency/frontier-expansion clicks) alongside an active waypoint could stall it indefinitely -- the waypoint never got a turn as long as the player kept adding to the manual queue.",
+    changes: [
+      "An active waypoint now keeps advancing alongside manually-queued frontier tiles instead of waiting for that queue to fully drain"
+    ]
+  },
+  {
     createdAt: 1788036933966, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.4",
     title: "Panning the 3D map now glides instead of snapping tile by tile",
