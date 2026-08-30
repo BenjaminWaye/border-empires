@@ -48,6 +48,42 @@ describe("3d renderer host", () => {
     expect(isTrue3DRendererActive()).toBe(true);
   });
 
+  it("does not require gpuStats — a renderer that omits it still constructs fine", () => {
+    const host = hostWith({ create: () => ({ stop: () => undefined }) });
+
+    expect(() => host.ensure()).not.toThrow();
+    expect(isTrue3DRendererActive()).toBe(true);
+  });
+
+  it("does not read gpuStats synchronously — three.js's counts aren't populated until the first render", () => {
+    // Regression: renderer.info.memory/programs only increment inside an
+    // actual renderer.render() call, which client-map-3d.ts schedules via
+    // requestAnimationFrame at the end of construction. Reading gpuStats
+    // synchronously here would only ever record zeros.
+    const gpuStats = vi.fn(() => ({ geometries: 12, textures: 8, programs: 3 }));
+    const host = hostWith({ create: () => ({ stop: () => undefined, gpuStats }) });
+
+    host.ensure();
+
+    expect(gpuStats).not.toHaveBeenCalled();
+  });
+
+  it("records renderer.info counts onto the breadcrumb one frame after construction", async () => {
+    const gpuStats = vi.fn(() => ({ geometries: 12, textures: 8, programs: 3 }));
+    const host = hostWith({ create: () => ({ stop: () => undefined, gpuStats }) });
+
+    host.ensure();
+    // Flush the requestAnimationFrame the capture is deferred through.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    expect(gpuStats).toHaveBeenCalledTimes(1);
+    // previousRendererAttempt() is frozen at module import, so it can't see
+    // this session's own write — read storage directly instead.
+    const raw = window.localStorage.getItem(BREADCRUMB_KEY);
+    expect(raw).not.toBeNull();
+    expect(JSON.parse(raw ?? "{}")).toMatchObject({ gpuGeometries: 12, gpuTextures: 8, gpuPrograms: 3 });
+  });
+
   it("waits for readiness before constructing", () => {
     const create = vi.fn(() => ({ stop: () => undefined }));
     let ready = false;
@@ -153,7 +189,7 @@ describe("3d renderer host", () => {
   const brakedHost = async (create: () => FakeRenderer) => {
     window.localStorage.setItem(
       BREADCRUMB_KEY,
-      JSON.stringify({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 2 })
+      JSON.stringify({ atMs: 1, phase: "init-started", tileBudget: 14000, failedAttempts: 3 })
     );
     vi.resetModules();
     const { createThreeRendererHost: freshHost } = await import("./client-three-renderer-host.js");
@@ -165,7 +201,7 @@ describe("3d renderer host", () => {
     });
   };
 
-  it("refuses to attempt 3d again after it crashed the browser twice", async () => {
+  it("refuses to attempt 3d again after it crashed the browser at the bottom rung", async () => {
     // A killed tab runs no JS, so nothing can catch it — declining to repeat
     // the attempt is the only handling available, and it's what turns a
     // crash loop into a playable 2D game.
@@ -218,7 +254,7 @@ describe("3d renderer host", () => {
     host.ensure();
 
     const breadcrumb = JSON.parse(window.localStorage.getItem(BREADCRUMB_KEY) ?? "{}");
-    expect(breadcrumb.failedAttempts).toBeGreaterThanOrEqual(2);
+    expect(breadcrumb.failedAttempts).toBeGreaterThanOrEqual(3);
     expect(breadcrumb.phase).not.toBe("survived");
   });
 

@@ -15,21 +15,29 @@
 // of those devices for a 4x drawing buffer on top of that is how a sharpness
 // change turns into a crash-loop regression.
 //
-// So the ratio is capped, and backed off to 1 only when the breadcrumb shows
-// the *specific* memory-exhaustion signature: the previous attempt's phase is
-// still "init-started" — the tab died while allocating buffers, before it
-// could even record "init-completed". Every other phase backs off to nothing:
-// "init-completed" means allocation itself was fine last time, and
-// "survived" obviously was. A device that has shown it is short on GPU memory
-// keeps today's exact allocation; every other device gets the sharper buffer.
+// So the ratio is capped — and the cap itself is no longer fixed. It is now
+// supplied by the degradation ladder in client-map-3d-quality-tier.ts, which
+// reads the crash breadcrumb and hands down a lower cap each time a device
+// fails to keep 3D alive. This module's only remaining job is to reconcile
+// that cap with what the device reports.
 //
-// This module's first version backed off on *any* phase other than
-// "survived" — which includes "init-completed", the state a perfectly healthy
-// session leaves behind if it's shorter than the breadcrumb's own 8s
-// survival timer (SURVIVAL_MS in client-renderer-crash-breadcrumb.ts), or if
-// the tab is backgrounded before that timer fires, which mobile does
-// constantly. That treated routine short/backgrounded sessions as crashes and
-// silently capped pixel ratio back to 1 on devices that never had a problem.
+// The back-off decision used to live here, as a single boolean keyed on the
+// previous attempt's phase being "init-started" (the tab-died-during-
+// allocation shape). That was too narrow: it left every *other* kind of death
+// — including "init-completed", the phase an iPhone actually reports before
+// being killed — running at the full 2x ratio on every subsequent attempt,
+// until the crash-loop brake gave up on 3D entirely. The ladder now owns that
+// judgement across all the levers (ratio, MSAA, tile budget) instead of this
+// module owning one of them in isolation.
+//
+// Worth preserving from that first version, because it is still a live trap
+// for anyone extending the ladder: backing off on *any* phase other than
+// "survived" is wrong. "init-completed" is the state a perfectly healthy
+// session leaves behind if it's shorter than the breadcrumb's own 8s survival
+// timer (SURVIVAL_MS in client-renderer-crash-breadcrumb.ts), or if the tab is
+// backgrounded before that timer fires, which mobile does constantly. The
+// ladder keys off `failedAttempts` rather than phase alone for exactly this
+// reason.
 
 /** Beyond 2x the extra pixels cost 4x the fill rate for no visible gain. */
 export const MAX_PIXEL_RATIO = 2;
@@ -37,21 +45,19 @@ export const MAX_PIXEL_RATIO = 2;
 export type PixelRatioInput = {
   readonly devicePixelRatio: number;
   /**
-   * True only when the previous session's 3D attempt never got past
-   * "init-started" — the breadcrumb phase recorded immediately before
-   * allocation, and the one a tab killed mid-allocation leaves behind. False
-   * (or undefined, when there's no previous attempt to judge) covers every
-   * other case, including "init-completed", and counts as healthy.
+   * Upper bound from the quality tier (see client-map-3d-quality-tier.ts).
+   * Omitted means full quality, i.e. MAX_PIXEL_RATIO.
    */
-  readonly previousAttemptDiedDuringAllocation: boolean | undefined;
+  readonly maxPixelRatio?: number | undefined;
 };
 
-export const pixelRatioFor = ({ devicePixelRatio, previousAttemptDiedDuringAllocation }: PixelRatioInput): number => {
+export const pixelRatioFor = ({ devicePixelRatio, maxPixelRatio }: PixelRatioInput): number => {
   // A non-finite or nonsensical ratio means we can't trust the device's own
   // report; 1 is the value this renderer shipped with and is always safe.
   if (!Number.isFinite(devicePixelRatio) || devicePixelRatio <= 0) return 1;
-  // Stay at today's allocation on a device that showed the actual
-  // memory-exhaustion signature. Sharpness is not worth re-entering that.
-  if (previousAttemptDiedDuringAllocation === true) return 1;
-  return Math.min(devicePixelRatio, MAX_PIXEL_RATIO);
+  const cap =
+    maxPixelRatio !== undefined && Number.isFinite(maxPixelRatio) && maxPixelRatio > 0
+      ? Math.min(maxPixelRatio, MAX_PIXEL_RATIO)
+      : MAX_PIXEL_RATIO;
+  return Math.min(devicePixelRatio, cap);
 };

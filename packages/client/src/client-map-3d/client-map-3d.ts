@@ -1,5 +1,4 @@
 import {
-  BufferAttribute,
   BufferGeometry,
   Color,
   CylinderGeometry,
@@ -17,7 +16,7 @@ import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, AIRPORT_BOMBARD_RADIUS, MIN_ZOOM } from "../client-constants.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
-import { padTerrainWindow, requiredTerrainWindow, terrainWindowCovers, terrainWindowPanned, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
+import { padTerrainWindow, requiredTerrainWindow, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
 import { WATERWORKS_RADIUS } from "../client-structure-effects/client-structure-effects.js";
 import { createPlacementRangeOverlay } from "../client-map-3d-placement-overlay/client-map-3d-placement-overlay.js";
 
@@ -37,6 +36,10 @@ import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "../client
 import { createForest } from "../client-map-3d-forest.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
+import {
+  createBendingMarkerGeometry,
+  writeBendingMarkerCorners
+} from "../client-map-3d-bending-marker-geometry/client-map-3d-bending-marker-geometry.js";
 import { debugTileLog, debugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js";
 import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
@@ -58,6 +61,7 @@ import { createUnsettleFxLayer } from "../client-map-3d-unsettle-fx/client-map-3
 import { createAegisLockFxLayer } from "../client-map-3d-aegis-lock-fx/client-map-3d-aegis-lock-fx.js";
 import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-stats-fx/client-map-3d-reveal-empire-stats-fx.js";
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
+import { createFxCastOverlaySyncs } from "./client-map-3d-fx-cast-overlays.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge } from "../client-town-growth/client-town-growth.js";
 import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
@@ -237,11 +241,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   ];
   const isTownDemoTile = (
     wx: number,
-    wy: number
+    wy: number,
+    originX: number,
+    originY: number
   ): TownTier | undefined => {
     if (!townDemoEnabled) return undefined;
-    if (wy !== deps.state.camY) return undefined;
-    const dx = wx - deps.state.camX;
+    if (wy !== originY) return undefined;
+    const dx = wx - originX;
     if (dx < 0 || dx >= TOWN_DEMO_TIERS.length) return undefined;
     return TOWN_DEMO_TIERS[dx];
   };
@@ -267,11 +273,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   //                  — the left fort opens E, the right opens W.
   const fortDemoSpec = (
     wx: number,
-    wy: number
+    wy: number,
+    originX: number,
+    originY: number
   ): { kind: FortificationOverlayKind; opening: FortificationOpening } | undefined => {
     if (!fortDemoEnabled) return undefined;
-    if (wy === deps.state.camY + 2) {
-      const dx = wx - deps.state.camX;
+    if (wy === originY + 2) {
+      const dx = wx - originX;
       if (dx < 0) return undefined;
       if (dx % FORT_DEMO_SPACING !== 0) return undefined;
       const idx = dx / FORT_DEMO_SPACING;
@@ -280,8 +288,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       if (!kind) return undefined;
       return { kind, opening: "CLOSED" };
     }
-    if (wy === deps.state.camY + 5) {
-      const dx = wx - deps.state.camX;
+    if (wy === originY + 5) {
+      const dx = wx - originX;
       if (dx === 0) return { kind: "FORT", opening: "EAST" };
       if (dx === 1) return { kind: "FORT", opening: "WEST" };
     }
@@ -315,60 +323,12 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     { kind: "WORLD_ENGINE_PART_1" }, { kind: "WORLD_ENGINE_PART_2" }, { kind: "WORLD_ENGINE_PART_3" },
     { kind: "IMPERIAL_EXCHANGE_PART_1" }, { kind: "IMPERIAL_EXCHANGE_PART_2" }, { kind: "IMPERIAL_EXCHANGE_PART_3" }, { kind: "POPULATION_BUREAU_PART_1" }, { kind: "POPULATION_BUREAU_PART_2" }, { kind: "POPULATION_BUREAU_PART_3" }
   ];
-  const structureDemoEntryFor = (wx: number, wy: number): StructureDemoEntry | undefined => {
+  const structureDemoEntryFor = (wx: number, wy: number, originX: number, originY: number): StructureDemoEntry | undefined => {
     if (!structureDemoEnabled) return undefined;
-    if (wy !== deps.state.camY - 2) return undefined;
-    const dx = wx - deps.state.camX;
+    if (wy !== originY - 2) return undefined;
+    const dx = wx - originX;
     if (dx < 0 || dx >= STRUCTURE_DEMO_ENTRIES.length) return undefined;
     return STRUCTURE_DEMO_ENTRIES[dx];
-  };
-
-  // A bending tile-outline marker: 4 line segments connecting the four
-  // tile corners with each corner's actual rendered Y, so the outline
-  // bows along with the heightfield surface instead of floating as a
-  // flat square. Each marker mesh owns its own BufferGeometry so we can
-  // animate its 4 corners independently per frame.
-  const createBendingMarkerGeometry = (): BufferGeometry => {
-    const geom = new BufferGeometry();
-    // 4 line segments × 2 endpoints × 3 floats = 24 floats.
-    const positions = new Float32Array(24);
-    geom.setAttribute("position", new BufferAttribute(positions, 3));
-    return geom;
-  };
-  const writeBendingMarkerCorners = (
-    geom: BufferGeometry,
-    cx: number,
-    cy: number,
-    cz: number,
-    cornerY00: number,
-    cornerY10: number,
-    cornerY01: number,
-    cornerY11: number,
-    rise: number
-  ): void => {
-    const positionAttr = geom.getAttribute("position") as BufferAttribute;
-    const positions = positionAttr.array as Float32Array;
-    const x0 = cx - 0.48;
-    const x1 = cx + 0.48;
-    const z0 = cz - 0.48;
-    const z1 = cz + 0.48;
-    const y00 = cy + cornerY00 + rise;
-    const y10 = cy + cornerY10 + rise;
-    const y01 = cy + cornerY01 + rise;
-    const y11 = cy + cornerY11 + rise;
-    // NW → NE
-    positions[0] = x0; positions[1] = y00; positions[2] = z0;
-    positions[3] = x1; positions[4] = y10; positions[5] = z0;
-    // NE → SE
-    positions[6] = x1; positions[7] = y10; positions[8] = z0;
-    positions[9] = x1; positions[10] = y11; positions[11] = z1;
-    // SE → SW
-    positions[12] = x1; positions[13] = y11; positions[14] = z1;
-    positions[15] = x0; positions[16] = y01; positions[17] = z1;
-    // SW → NW
-    positions[18] = x0; positions[19] = y01; positions[20] = z0;
-    positions[21] = x0; positions[22] = y00; positions[23] = z0;
-    positionAttr.needsUpdate = true;
   };
 
   // Selection: saturated yellow (matches the 2D #ffd166 selection ring
@@ -620,6 +580,15 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // client-map-3d-terrain-window.ts). Separate from lastCameraApplied so the rebuild throttle
   // never delays the camera transform.
   const lastRebuild = { builtWindow: undefined as TerrainWindow | undefined, at: 0, tilesRevision: -1, crystalTargetingActive: false };
+  // Anchor every per-frame overlay's toroidDelta placement to the last COMMITTED
+  // rebuild's window (not the live camera): once maybeRebuild stops requiring an
+  // exact camX/camY match (padded hysteresis only), the camera can drift inside
+  // the pad between rebuilds, and baking overlays off live camX/camY again would
+  // reintroduce the "pylons separate from the ground" bug terrainWindowPanned
+  // used to exist to prevent. Updated only where a rebuild actually commits, in
+  // maybeRebuild below. The camera transform itself uses the live camX/camY
+  // delta from this origin (applyCamera) so panning still reads live.
+  const sceneOrigin = { camX: deps.state.camX, camY: deps.state.camY };
   let rafId: number | undefined;
   let lastOwnershipDebugSignature = "";
   const ownershipDebugWindow = (): (Window & { __be3dOwnershipDebug?: unknown }) | undefined =>
@@ -674,8 +643,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       marker.visible = false;
       return;
     }
-    const dx = toroidDelta(deps.state.camX, tile.x, WORLD_WIDTH);
-    const dy = toroidDelta(deps.state.camY, tile.y, WORLD_HEIGHT);
+    const dx = toroidDelta(sceneOrigin.camX, tile.x, WORLD_WIDTH);
+    const dy = toroidDelta(sceneOrigin.camY, tile.y, WORLD_HEIGHT);
     // Each corner of the marker is anchored to that corner's actual
     // rendered Y so the outline bends with the heightfield instead of
     // floating as a flat plane above bowing terrain.
@@ -734,8 +703,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           material.color.set("#ffcd5c");
           material.opacity = 0.84;
         }
-        const sx = toroidDelta(deps.state.camX, wx, WORLD_WIDTH);
-        const sy = toroidDelta(deps.state.camY, wy, WORLD_HEIGHT);
+        const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
+        const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
         const wxNext = deps.wrapX(wx + 1);
         const wyNext = deps.wrapY(wy + 1);
         marker.position.set(0, 0, 0);
@@ -803,8 +772,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         // Other-player tiles and frontier (unsettled) own tiles get a grey
         // coin too: they don't contribute, but the player can act on them.
         const contributes = tile?.ownerId === deps.state.me && tile.ownershipState === "SETTLED";
-        const sx = toroidDelta(deps.state.camX, wx, WORLD_WIDTH);
-        const sy = toroidDelta(deps.state.camY, wy, WORLD_HEIGHT);
+        const sx = toroidDelta(sceneOrigin.camX, wx, WORLD_WIDTH);
+        const sy = toroidDelta(sceneOrigin.camY, wy, WORLD_HEIGHT);
         const wxNext = deps.wrapX(wx + 1);
         const wyNext = deps.wrapY(wy + 1);
         const surfaceY = Math.max(
@@ -836,8 +805,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     for (const tile of tiles) {
       if (index >= pool.length) break;
       const { marker } = pool[index]!;
-      const dx = toroidDelta(deps.state.camX, tile.x, WORLD_WIDTH);
-      const dy = toroidDelta(deps.state.camY, tile.y, WORLD_HEIGHT);
+      const dx = toroidDelta(sceneOrigin.camX, tile.x, WORLD_WIDTH);
+      const dy = toroidDelta(sceneOrigin.camY, tile.y, WORLD_HEIGHT);
       const wx = deps.wrapX(tile.x);
       const wy = deps.wrapY(tile.y);
       const wxNext = deps.wrapX(tile.x + 1);
@@ -935,8 +904,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       flag.setQueueNumber(active ? undefined : i + 1);
       // Anchor the flag group at the destination tile's world-space
       // center, lifted to sit on the bowed heightfield surface.
-      const dx = toroidDelta(deps.state.camX, wp.target.x, WORLD_WIDTH);
-      const dy = toroidDelta(deps.state.camY, wp.target.y, WORLD_HEIGHT);
+      const dx = toroidDelta(sceneOrigin.camX, wp.target.x, WORLD_WIDTH);
+      const dy = toroidDelta(sceneOrigin.camY, wp.target.y, WORLD_HEIGHT);
       const surfaceY = waypointFlagSurfaceY(wp.target.x, wp.target.y);
       flag.group.position.set(dx + TILE_CENTER_OFFSET, surfaceY + MARKER_RISE_ABOVE_HEIGHTFIELD, dy + TILE_CENTER_OFFSET);
       flag.tick(nowMs);
@@ -962,8 +931,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const empireColor = deps.state.playerColors.get(deps.state.me) ?? "#7dd3fc";
     frontierClaimPlateMaterial.color.set(empireColor);
     frontierClaimPlateMaterial.opacity = FRONTIER_OPACITY;
-    const dxw = toroidDelta(deps.state.camX, capture.target.x, WORLD_WIDTH);
-    const dyw = toroidDelta(deps.state.camY, capture.target.y, WORLD_HEIGHT);
+    const dxw = toroidDelta(sceneOrigin.camX, capture.target.x, WORLD_WIDTH);
+    const dyw = toroidDelta(sceneOrigin.camY, capture.target.y, WORLD_HEIGHT);
     const wxNext = deps.wrapX(capture.target.x + 1);
     const wyNext = deps.wrapY(capture.target.y + 1);
     const surfaceY =
@@ -998,171 +967,51 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       4
     );
   };
-  const syncAetherLanceFxQueue = (): void => {
-    while (deps.state.aetherLanceFxQueue.length > 0) {
-      const cast = deps.state.aetherLanceFxQueue.shift()!;
-      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      aetherLanceFx.spawn(
-        sceneX,
-        sceneZ,
-        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
-      );
+  const {
+    syncAetherLanceFxQueue,
+    syncSurveySweepFxQueue,
+    syncSurveySweepPings,
+    syncSiphonFxQueue,
+    syncRetortRecastFxQueue,
+    syncRevealEmpireFxQueue,
+    syncRevealEmpireStatsFxQueue,
+    syncBombardFxQueue,
+    syncWorldEngineStrikeFxQueue,
+    syncWorldEngineStrikeShakeQueue,
+    syncImperialExchangeLevyFxQueue,
+    syncUnsettleFxQueue,
+    syncAstralDockLaunchFxQueue,
+    syncAegisLockFxQueue
+  } = createFxCastOverlaySyncs({
+    state: deps.state,
+    sceneOrigin,
+    aetherBridgeTileSurfaceY,
+    layers: {
+      aetherLanceFx,
+      surveySweepFx,
+      surveySweepPingOverlay,
+      siphonFx,
+      retortRecastFx,
+      revealEmpireFx,
+      revealEmpireStatsFx,
+      bombardFx,
+      worldEngineStrikeFx,
+      worldEngineShakeFx,
+      imperialExchangeLevyFx,
+      astralDockLaunchFx,
+      aegisLockFx,
+      unsettleFx
     }
-  };
-  const syncSurveySweepFxQueue = (): void => {
-    while (deps.state.surveySweepFxQueue.length > 0) {
-      const cast = deps.state.surveySweepFxQueue.shift()!;
-      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      surveySweepFx.spawn(
-        sceneX,
-        sceneZ,
-        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
-      );
-    }
-  };
-  const syncSurveySweepPings = (): void => {
-    const wallNowMs = Date.now();
-    surveySweepPingOverlay.beginFrame();
-    deps.state.surveySweepPings = filterAndLogSurveySweepPings(deps.state.surveySweepPings, wallNowMs, deps.state.camX, deps.state.camY, (x, y) => ({ sceneX: toroidDelta(deps.state.camX, x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(deps.state.camY, y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(x, y) + MARKER_RISE_ABOVE_HEIGHTFIELD }));
-    for (const ping of deps.state.surveySweepPings) {
-      const sceneX = toroidDelta(deps.state.camX, ping.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, ping.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      surveySweepPingOverlay.addPing(
-        ping.kind,
-        sceneX,
-        sceneZ,
-        aetherBridgeTileSurfaceY(ping.x, ping.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
-        wallNowMs,
-        ping.createdAt,
-        ping.expiresAt
-      );
-    }
-    surveySweepPingOverlay.commit();
-  };
-  const syncSiphonFxQueue = (): void => {
-    while (deps.state.siphonFxQueue.length > 0) {
-      const cast = deps.state.siphonFxQueue.shift()!;
-      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      siphonFx.spawn(
-        sceneX,
-        sceneZ,
-        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
-      );
-    }
-  };
-  const syncRetortRecastFxQueue = (): void => {
-    while (deps.state.retortRecastFxQueue.length > 0) {
-      const cast = deps.state.retortRecastFxQueue.shift()!;
-      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      retortRecastFx.spawn(
-        sceneX,
-        sceneZ,
-        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
-        cast.targetResource
-      );
-    }
-  };
-  const syncRevealEmpireFxQueue = (): void => {
-    while (deps.state.revealEmpireFxQueue.length > 0) {
-      const cast = deps.state.revealEmpireFxQueue.shift()!;
-      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      revealEmpireFx.spawn(
-        sceneX,
-        sceneZ,
-        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
-      );
-    }
-  };
-  const syncRevealEmpireStatsFxQueue = (): void => {
-    while (deps.state.revealEmpireStatsFxQueue.length > 0) {
-      const cast = deps.state.revealEmpireStatsFxQueue.shift()!;
-      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      revealEmpireStatsFx.spawn(
-        sceneX,
-        sceneZ,
-        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD
-      );
-    }
-  };
-  const syncBombardFxQueue = (): void => {
-    while (deps.state.bombardFxQueue.length > 0) {
-      const cast = deps.state.bombardFxQueue.shift()!;
-      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      bombardFx.spawn(
-        sceneX,
-        sceneZ,
-        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
-        cast.tiles
-      );
-    }
-  };
-  const syncWorldEngineStrikeFxQueue = (): void => {
-    while (deps.state.worldEngineStrikeFxQueue.length > 0) {
-      const cast = deps.state.worldEngineStrikeFxQueue.shift()!;
-      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      worldEngineStrikeFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
-    }
-  };
-  const syncWorldEngineStrikeShakeQueue = (nowMs: number): void => {
-    while (deps.state.worldEngineStrikeShakeQueue.length > 0) {
-      deps.state.worldEngineStrikeShakeQueue.shift();
-      worldEngineShakeFx.trigger(nowMs);
-    }
-  };
-  const syncImperialExchangeLevyFxQueue = (): void => {
-    while (deps.state.imperialExchangeLevyFxQueue.length > 0) {
-      const cast = deps.state.imperialExchangeLevyFxQueue.shift()!;
-      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      imperialExchangeLevyFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
-    }
-  };
-  const syncUnsettleFxQueue = (): void => {
-    while (deps.state.unsettleFxQueue.length > 0) {
-      const cast = deps.state.unsettleFxQueue.shift()!;
-      unsettleFx.spawn(toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
-    } };
-  const syncAstralDockLaunchFxQueue = (): void => {
-    while (deps.state.astralDockLaunchFxQueue.length > 0) {
-      const cast = deps.state.astralDockLaunchFxQueue.shift()!;
-      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      astralDockLaunchFx.spawn(sceneX, sceneZ, aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD);
-    }
-  };
-  const AEGIS_LOCK_FIELD_RADIUS_TILES = 30;
-  const AEGIS_LOCK_FIELD_DURATION_MS = 15 * 60_000;
-  const syncAegisLockFxQueue = (): void => {
-    while (deps.state.aegisLockFxQueue.length > 0) {
-      const cast = deps.state.aegisLockFxQueue.shift()!;
-      const sceneX = toroidDelta(deps.state.camX, cast.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const sceneZ = toroidDelta(deps.state.camY, cast.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      aegisLockFx.spawn(
-        sceneX,
-        sceneZ,
-        aetherBridgeTileSurfaceY(cast.x, cast.y) + MARKER_RISE_ABOVE_HEIGHTFIELD,
-        AEGIS_LOCK_FIELD_RADIUS_TILES,
-        AEGIS_LOCK_FIELD_DURATION_MS
-      );
-    }
-  };
+  });
   const syncAetherBridgePylons = (nowMs: number): void => {
     aetherBridgePylonOverlay.beginFrame();
     const now = Date.now();
     for (const bridge of deps.state.activeAetherBridges) {
       if (bridge.endsAt <= now) continue;
-      const fromX = toroidDelta(deps.state.camX, bridge.from.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const fromZ = toroidDelta(deps.state.camY, bridge.from.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
-      const toX = toroidDelta(deps.state.camX, bridge.to.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
-      const toZ = toroidDelta(deps.state.camY, bridge.to.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      const fromX = toroidDelta(sceneOrigin.camX, bridge.from.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const fromZ = toroidDelta(sceneOrigin.camY, bridge.from.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
+      const toX = toroidDelta(sceneOrigin.camX, bridge.to.x, WORLD_WIDTH) + TILE_CENTER_OFFSET;
+      const toZ = toroidDelta(sceneOrigin.camY, bridge.to.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET;
       // Rotate each pylon so its twin spires straddle the lane (the energy
       // gate opens toward the far coast).
       const faceAngle = Math.atan2(toX - fromX, toZ - fromZ);
@@ -1192,8 +1041,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const rangeGeometryInputs = {
       selectedX: selectedTile.x,
       selectedY: selectedTile.y,
-      camX: deps.state.camX,
-      camY: deps.state.camY,
+      camX: sceneOrigin.camX,
+      camY: sceneOrigin.camY,
       radius,
       worldWidth: WORLD_WIDTH,
       worldHeight: WORLD_HEIGHT,
@@ -1252,8 +1101,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const rangeGeometryInputs = {
       selectedX: selectedTile.x,
       selectedY: selectedTile.y,
-      camX: deps.state.camX,
-      camY: deps.state.camY,
+      camX: sceneOrigin.camX,
+      camY: sceneOrigin.camY,
       radius,
       worldWidth: WORLD_WIDTH,
       worldHeight: WORLD_HEIGHT,
@@ -1282,11 +1131,49 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     writeAirportRangeGeometry(airportRangeMarker, airportRangeFill, selectedTile, AIRPORT_BOMBARD_RADIUS);
   };
 
+  // Dirty-check inputs for applyCamera(): worldToScreen/worldTileRawFromPointer
+  // (below) call applyCamera() before every use to stay correct regardless of
+  // which requestAnimationFrame loop calls them first (see freshWorldToScreen's
+  // comment) -- but client-runtime-loop.ts's 2D HUD calls worldToScreen once per
+  // visible tile, every frame, and applyPerspectiveCamera does a real
+  // camera.lookAt + updateProjectionMatrix + updateMatrixWorld(true). Skipping
+  // the recompute when nothing it depends on has changed since the last call
+  // turns that from O(visible tiles) back into O(1) per frame.
+  const lastCameraInputs = { zoom: Number.NaN, width: -1, height: -1, camX: Number.NaN, camY: Number.NaN, camSubX: Number.NaN, camSubY: Number.NaN, sceneOriginCamX: Number.NaN, sceneOriginCamY: Number.NaN };
   const applyCamera = (): void => {
+    const width = deps.canvas.width;
+    const height = deps.canvas.height;
+    const { zoom, camX, camY, camSubX, camSubY } = deps.state;
+    const unchanged =
+      lastCameraInputs.zoom === zoom &&
+      lastCameraInputs.width === width &&
+      lastCameraInputs.height === height &&
+      lastCameraInputs.camX === camX &&
+      lastCameraInputs.camY === camY &&
+      lastCameraInputs.camSubX === camSubX &&
+      lastCameraInputs.camSubY === camSubY &&
+      lastCameraInputs.sceneOriginCamX === sceneOrigin.camX &&
+      lastCameraInputs.sceneOriginCamY === sceneOrigin.camY;
+    if (unchanged) return;
+    lastCameraInputs.zoom = zoom;
+    lastCameraInputs.width = width;
+    lastCameraInputs.height = height;
+    lastCameraInputs.camX = camX;
+    lastCameraInputs.camY = camY;
+    lastCameraInputs.camSubX = camSubX;
+    lastCameraInputs.camSubY = camSubY;
+    lastCameraInputs.sceneOriginCamX = sceneOrigin.camX;
+    lastCameraInputs.sceneOriginCamY = sceneOrigin.camY;
+    // camSubX/camSubY (client-map-input.ts) are the in-progress drag's sub-tile
+    // fraction in [0, 1) -- camX/camY themselves stay whole tiles for every other
+    // consumer. Added directly (not toroidal: always small, never needs wrapping)
+    // so the camera glides continuously through a tile instead of snapping.
     applyPerspectiveCamera(camera, {
-      zoom: deps.state.zoom,
-      canvasWidth: deps.canvas.width,
-      canvasHeight: deps.canvas.height
+      zoom,
+      canvasWidth: width,
+      canvasHeight: height,
+      offsetX: toroidDelta(sceneOrigin.camX, camX, WORLD_WIDTH) + camSubX,
+      offsetZ: toroidDelta(sceneOrigin.camY, camY, WORLD_HEIGHT) + camSubY
     });
   };
 
@@ -1327,7 +1214,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const heightfieldStartAt = performance.now();
     heightfield.rebuild({ ...sharedTerrainWindow, isForestAt: isForestTile, isHillsAt: isHillsTile });
     hillTerrain.rebuild({ ...sharedTerrainWindow, isHillsAt: isHillsTile });
-    riverOverlay.rebuild({ camX: deps.state.camX, camY: deps.state.camY, halfW, halfH, isExploredAt: isExploredForHeightfield });
+    riverOverlay.rebuild({ camX: window.camX, camY: window.camY, halfW, halfH, isExploredAt: isExploredForHeightfield });
     const heightfieldMs = performance.now() - heightfieldStartAt;
 
     mountainMassifs.clear();
@@ -1625,7 +1512,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           contactShadowOverlay.addShadow(x, z, surfaceY, SMALL_CONTACT_SHADOW_RADIUS_TILES);
         }
         const realTier = tile?.town?.populationTier;
-        const demoTier = isTownDemoTile(wx, wy);
+        const demoTier = isTownDemoTile(wx, wy, window.camX, window.camY);
         const renderedTier: TownTier | undefined = realTier ?? demoTier;
         if (renderedTier && terrain === "LAND") {
           townOverlay.addInstance(x, z, surfaceY, renderedTier);
@@ -1759,7 +1646,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
           const advance = tile.muster.mode === "ADVANCE";
           musterOverlay.addMuster(x, z, surfaceY, fillRatio, ownerColor, advance, wx, wy);
         }
-        const demoStructureEntry = structureDemoEntryFor(wx, wy);
+        const demoStructureEntry = structureDemoEntryFor(wx, wy, window.camX, window.camY);
         if (demoStructureEntry && terrain === "LAND") {
           if (demoStructureEntry.kind === "UMBRITE_RIG") {
             umbriteExtractionRigOverlay.addInstance(x, z, surfaceY, wx, wy);
@@ -1808,7 +1695,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
             contactShadowOverlay.addShadow(x, z, surfaceY, LARGE_CONTACT_SHADOW_RADIUS_TILES);
           }
         }
-        const demoFort = fortDemoSpec(wx, wy);
+        const demoFort = fortDemoSpec(wx, wy, window.camX, window.camY);
         if (demoFort && terrain === "LAND") {
           if (demoFort.kind === "RELAY_BEACON") {
             relayBeaconOverlay.addInstance(x, z, surfaceY, wx, wy);
@@ -1905,7 +1792,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
         }
       }
     }
-    populateShardRainBadgeInstances(shardRainBadgeOverlay, deps.state.shardRainStatus, { camX: deps.state.camX, camY: deps.state.camY, halfW, halfH, elevationAt: heightfield.elevationAt, tiles: deps.state.tiles }); const perTileLoopMs = performance.now() - perTileLoopStartAt;
+    populateShardRainBadgeInstances(shardRainBadgeOverlay, deps.state.shardRainStatus, { camX: window.camX, camY: window.camY, halfW, halfH, elevationAt: heightfield.elevationAt, tiles: deps.state.tiles }); const perTileLoopMs = performance.now() - perTileLoopStartAt;
 
     // Aether Survey Line live pylons/segments are placed every frame now
     // (see renderReachOverlay3DPylons, called unconditionally from
@@ -1964,12 +1851,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     });
   };
 
-  // A trailing-edge throttle floor for rebuildVisibleTerrain(): terrainWindowCovers/
-  // terrainWindowPanned (client-map-3d-terrain-window.ts) suppress rebuilds during a zoom that
-  // doesn't need new tiles, but every pan forces one every frame it moves, so continuous dragging
-  // still needs a backstop against back-to-back rebuilds. Not a dropped-update risk: rebuildNeeded
-  // stays true on every subsequent frame until the floor opens (lastRebuild.at only advances on an
-  // actual rebuild), so the next frame after motion settles always rebuilds against current state.
+  // A trailing-edge throttle floor for rebuildVisibleTerrain(): terrainWindowCovers's padded
+  // hysteresis (client-map-3d-terrain-window.ts) already suppresses most rebuilds during a pan or
+  // zoom that doesn't need new tiles outside the pad, but a fast pan/zoom that keeps crossing the
+  // pad boundary can still request rebuilds back to back, so continuous dragging needs a backstop.
+  // Not a dropped-update risk: rebuildNeeded stays true on every subsequent frame until the floor
+  // opens (lastRebuild.at only advances on an actual rebuild), so the next frame after motion
+  // settles always rebuilds against current state.
   const REBUILD_MIN_INTERVAL_MS = 48;
 
   // Places this frame's live Aether Survey Line pylons/segments, animating
@@ -2037,8 +1925,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       // corner is at grid position x exactly) -- no TILE_CENTER_OFFSET
       // added here.
       for (const pf of pylonFrames.values()) {
-        const sx = toroidDelta(deps.state.camX, pf.x, WORLD_WIDTH);
-        const sz = toroidDelta(deps.state.camY, pf.y, WORLD_HEIGHT);
+        const sx = toroidDelta(sceneOrigin.camX, pf.x, WORLD_WIDTH);
+        const sz = toroidDelta(sceneOrigin.camY, pf.y, WORLD_HEIGHT);
         const v = resolveBorderContactVisual(borderContactState.pylonKeys.has(pointKey(pf)), deps.effectiveOverlayColor(pf.ownerId), pf.laserFraction, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT);
         reachOverlay3D.addPylon(sx, sz, surfaceYForCorner(pf.x, pf.y), 1, nowMs, v.color, pf.riseFraction, v.laser);
       }
@@ -2046,10 +1934,10 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       for (const sf of segmentFrames.values()) {
         for (const piece of splitSegmentByContact({ x: sf.fx, y: sf.fy }, { x: sf.tx, y: sf.ty }, borderContactState.seams)) {
           const v = resolveBorderContactVisual(piece.atContact, deps.effectiveOverlayColor(sf.ownerId), sf.laserFraction, BORDER_CONTACT_BEAM_COLOR, BORDER_CONTACT_OPACITY_MULT);
-          reachOverlay3D.addLineSegment(toroidDelta(deps.state.camX, piece.from.x, WORLD_WIDTH), toroidDelta(deps.state.camY, piece.from.y, WORLD_HEIGHT), surfaceYForCorner(piece.from.x, piece.from.y), toroidDelta(deps.state.camX, piece.to.x, WORLD_WIDTH), toroidDelta(deps.state.camY, piece.to.y, WORLD_HEIGHT), surfaceYForCorner(piece.to.x, piece.to.y), v.color, v.laser, sf.riseFraction, sf.riseFraction);
+          reachOverlay3D.addLineSegment(toroidDelta(sceneOrigin.camX, piece.from.x, WORLD_WIDTH), toroidDelta(sceneOrigin.camY, piece.from.y, WORLD_HEIGHT), surfaceYForCorner(piece.from.x, piece.from.y), toroidDelta(sceneOrigin.camX, piece.to.x, WORLD_WIDTH), toroidDelta(sceneOrigin.camY, piece.to.y, WORLD_HEIGHT), surfaceYForCorner(piece.to.x, piece.to.y), v.color, v.laser, sf.riseFraction, sf.riseFraction);
         }
       }
-      borderDustFx.setSeams(borderContactSeamsToDustSeams(borderContactState.seams, { toroidDelta, camX: deps.state.camX, camY: deps.state.camY, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, surfaceYForCorner, effectiveOverlayColor: deps.effectiveOverlayColor }));
+      borderDustFx.setSeams(borderContactSeamsToDustSeams(borderContactState.seams, { toroidDelta, camX: sceneOrigin.camX, camY: sceneOrigin.camY, worldWidth: WORLD_WIDTH, worldHeight: WORLD_HEIGHT, surfaceYForCorner, effectiveOverlayColor: deps.effectiveOverlayColor }));
     } else { borderDustFx.setSeams([]); }
     reachOverlay3D.commitPylons();
   };
@@ -2060,7 +1948,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const sizeChanged = width !== lastCameraApplied.width || height !== lastCameraApplied.height;
     const zoomChanged = deps.state.zoom !== lastCameraApplied.zoom;
     if (sizeChanged) resize();
-    else if (zoomChanged) applyCamera();
     if (sizeChanged || zoomChanged) {
       lastCameraApplied.zoom = deps.state.zoom;
       lastCameraApplied.width = width;
@@ -2069,20 +1956,36 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
 
     const ctActiveNow = deps.state.crystalTargeting.active;
     const requiredWindow = requiredTerrainWindow({ zoom: deps.state.zoom, canvasWidth: width, canvasHeight: height, camX: deps.state.camX, camY: deps.state.camY });
+    // Padded hysteresis only — no more exact-camX/camY-match requirement. The
+    // camera's own offsetX/offsetZ (applyCamera, below) carries the visual pan
+    // while the terrain/overlay anchor (sceneOrigin) only jumps when a rebuild
+    // actually commits, so the camera can drift inside the pad without forcing
+    // one. See client-map-3d-terrain-window.ts's terrainWindowCovers.
     const rebuildNeeded =
-      terrainWindowPanned(lastRebuild.builtWindow, requiredWindow) ||
       !terrainWindowCovers(lastRebuild.builtWindow, requiredWindow, WORLD_WIDTH, WORLD_HEIGHT) ||
       deps.state.tilesRevision !== lastRebuild.tilesRevision ||
       ctActiveNow !== lastRebuild.crystalTargetingActive;
-    if (!rebuildNeeded) return;
-    if (lastRebuild.at !== 0 && nowMs - lastRebuild.at < REBUILD_MIN_INTERVAL_MS) return;
-    const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
-    const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);
-    rebuildVisibleTerrain(builtWindow); if (isFirstRebuild) markRendererFirstRenderCompleted();
-    lastRebuild.builtWindow = builtWindow;
-    lastRebuild.at = nowMs;
-    lastRebuild.tilesRevision = deps.state.tilesRevision;
-    lastRebuild.crystalTargetingActive = ctActiveNow;
+    if (rebuildNeeded && (lastRebuild.at === 0 || nowMs - lastRebuild.at >= REBUILD_MIN_INTERVAL_MS)) {
+      const isFirstRebuild = lastRebuild.at === 0; if (isFirstRebuild) markRendererFirstRenderStarted();
+      const builtWindow = padTerrainWindow(requiredWindow, MAX_VISIBLE_TILES);
+      rebuildVisibleTerrain(builtWindow); if (isFirstRebuild) markRendererFirstRenderCompleted();
+      lastRebuild.builtWindow = builtWindow;
+      lastRebuild.at = nowMs;
+      lastRebuild.tilesRevision = deps.state.tilesRevision;
+      lastRebuild.crystalTargetingActive = ctActiveNow;
+      sceneOrigin.camX = builtWindow.camX;
+      sceneOrigin.camY = builtWindow.camY;
+    }
+    // Applied last, using this frame's FINAL sceneOrigin (post-rebuild if one just
+    // committed above): applying it before a same-frame rebuild would frame the
+    // camera against the stale pre-rebuild anchor while the terrain just re-baked
+    // to the new one, showing old and new terrain geometry misaligned for a frame
+    // — most visible at low zoom (near-zero rebuild pad there, so this could fire
+    // several frames in a row) where it read as terrain briefly "duplicating".
+    // Re-applied every frame, not just on zoom/resize, since the offset itself
+    // (live camX/camY vs sceneOrigin) changes on every pan frame even when no
+    // rebuild fires.
+    applyCamera();
   };
 
   const renderLoop = (): void => {
@@ -2101,7 +2004,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncSweepRangeMarker();
     syncWaterworksRangeMarker();
     syncAirportRangeMarker();
-    placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y) });
+    placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
     syncSurveySweepFxQueue();
@@ -2115,8 +2018,8 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncWorldEngineStrikeShakeQueue(nowMs);
     syncImperialExchangeLevyFxQueue();
     syncAstralDockLaunchFxQueue();
-    syncAegisLockFxQueue(); syncUnsettleFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(deps.state.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(deps.state.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs);
-    crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: deps.state.camX, camY: deps.state.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY, toroidDelta });
+    syncAegisLockFxQueue(); syncUnsettleFxQueue(); onboardingChecklistHighlightOverlay.sync(deps.state.onboardingHighlightTiles.map((t) => ({ sceneX: toroidDelta(sceneOrigin.camX, t.x, WORLD_WIDTH) + TILE_CENTER_OFFSET, sceneZ: toroidDelta(sceneOrigin.camY, t.y, WORLD_HEIGHT) + TILE_CENTER_OFFSET, surfaceY: aetherBridgeTileSurfaceY(t.x, t.y) + MARKER_RISE_ABOVE_HEIGHTFIELD })), nowMs);
+    crystalTargetingOverlay.sync({ ct: deps.state.crystalTargeting, hover: deps.state.hover, selected: deps.state.selected, keyFor: deps.keyFor, camX: sceneOrigin.camX, camY: sceneOrigin.camY, cornerYAt: heightfield.cornerYAt.bind(heightfield), tileSurfaceY: aetherBridgeTileSurfaceY, toroidDelta });
     villageEffects.update(nowMs);
     shardOverlay.update(nowMs); watchtowerOverlay.update(nowMs); naturalWonderOverlays.update(nowMs); relayBeaconOverlay.update(nowMs); tradeNexusOverlay.update(nowMs); structureOverlay.update(nowMs); umbriteWeaponsFactoryOverlay.update(nowMs); reachOverlay3D.update(nowMs);
     renderReachOverlay3DPylons(nowMs);
@@ -2141,16 +2044,21 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     observatoryCooldownBadgeOverlay.tick(nowMs);
     upgradeReadyBadgeOverlay.tick(nowMs);
     musterOverlay.tick(nowMs);
-    syncBattleOverlayFx(deps.state, deps.keyFor, heightfield, deps.effectiveOverlayColor, battleOverlayFx, nowMs);
+    syncBattleOverlayFx(deps.state, deps.keyFor, heightfield, deps.effectiveOverlayColor, battleOverlayFx, nowMs, sceneOrigin.camX, sceneOrigin.camY);
     supplyLineOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
 
+  // state here is sceneOrigin, not deps.state: the camera is positioned relative to
+  // sceneOrigin (applyCamera's offsetX/offsetZ), and every overlay places itself off
+  // sceneOrigin too (see the toroidDelta(sceneOrigin.camX/camY, ...) calls above) — so
+  // a raycast against the live camera has to resolve tile identity the same way, or a
+  // fixed screen point would appear to pick a different tile than what's drawn there.
   const { worldTileRawFromPointer, worldToScreen } = createPointerPick({
     camera,
     canvas: deps.canvas,
-    state: deps.state,
+    state: sceneOrigin,
     worldWidth: WORLD_WIDTH,
     worldHeight: WORLD_HEIGHT
   });
@@ -2251,10 +2159,37 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   resize();
   rafId = requestAnimationFrame(renderLoop);
 
+  // worldToScreen/worldTileRawFromPointer are also called from client-runtime-loop.ts's
+  // OWN requestAnimationFrame loop (the 2D canvas HUD that draws resource/dock/anchor
+  // icons on top of the 3D view, wired via client-bootstrap.ts's projectedWorldToScreen).
+  // That's a second, independent rAF chain from this module's renderLoop -- browsers run
+  // rAF callbacks in registration order within a frame, so the HUD's callback can run
+  // BEFORE this module's renderLoop has called applyCamera() for that frame, reading the
+  // PREVIOUS frame's camera.position/matrixWorld. Before the camera moved every frame to
+  // carry panning (offsetX/offsetZ from sceneOrigin), that staleness was invisible --
+  // camera.position was otherwise constant between zoom/resize events. Now it visibly
+  // lags the WebGL terrain by a frame during a pan. Refresh the camera synchronously
+  // before every external read so correctness doesn't depend on rAF registration order.
+  const freshWorldTileRawFromPointer: typeof worldTileRawFromPointer = (offsetX, offsetY) => {
+    applyCamera();
+    return worldTileRawFromPointer(offsetX, offsetY);
+  };
+  const freshWorldToScreen: typeof worldToScreen = (wx, wy) => {
+    applyCamera();
+    return worldToScreen(wx, wy);
+  };
+
   return {
     resize,
     stop,
-    worldTileRawFromPointer,
-    worldToScreen
+    worldTileRawFromPointer: freshWorldTileRawFromPointer,
+    worldToScreen: freshWorldToScreen,
+    // See client-renderer-crash-breadcrumb.ts recordRendererGpuStats: the only
+    // real allocation data available for a device we can't reach directly.
+    gpuStats: () => ({
+      geometries: renderer.info.memory.geometries,
+      textures: renderer.info.memory.textures,
+      programs: renderer.info.programs?.length ?? 0
+    })
   };
 };

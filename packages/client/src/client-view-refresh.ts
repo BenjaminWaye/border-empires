@@ -89,16 +89,20 @@ export const resetCameraSaveThrottleForTests = (): void => {
   lastCameraSaveAt = 0;
 };
 
-export const centerOnOwnedTile = (state: Pick<ClientState, "tiles" | "me" | "homeTile" | "camX" | "camY">): void => {
+export const centerOnOwnedTile = (state: Pick<ClientState, "tiles" | "me" | "homeTile" | "camX" | "camY" | "camSubX" | "camSubY">): void => {
   const own = [...state.tiles.values()].find((tile) => tile.ownerId === state.me);
   if (own) {
     state.camX = own.x;
     state.camY = own.y;
+    state.camSubX = 0;
+    state.camSubY = 0;
     return;
   }
   if (state.homeTile) {
     state.camX = state.homeTile.x;
     state.camY = state.homeTile.y;
+    state.camSubX = 0;
+    state.camSubY = 0;
   }
 };
 

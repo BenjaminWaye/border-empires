@@ -903,8 +903,8 @@ export const renderClientHud = (deps: HudDeps): void => {
       const x = Number(btn.dataset.feedFocusX);
       const y = Number(btn.dataset.feedFocusY);
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-      state.camX = wrapX(x);
-      state.camY = wrapY(y);
+      state.camX = wrapX(x); state.camY = wrapY(y);
+      state.camSubX = 0; state.camSubY = 0;
       state.selected = { x: wrapX(x), y: wrapY(y) };
       requestViewRefresh();
       renderClientHud(deps);
