@@ -933,15 +933,12 @@ export const dockGoldOutputMultiplierForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">
 ): number => multiplicativeEffectForPlayer(player, "dockGoldOutputMult");
 
-export { firstThreeTownKeysForPlayer } from "./economy-network-first-three-towns.js";
-
-export const firstThreeTownsGoldOutputMultiplierForPlayer = (
-  player: Pick<DomainPlayer, "techIds" | "domainIds">
-): number => multiplicativeEffectForPlayer(player, "firstThreeTownsGoldOutputMult");
-
-export const firstThreeTownsPopulationGrowthMultiplierForPlayer = (
-  player: Pick<DomainPlayer, "techIds" | "domainIds">
-): number => multiplicativeEffectForPlayer(player, "firstThreeTownsPopulationGrowthMult");
+export {
+  firstThreeTownKeysForPlayer,
+  firstThreeTownsGoldOutputMultiplierForPlayer,
+  firstThreeTownsPopulationGrowthMultiplierForPlayer,
+  firstThreeTownMultipliersForTile
+} from "./economy-network-first-three-towns.js";
 
 export const dockConnectionBonusPerLinkForPlayer = (
   player: Pick<DomainPlayer, "techIds" | "domainIds">

@@ -1,5 +1,8 @@
-// firstThreeTownKeysForPlayer split out of economy-network.ts to keep that
-// file under the repo's 500-line cap.
+// Mercantile Charter (and any future firstThreeTowns* domain/tech) split
+// out of economy-network.ts to keep that file under the repo's 500-line
+// cap.
+import type { DomainPlayer } from "@border-empires/game-domain";
+import { multiplicativeEffectForPlayer } from "../tech-domain-bridge/tech-domain-bridge.js";
 
 /**
  * Returns the keys of the player's first three settled CITIES (SETTLEMENT
@@ -31,4 +34,43 @@ export const firstThreeTownKeysForPlayer = (
     if (result.size >= 3) break;
   }
   return result;
+};
+
+export const firstThreeTownsGoldOutputMultiplierForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): number => multiplicativeEffectForPlayer(player, "firstThreeTownsGoldOutputMult");
+
+export const firstThreeTownsPopulationGrowthMultiplierForPlayer = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">
+): number => multiplicativeEffectForPlayer(player, "firstThreeTownsPopulationGrowthMult");
+
+/**
+ * Single source of truth for "is this specific tile one of the owner's
+ * first three towns, and if so what do its gold/growth multipliers come
+ * out to" — every call site that needs either the real math (folding the
+ * multiplier into goldPerMinute/populationGrowthPerMinute) or the wire
+ * display fields (firstThreeTownGoldMult/firstThreeTownPopGrowthMult the
+ * tile overview reads) MUST go through this function instead of
+ * independently checking `firstThreeTownKeys.has(tileKey)` and calling the
+ * multiplier lookups themselves.
+ *
+ * This is a direct response to the bug history here: the math and the wire
+ * display field were computed by two separate call sites that drifted out
+ * of sync twice in a row (the display field was never stamped at all, then
+ * stamped only on a rare full rebuild) before either path was wrong on its
+ * own eligibility rule (a bare settlement counted as a "town"). Routing
+ * both consumers through one function makes that drift structurally
+ * impossible instead of a matter of remembering to update both sites.
+ */
+export const firstThreeTownMultipliersForTile = (
+  player: Pick<DomainPlayer, "techIds" | "domainIds">,
+  firstThreeTownKeys: ReadonlySet<string> | undefined,
+  tileKey: string
+): { isFirstThree: boolean; goldMult: number; popGrowthMult: number } => {
+  const isFirstThree = firstThreeTownKeys?.has(tileKey) ?? false;
+  return {
+    isFirstThree,
+    goldMult: isFirstThree ? firstThreeTownsGoldOutputMultiplierForPlayer(player) : 1,
+    popGrowthMult: isFirstThree ? firstThreeTownsPopulationGrowthMultiplierForPlayer(player) : 1
+  };
 };

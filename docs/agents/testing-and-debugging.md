@@ -32,6 +32,41 @@ PROD_SHAPE_GATE_RESULT_JSON=docs/load-results/prod-shape-candidate.json \
   pnpm ops:prod-shape:verify --target-sha "$(git rev-parse HEAD)"
 ```
 
+## Modifiers that affect town/player economy: prove the number, not just the field
+
+A modifier (a domain, tech, or building bonus) that changes gold, growth, or
+any other economic number has two consumers: the real math (the number the
+player actually gets) and the display line the UI shows for it. History in
+this codebase (Mercantile Charter's first-three-towns bonus, three rounds;
+the Aether Condenser Sell-Off gold fix) shows these two consumers drift
+apart when they're computed by two independent code paths — a wire display
+field silently never gets stamped, or gets stamped once and never
+refreshed, while the real math is quietly correct (or vice versa) the whole
+time. Either direction reads to the player as "this bonus doesn't work."
+
+- Route both consumers through one function that returns the multiplier/
+  delta, and derive the display line directly from that same value — never
+  let a second call site independently re-check eligibility or re-derive
+  the number for display purposes. `firstThreeTownMultipliersForTile`
+  (`apps/simulation/src/economy-network/economy-network-first-three-towns.ts`)
+  is the reference: `townGoldPerMinuteForPlayer`, `refreshTownEconomyFields`,
+  and `buildTownSummary` all call through it instead of each independently
+  checking `firstThreeTownKeys.has(tileKey)` and calling the multiplier
+  lookup themselves.
+- Ship a regression test that asserts the *actual computed number* changes
+  by the expected factor with the modifier present vs. absent — not just
+  that a wire field exists or a UI string renders. See
+  `player-update-economy-first-three-towns-gold-effect.test.ts` for the
+  pattern: compute with and without the modifier, assert the ratio.
+- If a modifier is eligibility-gated (e.g. "first three towns", "connected
+  to a Trade Nexus"), that eligibility set must have exactly one
+  implementation. If a second, differently-shaped implementation is
+  genuinely required for performance (see
+  `buildFirstThreeTownKeysByPlayer`'s doc comment for the one case where
+  this applies), keep both eligibility rules in sync explicitly with a
+  comment cross-referencing the other, and consider a test that runs both
+  against the same synthetic input and asserts they agree.
+
 ## Client 3D animation timing
 
 - In `packages/client/src/client-map-3d/client-map-3d.ts`, `rebuildVisibleTerrain()`/`maybeRebuild()` is throttled on BOTH game-state changes (`tilesRevision`) AND camera pan/zoom (`terrainWindowPanned`/`terrainWindowCovers`/`zoomChanged`). Never sample a wall clock (`Date.now()`/`performance.now()`) inside that rebuild path to drive a continuous animation (pulse, blink, fade) — camera pan will re-sample the clock and make the animation visibly jump/restart on every pan (this happened twice: the frontier-decay pulse and, before it, the encirclement blink it was copied from).
