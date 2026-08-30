@@ -7,6 +7,7 @@ import {
   firstThreeTownsPopulationGrowthMultiplierForPlayer,
   type EconomyPlayer
 } from "../economy-network/economy-network.js";
+import { supportedConverterGoldPerMinuteForTown } from "../economy-network/economy-network-converter-support.js";
 import { townGoldPerMinuteForPlayer } from "./player-update-economy.js";
 
 // Refresh goldPerMinute/isFed on a town originally from buildTownSummary
@@ -36,7 +37,8 @@ export const refreshTownEconomyFields = (
         fedTownKeys,
         firstThreeTownKeys,
         connectedClearingHouseKeys,
-        dormantEconomicStructureKeys
+        dormantEconomicStructureKeys,
+        supportedConverterGoldPerMinuteForTown(player.id, tile, tiles, dormantEconomicStructureKeys).total
       );
   // Re-stamp isFed from the fresh fed-key set (settlements always fed).
   const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);

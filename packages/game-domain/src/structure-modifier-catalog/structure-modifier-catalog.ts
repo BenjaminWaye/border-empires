@@ -15,4 +15,4 @@ import type { ModifierContext, ModifierStructureType, ModifierTileContext, Struc
 export type { ModifierContext, ModifierStructureType, ModifierTileContext, StructureModifier, TownModifierTotal };
 export { percentLabel, multiplierPercentLabel, connectedLabel } from "./structure-modifier-catalog-types.js";
 export { structureModifiersFor } from "./structure-modifier-catalog-core.js";
-export { TOWN_MODIFIER_AGGREGATE_TYPES, townModifierTotalsFromCounts } from "./structure-modifier-catalog-town-aggregate.js";
+export { TOWN_MODIFIER_AGGREGATE_TYPES, CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES, townModifierTotalsFromCounts } from "./structure-modifier-catalog-town-aggregate.js";

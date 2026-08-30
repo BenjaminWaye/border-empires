@@ -99,14 +99,18 @@ describe("structureModifiersFor", () => {
   // surfacing the payout, so neither the structure's own tile nor the town
   // overview ever displayed a "gold production" line for Sell Off mode.
   it("shows a Sell Off gold modifier with the real per-day payout in EXCHANGE mode", () => {
+    // rawValue (added for town-support attribution — see
+    // townModifierTotalsFromCounts/CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES)
+    // is the flat per-instance gold/day figure, matching the payout named in
+    // valueText.
     expect(structureModifiersFor("CRYSTAL_SYNTHESIZER", { tile: { converterMode: "EXCHANGE" } }))
-      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+10/day", tone: "positive", isTownWide: true });
+      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+10/day", tone: "positive", isTownWide: true, rawValue: 10 });
     expect(structureModifiersFor("ADVANCED_CRYSTAL_SYNTHESIZER", { tile: { converterMode: "EXCHANGE" } }))
-      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+15/day", tone: "positive", isTownWide: true });
+      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+15/day", tone: "positive", isTownWide: true, rawValue: 15 });
     expect(structureModifiersFor("TITANIUM_WORKS", { tile: { converterMode: "EXCHANGE" } }))
-      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+8/day", tone: "positive", isTownWide: true });
+      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+8/day", tone: "positive", isTownWide: true, rawValue: 8 });
     expect(structureModifiersFor("UMBRITE_SYNTHESIZER", { tile: { converterMode: "EXCHANGE" } }))
-      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+8/day", tone: "positive", isTownWide: true });
+      .toContainEqual({ statLabel: "Sell Off gold", valueText: "+8/day", tone: "positive", isTownWide: true, rawValue: 8 });
   });
 
   it("defaults to showing the Refine-mode slot modifier when no converterMode is supplied (back-compat)", () => {
