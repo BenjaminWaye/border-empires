@@ -633,7 +633,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
     const obsInRange = ownedActiveObservatoryWithinRange(state, tile);
     const obsCooldownMs = readyOwnedObservatoryCooldownRemainingMs(state.tiles.values(), state.me, tile, now, ownObservatoryRange(state));
     const observatoryProtection = deps.hostileObservatoryProtectingTile(tile);
-    const isOwnTile = Boolean(tile.ownerId && tile.ownerId === state.me) || deps.isTileOwnedByAlly(tile);
+    const isOwnOrAllyTile = Boolean(tile.ownerId && tile.ownerId === state.me) || deps.isTileOwnedByAlly(tile);
     const isUnclaimed = !tile.ownerId;
     const targetHasPurgeableOwnership = tile.ownershipState === "SETTLED" || tile.ownershipState === "FRONTIER";
     const economicStructureType = tile.economicStructure?.type;
@@ -650,7 +650,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const reason =
         !obsInRange
           ? "Need active observatory in range"
-          : isOwnTile
+          : isOwnOrAllyTile
             ? "Cannot purge your own or allied tiles"
             : isUnclaimed || !targetHasPurgeableOwnership
               ? "Target enemy settled or frontier land"
@@ -672,7 +672,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const reason =
         !obsInRange
           ? "Need active observatory in range"
-          : isOwnTile
+          : isOwnOrAllyTile
             ? "Cannot EMP your own or allied tiles"
             : isUnclaimed
               ? "Cannot EMP unclaimed land"
