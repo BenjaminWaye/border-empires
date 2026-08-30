@@ -78,7 +78,11 @@ const synthesizerModifiers = (type: ModifierStructureType, ctx: ModifierContext)
   if (!resource) return undefined;
   if (ctx.tile?.converterMode === "EXCHANGE") {
     const goldPerDay = EXCHANGE_GOLD_PER_SLOT_PER_DAY[type as keyof typeof EXCHANGE_GOLD_PER_SLOT_PER_DAY] ?? 0;
-    return [{ statLabel: "Sell Off gold", valueText: `+${goldPerDay}/day`, tone: "positive", isTownWide: true }];
+    // rawValue (flat per-instance gold/day) lets townModifierTotalsFromCounts
+    // aggregate this into the town-wide modifier list when the structure is
+    // in a town's support ring (its gold is folded into that town's own
+    // production there, same as Mintworks) — see TOWN_MODIFIER_AGGREGATE_TYPES.
+    return [{ statLabel: "Sell Off gold", valueText: `+${goldPerDay}/day`, tone: "positive", isTownWide: true, rawValue: goldPerDay }];
   }
   return [{ statLabel: "Refine mode supplies", valueText: `+1 ${resource} slot`, tone: "positive", isTownWide: false }];
 };

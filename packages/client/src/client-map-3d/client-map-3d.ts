@@ -1,5 +1,4 @@
 import {
-  BufferAttribute,
   BufferGeometry,
   Color,
   CylinderGeometry,
@@ -37,6 +36,10 @@ import { createTownSupportCoinLayer, type TownSupportCoinEntry } from "../client
 import { createForest } from "../client-map-3d-forest.js";
 import { createOwnershipOverlay, FRONTIER_OPACITY } from "../client-map-3d-ownership-overlay.js";
 import { createFrontierDecayPulseTracker } from "../client-map-3d-frontier-decay-pulse.js";
+import {
+  createBendingMarkerGeometry,
+  writeBendingMarkerCorners
+} from "../client-map-3d-bending-marker-geometry/client-map-3d-bending-marker-geometry.js";
 import { debugTileLog, debugTileLoggingEnabled } from "../client-debug/client-debug.js";
 import { createTownOverlay, type TownTier } from "../client-map-3d-town-overlay.js";
 import { createResourceBadgeOverlay, type ResourceBadgeOverlay } from "../client-map-3d-unfed-badge-overlay/client-map-3d-unfed-badge-overlay.js";
@@ -326,54 +329,6 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     const dx = wx - originX;
     if (dx < 0 || dx >= STRUCTURE_DEMO_ENTRIES.length) return undefined;
     return STRUCTURE_DEMO_ENTRIES[dx];
-  };
-
-  // A bending tile-outline marker: 4 line segments connecting the four
-  // tile corners with each corner's actual rendered Y, so the outline
-  // bows along with the heightfield surface instead of floating as a
-  // flat square. Each marker mesh owns its own BufferGeometry so we can
-  // animate its 4 corners independently per frame.
-  const createBendingMarkerGeometry = (): BufferGeometry => {
-    const geom = new BufferGeometry();
-    // 4 line segments × 2 endpoints × 3 floats = 24 floats.
-    const positions = new Float32Array(24);
-    geom.setAttribute("position", new BufferAttribute(positions, 3));
-    return geom;
-  };
-  const writeBendingMarkerCorners = (
-    geom: BufferGeometry,
-    cx: number,
-    cy: number,
-    cz: number,
-    cornerY00: number,
-    cornerY10: number,
-    cornerY01: number,
-    cornerY11: number,
-    rise: number
-  ): void => {
-    const positionAttr = geom.getAttribute("position") as BufferAttribute;
-    const positions = positionAttr.array as Float32Array;
-    const x0 = cx - 0.48;
-    const x1 = cx + 0.48;
-    const z0 = cz - 0.48;
-    const z1 = cz + 0.48;
-    const y00 = cy + cornerY00 + rise;
-    const y10 = cy + cornerY10 + rise;
-    const y01 = cy + cornerY01 + rise;
-    const y11 = cy + cornerY11 + rise;
-    // NW → NE
-    positions[0] = x0; positions[1] = y00; positions[2] = z0;
-    positions[3] = x1; positions[4] = y10; positions[5] = z0;
-    // NE → SE
-    positions[6] = x1; positions[7] = y10; positions[8] = z0;
-    positions[9] = x1; positions[10] = y11; positions[11] = z1;
-    // SE → SW
-    positions[12] = x1; positions[13] = y11; positions[14] = z1;
-    positions[15] = x0; positions[16] = y01; positions[17] = z1;
-    // SW → NW
-    positions[18] = x0; positions[19] = y01; positions[20] = z0;
-    positions[21] = x0; positions[22] = y00; positions[23] = z0;
-    positionAttr.needsUpdate = true;
   };
 
   // Selection: saturated yellow (matches the 2D #ffd166 selection ring
@@ -2228,6 +2183,13 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     resize,
     stop,
     worldTileRawFromPointer: freshWorldTileRawFromPointer,
-    worldToScreen: freshWorldToScreen
+    worldToScreen: freshWorldToScreen,
+    // See client-renderer-crash-breadcrumb.ts recordRendererGpuStats: the only
+    // real allocation data available for a device we can't reach directly.
+    gpuStats: () => ({
+      geometries: renderer.info.memory.geometries,
+      textures: renderer.info.memory.textures,
+      programs: renderer.info.programs?.length ?? 0
+    })
   };
 };

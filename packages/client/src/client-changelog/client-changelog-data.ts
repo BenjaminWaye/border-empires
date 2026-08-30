@@ -26,6 +26,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788088515738, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "Settle Land now queues on a tile you're already expanding into",
+    why: "Pressing Settle Land on a neutral tile that was already mid-expansion (an active claim, or one still waiting its turn in the frontier queue) used to be rejected as a duplicate/locked target -- there was no way to line up the settle ahead of time, so you had to watch for the expansion to land and click again.",
+    changes: [
+      "Settle Land on a tile you're already expanding into now queues the settlement and fires it automatically once that tile becomes your frontier -- instead of being rejected",
+      "The tile's progress tab shows queued settle (and settle + build) actions lined up behind the active expansion, with a cancel button for each"
+    ]
+  },
+  {
     createdAt: 1788036933966, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.4",
     title: "Panning the 3D map now glides instead of snapping tile by tile",
@@ -282,6 +292,75 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A Fort and a Relay Beacon can now both be built on the same tile, in either order",
       "Relay Beacon no longer grants an attack multiplier (it keeps its local vision bonus)",
       "Building a Siege Outpost on a tile with a Relay Beacon is no longer an in-place upgrade of the beacon -- the two are now unrelated"
+    ]
+  },
+  {
+    createdAt: 1788068704420, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "Fixed Mercantile Charter's \"First 3 towns\" line still not showing up for existing towns",
+    why: "The previous fix only stamped the \"First 3 towns\" bonus onto a town the first time it was fully rebuilt. The much more common per-tick refresh path that keeps gold/fed status current between those rebuilds recomputed your gold total correctly but never re-stamped the bonus line itself, so a town that already existed before you picked up Mercantile Charter kept showing no bonus indefinitely.",
+    changes: [
+      "The tile overview's \"First 3 towns\" line now stays in sync on every economy refresh, not just the rare full town rebuild"
+    ]
+  },
+  {
+    createdAt: 1788028966835, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "Phones that couldn't run the 3D map now get a lighter 3D map instead of being dropped to 2D",
+    why: "When the 3D map crashed a phone's browser, every retry used the exact same settings as the attempt that just died -- the only thing that ever got made cheaper was for one narrow kind of crash. So a device would fail twice identically and then be parked on the 2D map permanently, having never been offered a 3D map small enough to actually run. A session that played fine for a while and was then killed by the OS taught it nothing at all.",
+    changes: [
+      "After a 3D crash the map now retries at reduced quality (no antialiasing, lower resolution), then at minimum quality, before falling back to 2D",
+      "At minimum quality the map only allocates as many tiles as your screen can actually show, instead of a fixed floor well above it",
+      "A session that ran fine and was then killed by the OS mid-play now also steps the map down a level on the next load"
+    ]
+  },
+  {
+    createdAt: 1788034981589, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.4",
+    title: "iPhones now start the 3D map at slightly lower quality to avoid a first-visit crash",
+    why: "iOS Safari is reported to enforce a much tighter memory ceiling on WebGL content than desktop or Android, and every previous fix only kicked in after a phone had already crashed once and reloaded -- meaning every iPhone player's very first visit ran at the configuration most likely to crash it, before the app had any evidence to react to.",
+    changes: [
+      "The 3D map on iPhone (and other iOS browsers) now starts without extra edge-smoothing on its very first attempt, instead of only backing off after a crash",
+      "A phone that proves it can run the full-quality 3D map is unaffected -- this only changes the untested first attempt"
+    ]
+  },
+  {
+    createdAt: 1788071064537, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "An Aether Condenser (or Titanium/Umbrite Works) in Sell Off mode now boosts its own town's gold, like Mintworks",
+    why: "Sell Off mode gold used to always pay out as separate empire-wide income with no connection to any town, so building one in a town's support ring -- the same ring Mintworks, Garrison Hall, and Clearing House already boost that town from -- had no visible effect on that town's own gold production or its overview modifier list, which read as the building's income going nowhere.",
+    changes: [
+      "An active Sell Off (EXCHANGE mode) Aether Condenser, Titanium Works, or Umbrite Works (including Advanced tiers) built in a town's support ring now adds its gold straight into that town's own gold production instead of paying out as separate empire income",
+      "The town's overview now shows a \"Sell Off gold\" modifier under a \"<count> <Building>\" heading for these buildings, matching how Mintworks and other support-ring buildings already show their contribution",
+      "A converter built outside any town's support ring is unaffected -- its gold still pays out as separate empire income exactly as before"
+    ]
+  },
+  {
+    createdAt: 1788091013204, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "Mercantile Charter's \"first three towns\" no longer counts a bare starting settlement",
+    why: "Every settled tile carries basic town data, not just a player's actual named/grown cities -- so an early, unnamed starting settlement silently occupied one of Mercantile Charter's three bonus slots ahead of the player's real towns, exactly matching the domain's own description (\"your first three cities\") but not what it actually checked. An established player with more than a couple of settled tiles could end up with none of their real towns receiving the bonus at all.",
+    changes: [
+      "Mercantile Charter's first-three-towns bonus now only considers TOWN tier and above -- a bare settlement can no longer take one of the three slots"
+    ]
+  },
+  {
+    createdAt: 1788091180198, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.3",
+    title: "Fixed the Gold Production stat not matching its own \"Sell Off gold\" modifier line",
+    why: "The tile popup's gold-production number and its \"MODIFIERS\" list are computed on two separate code paths in the gateway's tile-detail lookup. The modifiers list was already fixed to detect a support-ring converter correctly, but the gold-production number's own formula was never updated to include it, so the two figures on the same screen disagreed -- and a Refine-mode converter (which earns no gold) could incorrectly show a \"Sell Off gold\" line at all.",
+    changes: [
+      "A settled town tile's Gold Production number now includes a support-ring Sell Off converter's contribution, matching the modifier line below it",
+      "A converter in Refine mode no longer shows a \"Sell Off gold\" modifier it doesn't actually earn"
+    ]
+  },
+  {
+    createdAt: 1788088074612, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "The Overall leaderboard now shows each empire's manpower cap",
+    why: "The leaderboard's Overall row showed score, settled tiles, income, and tech count but nothing about manpower capacity, so you couldn't compare your army ceiling against rivals without opening their empire directly.",
+    changes: [
+      "Each row in the Overall leaderboard now lists a \"manpower cap\" figure alongside score, settled tiles, income, and tech count"
     ]
   }
 ];

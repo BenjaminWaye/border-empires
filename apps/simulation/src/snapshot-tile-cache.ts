@@ -256,6 +256,13 @@ export const buildSettledDomainTilesByPlayerIdAsync = async (
   return byPlayerId;
 };
 
+// Deliberately NOT a thin wrapper around firstThreeTownKeysForPlayer
+// (economy-network.ts) — this does one single pass over every world tile,
+// bucketing every player's first three at once, instead of a per-player
+// ordered scan. Both must agree on eligibility (SETTLEMENT tier excluded —
+// see firstThreeTownKeysForPlayer's own doc comment for why) even though
+// their iteration order can differ; keep that exclusion in sync between the
+// two if either changes.
 export const buildFirstThreeTownKeysByPlayer = (
   runtimeState: RuntimeState
 ): Map<string, Set<string>> => {
@@ -265,6 +272,7 @@ export const buildFirstThreeTownKeysByPlayer = (
   for (const player of runtimeState.players) result.set(player.id, new Set<string>());
   for (const tile of runtimeState.tiles) {
     if (!tile.ownerId || tile.ownershipState !== "SETTLED" || !(tile.townJson || tile.townType)) continue;
+    if (tile.townPopulationTier === "SETTLEMENT") continue;
     const firstThree = result.get(tile.ownerId);
     if (!firstThree || firstThree.size >= 3) continue;
     firstThree.add(keyFor(tile.x, tile.y));

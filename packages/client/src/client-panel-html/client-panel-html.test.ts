@@ -259,8 +259,8 @@ describe("leaderboardHtml", () => {
       {
         ...emptyLeaderboard,
         overall: [
-          { id: "VK5iriJAhickNf9ArrRweUDnq1W2", name: "KonradsDelikatessKörv", rank: 1, score: 42, tiles: 10, incomePerMinute: 5, techs: 3 },
-          { id: "some-other-player", name: "KonradsDelikatessKörv", rank: 2, score: 30, tiles: 8, incomePerMinute: 4, techs: 2 }
+          { id: "VK5iriJAhickNf9ArrRweUDnq1W2", name: "KonradsDelikatessKörv", rank: 1, score: 42, tiles: 10, incomePerMinute: 5, techs: 3, manpowerCap: 250 },
+          { id: "some-other-player", name: "KonradsDelikatessKörv", rank: 2, score: 30, tiles: 8, incomePerMinute: 4, techs: 2, manpowerCap: 200 }
         ]
       },
       [],
