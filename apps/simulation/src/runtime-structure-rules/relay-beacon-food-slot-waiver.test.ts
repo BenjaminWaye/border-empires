@@ -60,4 +60,54 @@ describe("BUILD_STRUCTURE parity — RELAY_BEACON FOOD-slot waiver", () => {
       vi.useRealTimers();
     }
   });
+
+  // Regression for a double-count found in review of the WOODEN_FORT-over-
+  // RELAY_BEACON build carve-out: hasFreeResourceSlots credits back a
+  // replaced tile's occupant via its raw, unwaived FOOD requirement. A
+  // waived Relay Beacon (one of the player's free first 5, 0 counted FOOD
+  // demand) must not hand back a phantom +1 FOOD credit that lets a
+  // Palisade build bypass the gate with zero real free FOOD capacity.
+  it("rejects a Palisade build on a waived Relay Beacon tile when the player has no other free FOOD slot", async () => {
+    vi.useFakeTimers();
+    try {
+      const runtime = new SimulationRuntime({
+        now: () => Date.now(),
+        initialPlayers: new Map([["player-1", {
+          id: "player-1", isAi: false, points: 50_000, manpower: 10_000,
+          techIds: new Set<string>(), domainIds: new Set<string>(),
+          mods: { attack: 1, defense: 1, income: 1, vision: 1 },
+          techRootId: "rewrite-local", allies: new Set<string>(),
+          strategicResources: { FOOD: 0, TITANIUM: 0, CRYSTAL: 0, UMBRITE: 0, SHARD: 0 },
+        }]]),
+        initialState: {
+          tiles: [
+            {
+              x: 10, y: 10, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const,
+              // First (and only) Relay Beacon owned -- fully within the free
+              // first-5 waiver, so it counts 0 toward FOOD demand.
+              economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const, activatedAt: 100 }
+            }
+          ],
+          activeLocks: []
+        },
+      });
+
+      const rejections: Array<{ code: string }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "COMMAND_REJECTED") rejections.push({ code: event.code });
+      });
+
+      runtime.submitCommand({
+        commandId: "build-palisade-over-waived-beacon", sessionId: "session-1", playerId: "player-1", clientSeq: 1, issuedAt: Date.now(),
+        type: "BUILD_STRUCTURE" as any,
+        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "WOODEN_FORT" }),
+      });
+      await Promise.resolve();
+
+      expect(rejections).toEqual([{ code: "INSUFFICIENT_SLOT" }]);
+      expect(runtime.exportState().tiles.find((t) => t.x === 10 && t.y === 10)?.economicStructureJson).toContain('"type":"RELAY_BEACON"');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

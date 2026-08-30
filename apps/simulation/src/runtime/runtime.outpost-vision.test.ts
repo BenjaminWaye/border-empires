@@ -112,6 +112,64 @@ describe("SimulationRuntime outpost vision bonus", () => {
     }
   });
 
+  it("building a Palisade (WOODEN_FORT) on a Relay Beacon tile is accepted — it replaces the beacon, unlike Siege Outpost above", async () => {
+    vi.useFakeTimers();
+    try {
+      const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
+      for (let x = 0; x <= 20; x += 1) {
+        for (let y = 5; y <= 15; y += 1) tiles.push({ x, y, terrain: "LAND" });
+      }
+      const runtime = new SimulationRuntime({
+        now: () => Date.now(),
+        initialPlayers: new Map([["player-1", makePlayer("player-1")]]),
+        seedTiles: new Map(),
+        initialState: {
+          tiles: [
+            ...tiles,
+            {
+              x: 10,
+              y: 10,
+              terrain: "LAND" as const,
+              ownerId: "player-1",
+              ownershipState: "SETTLED" as const,
+              economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const }
+            },
+            // A free FOOD slot — WOODEN_FORT's resource-slot requirement.
+            // (A FARM tile grants 1 base FOOD slot on its own, no structure
+            // needed — structure-slots.ts's BASE_SLOTS_BY_TILE_RESOURCE.)
+            { x: 0, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "FARM" as const }
+          ],
+          activeLocks: []
+        }
+      });
+
+      const rejections: Array<{ code: string; message: string }> = [];
+      runtime.onEvent((event) => {
+        if (event.eventType === "COMMAND_REJECTED") rejections.push({ code: event.code, message: event.message });
+      });
+
+      runtime.submitCommand({
+        commandId: "build-palisade-1",
+        sessionId: "session-1",
+        playerId: "player-1",
+        clientSeq: 0,
+        issuedAt: Date.now(),
+        type: "BUILD_STRUCTURE" as any,
+        payloadJson: JSON.stringify({ x: 10, y: 10, structureType: "WOODEN_FORT" })
+      });
+      await Promise.resolve();
+      vi.advanceTimersByTime(structureBuildDurationMs("WOODEN_FORT"));
+      await Promise.resolve();
+
+      expect(rejections).toEqual([]);
+      // The Relay Beacon's vision bonus is gone: it was overwritten by the
+      // Palisade build (both live in the same economicStructure tile field).
+      expect(visibleTileKeys(runtime, "player-1").has("15,10")).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("an ally's Relay Beacon ring is visible to the player, and withdraws when the alliance breaks", async () => {
     const tiles: Array<{ x: number; y: number; terrain: "LAND" }> = [];
     for (let x = 20; x <= 40; x += 1) {
