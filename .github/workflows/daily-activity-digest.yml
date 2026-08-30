@@ -42,4 +42,4 @@ jobs:
 
       - name: Skip (no webhook configured)
         if: env.SLACK_WEBHOOK_URL == ''
-        run: echo "ACTIVITY_DIGEST_SLACK_WEBHOOK secret is not set — skipping."
+        run: echo "LOAD_HARNESS_SLACK_WEBHOOK secret is not set — skipping."
