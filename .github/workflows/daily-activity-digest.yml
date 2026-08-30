@@ -2,8 +2,12 @@ name: Daily activity digest
 
 on:
   schedule:
-    # 13:00 UTC daily
-    - cron: "0 13 * * *"
+    # 6:00am Stockholm time. Stockholm is UTC+2 (CEST) in summer / UTC+1 (CET)
+    # in winter; GitHub Actions cron is fixed UTC and does not shift with DST,
+    # so this fires at 6:00am Stockholm during CEST and 7:00am during CET.
+    # Update this cron by hand around the March/October DST changeovers if
+    # exact 6:00am local matters.
+    - cron: "0 4 * * *"
   workflow_dispatch: {}
 
 jobs:
@@ -18,7 +22,10 @@ jobs:
     # HTTP-to-HTTP job, same shape as the nightly-load-harness Slack notify step.
     env:
       ACTIVITY_API_URL: "https://play.borderempires.com/api/activity"
-      SLACK_WEBHOOK_URL: ${{ secrets.ACTIVITY_DIGEST_SLACK_WEBHOOK }}
+      # Reusing the existing load-harness alert webhook/channel for now —
+      # swap to a dedicated ACTIVITY_DIGEST_SLACK_WEBHOOK secret once a
+      # channel for this digest is picked.
+      SLACK_WEBHOOK_URL: ${{ secrets.LOAD_HARNESS_SLACK_WEBHOOK }}
 
     steps:
       - name: Checkout
