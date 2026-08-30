@@ -435,6 +435,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "Aether Purge and Aether EMP now show as disabled with a \"Cannot purge/EMP your own or allied tiles\" reason when selecting an allied tile, instead of appearing available and then failing server-side"
     ]
+  },
+  {
+    createdAt: 1788115016608, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.4",
+    title: "Observatories now rise as aether towers on the 3D map",
+    why: "The richest aether nodes on the map had no landmark -- a knowing eye could see the survey lines flickering, but the land itself still read as featureless grassland. Observatories rendered as a generic structure mesh, so the network (and the strategy around holding the strong aether fields) was invisible at a glance.",
+    changes: [
+      "Placing an Observatory on the 3D map now raises a tall brass-and-iron aether tower with a glowing cyan core, floating brass rings and upward-streaming motes, instead of the old generic structure mesh",
+      "Observatories placed near each other light up thin cyan aether conduits with brass rails, collar joints, light nodes and travelling energy pulses, so a connected network reads as a visible web",
+      "Where several observatories stand close together a rotating geometric synchronization cluster forms between them, marking the strongest aether convergence on the map"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
