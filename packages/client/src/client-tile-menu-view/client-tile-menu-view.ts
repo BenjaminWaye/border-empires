@@ -509,15 +509,13 @@ export const tileMenuViewForTile = (
   const queuedExpand = deps.queuedExpandProgressForTile(tile);
   const queuedWaypoint = deps.queuedWaypointProgressForTile(tile);
   const construction = deps.constructionProgressForTile(tile);
-  const progress = capture ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction;
-  // Only meaningful attached to the card for whatever is actively/currently
-  // running on this tile (typically the capture card for an in-flight
-  // EXPAND) -- a queued settlement/build already has its own dedicated
-  // progress card above, so it never needs the "then:" annotation too.
-  if (progress && progress !== queuedSettlement && progress !== queuedBuild) {
-    const queuedNext = deps.queuedAutoSettleNextForTile(tile);
-    if (queuedNext) progress.queuedNext = queuedNext;
-  }
+  const primaryProgress = capture ?? settlement ?? queuedSettlement ?? queuedBuild ?? queuedExpand ?? queuedWaypoint ?? construction;
+  // "then:" annotation only applies to whatever's actively running (usually
+  // the capture card for an in-flight EXPAND) -- a queued settlement/build
+  // has its own card already. Copies rather than mutates the builder's
+  // returned object, since it isn't guaranteed to be a fresh literal.
+  const queuedNext = primaryProgress && primaryProgress !== queuedSettlement && primaryProgress !== queuedBuild ? deps.queuedAutoSettleNextForTile(tile) : undefined;
+  const progress = primaryProgress && queuedNext ? { ...primaryProgress, queuedNext } : primaryProgress;
   const buildBlockedByQueue = Boolean(queuedBuild);
   const visibleBuildings = buildBlockedByQueue ? [] : actionTabs.buildings;
   const tabs: TileMenuTab[] = [];
