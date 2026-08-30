@@ -42,7 +42,8 @@ import { percentLabel, type ModifierStructureType, type TownModifierTotal } from
 // live-town-summary.ts. Unlike every other type here, a plain "active count"
 // isn't the right count for these — only EXCHANGE-mode copies earn gold, so
 // callers must pass a count that's already filtered to EXCHANGE mode (see
-// townModifierTotalsFromCounts's CONVERTER_AGGREGATE_TYPES handling below).
+// townModifierTotalsFromCounts's CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES
+// handling below).
 export const CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
   "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER",
   "TITANIUM_WORKS", "ADVANCED_TITANIUM_WORKS",
