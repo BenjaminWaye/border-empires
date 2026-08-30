@@ -491,8 +491,8 @@ export const structureInfoForKey = (
     return undefined;
   };
   const costBitsFor = (key: StructureInfoKey): string[] => {
-    if (key === "TITANIUM_BASTION") return ["1,800 gold", "300 manpower"];
-    if (key === "THUNDER_BASTION") return ["4,200 gold", "300 manpower"];
+    if (key === "TITANIUM_BASTION") return ["1,800 gold", "480 manpower"];
+    if (key === "THUNDER_BASTION") return ["4,200 gold", "960 manpower"];
     if (key === "SIEGE_TOWER") return ["1,800 gold", "60 manpower"];
     if (key === "DREAD_TOWER") return ["4,200 gold", "60 manpower"];
     const baseKey = structureBaseKey(key);

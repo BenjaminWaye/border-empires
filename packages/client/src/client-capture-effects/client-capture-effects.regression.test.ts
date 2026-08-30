@@ -258,7 +258,7 @@ describe("renderCaptureProgress", () => {
               y: 20,
               terrain: "LAND",
               ownerId: "enemy",
-              fort: { ownerId: "enemy", status: "active", garrison: 90, garrisonCap: 200 }
+              fort: { ownerId: "enemy", status: "active", variant: "WOODEN_FORT", garrison: 90, garrisonCap: 200 }
             }
           ]
         ]),
@@ -288,9 +288,11 @@ describe("renderCaptureProgress", () => {
     expect(captureCardEl.dataset.state).toBe("mustering");
     expect(captureCardEl.style.display).toBe("grid");
     expect(captureTitleEl.textContent).toBe("Mustering...");
-    // 30 staged / 90 required (the fort's garrison, not the flat base cost) = 33%.
-    expect(captureBarEl.style.width).toBe("33%");
-    expect(captureTimeEl.textContent).toBe("30 / 90");
+    // 30 staged / 150 required (the Palisade's flat per-tier cost,
+    // structure-costs.ts's ATTACK_MANPOWER_LOSS_RANGE.WOODEN_FORT.max — not
+    // the fort's garrison, which no longer scales the muster gate) = 20%.
+    expect(captureBarEl.style.width).toBe("20%");
+    expect(captureTimeEl.textContent).toBe("30 / 150");
     expect(captureTargetEl.textContent).toBe("Target: (10, 20)");
     expect(captureCancelBtn.style.display).toBe("inline-flex");
     expect(captureDismissBtn.style.display).toBe("inline-flex");

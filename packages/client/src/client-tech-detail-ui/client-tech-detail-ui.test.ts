@@ -250,8 +250,8 @@ describe("tech detail crystal ability previews", () => {
     expect(structureInfoForKey("THUNDER_BASTION", deps).modifiers).toContainEqual({ statLabel: "Defense", valueText: "8x", tone: "positive", isTownWide: false });
     expect(structureInfoForKey("SIEGE_TOWER", deps).modifiers).toContainEqual({ statLabel: "Offense", valueText: "+80%", tone: "positive", isTownWide: false });
     expect(structureInfoForKey("DREAD_TOWER", deps).modifiers).toContainEqual({ statLabel: "Offense", valueText: "+100%", tone: "positive", isTownWide: false });
-    expect(structureInfoForKey("TITANIUM_BASTION", deps).costBits).toEqual(["1,800 gold", "300 manpower"]);
-    expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 gold", "300 manpower"]);
+    expect(structureInfoForKey("TITANIUM_BASTION", deps).costBits).toEqual(["1,800 gold", "480 manpower"]);
+    expect(structureInfoForKey("THUNDER_BASTION", deps).costBits).toEqual(["4,200 gold", "960 manpower"]);
     expect(structureInfoForKey("SIEGE_TOWER", deps).costBits).toEqual(["1,800 gold", "60 manpower"]);
     expect(structureInfoForKey("DREAD_TOWER", deps).costBits).toEqual(["4,200 gold", "60 manpower"]);
     // Resource slot requirements live in the upkeep box, not the one-time

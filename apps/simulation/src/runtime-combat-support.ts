@@ -1,10 +1,10 @@
 import type { CommandEnvelope, LockedFrontierCombatResult, SimulationEvent } from "@border-empires/sim-protocol";
 import type { DomainPlayer, DomainTileState } from "@border-empires/game-domain";
 import {
-  BARBARIAN_MULTIPLY_THRESHOLD,
   BREAKTHROUGH_DURATION_MS,
   attackManpowerLoss,
   rollFrontierCombat,
+  rollSettledAttackManpowerLoss,
   targetOutpostMult,
   WORLD_HEIGHT,
   WORLD_WIDTH,
@@ -268,6 +268,25 @@ const EXPAND_COMBAT_PREVIEW: FrontierCombatPreview & { attackerWon: true } = {
 };
 
 
+// Whether the target's fort actually grants its combat bonus: active,
+// owned by the defender, and not resource-dormant (§5.4). Shared between
+// resolveAttackCombat (combat-power calculation) and
+// buildLockedCombatResolution (manpower-loss-range lookup) so the two
+// can't drift on what counts as "has an active fort" for the same attack.
+const targetHasActiveFortFor = (
+  ctx: RuntimeCombatSupportContext,
+  previousTarget: DomainTileState | undefined,
+  defenderOwnerId: string | undefined,
+  targetKey: string
+): boolean =>
+  Boolean(
+    previousTarget?.fort &&
+      previousTarget.fort.status === "active" &&
+      previousTarget.fort.ownerId === defenderOwnerId &&
+      defenderOwnerId &&
+      !ctx.isStructureDormant(defenderOwnerId, targetKey, "fort")
+  );
+
 const resolveAttackCombat = (
   ctx: RuntimeCombatSupportContext,
   lock: LockedCombatInput,
@@ -277,13 +296,7 @@ const resolveAttackCombat = (
 ): FrontierCombatPreview & { attackerWon: boolean } => {
   const outpostMult = attackerOutpostMult(ctx, lock.playerId, lock.targetX, lock.targetY);
   const attacker = ctx.players.get(lock.playerId); const dockAttackMult = wonderEffects.dockAttackMultiplierForOrigin(attacker, ctx.tiles.get(lock.originKey), lock.playerId);
-  const targetHasActiveFort = Boolean(
-    previousTarget?.fort &&
-      previousTarget.fort.status === "active" &&
-      previousTarget.fort.ownerId === defenderOwnerId &&
-      defenderOwnerId &&
-      !ctx.isStructureDormant(defenderOwnerId, lock.targetKey, "fort")
-  );
+  const targetHasActiveFort = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey);
   const combatModifiers = {
     attackerOutpostMult: outpostMult,
     dockAttackMult,
@@ -342,7 +355,12 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
     combat.attackerWon && defender && targetWasSettled && previousTarget && !targetRecentlyPillaged
       ? previewSettledCapturePlunder({ defender, defenderTileCountBeforeCapture, target: previousTarget })
       : undefined;
-  const manpowerLoss = lock.actionType === "ATTACK" ? attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff) : 0;
+  const targetHasActiveFort = targetHasActiveFortFor(ctx, previousTarget, defenderOwnerId, lock.targetKey);
+  const manpowerLoss = lock.actionType !== "ATTACK"
+    ? 0
+    : targetWasSettled
+      ? rollSettledAttackManpowerLoss(targetHasActiveFort ? previousTarget?.fort?.variant : undefined)
+      : attackManpowerLoss(lock.manpowerCost, combat.attackerWon, combat.atkEff, combat.defEff);
   if (manpowerLoss > 0) {
     const existing = ctx.manpowerLossByTileKey.get(lock.targetKey) ?? 0;
     ctx.manpowerLossByTileKey.set(lock.targetKey, existing + manpowerLoss);
@@ -377,76 +395,7 @@ export const buildLockedCombatResolution = (ctx: RuntimeCombatSupportContext, lo
   return { result, defenderGoldLoss: plunder?.defenderGoldLoss ?? 0, targetRecentlyPillaged };
 };
 
-export const barbarianProgressGain = (target: DomainTileState | undefined): number => {
-  if (!target?.ownerId || target.ownerId === "barbarian-1") return 0;
-  return target.resource || target.town || target.fort || target.siegeOutpost || target.dockId ? 2 : 1;
-};
-
-export const applyBarbarianWalkOrMultiply = (ctx: RuntimeCombatSupportContext, lock: LockRecord, previousTarget: DomainTileState | undefined): void => {
-  const gain = barbarianProgressGain(previousTarget);
-  const sourceProgress = ctx.barbarianTileProgress.get(lock.originKey) ?? 0;
-  const newProgress = sourceProgress + gain;
-  const barbTileCount = ctx.summaryForPlayer("barbarian-1").territoryTileKeys.size;
-
-  if (newProgress >= BARBARIAN_MULTIPLY_THRESHOLD) {
-    ctx.emitEvent({
-      eventType: "BARB_MULTIPLIED",
-      commandId: lock.commandId,
-      playerId: "barbarian-1",
-      originKey: lock.originKey,
-      targetKey: lock.targetKey,
-      eatenOwnerId: previousTarget?.ownerId ?? null,
-      eatenResource: previousTarget?.resource ?? null,
-      eatenHasTown: !!previousTarget?.town,
-      gain,
-      sourceProgress,
-      barbTileCount: barbTileCount + 1
-    });
-    ctx.barbarianTileProgress.set(lock.originKey, 0);
-    ctx.barbarianTileProgress.set(lock.targetKey, 0);
-    return;
-  }
-
-  if (gain > 0) {
-    ctx.emitEvent({
-      eventType: "BARB_ATE_TILE",
-      commandId: lock.commandId,
-      playerId: "barbarian-1",
-      originKey: lock.originKey,
-      targetKey: lock.targetKey,
-      eatenOwnerId: previousTarget!.ownerId!,
-      eatenResource: previousTarget?.resource ?? null,
-      eatenHasTown: !!previousTarget?.town,
-      gain,
-      sourceProgress,
-      newProgress,
-      capBlocked: newProgress >= BARBARIAN_MULTIPLY_THRESHOLD
-    });
-  }
-  ctx.barbarianTileProgress.delete(lock.originKey);
-  ctx.barbarianTileProgress.set(lock.targetKey, newProgress);
-  const previousOrigin = ctx.tiles.get(lock.originKey);
-  if (!previousOrigin || previousOrigin.ownerId !== "barbarian-1") return;
-  const releasedOrigin: DomainTileState = {
-    x: previousOrigin.x,
-    y: previousOrigin.y,
-    terrain: previousOrigin.terrain,
-    ...(previousOrigin.resource ? { resource: previousOrigin.resource } : {}),
-    ...(previousOrigin.dockId ? { dockId: previousOrigin.dockId } : {}),
-    ...(previousOrigin.town ? { town: previousOrigin.town } : {}),
-    ...(previousOrigin.shardSite ? { shardSite: previousOrigin.shardSite } : {}),
-    ...(previousOrigin.naturalWonder ? { naturalWonder: previousOrigin.naturalWonder } : {}),
-    ...(previousOrigin.watchtower ? { watchtower: previousOrigin.watchtower } : {}),
-    ...(previousOrigin.economicStructure ? { economicStructure: previousOrigin.economicStructure } : {})
-  };
-  ctx.replaceTileState(lock.originKey, releasedOrigin);
-  ctx.emitEvent({
-    eventType: "TILE_DELTA_BATCH",
-    commandId: lock.commandId,
-    playerId: lock.playerId,
-    tileDeltas: [ctx.tileDeltaFromState(releasedOrigin)]
-  });
-};
+export { barbarianProgressGain, applyBarbarianWalkOrMultiply } from "./runtime-barbarian-walk.js";
 
 export const BARBARIAN_CAPTURE_PLUNDER_GOLD = 10;
 

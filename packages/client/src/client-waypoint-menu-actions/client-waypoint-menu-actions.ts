@@ -99,7 +99,7 @@ export const injectWaypointActions = (
   if (firstActionId === "expand_here" || firstActionId === "cancel_waypoint" || firstActionId === "clear_waypoint_and_expand_here") return;
   const activeWaypoint = state.waypoint.length > 0 ? state.waypoint[0] : undefined;
   if (activeWaypoint && activeWaypoint.target.x === tile.x && activeWaypoint.target.y === tile.y) {
-    prependWaypointAction(view, { id: "cancel_waypoint", label: `Cancel Waypoint${state.waypoint.length > 1 ? "s" : ""}`, detail: formatWaypointSummary(activeWaypoint.plan) });
+    prependWaypointAction(view, { id: "cancel_waypoint", label: "Cancel Waypoint", detail: formatWaypointSummary(activeWaypoint.plan) });
     return;
   }
   // Already the destination of a later (not-yet-active) queued waypoint --

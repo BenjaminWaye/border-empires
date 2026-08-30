@@ -69,11 +69,11 @@ describe("simulation runtime — no war industry defense vulnerability", () => {
     const titaniumOnly = await captureDefEff(buildRuntime(["TITANIUM_WEAPONS_FACTORY"]));
     const both = await captureDefEff(buildRuntime(["TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"]));
 
-    // Missing both -> flat 2x on top of the 1x SETTLED base, same as
+    // Missing both -> flat 2x on top of the 1.3x SETTLED base, same as
     // missing just one (does not stack to 4x).
-    expect(neitherFactory).toBeCloseTo(10 * 2, 6);
-    expect(titaniumOnly).toBeCloseTo(10 * 2, 6);
+    expect(neitherFactory).toBeCloseTo(10 * 1.3 * 2, 6);
+    expect(titaniumOnly).toBeCloseTo(10 * 1.3 * 2, 6);
     // Both present -> no vulnerability penalty.
-    expect(both).toBeCloseTo(10, 6);
+    expect(both).toBeCloseTo(10 * 1.3, 6);
   });
 });

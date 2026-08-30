@@ -34,6 +34,45 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788029295167, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "Attacking a fort now costs a random amount tied to its size, not to whether you won",
+    why: "Manpower lost attacking always cost a small flat fraction on a win and a much larger fraction on a loss -- the same direction the power gap already pushes win chance, so a strong empire attacking a weaker one paid less per win on top of already winning more often, while a weaker empire that dared to fight back paid more on top of already being unlikely to win. That compounded the rich-get-richer effect instead of counterbalancing it.",
+    changes: [
+      "Manpower lost attacking a SETTLED tile is now a random amount within a range set by the target's fortification, regardless of whether the attack wins or loses: no fort 40-60, Palisade 100-150, Fort 200-300, Titanium Bastion 350-480, Thunder Bastion 800-960",
+      "The manpower you must have mustered to launch the attack now matches that range's top end, and is set purely by the target's fort tier -- no longer scaled by how full the fort's garrison happens to be (garrison fill still affects the fort's defense strength itself, just not the muster gate)"
+    ]
+  },
+  {
+    createdAt: 1787999763164, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.2",
+    title: "Titanium Bastion and Thunder Bastion cost more manpower to build",
+    why: "All three top fort tiers (Fort, Titanium Bastion, Thunder Bastion) cost a flat 300 manpower to build despite defending at very different strengths (2.5x/4x/8x), so the strongest fort in the game was no harder to raise than the weakest of the three.",
+    changes: [
+      "Titanium Bastion now costs 480 manpower to build (was 300)",
+      "Thunder Bastion now costs 960 manpower to build (was 300)",
+      "Fort and Palisade (Wooden Fort) manpower costs are unchanged at 300 and 150"
+    ]
+  },
+  {
+    createdAt: 1787999049644, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Settled tiles are defensible again",
+    why: "PR #1656 removed the settled-tile and dock defense bonuses because neither is a defensive structure, but that left settled land with no baseline defense at all -- only forts, town bonus, tech/domain mods, and war-industry status contributed, so an undeveloped settled tile defended no better than open frontier.",
+    changes: [
+      "Settled tiles now grant a +30% defense multiplier again (previously +35%, and separate from the still-removed dock bonus), stacking with Town, forts, and other defense mults as before"
+    ]
+  },
+  {
+    createdAt: 1788029286599, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "\"Cancel Waypoint\" now cancels only the selected waypoint, not the whole queue",
+    why: "The Cancel Waypoint button in a tile's action menu always wiped the player's entire waypoint queue, even though it was opened on one specific waypoint's target tile -- so cancelling a single leg of a multi-waypoint route silently dropped every other queued waypoint too.",
+    changes: [
+      "Cancel Waypoint now cancels only the waypoint targeting the tile you opened the menu on, leaving the rest of your queued waypoints intact"
+    ]
+  },
+  {
     createdAt: 1787999012029, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.1",
     title: "Join-season screen no longer shows a misleading \"0 players waiting\" for an already-active season",
