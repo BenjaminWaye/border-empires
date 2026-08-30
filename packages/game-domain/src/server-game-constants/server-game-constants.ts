@@ -193,6 +193,24 @@ export const EXCHANGE_GOLD_PER_SLOT_PER_DAY = {
   CRYSTAL_SYNTHESIZER: 10,
   ADVANCED_CRYSTAL_SYNTHESIZER: 15
 } as const;
+
+/**
+ * Pure per-instance EXCHANGE-mode converter gold production, in gold/minute —
+ * single shared source of truth for both an EXCHANGE-mode converter's
+ * standalone empire income (apps/simulation/player-update-economy.ts, when
+ * the structure isn't in any town's support ring) and its town-support
+ * attribution (when it IS in a town's support ring, this same per-instance
+ * amount is folded into that town's own gold production instead, the same
+ * way Mintworks contributes to town gold — see
+ * apps/simulation/economy-network.ts's supportedConverterGoldPerMinuteForTown
+ * and apps/simulation/live-town-summary.ts's wire-shaped counterpart).
+ * Returns 0 for anything that isn't an active EXCHANGE-mode synthesizer.
+ */
+export const converterExchangeGoldPerMinute = (structureType: string, mode: string | undefined): number => {
+  if (mode !== "EXCHANGE") return 0;
+  const perDay = (EXCHANGE_GOLD_PER_SLOT_PER_DAY as Record<string, number | undefined>)[structureType];
+  return perDay ? perDay / UPKEEP_MINUTES_PER_DAY : 0;
+};
 // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): FOOD's only
 // building-level cost is now the permanent slot it occupies
 // (structure-slots.ts) — the separate per-minute flow drain these three

@@ -34,9 +34,25 @@ import { percentLabel, type ModifierStructureType, type TownModifierTotal } from
 // intentionally left out — their effect doesn't reduce to "count x a
 // constant for this town alone", so summing them here would just be wrong,
 // not just incomplete.
+// EXCHANGE-mode converters (Aether Condenser/Titanium Works/Umbrite Works and
+// their Advanced tiers) built in a town's support ring: their gold, like
+// Mintworks's, is folded into that town's own production instead of paying
+// out as separate empire-wide income — see supportedConverterGoldPerMinuteForTown
+// (apps/simulation/economy-network.ts) and its wire-shaped counterpart in
+// live-town-summary.ts. Unlike every other type here, a plain "active count"
+// isn't the right count for these — only EXCHANGE-mode copies earn gold, so
+// callers must pass a count that's already filtered to EXCHANGE mode (see
+// townModifierTotalsFromCounts's CONVERTER_AGGREGATE_TYPES handling below).
+export const CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
+  "CRYSTAL_SYNTHESIZER", "ADVANCED_CRYSTAL_SYNTHESIZER",
+  "TITANIUM_WORKS", "ADVANCED_TITANIUM_WORKS",
+  "UMBRITE_SYNTHESIZER", "ADVANCED_UMBRITE_SYNTHESIZER"
+];
+
 export const TOWN_MODIFIER_AGGREGATE_TYPES: readonly ModifierStructureType[] = [
   "GARRISON_HALL", "LOGISTICS_GUILD", "MINTWORKS",
-  "WEAPONS_WORKSHOP", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY"
+  "WEAPONS_WORKSHOP", "TITANIUM_WEAPONS_FACTORY", "UMBRITE_WEAPONS_FACTORY",
+  ...CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES
 ];
 
 const TOWN_MODIFIER_AGGREGATE_LABELS: Partial<Record<ModifierStructureType, { singular: string; plural: string }>> = {
@@ -45,7 +61,13 @@ const TOWN_MODIFIER_AGGREGATE_LABELS: Partial<Record<ModifierStructureType, { si
   MINTWORKS: { singular: "Mintworks", plural: "Mintworks" },
   WEAPONS_WORKSHOP: { singular: "Weapons Workshop", plural: "Weapons Workshops" },
   TITANIUM_WEAPONS_FACTORY: { singular: "Titanium Weapons Factory", plural: "Titanium Weapons Factories" },
-  UMBRITE_WEAPONS_FACTORY: { singular: "Umbrite Weapons Factory", plural: "Umbrite Weapons Factories" }
+  UMBRITE_WEAPONS_FACTORY: { singular: "Umbrite Weapons Factory", plural: "Umbrite Weapons Factories" },
+  CRYSTAL_SYNTHESIZER: { singular: "Aether Condenser", plural: "Aether Condensers" },
+  ADVANCED_CRYSTAL_SYNTHESIZER: { singular: "Advanced Aether Condenser", plural: "Advanced Aether Condensers" },
+  TITANIUM_WORKS: { singular: "Titanium Works", plural: "Titanium Works" },
+  ADVANCED_TITANIUM_WORKS: { singular: "Advanced Titanium Works", plural: "Advanced Titanium Works" },
+  UMBRITE_SYNTHESIZER: { singular: "Umbrite Works", plural: "Umbrite Works" },
+  ADVANCED_UMBRITE_SYNTHESIZER: { singular: "Advanced Umbrite Works", plural: "Advanced Umbrite Works" }
 };
 
 export const townModifierTotalsFromCounts = (
@@ -62,7 +84,9 @@ export const townModifierTotalsFromCounts = (
     // context, rather than a naive per-copy multiply.
     const modifierCtx = type === "MINTWORKS"
       ? { tile: { town: { mintworksCount: count, clearingHouseActive: Boolean(ctx.clearingHouseActive) } } }
-      : {};
+      : CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES.includes(type)
+        ? { tile: { converterMode: "EXCHANGE" as const } }
+        : {};
     const modifiers: Array<{ statLabel: string; valueText: string; tone: "positive" | "negative" | "neutral" }> = [];
     for (const modifier of structureModifiersFor(type, modifierCtx)) {
       if (!modifier.isTownWide || typeof modifier.rawValue !== "number") continue;

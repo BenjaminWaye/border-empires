@@ -1,8 +1,10 @@
 import {
+  CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES,
   LONG_PEACE_GROWTH_MULT,
   LONG_PEACE_MS,
   MINTWORKS_FLAT_GOLD_BONUS_PER_MIN,
   mintworksGoldProductionMultiplier,
+  converterExchangeGoldPerMinute,
   PASSIVE_INCOME_MULT,
   POPULATION_GROWTH_BASE_RATE,
   granaryGrowthMultiplier,
@@ -139,6 +141,54 @@ export const countSupportedStructures = (
   return count;
 };
 
+/**
+ * Wire-shaped counterpart of economy-network.ts's
+ * supportedConverterGoldPerMinuteForTown (DomainTileState-based, used by
+ * player-update-economy.ts's live gold-crediting math) — this one operates
+ * on RuntimeState wire tiles, mirroring this file's own hasSupportedStructure/
+ * countSupportedStructures loop shape (support-ring only, no on-tile check).
+ * Sums the gold/minute of every active EXCHANGE-mode converter in the town's
+ * support ring (Mintworks-style attribution: that gold becomes part of this
+ * town's own production instead of a separate empire-wide income line), and
+ * returns per-type counts alongside the total so townModifierTotalsForTown
+ * can surface a "N Aether Condensers -> Sell Off gold" modifier group.
+ *
+ * Deliberately ignores modeLockedUntil/dormancy shock timers that
+ * player-update-economy.ts's live crediting path honors — those are
+ * transient (minutes-long) states that would otherwise make this display
+ * value flicker independently of the real economy tick; the wire goldPerMinute
+ * this feeds is a steady-state display number, not the actual per-tick credit.
+ */
+export const supportedConverterGoldPerMinute = (
+  tileKey: string,
+  ownerId: string,
+  tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>,
+  dormantEconomicStructureKeys: ReadonlySet<string> = new Set()
+): { total: number; countsByType: Partial<Record<string, number>> } => {
+  const [rawX, rawY] = tileKey.split(",");
+  const x = Number(rawX);
+  const y = Number(rawY);
+  if (!Number.isInteger(x) || !Number.isInteger(y)) return { total: 0, countsByType: {} };
+  let total = 0;
+  const countsByType: Partial<Record<string, number>> = {};
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      const neighborKey = keyFor(x + dx, y + dy);
+      const tile = tilesByKey.get(neighborKey);
+      if (!tile || tile.ownerId !== ownerId || tile.ownershipState !== "SETTLED") continue;
+      if (!supportTileBelongsToTown(tile, x, y, ownerId, tilesByKey)) continue;
+      const structure = parseStructure<{ type?: string; status?: string; converterMode?: string }>(tile.economicStructureJson);
+      if (!structure?.type || structure.status !== "active" || dormantEconomicStructureKeys.has(neighborKey)) continue;
+      const amountPerMinute = converterExchangeGoldPerMinute(structure.type, structure.converterMode);
+      if (amountPerMinute <= 0) continue;
+      total += amountPerMinute;
+      countsByType[structure.type] = (countsByType[structure.type] ?? 0) + 1;
+    }
+  }
+  return { total, countsByType };
+};
+
 const clearingHouseSourceTownNames = (
   tileKey: string,
   ownerId: string,
@@ -182,16 +232,25 @@ export const supportTileBelongsToTown = (
 // between this file and the gateway's tile-detail-snapshot.ts (the separate
 // REQUEST_TILE_DETAIL path), and the gateway's copy was simply missing,
 // which is exactly why the aggregate never reached the tile popup at all.
+const CONVERTER_TOWN_MODIFIER_TYPE_SET = new Set<string>(CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES);
+
 const townModifierTotalsForTown = (
   tileKey: string,
   ownerId: string,
   tilesByKey: ReadonlyMap<string, RuntimeState["tiles"][number]>,
   dormantEconomicStructureKeys: ReadonlySet<string>,
-  clearingHouseActive: boolean
+  clearingHouseActive: boolean,
+  // EXCHANGE-mode-filtered per-type converter counts (supportedConverterGoldPerMinute's
+  // countsByType) — a plain countSupportedStructures count would include
+  // REFINE-mode copies too, which earn no gold and shouldn't show a "Sell Off
+  // gold" line.
+  converterCountsByType: Partial<Record<string, number>> = {}
 ): NonNullable<Tile["town"]>["townModifierTotals"] => {
   const countsByType: Partial<Record<(typeof TOWN_MODIFIER_AGGREGATE_TYPES)[number], number>> = {};
   for (const type of TOWN_MODIFIER_AGGREGATE_TYPES) {
-    countsByType[type] = countSupportedStructures(tileKey, ownerId, type, tilesByKey, dormantEconomicStructureKeys);
+    countsByType[type] = CONVERTER_TOWN_MODIFIER_TYPE_SET.has(type)
+      ? converterCountsByType[type] ?? 0
+      : countSupportedStructures(tileKey, ownerId, type, tilesByKey, dormantEconomicStructureKeys);
   }
   return townModifierTotalsFromCounts(countsByType, { clearingHouseActive });
 };
@@ -272,6 +331,16 @@ export const buildTownSummary = (
       ? firstThreeTownsPopulationGrowthMultiplierForPlayer(economyPlayer)
       : 1;
   const baseGoldPerMinute = isSettlement ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN;
+  // Aether Condenser/Titanium Works/Umbrite Works (and Advanced tiers) built
+  // in this town's support ring: like Mintworks, their EXCHANGE-mode gold
+  // becomes part of THIS town's own production instead of separate empire
+  // income — see supportedConverterGoldPerMinute above. Excluded for
+  // SETTLEMENT-tier towns, matching the Mintworks flat bonus's own gate
+  // (isSettlement returns before either bonus is ever added).
+  const converterSupport =
+    tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
+      ? supportedConverterGoldPerMinute(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys)
+      : { total: 0, countsByType: {} };
   const goldPerMinute =
     !tile.ownerId || tile.ownershipState !== "SETTLED"
       ? 0
@@ -288,7 +357,7 @@ export const buildTownSummary = (
               firstThreeTownMult *
               incomeMultiplier *
               PASSIVE_INCOME_MULT
-            ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * mintworksCount;
+            ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * mintworksCount + converterSupport.total;
   const populationView = resolvedTownPopulation(townPartial, tile.x, tile.y, populationTier);
   if (!populationView && !hasCompleteAuthoritativeTown) return undefined;
   const population = populationView?.population ?? townPartial.population!;
@@ -333,7 +402,7 @@ export const buildTownSummary = (
     : undefined;
   const townModifierTotals =
     tile.ownerId && tile.ownershipState === "SETTLED" && !isSettlement
-      ? townModifierTotalsForTown(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys, clearingHouseActive)
+      ? townModifierTotalsForTown(tileKey, tile.ownerId, tilesByKey, dormantEconomicStructureKeys, clearingHouseActive, converterSupport.countsByType)
       : undefined;
   return {
     ...(townPartial.name ? { name: townPartial.name } : {}),

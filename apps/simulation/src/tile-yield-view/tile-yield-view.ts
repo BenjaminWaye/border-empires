@@ -11,6 +11,7 @@ import {
   WATERWORKS_RADIUS
 } from "@border-empires/game-domain";
 import { dockBaseGoldPerMinuteForPlayer, type DockEconomyContext, type EconomyPlayer } from "../economy-network/economy-network.js";
+import { supportedConverterGoldPerMinuteForTown } from "../economy-network/economy-network-converter-support.js";
 import { townGoldPerMinuteForPlayer } from "../player-update-economy/player-update-economy.js";
 
 type StrategicYieldKey = "FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "SHARD";
@@ -184,7 +185,10 @@ export const buildTileYieldView = (
       tile.town,
       economyContext.tiles,
       economyContext.fedTownKeys,
-      economyContext.firstThreeTownKeys
+      economyContext.firstThreeTownKeys,
+      undefined,
+      new Set(),
+      supportedConverterGoldPerMinuteForTown(economyPlayer.id, tile, economyContext.tiles).total
     );
   })();
   const dockContext =
