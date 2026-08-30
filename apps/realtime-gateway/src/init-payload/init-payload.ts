@@ -158,8 +158,8 @@ type GatewayInitPayload = {
     };
   }>;
   leaderboard: {
-    overall: Array<{ id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number; rank: number }>;
-    selfOverall?: { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number; rank: number };
+    overall: Array<{ id: string; name: string; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number; score: number; rank: number }>;
+    selfOverall?: { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number; score: number; rank: number };
     byTiles: Array<{ id: string; name: string; value: number; rank: number }>;
     selfByTiles?: { id: string; name: string; value: number; rank: number };
     byIncome: Array<{ id: string; name: string; value: number; rank: number }>;
@@ -825,7 +825,7 @@ export const buildGatewayInitPayload = (
           displayNameForSeedPlayer(currentPlayer.id, playerIdentity.playerName),
         tiles,
         incomePerMinute,
-        techs,
+        techs, manpowerCap: Math.max(currentPlayer.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP),
         score
       };
     })

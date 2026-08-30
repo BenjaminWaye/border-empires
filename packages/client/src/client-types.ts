@@ -498,7 +498,7 @@ export type PendingResearch = {
   completesAt: number;
 };
 
-export type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; score: number; rank: number };
+export type LeaderboardOverallEntry = { id: string; name: string; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number; score: number; rank: number };
 export type LeaderboardMetricEntry = { id: string; name: string; value: number; rank: number };
 
 export type SeasonStatsView = {
