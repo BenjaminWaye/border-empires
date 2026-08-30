@@ -267,6 +267,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
 
   const hasTech = (id: string) => actor.techIds.has(id);
   const buildingFort = spec.kind === "FORT";
+  const buildingWoodenFort = structureType === "WOODEN_FORT";
   const buildingRelayBeacon = spec.kind === "OUTPOST" && structureType === "RELAY_BEACON";
   let upgrading = false;
   if (spec.kind === "FORT") {
@@ -286,7 +287,15 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   // A Fort and a Relay Beacon are allowed to share a tile: a Fort build
   // ignores an existing Relay Beacon in economicStructure, and a Relay
   // Beacon build ignores an existing Fort.
-  const economicConflict = !!target.economicStructure && !(buildingFort && target.economicStructure.type === "RELAY_BEACON");
+  //
+  // WOODEN_FORT (Palisade) is itself kind "ECONOMIC" and lives in
+  // economicStructure like a Relay Beacon does, so it can't share the tile
+  // the way a full Fort can (same tile field, only one value fits). Building
+  // a Palisade onto a Relay Beacon tile replaces the beacon instead of being
+  // rejected outright -- consistent with how any other economic-slot build
+  // overwrites the field below (`[spec.tileField]: {...}`).
+  const economicConflict = !!target.economicStructure &&
+    !((buildingFort || buildingWoodenFort) && target.economicStructure.type === "RELAY_BEACON");
   const fortConflict = !!target.fort && spec.kind !== "ECONOMIC" && !buildingRelayBeacon;
   if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || economicConflict || fortConflict)) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");
