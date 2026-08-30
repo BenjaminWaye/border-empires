@@ -1,0 +1,38 @@
+name: Daily activity digest
+
+on:
+  schedule:
+    # 13:00 UTC daily
+    - cron: "0 13 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  post-digest:
+    name: Post daily activity digest to Slack
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # Hits the live production GET /api/activity endpoint (play.borderempires.com)
+    # and posts a curated highlights summary to Slack. No repo checkout needed
+    # beyond scripts/daily-activity-digest.mjs, no build step — this is a thin
+    # HTTP-to-HTTP job, same shape as the nightly-load-harness Slack notify step.
+    env:
+      ACTIVITY_API_URL: "https://play.borderempires.com/api/activity"
+      SLACK_WEBHOOK_URL: ${{ secrets.ACTIVITY_DIGEST_SLACK_WEBHOOK }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Post digest
+        if: env.SLACK_WEBHOOK_URL != ''
+        run: node scripts/daily-activity-digest.mjs
+
+      - name: Skip (no webhook configured)
+        if: env.SLACK_WEBHOOK_URL == ''
+        run: echo "ACTIVITY_DIGEST_SLACK_WEBHOOK secret is not set — skipping."
