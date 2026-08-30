@@ -598,9 +598,9 @@ export const buildLegacySnapshotPlayerEconomies = (args: {
     if (playerObservatories.length > 0) {
       const observatoryUpkeep = playerObservatories.length * OBSERVATORY_UPKEEP_PER_MIN;
       upkeep.crystal += observatoryUpkeep;
-      addBucket(sinkBuckets.CRYSTAL, "Observatory upkeep", observatoryUpkeep, {
+      addBucket(sinkBuckets.CRYSTAL, "Aether Tower upkeep", observatoryUpkeep, {
         count: playerObservatories.length,
-        note: `${playerObservatories.length} active observator${playerObservatories.length === 1 ? "y" : "ies"}`
+        note: `${playerObservatories.length} active aether tower${playerObservatories.length === 1 ? "" : "s"}`
       });
     }
 

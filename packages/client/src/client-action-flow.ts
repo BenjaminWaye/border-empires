@@ -522,7 +522,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
           ? "Siege Tower"
           : "Siege Outpost";
     }
-    if (structureType === "OBSERVATORY") return "Observatory";
+    if (structureType === "OBSERVATORY") return "Aether Tower";
     if (structureType === "AIRPORT") return "Airport";
     if (structureType === "RADAR_SYSTEM") return "Radar System";
     return economicStructureName(structureType);
@@ -1521,7 +1521,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         selected.fort
           ? "Fort"
           : selected.observatory
-            ? "Observatory"
+            ? "Aether Tower"
             : selected.siegeOutpost
               ? "Siege Outpost"
               : selected.economicStructure

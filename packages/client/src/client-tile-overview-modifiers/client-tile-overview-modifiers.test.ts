@@ -402,8 +402,8 @@ describe("tileOverviewModifiersForTile", () => {
       ownershipState: "SETTLED",
       observatory: { ownerId: "me", status: "active" }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "Observatory — Local vision", effect: "+5", tone: "positive" });
-    expect(modifiers.some((m) => m.reason === "Observatory — Crystal range")).toBe(true);
+    expect(modifiers).toContainEqual({ reason: "Aether Tower — Local vision", effect: "+5", tone: "positive" });
+    expect(modifiers.some((m) => m.reason === "Aether Tower — Crystal range")).toBe(true);
   });
 
   // Regression test: a Farmstead's own tile overview used to always show a

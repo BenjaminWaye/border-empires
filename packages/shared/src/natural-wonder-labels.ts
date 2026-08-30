@@ -42,7 +42,7 @@ export const NATURAL_WONDER_LABELS: Record<NaturalWonderType, { name: string; fl
   WATCHTOWER_ENGINE: {
     name: "the Watchtower Engine",
     flavor: "a brass telescope sweeps a cyan aether beam slowly across the night sky",
-    boon: "acts as a free Observatory with +10 cast radius, no CRYSTAL upkeep"
+    boon: "acts as a free Aether Tower with +10 cast radius, no CRYSTAL upkeep"
   },
   CARTOGRAPHERS_LENS: {
     name: "the Cartographer's Lens",

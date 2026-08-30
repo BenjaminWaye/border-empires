@@ -134,7 +134,7 @@ const missingResourceSlotReason = (state: ClientState, type: SlotStructureType, 
 
 const structureLabelForRemoval = (tile: Tile): { label: string; durationMs: number } | undefined => {
   if (tile.fort) return { label: "Fort", durationMs: structureBuildDurationMs("FORT") };
-  if (tile.observatory) return { label: "Observatory", durationMs: structureBuildDurationMs("OBSERVATORY") };
+  if (tile.observatory) return { label: "Aether Tower", durationMs: structureBuildDurationMs("OBSERVATORY") };
   if (tile.siegeOutpost) return { label: "Siege Outpost", durationMs: structureBuildDurationMs("SIEGE_OUTPOST") };
   if (tile.economicStructure) return { label: economicStructureName(tile.economicStructure.type), durationMs: economicStructureBuildMs(tile.economicStructure.type) };
   return undefined;
@@ -1078,7 +1078,7 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
       const hasFreeSlots = hasFreeResourceSlots(state, "OBSERVATORY");
       out.push({
         id: "build_observatory",
-        label: "Build Observatory",
+        label: "Build Aether Tower",
         detail: deps.buildDetailTextForAction("build_observatory", tile) + frontierBuildDetailSuffix(tile),
         ...tileActionAvailabilityWithDevelopmentSlot(
           ...chainedBuildAvailability(

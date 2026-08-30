@@ -52,7 +52,7 @@ describe("converter toggle regression guard", () => {
       ["POPULATION_BUREAU", "population-bureau-overlay.svg"],
       ["TITANIUM_LEVY", "titanium-levy-overlay.svg"],
       // GRANARY/AETHER_TOWER are the real wire-protocol structure types for
-      // Incubation Engine/Ambaric Tower (display names only) — using the
+      // Incubation Engine/Ambaric Transformer Station (display names only) — using the
       // display names here previously let this test pass while the real
       // structureOverlayImages entries pointed at the wrong/missing art.
       ["GRANARY", "incubation-engine-overlay.svg"],

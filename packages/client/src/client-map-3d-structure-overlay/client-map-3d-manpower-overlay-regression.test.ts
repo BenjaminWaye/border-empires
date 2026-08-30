@@ -6,7 +6,7 @@ import { createStructureOverlay, STRUCTURE_KINDS_HANDLED_BY_3D } from "./client-
 // These must be the real backend economicStructure.type strings (what
 // client-map-3d.ts actually passes to addInstance), not display names —
 // GARRISON_HALL/GRANARY/AETHER_TOWER are the wire-protocol identifiers for
-// Ancillary Factory/Incubation Engine/Ambaric Tower. Using the display
+// Ancillary Factory/Incubation Engine/Ambaric Transformer Station. Using the display
 // names here previously let this test pass while the real dedicated 3D
 // models were unreachable dead code (shadowed by stale registrations in
 // client-map-3d-structure-civic/economic/late-game.ts under the same

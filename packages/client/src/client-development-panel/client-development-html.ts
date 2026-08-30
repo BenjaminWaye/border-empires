@@ -58,7 +58,7 @@ const activeStructureEntries = (tiles: Map<string, Tile>, me: string): Structure
     }
     const obs = tile.observatory;
     if (obs && (obs.status === "under_construction" || obs.status === "removing")) {
-      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: "Observatory", completesAt: obs.completesAt });
+      entries.push({ tileKey: `${tile.x},${tile.y}`, x: tile.x, y: tile.y, kind: "Aether Tower", completesAt: obs.completesAt });
     }
     const siege = tile.siegeOutpost;
     if (siege && (siege.status === "under_construction" || siege.status === "removing")) {

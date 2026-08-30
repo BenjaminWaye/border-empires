@@ -333,6 +333,16 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "A settled town tile's Gold Production number now includes a support-ring Sell Off converter's contribution, matching the modifier line below it",
       "A converter in Refine mode no longer shows a \"Sell Off gold\" modifier it doesn't actually earn"
     ]
+  },
+  {
+    createdAt: 1788128033639, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Renamed the Observatory and Ambaric Tower",
+    why: "Two structure names were due for a refresh to better fit the empire's aether/power theming.",
+    changes: [
+      "The Observatory is now called the Aether Tower everywhere in the UI (build menu, tile overview, tech unlocks, upkeep) -- no change to what it does",
+      "The Ambaric Tower is now called the Ambaric Transformer Station everywhere in the UI -- no change to what it does"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

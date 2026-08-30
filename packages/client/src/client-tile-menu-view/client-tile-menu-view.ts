@@ -116,7 +116,7 @@ export const constructionProgressForTile = (
   if (tile.observatory?.status === "under_construction" && typeof tile.observatory.completesAt === "number") {
     const remaining = Math.max(0, tile.observatory.completesAt - nowMs);
     return {
-      title: "Observatory under construction",
+      title: "Aether Tower under construction",
       detail: "This tile will extend vision and observatory protection when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
@@ -129,7 +129,7 @@ export const constructionProgressForTile = (
   if (tile.observatory?.status === "removing" && typeof tile.observatory.completesAt === "number") {
     const remaining = Math.max(0, tile.observatory.completesAt - nowMs);
     return {
-      title: "Removing Observatory",
+      title: "Removing Aether Tower",
       detail: "This observatory is being dismantled and will disappear when removal completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureBuildDurationMs("OBSERVATORY")))),
@@ -476,7 +476,7 @@ export const menuOverviewForTile = (
   }
   if (tile.observatory) {
     if (tile.observatory.status === "active") {
-      pushLine("Observatory is active here and blocks hostile crystal actions nearby.");
+      pushLine("Aether Tower is active here and blocks hostile crystal actions nearby.");
       const cooldownRemainingMs = (tile.observatory.cooldownUntil ?? 0) - Date.now();
       if (tile.ownerId === deps.state.me && cooldownRemainingMs > 0) {
         const totalSeconds = Math.ceil(cooldownRemainingMs / 1000);
@@ -486,9 +486,9 @@ export const menuOverviewForTile = (
         pushLine(`Crystal casting recharging — ready in ${clock}.`);
       }
     } else if (tile.observatory.status === "under_construction") {
-      pushLine("Observatory is under construction on this tile.");
+      pushLine("Aether Tower is under construction on this tile.");
     } else {
-      pushLine("Observatory is inactive here and currently provides no vision or protection.");
+      pushLine("Aether Tower is inactive here and currently provides no vision or protection.");
     }
     if (tile.observatory.status === "active") {
       const dormantLine = dormantStructureLineHtml(tile, "observatory", deps.dormantResourcesForTile?.(tile, "observatory"));
@@ -563,7 +563,7 @@ export const menuOverviewForTile = (
     pushLine("Fort removal is underway. Defensive fortification from this tile is currently disabled.");
   }
   if (tile.observatory?.status === "removing") {
-    pushLine("Observatory removal is underway. Vision, protection, and crystal-casting effects are currently disabled.");
+    pushLine("Aether Tower removal is underway. Vision, protection, and crystal-casting effects are currently disabled.");
   }
   if (tile.siegeOutpost?.status === "removing") {
     pushLine("Siege outpost removal is underway. Attack bonuses from this tile are currently disabled.");
