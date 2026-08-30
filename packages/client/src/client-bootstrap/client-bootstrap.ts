@@ -675,18 +675,18 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
       }
     ];
     const lbOverall: import("../client-types.js").LeaderboardOverallEntry[] = [
-      { id: "p1", rank: 1, name: "Alpha", score: 9450.5, tiles: 87, incomePerMinute: 420, techs: 24 },
-      { id: "p2", rank: 2, name: "Beta", score: 8120.3, tiles: 64, incomePerMinute: 380, techs: 21 },
-      { id: "p3", rank: 3, name: "Gamma", score: 6700.1, tiles: 55, incomePerMinute: 310, techs: 18 },
-      { id: "p4", rank: 4, name: "Delta", score: 5230, tiles: 48, incomePerMinute: 260, techs: 15 },
-      { id: "p5", rank: 5, name: "Epsilon", score: 4100, tiles: 42, incomePerMinute: 220, techs: 13 }
+      { id: "p1", rank: 1, name: "Alpha", score: 9450.5, tiles: 87, incomePerMinute: 420, techs: 24, manpowerCap: 500 },
+      { id: "p2", rank: 2, name: "Beta", score: 8120.3, tiles: 64, incomePerMinute: 380, techs: 21, manpowerCap: 420 },
+      { id: "p3", rank: 3, name: "Gamma", score: 6700.1, tiles: 55, incomePerMinute: 310, techs: 18, manpowerCap: 360 },
+      { id: "p4", rank: 4, name: "Delta", score: 5230, tiles: 48, incomePerMinute: 260, techs: 15, manpowerCap: 300 },
+      { id: "p5", rank: 5, name: "Epsilon", score: 4100, tiles: 42, incomePerMinute: 220, techs: 13, manpowerCap: 260 }
     ];
     state.seasonWinner = winner;
     state.seasonEndDismissed = false;
     state.seasonVictory = victory;
     state.leaderboard = {
       overall: lbOverall,
-      selfOverall: { id: "player-1", rank: 6, name: "Debug Winner", score: 3200, tiles: 35, incomePerMinute: 180, techs: 10 },
+      selfOverall: { id: "player-1", rank: 6, name: "Debug Winner", score: 3200, tiles: 35, incomePerMinute: 180, techs: 10, manpowerCap: 220 },
       selfByTiles: undefined,
       selfByIncome: undefined,
       selfByTechs: undefined,

@@ -83,12 +83,14 @@ export const buildWorldStatusSnapshot = (
       const incomePerMinute =
         typeof player.incomePerMinute === "number" ? player.incomePerMinute : estimateIncomePerMinuteFromTiles(player.id, runtimeState.tiles);
       const techCount = player.techIds?.length ?? 0;
+      const manpowerCap = player.manpowerCap ?? player.manpowerCapSnapshot ?? 0;
       return {
         id: player.id,
         name: displayNameForPlayer(player.id, player.name),
         tiles: settledTileCount,
         incomePerMinute,
         techs: techCount,
+        manpowerCap,
         score: leaderboardScoreFor(settledTileCount, incomePerMinute, techCount)
       };
     })
@@ -148,12 +150,14 @@ export const buildLeaderboardFromPlayers = (
       const settledTileCount = player.settledTileCount ?? 0;
       const incomePerMinute = player.incomePerMinute ?? 0;
       const techCount = player.techIds?.length ?? 0;
+      const manpowerCap = player.manpowerCap ?? player.manpowerCapSnapshot ?? 0;
       return {
         id: player.id,
         name: displayNameForPlayer(player.id, player.name),
         tiles: settledTileCount,
         incomePerMinute,
         techs: techCount,
+        manpowerCap,
         score: leaderboardScoreFor(settledTileCount, incomePerMinute, techCount)
       };
     })

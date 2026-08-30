@@ -9,7 +9,7 @@ const makeState = (overrides: Record<string, unknown> = {}) => ({
   seasonEndStarting: false,
   seasonStartVoteCount: 0, seasonStartVoted: false,
   leaderboard: {
-    overall: [] as { id: string; rank: number; name: string; score: number; tiles: number; incomePerMinute: number; techs: number }[],
+    overall: [] as { id: string; rank: number; name: string; score: number; tiles: number; incomePerMinute: number; techs: number; manpowerCap: number }[],
     selfOverall: undefined,
     selfByTiles: undefined,
     selfByIncome: undefined,
@@ -35,11 +35,11 @@ const makeWinner = (overrides: Record<string, unknown> = {}) => ({
 
 const makeLeaderboard = (overrides: Record<string, unknown> = {}) => ({
   overall: [
-    { id: "p1", rank: 1, name: "Alpha", score: 10, tiles: 10, incomePerMinute: 5, techs: 4 },
-    { id: "p2", rank: 2, name: "Beta", score: 9, tiles: 9, incomePerMinute: 4, techs: 3 },
-    { id: "p3", rank: 3, name: "Gamma", score: 8, tiles: 8, incomePerMinute: 3, techs: 2 }
+    { id: "p1", rank: 1, name: "Alpha", score: 10, tiles: 10, incomePerMinute: 5, techs: 4, manpowerCap: 300 },
+    { id: "p2", rank: 2, name: "Beta", score: 9, tiles: 9, incomePerMinute: 4, techs: 3, manpowerCap: 260 },
+    { id: "p3", rank: 3, name: "Gamma", score: 8, tiles: 8, incomePerMinute: 3, techs: 2, manpowerCap: 220 }
   ],
-  selfOverall: { id: "player-1", rank: 5, name: "Nauticus", score: 6, tiles: 6, incomePerMinute: 2, techs: 1 },
+  selfOverall: { id: "player-1", rank: 5, name: "Nauticus", score: 6, tiles: 6, incomePerMinute: 2, techs: 1, manpowerCap: 150 },
   selfByTiles: undefined,
   selfByIncome: undefined,
   selfByTechs: undefined,
