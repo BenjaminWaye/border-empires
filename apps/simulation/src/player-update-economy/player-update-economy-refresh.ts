@@ -3,8 +3,7 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { PASSIVE_INCOME_MULT, SETTLEMENT_BASE_GOLD_PER_MIN } from "@border-empires/game-domain";
 import {
-  firstThreeTownsGoldOutputMultiplierForPlayer,
-  firstThreeTownsPopulationGrowthMultiplierForPlayer,
+  firstThreeTownMultipliersForTile,
   type EconomyPlayer
 } from "../economy-network/economy-network.js";
 import { supportedConverterGoldPerMinuteForTown } from "../economy-network/economy-network-converter-support.js";
@@ -43,16 +42,19 @@ export const refreshTownEconomyFields = (
   // Re-stamp isFed from the fresh fed-key set (settlements always fed).
   const isFed = isSettlement ? true : fedTownKeys.has(`${tile.x},${tile.y}`);
   // Mercantile Charter (and any future firstThreeTowns* domain/tech): its
-  // multiplier is already folded into goldPerMinute above via
-  // townGoldPerMinuteForPlayer, but the wire fields the tile overview reads
+  // gold multiplier is already folded into goldPerMinute above via
+  // townGoldPerMinuteForPlayer (which calls this same helper internally),
+  // but the wire fields the tile overview reads
   // (firstThreeTownGoldMult/firstThreeTownPopGrowthMult) still need
   // re-stamping here too — otherwise a town whose original buildTownSummary
   // predates the player picking up the domain (or falling in/out of their
   // first three) keeps showing a stale value between full rebuilds, same
   // class of bug goldPerMinute/isFed were already re-stamped here to avoid.
-  const isFirstThree = firstThreeTownKeys?.has(`${tile.x},${tile.y}`) ?? false;
-  const firstThreeTownGoldMult = isFirstThree ? firstThreeTownsGoldOutputMultiplierForPlayer(player) : 1;
-  const firstThreeTownPopGrowthMult = isFirstThree ? firstThreeTownsPopulationGrowthMultiplierForPlayer(player) : 1;
+  // Going through firstThreeTownMultipliersForTile here (rather than
+  // re-deriving eligibility/multipliers independently, the way this used
+  // to) is what makes that drift structurally impossible now.
+  const { goldMult: firstThreeTownGoldMult, popGrowthMult: firstThreeTownPopGrowthMult } =
+    firstThreeTownMultipliersForTile(player, firstThreeTownKeys, `${tile.x},${tile.y}`);
   if (
     town.goldPerMinute === goldPerMinute &&
     town.isFed === isFed &&

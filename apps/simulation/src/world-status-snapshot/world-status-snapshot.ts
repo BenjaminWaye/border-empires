@@ -2,7 +2,7 @@ import type { SimulationRuntime } from "../runtime/runtime.js";
 import { estimateIncomePerMinuteFromTiles } from "../player-runtime-summary.js";
 import { computeSeasonVictory, mergeSelfProgress } from "../season-victory-objectives/season-victory-objectives.js";
 import { anonymizedEmpireNameForId, isOpaquePlayerId, type SeasonVictoryPathId } from "@border-empires/shared";
-import { GOLD_RESCALE_DIVISOR, type DomainTileState } from "@border-empires/game-domain";
+import { GOLD_RESCALE_DIVISOR, MANPOWER_BASE_CAP, type DomainTileState } from "@border-empires/game-domain";
 import type { LeaderboardMetricEntry, LeaderboardOverallEntry, WorldStatusSnapshot } from "@border-empires/sim-protocol";
 
 type RuntimeState = ReturnType<SimulationRuntime["exportState"]>;
@@ -83,12 +83,14 @@ export const buildWorldStatusSnapshot = (
       const incomePerMinute =
         typeof player.incomePerMinute === "number" ? player.incomePerMinute : estimateIncomePerMinuteFromTiles(player.id, runtimeState.tiles);
       const techCount = player.techIds?.length ?? 0;
+      const manpowerCap = player.manpowerCap ?? Math.max(player.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP);
       return {
         id: player.id,
         name: displayNameForPlayer(player.id, player.name),
         tiles: settledTileCount,
         incomePerMinute,
         techs: techCount,
+        manpowerCap,
         score: leaderboardScoreFor(settledTileCount, incomePerMinute, techCount)
       };
     })
@@ -148,12 +150,14 @@ export const buildLeaderboardFromPlayers = (
       const settledTileCount = player.settledTileCount ?? 0;
       const incomePerMinute = player.incomePerMinute ?? 0;
       const techCount = player.techIds?.length ?? 0;
+      const manpowerCap = player.manpowerCap ?? Math.max(player.manpowerCapSnapshot ?? 0, MANPOWER_BASE_CAP);
       return {
         id: player.id,
         name: displayNameForPlayer(player.id, player.name),
         tiles: settledTileCount,
         incomePerMinute,
         techs: techCount,
+        manpowerCap,
         score: leaderboardScoreFor(settledTileCount, incomePerMinute, techCount)
       };
     })

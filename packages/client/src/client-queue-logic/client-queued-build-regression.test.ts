@@ -37,6 +37,7 @@ describe("queued build regression", () => {
       queuedBuildProgressForTile: () => progress,
       queuedExpandProgressForTile: () => undefined,
       queuedWaypointProgressForTile: () => undefined,
+      queuedAutoSettleNextForTile: () => undefined,
       constructionProgressForTile: () => undefined,
       menuOverviewForTile: () => [],
       prettyToken: (value) => value,

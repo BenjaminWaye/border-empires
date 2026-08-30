@@ -18,7 +18,7 @@ import {
   dockBaseGoldPerMinuteForPlayer,
   enrichTownWithConnectedNetwork,
   firstThreeTownKeysForPlayer,
-  firstThreeTownsGoldOutputMultiplierForPlayer,
+  firstThreeTownMultipliersForTile,
   countSupportedStructures,
   hasSupportedStructure,
   supportTileBelongsToTown,
@@ -206,9 +206,7 @@ export const townGoldPerMinuteForPlayer = (
         ? hasSupportedStructure(player.id, connectedTile, "CLEARING_HOUSE", tiles, false, dormantEconomicStructureKeys)
         : false;
     });
-  const firstThreeTownMult = firstThreeTownKeys.has(tileKey)
-    ? firstThreeTownsGoldOutputMultiplierForPlayer(player)
-    : 1;
+  const { goldMult: firstThreeTownMult } = firstThreeTownMultipliersForTile(player, firstThreeTownKeys, tileKey);
   return (
     TOWN_BASE_GOLD_PER_MIN *
     supportRatio *
@@ -288,7 +286,7 @@ export const buildPlayerUpdateEconomySnapshot = (
   const townNetwork =
     prebuiltTownNetwork ??
     buildConnectedTownNetworkForPlayer(player, tiles, settledTiles, { maxConnectedTownNames: 0, dormantEconomicStructureKeys });
-  const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.keys());
+  const firstThreeTownKeys = firstThreeTownKeysForPlayer(player.id, summary.ownedTownTierByTile.entries());
   // Mintworks-style attribution (§built-like-Mintworks): an EXCHANGE-mode
   // converter in a town's support ring pays its gold through that town's own
   // production instead of as separate empire income — computed once per town
