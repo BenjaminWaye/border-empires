@@ -194,6 +194,21 @@ const tileMenuBodyHtml = (view: TileMenuView, activeTab: TileMenuTab): string =>
         <div class="tile-progress-note">${view.progress.note}</div>
         ${view.progress.secondaryLabel ? `<button class="tile-progress-secondary" type="button" data-progress-action="${view.progress.secondaryActionId ?? "move_queued_entry_to_front"}">${view.progress.secondaryLabel}</button>` : ""}
         ${view.progress.cancelLabel ? `<button class="tile-progress-cancel" type="button" data-progress-action="${view.progress.cancelActionId ?? "cancel_structure_build"}">${view.progress.cancelLabel}</button>` : ""}
+        ${
+          view.progress.queuedNext && view.progress.queuedNext.length > 0
+            ? `<div class="tile-progress-queued-next">
+                ${view.progress.queuedNext
+                  .map(
+                    (next) => `<div class="tile-progress-queued-next-item">
+                      <div class="tile-progress-queued-next-title">${next.title}</div>
+                      <div class="tile-progress-queued-next-detail">${next.detail}</div>
+                      <button class="tile-progress-cancel" type="button" data-progress-action="${next.cancelActionId}">${next.cancelLabel}</button>
+                    </div>`
+                  )
+                  .join("")}
+              </div>`
+            : ""
+        }
       </div>
     `;
   }

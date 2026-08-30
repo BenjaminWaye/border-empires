@@ -30,6 +30,7 @@ const deps = {
   queuedBuildProgressForTile: () => undefined,
   queuedExpandProgressForTile: () => undefined,
   queuedWaypointProgressForTile: () => undefined,
+  queuedAutoSettleNextForTile: () => undefined,
   constructionProgressForTile: () => undefined,
   menuOverviewForTile: () => []
 };

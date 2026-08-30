@@ -16,6 +16,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788088515738, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "Settle Land now queues on a tile you're already expanding into",
+    why: "Pressing Settle Land on a neutral tile that was already mid-expansion (an active claim, or one still waiting its turn in the frontier queue) used to be rejected as a duplicate/locked target -- there was no way to line up the settle ahead of time, so you had to watch for the expansion to land and click again.",
+    changes: [
+      "Settle Land on a tile you're already expanding into now queues the settlement and fires it automatically once that tile becomes your frontier -- instead of being rejected",
+      "The tile's progress tab shows queued settle (and settle + build) actions lined up behind the active expansion, with a cancel button for each"
+    ]
+  },
+  {
     createdAt: 1788036933966, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.4",
     title: "Panning the 3D map now glides instead of snapping tile by tile",

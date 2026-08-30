@@ -119,6 +119,35 @@ export const queuedWaypointProgressForTile = (
   };
 };
 
+// "Then: settle" / "then: settle + build" entries queued behind whatever is
+// currently active on this tile (usually an in-flight EXPAND capture) --
+// see autoSettleTargets/autoBuildTargets and processAutoSettleTargets in
+// client-action-flow.ts. Rendered as a small list under the primary
+// progress card rather than as its own card, since a tile only ever shows
+// one "progress" slot at a time.
+export const queuedAutoSettleNextForTile = (
+  tile: Tile,
+  deps: {
+    keyFor: (x: number, y: number) => string;
+    hasAutoSettleTarget: (tileKey: string) => boolean;
+    autoBuildStructureLabelForTile: (tileKey: string) => string | undefined;
+  }
+): TileMenuProgressView["queuedNext"] => {
+  const tileKey = deps.keyFor(tile.x, tile.y);
+  if (!deps.hasAutoSettleTarget(tileKey)) return undefined;
+  const buildLabel = deps.autoBuildStructureLabelForTile(tileKey);
+  return [
+    {
+      title: buildLabel ? `Then: settle + build ${buildLabel}` : "Then: settle",
+      detail: buildLabel
+        ? "Once this tile is owned, it will automatically settle and start this build."
+        : "Once this tile is owned, it will automatically settle.",
+      cancelLabel: "Cancel queued settle",
+      cancelActionId: "cancel_queued_auto_settle"
+    }
+  ];
+};
+
 export const queuedExpandProgressForTile = (
   tile: Tile,
   deps: {
