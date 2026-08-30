@@ -5,7 +5,7 @@ import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tra
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { ownObservatoryRange } from "./client-observatory-rules/client-observatory-rules.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
-import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js";
+import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js"; import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
 import { STRUCTURE_KINDS_HANDLED_BY_3D, type StructureKind } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
@@ -206,7 +206,7 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     if (isSeasonLobbyFullscreenActive(state)) { requestAnimationFrame(draw); return; }
     const nowMs = performance.now();
     recordFpsFrame(nowMs);
-    const minFrameGap = deps.isMobile() ? 40 : 24;
+    const minFrameGap = drawLoopMinFrameGapMs(isTrue3DRendererActive(), deps.isMobile());
     if (nowMs - lastDrawAt < minFrameGap) {
       requestAnimationFrame(draw);
       return;
