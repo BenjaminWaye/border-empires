@@ -314,6 +314,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "The town's overview now shows a \"Sell Off gold\" modifier under a \"<count> <Building>\" heading for these buildings, matching how Mintworks and other support-ring buildings already show their contribution",
       "A converter built outside any town's support ring is unaffected -- its gold still pays out as separate empire income exactly as before"
     ]
+  },
+  {
+    createdAt: 1788091013204, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "Mercantile Charter's \"first three towns\" no longer counts a bare starting settlement",
+    why: "Every settled tile carries basic town data, not just a player's actual named/grown cities -- so an early, unnamed starting settlement silently occupied one of Mercantile Charter's three bonus slots ahead of the player's real towns, exactly matching the domain's own description (\"your first three cities\") but not what it actually checked. An established player with more than a couple of settled tiles could end up with none of their real towns receiving the bonus at all.",
+    changes: [
+      "Mercantile Charter's first-three-towns bonus now only considers TOWN tier and above -- a bare settlement can no longer take one of the three slots"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
