@@ -6,6 +6,8 @@ import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   ADVANCED_TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
+  CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES,
+  converterExchangeGoldPerMinute,
   CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   UMBRITE_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
   TITANIUM_WORKS_GOLD_UPKEEP_PER_DAY,
@@ -49,6 +51,12 @@ const fallbackTownGoldPerMinute = (input: {
   connectedTownBonus: number;
   mintworksCount: number;
   clearingHouseActive: boolean;
+  // Mintworks-style attribution (see economy-network-converter-support.ts /
+  // live-town-summary.ts): gold/minute from active EXCHANGE-mode converters
+  // (Aether Condenser/Titanium Works/Umbrite Works) in this town's support
+  // ring. Excluded for SETTLEMENT-tier towns via the early return below,
+  // same gate MINTWORKS_FLAT_GOLD_BONUS_PER_MIN already uses.
+  converterGoldPerMinute: number;
 }): number => {
   if (input.isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * PASSIVE_INCOME_MULT;
   if (!input.isFed) return 0;
@@ -61,7 +69,7 @@ const fallbackTownGoldPerMinute = (input: {
       (1 + input.connectedTownBonus) *
       mintworksGoldProductionMultiplier(input.mintworksCount, input.clearingHouseActive) *
       PASSIVE_INCOME_MULT
-    ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * input.mintworksCount
+    ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * input.mintworksCount + input.converterGoldPerMinute
   );
 };
 
@@ -107,6 +115,7 @@ const supportSummaryForTown = (
 };
 
 const TOWN_MODIFIER_AGGREGATE_TYPE_SET = new Set<string>(TOWN_MODIFIER_AGGREGATE_TYPES);
+const CONVERTER_TOWN_MODIFIER_TYPE_SET = new Set<string>(CONVERTER_TOWN_MODIFIER_AGGREGATE_TYPES);
 
 const derivedTownSupportStructures = (
   tilesByKey: ReadonlyMap<string, SnapshotTile>,
@@ -118,13 +127,19 @@ const derivedTownSupportStructures = (
   mintworksCount: number;
   hasGranary: boolean;
   clearingHouseActive: boolean;
+  // Mintworks-style attribution: gold/minute from active EXCHANGE-mode
+  // converters (Aether Condenser/Titanium Works/Umbrite Works) in the
+  // support ring — see fallbackTownGoldPerMinute's matching param.
+  converterGoldPerMinute: number;
   // Unified building modifier display (stage 2): per-type counts for every
   // TOWN_MODIFIER_AGGREGATE_TYPES member found in the support ring, fed
   // into game-domain's townModifierTotalsFromCounts below — the single
   // source of truth for the aggregation math itself, shared with
   // apps/simulation/src/live-town-summary.ts so the two paths can't drift
   // apart again the way they did the first time (this path never computed
-  // townModifierTotals at all, so it never reached the tile popup).
+  // townModifierTotals at all, so it never reached the tile popup). For the
+  // converter types, this count is EXCHANGE-mode-filtered (a Refine-mode
+  // converter earns no gold and shouldn't show a "Sell Off gold" line).
   aggregateCounts: Partial<Record<ModifierStructureType, number>>;
 } => {
   let mintworksCount = 0;
@@ -133,24 +148,31 @@ const derivedTownSupportStructures = (
   // existed on this fallback path — detected here the same support-ring way
   // Mintworks/Granary already are, rather than left permanently false.
   let clearingHouseActive = false;
+  let converterGoldPerMinute = 0;
   const aggregateCounts: Partial<Record<ModifierStructureType, number>> = {};
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;
       const neighbor = tilesByKey.get(keyFor(x + dx, y + dy));
       if (!neighbor || neighbor.ownerId !== ownerId || neighbor.ownershipState !== "SETTLED") continue;
-      const structure = parseStructure<{ type?: string; status?: string }>(neighbor.economicStructureJson);
+      const structure = parseStructure<{ type?: string; status?: string; converterMode?: string }>(neighbor.economicStructureJson);
       if (!structure || structure.status !== "active" || !structure.type) continue;
       if (structure.type === "MINTWORKS") mintworksCount += 1;
       if (structure.type === "GRANARY") hasGranary = true;
       if (structure.type === "CLEARING_HOUSE") clearingHouseActive = true;
-      if (TOWN_MODIFIER_AGGREGATE_TYPE_SET.has(structure.type)) {
+      if (CONVERTER_TOWN_MODIFIER_TYPE_SET.has(structure.type)) {
+        const amountPerMinute = converterExchangeGoldPerMinute(structure.type, structure.converterMode);
+        if (amountPerMinute <= 0) continue;
+        converterGoldPerMinute += amountPerMinute;
+        const type = structure.type as ModifierStructureType;
+        aggregateCounts[type] = (aggregateCounts[type] ?? 0) + 1;
+      } else if (TOWN_MODIFIER_AGGREGATE_TYPE_SET.has(structure.type)) {
         const type = structure.type as ModifierStructureType;
         aggregateCounts[type] = (aggregateCounts[type] ?? 0) + 1;
       }
     }
   }
-  return { hasMintworks: mintworksCount > 0, mintworksCount, hasGranary, clearingHouseActive, aggregateCounts };
+  return { hasMintworks: mintworksCount > 0, mintworksCount, hasGranary, clearingHouseActive, converterGoldPerMinute, aggregateCounts };
 };
 
 const derivedTownIsFed = (
@@ -298,7 +320,8 @@ export const buildSnapshotTileDetail = (
           connectedTownBonus:
             typeof parsedTown?.connectedTownBonus === "number" ? parsedTown.connectedTownBonus : 0,
           mintworksCount: supportStructures.mintworksCount,
-          clearingHouseActive: supportStructures.clearingHouseActive
+          clearingHouseActive: supportStructures.clearingHouseActive,
+          converterGoldPerMinute: supportStructures.converterGoldPerMinute
         });
   // Only backfill cap when goldPerMinute is positive. For unfed TOWN-tier
   // tiles the live-snapshot formula multiplies through 0, which on the wire
