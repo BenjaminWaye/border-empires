@@ -94,6 +94,27 @@ const parseStructure = <T>(value?: string): T | undefined => {
   }
 };
 
+// Mirrors applyObservatoryProgressiveCost (apps/simulation/src/resource-slot-view/resource-slot-view.ts):
+// each additional Observatory a player owns costs progressively more CRYSTAL
+// slot upkeep -- 1st = 1 slot, 2nd = 2, and so on, ranked by build order
+// (earliest activatedAt first, tied broken by tile key). Watchtower Engine's
+// own observatory is exempt (syncWatchtowerObservatory) and excluded here too.
+const activeObservatoryActivations = (
+  tilesByKey: ReadonlyMap<string, SnapshotTile>,
+  playerId: string
+): Array<{ key: string; activatedAt: number }> => {
+  const activations: Array<{ key: string; activatedAt: number }> = [];
+  for (const candidate of tilesByKey.values()) {
+    if (candidate.ownerId !== playerId) continue;
+    const observatory = parseStructure<{ status?: string; activatedAt?: number }>(candidate.observatoryJson);
+    if (!observatory || observatory.status !== "active") continue;
+    const naturalWonder = parseStructure<{ type?: string }>(candidate.naturalWonderJson);
+    if (naturalWonder?.type === "WATCHTOWER_ENGINE") continue;
+    activations.push({ key: keyFor(candidate.x, candidate.y), activatedAt: observatory.activatedAt ?? 0 });
+  }
+  return activations.sort((a, b) => a.activatedAt - b.activatedAt || a.key.localeCompare(b.key));
+};
+
 const supportSummaryForTown = (
   tilesByKey: ReadonlyMap<string, SnapshotTile>,
   ownerId: string,
@@ -271,7 +292,11 @@ export const buildSnapshotTileDetail = (
 
   const tilesByKey = new Map((snapshot?.tiles ?? []).map((entry: PlayerSubscriptionSnapshot["tiles"][number]) => [keyFor(entry.x, entry.y), entry] as const));
 
-  const upkeepEntries: Array<{ label: string; perMinute: Record<string, number> }> = [];
+  const upkeepEntries: Array<{
+    label: string;
+    perMinute: Record<string, number>;
+    slot?: { resource: string; count: number };
+  }> = [];
   const parsedTown = parseTown(tile);
   const supportSummary = supportSummaryForTown(tilesByKey, playerId, x, y);
   const supportStructures = derivedTownSupportStructures(tilesByKey, playerId, x, y);
@@ -388,13 +413,15 @@ export const buildSnapshotTileDetail = (
     upkeepEntries.push({ label: "Town", perMinute: { FOOD: Number(townFoodUpkeep.toFixed(4)) } });
   }
   const economicStructure = parseStructure<{ type?: string; status?: string; converterMode?: ConverterMode }>(tile.economicStructureJson);
-  // Fort family (food + increasing iron), Siege family (food + increasing
-  // supply), and Observatory are surfaced here alongside economic structures.
+  // Fort family (food + increasing iron) and Siege family (food + increasing
+  // supply) are surfaced here alongside economic structures. Observatory has
+  // no `type`/`variant` field on its domain object at all, and its upkeep is
+  // a progressive CRYSTAL slot count rather than a per-minute drain, so it's
+  // handled separately below instead of through this generic per-minute loop.
   const structures = [
     economicStructure,
     parseStructure<{ type?: string; variant?: string; status?: string }>(tile.fortJson),
     parseStructure<{ type?: string; variant?: string; status?: string }>(tile.siegeOutpostJson),
-    parseStructure<{ type?: string; status?: string }>(tile.observatoryJson),
   ].filter((value): value is { type?: string; variant?: string; status?: string; converterMode?: ConverterMode } => Boolean(value));
   for (const structure of structures) {
     if (!structure?.status || structure.status !== "active") continue;
@@ -409,6 +436,16 @@ export const buildSnapshotTileDetail = (
       ...(upkeep.UMBRITE ? { UMBRITE: Number(upkeep.UMBRITE.toFixed(4)) } : {})
     };
     if (Object.keys(perMinute).length > 0) upkeepEntries.push({ label: type, perMinute });
+  }
+  const observatory = parseStructure<{ status?: string; activatedAt?: number }>(tile.observatoryJson);
+  if (observatory?.status === "active") {
+    const naturalWonder = parseStructure<{ type?: string }>(tile.naturalWonderJson);
+    if (naturalWonder?.type !== "WATCHTOWER_ENGINE") {
+      const activations = activeObservatoryActivations(tilesByKey, playerId);
+      const rank = activations.findIndex((activation) => activation.key === keyFor(x, y));
+      const crystalSlotCount = rank >= 0 ? rank + 1 : 1;
+      upkeepEntries.push({ label: "Observatory", perMinute: {}, slot: { resource: "CRYSTAL", count: crystalSlotCount } });
+    }
   }
   if (upkeepEntries.length > 0) update.upkeepEntries = upkeepEntries;
 

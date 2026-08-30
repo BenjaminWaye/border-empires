@@ -1,5 +1,8 @@
 import type { FrontierDecayKind, NaturalWonderType, Terrain } from "@border-empires/shared";
 import type { ClientTownWireSummary } from "./client-tile-town-type.js";
+import type { TileUpkeepEntry } from "./client-tile-upkeep-entry-type.js";
+
+export type { TileUpkeepEntry } from "./client-tile-upkeep-entry-type.js";
 
 export type OptimisticStructureKind =
   | "FORT"
@@ -59,11 +62,6 @@ export type OptimisticStructureKind =
   | "WEAPONS_WORKSHOP"
   | "TITANIUM_WEAPONS_FACTORY"
   | "UMBRITE_WEAPONS_FACTORY";
-
-export type TileUpkeepEntry = {
-  label: string;
-  perMinute: Partial<Record<"FOOD" | "TITANIUM" | "CRYSTAL" | "UMBRITE" | "GOLD", number>>;
-};
 
 export type Tile = {
   x: number;

@@ -5,6 +5,7 @@ import type { Tile, TileOverviewLine, TileUpkeepEntry } from "./client-types.js"
 const upkeepResourceOrder = ["GOLD", "FOOD", "TITANIUM", "UMBRITE", "CRYSTAL"] as const;
 
 const hasUpkeepAmount = (entry: TileUpkeepEntry): boolean =>
+  Boolean(entry.slot && entry.slot.count > 0) ||
   upkeepResourceOrder.some((resource) => Number(entry.perMinute[resource] ?? 0) > 0.0001);
 
 // §12.1 (docs/manpower-economy-rewrite-plan.md): Observatory's CRYSTAL
@@ -26,6 +27,9 @@ const formatUpkeepEntry = (entry: TileUpkeepEntry): string => {
       return `${resourceIconForKey(resource)} ${amount.toFixed(1)}/day`;
     })
     .filter((part): part is string => Boolean(part));
+  if (entry.slot && entry.slot.count > 0) {
+    parts.push(`${entry.slot.count} ${entry.slot.resource} slot${entry.slot.count === 1 ? "" : "s"}`);
+  }
   return parts.join(" · ");
 };
 

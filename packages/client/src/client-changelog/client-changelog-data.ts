@@ -18,10 +18,11 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1788106911078, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.2",
-    title: "Build menu now explains Observatory's rising CRYSTAL upkeep",
-    why: "Each additional Observatory a player owns costs progressively more CRYSTAL slot upkeep (1st = 1 slot, 2nd = 2, and so on), but the build menu's Observatory description never mentioned this, making the growing cost a surprise.",
+    title: "Observatory's rising CRYSTAL upkeep is now shown in the build menu and tile overview",
+    why: "Each additional Observatory a player owns costs progressively more CRYSTAL slot upkeep (1st = 1 slot, 2nd = 2, and so on), but neither the build menu's Observatory description nor an owned Observatory tile's Upkeep section ever mentioned this -- the tile overview never showed Observatory upkeep at all, since its domain object has no type/variant field for the generic upkeep-line lookup to key off.",
     changes: [
-      "The Build Observatory tooltip now states that CRYSTAL slot cost rises with each Observatory you own"
+      "The Build Observatory tooltip now states that CRYSTAL slot cost rises with each Observatory you own",
+      "An owned Observatory's tile overview now shows its actual current CRYSTAL slot count under Upkeep"
     ]
   },
   {
