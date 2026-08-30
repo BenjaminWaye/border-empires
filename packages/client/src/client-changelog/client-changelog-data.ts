@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788106911078, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "Build menu now explains Observatory's rising CRYSTAL upkeep",
+    why: "Each additional Observatory a player owns costs progressively more CRYSTAL slot upkeep (1st = 1 slot, 2nd = 2, and so on), but the build menu's Observatory description never mentioned this, making the growing cost a surprise.",
+    changes: [
+      "The Build Observatory tooltip now states that CRYSTAL slot cost rises with each Observatory you own"
+    ]
+  },
+  {
     createdAt: 1788088515738, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.1",
     title: "Settle Land now queues on a tile you're already expanding into",

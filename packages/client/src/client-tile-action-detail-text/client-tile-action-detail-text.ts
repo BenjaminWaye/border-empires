@@ -44,7 +44,7 @@ export const buildDetailTextForAction = (actionId: string, tile: Tile, supported
       : `Fortify this tile. Forts defend at ${FORT_TIER_LADDER.FORT.defenseMult}x and stop failed attacks from costing the origin tile.`;
   }
   if (actionId === "build_wooden_fort") return "Build a lighter fortification on this border or dock tile. Weaker than a full fort, but gold-only.";
-  if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby.`;
+  if (actionId === "build_observatory") return `Extends local vision by ${OBSERVATORY_VISION_BONUS} and blocks hostile crystal actions nearby. Occupies CRYSTAL slots — 1 for your first Observatory, 2 for your second, and so on for each one you own.`;
   if (actionId === "build_siege_camp") {
     // Only show upgrade text when a siege outpost already exists.
     if (tile.siegeOutpost) {
