@@ -65,6 +65,12 @@ export const readStoredCameraLocation = (): { x: number; y: number; zoom: number
 export const cameraLocationInitialState = (): {
   camX: number;
   camY: number;
+  // Sub-tile fraction of an in-progress pan, in [0, 1) on each axis — camX/camY
+  // stay whole tiles (every other consumer assumes that); the 3D camera folds
+  // this into its pan offset (client-map-3d-perspective-camera.ts) so panning
+  // glides between tiles instead of snapping. Always 0 on load, never persisted.
+  camSubX: number;
+  camSubY: number;
   zoom: number;
   cameraRestoredFromStorage: boolean;
   cameraRestoredSeasonId: string | undefined;
@@ -74,6 +80,8 @@ export const cameraLocationInitialState = (): {
     return {
       camX: urlFocus.x,
       camY: urlFocus.y,
+      camSubX: 0,
+      camSubY: 0,
       zoom: DEFAULT_ZOOM,
       // Reuses the "restored" one-shot skip (consumed in client-network.ts)
       // so the initial centerOnOwnedTile() fallback doesn't override a tile
@@ -87,6 +95,8 @@ export const cameraLocationInitialState = (): {
   return {
     camX: stored?.x ?? 0,
     camY: stored?.y ?? 0,
+    camSubX: 0,
+    camSubY: 0,
     zoom: stored?.zoom ?? DEFAULT_ZOOM,
     cameraRestoredFromStorage: stored !== null,
     cameraRestoredSeasonId: stored?.seasonId

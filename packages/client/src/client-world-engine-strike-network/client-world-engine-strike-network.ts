@@ -55,6 +55,8 @@ export const applyWorldEngineStrikeAnnouncement = (msg: Record<string, unknown>,
     onJumpToTarget: () => {
       deps.state.camX = targetX;
       deps.state.camY = targetY;
+      deps.state.camSubX = 0;
+      deps.state.camSubY = 0;
       deps.state.selected = { x: targetX, y: targetY };
       deps.requestViewRefresh(2, true);
     }

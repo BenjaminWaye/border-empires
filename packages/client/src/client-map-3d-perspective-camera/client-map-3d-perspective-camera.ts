@@ -12,6 +12,12 @@ export type PerspectiveCameraStateInputs = {
   readonly zoom: number;
   readonly canvasWidth: number;
   readonly canvasHeight: number;
+  // Scene-space offset of the live camera from the terrain's baked anchor
+  // (sceneOrigin in client-map-3d.ts) — 0 when the camera sits exactly on the
+  // last rebuild's anchor. Lets the camera glide within the terrain's padded
+  // window between rebuilds instead of only jumping when a rebuild fires.
+  readonly offsetX?: number;
+  readonly offsetZ?: number;
 };
 
 export const createPerspectiveCamera = (canvas: HTMLCanvasElement): PerspectiveCamera => {
@@ -35,8 +41,8 @@ export const applyPerspectiveCamera = (
   const height = Math.max(1, inputs.canvasHeight);
   camera.aspect = width / height;
   const distance = cameraDistanceForZoom(inputs.zoom);
-  const centerX = PERSPECTIVE_TILE_CENTER_OFFSET;
-  const centerZ = PERSPECTIVE_TILE_CENTER_OFFSET;
+  const centerX = PERSPECTIVE_TILE_CENTER_OFFSET + (inputs.offsetX ?? 0);
+  const centerZ = PERSPECTIVE_TILE_CENTER_OFFSET + (inputs.offsetZ ?? 0);
   camera.position.set(
     centerX,
     distance * Math.cos(PERSPECTIVE_TILT_RADIANS),

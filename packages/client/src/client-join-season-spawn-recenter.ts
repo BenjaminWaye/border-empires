@@ -25,7 +25,7 @@ export const parseJoinSeasonAckSpawnTile = (value: unknown): { x: number; y: num
 };
 
 export const applyJoinSeasonSpawnRecenter = (
-  state: Pick<ClientState, "homeTile" | "camX" | "camY" | "selected">,
+  state: Pick<ClientState, "homeTile" | "camX" | "camY" | "camSubX" | "camSubY" | "selected">,
   spawnTile: { x: number; y: number } | undefined,
   requestViewRefreshSafely: (radius?: number, force?: boolean) => void
 ): void => {
@@ -33,6 +33,8 @@ export const applyJoinSeasonSpawnRecenter = (
   state.homeTile = spawnTile;
   state.camX = spawnTile.x;
   state.camY = spawnTile.y;
+  state.camSubX = 0;
+  state.camSubY = 0;
   state.selected = spawnTile;
   // The stale pre-spawn camera in localStorage is worse than useless here --
   // reload it and the player lands back on the meaningless position this

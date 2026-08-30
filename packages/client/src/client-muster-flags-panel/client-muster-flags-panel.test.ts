@@ -45,7 +45,7 @@ describe("buildManpowerPanelMusterFlags", () => {
 describe("wireMusterFocusButtons", () => {
   it("navigates the camera to the button's coordinates on click", () => {
     document.body.innerHTML = `<button data-muster-focus-x="12" data-muster-focus-y="18"></button>`;
-    const state = { camX: 0, camY: 0, selected: undefined as { x: number; y: number } | undefined };
+    const state = { camX: 0, camY: 0, camSubX: 0, camSubY: 0, selected: undefined as { x: number; y: number } | undefined };
     let refreshed = false;
     let rerendered = false;
     wireMusterFocusButtons(document.body, state, {
@@ -64,7 +64,7 @@ describe("wireMusterFocusButtons", () => {
 
   it("ignores clicks with non-numeric coordinates", () => {
     document.body.innerHTML = `<button data-muster-focus-x="nope" data-muster-focus-y="18"></button>`;
-    const state = { camX: 1, camY: 2, selected: undefined as { x: number; y: number } | undefined };
+    const state = { camX: 1, camY: 2, camSubX: 0, camSubY: 0, selected: undefined as { x: number; y: number } | undefined };
     wireMusterFocusButtons(document.body, state, {
       wrapX: (x) => x,
       wrapY: (y) => y,

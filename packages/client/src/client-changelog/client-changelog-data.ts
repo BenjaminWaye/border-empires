@@ -16,6 +16,24 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788036933966, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.4",
+    title: "Panning the 3D map now glides instead of snapping tile by tile",
+    why: "The 3D camera used to jump a whole tile at a time on every pan, since the camera position itself was never tracked between tiles -- only the world's position relative to a fixed camera. Between that and the terrain-rebuild stutter fixed just before this, panning read as choppy even on a good connection.",
+    changes: [
+      "Dragging the 3D map now moves the camera continuously instead of snapping a full tile at a time"
+    ]
+  },
+  {
+    createdAt: 1788033792915, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.3",
+    title: "Reduced camera pan stutter in the 3D map",
+    why: "Every pan drag used to force a full terrain rebuild on every single tile crossed, because the terrain and every overlay were re-baked to sit exactly on the live camera position. Rebuilding is expensive (re-uploading a padded window of tiles to the GPU), so a brisk drag could ask for far more rebuilds per second than the render loop could actually keep up with, showing up as stutter/frame drops layered on top of the pan itself.",
+    changes: [
+      "Panning the 3D map now rebuilds terrain only when the camera actually needs tiles outside its already-built window, instead of on every tile crossed -- cutting rebuild frequency roughly 4-5x during a typical drag at the default zoom level"
+    ]
+  },
+  {
     createdAt: 1788037445121, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.4",
     title: "Fixed a gap in the reach-border overlay around freshly-explored ground",
