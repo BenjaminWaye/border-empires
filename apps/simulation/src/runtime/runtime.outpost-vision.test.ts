@@ -135,7 +135,9 @@ describe("SimulationRuntime outpost vision bonus", () => {
               economicStructure: { ownerId: "player-1", type: "RELAY_BEACON" as const, status: "active" as const }
             },
             // A free FOOD slot — WOODEN_FORT's resource-slot requirement.
-            { x: 0, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "FOOD" as const }
+            // (A FARM tile grants 1 base FOOD slot on its own, no structure
+            // needed — structure-slots.ts's BASE_SLOTS_BY_TILE_RESOURCE.)
+            { x: 0, y: 0, terrain: "LAND" as const, ownerId: "player-1", ownershipState: "SETTLED" as const, resource: "FARM" as const }
           ],
           activeLocks: []
         }

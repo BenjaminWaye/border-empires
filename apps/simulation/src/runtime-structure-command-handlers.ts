@@ -18,7 +18,7 @@ import {
 } from "@border-empires/shared";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import { parseBuildStructurePayload } from "./runtime-command-parsers.js";
-import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
+import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyResourceSlotTotals, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId } from "./monument-uniqueness.js";
@@ -178,7 +178,16 @@ function hasFreeResourceSlots(
   if (requirements.length === 0) return true;
   const supply = context.resourceSlotSupplyForPlayer(command.playerId);
   const demand = context.resourceSlotDemandForPlayer(command.playerId);
-  const alreadyOnThisTile = totalsFromSlotRequirements(currentTileFieldSlotRequirements(target, tileField, command.playerId));
+  // A Relay Beacon's own FOOD demand is frequently waived to 0 (the
+  // player's earliest RELAY_BEACON_FREE_FOOD_SLOT_COUNT beacons never count
+  // against demand at all -- slot-waivers.ts), so crediting back its raw,
+  // unwaived requirement here would double-count a slot that was never
+  // actually consumed and let a Palisade build bypass this gate with zero
+  // real free FOOD capacity. Building WOODEN_FORT over a Relay Beacon
+  // therefore gets no netting credit for the beacon it's replacing.
+  const alreadyOnThisTile = structureType === "WOODEN_FORT" && target.economicStructure?.type === "RELAY_BEACON"
+    ? emptyResourceSlotTotals()
+    : totalsFromSlotRequirements(currentTileFieldSlotRequirements(target, tileField, command.playerId));
   for (const req of requirements) {
     const freeExcludingThisTile = supply[req.resource] - demand[req.resource] + alreadyOnThisTile[req.resource];
     if (freeExcludingThisTile < req.count) {
