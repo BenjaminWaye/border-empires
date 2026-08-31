@@ -1,7 +1,7 @@
 import { WORLD_HEIGHT, WORLD_WIDTH, grassShadeAt, landBiomeAt } from "@border-empires/shared";
 import {
   buildMiniMapBase as buildMiniMapBaseFromModule,
-  computeDockSeaRoute as computeDockSeaRouteFromModule,
+  resolveDockSeaRoute as resolveDockSeaRouteFromModule,
   isDockRouteVisibleForPlayer as isDockRouteVisibleForPlayerFromModule,
   markDockDiscovered as markDockDiscoveredFromModule
 } from "./client-dock-routes.js";
@@ -291,8 +291,8 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
   const drawOwnershipSignature = (ownerId: string, px: number, py: number, size: number): void =>
     drawOwnershipSignatureOnCanvas(ctx, ownerId, px, py, size, visualStyleForOwner);
 
-  const computeDockSeaRoute = (ax: number, ay: number, bx: number, by: number): Array<{ x: number; y: number }> =>
-    computeDockSeaRouteFromModule(ax, ay, bx, by, { dockRouteCache: state.dockRouteCache, worldIndex, wrapX, wrapY });
+  const resolveDockSeaRoute = (pair: DockPair): Array<{ x: number; y: number }> =>
+    resolveDockSeaRouteFromModule(pair, { dockRouteCache: state.dockRouteCache, worldIndex, wrapX, wrapY });
 
   const markDockDiscovered = (tile: Tile): void =>
     markDockDiscoveredFromModule(tile, { discoveredDockTiles: state.discoveredDockTiles, keyFor });
@@ -417,7 +417,7 @@ export const createClientMapFacade = (deps: MapFacadeDeps) => {
     fortificationOverlayImageFor,
     drawShardFallback,
     drawOwnershipSignature,
-    computeDockSeaRoute,
+    resolveDockSeaRoute,
     markDockDiscovered,
     isDockRouteVisibleForPlayer,
     buildMiniMapBase,

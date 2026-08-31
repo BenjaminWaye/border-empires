@@ -288,7 +288,10 @@ export const buildPlayerSubscriptionSnapshot = (
     dockId: dock.dockId,
     tileKey: dock.tileKey,
     pairedDockId: dock.pairedDockId,
-    ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+    ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}),
+    ...(dock.routeWaypointsByLinkedDockId
+      ? { routeWaypointsByLinkedDockId: Object.fromEntries(Object.entries(dock.routeWaypointsByLinkedDockId).map(([id, route]) => [id, [...route]])) }
+      : {})
   }));
 
   return {

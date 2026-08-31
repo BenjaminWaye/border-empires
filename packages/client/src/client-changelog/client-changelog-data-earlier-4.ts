@@ -12,25 +12,6 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
   {
-    createdAt: 1788128033639, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31",
-    title: "Renamed the Observatory and Ambaric Tower",
-    why: "Two structure names were due for a refresh to better fit the empire's aether/power theming.",
-    changes: [
-      "The Observatory is now called the Aether Tower everywhere in the UI (build menu, tile overview, tech unlocks, upkeep) -- no change to what it does",
-      "The Ambaric Tower is now called the Ambaric Transformer Station everywhere in the UI -- no change to what it does"
-    ]
-  },
-  {
-    createdAt: 1788162346509, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31",
-    title: "Fixed a fake \"plundered FOOD\" notice on town captures",
-    why: "Capturing a settled FARM/FISH tile always showed a \"Plundered 1 FOOD\" line in the combat alert, but plunder has only ever transferred gold -- no food was ever actually taken from the defender or given to the attacker.",
-    changes: [
-      "Combat/raid alerts no longer show a fake FOOD plunder amount when capturing a resource tile -- plunder remains gold-only, matching what actually happens to both players' stockpiles"
-    ]
-  },
-  {
     createdAt: 1787845125246, // frozen: one ms after the previous newest entry
     introducedIn: "2026.08.27",
     title: "Aether Condenser overview cleanup",
@@ -419,6 +400,24 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
     changes: [
       "Re-checks reach coverage at the moment a frontier tile's decay timer would fire, not just at claim time",
       "A tile inside any player's live reach -- the owner's own or another player's -- has its decay timer cleared instead of expiring"
+    ]
+  },
+  {
+    createdAt: 1788088074612, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "The Overall leaderboard now shows each empire's manpower cap",
+    why: "The leaderboard's Overall row showed score, settled tiles, income, and tech count but nothing about manpower capacity, so you couldn't compare your army ceiling against rivals without opening their empire directly.",
+    changes: [
+      "Each row in the Overall leaderboard now lists a \"manpower cap\" figure alongside score, settled tiles, income, and tech count"
+    ]
+  },
+  {
+    createdAt: 1788107095722, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.4",
+    title: "Aether Purge and Aether EMP no longer offer to target allied tiles",
+    why: "The tile-action menu only checked whether a tile was your own before offering Aether Purge or Aether EMP, so an allied empire's tile looked like a valid, enabled target -- clicking it just got silently rejected by the server with a confusing \"target hostile settled or frontier land\" error, since allies were never actually strikeable.",
+    changes: [
+      "Aether Purge and Aether EMP now show as disabled with a \"Cannot purge/EMP your own or allied tiles\" reason when selecting an allied tile, instead of appearing available and then failing server-side"
     ]
   },
 ];

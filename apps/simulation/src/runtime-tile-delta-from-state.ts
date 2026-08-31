@@ -34,7 +34,19 @@ export type TileDeltaFromStateDeps = {
 export const tileDeltaFromState = (
   deps: TileDeltaFromStateDeps,
   tile: DomainTileState,
-  context?: RuntimeTileYieldEconomyContext
+  context?: RuntimeTileYieldEconomyContext,
+  // full: true bypasses the sparse "only include fields that changed since
+  // the last broadcast" diffing (and doesn't touch that shared last-emitted
+  // cache either). A one-off "give me the current full detail" fetch (tile
+  // detail RPC / debug download) shares tileDeltaStringifyCache's per-tile
+  // last-emitted tracking with the regular incremental broadcast stream —
+  // if nothing else touched this tile since the last broadcast emission,
+  // the plain sparse path silently omits townJson (and any other
+  // rarely-changing field), and the requester's merge then keeps whatever
+  // stale value it already had cached. A full-detail fetch has no
+  // meaningful "since last time" to diff against, so it must always get
+  // the complete, current object.
+  options?: { full?: boolean }
 ): SimulationTileWireDelta => {
   const player = tile.ownerId ? deps.players.get(tile.ownerId) : undefined;
   const resolvedContext = player && context?.player.id === player.id ? context : player ? deps.tileYieldEconomyContextForPlayer(player) : undefined;
@@ -63,5 +75,5 @@ export const tileDeltaFromState = (
     // yieldRate/yieldCap scoped emission: see tileYieldNeedsServerAuthority.
     ...(yieldView && tileYieldNeedsServerAuthority(tile) ? { yieldRate: yieldView.yieldRate, yieldCap: yieldView.yieldCap } : {})
   };
-  return deps.tileDeltaStringifyCache.sparseEmit(tileKey, tile, cached, fullDelta);
+  return options?.full ? fullDelta : deps.tileDeltaStringifyCache.sparseEmit(tileKey, tile, cached, fullDelta);
 };

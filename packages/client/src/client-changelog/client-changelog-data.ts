@@ -16,13 +16,22 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
-    createdAt: 1788164766412, // frozen from `node -e "console.log(Date.now())"`
+    createdAt: 1788165265486, // frozen: one ms after this file's prior newest entry
     introducedIn: "2026.08.31.1",
     title: "Aether Purge now alerts the empire that lost the tile",
     why: "Aether Purge silently turned a hostile tile neutral with no signal to the empire that lost it — unlike a conventional attack, which alerts the defender in the Activity Feed and by email. Purge victims found out only by noticing the tile had changed color on the map.",
     changes: [
       "Getting Aether Purged now posts a drastic 'Aether Attack!' Activity Feed alert naming the attacker and the tile lost, with a Center action to jump to it",
       "Purge victims also get an email alert (subject to the same one-email-per-hour throttle as conventional attack alerts) if they have email notifications set up"
+    ]
+  },
+  {
+    createdAt: 1788165165486, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed dock sea-route lines not showing at all",
+    why: "The prior fix that moved dock sea-route computation server-side never actually reached players -- the wire types between the simulation and the gateway (and the runtime's own exported dock state) were never updated to carry the new route field, so it was silently dropped before the gateway could attach it to a dock pair, and every dock fell back to the client's still-unreliable route computation.",
+    changes: [
+      "Dock-to-dock sea route lines now render again, using the server-computed authoritative route"
     ]
   },
   {
@@ -456,24 +465,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1788088074612, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.2",
-    title: "The Overall leaderboard now shows each empire's manpower cap",
-    why: "The leaderboard's Overall row showed score, settled tiles, income, and tech count but nothing about manpower capacity, so you couldn't compare your army ceiling against rivals without opening their empire directly.",
-    changes: [
-      "Each row in the Overall leaderboard now lists a \"manpower cap\" figure alongside score, settled tiles, income, and tech count"
-    ]
-  },
-  {
-    createdAt: 1788107095722, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.30.4",
-    title: "Aether Purge and Aether EMP no longer offer to target allied tiles",
-    why: "The tile-action menu only checked whether a tile was your own before offering Aether Purge or Aether EMP, so an allied empire's tile looked like a valid, enabled target -- clicking it just got silently rejected by the server with a confusing \"target hostile settled or frontier land\" error, since allies were never actually strikeable.",
-    changes: [
-      "Aether Purge and Aether EMP now show as disabled with a \"Cannot purge/EMP your own or allied tiles\" reason when selecting an allied tile, instead of appearing available and then failing server-side"
-    ]
-  },
-  {
     createdAt: 1788115016608, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.4",
     title: "Observatories now rise as aether towers on the 3D map",
@@ -484,6 +475,45 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Where several observatories stand close together a rotating geometric synchronization cluster forms between them, marking the strongest aether convergence on the map"
     ]
   },
+  {
+    createdAt: 1788129225675, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed a dock's yellow dashed sea-route line not drawing (\"route not found\") for most players",
+    why: "The client routed dock pairs by re-running its own procedural terrain walk from scratch, but that procedural terrainAt() is a best-effort approximation that drifts from the frozen terrain the server committed at worldgen time (worldgen_baselines). On many worlds the client's approximation found no contiguous sea path where the server's real terrain clearly had one, so the dashed connection line silently never rendered and the dock debug reported routeFound:false -- even though a valid sea route existed.",
+    changes: [
+      "Dock sea routes are now computed once, server-side, from the authoritative worldgen terrain and shipped to the client with the initial world payload, so the dashed connection line and its route-found status match the real, frozen terrain",
+      "Already-running seasons self-heal their dock routes on the sim's next restart -- no season reset needed",
+      "Older servers that don't ship a route still fall back to the client's own sea-route pathfinder, so nothing regresses for them"
+    ]
+  },
+  {
+    createdAt: 1788128033639, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Renamed the Observatory and Ambaric Tower",
+    why: "Two structure names were due for a refresh to better fit the empire's aether/power theming.",
+    changes: [
+      "The Observatory is now called the Aether Tower everywhere in the UI (build menu, tile overview, tech unlocks, upkeep) -- no change to what it does",
+      "The Ambaric Tower is now called the Ambaric Transformer Station everywhere in the UI -- no change to what it does"
+    ]
+  },
+  {
+    createdAt: 1788162346509, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Fixed a fake \"plundered FOOD\" notice on town captures",
+    why: "Capturing a settled FARM/FISH tile always showed a \"Plundered 1 FOOD\" line in the combat alert, but plunder has only ever transferred gold -- no food was ever actually taken from the defender or given to the attacker.",
+    changes: [
+      "Combat/raid alerts no longer show a fake FOOD plunder amount when capturing a resource tile -- plunder remains gold-only, matching what actually happens to both players' stockpiles"
+    ]
+  },
+  {
+    createdAt: 1788162890008, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed a town's full tile detail sometimes showing stale data right after opening it",
+    why: "Opening a tile's full detail (or the debug download tool) reused the same \"only send what changed\" logic as the regular live tile updates -- so if nothing else about the tile had changed since the last regular update, fields like a town's bonus modifiers were silently left out of the response, and the client kept showing whatever it already had cached, which could be out of date.",
+    changes: [
+      "Opening a tile's full detail now always fetches the complete, current data instead of a partial update that can omit fields nothing else recently touched"
+    ]
+  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,

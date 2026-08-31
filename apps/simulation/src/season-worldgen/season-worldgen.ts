@@ -156,7 +156,8 @@ export const generateSeasonWorld = async (
         dockId: dock.dockId,
         tileKey: dock.tileKey,
         pairedDockId: dock.pairedDockId,
-        ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+        ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}),
+        ...(dock.routeWaypointsByLinkedDockId ? { routeWaypointsByLinkedDockId: dock.routeWaypointsByLinkedDockId } : {})
       })),
       activeLocks: [],
       players: [...initialPlayers.values()].map((player) => toRecoveredPlayer(player)),

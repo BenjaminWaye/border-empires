@@ -8,7 +8,7 @@ import { injectDebugDownloadRow } from "../client-tile-menu-debug-row/client-til
 import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { isDormantFrontierTile } from "../client-reach-overlay/client-reach-overlay.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
-import { computeDockSeaRoute, isDockRouteVisibleForPlayer } from "../client-dock-routes.js";
+import { resolveDockSeaRoute, isDockRouteVisibleForPlayer } from "../client-dock-routes.js";
 import type { initClientDom } from "../client-dom.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
@@ -272,7 +272,7 @@ export const renderTileActionMenu = (
               discoveredDockTiles: state.discoveredDockTiles,
               keyFor
             });
-            const route = computeDockSeaRoute(pair.ax, pair.ay, pair.bx, pair.by, {
+            const route = resolveDockSeaRoute(pair, {
               dockRouteCache: state.dockRouteCache,
               worldIndex: (x: number, y: number): number => wrapY(y) * WORLD_WIDTH + wrapX(x),
               wrapX,

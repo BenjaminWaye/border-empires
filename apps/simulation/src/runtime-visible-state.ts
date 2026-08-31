@@ -263,7 +263,7 @@ export function exportTilesInAreaForPlayer(input: {
   fullVisibility: boolean | undefined;
   tiles: ReadonlyMap<string, DomainTileState>;
   players: ReadonlyMap<string, RuntimePlayer>;
-  tileDeltaFromState: (tile: DomainTileState, context?: RuntimeTileYieldEconomyContext) => SimulationTileWireDelta;
+  tileDeltaFromState: (tile: DomainTileState, context?: RuntimeTileYieldEconomyContext, options?: { full?: boolean }) => SimulationTileWireDelta;
   tileYieldEconomyContextForPlayer: (player: RuntimePlayer) => RuntimeTileYieldEconomyContext;
   filterTileDeltasForPlayer: (tileDeltas: readonly SimulationTileWireDelta[], playerId: string) => SimulationTileWireDelta[];
 }): SimulationTileWireDelta[] {
@@ -286,7 +286,8 @@ export function exportTilesInAreaForPlayer(input: {
       if (!tile) continue;
       const delta = input.tileDeltaFromState(
         tile,
-        tile.ownerId && ownerForContext && tile.ownerId === ownerForContext.id ? tileYieldContext : undefined
+        tile.ownerId && ownerForContext && tile.ownerId === ownerForContext.id ? tileYieldContext : undefined,
+        { full: true }
       );
       collected.push(delta);
     }
