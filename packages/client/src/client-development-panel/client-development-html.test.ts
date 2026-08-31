@@ -42,7 +42,7 @@ describe("deriveDevelopmentPanelData", () => {
 
     expect(data.activeSlots).toHaveLength(2);
     expect(data.activeSlots.some((slot) => slot.label === "Fort")).toBe(true);
-    expect(data.activeSlots.some((slot) => slot.label === "Observatory")).toBe(true);
+    expect(data.activeSlots.some((slot) => slot.label === "Aether Tower")).toBe(true);
   });
 
   it("excludes structures that belong to another player or are already active", () => {

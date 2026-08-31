@@ -1512,7 +1512,7 @@ export const createClientActionFlow = (deps: ActionFlowDeps) => {
         selected.fort
           ? "Fort"
           : selected.observatory
-            ? "Observatory"
+            ? "Aether Tower"
             : selected.siegeOutpost
               ? "Siege Outpost"
               : selected.economicStructure

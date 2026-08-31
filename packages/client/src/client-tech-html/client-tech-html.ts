@@ -49,7 +49,7 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "unlockMine" && value === true) return "Unlocks mines";
   if (key === "unlockMintworks" && value === true) return "Unlocks mintworks";
   if (key === "unlockForts" && value === true) return "Unlocks forts";
-  if (key === "unlockObservatory" && value === true) return "Unlocks observatories";
+  if (key === "unlockObservatory" && value === true) return "Unlocks aether towers";
   if (key === "unlockSiegeOutposts" && value === true) return "Unlocks siege outposts";
   if (key === "unlockGranary" && value === true) return `Unlocks the ${economicStructureName("GRANARY")}`;
   if (key === "unlockCensusHall" && value === true) return "Unlocks census halls";
@@ -165,17 +165,17 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
   if (key === "visionRadiusBonus" && typeof value === "number") return `Empire vision radius +${value}`;
   if (key === "townVisionRadiusBonus" && typeof value === "number") return `Town vision radius +${value}`;
   if (key === "outpostVisionRadiusBonus" && typeof value === "number") return `Light/Siege Outpost vision radius +${value}`;
-  if (key === "observatoryRangeBonus" && typeof value === "number") return `Observatory range +${value}`;
-  if (key === "observatoryProtectionRadiusBonus" && typeof value === "number") return `Observatory protection radius +${value}`;
-  if (key === "observatoryCastRadiusBonus" && typeof value === "number") return `Observatory cast radius +${value}`;
+  if (key === "observatoryRangeBonus" && typeof value === "number") return `Aether Tower range +${value}`;
+  if (key === "observatoryProtectionRadiusBonus" && typeof value === "number") return `Aether Tower protection radius +${value}`;
+  if (key === "observatoryCastRadiusBonus" && typeof value === "number") return `Aether Tower cast radius +${value}`;
   if (key === "settledDefenseMult" && typeof value === "number") return `Settled defense ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsSettledMult" && typeof value === "number") return `Attack vs settled ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "attackVsFortsMult" && typeof value === "number") return `Attack vs forts ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "economicStructureBuildSpeedMult" && typeof value === "number") return `Economic build speed ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
   if (key === "populationCapFirst3TownsMult" && typeof value === "number") return `First 3 towns pop cap ${value > 1 ? "+" : ""}${((value - 1) * 100).toFixed(0)}%`;
-  if (key === "observatoryVisionBonus" && typeof value === "number") return `Observatory vision +${value}`;
+  if (key === "observatoryVisionBonus" && typeof value === "number") return `Aether Tower vision +${value}`;
   if (key === "observatoryCooldownMult" && typeof value === "number")
-    return `Observatory ability cooldowns ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
+    return `Aether Tower ability cooldowns ${value < 1 ? "-" : "+"}${Math.abs((1 - value) * 100).toFixed(0)}%`;
   if (key === "attackResolveSpeedReduceMs" && typeof value === "number") return `Attacks resolve ${Math.round(value / 1000)}s faster`;
   return null;
 };
@@ -183,11 +183,11 @@ export const effectSummaryLabel = (key: string, value: unknown): string | null =
 const observatoryRangeSummaryLabel = (effects: TechInfo["effects"] | DomainInfo["effects"] | undefined): string | null => {
   if (!effects) return null;
   const unified = effects.observatoryRangeBonus;
-  if (typeof unified === "number") return `Observatory range +${unified}`;
+  if (typeof unified === "number") return `Aether Tower range +${unified}`;
   const protection = effects.observatoryProtectionRadiusBonus;
   const cast = effects.observatoryCastRadiusBonus;
   if (typeof protection === "number" && typeof cast === "number" && protection === cast) {
-    return `Observatory range +${cast}`;
+    return `Aether Tower range +${cast}`;
   }
   return null;
 };

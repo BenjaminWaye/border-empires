@@ -59,7 +59,7 @@ describe("revealResource highlight tag", () => {
     const tags = techHighlightTags({
       effects: { unlockObservatory: true, unlockCrystalSynthesizer: true, unlockAetherLance: true, revealResource: "crystal" }
     });
-    expect(tags.map((t) => t.label)).toEqual(["Observatory", "Aether Condenser", "Aether Purge", "Reveals Crystal"]);
+    expect(tags.map((t) => t.label)).toEqual(["Aether Tower", "Aether Condenser", "Aether Purge", "Reveals Crystal"]);
   });
 
   it("is skipped for an unrecognized reveal category rather than rendering a blank tag", () => {
@@ -91,7 +91,7 @@ describe("renderTechHighlightTagsHtml default cap", () => {
     const html = renderTechHighlightTagsHtml({
       effects: { unlockObservatory: true, unlockCrystalSynthesizer: true, unlockAetherLance: true }
     });
-    expect(html).toContain("Observatory");
+    expect(html).toContain("Aether Tower");
     expect(html).toContain("Aether Condenser");
     expect(html).toContain("Aether Purge");
   });
