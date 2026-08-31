@@ -167,7 +167,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // state.myReach in client-runtime-loop.ts). Kept as a local rather than on ClientState since the 2D path guards its own state.myReach update
   // with !isTrue3DRendererActive() and only one renderer is ever active.
   let reach3DCache: Set<string> | undefined;
-  let reach3DCacheRevision = "";
+  let reach3DCacheRevision = ""; let dockRouteSyncKey = ""; // dock-route overlay revision key -- resynced on selection/dockPairs change, not every frame or only on rebuildVisibleTerrain (see renderLoop)
   // Sparse pylon placement points + connecting chords, sampled from the traced reach-boundary perimeter (see client-reach-overlay.ts's
   // traceReachBoundaryEdgeLoops/samplePerimeterPylons). Recomputed only when
   // reach3DCache itself is recomputed -- the perimeter walk is more work
@@ -1025,7 +1025,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     upgradeReadyBadgeOverlay.clear();
     musterOverlay.clear();
     supplyLineOverlay.clear();
-    dockOverlay.clear(); dockRouteOverlay.clear();
+    dockOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
     shardOverlay.clear(); watchtowerOverlay.clear(); naturalWonderOverlays.clear();
@@ -1589,7 +1589,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       heightfield,
       supplyLineOverlay
     );
-    supplyLineOverlay.commit(); syncDockRouteOverlay(deps.state, heightfield, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit();
+    supplyLineOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
@@ -1760,7 +1760,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     syncQueueMarkers();
     syncWaypointMarkers();
     syncFrontierClaimPlate();
-    selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
+    selectionRangeOverlays.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin }); const nextDockRouteSyncKey = `${deps.state.selected ? deps.keyFor(deps.state.selected.x, deps.state.selected.y) : ""}:${deps.state.dockPairs.length}`; if (nextDockRouteSyncKey !== dockRouteSyncKey) { dockRouteSyncKey = nextDockRouteSyncKey; dockRouteOverlay.clear(); syncDockRouteOverlay(deps.state, heightfield, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit(); }
     placementOverlay.sync({ ...deps, cornerYAt: (x: number, y: number) => heightfield.cornerYAt(x, y), sceneOrigin });
     syncAetherBridgePylons(nowMs);
     syncAetherLanceFxQueue();
