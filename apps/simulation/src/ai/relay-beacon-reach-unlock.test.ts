@@ -273,6 +273,76 @@ describe("relay beacon values unexplored (fogged) tiles, not just currently-visi
   });
 });
 
+describe("relay beacon coverage excludes ground already inside a town's or dock's real reach", () => {
+  // Regression: coverage scoring used to exclude only tiles Chebyshev
+  // distance 1 from an owned tile (a hand-rolled stand-in for "ordinary
+  // EXPAND range"). That's wrong — EXPAND/SETTLE legality is governed by the
+  // real reach system (packages/shared/src/reach/reach.ts): TOWN_REACH_RADIUS
+  // (3) around a town, DOCK_REACH_RADIUS (1) around a dock, OUTPOST_REACH_RADIUS
+  // (5) around a beacon/siege outpost. A resource 2-3 tiles from a town was
+  // already legally EXPAND-able (and, once claimed, permanently held — inside
+  // the town's reach) despite not being adjacent to any owned tile, so it
+  // must not be credited to a beacon's coverage score either.
+  it("excludes a prize within TOWN_REACH_RADIUS (3) of an owned town even though it isn't adjacent to any owned tile", () => {
+    const town = tile({ x: 100, y: 100, ownershipState: "SETTLED", town: {} });
+    const candidate = tile({ x: 103, y: 100, ownershipState: "SETTLED" });
+    // Distance 3 from the town — inside TOWN_REACH_RADIUS, so already
+    // legally EXPAND-able, but distance 3 from candidate too (would have
+    // been credited to candidate's coverage under the old distance-1 rule).
+    const prizeInTownReach = tile({ x: 100, y: 103, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [...knownVoid([{ x: 103, y: 100 }]), town, candidate, prizeInTownReach];
+
+    const plan = chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 1 },
+      tiles,
+      lookupOf(tiles),
+      [candidate]
+    );
+
+    // Nothing left to newly cover: prizeInTownReach is already inside the
+    // town's real reach, and knownVoid fills the rest of candidate's radius.
+    expect(plan).toBeUndefined();
+  });
+
+  it("still credits a prize just OUTSIDE TOWN_REACH_RADIUS, one tile further out", () => {
+    const town = tile({ x: 100, y: 100, ownershipState: "SETTLED", town: {} });
+    const candidate = tile({ x: 103, y: 100, ownershipState: "SETTLED" });
+    // Distance 4 from the town — one tile past TOWN_REACH_RADIUS (3), so
+    // genuinely not yet reachable without a beacon.
+    const prizeBeyondTownReach = tile({ x: 100, y: 104, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [...knownVoid([{ x: 103, y: 100 }]), town, candidate, prizeBeyondTownReach];
+
+    const plan = chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 1 },
+      tiles,
+      lookupOf(tiles),
+      [candidate]
+    );
+
+    expect(plan?.tile.x).toBe(103);
+    expect(plan?.siteValue).toBe(8);
+  });
+
+  it("excludes a prize within DOCK_REACH_RADIUS (1) of an owned dock", () => {
+    const dockTile = tile({ x: 100, y: 100, ownershipState: "SETTLED", dockId: "dock-1" });
+    const candidate = tile({ x: 102, y: 100, ownershipState: "SETTLED" });
+    // Distance 1 from the dock (its full reach radius) — already legally
+    // EXPAND-able via the dock, but distance 2 from candidate (would have
+    // been credited under the old distance-1-from-candidate rule).
+    const prizeInDockReach = tile({ x: 101, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [...knownVoid([{ x: 102, y: 100 }]), dockTile, candidate, prizeInDockReach];
+
+    const plan = chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 1 },
+      tiles,
+      lookupOf(tiles),
+      [candidate]
+    );
+
+    expect(plan).toBeUndefined();
+  });
+});
+
 describe("relay beacon coverage excludes ground an existing beacon already claims", () => {
   // Regression: gatherReachAnchors (runtime.ts) only grants real reach once a
   // beacon's status flips to "active" — a beacon mid-construction contributes
