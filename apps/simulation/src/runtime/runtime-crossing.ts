@@ -44,6 +44,17 @@ export function isAetherBridgeCrossingTarget(
 
 export type DockCrossingOrigin = { tile: DomainTileState; isAlliedDockCrossing: boolean };
 
+function actorControlsDockNetwork(
+  tiles: ReadonlyMap<string, DomainTileState>,
+  networkTileKeys: ReadonlySet<string>,
+  actorId: string
+): boolean {
+  for (const networkTileKey of networkTileKeys) {
+    if (tiles.get(networkTileKey)?.ownerId === actorId) return true;
+  }
+  return false;
+}
+
 export function findOwnedDockOriginForCrossing(
   tiles: ReadonlyMap<string, DomainTileState>,
   territoryTileKeys: Iterable<string>,
@@ -76,14 +87,9 @@ export function findOwnedDockOriginForCrossing(
     if (!isAlliedOrTruced(actor, tile.ownerId)) continue;
     const networkTileKeys = dockNetworkComponentByTileKey.get(originTileKey);
     if (!networkTileKeys) continue;
-    let controlsNetwork = false;
-    for (const networkTileKey of networkTileKeys) {
-      if (tiles.get(networkTileKey)?.ownerId === actor.id) {
-        controlsNetwork = true;
-        break;
-      }
+    if (actorControlsDockNetwork(tiles, networkTileKeys, actor.id)) {
+      return { tile, isAlliedDockCrossing: true };
     }
-    if (controlsNetwork) return { tile, isAlliedDockCrossing: true };
   }
 
   // Allied dock as a launch point onto ITS OWN grid-neighbors: the target
@@ -99,14 +105,9 @@ export function findOwnedDockOriginForCrossing(
     if (!isFrontierAdjacent(allyTile.x, allyTile.y, toX, toY)) continue;
     const networkTileKeys = dockNetworkComponentByTileKey.get(allyDockTileKey);
     if (!networkTileKeys) continue;
-    let controlsNetwork = false;
-    for (const networkTileKey of networkTileKeys) {
-      if (tiles.get(networkTileKey)?.ownerId === actor.id) {
-        controlsNetwork = true;
-        break;
-      }
+    if (actorControlsDockNetwork(tiles, networkTileKeys, actor.id)) {
+      return { tile: allyTile, isAlliedDockCrossing: true };
     }
-    if (controlsNetwork) return { tile: allyTile, isAlliedDockCrossing: true };
   }
   return undefined;
 }
