@@ -142,5 +142,23 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_5: ClientChangelogEntry[] = [
     changes: [
       "Clicking \"Break Alliance\" now shows a confirmation dialog reminding you that the break takes 24 hours to complete, before the request is sent"
     ]
+  },
+  {
+    createdAt: 1788165165486, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed dock sea-route lines not showing at all",
+    why: "The prior fix that moved dock sea-route computation server-side never actually reached players -- the wire types between the simulation and the gateway (and the runtime's own exported dock state) were never updated to carry the new route field, so it was silently dropped before the gateway could attach it to a dock pair, and every dock fell back to the client's still-unreliable route computation.",
+    changes: [
+      "Dock-to-dock sea route lines now render again, using the server-computed authoritative route"
+    ]
+  },
+  {
+    createdAt: 1788127049993, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.6",
+    title: "The Buildings tab now shows Palisade and Fort options on a Relay Beacon tile",
+    why: "The server was already updated to let a Palisade or Fort build go ahead on a tile with an existing Relay Beacon, but the Buildings tab's own menu logic still hid both options outright whenever any economicStructure was present -- so a Relay Beacon tile's Buildings tab showed only Observatory, with no way to even attempt the build the server now allows.",
+    changes: [
+      "The Buildings tab now shows \"Build Palisade\" and \"Build Fort\" on a tile with an existing Relay Beacon, matching what the server already permits"
+    ]
   }
 ];

@@ -78,7 +78,7 @@ describe("connected town network", () => {
         townTile(1, 0, "Beta"),
         townTile(2, 0, "Gamma"),
         {
-          x: 0, y: -1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+          x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
           economicStructure: { ownerId: "player-1", type: "CARAVANARY" as const, status: "active" as const }
         }
       ].map((tile) => [`${tile.x},${tile.y}`, tile])
@@ -223,7 +223,7 @@ describe("connected town network", () => {
     //         /       \
     //     T_0,0       T_2,0
     //
-    // T_0,0 has an adjacent SUPPORT tile (0,-1) with a Clearing House.
+    // T_0,0 has an adjacent SUPPORT tile (0,1) with a Clearing House.
     // hasSupportedStructure checks 8-neighbor support tiles, not the town itself.
     const landTile = (x: number, y: number): DomainTileState => ({
       x, y, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED"
@@ -231,7 +231,7 @@ describe("connected town network", () => {
 
     const chTownKey = "0,0";
     const supportTile: DomainTileState = {
-      x: 0, y: -1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+      x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
       economicStructure: { ownerId: "player-1", type: "CLEARING_HOUSE" as const, status: "active" as const }
     };
 
@@ -246,7 +246,7 @@ describe("connected town network", () => {
       ["2,2", townTile(2, 2, "East")],
       ["2,0", townTile(2, 0, "South")],
       ["1,1", landTile(1, 1)],
-      ["0,-1", supportTile],
+      ["0,1", supportTile],
       ["0,3", caravanarySupportTile]
     ]);
 
@@ -283,11 +283,11 @@ describe("connected town network", () => {
     const garrisonHallTownKey = "0,0";
     const railDepotTownKey = "2,0";
     const garrisonHallSupportTile: DomainTileState = {
-      x: 0, y: -1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+      x: 0, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
       economicStructure: { ownerId: "player-1", type: "GARRISON_HALL" as const, status: "active" as const }
     };
     const railDepotSupportTile: DomainTileState = {
-      x: 2, y: -1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
+      x: 2, y: 1, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED",
       economicStructure: { ownerId: "player-1", type: "RAIL_DEPOT" as const, status: "active" as const }
     };
 
@@ -297,8 +297,8 @@ describe("connected town network", () => {
       ["2,2", townTile(2, 2, "East")],
       [railDepotTownKey, townTile(2, 0, "RD-Town")],
       ["1,1", landTile(1, 1)],
-      ["0,-1", garrisonHallSupportTile],
-      ["2,-1", railDepotSupportTile]
+      ["0,1", garrisonHallSupportTile],
+      ["2,1", railDepotSupportTile]
     ]);
 
     const network = buildConnectedTownNetworkForPlayer(
@@ -450,11 +450,11 @@ describe("Rail Depot network manpower bonus (§4.4)", () => {
       // Network A: RD-Town(0,0) — corridor(1,0) — GH-Town(2,0), RD-Town has its own Garrison Hall too.
       // Both support tiles must be within 8-neighbor range of (0,0) — not just "nearby".
       ["0,0", { ...townTile(0, 0, "RD-Town"), ownerId: "player-1" }],
-      ["0,-1", railDepotSupportTile(0, -1)],
-      ["-1,-1", garrisonHallSupportTile(-1, -1)],
+      ["0,1", railDepotSupportTile(0, 1)],
+      ["1,1", garrisonHallSupportTile(1, 1)],
       ["1,0", landTile(1, 0)],
       ["2,0", townTile(2, 0, "GH-Town")],
-      ["2,-1", garrisonHallSupportTile(2, -1)],
+      ["2,1", garrisonHallSupportTile(2, 1)],
       // Network B: isolated single town with a Garrison Hall, no Rail Depot.
       ["10,10", townTile(10, 10, "Lone-GH-Town")],
       ["10,9", garrisonHallSupportTile(10, 9)]
@@ -489,7 +489,7 @@ describe("Rail Depot network manpower bonus (§4.4)", () => {
   it("railDepotAlreadyInNetwork is true at the Rail Depot's own town and every connected town, false elsewhere", () => {
     const tiles = new Map<string, DomainTileState>([
       ["0,0", townTile(0, 0, "RD-Town")],
-      ["0,-1", railDepotSupportTile(0, -1)],
+      ["0,1", railDepotSupportTile(0, 1)],
       ["1,0", landTile(1, 0)],
       ["2,0", townTile(2, 0, "Connected-Town")],
       // Separate, unconnected town.

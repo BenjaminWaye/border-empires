@@ -1,4 +1,4 @@
-import { WORLD_HEIGHT, WORLD_WIDTH, type SlotResource, type Terrain, type Tile } from "@border-empires/shared";
+import { WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type SlotResource, type Terrain, type Tile } from "@border-empires/shared";
 import type { DomainTileState, PlayerEventLogEntry } from "@border-empires/game-domain";
 import { SEED_GRANARY_SLOTS } from "@border-empires/game-domain";
 import { shouldYieldAt } from "./event-loop-yield.js";
@@ -96,7 +96,13 @@ export type LivePlayerEconomySnapshot = {
   fedTownKeysByPlayer: Map<string, Set<string>>;
 };
 
-export const keyFor = (x: number, y: number): string => `${x},${y}`;
+// Wraps both axes (WORLD_WIDTH/WORLD_HEIGHT, matching worldgen/vision's own
+// wrapX/wrapY convention) so a support-ring/8-neighbor loop's x±1 or y±1
+// around a town on the map edge resolves to the tile that actually wraps
+// there instead of a nonexistent out-of-bounds key. A no-op for any
+// already-in-bounds tile (every real stored tile), so this is safe for the
+// existing "keyFor(tile.x, tile.y)" map-building convention too.
+export const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
 
 export const snapshotEconomyPlayer = (player: RuntimeState["players"][number] | undefined): EconomyPlayer | undefined =>
   player

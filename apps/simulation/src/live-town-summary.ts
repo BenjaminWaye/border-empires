@@ -76,6 +76,24 @@ export const hasSupportedStructure = (
   const y = Number(rawY);
   if (!Number.isInteger(x) || !Number.isInteger(y)) return false;
   const allowed = Array.isArray(structureType) ? new Set(structureType) : new Set([structureType as string]);
+  // Several allowed structure types (Mintworks, Garrison Hall, Weapons
+  // Workshop, etc.) have "same_tile"/"town_support" placementMode
+  // (structure-placement-metadata.json) — legal directly on the town's own
+  // tile, not just its support ring — see economy-network.ts's
+  // countSupportedStructures doc comment for the same dual on-tile +
+  // support-ring shape this mirrors. Check the town's own tile first.
+  const ownTile = tilesByKey.get(keyFor(x, y));
+  if (ownTile && ownTile.ownerId === ownerId && ownTile.ownershipState === "SETTLED") {
+    const ownStructure = parseStructure<{ type?: string; status?: string }>(ownTile.economicStructureJson);
+    if (
+      ownStructure?.status === "active" &&
+      ownStructure.type &&
+      allowed.has(ownStructure.type) &&
+      !dormantEconomicStructureKeys.has(keyFor(x, y))
+    ) {
+      return true;
+    }
+  }
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;
@@ -98,16 +116,15 @@ export const hasSupportedStructure = (
 
 /**
  * Counting sibling of hasSupportedStructure above (same wire-shaped
- * RuntimeState tiles, same support-ring adjacency loop) for structures whose
- * bonus stacks per active instance rather than gating on "any one exists" —
- * mintworks-stacking task: Mintworks's town gold production bonus is additive per
- * active Mintworks in the support ring. Unlike economy-network.ts's
- * countSupportedStructures, this deliberately mirrors THIS file's existing
- * hasSupportedStructure loop exactly (support-ring only, no on-tile check) —
- * that's the pre-existing shape every hasMintworks call site in this file
- * already used, so this keeps the reconnect-path counting logic consistent
- * with itself rather than importing the domain-tile variant's dual-check
- * semantics.
+ * RuntimeState tiles) for structures whose bonus stacks per active instance
+ * rather than gating on "any one exists" — mintworks-stacking task:
+ * Mintworks's town gold production bonus is additive per active Mintworks
+ * in the support ring. Mirrors economy-network.ts's DomainTileState
+ * countSupportedStructures' dual on-tile + support-ring check (Mintworks and
+ * several other TOWN_MODIFIER_AGGREGATE_TYPES members have "same_tile"/
+ * "town_support" placementMode and can legally sit directly on the town's
+ * own tile — the loop below used to only scan the ring, silently missing an
+ * on-tile instance).
  */
 export const countSupportedStructures = (
   tileKey: string,
@@ -121,6 +138,17 @@ export const countSupportedStructures = (
   const y = Number(rawY);
   if (!Number.isInteger(x) || !Number.isInteger(y)) return 0;
   let count = 0;
+  const ownTile = tilesByKey.get(keyFor(x, y));
+  if (ownTile && ownTile.ownerId === ownerId && ownTile.ownershipState === "SETTLED") {
+    const ownStructure = parseStructure<{ type?: string; status?: string }>(ownTile.economicStructureJson);
+    if (
+      ownStructure?.status === "active" &&
+      ownStructure.type === structureType &&
+      !dormantEconomicStructureKeys.has(keyFor(x, y))
+    ) {
+      count += 1;
+    }
+  }
   for (let dy = -1; dy <= 1; dy += 1) {
     for (let dx = -1; dx <= 1; dx += 1) {
       if (dx === 0 && dy === 0) continue;

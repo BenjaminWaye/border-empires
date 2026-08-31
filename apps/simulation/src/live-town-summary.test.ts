@@ -149,6 +149,29 @@ describe("buildTownSummary — converter town-support attribution", () => {
     const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
     expect(summary?.townModifierTotals ?? []).toEqual([]);
   });
+
+  // Regression test: Mintworks (and other TOWN_MODIFIER_AGGREGATE_TYPES
+  // members with "same_tile"/"town_support" placementMode) can legally be
+  // built directly on the town's own tile, not only its support ring — the
+  // support-ring dx/dy loop used to skip (0,0) entirely, so an on-tile
+  // Mintworks was silently never counted, leaving hasMintworks/
+  // mintworksCount/townModifierTotals all reporting zero for a town whose
+  // owner could plainly see the structure built on it.
+  it("counts a Mintworks built directly on the town's own tile, not just its support ring", () => {
+    const ownerId = "p1";
+    const town: FixtureTile = {
+      ...townTile(10, 10, ownerId),
+      economicStructureJson: JSON.stringify({ type: "MINTWORKS", status: "active", ownerId })
+    };
+    const tiles: FixtureTile[] = [town];
+    const tilesByKey = new Map(tiles.map((t) => [keyFor(t.x, t.y), t as never]));
+    const summary = buildTownSummary(town as never, undefined, tilesByKey, new Set(), true);
+    expect(summary?.hasMintworks).toBe(true);
+    expect(summary?.mintworksCount).toBe(1);
+    expect(summary?.townModifierTotals).toContainEqual(
+      expect.objectContaining({ heading: "1 Mintworks" })
+    );
+  });
 });
 
 describe("buildTownSummary — goldPerMinute", () => {
