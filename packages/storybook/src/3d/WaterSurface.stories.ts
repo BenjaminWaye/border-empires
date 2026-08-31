@@ -15,7 +15,7 @@ const render = (args: Args): HTMLElement => {
   const water = createWaterSurface(stage.scene, maxTiles);
   forEachGridCell({ radius: args.gridRadius, spacing: args.spacing }, (x, z) => {
     const dist = Math.max(Math.abs(x), Math.abs(z));
-    water.addTile(x, z, dist <= args.shallowRadius);
+    water.addTile(x, z, dist <= args.shallowRadius, x, z);
   });
   water.commit();
 

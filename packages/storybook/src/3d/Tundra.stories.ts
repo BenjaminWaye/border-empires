@@ -80,7 +80,7 @@ const render = (args: Args): HTMLElement => {
       for (let dx = -12; dx <= 12; dx += 1) {
         const kind = tileKindAt(CENTER + dx, CENTER + dz);
         if (kind === "SEA" || kind === "COASTAL_SEA") {
-          water.addTile(dx + 0.5, dz + 0.5, kind === "COASTAL_SEA");
+          water.addTile(dx + 0.5, dz + 0.5, kind === "COASTAL_SEA", dx, dz);
         }
       }
     }
