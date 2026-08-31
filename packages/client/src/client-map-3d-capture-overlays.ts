@@ -2,7 +2,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@border-empires/shared";
 import type { Heightfield } from "./client-map-3d-heightfield/client-map-3d-heightfield.js";
 import type { BattleOverlayFx, BattleOverlayRenderEntry, BattleOverlaySkirmishEntry } from "./client-map-3d-battle-overlay-fx.js";
 import { pruneExpiredActiveBattles } from "./client-battle-overlay/client-battle-overlay.js";
-import { pruneExpiredIncomingAttacks } from "./client-siege-tracking/client-siege-tracking.js";
+import { pruneExpiredIncomingAttacks, pruneExpiredOutgoingMusterAttacks } from "./client-siege-tracking/client-siege-tracking.js";
 import { activeMusterSupplyLines, resolveAdvanceMusterFallbackSource, type AdvanceMusterFallbackCache } from "./client-muster-transit/client-muster-transit.js";
 import { toroidDelta } from "./client-map-3d-pointer-pick.js";
 import type { SupplyLineOverlay } from "./client-map-3d-supply-line-overlay.js";
@@ -102,6 +102,7 @@ export function syncBattleOverlayFx(
   // outscales uptime ms) and never expired a finished siege.
   const nowEpochMs = Date.now();
   pruneExpiredIncomingAttacks(state, nowEpochMs);
+  pruneExpiredOutgoingMusterAttacks(state, nowEpochMs);
 
   const entries: BattleOverlayRenderEntry[] = [];
   for (const battle of state.activeBattles.values()) {
@@ -208,6 +209,20 @@ export function syncBattleOverlayFx(
         pushSkirmish(key, capture.origin.x, capture.origin.y, capture.target, state.me, defenderOwnerId);
       }
     }
+
+    // A muster flag's ADVANCE-mode auto-fire attack: the server dispatches it
+    // without this client ever submitting anything, so it never occupies the
+    // single-slot `capture` above (see handleMusterAdvanceCombatStart in
+    // client-siege-tracking.ts) and needs its own keyed loop here instead.
+    // Same reasoning as the manual-attack branch above for not requiring
+    // state.tiles.get(key): an auto-fired swing can target a tile this
+    // client has never had vision of.
+    for (const [key, outgoing] of state.outgoingMusterAttacksByTile) {
+      if (outgoing.resolvesAt <= nowEpochMs || state.activeBattles.has(key)) continue;
+      const knownOwnerId = state.tiles.get(key)?.ownerId;
+      const defenderOwnerId = knownOwnerId && knownOwnerId !== state.me ? knownOwnerId : UNKNOWN_ENEMY_OWNER_ID;
+      pushSkirmish(key, outgoing.originX, outgoing.originY, { x: outgoing.targetX, y: outgoing.targetY }, state.me, defenderOwnerId);
+    }
   }
 
   // Prune stale seenAt entries so a fight that ends and later restarts on the
@@ -223,6 +238,7 @@ export function syncBattleOverlayFx(
   for (const key of state.activeBattles.keys()) stillRelevant.add(key);
   if (state.me) {
     for (const key of state.incomingAttacksByTile.keys()) stillRelevant.add(key);
+    for (const key of state.outgoingMusterAttacksByTile.keys()) stillRelevant.add(key);
     const capture = state.capture;
     if (capture?.actionType === "ATTACK") stillRelevant.add(keyFor(capture.target.x, capture.target.y));
   }

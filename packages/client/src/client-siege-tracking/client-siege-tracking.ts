@@ -2,6 +2,8 @@ import type { ClientState } from "../client-state/client-state.js";
 
 type SiegeState = Pick<ClientState, "incomingAttacksByTile">;
 type IncomingAttack = NonNullable<ReturnType<ClientState["incomingAttacksByTile"]["get"]>>;
+type OutgoingMusterAttackState = Pick<ClientState, "outgoingMusterAttacksByTile">;
+type OutgoingMusterAttack = NonNullable<ReturnType<ClientState["outgoingMusterAttacksByTile"]["get"]>>;
 
 /** Shape of the fields a tile delta can carry that end a siege. Structural so
  * both the gateway-sync path (GatewayTileUpdate) and client-network's raw
@@ -80,6 +82,96 @@ export const drawableIncomingAttack = (state: SiegeState, tileKey: string, nowEp
   if (!incoming) return undefined;
   if (nowEpochMs >= incoming.resolvesAt + EXPIRED_SIEGE_GRACE_MS) state.incomingAttacksByTile.delete(tileKey);
   return incoming.resolvesAt > nowEpochMs ? incoming : undefined;
+};
+
+/** Ages out an outgoing muster-advance attack whose resolution broadcast
+ * never arrived (target lost/AI eliminated). Mirrors pruneExpiredIncomingAttacks. */
+export const pruneExpiredOutgoingMusterAttacks = (state: OutgoingMusterAttackState, nowEpochMs: number): void => {
+  for (const [key, outgoing] of state.outgoingMusterAttacksByTile) {
+    if (nowEpochMs >= outgoing.resolvesAt + EXPIRED_SIEGE_GRACE_MS) state.outgoingMusterAttacksByTile.delete(key);
+  }
+};
+
+/** Clears both siege-tracking maps for a tile whose combat just resolved
+ * (called from applyCombatOutcomeMessage's per-change loop in
+ * client-network.ts, for every side of the fight: defender's incoming siege
+ * and, if this client was the attacker, its own outgoing muster-advance
+ * entry). A tile is never both at once, but clearing unconditionally is
+ * cheaper than a second lookup. */
+export const clearResolvedCombatTracking = (state: SiegeState & OutgoingMusterAttackState, tileKey: string): void => {
+  state.incomingAttacksByTile.delete(tileKey);
+  state.outgoingMusterAttacksByTile.delete(tileKey);
+};
+
+/** True for a commandId identifying a muster flag's ADVANCE-mode auto-fire
+ * attack -- dispatched by the server, never submitted by this client. Shared
+ * by every place that needs to special-case these: COMBAT_START tracking
+ * below, and client-network.ts's COMBAT_RESULT matchesCurrentFrontierCommand
+ * bypass (neither has a `state.actionCurrent` for this fight to match
+ * against, so the normal command-identity gate would otherwise drop them
+ * whenever the player has an unrelated manual action of their own in
+ * flight). ACTION_ACCEPTED is deliberately NOT in that list: its existing
+ * requireActionInFlight gate already drops these (correctly -- an
+ * auto-fired attack should never bind to this client's actionCurrent). */
+export const isMusterAdvanceCommandId = (commandId: unknown): commandId is string =>
+  typeof commandId === "string" && commandId.startsWith("territory-auto:muster-advance:");
+
+/** Handles a COMBAT_START whose commandId marks it as a muster flag's
+ * ADVANCE-mode auto-fire attack. Returns false for any other COMBAT_START so
+ * the caller falls through to the normal (manually-dispatched) handling.
+ *
+ * Unlike a manual attack, this client never submitted anything for this
+ * fight — there is no `state.actionCurrent`/`state.capture` slot for it, so
+ * this can't reuse the normal COMBAT_START path (that single slot is
+ * reserved for this client's own in-flight action and would otherwise get
+ * stomped, or stomp on it, whenever the two coincide). Instead this records
+ * the fight in `outgoingMusterAttacksByTile` (keyed by target, so any number
+ * of flags can fire concurrently) purely so syncBattleOverlayFx can animate
+ * the attacker-side skirmish for it — see client-map-3d-capture-overlays.ts.
+ * Previously this branch did nothing but forward an already-locked result,
+ * which is why the skirmish never showed for these fights (see the muster
+ * flag advance-attack animation bug report). */
+export const handleMusterAdvanceCombatStart = (
+  state: OutgoingMusterAttackState,
+  keyFor: (x: number, y: number) => string,
+  msg: Record<string, unknown>,
+  applyCombatOutcomeMessage: (result: Record<string, unknown>) => void
+): boolean => {
+  if (!isMusterAdvanceCommandId(msg.commandId)) return false;
+  const target = msg.target as { x: number; y: number } | undefined;
+  const origin = msg.origin as { x: number; y: number } | undefined;
+  const resolvesAt = msg.resolvesAt;
+  if (target && origin && typeof resolvesAt === "number") {
+    state.outgoingMusterAttacksByTile.set(keyFor(target.x, target.y), {
+      originX: origin.x, originY: origin.y, targetX: target.x, targetY: target.y, resolvesAt
+    });
+  }
+  if (msg.result) applyCombatOutcomeMessage(msg.result as Record<string, unknown>);
+  return true;
+};
+
+/** Picks the payload COMBAT_RESULT should actually apply. A "commit-only"
+ * result (no manpowerDelta/pillagedGold/etc — the common shape for a plain
+ * frontier-tile capture) used to unconditionally reuse
+ * `state.pendingCombatReveal.result`, a SINGLE-SLOT prediction meant for this
+ * client's own last manually-dispatched fight. Nothing checked it actually
+ * belonged to the tile this COMBAT_RESULT is about, so a stale/unrelated
+ * prediction (left over from an earlier action, or from this same muster
+ * flag's own earlier failed swing at the same target) could get stamped onto
+ * the wrong tile — the attacker-flips-to-defender-then-back-to-attacker bug.
+ * Only trust the locked prediction when its targetKey matches; otherwise the
+ * incoming message (which always carries the authoritative `changes`) wins. */
+export const resolveCombatResultPayload = (
+  state: Pick<ClientState, "pendingCombatReveal">,
+  keyFor: (x: number, y: number) => string,
+  msg: Record<string, unknown>,
+  commitOnlyResult: boolean
+): Record<string, unknown> => {
+  const target = msg.target as { x: number; y: number } | undefined;
+  const resultTargetKey = target ? keyFor(target.x, target.y) : "";
+  const locked = state.pendingCombatReveal;
+  if (commitOnlyResult && locked && locked.targetKey === resultTargetKey && locked.result) return locked.result;
+  return msg;
 };
 
 /** Builds `state.capture` for an accepted/locked frontier action.

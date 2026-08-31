@@ -5,7 +5,10 @@ import {
   buildCaptureState,
   clearResolvedIncomingAttack,
   drawableIncomingAttack,
-  pruneExpiredIncomingAttacks
+  handleMusterAdvanceCombatStart,
+  pruneExpiredIncomingAttacks,
+  pruneExpiredOutgoingMusterAttacks,
+  resolveCombatResultPayload
 } from "./client-siege-tracking.js";
 import { applyGatewayTileDeltaBatch } from "../client-gateway-sync/client-gateway-sync.js";
 import type { Tile } from "../client-types.js";
@@ -192,5 +195,113 @@ describe("buildCaptureState", () => {
     const capture = buildCaptureState({ ...base, actionType: "ATTACK" });
     expect("silent" in capture).toBe(false);
     expect("fromMusterAdvance" in capture).toBe(false);
+  });
+});
+
+const keyFor = (x: number, y: number) => `${x},${y}`;
+
+// Regression coverage for the muster flag advance-attack animation bug
+// report: the skirmish never played (only the final capture flourish) and
+// the tile briefly flipped back to the defender before settling.
+describe("handleMusterAdvanceCombatStart", () => {
+  it("ignores a manually-dispatched COMBAT_START", () => {
+    const state = { outgoingMusterAttacksByTile: new Map() };
+    const applyCombatOutcomeMessage = () => {};
+    expect(
+      handleMusterAdvanceCombatStart(
+        state,
+        keyFor,
+        { type: "COMBAT_START", commandId: "some-uuid", target: { x: 1, y: 1 }, origin: { x: 0, y: 1 }, resolvesAt: 1_000 },
+        applyCombatOutcomeMessage
+      )
+    ).toBe(false);
+    expect(state.outgoingMusterAttacksByTile.size).toBe(0);
+  });
+
+  it("tracks a muster-advance auto-fire attack so the attacker-side skirmish can render", () => {
+    const state = { outgoingMusterAttacksByTile: new Map() };
+    const applyCombatOutcomeMessage = () => {};
+    const handled = handleMusterAdvanceCombatStart(
+      state,
+      keyFor,
+      {
+        type: "COMBAT_START",
+        commandId: "territory-auto:muster-advance:5,5",
+        target: { x: 9, y: 4 },
+        origin: { x: 8, y: 4 },
+        resolvesAt: 2_000
+      },
+      applyCombatOutcomeMessage
+    );
+    expect(handled).toBe(true);
+    expect(state.outgoingMusterAttacksByTile.get("9,4")).toEqual({
+      originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt: 2_000
+    });
+  });
+
+  it("still forwards an already-locked result to applyCombatOutcomeMessage", () => {
+    const state = { outgoingMusterAttacksByTile: new Map() };
+    const applied: unknown[] = [];
+    handleMusterAdvanceCombatStart(
+      state,
+      keyFor,
+      {
+        type: "COMBAT_START",
+        commandId: "territory-auto:muster-advance:5,5",
+        target: { x: 9, y: 4 },
+        origin: { x: 8, y: 4 },
+        resolvesAt: 2_000,
+        result: { attackerWon: true }
+      },
+      (result) => applied.push(result)
+    );
+    expect(applied).toEqual([{ attackerWon: true }]);
+  });
+});
+
+describe("pruneExpiredOutgoingMusterAttacks", () => {
+  it("drops an outgoing muster attack whose resolution broadcast never arrived", () => {
+    const resolvesAt = 1_000_000;
+    const state = { outgoingMusterAttacksByTile: new Map([["9,4", { originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt }]]) };
+    pruneExpiredOutgoingMusterAttacks(state, resolvesAt + EXPIRED_SIEGE_GRACE_MS);
+    expect(state.outgoingMusterAttacksByTile.size).toBe(0);
+  });
+
+  it("keeps one still counting down", () => {
+    const resolvesAt = 1_000_000;
+    const state = { outgoingMusterAttacksByTile: new Map([["9,4", { originX: 8, originY: 4, targetX: 9, targetY: 4, resolvesAt }]]) };
+    pruneExpiredOutgoingMusterAttacks(state, resolvesAt - 1);
+    expect(state.outgoingMusterAttacksByTile.size).toBe(1);
+  });
+});
+
+describe("resolveCombatResultPayload", () => {
+  // The flip-flop bug: a "commit-only" COMBAT_RESULT (no manpowerDelta/
+  // pillagedGold/etc — the common shape for a plain frontier capture) used
+  // to unconditionally reuse pendingCombatReveal.result with no check that
+  // it belonged to the tile actually resolving.
+  it("ignores a locked prediction for a different target", () => {
+    const state = {
+      pendingCombatReveal: { targetKey: "1,1", title: "", detail: "", tone: "success" as const, revealed: false, result: { target: { x: 1, y: 1 }, changes: [{ x: 1, y: 1, ownerId: "rival" }] } }
+    };
+    const msg = { target: { x: 9, y: 4 }, changes: [{ x: 9, y: 4, ownerId: "me" }] };
+    expect(resolveCombatResultPayload(state, keyFor, msg, true)).toBe(msg);
+  });
+
+  it("uses the locked prediction when it matches the resolving target", () => {
+    const locked = { target: { x: 9, y: 4 }, changes: [{ x: 9, y: 4, ownerId: "me" }] };
+    const state = {
+      pendingCombatReveal: { targetKey: "9,4", title: "", detail: "", tone: "success" as const, revealed: false, result: locked }
+    };
+    const msg = { target: { x: 9, y: 4 } };
+    expect(resolveCombatResultPayload(state, keyFor, msg, true)).toBe(locked);
+  });
+
+  it("never substitutes the locked prediction when the message carries real combat fields", () => {
+    const state = {
+      pendingCombatReveal: { targetKey: "9,4", title: "", detail: "", tone: "success" as const, revealed: false, result: { target: { x: 9, y: 4 }, changes: [] } }
+    };
+    const msg = { target: { x: 9, y: 4 }, manpowerDelta: -5 };
+    expect(resolveCombatResultPayload(state, keyFor, msg, false)).toBe(msg);
   });
 });
