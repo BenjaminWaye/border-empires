@@ -32,8 +32,8 @@ const snapshot = (): PlayerSubscriptionSnapshot => ({
 // This module replaces two field-by-field-identical copies of the same merge
 // (apps/simulation's subscription-snapshot-cache.ts and apps/realtime-
 // gateway's subscription-snapshot-sync.ts) that had drifted at least twice
-// before being unified -- see docs/player-wire-refactor-plan.md and its
-// Phase 1+2 follow-up doc. These tests cover every regression either copy
+// before being unified -- see docs/player-wire-refactor-plan.md. These
+// tests cover every regression either copy
 // independently accumulated, now against the single merged implementation.
 describe("applyPlayerMessageToSnapshot", () => {
   // §5 (resource slots, docs/manpower-economy-rewrite-plan.md): the client

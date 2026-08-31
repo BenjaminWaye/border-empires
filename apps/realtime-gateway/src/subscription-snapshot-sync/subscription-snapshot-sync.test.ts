@@ -5,8 +5,8 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { applyTileDeltasToSnapshot } from "./subscription-snapshot-sync.js";
 
 // applyPlayerMessageToSnapshot's tests moved to @border-empires/sim-protocol's
-// subscription-snapshot-merge module (see docs/player-wire-refactor-plan.md's
-// Phase 1+2 follow-up) -- this file now covers only this app's own
+// subscription-snapshot-merge module (see docs/player-wire-refactor-plan.md)
+// -- this file now covers only this app's own
 // applyTileDeltasToSnapshot implementation (WeakMap-indexed lookup; apps/
 // simulation's copy uses a binary-search strategy instead -- same behavior,
 // different perf tradeoff, deliberately left as two implementations).

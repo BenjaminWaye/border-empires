@@ -15,8 +15,8 @@
 // economyBreakdown/upkeepPerMinute/upkeepLastTick/storageCap/seasonWinner
 // merged by the sim copy but dropped by the gateway copy; chosenTrickleResource
 // merged by the gateway copy but dropped by the sim copy; devQueue/waypointQueue
-// dropped by both for a while (see docs/player-wire-refactor-plan.md and its
-// Phase 1+2 follow-up doc) -- each drift silently discarding a field an
+// dropped by both for a while (see docs/player-wire-refactor-plan.md) --
+// each drift silently discarding a field an
 // active PLAYER_UPDATE push was already carrying, discoverable only via a
 // live reconnect bug report. This lives in packages/sim-protocol (rather than
 // packages/shared) because it needs PlayerSubscriptionSnapshot, and shared has
@@ -126,12 +126,12 @@ const mergePlayerFields = (
   payload: Record<string, unknown>,
   keys: ReadonlyArray<keyof typeof PLAYER_MERGE_RULES>
 ): PlayerStateSnapshot => {
-  let next: PlayerStateSnapshot = current;
+  let combinedPatch: Partial<PlayerStateSnapshot> | undefined;
   for (const key of keys) {
     const patch = PLAYER_MERGE_RULES[key](payload);
-    if (patch) next = { ...next, ...patch };
+    if (patch) combinedPatch = combinedPatch ? { ...combinedPatch, ...patch } : patch;
   }
-  return next;
+  return combinedPatch ? { ...current, ...combinedPatch } : current;
 };
 
 const ALL_PLAYER_MERGE_KEYS = Object.keys(PLAYER_MERGE_RULES) as ReadonlyArray<keyof typeof PLAYER_MERGE_RULES>;

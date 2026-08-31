@@ -2,8 +2,8 @@ import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 // applyPlayerMessageToSnapshot used to live here too, as a field-by-field
 // copy of apps/simulation's identically-named function -- the two drifted
-// at least twice (see docs/player-wire-refactor-plan.md and its Phase 1+2
-// follow-up) before being unified into @border-empires/sim-protocol's
+// at least twice (see docs/player-wire-refactor-plan.md) before being
+// unified into @border-empires/sim-protocol's
 // subscription-snapshot-merge module, which every caller of this function
 // now imports from instead.
 type TileDelta = NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>;
