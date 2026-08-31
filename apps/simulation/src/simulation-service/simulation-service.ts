@@ -6,7 +6,7 @@ import fs from "node:fs";
 import { Server, ServerCredentials, loadPackageDefinition, type UntypedServiceImplementation } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
 import {
-  SIMULATION_PROTO_PATH,
+  SIMULATION_PROTO_PATH, applyPlayerMessageToSnapshot,
   measurePlayerSubscriptionSnapshot,
   summarizePlayerSubscriptionSnapshotCache,
   type CommandEnvelope,
@@ -53,7 +53,7 @@ import { createSeedPlayers, createSeedWorld, type SimulationSeedProfile } from "
 import { createPlayerSubscriptionRegistry } from "../subscription-registry/subscription-registry.js";
 import { createSimulationPersistenceQueue } from "../simulation-persistence-queue/simulation-persistence-queue.js";
 import { SqliteWriterChannel, WriterBackedCommandStore, WriterBackedEventStore } from "../sqlite-writer-channel/sqlite-writer-channel.js";
-import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
+import { applyTileDeltasToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
 import { applyNonTileEventToCache, createPlayerSnapshotCache } from "../player-snapshot-cache/player-snapshot-cache.js";
 import { SimulationRuntime, type VisibilityAuditSample } from "../runtime/runtime.js";
 import { handleGetAdminPlayers, type ProtoAdminPlayersRequest, type ProtoAdminPlayersResponse } from "../admin-players-snapshot.js";

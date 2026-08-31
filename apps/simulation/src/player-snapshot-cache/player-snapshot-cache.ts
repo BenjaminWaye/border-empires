@@ -1,5 +1,4 @@
-import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
-import { applyPlayerMessageToSnapshot } from "../subscription-snapshot-cache/subscription-snapshot-cache.js";
+import { applyPlayerMessageToSnapshot, type PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
 // Per-player SubscribePlayer snapshot cache, stamped with the world revision
 // its tiles were current as of.
