@@ -1,0 +1,1982 @@
+{
+  "at": "2026-08-31T08:00:31.302Z",
+  "soak": {
+    "wsUrl": "ws://127.0.0.1:13101/ws",
+    "startedAt": "2026-08-31T08:00:31.302Z",
+    "endedAt": "2026-08-31T08:30:31.329Z",
+    "soakMinutes": 30,
+    "minAcceptedSamples": 30,
+    "waitForResult": false,
+    "settleAfterAcceptedMs": 250,
+    "refreshOnEmptyFrontier": false,
+    "acceptedSamples": 216,
+    "acceptedP95Ms": 12,
+    "acceptedP99Ms": 16,
+    "acceptedMaxMs": 57,
+    "diagnostics": {
+      "openedSessions": 128,
+      "frontierRefreshes": 0,
+      "emptyFrontierRejections": 0,
+      "speculativeInvalidTargets": 0,
+      "resourcePauses": 0
+    },
+    "batches": [
+      {
+        "at": 1788163274271,
+        "iterations": 120,
+        "acceptedSamples": 120,
+        "acceptedP95Ms": 13,
+        "acceptedP99Ms": 17,
+        "acceptedMaxMs": 57,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163320797,
+        "iterations": 120,
+        "acceptedSamples": 70,
+        "acceptedP95Ms": 11,
+        "acceptedP99Ms": 15,
+        "acceptedMaxMs": 15,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163347419,
+        "iterations": 120,
+        "acceptedSamples": 20,
+        "acceptedP95Ms": 8,
+        "acceptedP99Ms": 12,
+        "acceptedMaxMs": 12,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163369548,
+        "iterations": 120,
+        "acceptedSamples": 6,
+        "acceptedP95Ms": 16,
+        "acceptedP99Ms": 16,
+        "acceptedMaxMs": 16,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163389764,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163409934,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163430112,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163450286,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163470464,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163490632,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163511095,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163531259,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163551423,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163571572,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163591741,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163611902,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163632083,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163652242,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163672696,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163692873,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163713024,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163733194,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163753364,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163773541,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163793693,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163813912,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163834353,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163854513,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163874673,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163894836,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163914991,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163935167,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163955333,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163975792,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788163995942,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164016153,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164036339,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164056495,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164076681,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164096836,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164116998,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164137460,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164157618,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164177775,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164197936,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164218095,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164238245,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164258401,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164278549,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164298697,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164319147,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164339303,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164359452,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164379598,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164399752,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164419930,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164440085,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164460237,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164480402,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164500846,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164520992,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164541148,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164561321,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164581479,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164601648,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164621828,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164641985,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164662431,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164682585,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164702741,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164722897,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164743047,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164763192,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164783340,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164803488,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164823930,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164844089,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164864239,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164884396,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164904546,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164924703,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164944855,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164965299,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788164985453,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165005603,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165025764,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165025888,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165026009,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165026146,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165026272,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165026397,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165026556,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165026738,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165026863,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165026989,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165027113,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165027269,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165027393,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165027520,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165027656,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165027824,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165027994,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165028114,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165028242,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165028365,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165028487,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165028610,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165028775,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165028901,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165029035,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165029156,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165029278,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165029401,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165029551,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165029673,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165029795,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165029915,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165030034,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165030173,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165030303,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165030434,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165030562,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165030686,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165030811,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165030943,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165031064,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165031192,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      },
+      {
+        "at": 1788165031321,
+        "iterations": 120,
+        "acceptedSamples": 0,
+        "acceptedP95Ms": null,
+        "acceptedP99Ms": null,
+        "acceptedMaxMs": null,
+        "diagnostics": {
+          "openedSessions": 1,
+          "frontierRefreshes": 0,
+          "emptyFrontierRejections": 0,
+          "speculativeInvalidTargets": 0,
+          "resourcePauses": 0
+        }
+      }
+    ],
+    "batchErrors": []
+  },
+  "metrics": {
+    "gatewayMetricsUrl": "http://127.0.0.1:13101/metrics",
+    "simulationMetricsUrl": "http://127.0.0.1:50052/metrics",
+    "warmup": {
+      "ok": true,
+      "samples": 3,
+      "stableMs": 3000,
+      "timeoutMs": 30000,
+      "lastGatewayEventLoopMaxMs": 1,
+      "lastSimEventLoopMaxMs": 6
+    },
+    "sampleCount": 901,
+    "sampleErrors": [],
+    "gatewayEventLoopMaxMs": 3,
+    "simEventLoopMaxMs": 30,
+    "simEventLoopMaxAt": "2026-08-31T08:25:24.079Z",
+    "simEventLoopDelayQuantilesMs": {
+      "p50": 0,
+      "p95": 1,
+      "p99": 4
+    },
+    "simHumanInteractiveBacklogMaxMs": 0,
+    "simCheckpointRssMaxMb": 630.348
+  },
+  "gates": {
+    "acceptedSamplesAtLeastMinimum": true,
+    "actionAcceptedP95Under300": true,
+    "actionAcceptedP99Under500": true,
+    "actionAcceptedMaxUnder1000": true,
+    "gatewayEventLoopMaxUnder500": true,
+    "simEventLoopMaxUnder150": true,
+    "simHumanInteractiveBacklogMaxUnder500": true,
+    "simCheckpointRssMaxUnder800": true
+  },
+  "allGatesGreen": true
+}
