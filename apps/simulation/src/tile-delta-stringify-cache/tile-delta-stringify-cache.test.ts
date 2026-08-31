@@ -294,4 +294,47 @@ describe("TileDeltaStringifyCache", () => {
     expect("ownershipState" in first).toBe(true);
     expect(first.ownershipState).toBeUndefined();
   });
+
+  it("buildSparseDelta always includes frontierDecayAt/frontierDecayKind, even when unchanged from the last emission", () => {
+    // Regression for a live bug: a frontier tile decaying from being out of
+    // reach keeps getting frontierDecayAt refreshed on every reach recheck
+    // while frontierDecayKind stays "OUT_OF_REACH" the whole time. Once this
+    // cache's GLOBAL last-emitted baseline already had frontierDecayKind set
+    // (from an earlier tick sent to some other consumer), a subsequent
+    // consumer seeing the tile for the first time via ongoing per-tick
+    // deltas only received frontierDecayAt-only deltas and never got the
+    // paired frontierDecayKind -- so tileMenuHeaderStatusForTile
+    // (client-tile-menu-status.ts) could never resolve a decay countdown,
+    // and the tile menu fell back to a plain "Outside reach" line with no
+    // timer at all, even though the tile really was decaying.
+    const cache = new TileDeltaStringifyCache();
+    const tile: DomainTileState = {
+      ...makeBaseTile(),
+      ownerId: "p1",
+      ownershipState: "FRONTIER",
+      frontierDecayAt: 1000,
+      frontierDecayKind: "OUT_OF_REACH"
+    };
+    const cached = cache.getOrComputeAll("1,1", tile);
+    const fullDelta = {
+      x: tile.x, y: tile.y, ownerId: tile.ownerId, ownershipState: tile.ownershipState,
+      frontierDecayAt: tile.frontierDecayAt, frontierDecayKind: tile.frontierDecayKind
+    };
+
+    // First call: no prior emission, sparse diff falls back to the full delta.
+    const first = cache.sparseEmit("1,1", tile, cached, fullDelta);
+    expect(first.frontierDecayAt).toBe(1000);
+    expect(first.frontierDecayKind).toBe("OUT_OF_REACH");
+
+    // Second tick: only frontierDecayAt actually changed (a reach recheck
+    // pushed the deadline out); frontierDecayKind is identical to the last
+    // emission. A naive sparse diff would omit it as "unchanged" -- it must
+    // still be present for any consumer that missed the first emission.
+    const refreshedTile: DomainTileState = { ...tile, frontierDecayAt: 2000 };
+    const second = cache.buildSparseDelta("1,1", refreshedTile, cached, {
+      x: tile.x, y: tile.y, frontierDecayAt: 2000, frontierDecayKind: tile.frontierDecayKind
+    });
+    expect(second.frontierDecayAt).toBe(2000);
+    expect(second.frontierDecayKind).toBe("OUT_OF_REACH");
+  });
 });
