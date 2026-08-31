@@ -203,6 +203,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   sortedYieldBearingKeysByOwner: Map<string, string[]>;
   activeSiegeOutpostsByOwner: Map<string, Set<string>>;
   activeRelayBeaconsByOwner: Map<string, Set<string>>;
+  activeObservatoriesByOwner: Map<string, Set<string>>;
   musterTilesByOwner: Map<string, Set<string>>;
   fortTilesByOwner: Map<string, Set<string>>;
   railDepotTilesByOwner: Map<string, Set<string>>;
@@ -227,6 +228,7 @@ export const refreshRuntimeTileIndexesForChange = (input: {
   refreshYieldBearingIndexForTile(input);
   refreshSiegeOutpostIndexForTile(input);
   refreshRelayBeaconIndexForTile(input);
+  refreshObservatoryIndexForTile(input);
   refreshMusterIndexForTile(input);
   refreshFortGarrisonIndexForTile(input);
   refreshRailDepotIndexForTile(input);
@@ -457,45 +459,60 @@ const refreshYieldBearingIndexForTile = (input: {
   }
 };
 
-const isSiegeOutpostActive = (tile: DomainTileState, ownerId: string): boolean =>
+export const isSiegeOutpostActive = (tile: DomainTileState, ownerId: string): boolean =>
   tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active";
 
-const isRelayBeaconActive = (tile: DomainTileState, ownerId: string): boolean =>
+export const isRelayBeaconActive = (tile: DomainTileState, ownerId: string): boolean =>
   tile.economicStructure?.ownerId === ownerId &&
   tile.economicStructure.type === "RELAY_BEACON" &&
   tile.economicStructure.status === "active";
+
+export const isObservatoryActive = (tile: DomainTileState, ownerId: string): boolean =>
+  tile.observatory?.ownerId === ownerId && tile.observatory.status === "active";
+
+// Shared by refreshSiegeOutpostIndexForTile/refreshRelayBeaconIndexForTile/
+// refreshObservatoryIndexForTile below — each is "a single owned-tile
+// structure field is active for tile.ownerId", differing only in which
+// isXActive predicate and which per-owner index Map they maintain. Exported
+// so boot seeding (runtime.ts) can call it directly with `previous: undefined`
+// instead of duplicating the same isActive checks in a separate helper.
+export const refreshActiveStructureIndexForTile = (input: {
+  tileKey: string;
+  previous: DomainTileState | undefined;
+  next: DomainTileState;
+  index: Map<string, Set<string>>;
+  isActive: (tile: DomainTileState, ownerId: string) => boolean;
+}): void => {
+  const prevOwnerId = input.previous?.ownerId;
+  const nextOwnerId = input.next.ownerId;
+  const prevActive = input.previous && prevOwnerId ? input.isActive(input.previous, prevOwnerId) : false;
+  const nextActive = nextOwnerId ? input.isActive(input.next, nextOwnerId) : false;
+  if (!prevActive && !nextActive) return;
+  if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
+  if (prevActive && prevOwnerId) input.index.get(prevOwnerId)?.delete(input.tileKey);
+  if (nextActive && nextOwnerId) addTileToOwnerSet(input.index, input.tileKey, nextOwnerId);
+};
 
 const refreshSiegeOutpostIndexForTile = (input: {
   tileKey: string;
   previous: DomainTileState | undefined;
   next: DomainTileState;
   activeSiegeOutpostsByOwner: Map<string, Set<string>>;
-}): void => {
-  const prevOwnerId = input.previous?.ownerId;
-  const nextOwnerId = input.next.ownerId;
-  const prevActive = input.previous && prevOwnerId ? isSiegeOutpostActive(input.previous, prevOwnerId) : false;
-  const nextActive = nextOwnerId ? isSiegeOutpostActive(input.next, nextOwnerId) : false;
-  if (!prevActive && !nextActive) return;
-  if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
-  if (prevActive && prevOwnerId) input.activeSiegeOutpostsByOwner.get(prevOwnerId)?.delete(input.tileKey);
-  if (nextActive && nextOwnerId) addTileToOwnerSet(input.activeSiegeOutpostsByOwner, input.tileKey, nextOwnerId);
-};
+}): void => refreshActiveStructureIndexForTile({ ...input, index: input.activeSiegeOutpostsByOwner, isActive: isSiegeOutpostActive });
 
 const refreshRelayBeaconIndexForTile = (input: {
   tileKey: string;
   previous: DomainTileState | undefined;
   next: DomainTileState;
   activeRelayBeaconsByOwner: Map<string, Set<string>>;
-}): void => {
-  const prevOwnerId = input.previous?.ownerId;
-  const nextOwnerId = input.next.ownerId;
-  const prevActive = input.previous && prevOwnerId ? isRelayBeaconActive(input.previous, prevOwnerId) : false;
-  const nextActive = nextOwnerId ? isRelayBeaconActive(input.next, nextOwnerId) : false;
-  if (!prevActive && !nextActive) return;
-  if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
-  if (prevActive && prevOwnerId) input.activeRelayBeaconsByOwner.get(prevOwnerId)?.delete(input.tileKey);
-  if (nextActive && nextOwnerId) addTileToOwnerSet(input.activeRelayBeaconsByOwner, input.tileKey, nextOwnerId);
-};
+}): void => refreshActiveStructureIndexForTile({ ...input, index: input.activeRelayBeaconsByOwner, isActive: isRelayBeaconActive });
+
+const refreshObservatoryIndexForTile = (input: {
+  tileKey: string;
+  previous: DomainTileState | undefined;
+  next: DomainTileState;
+  activeObservatoriesByOwner: Map<string, Set<string>>;
+}): void => refreshActiveStructureIndexForTile({ ...input, index: input.activeObservatoriesByOwner, isActive: isObservatoryActive });
 
 const refreshMusterIndexForTile = (input: {
   tileKey: string;
@@ -538,16 +555,7 @@ const refreshRailDepotIndexForTile = (input: {
   previous: DomainTileState | undefined;
   next: DomainTileState;
   railDepotTilesByOwner: Map<string, Set<string>>;
-}): void => {
-  const prevOwnerId = input.previous?.ownerId;
-  const nextOwnerId = input.next.ownerId;
-  const prevActive = input.previous && prevOwnerId ? isRailDepotActive(input.previous, prevOwnerId) : false;
-  const nextActive = nextOwnerId ? isRailDepotActive(input.next, nextOwnerId) : false;
-  if (!prevActive && !nextActive) return;
-  if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
-  if (prevActive && prevOwnerId) input.railDepotTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
-  if (nextActive && nextOwnerId) addTileToOwnerSet(input.railDepotTilesByOwner, input.tileKey, nextOwnerId);
-};
+}): void => refreshActiveStructureIndexForTile({ ...input, index: input.railDepotTilesByOwner, isActive: isRailDepotActive });
 
 // Garrison Hall's flat manpower-cap bonus (§4.4) is a plain per-structure
 // count, not tied to any specific town — GARRISON_HALL uses "same_tile"
@@ -567,27 +575,16 @@ const refreshGarrisonHallIndexForTile = (input: {
   previous: DomainTileState | undefined;
   next: DomainTileState;
   garrisonHallTilesByOwner: Map<string, Set<string>>;
-}): void => {
-  const prevOwnerId = input.previous?.ownerId;
-  const nextOwnerId = input.next.ownerId;
-  const prevActive = input.previous && prevOwnerId ? isGarrisonHallActive(input.previous, prevOwnerId) : false;
-  const nextActive = nextOwnerId ? isGarrisonHallActive(input.next, nextOwnerId) : false;
-  if (!prevActive && !nextActive) return;
-  if (prevActive && nextActive && prevOwnerId === nextOwnerId) return;
-  if (prevActive && prevOwnerId) input.garrisonHallTilesByOwner.get(prevOwnerId)?.delete(input.tileKey);
-  if (nextActive && nextOwnerId) addTileToOwnerSet(input.garrisonHallTilesByOwner, input.tileKey, nextOwnerId);
-};
+}): void => refreshActiveStructureIndexForTile({ ...input, index: input.garrisonHallTilesByOwner, isActive: isGarrisonHallActive });
 
-// Generic version of refreshRailDepotIndexForTile/refreshGarrisonHallIndexForTile
-// above, parameterized by economicStructure.type — used for the tech-tree
-// redesign's new Manpower-branch buildings (Assembly Works, Logistics Guild,
-// Quartermaster's Office, Granary/Incubation Engine, Census Hall) so each new
-// per-owner tile-set index doesn't need its own hand-copied pair of
-// functions. Same "same_tile OR any owner" semantics as Garrison Hall (not
-// Rail Depot's stricter "only if previous/next tile has the SAME owner"
-// short-circuit), which is correct for all of these — none of them are
-// tied to a specific town the way Rail Depot/Clearing House's "only one per
-// connected-town network" uniqueness check is.
+// Same shape as refreshRailDepotIndexForTile/refreshGarrisonHallIndexForTile
+// above, parameterized by economicStructure.type instead of a fixed one —
+// used for the tech-tree redesign's new Manpower-branch buildings (Assembly
+// Works, Logistics Guild, Quartermaster's Office, Granary/Incubation Engine,
+// Census Hall) so each new per-owner tile-set index doesn't need its own
+// hand-copied isXActive predicate. None of these are tied to a specific town
+// the way Rail Depot/Clearing House's "only one per connected-town network"
+// uniqueness check is.
 const isEconomicStructureTypeActive = (tile: DomainTileState, ownerId: string, structureType: string): boolean =>
   tile.economicStructure?.type === structureType &&
   tile.economicStructure.ownerId === ownerId &&

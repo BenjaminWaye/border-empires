@@ -41,16 +41,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787678887251, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.3",
-    title: "Rivers now curve smoothly and taper toward the sea instead of looking like glued-together rectangles",
-    why: "The 3D river ribbon connected each walked point with a straight segment and a constant width the whole way, so every wobble step in the path showed up as a hard kink and every river read as a uniform-width strip regardless of how far it had traveled -- the classic 'blue rectangles' look rather than a real river.",
-    changes: [
-      "River paths are now smoothed with a Catmull-Rom curve and resampled at higher density, removing the faceted straight-segment look.",
-      "River width now tapers from narrow at the source to wide at the mouth, based on how far each point has flowed toward the sea."
-    ]
-  },
-  {
     createdAt: 1787691503245, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.3",
     title: "Added a Discord link to the settings menu",

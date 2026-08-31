@@ -22,6 +22,7 @@
 import { FRONTIER_STANDING_VISION_RADIUS } from "@border-empires/shared";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { VisionFootprintTable } from "./vision-footprint-table.js";
+import { SourceBonusRadiusTracker } from "./visibility-source-bonus-tracker.js";
 
 const EMPTY_REASONS: ReadonlySet<string> = new Set();
 
@@ -287,15 +288,23 @@ export class VisibilityCoverageTracker {
   // be removed exactly — including when the source's base radius changes and
   // the +1 ring must move outward/inward.
   private readonly townBonusRadiusBySourceAndTile = new Map<string, Map<string, number>>();
-  // Same shape as townBonusRadiusBySourceAndTile, for Light/Siege Outpost
-  // vision bonuses (runtime-outpost-vision.ts) — tracked per (source, tile)
-  // so a Survey Corps unlock can move an existing outpost's ring outward
-  // without the caller needing to remember what was last applied.
-  private readonly outpostBonusRadiusBySourceAndTile = new Map<string, Map<string, number>>();
+  // Light/Siege Outpost vision bonuses (runtime-outpost-vision.ts) and
+  // Observatory's flat local vision bonus (runtime-observatory-vision.ts) —
+  // same "flat extra radius around one owned tile" shape as each other, kept
+  // in separate SourceBonusRadiusTracker instances (distinct reason tags and
+  // independent removal) so one structure type's ring can be removed/re-set
+  // without disturbing an unrelated one on a different tile of the same
+  // owner. Constructed below, after `cache` is assigned.
+  private readonly outpostBonusTracker: SourceBonusRadiusTracker;
+  private readonly observatoryBonusTracker: SourceBonusRadiusTracker;
 
   constructor(worldWidth: number, worldHeight: number, deps: VisibilityCoverageTrackerDeps, footprintTable?: VisionFootprintTable) {
     this.cache = new VisibilityCoverageCache(worldWidth, worldHeight, footprintTable);
     this.deps = deps;
+    const isBarbarian = (id: string) => this.isBarbarian(id);
+    const viewersForSource = (id: string) => this.viewersForSource(id);
+    this.outpostBonusTracker = new SourceBonusRadiusTracker(this.cache, "relay-beacon", isBarbarian, viewersForSource);
+    this.observatoryBonusTracker = new SourceBonusRadiusTracker(this.cache, "observatory", isBarbarian, viewersForSource);
   }
 
   isVisible(viewerId: string, tileKey: string): boolean {
@@ -501,42 +510,32 @@ export class VisibilityCoverageTracker {
   /**
    * Adds a permanent vision bonus for an owned active Relay Beacon or Siege
    * Outpost (runtime-outpost-vision.ts) — Relay Beacon's flat base plus
-   * Survey Corps's outpostVisionRadiusBonus tech effect on either. Tracked
-   * per (source, tile) like setTownVisionBonus, under one fixed reason tag
-   * (not the per-viewer self/ally split territoryReason uses) so a Light
+   * Survey Corps's outpostVisionRadiusBonus tech effect on either. A Light
    * Outpost upgrading to a Siege Outpost, or a tech unlock moving the ring,
    * can always be removed/re-set exactly regardless of which structure
-   * granted it.
+   * granted it — see SourceBonusRadiusTracker.
    */
   setOutpostVisionBonus(sourceId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
-    if (this.isBarbarian(sourceId)) return;
-    const tileKey = simulationTileKey(x, y);
-    const existing = this.outpostBonusRadiusBySourceAndTile.get(sourceId)?.get(tileKey);
-    if (existing === bonusRadius) return;
-    for (const viewerId of this.viewersForSource(sourceId)) {
-      if (existing !== undefined) this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, "relay-beacon");
-      this.cache.addFootprint(viewerId, x, y, bonusRadius, callbacks?.onEnter, "relay-beacon");
-    }
-    let byTile = this.outpostBonusRadiusBySourceAndTile.get(sourceId);
-    if (!byTile) {
-      byTile = new Map();
-      this.outpostBonusRadiusBySourceAndTile.set(sourceId, byTile);
-    }
-    byTile.set(tileKey, bonusRadius);
+    this.outpostBonusTracker.set(sourceId, x, y, bonusRadius, callbacks);
   }
 
   /** Reverses setOutpostVisionBonus when the outpost is removed/upgraded away. */
   removeOutpostVisionBonus(sourceId: string, x: number, y: number, callbacks?: VisibilityTransitionCallbacks): void {
-    if (this.isBarbarian(sourceId)) return;
-    const tileKey = simulationTileKey(x, y);
-    const byTile = this.outpostBonusRadiusBySourceAndTile.get(sourceId);
-    const existing = byTile?.get(tileKey);
-    if (existing === undefined) return;
-    for (const viewerId of this.viewersForSource(sourceId)) {
-      this.cache.removeFootprint(viewerId, x, y, existing, callbacks?.onLeave, "relay-beacon");
-    }
-    byTile!.delete(tileKey);
-    if (byTile!.size === 0) this.outpostBonusRadiusBySourceAndTile.delete(sourceId);
+    this.outpostBonusTracker.remove(sourceId, x, y, callbacks);
+  }
+
+  /**
+   * Adds a permanent vision bonus for an owned active Observatory
+   * (runtime-observatory-vision.ts) — a flat OBSERVATORY_VISION_BONUS
+   * (config.ts). See SourceBonusRadiusTracker.
+   */
+  setObservatoryVisionBonus(sourceId: string, x: number, y: number, bonusRadius: number, callbacks?: VisibilityTransitionCallbacks): void {
+    this.observatoryBonusTracker.set(sourceId, x, y, bonusRadius, callbacks);
+  }
+
+  /** Reverses setObservatoryVisionBonus when the Observatory is removed/disabled. */
+  removeObservatoryVisionBonus(sourceId: string, x: number, y: number, callbacks?: VisibilityTransitionCallbacks): void {
+    this.observatoryBonusTracker.remove(sourceId, x, y, callbacks);
   }
 
   /**
@@ -553,13 +552,15 @@ export class VisibilityCoverageTracker {
    * that the source itself can't see.
    *
    * Also adds/removes each side's town +1 vision-bonus rings (see
-   * setTownVisionBonus) and outpost vision-bonus rings (see
-   * setOutpostVisionBonus) to/from the other's coverage. Those rings are
+   * setTownVisionBonus), outpost vision-bonus rings (see
+   * setOutpostVisionBonus), and Observatory vision-bonus rings (see
+   * setObservatoryVisionBonus) to/from the other's coverage. Those rings are
    * stacked on top of the base territory footprint above and are keyed
-   * per-source in townBonusRadiusBySourceAndTile/outpostBonusRadiusBySourceAndTile,
+   * per-source (townBonusRadiusBySourceAndTile, and outpostBonusTracker/
+   * observatoryBonusTracker's own SourceBonusRadiusTracker instances),
    * so they don't get swept in by addSourceContribution/removeSourceContribution
    * — without this they'd only reach a new ally once some unrelated tile
-   * event happened to touch the town/outpost.
+   * event happened to touch the town/outpost/observatory.
    */
   syncAllianceChange(actorId: string, targetId: string, allied: boolean, callbacks?: VisibilityTransitionCallbacks): void {
     if (this.isBarbarian(actorId) || this.isBarbarian(targetId)) return;
@@ -576,8 +577,10 @@ export class VisibilityCoverageTracker {
       this.cache.addSourceContribution(actorId, targetFrontier, FRONTIER_STANDING_VISION_RADIUS, callbacks?.onEnter, `radius:ally:${targetId}`);
       this.applyTownBonusesToViewer(actorId, targetId, callbacks?.onEnter);
       this.applyTownBonusesToViewer(targetId, actorId, callbacks?.onEnter);
-      this.applyOutpostBonusesToViewer(actorId, targetId, callbacks?.onEnter);
-      this.applyOutpostBonusesToViewer(targetId, actorId, callbacks?.onEnter);
+      this.outpostBonusTracker.applyToViewer(actorId, targetId, callbacks?.onEnter);
+      this.outpostBonusTracker.applyToViewer(targetId, actorId, callbacks?.onEnter);
+      this.observatoryBonusTracker.applyToViewer(actorId, targetId, callbacks?.onEnter);
+      this.observatoryBonusTracker.applyToViewer(targetId, actorId, callbacks?.onEnter);
     } else {
       this.cache.removeSourceContribution(targetId, actorSettled, actorRadius, callbacks?.onLeave, `radius:ally:${actorId}`);
       this.cache.removeSourceContribution(targetId, actorFrontier, FRONTIER_STANDING_VISION_RADIUS, callbacks?.onLeave, `radius:ally:${actorId}`);
@@ -585,8 +588,10 @@ export class VisibilityCoverageTracker {
       this.cache.removeSourceContribution(actorId, targetFrontier, FRONTIER_STANDING_VISION_RADIUS, callbacks?.onLeave, `radius:ally:${targetId}`);
       this.applyTownBonusesToViewer(actorId, targetId, undefined, callbacks?.onLeave);
       this.applyTownBonusesToViewer(targetId, actorId, undefined, callbacks?.onLeave);
-      this.applyOutpostBonusesToViewer(actorId, targetId, undefined, callbacks?.onLeave);
-      this.applyOutpostBonusesToViewer(targetId, actorId, undefined, callbacks?.onLeave);
+      this.outpostBonusTracker.applyToViewer(actorId, targetId, undefined, callbacks?.onLeave);
+      this.outpostBonusTracker.applyToViewer(targetId, actorId, undefined, callbacks?.onLeave);
+      this.observatoryBonusTracker.applyToViewer(actorId, targetId, undefined, callbacks?.onLeave);
+      this.observatoryBonusTracker.applyToViewer(targetId, actorId, undefined, callbacks?.onLeave);
     }
   }
 
@@ -614,25 +619,4 @@ export class VisibilityCoverageTracker {
     }
   }
 
-  /**
-   * Adds (onEnter set) or removes (onLeave set) every currently-tracked
-   * outpost vision-bonus footprint of `sourceId` to/from `viewerId`'s
-   * coverage. Mirrors applyTownBonusesToViewer for setOutpostVisionBonus/
-   * removeOutpostVisionBonus.
-   */
-  private applyOutpostBonusesToViewer(
-    sourceId: string,
-    viewerId: string,
-    onEnter?: (viewerId: string, tileKey: string) => void,
-    onLeave?: (viewerId: string, tileKey: string) => void
-  ): void {
-    const byTile = this.outpostBonusRadiusBySourceAndTile.get(sourceId);
-    if (!byTile) return;
-    for (const [tileKey, radius] of byTile) {
-      const parsed = parseTileKey(tileKey);
-      if (!parsed) continue;
-      if (onEnter) this.cache.addFootprint(viewerId, parsed.x, parsed.y, radius, onEnter, "relay-beacon");
-      if (onLeave) this.cache.removeFootprint(viewerId, parsed.x, parsed.y, radius, onLeave, "relay-beacon");
-    }
-  }
 }
