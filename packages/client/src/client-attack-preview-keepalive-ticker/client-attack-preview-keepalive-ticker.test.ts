@@ -55,6 +55,30 @@ describe("attackPreviewIsStaleForTarget", () => {
       attackPreviewIsStaleForTarget(state, target, { keyFor: (x, y) => `${x},${y}`, pickOriginForTarget: () => origin })
     ).toBe(false);
   });
+
+  it("is not stale for a fogged target -- a request would silently no-op and never resolve", () => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const state = createInitialState();
+    state.me = "me";
+    const origin = makeTile({ x: 1, y: 1, ownerId: "me" });
+    const target = makeTile({ x: 2, y: 1, ownerId: "enemy", fogged: true });
+
+    expect(
+      attackPreviewIsStaleForTarget(state, target, { keyFor: (x, y) => `${x},${y}`, pickOriginForTarget: () => origin })
+    ).toBe(false);
+  });
+
+  it("is not stale when the picked origin isn't owned by the player -- a request would silently no-op and never resolve", () => {
+    vi.spyOn(Date, "now").mockReturnValue(10_000);
+    const state = createInitialState();
+    state.me = "me";
+    const origin = makeTile({ x: 1, y: 1, ownerId: "someone-else" });
+    const target = makeTile({ x: 2, y: 1, ownerId: "enemy" });
+
+    expect(
+      attackPreviewIsStaleForTarget(state, target, { keyFor: (x, y) => `${x},${y}`, pickOriginForTarget: () => origin })
+    ).toBe(false);
+  });
 });
 
 describe("startAttackPreviewKeepaliveTicker", () => {

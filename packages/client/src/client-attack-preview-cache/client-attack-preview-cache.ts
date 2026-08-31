@@ -284,34 +284,6 @@ export const attackPreviewBreakdownForTarget = (
   return { winChance: preview.winChance, attacker: preview.attacker, defender: preview.defender };
 };
 
-// Used by the attack-preview keepalive ticker (client-attack-preview-
-// keepalive-ticker.ts) to decide whether an open tile menu's win-chance
-// display needs a silent re-request. "Stale" here means: no resolvable
-// preview for this from->to pairing (either it never arrived, or it aged
-// past ATTACK_PREVIEW_CACHE_TTL_MS) and nothing is already in flight for it
-// -- so requesting again is safe and won't duplicate a pending request.
-export const attackPreviewIsStaleForTarget = (
-  state: ClientState,
-  to: Tile,
-  deps: {
-    keyFor: (x: number, y: number) => string;
-    pickOriginForTarget: (x: number, y: number) => Tile | undefined;
-  }
-): boolean => {
-  const from = deps.pickOriginForTarget(to.x, to.y);
-  if (!from && !to.dockId) return false;
-  const toKey = deps.keyFor(to.x, to.y);
-  const preview = resolvedAttackPreviewForTarget(
-    state,
-    from
-      ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
-      : { toKey, dockFallback: Boolean(to.dockId) }
-  );
-  if (preview) return false;
-  const previewKey = from ? attackPreviewKey(deps.keyFor(from.x, from.y), toKey) : attackPreviewKey(toKey, toKey);
-  return state.attackPreviewPendingKey !== previewKey;
-};
-
 export const attackPreviewPendingForTarget = (
   state: ClientState,
   to: Tile,
@@ -332,4 +304,38 @@ export const attackPreviewPendingForTarget = (
   if (from) return state.attackPreviewPendingKey === attackPreviewKey(deps.keyFor(from.x, from.y), toKey);
   if (!to.dockId) return false;
   return state.attackPreviewPendingKey === attackPreviewKey(toKey, toKey);
+};
+
+// Used by the attack-preview keepalive ticker (client-attack-preview-
+// keepalive-ticker.ts) to decide whether an open tile menu's win-chance
+// display needs a silent re-request. "Stale" here means: no resolvable
+// preview for this from->to pairing (either it never arrived, or it aged
+// past ATTACK_PREVIEW_CACHE_TTL_MS) and nothing is already in flight for it.
+//
+// Mirrors requestAttackPreviewForTarget's own no-op guards (fogged target,
+// origin not owned by the player) -- without them, a request for such a
+// target would silently no-op (never actually going "pending"), so this
+// would keep reporting "stale" and the keepalive ticker would re-fire it
+// every second forever with no way to ever resolve.
+export const attackPreviewIsStaleForTarget = (
+  state: ClientState,
+  to: Tile,
+  deps: {
+    keyFor: (x: number, y: number) => string;
+    pickOriginForTarget: (x: number, y: number) => Tile | undefined;
+  }
+): boolean => {
+  if (to.fogged) return false;
+  const from = deps.pickOriginForTarget(to.x, to.y);
+  if (!from && !to.dockId) return false;
+  if (from && from.ownerId !== state.me) return false;
+  const toKey = deps.keyFor(to.x, to.y);
+  const preview = resolvedAttackPreviewForTarget(
+    state,
+    from
+      ? { fromKey: deps.keyFor(from.x, from.y), toKey, dockFallback: Boolean(to.dockId) }
+      : { toKey, dockFallback: Boolean(to.dockId) }
+  );
+  if (preview) return false;
+  return !attackPreviewPendingForTarget(state, to, deps);
 };
