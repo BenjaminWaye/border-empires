@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import { credentials, loadPackageDefinition, type ClientReadableStream } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
+import { normalizeProtoDock, type ProtoDockRoute } from "./sim-client-dock-normalize.js";
 
 import {
   SIMULATION_PROTO_PATH,
@@ -100,17 +101,6 @@ type ProtoTileDelta = {
   combat_json?: string;
   combatJson?: string;
 };
-type ProtoDockRoute = {
-  dock_id?: string;
-  dockId?: string;
-  tile_key?: string;
-  tileKey?: string;
-  paired_dock_id?: string;
-  pairedDockId?: string;
-  connected_dock_ids?: string[];
-  connectedDockIds?: string[];
-};
-
 type ProtoSubscribePlayerAck = {
   ok: boolean;
   player_id?: string;
@@ -390,20 +380,6 @@ const toProtoCommand = (command: CommandEnvelope): Record<string, unknown> => ({
   type: command.type,
   payload_json: command.payloadJson
 });
-
-const normalizeProtoDock = (dock: ProtoDockRoute): PlayerSubscriptionDock | undefined => {
-  const dockId = dock.dock_id || dock.dockId;
-  const tileKey = dock.tile_key || dock.tileKey;
-  const pairedDockId = dock.paired_dock_id || dock.pairedDockId;
-  if (!dockId || !tileKey || !pairedDockId) return undefined;
-  const connectedDockIds = dock.connected_dock_ids || dock.connectedDockIds;
-  return {
-    dockId,
-    tileKey,
-    pairedDockId,
-    ...(connectedDockIds?.length ? { connectedDockIds: [...connectedDockIds] } : {})
-  };
-};
 
 export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number] => {
   const normalized: NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number] = {

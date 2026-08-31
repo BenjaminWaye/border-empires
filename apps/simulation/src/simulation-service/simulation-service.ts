@@ -5,6 +5,7 @@ import fs from "node:fs";
 
 import { Server, ServerCredentials, loadPackageDefinition, type UntypedServiceImplementation } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
+import { marshalDocksToProto } from "./dock-proto-marshal.js";
 import {
   SIMULATION_PROTO_PATH, applyPlayerMessageToSnapshot,
   measurePlayerSubscriptionSnapshot,
@@ -2343,12 +2344,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               ...(seasonJson ? { season_json: seasonJson } : {}),
               ...(snapshotPayload.docks?.length
                 ? {
-                    docks: snapshotPayload.docks.map((dock) => ({
-                      dock_id: dock.dockId,
-                      tile_key: dock.tileKey,
-                      paired_dock_id: dock.pairedDockId,
-                      ...(dock.connectedDockIds?.length ? { connected_dock_ids: [...dock.connectedDockIds] } : {})
-                    }))
+                    docks: marshalDocksToProto(snapshotPayload.docks)
                   }
                 : {}),
               tiles: (() => {
