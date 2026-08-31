@@ -278,6 +278,7 @@ export type PlayerSubscriptionDock = {
   tileKey: string;
   pairedDockId: string;
   connectedDockIds?: string[];
+  routeWaypointsByLinkedDockId?: Record<string, Array<{ x: number; y: number }>>;
 };
 
 export type PlayerSubscriptionSnapshot = {
