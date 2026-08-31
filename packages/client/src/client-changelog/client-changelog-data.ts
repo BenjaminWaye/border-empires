@@ -17,6 +17,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788208114112, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.4",
+    title: "Fixed \"March To…\" muster orders never reaching your empire",
+    why: "The gateway's SET_MUSTER message schema only allowed mode HOLD or ADVANCE -- MARCH was missing -- so every march order the client sent was rejected outright as a malformed message before it ever reached the simulation, and the muster flag silently stayed on its old mode.",
+    changes: [
+      "\"March To…\" now correctly arms and sends its target, and the muster flag switches to marching toward the chosen tile"
+    ]
+  },
+  {
     createdAt: 1788202192814, // frozen: one ms after this file's prior newest entry
     introducedIn: "2026.08.31.4",
     title: "\"Build Relay Beacon\" now shows on a tile that already has a Fort",

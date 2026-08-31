@@ -82,4 +82,15 @@ describe("ClientMessageSchema", () => {
       ClientMessageSchema.parse({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" })
     ).toEqual({ type: "BUILD_ECONOMIC_STRUCTURE", x: 1, y: 2, structureType: "UMBRITE_WEAPONS_FACTORY" });
   });
+
+  it("accepts SET_MUSTER with mode MARCH and a target tile", () => {
+    // Regression: the client's "March To…" muster action
+    // (client-muster-march-targeting.ts) sends SET_MUSTER with mode: "MARCH",
+    // but this schema's mode enum only listed HOLD/ADVANCE, so the gateway's
+    // ClientMessageSchema.safeParse rejected every march command with
+    // BAD_MSG before it ever reached the sim — the flag never connected.
+    expect(
+      ClientMessageSchema.parse({ type: "SET_MUSTER", x: 10, y: 10, mode: "MARCH", targetX: 12, targetY: 14 })
+    ).toEqual({ type: "SET_MUSTER", x: 10, y: 10, mode: "MARCH", targetX: 12, targetY: 14 });
+  });
 });
