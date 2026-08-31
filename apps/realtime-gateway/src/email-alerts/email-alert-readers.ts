@@ -82,8 +82,11 @@ export const readIncomingTruceRequestAlert = (
   return undefined;
 };
 
-export const readAttackAlert = (payload: Record<string, unknown>): IncomingAttackAlert | undefined => {
-  if (payload.type !== "ATTACK_ALERT") return undefined;
+const readAttackAlertLikePayload = (
+  payload: Record<string, unknown>,
+  expectedType: "ATTACK_ALERT" | "AETHER_PURGE_ALERT"
+): IncomingAttackAlert | undefined => {
+  if (payload.type !== expectedType) return undefined;
   const x = readNumberField(payload, "x");
   const y = readNumberField(payload, "y");
   if (typeof x !== "number" || typeof y !== "number") return undefined;
@@ -94,14 +97,8 @@ export const readAttackAlert = (payload: Record<string, unknown>): IncomingAttac
   };
 };
 
-export const readAetherPurgeAlert = (payload: Record<string, unknown>): IncomingAetherPurgeAlert | undefined => {
-  if (payload.type !== "AETHER_PURGE_ALERT") return undefined;
-  const x = readNumberField(payload, "x");
-  const y = readNumberField(payload, "y");
-  if (typeof x !== "number" || typeof y !== "number") return undefined;
-  return {
-    attackerName: readStringField(payload, "attackerName") ?? readStringField(payload, "attackerId") ?? "Another empire",
-    x,
-    y
-  };
-};
+export const readAttackAlert = (payload: Record<string, unknown>): IncomingAttackAlert | undefined =>
+  readAttackAlertLikePayload(payload, "ATTACK_ALERT");
+
+export const readAetherPurgeAlert = (payload: Record<string, unknown>): IncomingAetherPurgeAlert | undefined =>
+  readAttackAlertLikePayload(payload, "AETHER_PURGE_ALERT");
