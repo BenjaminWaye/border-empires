@@ -508,9 +508,11 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
         const fortificationKind = fortificationOverlayKindForTile(t);
         const overlay = deps.structureOverlayImages[t.economicStructure.type];
         // Structures handled by the 3D structure overlay — skip the 2D
-        // image / fallback so the canvas stays clean over them. The
-        // authoritative set lives in client-map-3d-structure-overlay.ts
-        // (economic + late-game + civic + infrastructure + industrial).
+        // image / fallback so the canvas stays clean over them.
+        // isStructureHandledBy3D() is the authoritative check, covering
+        // both the generic instanced-mesh set and structures (like the
+        // Umbrite rig/factory and CARAVANARY) rendered via a dedicated
+        // branch in client-map-3d.ts.
         const handled3DStructure =
           isTrue3DRendererActive() &&
           isStructureHandledBy3D(t.economicStructure.type);
