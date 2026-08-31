@@ -214,7 +214,7 @@ export const bootstrapClientApp = (deps: BootstrapDeps): void => {
         state, canvas, keyFor, wrapX, wrapY, terrainAt, effectiveOverlayColor, tileVisibilityStateAt,
         settlementProgressForTile: actionFlow.settlementProgressForTile,
         isPlacementValidForTile: actionFlow.isPlacementValidForTile,
-        onContextLost
+        resolveDockSeaRoute, isDockRouteVisibleForPlayer, onContextLost
       })
   });
   const ensureThreeTerrainRenderer = threeRendererHost.ensure;

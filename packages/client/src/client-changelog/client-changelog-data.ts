@@ -29,10 +29,10 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
     createdAt: 1788207240439, // frozen: one ms after this file's prior newest entry
     introducedIn: "2026.08.31.5",
-    title: "Dock sea-route line no longer cuts across land in the 3D map",
-    why: "The dashed dock-to-dock sea-route line was drawn on the 2D overlay canvas using the flat-grid worldToScreen projection with no check for which renderer was active, so it also rendered unguarded on top of the true-3D map -- where it doesn't line up with the isometric/heightfield projection and visibly crossed islands instead of tracing the sea.",
+    title: "Dock sea-route line now follows the terrain in the 3D map too",
+    why: "The dashed dock-to-dock sea-route line was drawn on the 2D overlay canvas using the flat-grid worldToScreen projection with no check for which renderer was active, so it also rendered unguarded on top of the true-3D map -- where it doesn't line up with the isometric/heightfield projection and visibly crossed islands instead of tracing the sea. The true-3D map also had no route-line overlay of its own (only the dock endpoint markers), so the correct fix wasn't just to stop drawing the misaligned line there.",
     changes: [
-      "The dock sea-route line only draws in the 2D map now; the true-3D map doesn't yet have its own version of this line (dock endpoint markers still show there) -- tracked as a follow-up rather than shipped misaligned"
+      "The dock sea-route line for a selected dock now renders directly on the true-3D map's terrain (following the same server-computed sea path as the 2D map), instead of the mismatched flat-grid line that used to bleed through onto it"
     ]
   },
   {

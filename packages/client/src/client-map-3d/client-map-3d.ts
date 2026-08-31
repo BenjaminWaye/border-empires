@@ -13,7 +13,7 @@ import {
 } from "three";
 import { WORLD_HEIGHT, WORLD_WIDTH, landBiomeAt, MUSTER_ATTACK_COST, type ResourceType, type SlotResource } from "@border-empires/shared";
 import type { ClientState } from "../client-state/client-state.js";
-import type { Tile, TileVisibilityState } from "../client-types.js";
+import type { DockPair, Tile, TileVisibilityState } from "../client-types.js";
 import { isForestTile, isHillsTile, MIN_ZOOM } from "../client-constants.js";
 import { resolveTileBudget } from "../client-map-3d-tile-budget/client-map-3d-tile-budget.js"; import { markRendererFirstRenderStarted, markRendererFirstRenderCompleted } from "../client-renderer-crash-breadcrumb/client-renderer-crash-breadcrumb.js";
 import { padTerrainWindow, requiredTerrainWindow, terrainWindowCovers, type TerrainWindow } from "../client-map-3d-terrain-window/client-map-3d-terrain-window.js";
@@ -61,7 +61,7 @@ import { createRevealEmpireStatsFxLayer } from "../client-map-3d-reveal-empire-s
 import { createBombardFxLayer } from "../client-map-3d-bombard-fx/client-map-3d-bombard-fx.js";
 import { createFxCastOverlaySyncs } from "./client-map-3d-fx-cast-overlays.js";
 import { shouldShowTownSmoke, shouldShowTownUnfedWarning, shouldShowTownUpgradeReadyBadge } from "../client-town-growth/client-town-growth.js";
-import { createDockOverlay } from "../client-map-3d-dock-overlay.js";
+import { createDockOverlay } from "../client-map-3d-dock-overlay.js"; import { createDockRouteOverlay } from "../client-map-3d-dock-route-overlay.js"; import { syncDockRouteOverlay } from "../client-map-3d-dock-route-sync.js";
 import { createBarbarianOverlay } from "../client-map-3d-barbarian-overlay.js";
 import { createShardOverlay } from "../client-map-3d-shard-overlay.js"; import { createWatchtowerOverlay } from "../client-map-3d-watchtower-overlay.js";
 import { createFortOverlay } from "../client-map-3d-fort-overlay.js";
@@ -117,7 +117,7 @@ type ClientThreeTerrainRendererDeps = {
   effectiveOverlayColor: (ownerId: string) => string;
   tileVisibilityStateAt: (x: number, y: number, tile?: Tile) => TileVisibilityState;
   settlementProgressForTile: (x: number, y: number) => TileTimedProgress | undefined;
-  isPlacementValidForTile: (tile: Tile | undefined) => boolean;
+  isPlacementValidForTile: (tile: Tile | undefined) => boolean; resolveDockSeaRoute: (pair: DockPair) => Array<{ x: number; y: number }>; isDockRouteVisibleForPlayer: (pair: DockPair) => boolean;
   // Fires when the GPU drops the WebGL context; the host tears this instance down and falls back to 2D (client-map-3d-render-target.ts).
   onContextLost?: (reason: string) => void;
 };
@@ -212,7 +212,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   const imperialExchangeLevyFx = createMonumentPulseFxLayer(scene, "#ffd166", "imperial-exchange-levy-fx");
   const astralDockLaunchFx = createRevealEmpireFxLayer(scene);
   const aegisLockFx = createAegisLockFxLayer(scene); const unsettleFx = createUnsettleFxLayer(scene); const borderDustFx = createBorderDustFxLayer(scene);
-  const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES);
+  const dockOverlay = createDockOverlay(scene, MAX_VISIBLE_TILES); const dockRouteOverlay = createDockRouteOverlay(scene);
   const barbarianOverlay = createBarbarianOverlay(scene, MAX_VISIBLE_TILES);
   const shardOverlay = createShardOverlay(scene, MAX_VISIBLE_TILES); const watchtowerOverlay = createWatchtowerOverlay(scene, MAX_VISIBLE_TILES); const naturalWonderOverlays = createNaturalWonderOverlays(scene, heightfield.cornerYAt);
   const fortOverlay = createFortOverlay(scene, MAX_VISIBLE_TILES);
@@ -1025,7 +1025,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     upgradeReadyBadgeOverlay.clear();
     musterOverlay.clear();
     supplyLineOverlay.clear();
-    dockOverlay.clear();
+    dockOverlay.clear(); dockRouteOverlay.clear();
     waterSurface.clear();
     barbarianOverlay.clear();
     shardOverlay.clear(); watchtowerOverlay.clear(); naturalWonderOverlays.clear();
@@ -1589,7 +1589,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
       heightfield,
       supplyLineOverlay
     );
-    supplyLineOverlay.commit();
+    supplyLineOverlay.commit(); syncDockRouteOverlay(deps.state, heightfield, dockRouteOverlay, deps.resolveDockSeaRoute, deps.isDockRouteVisibleForPlayer); dockRouteOverlay.commit();
     dockOverlay.commit();
     waterSurface.commit();
     barbarianOverlay.commit();
@@ -1802,7 +1802,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     upgradeReadyBadgeOverlay.tick(nowMs);
     musterOverlay.tick(nowMs);
     syncBattleOverlayFx(deps.state, deps.keyFor, heightfield, deps.effectiveOverlayColor, battleOverlayFx, nowMs, sceneOrigin.camX, sceneOrigin.camY);
-    supplyLineOverlay.tick(nowMs);
+    supplyLineOverlay.tick(nowMs); dockRouteOverlay.tick(nowMs);
     renderer.render(scene, camera);
     rafId = requestAnimationFrame(renderLoop);
   };
@@ -1878,7 +1878,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
     imperialExchangeLevyFx.dispose();
     astralDockLaunchFx.dispose();
     aegisLockFx.dispose(); unsettleFx.dispose(); borderDustFx.dispose();
-    dockOverlay.dispose();
+    dockOverlay.dispose(); dockRouteOverlay.dispose();
     barbarianOverlay.dispose();
     shardOverlay.dispose(); watchtowerOverlay.dispose(); naturalWonderOverlays.dispose();
     fortOverlay.dispose(); relayBeaconOverlay.dispose(); tradeNexusOverlay.dispose();
