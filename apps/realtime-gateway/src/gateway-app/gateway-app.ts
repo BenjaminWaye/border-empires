@@ -7,6 +7,7 @@ import { ClientMessageSchema } from "@border-empires/shared";
 import type { DurableCommandType } from "@border-empires/client-protocol";
 
 import { preSerializeBroadcast, sendJsonToSocket } from "../broadcast-payload/broadcast-payload.js";
+import { handleAllianceSocketMessage } from "../alliance-socket-messages/alliance-socket-messages.js";
 import { sendCombatResolvedPayload } from "../combat-resolved-payloads/combat-resolved-payloads.js";
 import { createGatewayStringifier } from "../gateway-stringifier/gateway-stringifier.js";
 import { createLoginPhaseNotifier } from "../login-phase-notifier/login-phase-notifier.js";
@@ -20,7 +21,6 @@ import type { GatewayCommandStore } from "../command-store/command-store.js";
 import { createGatewayCommandStore } from "../command-store-factory/command-store-factory.js";
 import {
   createEmailAlertService,
-  readIncomingAllianceRequestAlert,
   type EmailAlertConfig
 } from "../email-alerts/email-alerts.js";
 import { handleAttackAlertLikePlayerMessage, isAttackAlertLikeMessage } from "../aether-purge-alert-relay/aether-purge-alert-relay.js";
@@ -2670,64 +2670,26 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             return;
           }
 
-          if (message.type === "ALLIANCE_REQUEST") {
-            const result = socialState.requestAlliance(session.playerId, message.targetPlayerName);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            const alert = readIncomingAllianceRequestAlert(result.payloadsByPlayerId);
-            if (alert) {
-              sendGameplayEmailAlert("alliance_request", alert.recipientPlayerId, () =>
-                emailAlerts.sendAllianceRequestAlert({
-                  recipientPlayerId: alert.recipientPlayerId,
-                  senderName: alert.senderName
-                })
-              );
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "ALLIANCE_ACCEPT") {
-            const result = socialState.acceptAlliance(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            const allyPlayerId = result.notifyPlayerIds.find((playerId) => playerId !== session.playerId);
-            if (allyPlayerId) void syncAllianceToSimulation({ playerId: session.playerId, targetPlayerId: allyPlayerId, allied: true });
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "ALLIANCE_REJECT") {
-            const result = socialState.rejectAlliance(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "ALLIANCE_CANCEL") {
-            const result = socialState.cancelAlliance(session.playerId, message.requestId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
-            return;
-          }
-
-          if (message.type === "ALLIANCE_BREAK") {
-            const result = socialState.breakAlliance(session.playerId, message.targetPlayerId);
-            if (!result.ok) {
-              sendJson(socket, { type: "ERROR", code: result.code, message: result.message });
-              return;
-            }
-            fanoutPlayerPayloads(result.payloadsByPlayerId);
+          if (
+            await handleAllianceSocketMessage(
+              {
+                requestAlliance: socialState.requestAlliance,
+                acceptAlliance: socialState.acceptAlliance,
+                rejectAlliance: socialState.rejectAlliance,
+                cancelAlliance: socialState.cancelAlliance,
+                breakAlliance: socialState.breakAlliance,
+                sendJson,
+                fanoutPlayerPayloads,
+                syncAllianceToSimulation,
+                sendGameplayEmailAlert,
+                sendAllianceRequestAlert: emailAlerts.sendAllianceRequestAlert,
+                sendAllianceBreakAlert: emailAlerts.sendAllianceBreakAlert
+              },
+              message,
+              session.playerId,
+              socket
+            )
+          ) {
             return;
           }
 

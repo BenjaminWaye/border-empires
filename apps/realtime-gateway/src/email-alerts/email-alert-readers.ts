@@ -11,6 +11,8 @@ export type IncomingTruceRequestAlert = IncomingAllianceRequestAlert & {
   durationHours: 12 | 24;
 };
 
+export type IncomingAllianceBreakAlert = IncomingAllianceRequestAlert;
+
 export type IncomingAttackAlert = {
   attackerName: string;
   x: number;
@@ -50,6 +52,24 @@ export const readIncomingAllianceRequestAlert = (
           (request ? readStringField(request, "fromName") : undefined) ??
           readStringField(request ?? typed, "fromPlayerId") ??
           "Another empire"
+      };
+    }
+  }
+  return undefined;
+};
+
+export const readIncomingAllianceBreakAlert = (
+  payloadsByPlayerId: Map<string, unknown[]>
+): IncomingAllianceBreakAlert | undefined => {
+  for (const [playerId, payloads] of payloadsByPlayerId) {
+    for (const payload of payloads) {
+      const source = unwrapPayloadSource(payload);
+      if (!source || typeof source !== "object") continue;
+      const typed = source as Record<string, unknown>;
+      if (typed.type !== "ALLIANCE_BREAK_INCOMING") continue;
+      return {
+        recipientPlayerId: readStringField(typed, "toPlayerId") ?? playerId,
+        senderName: readStringField(typed, "fromName") ?? readStringField(typed, "fromPlayerId") ?? "Another empire"
       };
     }
   }

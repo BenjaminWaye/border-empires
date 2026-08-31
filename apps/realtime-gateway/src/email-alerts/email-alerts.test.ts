@@ -5,6 +5,7 @@ import {
   createEmailAlertService,
   readAetherPurgeAlert,
   readAttackAlert,
+  readIncomingAllianceBreakAlert,
   readIncomingAllianceRequestAlert,
   readIncomingTruceRequestAlert
 } from "./email-alerts.js";
@@ -301,6 +302,51 @@ describe("email alerts", () => {
       x: 3,
       y: 4
     });
+
+    expect(
+      readIncomingAllianceBreakAlert(
+        new Map([
+          [
+            "player-2",
+            [
+              {
+                type: "ALLIANCE_BREAK_INCOMING",
+                fromName: "Nauticus",
+                fromPlayerId: "player-1",
+                toPlayerId: "player-2"
+              }
+            ]
+          ]
+        ])
+      )
+    ).toEqual({ recipientPlayerId: "player-2", senderName: "Nauticus" });
+  });
+
+  it("emails the other player when an alliance break notice is started", async () => {
+    const authBindingStore = new InMemoryGatewayAuthBindingStore(() => 1_000);
+    await authBindingStore.bindIdentity({ uid: "uid-1", playerId: "player-1", email: "player@example.com" });
+    const sent: Array<{ to: string; subject: string; text: string }> = [];
+    const alerts = createEmailAlertService({
+      authBindingStore,
+      transport: {
+        send: async (message) => {
+          sent.push(message);
+        }
+      },
+      appUrl: "https://play.example"
+    });
+
+    await expect(
+      alerts.sendAllianceBreakAlert({ recipientPlayerId: "player-1", senderName: "Nauticus" })
+    ).resolves.toBe("sent");
+
+    expect(sent).toEqual([
+      expect.objectContaining({
+        to: "player@example.com",
+        subject: "Nauticus started breaking your alliance",
+        text: expect.stringContaining("24")
+      })
+    ]);
   });
 
   it("emails a player bug report straight to the fixed admin inbox via Resend", async () => {

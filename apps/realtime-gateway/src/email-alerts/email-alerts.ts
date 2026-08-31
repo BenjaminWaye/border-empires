@@ -5,9 +5,11 @@ import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 export {
   readAetherPurgeAlert,
   readAttackAlert,
+  readIncomingAllianceBreakAlert,
   readIncomingAllianceRequestAlert,
   readIncomingTruceRequestAlert,
   type IncomingAetherPurgeAlert,
+  type IncomingAllianceBreakAlert,
   type IncomingAllianceRequestAlert,
   type IncomingAttackAlert,
   type IncomingTruceRequestAlert
@@ -25,6 +27,7 @@ export type EmailAlertConfig = {
 
 export type EmailAlertService = {
   sendAllianceRequestAlert: (input: SocialRequestAlertInput) => Promise<EmailAlertOutcome>;
+  sendAllianceBreakAlert: (input: SocialRequestAlertInput) => Promise<EmailAlertOutcome>;
   sendTruceRequestAlert: (input: TruceRequestAlertInput) => Promise<EmailAlertOutcome>;
   sendAttackAlert: (input: AttackAlertInput) => Promise<EmailAlertOutcome>;
   sendAetherPurgeAlert: (input: AetherPurgeAlertInput) => Promise<EmailAlertOutcome>;
@@ -322,6 +325,25 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
               "Open Border Empires to accept or reject it."
             ],
             linkLabel: "Respond to Request"
+          }),
+        { bypassRateLimit: true }
+      );
+    },
+    sendAllianceBreakAlert(input) {
+      return send(
+        input.recipientPlayerId,
+        (to) =>
+          formatBrandedEmail({
+            to,
+            subject: `${input.senderName} started breaking your alliance`,
+            eyebrow: "Border Empires — Alliance Break Notice",
+            headline: "An Alliance Break Is Underway",
+            body: [
+              `${input.senderName} started a 24-hour notice to break your alliance.`,
+              "The alliance stays active for the next 24 hours, so you still have time to prepare before it ends."
+            ],
+            highlight: { label: "Break Completes In", value: "24 hours" },
+            linkLabel: "Open Border Empires"
           }),
         { bypassRateLimit: true }
       );
