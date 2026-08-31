@@ -19,7 +19,7 @@ import type { Tile } from "../client-types.js";
 
 const structureNameForTile = (tile: Tile): string | undefined => {
   if (tile.fort) return tile.fort.variant === "THUNDER_BASTION" ? "Thunder Bastion" : tile.fort.variant === "TITANIUM_BASTION" ? "Titanium Bastion" : "Fort";
-  if (tile.observatory) return "Observatory";
+  if (tile.observatory) return "Aether Tower";
   if (tile.siegeOutpost) return tile.siegeOutpost.variant === "DREAD_TOWER" ? "Dread Tower" : tile.siegeOutpost.variant === "SIEGE_TOWER" ? "Siege Tower" : "Siege Outpost";
   if (tile.economicStructure) return economicStructureName(tile.economicStructure.type);
   return undefined;

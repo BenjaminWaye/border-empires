@@ -210,7 +210,7 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     modifiers.push(...toTileOverviewModifiers(label, structureModifiersFor(variant)));
   }
   if (tile.observatory?.status === "active") {
-    modifiers.push(...toTileOverviewModifiers("Observatory", structureModifiersFor("OBSERVATORY")));
+    modifiers.push(...toTileOverviewModifiers("Aether Tower", structureModifiersFor("OBSERVATORY")));
   }
   if (tile.economicStructure?.status === "active" && tile.economicStructure.type === "MINE") {
     modifiers.push(...toTileOverviewModifiers("Mine", structureModifiersFor("MINE", { tile: { resource: tile.resource } })));

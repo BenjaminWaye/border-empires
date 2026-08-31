@@ -97,7 +97,7 @@ export type StructureInfoView = {
   // from the shared game-domain catalog — same data and same
   // white-label/green-value styling as the tile-overview popup. `effects`
   // is kept alongside for bullets that don't cleanly reduce to a number
-  // (e.g. "Blocked by Resonance Grids", "Requires nearby Ambaric Tower
+  // (e.g. "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer Station
   // power").
   modifiers: StructureModifier[];
   glyph: string;
@@ -408,20 +408,20 @@ export const structureInfoForKey = (
     if (key === "CUSTOMS_HOUSE") return [];
     if (key === "GOVERNORS_OFFICE") return [];
     if (key === "GARRISON_HALL") return ["Also boosts manpower cap further if an Assembly Works is in this town's connected network"];
-    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Tower power"];
-    if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments", "Can chain power through other Ambaric Towers"];
-    if (key === "RADAR_SYSTEM") return ["Requires nearby Ambaric Tower power"];
+    if (key === "AIRPORT") return ["Strips ownership from a 3×3 area (structures survive)", "Free • 20m cooldown", "Blocked by Resonance Grids", "Requires nearby Ambaric Transformer Station power"];
+    if (key === "AETHER_TOWER") return ["Powers nearby Aetherports, Resonance Grids, and monuments", "Can chain power through other Ambaric Transformer Stations"];
+    if (key === "RADAR_SYSTEM") return ["Requires nearby Ambaric Transformer Station power"];
     if (key === "QUARTERMASTERS_OFFICE") return ["Does not stack with other Quartermaster's Offices"];
     if (key === "LOGISTICS_GUILD") return ["Boosted rate applies instead of the standalone rate when a Rail Depot is in this town's connected network"];
     if (key === "ASSEMBLY_WORKS") return ["One per connected-town network"];
     if (MONUMENT_COMPONENT_KEYS.has(key)) return ["One of the monument's 3 required unique components", "Must be built in a Great City or Monumental City that has no other monument component"];
-    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Tower power"];
+    if (key === "ASTRAL_DOCK") return ["Unique world monument", "Must wait for the current satellite to come down before relaunching", "Requires nearby Ambaric Transformer Station power"];
     if (key === "RAIL_DEPOT") return ["Boosts outpost muster speed within 50 tiles", "One per connected-town network"];
-    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Free", "Requires nearby Ambaric Tower power"];
-    if (key === "AEGIS_DOME") return ["Unique world monument", "Aegis Lock prevents hostile ownership changes in that radius, free", "Requires nearby Ambaric Tower power"];
-    if (key === "WORLD_ENGINE") return ["Unique world monument", "Every 10 minutes, anywhere on the map", "Requires nearby Ambaric Tower power"];
+    if (key === "IMPERIAL_EXCHANGE") return ["Unique world monument", "Free", "Requires nearby Ambaric Transformer Station power"];
+    if (key === "AEGIS_DOME") return ["Unique world monument", "Aegis Lock prevents hostile ownership changes in that radius, free", "Requires nearby Ambaric Transformer Station power"];
+    if (key === "WORLD_ENGINE") return ["Unique world monument", "Every 10 minutes, anywhere on the map", "Requires nearby Ambaric Transformer Station power"];
     if (key === "POPULATION_BUREAU") return ["Unique world monument"];
-    if (key === "TITANIUM_LEVY") return ["Unique world monument", "Freezes empire-wide manpower regen afterward", "Requires nearby Ambaric Tower power"];
+    if (key === "TITANIUM_LEVY") return ["Unique world monument", "Freezes empire-wide manpower regen afterward", "Requires nearby Ambaric Transformer Station power"];
     if (key === "WEAPONS_WORKSHOP") return ["No per-town limit — build as many as you like to specialize a town for war"];
     if (key === "TITANIUM_WEAPONS_FACTORY") return ["Escalating manpower cost — each additional copy you own costs more", "No per-town limit — armor doctrine"];
     if (key === "UMBRITE_WEAPONS_FACTORY") return ["Escalating manpower cost — each additional copy you own costs more", "No per-town limit — raiding doctrine"];
@@ -534,8 +534,8 @@ export const structureInfoForKey = (
   }
   if (type === "OBSERVATORY") {
     return structure({
-      title: "Observatory",
-      detail: "Observatories add local vision, protect against hostile crystal actions, and let you cast crystal abilities inside their radius.",
+      title: "Aether Tower",
+      detail: "Aether Towers add local vision, protect against hostile crystal actions, and let you cast crystal abilities inside their radius.",
       glyph: "◉",
       placement: "Build on empty settled land only. Not on towns, docks, or resource tiles.",
       costBits: costBitsFor(type),
@@ -799,7 +799,7 @@ export const structureInfoForKey = (
   if (type === "AIRPORT") {
     return structure({
       title: "Aetherport",
-      detail: "Aetherports strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Free to fire, with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Tower power.",
+      detail: "Aetherports strip enemy ownership from a 3×3 area within 30 tiles (structures survive). Free to fire, with a 20-minute cooldown. Each tile has a 15% base miss chance, rising to 40% near forts. Blocked by Resonance Grids. Requires Ambaric Transformer Station power.",
       glyph: "✈",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -808,8 +808,8 @@ export const structureInfoForKey = (
   }
   if (type === "AETHER_TOWER") {
     return structure({
-      title: "Ambaric Tower",
-      detail: "Ambaric Towers create a 30-tile power radius for late-game sky and monument structures. Chain them across your empire to keep advanced systems online.",
+      title: "Ambaric Transformer Station",
+      detail: "Ambaric Transformer Stations create a 30-tile power radius for late-game sky and monument structures. Chain them across your empire to keep advanced systems online.",
       glyph: "⚡",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -819,7 +819,7 @@ export const structureInfoForKey = (
   if (type === "RADAR_SYSTEM") {
     return structure({
       title: "Resonance Grid",
-      detail: "Resonance Grids block enemy sky bombardment within 30 tiles and reveal the origin. They require Ambaric Tower power.",
+      detail: "Resonance Grids block enemy sky bombardment within 30 tiles and reveal the origin. They require Ambaric Transformer Station power.",
       glyph: "📡",
       placement: "Build on settled land you own.",
       costBits: costBitsFor(type),
@@ -1049,7 +1049,7 @@ export const structureInfoForKey = (
   if (type === "TITANIUM_LEVY") {
     return structure({
       title: "The Titanium Levy",
-      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Titanium Levy Parts — to convert 50% of your currently-banked manpower into an instant one-time army, then freeze empire-wide manpower regen for 2 hours. Requires nearby Ambaric Tower power.",
+      detail: "Unique world monument. Once the three parts are complete, place it on any settled tile you own — this consumes all 3 Titanium Levy Parts — to convert 50% of your currently-banked manpower into an instant one-time army, then freeze empire-wide manpower regen for 2 hours. Requires nearby Ambaric Transformer Station power.",
       glyph: "⬢",
       placement: "Place on any settled tile you own after finishing 3 Titanium Levy Parts. Consumes all 3 parts on completion.",
       costBits: costBitsFor(type),

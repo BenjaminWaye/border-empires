@@ -171,9 +171,11 @@ export const writeTowerPieces = (ctx: TowerBodyContext, t: TowerPlacement): void
   addPiece("coreHalo", 0, TOWER.coreY, 0, 1, 1, 1.62);
   addPiece("core", 0, TOWER.coreY, 0, 1, 1, TOWER.coreTall);
   addPiece("coreInner", 0, TOWER.coreY, 0, 1, 1, 1.5);
-  for (let h = 0; h < TOWER.nexusHaloCount; h += 1) {
-    const w = h === 0 ? 1.75 : 2.25;
-    addPiece("nexusHalo", 0, TOWER.coreY, 0, nex * w, nex * w, nex * w * 1.6, 0, 0.4 + h * 0.25, 0);
+  if (nex > 0.001) {
+    for (let h = 0; h < TOWER.nexusHaloCount; h += 1) {
+      const w = h === 0 ? 1.75 : 2.25;
+      addPiece("nexusHalo", 0, TOWER.coreY, 0, nex * w, nex * w, nex * w * 1.6, 0, 0.4 + h * 0.25, 0);
+    }
   }
 
   // Geometric brass emitters beaming outward from the core on the diagonals.

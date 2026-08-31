@@ -60,7 +60,7 @@ const render = (args: Args): HTMLElement => {
       const wx = ((args.camX + dx) % WORLD_WIDTH + WORLD_WIDTH) % WORLD_WIDTH;
       const wy = ((args.camY + dz) % WORLD_HEIGHT + WORLD_HEIGHT) % WORLD_HEIGHT;
       const kind = kindAt(wx, wy);
-      if (kind === "SEA" || kind === "COASTAL_SEA") water.addTile(dx + 0.5, dz + 0.5, kind === "COASTAL_SEA");
+      if (kind === "SEA" || kind === "COASTAL_SEA") water.addTile(dx + 0.5, dz + 0.5, kind === "COASTAL_SEA", dx, dz);
     }
   }
   water.commit();

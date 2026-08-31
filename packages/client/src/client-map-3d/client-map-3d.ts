@@ -1186,7 +1186,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
                 if (nt === "LAND" || nt === "MOUNTAIN") shallow = true;
               }
             }
-            waterSurface.addTile(x, z, shallow);
+            waterSurface.addTile(x, z, shallow, wx, wy);
             continue;
           }
           const fogIsHill = isHillsTile(wx, wy);
@@ -1247,7 +1247,7 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
               if (nt === "LAND" || nt === "MOUNTAIN") shallow = true;
             }
           }
-          waterSurface.addTile(x, z, shallow);
+          waterSurface.addTile(x, z, shallow, wx, wy);
           continue;
         }
         // Dock 3D pier/quay/harbor — anchored to the tile's land Y so

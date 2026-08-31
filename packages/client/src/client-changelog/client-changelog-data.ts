@@ -16,6 +16,33 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788162511005, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.9",
+    title: "3D map lighting: buildings now show real light and shadow, not just a subtle tint",
+    why: "An earlier pass repositioned the key light to align with the camera's fixed viewing angle, but only rotated its compass direction while leaving it nearly straight overhead -- an overhead light mostly lights roofs regardless of which way it's rotated, so vertical wall faces (the part that actually reads as 'which side is lit') barely changed. It looked the same as before.",
+    changes: [
+      "The 3D map's key light now comes in at a noticeably lower, more raking angle instead of nearly overhead, so building walls facing the camera read clearly lit and far-side walls read clearly shadowed"
+    ]
+  },
+  {
+    createdAt: 1788162021253, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.8",
+    title: "Fixed the 3D water surface's waves visibly jumping while panning or clicking a tile",
+    why: "The wave animation's spatial pattern was phased off each vertex's on-screen position rather than its fixed world position, so a tile's on-screen position shifting slightly as you panned (before the next terrain rebuild caught up) reset the whole crest/trough pattern into a different shape -- showing up as the water visibly re-rendering every time a rebuild fired, including ones triggered just by clicking a tile.",
+    changes: [
+      "Ocean and lake waves now keep animating smoothly across terrain rebuilds instead of visibly jumping into a different pattern while panning or selecting a tile"
+    ]
+  },
+  {
+    createdAt: 1788128230679, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.7",
+    title: "Fixed Trade Nexus showing a duplicate 2D overlay on the 3D map",
+    why: "Trade Nexus (CARAVANARY) draws its own dedicated range overlay directly in the 3D renderer, bypassing the generic 3D structure-overlay set that the 2D canvas checks to decide whether to skip its own overlay image. Because Trade Nexus wasn't in that set, the 2D fallback overlay kept drawing on top of the 3D one for every player on the 3D renderer.",
+    changes: [
+      "Trade Nexus no longer shows a flat 2D overlay image layered on top of its 3D range overlay"
+    ]
+  },
+  {
     createdAt: 1788127316489, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.6",
     title: "Selected-structure reach highlight now also shows on the 3D map",
@@ -456,6 +483,25 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Dock sea routes are now computed once, server-side, from the authoritative worldgen terrain and shipped to the client with the initial world payload, so the dashed connection line and its route-found status match the real, frozen terrain",
       "Already-running seasons self-heal their dock routes on the sim's next restart -- no season reset needed",
       "Older servers that don't ship a route still fall back to the client's own sea-route pathfinder, so nothing regresses for them"
+    ]
+  },
+  {
+    createdAt: 1788128033639, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Renamed the Observatory and Ambaric Tower",
+    why: "Two structure names were due for a refresh to better fit the empire's aether/power theming.",
+    changes: [
+      "The Observatory is now called the Aether Tower everywhere in the UI (build menu, tile overview, tech unlocks, upkeep) -- no change to what it does",
+      "The Ambaric Tower is now called the Ambaric Transformer Station everywhere in the UI -- no change to what it does"
+    ]
+  },
+  {
+    createdAt: 1788162346509, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Fixed a fake \"plundered FOOD\" notice on town captures",
+    why: "Capturing a settled FARM/FISH tile always showed a \"Plundered 1 FOOD\" line in the combat alert, but plunder has only ever transferred gold -- no food was ever actually taken from the defender or given to the attacker.",
+    changes: [
+      "Combat/raid alerts no longer show a fake FOOD plunder amount when capturing a resource tile -- plunder remains gold-only, matching what actually happens to both players' stockpiles"
     ]
   }
 ];

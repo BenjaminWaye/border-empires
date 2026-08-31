@@ -73,9 +73,11 @@ export const firstThreeTownMultipliersForTile = (
   tileKey: string
 ): { isFirstThree: boolean; goldMult: number; popGrowthMult: number } => {
   const isFirstThree = firstThreeTownKeys?.has(tileKey) ?? false;
-  return {
-    isFirstThree,
-    goldMult: isFirstThree ? firstThreeTownsGoldOutputMultiplierForPlayer(player) : 1,
-    popGrowthMult: isFirstThree ? firstThreeTownsPopulationGrowthMultiplierForPlayer(player) : 1
-  };
+  const goldMult = isFirstThree ? firstThreeTownsGoldOutputMultiplierForPlayer(player) : 1;
+  const popGrowthMult = isFirstThree ? firstThreeTownsPopulationGrowthMultiplierForPlayer(player) : 1;
+  // TEMP DEBUG — remove before merging.
+  console.log(
+    `[firstThreeTownMultipliersForTile] tileKey=${tileKey} isFirstThree=${isFirstThree} techIds=${JSON.stringify([...player.techIds])} domainIds=${JSON.stringify([...(player.domainIds ?? [])])} goldMult=${goldMult} popGrowthMult=${popGrowthMult}`
+  );
+  return { isFirstThree, goldMult, popGrowthMult };
 };
