@@ -1869,8 +1869,8 @@ describe("simulation runtime", () => {
 
   it("does not auto-expand onto worthless plain frontier land without an expansion objective", () => {
     // Plain neutral tiles (no resource/town/dock) must not be expanded unless the planner
-    // has an expansionObjective pointing toward them. points: 0 keeps "nothing affordable"
-    // true even though tech is cheap now (gold rescope, §6) — otherwise the AI would fall back to CHOOSE_TECH.
+    // has an expansionObjective pointing toward them (points: 0 keeps "nothing affordable" true
+    // even with cheap tech). Beyond the 3 tiles here the world is fog, so BUILD_BEACON may fire.
     const runtime = new SimulationRuntime({
       now: () => 1_000,
       initialPlayers: new Map([
@@ -1888,7 +1888,7 @@ describe("simulation runtime", () => {
     });
 
     // No beacon tiles (no neutral town/dock/resource) → no expansionObjective → no expansion.
-    expect(runtime.chooseNextAutomationCommand("ai-1", 1, 1_000, "ai-runtime")).toBeUndefined();
+    expect(runtime.chooseNextAutomationCommand("ai-1", 1, 1_000, "ai-runtime")?.type).not.toBe("EXPAND");
   });
 
   it("uses dock crossings for AI automation when island starts have no local frontier target", () => {
