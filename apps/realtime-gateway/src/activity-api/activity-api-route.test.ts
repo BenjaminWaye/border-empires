@@ -52,11 +52,14 @@ describe("GET /api/activity", () => {
       { playerA: "p1", playerB: "p5", brokenBy: "p1", brokenAt: 700_000, noticeEndsAt: 780_000 }
     ]);
     expect(body.truceWatch).toEqual([{ playerA: "p2", playerB: "p6", endsAt: 900_000 }]);
-    expect(body.fortification).toEqual(dashboard.fortification);
-    expect(body.wars).toEqual(dashboard.wars);
-    expect(body.territoryMomentum).toEqual(dashboard.territoryMomentum);
-    expect(body.biggestSwing24h).toEqual(dashboard.biggestSwing24h);
-    expect(body.frontlineHotspots).toEqual(dashboard.frontlineHotspots);
+    // p1 is on the leaderboard ("Alice"); p2 is not, so it falls back to its raw id.
+    expect(body.fortification).toEqual([{ ...dashboard.fortification[0], playerName: "Alice" }]);
+    expect(body.wars).toEqual([{ ...dashboard.wars[0], playerAName: "Alice", playerBName: "p2" }]);
+    expect(body.territoryMomentum).toEqual([{ ...dashboard.territoryMomentum[0], playerName: "Alice" }]);
+    expect(body.biggestSwing24h).toEqual({ ...dashboard.biggestSwing24h, playerName: "p2" });
+    expect(body.frontlineHotspots).toEqual([
+      { ...dashboard.frontlineHotspots[0], contestedByNames: ["Alice", "p2"] }
+    ]);
     expect(body.powerScore).toEqual(powerScore);
   });
 

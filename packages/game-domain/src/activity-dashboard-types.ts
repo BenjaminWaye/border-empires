@@ -57,16 +57,31 @@ export type SocialAlliancePairView = { playerA: string; playerB: string; since: 
 export type SocialAllianceBreakView = { playerA: string; playerB: string; brokenBy: string; brokenAt: number; noticeEndsAt: number };
 export type SocialTruceWatchView = { playerA: string; playerB: string; endsAt: number };
 
+// API-level views: same shape as the sim-computed types above, but with a
+// human-readable `*Name` field alongside every raw player id, resolved by
+// buildActivityApiResponse (activity-api-response.ts) from the leaderboard
+// (powerScore) plus a small fallback for ids that never appear there (e.g.
+// "barbarian-1"). Kept separate from the RPC-level types so the sim<->gateway
+// wire contract doesn't have to carry display names.
+export type FortificationRankingEntryView = FortificationRankingEntry & { playerName: string };
+export type WarSummaryView = WarSummary & { playerAName: string; playerBName: string };
+export type TerritoryMomentumEntryView = TerritoryMomentumEntry & { playerName: string };
+export type BiggestSwing24hView = (BiggestSwing24h & { playerName: string }) | null;
+export type FrontlineHotspotView = Omit<FrontlineHotspot, "contestedBy"> & {
+  contestedBy: string[];
+  contestedByNames: string[];
+};
+
 /** Full GET /api/activity response — gateway-assembled from ActivityDashboardSnapshot + social views + the existing leaderboard. */
 export type ActivityApiResponse = {
   generatedAt: string;
   alliances: SocialAlliancePairView[];
   allianceBreaks: SocialAllianceBreakView[];
   truceWatch: SocialTruceWatchView[];
-  fortification: FortificationRankingEntry[];
-  wars: WarSummary[];
-  territoryMomentum: TerritoryMomentumEntry[];
-  biggestSwing24h: BiggestSwing24h;
-  frontlineHotspots: FrontlineHotspot[];
+  fortification: FortificationRankingEntryView[];
+  wars: WarSummaryView[];
+  territoryMomentum: TerritoryMomentumEntryView[];
+  biggestSwing24h: BiggestSwing24hView;
+  frontlineHotspots: FrontlineHotspotView[];
   powerScore: LeaderboardOverallEntry[];
 };
