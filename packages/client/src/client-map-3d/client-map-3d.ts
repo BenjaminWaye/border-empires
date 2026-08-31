@@ -1625,17 +1625,17 @@ export const createClientThreeTerrainRenderer = (deps: ClientThreeTerrainRendere
   // settles always rebuilds against current state.
   const REBUILD_MIN_INTERVAL_MS = 48;
 
-  // Places this frame's live Aether Survey Line pylons/segments, animating
-  // the border-transition (rise/sink, laser on/off -- see
-  // client-reach-overlay-transitions.ts) via reach3DPylonTracker/
-  // reach3DSegmentTracker, which persist across calls. Called
-  // unconditionally every frame from renderLoop (NOT gated behind
-  // maybeRebuild's camera-move/reach-change throttle, or the animation
-  // would freeze whenever the camera stops moving mid-transition) -- the
-  // underlying reach3DPylons/reach3DSegments DATA is still only recomputed
-  // on that throttle (the perimeter walk itself is real work and doesn't
-  // need to happen every frame; only the placement/animation does).
+  // Places live pylons/segments, animating border-transitions via
+  // reach3DPylonTracker/reach3DSegmentTracker. Own throttle (not
+  // maybeRebuild's, or a mid-transition camera-idle would freeze it) --
+  // unthrottled, this visibility-filter+diffTransitions pass plus a draw
+  // call per pylon/segment was a dominant idle-camera CPU/GPU cost; update()
+  // still runs every renderLoop frame so placed pylons keep animating.
+  const REACH_OVERLAY_MIN_INTERVAL_MS = 48; // == REBUILD_MIN_INTERVAL_MS
+  let lastReachOverlayAt = 0;
   const renderReachOverlay3DPylons = (nowMs: number): void => {
+    if (lastReachOverlayAt !== 0 && nowMs - lastReachOverlayAt < REACH_OVERLAY_MIN_INTERVAL_MS) return;
+    lastReachOverlayAt = nowMs;
     reachOverlay3D.clearPylons();
     if (isTrue3DRendererActive() && reach3DCache) {
       // Pylon/segment points are grid CORNERS (traceReachBoundaryEdgeLoops),
