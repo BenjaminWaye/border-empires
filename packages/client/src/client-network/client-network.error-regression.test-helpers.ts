@@ -54,6 +54,7 @@ export const createState = () =>
     attackPreviewLatestRequestIdByKey: new Map<string, string>(),
     tiles: new Map(),
     incomingAttacksByTile: new Map(),
+    outgoingMusterAttacksByTile: new Map(),
     revealedPredictedCombatByKey: new Map(),
     activeTruces: [],
     incomingTruceRequests: [],
