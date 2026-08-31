@@ -27,6 +27,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788200369408, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.3",
+    title: "Mercantile Charter's tile-overview line now names the domain",
+    why: "The gold/growth bonus line for one of your first three towns showed up labeled \"First 3 towns\" -- accurate, but it didn't say which domain was actually responsible, so a player without Mercantile Charter memorized could easily miss the connection between the domain they picked and the bonus they were seeing.",
+    changes: [
+      "The tile overview's first-three-towns gold/growth bonus line is now labeled \"Mercantile Charter\" instead of the generic \"First 3 towns\""
+    ]
+  },
+  {
     createdAt: 1788166898915, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.2",
     title: "Dock sea-route lines actually render again",

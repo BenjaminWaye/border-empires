@@ -177,14 +177,14 @@ export const tileOverviewModifiersForTile = (tile: Tile): TileOverviewModifier[]
     // boost applying invisibly.
     if (tile.town.firstThreeTownGoldMult && tile.town.firstThreeTownGoldMult !== 1) {
       modifiers.push({
-        reason: "First 3 towns",
+        reason: "Mercantile Charter",
         effect: `${percentLabel((tile.town.firstThreeTownGoldMult - 1) * 100)} gold production`,
         tone: tile.town.firstThreeTownGoldMult > 1 ? "positive" : "negative"
       });
     }
     if (tile.town.firstThreeTownPopGrowthMult && tile.town.firstThreeTownPopGrowthMult !== 1) {
       modifiers.push({
-        reason: "First 3 towns",
+        reason: "Mercantile Charter",
         effect: `${percentLabel((tile.town.firstThreeTownPopGrowthMult - 1) * 100)} population growth`,
         tone: tile.town.firstThreeTownPopGrowthMult > 1 ? "positive" : "negative"
       });
