@@ -3,10 +3,12 @@ import { sendPlayerReportEmail } from "./bug-report-email-alert.js";
 import { escapeHtml } from "./escape-html.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
 export {
+  readAetherPurgeAlert,
   readAttackAlert,
   readIncomingAllianceBreakAlert,
   readIncomingAllianceRequestAlert,
   readIncomingTruceRequestAlert,
+  type IncomingAetherPurgeAlert,
   type IncomingAllianceBreakAlert,
   type IncomingAllianceRequestAlert,
   type IncomingAttackAlert,
@@ -28,6 +30,7 @@ export type EmailAlertService = {
   sendAllianceBreakAlert: (input: SocialRequestAlertInput) => Promise<EmailAlertOutcome>;
   sendTruceRequestAlert: (input: TruceRequestAlertInput) => Promise<EmailAlertOutcome>;
   sendAttackAlert: (input: AttackAlertInput) => Promise<EmailAlertOutcome>;
+  sendAetherPurgeAlert: (input: AetherPurgeAlertInput) => Promise<EmailAlertOutcome>;
   sendSeasonStartAlert: (input: SeasonStartAlertInput) => Promise<EmailAlertOutcome>;
   sendBugReportAlert: (report: BugReportInput) => void;
   sendSuggestionAlert: (report: BugReportInput) => void;
@@ -45,6 +48,13 @@ type TruceRequestAlertInput = SocialRequestAlertInput & {
 };
 
 type AttackAlertInput = {
+  defenderPlayerId: string;
+  attackerName: string;
+  x: number;
+  y: number;
+};
+
+type AetherPurgeAlertInput = {
   defenderPlayerId: string;
   attackerName: string;
   x: number;
@@ -372,6 +382,26 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
           // Deep-links straight to the targeted tile: readUrlTileFocus() in
           // client-camera-storage.ts (packages/client) picks up ?x=&y= on
           // boot and centers the camera there instead of the player's home tile.
+          linkUrl: `${appUrl}/?x=${input.x}&y=${input.y}`,
+          linkLabel: "Go to Tile"
+        })
+      );
+    },
+    sendAetherPurgeAlert(input) {
+      // Shares the same per-recipient send() throttle as sendAttackAlert
+      // (MIN_SEND_INTERVAL_MS, keyed by email) so a player under sustained
+      // aether or conventional assault still gets at most one email an hour.
+      return send(input.defenderPlayerId, (to) =>
+        formatBrandedEmail({
+          to,
+          subject: `${input.attackerName} hit your empire with an aether purge`,
+          eyebrow: "Border Empires — Aether Attack",
+          headline: "Your Empire Was Aether-Purged",
+          body: [
+            `${input.attackerName} struck your territory with an Aether Purge — you've lost control of the tile.`,
+            "Reinforce your border before they press the advantage."
+          ],
+          highlight: { label: "Tile Lost", value: `${input.x}, ${input.y}` },
           linkUrl: `${appUrl}/?x=${input.x}&y=${input.y}`,
           linkLabel: "Go to Tile"
         })

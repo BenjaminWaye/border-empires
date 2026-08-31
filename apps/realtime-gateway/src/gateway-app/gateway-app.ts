@@ -21,9 +21,9 @@ import type { GatewayCommandStore } from "../command-store/command-store.js";
 import { createGatewayCommandStore } from "../command-store-factory/command-store-factory.js";
 import {
   createEmailAlertService,
-  readAttackAlert,
   type EmailAlertConfig
 } from "../email-alerts/email-alerts.js";
+import { handleAttackAlertLikePlayerMessage, isAttackAlertLikeMessage } from "../aether-purge-alert-relay/aether-purge-alert-relay.js";
 import { submitDurableCommand, submitFrontierCommand, type GatewaySocketSession } from "../frontier-submit/frontier-submit.js";
 import { CommandRateLimiter, rejectIfCommandRateLimited } from "../command-rate-limiter/command-rate-limiter.js";
 import { registerGatewayHttpRoutes } from "../http-routes/http-routes.js";
@@ -1387,26 +1387,21 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           });
         }
       }
-      if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "ATTACK_ALERT") {
-        // The simulation never learns a human's real display name, so hydrate
-        // it here unconditionally — the email alert needs it while the
-        // defender is offline too, not just when they have a live socket below.
-        event.payload = await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
-          timeoutMs: liveProfileHydrationTimeoutMs,
-          withTimeout,
-          onError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate attacker live profile override")
+      // The simulation never learns a human's real display name, so hydrate it
+      // here unconditionally — these emails need it while the defender is
+      // offline too, not just when they have a live socket below. See
+      // aether-purge-alert-relay.ts for why ATTACK_ALERT and AETHER_PURGE_ALERT
+      // share this one handler.
+      if (event.eventType === "PLAYER_MESSAGE" && isAttackAlertLikeMessage(event.messageType)) {
+        event.payload = await handleAttackAlertLikePlayerMessage(event.messageType, event.payload, {
+          defenderPlayerId: event.playerId,
+          profileStore,
+          profileOverrides,
+          liveProfileHydrationTimeoutMs,
+          emailAlerts,
+          sendGameplayEmailAlert,
+          onHydrateError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate attack-alert-like caster live profile override")
         });
-        const attackAlert = readAttackAlert(event.payload);
-        if (attackAlert) {
-          sendGameplayEmailAlert("attack", event.playerId, () =>
-            emailAlerts.sendAttackAlert({
-              defenderPlayerId: event.playerId,
-              attackerName: attackAlert.attackerName,
-              x: attackAlert.x,
-              y: attackAlert.y
-            })
-          );
-        }
       }
       if (event.eventType === "PLAYER_MESSAGE" && event.messageType === "PLAYER_RESPAWNED") {
         const reason = typeof event.payload.reason === "string" ? event.payload.reason : "unknown";
@@ -1441,7 +1436,7 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
         return;
       }
       if (event.eventType === "PLAYER_MESSAGE") {
-        const recoveredPayload = event.messageType === "ATTACK_ALERT" ? event.payload : await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
+        const recoveredPayload = isAttackAlertLikeMessage(event.messageType) ? event.payload : await hydrateAndRecoverPlayerMessage(event.payload, profileStore, profileOverrides, {
           timeoutMs: liveProfileHydrationTimeoutMs,
           withTimeout,
           onError: (error) => app.log.warn({ err: error, commandId: event.commandId, playerId: event.playerId }, "failed to hydrate live player profile overrides")
@@ -1673,11 +1668,11 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
           if (event.messageType === "SOCIAL_STATE_SYNCED") {
             continue;
           }
-          // ATTACK_ALERT is an acceptance-time side-event addressed to the
-          // defender; it shares the attacker's commandId so it lives in the
-          // same replay bucket, but it must NOT close the attacker's
-          // recovery slot — only the real COMBAT_RESOLVED should do that.
-          if (event.messageType !== "ATTACK_ALERT") {
+          // ATTACK_ALERT-like messages are acceptance-time side-events addressed
+          // to the defender; they share the caster's commandId so they live in
+          // the same replay bucket, but must NOT close the caster's recovery
+          // slot — only the real COMBAT_RESOLVED/COMMAND_RESOLVED should do that.
+          if (!isAttackAlertLikeMessage(event.messageType)) {
             void commandStore
               .markResolved(event.commandId, Date.now())
               .catch((error) => app.log.error({ err: error, commandId: event.commandId }, "failed to persist player message"));

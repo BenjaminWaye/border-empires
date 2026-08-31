@@ -278,6 +278,7 @@ export type PlayerSubscriptionDock = {
   tileKey: string;
   pairedDockId: string;
   connectedDockIds?: string[];
+  routeWaypointsByLinkedDockId?: Record<string, Array<{ x: number; y: number }>>;
 };
 
 export type PlayerSubscriptionSnapshot = {
@@ -425,3 +426,4 @@ export const SIMULATION_PROTO_PATH = new URL("./simulation.proto", import.meta.u
 export * from "./snapshot-diagnostics/snapshot-diagnostics.js";
 export * from "./subscription-snapshot-merge/subscription-snapshot-merge.js";
 export * from "./admin-diagnostics-types.js";
+export * from "./reconnect-passthrough-fields/reconnect-passthrough-fields.js";

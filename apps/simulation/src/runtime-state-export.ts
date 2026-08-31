@@ -113,6 +113,7 @@ export type RuntimeExportState = {
     tileKey: string;
     pairedDockId: string;
     connectedDockIds?: readonly string[];
+    routeWaypointsByLinkedDockId?: Readonly<Record<string, ReadonlyArray<{ x: number; y: number }>>>;
   }>;
   tileYieldCollectedAtByTile: Array<{ tileKey: string; collectedAt: number }>;
   playerYieldCollectionEpochByPlayer: Array<{ playerId: string; collectedAt: number }>;

@@ -1,3 +1,5 @@
+// "Incoming *" payload readers, split out of email-alerts.ts to keep that
+// file under the repo's 500-line cap (see AGENTS.md's file-line-limit rule).
 import { unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
 
 export type IncomingAllianceRequestAlert = {
@@ -12,6 +14,12 @@ export type IncomingTruceRequestAlert = IncomingAllianceRequestAlert & {
 export type IncomingAllianceBreakAlert = IncomingAllianceRequestAlert;
 
 export type IncomingAttackAlert = {
+  attackerName: string;
+  x: number;
+  y: number;
+};
+
+export type IncomingAetherPurgeAlert = {
   attackerName: string;
   x: number;
   y: number;
@@ -94,8 +102,11 @@ export const readIncomingTruceRequestAlert = (
   return undefined;
 };
 
-export const readAttackAlert = (payload: Record<string, unknown>): IncomingAttackAlert | undefined => {
-  if (payload.type !== "ATTACK_ALERT") return undefined;
+const readAttackAlertLikePayload = (
+  payload: Record<string, unknown>,
+  expectedType: "ATTACK_ALERT" | "AETHER_PURGE_ALERT"
+): IncomingAttackAlert | undefined => {
+  if (payload.type !== expectedType) return undefined;
   const x = readNumberField(payload, "x");
   const y = readNumberField(payload, "y");
   if (typeof x !== "number" || typeof y !== "number") return undefined;
@@ -105,3 +116,9 @@ export const readAttackAlert = (payload: Record<string, unknown>): IncomingAttac
     y
   };
 };
+
+export const readAttackAlert = (payload: Record<string, unknown>): IncomingAttackAlert | undefined =>
+  readAttackAlertLikePayload(payload, "ATTACK_ALERT");
+
+export const readAetherPurgeAlert = (payload: Record<string, unknown>): IncomingAetherPurgeAlert | undefined =>
+  readAttackAlertLikePayload(payload, "AETHER_PURGE_ALERT");

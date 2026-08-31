@@ -16,6 +16,25 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788165265486, // frozen: one ms after this file's prior newest entry
+    introducedIn: "2026.08.31.1",
+    title: "Aether Purge now alerts the empire that lost the tile",
+    why: "Aether Purge silently turned a hostile tile neutral with no signal to the empire that lost it — unlike a conventional attack, which alerts the defender in the Activity Feed and by email. Purge victims found out only by noticing the tile had changed color on the map.",
+    changes: [
+      "Getting Aether Purged now posts a drastic 'Aether Attack!' Activity Feed alert naming the attacker and the tile lost, with a Center action to jump to it",
+      "Purge victims also get an email alert (subject to the same one-email-per-hour throttle as conventional attack alerts) if they have email notifications set up"
+    ]
+  },
+  {
+    createdAt: 1788165165486, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed dock sea-route lines not showing at all",
+    why: "The prior fix that moved dock sea-route computation server-side never actually reached players -- the wire types between the simulation and the gateway (and the runtime's own exported dock state) were never updated to carry the new route field, so it was silently dropped before the gateway could attach it to a dock pair, and every dock fell back to the client's still-unreliable route computation.",
+    changes: [
+      "Dock-to-dock sea route lines now render again, using the server-computed authoritative route"
+    ]
+  },
+  {
     createdAt: 1788162511005, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.9",
     title: "3D map lighting: buildings now show real light and shadow, not just a subtle tint",
