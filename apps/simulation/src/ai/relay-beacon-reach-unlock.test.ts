@@ -320,9 +320,10 @@ describe("relay beacon coverage excludes ground an existing beacon already claim
       economicStructure: { ownerId: "ai-1", type: "RELAY_BEACON", status: "removing" }
     });
     const candidate = tile({ x: 103, y: 100, ownershipState: "SETTLED" });
-    // Distance ≥ 2 from candidate — Chebyshev distance 1 is plain-EXPAND
-    // range, excluded from beacon coverage.
-    const prize = tile({ x: 101, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    // Distance ≥ 2 from BOTH candidate and removingBeacon — Chebyshev
+    // distance 1 from any owned tile is plain-EXPAND range, excluded from
+    // beacon coverage regardless of which owned tile it's adjacent to.
+    const prize = tile({ x: 98, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
     const tiles = [...knownVoid([{ x: 103, y: 100 }]), removingBeacon, candidate, prize];
 
     const plan = chooseBestRelayBeaconBuild(

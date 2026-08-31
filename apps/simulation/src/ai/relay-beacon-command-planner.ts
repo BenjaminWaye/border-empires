@@ -126,11 +126,50 @@ const existingBeaconOverlapTileKeys = (
   return claimed;
 };
 
+// Bounds ordinaryExpandReachTileKeys' scan of ownedTiles below. Real empires
+// observed live top out around 1,667 owned tiles (docs/agents/topics/
+// ai-planner.md) — this is a generous defensive ceiling per AGENTS.md's AI
+// CPU guardrails, not a realistic limit; it exists so a synthetic/edge-case
+// empire (e.g. tens of thousands of tiles) can't turn this into an unbounded
+// scan.
+const ORDINARY_REACH_SCAN_CAP = 4000;
+
+/**
+ * Every tile within Chebyshev distance 1 of any currently-owned tile —
+ * ground plain EXPAND already reaches for free, no beacon required.
+ * Computed once per chooseBestRelayBeaconBuild call (not per-candidate) and
+ * reused across every candidate, same pattern as
+ * existingBeaconOverlapTileKeys above. Deliberately keyed off ALL owned
+ * tiles, not just the candidate itself: a prize sitting next to a
+ * *different* owned tile than the one being evaluated as a beacon site is
+ * just as EXPAND-reachable as one next to the candidate, and crediting it to
+ * the beacon's coverage score would let BUILD_BEACON (which costs a dev slot
+ * and, for a FRONTIER site, a SETTLE first) outscore and preempt a plain
+ * EXPAND that would've claimed the same tile for free next tick.
+ */
+const ordinaryExpandReachTileKeys = (playerId: string, ownedTiles: readonly StructurePlannerTile[]): ReadonlySet<string> => {
+  const reachable = new Set<string>();
+  let scanned = 0;
+  for (const tile of ownedTiles) {
+    if (scanned >= ORDINARY_REACH_SCAN_CAP) break;
+    if (tile.ownerId !== playerId) continue;
+    scanned += 1;
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        reachable.add(tileKeyOf(wrapX(tile.x + dx, WORLD_WIDTH), wrapY(tile.y + dy, WORLD_HEIGHT)));
+      }
+    }
+  }
+  return reachable;
+};
+
 const estimateNewReachCoverage = (
   playerId: string,
   tile: StructurePlannerTile,
   tilesByKey: TileLookup,
-  alreadyClaimedTileKeys: ReadonlySet<string>
+  alreadyClaimedTileKeys: ReadonlySet<string>,
+  ordinaryReachTileKeys: ReadonlySet<string>
 ): { score: number; hasValuable: boolean } => {
   let covered = 0;
   let unexplored = 0;
@@ -139,21 +178,17 @@ const estimateNewReachCoverage = (
   outer: for (let dy = -OUTPOST_REACH_RADIUS; dy <= OUTPOST_REACH_RADIUS; dy += 1) {
     for (let dx = -OUTPOST_REACH_RADIUS; dx <= OUTPOST_REACH_RADIUS; dx += 1) {
       if (dx === 0 && dy === 0) continue;
-      // Chebyshev distance 1 from the candidate — ordinary EXPAND already
-      // reaches a tile directly adjacent to any owned tile, no beacon
-      // required. Without this exclusion, a valuable/fogged tile one step
-      // from a FRONTIER candidate scored as if a beacon were the only way to
-      // reach it, so BUILD_BEACON (needsSettle → a SETTLE command, costing a
-      // dev slot) could outscore and preempt a plain EXPAND that would have
-      // claimed the exact same tile for free next tick. Only distance ≥ 2 —
-      // land plain adjacency genuinely can't touch — counts toward a
-      // beacon's coverage.
-      if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) continue;
       scanned += 1;
       if (scanned > RELAY_BEACON_REACH_SAMPLE_CAP) break outer;
       const nx = wrapX(tile.x + dx, WORLD_WIDTH);
       const ny = wrapY(tile.y + dy, WORLD_HEIGHT);
       const neighborKey = tileKeyOf(nx, ny);
+      // Already reachable via plain EXPAND from some owned tile (not
+      // necessarily this candidate) — no beacon needed, so it doesn't count
+      // as "new" coverage. Checked before the fog branch too: an unexplored
+      // tile immediately next to owned land is still ordinary EXPAND range,
+      // known or not.
+      if (ordinaryReachTileKeys.has(neighborKey)) continue;
       const neighbor = tilesByKey.get(neighborKey);
       // Never delivered to this player at all — still fogged. Can't be
       // owned/claimed (both require having seen it), so it's tallied
@@ -233,6 +268,7 @@ export const chooseBestRelayBeaconBuild = (
   if (!canAffordStructure(player, playerTechSet(player), "RELAY_BEACON", existingOwnedCount)) return undefined;
 
   const alreadyClaimedTileKeys = existingBeaconOverlapTileKeys(player.id, ownedTiles);
+  const ordinaryReachTileKeys = ordinaryExpandReachTileKeys(player.id, ownedTiles);
 
   let best: { tile: StructurePlannerTile; score: number; needsSettle: boolean; siteValue: number } | undefined;
   for (const tile of candidateTiles) {
@@ -245,7 +281,7 @@ export const chooseBestRelayBeaconBuild = (
     // structureShowsOnTile keys off ownershipState, so checking it as-is
     // would reject every frontier candidate on the state we're about to change.
     if (!structureVisibleOnTile("RELAY_BEACON", player.id, needsSettle ? { ...tile, ownershipState: "SETTLED" } : tile, tilesByKey)) continue;
-    const newCoverage = estimateNewReachCoverage(player.id, tile, tilesByKey, alreadyClaimedTileKeys);
+    const newCoverage = estimateNewReachCoverage(player.id, tile, tilesByKey, alreadyClaimedTileKeys, ordinaryReachTileKeys);
     // Requiring a known valuable tile here created a dead end: EXPAND stops
     // once nothing adjacent+in-reach is worth claiming — but a beacon site
     // could only ever be proposed if a resource/town/dock/wonder was ALREADY
