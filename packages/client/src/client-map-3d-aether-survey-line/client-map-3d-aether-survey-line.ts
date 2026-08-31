@@ -34,7 +34,6 @@ import {
   AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
-  Color,
   CylinderGeometry,
   DoubleSide,
   Group,
@@ -428,7 +427,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     if (pylon.ring) pylon.ring.rotation.y = nowMs * RING_SPIN_SPEED + phase;
     const pulse = Math.sin(nowMs / CORE_PULSE_PERIOD_MS + phase) * 0.5 + 0.5;
     if (pylon.coreMaterial) {
-      pylon.coreMaterial.color = new Color(normalizeColorForThree(ownerColor));
+      pylon.coreMaterial.color.set(normalizeColorForThree(ownerColor));
       pylon.coreMaterial.opacity = (0.6 + pulse * CORE_PULSE_AMPLITUDE) * laserFraction;
     }
     if (pylon.core) pylon.core.scale.setScalar(1 + pulse * 0.1);
@@ -479,7 +478,7 @@ export const createReachOverlay3D = (scene: Scene, maxTiles: number): ReachOverl
     slot.mesh.lookAt(p1.x, p1.y, p1.z);
     slot.mesh.rotateX(Math.PI / 2);
     slot.mesh.scale.set(1, length, 1);
-    slot.material.color = new Color(normalizeColorForThree(ownerColor));
+    slot.material.color.set(normalizeColorForThree(ownerColor));
     slot.material.opacity = LINE_BASE_OPACITY * laserFraction;
     slot.mesh.visible = laserFraction > 0.001;
 

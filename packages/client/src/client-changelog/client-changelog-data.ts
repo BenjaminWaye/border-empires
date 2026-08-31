@@ -35,6 +35,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788208613354, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.5",
+    title: "Reduced 3D map CPU/GPU load from the Aether Survey Line border overlay",
+    why: "The border-pylon/line-segment placement pass recomputed a full visibility filter and every transition animation from scratch on every single rendered frame, even with the camera completely idle -- a captured performance trace showed this as the dominant, unthrottled main-thread and GPU cost, keeping the 3D renderer near-saturated continuously and driving unnecessary heat/fan load on laptops.",
+    changes: [
+      "The 3D map's border overlay now recomputes pylon/segment placement on the same throttle as terrain rebuilds instead of every frame -- already-placed pylons keep animating smoothly in between, so there's no visible difference, just lower CPU/GPU usage while the map is on screen"
+    ]
+  },
+  {
     createdAt: 1788202192813, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.3",
     title: "Observatory's advertised +5 local vision now actually reveals tiles",
