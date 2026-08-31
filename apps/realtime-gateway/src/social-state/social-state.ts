@@ -1,212 +1,43 @@
 import crypto from "node:crypto";
 
 import { TRUCE_BREAK_LOCKOUT_MS, TRUCE_REQUEST_TTL_MS } from "@border-empires/game-domain";
+import {
+  activeTruceBetween,
+  findAllianceRequestBetweenPlayers,
+  findTruceRequestBetweenPlayers,
+  pairKey,
+  playerHasActiveTruce,
+  playerHasOutgoingTruceRequest,
+  playerIsTruceLockedOut,
+  type SocialActionResult,
+  type SocialActiveTruce,
+  type SocialAllianceBreak,
+  type SocialAllianceRequest,
+  type SocialCompletedAllianceBreak,
+  type SocialExpiredAllianceBreak,
+  type SocialPlayerRecord,
+  type SocialSnapshot,
+  type SocialState,
+  type SocialStateInitial,
+  type SocialStateSink,
+  type SocialSyncResult,
+  type SocialTruceRequest
+} from "./social-state-types.js";
+
+export type {
+  SocialActiveTruce,
+  SocialAllianceBreak,
+  SocialAllianceRequest,
+  SocialCompletedAllianceBreak,
+  SocialSnapshot,
+  SocialState,
+  SocialStateInitial,
+  SocialStateSink,
+  SocialTruceRequest
+} from "./social-state-types.js";
 
 export const ALLIANCE_BREAK_NOTICE_MS = 24 * 60 * 60_000;
 export const COMPLETED_ALLIANCE_BREAK_NOTIFICATION_TTL_MS = 7 * 24 * 60 * 60_000;
-
-export type SocialAllianceRequest = {
-  id: string;
-  fromPlayerId: string;
-  toPlayerId: string;
-  createdAt: number;
-  fromName?: string;
-  toName?: string;
-};
-
-export type SocialTruceRequest = {
-  id: string;
-  fromPlayerId: string;
-  toPlayerId: string;
-  createdAt: number;
-  expiresAt: number;
-  durationHours: 12 | 24;
-  fromName?: string;
-  toName?: string;
-};
-
-export type SocialActiveTruce = {
-  playerAId: string;
-  playerBId: string;
-  startedAt: number;
-  endsAt: number;
-  createdByPlayerId: string;
-};
-
-export type SocialAllianceBreak = {
-  playerAId: string;
-  playerBId: string;
-  startedAt: number;
-  endsAt: number;
-  createdByPlayerId: string;
-};
-
-export type SocialCompletedAllianceBreak = SocialAllianceBreak & {
-  finalizedAt: number;
-  notificationExpiresAt: number;
-};
-
-export type SocialSnapshot = {
-  allies: string[];
-  activeAllianceBreaks: Array<{
-    otherPlayerId: string;
-    otherPlayerName: string;
-    startedAt: number;
-    endsAt: number;
-    createdByPlayerId: string;
-  }>;
-  recentAllianceBreaks: Array<{
-    otherPlayerId: string;
-    otherPlayerName: string;
-    startedAt: number;
-    endsAt: number;
-    finalizedAt: number;
-    createdByPlayerId: string;
-  }>;
-  incomingAllianceRequests: SocialAllianceRequest[];
-  outgoingAllianceRequests: SocialAllianceRequest[];
-  incomingTruceRequests: SocialTruceRequest[];
-  outgoingTruceRequests: SocialTruceRequest[];
-  activeTruces: Array<{
-    otherPlayerId: string;
-    otherPlayerName: string;
-    startedAt: number;
-    endsAt: number;
-    createdByPlayerId: string;
-  }>;
-};
-
-type SocialPlayerRecord = {
-  id: string;
-  name: string;
-  allies: Set<string>;
-};
-
-type SocialActionResult =
-  | { ok: true; notifyPlayerIds: string[]; payloadsByPlayerId: Map<string, unknown[]> }
-  | { ok: false; code: string; message: string };
-type SocialSyncResult = Extract<SocialActionResult, { ok: true }>;
-type SocialExpiredAllianceBreak = SocialAllianceBreak & { playerIds: [string, string] };
-
-const pairKey = (a: string, b: string): string => (a < b ? `${a}:${b}` : `${b}:${a}`);
-
-const findAllianceRequestBetweenPlayers = (
-  requests: Iterable<SocialAllianceRequest>,
-  playerAId: string,
-  playerBId: string
-): SocialAllianceRequest | undefined => {
-  for (const request of requests) {
-    if (
-      (request.fromPlayerId === playerAId && request.toPlayerId === playerBId) ||
-      (request.fromPlayerId === playerBId && request.toPlayerId === playerAId)
-    ) {
-      return request;
-    }
-  }
-  return undefined;
-};
-
-const findTruceRequestBetweenPlayers = (
-  requests: Iterable<SocialTruceRequest>,
-  playerAId: string,
-  playerBId: string
-): SocialTruceRequest | undefined => {
-  for (const request of requests) {
-    if (
-      (request.fromPlayerId === playerAId && request.toPlayerId === playerBId) ||
-      (request.fromPlayerId === playerBId && request.toPlayerId === playerAId)
-    ) {
-      return request;
-    }
-  }
-  return undefined;
-};
-
-const playerHasOutgoingTruceRequest = (requests: Iterable<SocialTruceRequest>, playerId: string): boolean => {
-  for (const request of requests) {
-    if (request.fromPlayerId === playerId) return true;
-  }
-  return false;
-};
-
-const activeTruceBetween = (
-  playerAId: string,
-  playerBId: string,
-  trucesByPair: Map<string, SocialActiveTruce>,
-  now: number
-): SocialActiveTruce | undefined => {
-  const truce = trucesByPair.get(pairKey(playerAId, playerBId));
-  return truce && truce.endsAt > now ? truce : undefined;
-};
-
-const playerHasActiveTruce = (
-  playerId: string,
-  trucesByPair: Map<string, SocialActiveTruce>,
-  now: number
-): boolean => {
-  for (const truce of trucesByPair.values()) {
-    if (truce.endsAt <= now) continue;
-    if (truce.playerAId === playerId || truce.playerBId === playerId) return true;
-  }
-  return false;
-};
-
-const playerIsTruceLockedOut = (
-  playerId: string,
-  lockoutUntilByPlayerId: Map<string, number>,
-  now: number
-): boolean => {
-  const lockoutUntil = lockoutUntilByPlayerId.get(playerId);
-  return lockoutUntil !== undefined && lockoutUntil > now;
-};
-
-export type SocialState = {
-  registerPlayer: (playerId: string, name: string) => void;
-  renamePlayer: (playerId: string, name: string) => void;
-  snapshotForPlayer: (playerId: string) => SocialSnapshot;
-  syncPlayers: (playerIds: string[], announcementByPlayerId?: Partial<Record<string, string>>) => SocialSyncResult;
-  requestAlliance: (fromPlayerId: string, targetPlayerName: string) => SocialActionResult;
-  acceptAlliance: (playerId: string, requestId: string) => SocialActionResult;
-  rejectAlliance: (playerId: string, requestId: string) => SocialActionResult;
-  cancelAlliance: (playerId: string, requestId: string) => SocialActionResult;
-  breakAlliance: (playerId: string, targetPlayerId: string) => SocialActionResult;
-  expiredAllianceBreaks: () => SocialExpiredAllianceBreak[];
-  finalizeExpiredAllianceBreaks: (pairs?: Array<[string, string]>) => { expiredBreaks: SocialExpiredAllianceBreak[]; payloadsByPlayerId: Map<string, unknown[]> };
-  requestTruce: (fromPlayerId: string, targetPlayerName: string, durationHours: 12 | 24) => SocialActionResult;
-  acceptTruce: (playerId: string, requestId: string) => SocialActionResult;
-  rejectTruce: (playerId: string, requestId: string, announcementByPlayerId?: Partial<Record<string, string>>) => SocialActionResult;
-  cancelTruce: (playerId: string, requestId: string) => SocialActionResult;
-  breakTruce: (playerId: string, targetPlayerId: string) => SocialActionResult;
-  activeTrucePairs: () => Array<[string, string]>; // non-expired pairs; sweeps first, used to sync natural expirations
-};
-
-export type SocialStateSink = {
-  upsertPlayer: (playerId: string, name: string) => void;
-  saveAllianceRequest: (request: SocialAllianceRequest) => void;
-  deleteAllianceRequest: (requestId: string) => void;
-  saveTruceRequest: (request: SocialTruceRequest) => void;
-  deleteTruceRequest: (requestId: string) => void;
-  addAlliance: (playerAId: string, playerBId: string, createdAt: number) => void;
-  removeAlliance: (playerAId: string, playerBId: string) => void;
-  saveAllianceBreak: (notice: SocialAllianceBreak) => void;
-  removeAllianceBreak: (playerAId: string, playerBId: string) => void;
-  saveCompletedAllianceBreak: (notice: SocialCompletedAllianceBreak) => void;
-  removeCompletedAllianceBreak: (playerAId: string, playerBId: string) => void;
-  saveActiveTruce: (truce: SocialActiveTruce) => void;
-  removeActiveTruce: (playerAId: string, playerBId: string) => void;
-  saveTruceLockout: (playerId: string, lockoutUntil: number) => void;
-  pruneExpired: (now: number) => void;
-};
-
-export type SocialStateInitial = {
-  players?: Array<{ id: string; name: string; allies?: string[] }>;
-  allianceRequests?: SocialAllianceRequest[];
-  activeAllianceBreaks?: SocialAllianceBreak[];
-  completedAllianceBreaks?: SocialCompletedAllianceBreak[];
-  truceRequests?: SocialTruceRequest[];
-  activeTruces?: SocialActiveTruce[];
-  truceLockouts?: Array<{ playerId: string; lockoutUntil: number }>;
-};
 
 export const createSocialState = (options: {
   now?: () => number;
@@ -511,7 +342,9 @@ export const createSocialState = (options: {
         [actor.id]: `Alliance break notice sent to ${target.name}. The alliance remains active for 24h.`,
         [target.id]: `${actor.name} started a 24h notice to break your alliance.`
       };
-      return { ok: true, notifyPlayerIds: [actor.id, target.id], payloadsByPlayerId: updatePayloadsFor([actor.id, target.id], undefined, announcements) };
+      const payloads = updatePayloadsFor([actor.id, target.id], undefined, announcements);
+      payloads.get(target.id)?.push({ type: "ALLIANCE_BREAK_INCOMING", fromName: actor.name, fromPlayerId: actor.id, toPlayerId: target.id });
+      return { ok: true, notifyPlayerIds: [actor.id, target.id], payloadsByPlayerId: payloads };
     },
     expiredAllianceBreaks,
     finalizeExpiredAllianceBreaks(pairs) {

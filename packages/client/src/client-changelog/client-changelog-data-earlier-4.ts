@@ -420,4 +420,41 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
       "Aether Purge and Aether EMP now show as disabled with a \"Cannot purge/EMP your own or allied tiles\" reason when selecting an allied tile, instead of appearing available and then failing server-side"
     ]
   },
+  {
+    createdAt: 1787935226945, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.4",
+    title: "Fixed tech/domain bonuses (e.g. Mercantile Charter) not applying until something else refreshed your towns",
+    why: "Picking a tech or domain -- including tier 1's Mercantile Charter, which boosts gold production and population growth in your first three towns -- didn't invalidate the cached per-player town economy data. The new bonus silently sat unused until an unrelated tile change happened to refresh that cache, so newly chosen bonuses looked like they weren't applying to gold production or the town overview's modifier list.",
+    changes: [
+      "Choosing a tech or domain now immediately refreshes your towns' gold production and the town overview's modifier list to reflect the new bonus"
+    ]
+  },
+  {
+    createdAt: 1787937615718, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.5",
+    title: "Alliance and truce request emails now match the rest of the game's branded emails",
+    why: "Alliance and truce request emails were still built from a plain, unstyled paragraph template (a leftover from before the branded season-start/attack-alert template existed), so they looked out of place next to every other gameplay email you get.",
+    changes: [
+      "Alliance and truce request emails now use the same branded layout (header, body, call-to-action button) as season-start and attack-alert emails, and truce offers now call out the offered duration as a highlighted stat like other emails do"
+    ]
+  },
+  {
+    createdAt: 1787940609007, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.5",
+    title: "Added a way back into 3D after it locked you out of it",
+    why: "Two failed 3D attempts in a row (including a page refresh mid-load, which looks identical to a crash from the client's perspective) permanently pinned you to the 2D map, and the banner's own \"Add ?renderer=3d to try again\" instruction didn't actually work -- that param only controls whether 3D is attempted, not the on-disk crash streak that was blocking it, so retyping the URL just showed the same banner again.",
+    changes: [
+      "The \"3D map unavailable\" banner now has a \"Try 3D again\" button that clears the crash streak and reloads back into 3D",
+      "Removed the banner's old ?renderer=3d instruction, since it never actually reset anything"
+    ]
+  },
+  {
+    createdAt: 1787999110086, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Fixed Aether Condenser gold income showing up as \"CRYSTAL_SYNTHESIZER\" in the economy panel",
+    why: "An Aether Condenser flipped into Sell Off mode reports its gold income to the economy panel labeled with its raw internal type (CRYSTAL_SYNTHESIZER) instead of its display name, because that income bucket bypassed the same display-name lookup every other structure-driven line in the panel goes through -- making it easy to conclude the income wasn't showing up at all.",
+    changes: [
+      "The Gold income breakdown now shows \"Aether Condenser\" (and any other structure-labeled income/upkeep line) with its proper display name instead of its internal type"
+    ]
+  },
 ];
