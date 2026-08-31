@@ -17,6 +17,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788202192813, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.3",
+    title: "Observatory's advertised +5 local vision now actually reveals tiles",
+    why: "OBSERVATORY_VISION_BONUS was only ever read for display copy (the build menu, the structure info panel, the tile action tooltip) -- there was no equivalent of Relay Beacon/Siege Outpost's per-tile vision-coverage hookup for Observatory, so an active, fully-supplied Observatory granted no actual vision beyond your normal territory radius despite every UI surface promising +5.",
+    changes: [
+      "An active, non-dormant Observatory now reveals a flat 5-tile ring around itself, matching the +5 local vision already shown in its build menu and structure info panel",
+      "The ring follows the same rules as Relay Beacon's: it withdraws while the Observatory is manually disabled, dormant for lack of a free CRYSTAL slot, or under construction, and is shared with allies the same way territory vision is"
+    ]
+  },
+  {
     createdAt: 1788166898915, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.2",
     title: "Dock sea-route lines actually render again",

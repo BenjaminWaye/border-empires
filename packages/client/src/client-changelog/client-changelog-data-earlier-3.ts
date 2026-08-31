@@ -87,24 +87,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_3: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787682505307, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.3",
-    title: "Fixed sea tiles rendering solid black from underneath",
-    why: "The 3D water mesh only had a front face wound (normal pointing up) and the material never set a two-sided render mode, so any camera angle that caught the underside of the water surface -- looking up from below water level, or a steep enough grazing angle -- rendered nothing at all, showing empty background through the hole instead of water.",
-    changes: [
-      "Water tiles now render from both sides, so the sea never shows as a black hole regardless of camera angle."
-    ]
-  },
-  {
-    createdAt: 1787665177074, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.2",
-    title: "Fixed missing ownership colour on settled coastal hills",
-    why: "A shared map-corner vertex touching both sea and land was always flattened to beach height, even when the land side was a hill. That sank the hill's draped ownership tint (and its gridlines) below the visible dome surface, so a settled hill right next to the coast -- exactly where FISH resources spawn -- looked uncovered even though it was fully owned.",
-    changes: [
-      "Coastal hill tiles now keep their ownership colour and gridlines visible; the map corner tapers to the hill's own edge height instead of dropping to beach level."
-    ]
-  },
-  {
     createdAt: 1787837642949, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.27.4",
     title: "Fixed an expand/attack in progress across a reconnect losing its result",

@@ -413,8 +413,12 @@ import {
   refreshPlannerCandidateIndexesAroundTileChange as refreshPlannerCandidateIndexesAroundTileChangeImpl,
   refreshPlayerCandidateIndexAnchorForTile as refreshPlayerCandidateIndexAnchorForTileImpl,
   refreshRuntimeTileIndexesForChange,
+  refreshActiveStructureIndexForTile,
   registerFortSupportAnchor as registerFortSupportAnchorImpl,
-  removeFrontierTileFromOwnerIndex as removeFrontierTileFromOwnerIndexImpl
+  removeFrontierTileFromOwnerIndex as removeFrontierTileFromOwnerIndexImpl,
+  isSiegeOutpostActive,
+  isRelayBeaconActive,
+  isObservatoryActive
 } from "../runtime-tile-index-maintenance.js";
 import { tickShardRain as tickShardRainImpl, emitShardRainHelloFor as emitShardRainHelloForImpl } from "../runtime-shard-rain-tick.js";
 import {
@@ -441,6 +445,8 @@ import type { MusterAdvanceCooldowns } from "../runtime-muster-tick/runtime-must
 import { tickFortGarrison as tickFortGarrisonImpl } from "../runtime-fort-garrison-tick.js";
 import { reconcileTownVisionBonus, resyncPlayerTownVisionBonuses, seedTownVisionBonus } from "../runtime-town-vision.js";
 import { reconcileOutpostVisionBonus, resyncPlayerOutpostVisionBonuses, seedOutpostVisionBonus, type OutpostVisionCoverageDeps } from "../runtime-outpost-vision.js";
+import { reconcileObservatoryVisionBonus, resyncPlayerObservatoryVisionBonuses, seedObservatoryVisionBonus, type ObservatoryVisionCoverageDeps } from "../runtime-observatory-vision.js";
+import { StructureVisionDormancyTracker } from "../structure-vision-dormancy-tracker.js";
 import {
   completeStructureBuild as completeStructureBuildImpl,
   handleBuildStructureCommand as handleBuildStructureCommandImpl,
@@ -575,6 +581,9 @@ export class SimulationRuntime {
   // Maintained in replaceTileState via refreshRelayBeaconIndexForTile.
   // Replaces the O(territory) sweep in tickTerritoryAutomation.
   private readonly activeRelayBeaconsByOwner = new Map<string, Set<string>>();
+  // Same role as activeRelayBeaconsByOwner, for active Observatory tiles
+  // (drives resyncPlayerObservatoryVisionBonuses, runtime-observatory-vision.ts).
+  private readonly activeObservatoriesByOwner = new Map<string, Set<string>>();
   // Index of tiles carrying a muster flag per owner (mustering system).
   // Key: ownerId, Value: Set of tileKeys whose `muster.ownerId` is that player.
   // Maintained in replaceTileState via refreshMusterIndexForTile. Lets the
@@ -995,10 +1004,12 @@ export class SimulationRuntime {
     for (const [tileKey, tile] of this.state.tiles.entries()) {
       this.applyTileToPlayerSummaries(tileKey, tile);
       this.state.visibilityCoverage.tileOwnershipChanged(undefined, tile.ownerId, tile.x, tile.y, undefined, { nextOwnershipState: tile.ownershipState });
-      // Seed town +1 vision for any player-owned town present at boot.
+      // Seed town +1 vision here at boot. Outpost/Observatory vision bonuses are
+      // seeded in the second pass below instead — both gate on isStructureDormant,
+      // which needs this owner's territoryTileKeys already fully built (this pass
+      // builds it incrementally), or dormancy gets computed and cached off a
+      // still-partial territory.
       seedTownVisionBonus({ players: this.state.players, coverage: this.state.visibilityCoverage }, tile);
-      // Seed Light/Siege Outpost vision bonus for any owned active outpost present at boot.
-      seedOutpostVisionBonus(this.outpostVisionDeps(), tile);
       const site = tile.shardSite;
       if (site && site.kind === "FALL" && typeof site.expiresAt === "number" && site.expiresAt > this.now()) {
         this.currentShardRainSiteCount += 1;
@@ -1057,23 +1068,13 @@ export class SimulationRuntime {
         // Part 2: register in activeFortAnchorsByOwner
         registerFortSupportAnchorImpl(this.activeFortAnchorsByOwner, tileKey, ownerId, TOWN_AUTO_FRONTIER_RADIUS);
       }
-      // Populate activeSiegeOutpostsByOwner index
-      if (tile.siegeOutpost?.ownerId === ownerId && tile.siegeOutpost.status === "active") {
-        let set = this.activeSiegeOutpostsByOwner.get(ownerId);
-        if (!set) { set = new Set<string>(); this.activeSiegeOutpostsByOwner.set(ownerId, set); }
-        set.add(tileKey);
-      }
-      // Populate activeRelayBeaconsByOwner index. Vision bonus restoration
-      // at boot is handled by seedOutpostVisionBonus in the first pass above.
-      if (
-        tile.economicStructure?.ownerId === ownerId &&
-        tile.economicStructure.type === "RELAY_BEACON" &&
-        tile.economicStructure.status === "active"
-      ) {
-        let set = this.activeRelayBeaconsByOwner.get(ownerId);
-        if (!set) { set = new Set<string>(); this.activeRelayBeaconsByOwner.set(ownerId, set); }
-        set.add(tileKey);
-      }
+      // Populate active-structure indexes (previous: undefined — boot has no prior tile state).
+      refreshActiveStructureIndexForTile({ tileKey, previous: undefined, next: tile, index: this.activeSiegeOutpostsByOwner, isActive: isSiegeOutpostActive });
+      refreshActiveStructureIndexForTile({ tileKey, previous: undefined, next: tile, index: this.activeRelayBeaconsByOwner, isActive: isRelayBeaconActive });
+      refreshActiveStructureIndexForTile({ tileKey, previous: undefined, next: tile, index: this.activeObservatoriesByOwner, isActive: isObservatoryActive });
+      // Seed Outpost/Observatory vision bonuses here — see the first-pass comment above.
+      seedOutpostVisionBonus(this.outpostVisionDeps(), tile);
+      seedObservatoryVisionBonus(this.observatoryVisionDeps(), tile);
       // Populate musterTilesByOwner index (mustering system).
       if (tile.muster?.ownerId) {
         let set = this.musterTilesByOwner.get(tile.muster.ownerId);
@@ -1843,21 +1844,25 @@ export class SimulationRuntime {
     return summary;
   }
 
-  // Resolved tiles for resyncPlayerOutpostVisionBonuses (a tech unlock's
-  // effect on Light/Siege Outpost vision rings) — sourced from the
-  // active-only outpost indexes rather than a full tile scan; see
-  // resyncPlayerOutpostVisionBonuses's own doc comment for the trade-off.
-  private ownedOutpostTilesForPlayer(playerId: string): DomainTileState[] {
-    const tileKeys = new Set<string>([
-      ...(this.activeRelayBeaconsByOwner.get(playerId) ?? []),
-      ...(this.activeSiegeOutpostsByOwner.get(playerId) ?? [])
-    ]);
+  // Resolves active-structure-index tile keys into current tile states —
+  // shared by ownedOutpostTilesForPlayer/ownedObservatoryTilesForPlayer below.
+  private tilesForKeys(tileKeys: Iterable<string>): DomainTileState[] {
     const tiles: DomainTileState[] = [];
     for (const tileKey of tileKeys) {
       const tile = this.state.tiles.get(tileKey);
       if (tile) tiles.push(tile);
     }
     return tiles;
+  }
+
+  // Resolved tiles for resyncPlayerOutpostVisionBonuses (a tech unlock's
+  // effect on Light/Siege Outpost vision rings) — sourced from the
+  // active-only outpost indexes rather than a full tile scan; see
+  // resyncPlayerOutpostVisionBonuses's own doc comment for the trade-off.
+  private ownedOutpostTilesForPlayer(playerId: string): DomainTileState[] {
+    return this.tilesForKeys(
+      new Set<string>([...(this.activeRelayBeaconsByOwner.get(playerId) ?? []), ...(this.activeSiegeOutpostsByOwner.get(playerId) ?? [])])
+    );
   }
 
   // Shared OutpostVisionCoverageDeps builder — every call site
@@ -1873,54 +1878,45 @@ export class SimulationRuntime {
     };
   }
 
-  // §5.4: a resource tile gained or lost anywhere in `playerId`'s territory
-  // can push one of their outposts into or out of dormancy without that
-  // outpost's own tile changing at all, so reconcileOutpostVisionBonus (which
-  // only ever looks at the one tile that just mutated) can't catch it.
-  //
-  // Deliberately NOT resolved eagerly inside replaceTileState: dormancy comes
-  // from resourceSlotDormancyForPlayer, which refreshEconomyCachesForTileChange
-  // already deletes (for human players) on *every* settled-tile mutation of an
-  // owner, regardless of whether that mutation could plausibly touch a
-  // FOOD/TITANIUM/CRYSTAL/UMBRITE total — including tickFortGarrison/tickMuster,
-  // which call replaceTileState in tight per-tile loops with no
-  // emitPlayerStateUpdate in between (the one place that would otherwise
-  // naturally coalesce a rebuild). Eagerly resyncing on every replaceTileState
-  // call would turn one 30s garrison/muster tick into an O(mutated tiles ×
-  // settled tiles) dormancy-rebuild storm for any player who owns an outpost —
-  // exactly the class of O(territory)-per-tick cost tickTerritoryAutomation's
-  // own indexes were built to avoid. So replaceTileState only marks the owner
-  // dirty here (an O(1) Set add); the actual resync is flushed lazily, once
-  // per player, from emitPlayerStateUpdate (the command-driven path) and from
-  // the end of tickTerritoryAutomation (the tick-driven path) — see
-  // flushOutpostVisionDormancyResync.
-  private readonly outpostVisionDormancyDirtyPlayerIds = new Set<string>();
+  // Same role as outpostVisionDeps, for Observatory (runtime-observatory-vision.ts).
+  private observatoryVisionDeps(): ObservatoryVisionCoverageDeps {
+    return {
+      isStructureDormant: (ownerId, tileKey, field) => this.isStructureDormant(ownerId, tileKey, field),
+      coverage: this.state.visibilityCoverage,
+      callbacks: this.visionTransitions.callbacks
+    };
+  }
+
+  // Mirrors ownedOutpostTilesForPlayer, for the active-only Observatory index.
+  private ownedObservatoryTilesForPlayer(playerId: string): DomainTileState[] {
+    return this.tilesForKeys(this.activeObservatoriesByOwner.get(playerId) ?? []);
+  }
+
+  // See StructureVisionDormancyTracker's doc comment for why this exists and
+  // why it's deferred/lazy rather than resolved eagerly in replaceTileState.
+  private readonly outpostVisionDormancyTracker = new StructureVisionDormancyTracker();
+
+  private resyncStructureVisionForPlayer(playerId: string): void {
+    resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
+    resyncPlayerObservatoryVisionBonuses(this.observatoryVisionDeps(), playerId, this.ownedObservatoryTilesForPlayer(playerId));
+  }
 
   private markOutpostVisionDormancyDirty(playerId: string | undefined): void {
-    if (!playerId) return;
-    const hasOutposts =
-      (this.activeRelayBeaconsByOwner.get(playerId)?.size ?? 0) > 0 ||
-      (this.activeSiegeOutpostsByOwner.get(playerId)?.size ?? 0) > 0;
-    if (!hasOutposts) return;
-    this.outpostVisionDormancyDirtyPlayerIds.add(playerId);
+    this.outpostVisionDormancyTracker.markDirty(
+      playerId,
+      () =>
+        (this.activeRelayBeaconsByOwner.get(playerId!)?.size ?? 0) > 0 ||
+        (this.activeSiegeOutpostsByOwner.get(playerId!)?.size ?? 0) > 0 ||
+        (this.activeObservatoriesByOwner.get(playerId!)?.size ?? 0) > 0
+    );
   }
 
-  // Resolves a pending dormancy-driven outpost-vision resync for one player,
-  // if one is pending. Cheap no-op when nothing was marked dirty for them.
   private flushOutpostVisionDormancyResync(playerId: string | undefined): void {
-    if (!playerId || !this.outpostVisionDormancyDirtyPlayerIds.delete(playerId)) return;
-    resyncPlayerOutpostVisionBonuses(this.outpostVisionDeps(), playerId, this.ownedOutpostTilesForPlayer(playerId));
+    this.outpostVisionDormancyTracker.flush(playerId, () => this.resyncStructureVisionForPlayer(playerId!));
   }
 
-  // Flushes every player left dirty at the end of a tick sweep (muster/fort
-  // garrison ticks mutate many players' tiles without ever calling
-  // emitPlayerStateUpdate themselves) — one resync per dirty player, not per
-  // tile mutation.
   private flushAllOutpostVisionDormancyResyncs(): void {
-    if (this.outpostVisionDormancyDirtyPlayerIds.size === 0) return;
-    for (const playerId of [...this.outpostVisionDormancyDirtyPlayerIds]) {
-      this.flushOutpostVisionDormancyResync(playerId);
-    }
+    this.outpostVisionDormancyTracker.flushAll((playerId) => this.resyncStructureVisionForPlayer(playerId));
   }
 
   private markPlannerPlayerTopologyTileChanged(playerId: string, tileKey: string): void {
@@ -2206,6 +2202,7 @@ export class SimulationRuntime {
       sortedYieldBearingKeysByOwner: this.sortedYieldBearingKeysByOwner,
       activeSiegeOutpostsByOwner: this.activeSiegeOutpostsByOwner,
       activeRelayBeaconsByOwner: this.activeRelayBeaconsByOwner,
+      activeObservatoriesByOwner: this.activeObservatoriesByOwner,
       musterTilesByOwner: this.musterTilesByOwner,
       fortTilesByOwner: this.fortTilesByOwner,
       railDepotTilesByOwner: this.railDepotTilesByOwner,
@@ -2246,6 +2243,7 @@ export class SimulationRuntime {
     flushRadiusYieldRefresh({ tileKey, previous, next: tile, tiles: this.state.tiles, dockLinksByDockTileKey: this.state.dockLinksByDockTileKey, settledTilesForPlayer: (p) => this.settledTilesForPlayer(p), tileDeltaFromState: (t) => this.tileDeltaFromState(t), emitEvent: (e) => this.emitEvent(e), now: () => this.now() });
     reconcileTownVisionBonus({ players: this.state.players, coverage: this.state.visibilityCoverage, callbacks: this.visionTransitions.callbacks }, previous, tile);
     reconcileOutpostVisionBonus(this.outpostVisionDeps(), previous, tile);
+    reconcileObservatoryVisionBonus(this.observatoryVisionDeps(), previous, tile);
     // §5.4: this tile's own mutation can change either owner's FOOD/UMBRITE
     // slot totals (a resource tile gained/lost, a new demand consumer built)
     // without touching any of their outposts directly — mark them dirty for
