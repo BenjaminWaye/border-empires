@@ -450,6 +450,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788207240438, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.4",
+    title: "Fixed the 3D border overlay disappearing on islands the camera isn't near",
+    why: "The true-3D renderer only keeps map chunks loaded near the camera's current position, so a player-owned island elsewhere on the map has no locally-cached tile data even after it's been discovered. The border-overlay renderer treated a missing local tile the same as a genuinely fogged one, so the Aether Survey Line boundary silently vanished on every island except whichever one the camera happened to be near.",
+    changes: [
+      "The 3D map's border overlay (Aether Survey Line) now stays visible on previously-discovered islands even when their chunks aren't currently streamed in near the camera"
+    ]
+  },
+  {
     createdAt: 1788176142270, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.1",
     title: "AI empires now push Relay Beacons into unexplored territory, not just what they can already see",
