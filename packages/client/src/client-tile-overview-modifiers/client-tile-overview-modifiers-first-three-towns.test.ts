@@ -11,7 +11,7 @@ import type { Tile } from "../client-types.js";
 // client-tile-overview-modifiers.test.ts to keep that file under the
 // repo's 500-line cap.
 describe("tileOverviewModifiersForTile — first-three-towns (Mercantile Charter)", () => {
-  it("shows a 'First 3 towns' line for gold and population growth when the wire carries the Mercantile Charter multipliers", () => {
+  it("shows a 'Mercantile Charter' line for gold and population growth when the wire carries the Mercantile Charter multipliers", () => {
     const modifiers = tileOverviewModifiersForTile({
       x: 10,
       y: 12,
@@ -40,11 +40,11 @@ describe("tileOverviewModifiersForTile — first-three-towns (Mercantile Charter
         firstThreeTownPopGrowthMult: 1.25
       }
     } satisfies Tile);
-    expect(modifiers).toContainEqual({ reason: "First 3 towns", effect: "+50% gold production", tone: "positive" });
-    expect(modifiers).toContainEqual({ reason: "First 3 towns", effect: "+25% population growth", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Mercantile Charter", effect: "+50% gold production", tone: "positive" });
+    expect(modifiers).toContainEqual({ reason: "Mercantile Charter", effect: "+25% population growth", tone: "positive" });
   });
 
-  it("shows no 'First 3 towns' line when the wire carries no Mercantile Charter multipliers", () => {
+  it("shows no 'Mercantile Charter' line when the wire carries no Mercantile Charter multipliers", () => {
     const modifiers = tileOverviewModifiersForTile({
       x: 10,
       y: 12,
@@ -71,6 +71,6 @@ describe("tileOverviewModifiersForTile — first-three-towns (Mercantile Charter
         granaryActive: false
       }
     } satisfies Tile);
-    expect(modifiers.some((m) => m.reason === "First 3 towns")).toBe(false);
+    expect(modifiers.some((m) => m.reason === "Mercantile Charter")).toBe(false);
   });
 });
