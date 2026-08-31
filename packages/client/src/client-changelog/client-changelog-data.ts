@@ -27,6 +27,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788207240439, // frozen: one ms after this file's prior newest entry
+    introducedIn: "2026.08.31.5",
+    title: "Dock sea-route line no longer cuts across land in the 3D map",
+    why: "The dashed dock-to-dock sea-route line was drawn on the 2D overlay canvas using the flat-grid worldToScreen projection with no check for which renderer was active, so it also rendered unguarded on top of the true-3D map -- where it doesn't line up with the isometric/heightfield projection and visibly crossed islands instead of tracing the sea.",
+    changes: [
+      "The dock sea-route line only draws in the 2D map now; the true-3D map doesn't yet have its own version of this line (dock endpoint markers still show there) -- tracked as a follow-up rather than shipped misaligned"
+    ]
+  },
+  {
     createdAt: 1788202192814, // frozen: one ms after this file's prior newest entry
     introducedIn: "2026.08.31.4",
     title: "\"Build Relay Beacon\" now shows on a tile that already has a Fort",

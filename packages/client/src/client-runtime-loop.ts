@@ -5,6 +5,7 @@ import { drawableIncomingAttack } from "./client-siege-tracking/client-siege-tra
 import type { FortificationOpening, FortificationOverlayKind } from "./client-fortification-overlays/client-fortification-overlays.js";
 import { exposedSidesForTile, isOwnedSettledLandTile, weakDefensibilitySeverity } from "./client-defensibility-tile.js";
 import { isTrue3DRendererActive, revealWholeMapInTrue3DMode } from "./client-renderer-mode.js"; import { drawLoopMinFrameGapMs } from "./client-runtime-loop-frame-gap.js";
+import { drawSelectedDockSeaRoute2D } from "./client-dock-route-draw.js";
 import { isStructureHandledBy3D } from "./client-map-3d-structure-overlay/client-map-3d-structure-overlay.js";
 import { getCurrentFps, hasSustainedLowFps, recordFrame as recordFpsFrame } from "./client-fps-monitor/client-fps-monitor.js";
 import { recordDrawFrame, recordFramePhaseSample } from "./client-performance-metrics/client-performance-metrics.js";
@@ -1478,51 +1479,22 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
     }
     const targetingUiMs = phaseMs();
 
-    const routeDash = [9, 8];
-    const wrapJumpX = (WORLD_WIDTH * size) / 2;
-    const wrapJumpY = (WORLD_HEIGHT * size) / 2;
-    for (const pair of state.dockPairs) {
-      if (!deps.isDockRouteVisibleForPlayer(pair)) continue;
-      const selectedRoute = Boolean(
-        state.selected &&
-          ((pair.ax === state.selected.x && pair.ay === state.selected.y) || (pair.bx === state.selected.x && pair.by === state.selected.y))
-      );
-      if (!selectedRoute) continue;
-
-      const route = deps.resolveDockSeaRoute(pair);
-      // Resolves the server-computed, authoritative route (frozen with the world
-      // at worldgen time); falls back to client A* only for older servers that
-      // omit it. No straight-line fallback: draw nothing rather than a cross-island line.
-      if (route.length < 2) continue;
-      deps.ctx.setLineDash(routeDash);
-      deps.ctx.lineDashOffset = -((nowMs / 140) % 17);
-      deps.ctx.strokeStyle = selectedRoute ? "rgba(255, 246, 176, 0.9)" : "rgba(255, 233, 149, 0.45)";
-      deps.ctx.lineWidth = selectedRoute ? 2 : 1.2;
-      let prevScreen = deps.worldToScreen(route[0]!.x, route[0]!.y, size, halfW, halfH);
-      for (let i = 1; i < route.length; i += 1) {
-        const b = route[i]!;
-        const sb = deps.worldToScreen(b.x, b.y, size, halfW, halfH);
-        const segmentWraps = Math.abs(sb.sx - prevScreen.sx) > wrapJumpX || Math.abs(sb.sy - prevScreen.sy) > wrapJumpY;
-        const offscreen =
-          (prevScreen.sx < -size && sb.sx < -size) ||
-          (prevScreen.sy < -size && sb.sy < -size) ||
-          (prevScreen.sx > deps.canvas.width + size && sb.sx > deps.canvas.width + size) ||
-          (prevScreen.sy > deps.canvas.height + size && sb.sy > deps.canvas.height + size);
-        if (segmentWraps || offscreen) {
-          prevScreen = sb;
-          continue;
-        }
-        deps.ctx.beginPath();
-        deps.ctx.moveTo(prevScreen.sx, prevScreen.sy);
-        deps.ctx.lineTo(sb.sx, sb.sy);
-        deps.ctx.stroke();
-        prevScreen = sb;
-      }
-      deps.ctx.setLineDash([]);
-      deps.ctx.lineDashOffset = 0;
+    // See client-dock-route-draw.ts for why this is 2D-only.
+    if (!isTrue3DRendererActive()) {
+      drawSelectedDockSeaRoute2D({
+        ctx: deps.ctx,
+        canvas: deps.canvas,
+        dockPairs: state.dockPairs,
+        selected: state.selected,
+        size,
+        halfW,
+        halfH,
+        nowMs,
+        isDockRouteVisibleForPlayer: deps.isDockRouteVisibleForPlayer,
+        resolveDockSeaRoute: deps.resolveDockSeaRoute,
+        worldToScreen: deps.worldToScreen
+      });
     }
-    deps.ctx.setLineDash([]);
-    deps.ctx.lineDashOffset = 0;
 
     // 2D supply lines: flag → attack front, one per active muster flag, only
     // for attacks on owned tiles (not neutral expands). Each flag's line is
