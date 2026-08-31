@@ -16,6 +16,16 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788164766412, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Aether Purge now alerts the empire that lost the tile",
+    why: "Aether Purge silently turned a hostile tile neutral with no signal to the empire that lost it — unlike a conventional attack, which alerts the defender in the Activity Feed and by email. Purge victims found out only by noticing the tile had changed color on the map.",
+    changes: [
+      "Getting Aether Purged now posts a drastic 'Aether Attack!' Activity Feed alert naming the attacker and the tile lost, with a Center action to jump to it",
+      "Purge victims also get an email alert (subject to the same one-email-per-hour throttle as conventional attack alerts) if they have email notifications set up"
+    ]
+  },
+  {
     createdAt: 1788162511005, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.9",
     title: "3D map lighting: buildings now show real light and shadow, not just a subtle tint",
@@ -474,25 +484,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Where several observatories stand close together a rotating geometric synchronization cluster forms between them, marking the strongest aether convergence on the map"
     ]
   },
-  {
-    createdAt: 1788128033639, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31",
-    title: "Renamed the Observatory and Ambaric Tower",
-    why: "Two structure names were due for a refresh to better fit the empire's aether/power theming.",
-    changes: [
-      "The Observatory is now called the Aether Tower everywhere in the UI (build menu, tile overview, tech unlocks, upkeep) -- no change to what it does",
-      "The Ambaric Tower is now called the Ambaric Transformer Station everywhere in the UI -- no change to what it does"
-    ]
-  },
-  {
-    createdAt: 1788162346509, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31",
-    title: "Fixed a fake \"plundered FOOD\" notice on town captures",
-    why: "Capturing a settled FARM/FISH tile always showed a \"Plundered 1 FOOD\" line in the combat alert, but plunder has only ever transferred gold -- no food was ever actually taken from the defender or given to the attacker.",
-    changes: [
-      "Combat/raid alerts no longer show a fake FOOD plunder amount when capturing a resource tile -- plunder remains gold-only, matching what actually happens to both players' stockpiles"
-    ]
-  }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   ...RECENT_CLIENT_CHANGELOG_ENTRIES,
