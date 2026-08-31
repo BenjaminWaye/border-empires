@@ -32,7 +32,7 @@ import {
   attackPreviewDetailForTarget,
   attackPreviewManpowerCostForTarget,
   attackPreviewBreakdownForTarget,
-  attackPreviewPendingForTarget
+  attackPreviewIsStaleForTarget, attackPreviewPendingForTarget
 } from "./client-attack-preview-logic.js";
 export {
   resetAttackPreviewState,
@@ -41,7 +41,7 @@ export {
   attackPreviewDetailForTarget,
   attackPreviewManpowerCostForTarget,
   attackPreviewBreakdownForTarget,
-  attackPreviewPendingForTarget
+  attackPreviewIsStaleForTarget, attackPreviewPendingForTarget
 };
 
 export type DevelopmentSlotSummary = {
@@ -1571,4 +1571,3 @@ export const processActionQueue = (
   }
   return false;
 };
-

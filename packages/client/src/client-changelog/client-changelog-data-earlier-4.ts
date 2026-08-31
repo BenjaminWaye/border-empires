@@ -485,4 +485,13 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
       "The Gold income breakdown now shows \"Aether Condenser\" (and any other structure-labeled income/upkeep line) with its proper display name instead of its internal type"
     ]
   },
+  {
+    createdAt: 1788175437827, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.3",
+    title: "Fixed the Launch Attack win chance disappearing while you were reading it",
+    why: "The win-chance calculation and \"how this is calculated\" breakdown were cached for only 5 seconds. Leaving an enemy tile's menu open past that -- while reading the math, or just deciding -- meant the next routine tile update silently re-rendered the panel against an expired cache, so the win chance and breakdown just vanished even though nothing about the battle odds had changed.",
+    changes: [
+      "The Launch Attack panel now quietly refreshes its win chance in the background while it's open on an enemy tile, so the calculation and breakdown stay visible instead of disappearing every few seconds"
+    ]
+  },
 ];
