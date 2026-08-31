@@ -78,7 +78,7 @@ describe("crystal core actions regression", () => {
     });
   });
 
-  it("shows Aether Purge disabled with 'Cannot purge your own tiles' on own tile", () => {
+  it("shows Aether Purge disabled with 'Cannot purge your own or allied tiles' on own tile", () => {
     const state = stateWithSignalFires();
     const obsTile: Tile = {
       x: 0,
@@ -103,7 +103,42 @@ describe("crystal core actions regression", () => {
     expect(lance).toBeDefined();
     expect(lance).toMatchObject({
       disabled: true,
-      disabledReason: "Cannot purge your own tiles"
+      disabledReason: "Cannot purge your own or allied tiles"
+    });
+  });
+
+  it("shows Aether Purge and Aether EMP disabled with an allied-tile reason on an allied tile", () => {
+    const state = stateWithSignalFires();
+    state.techIds = ["crystal-lattices", "cryptography"];
+    const obsTile: Tile = {
+      x: 0,
+      y: 0,
+      terrain: "LAND",
+      ownerId: "me",
+      ownershipState: "SETTLED",
+      observatory: { ownerId: "me", status: "active" }
+    } as Tile;
+    state.tiles.set(keyFor(0, 0), obsTile);
+    const allyTile: Tile = {
+      x: 1,
+      y: 1,
+      terrain: "LAND",
+      ownerId: "ally-1",
+      ownershipState: "SETTLED",
+      economicStructure: { type: "AETHER_TOWER", ownerId: "ally-1", status: "active" }
+    } as Tile;
+    state.tiles.set(keyFor(1, 1), allyTile);
+
+    const actions = menuActionsForSingleTile(state, allyTile, { ...baseDeps, isTileOwnedByAlly: () => true } as never);
+    const lance = findAction(actions, "aether_lance");
+    expect(lance).toMatchObject({
+      disabled: true,
+      disabledReason: "Cannot purge your own or allied tiles"
+    });
+    const emp = findAction(actions, "aether_emp");
+    expect(emp).toMatchObject({
+      disabled: true,
+      disabledReason: "Cannot EMP your own or allied tiles"
     });
   });
 

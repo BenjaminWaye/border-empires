@@ -18,8 +18,7 @@ import { nextTownGrowthUpgrade, type Tile } from "@border-empires/shared";
 import {
   buildConnectedTownNetworkForPlayer,
   enrichTownWithConnectedNetwork,
-  firstThreeTownsGoldOutputMultiplierForPlayer,
-  firstThreeTownsPopulationGrowthMultiplierForPlayer,
+  firstThreeTownMultipliersForTile,
   type ConnectedTownNetworkEntry
 } from "./economy-network/economy-network.js";
 import {
@@ -322,14 +321,13 @@ export const buildTownSummary = (
   const clearingHouseTownNames = tile.ownerId ? clearingHouseSourceTownNames(tileKey, tile.ownerId, tilesByKey, townNetwork, dormantEconomicStructureKeys) : [], clearingHouseActive = clearingHouseTownNames.length > 0;
   const incomeMultiplier = player?.incomeMultiplier ?? 1;
   const economyPlayer = snapshotEconomyPlayer(player);
-  const firstThreeTownMult =
-    economyPlayer && firstThreeTownKeys?.has(tileKey)
-      ? firstThreeTownsGoldOutputMultiplierForPlayer(economyPlayer)
-      : 1;
-  const firstThreeTownPopGrowthMult =
-    economyPlayer && firstThreeTownKeys?.has(tileKey)
-      ? firstThreeTownsPopulationGrowthMultiplierForPlayer(economyPlayer)
-      : 1;
+  // See firstThreeTownMultipliersForTile's own doc comment: every consumer
+  // of Mercantile Charter's first-three-towns bonus (both the real gold/
+  // growth math and the wire display fields below) goes through this one
+  // function so the two can't drift out of sync again.
+  const { goldMult: firstThreeTownMult, popGrowthMult: firstThreeTownPopGrowthMult } = economyPlayer
+    ? firstThreeTownMultipliersForTile(economyPlayer, firstThreeTownKeys, tileKey)
+    : { goldMult: 1, popGrowthMult: 1 };
   const baseGoldPerMinute = isSettlement ? SETTLEMENT_BASE_GOLD_PER_MIN : TOWN_BASE_GOLD_PER_MIN;
   // Aether Condenser/Titanium Works/Umbrite Works (and Advanced tiers) built
   // in this town's support ring: like Mintworks, their EXCHANGE-mode gold

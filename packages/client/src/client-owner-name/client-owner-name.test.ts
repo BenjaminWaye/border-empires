@@ -14,7 +14,8 @@ describe("playerNameForOwnerFromState", () => {
         score: 99,
         tiles: 25,
         incomePerMinute: 8,
-        techs: 4
+        techs: 4,
+        manpowerCap: 300
       }
     ];
 
@@ -25,7 +26,7 @@ describe("playerNameForOwnerFromState", () => {
     const state = createInitialState();
     state.playerNames.set("ai-8", "AI 8");
     state.leaderboard.overall = [
-      { id: "ai-8", name: "Freja Sund", rank: 1, score: 99, tiles: 25, incomePerMinute: 8, techs: 4 }
+      { id: "ai-8", name: "Freja Sund", rank: 1, score: 99, tiles: 25, incomePerMinute: 8, techs: 4, manpowerCap: 300 }
     ];
 
     expect(playerNameForOwnerFromState(state, "ai-8")).toBe("AI 8");
@@ -37,7 +38,7 @@ describe("playerDisplayNameForOwnerFromState", () => {
     const state = createInitialState();
     state.playerNames.set("ai-8", "AI 8");
     state.leaderboard.overall = [
-      { id: "ai-8", name: "Freja Sund", rank: 1, score: 99, tiles: 25, incomePerMinute: 8, techs: 4 }
+      { id: "ai-8", name: "Freja Sund", rank: 1, score: 99, tiles: 25, incomePerMinute: 8, techs: 4, manpowerCap: 300 }
     ];
 
     expect(playerDisplayNameForOwnerFromState(state, "ai-8")).toBe("Freja Sund");

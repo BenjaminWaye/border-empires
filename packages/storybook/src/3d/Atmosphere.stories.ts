@@ -15,7 +15,7 @@ const render = (args: Args): HTMLElement => {
 
   if (args.showForeground) {
     const forest = createForest(stage.scene, 81);
-    forEachGridCell({ radius: 4, spacing: 1 }, (x, z) => forest.addInstance(x, z, 0));
+    forEachGridCell({ radius: 4, spacing: 1 }, (x, z) => forest.addInstance(x, z, 0, x, z));
     forest.commit();
     cleanups.push(forest.dispose);
 

@@ -18,7 +18,7 @@ import {
   dockBaseGoldPerMinuteForPlayer,
   enrichTownWithConnectedNetwork,
   firstThreeTownKeysForPlayer,
-  firstThreeTownsGoldOutputMultiplierForPlayer,
+  firstThreeTownMultipliersForTile,
   countSupportedStructures,
   hasSupportedStructure,
   supportTileBelongsToTown,
@@ -206,9 +206,7 @@ export const townGoldPerMinuteForPlayer = (
         ? hasSupportedStructure(player.id, connectedTile, "CLEARING_HOUSE", tiles, false, dormantEconomicStructureKeys)
         : false;
     });
-  const firstThreeTownMult = firstThreeTownKeys.has(tileKey)
-    ? firstThreeTownsGoldOutputMultiplierForPlayer(player)
-    : 1;
+  const { goldMult: firstThreeTownMult } = firstThreeTownMultipliersForTile(player, firstThreeTownKeys, tileKey);
   return (
     TOWN_BASE_GOLD_PER_MIN *
     supportRatio *

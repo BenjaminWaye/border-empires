@@ -14,7 +14,7 @@ import { dropStuckPendingMusterAttack, findClosestMuster, hasFundedMusterWithinR
 import { showVisibleActionWarning, type VisibleActionWarningDeps } from "../client-visible-action-warning.js"; import { pauseWaypointForManpowerIfNeeded } from "./client-waypoint-manpower-pause.js";
 import { cancelWaypointOnBarrierBlock, planWaypoint } from "../client-waypoint-planner/client-waypoint-planner.js";
 import { authoritativeIsInReach } from "../client-reach-authoritative/client-reach-authoritative.js";
-import { registerWaypointNoProgressTick } from "./client-waypoint-halt.js"; import { settleProgressSetChanged } from "./client-settle-progress-diff.js";
+import { registerWaypointNoProgressTick, isWaypointStepStillPending } from "./client-waypoint-halt.js"; import { settleProgressSetChanged } from "./client-settle-progress-diff.js";
 import {
   persistWaypointQueueForPlayer,
   syncWaypointQueueToServer,
@@ -726,8 +726,7 @@ export const topUpFromWaypoint = (
 ): boolean => {
   const waypoint = state.waypoint[0];
   if (!waypoint) return false;
-  if (state.actionQueue.length > 0) return false;
-  if (state.actionInFlight) return false;
+  if (waypoint.lastEnqueuedKey && isWaypointStepStillPending(state, waypoint.lastEnqueuedKey)) return false;
 
   let target = waypoint.target;
   const targetTile = state.tiles.get(keyFor(target.x, target.y));

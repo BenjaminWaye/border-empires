@@ -18,7 +18,7 @@ import {
 } from "@border-empires/shared";
 import type { CommandEnvelope, SimulationEvent } from "@border-empires/sim-protocol";
 import { parseBuildStructurePayload } from "./runtime-command-parsers.js";
-import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
+import { currentTileFieldSlotRequirements, totalsFromSlotRequirements, emptyResourceSlotTotals, type ResourceSlotTotals } from "./resource-slot-view/resource-slot-view.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import { multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { isMonumentBaseType, monumentBaseTypeForPartType, monumentClaimOwnerId } from "./monument-uniqueness.js";
@@ -178,7 +178,16 @@ function hasFreeResourceSlots(
   if (requirements.length === 0) return true;
   const supply = context.resourceSlotSupplyForPlayer(command.playerId);
   const demand = context.resourceSlotDemandForPlayer(command.playerId);
-  const alreadyOnThisTile = totalsFromSlotRequirements(currentTileFieldSlotRequirements(target, tileField, command.playerId));
+  // A Relay Beacon's own FOOD demand is frequently waived to 0 (the
+  // player's earliest RELAY_BEACON_FREE_FOOD_SLOT_COUNT beacons never count
+  // against demand at all -- slot-waivers.ts), so crediting back its raw,
+  // unwaived requirement here would double-count a slot that was never
+  // actually consumed and let a Palisade build bypass this gate with zero
+  // real free FOOD capacity. Building WOODEN_FORT over a Relay Beacon
+  // therefore gets no netting credit for the beacon it's replacing.
+  const alreadyOnThisTile = structureType === "WOODEN_FORT" && target.economicStructure?.type === "RELAY_BEACON"
+    ? emptyResourceSlotTotals()
+    : totalsFromSlotRequirements(currentTileFieldSlotRequirements(target, tileField, command.playerId));
   for (const req of requirements) {
     const freeExcludingThisTile = supply[req.resource] - demand[req.resource] + alreadyOnThisTile[req.resource];
     if (freeExcludingThisTile < req.count) {
@@ -267,6 +276,7 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
 
   const hasTech = (id: string) => actor.techIds.has(id);
   const buildingFort = spec.kind === "FORT";
+  const buildingWoodenFort = structureType === "WOODEN_FORT";
   const buildingRelayBeacon = spec.kind === "OUTPOST" && structureType === "RELAY_BEACON";
   let upgrading = false;
   if (spec.kind === "FORT") {
@@ -286,7 +296,15 @@ export function handleBuildStructureCommand(context: RuntimeStructureCommandCont
   // A Fort and a Relay Beacon are allowed to share a tile: a Fort build
   // ignores an existing Relay Beacon in economicStructure, and a Relay
   // Beacon build ignores an existing Fort.
-  const economicConflict = !!target.economicStructure && !(buildingFort && target.economicStructure.type === "RELAY_BEACON");
+  //
+  // WOODEN_FORT (Palisade) is itself kind "ECONOMIC" and lives in
+  // economicStructure like a Relay Beacon does, so it can't share the tile
+  // the way a full Fort can (same tile field, only one value fits). Building
+  // a Palisade onto a Relay Beacon tile replaces the beacon instead of being
+  // rejected outright -- consistent with how any other economic-slot build
+  // overwrites the field below (`[spec.tileField]: {...}`).
+  const economicConflict = !!target.economicStructure &&
+    !((buildingFort || buildingWoodenFort) && target.economicStructure.type === "RELAY_BEACON");
   const fortConflict = !!target.fort && spec.kind !== "ECONOMIC" && !buildingRelayBeacon;
   if (!upgrading && !sameFamilyUpgrade && (target.observatory || target.siegeOutpost || economicConflict || fortConflict)) {
     rejectCommand(context, command, "BUILD_INVALID", "tile already has structure");

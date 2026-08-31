@@ -42,7 +42,13 @@ describe("topUpFromWaypoint", () => {
     expect(state.actionQueue).toHaveLength(0);
   });
 
-  it("does not top up while the action queue already has work", () => {
+  it("tops up alongside unrelated manually-queued work instead of waiting for the queue to drain", () => {
+    // Regression: topUpFromWaypoint used to refuse to advance the waypoint
+    // at all whenever actionQueue held anything, so a large manually-queued
+    // frontier batch (adjacency/frontier-expansion clicks) starved the
+    // waypoint indefinitely as long as the player kept adding to it. It
+    // should only defer while its OWN previously-enqueued step is still
+    // pending -- see isWaypointStepStillPending in client-waypoint-halt.ts.
     const state = stateWithTiles([
       reachAnchorTile(3, 3),
       tile(4, 3),
@@ -54,8 +60,26 @@ describe("topUpFromWaypoint", () => {
       plan: { target: { x: 5, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
     }];
     const ok = topUpFromWaypoint(state, keyFor, () => {});
-    expect(ok).toBe(false);
-    expect(state.actionQueue).toHaveLength(1);
+    expect(ok).toBe(true);
+    expect(state.actionQueue.length).toBeGreaterThan(1);
+  });
+
+  it("still defers once its own enqueued step is pending in the queue", () => {
+    const state = stateWithTiles([
+      reachAnchorTile(3, 3),
+      tile(4, 3),
+      tile(5, 3)
+    ]);
+    state.waypoint = [{
+      target: { x: 5, y: 3 },
+      plan: { target: { x: 5, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
+    }];
+    const first = topUpFromWaypoint(state, keyFor, () => {});
+    expect(first).toBe(true);
+    const queueLengthAfterFirst = state.actionQueue.length;
+    const second = topUpFromWaypoint(state, keyFor, () => {});
+    expect(second).toBe(false);
+    expect(state.actionQueue).toHaveLength(queueLengthAfterFirst);
   });
 
   it("clears the waypoint when the target tile is now owned (no feed echo — commit 1ddf07f7 dropped self-action feed echoes)", () => {
@@ -383,5 +407,31 @@ describe("topUpFromWaypoint", () => {
       { type: "WAYPOINT_CANCEL", x: 4, y: 3 },
       { type: "WAYPOINT_ENQUEUE", x: 3, y: 2, trackBarbarian: true }
     ]);
+  });
+
+  it("keeps advancing a waypoint that was placed alongside a large manually-queued frontier batch", () => {
+    // Reproduces the reported bug: placing several individually-queued
+    // adjacency/frontier-expansion targets (e.g. from a drag-select) used to
+    // starve an active waypoint forever, since topUpFromWaypoint refused to
+    // run at all while actionQueue was non-empty -- and a big manual batch
+    // kept it non-empty indefinitely.
+    const tiles = [reachAnchorTile(3, 3)];
+    for (let x = 4; x <= 5; x += 1) tiles.push(tile(x, 3)); // waypoint route
+    for (let y = 4; y <= 10; y += 1) tiles.push(tile(3, y)); // manually-queued batch
+    const state = stateWithTiles(tiles);
+    for (let y = 4; y <= 10; y += 1) state.actionQueue.push({ x: 3, y });
+    const manualQueueLength = state.actionQueue.length;
+    state.waypoint = [{
+      target: { x: 5, y: 3 },
+      plan: { target: { x: 5, y: 3 }, steps: [], totalGold: 0, totalManpower: 0, totalDurationMs: 0, expandCount: 0, attackCount: 0, reachable: true }
+    }];
+
+    const ok = topUpFromWaypoint(state, keyFor, () => {});
+
+    expect(ok).toBe(true);
+    // The waypoint's first leg was appended alongside the manual batch,
+    // not blocked by it.
+    expect(state.actionQueue.length).toBe(manualQueueLength + 1);
+    expect(state.actionQueue.some((entry) => entry.fromWaypoint)).toBe(true);
   });
 });

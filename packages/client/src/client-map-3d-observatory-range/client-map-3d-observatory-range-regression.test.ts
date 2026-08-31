@@ -11,11 +11,21 @@ const clientSource = (filename: string): string => {
 describe("3d observatory range regression", () => {
   it("renders selected observatory ranges in the 3d scene instead of the flat canvas overlay", () => {
     const map3dSource = clientSource("../client-map-3d/client-map-3d.ts");
+    const selectionRangeOverlaysSource = clientSource(
+      "../client-map-3d-selection-range-overlays/client-map-3d-selection-range-overlays.ts"
+    );
     const runtimeLoopSource = clientSource("../client-runtime-loop.ts");
+    const selectedStructurePreview2DSource = clientSource(
+      "../client-selected-structure-preview-2d/client-selected-structure-preview-2d.ts"
+    );
 
-    expect(map3dSource).toContain("syncObservatoryRangeMarkers");
-    expect(map3dSource).toContain("writeObservatoryRangeBorderGeometry");
-    expect(map3dSource).toContain("writeObservatoryRangeFillGeometry");
-    expect(runtimeLoopSource).toContain("if (!isTrue3DRendererActive() && selectedWorld && selectedWorld.observatory)");
+    expect(map3dSource).toContain("createSelectionRangeOverlays");
+    expect(selectionRangeOverlaysSource).toContain("syncObservatoryRing");
+    expect(selectionRangeOverlaysSource).toContain("writeObservatoryRangeBorderGeometry");
+    expect(selectionRangeOverlaysSource).toContain("writeObservatoryRangeFillGeometry");
+    expect(runtimeLoopSource).toContain(
+      "if (!isTrue3DRendererActive()) renderSelectedStructurePreview2D(state, selectedWorld, deps, size, halfW, halfH);"
+    );
+    expect(selectedStructurePreview2DSource).toContain("if (selectedWorld && selectedWorld.observatory)");
   });
 });

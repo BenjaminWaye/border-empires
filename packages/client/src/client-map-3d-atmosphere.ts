@@ -103,7 +103,19 @@ export const createAtmosphere = (scene: Scene): AtmosphereResources => {
   // show their color again.
   const hemiLight = new HemisphereLight("#b8c8ff", "#2a2030", 0.7);
   const sun = new DirectionalLight("#fff0c0", 1.55);
-  sun.position.set(45, 75, 25);
+  // On top of the fixed tilt noted above, the camera also never orbits --
+  // camera.position.x/z only drift a few tiles for pan, no rotate control
+  // exists. At the reference zoom it sits at roughly (0.5, 21, 15) looking at
+  // (0.5, 0, 0.5), i.e. above and toward +Z, down toward -Z. This light's old
+  // position (x=45) had a heavy sideways bias with no matching camera
+  // x-offset, so it didn't shine from anywhere near the camera's own
+  // direction -- the faces of buildings/terrain the camera actually sees
+  // (their +Z-facing sides) stayed shadowed regardless of where the player
+  // looked. Since the azimuth is fixed, a static light aligned with it gets
+  // the "lit from behind the viewer" effect a free-orbit game would need a
+  // camera-tracking light for, at zero runtime cost. Small x offset (not 0)
+  // keeps some cross-lighting so faces don't go flat.
+  sun.position.set(6, 75, 46);
   const fillLight = new DirectionalLight("#ff8a5c", 0.55);
   fillLight.position.set(-30, 20, -40);
 

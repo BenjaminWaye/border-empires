@@ -16,6 +16,99 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788128230679, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.7",
+    title: "Fixed Trade Nexus showing a duplicate 2D overlay on the 3D map",
+    why: "Trade Nexus (CARAVANARY) draws its own dedicated range overlay directly in the 3D renderer, bypassing the generic 3D structure-overlay set that the 2D canvas checks to decide whether to skip its own overlay image. Because Trade Nexus wasn't in that set, the 2D fallback overlay kept drawing on top of the 3D one for every player on the 3D renderer.",
+    changes: [
+      "Trade Nexus no longer shows a flat 2D overlay image layered on top of its 3D range overlay"
+    ]
+  },
+  {
+    createdAt: 1788127316489, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.6",
+    title: "Selected-structure reach highlight now also shows on the 3D map",
+    why: "The green reach-disk highlight for a selected town/dock/outpost-family structure only drew on the 2D canvas overlay, so most players (on the 3D renderer) never saw it -- only players on the 2D fallback (used on lower-end/broken hardware) did.",
+    changes: [
+      "Selecting a town, dock, or outpost-family structure (Relay Beacon, Siege Outpost, Siege Tower, Dread Tower) now shows its green reach-disk ring on the 3D map too, matching the 2D overlay"
+    ]
+  },
+  {
+    createdAt: 1788126287875, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.5",
+    title: "Tile debug download now includes dock connection-line diagnostics",
+    why: "Reports of a dock's yellow dashed connection line never appearing were hard to triage remotely -- there was no way to see, from a single tile, whether the dock actually has a paired-dock entry, whether the visibility gate was allowing it, or whether the sea-route pathfinder found a route.",
+    changes: [
+      "The tile debug download (dev/support tool, not a player-facing feature) now includes a dockDebug section on dock tiles with their pairing, visibility-gate result, and route status"
+    ]
+  },
+  {
+    createdAt: 1788127049993, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.6",
+    title: "The Buildings tab now shows Palisade and Fort options on a Relay Beacon tile",
+    why: "The server was already updated to let a Palisade or Fort build go ahead on a tile with an existing Relay Beacon, but the Buildings tab's own menu logic still hid both options outright whenever any economicStructure was present -- so a Relay Beacon tile's Buildings tab showed only Observatory, with no way to even attempt the build the server now allows.",
+    changes: [
+      "The Buildings tab now shows \"Build Palisade\" and \"Build Fort\" on a tile with an existing Relay Beacon, matching what the server already permits"
+    ]
+  },
+  {
+    createdAt: 1788108392688, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.4",
+    title: "You can now build a Palisade on a tile that already has a Relay Beacon",
+    why: "A Palisade and a Relay Beacon both occupy the same build slot on a tile, so trying to build a Palisade where a Relay Beacon already stood was rejected outright with \"tile already has structure\" -- even though a full Fort is explicitly allowed to take that slot from a Relay Beacon. Palisade is the entry tier of the same Fort ladder and had no equivalent carve-out.",
+    changes: [
+      "Building a Palisade on a tile with an existing Relay Beacon now succeeds and replaces the beacon, matching how building a Fort there already worked",
+      "The Relay Beacon's vision bonus ends once it's replaced by the Palisade, the same as any other structure it's built over"
+    ]
+  },
+  {
+    createdAt: 1788124049918, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "Fixed forest trees visibly reshuffling into a different arrangement while panning the 3D map",
+    why: "Which tree species and spacing layout a forest tile got was picked by hashing its on-screen position rather than its fixed world position -- so a tile's on-screen position drifting slightly as you panned (before the next terrain rebuild caught up) could flip it to a different species/layout, showing up as trees visibly popping into a different arrangement mid-pan.",
+    changes: [
+      "Forest tiles now keep the same tree species and layout regardless of camera position, instead of occasionally reshuffling while panning"
+    ]
+  },
+  {
+    createdAt: 1788088003101, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "Selecting a town, dock, or outpost-family structure now highlights its reach in green",
+    why: "The aggregate border overlay shows your empire's whole reach, but not what any single building actually contributes to it -- with several towns, docks, and beacons dotted around, it was hard to tell at a glance how far one specific structure's reach disk extends.",
+    changes: [
+      "Selecting a town, dock, or an outpost-family structure (Relay Beacon, Siege Outpost, Siege Tower, Dread Tower) now green-tints every tile within that structure's own reach disk on the 2D map"
+    ]
+  },
+  {
+    createdAt: 1788088263076, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.5",
+    title: "Relit the 3D map and fixed resource/town icons jittering while panning",
+    why: "The sun light sat well off to one side of the map's fixed camera angle, so the faces of buildings and terrain the camera actually looks at stayed shadowed no matter where you looked. Separately, the small badge/marker icon layer over the 3D view (resource, dock, and town icons) redrew on a slower, throttled cadence left over from the old full 2D map renderer -- fine when panning snapped a whole tile at a time, but visible as lag/jitter now that panning moves the camera continuously every frame.",
+    changes: [
+      "The 3D map's key light now shines from roughly the same direction the fixed camera looks, instead of off to one side, so building and terrain faces read lit instead of shadowed",
+      "Resource, dock, and town icons over the 3D map now redraw at close to full frame rate instead of a slower throttled cadence, so they no longer lag or jitter behind the terrain while panning"
+    ]
+  },
+  {
+    createdAt: 1788088515738, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "Settle Land now queues on a tile you're already expanding into",
+    why: "Pressing Settle Land on a neutral tile that was already mid-expansion (an active claim, or one still waiting its turn in the frontier queue) used to be rejected as a duplicate/locked target -- there was no way to line up the settle ahead of time, so you had to watch for the expansion to land and click again.",
+    changes: [
+      "Settle Land on a tile you're already expanding into now queues the settlement and fires it automatically once that tile becomes your frontier -- instead of being rejected",
+      "The tile's progress tab shows queued settle (and settle + build) actions lined up behind the active expansion, with a cancel button for each"
+    ]
+  },
+  {
+    createdAt: 1788107851889, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "Fixed waypoints stalling behind a large queue of manually-claimed tiles",
+    why: "A waypoint's next leg refused to enqueue at all while the frontier action queue held anything, so queuing up several individual tiles (adjacency/frontier-expansion clicks) alongside an active waypoint could stall it indefinitely -- the waypoint never got a turn as long as the player kept adding to the manual queue.",
+    changes: [
+      "An active waypoint now keeps advancing alongside manually-queued frontier tiles instead of waiting for that queue to fully drain"
+    ]
+  },
+  {
     createdAt: 1788036933966, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.4",
     title: "Panning the 3D map now glides instead of snapping tile by tile",
@@ -332,6 +425,35 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "A settled town tile's Gold Production number now includes a support-ring Sell Off converter's contribution, matching the modifier line below it",
       "A converter in Refine mode no longer shows a \"Sell Off gold\" modifier it doesn't actually earn"
+    ]
+  },
+  {
+    createdAt: 1788088074612, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "The Overall leaderboard now shows each empire's manpower cap",
+    why: "The leaderboard's Overall row showed score, settled tiles, income, and tech count but nothing about manpower capacity, so you couldn't compare your army ceiling against rivals without opening their empire directly.",
+    changes: [
+      "Each row in the Overall leaderboard now lists a \"manpower cap\" figure alongside score, settled tiles, income, and tech count"
+    ]
+  },
+  {
+    createdAt: 1788107095722, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.4",
+    title: "Aether Purge and Aether EMP no longer offer to target allied tiles",
+    why: "The tile-action menu only checked whether a tile was your own before offering Aether Purge or Aether EMP, so an allied empire's tile looked like a valid, enabled target -- clicking it just got silently rejected by the server with a confusing \"target hostile settled or frontier land\" error, since allies were never actually strikeable.",
+    changes: [
+      "Aether Purge and Aether EMP now show as disabled with a \"Cannot purge/EMP your own or allied tiles\" reason when selecting an allied tile, instead of appearing available and then failing server-side"
+    ]
+  },
+  {
+    createdAt: 1788115016608, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.4",
+    title: "Observatories now rise as aether towers on the 3D map",
+    why: "The richest aether nodes on the map had no landmark -- a knowing eye could see the survey lines flickering, but the land itself still read as featureless grassland. Observatories rendered as a generic structure mesh, so the network (and the strategy around holding the strong aether fields) was invisible at a glance.",
+    changes: [
+      "Placing an Observatory on the 3D map now raises a tall brass-and-iron aether tower with a glowing cyan core, floating brass rings and upward-streaming motes, instead of the old generic structure mesh",
+      "Observatories placed near each other light up thin cyan aether conduits with brass rails, collar joints, light nodes and travelling energy pulses, so a connected network reads as a visible web",
+      "Where several observatories stand close together a rotating geometric synchronization cluster forms between them, marking the strongest aether convergence on the map"
     ]
   },
   {

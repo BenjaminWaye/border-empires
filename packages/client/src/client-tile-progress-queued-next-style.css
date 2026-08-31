@@ -1,0 +1,29 @@
+/* "Then: settle" / "then: settle + build" list under the progress tab's
+   primary card -- actions queued to fire once the tile's active action
+   (usually an in-flight EXPAND capture) resolves. See
+   queuedAutoSettleNextForTile / autoSettleTargets. */
+.tile-progress-queued-next {
+  display: grid;
+  gap: 6px;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+}
+.tile-progress-queued-next-item {
+  display: grid;
+  gap: 4px;
+}
+.tile-progress-queued-next-title {
+  color: #d6e8ff;
+  font-size: 12px;
+  font-weight: 800;
+}
+.tile-progress-queued-next-detail {
+  color: rgba(221, 234, 248, 0.72);
+  font-size: 11px;
+  line-height: 1.35;
+}
+.tile-progress-queued-next .tile-progress-cancel {
+  min-height: 28px;
+  font-size: 11px;
+}

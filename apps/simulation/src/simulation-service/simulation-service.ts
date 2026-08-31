@@ -412,17 +412,17 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   const slowPersistenceWarnMs = Math.max(25, Number(process.env.SIMULATION_SLOW_PERSISTENCE_WARN_MS ?? 100));
   const slowAiSyncWarnMs = Math.max(10, Number(process.env.SIMULATION_SLOW_AI_SYNC_WARN_MS ?? 50));
   const mainThreadTasks = createMainThreadTaskTrackerFromEnv();
+  // Declared here, before any `new SimulationRuntime(...)`: its constructor can synchronously
+  // call back into trackSyncMainThreadTaskWithMetrics below via world-init reach anchors, which
+  // hit simulationMetrics while still in the TDZ if declared after (crashed staging 2026-08-31).
+  const simulationMetrics = createSimulationMetrics();
   // Wraps mainThreadTasks.trackSync so every named phase (town_network_rebuild,
   // tile_yield_economy_context_rebuild, etc.) also lands in a Prometheus
   // quantile, not just the in-memory ring buffer mainThreadTasks itself keeps
   // for event_loop_blocked attribution. That ring buffer already had good
   // attribution, but only surfaces through stdout logs with ~9min retention
   // on Fly; a live incident (2026-07-22) needed a lucky log capture to see
-  // which phase was dominating a 3s+ block. simulationMetrics is referenced
-  // here via closure (defined further below in this function) rather than
-  // passed as a parameter — safe because this function is only ever CALLED
-  // later, once simulationMetrics is fully initialised, exactly like the
-  // wrapJobRun/shouldPauseBackground closures elsewhere in this file.
+  // which phase was dominating a 3s+ block.
   const trackSyncMainThreadTaskWithMetrics: MainThreadTaskTracker["trackSync"] = (phase, details, task) => {
     const startedAtMs = Date.now();
     try {
@@ -922,7 +922,6 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     ...(legacySnapshotBootstrap ? { seedTiles: legacySnapshotBootstrap.seedTiles } : {}),
     initialPlayers: runtimePlayers
   });
-  const simulationMetrics = createSimulationMetrics();
   const runtimeIdentity = (): SimulationRuntimeIdentity => {
     if (legacySnapshotBootstrap) {
       return {

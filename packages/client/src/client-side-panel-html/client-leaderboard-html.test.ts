@@ -6,10 +6,10 @@ describe("leaderboard and season victory rendering", () => {
     const html = leaderboardHtml(
       {
         overall: [
-          { id: "p1", rank: 1, name: "Alpha", score: 10, tiles: 10, incomePerMinute: 5, techs: 1 },
-          { id: "p2", rank: 2, name: "Beta", score: 9, tiles: 9, incomePerMinute: 4, techs: 1 }
+          { id: "p1", rank: 1, name: "Alpha", score: 10, tiles: 10, incomePerMinute: 5, techs: 1, manpowerCap: 200 },
+          { id: "p2", rank: 2, name: "Beta", score: 9, tiles: 9, incomePerMinute: 4, techs: 1, manpowerCap: 180 }
         ],
-        selfOverall: { id: "me", rank: 44, name: "Nauticus", score: 1, tiles: 1, incomePerMinute: 1, techs: 1 },
+        selfOverall: { id: "me", rank: 44, name: "Nauticus", score: 1, tiles: 1, incomePerMinute: 1, techs: 1, manpowerCap: 100 },
         selfByTiles: { id: "me", rank: 11, name: "Nauticus", value: 7 },
         selfByIncome: { id: "me", rank: 8, name: "Nauticus", value: 3.5 },
         selfByTechs: { id: "me", rank: 13, name: "Nauticus", value: 2 },
@@ -66,7 +66,7 @@ describe("leaderboard and season victory rendering", () => {
     expect(html).toContain("You: 3/87 towns");
     expect(html).toContain("You: 12.0 gold/m");
     expect(html).toContain("You: 1/6 docks");
-    expect(html).toContain("44. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> | score 1.0 | settled 1 | income 1440.0/day | tech 1");
+    expect(html).toContain("44. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> | score 1.0 | settled 1 | income 1440.0/day | tech 1 | manpower cap 100");
     expect(html).toContain("11. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (7.0)");
     expect(html).toContain("8. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (3.5)");
     expect(html).toContain("13. <span class=\"lb-player-name\"><span class=\"lb-player-dot\" style=\"--player-color:#ef4444\" aria-hidden=\"true\"></span><span>You</span></span> (2.0)");
@@ -140,7 +140,7 @@ describe("leaderboard and season victory rendering", () => {
   it("does not duplicate self metric rows when the player is already in the visible top five", () => {
     const html = leaderboardHtml(
       {
-        overall: [{ id: "me", rank: 1, name: "Nauticus", score: 10, tiles: 10, incomePerMinute: 5, techs: 4 }],
+        overall: [{ id: "me", rank: 1, name: "Nauticus", score: 10, tiles: 10, incomePerMinute: 5, techs: 4, manpowerCap: 300 }],
         selfOverall: undefined,
         selfByTiles: undefined,
         selfByIncome: undefined,
@@ -161,8 +161,8 @@ describe("leaderboard and season victory rendering", () => {
   it("does not append a duplicate self row when the player is already visible outside first place", () => {
     const html = leaderboardHtml(
       {
-        overall: [{ id: "me", rank: 11, name: "Nauticus", score: 4, tiles: 1, incomePerMinute: 1, techs: 0 }],
-        selfOverall: { id: "me", rank: 11, name: "Nauticus", score: 4, tiles: 1, incomePerMinute: 1, techs: 0 },
+        overall: [{ id: "me", rank: 11, name: "Nauticus", score: 4, tiles: 1, incomePerMinute: 1, techs: 0, manpowerCap: 150 }],
+        selfOverall: { id: "me", rank: 11, name: "Nauticus", score: 4, tiles: 1, incomePerMinute: 1, techs: 0, manpowerCap: 150 },
         selfByTiles: { id: "me", rank: 11, name: "Nauticus", value: 1 },
         selfByIncome: { id: "me", rank: 11, name: "Nauticus", value: 1 },
         selfByTechs: { id: "me", rank: 11, name: "Nauticus", value: 0 },
@@ -175,7 +175,7 @@ describe("leaderboard and season victory rendering", () => {
     );
 
     expect(html).toContain(
-      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Nauticus</span></span> | score 4.0 | settled 1 | income 1440.0/day | tech 0'
+      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Nauticus</span></span> | score 4.0 | settled 1 | income 1440.0/day | tech 0 | manpower cap 150'
     );
     expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1440.0/day | tech 0");
     expect(html).not.toContain("11. You (1.0)");
@@ -186,10 +186,10 @@ describe("leaderboard and season victory rendering", () => {
     const html = leaderboardHtml(
       {
         overall: [
-          { id: "p1", rank: 11, name: "Test Player", score: 4, tiles: 1, incomePerMinute: 1, techs: 0 },
-          { id: "p2", rank: 12, name: "Nauticus", score: 1, tiles: 1, incomePerMinute: 0, techs: 0 }
+          { id: "p1", rank: 11, name: "Test Player", score: 4, tiles: 1, incomePerMinute: 1, techs: 0, manpowerCap: 150 },
+          { id: "p2", rank: 12, name: "Nauticus", score: 1, tiles: 1, incomePerMinute: 0, techs: 0, manpowerCap: 90 }
         ],
-        selfOverall: { id: "me", rank: 11, name: "Test Player", score: 4, tiles: 1, incomePerMinute: 1, techs: 0 },
+        selfOverall: { id: "me", rank: 11, name: "Test Player", score: 4, tiles: 1, incomePerMinute: 1, techs: 0, manpowerCap: 150 },
         selfByTiles: { id: "me", rank: 12, name: "Test Player", value: 1 },
         selfByIncome: { id: "me", rank: 9, name: "Test Player", value: 1 },
         selfByTechs: { id: "me", rank: 5, name: "Test Player", value: 0 },
@@ -211,7 +211,7 @@ describe("leaderboard and season victory rendering", () => {
     );
 
     expect(html).toContain(
-      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Test Player</span></span> | score 4.0 | settled 1 | income 1440.0/day | tech 0'
+      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Test Player</span></span> | score 4.0 | settled 1 | income 1440.0/day | tech 0 | manpower cap 150'
     );
     expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1440.0/day | tech 0");
     expect(html).not.toContain("12. You (1.0)");
@@ -222,8 +222,8 @@ describe("leaderboard and season victory rendering", () => {
   it("does not append a duplicate self row when only hidden precision differs", () => {
     const html = leaderboardHtml(
       {
-        overall: [{ id: "p1", rank: 11, name: "Test Player", score: 4.04, tiles: 1, incomePerMinute: 1.04, techs: 0 }],
-        selfOverall: { id: "me", rank: 11, name: "Test Player", score: 4.03, tiles: 1, incomePerMinute: 1.03, techs: 0 },
+        overall: [{ id: "p1", rank: 11, name: "Test Player", score: 4.04, tiles: 1, incomePerMinute: 1.04, techs: 0, manpowerCap: 150 }],
+        selfOverall: { id: "me", rank: 11, name: "Test Player", score: 4.03, tiles: 1, incomePerMinute: 1.03, techs: 0, manpowerCap: 150 },
         selfByTiles: undefined,
         selfByIncome: { id: "me", rank: 9, name: "Test Player", value: 1.04 },
         selfByTechs: { id: "me", rank: 5, name: "Test Player", value: 0.04 },
@@ -236,7 +236,7 @@ describe("leaderboard and season victory rendering", () => {
     );
 
     expect(html).toContain(
-      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Test Player</span></span> | score 4.0 | settled 1 | income 1497.6/day | tech 0'
+      '11. <span class="lb-player-name"><span class="lb-player-dot is-unknown" aria-hidden="true"></span><span>Test Player</span></span> | score 4.0 | settled 1 | income 1497.6/day | tech 0 | manpower cap 150'
     );
     expect(html).not.toContain("11. You | score 4.0 | settled 1 | income 1497.6/day | tech 0");
     expect(html).not.toContain("9. You (1.0)");
@@ -246,8 +246,8 @@ describe("leaderboard and season victory rendering", () => {
   it("labels season objective leaders as You when the current player is already the leader", () => {
     const html = leaderboardHtml(
       {
-        overall: [{ id: "me", rank: 1, name: "Nauticus", score: 10, tiles: 10, incomePerMinute: 5, techs: 4 }],
-        selfOverall: { id: "me", rank: 1, name: "Nauticus", score: 10, tiles: 10, incomePerMinute: 5, techs: 4 },
+        overall: [{ id: "me", rank: 1, name: "Nauticus", score: 10, tiles: 10, incomePerMinute: 5, techs: 4, manpowerCap: 300 }],
+        selfOverall: { id: "me", rank: 1, name: "Nauticus", score: 10, tiles: 10, incomePerMinute: 5, techs: 4, manpowerCap: 300 },
         selfByTiles: { id: "me", rank: 1, name: "Nauticus", value: 10 },
         selfByIncome: { id: "me", rank: 1, name: "Nauticus", value: 5 },
         selfByTechs: { id: "me", rank: 1, name: "Nauticus", value: 4 },
@@ -286,7 +286,7 @@ describe("leaderboard and season victory rendering", () => {
     const html = leaderboardHtml(
       {
         overall: [],
-        selfOverall: { id: "player-auth-1", rank: 12, name: "Nauticus", score: 1, tiles: 1, incomePerMinute: 1, techs: 0 },
+        selfOverall: { id: "player-auth-1", rank: 12, name: "Nauticus", score: 1, tiles: 1, incomePerMinute: 1, techs: 0, manpowerCap: 100 },
         selfByTiles: undefined,
         selfByIncome: undefined,
         selfByTechs: undefined,
@@ -314,7 +314,7 @@ describe("leaderboard and season victory rendering", () => {
   it("shows a neutral dot when a player color is unavailable", () => {
     const html = leaderboardHtml(
       {
-        overall: [{ id: "p1", rank: 1, name: "Gray Banner", score: 10, tiles: 10, incomePerMinute: 5, techs: 4 }],
+        overall: [{ id: "p1", rank: 1, name: "Gray Banner", score: 10, tiles: 10, incomePerMinute: 5, techs: 4, manpowerCap: 300 }],
         selfOverall: undefined,
         selfByTiles: undefined,
         selfByIncome: undefined,

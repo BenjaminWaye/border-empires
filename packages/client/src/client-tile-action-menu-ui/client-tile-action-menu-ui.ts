@@ -8,6 +8,7 @@ import { injectDebugDownloadRow } from "../client-tile-menu-debug-row/client-til
 import { resolveMyReach } from "../client-reach-authoritative/client-reach-authoritative.js";
 import { isDormantFrontierTile } from "../client-reach-overlay/client-reach-overlay.js";
 import { isTrue3DRendererActive } from "../client-renderer-mode.js";
+import { computeDockSeaRoute, isDockRouteVisibleForPlayer } from "../client-dock-routes.js";
 import type { initClientDom } from "../client-dom.js";
 import type { ClientState } from "../client-state/client-state.js";
 import type { Tile, TileActionDef, TileMenuTab, TileMenuView } from "../client-types.js";
@@ -44,6 +45,7 @@ type TileActionMenuUiDeps = {
   handleTileAction: (actionId: TileActionDef["id"], targetKeyOverride?: string, originKeyOverride?: string) => void;
   cancelQueuedSettlement: (tileKey: string) => boolean;
   cancelQueuedBuild: (tileKey: string) => boolean;
+  cancelQueuedAutoSettle: (tileKey: string) => boolean;
   moveQueuedEntryToFront: (tileKey: string) => boolean;
   cancelQueuedWaypointEntry: (x: number, y: number) => boolean;
   moveWaypointToFront: (x: number, y: number) => boolean;
@@ -148,6 +150,10 @@ export const renderTileActionMenu = (
           deps.hideTileActionMenu();
           return;
         }
+        if (btn.dataset.progressAction === "cancel_queued_auto_settle") {
+          deps.cancelQueuedAutoSettle(deps.keyFor(tile.x, tile.y));
+          return;
+        }
         if (btn.dataset.progressAction === "move_queued_entry_to_front") {
           deps.moveQueuedEntryToFront(deps.keyFor(tile.x, tile.y));
           return;
@@ -249,6 +255,40 @@ export const renderTileActionMenu = (
           isBoundaryTile: myReach.has(tileKey) && Object.values(neighborReach).some((inReach) => !inReach),
           isDormantFrontierTile: isDormantFrontierTile(tile)
         };
+        // Dock-line diagnostics: the exact facts the dashed dock-route
+        // renderer decides off of, so "why is there no yellow line here"
+        // can be answered directly instead of guessed at.
+        const matchingPairs = state.dockPairs.filter(
+          (pair) => (pair.ax === tileX && pair.ay === tileY) || (pair.bx === tileX && pair.by === tileY)
+        );
+        const dockDebug = {
+          dockPairsTotalCount: state.dockPairs.length,
+          matchingPairs: matchingPairs.map((pair) => {
+            const otherX = pair.ax === tileX && pair.ay === tileY ? pair.bx : pair.ax;
+            const otherY = pair.ax === tileX && pair.ay === tileY ? pair.by : pair.ay;
+            const visible = isDockRouteVisibleForPlayer(pair, {
+              fogDisabled: state.fogDisabled,
+              selected: state.selected,
+              discoveredDockTiles: state.discoveredDockTiles,
+              keyFor
+            });
+            const route = computeDockSeaRoute(pair.ax, pair.ay, pair.bx, pair.by, {
+              dockRouteCache: state.dockRouteCache,
+              worldIndex: (x: number, y: number): number => wrapY(y) * WORLD_WIDTH + wrapX(x),
+              wrapX,
+              wrapY
+            });
+            return {
+              otherEndpoint: { x: otherX, y: otherY },
+              isDockRouteVisibleForPlayer: visible,
+              otherEndpointDiscovered: state.discoveredDockTiles.has(keyFor(otherX, otherY)),
+              routeFound: route.length >= 2,
+              routeLength: route.length
+            };
+          }),
+          currentlySelected: state.selected,
+          isThisTileSelected: Boolean(state.selected && state.selected.x === tileX && state.selected.y === tileY)
+        };
         const debug = {
           downloadedAt: new Date().toISOString(),
           tileKey,
@@ -256,6 +296,7 @@ export const renderTileActionMenu = (
           userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
           viewerPlayerId: state.me,
           fogDisabled: state.fogDisabled,
+          dockDebug,
           tile,
           reachDebug,
           recentTileMessages: recentMessages
