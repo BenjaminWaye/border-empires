@@ -2001,7 +2001,6 @@ export const createRealtimeGatewayApp = async (options: RealtimeGatewayAppOption
             }
             authTrace.setPlayerId(playerIdentity.playerId);
             session.playerId = playerIdentity.playerId;
-            slackAlerter?.alertPlayerReconnected(playerIdentity.playerId);
             session.canToggleFog = canToggleFogForEmail(playerIdentity.authEmail, options.adminEmail);
             // Always start a new auth with fog ON — fog admins must explicitly re-toggle
             // SET_FOG_DISABLED each login (the client also clears its persisted reveal
