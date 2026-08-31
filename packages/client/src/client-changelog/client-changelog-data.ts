@@ -485,34 +485,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Already-running seasons self-heal their dock routes on the sim's next restart -- no season reset needed",
       "Older servers that don't ship a route still fall back to the client's own sea-route pathfinder, so nothing regresses for them"
     ]
-  },
-  {
-    createdAt: 1788128033639, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31",
-    title: "Renamed the Observatory and Ambaric Tower",
-    why: "Two structure names were due for a refresh to better fit the empire's aether/power theming.",
-    changes: [
-      "The Observatory is now called the Aether Tower everywhere in the UI (build menu, tile overview, tech unlocks, upkeep) -- no change to what it does",
-      "The Ambaric Tower is now called the Ambaric Transformer Station everywhere in the UI -- no change to what it does"
-    ]
-  },
-  {
-    createdAt: 1788162346509, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31",
-    title: "Fixed a fake \"plundered FOOD\" notice on town captures",
-    why: "Capturing a settled FARM/FISH tile always showed a \"Plundered 1 FOOD\" line in the combat alert, but plunder has only ever transferred gold -- no food was ever actually taken from the defender or given to the attacker.",
-    changes: [
-      "Combat/raid alerts no longer show a fake FOOD plunder amount when capturing a resource tile -- plunder remains gold-only, matching what actually happens to both players' stockpiles"
-    ]
-  },
-  {
-    createdAt: 1788162890008, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.31.1",
-    title: "Fixed a town's full tile detail sometimes showing stale data right after opening it",
-    why: "Opening a tile's full detail (or the debug download tool) reused the same \"only send what changed\" logic as the regular live tile updates -- so if nothing else about the tile had changed since the last regular update, fields like a town's bonus modifiers were silently left out of the response, and the client kept showing whatever it already had cached, which could be out of date.",
-    changes: [
-      "Opening a tile's full detail now always fetches the complete, current data instead of a partial update that can omit fields nothing else recently touched"
-    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
