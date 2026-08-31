@@ -17,6 +17,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788202192814, // frozen: one ms after this file's prior newest entry
+    introducedIn: "2026.08.31.4",
+    title: "\"Build Relay Beacon\" now shows on a tile that already has a Fort",
+    why: "A Fort and a Relay Beacon are allowed to share a tile -- the sim and the shared placement rules both explicitly permit it, and the \"Build Fort\" button already stayed available on a tile with an existing Relay Beacon -- but the reverse direction never got the same fix: the \"Build Relay Beacon\" action still had a leftover check hiding it whenever the tile already had a Fort, most noticeably on docks (which often get a Fort early for defense).",
+    changes: [
+      "\"Build Relay Beacon\" now shows up on any owned, settled land tile that already has a Fort, matching the coexistence the sim has allowed since Fort+Relay Beacon sharing shipped"
+    ]
+  },
+  {
     createdAt: 1788202192813, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.3",
     title: "Observatory's advertised +5 local vision now actually reveals tiles",
