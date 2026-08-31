@@ -106,16 +106,27 @@ export const createAtmosphere = (scene: Scene): AtmosphereResources => {
   // On top of the fixed tilt noted above, the camera also never orbits --
   // camera.position.x/z only drift a few tiles for pan, no rotate control
   // exists. At the reference zoom it sits at roughly (0.5, 21, 15) looking at
-  // (0.5, 0, 0.5), i.e. above and toward +Z, down toward -Z. This light's old
-  // position (x=45) had a heavy sideways bias with no matching camera
-  // x-offset, so it didn't shine from anywhere near the camera's own
-  // direction -- the faces of buildings/terrain the camera actually sees
-  // (their +Z-facing sides) stayed shadowed regardless of where the player
-  // looked. Since the azimuth is fixed, a static light aligned with it gets
-  // the "lit from behind the viewer" effect a free-orbit game would need a
-  // camera-tracking light for, at zero runtime cost. Small x offset (not 0)
-  // keeps some cross-lighting so faces don't go flat.
-  sun.position.set(6, 75, 46);
+  // (0.5, 0, 0.5), i.e. above and toward +Z, down toward -Z. Since the
+  // azimuth is fixed, a static light aligned with it gets the "lit from
+  // behind the viewer" effect a free-orbit game would need a camera-tracking
+  // light for, at zero runtime cost.
+  //
+  // A first attempt just rotated the OLD position's azimuth toward +Z while
+  // keeping its y=75: (45,75,25) -> (6,75,46). That barely changed anything
+  // visible -- both positions sit ~32-34 deg off vertical (near-overhead),
+  // so only the light's horizontal COMPASS DIRECTION rotated, not how
+  // raking/grazing it is. An overhead-ish light mostly lights roofs
+  // (normal.y-dominant) regardless of azimuth, so vertical wall faces
+  // (normal.x/z-dominant -- what "which side is shadowed" actually means)
+  // barely changed. Confirmed by a direct side-by-side: looked identical.
+  //
+  // This position instead lowers the elevation substantially (~55 deg off
+  // vertical, i.e. ~35 deg above the horizon -- notably more raking than
+  // before) while keeping the same +Z-dominant azimuth (matching the
+  // camera's own side), so it now visibly differentiates camera-facing
+  // (+Z-normal) walls from far-side (-Z-normal) walls instead of mostly
+  // just tinting roofs.
+  sun.position.set(8, 42, 60);
   const fillLight = new DirectionalLight("#ff8a5c", 0.55);
   fillLight.position.set(-30, 20, -40);
 
