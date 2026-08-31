@@ -27,6 +27,7 @@ const buildAlliedDockRuntime = (allied: boolean) =>
       tiles: [
         { x: 10, y: 10, terrain: "LAND", ownerId: "player-1", ownershipState: "SETTLED", dockId: "dock-a" },
         { x: 50, y: 50, terrain: "LAND", ownerId: "player-2", ownershipState: "SETTLED", dockId: "dock-b" },
+        { x: 51, y: 50, terrain: "LAND" },
         { x: 90, y: 90, terrain: "LAND", dockId: "dock-c" }
       ],
       docks: [
@@ -39,6 +40,28 @@ const buildAlliedDockRuntime = (allied: boolean) =>
   });
 
 describe("allied dock-network crossing", () => {
+  it("allows EXPAND onto a neutral tile grid-adjacent to an ally's dock, not just onto the dock tile itself", async () => {
+    // player-1 owns dock-a, linked to ally player-2's dock-b. (51,50) is
+    // ordinary neutral land right next to dock-b, not a dock tile itself --
+    // this exercises the new "land next to an allied dock" fallback in
+    // findOwnedDockOriginForCrossing, distinct from crossing directly onto
+    // the ally's dock tile above.
+    const runtime = buildAlliedDockRuntime(true);
+    const seen: string[] = [];
+    runtime.onEvent((event) => seen.push(event.eventType));
+    runtime.submitCommand({
+      commandId: "cmd-allied-dock-adjacent-expand",
+      sessionId: "session-1",
+      playerId: "player-1",
+      clientSeq: 1,
+      issuedAt: 1_000,
+      type: "EXPAND",
+      payloadJson: JSON.stringify({ fromX: 50, fromY: 50, toX: 51, toY: 50 })
+    });
+    await Promise.resolve();
+    expect(seen[0]).toBe("COMMAND_ACCEPTED");
+  });
+
   it("allows EXPAND from an ally's dock when the actor controls another dock in the same network", async () => {
     // player-1 submits from a stale/unowned origin (50,50, dock-b — owned by
     // ally player-2), targeting the linked dock-c tile. The runtime must

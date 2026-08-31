@@ -74,6 +74,12 @@ describe("social state", () => {
         expect.objectContaining({
           type: "ALLIANCE_UPDATE",
           announcement: "Nauticus started a 24h notice to break your alliance."
+        }),
+        expect.objectContaining({
+          type: "ALLIANCE_BREAK_INCOMING",
+          fromName: "Nauticus",
+          fromPlayerId: "player-1",
+          toPlayerId: "player-2"
         })
       ])
     );

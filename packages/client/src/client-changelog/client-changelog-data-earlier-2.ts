@@ -12,6 +12,15 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
   {
+    createdAt: 1787739347827, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.26.5",
+    title: "Captured towns/docks now keep reach on their own tile",
+    why: "Reach borders are sticky by design -- capturing a town or dock deep inside a rival's territory never pushes their border back. But that same stickiness was leaving the captured building with zero reach at all, not even on the single tile it stood on, if the rival's still-active anchors happened to still cover that exact spot.",
+    changes: [
+      "A captured town, dock, or outpost-family structure (relay beacon, siege outpost/tower, dread tower) now always keeps reach on its own tile, even when it's fully surrounded by a rival's larger, still-defended territory -- it just can't project that reach onto any neighbouring tile the rival is still actively defending"
+    ]
+  },
+  {
     createdAt: 1787693449098, // frozen one ms after the prior latest entry, to avoid pushing the 6-day window past an older "earlier" entry
     introducedIn: "2026.08.26.1",
     title: "Rival borders in true-3D mode are now accurate, not guessed",
@@ -32,15 +41,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787651082566, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.2",
-    title: "Added a new-player checklist for founding your first town and securing food",
-    why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
-    changes: [
-      "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
-    ]
-  },
-  {
     createdAt: 1787678887251, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.3",
     title: "Rivers now curve smoothly and taper toward the sea instead of looking like glued-together rectangles",
@@ -48,15 +48,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     changes: [
       "River paths are now smoothed with a Catmull-Rom curve and resampled at higher density, removing the faceted straight-segment look.",
       "River width now tapers from narrow at the source to wide at the mouth, based on how far each point has flowed toward the sea."
-    ]
-  },
-  {
-    createdAt: 1787650830571, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.1",
-    title: "Farmstead now grants +2 FOOD slots instead of +1",
-    why: "Farmstead's same-tile FOOD slot boost was tied with Mine/Umbrite Rig's +1, even though it's a dedicated food building -- a bigger boost makes it more worth building and gives Waterworks (which multiplies Farmstead's bonus) more to amplify.",
-    changes: [
-      "An active Farmstead on a FARM tile now adds +2 FOOD slots to that tile instead of +1. Waterworks' separate +2-per-Farmstead-in-radius bonus is unchanged and stacks on top."
     ]
   },
   {
@@ -136,5 +127,14 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
       "Build Aether Condenser now stays enabled in a town that already has one, matching the server's support for stacking multiple.",
       "A converter structure in Sell Off mode now shows a \"Sell Off gold: +N/day\" modifier line matching its real payout, instead of no modifier at all."
     ]
-  }
+  },
+  {
+    createdAt: 1788166365565, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Fixed the season-winner galactic bonus vanishing after a reconnect",
+    why: "Last season's Planet winner gets a one-time manpower-regen and vision-radius head start for their next season. That bonus was correctly granted and tracked on the server, but the reconnect/login payload that rebuilds your empire's state on the client never referenced either field at all -- so the bonus silently disappeared from what you saw the moment you reconnected, even though the server kept applying it underneath.",
+    changes: [
+      "The galactic-wonder manpower-regen and vision-radius bonuses now reliably carry through a reconnect, matching what the server has actually been applying."
+    ]
+  },
 ];

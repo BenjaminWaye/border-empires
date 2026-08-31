@@ -12,6 +12,34 @@ import type { ClientChangelogEntry } from "./client-changelog-data.js";
 
 export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
   {
+    createdAt: 1788128033639, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Renamed the Observatory and Ambaric Tower",
+    why: "Two structure names were due for a refresh to better fit the empire's aether/power theming.",
+    changes: [
+      "The Observatory is now called the Aether Tower everywhere in the UI (build menu, tile overview, tech unlocks, upkeep) -- no change to what it does",
+      "The Ambaric Tower is now called the Ambaric Transformer Station everywhere in the UI -- no change to what it does"
+    ]
+  },
+  {
+    createdAt: 1788162346509, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Fixed a fake \"plundered FOOD\" notice on town captures",
+    why: "Capturing a settled FARM/FISH tile always showed a \"Plundered 1 FOOD\" line in the combat alert, but plunder has only ever transferred gold -- no food was ever actually taken from the defender or given to the attacker.",
+    changes: [
+      "Combat/raid alerts no longer show a fake FOOD plunder amount when capturing a resource tile -- plunder remains gold-only, matching what actually happens to both players' stockpiles"
+    ]
+  },
+  {
+    createdAt: 1788162890008, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed a town's full tile detail sometimes showing stale data right after opening it",
+    why: "Opening a tile's full detail (or the debug download tool) reused the same \"only send what changed\" logic as the regular live tile updates -- so if nothing else about the tile had changed since the last regular update, fields like a town's bonus modifiers were silently left out of the response, and the client kept showing whatever it already had cached, which could be out of date.",
+    changes: [
+      "Opening a tile's full detail now always fetches the complete, current data instead of a partial update that can omit fields nothing else recently touched"
+    ]
+  },
+  {
     createdAt: 1787845125246, // frozen: one ms after the previous newest entry
     introducedIn: "2026.08.27",
     title: "Aether Condenser overview cleanup",
@@ -418,6 +446,52 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_4: ClientChangelogEntry[] = [
     why: "The tile-action menu only checked whether a tile was your own before offering Aether Purge or Aether EMP, so an allied empire's tile looked like a valid, enabled target -- clicking it just got silently rejected by the server with a confusing \"target hostile settled or frontier land\" error, since allies were never actually strikeable.",
     changes: [
       "Aether Purge and Aether EMP now show as disabled with a \"Cannot purge/EMP your own or allied tiles\" reason when selecting an allied tile, instead of appearing available and then failing server-side"
+    ]
+  },
+  {
+    createdAt: 1787935226945, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.4",
+    title: "Fixed tech/domain bonuses (e.g. Mercantile Charter) not applying until something else refreshed your towns",
+    why: "Picking a tech or domain -- including tier 1's Mercantile Charter, which boosts gold production and population growth in your first three towns -- didn't invalidate the cached per-player town economy data. The new bonus silently sat unused until an unrelated tile change happened to refresh that cache, so newly chosen bonuses looked like they weren't applying to gold production or the town overview's modifier list.",
+    changes: [
+      "Choosing a tech or domain now immediately refreshes your towns' gold production and the town overview's modifier list to reflect the new bonus"
+    ]
+  },
+  {
+    createdAt: 1787937615718, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.5",
+    title: "Alliance and truce request emails now match the rest of the game's branded emails",
+    why: "Alliance and truce request emails were still built from a plain, unstyled paragraph template (a leftover from before the branded season-start/attack-alert template existed), so they looked out of place next to every other gameplay email you get.",
+    changes: [
+      "Alliance and truce request emails now use the same branded layout (header, body, call-to-action button) as season-start and attack-alert emails, and truce offers now call out the offered duration as a highlighted stat like other emails do"
+    ]
+  },
+  {
+    createdAt: 1787940609007, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.28.5",
+    title: "Added a way back into 3D after it locked you out of it",
+    why: "Two failed 3D attempts in a row (including a page refresh mid-load, which looks identical to a crash from the client's perspective) permanently pinned you to the 2D map, and the banner's own \"Add ?renderer=3d to try again\" instruction didn't actually work -- that param only controls whether 3D is attempted, not the on-disk crash streak that was blocking it, so retyping the URL just showed the same banner again.",
+    changes: [
+      "The \"3D map unavailable\" banner now has a \"Try 3D again\" button that clears the crash streak and reloads back into 3D",
+      "Removed the banner's old ?renderer=3d instruction, since it never actually reset anything"
+    ]
+  },
+  {
+    createdAt: 1787999110086, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.29.1",
+    title: "Fixed Aether Condenser gold income showing up as \"CRYSTAL_SYNTHESIZER\" in the economy panel",
+    why: "An Aether Condenser flipped into Sell Off mode reports its gold income to the economy panel labeled with its raw internal type (CRYSTAL_SYNTHESIZER) instead of its display name, because that income bucket bypassed the same display-name lookup every other structure-driven line in the panel goes through -- making it easy to conclude the income wasn't showing up at all.",
+    changes: [
+      "The Gold income breakdown now shows \"Aether Condenser\" (and any other structure-labeled income/upkeep line) with its proper display name instead of its internal type"
+    ]
+  },
+  {
+    createdAt: 1788175437827, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.3",
+    title: "Fixed the Launch Attack win chance disappearing while you were reading it",
+    why: "The win-chance calculation and \"how this is calculated\" breakdown were cached for only 5 seconds. Leaving an enemy tile's menu open past that -- while reading the math, or just deciding -- meant the next routine tile update silently re-rendered the panel against an expired cache, so the win chance and breakdown just vanished even though nothing about the battle odds had changed.",
+    changes: [
+      "The Launch Attack panel now quietly refreshes its win chance in the background while it's open on an enemy tile, so the calculation and breakdown stay visible instead of disappearing every few seconds"
     ]
   },
 ];

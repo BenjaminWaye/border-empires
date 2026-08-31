@@ -1,8 +1,19 @@
 import type { GatewayAuthBindingStore } from "../auth-binding-store/auth-binding-store.js";
-import { unwrapPayloadSource } from "../broadcast-payload/broadcast-payload.js";
 import { sendPlayerReportEmail } from "./bug-report-email-alert.js";
 import { escapeHtml } from "./escape-html.js";
 import type { BugReportInput } from "../slack-alerts/slack-alerts.js";
+export {
+  readAetherPurgeAlert,
+  readAttackAlert,
+  readIncomingAllianceBreakAlert,
+  readIncomingAllianceRequestAlert,
+  readIncomingTruceRequestAlert,
+  type IncomingAetherPurgeAlert,
+  type IncomingAllianceBreakAlert,
+  type IncomingAllianceRequestAlert,
+  type IncomingAttackAlert,
+  type IncomingTruceRequestAlert
+} from "./email-alert-readers.js";
 
 export type EmailAlertConfig = {
   resendApiKey?: string;
@@ -16,8 +27,10 @@ export type EmailAlertConfig = {
 
 export type EmailAlertService = {
   sendAllianceRequestAlert: (input: SocialRequestAlertInput) => Promise<EmailAlertOutcome>;
+  sendAllianceBreakAlert: (input: SocialRequestAlertInput) => Promise<EmailAlertOutcome>;
   sendTruceRequestAlert: (input: TruceRequestAlertInput) => Promise<EmailAlertOutcome>;
   sendAttackAlert: (input: AttackAlertInput) => Promise<EmailAlertOutcome>;
+  sendAetherPurgeAlert: (input: AetherPurgeAlertInput) => Promise<EmailAlertOutcome>;
   sendSeasonStartAlert: (input: SeasonStartAlertInput) => Promise<EmailAlertOutcome>;
   sendBugReportAlert: (report: BugReportInput) => void;
   sendSuggestionAlert: (report: BugReportInput) => void;
@@ -41,6 +54,13 @@ type AttackAlertInput = {
   y: number;
 };
 
+type AetherPurgeAlertInput = {
+  defenderPlayerId: string;
+  attackerName: string;
+  x: number;
+  y: number;
+};
+
 type SeasonStartAlertInput = {
   recipientPlayerId: string;
   previousWinnerName?: string;
@@ -58,21 +78,6 @@ type EmailMessage = {
 
 type EmailTransport = {
   send: (message: EmailMessage) => Promise<void>;
-};
-
-export type IncomingAllianceRequestAlert = {
-  recipientPlayerId: string;
-  senderName: string;
-};
-
-export type IncomingTruceRequestAlert = IncomingAllianceRequestAlert & {
-  durationHours: 12 | 24;
-};
-
-export type IncomingAttackAlert = {
-  attackerName: string;
-  x: number;
-  y: number;
 };
 
 type EmailAlertServiceOptions = EmailAlertConfig & {
@@ -103,78 +108,6 @@ const clampDailyLimit = (limit: number | undefined): number => {
 };
 
 const dayKey = (at: number): string => new Date(at).toISOString().slice(0, 10);
-
-const readStringField = (value: Record<string, unknown>, key: string): string | undefined => {
-  const field = value[key];
-  return typeof field === "string" && field.trim().length > 0 ? field : undefined;
-};
-
-const readNumberField = (value: Record<string, unknown>, key: string): number | undefined => {
-  const field = value[key];
-  return typeof field === "number" && Number.isFinite(field) ? field : undefined;
-};
-
-export const readIncomingAllianceRequestAlert = (
-  payloadsByPlayerId: Map<string, unknown[]>
-): IncomingAllianceRequestAlert | undefined => {
-  for (const [playerId, payloads] of payloadsByPlayerId) {
-    for (const payload of payloads) {
-      const source = unwrapPayloadSource(payload);
-      if (!source || typeof source !== "object") continue;
-      const typed = source as Record<string, unknown>;
-      if (typed.type !== "ALLIANCE_REQUEST_INCOMING") continue;
-      const request = typed.request && typeof typed.request === "object" ? (typed.request as Record<string, unknown>) : undefined;
-      return {
-        recipientPlayerId: readStringField(request ?? typed, "toPlayerId") ?? playerId,
-        senderName:
-          readStringField(typed, "fromName") ??
-          (request ? readStringField(request, "fromName") : undefined) ??
-          readStringField(request ?? typed, "fromPlayerId") ??
-          "Another empire"
-      };
-    }
-  }
-  return undefined;
-};
-
-export const readIncomingTruceRequestAlert = (
-  payloadsByPlayerId: Map<string, unknown[]>
-): IncomingTruceRequestAlert | undefined => {
-  for (const [playerId, payloads] of payloadsByPlayerId) {
-    for (const payload of payloads) {
-      const source = unwrapPayloadSource(payload);
-      if (!source || typeof source !== "object") continue;
-      const typed = source as Record<string, unknown>;
-      if (typed.type !== "TRUCE_REQUEST_INCOMING") continue;
-      const request = typed.request && typeof typed.request === "object" ? (typed.request as Record<string, unknown>) : undefined;
-      const durationHours = readNumberField(request ?? typed, "durationHours");
-      if (durationHours !== 12 && durationHours !== 24) continue;
-      return {
-        recipientPlayerId: readStringField(request ?? typed, "toPlayerId") ?? playerId,
-        senderName:
-          readStringField(typed, "fromName") ??
-          (request ? readStringField(request, "fromName") : undefined) ??
-          readStringField(request ?? typed, "fromPlayerId") ??
-          "Another empire",
-        durationHours
-      };
-    }
-  }
-  return undefined;
-};
-
-export const readAttackAlert = (payload: Record<string, unknown>): IncomingAttackAlert | undefined => {
-  if (payload.type !== "ATTACK_ALERT") return undefined;
-  const x = readNumberField(payload, "x");
-  const y = readNumberField(payload, "y");
-  if (typeof x !== "number" || typeof y !== "number") return undefined;
-  return {
-    attackerName: readStringField(payload, "attackerName") ?? readStringField(payload, "attackerId") ?? "Another empire",
-    x,
-    y
-  };
-};
-
 
 const baseUrl = (value: string | undefined): string => {
   const trimmed = value?.trim();
@@ -396,6 +329,25 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
         { bypassRateLimit: true }
       );
     },
+    sendAllianceBreakAlert(input) {
+      return send(
+        input.recipientPlayerId,
+        (to) =>
+          formatBrandedEmail({
+            to,
+            subject: `${input.senderName} started breaking your alliance`,
+            eyebrow: "Border Empires — Alliance Break Notice",
+            headline: "An Alliance Break Is Underway",
+            body: [
+              `${input.senderName} started a 24-hour notice to break your alliance.`,
+              "The alliance stays active for the next 24 hours, so you still have time to prepare before it ends."
+            ],
+            highlight: { label: "Break Completes In", value: "24 hours" },
+            linkLabel: "Open Border Empires"
+          }),
+        { bypassRateLimit: true }
+      );
+    },
     sendTruceRequestAlert(input) {
       return send(
         input.recipientPlayerId,
@@ -430,6 +382,26 @@ export const createEmailAlertService = (options: EmailAlertServiceOptions): Emai
           // Deep-links straight to the targeted tile: readUrlTileFocus() in
           // client-camera-storage.ts (packages/client) picks up ?x=&y= on
           // boot and centers the camera there instead of the player's home tile.
+          linkUrl: `${appUrl}/?x=${input.x}&y=${input.y}`,
+          linkLabel: "Go to Tile"
+        })
+      );
+    },
+    sendAetherPurgeAlert(input) {
+      // Shares the same per-recipient send() throttle as sendAttackAlert
+      // (MIN_SEND_INTERVAL_MS, keyed by email) so a player under sustained
+      // aether or conventional assault still gets at most one email an hour.
+      return send(input.defenderPlayerId, (to) =>
+        formatBrandedEmail({
+          to,
+          subject: `${input.attackerName} hit your empire with an aether purge`,
+          eyebrow: "Border Empires — Aether Attack",
+          headline: "Your Empire Was Aether-Purged",
+          body: [
+            `${input.attackerName} struck your territory with an Aether Purge — you've lost control of the tile.`,
+            "Reinforce your border before they press the advantage."
+          ],
+          highlight: { label: "Tile Lost", value: `${input.x}, ${input.y}` },
           linkUrl: `${appUrl}/?x=${input.x}&y=${input.y}`,
           linkLabel: "Go to Tile"
         })

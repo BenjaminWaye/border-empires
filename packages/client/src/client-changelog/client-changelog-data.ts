@@ -26,6 +26,25 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788165265487, // frozen: one ms after this file's prior newest entry
+    introducedIn: "2026.08.31.2",
+    title: "Fixed the decay countdown missing entirely on some out-of-reach frontier tiles",
+    why: "A frontier tile decaying because it's out of your reach re-stamps its decay deadline on every reach recheck, but the server only sent the paired \"why it's decaying\" tag alongside a deadline the very first time either one changed. A tile whose deadline kept refreshing while that tag itself never changed again could end up with a connection that had simply never received the tag -- the client then had a decay deadline with no matching reason, so it couldn't tell the countdown apart from an ordinary \"outside your reach\" tile and just showed \"Outside reach\" with no timer at all.",
+    changes: [
+      "The server now always resends both the decay deadline and its reason together, so a decaying frontier tile's tile menu reliably shows its \"decays in Xs\" countdown instead of sometimes silently falling back to a plain \"Outside reach\" line."
+    ]
+  },
+  {
+    createdAt: 1788165265486, // frozen: one ms after this file's prior newest entry
+    introducedIn: "2026.08.31.1",
+    title: "Aether Purge now alerts the empire that lost the tile",
+    why: "Aether Purge silently turned a hostile tile neutral with no signal to the empire that lost it — unlike a conventional attack, which alerts the defender in the Activity Feed and by email. Purge victims found out only by noticing the tile had changed color on the map.",
+    changes: [
+      "Getting Aether Purged now posts a drastic 'Aether Attack!' Activity Feed alert naming the attacker and the tile lost, with a Center action to jump to it",
+      "Purge victims also get an email alert (subject to the same one-email-per-hour throttle as conventional attack alerts) if they have email notifications set up"
+    ]
+  },
+  {
     createdAt: 1788165165486, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.1",
     title: "Fixed dock sea-route lines not showing at all",
@@ -276,15 +295,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787739347827, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.26.5",
-    title: "Captured towns/docks now keep reach on their own tile",
-    why: "Reach borders are sticky by design -- capturing a town or dock deep inside a rival's territory never pushes their border back. But that same stickiness was leaving the captured building with zero reach at all, not even on the single tile it stood on, if the rival's still-active anchors happened to still cover that exact spot.",
-    changes: [
-      "A captured town, dock, or outpost-family structure (relay beacon, siege outpost/tower, dread tower) now always keeps reach on its own tile, even when it's fully surrounded by a rival's larger, still-defended territory -- it just can't project that reach onto any neighbouring tile the rival is still actively defending"
-    ]
-  },
-  {
     createdAt: 1787912102098, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.28.2",
     title: "Building Relay Beacon (or any structure) on a frontier tile no longer races its own settlement",
@@ -348,43 +358,6 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787935226945, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.4",
-    title: "Fixed tech/domain bonuses (e.g. Mercantile Charter) not applying until something else refreshed your towns",
-    why: "Picking a tech or domain -- including tier 1's Mercantile Charter, which boosts gold production and population growth in your first three towns -- didn't invalidate the cached per-player town economy data. The new bonus silently sat unused until an unrelated tile change happened to refresh that cache, so newly chosen bonuses looked like they weren't applying to gold production or the town overview's modifier list.",
-    changes: [
-      "Choosing a tech or domain now immediately refreshes your towns' gold production and the town overview's modifier list to reflect the new bonus"
-    ]
-  },
-  {
-    createdAt: 1787937615718, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.5",
-    title: "Alliance and truce request emails now match the rest of the game's branded emails",
-    why: "Alliance and truce request emails were still built from a plain, unstyled paragraph template (a leftover from before the branded season-start/attack-alert template existed), so they looked out of place next to every other gameplay email you get.",
-    changes: [
-      "Alliance and truce request emails now use the same branded layout (header, body, call-to-action button) as season-start and attack-alert emails, and truce offers now call out the offered duration as a highlighted stat like other emails do"
-    ]
-  },
-  {
-    createdAt: 1787940609007, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.28.5",
-    title: "Added a way back into 3D after it locked you out of it",
-    why: "Two failed 3D attempts in a row (including a page refresh mid-load, which looks identical to a crash from the client's perspective) permanently pinned you to the 2D map, and the banner's own \"Add ?renderer=3d to try again\" instruction didn't actually work -- that param only controls whether 3D is attempted, not the on-disk crash streak that was blocking it, so retyping the URL just showed the same banner again.",
-    changes: [
-      "The \"3D map unavailable\" banner now has a \"Try 3D again\" button that clears the crash streak and reloads back into 3D",
-      "Removed the banner's old ?renderer=3d instruction, since it never actually reset anything"
-    ]
-  },
-  {
-    createdAt: 1787999110086, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.29.1",
-    title: "Fixed Aether Condenser gold income showing up as \"CRYSTAL_SYNTHESIZER\" in the economy panel",
-    why: "An Aether Condenser flipped into Sell Off mode reports its gold income to the economy panel labeled with its raw internal type (CRYSTAL_SYNTHESIZER) instead of its display name, because that income bucket bypassed the same display-name lookup every other structure-driven line in the panel goes through -- making it easy to conclude the income wasn't showing up at all.",
-    changes: [
-      "The Gold income breakdown now shows \"Aether Condenser\" (and any other structure-labeled income/upkeep line) with its proper display name instead of its internal type"
-    ]
-  },
-  {
     createdAt: 1788015703861, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.29.2",
     title: "Mercantile Charter's bonus now shows up on your first three towns",
@@ -432,6 +405,95 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "The 3D map on iPhone (and other iOS browsers) now starts without extra edge-smoothing on its very first attempt, instead of only backing off after a crash",
       "A phone that proves it can run the full-quality 3D map is unaffected -- this only changes the untested first attempt"
+    ]
+  },
+  {
+    createdAt: 1788071064537, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.1",
+    title: "An Aether Condenser (or Titanium/Umbrite Works) in Sell Off mode now boosts its own town's gold, like Mintworks",
+    why: "Sell Off mode gold used to always pay out as separate empire-wide income with no connection to any town, so building one in a town's support ring -- the same ring Mintworks, Garrison Hall, and Clearing House already boost that town from -- had no visible effect on that town's own gold production or its overview modifier list, which read as the building's income going nowhere.",
+    changes: [
+      "An active Sell Off (EXCHANGE mode) Aether Condenser, Titanium Works, or Umbrite Works (including Advanced tiers) built in a town's support ring now adds its gold straight into that town's own gold production instead of paying out as separate empire income",
+      "The town's overview now shows a \"Sell Off gold\" modifier under a \"<count> <Building>\" heading for these buildings, matching how Mintworks and other support-ring buildings already show their contribution",
+      "A converter built outside any town's support ring is unaffected -- its gold still pays out as separate empire income exactly as before"
+    ]
+  },
+  {
+    createdAt: 1788091013204, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.2",
+    title: "Mercantile Charter's \"first three towns\" no longer counts a bare starting settlement",
+    why: "Every settled tile carries basic town data, not just a player's actual named/grown cities -- so an early, unnamed starting settlement silently occupied one of Mercantile Charter's three bonus slots ahead of the player's real towns, exactly matching the domain's own description (\"your first three cities\") but not what it actually checked. An established player with more than a couple of settled tiles could end up with none of their real towns receiving the bonus at all.",
+    changes: [
+      "Mercantile Charter's first-three-towns bonus now only considers TOWN tier and above -- a bare settlement can no longer take one of the three slots"
+    ]
+  },
+  {
+    createdAt: 1788091180198, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.3",
+    title: "Fixed the Gold Production stat not matching its own \"Sell Off gold\" modifier line",
+    why: "The tile popup's gold-production number and its \"MODIFIERS\" list are computed on two separate code paths in the gateway's tile-detail lookup. The modifiers list was already fixed to detect a support-ring converter correctly, but the gold-production number's own formula was never updated to include it, so the two figures on the same screen disagreed -- and a Refine-mode converter (which earns no gold) could incorrectly show a \"Sell Off gold\" line at all.",
+    changes: [
+      "A settled town tile's Gold Production number now includes a support-ring Sell Off converter's contribution, matching the modifier line below it",
+      "A converter in Refine mode no longer shows a \"Sell Off gold\" modifier it doesn't actually earn"
+    ]
+  },
+  {
+    createdAt: 1788115016608, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.4",
+    title: "Observatories now rise as aether towers on the 3D map",
+    why: "The richest aether nodes on the map had no landmark -- a knowing eye could see the survey lines flickering, but the land itself still read as featureless grassland. Observatories rendered as a generic structure mesh, so the network (and the strategy around holding the strong aether fields) was invisible at a glance.",
+    changes: [
+      "Placing an Observatory on the 3D map now raises a tall brass-and-iron aether tower with a glowing cyan core, floating brass rings and upward-streaming motes, instead of the old generic structure mesh",
+      "Observatories placed near each other light up thin cyan aether conduits with brass rails, collar joints, light nodes and travelling energy pulses, so a connected network reads as a visible web",
+      "Where several observatories stand close together a rotating geometric synchronization cluster forms between them, marking the strongest aether convergence on the map"
+    ]
+  },
+  {
+    createdAt: 1788129225675, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed a dock's yellow dashed sea-route line not drawing (\"route not found\") for most players",
+    why: "The client routed dock pairs by re-running its own procedural terrain walk from scratch, but that procedural terrainAt() is a best-effort approximation that drifts from the frozen terrain the server committed at worldgen time (worldgen_baselines). On many worlds the client's approximation found no contiguous sea path where the server's real terrain clearly had one, so the dashed connection line silently never rendered and the dock debug reported routeFound:false -- even though a valid sea route existed.",
+    changes: [
+      "Dock sea routes are now computed once, server-side, from the authoritative worldgen terrain and shipped to the client with the initial world payload, so the dashed connection line and its route-found status match the real, frozen terrain",
+      "Already-running seasons self-heal their dock routes on the sim's next restart -- no season reset needed",
+      "Older servers that don't ship a route still fall back to the client's own sea-route pathfinder, so nothing regresses for them"
+    ]
+  },
+  {
+    createdAt: 1788128033639, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Renamed the Observatory and Ambaric Tower",
+    why: "Two structure names were due for a refresh to better fit the empire's aether/power theming.",
+    changes: [
+      "The Observatory is now called the Aether Tower everywhere in the UI (build menu, tile overview, tech unlocks, upkeep) -- no change to what it does",
+      "The Ambaric Tower is now called the Ambaric Transformer Station everywhere in the UI -- no change to what it does"
+    ]
+  },
+  {
+    createdAt: 1788162346509, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Fixed a fake \"plundered FOOD\" notice on town captures",
+    why: "Capturing a settled FARM/FISH tile always showed a \"Plundered 1 FOOD\" line in the combat alert, but plunder has only ever transferred gold -- no food was ever actually taken from the defender or given to the attacker.",
+    changes: [
+      "Combat/raid alerts no longer show a fake FOOD plunder amount when capturing a resource tile -- plunder remains gold-only, matching what actually happens to both players' stockpiles"
+    ]
+  },
+  {
+    createdAt: 1788162890008, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed a town's full tile detail sometimes showing stale data right after opening it",
+    why: "Opening a tile's full detail (or the debug download tool) reused the same \"only send what changed\" logic as the regular live tile updates -- so if nothing else about the tile had changed since the last regular update, fields like a town's bonus modifiers were silently left out of the response, and the client kept showing whatever it already had cached, which could be out of date.",
+    changes: [
+      "Opening a tile's full detail now always fetches the complete, current data instead of a partial update that can omit fields nothing else recently touched"
+    ]
+  },
+  {
+    createdAt: 1788165381558, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.2",
+    title: "Added a confirmation prompt before breaking an alliance",
+    why: "Breaking an alliance takes 24 hours to actually go into effect, but the \"Break Alliance\" button fired immediately with no warning -- a stray click could start that clock by accident.",
+    changes: [
+      "Clicking \"Break Alliance\" now shows a confirmation dialog reminding you that the break takes 24 hours to complete, before the request is sent"
     ]
   }
 ];
