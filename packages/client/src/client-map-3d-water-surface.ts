@@ -84,13 +84,13 @@ const createNormalMap = (freq: number, amp: number): CanvasTexture => {
 
 export type WaterSurface = {
   readonly clear: () => void;
-  readonly addTile: (centerX: number, centerZ: number, shallow: boolean) => void;
+  readonly addTile: (centerX: number, centerZ: number, shallow: boolean, worldX: number, worldZ: number) => void;
   readonly commit: () => void;
   readonly tick: (nowMs: number) => void;
   readonly dispose: () => void;
 };
 
-type TileEntry = { gc: number; gr: number; shallow: boolean };
+type TileEntry = { gc: number; gr: number; shallow: boolean; worldGc: number; worldGr: number };
 
 const tileKey = (gc: number, gr: number): string => `${gc},${gr}`;
 
@@ -143,19 +143,26 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
   let mesh: Mesh | null = null;
   let geometry: BufferGeometry | null = null;
 
+  // Delta from this commit's scene-relative grid (gc/gr, anchored to
+  // sceneOrigin) to absolute world grid (worldGc/worldGr) — see its use in
+  // tick() below for why the wave animation needs this instead of animating
+  // directly off the scene-relative position.
+  let waveWorldOffsetX = 0;
+  let waveWorldOffsetZ = 0;
+
   const clear = (): void => {
     tiles = [];
     tileMap.clear();
   };
 
-  const addTile = (centerX: number, centerZ: number, shallow: boolean): void => {
+  const addTile = (centerX: number, centerZ: number, shallow: boolean, worldX: number, worldZ: number): void => {
     // Tile centers arrive as dx+0.5, dy+0.5. Floor gives the integer
     // grid column/row (top-left corner of each tile in world space).
     const gc = Math.floor(centerX);
     const gr = Math.floor(centerZ);
     const key = tileKey(gc, gr);
     if (tileMap.has(key)) return; // guard against double-add within one rebuild cycle
-    tiles.push({ gc, gr, shallow });
+    tiles.push({ gc, gr, shallow, worldGc: Math.floor(worldX), worldGr: Math.floor(worldZ) });
     tileMap.set(key, shallow);
   };
 
@@ -169,6 +176,17 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
       geometry = null;
     }
     if (tiles.length === 0) return;
+
+    // The wave animation (tick()) needs each vertex's absolute world X/Z, not
+    // its scene-relative position -- see waveWorldOffsetX/Z's declaration.
+    // sceneOrigin is a single anchor for the whole commit, so scene-relative
+    // grid coord = world grid coord minus one constant offset for every tile
+    // that doesn't cross the toroidal world seam (the extremely rare case of
+    // a visible window straddling the seam gets a one-tile-wide wave-phase
+    // seam there, an acceptable trade-off for not tracking per-vertex
+    // offsets in a merged mesh).
+    waveWorldOffsetX = tiles[0]!.worldGc - tiles[0]!.gc;
+    waveWorldOffsetZ = tiles[0]!.worldGr - tiles[0]!.gr;
 
     // Bounding box in grid coords.
     let minGC = Infinity, maxGC = -Infinity;
@@ -325,6 +343,15 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
   // Same swell+chop formula the main surface uses in tick() below — shared
   // so the skirt's top edge (see waveY use in tick()) stays flush with the
   // surface instead of leaving a gap when the surface waves above it.
+  //
+  // Takes ABSOLUTE WORLD x/z, not scene-relative -- every caller below adds
+  // waveWorldOffsetX/Z before calling this. sceneOrigin (client-map-3d.ts)
+  // only updates when a terrain rebuild commits, so a fixed water tile's
+  // scene-relative position drifts as the camera pans between rebuilds.
+  // Phasing the wave off that drifting value made the whole wave pattern
+  // visibly jump at every rebuild (e.g. clicking a tile, which can trigger
+  // a view refresh) -- the crest/trough pattern re-rendered in a different
+  // spot instead of continuing smoothly. World coordinates don't drift.
   const waveY = (wx: number, wz: number, s: number): number => {
     const swell = Math.sin(wx * 0.7 + s * 0.65) * Math.cos(wz * 0.55 + s * 0.5) * 0.16;
     const chop  = Math.sin(wx * 1.4 - s * 0.45) * Math.cos(wz * 1.2 + s * 0.7) * 0.06;
@@ -341,8 +368,8 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
       const pos = posAttr.array as Float32Array;
       const n = pos.length / 3;
       for (let i = 0; i < n; i++) {
-        const wx = pos[i * 3] ?? 0;
-        const wz = pos[i * 3 + 2] ?? 0;
+        const wx = (pos[i * 3] ?? 0) + waveWorldOffsetX;
+        const wz = (pos[i * 3 + 2] ?? 0) + waveWorldOffsetZ;
         pos[i * 3 + 1] = waveY(wx, wz, s);
       }
       posAttr.needsUpdate = true;
@@ -358,8 +385,8 @@ export const createWaterSurface = (scene: Scene, _maxTiles: number): WaterSurfac
       const n = skirtPos.length / 3;
       for (let i = 0; i < n; i++) {
         if (i % 4 >= 2) continue; // bottom-row vertex — stays put
-        const wx = skirtPos[i * 3] ?? 0;
-        const wz = skirtPos[i * 3 + 2] ?? 0;
+        const wx = (skirtPos[i * 3] ?? 0) + waveWorldOffsetX;
+        const wz = (skirtPos[i * 3 + 2] ?? 0) + waveWorldOffsetZ;
         skirtPos[i * 3 + 1] = waveY(wx, wz, s);
       }
       skirtPosAttr.needsUpdate = true;

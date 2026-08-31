@@ -42,7 +42,7 @@ const render = (args: Args): HTMLElement => {
       // Right panel ("after"): the fix -- the same live water quad visible
       // sea tiles get.
       const ax = dx + panelOffset;
-      water.addTile(ax, dz, true);
+      water.addTile(ax, dz, true, ax, dz);
     }
   }
   darken.commit();

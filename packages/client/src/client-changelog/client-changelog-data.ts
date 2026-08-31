@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788162021253, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.30.8",
+    title: "Fixed the 3D water surface's waves visibly jumping while panning or clicking a tile",
+    why: "The wave animation's spatial pattern was phased off each vertex's on-screen position rather than its fixed world position, so a tile's on-screen position shifting slightly as you panned (before the next terrain rebuild caught up) reset the whole crest/trough pattern into a different shape -- showing up as the water visibly re-rendering every time a rebuild fired, including ones triggered just by clicking a tile.",
+    changes: [
+      "Ocean and lake waves now keep animating smoothly across terrain rebuilds instead of visibly jumping into a different pattern while panning or selecting a tile"
+    ]
+  },
+  {
     createdAt: 1788128230679, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.7",
     title: "Fixed Trade Nexus showing a duplicate 2D overlay on the 3D map",
