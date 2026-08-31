@@ -278,6 +278,23 @@ export const raidResultFeedEntry = (
   };
 };
 
+// AETHER_PURGE_ALERT is a direct-target hit (unlike a conventional attack,
+// it's instant -- no incoming-attack countdown to track), so this is
+// deliberately more drastic than raidResultFeedEntry's plunder-loss framing:
+// the victim lost the tile outright.
+export const aetherPurgeAlertFeedEntry = (msg: Record<string, unknown>): FeedEntry => {
+  const attackerName = (msg.attackerName as string | undefined) || (msg.attackerId as string | undefined) || "An enemy empire";
+  const x = Number(msg.x ?? -1);
+  const y = Number(msg.y ?? -1);
+  return {
+    text: `Aether Attack! We have been the target of an Aether Purge by ${attackerName} — we lost control of (${x}, ${y}).`,
+    type: "combat",
+    severity: "error",
+    at: Date.now(),
+    ...(x >= 0 && y >= 0 ? { focusX: x, focusY: y, actionLabel: "Center" } : {})
+  };
+};
+
 export const combatResolutionAlert = (
   msg: Record<string, unknown>,
   context: { targetTileBefore: Tile | undefined; originTileBefore: Tile | undefined } | undefined,
