@@ -1,9 +1,12 @@
-import { isChosenTrickleResource } from "@border-empires/shared";
-import type { PlayerSubscriptionSnapshot, SeasonWinnerSnapshot } from "@border-empires/sim-protocol";
+import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 
+// applyPlayerMessageToSnapshot used to live here too, as a field-by-field
+// copy of apps/simulation's identically-named function -- the two drifted
+// at least twice (see docs/player-wire-refactor-plan.md and its Phase 1+2
+// follow-up) before being unified into @border-empires/sim-protocol's
+// subscription-snapshot-merge module, which every caller of this function
+// now imports from instead.
 type TileDelta = NonNullable<PlayerSubscriptionSnapshot["tiles"][number]>;
-type WorldStatusSnapshot = NonNullable<PlayerSubscriptionSnapshot["worldStatus"]>;
-type PlayerStateSnapshot = NonNullable<PlayerSubscriptionSnapshot["player"]>;
 
 const tileKeyFor = (x: number, y: number): string => `${x},${y}`;
 
@@ -22,21 +25,6 @@ const buildTileIndex = (tiles: ReadonlyArray<TileDelta>): Map<string, number> =>
     index.set(tileKeyFor(t.x, t.y), i);
   }
   return index;
-};
-
-const playerProgressionFieldsFromPayload = (
-  payload: Record<string, unknown>
-): Partial<Pick<PlayerStateSnapshot, "techIds" | "domainIds" | "mods" | "modBreakdown" | "chosenTrickleResource">> => {
-  const trickle = payload.chosenTrickleResource;
-  return {
-    ...(Array.isArray(payload.techIds) ? { techIds: payload.techIds as string[] } : {}),
-    ...(Array.isArray(payload.domainIds) ? { domainIds: payload.domainIds as string[] } : {}),
-    ...(payload.mods && typeof payload.mods === "object" ? { mods: payload.mods as NonNullable<PlayerStateSnapshot["mods"]> } : {}),
-    ...(payload.modBreakdown && typeof payload.modBreakdown === "object"
-      ? { modBreakdown: payload.modBreakdown as NonNullable<PlayerStateSnapshot["modBreakdown"]> }
-      : {}),
-    ...(isChosenTrickleResource(trickle) ? { chosenTrickleResource: trickle } : {})
-  };
 };
 
 export const applyTileDeltasToSnapshot = (
@@ -85,108 +73,4 @@ export const applyTileDeltasToSnapshot = (
   }
 
   return { ...snapshot, tiles: nextTiles };
-};
-
-export const applyPlayerMessageToSnapshot = (
-  snapshot: PlayerSubscriptionSnapshot,
-  payload: Record<string, unknown>
-): PlayerSubscriptionSnapshot => {
-  if (payload.type === "GLOBAL_STATUS_UPDATE") {
-    const previousWorldStatus = snapshot.worldStatus;
-    const incomingSeasonWinner = payload.seasonWinner as SeasonWinnerSnapshot | undefined;
-    const resolvedSeasonWinner = incomingSeasonWinner ?? previousWorldStatus?.seasonWinner;
-    return {
-      ...snapshot,
-      worldStatus: {
-        leaderboard:
-          (payload.leaderboard as WorldStatusSnapshot["leaderboard"]) ??
-          previousWorldStatus?.leaderboard ?? {
-            overall: [],
-            byTiles: [],
-            byIncome: [],
-            byTechs: []
-          },
-        seasonVictory:
-          (payload.seasonVictory as WorldStatusSnapshot["seasonVictory"]) ??
-          previousWorldStatus?.seasonVictory ??
-          [],
-        ...(resolvedSeasonWinner !== undefined ? { seasonWinner: resolvedSeasonWinner as SeasonWinnerSnapshot } : {})
-      }
-    };
-  }
-
-  if (payload.type === "PLAYER_UPDATE" && snapshot.player) {
-    const currentPlayer = snapshot.player as PlayerStateSnapshot;
-    return {
-      ...snapshot,
-      player: {
-        ...currentPlayer,
-        ...(typeof payload.gold === "number" ? { gold: payload.gold } : {}),
-        ...(typeof payload.manpower === "number" ? { manpower: payload.manpower } : {}),
-        ...(typeof payload.manpowerCap === "number" ? { manpowerCap: payload.manpowerCap } : {}),
-        ...(typeof payload.manpowerRegenPerMinute === "number" ? { manpowerRegenPerMinute: payload.manpowerRegenPerMinute } : {}),
-        ...(payload.manpowerBreakdown && typeof payload.manpowerBreakdown === "object"
-          ? { manpowerBreakdown: payload.manpowerBreakdown as NonNullable<PlayerStateSnapshot["manpowerBreakdown"]> }
-          : {}),
-        ...(typeof payload.incomePerMinute === "number" ? { incomePerMinute: payload.incomePerMinute } : {}),
-        ...(payload.strategicResources && typeof payload.strategicResources === "object"
-          ? { strategicResources: payload.strategicResources as PlayerStateSnapshot["strategicResources"] }
-          : {}),
-        ...(payload.strategicProductionPerMinute && typeof payload.strategicProductionPerMinute === "object"
-          ? { strategicProductionPerMinute: payload.strategicProductionPerMinute as PlayerStateSnapshot["strategicProductionPerMinute"] }
-          : {}),
-        ...(payload.resourceSlots && typeof payload.resourceSlots === "object"
-          ? { resourceSlots: payload.resourceSlots as NonNullable<PlayerStateSnapshot["resourceSlots"]> }
-          : {}),
-        ...(Array.isArray(payload.dormantStructures)
-          ? { dormantStructures: payload.dormantStructures as NonNullable<PlayerStateSnapshot["dormantStructures"]> }
-          : {}),
-        ...(typeof payload.economyBreakdown === "object" && payload.economyBreakdown !== null
-          ? { economyBreakdown: payload.economyBreakdown as Record<string, unknown> }
-          : {}),
-        ...(typeof payload.upkeepPerMinute === "object" && payload.upkeepPerMinute !== null
-          ? { upkeepPerMinute: payload.upkeepPerMinute as NonNullable<PlayerStateSnapshot["upkeepPerMinute"]> }
-          : {}),
-        ...(typeof payload.upkeepLastTick === "object" && payload.upkeepLastTick !== null
-          ? { upkeepLastTick: payload.upkeepLastTick as Record<string, unknown> }
-          : {}),
-        ...(typeof payload.developmentProcessLimit === "number" ? { developmentProcessLimit: payload.developmentProcessLimit } : {}),
-        ...(typeof payload.activeDevelopmentProcessCount === "number"
-          ? { activeDevelopmentProcessCount: payload.activeDevelopmentProcessCount }
-          : {}),
-        ...(Array.isArray(payload.pendingSettlements)
-          ? {
-              pendingSettlements: payload.pendingSettlements as PlayerStateSnapshot["pendingSettlements"]
-            }
-          : {}),
-        ...(Array.isArray(payload.autoSettlementQueue)
-          ? { autoSettlementQueue: payload.autoSettlementQueue as NonNullable<PlayerStateSnapshot["autoSettlementQueue"]> }
-          : {}),
-        ...(Array.isArray(payload.devQueue)
-          ? { devQueue: payload.devQueue as NonNullable<PlayerStateSnapshot["devQueue"]> }
-          : {}),
-        ...(Array.isArray(payload.waypointQueue)
-          ? { waypointQueue: payload.waypointQueue as NonNullable<PlayerStateSnapshot["waypointQueue"]> }
-          : {}),
-        ...playerProgressionFieldsFromPayload(payload)
-      }
-    };
-  }
-
-  if ((payload.type === "TECH_UPDATE" || payload.type === "DOMAIN_UPDATE") && snapshot.player) {
-    return {
-      ...snapshot,
-      player: {
-        ...snapshot.player,
-        ...(typeof payload.gold === "number" ? { gold: payload.gold } : {}),
-        ...(payload.strategicResources && typeof payload.strategicResources === "object"
-          ? { strategicResources: payload.strategicResources as PlayerStateSnapshot["strategicResources"] }
-          : {}),
-        ...(typeof payload.incomePerMinute === "number" ? { incomePerMinute: payload.incomePerMinute } : {}),
-        ...playerProgressionFieldsFromPayload(payload)
-      }
-    };
-  }
-
-  return snapshot;
 };

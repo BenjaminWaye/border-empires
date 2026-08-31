@@ -71,7 +71,7 @@ import { createSimulationClient, type SimulationClientEvent } from "../sim-clien
 import { selectSocketsForEvent, selectSocketsForTileDeltaBatchByPlayer } from "../socket-routing/socket-routing.js";
 import { createSocialState, type SocialStateSink } from "../social-state/social-state.js";
 import { createGatewaySocialStore } from "../social-store-factory.js";
-import { applyPlayerMessageToSnapshot, applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
+import { applyTileDeltasToSnapshot } from "../subscription-snapshot-sync/subscription-snapshot-sync.js";
 import { supportedClientMessageTypes } from "../supported-client-messages/supported-client-messages.js";
 import { migratedDurableCommandTypes } from "../migrated-command-types/migrated-command-types.js";
 import { devQueueWaypointCommandPayload, isDevQueueWaypointMessageType } from "../dev-queue-waypoint-message/dev-queue-waypoint-message.js";
@@ -93,7 +93,7 @@ import { createLoginQueue } from "../login-queue/login-queue.js";
 import { admitBootstrap } from "../login-queue/bootstrap-admission.js"; import { seasonFullErrorPayload } from "../season-full-rejection/season-full-rejection.js"; import { seasonPendingErrorPayload } from "../season-full-rejection/season-pending-rejection.js"; import { startPendingSeasonNotifyTimer } from "../season-start-notify/pending-season-notify-timer.js";
 import { createWebSocketHeartbeat } from "./websocket-heartbeat.js";
 
-import { jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
+import { applyPlayerMessageToSnapshot, jsonByteSize, measurePlayerSubscriptionSnapshot, summarizePlayerSubscriptionSnapshotCache, type CommandEnvelope, type PlayerSubscriptionSnapshot, type PlayerSubscriptionSnapshotCacheSummary } from "@border-empires/sim-protocol";
 
 type SocketSession = Omit<GatewaySocketSession, "playerId"> & {
   playerId?: string;
