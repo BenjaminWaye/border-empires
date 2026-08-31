@@ -2,7 +2,6 @@ import { fileURLToPath } from "node:url";
 
 import { credentials, loadPackageDefinition, type ClientReadableStream } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
-import { normalizeProtoDock, type ProtoDockRoute } from "./sim-client-dock-normalize.js";
 
 import {
   SIMULATION_PROTO_PATH,
@@ -20,6 +19,7 @@ import {
 } from "@border-empires/sim-protocol";
 import type { Terrain, VisibilityState } from "@border-empires/shared";
 import type { ActivityDashboardSnapshot } from "@border-empires/game-domain";
+import { normalizeProtoDock, type ProtoDockRoute } from "./sim-client-dock-normalize.js";
 import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeResult } from "./sim-client-prepare-player.js";
 
 type ProtoAck = { ok: boolean };

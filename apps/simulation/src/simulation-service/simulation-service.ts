@@ -5,7 +5,6 @@ import fs from "node:fs";
 
 import { Server, ServerCredentials, loadPackageDefinition, type UntypedServiceImplementation } from "@grpc/grpc-js";
 import { loadSync } from "@grpc/proto-loader";
-import { marshalDocksToProto } from "./dock-proto-marshal.js";
 import {
   SIMULATION_PROTO_PATH, applyPlayerMessageToSnapshot,
   measurePlayerSubscriptionSnapshot,
@@ -97,6 +96,7 @@ import { resolveMaxSeasonPlayers } from "../season-join-capacity.js";
 import { registerSubscribeAndMaybePushReach } from "./live-subscribe-reach-push.js";
 import { createRivalReachPushMetrics, createRivalReachPushState, pushRivalReachOnConnectSafely, pushRivalReachOnOwnerChanged } from "../rival-reach-push/rival-reach-push.js";
 import { zeroGrossIncomeRepairCandidateIds } from "./zero-gross-income-repair-candidates.js";
+import { marshalDocksToProto } from "./dock-proto-marshal.js";
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
