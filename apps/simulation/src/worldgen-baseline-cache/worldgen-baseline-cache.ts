@@ -1,5 +1,7 @@
 import type { SimulationSeasonState } from "@border-empires/sim-protocol";
+import { WORLD_HEIGHT, WORLD_WIDTH, type Terrain } from "@border-empires/shared";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
+import type { SeaRouteTerrainReader } from "../dock-network/dock-sea-routes.js";
 
 // Memoise worldgen baselines per (rulesetId, worldSeed) so the snapshot
 // store can compact saves and rehydrate loads without paying the 200k-tile
@@ -12,6 +14,39 @@ import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId 
 // during startup recovery (root cause of the SERVER_STARTING cascade on
 // staging sim-worker restarts).
 export type WorldgenTiles = Awaited<ReturnType<typeof generateSeasonWorld>>["initialState"]["tiles"];
+
+// Builds a SeaRouteTerrainReader from a resolved worldgen baseline -- the
+// season's authoritative, frozen terrain -- so callers (dock sea-route
+// backfill) never need to fall back to the live, code-version-dependent
+// terrainAt() that can drift once the bundled worldgen algorithm changes
+// after the season was generated.
+export const terrainReaderFromWorldgenTiles = (tiles: WorldgenTiles): SeaRouteTerrainReader => {
+  const terrainByIndex = new Array<Terrain>(WORLD_WIDTH * WORLD_HEIGHT).fill("LAND");
+  for (const tile of tiles) terrainByIndex[tile.y * WORLD_WIDTH + tile.x] = tile.terrain;
+  const wrapX = (x: number): number => ((x % WORLD_WIDTH) + WORLD_WIDTH) % WORLD_WIDTH;
+  const wrapY = (y: number): number => ((y % WORLD_HEIGHT) + WORLD_HEIGHT) % WORLD_HEIGHT;
+  return {
+    terrainAt: (x: number, y: number): Terrain => terrainByIndex[wrapY(y) * WORLD_WIDTH + wrapX(x)] ?? "LAND",
+    worldIndex: (x: number, y: number): number => wrapY(y) * WORLD_WIDTH + wrapX(x),
+    wrapX,
+    wrapY,
+    worldWidth: WORLD_WIDTH,
+    worldHeight: WORLD_HEIGHT
+  };
+};
+
+// Resolves the dock sea-route backfill reader for a season at boot. Cheap
+// (in-memory/SQLite cache hit for any already-running season -- never a cold
+// regeneration); undefined when there's no rulesetId to resolve against.
+export const resolveDockRouteBackfillReader = async (
+  resolveWorldgenBaseline: (input: { rulesetId: string; worldSeed: number; mapStyle?: SimulationMapStyle }) => Promise<WorldgenTiles>,
+  season: { rulesetId: string | undefined; worldSeed: number; mapStyle: SimulationMapStyle | undefined }
+): Promise<SeaRouteTerrainReader | undefined> =>
+  season.rulesetId
+    ? terrainReaderFromWorldgenTiles(
+        await resolveWorldgenBaseline({ rulesetId: season.rulesetId, worldSeed: season.worldSeed, mapStyle: season.mapStyle ?? "continents" })
+      )
+    : undefined;
 
 export const createWorldgenBaselineCache = async (options: {
   sqlitePath?: string;

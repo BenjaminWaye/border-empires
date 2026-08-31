@@ -545,7 +545,7 @@ export type FeedEntry = {
   actionLabel?: string;
 };
 
-export type DockPair = { ax: number; ay: number; bx: number; by: number };
+export type DockPair = { ax: number; ay: number; bx: number; by: number; route?: Array<{ x: number; y: number }> };
 export type CrystalTargetingAbility = "aether_bridge" | "aether_wall" | "siphon" | "world_engine_strike" | "aether_emp" | "airport_bombard" | "imperial_exchange_levy";
 export type GuideStep = {
   title: string;

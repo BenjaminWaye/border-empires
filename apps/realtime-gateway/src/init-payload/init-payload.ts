@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { playerReconnectFields, type PlayerReconnectFields } from "./init-payload-reconnect-fields.js";
+import { exportDockPairs, type DockPairView } from "./dock-pair-export.js";
 
 import {
   MANPOWER_BASE_CAP,
@@ -177,7 +178,7 @@ type GatewayInitPayload = {
     dockPairCount: number;
     clusterCount: number;
     townCount: number;
-    dockPairs: Array<{ ax: number; ay: number; bx: number; by: number }>;
+    dockPairs: DockPairView[];
   };
   shardRainNotice?: Record<string, unknown>;
 };
@@ -449,38 +450,6 @@ const visibleLeaderboardEntries = (
   if (leaderboard.selfByIncome && !visible.has(leaderboard.selfByIncome.id)) visible.set(leaderboard.selfByIncome.id, leaderboard.selfByIncome.name);
   if (leaderboard.selfByTechs && !visible.has(leaderboard.selfByTechs.id)) visible.set(leaderboard.selfByTechs.id, leaderboard.selfByTechs.name);
   return [...visible.entries()].map(([id, name]) => ({ id, name }));
-};
-
-const exportDockPairs = (
-  docks: ReadonlyArray<{ dockId: string; tileKey: string; pairedDockId?: string; connectedDockIds?: readonly string[] }>
-): Array<{ ax: number; ay: number; bx: number; by: number }> => {
-  const dockById = new Map(docks.map((dock) => [dock.dockId, dock] as const));
-  const seen = new Set<string>();
-  const pairs: Array<{ ax: number; ay: number; bx: number; by: number }> = [];
-  for (const dock of docks) {
-    const links =
-      dock.connectedDockIds && dock.connectedDockIds.length > 0
-        ? dock.connectedDockIds
-        : dock.pairedDockId
-          ? [dock.pairedDockId]
-          : [];
-    for (const linkedDockId of links) {
-      const linked = dockById.get(linkedDockId);
-      if (!linked) continue;
-      const edgeKey = dock.dockId < linked.dockId ? `${dock.dockId}|${linked.dockId}` : `${linked.dockId}|${dock.dockId}`;
-      if (seen.has(edgeKey)) continue;
-      seen.add(edgeKey);
-      const [axRaw, ayRaw] = dock.tileKey.split(",");
-      const [bxRaw, byRaw] = linked.tileKey.split(",");
-      const ax = Number(axRaw);
-      const ay = Number(ayRaw);
-      const bx = Number(bxRaw);
-      const by = Number(byRaw);
-      if (![ax, ay, bx, by].every(Number.isFinite)) continue;
-      pairs.push({ ax, ay, bx, by });
-    }
-  }
-  return pairs;
 };
 
 type VictoryMetrics = {

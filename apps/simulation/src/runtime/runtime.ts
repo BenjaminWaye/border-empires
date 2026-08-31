@@ -915,7 +915,7 @@ export class SimulationRuntime {
     this.onCaptureRevealBuilt = options.onCaptureRevealBuilt;
     this.onShardCollected = options.onShardCollected;
     this.pendingImperialWard = options.pendingImperialWard; this.pendingGalacticWonderBonus = options.pendingGalacticWonderBonus;
-    const initDocks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? []);
+    const initDocks = createDocksFromInitialState(options.initialState, options.seedDocks ?? seedWorld?.docks ?? [], options.dockRouteBackfillReader);
     const initDockLinksByDockTileKey = buildDockLinksByDockTileKey(initDocks);
     this.state = new RuntimeState({
       players: createPlayersFromRecoveredState(options.initialState, options.initialPlayers) ??

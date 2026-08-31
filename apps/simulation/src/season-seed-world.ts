@@ -42,6 +42,7 @@ import {
   assignMissingTownNames
 } from "@border-empires/game-domain";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
+import { finalizeSeasonWorldDocks } from "./dock-network/dock-sea-routes.js";
 import { seedBarbarianTiles } from "./season-barbarian-seed/season-barbarian-seed.js"; import { createSeasonNaturalWondersRuntime } from "./season-seed-natural-wonders.js";
 import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
 import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.js";
@@ -206,55 +207,8 @@ export const createTerrainRuntime = (state: {
   });
 };
 
-export const buildIslandMap = (terrainAtRuntime: (x: number, y: number) => Tile["terrain"]): { islandIdByTile: Map<TileKey, number> } => {
-  const islandIdByTile = new Map<TileKey, number>();
-  let nextIslandId = 0;
-  for (let y = 0; y < WORLD_HEIGHT; y += 1) {
-    for (let x = 0; x < WORLD_WIDTH; x += 1) {
-      if (terrainAtRuntime(x, y) !== "LAND") continue;
-      const startKey = key(x, y);
-      if (islandIdByTile.has(startKey)) continue;
-      const islandId = nextIslandId;
-      nextIslandId += 1;
-      const queue: Array<{ x: number; y: number }> = [{ x, y }];
-      islandIdByTile.set(startKey, islandId);
-      for (let index = 0; index < queue.length; index += 1) {
-        const current = queue[index]!;
-        for (let dy = -1; dy <= 1; dy += 1) {
-          for (let dx = -1; dx <= 1; dx += 1) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = wrapX(current.x + dx, WORLD_WIDTH);
-            const ny = wrapY(current.y + dy, WORLD_HEIGHT);
-            if (terrainAtRuntime(nx, ny) !== "LAND") continue;
-            const neighborKey = key(nx, ny);
-            if (islandIdByTile.has(neighborKey)) continue;
-            islandIdByTile.set(neighborKey, islandId);
-            queue.push({ x: nx, y: ny });
-          }
-        }
-      }
-    }
-  }
-  return { islandIdByTile };
-};
-
-export const islandSizeSummary = (
-  terrainAtRuntime: (x: number, y: number) => Tile["terrain"],
-  significantTileThreshold: number
-): { sizes: number[]; significantCount: number; largestShare: number } => {
-  const { islandIdByTile } = buildIslandMap(terrainAtRuntime);
-  const sizesByIsland = new Map<number, number>();
-  for (const islandId of islandIdByTile.values()) {
-    sizesByIsland.set(islandId, (sizesByIsland.get(islandId) ?? 0) + 1);
-  }
-  const sizes = [...sizesByIsland.values()].sort((left, right) => right - left);
-  const landTiles = sizes.reduce((sum, size) => sum + size, 0);
-  return {
-    sizes,
-    significantCount: sizes.filter((size) => size >= significantTileThreshold).length,
-    largestShare: landTiles > 0 ? (sizes[0] ?? 0) / landTiles : 0
-  };
-};
+export { buildIslandMap, islandSizeSummary };
+import { buildIslandMap, islandSizeSummary } from "./season-seed-world-islands.js";
 
 export const worldLooksBland = (seed: number, clusterByTile: Map<TileKey, string>, townsByTile: Map<TileKey, TownDefinition>, docksByTile: Map<TileKey, { dockId: string }>, seeded01: (x: number, y: number, seed: number) => number): boolean => {
   const step = 15;
@@ -518,12 +472,14 @@ export const createSeasonSeedWorld = (
   return {
     players,
     tiles,
-    docks: [...dockById.values()].map((dock) => ({
-      dockId: dock.dockId,
-      tileKey: dock.tileKey,
-      pairedDockId: dock.pairedDockId,
-      ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
-    })),
+    docks: finalizeSeasonWorldDocks(dockById, {
+      terrainAt: terrainRuntime.terrainAtRuntime,
+      worldIndex: (x, y) => y * WORLD_WIDTH + x,
+      wrapX: (x) => wrapX(x, WORLD_WIDTH),
+      wrapY: (y) => wrapY(y, WORLD_HEIGHT),
+      worldWidth: WORLD_WIDTH,
+      worldHeight: WORLD_HEIGHT
+    }),
     worldSeed,
     significantIslandCount: islandSummary.significantCount,
     humanPlayers: humanPlayerCount,

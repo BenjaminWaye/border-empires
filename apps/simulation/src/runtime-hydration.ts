@@ -4,6 +4,7 @@ import { MANPOWER_BASE_CAP, POPULATION_MAX, type DomainTileState } from "@border
 import { recomputeMods } from "./tech-domain-bridge/tech-domain-bridge.js";
 import { simulationTileKey } from "./seed-state/seed-state.js";
 import type { DockRouteDefinition } from "./dock-network/dock-network.js";
+import { attachDockSeaRoutes, type SeaRouteTerrainReader } from "./dock-network/dock-sea-routes.js";
 import type { RecoveredCommandHistory } from "./command-recovery/command-recovery.js";
 import type { RecoveredSimulationState } from "./event-recovery/event-recovery.js";
 import { isReplayTrackedCommandId } from "./command-event-lifecycle.js";
@@ -137,14 +138,28 @@ export const createTilesFromInitialState = (
 
 export const createDocksFromInitialState = (
   initialState: RecoveredSimulationState | undefined,
-  seedDocks: DockRouteDefinition[]
-): DockRouteDefinition[] =>
-  (initialState?.docks ?? seedDocks).map((dock) => ({
+  seedDocks: DockRouteDefinition[],
+  // Present only when the caller can supply the season's authoritative,
+  // frozen worldgen terrain (e.g. from worldgen_baselines) -- used to
+  // backfill routeWaypointsByLinkedDockId on docks recovered from a season
+  // that predates that field, or on any restart where it was otherwise
+  // dropped. Recomputing here (not just preserving) is deliberately
+  // idempotent: it self-heals every boot instead of depending on a one-time
+  // migration having run.
+  authoritativeTerrainReader?: SeaRouteTerrainReader
+): DockRouteDefinition[] => {
+  const docks = (initialState?.docks ?? seedDocks).map((dock) => ({
     dockId: dock.dockId,
     tileKey: dock.tileKey,
     pairedDockId: dock.pairedDockId,
-    ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+    ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}),
+    ...(dock.routeWaypointsByLinkedDockId ? { routeWaypointsByLinkedDockId: dock.routeWaypointsByLinkedDockId } : {})
   }));
+  if (!authoritativeTerrainReader) return docks;
+  const dockById = new Map(docks.map((dock) => [dock.dockId, dock] as const));
+  attachDockSeaRoutes(dockById, authoritativeTerrainReader);
+  return docks;
+};
 
 const parseRecoveredCombatResolution = (combatResolutionJson?: string): LockedCombatResolution | undefined => {
   if (!combatResolutionJson) return undefined;

@@ -52,6 +52,7 @@ import { buildSeasonSeedTile } from "./season-seed-world-tile-assembly.js";
 import { createSeasonSeedPlayerSpawner } from "./season-seed-world-player-spawn.js";
 import { countFairSpawnSitesForWorldgenCheck, FAIR_SPAWN_SITE_WORLDGEN_MINIMUM } from "./season-seed-world-fair-spawn-check.js";
 import { fillMountainRingInteriors } from "./season-seed-world-ring-interiors.js";
+import { finalizeSeasonWorldDocks } from "./dock-network/dock-sea-routes.js";
 
 // This is createSeasonSeedWorld (season-seed-world.ts) with cooperative
 // yields between generation stages, used by the live "Start New Season"
@@ -325,12 +326,14 @@ export const createSeasonSeedWorldAsync = async (
   return {
     players,
     tiles,
-    docks: [...dockById.values()].map((dock) => ({
-      dockId: dock.dockId,
-      tileKey: dock.tileKey,
-      pairedDockId: dock.pairedDockId,
-      ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
-    })),
+    docks: finalizeSeasonWorldDocks(dockById, {
+      terrainAt: terrainRuntime.terrainAtRuntime,
+      worldIndex: (x, y) => y * WORLD_WIDTH + x,
+      wrapX: (x) => wrapX(x, WORLD_WIDTH),
+      wrapY: (y) => wrapY(y, WORLD_HEIGHT),
+      worldWidth: WORLD_WIDTH,
+      worldHeight: WORLD_HEIGHT
+    }),
     worldSeed,
     significantIslandCount: islandSummary.significantCount,
     humanPlayers: humanPlayerCount,
