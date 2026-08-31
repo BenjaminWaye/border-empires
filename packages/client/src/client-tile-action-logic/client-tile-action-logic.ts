@@ -1526,9 +1526,9 @@ export const menuActionsForSingleTile = (state: ClientState, tile: Tile, deps: T
         });
       }
     }
+    // A Fort and a Relay Beacon are allowed to share a tile, so no !tile.fort guard here.
     if (
       buildShowsOnTile("RELAY_BEACON", tile, supportedTowns.length, supportedDocks.length) &&
-      !tile.fort &&
       !tile.siegeOutpost &&
       !tile.observatory &&
       !tile.economicStructure
