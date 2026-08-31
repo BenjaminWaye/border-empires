@@ -8,6 +8,7 @@ import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
 import { capturedTownAftermath } from "./runtime-capture-aftermath.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import { applyResourceTileSteal, type RuntimeResourceStealContext } from "./runtime-resource-steal.js";
+import { settleRejectionForActor } from "./runtime-settlement-rules.js";
 import { FORT_PATROL_GRACE_MS } from "./territory-automation/territory-automation.js";
 import type { LockRecord, LockedCombatResolution, SimulationTileWireDelta } from "./runtime-types.js";
 
@@ -70,6 +71,14 @@ export type RuntimeLockResolutionContext = {
   // mutation, never after (no reason to pay a settle cost only to also decay).
   canAutoSettleCapturedAnchor: (playerId: string) => boolean;
   autoSettleCapturedAnchor: (playerId: string, targetKey: string, target: DomainTileState, commandId: string) => void;
+  // Fallback for a captured/claimed town or dock that can't auto-settle
+  // immediately only because no development slot is free right now (the
+  // player can otherwise afford it) -- queues a SETTLE dev-queue entry for
+  // the tile instead of letting it decay, so it drains automatically the
+  // moment a slot frees, exactly like any other queued SETTLE. Returns
+  // whether the entry was actually queued (false if the player's dev queue
+  // is already full), in which case the caller falls back to decay.
+  queueCapturedAnchorSettle: (playerId: string, targetKey: string, x: number, y: number) => boolean;
   // Server-side waypoint/expand-queue auto-drain (runtime-waypoint-queue-
   // command-handlers.ts) -- called unconditionally once this EXPAND/ATTACK
   // lock is done resolving (win, loss, or stale/superseded), win or lose, so
@@ -221,6 +230,17 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
     const isAnchorStructureTile = Boolean(townAftermath.town) || Boolean(previousTarget?.dockId);
     const willAutoSettle =
       outOfReachDecayAt !== undefined && isAnchorStructureTile && context.canAutoSettleCapturedAnchor(lock.playerId);
+    // canAutoSettleCapturedAnchor can fail purely because no development slot
+    // is free at the instant of capture (busy building/settling something
+    // else) even though the player can otherwise afford it -- see
+    // queueCapturedAnchorSettle's doc comment. That case queues a SETTLE
+    // instead of falling straight to decay, so a momentarily-full dev queue
+    // can never cost the player a town they just took.
+    const canAffordSettle = attacker !== undefined && !settleRejectionForActor(attacker);
+    const settleQueued =
+      outOfReachDecayAt !== undefined && isAnchorStructureTile && !willAutoSettle && canAffordSettle
+        ? context.queueCapturedAnchorSettle(lock.playerId, lock.targetKey, lock.targetX, lock.targetY)
+        : false;
     const resolvedTarget: DomainTileState = {
       x: lock.targetX,
       y: lock.targetY,
@@ -234,7 +254,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       ...capturedStructureFields(previousTarget, lock.playerId, context.now()),
       ownerId: lock.playerId,
       ownershipState: lock.playerId === "barbarian-1" ? "SETTLED" : "FRONTIER",
-      ...(outOfReachDecayAt !== undefined && !willAutoSettle
+      ...(outOfReachDecayAt !== undefined && !willAutoSettle && !settleQueued
         ? { frontierDecayAt: outOfReachDecayAt, frontierDecayKind: "OUT_OF_REACH" as const }
         : {})
     };
@@ -255,6 +275,7 @@ export function resolveLock(context: RuntimeLockResolutionContext, lock: LockRec
       });
     }
     if (willAutoSettle) context.autoSettleCapturedAnchor(lock.playerId, lock.targetKey, resolvedTarget, lock.commandId);
+    else if (settleQueued) { /* dev queue owns it now -- see queueCapturedAnchorSettle */ }
     else if (outOfReachDecayAt !== undefined) context.registerOutOfReachDecay(lock.targetKey, outOfReachDecayAt);
     if (resolvedTarget.ownershipState === "FRONTIER") context.extendFortPatrolGrace(lock.targetKey, context.now() + FORT_PATROL_GRACE_MS);
     else context.clearFortPatrolGrace(lock.targetKey);

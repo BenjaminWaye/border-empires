@@ -18,11 +18,22 @@ const ORIGIN_KEY = simulationTileKey(5, 5);
 const TARGET_KEY = simulationTileKey(6, 5);
 const OUT_OF_REACH_DEADLINE = 120_000;
 
-const makePlayer = (id: string): DomainPlayer => ({ id, isAi: false, points: 0, manpower: 0, techIds: new Set(), allies: new Set() });
+const makePlayer = (id: string, options?: { funded?: boolean }): DomainPlayer => ({
+  id,
+  isAi: false,
+  points: options?.funded ? 1_000 : 0,
+  manpower: options?.funded ? 1_000 : 0,
+  techIds: new Set(),
+  allies: new Set()
+});
 
 type ContextOptions = {
   outOfReach: boolean;
   canAutoSettle: boolean;
+  /** Whether the attacker has enough gold/manpower to afford a settle -- see settleRejectionForActor. Defaults to false (matches the existing 0/0 makePlayer). */
+  funded?: boolean;
+  /** Return value for queueCapturedAnchorSettle -- whether the dev-queue enqueue actually succeeded. */
+  settleQueueAccepted?: boolean;
 };
 
 function createContext(tiles: Map<string, DomainTileState>, options: ContextOptions) {
@@ -32,8 +43,9 @@ function createContext(tiles: Map<string, DomainTileState>, options: ContextOpti
     tiles.set(targetKey, target); // mirrors startSettlementProcess leaving the tile FRONTIER, in-flight
   });
   const canAutoSettleCapturedAnchor = vi.fn(() => options.canAutoSettle);
+  const queueCapturedAnchorSettle = vi.fn(() => options.settleQueueAccepted ?? true);
   const context: RuntimeLockResolutionContext = {
-    players: new Map([[ATTACKER_ID, makePlayer(ATTACKER_ID)], [DEFENDER_ID, makePlayer(DEFENDER_ID)]]),
+    players: new Map([[ATTACKER_ID, makePlayer(ATTACKER_ID, { funded: options.funded })], [DEFENDER_ID, makePlayer(DEFENDER_ID)]]),
     tiles,
     locksByTile: new Map(),
     locksByCommandId: new Map(),
@@ -69,9 +81,10 @@ function createContext(tiles: Map<string, DomainTileState>, options: ContextOpti
     registerOutOfReachDecay,
     canAutoSettleCapturedAnchor,
     autoSettleCapturedAnchor,
+    queueCapturedAnchorSettle,
     tryDrainWaypointQueue: () => {}
   };
-  return { context, events, registerOutOfReachDecay, autoSettleCapturedAnchor, canAutoSettleCapturedAnchor };
+  return { context, events, registerOutOfReachDecay, autoSettleCapturedAnchor, canAutoSettleCapturedAnchor, queueCapturedAnchorSettle };
 }
 
 /** Registers a lock in both lock maps the way the runtime does before resolving it -- resolveLock bails out immediately otherwise. */
@@ -219,5 +232,51 @@ describe("resolveLock — out-of-reach auto-settle for captured towns/docks", ()
     expect(autoSettleCapturedAnchor).not.toHaveBeenCalled();
     expect(canAutoSettleCapturedAnchor).not.toHaveBeenCalled();
     expect(registerOutOfReachDecay).not.toHaveBeenCalled();
+  });
+
+  it("queues a SETTLE instead of decaying when the only blocker is a busy development slot", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, originTile()],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "Rival Town" } }]
+    ]);
+    // canAutoSettle: false mirrors hasAvailableDevelopmentSlot returning false
+    // (dev queue busy); funded: true means the player can otherwise afford it,
+    // so this must queue a SETTLE rather than fall back to decay -- the player
+    // must not lose a town they just captured purely because their dev queue
+    // happened to be full at the instant of capture.
+    const { context, registerOutOfReachDecay, autoSettleCapturedAnchor, queueCapturedAnchorSettle } =
+      createContext(tiles, { outOfReach: true, canAutoSettle: false, funded: true });
+
+    const lock = makeWonAttackLock();
+    lockTile(context, lock);
+    resolveLock(context, lock);
+
+    const target = tiles.get(TARGET_KEY);
+    expect(target?.ownerId).toBe(ATTACKER_ID);
+    expect(target?.ownershipState).toBe("FRONTIER");
+    expect(target?.frontierDecayAt).toBeUndefined();
+    expect(target?.frontierDecayKind).toBeUndefined();
+    expect(autoSettleCapturedAnchor).not.toHaveBeenCalled();
+    expect(queueCapturedAnchorSettle).toHaveBeenCalledWith(ATTACKER_ID, TARGET_KEY, 6, 5);
+    expect(registerOutOfReachDecay).not.toHaveBeenCalled();
+  });
+
+  it("falls back to decay if the SETTLE couldn't be queued (dev queue full)", () => {
+    const tiles = new Map<string, DomainTileState>([
+      [ORIGIN_KEY, originTile()],
+      [TARGET_KEY, { x: 6, y: 5, terrain: "LAND", ownerId: DEFENDER_ID, ownershipState: "SETTLED", town: { type: "MARKET", populationTier: "TOWN", name: "Rival Town" } }]
+    ]);
+    const { context, registerOutOfReachDecay, queueCapturedAnchorSettle } =
+      createContext(tiles, { outOfReach: true, canAutoSettle: false, funded: true, settleQueueAccepted: false });
+
+    const lock = makeWonAttackLock();
+    lockTile(context, lock);
+    resolveLock(context, lock);
+
+    const target = tiles.get(TARGET_KEY);
+    expect(target?.frontierDecayAt).toBe(OUT_OF_REACH_DEADLINE);
+    expect(target?.frontierDecayKind).toBe("OUT_OF_REACH");
+    expect(queueCapturedAnchorSettle).toHaveBeenCalledWith(ATTACKER_ID, TARGET_KEY, 6, 5);
+    expect(registerOutOfReachDecay).toHaveBeenCalledWith(TARGET_KEY, OUT_OF_REACH_DEADLINE);
   });
 });

@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788161657061, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Captured enemy towns/docks outside your reach no longer risk decaying before you can settle them",
+    why: "Capturing a town or dock outside your own reach tries to auto-settle it immediately (since it's a reach anchor itself, decaying it away was a dead end). But if your development queue happened to be busy at that exact moment, it fell straight back to a 2-minute out-of-reach decay timer -- and manually settling was gated behind the same busy queue, so a full queue could cost you the town before you ever got a chance to save it.",
+    changes: [
+      "A captured town or dock outside your reach that can't auto-settle only because your development queue is momentarily busy now queues to settle automatically as soon as a slot frees, instead of risking decay"
+    ]
+  },
+  {
     createdAt: 1788127316489, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.6",
     title: "Selected-structure reach highlight now also shows on the 3D map",

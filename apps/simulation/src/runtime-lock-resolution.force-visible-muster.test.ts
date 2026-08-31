@@ -56,6 +56,7 @@ function createContext(tiles: Map<string, DomainTileState>) {
     registerOutOfReachDecay: () => {},
     canAutoSettleCapturedAnchor: () => false,
     autoSettleCapturedAnchor: () => {},
+    queueCapturedAnchorSettle: () => false,
     tryDrainWaypointQueue: () => {}
   };
   return { context, events };

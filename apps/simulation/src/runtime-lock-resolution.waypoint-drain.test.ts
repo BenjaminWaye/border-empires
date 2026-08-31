@@ -62,6 +62,7 @@ function createContext(tiles: Map<string, DomainTileState>) {
     registerOutOfReachDecay: () => {},
     canAutoSettleCapturedAnchor: () => false,
     autoSettleCapturedAnchor: () => {},
+    queueCapturedAnchorSettle: () => false,
     tryDrainWaypointQueue: (playerId) => { drainedForPlayerIds.push(playerId); }
   };
   return { context, events, drainedForPlayerIds };

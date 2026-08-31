@@ -61,6 +61,30 @@ const enqueueSettleStep = (summary: PlayerRuntimeSummary, x: number, y: number, 
   return accepted;
 };
 
+/**
+ * Fallback for a captured/claimed town or dock that couldn't auto-settle
+ * immediately only because no development slot was free at the moment of
+ * capture (see runtime-lock-resolution.ts's resolveLock, the only caller).
+ * Queues a SETTLE dev-queue entry for the tile via the same devQueue tail as
+ * a claim continuation's settle step, so it drains -- and the town actually
+ * settles -- the instant a slot frees, instead of the tile sitting on an
+ * out-of-reach decay timer with no guaranteed chance to be settled before it
+ * expires. Returns whether the entry was actually queued (false only if the
+ * player's dev queue is already full), so the caller can fall back to decay.
+ */
+export const queueCapturedAnchorSettle = (
+  context: RuntimeDevQueueCommandContext,
+  playerId: string,
+  targetKey: string,
+  x: number,
+  y: number
+): boolean => {
+  const summary = context.summaryForPlayer(playerId);
+  const accepted = enqueueSettleStep(summary, x, y, targetKey, context.now());
+  if (accepted) tryDrainDevQueue(context, playerId);
+  return accepted;
+};
+
 export const handleClaimContinuationSetCommand = (
   context: RuntimeClaimContinuationCommandContext,
   command: CommandEnvelope

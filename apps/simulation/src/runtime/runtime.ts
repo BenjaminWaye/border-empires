@@ -206,7 +206,7 @@ import {
   handleWaypointEnqueueCommand as handleWaypointEnqueueCommandImpl, tryDrainWaypointQueue as tryDrainWaypointQueueImpl,
   type RuntimeWaypointQueueCommandContext
 } from "../runtime-waypoint-queue-command-handlers.js"; import { WaypointDrainScheduler, tickWaypointDrain as tickWaypointDrainImpl } from "../runtime-waypoint-drain-scheduler/runtime-waypoint-drain-scheduler.js";
-import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
+import { handleClaimContinuationSetCommand as handleClaimContinuationSetCommandImpl, tryDrainClaimContinuation as tryDrainClaimContinuationImpl, tryDrainClaimContinuationBuildTail as tryDrainClaimContinuationBuildTailImpl, queueCapturedAnchorSettle as queueCapturedAnchorSettleImpl, claimContinuationContextFromDevQueueContext } from "../runtime-claim-continuation-command-handlers.js";
 import {
   createDocksFromInitialState,
   createLocksFromInitialState,
@@ -1734,7 +1734,7 @@ export class SimulationRuntime {
       respawnIfEliminated: (playerId, commandId) => this.respawnIfEliminated(playerId, commandId),
       ensureGrossIncomeSettlementForPlayer: (playerId, commandId) => this.ensureGrossIncomeSettlementForPlayer(playerId, commandId),
       maybeActivateWatchtower: (targetKey, x, y, playerId, commandId) => this.activateWatchtowerAt(targetKey, x, y, playerId, commandId),
-      maybeDrainClaimContinuation: (targetKey, x, y, playerId) => tryDrainClaimContinuationImpl(this.devQueueCommandContext(), playerId, targetKey, x, y),
+      maybeDrainClaimContinuation: (targetKey, x, y, playerId) => tryDrainClaimContinuationImpl(this.devQueueCommandContext(), playerId, targetKey, x, y), queueCapturedAnchorSettle: (playerId, targetKey, x, y) => queueCapturedAnchorSettleImpl(this.devQueueCommandContext(), playerId, targetKey, x, y),
       outOfReachDecayDeadline: (playerId, x, y) => outOfReachDecayDeadlineImpl({ isPlayerTileInReach: (pid, tx, ty) => this.isPlayerTileInReach(pid, tx, ty), gatherReachAnchors: () => this.gatherReachAnchors(), now: () => this.now(), isLandTile: this.isLandTileQuery }, playerId, x, y), registerOutOfReachDecay: (tileKey, deadlineAt) => enqueueOutOfReachDecay(this.outOfReachDecayQueue, tileKey, deadlineAt, (p, m) => this.runtimeLogInfo(p, m)), canAutoSettleCapturedAnchor: (playerId) => canAutoSettleCapturedAnchorImpl(autoSettleDeps, playerId), autoSettleCapturedAnchor: (playerId, targetKey, target, commandId) => autoSettleCapturedAnchorImpl(autoSettleDeps, playerId, targetKey, target, commandId),
       applyBreachToNeighbors: BREAKTHROUGH_ENABLED
         ? (capturedTile, attackerId) => applyBreachToNeighborsImpl({ capturedTile, attackerId, nowMs: this.now(), tiles: this.state.tiles, invalidateTileStringifyCache: (key) => this.tileDeltaStringifyCache.invalidate(key) })
