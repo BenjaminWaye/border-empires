@@ -64,7 +64,15 @@ describe("automation command planner — broad fallback bound (not skipped) for 
     // The old size-based skip is gone — broadFallbackSkipped must never be true.
     expect(result.diagnostic.broadFallbackSkipped).toBeFalsy();
     expect(result.diagnostic.frontierOpportunityEconomic).toBeGreaterThan(0);
-    expect(result.command).toMatchObject({ type: "EXPAND" });
+    // The regression this guards is "the opportunity is found and acted on
+    // at all" — not specifically that EXPAND is the action. With beacon
+    // fog-exploration scoring (relay-beacon-command-planner.ts), a thin,
+    // mostly-unexplored empire like this one legitimately prefers BUILD_BEACON
+    // (→ SETTLE first, since every owned tile here is FRONTIER) over a
+    // single-tile EXPAND grab; either action proves the broad fallback found
+    // real value instead of leaving the AI stuck on WAIT.
+    expect(result.command?.type).not.toBe("WAIT");
+    expect(["EXPAND", "SETTLE", "BUILD_ECONOMIC_STRUCTURE"]).toContain(result.command?.type);
   });
 
   it("marks broadFallbackSkipped when the narrow/hot scan alone is already actionable, even though a real target sits elsewhere on the frontier", () => {
