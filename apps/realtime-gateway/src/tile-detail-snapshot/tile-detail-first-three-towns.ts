@@ -20,6 +20,16 @@ type SnapshotTile = PlayerSubscriptionSnapshot["tiles"][number];
  * firstThreeTownMultipliersForTile's own doc comment: every consumer of this
  * bonus must go through that one function so the real math and the wire
  * display fields can't drift apart again.
+ *
+ * Caveat: the wire snapshot carries no settlement-order/timestamp field, so
+ * unlike the sim's authoritative firstThreeTownKeysForPlayer callers (which
+ * pass entries in real settlement order — see buildFirstThreeTownKeysByPlayer
+ * / orderedTownTilesForPlayer), this path can only sort by tile key for a
+ * stable, deterministic "first three" rather than the player's true first
+ * three by settlement order. For a player with more than 3 towns, this can
+ * occasionally select a different 3-town set than the live broadcast path —
+ * still far better than never computing the bonus at all, and at least
+ * consistent across repeated fetches (no more flicker).
  */
 export const firstThreeTownMultipliersForSnapshotTile = (
   snapshot: PlayerSubscriptionSnapshot | undefined,
@@ -30,6 +40,7 @@ export const firstThreeTownMultipliersForSnapshotTile = (
 ): { firstThreeTownGoldMult: number; firstThreeTownPopGrowthMult: number } => {
   const ownedSettledTownEntries: Array<readonly [string, string | undefined]> = (snapshot?.tiles ?? [])
     .filter((t: SnapshotTile) => t.ownerId === playerId && t.ownershipState === "SETTLED" && (t.townJson || t.townType))
+    .sort((a: SnapshotTile, b: SnapshotTile) => (a.x - b.x) || (a.y - b.y))
     .map((t: SnapshotTile) => [keyFor(t.x, t.y), t.townPopulationTier] as const);
   const firstThreeTownKeys = firstThreeTownKeysForPlayer(playerId, ownedSettledTownEntries);
   const economyPlayer = {
