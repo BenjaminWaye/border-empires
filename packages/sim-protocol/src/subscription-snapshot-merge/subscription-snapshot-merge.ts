@@ -105,8 +105,8 @@ const PLAYER_MERGE_RULES = {
   mods: (p) => (isRecord(p.mods) ? { mods: p.mods as NonNullable<PlayerStateSnapshot["mods"]> } : undefined),
   modBreakdown: (p) => (isRecord(p.modBreakdown) ? { modBreakdown: p.modBreakdown as NonNullable<PlayerStateSnapshot["modBreakdown"]> } : undefined),
   // Not currently pushed via any live event -- reconnect-only today (see
-  // apps/realtime-gateway/src/init-payload/init-payload-reconnect-fields.ts
-  // and docs/player-wire-refactor-plan.md). Listed (as no-ops) rather than
+  // @border-empires/sim-protocol's reconnect-passthrough-fields.ts and
+  // docs/player-wire-refactor-plan.md). Listed (as no-ops) rather than
   // omitted for the same reason id/name are: a future PLAYER_UPDATE payload
   // that starts carrying one of these needs a single-line change here, not
   // a rediscovery of this whole class of bug.

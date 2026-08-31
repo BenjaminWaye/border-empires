@@ -32,30 +32,12 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     ]
   },
   {
-    createdAt: 1787643819306, // frozen from `node -e "console.log(Date.now())"`
-    introducedIn: "2026.08.25.1",
-    title: "Auto-settle no longer claims resource tiles before you've researched them",
-    why: "Auto-settle's eligibility check for a frontier resource tile only asked whether the tile was currently within fog-of-war vision, not whether the settling player had actually researched the tech that reveals that resource (Titanium needs Masonry, Umbrite needs Leatherworking, Gems/Crystal need Crystal Lattices). That let auto-settle grab a scouted-but-unresearched resource tile out from under you before you'd unlocked it.",
-    changes: [
-      "Auto-settle now also requires the resource's revealing tech to be researched before it will claim that tile -- FARM/FISH tiles are unaffected since food was never tech-gated."
-    ]
-  },
-  {
     createdAt: 1787651082566, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.25.2",
     title: "Added a new-player checklist for founding your first town and securing food",
     why: "Brand-new players had no in-game guidance pointing them toward the two things that matter most in the opening minutes: settling a first town, and claiming enough grain/fishing tiles to keep it fed. Nothing on the map called those tiles out, so new players could wander for a while before realizing food mattered.",
     changes: [
       "New empires now see a two-step onboarding checklist: settle your first town, then claim 4 food slots (any mix of grain and fishing tiles). The map highlights your town and nearby unclaimed grain/fish tiles until each step is done, and the checklist disappears for good once you're food-secure."
-    ]
-  },
-  {
-    createdAt: 1787643819308, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.3",
-    title: "Fixed borders not expanding after a reach anchor finished while you were away",
-    why: "A Relay Beacon (or any reach anchor) that finished building while you were disconnected expanded your border on the server, but the update was sent before your connection was ready to receive it and was silently dropped. Reconnecting did not recover it, so the game kept showing your old border -- and because the waypoint planner uses the same border, queued expansions could stall against territory the server had already granted you.",
-    changes: [
-      "Your authoritative border is now pushed once your connection is fully established, so a reach anchor that completed while you were offline shows up as soon as you log back in."
     ]
   },
   {
@@ -66,15 +48,6 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     changes: [
       "River paths are now smoothed with a Catmull-Rom curve and resampled at higher density, removing the faceted straight-segment look.",
       "River width now tapers from narrow at the source to wide at the mouth, based on how far each point has flowed toward the sea."
-    ]
-  },
-  {
-    createdAt: 1787643819307, // frozen just after this file's prior latest entry, to avoid a createdAt collision
-    introducedIn: "2026.08.25.2",
-    title: "Fixed spawns landing next to resources across water",
-    why: "A new player's starting position only had to be within straight-line distance of a farm or fishing spot to count as \"nearby\" -- so a spawn could land on a coastline whose closest food was actually on the far side of a strait or a separate island, unreachable without crossing water.",
-    changes: [
-      "Spawn placement now requires that nearby food and towns be on the same landmass as the spawn point, not just within range as the crow flies."
     ]
   },
   {
@@ -162,6 +135,15 @@ export const CLIENT_CHANGELOG_ENTRIES_EARLIER_2: ClientChangelogEntry[] = [
     changes: [
       "Build Aether Condenser now stays enabled in a town that already has one, matching the server's support for stacking multiple.",
       "A converter structure in Sell Off mode now shows a \"Sell Off gold: +N/day\" modifier line matching its real payout, instead of no modifier at all."
+    ]
+  },
+  {
+    createdAt: 1788166365565, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31",
+    title: "Fixed the season-winner galactic bonus vanishing after a reconnect",
+    why: "Last season's Planet winner gets a one-time manpower-regen and vision-radius head start for their next season. That bonus was correctly granted and tracked on the server, but the reconnect/login payload that rebuilds your empire's state on the client never referenced either field at all -- so the bonus silently disappeared from what you saw the moment you reconnected, even though the server kept applying it underneath.",
+    changes: [
+      "The galactic-wonder manpower-regen and vision-radius bonuses now reliably carry through a reconnect, matching what the server has actually been applying."
     ]
   },
 ];

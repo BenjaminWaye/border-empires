@@ -78,4 +78,20 @@ describe("buildGatewayInitPayload reconnect fields", () => {
     expect(init.player.imperialWardCharges).toBeUndefined();
     expect(init.player.wonderLastFreeRushBuyAt).toBeUndefined();
   });
+
+  // Regression: confirmed missing from this builder entirely (not just
+  // omitted without a fallback, but never referenced at all) until the
+  // Phase 3 player-wire refactor -- the season-winner galactic-wonder bonus
+  // silently vanished from the client on every reconnect. See
+  // docs/player-wire-refactor-plan-phase3.md.
+  it("carries the galactic-wonder bonus fields through to the INIT payload's player object", () => {
+    const init = buildGatewayInitPayload(
+      { playerId: "player-1", playerName: "Nauticus" },
+      baseInitialState({ galacticWonderManpowerRegenBonusPerMinute: 5, galacticWonderVisionRadiusBonus: 2 }),
+      "default"
+    );
+
+    expect(init.player.galacticWonderManpowerRegenBonusPerMinute).toBe(5);
+    expect(init.player.galacticWonderVisionRadiusBonus).toBe(2);
+  });
 });
