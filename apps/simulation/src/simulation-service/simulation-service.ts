@@ -79,7 +79,8 @@ import { createAiAndSystemShouldRun } from "./ai-and-system-should-run.js";
 import { captureSeasonWinnerAtCrowning } from "../season-crowning/season-crowning.js";
 import { parseRallyAnchor, preparePlayerHandler, joinSeasonHandler } from "./prepare-and-join-player.js";
 import { generateSeasonWorld, type SimulationMapStyle, type SimulationRulesetId } from "../season-worldgen/season-worldgen.js";
-import { createWorldgenBaselineCache } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
+import { createWorldgenBaselineCache, resolveDockRouteBackfillReader } from "../worldgen-baseline-cache/worldgen-baseline-cache.js";
+import { createActivePlayerIdentityMap, createRecoveredActivePlayerIdentityMap } from "../active-player-identity-map.js";
 import type { AutomationPlannerDiagnostic } from "../ai/automation-command-planner.js";
 import {
   createMainThreadTaskTrackerFromEnv,
@@ -343,40 +344,6 @@ const buildBootstrapSeason = async ({
     },
     initialPlayers: generatedWorld.initialPlayers
   };
-};
-
-type ActivePlayerIdentity = {
-  id: string;
-  isAi: boolean;
-};
-
-const createActivePlayerIdentityMap = (
-  players: Iterable<{ id: string; isAi: boolean }>
-): Map<string, ActivePlayerIdentity> =>
-  new Map(
-    [...players].map((player) => [
-      player.id,
-      {
-        id: player.id,
-        isAi: player.isAi
-      }
-    ])
-  );
-
-const createRecoveredActivePlayerIdentityMap = (
-  initialState: RecoveredSimulationState | undefined,
-  fallbackPlayers: ReadonlyMap<string, ActivePlayerIdentity>
-): Map<string, ActivePlayerIdentity> | undefined => {
-  if (!initialState?.players || initialState.players.length === 0) return undefined;
-  return new Map(
-    initialState.players.map((player) => [
-      player.id,
-      {
-        id: player.id,
-        isAi: player.isAi ?? fallbackPlayers.get(player.id)?.isAi ?? false
-      }
-    ])
-  );
 };
 
 const normalizeAutopilotEnabled = (value: boolean | string | number | undefined): boolean =>
@@ -797,6 +764,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
   // restart on an old continents-shaped season with SIMULATION_MAP_STYLE=islands
   // would desync terrainAt() from the season's actual persisted tile shape.
   setWorldSeed(currentSeasonState.worldSeed, currentSeasonState.mapStyle ?? "continents");
+  const dockRouteBackfillReader = await resolveDockRouteBackfillReader(resolveWorldgenBaseline, { worldSeed: currentSeasonState.worldSeed, mapStyle: currentSeasonState.mapStyle, rulesetId });
   const runtimePlayers = legacySnapshotBootstrap?.players ?? bootstrappedInitialPlayers ?? seedPlayers;
   let runtimeSeededTileCount = effectiveStartupRecovery.initialState.tiles.length;
   const fallbackActivePlayers = createActivePlayerIdentityMap(runtimePlayers.values());
@@ -814,6 +782,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
     backgroundBatchSize: runtimeBackgroundBatchSize,
     initialState: effectiveStartupRecovery.initialState,
     initialCommandHistory: effectiveStartupRecovery.initialCommandHistory,
+    ...(dockRouteBackfillReader ? { dockRouteBackfillReader } : {}),
     mergeSeedTilesWithInitialState: !isDbBackedStartup, isPlayerSubscribed: (playerId) => subscriptionRegistry.isSubscribed(playerId), // TDZ-safe: closure runs later
     // Drain on setImmediate (next loop tick), not queueMicrotask. Microtasks
     // run inside the current task before any I/O — that means a gRPC

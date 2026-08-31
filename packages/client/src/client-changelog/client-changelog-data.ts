@@ -446,6 +446,17 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
       "Observatories placed near each other light up thin cyan aether conduits with brass rails, collar joints, light nodes and travelling energy pulses, so a connected network reads as a visible web",
       "Where several observatories stand close together a rotating geometric synchronization cluster forms between them, marking the strongest aether convergence on the map"
     ]
+  },
+  {
+    createdAt: 1788129225675, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed a dock's yellow dashed sea-route line not drawing (\"route not found\") for most players",
+    why: "The client routed dock pairs by re-running its own procedural terrain walk from scratch, but that procedural terrainAt() is a best-effort approximation that drifts from the frozen terrain the server committed at worldgen time (worldgen_baselines). On many worlds the client's approximation found no contiguous sea path where the server's real terrain clearly had one, so the dashed connection line silently never rendered and the dock debug reported routeFound:false -- even though a valid sea route existed.",
+    changes: [
+      "Dock sea routes are now computed once, server-side, from the authoritative worldgen terrain and shipped to the client with the initial world payload, so the dashed connection line and its route-found status match the real, frozen terrain",
+      "Already-running seasons self-heal their dock routes on the sim's next restart -- no season reset needed",
+      "Older servers that don't ship a route still fall back to the client's own sea-route pathfinder, so nothing regresses for them"
+    ]
   }
 ];
 export const CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [

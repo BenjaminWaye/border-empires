@@ -169,6 +169,10 @@ export type SimulationRuntimeOptions = {
   seedProfile?: SimulationSeedProfile;
   seedTiles?: Map<string, import("@border-empires/game-domain").DomainTileState>;
   seedDocks?: DockRouteDefinition[];
+  // Authoritative, frozen worldgen terrain reader (e.g. sourced from
+  // worldgen_baselines) used to backfill/self-heal dock sea routes on boot.
+  // See createDocksFromInitialState.
+  dockRouteBackfillReader?: import("./dock-network/dock-sea-routes.js").SeaRouteTerrainReader;
   initialPlayers?: Map<string, RuntimePlayer>;
   mergeSeedTilesWithInitialState?: boolean;
   // Emperor-endorsement bonus (galaxy meta-layer Phase 1): granted once, the

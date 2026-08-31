@@ -128,7 +128,7 @@ type StartClientRuntimeLoopDeps = {
   settlePixelWanderPoint: (nowMs: number, wx: number, wy: number, i: number) => { x: number; y: number };
   worldToScreen: (wx: number, wy: number, size: number, halfW: number, halfH: number) => { sx: number; sy: number };
   isDockRouteVisibleForPlayer: (pair: DockPair) => boolean;
-  computeDockSeaRoute: (ax: number, ay: number, bx: number, by: number) => Array<{ x: number; y: number }>;
+  resolveDockSeaRoute: (pair: DockPair) => Array<{ x: number; y: number }>;
   toroidDelta: (from: number, to: number, dim: number) => number;
   drawAetherBridgeLane: (
     ctx: CanvasRenderingContext2D,
@@ -1491,10 +1491,10 @@ export const startClientRuntimeLoop = (state: ClientState, deps: StartClientRunt
       );
       if (!selectedRoute) continue;
 
-      const route = deps.computeDockSeaRoute(pair.ax, pair.ay, pair.bx, pair.by);
-      // No straight-line fallback: if A* couldn't route through sea
-      // between the two endpoints, draw nothing rather than a misleading
-      // cross-island line.
+      const route = deps.resolveDockSeaRoute(pair);
+      // Resolves the server-computed, authoritative route (frozen with the world
+      // at worldgen time); falls back to client A* only for older servers that
+      // omit it. No straight-line fallback: draw nothing rather than a cross-island line.
       if (route.length < 2) continue;
       deps.ctx.setLineDash(routeDash);
       deps.ctx.lineDashOffset = -((nowMs / 140) % 17);
