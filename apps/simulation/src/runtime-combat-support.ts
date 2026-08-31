@@ -17,7 +17,7 @@ import {
 import * as wonderEffects from "./runtime-natural-wonders.js"; import { simulationTileKey } from "./seed-state/seed-state.js";
 import { isAiControlledActor } from "./runtime-player-factory.js";
 import type { PlayerRuntimeSummary } from "./player-runtime-summary.js";
-import { isTownInCaptureShock, strategicResourceForTile } from "./runtime-structure-rules/runtime-structure-rules.js";
+import { isTownInCaptureShock } from "./runtime-structure-rules/runtime-structure-rules.js";
 import type { LockRecord, LockedCombatResolution, RuntimePlayer, SimulationTileWireDelta, StrategicResourceKey } from "./runtime-types.js";
 import { effectiveVisionRadiusForPlayer, multiplicativeEffectForPlayer } from "./tech-domain-bridge/tech-domain-bridge.js";
 import {
@@ -399,14 +399,17 @@ export { barbarianProgressGain, applyBarbarianWalkOrMultiply } from "./runtime-b
 
 export const BARBARIAN_CAPTURE_PLUNDER_GOLD = 10;
 
+// Plunder is gold-only by design (see AGENTS.md-adjacent design discussion): capturing a
+// resource tile does not steal strategic resources, only a share of the defender's gold.
+// `strategic` stays empty here — it used to be seeded with a hardcoded `{ FOOD: 1 }` for
+// FARM/FISH tiles that was never actually transferred to the attacker, which made the
+// client display a fake "plundered 1 FOOD" that had no effect on either player's stockpile.
 export const previewSettledCapturePlunder = (input: {
   defender: DomainPlayer;
   defenderTileCountBeforeCapture: number;
   target: DomainTileState;
 }): { gold: number; share: number; defenderGoldLoss: number; strategic: Partial<Record<StrategicResourceKey, number>> } => {
   const strategic: Partial<Record<StrategicResourceKey, number>> = {};
-  const strategicResource = strategicResourceForTile(input.target.resource);
-  if (strategicResource) strategic[strategicResource] = 1;
 
   if (input.defender.id === "barbarian-1") {
     return { gold: BARBARIAN_CAPTURE_PLUNDER_GOLD, share: 0, defenderGoldLoss: BARBARIAN_CAPTURE_PLUNDER_GOLD, strategic };
