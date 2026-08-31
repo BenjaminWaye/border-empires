@@ -1,5 +1,6 @@
 import type { DomainTileState } from "@border-empires/game-domain";
 import { isValidDockCrossingTarget } from "../dock-network/dock-network.js";
+import { isFrontierAdjacent } from "../frontier-adjacency/frontier-adjacency.js";
 import { simulationTileKey } from "../seed-state/seed-state.js";
 import { isAlliedOrTruced } from "../runtime-player-factory.js";
 import type { ActiveAetherBridgeView } from "../runtime-types.js";
@@ -43,6 +44,17 @@ export function isAetherBridgeCrossingTarget(
 
 export type DockCrossingOrigin = { tile: DomainTileState; isAlliedDockCrossing: boolean };
 
+function actorControlsDockNetwork(
+  tiles: ReadonlyMap<string, DomainTileState>,
+  networkTileKeys: ReadonlySet<string>,
+  actorId: string
+): boolean {
+  for (const networkTileKey of networkTileKeys) {
+    if (tiles.get(networkTileKey)?.ownerId === actorId) return true;
+  }
+  return false;
+}
+
 export function findOwnedDockOriginForCrossing(
   tiles: ReadonlyMap<string, DomainTileState>,
   territoryTileKeys: Iterable<string>,
@@ -75,14 +87,27 @@ export function findOwnedDockOriginForCrossing(
     if (!isAlliedOrTruced(actor, tile.ownerId)) continue;
     const networkTileKeys = dockNetworkComponentByTileKey.get(originTileKey);
     if (!networkTileKeys) continue;
-    let controlsNetwork = false;
-    for (const networkTileKey of networkTileKeys) {
-      if (tiles.get(networkTileKey)?.ownerId === actor.id) {
-        controlsNetwork = true;
-        break;
-      }
+    if (actorControlsDockNetwork(tiles, networkTileKeys, actor.id)) {
+      return { tile, isAlliedDockCrossing: true };
     }
-    if (controlsNetwork) return { tile, isAlliedDockCrossing: true };
+  }
+
+  // Allied dock as a launch point onto ITS OWN grid-neighbors: the target
+  // isn't the dock itself but an ordinary land tile next to an ally's dock.
+  // The ally's dock still has to be one you can actually reach (linked to a
+  // dock network you control), same requirement as the branch above — this
+  // only extends "land on the dock" to "land next to the dock", it does not
+  // open up the ally's wider territory.
+  for (const allyDockTileKey of dockLinksByDockTileKey.keys()) {
+    const allyTile = tiles.get(allyDockTileKey);
+    if (!allyTile || allyTile.terrain !== "LAND" || !allyTile.ownerId || allyTile.ownerId === actor.id) continue;
+    if (!isAlliedOrTruced(actor, allyTile.ownerId)) continue;
+    if (!isFrontierAdjacent(allyTile.x, allyTile.y, toX, toY)) continue;
+    const networkTileKeys = dockNetworkComponentByTileKey.get(allyDockTileKey);
+    if (!networkTileKeys) continue;
+    if (actorControlsDockNetwork(tiles, networkTileKeys, actor.id)) {
+      return { tile: allyTile, isAlliedDockCrossing: true };
+    }
   }
   return undefined;
 }
