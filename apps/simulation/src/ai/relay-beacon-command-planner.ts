@@ -42,6 +42,39 @@ const RELAY_BEACON_REACH_SAMPLE_CAP = 150;
  */
 const VALUABLE_TARGET_COVERAGE_WEIGHT = 8;
 
+// Weight for a tile the scan can't classify at all — absent from tilesByKey,
+// i.e. never delivered to this player (still fogged). Confirmed live: AIs
+// were scoring beacon sites purely on what they could already see, so a
+// beacon that would push vision 5 tiles into unexplored territory (and might
+// reveal several more valuables once built) scored identically to one that
+// revealed nothing, because unknown tiles contributed 0. Weighted between
+// plain-waste LAND (1) and a confirmed valuable (8): revealing fog has real
+// strategic value (it's how new valuables get discovered at all — see
+// VALUABLE_TARGET_COVERAGE_WEIGHT's doc above) but shouldn't outrank a
+// prize that's already confirmed to exist. Terrain is unknown for these
+// tiles by definition, so unlike the LAND branch below this can't (and
+// doesn't need to) check `terrain === "LAND"` first.
+const UNEXPLORED_TILE_COVERAGE_WEIGHT = 4;
+
+// Ceiling on how many unexplored cells' worth of score a single candidate
+// can bank. Without this, raw tile count dominates: a candidate whose whole
+// 121-cell scan box is fog (the common case for any frontier-adjacent site,
+// or any young empire whose delivered-tile area is still small) scores
+// 120 * 4 = 480 — dwarfing even several confirmed valuables (8 each) or an
+// urgent BUILD_ECONOMY need (scoreBuildEconomy's logistic term alone is
+// ~0.86 under real economic pressure — decisions.ts's scoreBuildEconomy),
+// and would make the AI build beacons ahead of a starving economy purely
+// because there happens to be a lot of fog nearby, every time.
+//
+// Capped at 4 so a purely-fogged site (no confirmed valuable anywhere in
+// range) tops out at relayBeaconSiteValue 16 — linear(16, 1, 24) ≈ 0.65,
+// comfortably below scoreBuildEconomy's ~0.86 under genuine need, so an
+// urgently-needed economic build still wins the tick. It still clears the
+// RELAY_BEACON_SITE_VALUE_FLOOR by a wide margin, so pure exploration is a
+// real, competitive option once nothing more urgent is going on — just not
+// a trump card over an empire's actual economic survival.
+const UNEXPLORED_TILE_SAMPLE_CAP = 4;
+
 // Cap on how many of the player's existing RELAY_BEACON tiles feed
 // existingBeaconOverlapTileKeys below. Each anchor's box is a fixed ~121
 // cells (radius 5), so even this generous a cap is cheap (a few tens of
@@ -100,18 +133,38 @@ const estimateNewReachCoverage = (
   alreadyClaimedTileKeys: ReadonlySet<string>
 ): { score: number; hasValuable: boolean } => {
   let covered = 0;
+  let unexplored = 0;
   let hasValuable = false;
   let scanned = 0;
   outer: for (let dy = -OUTPOST_REACH_RADIUS; dy <= OUTPOST_REACH_RADIUS; dy += 1) {
     for (let dx = -OUTPOST_REACH_RADIUS; dx <= OUTPOST_REACH_RADIUS; dx += 1) {
       if (dx === 0 && dy === 0) continue;
+      // Chebyshev distance 1 from the candidate — ordinary EXPAND already
+      // reaches a tile directly adjacent to any owned tile, no beacon
+      // required. Without this exclusion, a valuable/fogged tile one step
+      // from a FRONTIER candidate scored as if a beacon were the only way to
+      // reach it, so BUILD_BEACON (needsSettle → a SETTLE command, costing a
+      // dev slot) could outscore and preempt a plain EXPAND that would have
+      // claimed the exact same tile for free next tick. Only distance ≥ 2 —
+      // land plain adjacency genuinely can't touch — counts toward a
+      // beacon's coverage.
+      if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) continue;
       scanned += 1;
       if (scanned > RELAY_BEACON_REACH_SAMPLE_CAP) break outer;
       const nx = wrapX(tile.x + dx, WORLD_WIDTH);
       const ny = wrapY(tile.y + dy, WORLD_HEIGHT);
       const neighborKey = tileKeyOf(nx, ny);
       const neighbor = tilesByKey.get(neighborKey);
-      if (!neighbor || neighbor.terrain !== "LAND") continue;
+      // Never delivered to this player at all — still fogged. Can't be
+      // owned/claimed (both require having seen it), so it's tallied
+      // separately and added, capped, after the loop — see
+      // UNEXPLORED_TILE_SAMPLE_CAP's doc for why this can't just add
+      // UNEXPLORED_TILE_COVERAGE_WEIGHT per tile like the branches below.
+      if (!neighbor) {
+        unexplored += 1;
+        continue;
+      }
+      if (neighbor.terrain !== "LAND") continue;
       if (neighbor.ownerId === playerId) continue;
       if (alreadyClaimedTileKeys.has(neighborKey)) continue;
       const isValuable = Boolean(neighbor.town || neighbor.resource || neighbor.dockId || neighbor.naturalWonder);
@@ -119,6 +172,7 @@ const estimateNewReachCoverage = (
       covered += isValuable ? VALUABLE_TARGET_COVERAGE_WEIGHT : 1;
     }
   }
+  covered += Math.min(unexplored, UNEXPLORED_TILE_SAMPLE_CAP) * UNEXPLORED_TILE_COVERAGE_WEIGHT;
   return { score: covered, hasValuable };
 };
 

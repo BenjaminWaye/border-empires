@@ -32,6 +32,39 @@ const tile = (over: Partial<StructurePlannerTile> = {}): StructurePlannerTile =>
 const lookupOf = (tiles: readonly StructurePlannerTile[]): Map<string, StructurePlannerTile> =>
   new Map(tiles.map((t) => [`${t.x},${t.y}`, t]));
 
+const REACH_RADIUS_FOR_TESTS = 5; // mirrors OUTPOST_REACH_RADIUS (config.ts) — not imported to keep this file's fixtures self-contained.
+
+/**
+ * Fills every cell in `radius` of each center with a known, non-LAND filler
+ * tile (SEA — excluded by the `terrain !== "LAND"` check same as any other
+ * non-LAND tile), so a test's lookup map represents "everything else here is
+ * already known and uninteresting" instead of "never delivered to this
+ * player" (fog). Required since UNEXPLORED_TILE_COVERAGE_WEIGHT
+ * (relay-beacon-command-planner.ts) now scores any scanned cell absent from
+ * the lookup map as unexplored — a synthetic test map that just omits the
+ * "rest of the world" would otherwise silently score dozens of phantom fog
+ * tiles per candidate. Real filler tiles are added first, so an explicit
+ * tile passed after (Map construction keeps the last write per key) always
+ * wins — pass filler tiles before your test's real tiles into lookupOf.
+ */
+const knownVoid = (centers: readonly { x: number; y: number }[], radius = REACH_RADIUS_FOR_TESTS): StructurePlannerTile[] => {
+  const seen = new Set<string>();
+  const filler: StructurePlannerTile[] = [];
+  for (const center of centers) {
+    for (let dy = -radius; dy <= radius; dy += 1) {
+      for (let dx = -radius; dx <= radius; dx += 1) {
+        const x = center.x + dx;
+        const y = center.y + dy;
+        const key = `${x},${y}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        filler.push(tile({ x, y, terrain: "SEA", ownerId: undefined, ownershipState: undefined }));
+      }
+    }
+  }
+  return filler;
+};
+
 describe("relay beacon unlocks a reach-locked AI", () => {
   it("selects an owned FRONTIER site and reports needsSettle so the caller settles first", () => {
     // A frontier tile with a resource tile just out of reach beside it — the
@@ -40,13 +73,13 @@ describe("relay beacon unlocks a reach-locked AI", () => {
     // candidate, so a reach-locked AI found no beacon site at all.
     const site = tile({ x: 100, y: 100, ownershipState: "FRONTIER" });
     const prize = tile({ x: 102, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
-    const tiles = [site, prize];
+    const tiles = [...knownVoid([{ x: 100, y: 100 }]), site, prize];
 
     const plan = chooseBestRelayBeaconBuild(
       { id: "ai-1", points: 0, manpower: 500, settledTileCount: 122, townCount: 3 },
       tiles,
       lookupOf(tiles),
-      tiles
+      [site]
     );
 
     expect(plan).toBeDefined();
@@ -58,15 +91,25 @@ describe("relay beacon unlocks a reach-locked AI", () => {
   it("prefers an equally-placed SETTLED site over a FRONTIER one (no needless settle)", () => {
     const frontierSite = tile({ x: 100, y: 100, ownershipState: "FRONTIER" });
     const settledSite = tile({ x: 100, y: 102, ownershipState: "SETTLED" });
-    // One prize reachable from both candidate sites.
-    const prize = tile({ x: 100, y: 101, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
-    const tiles = [frontierSite, settledSite, prize];
+    // One prize reachable from both candidate sites — distance ≥ 2 from each
+    // (Chebyshev distance 1 is plain-EXPAND range, excluded from beacon
+    // coverage; see estimateNewReachCoverage's doc).
+    const prize = tile({ x: 100, y: 104, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [
+      ...knownVoid([
+        { x: 100, y: 100 },
+        { x: 100, y: 102 }
+      ]),
+      frontierSite,
+      settledSite,
+      prize
+    ];
 
     const plan = chooseBestRelayBeaconBuild(
       { id: "ai-1", points: 0, manpower: 500, settledTileCount: 122, townCount: 3 },
       tiles,
       lookupOf(tiles),
-      tiles
+      [frontierSite, settledSite]
     );
 
     expect(plan?.needsSettle).toBe(false);
@@ -92,13 +135,13 @@ describe("relay beacon fires without an already-visible prize (maximize newly-re
     // known is valuable nearby" scenario that used to make hasValuable
     // false and skip this candidate entirely.
     const plainLand = tile({ x: 102, y: 100, ownerId: undefined, ownershipState: undefined });
-    const tiles = [site, plainLand];
+    const tiles = [...knownVoid([{ x: 100, y: 100 }]), site, plainLand];
 
     const plan = chooseBestRelayBeaconBuild(
       { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
       tiles,
       lookupOf(tiles),
-      tiles
+      [site]
     );
 
     expect(plan).toBeDefined();
@@ -120,13 +163,22 @@ describe("relay beacon fires without an already-visible prize (maximize newly-re
     const plainLand = tile({ x: 52, y: 50, ownerId: undefined, ownershipState: undefined });
     const valuableSite = tile({ x: 150, y: 150, ownershipState: "SETTLED" });
     const prize = tile({ x: 152, y: 150, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
-    const tiles = [plainSite, plainLand, valuableSite, prize];
+    const tiles = [
+      ...knownVoid([
+        { x: 50, y: 50 },
+        { x: 150, y: 150 }
+      ]),
+      plainSite,
+      plainLand,
+      valuableSite,
+      prize
+    ];
 
     const plan = chooseBestRelayBeaconBuild(
       { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
       tiles,
       lookupOf(tiles),
-      tiles
+      [plainSite, valuableSite]
     );
 
     expect(plan?.tile.x).toBe(150);
@@ -140,19 +192,84 @@ describe("relay beacon fires without an already-visible prize (maximize newly-re
 
   it("still refuses a site whose scan reveals literally nothing new (fully boxed in)", () => {
     const site = tile({ x: 100, y: 100, ownershipState: "SETTLED" });
-    // Only tile in the map besides the candidate itself is also mine --
-    // no unowned land anywhere in the scan radius.
-    const ownLand = tile({ x: 102, y: 100 });
-    const tiles = [site, ownLand];
+    // Every cell in the scan box is known and either owned by this player or
+    // non-LAND — genuinely nothing left to newly cover, unlike the "just
+    // never synced" case fog-scoring now treats as explorable.
+    const ownedFiller = knownVoid([{ x: 100, y: 100 }]).map((t) => ({ ...t, terrain: "LAND" as const, ownerId: "ai-1" }));
+    const tiles = [...ownedFiller, site];
 
     const plan = chooseBestRelayBeaconBuild(
       { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
       tiles,
       lookupOf(tiles),
-      tiles
+      [site]
     );
 
     expect(plan).toBeUndefined();
+  });
+});
+
+describe("relay beacon values unexplored (fogged) tiles, not just currently-visible ones", () => {
+  // Confirmed live: beacon site scoring only ever looked at tiles already
+  // delivered to the AI worker (tilesByKey) — a candidate whose scan radius
+  // pushed vision into genuinely fresh fog scored identically to one that
+  // revealed nothing at all, because an absent map entry contributed 0. That
+  // meant beacon placement was blind to the entire point of building one:
+  // pushing reach (and vision) 5 tiles further out. See
+  // UNEXPLORED_TILE_COVERAGE_WEIGHT's doc in relay-beacon-command-planner.ts.
+
+  it("scores a site bordering genuine fog above a site whose whole scan radius is already known-empty", () => {
+    const knownEmptySite = tile({ x: 50, y: 50, ownershipState: "SETTLED" });
+    const foggedSite = tile({ x: 150, y: 150, ownershipState: "SETTLED" });
+    const tiles = [
+      // knownEmptySite's entire radius is explicitly known and uninteresting.
+      ...knownVoid([{ x: 50, y: 50 }]),
+      knownEmptySite,
+      // foggedSite's radius is left almost entirely absent from the lookup —
+      // genuine fog on every side.
+      foggedSite
+    ];
+
+    const plan = chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
+      tiles,
+      lookupOf(tiles),
+      [knownEmptySite, foggedSite]
+    );
+
+    expect(plan).toBeDefined();
+    expect(plan?.tile.x).toBe(150);
+    expect(plan?.tile.y).toBe(150);
+    // 120 fogged cells, but UNEXPLORED_TILE_SAMPLE_CAP (4) caps the credit —
+    // see that constant's doc for why raw fog-tile count can't be allowed to
+    // score unbounded (it would otherwise dwarf even an urgent economic
+    // build need).
+    expect(plan?.siteValue).toBe(4 * 4);
+  });
+
+  it("a large purely-fogged area can still outscore a single confirmed valuable tile, but only up to the sample cap", () => {
+    const foggedOnlySite = tile({ x: 50, y: 50, ownershipState: "SETTLED" });
+    const valuableSite = tile({ x: 150, y: 150, ownershipState: "SETTLED" });
+    // Surround valuableSite's radius with known-empty filler except for one
+    // real prize, so its score is dominated by the single valuable tile
+    // rather than also picking up fog credit.
+    const prize = tile({ x: 152, y: 150, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [valuableSite, ...knownVoid([{ x: 150, y: 150 }]), prize, foggedOnlySite];
+
+    const plan = chooseBestRelayBeaconBuild(
+      { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
+      tiles,
+      lookupOf(tiles),
+      [foggedOnlySite, valuableSite]
+    );
+
+    // Capped fog credit (4 * 4 = 16) still beats one valuable tile (8) on raw
+    // score — by design, per the live "AI should keep pushing beacons to
+    // both open new territory and reveal fog" direction, a huge unexplored
+    // area outweighs a single already-known prize. This test exists to make
+    // that trade-off explicit and intentional, not to assert the opposite.
+    expect(plan?.tile.x).toBe(50);
+    expect(plan?.tile.y).toBe(50);
   });
 });
 
@@ -178,7 +295,7 @@ describe("relay beacon coverage excludes ground an existing beacon already claim
     });
     const candidate = tile({ x: 103, y: 100, ownershipState: "SETTLED" });
     const prize = tile({ x: 102, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
-    const tiles = [existingBeacon, candidate, prize];
+    const tiles = [...knownVoid([{ x: 103, y: 100 }]), existingBeacon, candidate, prize];
 
     const plan = chooseBestRelayBeaconBuild(
       { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
@@ -188,7 +305,8 @@ describe("relay beacon coverage excludes ground an existing beacon already claim
     );
 
     // prize sits within existingBeacon's radius, so it's excluded from
-    // candidate's coverage score — nothing else unowned is in range.
+    // candidate's coverage score — nothing else unowned (or fogged, since
+    // knownVoid fills candidate's whole radius) is in range.
     expect(plan).toBeUndefined();
   });
 
@@ -202,8 +320,10 @@ describe("relay beacon coverage excludes ground an existing beacon already claim
       economicStructure: { ownerId: "ai-1", type: "RELAY_BEACON", status: "removing" }
     });
     const candidate = tile({ x: 103, y: 100, ownershipState: "SETTLED" });
-    const prize = tile({ x: 102, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
-    const tiles = [removingBeacon, candidate, prize];
+    // Distance ≥ 2 from candidate — Chebyshev distance 1 is plain-EXPAND
+    // range, excluded from beacon coverage.
+    const prize = tile({ x: 101, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
+    const tiles = [...knownVoid([{ x: 103, y: 100 }]), removingBeacon, candidate, prize];
 
     const plan = chooseBestRelayBeaconBuild(
       { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },
@@ -224,7 +344,7 @@ describe("relay beacon coverage excludes ground an existing beacon already claim
     });
     const candidate = tile({ x: 200, y: 100, ownershipState: "SETTLED" });
     const prize = tile({ x: 202, y: 100, ownerId: undefined, ownershipState: undefined, resource: "IRON" });
-    const tiles = [existingBeacon, candidate, prize];
+    const tiles = [...knownVoid([{ x: 200, y: 100 }]), existingBeacon, candidate, prize];
 
     const plan = chooseBestRelayBeaconBuild(
       { id: "ai-1", points: 0, manpower: 500, settledTileCount: 47, townCount: 3 },

@@ -246,16 +246,28 @@ const scoreBuildEconomy = (inp: DecisionInputs): number =>
 // about/measure independently (sim_ai_command_total by structure type, not
 // folded into a generic BUILD_ECONOMIC_STRUCTURE bucket).
 //
-// Four plain conditions instead of a bundled precondition function (the
+// Three plain conditions instead of a bundled precondition function (the
 // earlier version gated on a helper, isReachStarved, that combined five
 // unrelated checks behind one name — hard to reason about from the
 // outside): a build slot is free, there's no enemy at the gate right now
 // (fight first — building undefended infrastructure mid-attack is the
-// wrong call, let ATTACK/MUSTER win instead), EXPAND doesn't already have a
-// real prize to claim (a beacon reaches further ground — no reason to build
-// one while there's still an already-in-reach town/resource/dock sitting
-// unclaimed; claim that first, plain EXPAND already handles it), and a
-// graduated read of how much the best available site is actually worth.
+// wrong call, let ATTACK/MUSTER win instead), and a graduated read of how
+// much the best available site is actually worth.
+//
+// This used to also veto whenever EXPAND had an in-reach, non-waste prize
+// still unclaimed ("claim that first, plain EXPAND already handles it").
+// Dropped: EXPAND doesn't consume a dev slot (only SETTLE/BUILD do), so
+// there was never real resource contention between the two classes to
+// protect — the veto only ever cost beacon-building a turn's worth of
+// priority for no corresponding benefit. Confirmed live: with the veto in
+// place, every AI empire eventually saturates its frontier with claimed-but-
+// worthless land (see EXPAND's hasActionableNonWasteExpand comment above) and
+// then sits on WAIT once no valuable tile is left in scan range — with no
+// mechanism to ever look further out. Beacon-placement scoring is now the
+// thing responsible for prioritizing real value (see
+// UNEXPLORED_TILE_COVERAGE_WEIGHT / VALUABLE_TARGET_COVERAGE_WEIGHT in
+// relay-beacon-command-planner.ts) instead of a class-level veto trying to
+// sequence "claim what's visible, then look further" by hand.
 //
 // That last term used to be a plain boolVeto(hasRelayBeaconBuild) — "a site
 // exists" — which scored a beacon reaching one empty tile identically to one
@@ -285,8 +297,8 @@ const RELAY_BEACON_SITE_VALUE_CEILING = 24;
 // window; the 5th build in the cycle gets none, letting the plain
 // need-driven comparison decide. A strong bias, not a hard override — the
 // boost is added AFTER the vetoes/graduated term below, so it can never
-// revive a build that's still illegal (no site, no dev slot, enemy at the
-// gate, or a real in-reach EXPAND prize still unclaimed).
+// revive a build that's still illegal (no site, no dev slot, or enemy at
+// the gate).
 const BEACON_CADENCE_BOOST = 0.6;
 
 const scoreBuildBeacon = (inp: DecisionInputs): number => {
@@ -294,7 +306,6 @@ const scoreBuildBeacon = (inp: DecisionInputs): number => {
     boolVeto(inp.hasRelayBeaconBuild),
     boolVeto(inp.devSlotAvailable),
     boolVeto(inp.frontierEnemyCount === 0),
-    boolVeto(!inp.hasActionableNonWasteExpand),
     linear(inp.relayBeaconSiteValue, RELAY_BEACON_SITE_VALUE_FLOOR, RELAY_BEACON_SITE_VALUE_CEILING)
   ]);
   if (base === 0 || !inp.beaconBoostActive) return base;
