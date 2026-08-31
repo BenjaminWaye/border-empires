@@ -1,6 +1,7 @@
 import type { PlayerSubscriptionSnapshot } from "@border-empires/sim-protocol";
 import { buildTileYieldView } from "../../../simulation/src/tile-yield-view/tile-yield-view.js";
-import { converterModeOf, type ConverterMode } from "@border-empires/shared";
+import { firstThreeTownMultipliersForSnapshotTile } from "./tile-detail-first-three-towns.js";
+import { converterModeOf, WORLD_HEIGHT, WORLD_WIDTH, wrapX, wrapY, type ConverterMode } from "@border-empires/shared";
 
 import {
   ADVANCED_CRYSTAL_SYNTHESIZER_GOLD_UPKEEP_PER_DAY,
@@ -31,7 +32,28 @@ type SnapshotTile = PlayerSubscriptionSnapshot["tiles"][number];
 type TileUpdate = Record<string, unknown>;
 type YieldSourceTile = Parameters<typeof buildTileYieldView>[0];
 
-const keyFor = (x: number, y: number): string => `${x},${y}`;
+// Wraps both axes (matching worldgen/vision's own wrapX/wrapY convention —
+// see apps/simulation/src/snapshot-tile-cache.ts's keyFor) so a support-ring
+// loop's x±1/y±1 around a town on the map edge resolves to the tile that
+// actually wraps there instead of a nonexistent out-of-bounds key. A no-op
+// for any already-in-bounds tile, so safe for the existing
+// "keyFor(tile.x, tile.y)" map-building convention too.
+const keyFor = (x: number, y: number): string => `${wrapX(x, WORLD_WIDTH)},${wrapY(y, WORLD_HEIGHT)}`;
+
+const ringNeighbors = (
+  tilesByKey: ReadonlyMap<string, SnapshotTile>,
+  x: number,
+  y: number
+): Array<SnapshotTile | undefined> => {
+  const neighbors: Array<SnapshotTile | undefined> = [];
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (dx === 0 && dy === 0) continue;
+      neighbors.push(tilesByKey.get(keyFor(x + dx, y + dy)));
+    }
+  }
+  return neighbors;
+};
 
 // Keep this in sync with buildTownSummary's gpm/cap branches in
 // apps/simulation/src/live-snapshot-view.ts (around lines 720-770). Used to
@@ -57,6 +79,9 @@ const fallbackTownGoldPerMinute = (input: {
   // ring. Excluded for SETTLEMENT-tier towns via the early return below,
   // same gate MINTWORKS_FLAT_GOLD_BONUS_PER_MIN already uses.
   converterGoldPerMinute: number;
+  // Mercantile Charter (see firstThreeTownMultipliersForTile's doc comment):
+  // 1 when inactive/not one of the player's first three towns.
+  firstThreeTownGoldMult: number;
 }): number => {
   if (input.isSettlement) return SETTLEMENT_BASE_GOLD_PER_MIN * PASSIVE_INCOME_MULT;
   if (!input.isFed) return 0;
@@ -68,6 +93,7 @@ const fallbackTownGoldPerMinute = (input: {
       townPopulationMultiplier(input.populationTier) *
       (1 + input.connectedTownBonus) *
       mintworksGoldProductionMultiplier(input.mintworksCount, input.clearingHouseActive) *
+      input.firstThreeTownGoldMult *
       PASSIVE_INCOME_MULT
     ) + MINTWORKS_FLAT_GOLD_BONUS_PER_MIN * input.mintworksCount + input.converterGoldPerMinute
   );
@@ -150,26 +176,31 @@ const derivedTownSupportStructures = (
   let clearingHouseActive = false;
   let converterGoldPerMinute = 0;
   const aggregateCounts: Partial<Record<ModifierStructureType, number>> = {};
-  for (let dy = -1; dy <= 1; dy += 1) {
-    for (let dx = -1; dx <= 1; dx += 1) {
-      if (dx === 0 && dy === 0) continue;
-      const neighbor = tilesByKey.get(keyFor(x + dx, y + dy));
-      if (!neighbor || neighbor.ownerId !== ownerId || neighbor.ownershipState !== "SETTLED") continue;
-      const structure = parseStructure<{ type?: string; status?: string; converterMode?: string }>(neighbor.economicStructureJson);
-      if (!structure || structure.status !== "active" || !structure.type) continue;
-      if (structure.type === "MINTWORKS") mintworksCount += 1;
-      if (structure.type === "GRANARY") hasGranary = true;
-      if (structure.type === "CLEARING_HOUSE") clearingHouseActive = true;
-      if (CONVERTER_TOWN_MODIFIER_TYPE_SET.has(structure.type)) {
-        const amountPerMinute = converterExchangeGoldPerMinute(structure.type, structure.converterMode);
-        if (amountPerMinute <= 0) continue;
-        converterGoldPerMinute += amountPerMinute;
-        const type = structure.type as ModifierStructureType;
-        aggregateCounts[type] = (aggregateCounts[type] ?? 0) + 1;
-      } else if (TOWN_MODIFIER_AGGREGATE_TYPE_SET.has(structure.type)) {
-        const type = structure.type as ModifierStructureType;
-        aggregateCounts[type] = (aggregateCounts[type] ?? 0) + 1;
-      }
+  // Several TOWN_MODIFIER_AGGREGATE_TYPES members (Mintworks, Garrison Hall,
+  // Weapons Workshop, Titanium/Umbrite Weapons Factory, Titanium/Umbrite
+  // Works, Clearing House, Logistics Guild) have "same_tile"/"town_support"
+  // placementMode (structure-placement-metadata.json), meaning they can be
+  // legally built directly on the town's own settled tile, not only on its
+  // 8 support-ring neighbors. The dx/dy loop below only ever scanned the
+  // ring, so a structure built on-tile (e.g. Mintworks placed on the town
+  // itself) was silently never counted here. Check the town's own tile
+  // first, then the ring, using the exact same active/type logic for both.
+  for (const candidate of [tilesByKey.get(keyFor(x, y)), ...ringNeighbors(tilesByKey, x, y)]) {
+    if (!candidate || candidate.ownerId !== ownerId || candidate.ownershipState !== "SETTLED") continue;
+    const structure = parseStructure<{ type?: string; status?: string; converterMode?: string }>(candidate.economicStructureJson);
+    if (!structure || structure.status !== "active" || !structure.type) continue;
+    if (structure.type === "MINTWORKS") mintworksCount += 1;
+    if (structure.type === "GRANARY") hasGranary = true;
+    if (structure.type === "CLEARING_HOUSE") clearingHouseActive = true;
+    if (CONVERTER_TOWN_MODIFIER_TYPE_SET.has(structure.type)) {
+      const amountPerMinute = converterExchangeGoldPerMinute(structure.type, structure.converterMode);
+      if (amountPerMinute <= 0) continue;
+      converterGoldPerMinute += amountPerMinute;
+      const type = structure.type as ModifierStructureType;
+      aggregateCounts[type] = (aggregateCounts[type] ?? 0) + 1;
+    } else if (TOWN_MODIFIER_AGGREGATE_TYPE_SET.has(structure.type)) {
+      const type = structure.type as ModifierStructureType;
+      aggregateCounts[type] = (aggregateCounts[type] ?? 0) + 1;
     }
   }
   return { hasMintworks: mintworksCount > 0, mintworksCount, hasGranary, clearingHouseActive, converterGoldPerMinute, aggregateCounts };
@@ -205,6 +236,9 @@ const townPopulationGrowthPerMinute = (input: {
   maxPopulation: number | undefined;
   populationTier: string;
   hasGranary: boolean;
+  // Mercantile Charter (see firstThreeTownMultipliersForTile's doc comment):
+  // 1 when inactive/not one of the player's first three towns.
+  firstThreeTownPopGrowthMult: number;
 }): number | undefined => {
   if (!input.isFed) return 0;
   if (typeof input.population !== "number" || typeof input.maxPopulation !== "number") return undefined;
@@ -221,6 +255,7 @@ const townPopulationGrowthPerMinute = (input: {
     POPULATION_GROWTH_BASE_RATE *
     (input.populationTier === "SETTLEMENT" ? SETTLEMENT_GROWTH_RATE_MULT : 1) *
     granaryGrowthMultiplier(input.hasGranary, false) *
+    input.firstThreeTownPopGrowthMult *
     logisticFactor;
   return Number(growth.toFixed(4));
 };
@@ -276,6 +311,8 @@ export const buildSnapshotTileDetail = (
   const supportSummary = supportSummaryForTown(tilesByKey, playerId, x, y);
   const supportStructures = derivedTownSupportStructures(tilesByKey, playerId, x, y);
   const populationTier = parsedTown?.populationTier ?? tile.townPopulationTier ?? "SETTLEMENT";
+  const { firstThreeTownGoldMult, firstThreeTownPopGrowthMult } =
+    firstThreeTownMultipliersForSnapshotTile(snapshot, playerId, keyFor, x, y);
   const foodCoverage = snapshotFoodCoverage(snapshot);
   // Trust the sim's authoritative isFed whenever the snapshot's townJson
   // actually carries it (buildTownSummary always populates it on a live
@@ -321,7 +358,8 @@ export const buildSnapshotTileDetail = (
             typeof parsedTown?.connectedTownBonus === "number" ? parsedTown.connectedTownBonus : 0,
           mintworksCount: supportStructures.mintworksCount,
           clearingHouseActive: supportStructures.clearingHouseActive,
-          converterGoldPerMinute: supportStructures.converterGoldPerMinute
+          converterGoldPerMinute: supportStructures.converterGoldPerMinute,
+          firstThreeTownGoldMult
         });
   // Only backfill cap when goldPerMinute is positive. For unfed TOWN-tier
   // tiles the live-snapshot formula multiplies through 0, which on the wire
@@ -340,7 +378,8 @@ export const buildSnapshotTileDetail = (
       population: parsedTown?.population,
       maxPopulation: parsedTown?.maxPopulation,
       populationTier,
-      hasGranary: supportStructures.hasGranary
+      hasGranary: supportStructures.hasGranary,
+      firstThreeTownPopGrowthMult
     }) ?? parsedTown?.populationGrowthPerMinute;
   const growthModifiers =
     parsedTown?.growthModifiers ??
@@ -380,7 +419,11 @@ export const buildSnapshotTileDetail = (
         ...(typeof cap === "number" ? { cap } : {}),
         ...(typeof populationGrowthPerMinute === "number" ? { populationGrowthPerMinute } : {}),
         ...(growthModifiers ? { growthModifiers } : {}),
-        ...(townModifierTotals.length > 0 ? { townModifierTotals } : {})
+        ...(townModifierTotals.length > 0 ? { townModifierTotals } : {}),
+        // Mercantile Charter: only sent when active, matching
+        // live-town-summary.ts's own wire convention.
+        ...(firstThreeTownGoldMult !== 1 ? { firstThreeTownGoldMult } : {}),
+        ...(firstThreeTownPopGrowthMult !== 1 ? { firstThreeTownPopGrowthMult } : {})
       }
     : undefined;
   if (town) update.townJson = JSON.stringify(town);
