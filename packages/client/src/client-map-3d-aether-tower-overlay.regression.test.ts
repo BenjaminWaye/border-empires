@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CylinderGeometry, IcosahedronGeometry, InstancedMesh, Scene, TorusGeometry } from "three";
+import { CylinderGeometry, IcosahedronGeometry, InstancedMesh, Scene, SphereGeometry, TorusGeometry } from "three";
 import { createAetherTowerOverlay } from "./client-map-3d-aether-tower-overlay.js";
 
 const instancedMeshes = (scene: Scene): InstancedMesh[] =>
@@ -24,10 +24,19 @@ const icosaMesh = (scene: Scene, radius: number): InstancedMesh | undefined =>
       (mesh.geometry as IcosahedronGeometry).parameters.radius === radius
   );
 
+const sphereMesh = (scene: Scene, radius: number): InstancedMesh | undefined =>
+  meshOf(
+    scene,
+    (mesh) =>
+      mesh.geometry.type === "SphereGeometry" &&
+      (mesh.geometry as SphereGeometry).parameters.radius === radius
+  );
+
 const towerRings = (scene: Scene): InstancedMesh | undefined => ringMesh(scene, 0.31);
 const linkNodes = (scene: Scene): InstancedMesh | undefined => icosaMesh(scene, 0.026);
 const linkTravelers = (scene: Scene): InstancedMesh | undefined => icosaMesh(scene, 0.03);
 const clusterRings = (scene: Scene): InstancedMesh | undefined => ringMesh(scene, 0.44);
+const nexusHalos = (scene: Scene): InstancedMesh | undefined => sphereMesh(scene, 0.225);
 
 // Three towers inside the 2.7-unit link radius: they peer into a full
 // triangle (3 links) which is large enough to anchor one synchronization
@@ -72,6 +81,10 @@ describe("aether tower overlay", () => {
     expect(linkNodes(scene)!.count).toBe(0);
     expect(linkTravelers(scene)!.count).toBe(0);
     expect(clusterRings(scene)!.count).toBe(0);
+    // The nexus halo scales to zero alongside the rest of the synchronized
+    // nexus assembly (nexusRing/nexusRingNode/nexusGlow) -- it must not be
+    // written for a tower with no network to belong to.
+    expect(nexusHalos(scene)!.count).toBe(0);
 
     overlay.dispose();
   });
