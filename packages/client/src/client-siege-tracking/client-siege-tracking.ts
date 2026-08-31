@@ -84,14 +84,6 @@ export const drawableIncomingAttack = (state: SiegeState, tileKey: string, nowEp
   return incoming.resolvesAt > nowEpochMs ? incoming : undefined;
 };
 
-/** Builds `state.capture` for an accepted/locked frontier action.
- *
- * `origin`/`actionType` are carried purely so the 3D battle overlay can
- * animate this client's OWN outgoing attack for its whole countdown: the
- * server addresses ATTACK_ALERT (which populates incomingAttacksByTile) to the
- * defender only, so without them the attacker has nothing describing the
- * in-flight fight until the resolution broadcast lands. See
- * client-map-3d-capture-overlays.ts. */
 /** Ages out an outgoing muster-advance attack whose resolution broadcast
  * never arrived (target lost/AI eliminated). Mirrors pruneExpiredIncomingAttacks. */
 export const pruneExpiredOutgoingMusterAttacks = (state: OutgoingMusterAttackState, nowEpochMs: number): void => {
@@ -99,6 +91,30 @@ export const pruneExpiredOutgoingMusterAttacks = (state: OutgoingMusterAttackSta
     if (nowEpochMs >= outgoing.resolvesAt + EXPIRED_SIEGE_GRACE_MS) state.outgoingMusterAttacksByTile.delete(key);
   }
 };
+
+/** Clears both siege-tracking maps for a tile whose combat just resolved
+ * (called from applyCombatOutcomeMessage's per-change loop in
+ * client-network.ts, for every side of the fight: defender's incoming siege
+ * and, if this client was the attacker, its own outgoing muster-advance
+ * entry). A tile is never both at once, but clearing unconditionally is
+ * cheaper than a second lookup. */
+export const clearResolvedCombatTracking = (state: SiegeState & OutgoingMusterAttackState, tileKey: string): void => {
+  state.incomingAttacksByTile.delete(tileKey);
+  state.outgoingMusterAttacksByTile.delete(tileKey);
+};
+
+/** True for a commandId identifying a muster flag's ADVANCE-mode auto-fire
+ * attack -- dispatched by the server, never submitted by this client. Shared
+ * by every place that needs to special-case these: COMBAT_START tracking
+ * below, and client-network.ts's COMBAT_RESULT matchesCurrentFrontierCommand
+ * bypass (neither has a `state.actionCurrent` for this fight to match
+ * against, so the normal command-identity gate would otherwise drop them
+ * whenever the player has an unrelated manual action of their own in
+ * flight). ACTION_ACCEPTED is deliberately NOT in that list: its existing
+ * requireActionInFlight gate already drops these (correctly -- an
+ * auto-fired attack should never bind to this client's actionCurrent). */
+export const isMusterAdvanceCommandId = (commandId: unknown): commandId is string =>
+  typeof commandId === "string" && commandId.startsWith("territory-auto:muster-advance:");
 
 /** Handles a COMBAT_START whose commandId marks it as a muster flag's
  * ADVANCE-mode auto-fire attack. Returns false for any other COMBAT_START so
@@ -121,8 +137,7 @@ export const handleMusterAdvanceCombatStart = (
   msg: Record<string, unknown>,
   applyCombatOutcomeMessage: (result: Record<string, unknown>) => void
 ): boolean => {
-  const commandId = msg.commandId;
-  if (typeof commandId !== "string" || !commandId.startsWith("territory-auto:muster-advance:")) return false;
+  if (!isMusterAdvanceCommandId(msg.commandId)) return false;
   const target = msg.target as { x: number; y: number } | undefined;
   const origin = msg.origin as { x: number; y: number } | undefined;
   const resolvesAt = msg.resolvesAt;
@@ -159,6 +174,14 @@ export const resolveCombatResultPayload = (
   return msg;
 };
 
+/** Builds `state.capture` for an accepted/locked frontier action.
+ *
+ * `origin`/`actionType` are carried purely so the 3D battle overlay can
+ * animate this client's OWN outgoing attack for its whole countdown: the
+ * server addresses ATTACK_ALERT (which populates incomingAttacksByTile) to the
+ * defender only, so without them the attacker has nothing describing the
+ * in-flight fight until the resolution broadcast lands. See
+ * client-map-3d-capture-overlays.ts. */
 export const buildCaptureState = (input: {
   startAt: number;
   resolvesAt: number;

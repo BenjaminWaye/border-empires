@@ -146,4 +146,32 @@ describe("muster-advance auto-fired attack", () => {
     // The unrelated tile was never touched.
     expect(state.tiles.get("10,10")).toBeUndefined();
   });
+
+  // The command-identity gate that guards ACTION_ACCEPTED/FRONTIER_RESULT
+  // (this client's own submitted actions) must not also drop a muster
+  // flag's COMBAT_RESULT just because the player happens to have an
+  // unrelated manual action of their own in flight at the same moment.
+  it("still applies a muster-advance COMBAT_RESULT while an unrelated manual action is in flight", () => {
+    const state = createState();
+    state.me = "me";
+    state.tiles.set("4,3", { x: 4, y: 3, terrain: "LAND", fogged: false, ownerId: "rival", ownershipState: "FRONTIER" });
+    // This client's own manual attack elsewhere, still awaiting resolution.
+    state.actionCurrent = { x: 20, y: 20, retries: 0, commandId: "my-own-manual-attack", actionType: "ATTACK" };
+    const ws = new FakeWebSocket();
+    bind(state, ws);
+
+    ws.emit("message", {
+      data: JSON.stringify({
+        type: "COMBAT_RESULT",
+        commandId: "territory-auto:muster-advance:3,3",
+        attackType: "ATTACK",
+        attackerWon: true,
+        origin: { x: 3, y: 3 },
+        target: { x: 4, y: 3 },
+        changes: [{ x: 4, y: 3, ownerId: "me", ownershipState: "FRONTIER" }]
+      })
+    });
+
+    expect(state.tiles.get("4,3")?.ownerId).toBe("me");
+  });
 });
