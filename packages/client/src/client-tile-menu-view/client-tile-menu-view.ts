@@ -117,7 +117,7 @@ export const constructionProgressForTile = (
     const remaining = Math.max(0, tile.observatory.completesAt - nowMs);
     return {
       title: "Aether Tower under construction",
-      detail: "This tile will extend vision and observatory protection when construction completes.",
+      detail: "This tile will extend vision and aether tower protection when construction completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, OBSERVATORY_BUILD_MS))),
       note: "Construction is underway on this tile.",
@@ -130,10 +130,10 @@ export const constructionProgressForTile = (
     const remaining = Math.max(0, tile.observatory.completesAt - nowMs);
     return {
       title: "Removing Aether Tower",
-      detail: "This observatory is being dismantled and will disappear when removal completes.",
+      detail: "This aether tower is being dismantled and will disappear when removal completes.",
       remainingLabel: formatCountdownClock(remaining),
       progress: Math.max(0, Math.min(1, 1 - remaining / Math.max(1, structureBuildDurationMs("OBSERVATORY")))),
-      note: "Vision, observatory protection, and crystal-casting effects are disabled while removal is underway.",
+      note: "Vision, aether tower protection, and crystal-casting effects are disabled while removal is underway.",
       cancelLabel: "Cancel removal"
     };
   }
