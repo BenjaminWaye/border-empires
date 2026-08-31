@@ -2884,7 +2884,7 @@ export class SimulationRuntime {
       {
         tiles: this.state.tiles,
         players: this.state.players,
-        tileDeltaFromState: (tile, context) => this.tileDeltaFromState(tile, context),
+        tileDeltaFromState: (tile, context, deltaOptions) => this.tileDeltaFromState(tile, context, deltaOptions),
         tileYieldEconomyContextForPlayer: (player) => this.tileYieldEconomyContextForPlayer(player),
         filterTileDeltasForPlayer: (tileDeltas, visiblePlayerId) => this.filterTileDeltasForPlayer(tileDeltas, visiblePlayerId)
       },
@@ -4196,7 +4196,7 @@ export class SimulationRuntime {
     return { ...(player ? { player } : {}), ...(ctx ? { fedTownKeys: ctx.fedTownKeys, firstThreeTownKeys: ctx.firstThreeTownKeys, waterworksKeys: ctx.waterworksKeys, foundryKeys: ctx.foundryKeys } : {}), tiles: this.state.tiles, dockLinksByDockTileKey: this.state.dockLinksByDockTileKey };
   }
 
-  private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext): SimulationTileWireDelta {
+  private tileDeltaFromState(tile: DomainTileState, context?: RuntimeTileYieldEconomyContext, options?: { full?: boolean }): SimulationTileWireDelta {
     return tileDeltaFromStateImpl(
       {
         players: this.state.players,
@@ -4207,8 +4207,7 @@ export class SimulationRuntime {
         enrichTileWithTownContext: (t, player, ctx) => this.enrichTileWithTownContext(t, player, ctx),
         yieldViewEconomyContext: (player, ctx) => this.yieldViewEconomyContext(player, ctx)
       },
-      tile,
-      context
+      tile, context, options
     );
   }
 
