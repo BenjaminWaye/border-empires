@@ -96,6 +96,7 @@ import { resolveMaxSeasonPlayers } from "../season-join-capacity.js";
 import { registerSubscribeAndMaybePushReach } from "./live-subscribe-reach-push.js";
 import { createRivalReachPushMetrics, createRivalReachPushState, pushRivalReachOnConnectSafely, pushRivalReachOnOwnerChanged } from "../rival-reach-push/rival-reach-push.js";
 import { zeroGrossIncomeRepairCandidateIds } from "./zero-gross-income-repair-candidates.js";
+import { marshalDocksToProto } from "./dock-proto-marshal.js";
 
 export type SimulationRuntimeIdentity = {
   sourceType: "legacy-snapshot" | "managed-season" | "seed-profile";
@@ -2343,12 +2344,7 @@ export const createSimulationService = async (options: SimulationServiceOptions 
               ...(seasonJson ? { season_json: seasonJson } : {}),
               ...(snapshotPayload.docks?.length
                 ? {
-                    docks: snapshotPayload.docks.map((dock) => ({
-                      dock_id: dock.dockId,
-                      tile_key: dock.tileKey,
-                      paired_dock_id: dock.pairedDockId,
-                      ...(dock.connectedDockIds?.length ? { connected_dock_ids: [...dock.connectedDockIds] } : {})
-                    }))
+                    docks: marshalDocksToProto(snapshotPayload.docks)
                   }
                 : {}),
               tiles: (() => {

@@ -19,6 +19,7 @@ import {
 } from "@border-empires/sim-protocol";
 import type { Terrain, VisibilityState } from "@border-empires/shared";
 import type { ActivityDashboardSnapshot } from "@border-empires/game-domain";
+import { normalizeProtoDock, type ProtoDockRoute } from "./sim-client-dock-normalize.js";
 import { preparePlayer as preparePlayerRpcCall, joinSeason as joinSeasonRpcCall, type ProtoPreparePlayerAck, type PreparePlayerRallyAnchor, type PrepareLikeResult } from "./sim-client-prepare-player.js";
 
 type ProtoAck = { ok: boolean };
@@ -100,17 +101,6 @@ type ProtoTileDelta = {
   combat_json?: string;
   combatJson?: string;
 };
-type ProtoDockRoute = {
-  dock_id?: string;
-  dockId?: string;
-  tile_key?: string;
-  tileKey?: string;
-  paired_dock_id?: string;
-  pairedDockId?: string;
-  connected_dock_ids?: string[];
-  connectedDockIds?: string[];
-};
-
 type ProtoSubscribePlayerAck = {
   ok: boolean;
   player_id?: string;
@@ -390,20 +380,6 @@ const toProtoCommand = (command: CommandEnvelope): Record<string, unknown> => ({
   type: command.type,
   payload_json: command.payloadJson
 });
-
-const normalizeProtoDock = (dock: ProtoDockRoute): PlayerSubscriptionDock | undefined => {
-  const dockId = dock.dock_id || dock.dockId;
-  const tileKey = dock.tile_key || dock.tileKey;
-  const pairedDockId = dock.paired_dock_id || dock.pairedDockId;
-  if (!dockId || !tileKey || !pairedDockId) return undefined;
-  const connectedDockIds = dock.connected_dock_ids || dock.connectedDockIds;
-  return {
-    dockId,
-    tileKey,
-    pairedDockId,
-    ...(connectedDockIds?.length ? { connectedDockIds: [...connectedDockIds] } : {})
-  };
-};
 
 export const normalizeProtoTile = (tile: ProtoTileDelta): NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number] => {
   const normalized: NonNullable<Extract<SimulationClientEvent, { eventType: "TILE_DELTA_BATCH" }>["tileDeltas"]>[number] = {

@@ -155,11 +155,28 @@ message TileDelta {
   optional string combat_json = 29;
 }
 
+message DockRouteWaypoint {
+  uint32 x = 1;
+  uint32 y = 2;
+}
+
+// The server-computed sea path from this dock to one dock it links to,
+// keyed by that linked dock's id. Computed once at worldgen time over the
+// season's frozen terrain, so the client draws the authoritative path
+// instead of re-deriving it from its own procedural terrainAt() — which
+// drifts whenever the bundled worldgen algorithm changes after a season
+// was generated (see the islands mapgen rework).
+message DockLinkedRoute {
+  string linked_dock_id = 1;
+  repeated DockRouteWaypoint waypoints = 2;
+}
+
 message DockRoute {
   string dock_id = 1;
   string tile_key = 2;
   string paired_dock_id = 3;
   repeated string connected_dock_ids = 4;
+  repeated DockLinkedRoute routes = 5;
 }
 
 message SubscribePlayerAck {
