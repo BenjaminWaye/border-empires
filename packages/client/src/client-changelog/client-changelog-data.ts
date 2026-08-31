@@ -26,6 +26,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     ]
   },
   {
+    createdAt: 1788202192814, // frozen: one ms after this file's prior newest entry
+    introducedIn: "2026.08.31.4",
+    title: "\"Build Relay Beacon\" now shows on a tile that already has a Fort",
+    why: "A Fort and a Relay Beacon are allowed to share a tile -- the sim and the shared placement rules both explicitly permit it, and the \"Build Fort\" button already stayed available on a tile with an existing Relay Beacon -- but the reverse direction never got the same fix: the \"Build Relay Beacon\" action still had a leftover check hiding it whenever the tile already had a Fort, most noticeably on docks (which often get a Fort early for defense).",
+    changes: [
+      "\"Build Relay Beacon\" now shows up on any owned, settled land tile that already has a Fort, matching the coexistence the sim has allowed since Fort+Relay Beacon sharing shipped"
+    ]
+  },
+  {
     createdAt: 1788202192813, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.31.3",
     title: "Observatory's advertised +5 local vision now actually reveals tiles",
@@ -456,6 +465,15 @@ const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
     changes: [
       "A settled town tile's Gold Production number now includes a support-ring Sell Off converter's contribution, matching the modifier line below it",
       "A converter in Refine mode no longer shows a \"Sell Off gold\" modifier it doesn't actually earn"
+    ]
+  },
+  {
+    createdAt: 1788207240438, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.4",
+    title: "Fixed the 3D border overlay disappearing on islands the camera isn't near",
+    why: "The true-3D renderer only keeps map chunks loaded near the camera's current position, so a player-owned island elsewhere on the map has no locally-cached tile data even after it's been discovered. The border-overlay renderer treated a missing local tile the same as a genuinely fogged one, so the Aether Survey Line boundary silently vanished on every island except whichever one the camera happened to be near.",
+    changes: [
+      "The 3D map's border overlay (Aether Survey Line) now stays visible on previously-discovered islands even when their chunks aren't currently streamed in near the camera"
     ]
   },
   {
