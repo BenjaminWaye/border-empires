@@ -157,7 +157,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
     type: z.literal("SET_MUSTER"),
     x: z.number().int(),
     y: z.number().int(),
-    mode: z.enum(["HOLD", "ADVANCE"]),
+    mode: z.enum(["HOLD", "ADVANCE", "MARCH"]),
     targetX: z.number().int().optional(),
     targetY: z.number().int().optional(),
     ...FrontierCommandMetadataSchema
