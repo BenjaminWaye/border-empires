@@ -126,7 +126,8 @@ function buildSnapshotBody(input: SnapshotExportInput, tiles: SnapshotTile[]): S
               dockId: dock.dockId,
               tileKey: dock.tileKey,
               pairedDockId: dock.pairedDockId,
-              ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {})
+              ...(dock.connectedDockIds?.length ? { connectedDockIds: [...dock.connectedDockIds] } : {}),
+              ...(dock.routeWaypointsByLinkedDockId ? { routeWaypointsByLinkedDockId: dock.routeWaypointsByLinkedDockId } : {})
             }))
           }
         : {})

@@ -16,6 +16,15 @@ export type ClientChangelogEntry = {
 // Add a new entry for every user-facing client release; client-changelog.ts sorts by createdAt.
 const RECENT_CLIENT_CHANGELOG_ENTRIES: ClientChangelogEntry[] = [
   {
+    createdAt: 1788165165486, // frozen from `node -e "console.log(Date.now())"`
+    introducedIn: "2026.08.31.1",
+    title: "Fixed dock sea-route lines not showing at all",
+    why: "The prior fix that moved dock sea-route computation server-side never actually reached players -- the wire types between the simulation and the gateway (and the runtime's own exported dock state) were never updated to carry the new route field, so it was silently dropped before the gateway could attach it to a dock pair, and every dock fell back to the client's still-unreliable route computation.",
+    changes: [
+      "Dock-to-dock sea route lines now render again, using the server-computed authoritative route"
+    ]
+  },
+  {
     createdAt: 1788162511005, // frozen from `node -e "console.log(Date.now())"`
     introducedIn: "2026.08.30.9",
     title: "3D map lighting: buildings now show real light and shadow, not just a subtle tint",
